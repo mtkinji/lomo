@@ -786,7 +786,7 @@ Before declaring email GA, the following operational items still need owners:
 5. ~~**Deploy kwilt-site** so `/unsubscribe` + `/api/unsubscribe` are live.~~ — Done. Production deployment `dpl_A3qY9Wkjz5Y18r4w9bnDACoeEsmC` aliased to `go.kwilt.app` / `www.kwilt.app`. End-to-end verified: `POST https://go.kwilt.app/api/unsubscribe` → Vercel → Supabase `functions/v1/unsubscribe` → 400 `bad_token` for an invalid probe (correct rejection path; confirmed in edge function logs).
 6. **DMARC rollout** per runbook §8 (4-week plan to `p=quarantine;pct=100`).
 7. **Migrate Welcome Day 0 + Day 1 Resend Automation templates** to carry `List-Unsubscribe` headers (or move them in-repo). These currently flow through Resend Automation directly and bypass our helper.
-8. **Add `KWILT_COMPANY_POSTAL_ADDRESS`** to the footer for CAN-SPAM compliance — noted as a gap in the runbook.
+8. ~~**Add `KWILT_COMPANY_POSTAL_ADDRESS`** to the footer for CAN-SPAM compliance — noted as a gap in the runbook.~~ — Code landed: `renderFooter` now emits a muted address line when the env is set (`|`-separated lines render as `<br/>`s; HTML-escaped); 5 Jest tests cover the visible path + escape + transactional-opt-out behavior. Secret set on `sqxwjtorodqjdfnuvprf` with a placeholder (`Kwilt Inc.|San Francisco, CA`) — **TODO before GA:** replace with a real registered street / PO Box / CMRA address.
 
 ---
 

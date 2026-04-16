@@ -72,6 +72,7 @@ that.
 | `KWILT_DRIP_EMAIL_FROM` | `hello@mail.kwilt.app` | `From` for drip + chapter + trial emails. |
 | `KWILT_EMAIL_APP_NAME` | `Kwilt` | Brand name in subject / body. |
 | `KWILT_EMAIL_PRIMARY_COLOR` | `#1F5226` | CTA button / blockquote accent. |
+| `KWILT_COMPANY_POSTAL_ADDRESS` | _(unset → omitted)_ | CAN-SPAM physical address line rendered in the footer of every template that already renders a footer (i.e. non-transactional sends). Use `|` to split multi-line addresses. |
 
 ### kwilt-site (Next.js) env
 
@@ -422,9 +423,11 @@ supabase functions deploy email-drip chapters-generate pro-codes \
 ## 12. Compliance quick-reference
 
 - **CAN-SPAM (US):** require (1) clear identification, (2) physical
-  postal address, (3) clear unsubscribe. **Postal address is a known
-  gap** — add before large-scale marketing sends. Tracked in the GA
-  plan.
+  postal address, (3) clear unsubscribe. Postal address is emitted in
+  every non-transactional template's footer when
+  `KWILT_COMPANY_POSTAL_ADDRESS` is set (`|`-separated for multi-line).
+  The current value is a placeholder (`Kwilt Inc.|San Francisco, CA`);
+  replace with a registered street / PO Box / CMRA address before GA.
 - **GDPR (EU):** consent-based opt-in for marketing. Kwilt's welcome
   drip is arguably transactional (account-created confirmation); trial
   expiry is a billing notification. Chapter digest requires explicit
@@ -437,9 +440,9 @@ supabase functions deploy email-drip chapters-generate pro-codes \
 
 ## 13. Known gaps / follow-ups
 
-- **Physical postal address** in footer (CAN-SPAM § 7704(a)(5)(A)(iii)).
-  Add a `KWILT_COMPANY_POSTAL_ADDRESS` env var and render under the
-  unsubscribe link.
+- **Replace the `KWILT_COMPANY_POSTAL_ADDRESS` placeholder** with a real
+  registered street / PO Box / CMRA address before sending commercial
+  email at scale. The code path is live; only the value is temporary.
 - **In-app email preferences UI.** The `SettingsNotifications` screen
   in the app handles push notifications only. Users currently must
   unsubscribe via the footer link or Gmail's native button — both are

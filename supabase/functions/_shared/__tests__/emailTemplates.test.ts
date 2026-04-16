@@ -631,6 +631,111 @@ describe('footer unsubscribe link (Phase 7.1 of email-system-ga-plan.md)', () =>
   });
 });
 
+describe('CAN-SPAM postal address footer (Phase 7 of email-system-ga-plan.md)', () => {
+  // These tests mutate process.env (via the Deno shim) so reset between cases.
+  const ORIGINAL = process.env.KWILT_COMPANY_POSTAL_ADDRESS;
+
+  afterEach(() => {
+    if (ORIGINAL === undefined) {
+      delete process.env.KWILT_COMPANY_POSTAL_ADDRESS;
+    } else {
+      process.env.KWILT_COMPANY_POSTAL_ADDRESS = ORIGINAL;
+    }
+  });
+
+  it('renders the postal address in the footer of every preference-gated template when set', () => {
+    process.env.KWILT_COMPANY_POSTAL_ADDRESS =
+      'Kwilt Inc.|123 Example St, Suite 200|San Francisco, CA 94103';
+    const {
+      buildWelcomeDay0Email,
+      buildWelcomeDay1Email,
+      buildWelcomeDay3Email,
+      buildWelcomeDay7Email,
+      buildStreakWinback1Email,
+      buildStreakWinback2Email,
+      buildChapterDigestEmail,
+      buildTrialExpiryEmail,
+    } = loadTemplates();
+    const cases = [
+      buildWelcomeDay0Email(),
+      buildWelcomeDay1Email(),
+      buildWelcomeDay3Email({ streakLength: 3 }),
+      buildWelcomeDay7Email({ streakLength: 7, activitiesCompleted: 5 }),
+      buildStreakWinback1Email({ streakLength: 3 }),
+      buildStreakWinback2Email({ streakLength: 3 }),
+      buildChapterDigestEmail({
+        chapterTitle: 'Test',
+        outputJson: {
+          sections: [{ key: 'story', title: 'Story', body: 'A quiet week.' }],
+        },
+        chapterId: 'abc',
+        cadence: 'weekly',
+        periodStartIso: '2026-04-13T07:00:00.000Z',
+        periodEndIso: '2026-04-20T07:00:00.000Z',
+        timezone: 'America/Los_Angeles',
+      }),
+      buildTrialExpiryEmail({ daysRemaining: 3 }),
+    ];
+    for (const { html } of cases) {
+      expect(html).toContain('Kwilt Inc.');
+      expect(html).toContain('123 Example St, Suite 200');
+      expect(html).toContain('San Francisco, CA 94103');
+      // `|` delimiters become explicit line breaks.
+      expect(html).toMatch(/Kwilt Inc\.<br\/>123 Example St/);
+    }
+  });
+
+  it('omits the postal address when the env var is unset', () => {
+    delete process.env.KWILT_COMPANY_POSTAL_ADDRESS;
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const { html } = buildWelcomeDay0Email();
+    // No postal address heuristic: no <br/> inside the footer paragraph and
+    // nothing that looks like a comma-separated street/city block.
+    expect(html).not.toMatch(/Kwilt Inc\./);
+    expect(html).not.toMatch(/San Francisco/);
+  });
+
+  it('escapes HTML in postal address lines', () => {
+    process.env.KWILT_COMPANY_POSTAL_ADDRESS =
+      'Evil <script>alert(1)</script> Co.|Line two';
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const { html } = buildWelcomeDay0Email();
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('still omits the entire footer for transactional templates that do not set footerText/unsubscribeUrl', () => {
+    // CAN-SPAM exempts transactional emails from the postal address
+    // requirement. Pro grant / Pro code currently render no footer at all;
+    // they must stay that way even with the env set.
+    process.env.KWILT_COMPANY_POSTAL_ADDRESS =
+      'Kwilt Inc.|123 Example St, Suite 200|San Francisco, CA 94103';
+    const { buildProGrantEmail, buildProCodeEmail } = loadTemplates();
+    const grant = buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' });
+    const code = buildProCodeEmail({ code: 'ABC12345', note: '' });
+    for (const { html } of [grant, code]) {
+      expect(html).not.toContain('Kwilt Inc.');
+      expect(html).not.toContain('San Francisco');
+    }
+  });
+
+  it('renders postal address on goal invite (has footerText but no unsubscribeUrl)', () => {
+    // Goal invites carry a footerText ("This invite link may expire…") so
+    // they already emit a footer. When the postal address env is set, it
+    // appears alongside that rationale — even though there is no unsubscribe
+    // link (the recipient might not be a Kwilt user yet).
+    process.env.KWILT_COMPANY_POSTAL_ADDRESS = 'Kwilt Inc.|123 Example St';
+    const { buildGoalInviteEmail } = loadTemplates();
+    const { html } = buildGoalInviteEmail({
+      goalTitle: 'Hike more',
+      inviteLink: 'https://go.kwilt.app/i/xyz',
+    });
+    expect(html).toContain('Kwilt Inc.');
+    expect(html).toContain('123 Example St');
+    expect(html).not.toMatch(/>\s*Unsubscribe\s*</);
+  });
+});
+
 describe('CI guard: emailTemplates.ts source hygiene (Phase 3.5)', () => {
   // Relative to repo root (jest cwd is the repo root via npm test).
   const SOURCE = path.resolve(__dirname, '..', 'emailTemplates.ts');

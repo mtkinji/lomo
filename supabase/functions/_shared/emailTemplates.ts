@@ -32,6 +32,24 @@ function getBrandConfig() {
   return { appName, logoUrl: logoUrl || null, primaryColor };
 }
 
+/**
+ * CAN-SPAM requires a valid physical postal address on every commercial
+ * email. We surface it via `KWILT_COMPANY_POSTAL_ADDRESS` (single line, or
+ * `|`-separated for multi-line rendering) and show it in the footer of
+ * every email that already has a footer. Transactional templates without a
+ * footer (e.g. Pro grant, Pro code) skip this since they're exempt from
+ * CAN-SPAM's commercial-content rules — but if you add a `footerText` to
+ * them, they'll pick up the postal address automatically.
+ */
+function getCompanyPostalAddress(): string[] {
+  const raw = (Deno.env.get('KWILT_COMPANY_POSTAL_ADDRESS') ?? '').trim();
+  if (!raw) return [];
+  return raw
+    .split('|')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
 // ---------------------------------------------------------------------------
 // Universal-link CTA helpers (Phase 3 of email-system-ga-plan.md)
 // ---------------------------------------------------------------------------
@@ -113,12 +131,17 @@ function renderFallbackLink(href: string): string {
  * 2024 compliant without relying on the inbox-native unsubscribe button
  * alone. The link label is intentionally generic ("Unsubscribe") — the
  * confirmation page on kwilt-site spells out the exact category.
+ *
+ * When `KWILT_COMPANY_POSTAL_ADDRESS` is set (single line or `|`-separated
+ * multi-line), we append it as a separate muted line below the rationale /
+ * unsubscribe link. This is the CAN-SPAM physical address disclosure.
  */
 function renderFooter(body: string, unsubscribeUrl?: string): string {
   const trimmed = body.trim();
   const href = (unsubscribeUrl ?? '').trim();
   if (!trimmed && !href) return '';
   const { primaryColor } = getBrandConfig();
+  const addressLines = getCompanyPostalAddress();
   const rationale = trimmed
     ? `<div>${escapeHtml(trimmed)}</div>`
     : '';
@@ -127,10 +150,16 @@ function renderFooter(body: string, unsubscribeUrl?: string): string {
         primaryColor,
       )};text-decoration:underline;">Unsubscribe</a></div>`
     : '';
+  const address = addressLines.length
+    ? `<div style="margin-top:8px;color:#9ca3af;">${addressLines
+        .map((line) => escapeHtml(line))
+        .join('<br/>')}</div>`
+    : '';
   return `
       <div style="margin:28px 0 0;font-size:12px;line-height:18px;color:#6b7280;">
         ${rationale}
         ${unsub}
+        ${address}
       </div>`;
 }
 
