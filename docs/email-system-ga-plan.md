@@ -685,7 +685,7 @@ Added in this phase — all default to safe-off in code:
 - [x] `identifyPosthog(userId)` fires on auth state change so server-side email events merge with in-app events on the PostHog person profile.
 - [x] `resend-webhook` edge function written, signature-verified, and covered by 25 unit tests including Svix HMAC verification against tampered bodies, wrong secrets, and expired timestamps.
 - [x] Every send site records `metadata.resend_id` in `kwilt_email_cadence` with a supporting partial index so the webhook can correlate events → `user_id`.
-- [ ] `resend-webhook` edge function deployed and `KWILT_RESEND_WEBHOOK_SECRET` / `KWILT_POSTHOG_PROJECT_API_KEY` configured in Supabase function secrets. *(Operational — deploy command in runbook §10.)*
+- [x] `resend-webhook` edge function deployed; `KWILT_POSTHOG_PROJECT_API_KEY` + `KWILT_POSTHOG_HOST` configured. `KWILT_RESEND_WEBHOOK_SECRET` still pending (only obtainable after configuring the webhook endpoint in Resend).
 - [ ] PostHog funnel dashboard exists and shows non-zero events within 24h of first email send post-deploy. *(Operational — PostHog console work; dashboard spec in runbook §10.)*
 - [ ] PostHog alerts configured for open-rate / click-rate / bounce-rate drift. *(Operational — runbook §10.)*
 
@@ -693,15 +693,10 @@ Added in this phase — all default to safe-off in code:
 
 Before Phase 6 delivers funnel visibility, someone needs to:
 
-1. **Apply the migration** (`supabase db push`) — creates the `resend_id` index.
-2. **Deploy** the new send-site versions + webhook:
-   ```bash
-   supabase functions deploy email-drip chapters-generate pro-codes
-   supabase functions deploy resend-webhook --no-verify-jwt
-   ```
-   (Resend cannot sign Supabase JWTs; signature verification is via Svix instead.)
-3. **Configure Resend webhook endpoint** pointing at `https://<project>.supabase.co/functions/v1/resend-webhook`, subscribe to all 8 event types (`email.sent / .delivered / .delivery_delayed / .complained / .bounced / .opened / .clicked / .failed`), and copy the signing secret.
-4. **Set function secrets**: `KWILT_RESEND_WEBHOOK_SECRET`, `KWILT_POSTHOG_PROJECT_API_KEY`, optionally `KWILT_POSTHOG_HOST`.
+1. ~~**Apply the migration** (`supabase db push`)~~ — Done. `kwilt_email_cadence_resend_id_idx` applied on project `sqxwjtorodqjdfnuvprf`.
+2. ~~**Deploy** the new send-site versions + webhook~~ — Done. `email-drip`, `chapters-generate`, `pro-codes`, `invite-email-send`, `unsubscribe`, `resend-webhook` all deployed (verify_jwt=false where needed).
+3. **Configure Resend webhook endpoint** pointing at `https://sqxwjtorodqjdfnuvprf.supabase.co/functions/v1/resend-webhook`, subscribe to all 8 event types (`email.sent / .delivered / .delivery_delayed / .complained / .bounced / .opened / .clicked / .failed`), and copy the signing secret.
+4. **Set remaining function secret**: `KWILT_RESEND_WEBHOOK_SECRET` (from step 3). `KWILT_POSTHOG_PROJECT_API_KEY` and `KWILT_POSTHOG_HOST` are already set.
 5. **Redeploy the app** (or wait for next TestFlight cut) so the PostHog `identify(userId)` call lands on real sessions.
 6. **Wire up the dashboard + alerts** per runbook §10.
 
@@ -784,10 +779,10 @@ Full Jest suite: 165/165 green (was 140 after Phase 5, +25 from Phase 7). Typech
 
 Before declaring email GA, the following operational items still need owners:
 
-1. **Set `KWILT_EMAIL_UNSUBSCRIBE_SECRET`** in Supabase Edge Function secrets (`openssl rand -hex 32`). **Until this is set, every preference-gated send will return `missing_unsubscribe_secret` and no email will go out — fail-closed is intentional.**
+1. ~~**Set `KWILT_EMAIL_UNSUBSCRIBE_SECRET`** in Supabase Edge Function secrets~~ — Done. Generated via `openssl rand -hex 32` and stored in the `sqxwjtorodqjdfnuvprf` project's Edge Function secrets.
 2. **Set `KWILT_UNSUBSCRIBE_FUNCTION_URL`** (or `KWILT_SUPABASE_URL`) on kwilt-site so the `/api/unsubscribe` proxy can reach the edge function.
-3. **Deploy the new `unsubscribe` Supabase edge function** (`supabase functions deploy unsubscribe`).
-4. **Redeploy** the send-site functions so the shared helper picks up: `supabase functions deploy email-drip chapters-generate pro-codes invite-email-send`.
+3. ~~**Deploy the new `unsubscribe` Supabase edge function**~~ — Done (`verify_jwt=false`).
+4. ~~**Redeploy** the send-site functions so the shared helper picks up~~ — Done. `email-drip`, `chapters-generate`, `pro-codes`, `invite-email-send` all redeployed.
 5. **Deploy kwilt-site** so `/unsubscribe` + `/api/unsubscribe` are live.
 6. **DMARC rollout** per runbook §8 (4-week plan to `p=quarantine;pct=100`).
 7. **Migrate Welcome Day 0 + Day 1 Resend Automation templates** to carry `List-Unsubscribe` headers (or move them in-repo). These currently flow through Resend Automation directly and bypass our helper.
