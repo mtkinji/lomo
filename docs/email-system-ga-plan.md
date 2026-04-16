@@ -738,12 +738,26 @@ Env vars added (all defaulted to safe-off in code):
 
 `_shared/emailSend.ts` counts `kwilt_email_cadence` rows in the last 24h for the user and returns `{ ok: false, reason: 'daily_cap_reached' }` when the count ≥ 2. Default cap is `DEFAULT_PER_USER_DAILY_CAP = 2`. Transactional sends bypass the cap intentionally (a user who already received two welcome emails shouldn't have a pro code held up by the same counter). `chapters-generate` now also records its sends in `kwilt_email_cadence` with a period-scoped `message_key` (`chapter_digest_<period_key>`) — previously it only used `kwilt_chapters.emailed_at`, which meant the daily cap had no visibility into digest sends.
 
-**7.4 Deliverability hardening — Operational (documented, not yet executed)**
+**7.4 Deliverability hardening — In progress (Week 0 pending DNS write)**
 
-Manual / DNS (see [`docs/email-system.md`](./email-system.md) §8 for the rollout plan):
-- Verify SPF, DKIM via Resend's domain verification panel — should already be aligned since Sprint 4 shipped sends.
-- Current DMARC is likely `p=none` or unset. Runbook documents a 4-week rollout to `p=quarantine;pct=100` and optionally `p=reject`.
-- Sending domain already uses `mail.kwilt.app`, not the apex — good for reputation isolation.
+Verified via `dig @1.1.1.1` on 2026-04-16 (see runbook §8 for the full audit table):
+- SPF at `send.mail.kwilt.app`: ✅ `v=spf1 include:amazonses.com ~all`.
+- DKIM at `resend._domainkey.mail.kwilt.app`: ✅ 1024-bit key (duplicated harmlessly at the apex).
+- Bounce MX at `send.mail.kwilt.app`: ✅ `feedback-smtp.us-east-1.amazonses.com`.
+- **DMARC at `_dmarc.kwilt.app`: ❌ missing entirely** — never set. The runbook's previous "TBD — likely `p=none` or unset" language overstated what was live.
+
+Sending subdomain strategy already correct (`mail.kwilt.app`, not apex), so reputation is isolated.
+
+**Rollout state (4-week ramp per runbook §8):**
+
+- [x] **Week 0 — 2026-04-16:** added `_dmarc.kwilt.app` TXT `v=DMARC1; p=none; pct=100; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=none; aspf=r; adkim=r;` in Squarespace Domains → kwilt.app → DNS Settings → Custom Records (TTL 4h). Verified live on authoritative + Cloudflare + Google resolvers. Postmark DMARC Digests verified end-to-end — confirmation page shown, first digest scheduled Monday 2026-04-20 to `andy@kwilt.app`, then weekly.
+- [ ] **Week 2 checkpoint — ~2026-04-30:** review ≥ 2 Postmark weekly digests; confirm ≥ 95% Kwilt-originated mail is DMARC-aligned and no third-party senders are spoofing `@kwilt.app` un-aligned. Then flip TXT to `v=DMARC1; p=quarantine; pct=25; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=quarantine; aspf=r; adkim=r;`.
+- [ ] **Week 3 — ~2026-05-07:** flip TXT to `p=quarantine; pct=100;` (same template as Week 2 with pct bumped).
+- [ ] **Week 4+ (optional) — ~2026-05-14 or later:** flip to `p=reject; pct=100;` after two clean quarantine digests. Only do this when confident nothing else legitimately sends `From: @kwilt.app`.
+
+Note on DNS location: zone is managed in **Squarespace Domains → kwilt.app → DNS Settings → Custom Records** (not GCP Cloud DNS, despite the ns-cloud-a\*.googledomains.com nameservers — those are shared Google infra that Squarespace still delegates to). All future ramp edits happen there.
+
+Reporting endpoint: **Postmark DMARC Digests** (free; weekly human-readable email to `andy@kwilt.app`). Account `rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com`; Developer API token captured in runbook §8 for future queries. Forensic (`ruf=`) reports intentionally omitted — Postmark Digests doesn't process them.
 
 **7.5 Warm-up plan — Operational (documented, not yet executed)**
 
@@ -765,7 +779,7 @@ Sprint 4 §24 now references the universal-link CTA (`https://go.kwilt.app/open/
 - [x] Per-user 2/24h cap enforced across preference-gated sends (runs in `_shared/emailSend.ts`).
 - [x] `docs/email-system.md` runbook exists.
 - [x] `docs/growth-loops-execution-plan.md` Sprint 4 updated to reflect new architecture.
-- [ ] SPF / DKIM / DMARC aligned; DMARC policy at least `p=quarantine`. *(Operational — runbook §8.)*
+- [ ] SPF / DKIM / DMARC aligned; DMARC policy at least `p=quarantine`. *(SPF + DKIM ✅ verified; DMARC rollout in progress — Week 0 record pending DNS write. Runbook §8.)*
 - [ ] Warm-up plan executed for the first 7 days post-GA. *(Operational — runbook §9.)*
 
 ### Phase 7 test coverage
@@ -784,7 +798,7 @@ Before declaring email GA, the following operational items still need owners:
 3. ~~**Deploy the new `unsubscribe` Supabase edge function**~~ — Done (`verify_jwt=false`).
 4. ~~**Redeploy** the send-site functions so the shared helper picks up~~ — Done. `email-drip`, `chapters-generate`, `pro-codes`, `invite-email-send` all redeployed.
 5. ~~**Deploy kwilt-site** so `/unsubscribe` + `/api/unsubscribe` are live.~~ — Done. Production deployment `dpl_A3qY9Wkjz5Y18r4w9bnDACoeEsmC` aliased to `go.kwilt.app` / `www.kwilt.app`. End-to-end verified: `POST https://go.kwilt.app/api/unsubscribe` → Vercel → Supabase `functions/v1/unsubscribe` → 400 `bad_token` for an invalid probe (correct rejection path; confirmed in edge function logs).
-6. **DMARC rollout** per runbook §8 (4-week plan to `p=quarantine;pct=100`).
+6. **DMARC rollout** — Week 0 landed 2026-04-16 (`p=none` monitoring live at `_dmarc.kwilt.app`; see Phase 7.4 checklist above for ramp dates). Remaining: Week 2 checkpoint on ~2026-04-30 to flip to `p=quarantine; pct=25;` after reviewing the first Postmark digests, then `pct=100` the following week. Runbook §8 holds the exact TXT values.
 7. **Migrate Welcome Day 0 + Day 1 Resend Automation templates** to carry `List-Unsubscribe` headers (or move them in-repo). These currently flow through Resend Automation directly and bypass our helper.
 8. ~~**Add `KWILT_COMPANY_POSTAL_ADDRESS`** to the footer for CAN-SPAM compliance — noted as a gap in the runbook.~~ — Code landed: `renderFooter` now emits a muted address line when the env is set (`|`-separated lines render as `<br/>`s; HTML-escaped); 5 Jest tests cover the visible path + escape + transactional-opt-out behavior. Secret set on `sqxwjtorodqjdfnuvprf` with a placeholder (`Kwilt Inc.|San Francisco, CA`) — **TODO before GA:** replace with a real registered street / PO Box / CMRA address.
 

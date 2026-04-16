@@ -259,25 +259,114 @@ curl -X POST http://127.0.0.1:54321/functions/v1/email-drip \
 
 ### Current state (April 2026)
 
-- **Sending domain:** `mail.kwilt.app` (via Resend).
-- **SPF:** configured by Resend on the domain verification.
-- **DKIM:** configured by Resend; 1024-bit key by default.
-- **DMARC:** **TBD — needs to be set to at least `p=quarantine`.**
-  Currently likely `p=none` or unset. Run:
-  ```
-  dig +short TXT _dmarc.kwilt.app
-  ```
-  to check.
+Verified via `dig @1.1.1.1` on 2026-04-16:
 
-### Rollout plan
+| Record | Host | Status | Value / notes |
+|---|---|---|---|
+| SPF (Resend bounce) | `send.mail.kwilt.app` TXT | ✅ | `v=spf1 include:amazonses.com ~all` |
+| Return-path MX | `send.mail.kwilt.app` MX | ✅ | `10 feedback-smtp.us-east-1.amazonses.com` |
+| Return-path MX dupe | `send.kwilt.app` MX | ✅ | identical; harmless dupe from apex verification |
+| SPF (apex-adjacent dupe) | `send.kwilt.app` TXT | ✅ | `v=spf1 include:amazonses.com ~all`; harmless dupe |
+| DKIM (Resend) | `resend._domainkey.mail.kwilt.app` TXT | ✅ | 1024-bit public key present |
+| DKIM (apex, harmless dupe) | `resend._domainkey.kwilt.app` TXT | ✅ | identical key; left in place |
+| **DMARC (Week 0, `p=none`)** | `_dmarc.kwilt.app` TXT | ✅ | `v=DMARC1; p=none; pct=100; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=none; aspf=r; adkim=r;` (TTL 14400). Added 2026-04-16; ramp per plan below. |
+| DNS provider | — | — | **Squarespace Domains** (registrar & DNS editor). Nameservers delegated to `ns-cloud-a{1-4}.googledomains.com` (shared Google legacy infra). Edit records at https://account.squarespace.com/domains/managed/kwilt.app/dns-settings → **Custom Records**. Do NOT try to manage DNS in GCP Cloud DNS — the zone is not in any GCP project. |
 
-1. **Week 0:** verify DMARC TXT record exists at `_dmarc.kwilt.app` with
-   `p=none; rua=mailto:dmarc-reports@kwilt.app`. This collects reports
-   without quarantining anything.
-2. **Week 2:** if reports show 100% aligned mail from Kwilt systems,
-   flip to `p=quarantine; pct=25;`.
-3. **Week 3:** flip to `p=quarantine; pct=100;`.
-4. **Week 4:** consider `p=reject;` once stable.
+Alignment under the `kwilt.app` org domain should pass under relaxed mode
+(the default): From-domain `mail.kwilt.app`, bounce domain
+`send.mail.kwilt.app`, DKIM `d=` on `mail.kwilt.app` — all share the
+`kwilt.app` eTLD+1. Straight to `p=none` should not break anything.
+
+### Reporting endpoint
+
+We use **Postmark DMARC Digests** (https://dmarc.postmarkapp.com/) — free
+weekly human-readable email of DMARC aggregate reports. The account was
+created under `andy@kwilt.app` and exposes a unique aggregate-report
+mailbox:
+
+```
+rua mailto:    re+llcu2innlqe@dmarc.postmarkapp.com
+digest inbox:  andy@kwilt.app
+API token:     636b4375-ae08-4004-8c4e-ef860a9e4fa5   (Postmark Developer API, read-only)
+```
+
+None of these are secret (the `rua=` address is already in public DNS)
+but keep the API token out of repos / commits. If rotation is ever
+needed, log in at https://dmarc.postmarkapp.com/ with
+`andy@kwilt.app`.
+
+Postmark Digests processes only aggregate reports (`rua=`); forensic
+reports (`ruf=`) are not supported, so we intentionally omit that tag.
+
+### Rollout plan (4-week ramp)
+
+All changes are a single TXT record at `_dmarc.kwilt.app` edited in
+**Squarespace Domains → kwilt.app → DNS Settings → Custom Records**
+(NOT Google Cloud DNS — zone isn't there; see provider note in the state
+table above). Squarespace's default TTL is 4h, which is fine for the
+ramp — each step will be fully propagated within 4 hours.
+
+**Week 0 — monitor (added 2026-04-16):**
+
+```
+v=DMARC1; p=none; pct=100; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=none; aspf=r; adkim=r;
+```
+
+Gmail / Yahoo / Outlook / Microsoft will start sending XML aggregates
+within 24–72h. Postmark turns those into a weekly digest to
+`andy@kwilt.app`.
+
+**Week 2 checkpoint — ramp to 25% quarantine:**
+
+Prerequisites before flipping:
+
+- ≥ 2 weekly digests received.
+- ≥ 95% of Kwilt-originated messages are DMARC-aligned (SPF pass AND/OR
+  DKIM pass, under relaxed alignment).
+- No third-party service (GitHub notifications, Zendesk, etc.) is sending
+  `From: @kwilt.app` without being added to SPF or DKIM-signed.
+
+Update to:
+
+```
+v=DMARC1; p=quarantine; pct=25; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=quarantine; aspf=r; adkim=r;
+```
+
+**Week 3 — full quarantine:**
+
+```
+v=DMARC1; p=quarantine; pct=100; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=quarantine; aspf=r; adkim=r;
+```
+
+**Week 4+ (optional) — reject:**
+
+```
+v=DMARC1; p=reject; pct=100; rua=mailto:re+llcu2innlqe@dmarc.postmarkapp.com; sp=reject; aspf=r; adkim=r;
+```
+
+`p=reject` is the strongest stance (spoofed mail is dropped outright at the
+receiver). Only flip after a minimum of two clean digests at `p=quarantine;
+pct=100`.
+
+### Tag reference (for when you re-read this in 6 months)
+
+- `p=` — policy for the org domain. `none` (monitor), `quarantine` (spam
+  folder), `reject` (drop at SMTP).
+- `sp=` — policy for subdomains (`mail.kwilt.app`, etc.). Should match `p=`.
+- `pct=` — fraction of failing mail to which the policy is applied. Used
+  during ramp.
+- `rua=` — aggregate report endpoint (weekly XML from ISPs).
+- `ruf=` — forensic / failure report endpoint. Intentionally omitted:
+  Postmark Digests doesn't process forensic reports and most ISPs don't
+  send them. Revisit if we ever stand up our own forensic parser.
+- `aspf=r`, `adkim=r` — relaxed alignment (default, but explicit). Strict
+  (`s`) would require exact From-domain match.
+
+### Rollback
+
+If quarantining causes a legitimate deliverability issue, revert the TXT
+record to the prior week's value in Google Cloud DNS. TTL is 300s so
+changes propagate within ~5 minutes.
 
 ### Why a subdomain sender
 
@@ -453,7 +542,10 @@ supabase functions deploy email-drip chapters-generate pro-codes \
   events still flow to PostHog (via Resend's built-in webhook
   integration), but the `distinct_id` will be `resend:<email_id>` for
   those sends until we route them through `sendEmailViaResend`.
-- **DMARC policy** is likely still `p=none`. See §8 rollout plan.
+- **DMARC rollout is in progress.** Week 0 (`p=none` monitoring) TXT
+  value is drafted in §8; pending DNS write at `_dmarc.kwilt.app` and the
+  4-week ramp to `p=quarantine; pct=100`. Reports via Postmark DMARC
+  Digests.
 - **PostHog dashboard + alerts** (Phase 6.4) are still manual console
   work — the events flow but the funnel / alerts are not yet wired.
   Spec in §10.
