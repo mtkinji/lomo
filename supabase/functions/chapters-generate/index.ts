@@ -1706,16 +1706,23 @@ serve(async (req) => {
         const digestOptedOut = emailPrefs && (emailPrefs as any).chapter_digest === false;
         if (!digestOptedOut) {
           const chapterTitle = typeof outputJson?.title === 'string' ? outputJson.title : (t.name ?? 'Your chapter');
-          const narrative = typeof outputJson?.narrative === 'string' ? outputJson.narrative : '';
           const chapterId = writeRes.chapterId ?? '';
           const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
           const fromEmail = (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? 'hello@mail.kwilt.app').trim();
           if (resendKey && chapterId) {
+            // The template now extracts the narrative snippet from
+            // `outputJson.sections.story.body` (the canonical generator field)
+            // and humanizes the period label internally — see
+            // `supabase/functions/_shared/emailTemplates.ts`
+            // (`extractChapterSnippet`) and `_shared/periodLabels.ts`.
             const emailContent = buildChapterDigestEmail({
               chapterTitle,
-              periodLabel: period.key,
-              narrative,
+              outputJson,
               chapterId,
+              cadence: t.cadence,
+              periodStartIso: period.start.toISO() ?? '',
+              periodEndIso: period.end.toISO() ?? '',
+              timezone: t.timezone,
             });
             const resendRes = await fetch('https://api.resend.com/emails', {
               method: 'POST',

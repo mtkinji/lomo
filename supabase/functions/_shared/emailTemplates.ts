@@ -1,3 +1,5 @@
+import { formatHumanPeriodLabel, type PeriodCadence } from './periodLabels.ts';
+
 type EmailContent = {
   subject: string;
   text: string;
@@ -27,8 +29,56 @@ function getBrandConfig() {
   const appName = (Deno.env.get('KWILT_EMAIL_APP_NAME') ?? 'Kwilt').trim() || 'Kwilt';
   const logoUrl = (Deno.env.get('KWILT_EMAIL_LOGO_URL') ?? '').trim();
   const primaryColor = (Deno.env.get('KWILT_EMAIL_PRIMARY_COLOR') ?? '#1F5226').trim() || '#1F5226';
-  const ctaUrl = (Deno.env.get('KWILT_EMAIL_CTA_URL') ?? 'https://www.kwilt.app').trim() || 'https://www.kwilt.app';
-  return { appName, logoUrl: logoUrl || null, primaryColor, ctaUrl };
+  return { appName, logoUrl: logoUrl || null, primaryColor };
+}
+
+// ---------------------------------------------------------------------------
+// Universal-link CTA helpers (Phase 3 of email-system-ga-plan.md)
+// ---------------------------------------------------------------------------
+//
+// All template CTAs go through `makeOpenUrl` which produces a
+// `https://go.kwilt.app/open/<path>?utm_*` URL. That URL universal-links into
+// the installed app on iOS/Android (via the kwilt-site `/open/[[...slug]]`
+// route + AASA/assetlinks) and falls back to a helpful install page on
+// desktop or when the app isn't installed.
+//
+// We never embed legacy custom-scheme URLs (kwilt-colon-slash-slash) or root
+// marketing URLs (www-dot-kwilt-dot-app) in emails — both are dead-ends on at
+// least one common surface. The `__tests__/emailTemplates.test.ts` CI guard
+// enforces this.
+
+function getOpenBaseUrl(): string {
+  const fromEnv = (Deno.env.get('KWILT_EMAIL_OPEN_BASE_URL') ?? '').trim();
+  return fromEnv || 'https://go.kwilt.app/open';
+}
+
+function makeOpenUrl(
+  path: string,
+  params: Record<string, string> = {},
+  campaign?: string,
+): string {
+  const base = getOpenBaseUrl().replace(/\/+$/, '');
+  const cleanPath = path.replace(/^\/+/, '');
+  const url = new URL(`${base}/${cleanPath}`);
+  url.searchParams.set('utm_source', 'email');
+  url.searchParams.set('utm_medium', 'email');
+  if (campaign) url.searchParams.set('utm_campaign', campaign);
+  for (const [k, v] of Object.entries(params)) {
+    if (v == null) continue;
+    url.searchParams.set(k, v);
+  }
+  return url.toString();
+}
+
+/** Standard "if the button doesn't work" paragraph to append below every CTA. */
+function renderFallbackLink(href: string): string {
+  const { primaryColor } = getBrandConfig();
+  const escaped = escapeHtml(href);
+  return `
+      <p style="margin:16px 0 0;font-size:13px;line-height:18px;color:#6b7280;">
+        If the button doesn\u2019t work, copy and paste this link into your browser:<br/>
+        <a href="${escaped}" style="color:${escapeHtml(primaryColor)};word-break:break-all;">${escaped}</a>
+      </p>`;
 }
 
 function renderLayout(params: {
@@ -86,15 +136,16 @@ function renderLayout(params: {
 }
 
 export function buildProGrantEmail(params: { expiresAtIso: string }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
   const subject = 'Your Kwilt Pro access has been granted';
   const expiresDate = formatDateShort(params.expiresAtIso);
+  const ctaUrl = makeOpenUrl('settings/subscription', {}, 'pro_granted');
 
   const text =
     `Your Kwilt Pro access has been granted!\n\n` +
     `You now have access to all Pro features.\n` +
     `Your Pro subscription expires: ${expiresDate}\n\n` +
-    `Thank you for using Kwilt!`;
+    `Manage your subscription: ${ctaUrl}`;
 
   const html = renderLayout({
     title: 'Pro access granted',
@@ -108,11 +159,11 @@ export function buildProGrantEmail(params: { expiresAtIso: string }): EmailConte
       <p style="margin:0 0 14px;">You now have access to all Pro features.</p>
       <div style="margin:0;">
         <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:12px;font-weight:900;">
-          Enjoy Pro
+          Manage subscription
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
-    // Intentionally no footer text; this is a no-reply sender.
     footerText: '',
   });
 
@@ -197,8 +248,9 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
 // ---------------------------------------------------------------------------
 
 export function buildWelcomeDay0Email(): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
   const subject = 'Welcome to Kwilt — your Arc is waiting';
+  const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_0');
   const text =
     `Welcome to Kwilt!\n\n` +
     `You've taken the first step toward showing up for the life you want.\n` +
@@ -215,15 +267,17 @@ export function buildWelcomeDay0Email(): EmailContent {
           Open Kwilt
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: "You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.",
   });
   return { subject, text, html };
 }
 
 export function buildWelcomeDay1Email(): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
   const subject = 'Your first tiny step';
+  const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_1');
   const text =
     `Ready to build some momentum?\n\n` +
     `Complete your first Activity in Kwilt today — even something small counts.\n` +
@@ -241,8 +295,9 @@ export function buildWelcomeDay1Email(): EmailContent {
           Open Kwilt
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: "You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.",
   });
   return { subject, text, html };
 }
@@ -251,15 +306,15 @@ export function buildWelcomeDay3Email(params: { streakLength: number }): EmailCo
   const { primaryColor } = getBrandConfig();
   const streak = params.streakLength;
   const streakLine = streak >= 2 ? `You're on a ${streak}-day streak — nice work!` : 'Build a streak by showing up each day.';
-  const subject = 'How's your first Arc going?';
-  const planUrl = 'kwilt://plan';
+  const subject = "How\u2019s your first Arc going?";
+  const planUrl = makeOpenUrl('plan', {}, 'welcome_day_3');
   const text =
     `${subject}\n\n` +
     `${streakLine}\n\n` +
     `Check out the Plan tab to see your week at a glance and set intentions for the days ahead.\n\n` +
     `${planUrl}`;
   const html = renderLayout({
-    title: 'How's your first Arc going?',
+    title: "How\u2019s your first Arc going?",
     preheader: streakLine,
     bodyHtml: `
       <p style="margin:0 0 12px;">${escapeHtml(streakLine)}</p>
@@ -270,14 +325,16 @@ export function buildWelcomeDay3Email(params: { streakLength: number }): EmailCo
           Open Plan
         </a>
       </div>
+      ${renderFallbackLink(planUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: "You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.",
   });
   return { subject, text, html };
 }
 
 export function buildWelcomeDay7Email(params: { streakLength: number; activitiesCompleted: number }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
+  const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_7');
   const streak = params.streakLength;
   const completed = params.activitiesCompleted;
   const subject = 'Your first week in review';
@@ -312,8 +369,9 @@ export function buildWelcomeDay7Email(params: { streakLength: number; activities
           Keep going
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: "You\u2019re receiving this because you signed up for Kwilt. Unsubscribe in Settings \u2192 Notifications.",
   });
   return { subject, text, html };
 }
@@ -322,38 +380,141 @@ export function buildWelcomeDay7Email(params: { streakLength: number; activities
 // Chapter digest email
 // ---------------------------------------------------------------------------
 
+/**
+ * Extract a human-readable narrative snippet from a chapter `output_json`.
+ *
+ * The canonical narrative lives at `output_json.sections[?(key === 'story')].body`
+ * (per `chapters-generate/index.ts` validator + prompt). We accept a few legacy
+ * shapes defensively:
+ *   - `output_json.narrative` (the old field this template used to read; kept
+ *     so an in-flight migration doesn't dark-render).
+ *   - `output_json.sections[].body` falling back to the first section if no
+ *     `key === 'story'` entry exists.
+ *
+ * Truncation: we slice at the first paragraph break (double newline) when one
+ * appears within `maxChars`, otherwise we slice at the last word boundary
+ * before `maxChars` and append a single ellipsis. Returns `''` if no narrative
+ * could be located.
+ */
+export function extractChapterSnippet(outputJson: unknown, maxChars = 280): string {
+  const narrative = pickChapterNarrative(outputJson);
+  if (!narrative) return '';
+  const cleaned = narrative.replace(/\r\n/g, '\n').trim();
+  if (!cleaned) return '';
+
+  // Prefer the first paragraph if it fits within the budget.
+  const paragraphBreak = cleaned.indexOf('\n\n');
+  const firstParagraph = paragraphBreak >= 0 ? cleaned.slice(0, paragraphBreak).trim() : cleaned;
+  if (firstParagraph.length <= maxChars) return firstParagraph;
+
+  // Otherwise truncate at a word boundary.
+  const slice = firstParagraph.slice(0, maxChars - 1);
+  const lastSpace = slice.lastIndexOf(' ');
+  const safe = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
+  return `${safe.trimEnd()}\u2026`;
+}
+
+function pickChapterNarrative(outputJson: unknown): string {
+  if (!outputJson || typeof outputJson !== 'object') return '';
+  const obj = outputJson as Record<string, unknown>;
+
+  // Legacy / fallback: a flat `narrative` string.
+  if (typeof obj.narrative === 'string' && obj.narrative.trim().length > 0) {
+    return obj.narrative;
+  }
+
+  const sections = obj.sections;
+  if (!Array.isArray(sections)) return '';
+  const story = sections.find(
+    (s): s is { key: 'story'; body: unknown } =>
+      s != null && typeof s === 'object' && (s as { key?: unknown }).key === 'story',
+  );
+  if (story && typeof story.body === 'string') return story.body;
+
+  // Last resort: any section with a string `body`.
+  for (const s of sections) {
+    if (s && typeof s === 'object' && typeof (s as { body?: unknown }).body === 'string') {
+      return (s as { body: string }).body;
+    }
+  }
+  return '';
+}
+
 export function buildChapterDigestEmail(params: {
   chapterTitle: string;
-  periodLabel: string;
-  narrative: string;
+  /** Full chapter `output_json` produced by `chapters-generate`. The template
+   *  extracts the narrative snippet from `sections.story.body`. */
+  outputJson: unknown;
   chapterId: string;
+  cadence: PeriodCadence;
+  periodStartIso: string;
+  periodEndIso: string;
+  timezone?: string | null;
 }): EmailContent {
   const { primaryColor } = getBrandConfig();
-  const { chapterTitle, periodLabel, narrative, chapterId } = params;
-  const subject = `Your ${periodLabel} chapter is ready`;
-  const deepLink = `kwilt://chapters/${chapterId}`;
-  const snippet = narrative.length > 300 ? narrative.slice(0, 297) + '…' : narrative;
-  const text =
-    `${subject}: ${chapterTitle}\n\n` +
-    `${snippet}\n\n` +
-    `Read the full chapter in Kwilt: ${deepLink}`;
+  const { chapterTitle, outputJson, chapterId, cadence } = params;
+
+  const periodLabel = formatHumanPeriodLabel({
+    cadence,
+    startIso: params.periodStartIso,
+    endIso: params.periodEndIso,
+    timezone: params.timezone,
+  });
+
+  // "the week of Apr 13" → "Your week of Apr 13 chapter is ready" reads
+  // awkwardly. Promote the label to a noun phrase via a per-cadence connector.
+  const subjectPhrase = cadenceSubjectPhrase(cadence, periodLabel);
+  const subject = `Your chapter for ${subjectPhrase} is ready`;
+
+  // Preheader is a complementary hook, not a duplicate of the subject.
+  // (See email-system-ga-plan.md Phase 5 — preheaders that restate the subject
+  // are wasted real estate.)
+  const preheader = `A short read about ${subjectPhrase}.`;
+
+  const snippet = extractChapterSnippet(outputJson);
+  const ctaUrl = makeOpenUrl(`chapters/${chapterId}`, {}, 'chapter_digest');
+
+  const textParts = [
+    `${subject}: ${chapterTitle}`,
+    snippet || null,
+    `Read the full chapter: ${ctaUrl}`,
+  ].filter((p): p is string => Boolean(p && p.trim().length));
+  const text = textParts.join('\n\n');
+
+  const snippetBlock = snippet
+    ? `<div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
+        <p style="margin:0;font-size:15px;line-height:22px;color:#374151;">${escapeHtml(snippet)}</p>
+      </div>`
+    : '';
+
   const html = renderLayout({
     title: chapterTitle,
-    preheader: `Your ${periodLabel} chapter is ready — read it in Kwilt.`,
+    preheader,
     bodyHtml: `
       <p style="margin:0 0 4px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(periodLabel)}</p>
-      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
-        <p style="margin:0;font-size:15px;line-height:22px;color:#374151;">${escapeHtml(snippet)}</p>
-      </div>
+      ${snippetBlock}
       <div style="margin:0 0 14px;">
-        <a href="${escapeHtml(deepLink)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
+        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
           Read full chapter
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you enabled chapter email delivery. Manage in Settings → Notifications.',
+    footerText: "You\u2019re receiving this because you enabled chapter email delivery. Manage in Settings \u2192 Notifications.",
   });
   return { subject, text, html };
+}
+
+function cadenceSubjectPhrase(cadence: PeriodCadence, label: string): string {
+  // weekly  → "the week of Apr 13"  → already a noun phrase
+  // monthly → "April 2026"           → already a noun phrase
+  // yearly  → "2026"                 → already reads naturally
+  // custom  → "Apr 13 – Apr 20"      → already reads naturally
+  // The label is constructed in periodLabels.ts to flow inside a subject; we
+  // keep this indirection so future label tweaks (e.g. "this week") can adapt
+  // the surrounding copy in one place.
+  void cadence;
+  return label;
 }
 
 // ---------------------------------------------------------------------------
@@ -361,7 +522,8 @@ export function buildChapterDigestEmail(params: {
 // ---------------------------------------------------------------------------
 
 export function buildStreakWinback1Email(params: { streakLength: number }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
+  const ctaUrl = makeOpenUrl('today', {}, 'winback_1');
   const streak = params.streakLength;
   const subject = streak >= 3
     ? `Your ${streak}-day streak is still yours to rebuild`
@@ -386,6 +548,7 @@ export function buildStreakWinback1Email(params: { streakLength: number }): Emai
           Show up today
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
     footerText: 'You\u2019re receiving this because you use Kwilt. Unsubscribe in Settings \u2192 Notifications.',
   });
@@ -393,7 +556,8 @@ export function buildStreakWinback1Email(params: { streakLength: number }): Emai
 }
 
 export function buildStreakWinback2Email(params: { streakLength: number }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
+  const ctaUrl = makeOpenUrl('today', {}, 'winback_2');
   const streak = params.streakLength;
   const subject = streak >= 3
     ? `Your ${streak}-day streak is fading — but it\u2019s not gone`
@@ -418,6 +582,7 @@ export function buildStreakWinback2Email(params: { streakLength: number }): Emai
           Open Kwilt
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
     footerText: 'This is the last email we\u2019ll send about this. We\u2019ll be here when you\u2019re ready. Unsubscribe in Settings \u2192 Notifications.',
   });
@@ -429,7 +594,8 @@ export function buildStreakWinback2Email(params: { streakLength: number }): Emai
 // ---------------------------------------------------------------------------
 
 export function buildTrialExpiryEmail(params: { daysRemaining: number }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+  const { primaryColor } = getBrandConfig();
+  const ctaUrl = makeOpenUrl('settings/subscription', {}, 'trial_expiry');
   const days = params.daysRemaining;
   const subject = days <= 0
     ? 'Your Kwilt Pro trial has ended'
@@ -465,6 +631,7 @@ export function buildTrialExpiryEmail(params: { daysRemaining: number }): EmailC
           Subscribe to Pro
         </a>
       </div>
+      ${renderFallbackLink(ctaUrl)}
     `,
     footerText: 'You\u2019re receiving this because you started a Kwilt Pro trial. Unsubscribe in Settings \u2192 Notifications.',
   });
