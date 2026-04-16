@@ -4,17 +4,17 @@
 > deliverable in [`email-system-ga-plan.md`](./email-system-ga-plan.md).
 > Read that plan first for the _why_; this doc is the _how_.
 
-- **Last updated:** Phase 7 (April 2026)
+- **Last updated:** Phase 7 (April 2026) + welcome-drip in-repo migration (2026-04-16)
 - **Stack:** Supabase Edge Functions (Deno) + Resend + Next.js site (kwilt-site)
 - **In-repo templates:** `supabase/functions/_shared/emailTemplates.ts`
-- **Hosted templates (Resend):** Welcome Day 0 + Welcome Day 1 (automation: "Kwilt Welcome Drip")
+- **Hosted templates (Resend):** _(none as of 2026-04-16)_ — the legacy "Kwilt Welcome Drip" Automation was paused after moving Day 0/1 in-repo so every send carries `List-Unsubscribe` headers.
 
 ## 1. Template inventory
 
 | # | Template | Lives in | Sender function | Preference category | Transactional? |
 |---|---|---|---|---|---|
-| 1 | Welcome Day 0 | Resend Automation | `email-drip` fires `user.signup` event | `welcome_drip` | No (drip) |
-| 2 | Welcome Day 1 | Resend Automation | Resend Automation (time-based, branching on open) | `welcome_drip` | No (drip) |
+| 1 | Welcome Day 0 | In-repo (`buildWelcomeDay0Email`) | `email-drip` (POST `action=signup`, sync on signup) | `welcome_drip` | No (drip) |
+| 2 | Welcome Day 1 | In-repo (`buildWelcomeDay1Email`) | `email-drip` (scheduled, 24h after signup) | `welcome_drip` | No (drip) |
 | 3 | Welcome Day 3 | In-repo (`buildWelcomeDay3Email`) | `email-drip` (scheduled) | `welcome_drip` | No (drip) |
 | 4 | Welcome Day 7 | In-repo (`buildWelcomeDay7Email`) | `email-drip` (scheduled) | `welcome_drip` | No (drip) |
 | 5 | Streak win-back 1 | In-repo (`buildStreakWinback1Email`) | `email-drip` (scheduled) | `streak_winback` | No (drip) |
@@ -178,12 +178,12 @@ curl -X POST http://127.0.0.1:54321/functions/v1/email-drip \
    imports the shared template (email-drip, chapters-generate, pro-codes,
    invite-email-send, secrets-expiry-monitor).
 
-**Hosted templates (Welcome Day 0, Day 1):**
+**Hosted templates:** _(none as of 2026-04-16)_. Day 0/1 were migrated in-repo so every welcome send carries `List-Unsubscribe` + HMAC unsubscribe URLs + global kill switch + per-user daily cap. If a future campaign gets added as a hosted Resend template, it MUST set per-recipient `List-Unsubscribe` headers via Resend merge variables, or preferably move in-repo.
 
-1. Log into the Resend dashboard.
-2. Open the "Kwilt Welcome Drip" automation.
-3. Edit the HTML directly. Preview renderings in Resend first.
-4. Publish.
+**How the welcome drip actually fires (post-migration):**
+
+- **Day 0:** client calls `fireResendSignupEvent()` on successful sign-in/signup. That POSTs `{ action: 'signup', email, userId }` to the `email-drip` edge function, which sends Day 0 synchronously via `sendEmailViaResend` and writes a `kwilt_email_cadence` row with `message_key='welcome_day0'`. Idempotent (second POST short-circuits on the existing cadence row).
+- **Day 1/3/7:** the scheduled cron invocation of `email-drip` walks users created in the last 8 days, checks preferences, checks which drip messages are already in `kwilt_email_cadence`, and fires the earliest one that's due (at most one message per user per cron run).
 5. Fire a test signup (`POST /email-drip { action: "signup", email:
    "andy+test@kwilt.app" }`) to end-to-end verify.
 
@@ -380,8 +380,8 @@ reconfiguring DKIM.
 > First 7 days post-GA. Operational, not code.
 
 - **Days 0–3:** hold to **< 500 sends/day**. Send only Welcome Day 0 + 1
-  (automation in Resend) and Chapter Digest to your first-week engaged
-  cohort. Pause win-backs in code by `KWILT_EMAIL_SENDING_ENABLED=0`
+  (now in-repo via `email-drip`) and Chapter Digest to your first-week
+  engaged cohort. Pause win-backs in code by `KWILT_EMAIL_SENDING_ENABLED=0`
   OR by flipping `streak_winback` preference to false for all users.
 - **Days 4–7:** gradually enable win-back + Welcome Day 3/7 if open
   rates > 25% and bounce < 2%.
@@ -467,7 +467,7 @@ Configure in PostHog Insights → Alerts (or via Slack integration):
 |---|---|
 | `email_event` count is 0 in PostHog | (1) `KWILT_POSTHOG_PROJECT_API_KEY` set in Supabase secrets, (2) Resend webhook endpoint configured + events subscribed, (3) `supabase functions logs resend-webhook` shows incoming POSTs. |
 | 401 responses in Supabase logs | Signature mismatch: `KWILT_RESEND_WEBHOOK_SECRET` doesn't match what Resend signs with. Copy again from Resend dashboard. |
-| Events show up but `distinct_id` is `resend:re_...` | No matching cadence row. Either (a) send went out via Resend Automation (Day 0/1 welcomes — expected), or (b) send site isn't recording `metadata.resend_id` — check that it uses `sendEmailViaResend` and writes the returned `resendId` into the cadence metadata. |
+| Events show up but `distinct_id` is `resend:re_...` | No matching cadence row. Check that the send site uses `sendEmailViaResend` and writes the returned `resendId` into the cadence metadata. (Historically Day 0/1 welcomes flowed through a Resend Automation that didn't; those were migrated in-repo 2026-04-16.) |
 | App events not on same person as email events | `identify(posthog, userId)` not firing on client. Check `App.tsx::applySignedInState` imports `identifyPosthog` from `./src/services/analytics/analytics`. |
 
 ## 11. Kill switch + rollback
@@ -536,12 +536,12 @@ supabase functions deploy email-drip chapters-generate pro-codes \
   in the app handles push notifications only. Users currently must
   unsubscribe via the footer link or Gmail's native button — both are
   fine for GA but a dedicated in-app section is a polish item.
-- **Hosted Welcome Day 0 + Day 1** don't currently carry our
-  `List-Unsubscribe` headers. Migrate them in-repo OR set the headers
-  in Resend's template editor before large-scale GA marketing. Their
-  events still flow to PostHog (via Resend's built-in webhook
-  integration), but the `distinct_id` will be `resend:<email_id>` for
-  those sends until we route them through `sendEmailViaResend`.
+- ~~**Hosted Welcome Day 0 + Day 1** don't currently carry our
+  `List-Unsubscribe` headers.~~ **Closed 2026-04-16.** Day 0 + Day 1 are
+  now in-repo and go through `sendEmailViaResend` → full `List-Unsubscribe`
+  compliance, PostHog `distinct_id = user_id`, preference gating, daily
+  cap, and kill switch all apply. The legacy "Kwilt Welcome Drip"
+  Automation in Resend should be paused (see §6 operational notes).
 - **DMARC rollout is in progress.** Week 0 (`p=none` monitoring) TXT
   value is drafted in §8; pending DNS write at `_dmarc.kwilt.app` and the
   4-week ramp to `p=quarantine; pct=100`. Reports via Postmark DMARC

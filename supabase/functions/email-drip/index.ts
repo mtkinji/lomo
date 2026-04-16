@@ -1,15 +1,22 @@
 // Email drip cadence evaluator (Supabase Edge Function)
 //
-// Day 0 + Day 1 welcome emails are handled by a Resend Automation
-// (trigger: user.signup, with open-tracking re-engagement branch).
-// This function handles Day 3 + Day 7 which need live Supabase data
-// for personalization (streak length, completed activities).
+// Handles the entire welcome drip (Day 0/1/3/7) + streak win-back (1/2)
+// end-to-end via `sendEmailViaResend`, so every message gets the same
+// compliance treatment: kill-switch, daily cap, preference gating,
+// per-user HMAC `List-Unsubscribe` headers, and correlated analytics.
+//
+// Day 0 ships synchronously in the signup branch (needs to hit the user
+// while the "just signed up" moment is still hot). Day 1/3/7 and the
+// win-backs ship from the scheduled cron run, which walks recent users
+// and evaluates which message, if any, is due next per-user.
 //
 // Routes:
 // - GET  /email-drip -> evaluate all users (cron / scheduled invocation)
-// - POST /email-drip -> evaluate a single user OR fire a signup event
-//   Body: { userId?: string } — evaluate one user
-//   Body: { action: "signup", email: string } — fire user.signup to Resend Automation
+// - POST /email-drip -> evaluate a single user OR send Welcome Day 0
+//   Body: { userId?: string } — evaluate one user (all drip windows)
+//   Body: { action: "signup", email: string, userId: string } — send
+//         Welcome Day 0 immediately to the freshly-signed-up user.
+//   Body: { action: "winback" } — evaluate win-back cadence only.
 //
 // Env:
 // - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (required)
@@ -19,6 +26,8 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { getSupabaseAdmin, json } from '../_shared/calendarUtils.ts';
 import {
+  buildWelcomeDay0Email,
+  buildWelcomeDay1Email,
   buildWelcomeDay3Email,
   buildWelcomeDay7Email,
   buildStreakWinback1Email,
@@ -30,7 +39,7 @@ import { sendEmailViaResend, isEmailSendingEnabled } from '../_shared/emailSend.
 type DripMessage = {
   key: string;
   /** UTM campaign name — mapped to preference category by `categoryForCampaign`. */
-  campaign: 'welcome_day_3' | 'welcome_day_7';
+  campaign: 'welcome_day_1' | 'welcome_day_3' | 'welcome_day_7';
   dayThreshold: number;
   build: (ctx: UserContext, unsubscribeUrl?: string) => { subject: string; text: string; html: string };
 };
@@ -43,9 +52,16 @@ type UserContext = {
   activitiesCompleted: number;
 };
 
-// Day 0 + Day 1 are managed by the Resend Automation "Kwilt Welcome Drip".
-// Only Day 3 and Day 7 remain here because they need real-time Supabase data.
+// Day 0 is sent synchronously on signup (below). Day 1/3/7 come from the
+// cron run — Day 1 was previously handled by a Resend Automation, moved
+// in-repo 2026-04 so every welcome touch carries List-Unsubscribe headers.
 const DRIP_MESSAGES: DripMessage[] = [
+  {
+    key: 'welcome_day1',
+    campaign: 'welcome_day_1',
+    dayThreshold: 1,
+    build: (_ctx, unsubscribeUrl) => buildWelcomeDay1Email({ unsubscribeUrl }),
+  },
   {
     key: 'welcome_day3',
     campaign: 'welcome_day_3',
@@ -95,24 +111,72 @@ serve(async (req) => {
   if (isManual) {
     body = await req.json().catch(() => null);
 
-    // Fire signup event to Resend Automation (Day 0 + Day 1 drip)
-    if (body?.action === 'signup' && typeof body?.email === 'string') {
-      const email = (body.email as string).trim();
-      if (!email) return json(400, { error: { message: 'Missing email', code: 'bad_request' } });
-      try {
-        const res = await fetch('https://api.resend.com/events', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${resendKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ event: 'user.signup', email }),
-        });
-        const resBody = await res.text();
-        return json(res.ok ? 200 : 502, { ok: res.ok, detail: resBody });
-      } catch (e) {
-        return json(502, { ok: false, error: { message: String(e), code: 'resend_error' } });
+    // Welcome Day 0 — fires immediately on signup. Needs email + userId
+    // so we can honor preferences and build a per-user HMAC unsubscribe
+    // URL. The cadence row acts as the idempotency guard: if a second
+    // signup POST arrives (e.g., retry), the insert either collides on
+    // the (user_id, message_key) unique key or we short-circuit below.
+    if (body?.action === 'signup') {
+      const email = typeof body?.email === 'string' ? body.email.trim() : '';
+      const userId = typeof body?.userId === 'string' ? body.userId.trim() : '';
+      if (!email || !userId) {
+        return json(400, { error: { message: 'Missing email or userId', code: 'bad_request' } });
       }
+
+      // Preference opt-out check. `welcome_drip` covers Day 0/1/3/7.
+      const { data: prefs } = await admin
+        .from('kwilt_email_preferences')
+        .select('welcome_drip')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (prefs && (prefs as any).welcome_drip === false) {
+        return json(200, { ok: true, skipped: true, reason: 'preference_opt_out' });
+      }
+
+      // Idempotency: bail if Day 0 already recorded for this user.
+      const { data: existing } = await admin
+        .from('kwilt_email_cadence')
+        .select('message_key')
+        .eq('user_id', userId)
+        .eq('message_key', 'welcome_day0')
+        .maybeSingle();
+      if (existing) {
+        return json(200, { ok: true, skipped: true, reason: 'already_sent' });
+      }
+
+      const unsub = await buildUnsubscribeHeaders({
+        userId,
+        category: 'welcome_drip',
+      });
+      const content = buildWelcomeDay0Email({ unsubscribeUrl: unsub?.visibleUrl });
+
+      const outcome = await sendEmailViaResend({
+        resendKey,
+        from: fromEmail,
+        to: email,
+        subject: content.subject,
+        html: content.html,
+        text: content.text,
+        campaign: 'welcome_day_0',
+        userId,
+        admin,
+        extraHeaders: unsub?.headers,
+      });
+
+      if (outcome.ok) {
+        await admin.from('kwilt_email_cadence').insert({
+          user_id: userId,
+          message_key: 'welcome_day0',
+          metadata: {
+            days_since_signup: 0,
+            campaign: 'welcome_day_0',
+            resend_id: outcome.resendId ?? null,
+          },
+        });
+        return json(200, { ok: true, resendId: outcome.resendId ?? null });
+      }
+
+      return json(502, { ok: false, error: { message: outcome.reason, code: outcome.reason } });
     }
 
     targetUserId = typeof body?.userId === 'string' ? body.userId.trim() : null;
