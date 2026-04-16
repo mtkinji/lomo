@@ -780,10 +780,10 @@ Full Jest suite: 165/165 green (was 140 after Phase 5, +25 from Phase 7). Typech
 Before declaring email GA, the following operational items still need owners:
 
 1. ~~**Set `KWILT_EMAIL_UNSUBSCRIBE_SECRET`** in Supabase Edge Function secrets~~ — Done. Generated via `openssl rand -hex 32` and stored in the `sqxwjtorodqjdfnuvprf` project's Edge Function secrets.
-2. **Set `KWILT_UNSUBSCRIBE_FUNCTION_URL`** (or `KWILT_SUPABASE_URL`) on kwilt-site so the `/api/unsubscribe` proxy can reach the edge function.
+2. ~~**Set `KWILT_UNSUBSCRIBE_FUNCTION_URL`** (or `KWILT_SUPABASE_URL`) on kwilt-site so the `/api/unsubscribe` proxy can reach the edge function.~~ — Done. Set to `https://sqxwjtorodqjdfnuvprf.supabase.co/functions/v1/unsubscribe` across Production, Preview, Development in the `andys-projects-d85f8feb/kwilt-site` Vercel project.
 3. ~~**Deploy the new `unsubscribe` Supabase edge function**~~ — Done (`verify_jwt=false`).
 4. ~~**Redeploy** the send-site functions so the shared helper picks up~~ — Done. `email-drip`, `chapters-generate`, `pro-codes`, `invite-email-send` all redeployed.
-5. **Deploy kwilt-site** so `/unsubscribe` + `/api/unsubscribe` are live.
+5. ~~**Deploy kwilt-site** so `/unsubscribe` + `/api/unsubscribe` are live.~~ — Done. Production deployment `dpl_A3qY9Wkjz5Y18r4w9bnDACoeEsmC` aliased to `go.kwilt.app` / `www.kwilt.app`. End-to-end verified: `POST https://go.kwilt.app/api/unsubscribe` → Vercel → Supabase `functions/v1/unsubscribe` → 400 `bad_token` for an invalid probe (correct rejection path; confirmed in edge function logs).
 6. **DMARC rollout** per runbook §8 (4-week plan to `p=quarantine;pct=100`).
 7. **Migrate Welcome Day 0 + Day 1 Resend Automation templates** to carry `List-Unsubscribe` headers (or move them in-repo). These currently flow through Resend Automation directly and bypass our helper.
 8. **Add `KWILT_COMPANY_POSTAL_ADDRESS`** to the footer for CAN-SPAM compliance — noted as a gap in the runbook.

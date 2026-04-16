@@ -77,8 +77,8 @@ that.
 
 | Var | Default | Purpose |
 |---|---|---|
-| `KWILT_UNSUBSCRIBE_FUNCTION_URL` | _(derived)_ | Explicit URL to the Supabase unsubscribe function. Falls back to `${KWILT_SUPABASE_URL}/functions/v1/unsubscribe`. |
-| `KWILT_SUPABASE_URL` | _(unset)_ | Supabase project URL (used by the `/api/unsubscribe` proxy). |
+| `KWILT_UNSUBSCRIBE_FUNCTION_URL` | `https://sqxwjtorodqjdfnuvprf.supabase.co/functions/v1/unsubscribe` (Prod/Preview/Dev) | Explicit URL to the Supabase unsubscribe function. Falls back to `${KWILT_SUPABASE_URL}/functions/v1/unsubscribe`. |
+| `KWILT_SUPABASE_URL` | _(unset)_ | Supabase project URL — only needed if `KWILT_UNSUBSCRIBE_FUNCTION_URL` is not set (used by the `/api/unsubscribe` proxy). |
 
 ## 4. Architecture
 
