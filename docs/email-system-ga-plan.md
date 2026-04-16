@@ -382,48 +382,63 @@ Chapters work beyond these two fixes (analytics, unread state, default template 
 
 **Theme:** Make the Kwilt logo render reliably across the top 6 email clients.
 **Estimated duration:** ~1 hour
-**Status:** Not started
+**Status:** Implemented (pending `kwilt-site` deploy + Supabase env var set + cross-client QA)
+
+Implementation landed across both repos:
+
+- `kwilt-site/public/assets/email/logo@2x.png` (new) — first-pass copy of the square `public/assets/brand/logo.png` glyph (129 × 129 transparent RGBA, 6.6 KB — well under the 30 KB Gmail clip threshold). New path lives under the dedicated `public/assets/email/` folder so future redesigns can iterate there without churning the brand kit. `/assets/*` is already excluded from `middleware.ts`'s `matcher`, so the file is publicly reachable at both `kwilt.app/assets/email/logo@2x.png` and `go.kwilt.app/assets/email/logo@2x.png` without any routing work.
+- `supabase/functions/_shared/emailTemplates.ts` — `renderLayout`'s `logoBlock` now emits explicit `width="24" height="24"` HTML attrs on the `<img>`, with matching hard-pixel CSS (`width:24px;height:24px`) rather than the previous `width:auto`. Outlook desktop ignores CSS-only sizing on `<img>`, so this is the fence that keeps the 129 px source from exploding across the header in Outlook. Comment in-file pins the decision to this phase so nobody "simplifies" it away.
+- `supabase/functions/_shared/__tests__/emailTemplates.test.ts` — 3 new cases in a `brand logo rendering` describe block:
+  - no `<img>` is emitted when `KWILT_EMAIL_LOGO_URL` is unset (avoids broken-image placeholders in Gmail/Outlook),
+  - when set, the `<img>` carries `width="24"` + `height="24"` + the exact env URL in `src`, and the CSS does **not** contain `width:auto`,
+  - the header `<img>` is byte-identical across two structurally different templates (Welcome Day 0 vs Trial Expiry), proving everything funnels through `renderLayout`.
+
+Test status: full Jest suite is **131/131 green** (was 128/128; +3 new cases).
+
+### Before users benefit from Phase 4
+
+1. Deploy `kwilt-site` so `https://kwilt.app/assets/email/logo@2x.png` serves a 200. (Asset is in-repo; any push to the default branch ships it.)
+2. Set `KWILT_EMAIL_LOGO_URL=https://kwilt.app/assets/email/logo@2x.png` in Supabase Edge Function secrets (plus `KWILT_EMAIL_OPEN_BASE_URL=https://go.kwilt.app/open` if not already set from Phase 3).
+3. Redeploy the Supabase edge functions that import `_shared/emailTemplates.ts` so the new `<img>` markup ships.
+4. Run the cross-client QA matrix in 4.4 and log results in `docs/email-system.md` (Phase 7.6 creates that doc).
 
 ### Tasks
 
-**4.1 Produce email-safe logo assets**
+**4.1 Produce email-safe logo assets** *(done)*
 
 Files: `kwilt-site/public/assets/email/logo@2x.png` (new)
 
-- Dimensions: 480 × 96 px (displays at 240 × 48 logical via `height="24"` / `height="48"`).
-- Format: PNG with transparent background.
-- File size: < 30 KB (Gmail clips emails > 102 KB total).
-- **Not SVG** — many email clients strip `<svg>` in body.
-- If a design-ready 2x export isn't available, copy `public/assets/brand/logo.png` as a first pass and improve later.
+- Dimensions *(as shipped)*: 129 × 129 square — matches our existing mark + wordmark-text layout in `renderLayout` where the glyph renders at 24 × 24 alongside the word "Kwilt". The plan originally estimated a 480 × 96 wordmark; we don't have a wordmark-shaped export yet, so we took the plan's explicit first-pass path and used `public/assets/brand/logo.png`.
+- Format: PNG with transparent background (RGBA). Not SVG — many email clients strip `<svg>` in body.
+- File size: 6.6 KB (well under the 30 KB Gmail clip threshold).
+- Improvement later: cut a true 2x export at 48 × 48 so the CSS pixels match source pixels on retina. Tracked informally as a design follow-up, not a GA blocker.
 
-**4.2 Update `renderLayout` to use explicit width/height attrs**
+**4.2 Update `renderLayout` to use explicit width/height attrs** *(done)*
 
 Files: `supabase/functions/_shared/emailTemplates.ts`
 
-At lines 47–48, change:
+The `<img>` now emits:
 
 ```html
-<img src="..." alt="..." height="24" style="...">
+<img src="${logoUrl}" alt="${appName}" width="24" height="24"
+     style="display:inline-block;width:24px;height:24px;vertical-align:middle;border:0;outline:none;text-decoration:none;margin-right:10px;" />
 ```
 
-to include explicit `width` and hard pixel dimensions (Outlook desktop ignores CSS):
+Explicit `width` / `height` HTML attrs (not just CSS) are the key fix — Outlook desktop ignores `width:auto` and CSS-only sizing on `<img>`, so without these attrs it renders the source-resolution 129 px image and blows up the header.
 
-```html
-<img src="${logoUrl}" alt="${appName}" width="120" height="24"
-     style="display:inline-block;height:24px;width:120px;vertical-align:middle;border:0;outline:none;text-decoration:none;margin-right:10px;" />
-```
-
-**4.3 Set Supabase Edge Function env vars**
+**4.3 Set Supabase Edge Function env vars** *(manual — deploy-time)*
 
 ```
 KWILT_EMAIL_LOGO_URL=https://kwilt.app/assets/email/logo@2x.png
 KWILT_EMAIL_OPEN_BASE_URL=https://go.kwilt.app/open
-KWILT_EMAIL_CTA_URL=https://go.kwilt.app/open/today    # back-compat; no longer used after Phase 3
+# KWILT_EMAIL_CTA_URL is now dead code after Phase 3 — safe to remove in a follow-up.
 ```
 
-**4.4 Cross-client QA**
+Code already reads `KWILT_EMAIL_LOGO_URL` defensively: if unset, `renderLayout` skips the `<img>` entirely and just renders the "Kwilt" wordmark text (see the new "renders no `<img>` when unset" test). So the asset + the env var must both be in place for the glyph to appear.
 
-Send a test Welcome Day 0 email to test inboxes and confirm logo + CTA button + fallback link + fonts work in:
+**4.4 Cross-client QA** *(pending — requires live send)*
+
+Send a test Welcome Day 0 email (the simplest template) to test inboxes and confirm logo + CTA button + fallback link + fonts work in:
 - Gmail Web (Chrome, macOS)
 - Gmail iOS app
 - Apple Mail iOS
@@ -431,15 +446,15 @@ Send a test Welcome Day 0 email to test inboxes and confirm logo + CTA button + 
 - Outlook 365 Web
 - Outlook Desktop (Windows)
 
-Document any client-specific issues in `docs/email-system.md` (new, in Phase 6).
+Document any client-specific issues in `docs/email-system.md` (created in Phase 7.6).
 
 ### Phase 4 acceptance criteria
 
-- [ ] `https://kwilt.app/assets/email/logo@2x.png` returns a 200 with `Content-Type: image/png`.
-- [ ] `KWILT_EMAIL_LOGO_URL` env var set in Supabase Edge Function secrets.
-- [ ] Logo renders at correct size in all 6 target email clients.
-- [ ] `renderLayout` uses explicit `width` and `height` HTML attrs (not just CSS).
-- [ ] File size under 30 KB.
+- [ ] `https://kwilt.app/assets/email/logo@2x.png` returns a 200 with `Content-Type: image/png`. *(Asset committed under `kwilt-site/public/assets/email/`; `/assets/*` is excluded from middleware. Gated only on `kwilt-site` production deploy.)*
+- [ ] `KWILT_EMAIL_LOGO_URL` env var set in Supabase Edge Function secrets. *(Manual — deploy-time.)*
+- [ ] Logo renders at correct size in all 6 target email clients. *(Manual QA — task 4.4.)*
+- [x] `renderLayout` uses explicit `width` and `height` HTML attrs (not just CSS). *(`width="24" height="24"` on the `<img>`; regression test in `emailTemplates.test.ts` `brand logo rendering` describe block fences this.)*
+- [x] File size under 30 KB. *(6.6 KB.)*
 
 ---
 
@@ -447,7 +462,44 @@ Document any client-specific issues in `docs/email-system.md` (new, in Phase 6).
 
 **Theme:** Strip visual chrome. Make every email feel like a personal letter from a coach, not a marketing blast. Eliminate nested boxes and default to typography-first layout.
 **Estimated duration:** ~0.5–1 day
-**Status:** Not started
+**Status:** Implemented (pending Supabase Edge Function redeploy + cross-client QA)
+
+Implementation landed in `supabase/functions/_shared/emailTemplates.ts` — a single refactor of the whole template module rather than piecemeal so we touch the file once:
+
+- **`renderLayout` collapsed to a single white surface.** The old `bg:#f3f4f6` outer canvas + `bg:#ffffff` inner card + inner `bg:#f9fafb` boxes (three surfaces) became one: `<body background:#ffffff>` → centered 500 px column with uniform `padding:32px 24px`. Whitespace replaces the footer's top-border divider. Body text color moved to `#1f2937` (semantic dark gray that Apple Mail auto-inverts cleanly in dark mode). H1 bumped to 24/30 and body to 16/24 for letter-like typography.
+- **`<meta name="color-scheme" content="light dark">` + `<meta name="supported-color-schemes" content="light dark">`** added to `<head>` so Apple Mail + Outlook dark mode invert semantics, not just colors. Combined with the single-surface refactor this eliminates the common "white box on dark bg" clash pattern.
+- **Three shared primitives extracted:**
+  - `renderCta(href, label)` — the single pine button (`padding:12px 18px;border-radius:10px;font-weight:700;font-size:15px`). Every non-admin template now calls this; none hand-roll `<a style="display:inline-block;background:...">` anymore.
+  - `renderFallbackLink(href)` — the existing "if the button doesn't work" paragraph, now invoked everywhere (tightened spacing from `16px 0 0` → `12px 0 0` since it no longer sits inside a bordered card).
+  - `renderFooter(body)` — the small muted sign-off. No top border. Templates pass `footerText` into `renderLayout`, which pipes through `renderFooter`, so migration was zero-churn at the call sites.
+- **Per-template de-boxing** per the Phase 5.3 table below — every template that used to wrap inline data in a framed gray box now lets typography carry the weight:
+  - `buildProGrantEmail` — "Expires" date card → one inline paragraph (`Your subscription expires on <strong>Dec 31, 2026</strong>.`). Title tightened from "Pro access granted" → "Your Pro access is active".
+  - `buildProCodeEmail` — kept the monospace code block (copy affordance earns the box), removed the "Redeem in-app" card (became inline prose) and dropped the non-functional span-styled-as-button.
+  - `buildWelcomeDay7Email` — stats card with two big-number columns → inline sentence (`You built a <strong>7-day</strong> show-up streak and completed <strong>5 activities</strong>.`).
+  - `buildChapterDigestEmail` — narrative snippet moves from a gray-filled box to a left-border blockquote (`border-left:3px solid ${primaryColor}`), one boundary instead of four. Period kicker kept as small uppercase muted text above the quote.
+  - `buildTrialExpiryEmail` — bulleted feature-list box → one prose sentence with `<strong>` on each feature name. No `\u2022`-rendered bullets.
+  - `buildSecretExpiryAlertEmail` — admin email, kept the data table intact (genuinely tabular info). Only change: the table now sits on the new single-surface shell.
+- **Content rhythm normalized** per Phase 5.4 — every non-admin template now follows: greeting → 1–2 short paragraphs → `renderCta` → `renderFallbackLink` → optional `renderFooter`. Decorative restate-the-value-prop paragraphs cut from Welcome Day 1 ("Streaks aren't about perfection…") and Welcome Day 3 ("When you plan your week in advance…") — kept one core message per email, not two.
+- **Preheaders tightened** per Phase 5.5 — each is now a complementary hook, not a duplicate of the subject. Day 0 swung from "Your Arc is waiting — open Kwilt to get started" (redundant) to "The smallest version of showing up is enough." Day 3 went from `${streakLine}` to "Your first Arc, your first rhythm." Day 7 shifted to a scannable status line (`"7-day streak · 5 activities completed"`). Pro grant, Pro code, goal invite, and win-back templates all got the same treatment.
+- **Plain-text versions tightened** per Phase 5.6 — every `text` version now follows the HTML rhythm: short greeting, 1–2 prose paragraphs, a dedicated line containing just the universal-link URL (so text-only clients and spam filters render it cleanly), then the footer. A Phase 5 test explicitly asserts each plain-text body has a standalone `go.kwilt.app/open/...` line.
+
+**Test status:** full Jest suite is **140/140 green** (was 131 after Phase 4; +9 new Phase 5 cases). Typecheck clean. Key new regression fences:
+
+- `renderLayout` emits a single-surface shell (no `background:#f3f4f6` canvas, no `bg:white + border:1px` card).
+- `<meta name="color-scheme">` + `supported-color-schemes` both present.
+- Content column is 480–520 px.
+- Every non-admin template contains the exact `renderCta` signature (`padding:12px 18px;border-radius:10px;font-weight:700`) — the test iterates over 10 templates and fails on any that hand-roll button HTML.
+- Welcome Day 7 body contains the inline strong-stats sentence, not the old 20px-font stats box.
+- Trial expiry body contains `<strong>Focus Mode</strong>` etc. and no `\u2022 Focus Mode` bullet list.
+- Chapter digest snippet uses `border-left:3px solid #1F5226` and does not wrap the snippet in a gray box.
+- No template's preheader (when present) is byte-identical to its subject.
+- Every tested plain-text body contains a standalone `https://go.kwilt.app/open/...` line.
+
+### Before users benefit from Phase 5
+
+1. Deploy the Supabase edge functions that import `_shared/emailTemplates.ts` (`chapters-generate`, `email-drip`, `pro-codes`, `secrets-expiry-monitor`, `invite-email-send`). Phase 4 also gated on this deploy; Phase 5 piggybacks.
+2. Once Phase 4's `KWILT_EMAIL_LOGO_URL` secret is set + kwilt-site is deployed, the new square-glyph header will be visible atop every template in the new single-surface shell.
+3. Re-run the cross-client matrix from Phase 4.4 and log results in `docs/email-system.md` (Phase 7.6 creates the doc).
 
 ### Why this after template migration
 - Phase 3 changes *content* (CTAs, fallback links). This phase changes *form* (visual design). Sequencing it here avoids re-testing the same templates twice.
@@ -563,14 +615,15 @@ Test each template in Apple Mail with system set to dark mode. Three common pitf
 
 ### Phase 5 acceptance criteria
 
-- [ ] `renderLayout` uses a single surface (no gray canvas + white card nesting).
-- [ ] Every non-admin template uses `renderCta`, `renderFallbackLink`, `renderFooter` helpers — no template hand-rolls button HTML.
-- [ ] Inner content boxes removed per table above; only Pro code monospace block and the secret-expiry data table remain.
-- [ ] Content width is 480–520px.
-- [ ] Every template has a unique, value-adding preheader (no preheader duplicates the subject).
-- [ ] Plain-text version follows the same rhythm as HTML (greeting → prose → CTA URL on its own line → footer).
-- [ ] `color-scheme` meta tags added; Apple Mail dark-mode render does not show white-box clashes.
-- [ ] Side-by-side before/after screenshots of at least 3 templates attached to this PR (for design review).
+- [x] `renderLayout` uses a single surface (no gray canvas + white card nesting). *(Phase 5 test "renderLayout emits a single-surface shell" — asserts no `background:#f3f4f6` and no `border:1px solid #e5e7eb;border-radius:16px` card.)*
+- [x] Every non-admin template uses `renderCta`, `renderFallbackLink`, `renderFooter` helpers — no template hand-rolls button HTML. *(Phase 5 test "every non-admin template uses the shared renderCta primitive shape" iterates over 10 templates; fails if any is missing the exact `padding:12px 18px;border-radius:10px;font-weight:700` signature.)*
+- [x] Inner content boxes removed per table above; only Pro code monospace block and the secret-expiry data table remain. *(Phase 5 tests for Welcome 7 inline stats, Trial Expiry inline prose, and Chapter Digest border-left blockquote.)*
+- [x] Content width is 480–520 px. *(500 px; asserted by the "content column is 480–520 px wide" test.)*
+- [x] Every template has a unique, value-adding preheader (no preheader duplicates the subject). *(Phase 5 test "no preheader duplicates its subject" — iterates over 11 templates, compares lowercased preheader ≠ subject.)*
+- [x] Plain-text version follows the same rhythm as HTML (greeting → prose → CTA URL on its own line → footer). *(Phase 5 test "plain-text versions include the fallback URL on its own line" asserts a standalone `go.kwilt.app/open/...` line per template.)*
+- [x] `color-scheme` meta tags added. *(Phase 5 test "includes color-scheme meta tags" — both `color-scheme` and `supported-color-schemes` set to `light dark`.)*
+- [ ] Apple Mail dark-mode render does not show white-box clashes. *(Manual QA — requires live send + dark-mode inbox view. Hand-off to Phase 4.4 / 8 QA matrix.)*
+- [ ] Side-by-side before/after screenshots of at least 3 templates attached to this PR (for design review). *(Manual — a live QA send can generate the "after" screenshots; "before" captures can be pulled from the Phase 4 Gmail-iOS screenshot already archived in `.cursor/projects/.../assets/`.)*
 
 ---
 

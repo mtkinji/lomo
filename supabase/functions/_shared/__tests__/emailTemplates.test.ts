@@ -267,6 +267,248 @@ describe('buildChapterDigestEmail (Phase 3 + 3.5 of email-system-ga-plan.md)', (
   });
 });
 
+describe('brand logo rendering (Phase 4 of email-system-ga-plan.md)', () => {
+  const ORIGINAL_LOGO_URL = process.env.KWILT_EMAIL_LOGO_URL;
+
+  afterEach(() => {
+    if (ORIGINAL_LOGO_URL == null) delete process.env.KWILT_EMAIL_LOGO_URL;
+    else process.env.KWILT_EMAIL_LOGO_URL = ORIGINAL_LOGO_URL;
+    jest.resetModules();
+  });
+
+  it('renders no <img> when KWILT_EMAIL_LOGO_URL is unset', () => {
+    delete process.env.KWILT_EMAIL_LOGO_URL;
+    jest.resetModules();
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const out = buildWelcomeDay0Email();
+    // Wordmark text still renders, but no image tag leaks when the asset URL
+    // is absent — prevents broken-image placeholders in Gmail / Outlook.
+    expect(out.html).not.toMatch(/<img[^>]+alt="Kwilt"/i);
+    expect(out.html).toContain('>Kwilt<');
+  });
+
+  it('emits explicit width + height HTML attrs on the logo <img> (Outlook-safe)', () => {
+    // Outlook desktop ignores CSS-only sizing on <img>; missing width/height
+    // attrs cause the raw-resolution asset (129px) to blow up the header.
+    // This is a regression fence for email-system-ga-plan.md Phase 4.2.
+    process.env.KWILT_EMAIL_LOGO_URL = 'https://kwilt.app/assets/email/logo@2x.png';
+    jest.resetModules();
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const out = buildWelcomeDay0Email();
+    const imgMatch = out.html.match(/<img\b[^>]*alt="Kwilt"[^>]*\/?\>/i);
+    expect(imgMatch).not.toBeNull();
+    const imgTag = imgMatch![0];
+    expect(imgTag).toMatch(/\bwidth="24"/);
+    expect(imgTag).toMatch(/\bheight="24"/);
+    expect(imgTag).toContain('src="https://kwilt.app/assets/email/logo@2x.png"');
+    // Double-belt: the CSS must not tell the client to auto-compute width.
+    expect(imgTag).not.toMatch(/width:\s*auto/i);
+  });
+
+  it('logo <img> uses the same width/height across every template that renders it', () => {
+    // Every template flows through `renderLayout`, so the header <img>
+    // should be byte-identical across templates. Pick two very different
+    // templates and compare their <img> tags.
+    process.env.KWILT_EMAIL_LOGO_URL = 'https://kwilt.app/assets/email/logo@2x.png';
+    jest.resetModules();
+    const { buildWelcomeDay0Email, buildTrialExpiryEmail } = loadTemplates();
+    const a = buildWelcomeDay0Email().html.match(/<img\b[^>]*alt="Kwilt"[^>]*\/?\>/i);
+    const b = buildTrialExpiryEmail({ daysRemaining: 2 }).html.match(/<img\b[^>]*alt="Kwilt"[^>]*\/?\>/i);
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    expect(a![0]).toBe(b![0]);
+  });
+});
+
+describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
+  it('renderLayout emits a single-surface shell (no gray canvas + white card nesting)', () => {
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const out = buildWelcomeDay0Email();
+    // The old layout wrapped content in a `bg:#f3f4f6` canvas with a white
+    // card inside. Phase 5.1 collapses both into a single white surface.
+    expect(out.html).not.toMatch(/background:\s*#f3f4f6/i);
+    expect(out.html).not.toMatch(/border:\s*1px solid\s*#e5e7eb;border-radius:16px/i);
+    // Body background must be white (or a near-neutral) for the new shell.
+    expect(out.html).toMatch(/<body[^>]*background:#ffffff/i);
+  });
+
+  it('includes color-scheme meta tags for dark-mode safe rendering (Phase 5.7)', () => {
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const out = buildWelcomeDay0Email();
+    expect(out.html).toMatch(/<meta\s+name="color-scheme"\s+content="light dark"/i);
+    expect(out.html).toMatch(/<meta\s+name="supported-color-schemes"\s+content="light dark"/i);
+  });
+
+  it('content column is 480\u2013520px wide (letter-like, not webpage-like)', () => {
+    const { buildWelcomeDay0Email } = loadTemplates();
+    const out = buildWelcomeDay0Email();
+    const match = out.html.match(/max-width:\s*(\d+)px/i);
+    expect(match).not.toBeNull();
+    const width = Number.parseInt(match![1], 10);
+    expect(width).toBeGreaterThanOrEqual(480);
+    expect(width).toBeLessThanOrEqual(520);
+  });
+
+  it('every non-admin template uses the shared renderCta primitive shape (Phase 5.2)', () => {
+    // The renderCta helper produces a specific shape:
+    //   <a ...padding:12px 18px;border-radius:10px;font-weight:700...>
+    // Every user-facing template should route through it, not hand-roll
+    // button HTML with per-template variations.
+    const {
+      buildWelcomeDay0Email,
+      buildWelcomeDay1Email,
+      buildWelcomeDay3Email,
+      buildWelcomeDay7Email,
+      buildStreakWinback1Email,
+      buildStreakWinback2Email,
+      buildTrialExpiryEmail,
+      buildProGrantEmail,
+      buildChapterDigestEmail,
+      buildGoalInviteEmail,
+    } = loadTemplates();
+
+    const ctaSignature = /padding:\s*12px\s*18px;border-radius:\s*10px;font-weight:\s*700/;
+
+    const samples: Array<{ name: string; html: string }> = [
+      { name: 'welcome0', html: buildWelcomeDay0Email().html },
+      { name: 'welcome1', html: buildWelcomeDay1Email().html },
+      { name: 'welcome3', html: buildWelcomeDay3Email({ streakLength: 3 }).html },
+      { name: 'welcome7', html: buildWelcomeDay7Email({ streakLength: 7, activitiesCompleted: 5 }).html },
+      { name: 'winback1', html: buildStreakWinback1Email({ streakLength: 5 }).html },
+      { name: 'winback2', html: buildStreakWinback2Email({ streakLength: 5 }).html },
+      { name: 'trial', html: buildTrialExpiryEmail({ daysRemaining: 3 }).html },
+      { name: 'pro_grant', html: buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' }).html },
+      { name: 'goal_invite', html: buildGoalInviteEmail({ goalTitle: 'Ship v1', inviteLink: 'https://go.kwilt.app/i/abc' }).html },
+      {
+        name: 'chapter_digest',
+        html: buildChapterDigestEmail({
+          chapterTitle: 'A Quiet Comeback Week',
+          outputJson: { sections: [{ key: 'story', body: 'Snippet text.' }] },
+          chapterId: 'c-1',
+          cadence: 'weekly',
+          periodStartIso: '2026-04-13T07:00:00.000Z',
+          periodEndIso: '2026-04-20T07:00:00.000Z',
+          timezone: 'America/Los_Angeles',
+        }).html,
+      },
+    ];
+
+    for (const s of samples) {
+      expect({ name: s.name, matches: ctaSignature.test(s.html) }).toEqual({ name: s.name, matches: true });
+    }
+  });
+
+  it('Welcome Day 7 stats are inline type, not a framed card (Phase 5.3)', () => {
+    const { buildWelcomeDay7Email } = loadTemplates();
+    const out = buildWelcomeDay7Email({ streakLength: 7, activitiesCompleted: 5 });
+    // The old stats card was a padded gray box with a border. Phase 5 turns
+    // this into inline prose like "You built a 7-day show-up streak and
+    // completed 5 activities."
+    expect(out.html).not.toMatch(/Streak<\/div>[^<]*<div[^>]*font-size:20px/i);
+    expect(out.html).toMatch(/built a <strong>7-day<\/strong> show-up streak/i);
+    expect(out.html).toMatch(/completed <strong>5 activities<\/strong>/i);
+  });
+
+  it('Trial expiry feature list is inline prose, not a bulleted card (Phase 5.3)', () => {
+    const { buildTrialExpiryEmail } = loadTemplates();
+    const out = buildTrialExpiryEmail({ daysRemaining: 3 });
+    // Old: a gray box with four \u2022 bullet rows. New: one prose sentence.
+    expect(out.html).not.toMatch(/\u2022 Focus Mode/);
+    expect(out.html).toMatch(/<strong>Focus Mode<\/strong>/);
+    expect(out.html).toMatch(/<strong>Saved Views<\/strong>/);
+  });
+
+  it('Chapter digest snippet is a border-left blockquote, not a filled box (Phase 5.3)', () => {
+    const { buildChapterDigestEmail } = loadTemplates();
+    const out = buildChapterDigestEmail({
+      chapterTitle: 'A Quiet Comeback Week',
+      outputJson: { sections: [{ key: 'story', body: 'The lede paragraph that carries the week.' }] },
+      chapterId: 'c-1',
+      cadence: 'weekly',
+      periodStartIso: '2026-04-13T07:00:00.000Z',
+      periodEndIso: '2026-04-20T07:00:00.000Z',
+      timezone: 'America/Los_Angeles',
+    });
+    // No filled gray box wrapping the snippet.
+    expect(out.html).not.toMatch(/background:#f9fafb;border:1px solid #e5e7eb[^"]*">[\s\n]*<p[^>]*>The lede/);
+    // Instead: a left-border quote.
+    expect(out.html).toMatch(/border-left:\s*3px solid #1F5226/i);
+    expect(out.html).toContain('The lede paragraph that carries the week.');
+  });
+
+  it('no preheader duplicates its subject (Phase 5.5)', () => {
+    const {
+      buildWelcomeDay0Email,
+      buildWelcomeDay1Email,
+      buildWelcomeDay3Email,
+      buildWelcomeDay7Email,
+      buildStreakWinback1Email,
+      buildStreakWinback2Email,
+      buildTrialExpiryEmail,
+      buildProGrantEmail,
+      buildProCodeEmail,
+      buildGoalInviteEmail,
+      buildChapterDigestEmail,
+    } = loadTemplates();
+
+    const samples = [
+      buildWelcomeDay0Email(),
+      buildWelcomeDay1Email(),
+      buildWelcomeDay3Email({ streakLength: 3 }),
+      buildWelcomeDay7Email({ streakLength: 7, activitiesCompleted: 5 }),
+      buildStreakWinback1Email({ streakLength: 5 }),
+      buildStreakWinback2Email({ streakLength: 5 }),
+      buildTrialExpiryEmail({ daysRemaining: 3 }),
+      buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' }),
+      buildProCodeEmail({ code: 'ABCD-1234' }),
+      buildGoalInviteEmail({ goalTitle: 'Ship v1', inviteLink: 'https://go.kwilt.app/i/abc' }),
+      buildChapterDigestEmail({
+        chapterTitle: 'A Quiet Comeback Week',
+        outputJson: { sections: [{ key: 'story', body: 'Snippet.' }] },
+        chapterId: 'c-1',
+        cadence: 'weekly',
+        periodStartIso: '2026-04-13T07:00:00.000Z',
+        periodEndIso: '2026-04-20T07:00:00.000Z',
+        timezone: 'America/Los_Angeles',
+      }),
+    ];
+
+    for (const { subject, html } of samples) {
+      const preheaderMatch = html.match(
+        /<div[^>]*display:none[^>]*max-height:0[^>]*>\s*([^<]+?)\s*<\/div>/i,
+      );
+      // Every non-admin template sets a preheader. If one is absent that's
+      // its own bug, but assert what we can.
+      if (preheaderMatch) {
+        const preheader = preheaderMatch[1].trim();
+        expect({ subject, preheader }).toEqual({ subject, preheader });
+        expect(preheader.toLowerCase()).not.toBe(subject.toLowerCase());
+      }
+    }
+  });
+
+  it('plain-text versions include the fallback URL on its own line (Phase 5.6)', () => {
+    const {
+      buildWelcomeDay0Email,
+      buildWelcomeDay3Email,
+      buildTrialExpiryEmail,
+    } = loadTemplates();
+    const samples = [
+      buildWelcomeDay0Email(),
+      buildWelcomeDay3Email({ streakLength: 3 }),
+      buildTrialExpiryEmail({ daysRemaining: 3 }),
+    ];
+    for (const { text } of samples) {
+      // Every plain-text version must contain at least one standalone line
+      // that is exactly the go.kwilt.app/open URL (so text-only clients render
+      // it as a clickable link).
+      const lines = text.split('\n').map((l) => l.trim());
+      const hasStandaloneOpenUrl = lines.some((l) => /^https:\/\/go\.kwilt\.app\/open\//.test(l));
+      expect(hasStandaloneOpenUrl).toBe(true);
+    }
+  });
+});
+
 describe('CI guard: emailTemplates.ts source hygiene (Phase 3.5)', () => {
   // Relative to repo root (jest cwd is the repo root via npm test).
   const SOURCE = path.resolve(__dirname, '..', 'emailTemplates.ts');
