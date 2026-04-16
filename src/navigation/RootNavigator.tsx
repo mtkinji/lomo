@@ -85,6 +85,7 @@ import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
 import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
+import { parseEmailAttribution } from './emailAttribution';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -377,6 +378,22 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 
     const handleUrl = async (url: string) => {
       if (!mounted) return;
+
+      // Email-campaign attribution. Fires best-effort BEFORE the short-
+      // circuiting handlers below, because email CTAs often deep-link to
+      // share/referral surfaces that would otherwise consume the URL and
+      // swallow the event. The capture itself is side-effect free (PostHog
+      // queue) so it's safe to run unconditionally.
+      // Phase 6.2 of docs/email-system-ga-plan.md.
+      const emailAttribution = parseEmailAttribution(url);
+      if (emailAttribution) {
+        capture(AnalyticsEvent.EmailDeepLinkConverted, {
+          utm_campaign: emailAttribution.utmCampaign,
+          utm_medium: emailAttribution.utmMedium,
+          target_route: emailAttribution.targetRoute,
+        });
+      }
+
       const didHandleShare = await handleIncomingShareUrl(url);
       if (didHandleShare) return;
       try {

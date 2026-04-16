@@ -298,7 +298,89 @@ reconfiguring DKIM.
 - **Day 7+:** full send volume OK. Monitor Resend dashboard daily for
   reputation drift.
 
-## 10. Kill switch + rollback
+## 10. Analytics & attribution (Phase 6)
+
+The email system is instrumented end-to-end. Four events feed a single
+PostHog funnel:
+
+| Event | Fires from | Captures |
+|---|---|---|
+| `email_event` | `resend-webhook` edge function | Resend delivery/open/click/bounce/complaint mirrored from Svix-signed webhook. Properties: `event_type`, `campaign`, `resend_email_id`, `subject`, `clicked_link`, `bounce_type`. |
+| `email_cta_clicked` | kwilt-site `/open` handoff page | Click from an email that reached the handoff page (desktop users or iOS users without the app). Properties: `campaign`, `target_path`. |
+| `email_deep_link_converted` | App `RootNavigator` | URL opened in-app carrying `utm_source=email` (iOS universal link, Android App Link, or scheme launch from handoff). Properties: `utm_campaign`, `utm_medium`, `target_route`. |
+| `recordShowUp` (existing) | App | Activity completion — the terminal event in the funnel. |
+
+### Identity model
+
+Server-side events use the Supabase `user_id` as `distinct_id`. The app
+calls `identify(posthog, userId)` on sign-in (`App.tsx::applySignedInState`)
+so client events merge onto the same PostHog person profile as the
+server events. Without this call the funnel still works but can't
+correlate "person X opened email → person X completed activity".
+
+### Correlating Resend events → user_id
+
+Every send site writes `metadata.resend_id` onto the `kwilt_email_cadence`
+row. The `resend-webhook` handler does an indexed lookup via the partial
+btree on `(metadata->>'resend_id')` (migration
+`20260416000000_kwilt_email_cadence_resend_id_index.sql`). If no row is
+found — e.g. the send went out via Resend Automation and never landed in
+our ledger — we fall back to `distinct_id: resend:<email_id>`. Events
+still contribute to aggregate funnel counts; they just don't attach to
+a person.
+
+### Deploying the bridge
+
+```
+supabase functions deploy resend-webhook --no-verify-jwt
+
+supabase secrets set \
+  KWILT_RESEND_WEBHOOK_SECRET=whsec_... \
+  KWILT_POSTHOG_PROJECT_API_KEY=phc_... \
+  KWILT_POSTHOG_HOST=us.i.posthog.com
+```
+
+Then in the Resend dashboard → **Webhooks**: point at
+`https://<project>.supabase.co/functions/v1/resend-webhook`, enable all
+8 event types (`email.sent`, `.delivered`, `.delivery_delayed`,
+`.complained`, `.bounced`, `.opened`, `.clicked`, `.failed`), copy the
+signing secret into `KWILT_RESEND_WEBHOOK_SECRET`.
+
+### Dashboard spec
+
+In PostHog, build two funnels:
+
+1. **Delivery funnel (per campaign):**
+   `email_event[event_type=email.sent] → [email.delivered] → [email.opened] → [email.clicked] → email_deep_link_converted`
+   Slice by `campaign` property. Goal: show Sprint 4 §8 target rates by
+   template (welcome Day 0 > 40% open, chapter digest > 30% open).
+
+2. **Full conversion funnel:**
+   `email_event[event_type=email.sent] → [email.opened] → email_cta_clicked → email_deep_link_converted → recordShowUp`
+   Measures the all-the-way funnel from an email hitting a user's inbox
+   to them actually completing an activity in-app.
+
+### Alerts
+
+Configure in PostHog Insights → Alerts (or via Slack integration):
+
+| Metric | Yellow | Red | Why |
+|---|---|---|---|
+| Open rate (any campaign, rolling 24h) | < 25% | < 15% | Deliverability degrading; check bounce/complaint rates first |
+| Click rate (rolling 24h) | < 3% | < 1% | Template regression (UX refinement phase target is > 5%) |
+| Bounce rate | > 2% | > 5% | List hygiene problem; Gmail suspicion threshold is ~5% |
+| Complaint rate | > 0.1% | > 0.3% | Gmail's hard line is 0.3%; reputation damage starts here |
+
+### Debugging
+
+| Symptom | Check |
+|---|---|
+| `email_event` count is 0 in PostHog | (1) `KWILT_POSTHOG_PROJECT_API_KEY` set in Supabase secrets, (2) Resend webhook endpoint configured + events subscribed, (3) `supabase functions logs resend-webhook` shows incoming POSTs. |
+| 401 responses in Supabase logs | Signature mismatch: `KWILT_RESEND_WEBHOOK_SECRET` doesn't match what Resend signs with. Copy again from Resend dashboard. |
+| Events show up but `distinct_id` is `resend:re_...` | No matching cadence row. Either (a) send went out via Resend Automation (Day 0/1 welcomes — expected), or (b) send site isn't recording `metadata.resend_id` — check that it uses `sendEmailViaResend` and writes the returned `resendId` into the cadence metadata. |
+| App events not on same person as email events | `identify(posthog, userId)` not firing on client. Check `App.tsx::applySignedInState` imports `identifyPosthog` from `./src/services/analytics/analytics`. |
+
+## 11. Kill switch + rollback
 
 ### Global halt
 
@@ -337,7 +419,7 @@ supabase functions deploy email-drip chapters-generate pro-codes \
   invite-email-send secrets-expiry-monitor
 ```
 
-## 11. Compliance quick-reference
+## 12. Compliance quick-reference
 
 - **CAN-SPAM (US):** require (1) clear identification, (2) physical
   postal address, (3) clear unsubscribe. **Postal address is a known
@@ -353,7 +435,7 @@ supabase functions deploy email-drip chapters-generate pro-codes \
   Unsubscribe-Post: List-Unsubscribe=One-Click` headers required for
   bulk senders. Our helper emits both (Phase 7.1).
 
-## 12. Known gaps / follow-ups
+## 13. Known gaps / follow-ups
 
 - **Physical postal address** in footer (CAN-SPAM § 7704(a)(5)(A)(iii)).
   Add a `KWILT_COMPANY_POSTAL_ADDRESS` env var and render under the
@@ -364,7 +446,11 @@ supabase functions deploy email-drip chapters-generate pro-codes \
   fine for GA but a dedicated in-app section is a polish item.
 - **Hosted Welcome Day 0 + Day 1** don't currently carry our
   `List-Unsubscribe` headers. Migrate them in-repo OR set the headers
-  in Resend's template editor before large-scale GA marketing.
-- **Resend webhook → PostHog** integration (Phase 6.3) is not yet live
-  — delivery / bounce / complaint events don't flow to PostHog.
+  in Resend's template editor before large-scale GA marketing. Their
+  events still flow to PostHog (via Resend's built-in webhook
+  integration), but the `distinct_id` will be `resend:<email_id>` for
+  those sends until we route them through `sendEmailViaResend`.
 - **DMARC policy** is likely still `p=none`. See §8 rollout plan.
+- **PostHog dashboard + alerts** (Phase 6.4) are still manual console
+  work — the events flow but the funnel / alerts are not yet wired.
+  Spec in §10.

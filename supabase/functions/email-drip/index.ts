@@ -245,7 +245,11 @@ serve(async (req) => {
         await admin.from('kwilt_email_cadence').insert({
           user_id: user.id,
           message_key: msg.key,
-          metadata: { days_since_signup: daysSinceSignup },
+          metadata: {
+            days_since_signup: daysSinceSignup,
+            campaign: msg.campaign,
+            resend_id: outcome.resendId ?? null,
+          },
         });
       }
 
@@ -402,12 +406,16 @@ serve(async (req) => {
       const sent = outcome.ok;
 
       if (sent) {
-        // Upsert (the unique constraint is on user_id + message_key)
         await admin.from('kwilt_email_cadence').upsert(
           {
             user_id: userId,
             message_key: messageKey,
-            metadata: { days_since_last_activity: daysSinceLastActivity, streak_length: streakLength },
+            metadata: {
+              days_since_last_activity: daysSinceLastActivity,
+              streak_length: streakLength,
+              campaign,
+              resend_id: outcome.resendId ?? null,
+            },
           },
           { onConflict: 'user_id,message_key' },
         );

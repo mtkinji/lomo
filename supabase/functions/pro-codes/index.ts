@@ -569,7 +569,12 @@ serve(async (req) => {
                 await admin.from('kwilt_email_cadence').insert({
                   user_id: appUserIdRaw,
                   message_key: cadenceKey,
-                  metadata: { event_type: type, product_id: productId },
+                  metadata: {
+                    event_type: type,
+                    product_id: productId,
+                    campaign: 'trial_expiry',
+                    resend_id: outcome.resendId ?? null,
+                  },
                 });
               }
             }

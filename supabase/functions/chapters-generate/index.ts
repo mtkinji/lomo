@@ -1763,7 +1763,12 @@ serve(async (req) => {
                 .insert({
                   user_id: t.user_id,
                   message_key: `chapter_digest_${period.key}`,
-                  metadata: { chapter_id: chapterId, cadence: t.cadence },
+                  metadata: {
+                    chapter_id: chapterId,
+                    cadence: t.cadence,
+                    campaign: 'chapter_digest',
+                    resend_id: outcome.resendId ?? null,
+                  },
                 })
                 .then(() => null, () => null);
             }

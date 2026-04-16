@@ -44,6 +44,7 @@ import { PartnerProgressGuideHost } from './src/ui/PartnerProgressGuide';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
+import { identify as identifyPosthog } from './src/services/analytics/analytics';
 import { ConfigErrorScreen } from './src/features/onboarding/ConfigErrorScreen';
 import { SignInInterstitial, type SignInResult } from './src/features/onboarding/SignInInterstitial';
 import { ReturningUserPermissionsFlow } from './src/features/onboarding/ReturningUserPermissionsFlow';
@@ -156,6 +157,12 @@ export default function App() {
       });
       setSupabaseAutoRefreshEnabled(true);
       setAuthStartupState('signedIn');
+      // Attach the Supabase user_id to PostHog so server-side email events
+      // (via `resend-webhook` — Phase 6.3 of docs/email-system-ga-plan.md)
+      // merge onto the same person profile as in-app events.
+      if (identity.userId) {
+        identifyPosthog(posthogClient, identity.userId);
+      }
       if (__DEV__) {
         // eslint-disable-next-line no-console
         console.log(`[auth] signed_in (${reason})`);

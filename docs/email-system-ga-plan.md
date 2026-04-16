@@ -631,42 +631,79 @@ Test each template in Apple Mail with system set to dark mode. Three common pitf
 
 **Theme:** Turn the email system from a black box into a measurable loop. Directly addresses the Sprint 4 §8 success-metric targets (email open/click rate, welcome drip open rate, pro-preview → conversion).
 **Estimated duration:** ~2 hours
-**Status:** Not started
+**Status:** Code pieces (6.1, 6.2, 6.3) implemented. Operational pieces (6.4 dashboard + alerts) are PostHog console work tracked below.
 
 ### Tasks
 
-**6.1 Add `EmailCtaClicked` on the handoff page**
+**6.1 `EmailCtaClicked` on the handoff page — Implemented (in Phase 1)**
 
-Files: `kwilt-site/app/(auth)/open/[[...slug]]/page.tsx`
+Files: `kwilt-site/app/(auth)/open/[[...slug]]/page.tsx`, `kwilt-site/lib/analytics.ts`, `kwilt-site/components/OpenHandoffClient.tsx`
 
-Fire a PostHog (or other analytics) event on page load with `{ campaign, target_path, referrer }`. This captures email clicks from users without the app installed (iOS-installed users get intercepted by AASA before the page loads — that path is captured in 5.2).
+Landed with Phase 1. Registered as `email_cta_clicked` in `kwilt-site/lib/analytics.ts` (snake_case to match the existing site convention) with two siblings — `email_cta_open_attempted` (scheme-launch attempt) and `email_cta_install_clicked` (fallback CTA). All three fire from `components/OpenHandoffClient.tsx` on mount. Captures email clicks from users without the installed app; iOS-installed users get intercepted by the AASA handoff before the page renders, and that path is captured in 6.2.
 
-**6.2 Add `EmailDeepLinkConverted` in the app**
+**6.2 `EmailDeepLinkConverted` in the app — Implemented**
 
-Files: `src/navigation/RootNavigator.tsx`, `src/services/analytics/events.ts`
+Files:
+- `src/navigation/emailAttribution.ts` (new) — pure URL parser that extracts `{ utmCampaign, utmMedium, targetRoute }` when `utm_source=email`. Handles all three URL shapes production actually sees: custom-scheme launches (`kwilt://chapters/abc?utm_source=email`), universal-link handoffs (`https://go.kwilt.app/open/chapters/abc?utm_source=email` — `/open/` prefix stripped so attribution is reported against the real target route), and apex-domain universal links (`https://kwilt.app/today?utm_source=email`). Case-sensitive on `utm_source=email` to avoid false-positive attribution.
+- `src/navigation/emailAttribution.test.ts` (new) — 16 Jest cases covering non-email URLs (6 negatives), custom-scheme parsing (4), universal-link parsing incl. `/open/` stripping (4), and edge cases (2).
+- `src/services/analytics/events.ts` — `EmailDeepLinkConverted: 'email_deep_link_converted'` registered in the enum.
+- `src/navigation/RootNavigator.tsx::handleUrl` — fires the event with `{ utm_campaign, utm_medium, target_route }` **before** the short-circuiting share/arc-draft/referral handlers, because email CTAs often deep-link to share surfaces that would otherwise consume the URL and swallow the event.
+- `App.tsx::applySignedInState` — now calls `identify(posthogClient, identity.userId)` on auth state change so server-side email events (via `resend-webhook`) merge onto the same PostHog person profile as in-app events. Without this, funnel measurement by person wouldn't work — a user's email open and their in-app `recordShowUp` would land on different person records.
 
-In the existing `handleUrl` / linking setup (around lines 399–407), detect `utm_source=email` in the initial URL and fire an `EmailDeepLinkConverted` event with `{ utm_campaign, target_route }`. This gives us the "email → in-app conversion" half of the funnel.
+**6.3 Resend webhook → PostHog bridge — Implemented**
 
-**6.3 Wire a Resend webhook → PostHog bridge**
+Files:
+- `supabase/migrations/20260416000000_kwilt_email_cadence_resend_id_index.sql` (new) — partial btree index on `kwilt_email_cadence (metadata->>'resend_id') where metadata ? 'resend_id'`. The webhook handler needs an O(log n) lookup from Resend event id → `user_id`; without the index this is a full table scan on every webhook call.
+- All four send sites updated to record `metadata: { resend_id: outcome.resendId, campaign, ... }` on every `kwilt_email_cadence` insert/upsert:
+  - `supabase/functions/email-drip/index.ts` — welcome Day 3/7 (insert) + win-back 1/2 (upsert).
+  - `supabase/functions/chapters-generate/index.ts` — chapter digest insert.
+  - `supabase/functions/pro-codes/index.ts` — trial expiry insert.
+- `supabase/functions/_shared/resendWebhook.ts` (new) — pure helper module (no Deno/Supabase deps) containing `verifySvixSignature` (HMAC-SHA256 over `${svix-id}.${svix-timestamp}.${body}`, standard ±5-min skew window, supports secret rotation via multi-signature headers), `normalizeResendEvent` (narrows to the 8 declared Resend event types + strips PII and surfaces `resend_email_id`, `campaign` tag, optional `clicked_link` / `bounce_type`), and `buildPosthogPayload` / `buildPosthogCaptureUrl` for the forward.
+- `supabase/functions/_shared/__tests__/resendWebhook.test.ts` (new) — 25 Jest cases: signature verification (valid, rotation, tampered body, wrong secret, skew expiry, missing header, non-v1 version, malformed timestamp), event normalization (field extraction per event type, tolerate variations in `to`/`tags`, reject unknown types, reject missing `email_id`, reject non-objects, round-trip every declared type), PostHog payload shape, and URL builder (6 cases covering default, scheme inference, trailing slash, http dev host).
+- `supabase/functions/resend-webhook/index.ts` (new) — edge function entry: verifies Svix signature, parses body, looks up owning `user_id` via the new index, falls back to `distinct_id: resend:<email_id>` when no cadence row exists (covers Resend Automation sends that bypass our helper), POSTs a single `email_event` event to PostHog's capture endpoint with properties `{ event_type, campaign, resend_email_id, subject, clicked_link, bounce_type }`. Always acks Resend with 200 after signature verification passes so a transient PostHog outage doesn't trigger Resend's retry storm. Returns 401 on invalid signature, 400 on malformed JSON, 405 on non-POST.
 
-Files: `supabase/functions/resend-webhook/index.ts` (new)
+**6.4 Build the PostHog funnel dashboard — Operational (PostHog console work)**
 
-Resend fires `email.sent`, `email.delivered`, `email.opened`, `email.clicked`, `email.bounced`, `email.complained`. Mirror these to PostHog as `EmailEvent` with `{ template_id, user_id, event_type }`. This closes the measurement loop for:
-- **Open rate** (Sprint 4 §8 target: > 40% for Day 0 welcome).
-- **Click rate** (new baseline).
-- **Bounce / complaint rates** (for deliverability health).
+Manual in PostHog — no code. The events are all flowing; someone with PostHog admin access needs to wire up the dashboard. Spec in the runbook ([`docs/email-system.md`](./email-system.md) §10):
 
-**6.4 Build the PostHog funnel dashboard**
+- **Delivery funnel (by `campaign`):** `email_event where event_type=email.sent → email_event where event_type=email.delivered → email.opened → email.clicked → email_deep_link_converted`. Slice by `campaign` property.
+- **Conversion funnel:** `email.sent → email.opened → email_cta_clicked → email_deep_link_converted → recordShowUp` (where `recordShowUp` is the existing in-app activity-complete event).
+- **Alerts:** open rate < 25% on any campaign over a rolling 24h window (Sprint 4 §8 target: > 40% for Day 0 welcome; 25% is the yellow line); click rate < 3%; bounce rate > 2%; complaint rate > 0.1% (Gmail's hard line).
 
-Manual in PostHog — no code. Funnel: `EmailSent → email.opened → email.clicked → EmailCtaClicked → EmailDeepLinkConverted → recordShowUp`. Alert on open-rate < 25% or click-rate < 3%.
+### Phase 6 env vars (new)
+
+Added in this phase — all default to safe-off in code:
+
+- `KWILT_RESEND_WEBHOOK_SECRET` — Svix signing secret from Resend's Webhooks page (`whsec_<base64>`). Without it the function returns 200 with `missing_webhook_secret` and does nothing (fail-safe — we don't want to block Resend's delivery pipeline).
+- `KWILT_POSTHOG_PROJECT_API_KEY` — PostHog public project API key (`phc_...`). Without it we skip forwarding; the Resend event is still ack'd.
+- `KWILT_POSTHOG_HOST` — e.g. `us.i.posthog.com` (default) or `eu.i.posthog.com`. Leading scheme optional.
 
 ### Phase 6 acceptance criteria
 
-- [x] `EmailCtaClicked` event registered in `AnalyticsEvent` enum and fired from `/open` handoff page. *(Landed as part of Phase 1 task 1.5 — registered as `email_cta_clicked` in `kwilt-site/lib/analytics.ts` with snake_case to match the existing site convention, plus `email_cta_open_attempted` and `email_cta_install_clicked` siblings. Fires from `components/OpenHandoffClient.tsx` on mount.)*
-- [ ] `EmailDeepLinkConverted` event fires in-app when URL contains `utm_source=email`.
-- [ ] `resend-webhook` edge function deployed and receiving events.
-- [ ] PostHog funnel dashboard exists and shows non-zero events within 24h of first email send post-deploy.
-- [ ] PostHog alerts configured for open-rate and click-rate drift.
+- [x] `EmailCtaClicked` event registered in `AnalyticsEvent` enum and fired from `/open` handoff page. *(Landed as part of Phase 1 task 1.5 — registered as `email_cta_clicked` in `kwilt-site/lib/analytics.ts`.)*
+- [x] `EmailDeepLinkConverted` event fires in-app when URL contains `utm_source=email` — across custom-scheme, universal-link (with `/open/` handoff prefix stripped), and apex-domain URL shapes.
+- [x] `identifyPosthog(userId)` fires on auth state change so server-side email events merge with in-app events on the PostHog person profile.
+- [x] `resend-webhook` edge function written, signature-verified, and covered by 25 unit tests including Svix HMAC verification against tampered bodies, wrong secrets, and expired timestamps.
+- [x] Every send site records `metadata.resend_id` in `kwilt_email_cadence` with a supporting partial index so the webhook can correlate events → `user_id`.
+- [ ] `resend-webhook` edge function deployed and `KWILT_RESEND_WEBHOOK_SECRET` / `KWILT_POSTHOG_PROJECT_API_KEY` configured in Supabase function secrets. *(Operational — deploy command in runbook §10.)*
+- [ ] PostHog funnel dashboard exists and shows non-zero events within 24h of first email send post-deploy. *(Operational — PostHog console work; dashboard spec in runbook §10.)*
+- [ ] PostHog alerts configured for open-rate / click-rate / bounce-rate drift. *(Operational — runbook §10.)*
+
+### Phase 6 remaining operational steps
+
+Before Phase 6 delivers funnel visibility, someone needs to:
+
+1. **Apply the migration** (`supabase db push`) — creates the `resend_id` index.
+2. **Deploy** the new send-site versions + webhook:
+   ```bash
+   supabase functions deploy email-drip chapters-generate pro-codes
+   supabase functions deploy resend-webhook --no-verify-jwt
+   ```
+   (Resend cannot sign Supabase JWTs; signature verification is via Svix instead.)
+3. **Configure Resend webhook endpoint** pointing at `https://<project>.supabase.co/functions/v1/resend-webhook`, subscribe to all 8 event types (`email.sent / .delivered / .delivery_delayed / .complained / .bounced / .opened / .clicked / .failed`), and copy the signing secret.
+4. **Set function secrets**: `KWILT_RESEND_WEBHOOK_SECRET`, `KWILT_POSTHOG_PROJECT_API_KEY`, optionally `KWILT_POSTHOG_HOST`.
+5. **Redeploy the app** (or wait for next TestFlight cut) so the PostHog `identify(userId)` call lands on real sessions.
+6. **Wire up the dashboard + alerts** per runbook §10.
 
 ---
 

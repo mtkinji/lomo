@@ -77,6 +77,11 @@ export const AnalyticsEvent = {
   MilestoneRecorded: 'milestone_recorded',
   MilestoneRecordFailed: 'milestone_record_failed',
 
+  // Email attribution (Phase 6.2 of docs/email-system-ga-plan.md).
+  // Fires when the app is opened via a URL carrying `utm_source=email`.
+  // Pairs with `email_cta_clicked` on kwilt-site to close the funnel.
+  EmailDeepLinkConverted: 'email_deep_link_converted',
+
   // Pro preview (streak-based)
   ProPreviewGranted: 'pro_preview_granted',
   ProPreviewExpired: 'pro_preview_expired',
