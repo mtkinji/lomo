@@ -23,6 +23,7 @@ import {
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { usePaywallStore } from '../../store/usePaywallStore';
 
 type BillingCadence = 'annual' | 'monthly';
 type ProPlan = 'individual' | 'family';
@@ -437,26 +438,34 @@ export function ManageSubscriptionScreen() {
                 const purchaseSku = getProSku(plan, billingCadence);
                 const introOffer = skuPricing?.[purchaseSku]?.introPrice;
                 const isTrial = introOffer?.type === 'FREE_TRIAL' || introOffer?.priceString === '$0.00';
-                capture(AnalyticsEvent.PurchaseStarted, {
+                // Upsell attribution: read the paywall reason/source that the
+                // user was in when they tapped Upgrade on the interstitial.
+                // Null when entry was direct (e.g. Settings → Subscriptions) or
+                // when the intent signal is older than 30 min (stale session).
+                const upsellState = usePaywallStore.getState();
+                const upsellFresh =
+                  upsellState.upsellTappedAtMs != null &&
+                  Date.now() - upsellState.upsellTappedAtMs <= 30 * 60 * 1000;
+                const upsellReason = upsellFresh ? upsellState.upsellReason : null;
+                const upsellSource = upsellFresh ? upsellState.upsellSource : null;
+                const purchaseProps = {
                   plan,
                   cadence: billingCadence,
                   sku: purchaseSku,
+                  paywall_reason: upsellReason,
+                  paywall_source: upsellSource,
+                };
+                capture(AnalyticsEvent.PurchaseStarted, {
+                  ...purchaseProps,
                   is_trial: isTrial,
                 });
                 purchase({ plan, cadence: billingCadence })
                   .then(() => {
-                    capture(AnalyticsEvent.PurchaseSucceeded, {
-                      plan,
-                      cadence: billingCadence,
-                      sku: purchaseSku,
-                    });
+                    capture(AnalyticsEvent.PurchaseSucceeded, purchaseProps);
                     if (isTrial) {
-                      capture(AnalyticsEvent.FreeTrialStarted, {
-                        plan,
-                        cadence: billingCadence,
-                        sku: purchaseSku,
-                      });
+                      capture(AnalyticsEvent.FreeTrialStarted, purchaseProps);
                     }
+                    usePaywallStore.getState().clearUpsellContext();
                     setPricingDrawerVisible(false);
                     Alert.alert(
                       isTrial ? 'Trial started' : 'Welcome to Pro',
@@ -468,9 +477,7 @@ export function ManageSubscriptionScreen() {
                   .catch((e: any) => {
                     const message = typeof e?.message === 'string' ? e.message : 'Purchase failed';
                     capture(AnalyticsEvent.PurchaseFailed, {
-                      plan,
-                      cadence: billingCadence,
-                      sku: getProSku(plan, billingCadence),
+                      ...purchaseProps,
                       error: message,
                     });
                     Alert.alert('Purchase failed', message);
