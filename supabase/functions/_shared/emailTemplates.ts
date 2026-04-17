@@ -1,4 +1,5 @@
 import { formatHumanPeriodLabel, type PeriodCadence } from './periodLabels.ts';
+import { hasAnyRecommendation } from './chapterRecommendations.ts';
 
 type EmailContent = {
   subject: string;
@@ -571,9 +572,19 @@ export function buildChapterDigestEmail(params: {
   const snippet = extractChapterSnippet(outputJson);
   const ctaUrl = makeOpenUrl(`chapters/${chapterId}`, {}, 'chapter_digest');
 
+  // Phase 5.3: Next Steps hint in the digest email. Appears as a single
+  // curiosity-gap line between the snippet and the CTA iff the Chapter
+  // has at least one recommendation. Zero content spoilage — the user
+  // still has to tap through to see what it is. Keeps the email terse and
+  // creates a reason to open beyond consumption.
+  const nextStepsHintText = hasAnyRecommendation(outputJson)
+    ? 'Kwilt noticed something worth naming — open to see.'
+    : '';
+
   const textParts = [
     `${subject}: ${chapterTitle}`,
     snippet || null,
+    nextStepsHintText || null,
     `Read the full chapter:`,
     ctaUrl,
   ].filter((p): p is string => Boolean(p && p.trim().length));
@@ -587,12 +598,17 @@ export function buildChapterDigestEmail(params: {
       </div>`
     : '';
 
+  const nextStepsHintBlock = nextStepsHintText
+    ? `<p style="margin:0 0 24px;font-size:14px;line-height:22px;color:${escapeHtml(primaryColor)};font-weight:600;">${escapeHtml(nextStepsHintText)}</p>`
+    : '';
+
   const html = renderLayout({
     title: chapterTitle,
     preheader,
     bodyHtml: `
       <p style="margin:0 0 10px;font-size:12px;line-height:16px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">${escapeHtml(periodLabel)}</p>
       ${snippetBlock}
+      ${nextStepsHintBlock}
       ${renderCta(ctaUrl, 'Read full chapter')}
       ${renderFallbackLink(ctaUrl)}
     `,

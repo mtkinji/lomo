@@ -21,6 +21,8 @@ import { getSupabaseAdmin, json, requireUserId } from '../_shared/calendarUtils.
 import { buildChapterDigestEmail } from '../_shared/emailTemplates.ts';
 import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
 import { sendEmailViaResend } from '../_shared/emailSend.ts';
+import { computeArcNominations as sharedComputeArcNominations } from '../_shared/chapterRecommendations.ts';
+import type { ChapterRecommendation } from '../_shared/chapterRecommendations.ts';
 
 type Cadence = 'weekly' | 'monthly' | 'yearly' | 'manual';
 type TemplateKind = 'reflection' | 'report';
@@ -2242,6 +2244,31 @@ serve(async (req) => {
           outputJson = null;
         }
       }
+    }
+
+    // Phase 5.1: deterministic Next Steps recommendations are computed
+    // server-side AFTER the LLM pass succeeds. They are not subject to
+    // AI-output validation (they are pure functions of
+    // metrics + evidence). Only attach when the Chapter is ready; a failed
+    // Chapter has no output_json surface to hang them on. The
+    // implementation lives in `_shared/chapterRecommendations.ts` so it
+    // can be unit-tested from Jest (the Deno-only bits of this file can't
+    // be).
+    if (finalOk && outputJson && typeof outputJson === 'object') {
+      const recommendations: ChapterRecommendation[] = sharedComputeArcNominations({
+        activitiesIncluded: included.map((a) => ({
+          id: String(a.id),
+          title: typeof a.title === 'string' ? a.title : null,
+          arcId: a.arcId ?? null,
+        })),
+        arcById: Object.fromEntries(
+          Object.entries(arcById).map(([k, v]) => [
+            k,
+            { title: typeof (v as any)?.title === 'string' ? (v as any).title : null },
+          ]),
+        ),
+      });
+      (outputJson as any).recommendations = recommendations;
     }
 
     const writeRes = await upsertChapter(admin, {

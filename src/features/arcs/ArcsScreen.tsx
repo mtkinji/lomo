@@ -69,6 +69,12 @@ export function ArcsScreen() {
   const route = useRoute<RouteProp<ArcsStackParamList, 'ArcsList'>>();
   const insets = useSafeAreaInsets();
   const [newArcModalVisible, setNewArcModalVisible] = useState(false);
+  // Phase 5.2 of docs/chapters-plan.md: carry the nominated Arc title
+  // out of the route param and into the NewArcModal. We keep it in local
+  // state (rather than reading `route.params.prefilledArcName` on every
+  // render) because the clear-params call below mutates the route, which
+  // would wipe the value before the modal has a chance to read it.
+  const [prefilledArcName, setPrefilledArcName] = useState<string | undefined>(undefined);
   const [showArchived, setShowArchived] = useState(true);
   const [archivedExpanded, setArchivedExpanded] = useState(false);
 
@@ -97,10 +103,14 @@ export function ArcsScreen() {
   useEffect(() => {
     if (route.params?.openCreateArc) {
       logArcsDebug('newArc:open-from-route-param');
+      const prefill = route.params.prefilledArcName;
+      if (prefill && prefill.trim().length > 0) {
+        setPrefilledArcName(prefill.trim());
+      }
       handleOpenNewArc();
-      navigation.setParams({ openCreateArc: undefined });
+      navigation.setParams({ openCreateArc: undefined, prefilledArcName: undefined });
     }
-  }, [handleOpenNewArc, navigation, route.params?.openCreateArc]);
+  }, [handleOpenNewArc, navigation, route.params?.openCreateArc, route.params?.prefilledArcName]);
 
   const goalCountByArc = useMemo(
     () =>
@@ -248,7 +258,14 @@ export function ArcsScreen() {
             }
       />
 
-      <NewArcModal visible={newArcModalVisible} onClose={() => setNewArcModalVisible(false)} />
+      <NewArcModal
+        visible={newArcModalVisible}
+        onClose={() => {
+          setNewArcModalVisible(false);
+          setPrefilledArcName(undefined);
+        }}
+        prefilledName={prefilledArcName}
+      />
     </AppShell>
   );
 }
@@ -855,6 +872,13 @@ const styles = StyleSheet.create({
 type NewArcModalProps = {
   visible: boolean;
   onClose: () => void;
+  /**
+   * Phase 5.2 of docs/chapters-plan.md: when the "Create this Arc" CTA
+   * deep-links in from a Chapter's Next Steps section, it forwards the
+   * nominated title so the manual-create tab starts populated. Ignored
+   * on the AI tab.
+   */
+  prefilledName?: string;
 };
 
 function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -878,7 +902,7 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
   );
 }
 
-function NewArcModal({ visible, onClose }: NewArcModalProps) {
+function NewArcModal({ visible, onClose, prefilledName }: NewArcModalProps) {
   const addArc = useAppStore((state) => state.addArc);
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -893,6 +917,18 @@ function NewArcModal({ visible, onClose }: NewArcModalProps) {
   const [manualName, setManualName] = useState('');
   const [manualNarrative, setManualNarrative] = useState('');
   const [isArcInfoVisible, setIsArcInfoVisible] = useState(false);
+
+  // Phase 5.2: when the Chapter Next Steps flow forwards a suggested title,
+  // jump to the manual tab with the name prefilled so the user can accept
+  // or edit in one field. Fires each time the modal reopens with a new
+  // prefill so re-entries with a different suggestion work as expected.
+  useEffect(() => {
+    if (!visible) return;
+    const next = (prefilledName ?? '').trim();
+    if (!next) return;
+    setActiveTab('manual');
+    setManualName(next);
+  }, [visible, prefilledName]);
 
   const arcCreationWorkflow = useMemo(
     () => getWorkflowLaunchConfig('arcCreation'),

@@ -39,6 +39,11 @@ export type PaywallSource =
   | 'pro_preview_expired'
   | 'activity_empty_state'
   | 'plan_empty_state'
+  // Phase 5.2 of docs/chapters-plan.md: Next Steps Arc Nomination CTA for
+  // a Free user at their 1-Arc limit. Surfaced on ChapterDetailScreen and
+  // routes the user into the paywall interstitial with evidence-anchored
+  // copy (see the card's `reason` line) instead of the Arc creation flow.
+  | 'chapter_arc_nomination'
   | 'unknown';
 
 /**

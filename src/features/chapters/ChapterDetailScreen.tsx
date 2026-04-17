@@ -22,7 +22,18 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { consumeChapterOpenHint, recordChapterOpenHint } from './chapterOpenSource';
 import { markChapterRead } from './chapterReadState';
+import {
+  dismissRecommendation,
+  getRecommendationDismissalMap,
+  isRecommendationDismissed,
+  subscribeRecommendationDismissalChanges,
+} from './chapterRecommendationDismissals';
 import { useToastStore } from '../../store/useToastStore';
+import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
+import { canCreateArc } from '../../domain/limits';
+import { openPaywallInterstitial } from '../../services/paywall';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 
 type Route = RouteProp<MoreStackParamList, 'MoreChapterDetail'>;
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDetail'>;
@@ -256,6 +267,55 @@ export function ChapterDetailScreen() {
   // still communicates weight.
   const arcLanes = Array.isArray(metrics?.arcs) ? (metrics.arcs as any[]).slice(0, 4) : [];
 
+  // Phase 5.2 of docs/chapters-plan.md: Next Steps surface. Recommendations
+  // are emitted server-side by `_shared/chapterRecommendations.ts` and
+  // live under `output_json.recommendations`. We filter out dismissed ids
+  // (AsyncStorage-backed 90-day sleep) before rendering.
+  const rawRecommendations = React.useMemo(() => {
+    const raw = (outputJson as any)?.recommendations;
+    if (!Array.isArray(raw)) return [] as any[];
+    return raw.filter((r) => r && typeof r === 'object' && typeof r.kind === 'string');
+  }, [outputJson]);
+  const [dismissalNonce, setDismissalNonce] = React.useState(0);
+  React.useEffect(() => {
+    void getRecommendationDismissalMap();
+    const unsub = subscribeRecommendationDismissalChanges(() =>
+      setDismissalNonce((n) => n + 1),
+    );
+    return unsub;
+  }, []);
+  const visibleRecommendations = React.useMemo(() => {
+    return rawRecommendations.filter((r: any) => !isRecommendationDismissed(String(r.id ?? '')));
+    // dismissalNonce forces a recompute when the dismissal map mutates.
+  }, [rawRecommendations, dismissalNonce]);
+
+  // Arc-limit gate — mirrors `ArcsScreen.handleOpenNewArc`. Free-tier users
+  // at the 1-Arc cap are routed to the paywall with contextual attribution;
+  // Pro-tier users deep-link into the manual Arc creation modal with the
+  // nominated title prefilled.
+  const arcs = useAppStore((s) => s.arcs);
+  const isPro = useEntitlementsStore((s) => s.isPro);
+
+  // Fire `chapter_next_step_shown` once per (chapter, recommendation_id)
+  // rendered. We keep a ref so re-renders from dismissal/nav don't re-log.
+  const shownRecIdsRef = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    if (!chapter) return;
+    for (const r of visibleRecommendations) {
+      const id = String((r as any).id ?? '');
+      if (!id) continue;
+      const seenKey = `${chapterId}::${id}`;
+      if (shownRecIdsRef.current.has(seenKey)) continue;
+      shownRecIdsRef.current.add(seenKey);
+      capture(AnalyticsEvent.ChapterNextStepShown, {
+        chapter_id: chapterId,
+        period_key: chapter.period_key ?? null,
+        recommendation_id: id,
+        kind: (r as any).kind ?? null,
+      });
+    }
+  }, [capture, chapter, chapterId, visibleRecommendations]);
+
   const completed = typeof metrics?.activities?.completed_count === 'number' ? metrics.activities.completed_count : null;
   const activeDays = typeof metrics?.time_shape?.active_days_count === 'number' ? metrics.time_shape.active_days_count : null;
   const streak = typeof metrics?.time_shape?.longest_active_streak_days === 'number' ? metrics.time_shape.longest_active_streak_days : null;
@@ -270,6 +330,58 @@ export function ChapterDetailScreen() {
   const createdCount = typeof metrics?.activities?.created_count === 'number' ? metrics.activities.created_count : null;
   const carriedCount = typeof metrics?.activities?.carried_forward_count === 'number' ? metrics.activities.carried_forward_count : null;
   const inProgressCount = typeof metrics?.activities?.started_not_completed_count === 'number' ? metrics.activities.started_not_completed_count : null;
+
+  // Phase 5.2: Next Steps CTA handlers.
+  const handleNextStepCtaTap = React.useCallback(
+    (rec: { id?: string; kind?: string; payload?: { title?: string } }) => {
+      const recommendationId = typeof rec?.id === 'string' ? rec.id : '';
+      if (rec?.kind !== 'arc') return;
+      const nominated = typeof rec?.payload?.title === 'string' ? rec.payload.title.trim() : '';
+      const gate = canCreateArc({ isPro, arcs });
+      if (!gate.ok) {
+        capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
+          chapter_id: chapterId,
+          period_key: chapter?.period_key ?? null,
+          recommendation_id: recommendationId,
+          kind: rec.kind,
+          result: 'paywall',
+        });
+        openPaywallInterstitial({
+          reason: 'limit_arcs_total',
+          source: 'chapter_arc_nomination',
+        });
+        return;
+      }
+      capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
+        chapter_id: chapterId,
+        period_key: chapter?.period_key ?? null,
+        recommendation_id: recommendationId,
+        kind: rec.kind,
+        result: 'create_flow',
+      });
+      if (!rootNavigationRef.isReady()) return;
+      rootNavigationRef.navigate('ArcsStack', {
+        screen: 'ArcsList',
+        params: { openCreateArc: true, prefilledArcName: nominated || undefined },
+      } as any);
+    },
+    [arcs, capture, chapter?.period_key, chapterId, isPro],
+  );
+
+  const handleNextStepDismiss = React.useCallback(
+    (rec: { id?: string; kind?: string }) => {
+      const recommendationId = typeof rec?.id === 'string' ? rec.id : '';
+      if (!recommendationId) return;
+      capture(AnalyticsEvent.ChapterNextStepDismissed, {
+        chapter_id: chapterId,
+        period_key: chapter?.period_key ?? null,
+        recommendation_id: recommendationId,
+        kind: rec.kind ?? null,
+      });
+      void dismissRecommendation(recommendationId);
+    },
+    [capture, chapter?.period_key, chapterId],
+  );
 
   const handleShare = React.useCallback(async () => {
     if (!outputJson) return;
@@ -414,6 +526,56 @@ export function ChapterDetailScreen() {
                     .join(' · ') || ''}
                 </Text>
               </View>
+
+              {visibleRecommendations.length > 0 ? (
+                <View style={styles.nextStepsBlock} accessibilityLabel="Next steps suggested by this chapter">
+                  <Text style={styles.sectionLabel}>Next steps</Text>
+                  <VStack space="sm">
+                    {visibleRecommendations.map((rec: any, idx: number) => {
+                      if (rec?.kind !== 'arc') return null;
+                      const reason = asString(rec?.reason) ?? '';
+                      const title = asString(rec?.payload?.title) ?? null;
+                      const key = asString(rec?.id) ?? `rec-${idx}`;
+                      const gate = canCreateArc({ isPro, arcs });
+                      const primaryLabel = gate.ok
+                        ? title
+                          ? `Create "${title}" Arc`
+                          : 'Create this Arc'
+                        : 'Unlock more Arcs';
+                      return (
+                        <View key={key} style={styles.nextStepCard}>
+                          {title ? (
+                            <Text style={styles.nextStepTitle} numberOfLines={2}>
+                              {title} Arc
+                            </Text>
+                          ) : null}
+                          {reason ? (
+                            <Text style={styles.nextStepReason}>{reason}</Text>
+                          ) : null}
+                          <View style={styles.nextStepActions}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={primaryLabel}
+                              onPress={() => handleNextStepCtaTap(rec)}
+                              style={styles.nextStepPrimary}
+                            >
+                              <Text style={styles.nextStepPrimaryLabel}>{primaryLabel}</Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Not now"
+                              onPress={() => handleNextStepDismiss(rec)}
+                              style={styles.nextStepSecondary}
+                            >
+                              <Text style={styles.nextStepSecondaryLabel}>Not now</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </VStack>
+                </View>
+              ) : null}
 
               {/* Phase 3.3: article body is now the secondary read, behind
                   a "Read the full story" disclosure. Failed / pending states
@@ -774,6 +936,57 @@ const styles = StyleSheet.create({
   },
   storyBody: {
     marginTop: spacing.md,
+  },
+  nextStepsBlock: {
+    width: '100%',
+    gap: spacing.sm,
+  },
+  nextStepCard: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.pine100,
+    backgroundColor: colors.canvas,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  nextStepTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  nextStepReason: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  nextStepActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  nextStepPrimary: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.pine700,
+  },
+  nextStepPrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontWeight: '700',
+  },
+  nextStepSecondary: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+  },
+  nextStepSecondaryLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   metricsBand: {
     width: '100%',

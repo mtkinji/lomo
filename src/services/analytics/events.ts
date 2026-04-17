@@ -108,6 +108,20 @@ export const AnalyticsEvent = {
   ChapterFeedbackSubmitted: 'chapter_feedback_submitted',
   ChapterPrevNextTapped: 'chapter_prev_next_tapped',
 
+  // Phase 5.2 of docs/chapters-plan.md: Next Steps v1 — Arc Nominations.
+  // `shown` fires once per (chapter, recommendation) pair when the card is
+  // rendered (not when the Chapter is opened if the card is sleeping from a
+  // prior dismissal). `cta` fires on the primary action — for Arc Nominations
+  // the primary is either "Create Arc" (Pro) or the paywall upsell (Free).
+  // `dismissed` fires on "Not now" and puts the recommendation to sleep for
+  // 90 days (see `chapterRecommendationDismissals.ts`). All three carry
+  // `{ chapter_id, recommendation_id, kind }`; `cta` additionally carries
+  // `{ result: 'paywall' | 'create_flow' }` so we can separate free-tier
+  // upsell funnels from Pro-tier adoption.
+  ChapterNextStepShown: 'chapter_next_step_shown',
+  ChapterNextStepCtaTapped: 'chapter_next_step_cta_tapped',
+  ChapterNextStepDismissed: 'chapter_next_step_dismissed',
+
   // Friends
   FriendInviteCreated: 'friend_invite_created',
   FriendInviteShared: 'friend_invite_shared',

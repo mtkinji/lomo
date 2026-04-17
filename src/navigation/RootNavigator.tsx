@@ -173,6 +173,15 @@ export type ArcsStackParamList = {
          * Used by the floating bottom bar primary action on the Arcs tab.
          */
         openCreateArc?: boolean;
+        /**
+         * Phase 5.2 of docs/chapters-plan.md — Next Steps "Create Arc"
+         * CTA. When the Chapter detail screen deep-links an Arc
+         * Nomination into Arc creation, it forwards the nominated title
+         * so the manual tab is pre-populated. Free-tier users are never
+         * routed here (the CTA hits the paywall instead), so this is
+         * Pro-only in practice.
+         */
+        prefilledArcName?: string;
       }
     | undefined;
   ArcDraftContinue: undefined;

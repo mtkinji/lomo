@@ -332,41 +332,107 @@ Files: `computeDeterministicMetrics` + prompt.
 
 **Theme:** Introduce the *Next Steps* section as a first-class Chapter artifact, starting with the highest-leverage type — Arc Nominations — which also functions as the primary behavioral upsell surface.
 
-**Status:** Not started. Depends on Phase 3.
+**Status:** Landed (Arc Nomination v1). Depends on Phase 3.
 
-#### 5.1 Schema: structured recommendations
+Implementation summary: deterministic Next Steps pipeline on top of the
+Phase-3 signal-first layout. Recommendations are computed server-side in
+`_shared/chapterRecommendations.ts` (framework-free, unit-tested) and
+merged into `output_json.recommendations` after the LLM pass succeeds. The
+Chapter detail screen renders a **Next steps** section directly beneath
+the Arc lanes with per-kind CTAs that respect the existing paywall gate,
+and the weekly digest email gains a single curiosity-gap hint line when
+any recommendation is attached.
 
-Files: `supabase/functions/chapters-generate/index.ts` (output schema + validator), migration for optional persistence.
+Trade-offs taken for v1 (documented in `chapterRecommendations.ts`):
 
-- Add `output_json.recommendations[]` — typed items: `{ id, kind: 'arc' | 'goal' | 'activity' | 'align', payload, reason, evidence_ids[], severity?, acted_on_at? }`.
-- Trigger logic is **deterministic** — pattern rules run over metrics + evidence. LLM only writes the one-sentence `reason` copy *off the payload*.
-- Deterministic trigger for `kind: 'arc'` (Arc Nomination):
-  - A sustained cross-signal pattern over ≥3 weeks (configurable) that doesn't map to any existing Arc.
-  - Example rules: HealthKit step floor held 3 weeks → Fitness Arc; mindfulness minutes ≥ 60/wk sustained → Spirituality/Mindfulness Arc; cluster of ≥5 untagged activities sharing a detectable theme → themed Arc.
-  - Hard gate: must be distinct from every existing Arc title + domain.
+- A single trigger ships now — the untagged-activity cluster. The
+  sustained-health-signal triggers named in the plan wait for Phase 4
+  (HealthKit). v1 still delivers the section to every user whose week
+  includes a themed cluster of arc-less activities.
+- The `reason` copy is a deterministic template rather than LLM-written.
+  Moving to LLM-authored reasons is a follow-up (new output schema slot +
+  prompt rule + validator). The ship-now tradeoff keeps the trigger
+  unit-testable in isolation and ships the section without adding a second
+  LLM round-trip.
 
-#### 5.2 Client surface: Next Steps section on detail screen
+#### 5.1 Schema: structured recommendations — **Landed**
 
-Files: `src/features/chapters/ChapterDetailScreen.tsx`, new card component.
+Files: `supabase/functions/_shared/chapterRecommendations.ts` (new),
+`supabase/functions/chapters-generate/index.ts` (call site).
 
-- New section appearing between "The moment" and "Read the full story," titled **Next Steps** (singular or plural depending on count).
-- Each recommendation renders as a card: reason line (LLM copy), supporting evidence summary (e.g., *"8k+ steps/day for 3 weeks"*), primary CTA, secondary "Not now."
-- Arc Nomination CTA for Free users at their 1-Arc limit: opens the existing paywall with contextual copy. For Pro users: opens Arc creation preflight with the nominated title prefilled.
-- Dismissals write `dismissed_at` locally (and sync via service) so the same nomination doesn't resurface for 90 days.
+- New `output_json.recommendations[]` with `{ id, kind: 'arc', payload, reason, evidence_ids[], evidence_summary }`.
+- `computeArcNominations` is a pure function: takes `{ activitiesIncluded, arcById }`, emits 0 or 1 Arc Nomination.
+- Trigger: ≥5 in-period activities with `arcId == null` share a 4+-letter
+  theme token (stopwords filtered), AND the winning token is not a
+  substring of any existing Arc title (case-insensitive). Guard against
+  activity-verb false positives via a Kwilt-specific stopword list
+  (`call`, `email`, `meet`, …).
+- Runs after LLM validation succeeds; attached recommendations never gate
+  Chapter readiness (they're purely additive signal).
+- Schema is stable/versioned; Phase 6 adds `goal | activity | align` kinds
+  under the same field + a shared 3-cap prioritization.
 
-#### 5.3 Digest email: Next Steps hook
+#### 5.2 Client surface: Next Steps section on detail screen — **Landed**
 
-Files: `supabase/functions/_shared/emailTemplates.ts`.
+Files: `src/features/chapters/ChapterDetailScreen.tsx`,
+`src/features/chapters/chapterRecommendationDismissals.ts` (new),
+`src/navigation/RootNavigator.tsx` (ArcsList params),
+`src/features/arcs/ArcsScreen.tsx` (prefill plumb-through),
+`src/services/paywall.ts` (new source).
 
-- When the Chapter has at least one Next Step, the email includes a single-line preview: *"Kwilt noticed something worth naming — open to see."* No content spoilage, creates a reason to tap through beyond consumption.
+- New **Next steps** section renders directly below the Arc-lanes block on
+  Chapter detail — this is the Phase-3 analog of "between 'The moment'
+  and 'Read the full story'," keeping the card inside the signal-first
+  surface.
+- Each card surfaces: the nominated Arc title (as `"<Title> Arc"`), the
+  deterministic `reason` line, a primary CTA and a "Not now" secondary.
+- CTA wiring:
+  - **Free tier at 1-Arc limit:** opens the paywall interstitial with
+    `reason: 'limit_arcs_total'` and a new source
+    `'chapter_arc_nomination'` so the upsell funnel is attributable.
+  - **Below-cap or Pro:** deep-links to `ArcsStack / ArcsList` with a new
+    `prefilledArcName` route param. `ArcsScreen` pushes that into
+    `NewArcModal`, which auto-selects the manual tab and populates the
+    title field.
+- Dismissal: tapping "Not now" calls `dismissRecommendation(id)` in
+  `chapterRecommendationDismissals.ts`, an AsyncStorage-backed
+  `{ [recommendationId]: iso }` map with a 90-day sleep window. v1 is
+  local only (server sync deferred — documented in the module).
+- Analytics: `chapter_next_step_shown` (fires once per rendered card per
+  chapter), `chapter_next_step_cta_tapped` (with
+  `result: 'paywall' | 'create_flow'`), `chapter_next_step_dismissed`.
+  All three carry `{ chapter_id, period_key, recommendation_id, kind }`.
+
+#### 5.3 Digest email: Next Steps hook — **Landed**
+
+Files: `supabase/functions/_shared/emailTemplates.ts`,
+`supabase/functions/_shared/chapterRecommendations.ts`.
+
+- When `outputJson.recommendations` has at least one well-formed entry
+  (see `hasAnyRecommendation`), the weekly digest adds a single line
+  between the snippet blockquote and the CTA: *"Kwilt noticed something
+  worth naming — open to see."*
+- Zero content spoilage — the nominated Arc's title never appears in the
+  email body. Unit-tested in
+  `supabase/functions/_shared/__tests__/emailTemplates.test.ts`.
 
 #### Phase 5 acceptance criteria
 
-- [ ] Arc Nominations fire only on real patterns (unit tests cover: sustained health pattern; new untagged activity cluster; must-not-fire-when-Arc-already-exists).
-- [ ] Nominated Arc is distinct from every existing Arc by title and implied domain.
-- [ ] Free tier at 1-Arc limit sees a paywall-framed CTA with evidence-anchored copy; Pro sees a direct-create CTA.
-- [ ] Dismissal sleeps the same nomination for ≥90 days.
-- [ ] Email includes a Next Steps hint only when the linked Chapter actually has recommendations.
+- [x] Arc Nominations fire only on real patterns: ≥5-untagged-cluster
+  coverage, must-not-fire-when-Arc-exists, must-not-fire-on-activity-verbs,
+  must-not-fire-under-floor. See `chapterRecommendations.test.ts`.
+- [x] Nominated Arc is distinct from every existing Arc by title (case-
+  insensitive substring gate). Implicit-domain gating is not yet
+  implemented — a deliberate v1 tradeoff; the title gate is sufficient
+  for the current trigger set.
+- [x] Free tier at 1-Arc limit sees a paywall-framed CTA
+  (`limit_arcs_total` + `chapter_arc_nomination` source); Pro sees a
+  direct-create CTA with the nominated title prefilled into the manual
+  Arc modal.
+- [x] Dismissal sleeps the same nomination for ≥90 days via
+  `chapterRecommendationDismissals.ts`.
+- [x] Email includes a Next Steps hint only when the linked Chapter
+  actually has recommendations — `hasAnyRecommendation` guard.
 
 ---
 

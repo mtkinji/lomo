@@ -440,6 +440,71 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
     expect(out.html).toMatch(/<strong>Saved Views<\/strong>/);
   });
 
+  // Phase 5.3 of docs/chapters-plan.md: Next Steps hint line.
+  describe('Next Steps digest hint (Phase 5.3 of chapters-plan.md)', () => {
+    const baseParams = {
+      chapterTitle: 'A Quiet Comeback Week',
+      chapterId: 'c-1',
+      cadence: 'weekly' as const,
+      periodStartIso: '2026-04-13T07:00:00.000Z',
+      periodEndIso: '2026-04-20T07:00:00.000Z',
+      timezone: 'America/Los_Angeles',
+    };
+
+    it('OMITS the hint when output_json has no recommendations', () => {
+      const { buildChapterDigestEmail } = loadTemplates();
+      const out = buildChapterDigestEmail({
+        ...baseParams,
+        outputJson: { sections: [{ key: 'story', body: 'Your week in review.' }] },
+      });
+      expect(out.html).not.toMatch(/Kwilt noticed something worth naming/);
+      expect(out.text).not.toMatch(/Kwilt noticed something worth naming/);
+    });
+
+    it('EMITS a single curiosity-gap line when at least one recommendation exists', () => {
+      const { buildChapterDigestEmail } = loadTemplates();
+      const out = buildChapterDigestEmail({
+        ...baseParams,
+        outputJson: {
+          sections: [{ key: 'story', body: 'Your week in review.' }],
+          recommendations: [
+            {
+              id: 'rec-arc-pottery',
+              kind: 'arc',
+              payload: { title: 'Pottery' },
+              reason: "5 activities share a pottery theme.",
+              evidence_ids: ['a1', 'a2', 'a3', 'a4', 'a5'],
+            },
+          ],
+        },
+      });
+      expect(out.html).toMatch(/Kwilt noticed something worth naming — open to see\./);
+      expect(out.text).toMatch(/Kwilt noticed something worth naming — open to see\./);
+    });
+
+    it('does not leak the recommendation content into the email body', () => {
+      const { buildChapterDigestEmail } = loadTemplates();
+      const out = buildChapterDigestEmail({
+        ...baseParams,
+        outputJson: {
+          sections: [{ key: 'story', body: 'Your week in review.' }],
+          recommendations: [
+            {
+              id: 'rec-arc-pottery',
+              kind: 'arc',
+              payload: { title: 'Pottery' },
+              reason: 'SECRET_REASON_SHOULD_NOT_SHIP',
+              evidence_ids: [],
+            },
+          ],
+        },
+      });
+      expect(out.html).not.toContain('SECRET_REASON_SHOULD_NOT_SHIP');
+      expect(out.html).not.toContain('Pottery');
+      expect(out.text).not.toContain('SECRET_REASON_SHOULD_NOT_SHIP');
+    });
+  });
+
   it('Chapter digest snippet is a border-left blockquote, not a filled box (Phase 5.3)', () => {
     const { buildChapterDigestEmail } = loadTemplates();
     const out = buildChapterDigestEmail({
