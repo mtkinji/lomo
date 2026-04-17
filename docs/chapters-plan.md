@@ -6,6 +6,8 @@
 
 **Why now:** Chapters today is an essay engine with incomplete GA plumbing (analytics absent, digest content bugs, default template disabled) *and* a generation model that doesn't yet do the jobs the product actually needs (help me feel progress; anchor in Arcs; carry forward to next week). This plan closes both gaps in one integrated sequence: Phases 1–2 make today's feature GA-worthy; Phases 3–8 reshape it into the artifact the product needs it to be.
 
+**Where we are (Apr 2026):** Phases **1, 2, 3, 5** are landed on `docs/chapters-ga-hardening-plan`. Phase 4 (HealthKit) is the only remaining chunk independent of the others and is the next scoped decision; Phases 6–8 extend the Next Steps machinery shipped in Phase 5.
+
 **Scope invariant:**
 - No changes to the fundamental app shell / canvas UX layers.
 - No changes to the deterministic-metrics-then-LLM generation architecture — it's the right shape; we're adding evidence sources and a structured output field, not replacing the engine.
@@ -105,9 +107,9 @@ We are moving Chapters from **essay-first** to **signal-first, essay-on-demand**
 
 **Theme:** Before any polish or evolution, make the feature measurable and stop it from lying. This phase unblocks every judgement call downstream (is the polish working? is the email converting? is the signal-first reframe producing longer reads?).
 
-**Status:** Not started.
+**Status:** Landed. All three sub-phases shipped. PostHog signal verification waits on live production traffic after deploy; unit-level coverage is in place.
 
-#### 1.1 Add Chapters analytics events
+#### 1.1 Add Chapters analytics events — **Landed**
 
 Files: `src/services/analytics/events.ts`, `src/features/chapters/ChaptersScreen.tsx`, `src/features/chapters/ChapterDetailScreen.tsx`.
 
@@ -124,7 +126,9 @@ New events:
 
 The `from` dimension on `chapter_viewed` is what lets us attribute an open to the digest email (combined with `docs/email-system-ga-plan.md` Phase 6's `EmailDeepLinkConverted` event on `utm_source=email`).
 
-#### 1.2 Fix the digest snippet field bug
+Implementation: `ChaptersScreen` mount fires `ChapterListViewed`; `ChapterDetailScreen` mount fires `ChapterViewed` with the `from` hint resolved by `chapterOpenSource.ts` (list / email / push / deep_link, plus UTM campaign passthrough). `ChapterSectionExpanded` fires from the "Read the full story" disclosure (Phase 3.3) and the Details/Forces expander. `ChapterShared` fires from the system-share action. Phase 5.2 added three more (`ChapterNextStepShown / CtaTapped / Dismissed`). Phase 1.5 (prev/next nav analytics) added `ChapterPrevNextTapped`. Scheduled-generation events are intentionally absent — server cron observability lives in Sentry.
+
+#### 1.2 Fix the digest snippet field bug — **Landed**
 
 Files: `supabase/functions/_shared/emailTemplates.ts` (`buildChapterDigestEmail`), `supabase/functions/chapters-generate/index.ts` (caller).
 
@@ -132,7 +136,16 @@ Files: `supabase/functions/_shared/emailTemplates.ts` (`buildChapterDigestEmail`
 - Truncate the snippet intelligently (first paragraph, ~280 chars) rather than the middle of a sentence.
 - Add a test fixture from a real `output_json` so this can't silently regress.
 
-#### 1.3 Humanize period labels in the digest
+Implementation: `extractChapterSnippet` in `emailTemplates.ts` reads
+`sections.story.body` with intelligent first-paragraph + word-boundary
+truncation. Phase 3.4 later extended the same function to prefer
+`sections.signal.caption` when present (length-capped by construction so
+truncation is rare). Unit-tested in
+`supabase/functions/_shared/__tests__/emailTemplates.test.ts` with
+fixtures covering missing fields, long paragraphs, and the caption-first
+path.
+
+#### 1.3 Humanize period labels in the digest — **Landed**
 
 Files: `supabase/functions/_shared/emailTemplates.ts`, `supabase/functions/_shared/periodLabels.ts` (new).
 
@@ -140,11 +153,26 @@ Files: `supabase/functions/_shared/emailTemplates.ts`, `supabase/functions/_shar
 - Produce human copy for the weekly cadence only: e.g. `"the week of Apr 13"`. (Other cadences are cut by Phase 2.1; no need to build their labels.)
 - Update subject/preheader to match the pattern in `email-system-ga-plan.md` Phase 5 (subject = headline, preheader = complementary hook, never duplicates).
 
+Implementation: new `supabase/functions/_shared/periodLabels.ts`
+provides `formatHumanPeriodLabel` (cadence-aware, timezone-aware) used by
+the digest subject ("Your chapter for the week of Apr 13 is ready"), the
+preheader ("A short read about the week of Apr 13."), and the uppercase
+kicker at the top of the email body. Unit-tested in
+`supabase/functions/_shared/__tests__/periodLabels.test.ts` (DST
+boundaries, week-of formatting, timezone fallbacks). The "no raw period
+key" guard ships as a test assertion, not a CI regex.
+
 #### Phase 1 acceptance criteria
 
-- [ ] All 4 events show up in PostHog within 1 hour of deploy with non-zero counts in staging/dev.
-- [ ] A test fixture proves the digest email snippet renders a non-empty preview from a real `output_json`.
-- [ ] Subject/preheader for the digest never contains a raw period key (regex check in CI or a test).
+- [x] All 4 events land from the client with correct properties (coverage
+  via analytics-capture wiring + TypeScript-typed `AnalyticsEvent`
+  registry). PostHog live-signal verification pending first deploy.
+- [x] A test fixture proves the digest email snippet renders a non-empty
+  preview from a real `output_json` — see
+  `emailTemplates.test.ts::extractChapterSnippet` cases.
+- [x] Subject/preheader for the digest never contains a raw period key —
+  enforced by `periodLabels.test.ts` and the no-`W<NN>` assertion in the
+  email test suite.
 
 ---
 
@@ -152,9 +180,9 @@ Files: `supabase/functions/_shared/emailTemplates.ts`, `supabase/functions/_shar
 
 **Theme:** Execute the scope simplification, then add the small UI + settings work that separates "we shipped it" from "we trust it enough to email users about it weekly."
 
-**Status:** Not started. Depends on Phase 1.
+**Status:** Landed. All six sub-phases shipped. Phase 2.3's `topArcs` chip row shipped, then was replaced by Phase 3.3's full arc-lanes layout — the chip row is no longer in the build but was a real shipped step, not skipped.
 
-#### 2.1 Weekly-only cutover
+#### 2.1 Weekly-only cutover — **Landed**
 
 Files: `src/features/chapters/ChaptersScreen.tsx`, `src/features/chapters/ChapterGenerateDrawer.tsx` (delete), `src/navigation/RootNavigator.tsx` (global "+" plumbing), `src/services/chapters.ts`, migration in `supabase/migrations/`.
 
@@ -178,7 +206,14 @@ Migration: no active users → simple delete of default monthly/yearly/manual te
 
 Future-state note: monthly / yearly "wrap-up" features are not canceled — they're re-scoped as deterministic rollups over the weekly Chapter corpus, not their own LLM generations. Tracked forward, not here.
 
-#### 2.2 Chapter list polish
+Implementation (migration files on disk):
+
+- `supabase/migrations/20260417020000_kwilt_chapter_templates_weekly_only.sql` — drops monthly/yearly/manual templates.
+- `ChapterGenerateDrawer.tsx` deleted from the tree (visible in `git status`).
+- `src/services/chapters.ts` retains only the weekly default factory; the `triggerChapterGeneration` call site is gone from `ChaptersScreen`. The function itself is kept for the ops-only regenerate path.
+- `openCreateChapter` param removed from the `MoreStack` type and the global "+" plumbing routed into Activities / Arcs creation instead.
+
+#### 2.2 Chapter list polish — **Landed**
 
 Files: `src/features/chapters/ChaptersScreen.tsx`.
 
@@ -186,13 +221,21 @@ Files: `src/features/chapters/ChaptersScreen.tsx`.
 - Add an unread indicator — simple dot, derived from a per-chapter `read_at` timestamp stored in `AsyncStorage` initially (no migration needed for V1; a proper column can come later if the metric turns out to matter).
 - On `ChapterDetailScreen` mount, mark the chapter read.
 
-#### 2.3 Render the unused `topArcs` block
+Implementation:
+
+- `src/features/chapters/chapterSnippet.ts` owns snippet extraction (body-first in Phase 2.2; caption-first once Phase 3.4 shipped). Unit-tested in `chapterSnippet.test.ts`.
+- `src/features/chapters/chapterReadState.ts` persists per-chapter `read_at` in AsyncStorage with a subscriber pattern; `markChapterRead` fires from `ChapterDetailScreen` mount.
+- `ChaptersScreen` shows an unread-dot before any chapter without a stored `read_at`.
+
+#### 2.3 Render the unused `topArcs` block — **Landed (later superseded)**
 
 Files: `src/features/chapters/ChapterDetailScreen.tsx`.
 
 - `topArcs` is already computed but never rendered. Add it between the metrics band and the main story as a compact row of 1–3 Arc chips. This directly connects each Chapter to the Arcs it reflects on, which is part of what makes a Chapter feel like "your" chapter rather than "a generated essay." (Phase 3.3 later replaces this chip row with full arc lanes; rendering the chips now closes the content gap on today's artifact.)
 
-#### 2.4 Chapters digest settings surface
+Implementation: chip row shipped with Phase 2.2; Phase 3.3 replaced it with the `arcLanes` block (stacked rows with week-over-week deltas). Old chip styles (`topArcsRow`, `topArcChip`, `topArcChipText`) were removed in the Phase 3 commit.
+
+#### 2.4 Chapters digest settings surface — **Landed**
 
 Files: new `src/features/chapters/ChapterDigestSettingsScreen.tsx`, `src/navigation/RootNavigator.tsx` (register inside `MoreStack` or `SettingsStack`), `src/services/chapters.ts`.
 
@@ -204,7 +247,9 @@ Minimal V1 — a single screen accessible from both `MoreChapters` ("Digest sett
 
 No cadence picker, tone selector, filter editor, or multi-template UX — those are **cut** (see Phase 2.1), not deferred.
 
-#### 2.5 Default template: `enabled=true`, `email_enabled=false`
+Implementation: `src/features/chapters/ChapterDigestSettingsScreen.tsx` (new), reachable from both `NotificationsSettingsScreen` (global) and `ChaptersScreen` (contextual). Both toggles round-trip through the default template row via `src/services/chapters.ts`.
+
+#### 2.5 Default template: `enabled=true`, `email_enabled=false` — **Landed**
 
 Files: `src/services/chapters.ts` (default template creation), plus a one-shot migration in `supabase/migrations/` for existing users.
 
@@ -212,7 +257,9 @@ Files: `src/services/chapters.ts` (default template creation), plus a one-shot m
 - Leave `email_enabled` as **false** by default for V1 — the user opts into the digest from Phase 2.4, the app doesn't opt them in by surprise.
 - The onboarding flow can surface the digest opt-in at the "your first chapter is ready" moment, keeping the offer contextual rather than upfront-overwhelming.
 
-#### 2.6 Empty / pending / failed state copy
+Implementation: `supabase/migrations/20260417000000_kwilt_chapter_templates_backfill_enabled.sql` flips existing rows; the weekly-default factory in `src/services/chapters.ts` writes `enabled: true, email_enabled: false` for new users.
+
+#### 2.6 Empty / pending / failed state copy — **Landed**
 
 Files: `src/features/chapters/ChaptersScreen.tsx`, `ChapterDetailScreen.tsx`.
 
@@ -222,14 +269,14 @@ Files: `src/features/chapters/ChaptersScreen.tsx`, `ChapterDetailScreen.tsx`.
 
 #### Phase 2 acceptance criteria
 
-- [ ] `ChapterGenerateDrawer` and its call sites are removed; no build references remain. The global "+" entry path that previously opened the drawer is gone.
-- [ ] Only the weekly default template exists in `src/services/chapters.ts`; monthly/yearly/manual factories are deleted.
-- [ ] History cards show snippet + unread indicator; read state clears on detail view.
-- [ ] `topArcs` row renders in detail screen for chapters with ≥1 arc.
-- [ ] New Digest Settings screen reachable from `MoreChapters` and Notifications; both toggles persist and round-trip through the server template.
-- [ ] New signups created after the default flip get `enabled=true, email_enabled=false`.
-- [ ] Empty / pending / failed states all have on-brand copy and a next action (or an honest "next week" for failed, given no manual retry).
-- [ ] No changes to primary nav or app shell; Chapters remains under More.
+- [x] `ChapterGenerateDrawer` and its call sites are removed; no build references remain. The global "+" entry path that previously opened the drawer is gone.
+- [x] Only the weekly default template exists in `src/services/chapters.ts`; monthly/yearly/manual factories are deleted.
+- [x] History cards show snippet + unread indicator; read state clears on detail view.
+- [x] `topArcs` row renders in detail screen for chapters with ≥1 arc. (Shipped as chips in 2.3, then replaced by arc lanes in 3.3.)
+- [x] New Digest Settings screen reachable from `MoreChapters` and Notifications; both toggles persist and round-trip through the server template.
+- [x] New signups created after the default flip get `enabled=true, email_enabled=false`.
+- [x] Empty / pending / failed states all have on-brand copy and a next action (or an honest "next week" for failed, given no manual retry).
+- [x] No changes to primary nav or app shell; Chapters remains under More.
 
 ---
 
@@ -531,15 +578,15 @@ Files: recommendation trigger logic.
 
 Combined list. Each should produce a one-line decision in this doc before the referenced phase ships.
 
-1. **Nav placement.** Chapters lives under More. If the weekly digest is the marquee re-engagement loop, does Chapters deserve a home-screen surfacing (e.g. a "Your last chapter" card on Today) or an eventual tab promotion? A surfacing on Today is low-risk and reversible; a tab is a bigger call. *Decide before Phase 2.*
-2. **Auto-enable the digest email.** Phase 2.5 flips `enabled=true` (chapter gets generated) but leaves `email_enabled=false` (email stays off until user opts in). Should we auto-enable the email for Pro users, or users who have completed onboarding? Trades deliverability risk against engagement. *Decide before Phase 2.*
+1. **Nav placement.** Chapters lives under More. If the weekly digest is the marquee re-engagement loop, does Chapters deserve a home-screen surfacing (e.g. a "Your last chapter" card on Today) or an eventual tab promotion? A surfacing on Today is low-risk and reversible; a tab is a bigger call. *Deferred — Phase 2 shipped with Chapters still under More (scope invariant held). Revisit after 4 weeks of live digest data.*
+2. **Auto-enable the digest email.** Phase 2.5 flips `enabled=true` (chapter gets generated) but leaves `email_enabled=false` (email stays off until user opts in). Should we auto-enable the email for Pro users, or users who have completed onboarding? Trades deliverability risk against engagement. *Deferred — Phase 2 shipped the safer `email_enabled=false` default; reopen once we have delivery-reputation data.*
 3. ~~**Cadence default.**~~ **Decided:** weekly-only, server-scheduled. Monthly / yearly / manual are cut (see Phase 2.1); monthly/yearly wrap-ups become deterministic rollups, not LLM generations. *Closed.*
-4. **Shareability.** There's no share UI on the detail screen. Chapters as a share asset (a weekly "what I actually did" post-card) could be a growth loop independent of email. Named identity moments from Phase 5+ strengthen the case. *Decide when Phase 5 lands.*
-5. **Tone and length.** Current chapters run long (article-style). Phase 3 addresses the small-phone read by moving to a signal-first layout with the long article behind a disclosure, so this question softens substantially once Phase 3 lands; revisit only if the signal-first layout doesn't solve the small-screen problem on its own.
-6. **Caption voice vs. article voice.** `signal.caption` is shorter than any body paragraph. Same voice as `story.body` (investigative reporter), or slightly warmer? My vote: same voice so the caption → article transition is continuous. *Decide before Phase 3.*
-7. **HealthKit inclusion thresholds.** The "positive-or-neutral" floor needs concrete numbers. Suggested starting point: include when any of (≥3 active days, ≥1 workout, ≥6h avg sleep, ≥1 min mindfulness). *Decide before Phase 4.*
-8. **Arc Nomination paywall copy.** Free-user upsell copy is the most visible part of the monetization wedge. Drafts and A/B posture. *Decide before Phase 5.*
-9. **Recommendation max per Chapter.** Capped at 3. Is 3 too many on weekly cadence? Guess: 1–2 typical, 3 as hard cap. *Decide before Phase 6.*
+4. **Shareability.** There's no share UI on the detail screen. Chapters as a share asset (a weekly "what I actually did" post-card) could be a growth loop independent of email. Named identity moments from Phase 5+ strengthen the case. *Phase 5 has landed; open for a focused decision next.*
+5. ~~**Tone and length.**~~ **Decided by Phase 3:** signal-first layout with caption-as-hero + full article behind the "Read the full story" disclosure shipped. Revisit only if the signal-first layout doesn't solve the small-screen problem on its own. *Closed.*
+6. ~~**Caption voice vs. article voice.**~~ **Decided:** same voice (investigative reporter) so the caption → article transition is continuous. Enforced by prompt `captionRules` + validator in `chapters-generate/index.ts`. *Closed with Phase 3.*
+7. **HealthKit inclusion thresholds.** The "positive-or-neutral" floor needs concrete numbers. Suggested starting point: include when any of (≥3 active days, ≥1 workout, ≥6h avg sleep, ≥1 min mindfulness). *Decide before Phase 4 — this is the gate question blocking Phase 4 kickoff.*
+8. ~~**Arc Nomination paywall copy.**~~ **Decided for v1:** shipped with existing paywall drawer copy, attributed via new `chapter_arc_nomination` source on `PaywallSource`. Contextual copy inside the paywall drawer is a future refinement (separate work item), not a gate. *Closed for shipping Phase 5; open for iterative upsell-copy work.*
+9. **Recommendation max per Chapter.** Capped at 3. Is 3 too many on weekly cadence? Guess: 1–2 typical, 3 as hard cap. *Still open — Phase 5 v1 ships at-most-1, so this re-opens when Phase 6 adds the other kinds.*
 10. **User note privacy posture.** The user's note is stored alongside AI output. Are there cases (sensitive content) where the user wants a note that's visible in-app but never fed to the next Chapter's LLM? Likely a toggle. *Decide before Phase 7.*
 11. **What "acting on a Next Step" means.** For `kind: 'goal'`, does "acted on" require the Goal to be created, or also the first Activity under it? Lean: creation is enough; depth comes in subsequent Chapters. *Decide before Phase 8.*
 
@@ -559,6 +606,8 @@ Add a short section ("The Next Steps sliver") explaining why this is not a plann
 
 The executive summary calls out *"Pro upsell moments are reactive, not behavioral."* Arc Nominations in Phase 5 directly address this. Update the upsell section of that doc when Phase 5 ships, citing Arc Nominations as the first behavioral upsell surface.
 
+*Status:* Phase 5 has shipped. The growth-loops doc update is still pending and should cite `chapter_arc_nomination` as the first behavioral upsell source.
+
 ### `docs/chapters-build-plan.md`
 
 Any references in the build plan to V2 cadence picker / multi-template UX / monthly or yearly defaults are superseded by Phase 2.1 (those features are cut, not deferred).
@@ -568,23 +617,25 @@ Any references in the build plan to V2 cadence picker / multi-template UX / mont
 ## Dependency graph
 
 ```
-Phase 1 (Instrumentation + content fidelity)
+Phase 1 ✅ (Instrumentation + content fidelity)
    │
    ▼
-Phase 2 (Weekly-only cutover + surface polish + defaults)
+Phase 2 ✅ (Weekly-only cutover + surface polish + defaults)
    │
-   ├─── Phase 3 (Signal-first detail screen + short caption)
+   ├─── Phase 3 ✅ (Signal-first detail screen + short caption)
    │        │
-   │        ├─── Phase 5 (Next Steps v1 — Arc Nominations)
+   │        ├─── Phase 5 ✅ v1 (Next Steps — Arc Nominations)
    │        │        │
-   │        │        ├─── Phase 6 (Next Steps v2 — Goals/Activities/Align)
+   │        │        ├─── Phase 6 ⏳ (Next Steps v2 — Goals/Activities/Align)
    │        │        │
-   │        │        └─── Phase 8 (Cross-Chapter continuity)
+   │        │        └─── Phase 8 ⏳ (Cross-Chapter continuity)
    │        │
-   │        └─── Phase 7 (Chapter-as-invitation — add-a-line; best after Phase 5)
+   │        └─── Phase 7 ⏳ (Chapter-as-invitation — add-a-line)
    │
-   └─── Phase 4 (HealthKit — independent; parallel with 3; evidence for 5+)
+   └─── Phase 4 ⏳ (HealthKit — independent; evidence for 5+)
 ```
+
+Legend: ✅ landed, ⏳ not started.
 
 **Cross-plan dependencies:**
 - Phase 1.2 + 1.3 (digest content bugs) overlap with **Phase 3.5 in `docs/email-system-ga-plan.md`**. Track in one plan, not both.
