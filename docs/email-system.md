@@ -438,28 +438,71 @@ signing secret into `KWILT_RESEND_WEBHOOK_SECRET`.
 
 ### Dashboard spec
 
-In PostHog, build two funnels:
+Live dashboard (provisioned via PostHog MCP on 2026-04-17):
+[**Email — Deliverability & Funnel (GA)**](https://us.posthog.com/project/266832/dashboard/1480722)
+(id `1480722`, project `Kwilt` / `266832`).
 
-1. **Delivery funnel (per campaign):**
-   `email_event[event_type=email.sent] → [email.delivered] → [email.opened] → [email.clicked] → email_deep_link_converted`
-   Slice by `campaign` property. Goal: show Sprint 4 §8 target rates by
-   template (welcome Day 0 > 40% open, chapter digest > 30% open).
+Tiles:
 
-2. **Full conversion funnel:**
-   `email_event[event_type=email.sent] → [email.opened] → email_cta_clicked → email_deep_link_converted → recordShowUp`
-   Measures the all-the-way funnel from an email hitting a user's inbox
-   to them actually completing an activity in-app.
+| # | Tile | short_id | Type | Notes |
+|---|---|---|---|---|
+| 1 | Open rate (24h) | `gQv6kxTc` | Trends / formula `A/B*100` | A=`email_event[event_type=email.opened]`, B=`email_event[event_type=email.delivered]`. Alert source. |
+| 2 | Click rate (24h) | `hgOgnkwX` | Trends / formula `A/B*100` | A=clicked, B=delivered. |
+| 3 | Bounce rate (24h) | `RBYNKlZu` | Trends / formula `A/B*100` | A=bounced, B=sent. Alert source. |
+| 4 | Complaint rate (24h) | `LyAkywBh` | Trends / formula `A/B*100` | A=complained, B=sent. Alert source. |
+| 5 | Daily sends by campaign (30d) | `KFgo5z1Y` | Trends | Breakdown by `campaign`. Spot send spikes. |
+| 6 | Daily rates (30d) | `4OLTT7zv` | HogQL line | All four rates on a single chart; trend visibility. |
+| 7 | Delivery funnel by campaign (30d) | `RAwmfGzc` | Funnel | Sent → Delivered → Opened → Clicked → `email_deep_link_converted`. Breakdown by `campaign`. |
+| 8 | Full conversion funnel (30d) | `U7VOwNaK` | Funnel | Sent → Opened → `email_cta_clicked` → `email_deep_link_converted` → `recordShowUp`. |
+
+Two structural choices worth knowing:
+
+1. **Rate tiles use TrendsQuery + formula `A/B*100`, not HogQL.** HogQL-backed insights look
+   identical as BoldNumbers but PostHog alerts **cannot** attach to a `DataVisualizationNode`
+   insight — they require a Trends insight with a numbered series. We rebuilt the rate tiles as
+   two-series Trends (numerator / denominator) so the same insight drives both the displayed
+   BoldNumber and the alert.
+2. **The four events in the full conversion funnel must exist in the PostHog event catalog for
+   the funnel to render non-zero steps.** `email_event` and `email_deep_link_converted` fire
+   from the server / app today; `email_cta_clicked` and `recordShowUp` only start flowing once
+   their emit sites on kwilt-site and in-app are exercised. Until real traffic lands, those
+   funnel steps will show 0 even though the definitions are wired.
 
 ### Alerts
 
-Configure in PostHog Insights → Alerts (or via Slack integration):
-
-| Metric | Yellow | Red | Why |
+| Metric | Yellow (manual watch) | Red (alert) | Why |
 |---|---|---|---|
 | Open rate (any campaign, rolling 24h) | < 25% | < 15% | Deliverability degrading; check bounce/complaint rates first |
 | Click rate (rolling 24h) | < 3% | < 1% | Template regression (UX refinement phase target is > 5%) |
 | Bounce rate | > 2% | > 5% | List hygiene problem; Gmail suspicion threshold is ~5% |
 | Complaint rate | > 0.1% | > 0.3% | Gmail's hard line is 0.3%; reputation damage starts here |
+
+Live alerts (PostHog → [Insights → Alerts](https://us.posthog.com/project/266832/insights?tab=alerts)):
+
+| Alert | Insight | Threshold | State | Notes |
+|---|---|---|---|---|
+| Bounce rate > 5% (red, 24h) | `RBYNKlZu` | upper bound 5.0 | **disabled** | Flip on when first real TestFlight production sends land. |
+| Complaint rate > 0.3% (red, 24h) | `LyAkywBh` | upper bound 0.3 | **disabled** | Same as above — Gmail hard line. |
+
+**Why only 2 alerts?** The PostHog team is on the free tier, which caps at 2 alerts per project.
+We picked the two reputation-critical thresholds (bounce + complaint) because:
+
+- They signal *immediate* ISP action (throttling / blocking).
+- Open / click rate drops are softer signals — reviewable on the dashboard with the eye, and the
+  daily-rates line (`4OLTT7zv`) already shows them.
+
+If we upgrade the PostHog plan later, the next two alerts to add are:
+
+- **Open rate < 15% (red, 24h)** on insight `gQv6kxTc`, condition `absolute_value`, lower bound 15.
+- **Click rate < 1% (red, 24h)** on insight `hgOgnkwX`, condition `absolute_value`, lower bound 1.
+
+**Both live alerts are `enabled: false`.** They must be enabled *after* real Kwilt sends start
+flowing from TestFlight / production — otherwise they fire immediately on the zero-volume
+denominator (a single bounce in a 3-email day is 33%). Enable steps:
+
+1. PostHog → Insights → Alerts → click alert name → toggle **Enabled**.
+2. Confirm notification channel (email to `andy@kwilt.app` is the default subscription).
+3. Optional: add Slack destination once the org has a Slack workspace hooked up.
 
 ### Debugging
 
