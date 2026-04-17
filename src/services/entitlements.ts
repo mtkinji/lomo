@@ -545,6 +545,37 @@ export async function openManageSubscription(): Promise<void> {
   // Fallback: do nothing (Android/Web not in scope for MVP PRD).
 }
 
+/**
+ * Detect the active subscription's billing period by inspecting RevenueCat customer info.
+ * Returns 'monthly', 'annual', or null if unable to determine.
+ */
+export async function getActiveBillingCadence(): Promise<BillingCadence | null> {
+  const purchases = getPurchasesModule();
+  const apiKey = getEnvVar<string>('revenueCatApiKey');
+  if (!purchases || !apiKey) return null;
+
+  try {
+    await configureRevenueCatIfNeeded(purchases);
+    const info = await purchases.getCustomerInfo?.();
+    const active = info?.entitlements?.active ?? {};
+    const proEntitlement = (active as any).pro;
+    if (!proEntitlement) return null;
+
+    const productId: string = proEntitlement.productIdentifier ?? proEntitlement.productPlanIdentifier ?? '';
+    if (productId.includes('annual') || productId.includes('yearly')) return 'annual';
+    if (productId.includes('monthly')) return 'monthly';
+
+    // Fallback: check billing period from the entitlement metadata
+    const period: string = proEntitlement.periodType ?? proEntitlement.billingPeriod ?? '';
+    if (period.toLowerCase().includes('annual') || period.toLowerCase().includes('year')) return 'annual';
+    if (period.toLowerCase().includes('month')) return 'monthly';
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getProSkuPricing(): Promise<Record<string, ProSkuPricing>> {
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');

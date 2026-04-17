@@ -10,7 +10,9 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { buildProCodeEmail, buildProGrantEmail } from '../_shared/emailTemplates.ts';
+import { buildProCodeEmail, buildProGrantEmail, buildTrialExpiryEmail } from '../_shared/emailTemplates.ts';
+import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
+import { sendEmailViaResend, isEmailSendingEnabled } from '../_shared/emailSend.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -513,6 +515,76 @@ serve(async (req) => {
     if (error) {
       return json(503, { error: { message: 'Unable to persist webhook', code: 'provider_unavailable' } });
     }
+
+    // Best-effort: send trial expiry email when a trial subscription expires.
+    if (type === 'EXPIRATION') {
+      try {
+        const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
+        const fromEmail = (
+          (Deno.env.get('KWILT_DRIP_EMAIL_FROM') ?? '').trim() ||
+          (Deno.env.get('INVITE_EMAIL_FROM') ?? '').trim() ||
+          'hello@mail.kwilt.app'
+        ).trim();
+        if (resendKey && fromEmail) {
+          // Resolve user email from app_user_id (may be a Supabase user ID).
+          const { data: userData } = await admin.auth.admin.getUserById(appUserIdRaw);
+          const userEmail = userData?.user?.email;
+          if (userEmail) {
+            // Check cadence: only send once per expiration cycle
+            const cadenceKey = 'trial_expiry';
+            const { data: existing } = await admin
+              .from('kwilt_email_cadence')
+              .select('id')
+              .eq('user_id', appUserIdRaw)
+              .eq('message_key', cadenceKey)
+              .maybeSingle();
+            if (!existing) {
+              const daysRemaining = 0;
+              // Phase 7.1: `trial_expiry` maps to the `marketing` preference
+              // category (conversion-oriented messaging — not transactional
+              // even though it follows a billing event).
+              const unsub = await buildUnsubscribeHeaders({
+                userId: appUserIdRaw,
+                category: 'marketing',
+              });
+              const emailContent = buildTrialExpiryEmail({
+                daysRemaining,
+                unsubscribeUrl: unsub?.visibleUrl,
+              });
+              const fromName = (Deno.env.get('KWILT_PRO_CODE_FROM_NAME') ?? 'Kwilt').trim();
+              const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
+              const outcome = await sendEmailViaResend({
+                resendKey,
+                from,
+                to: userEmail,
+                subject: emailContent.subject,
+                text: emailContent.text,
+                html: emailContent.html,
+                campaign: 'trial_expiry',
+                userId: appUserIdRaw,
+                admin,
+                extraHeaders: unsub?.headers,
+              });
+              if (outcome.ok) {
+                await admin.from('kwilt_email_cadence').insert({
+                  user_id: appUserIdRaw,
+                  message_key: cadenceKey,
+                  metadata: {
+                    event_type: type,
+                    product_id: productId,
+                    campaign: 'trial_expiry',
+                    resend_id: outcome.resendId ?? null,
+                  },
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Trial expiry email is best-effort; don't fail the webhook.
+      }
+    }
+
     return json(200, { ok: true });
   }
 
@@ -723,25 +795,30 @@ serve(async (req) => {
       }
 
       const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
-      const resendRes = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from,
-          to: recipientEmail,
-          subject: emailContent.subject,
-          text: emailContent.text,
-          html: emailContent.html,
-        }),
-      }).catch(() => null);
-
-      if (!resendRes) {
-        return json(503, { error: { message: 'Email provider unavailable', code: 'provider_unavailable' } });
-      }
-      if (!resendRes.ok) {
-        const bodyText = await resendRes.text().catch(() => '');
-        return json(502, {
-          error: { message: 'Email send failed', code: 'provider_error', status: resendRes.status, body: bodyText.slice(0, 500) },
+      // Phase 7.2: pro_code is transactional (admin-initiated grant to a
+      // specific recipient). The send helper still enforces the kill switch
+      // and tags the message; unsubscribe headers are intentionally absent
+      // because `categoryForCampaign('pro_code')` returns null.
+      const outcome = await sendEmailViaResend({
+        resendKey,
+        from,
+        to: recipientEmail,
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html,
+        campaign: 'pro_code',
+      });
+      if (!outcome.ok) {
+        if (outcome.reason === 'kill_switch') {
+          return json(503, { error: { message: 'Email sending disabled', code: 'sending_disabled' } });
+        }
+        return json(outcome.status === 503 ? 503 : 502, {
+          error: {
+            message: 'Email send failed',
+            code: 'provider_error',
+            status: outcome.status,
+            body: typeof outcome.body === 'string' ? outcome.body.slice(0, 500) : undefined,
+          },
         });
       }
       return json(200, { ok: true });
@@ -855,20 +932,18 @@ serve(async (req) => {
         const emailContent = buildProGrantEmail({ expiresAtIso: expiresAt });
 
         const from = fromEmail.includes('<') ? fromEmail : `${fromName} <${fromEmail}>`;
-        // Best-effort: don't fail the grant if email send fails
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from,
-            to: resolvedEmail,
-            subject: emailContent.subject,
-            text: emailContent.text,
-            html: emailContent.html,
-          }),
-        }).catch(() => {
-          // Silently fail - email is best-effort notification
-        });
+        // Phase 7.2: pro_granted is transactional — fire-and-forget through
+        // the shared helper so the kill switch applies and a `campaign` tag
+        // lands on the Resend analytics side.
+        await sendEmailViaResend({
+          resendKey,
+          from,
+          to: resolvedEmail,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+          campaign: 'pro_granted',
+        }).catch(() => null);
       }
     }
 

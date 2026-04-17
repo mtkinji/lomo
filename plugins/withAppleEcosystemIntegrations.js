@@ -1019,6 +1019,9 @@ import SwiftUI
 #if canImport(AppIntents)
 import AppIntents
 #endif
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 
 // Widgets should preserve the app shell/canvas by deep-linking into existing screens.
 // We keep WidgetKit data minimal and read a single JSON blob from the App Group:
@@ -1364,11 +1367,364 @@ struct KwiltActivitiesWidget: Widget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Lock Screen Widgets (W1)
+// ---------------------------------------------------------------------------
+
+@available(iOS 17.0, *)
+struct LockScreenEntry: TimelineEntry {
+  let date: Date
+  let streak: Int
+  let completedToday: Int
+  let nextUpTitle: String?
+}
+
+@available(iOS 17.0, *)
+struct LockScreenProvider: TimelineProvider {
+  typealias Entry = LockScreenEntry
+
+  func placeholder(in context: Context) -> LockScreenEntry {
+    LockScreenEntry(date: Date(), streak: 7, completedToday: 3, nextUpTitle: "Review goals")
+  }
+
+  func getSnapshot(in context: Context, completion: @escaping (LockScreenEntry) -> Void) {
+    let state = readGlanceableState()
+    completion(LockScreenEntry(
+      date: Date(),
+      streak: state?.momentum?.showUpStreakDays ?? 0,
+      completedToday: state?.momentum?.completedToday ?? 0,
+      nextUpTitle: state?.nextUp?.title
+    ))
+  }
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<LockScreenEntry>) -> Void) {
+    let state = readGlanceableState()
+    let entry = LockScreenEntry(
+      date: Date(),
+      streak: state?.momentum?.showUpStreakDays ?? 0,
+      completedToday: state?.momentum?.completedToday ?? 0,
+      nextUpTitle: state?.nextUp?.title
+    )
+    completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60))))
+  }
+}
+
+@available(iOS 17.0, *)
+struct LockScreenCircularView: View {
+  let entry: LockScreenEntry
+
+  var body: some View {
+    Gauge(value: Double(min(entry.streak, 30)), in: 0...30) {
+      Text("\\(entry.streak)")
+        .font(.title3.bold())
+    }
+    .gaugeStyle(.accessoryCircularCapacity)
+    .tint(KwiltPalette.pine)
+    .widgetURL(deepLinkToday())
+  }
+}
+
+@available(iOS 17.0, *)
+struct LockScreenRectangularView: View {
+  let entry: LockScreenEntry
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      HStack(spacing: 4) {
+        Image(systemName: "flame.fill")
+          .foregroundStyle(KwiltPalette.pine)
+        Text("\\(entry.streak)-day streak")
+          .font(.headline)
+          .lineLimit(1)
+      }
+      if let next = entry.nextUpTitle {
+        Text("Next: \\(next)")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      } else {
+        Text("\\(entry.completedToday) done today")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+    }
+    .widgetURL(deepLinkToday())
+  }
+}
+
+@available(iOS 17.0, *)
+struct LockScreenInlineView: View {
+  let entry: LockScreenEntry
+
+  var body: some View {
+    if entry.streak > 0 {
+      Text("\\(Image(systemName: "flame.fill")) \\(entry.streak)-day streak")
+    } else if let next = entry.nextUpTitle {
+      Text("\\(Image(systemName: "arrow.right")) \\(next)")
+    } else {
+      Text("\\(Image(systemName: "checkmark")) \\(entry.completedToday) done today")
+    }
+  }
+}
+
+@available(iOS 17.0, *)
+struct LockScreenWidgetView: View {
+  let entry: LockScreenEntry
+  @Environment(\\.widgetFamily) var family
+
+  var body: some View {
+    switch family {
+    case .accessoryCircular:
+      LockScreenCircularView(entry: entry)
+    case .accessoryRectangular:
+      LockScreenRectangularView(entry: entry)
+    case .accessoryInline:
+      LockScreenInlineView(entry: entry)
+    default:
+      LockScreenCircularView(entry: entry)
+    }
+  }
+}
+
+@available(iOS 17.0, *)
+struct KwiltLockScreenWidget: Widget {
+  let kind: String = "${targetName}.lockscreen"
+
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: LockScreenProvider()) { entry in
+      LockScreenWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Kwilt Streak")
+    .description("Your streak and next activity at a glance.")
+    .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline])
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Small Home Screen Widget (W2) — streak-focused
+// ---------------------------------------------------------------------------
+
+@available(iOS 17.0, *)
+struct SmallHomeEntry: TimelineEntry {
+  let date: Date
+  let streak: Int
+  let completedToday: Int
+  let nextUpTitle: String?
+}
+
+@available(iOS 17.0, *)
+struct SmallHomeProvider: TimelineProvider {
+  typealias Entry = SmallHomeEntry
+
+  func placeholder(in context: Context) -> SmallHomeEntry {
+    SmallHomeEntry(date: Date(), streak: 7, completedToday: 3, nextUpTitle: "Review goals")
+  }
+
+  func getSnapshot(in context: Context, completion: @escaping (SmallHomeEntry) -> Void) {
+    let state = readGlanceableState()
+    completion(SmallHomeEntry(
+      date: Date(),
+      streak: state?.momentum?.showUpStreakDays ?? 0,
+      completedToday: state?.momentum?.completedToday ?? 0,
+      nextUpTitle: state?.nextUp?.title
+    ))
+  }
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<SmallHomeEntry>) -> Void) {
+    let state = readGlanceableState()
+    let entry = SmallHomeEntry(
+      date: Date(),
+      streak: state?.momentum?.showUpStreakDays ?? 0,
+      completedToday: state?.momentum?.completedToday ?? 0,
+      nextUpTitle: state?.nextUp?.title
+    )
+    completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60))))
+  }
+}
+
+@available(iOS 17.0, *)
+struct SmallHomeWidgetView: View {
+  let entry: SmallHomeEntry
+
+  var body: some View {
+    widgetContainer {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 6) {
+#if canImport(UIKit)
+          if let logo = kwiltLogoImage() {
+            logo
+              .resizable()
+              .renderingMode(.original)
+              .aspectRatio(contentMode: .fit)
+              .frame(width: 18, height: 18)
+          }
+#endif
+          Text("Kwilt")
+            .font(.caption.bold())
+            .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KwiltPalette.pine)
+        .clipShape(UnevenRoundedRectangle(cornerRadii: .init(topLeading: 22, topTrailing: 22)))
+
+        VStack(alignment: .leading, spacing: 6) {
+          HStack(spacing: 4) {
+            Image(systemName: "flame.fill")
+              .foregroundStyle(entry.streak > 0 ? .orange : .secondary)
+              .font(.title2)
+            Text("\\(entry.streak)")
+              .font(.title.bold())
+          }
+          Text(entry.streak == 1 ? "day streak" : "day streak")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+          Spacer()
+
+          if let next = entry.nextUpTitle {
+            Text(next)
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+              .lineLimit(2)
+          } else {
+            Text("\\(entry.completedToday) done today")
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+          }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
+      }
+      .widgetURL(deepLinkToday())
+    }
+  }
+}
+
+@available(iOS 17.0, *)
+struct KwiltStreakWidget: Widget {
+  let kind: String = "${targetName}.streak"
+
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: SmallHomeProvider()) { entry in
+      SmallHomeWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Streak")
+    .description("Your show-up streak and today's progress.")
+    .supportedFamilies([.systemSmall])
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Focus Live Activities (W3) — ActivityConfiguration
+// ---------------------------------------------------------------------------
+
+@available(iOS 16.2, *)
+struct KwiltFocusLiveActivityView: View {
+  let context: ActivityViewContext<KwiltFocusAttributes>
+
+  var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
+  var endAt: Date? {
+    let ms = context.state.endAtMs
+    return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
+  }
+
+  var body: some View {
+    HStack(spacing: 12) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(context.state.title)
+          .font(.headline)
+          .lineLimit(1)
+      }
+      Spacer()
+      if let end = endAt {
+        Text(end, style: .timer)
+          .font(.title2.monospacedDigit().bold())
+          .foregroundStyle(KwiltPalette.pine)
+      } else {
+        Text(startedAt, style: .timer)
+          .font(.title2.monospacedDigit().bold())
+          .foregroundStyle(KwiltPalette.pine)
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+  }
+}
+
+@available(iOS 16.2, *)
+struct KwiltFocusDynamicIslandExpandedView: View {
+  let context: ActivityViewContext<KwiltFocusAttributes>
+
+  var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
+  var endAt: Date? {
+    let ms = context.state.endAtMs
+    return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
+  }
+
+  var body: some View {
+    VStack(spacing: 8) {
+      Text(context.state.title)
+        .font(.headline)
+        .lineLimit(1)
+      if let end = endAt {
+        Text(end, style: .timer)
+          .font(.title.monospacedDigit().bold())
+          .foregroundStyle(KwiltPalette.pine)
+      } else {
+        Text(startedAt, style: .timer)
+          .font(.title.monospacedDigit().bold())
+          .foregroundStyle(KwiltPalette.pine)
+      }
+    }
+  }
+}
+
+@available(iOS 16.2, *)
+struct KwiltFocusLiveActivity: Widget {
+  var body: some WidgetConfiguration {
+    ActivityConfiguration(for: KwiltFocusAttributes.self) { context in
+      KwiltFocusLiveActivityView(context: context)
+    } dynamicIsland: { context in
+      DynamicIsland {
+        DynamicIslandExpandedRegion(.center) {
+          KwiltFocusDynamicIslandExpandedView(context: context)
+        }
+      } compactLeading: {
+        Image(systemName: "timer")
+          .foregroundStyle(KwiltPalette.pine)
+      } compactTrailing: {
+        let ms = context.state.endAtMs
+        if ms > 0 {
+          Text(Date(timeIntervalSince1970: Double(ms) / 1000.0), style: .timer)
+            .monospacedDigit()
+            .font(.caption2)
+        } else {
+          Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
+            .monospacedDigit()
+            .font(.caption2)
+        }
+      } minimal: {
+        Image(systemName: "timer")
+          .foregroundStyle(KwiltPalette.pine)
+      }
+    }
+  }
+}
+
 @main
 struct ${targetName}Bundle: WidgetBundle {
   var body: some Widget {
     if #available(iOS 17.0, *) {
       KwiltActivitiesWidget()
+      KwiltLockScreenWidget()
+      KwiltStreakWidget()
+    }
+    if #available(iOS 16.2, *) {
+      KwiltFocusLiveActivity()
     }
   }
 }

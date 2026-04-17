@@ -7,15 +7,18 @@ type KwiltWidgetCenterNativeModule = {
 const native: KwiltWidgetCenterNativeModule | undefined = (NativeModules as any)?.KwiltWidgetCenter;
 
 /**
- * IMPORTANT:
- * Widget kinds must exactly match the `kind` string declared in the WidgetKit extension.
+ * Widget kinds must exactly match the `kind` string declared in the WidgetKit extension
+ * (see plugins/withAppleEcosystemIntegrations.js).
+ *
  * Deriving kinds from the *app name* is brittle (dev builds often rename the app),
  * which can cause reloadTimelines() to point at a non-existent kind and make widgets
  * appear stale/empty when resizing triggers a refresh.
- *
- * See: ios/KwiltWidgets/KwiltWidgets.swift -> KwiltActivitiesWidget.kind
  */
-export const KWILT_WIDGET_KINDS = ['KwiltWidgets.activities'];
+export const KWILT_WIDGET_KINDS = [
+  'KwiltWidgets.activities',
+  'KwiltWidgets.lockscreen',
+  'KwiltWidgets.streak',
+];
 
 let pendingKinds = new Set<string>();
 let reloadTimeout: ReturnType<typeof setTimeout> | null = null;

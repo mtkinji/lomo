@@ -76,6 +76,89 @@ const SYSTEM_NUDGE_DAILY_CAP = 2;
 const SYSTEM_NUDGE_MIN_SPACING_MS = 6 * 60 * 60 * 1000;
 const SYSTEM_NUDGE_SUPPRESS_UPCOMING_ACTIVITY_REMINDER_MS = 3 * 60 * 60 * 1000;
 
+// ---------------------------------------------------------------------------
+// Copy variant system (N6) — rotate notification copy for A/B engagement tracking.
+// Each variant is a function receiving context and returning { title, body }.
+// ---------------------------------------------------------------------------
+
+type CopyVariantContext = {
+  streak: number;
+  arcName?: string;
+  activityTitle?: string;
+  goalTitle?: string;
+  hasActivitiesToday?: boolean;
+};
+type CopyVariant = (ctx: CopyVariantContext) => { title: string; body: string };
+
+function pickVariant(variants: CopyVariant[], type: NotificationType): { variant: CopyVariant; index: number } {
+  const index = Math.floor(Math.random() * variants.length);
+  return { variant: variants[index], index };
+}
+
+const DAILY_SHOW_UP_VARIANTS: CopyVariant[] = [
+  (ctx) => ({
+    title: `Align your day with your arcs${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
+    body: ctx.hasActivitiesToday ? 'Open Kwilt to review Today and choose one tiny step.' : 'Today is empty—pick one tiny step to keep momentum.',
+  }),
+  (ctx) => ({
+    title: ctx.streak >= 2 ? `Day ${ctx.streak + 1} — keep the momentum` : 'Start building momentum today',
+    body: 'One tiny step moves you forward. Open Kwilt to pick yours.',
+  }),
+  (ctx) => ({
+    title: ctx.arcName ? `Your ${ctx.arcName} Arc is waiting` : 'Your Arcs are waiting',
+    body: ctx.streak >= 2 ? `Day ${ctx.streak + 1} — show up for the life you're building.` : 'Show up for the life you\'re building.',
+  }),
+  (ctx) => ({
+    title: ctx.streak >= 2 ? 'Don\'t break the chain' : 'Today is a fresh start',
+    body: ctx.streak >= 2 ? `${ctx.streak} days and counting. One step keeps it alive.` : 'One small action today sets the tone for tomorrow.',
+  }),
+];
+
+const ACTIVITY_REMINDER_VARIANTS: CopyVariant[] = [
+  (ctx) => ({
+    title: `${ctx.activityTitle ?? 'Activity reminder'}${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
+    body: ctx.goalTitle ? (ctx.arcName && ctx.arcName.length <= 26 ? `${ctx.goalTitle} · ${ctx.arcName}` : ctx.goalTitle) : 'Take a tiny step on this activity.',
+  }),
+  (ctx) => ({
+    title: ctx.streak >= 2 ? `Day ${ctx.streak + 1}: ${ctx.activityTitle ?? 'Time to act'}` : (ctx.activityTitle ?? 'Time to act'),
+    body: ctx.goalTitle ? `Part of your ${ctx.goalTitle} goal.` : 'This is the tiny step that builds your streak.',
+  }),
+  (ctx) => ({
+    title: ctx.activityTitle ?? 'Activity reminder',
+    body: ctx.streak >= 2 ? `Completing this continues your ${ctx.streak}-day streak.` : 'One tiny step — that\'s all it takes.',
+  }),
+];
+
+const STREAK_AT_RISK_VARIANTS: CopyVariant[] = [
+  (ctx) => ({
+    title: `Your ${ctx.streak}-day streak is at risk`,
+    body: 'Show up before midnight — one tiny step keeps it alive.',
+  }),
+  (ctx) => ({
+    title: ctx.streak >= 30 ? `${ctx.streak} days of showing up — don't stop now` : `${ctx.streak}-day streak: still time today`,
+    body: 'You\'ve built something real. One tiny step protects it.',
+  }),
+  (ctx) => ({
+    title: ctx.streak >= 7 ? `Day ${ctx.streak} is on the line` : `Your ${ctx.streak}-day streak needs you`,
+    body: ctx.streak >= 30 ? 'A streak this long deserves protection. Show up now.' : 'Open Kwilt before midnight to keep your streak alive.',
+  }),
+];
+
+const REACTIVATION_VARIANTS: CopyVariant[] = [
+  (ctx) => ({
+    title: ctx.streak > 1 ? `You had a ${ctx.streak}-day streak going` : 'Your goals are waiting',
+    body: ctx.streak > 1 ? 'Come back and start building again — one tiny step is all it takes.' : 'It\'s been a few days. Ready for one tiny step?',
+  }),
+  (ctx) => ({
+    title: ctx.streak > 1 ? `You showed up ${ctx.streak} days in a row — you can do it again` : 'Ready for a fresh start?',
+    body: 'Your Arcs are still here. One tiny step starts a new streak.',
+  }),
+  (ctx) => ({
+    title: 'Your Arc is still here',
+    body: ctx.streak > 1 ? `You built a ${ctx.streak}-day streak once. Ready for another?` : 'One tiny step is all it takes to start again.',
+  }),
+];
+
 let responseSubscription:
   | Notifications.Subscription
   | null = null;
@@ -690,18 +773,24 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
     const goalTitle = goal?.title?.trim() ?? '';
     const arcName = arc?.name?.trim() ?? '';
     const streak = state.currentShowUpStreak ?? 0;
-    const rawTitle = activity.title?.trim() ? activity.title.trim() : 'Activity reminder';
-    const title = streak >= 2 ? `${rawTitle} — day ${streak + 1}` : rawTitle;
-    const body =
-      goalTitle.length > 0
-        ? arcName.length > 0 && arcName.length <= 26
-          ? `${goalTitle} · ${arcName}`
-          : goalTitle
-        : 'Take a tiny step on this activity.';
+
+    const actCtx: CopyVariantContext = {
+      streak,
+      activityTitle: activity.title?.trim() || 'Activity reminder',
+      goalTitle: goalTitle || undefined,
+      arcName: arcName || undefined,
+    };
+    const { variant: actVariant, index: actVariantIndex } = pickVariant(ACTIVITY_REMINDER_VARIANTS, 'activityReminder');
+    const actCopy = actVariant(actCtx);
+
+    track(posthogClient, AnalyticsEvent.NotificationCopyVariant, {
+      notification_type: 'activityReminder',
+      variant_index: actVariantIndex,
+    });
 
     const content: Notifications.NotificationContentInput = {
-      title,
-      body,
+      title: actCopy.title,
+      body: actCopy.body,
       categoryIdentifier: CATEGORY_ACTIVITY_REMINDER,
       data: {
         type: 'activityReminder',
@@ -1005,23 +1094,34 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
   try {
     const type: NotificationData['type'] = isSetup ? 'setupNextStep' : 'dailyShowUp';
     const streak = state.currentShowUpStreak ?? 0;
-    const streakSuffix = streak >= 2 ? ` — day ${streak + 1}` : '';
+    const activeArc = state.arcs[0];
+
+    let copyTitle: string;
+    let copyBody: string;
+    let variantIndex = -1;
+
+    if (type === 'setupNextStep') {
+      copyTitle = isSetup?.reason === 'no_goals' ? 'Start your first goal' : 'Add one tiny step';
+      copyBody = isSetup?.reason === 'no_goals'
+        ? 'Create one goal so Kwilt can start nudging you at the right moments.'
+        : 'Add one Activity so you can build momentum today.';
+    } else {
+      const ctx: CopyVariantContext = {
+        streak,
+        arcName: activeArc?.name?.trim(),
+        hasActivitiesToday: hasAnyActivitiesScheduledForToday({ activities: useAppStore.getState().activities, now }),
+      };
+      const { variant, index } = pickVariant(DAILY_SHOW_UP_VARIANTS, 'dailyShowUp');
+      variantIndex = index;
+      const copy = variant(ctx);
+      copyTitle = copy.title;
+      copyBody = copy.body;
+    }
+
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title:
-          type === 'setupNextStep'
-            ? isSetup?.reason === 'no_goals'
-              ? 'Start your first goal'
-              : 'Add one tiny step'
-            : `Align your day with your arcs${streakSuffix}`,
-        body:
-          type === 'setupNextStep'
-            ? isSetup?.reason === 'no_goals'
-              ? 'Create one goal so Kwilt can start nudging you at the right moments.'
-              : 'Add one Activity so you can build momentum today.'
-            : hasAnyActivitiesScheduledForToday({ activities: useAppStore.getState().activities, now })
-              ? 'Open Kwilt to review Today and choose one tiny step.'
-              : 'Today is empty—pick one tiny step to keep momentum.',
+        title: copyTitle,
+        body: copyBody,
         data: {
           ...(type === 'setupNextStep'
             ? ({
@@ -1060,6 +1160,12 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
       scheduled_for: fireAt.toISOString(),
       platform_trigger_type: 'date',
     });
+    if (variantIndex >= 0) {
+      track(posthogClient, AnalyticsEvent.NotificationCopyVariant, {
+        notification_type: type,
+        variant_index: variantIndex,
+      });
+    }
     await recordSystemNudgeScheduled({
       dateKey: localDateKey(fireAt),
       type,
@@ -1460,10 +1566,14 @@ async function scheduleStreakAtRiskInternal(prefs: NotificationPreferences) {
   await cancelAllScheduledStreakAtRisk('reschedule');
 
   try {
+    const streakCtx: CopyVariantContext = { streak };
+    const { variant: streakVariant, index: streakVariantIndex } = pickVariant(STREAK_AT_RISK_VARIANTS, 'streak');
+    const streakCopy = streakVariant(streakCtx);
+
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title: `Your ${streak}-day streak is at risk`,
-        body: 'Show up before midnight — one tiny step keeps it alive.',
+        title: streakCopy.title,
+        body: streakCopy.body,
         categoryIdentifier: CATEGORY_STREAK_AT_RISK,
         data: { type: 'streak' } satisfies NotificationData,
       },
@@ -1478,6 +1588,10 @@ async function scheduleStreakAtRiskInternal(prefs: NotificationPreferences) {
       notification_id: identifier,
       scheduled_for: fireAt.toISOString(),
       streak_length: streak,
+    });
+    track(posthogClient, AnalyticsEvent.NotificationCopyVariant, {
+      notification_type: 'streak',
+      variant_index: streakVariantIndex,
     });
     await recordSystemNudgeScheduled({
       dateKey: localDateKey(fireAt),
@@ -1525,19 +1639,14 @@ async function scheduleReactivationInternal(prefs: NotificationPreferences) {
   await cancelAllScheduledReactivation('reschedule');
 
   try {
-    const title =
-      streak > 1
-        ? `You had a ${streak}-day streak going`
-        : 'Your goals are waiting';
-    const body =
-      streak > 1
-        ? 'Come back and start building again — one tiny step is all it takes.'
-        : "It's been a few days. Ready for one tiny step?";
+    const reactivationCtx: CopyVariantContext = { streak };
+    const { variant: reactivationVariant, index: reactivationVariantIndex } = pickVariant(REACTIVATION_VARIANTS, 'reactivation');
+    const reactivationCopy = reactivationVariant(reactivationCtx);
 
     const identifier = await Notifications.scheduleNotificationAsync({
       content: {
-        title,
-        body,
+        title: reactivationCopy.title,
+        body: reactivationCopy.body,
         data: { type: 'reactivation' } satisfies NotificationData,
       },
       trigger: {
@@ -1551,6 +1660,10 @@ async function scheduleReactivationInternal(prefs: NotificationPreferences) {
       notification_id: identifier,
       scheduled_for: fireAt.toISOString(),
       streak_length: streak,
+    });
+    track(posthogClient, AnalyticsEvent.NotificationCopyVariant, {
+      notification_type: 'reactivation',
+      variant_index: reactivationVariantIndex,
     });
     await recordSystemNudgeScheduled({
       dateKey: localDateKey(fireAt),

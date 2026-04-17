@@ -292,53 +292,76 @@ Files: `src/services/NotificationService.ts`
 
 ---
 
-## Sprint 3b — Widget surfaces
+## Sprint 3b — Widget surfaces + remaining email/polish ✅ Complete
 
-**Theme:** Ship new native widget surfaces (Lock Screen, small Home Screen, Live Activities) to close Loop 1 fully.
-**Estimated duration:** ~2 weeks
-**Loop closed:** Loop 1 complete (Streak → Widget → Notification → Show-up → Streak)
-**Prerequisite:** Sprint 3a (widget attribution + nudge wiring must be in place to measure widget ROI)
+**Theme:** Ship new native widget surfaces (Lock Screen, small Home Screen, Live Activities) + remaining email, notification, and upsell work.
+**Estimated duration:** ~1.5 weeks
+**Loop closed:** Loop 1 complete (Streak → Widget → Notification → Show-up → Streak), Loop 2 complete (win-back emails)
+**Status:** All tasks implemented, 85/85 tests passing, typecheck clean.
 
-### Why this is separate
-- All three tasks require native Swift changes in the widget extension, generated via the config plugin as string templates.
-- The dev loop (edit Swift-as-string → expo prebuild → rebuild) is slow and hard to iterate on visually.
-- Consider extracting Swift templates into standalone `.swift` source files copied at prebuild for a faster iteration cycle.
-- Lock Screen circular + small Home Screen are simpler than the existing medium/large Activities widget.
+### What shipped
 
-### Tasks
+**14. Lock Screen widget** — `plugins/withAppleEcosystemIntegrations.js`
 
-**14. Lock Screen widget**
+- Added `KwiltLockScreenWidget` with `StaticConfiguration` and `LockScreenProvider`.
+- Three accessory families: `.accessoryCircular` (gauge with streak count), `.accessoryRectangular` (streak + next up title), `.accessoryInline` (flame + streak text).
+- `LockScreenWidgetView` switches on `@Environment(\.widgetFamily)` to dispatch to the correct sub-view.
+- Data from `GlanceableStateV1.Momentum.showUpStreakDays` and `NextUp.title`.
 
-Files: Native Swift in the widget extension target (`ios/KwiltWidgets/`)
+**15. Small Home Screen widget** — `plugins/withAppleEcosystemIntegrations.js`
 
-- Add `WidgetFamily.accessoryCircular` and `accessoryRectangular` to the widget configuration.
-- Circular: flame SF Symbol + streak count from glanceable state `showUpStreakDays`.
-- Rectangular: "Next: [title]" + time, or streak count + "Tap to show up" if nothing scheduled.
-- Update `glanceableState.ts` to include `showUpStreakDays` in the snapshot (already present in `buildMomentumSnapshot`; verify it's in the widget payload).
+- Added `KwiltStreakWidget` (kind: `streak`) with `SmallHomeProvider`.
+- Styled with Kwilt pine header, flame icon with streak count, "day streak" label, and next-up or completed-today subtitle.
+- Supports `.systemSmall` family. Deep links to `kwilt://today`.
 
-**15. Small (2x2) Home Screen widget**
+**21. Focus Live Activities UI** — `plugins/withAppleEcosystemIntegrations.js`
 
-Files: Native Swift in widget extension
+- Added `KwiltFocusLiveActivity` with `ActivityConfiguration` for `KwiltFocusAttributes`.
+- Lock Screen banner: activity title + countdown/countup timer.
+- Dynamic Island compact: timer icon (leading) + time (trailing).
+- Dynamic Island expanded: activity title + large timer.
+- Uses `startedAtMs` / `endAtMs` from existing `ContentState` with `Date(timeIntervalSince1970:)` conversion.
 
-- Add `WidgetFamily.systemSmall` to the existing Activities widget or as a new widget kind.
-- Content: streak flame + count centered, with "Show up today" subtitle.
-- Tap deep-links to Activities.
+**E3. Streak-break / win-back emails** — `emailTemplates.ts`, `email-drip/index.ts`
 
-**21. Complete Live Activities for Focus**
+- Two templates: `buildStreakWinback1Email` (day 3+), `buildStreakWinback2Email` (day 7+).
+- Win-back evaluation added to `email-drip` cron: queries recently-active-but-now-lapsed users, checks preferences (`streak_winback`), respects cadence, clears stale records when user returns.
+- Personalized copy references previous streak length from `kwilt_user_milestones`.
 
-Files: Native Swift in widget extension, `src/services/appleEcosystem/`
+**E4. Pro trial expiry email** — `emailTemplates.ts`, `pro-codes/index.ts`
 
-- Implement the `ActivityConfiguration` in the widget extension with:
-  - Compact: flame icon + remaining time.
-  - Expanded: activity title + timer + pause/end buttons.
-  - Lock Screen: timer bar + activity title.
-- Wire the existing native bridge calls to actually start/update/end the visible Live Activity.
+- `buildTrialExpiryEmail` template with dynamic `daysRemaining` messaging.
+- RevenueCat webhook extended: on `EXPIRATION` event, resolves user email and sends trial expiry email.
+- Cadence check prevents duplicate sends per expiration cycle.
+
+**N6. Notification copy rotation** — `NotificationService.ts`, `events.ts`
+
+- 3-4 copy variants per notification type: `DAILY_SHOW_UP_VARIANTS`, `ACTIVITY_REMINDER_VARIANTS`, `STREAK_AT_RISK_VARIANTS`, `REACTIVATION_VARIANTS`.
+- `pickVariant()` selects randomly; variant index tracked via `NotificationCopyVariant` PostHog event.
+- Contextual: variants reference streak count, arc name, activity title, today's schedule.
+
+**U5. Contextual Pro CTAs in empty states** — `ActivitiesScreen.tsx`, `PlanRecsPage.tsx`
+
+- Activities "No matching activities" empty state: secondary action "Try Saved Views with Pro" for non-Pro users.
+- Plan "nothing to recommend" empty state: secondary action "Unlock Focus Mode with Pro" for non-Pro users.
+- New `PaywallSource` values: `activity_empty_state`, `plan_empty_state`.
+
+**U6. Annual plan conversion campaign** — `ManageSubscriptionScreen.tsx`, `entitlements.ts`
+
+- `getActiveBillingCadence()`: detects actual subscription billing period from RevenueCat customer info.
+- Tenure-based nudge copy using `firstOpenedAtMs`: generic (< 30d), "One month in" (30-89d), account age mention (90d+).
+- Annual nudge now checks actual billing cadence (not just UI selector state).
 
 ### Sprint 3b acceptance criteria
 
-- [ ] Lock Screen widget (circular + rectangular) renders streak and next-up from glanceable state.
-- [ ] Small Home Screen widget renders streak count with tap-to-open.
-- [ ] Live Activity visible on Lock Screen and Dynamic Island during Focus sessions.
+- [x] Lock Screen widget (circular + rectangular + inline) renders streak and next-up from glanceable state.
+- [x] Small Home Screen widget renders streak count with tap-to-open.
+- [x] Live Activity visible on Lock Screen and Dynamic Island during Focus sessions.
+- [x] Win-back emails send at day 3 and day 7 of inactivity, capped at 2 per lapse.
+- [x] Trial expiry email sends on RevenueCat EXPIRATION webhook.
+- [x] Notification copy rotates between 3-4 variants with PostHog tracking.
+- [x] Non-Pro users see contextual Pro CTAs in Activities and Plan empty states.
+- [x] Annual nudge uses actual billing cadence with tenure-based copy.
 
 ---
 
@@ -378,7 +401,7 @@ Files: Native Swift in widget extension, `src/services/appleEcosystem/`
 
 - After chapter generation, if `email_enabled` and `email_recipient` are set and user hasn't opted out of `chapter_digest`:
   - Sends a styled digest email with chapter title, period label, and narrative snippet.
-  - Deep link: `kwilt://chapters/[id]`.
+  - Deep link: `https://go.kwilt.app/open/chapters/[id]` (universal-link handoff — Phase 1–3 of [`email-system-ga-plan.md`](./email-system-ga-plan.md) replaced the original `kwilt://chapters/[id]` CTA so desktop clients don't dead-end on an unregistered scheme).
 - Template: `buildChapterDigestEmail`.
 
 **25. "Streak Sunday" weekly recap card** — `StreakWeeklyRecapCard.tsx`, `PlanScreen.tsx`
@@ -430,6 +453,15 @@ Files: Native Swift in widget extension, `src/services/appleEcosystem/`
 - [x] Adaptive timing tracks completion hours and suggests adjustment when divergent.
 - [x] `isProToolsTrial` bug fixed: all Pro Tools features now gated correctly.
 - [x] Pro previews grant time-limited access at streak milestones 7 and 14.
+
+### Post-Sprint-4 follow-up: GA hardening
+
+The raw email infrastructure shipped in Sprint 4, but several GA prerequisites — universal-link handoff, consistent template UX, one-click unsubscribe, kill switch, per-user send cap, deliverability — are tracked in the dedicated [`docs/email-system-ga-plan.md`](./email-system-ga-plan.md) (Phases 1–8). Highlights already landed:
+
+- **Phase 1–3 (universal-link handoff):** every email CTA now routes through `https://go.kwilt.app/open/...` with a Next.js handoff page that either deep-links the iOS app (via universal links + `applinks:` association) or falls back to an install CTA. Replaces the original direct-scheme `kwilt://` URLs which dead-ended on desktop clients.
+- **Phase 4 (brand logo):** `renderLayout` emits explicit `width`/`height` HTML attrs on the logo `<img>` so Outlook desktop doesn't explode the header.
+- **Phase 5 (UX refinement):** all templates now share a single-surface letter-style shell with `renderCta` / `renderFallbackLink` / `renderFooter` primitives; plain-text parity with the HTML rhythm; dark-mode `color-scheme` meta tags.
+- **Phase 7 (GA prerequisites):** `List-Unsubscribe` + `List-Unsubscribe-Post` headers on all preference-gated sends (RFC 8058 one-click), HMAC-signed `/unsubscribe` route across kwilt-site + a new `supabase/functions/unsubscribe` edge function, `KWILT_EMAIL_SENDING_ENABLED` kill switch, per-user 2/24h cap, and a full operational runbook at [`docs/email-system.md`](./email-system.md).
 
 ---
 

@@ -233,6 +233,12 @@ export function PaywallContent(props: {
                 accessibilityRole="button"
                 accessibilityLabel="Upgrade to Pro"
                 onPress={() => {
+                  capture(AnalyticsEvent.PaywallUpgradeCtaTapped, { reason, source });
+                  // Stash upsell context so ManageSubscriptionScreen can stamp
+                  // `paywall_reason` / `paywall_source` onto the downstream
+                  // purchase_started / purchase_succeeded / free_trial_started
+                  // events for per-feature conversion attribution.
+                  usePaywallStore.getState().setUpsellContext({ reason, source });
                   if (onUpgrade) {
                     onUpgrade();
                     return;

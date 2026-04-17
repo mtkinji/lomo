@@ -34,6 +34,11 @@ export const AnalyticsEvent = {
 
   // Monetization / paywall (MVP)
   PaywallViewed: 'paywall_viewed',
+  // Intent signal between paywall_viewed and purchase_started: user tapped the
+  // Upgrade CTA on the paywall interstitial (before seeing the pricing drawer).
+  // Enables a 5-step upsell funnel broken down by `source` (the feature gate
+  // that surfaced the paywall). See docs/email-system-ga-plan.md §Monetization.
+  PaywallUpgradeCtaTapped: 'paywall_upgrade_cta_tapped',
   PurchaseStarted: 'purchase_started',
   PurchaseSucceeded: 'purchase_succeeded',
   PurchaseFailed: 'purchase_failed',
@@ -77,9 +82,17 @@ export const AnalyticsEvent = {
   MilestoneRecorded: 'milestone_recorded',
   MilestoneRecordFailed: 'milestone_record_failed',
 
+  // Email attribution (Phase 6.2 of docs/email-system-ga-plan.md).
+  // Fires when the app is opened via a URL carrying `utm_source=email`.
+  // Pairs with `email_cta_clicked` on kwilt-site to close the funnel.
+  EmailDeepLinkConverted: 'email_deep_link_converted',
+
   // Pro preview (streak-based)
   ProPreviewGranted: 'pro_preview_granted',
   ProPreviewExpired: 'pro_preview_expired',
+
+  // Notification copy variant tracking
+  NotificationCopyVariant: 'notification_copy_variant',
 
   // Friends
   FriendInviteCreated: 'friend_invite_created',

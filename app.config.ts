@@ -64,7 +64,7 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '50',
+    buildNumber: '51',
     // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
     // This prevents non-widget production builds from requiring widget target credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -105,7 +105,7 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 50,
+    versionCode: 51,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',

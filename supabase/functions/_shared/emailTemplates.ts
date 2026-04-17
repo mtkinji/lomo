@@ -1,3 +1,5 @@
+import { formatHumanPeriodLabel, type PeriodCadence } from './periodLabels.ts';
+
 type EmailContent = {
   subject: string;
   text: string;
@@ -27,164 +29,275 @@ function getBrandConfig() {
   const appName = (Deno.env.get('KWILT_EMAIL_APP_NAME') ?? 'Kwilt').trim() || 'Kwilt';
   const logoUrl = (Deno.env.get('KWILT_EMAIL_LOGO_URL') ?? '').trim();
   const primaryColor = (Deno.env.get('KWILT_EMAIL_PRIMARY_COLOR') ?? '#1F5226').trim() || '#1F5226';
-  const ctaUrl = (Deno.env.get('KWILT_EMAIL_CTA_URL') ?? 'https://www.kwilt.app').trim() || 'https://www.kwilt.app';
-  return { appName, logoUrl: logoUrl || null, primaryColor, ctaUrl };
+  return { appName, logoUrl: logoUrl || null, primaryColor };
+}
+
+/**
+ * CAN-SPAM requires a valid physical postal address on every commercial
+ * email. We surface it via `KWILT_COMPANY_POSTAL_ADDRESS` (single line, or
+ * `|`-separated for multi-line rendering) and show it in the footer of
+ * every email that already has a footer. Transactional templates without a
+ * footer (e.g. Pro grant, Pro code) skip this since they're exempt from
+ * CAN-SPAM's commercial-content rules — but if you add a `footerText` to
+ * them, they'll pick up the postal address automatically.
+ */
+function getCompanyPostalAddress(): string[] {
+  const raw = (Deno.env.get('KWILT_COMPANY_POSTAL_ADDRESS') ?? '').trim();
+  if (!raw) return [];
+  return raw
+    .split('|')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+// ---------------------------------------------------------------------------
+// Universal-link CTA helpers (Phase 3 of email-system-ga-plan.md)
+// ---------------------------------------------------------------------------
+//
+// All template CTAs go through `makeOpenUrl` which produces a
+// `https://go.kwilt.app/open/<path>?utm_*` URL. That URL universal-links into
+// the installed app on iOS/Android (via the kwilt-site `/open/[[...slug]]`
+// route + AASA/assetlinks) and falls back to a helpful install page on
+// desktop or when the app isn't installed.
+//
+// We never embed legacy custom-scheme URLs (kwilt-colon-slash-slash) or root
+// marketing URLs (www-dot-kwilt-dot-app) in emails — both are dead-ends on at
+// least one common surface. The `__tests__/emailTemplates.test.ts` CI guard
+// enforces this.
+
+function getOpenBaseUrl(): string {
+  const fromEnv = (Deno.env.get('KWILT_EMAIL_OPEN_BASE_URL') ?? '').trim();
+  return fromEnv || 'https://go.kwilt.app/open';
+}
+
+function makeOpenUrl(
+  path: string,
+  params: Record<string, string> = {},
+  campaign?: string,
+): string {
+  const base = getOpenBaseUrl().replace(/\/+$/, '');
+  const cleanPath = path.replace(/^\/+/, '');
+  const url = new URL(`${base}/${cleanPath}`);
+  url.searchParams.set('utm_source', 'email');
+  url.searchParams.set('utm_medium', 'email');
+  if (campaign) url.searchParams.set('utm_campaign', campaign);
+  for (const [k, v] of Object.entries(params)) {
+    if (v == null) continue;
+    url.searchParams.set(k, v);
+  }
+  return url.toString();
+}
+
+// ---------------------------------------------------------------------------
+// Shared layout primitives (Phase 5 of email-system-ga-plan.md)
+// ---------------------------------------------------------------------------
+//
+// Every user-facing template body should compose from three primitives:
+//   - renderCta(href, label)       → the single pine button
+//   - renderFallbackLink(href)     → the "if the button doesn't work" link
+//   - renderFooter(body)           → the small muted sign-off
+//
+// No template should hand-roll `<a style="display:inline-block;background:...">`
+// button HTML anymore. When you need a visual variation, add it here so every
+// template stays in rhythm.
+
+/** The single pine CTA button used across every non-admin template. */
+function renderCta(href: string, label: string): string {
+  const { primaryColor } = getBrandConfig();
+  return `
+      <div style="margin:0 0 10px;">
+        <a href="${escapeHtml(href)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700;font-size:15px;line-height:20px;">
+          ${escapeHtml(label)}
+        </a>
+      </div>`;
+}
+
+/** Standard "if the button doesn't work" paragraph to append below every CTA. */
+function renderFallbackLink(href: string): string {
+  const { primaryColor } = getBrandConfig();
+  const escaped = escapeHtml(href);
+  return `
+      <p style="margin:12px 0 0;font-size:13px;line-height:18px;color:#6b7280;">
+        If the button doesn\u2019t work, copy and paste this link into your browser:<br/>
+        <a href="${escaped}" style="color:${escapeHtml(primaryColor)};word-break:break-all;">${escaped}</a>
+      </p>`;
+}
+
+/**
+ * Small muted sign-off. No top border — whitespace is the separator.
+ *
+ * When an `unsubscribeUrl` is provided, appends a visible one-click
+ * unsubscribe link on its own line so the footer stays CAN-SPAM / Gmail
+ * 2024 compliant without relying on the inbox-native unsubscribe button
+ * alone. The link label is intentionally generic ("Unsubscribe") — the
+ * confirmation page on kwilt-site spells out the exact category.
+ *
+ * When `KWILT_COMPANY_POSTAL_ADDRESS` is set (single line or `|`-separated
+ * multi-line), we append it as a separate muted line below the rationale /
+ * unsubscribe link. This is the CAN-SPAM physical address disclosure.
+ */
+function renderFooter(body: string, unsubscribeUrl?: string): string {
+  const trimmed = body.trim();
+  const href = (unsubscribeUrl ?? '').trim();
+  if (!trimmed && !href) return '';
+  const { primaryColor } = getBrandConfig();
+  const addressLines = getCompanyPostalAddress();
+  const rationale = trimmed
+    ? `<div>${escapeHtml(trimmed)}</div>`
+    : '';
+  const unsub = href
+    ? `<div style="margin-top:8px;"><a href="${escapeHtml(href)}" style="color:${escapeHtml(
+        primaryColor,
+      )};text-decoration:underline;">Unsubscribe</a></div>`
+    : '';
+  const address = addressLines.length
+    ? `<div style="margin-top:8px;color:#9ca3af;">${addressLines
+        .map((line) => escapeHtml(line))
+        .join('<br/>')}</div>`
+    : '';
+  return `
+      <div style="margin:28px 0 0;font-size:12px;line-height:18px;color:#6b7280;">
+        ${rationale}
+        ${unsub}
+        ${address}
+      </div>`;
 }
 
 function renderLayout(params: {
   title: string;
   preheader?: string;
   bodyHtml: string;
+  /** Passed through renderFooter internally — no top border, just whitespace. */
   footerText?: string;
+  /**
+   * Phase 7.1: the kwilt-site visible unsubscribe URL (a signed token URL
+   * on the `kwilt.app/unsubscribe` route, built in
+   * `_shared/emailUnsubscribe.ts::buildVisibleUnsubscribeUrl`). When
+   * present, `renderFooter` adds an "Unsubscribe" link below the rationale
+   * text. Transactional templates should leave this unset.
+   */
+  unsubscribeUrl?: string;
 }): string {
-  const { appName, logoUrl, primaryColor } = getBrandConfig();
+  const { appName, logoUrl } = getBrandConfig();
   const title = params.title.trim();
   const preheader = (params.preheader ?? '').trim();
   const footerText = (params.footerText ?? '').trim();
+  const unsubscribeUrl = (params.unsubscribeUrl ?? '').trim();
 
   const logoBlock = (() => {
-    // Ensure the logo renders next to the brand text (per request).
+    // Square mark + wordmark text. Outlook desktop ignores CSS-only sizing on
+    // <img>, so explicit width/height HTML attrs are required here — see
+    // email-system-ga-plan.md Phase 4.2.
     const img = logoUrl
-      ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(appName)}" height="24" style="display:inline-block;height:24px;width:auto;vertical-align:middle;border:0;outline:none;text-decoration:none;margin-right:10px;" />`
+      ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(appName)}" width="24" height="24" style="display:inline-block;width:24px;height:24px;vertical-align:middle;border:0;outline:none;text-decoration:none;margin-right:10px;" />`
       : '';
     const text = `<span style="display:inline-block;vertical-align:middle;font-size:16px;font-weight:900;color:#111827;letter-spacing:0.01em;">${escapeHtml(appName)}</span>`;
-    return `<div style="margin:0 0 14px;line-height:24px;">${img}${text}</div>`;
+    return `<div style="margin:0 0 20px;line-height:24px;">${img}${text}</div>`;
   })();
 
-  // Note: keep HTML conservative for broad email client compatibility.
+  // Phase 5: single surface (no gray canvas + white card). The body background
+  // is pure white; the 500px content column sits directly on it. Whitespace,
+  // not borders, separates sections. Dark-mode color-scheme hints let Apple
+  // Mail auto-invert cleanly.
   return `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <title>${escapeHtml(title)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;">
+  <body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
     ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;color:transparent;opacity:0;">${escapeHtml(preheader)}</div>` : ''}
-    <div style="max-width:560px;margin:0 auto;padding:28px 16px;">
-      <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
-        <div style="padding:20px 20px 0;">
-          ${logoBlock}
-        </div>
-        <div style="padding:0 20px 20px;">
-          <h1 style="margin:0 0 12px;font-size:22px;line-height:28px;letter-spacing:-0.01em;">${escapeHtml(title)}</h1>
-          <div style="margin:0 0 18px;font-size:15px;line-height:22px;color:#374151;">
-            ${params.bodyHtml}
-          </div>
-          ${
-            footerText
-              ? `<div style="margin:18px 0 0;padding-top:14px;border-top:1px solid #f3f4f6;font-size:12px;line-height:18px;color:#6b7280;">
-                   ${escapeHtml(footerText)}
-                 </div>`
-              : ''
-          }
-        </div>
+    <div style="max-width:500px;margin:0 auto;padding:32px 24px;">
+      ${logoBlock}
+      <h1 style="margin:0 0 14px;font-size:24px;line-height:30px;letter-spacing:-0.01em;color:#111827;font-weight:900;">${escapeHtml(title)}</h1>
+      <div style="margin:0;font-size:16px;line-height:24px;color:#1f2937;">
+        ${params.bodyHtml}
       </div>
+      ${footerText || unsubscribeUrl ? renderFooter(footerText, unsubscribeUrl || undefined) : ''}
     </div>
   </body>
 </html>`;
 }
 
-export function buildProGrantEmail(params: { expiresAtIso: string }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
-  const subject = 'Your Kwilt Pro access has been granted';
-  const expiresDate = formatDateShort(params.expiresAtIso);
+// ---------------------------------------------------------------------------
+// Pro grant / Pro code / Goal invite
+// ---------------------------------------------------------------------------
 
-  const text =
-    `Your Kwilt Pro access has been granted!\n\n` +
-    `You now have access to all Pro features.\n` +
-    `Your Pro subscription expires: ${expiresDate}\n\n` +
-    `Thank you for using Kwilt!`;
+export function buildProGrantEmail(params: { expiresAtIso: string }): EmailContent {
+  const subject = 'Your Kwilt Pro access is active';
+  const expiresDate = formatDateShort(params.expiresAtIso);
+  const ctaUrl = makeOpenUrl('settings/subscription', {}, 'pro_granted');
+
+  const text = [
+    'Your Kwilt Pro access is active — every Pro feature is unlocked.',
+    `Your subscription expires on ${expiresDate}.`,
+    'Manage your subscription:',
+    ctaUrl,
+  ].join('\n\n');
 
   const html = renderLayout({
-    title: 'Pro access granted',
-    preheader: `Your Kwilt Pro access has been granted (expires ${expiresDate}).`,
+    title: 'Your Pro access is active',
+    preheader: `Every Pro feature is unlocked through ${expiresDate}.`,
     bodyHtml: `
-      <p style="margin:0 0 12px;">Your <strong>Kwilt Pro</strong> access is active.</p>
-      <div style="margin:0 0 14px;padding:12px 14px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
-        <div style="font-size:13px;color:#6b7280;margin:0 0 6px;">Expires</div>
-        <div style="font-size:16px;font-weight:900;color:#111827;">${escapeHtml(expiresDate)}</div>
-      </div>
-      <p style="margin:0 0 14px;">You now have access to all Pro features.</p>
-      <div style="margin:0;">
-        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:12px;font-weight:900;">
-          Enjoy Pro
-        </a>
-      </div>
+      <p style="margin:0 0 14px;">Your <strong>Kwilt Pro</strong> access is active \u2014 every Pro feature is unlocked.</p>
+      <p style="margin:0 0 24px;">Your subscription expires on <strong>${escapeHtml(expiresDate)}</strong>.</p>
+      ${renderCta(ctaUrl, 'Manage subscription')}
+      ${renderFallbackLink(ctaUrl)}
     `,
-    // Intentionally no footer text; this is a no-reply sender.
-    footerText: '',
   });
 
   return { subject, text, html };
 }
 
 export function buildProCodeEmail(params: { code: string; note?: string | null }): EmailContent {
-  const { primaryColor } = getBrandConfig();
   const code = params.code.trim();
   const note = (params.note ?? '').trim();
   const subject = 'Your Kwilt Pro access code';
 
   const text =
-    `Here’s your Kwilt Pro access code:\n\n${code}\n\n` +
-    `Open Kwilt → Settings → Redeem Pro code.\n` +
-    (note ? `\nNote: ${note}\n` : '');
+    `Here is your Kwilt Pro access code:\n\n${code}\n\n` +
+    `Open Kwilt \u2192 Settings \u2192 Redeem Pro code.` +
+    (note ? `\n\nNote: ${note}` : '');
 
   const html = renderLayout({
     title: 'Your Pro access code',
-    preheader: 'Here is your Kwilt Pro access code.',
+    preheader: 'Copy the code and redeem it from Settings.',
     bodyHtml: `
-      <p style="margin:0 0 12px;">Here’s your Kwilt Pro access code:</p>
-      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
-        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:18px;letter-spacing:0.06em;font-weight:800;color:#111827;">
-          ${escapeHtml(code)}
-        </div>
+      <p style="margin:0 0 14px;">Here is your Kwilt Pro access code:</p>
+      <div style="margin:0 0 18px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
+        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:18px;letter-spacing:0.06em;font-weight:800;color:#111827;">${escapeHtml(code)}</div>
       </div>
-      <div style="margin:0 0 14px;padding:12px 14px;border-radius:12px;background:#ffffff;border:1px solid #e5e7eb;">
-        <div style="font-size:13px;color:#6b7280;margin:0 0 6px;">Redeem in-app</div>
-        <div style="font-size:14px;color:#111827;">
-          Open <strong>Kwilt</strong> → <strong>Settings</strong> → <strong>Redeem Pro code</strong>
-        </div>
-      </div>
-      <div style="margin:0 0 12px;">
-        <span style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;padding:10px 14px;border-radius:12px;font-weight:900;">
-          Redeem code
-        </span>
-      </div>
+      <p style="margin:0 0 18px;">Open <strong>Kwilt</strong> \u2192 <strong>Settings</strong> \u2192 <strong>Redeem Pro code</strong>.</p>
       ${note ? `<p style="margin:0;color:#6b7280;"><strong>Note:</strong> ${escapeHtml(note)}</p>` : ''}
     `,
-    footerText: '',
   });
 
   return { subject, text, html };
 }
 
 export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: string }): EmailContent {
-  const { primaryColor } = getBrandConfig();
   const title = params.goalTitle.trim() || 'Shared goal';
   const inviteLink = params.inviteLink.trim();
-  const subject = `Join my shared goal in Kwilt`;
+  const subject = 'Join my shared goal in Kwilt';
 
-  const text =
-    `${subject}: "${title}"\n\n` +
-    `Open invite: ${inviteLink}\n\n` +
-    `By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.`;
+  const text = [
+    `${subject}: "${title}"`,
+    'Open invite:',
+    inviteLink,
+    'By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.',
+  ].join('\n\n');
 
   const html = renderLayout({
     title: 'Join my shared goal in Kwilt',
-    preheader: `Invite to "${title}"`,
+    preheader: `Invite to "${title}" \u2014 join with one tap.`,
     bodyHtml: `
-      <p style="margin:0 0 12px;"><strong>“${escapeHtml(title)}”</strong></p>
-      <p style="margin:0 0 16px;color:#6b7280;">
-        By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.
-      </p>
-      <a href="${escapeHtml(inviteLink)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
-        Open invite
-      </a>
-      <p style="margin:16px 0 0;font-size:13px;line-height:18px;color:#6b7280;">
-        If the button doesn’t work, copy and paste this link into your browser:<br/>
-        <a href="${escapeHtml(inviteLink)}" style="color:${escapeHtml(primaryColor)};">${escapeHtml(inviteLink)}</a>
-      </p>
+      <p style="margin:0 0 14px;"><strong>\u201C${escapeHtml(title)}\u201D</strong></p>
+      <p style="margin:0 0 24px;color:#6b7280;">By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.</p>
+      ${renderCta(inviteLink, 'Open invite')}
+      ${renderFallbackLink(inviteLink)}
     `,
     footerText: 'This invite link may expire or reach a usage limit.',
   });
@@ -196,125 +309,136 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
 // Welcome drip emails (days 0, 1, 3, 7)
 // ---------------------------------------------------------------------------
 
-export function buildWelcomeDay0Email(): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
-  const subject = 'Welcome to Kwilt — your Arc is waiting';
-  const text =
-    `Welcome to Kwilt!\n\n` +
-    `You've taken the first step toward showing up for the life you want.\n` +
-    `Open Kwilt to set up your first Arc and start building momentum.\n\n` +
-    `${ctaUrl}`;
+export function buildWelcomeDay0Email(opts: { unsubscribeUrl?: string } = {}): EmailContent {
+  const subject = 'Welcome to Kwilt \u2014 your Arc is waiting';
+  const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_0');
+
+  const text = [
+    'Welcome to Kwilt.',
+    "You've taken the first step toward showing up for the life you want.",
+    'Kwilt turns intentions into daily action. Start by defining an Arc \u2014 a meaningful direction for your life right now.',
+    ctaUrl,
+  ].join('\n\n');
+
   const html = renderLayout({
     title: 'Welcome to Kwilt',
-    preheader: 'Your Arc is waiting — open Kwilt to get started.',
+    preheader: 'The smallest version of showing up is enough.',
     bodyHtml: `
-      <p style="margin:0 0 12px;">You've taken the first step toward showing up for the life you want.</p>
-      <p style="margin:0 0 16px;">Kwilt helps you turn intentions into daily action. Start by defining an <strong>Arc</strong> — a meaningful direction for your life right now.</p>
-      <div style="margin:0 0 14px;">
-        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
-          Open Kwilt
-        </a>
-      </div>
+      <p style="margin:0 0 14px;">You\u2019ve taken the first step toward showing up for the life you want.</p>
+      <p style="margin:0 0 24px;">Kwilt turns intentions into daily action. Start by defining an <strong>Arc</strong> \u2014 a meaningful direction for your life right now.</p>
+      ${renderCta(ctaUrl, 'Open Kwilt')}
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: opts.unsubscribeUrl,
   });
+
   return { subject, text, html };
 }
 
-export function buildWelcomeDay1Email(): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+export function buildWelcomeDay1Email(opts: { unsubscribeUrl?: string } = {}): EmailContent {
   const subject = 'Your first tiny step';
-  const text =
-    `Ready to build some momentum?\n\n` +
-    `Complete your first Activity in Kwilt today — even something small counts.\n` +
-    `That's all it takes to start your show-up streak.\n\n` +
-    `${ctaUrl}`;
+  const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_1');
+
+  const text = [
+    'Ready to build some momentum?',
+    "Complete your first Activity in Kwilt today \u2014 even something small counts. That's all it takes to start your show-up streak.",
+    ctaUrl,
+  ].join('\n\n');
+
   const html = renderLayout({
-    title: 'Your first tiny step',
-    preheader: 'Complete your first Activity — even something small counts.',
+    title: subject,
+    preheader: 'The first Activity is always the hardest \u2014 and the smallest.',
     bodyHtml: `
-      <p style="margin:0 0 12px;">Ready to build some momentum?</p>
-      <p style="margin:0 0 12px;">Complete your first <strong>Activity</strong> in Kwilt today — even something small counts. That's all it takes to start your show-up streak.</p>
-      <p style="margin:0 0 16px;color:#6b7280;">Streaks aren't about perfection. They're about consistency — showing up for the things that matter to you.</p>
-      <div style="margin:0 0 14px;">
-        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
-          Open Kwilt
-        </a>
-      </div>
+      <p style="margin:0 0 14px;">Ready to build some momentum?</p>
+      <p style="margin:0 0 24px;">Complete your first <strong>Activity</strong> in Kwilt today \u2014 even something small counts. That\u2019s all it takes to start your show-up streak.</p>
+      ${renderCta(ctaUrl, 'Open Kwilt')}
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: opts.unsubscribeUrl,
   });
+
   return { subject, text, html };
 }
 
-export function buildWelcomeDay3Email(params: { streakLength: number }): EmailContent {
-  const { primaryColor } = getBrandConfig();
+export function buildWelcomeDay3Email(
+  params: { streakLength: number; unsubscribeUrl?: string },
+): EmailContent {
   const streak = params.streakLength;
-  const streakLine = streak >= 2 ? `You're on a ${streak}-day streak — nice work!` : 'Build a streak by showing up each day.';
-  const subject = 'How's your first Arc going?';
-  const planUrl = 'kwilt://plan';
-  const text =
-    `${subject}\n\n` +
-    `${streakLine}\n\n` +
-    `Check out the Plan tab to see your week at a glance and set intentions for the days ahead.\n\n` +
-    `${planUrl}`;
+  const streakLine =
+    streak >= 2 ? `You\u2019re on a ${streak}-day streak \u2014 nice work!` : 'Build a streak by showing up each day.';
+  const subject = 'How\u2019s your first Arc going?';
+  const planUrl = makeOpenUrl('plan', {}, 'welcome_day_3');
+
+  const text = [
+    subject,
+    streakLine,
+    'Check out the Plan tab to see your week at a glance and set intentions for the days ahead.',
+    planUrl,
+  ].join('\n\n');
+
   const html = renderLayout({
-    title: 'How's your first Arc going?',
-    preheader: streakLine,
+    title: subject,
+    preheader: 'Your first Arc, your first rhythm.',
     bodyHtml: `
-      <p style="margin:0 0 12px;">${escapeHtml(streakLine)}</p>
-      <p style="margin:0 0 12px;">Check out the <strong>Plan</strong> tab to see your week at a glance and set intentions for the days ahead.</p>
-      <p style="margin:0 0 16px;color:#6b7280;">When you plan your week in advance, you're more likely to follow through — and your streak keeps growing.</p>
-      <div style="margin:0 0 14px;">
-        <a href="${escapeHtml(planUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
-          Open Plan
-        </a>
-      </div>
+      <p style="margin:0 0 14px;">${escapeHtml(streakLine)}</p>
+      <p style="margin:0 0 24px;">Check out the <strong>Plan</strong> tab to see your week at a glance and set intentions for the days ahead.</p>
+      ${renderCta(planUrl, 'Open Plan')}
+      ${renderFallbackLink(planUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
+
   return { subject, text, html };
 }
 
-export function buildWelcomeDay7Email(params: { streakLength: number; activitiesCompleted: number }): EmailContent {
-  const { primaryColor, ctaUrl } = getBrandConfig();
+export function buildWelcomeDay7Email(
+  params: { streakLength: number; activitiesCompleted: number; unsubscribeUrl?: string },
+): EmailContent {
+  const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_7');
   const streak = params.streakLength;
   const completed = params.activitiesCompleted;
   const subject = 'Your first week in review';
-  const streakLine = streak >= 2 ? `${streak}-day show-up streak` : 'Getting started';
-  const activitiesLine = completed > 0 ? `${completed} activit${completed === 1 ? 'y' : 'ies'} completed` : 'Activities in progress';
-  const text =
-    `Your first week in Kwilt:\n\n` +
-    `• ${streakLine}\n` +
-    `• ${activitiesLine}\n\n` +
-    `Keep the momentum going!\n\n` +
-    `${ctaUrl}`;
+
+  // Phase 5.3: the old stats card collapses into an inline sentence. Type
+  // hierarchy (strong) carries the weight, not a framed box.
+  const streakFragmentHtml =
+    streak >= 2 ? `a <strong>${streak}-day</strong> show-up streak` : 'your first day showing up';
+  const activitiesFragmentHtml =
+    completed === 1 ? 'completed <strong>1 activity</strong>' : `completed <strong>${completed} activities</strong>`;
+  const inlineStatsHtml = `You built ${streakFragmentHtml} and ${activitiesFragmentHtml}.`;
+
+  const streakFragmentText = streak >= 2 ? `a ${streak}-day show-up streak` : 'your first day showing up';
+  const activitiesFragmentText = completed === 1 ? 'completed 1 activity' : `completed ${completed} activities`;
+  const inlineStatsText = `You built ${streakFragmentText} and ${activitiesFragmentText}.`;
+
+  const preheader =
+    streak >= 2
+      ? `${streak}-day streak \u00B7 ${completed} activit${completed === 1 ? 'y' : 'ies'} completed`
+      : `${completed} activit${completed === 1 ? 'y' : 'ies'} completed in week one`;
+
+  const text = [
+    'Your first week in Kwilt.',
+    inlineStatsText,
+    'Every day you show up is a vote for the person you\u2019re becoming. Keep going.',
+    ctaUrl,
+  ].join('\n\n');
+
   const html = renderLayout({
-    title: 'Your first week in review',
-    preheader: `${streakLine} · ${activitiesLine}`,
+    title: subject,
+    preheader,
     bodyHtml: `
-      <p style="margin:0 0 14px;">Here's how your first week went:</p>
-      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
-        <div style="display:flex;gap:20px;">
-          <div>
-            <div style="font-size:13px;color:#6b7280;margin:0 0 4px;">Streak</div>
-            <div style="font-size:20px;font-weight:900;color:#111827;">${escapeHtml(streakLine)}</div>
-          </div>
-          <div>
-            <div style="font-size:13px;color:#6b7280;margin:0 0 4px;">Activities</div>
-            <div style="font-size:20px;font-weight:900;color:#111827;">${escapeHtml(activitiesLine)}</div>
-          </div>
-        </div>
-      </div>
-      <p style="margin:0 0 16px;">Every day you show up is a vote for the person you're becoming. Keep going — the best is ahead.</p>
-      <div style="margin:0 0 14px;">
-        <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
-          Keep going
-        </a>
-      </div>
+      <p style="margin:0 0 14px;">${inlineStatsHtml}</p>
+      <p style="margin:0 0 24px;">Every day you show up is a vote for the person you\u2019re becoming. Keep going.</p>
+      ${renderCta(ctaUrl, 'Keep going')}
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you signed up for Kwilt. Unsubscribe in Settings → Notifications.',
+    footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
+
   return { subject, text, html };
 }
 
@@ -322,39 +446,291 @@ export function buildWelcomeDay7Email(params: { streakLength: number; activities
 // Chapter digest email
 // ---------------------------------------------------------------------------
 
+/**
+ * Extract a human-readable narrative snippet from a chapter `output_json`.
+ *
+ * The canonical narrative lives at `output_json.sections[?(key === 'story')].body`
+ * (per `chapters-generate/index.ts` validator + prompt). We accept a few legacy
+ * shapes defensively:
+ *   - `output_json.narrative` (the old field this template used to read; kept
+ *     so an in-flight migration doesn't dark-render).
+ *   - `output_json.sections[].body` falling back to the first section if no
+ *     `key === 'story'` entry exists.
+ *
+ * Truncation: we slice at the first paragraph break (double newline) when one
+ * appears within `maxChars`, otherwise we slice at the last word boundary
+ * before `maxChars` and append a single ellipsis. Returns `''` if no narrative
+ * could be located.
+ */
+export function extractChapterSnippet(outputJson: unknown, maxChars = 280): string {
+  const narrative = pickChapterNarrative(outputJson);
+  if (!narrative) return '';
+  const cleaned = narrative.replace(/\r\n/g, '\n').trim();
+  if (!cleaned) return '';
+
+  // Prefer the first paragraph if it fits within the budget.
+  const paragraphBreak = cleaned.indexOf('\n\n');
+  const firstParagraph = paragraphBreak >= 0 ? cleaned.slice(0, paragraphBreak).trim() : cleaned;
+  if (firstParagraph.length <= maxChars) return firstParagraph;
+
+  // Otherwise truncate at a word boundary.
+  const slice = firstParagraph.slice(0, maxChars - 1);
+  const lastSpace = slice.lastIndexOf(' ');
+  const safe = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
+  return `${safe.trimEnd()}\u2026`;
+}
+
+function pickChapterNarrative(outputJson: unknown): string {
+  if (!outputJson || typeof outputJson !== 'object') return '';
+  const obj = outputJson as Record<string, unknown>;
+
+  // Legacy / fallback: a flat `narrative` string.
+  if (typeof obj.narrative === 'string' && obj.narrative.trim().length > 0) {
+    return obj.narrative;
+  }
+
+  const sections = obj.sections;
+  if (!Array.isArray(sections)) return '';
+  const story = sections.find(
+    (s): s is { key: 'story'; body: unknown } =>
+      s != null && typeof s === 'object' && (s as { key?: unknown }).key === 'story',
+  );
+  if (story && typeof story.body === 'string') return story.body;
+
+  // Last resort: any section with a string `body`.
+  for (const s of sections) {
+    if (s && typeof s === 'object' && typeof (s as { body?: unknown }).body === 'string') {
+      return (s as { body: string }).body;
+    }
+  }
+  return '';
+}
+
 export function buildChapterDigestEmail(params: {
   chapterTitle: string;
-  periodLabel: string;
-  narrative: string;
+  /** Full chapter `output_json` produced by `chapters-generate`. The template
+   *  extracts the narrative snippet from `sections.story.body`. */
+  outputJson: unknown;
   chapterId: string;
+  cadence: PeriodCadence;
+  periodStartIso: string;
+  periodEndIso: string;
+  timezone?: string | null;
+  unsubscribeUrl?: string;
 }): EmailContent {
   const { primaryColor } = getBrandConfig();
-  const { chapterTitle, periodLabel, narrative, chapterId } = params;
-  const subject = `Your ${periodLabel} chapter is ready`;
-  const deepLink = `kwilt://chapters/${chapterId}`;
-  const snippet = narrative.length > 300 ? narrative.slice(0, 297) + '…' : narrative;
-  const text =
-    `${subject}: ${chapterTitle}\n\n` +
-    `${snippet}\n\n` +
-    `Read the full chapter in Kwilt: ${deepLink}`;
+  const { chapterTitle, outputJson, chapterId, cadence } = params;
+
+  const periodLabel = formatHumanPeriodLabel({
+    cadence,
+    startIso: params.periodStartIso,
+    endIso: params.periodEndIso,
+    timezone: params.timezone,
+  });
+
+  // "the week of Apr 13" → "Your week of Apr 13 chapter is ready" reads
+  // awkwardly. Promote the label to a noun phrase via a per-cadence connector.
+  const subjectPhrase = cadenceSubjectPhrase(cadence, periodLabel);
+  const subject = `Your chapter for ${subjectPhrase} is ready`;
+
+  // Preheader is a complementary hook, not a duplicate of the subject.
+  const preheader = `A short read about ${subjectPhrase}.`;
+
+  const snippet = extractChapterSnippet(outputJson);
+  const ctaUrl = makeOpenUrl(`chapters/${chapterId}`, {}, 'chapter_digest');
+
+  const textParts = [
+    `${subject}: ${chapterTitle}`,
+    snippet || null,
+    `Read the full chapter:`,
+    ctaUrl,
+  ].filter((p): p is string => Boolean(p && p.trim().length));
+  const text = textParts.join('\n\n');
+
+  // Phase 5.3: narrative snippet moves from a gray-filled box to a
+  // border-left blockquote. One boundary, not four — keeps the letter feel.
+  const snippetBlock = snippet
+    ? `<div style="margin:0 0 24px;padding:0 0 0 16px;border-left:3px solid ${escapeHtml(primaryColor)};font-size:16px;line-height:24px;color:#374151;">
+        ${escapeHtml(snippet)}
+      </div>`
+    : '';
+
   const html = renderLayout({
     title: chapterTitle,
-    preheader: `Your ${periodLabel} chapter is ready — read it in Kwilt.`,
+    preheader,
     bodyHtml: `
-      <p style="margin:0 0 4px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">${escapeHtml(periodLabel)}</p>
-      <div style="margin:0 0 16px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
-        <p style="margin:0;font-size:15px;line-height:22px;color:#374151;">${escapeHtml(snippet)}</p>
-      </div>
-      <div style="margin:0 0 14px;">
-        <a href="${escapeHtml(deepLink)}" style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:12px;font-weight:800;">
-          Read full chapter
-        </a>
-      </div>
+      <p style="margin:0 0 10px;font-size:12px;line-height:16px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">${escapeHtml(periodLabel)}</p>
+      ${snippetBlock}
+      ${renderCta(ctaUrl, 'Read full chapter')}
+      ${renderFallbackLink(ctaUrl)}
     `,
-    footerText: 'You're receiving this because you enabled chapter email delivery. Manage in Settings → Notifications.',
+    footerText: 'You\u2019re receiving this because you enabled chapter email delivery.',
+    unsubscribeUrl: params.unsubscribeUrl,
   });
+
   return { subject, text, html };
 }
+
+function cadenceSubjectPhrase(cadence: PeriodCadence, label: string): string {
+  // weekly  → "the week of Apr 13"  → already a noun phrase
+  // monthly → "April 2026"           → already a noun phrase
+  // yearly  → "2026"                 → already reads naturally
+  // custom  → "Apr 13 – Apr 20"      → already reads naturally
+  // The label is constructed in periodLabels.ts to flow inside a subject; we
+  // keep this indirection so future label tweaks (e.g. "this week") can adapt
+  // the surrounding copy in one place.
+  void cadence;
+  return label;
+}
+
+// ---------------------------------------------------------------------------
+// Streak win-back emails (lapsed users)
+// ---------------------------------------------------------------------------
+
+export function buildStreakWinback1Email(
+  params: { streakLength: number; unsubscribeUrl?: string },
+): EmailContent {
+  const ctaUrl = makeOpenUrl('today', {}, 'winback_1');
+  const streak = params.streakLength;
+  const subject =
+    streak >= 3
+      ? `Your ${streak}-day streak is still yours to rebuild`
+      : 'Your goals are still waiting for you';
+  const streakLineHtml =
+    streak >= 3
+      ? `You had a <strong>${streak}-day streak</strong> going \u2014 that\u2019s real momentum.`
+      : 'You were building something meaningful.';
+  const streakLineText =
+    streak >= 3
+      ? `You had a ${streak}-day streak going \u2014 that\u2019s real momentum.`
+      : 'You were building something meaningful.';
+
+  const text = [
+    subject,
+    streakLineText,
+    "It's been a few days since you last showed up. Life happens \u2014 what matters is what you do next.",
+    'One tiny step is all it takes to start again.',
+    ctaUrl,
+  ].join('\n\n');
+
+  const html = renderLayout({
+    title: subject,
+    preheader: 'One tiny step is all it takes to start again.',
+    bodyHtml: `
+      <p style="margin:0 0 14px;">${streakLineHtml}</p>
+      <p style="margin:0 0 14px;">It\u2019s been a few days since you last showed up. Life happens \u2014 what matters is what you do next.</p>
+      <p style="margin:0 0 24px;color:#6b7280;">One tiny step is all it takes to start again.</p>
+      ${renderCta(ctaUrl, 'Show up today')}
+      ${renderFallbackLink(ctaUrl)}
+    `,
+    footerText: 'You\u2019re receiving this because you use Kwilt.',
+    unsubscribeUrl: params.unsubscribeUrl,
+  });
+
+  return { subject, text, html };
+}
+
+export function buildStreakWinback2Email(
+  params: { streakLength: number; unsubscribeUrl?: string },
+): EmailContent {
+  const ctaUrl = makeOpenUrl('today', {}, 'winback_2');
+  const streak = params.streakLength;
+  const subject =
+    streak >= 3
+      ? `Your ${streak}-day streak is fading \u2014 but it\u2019s not gone`
+      : 'Ready for a fresh start?';
+  const streakLineHtml =
+    streak >= 3
+      ? `A week ago you were on a <strong>${streak}-day streak</strong>.`
+      : 'A week ago you were building something meaningful.';
+  const streakLineText =
+    streak >= 3
+      ? `A week ago you were on a ${streak}-day streak.`
+      : 'A week ago you were building something meaningful.';
+
+  const text = [
+    subject,
+    streakLineText,
+    "It's been a week. Your Arc is still here, your goals are still waiting.",
+    "You don't need to pick up where you left off. Just pick one tiny step and do it today.",
+    ctaUrl,
+  ].join('\n\n');
+
+  const html = renderLayout({
+    title: subject,
+    preheader: 'Your Arc is still here. Ready for one tiny step?',
+    bodyHtml: `
+      <p style="margin:0 0 14px;">${streakLineHtml}</p>
+      <p style="margin:0 0 14px;">It\u2019s been a week. Your Arc is still here, your goals are still waiting.</p>
+      <p style="margin:0 0 24px;color:#6b7280;">You don\u2019t need to pick up where you left off. Just pick one tiny step and do it today.</p>
+      ${renderCta(ctaUrl, 'Open Kwilt')}
+      ${renderFallbackLink(ctaUrl)}
+    `,
+    footerText: 'This is the last email we\u2019ll send about this. We\u2019ll be here when you\u2019re ready.',
+    unsubscribeUrl: params.unsubscribeUrl,
+  });
+
+  return { subject, text, html };
+}
+
+// ---------------------------------------------------------------------------
+// Trial expiry email
+// ---------------------------------------------------------------------------
+
+export function buildTrialExpiryEmail(
+  params: { daysRemaining: number; unsubscribeUrl?: string },
+): EmailContent {
+  const ctaUrl = makeOpenUrl('settings/subscription', {}, 'trial_expiry');
+  const days = params.daysRemaining;
+  const subject =
+    days <= 0
+      ? 'Your Kwilt Pro trial has ended'
+      : `Your Kwilt Pro trial ends in ${days} day${days === 1 ? '' : 's'}`;
+  const urgencyHtml =
+    days <= 0
+      ? 'Your trial has ended. Subscribe to keep your Pro features.'
+      : days <= 1
+        ? 'Your trial ends <strong>tomorrow</strong>.'
+        : `You have <strong>${days} days</strong> left on your trial.`;
+  const urgencyText =
+    days <= 0
+      ? 'Your trial has ended. Subscribe to keep your Pro features.'
+      : days <= 1
+        ? 'Your trial ends tomorrow.'
+        : `You have ${days} days left on your trial.`;
+
+  const preheader =
+    days <= 0
+      ? 'Subscribe to keep your Pro features.'
+      : `${days} day${days === 1 ? '' : 's'} left on your trial.`;
+
+  const text = [
+    subject,
+    urgencyText,
+    'During your trial you had Focus Mode, Saved Views, Unsplash banners, and 1,000 AI credits per month. Subscribe to keep all of them.',
+    ctaUrl,
+  ].join('\n\n');
+
+  const html = renderLayout({
+    title: subject,
+    preheader,
+    bodyHtml: `
+      <p style="margin:0 0 14px;">${urgencyHtml}</p>
+      <p style="margin:0 0 24px;">During your trial you had <strong>Focus Mode</strong>, <strong>Saved Views</strong>, <strong>Unsplash banners</strong>, and <strong>1,000 AI credits</strong> per month. Subscribe to keep all of them.</p>
+      ${renderCta(ctaUrl, 'Subscribe to Pro')}
+      ${renderFallbackLink(ctaUrl)}
+    `,
+    footerText: 'You\u2019re receiving this because you started a Kwilt Pro trial.',
+    unsubscribeUrl: params.unsubscribeUrl,
+  });
+
+  return { subject, text, html };
+}
+
+// ---------------------------------------------------------------------------
+// Admin: secret-expiry alert. Intentionally keeps its tabular data — this is
+// the one template in the set that has genuinely grid-shaped info.
+// ---------------------------------------------------------------------------
 
 export function buildSecretExpiryAlertEmail(params: {
   environment: string;
@@ -402,8 +778,6 @@ export function buildSecretExpiryAlertEmail(params: {
     .slice()
     .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry)
     .map((i) => {
-      const badgeBg = i.severity === 'expired' ? '#991b1b' : '#92400e';
-      const badgeText = i.severity === 'expired' ? 'EXPIRED' : 'EXPIRING';
       const when =
         i.severity === 'expired'
           ? `${escapeHtml(formatDateShort(i.expiresAtIso))}`
@@ -469,5 +843,3 @@ export function buildSecretExpiryAlertEmail(params: {
 
   return { subject, text, html };
 }
-
-
