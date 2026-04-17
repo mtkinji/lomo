@@ -237,7 +237,7 @@ Files: `src/features/chapters/ChaptersScreen.tsx`, `ChapterDetailScreen.tsx`.
 
 **Theme:** Make the first 60 seconds of a Chapter carry the primary value. Essay stays, but earns its place behind a disclosure.
 
-**Status:** Not started. Depends on Phase 2.
+**Status:** Landed (3.1 caption generator + validator, 3.2 arc-lane deltas, 3.3 inverted detail layout with "Read the full story" disclosure, 3.4 caption-first snippet for list cards + digest emails). Acceptance criteria passing on unit tests + type-check; field validation waits on first weekly run after deploy. The "moment" pull-quote sub-element of 3.3 was intentionally folded into the caption hero rather than rendered as a separate block — one above-the-fold hook, not two.
 
 #### 3.1 Generator: add `signal.caption`
 
@@ -279,11 +279,11 @@ Files: `src/features/chapters/ChaptersScreen.tsx`, `supabase/functions/_shared/e
 
 #### Phase 3 acceptance criteria
 
-- [ ] `sections.signal.caption` present on every newly generated Chapter; validator rejects missing/weak captions.
-- [ ] Existing Chapters (no caption) render a graceful fallback on the detail screen (first sentence of `story.body`).
-- [ ] Arc lane deltas render for any Chapter whose prior Chapter exists; quietly omit the delta line when there's no prior.
-- [ ] "Read the full story" disclosure is collapsed by default; user scrolls less than one screen to reach the moment + key figures + Next Steps (once Phase 5 ships).
-- [ ] Digest email preview tests show the caption as the lead paragraph.
+- [x] `sections.signal.caption` present on every newly generated Chapter; validator rejects missing/weak captions. *(Enforced in `validateChapterOutput`: required section + length 80–320 + number + Arc + quoted activity title + not-equal-to-dek + banned-phrase checks; runs on both first-attempt and strict retry.)*
+- [x] Existing Chapters (no caption) render a graceful fallback on the detail screen (first sentence of `story.body`). *(Detail screen falls back to `dek` when no caption exists; list-card / email snippet falls back to `story.body` first-sentence via `extractChapterSnippet` + `getChapterHistorySnippet`.)*
+- [x] Arc lane deltas render for any Chapter whose prior Chapter exists; quietly omit the delta line when there's no prior. *(`augmentArcsWithDeltas` populates `metrics.arcs[].delta`; `formatArcLaneDelta` returns `''` when data is missing and the row renders without the secondary line.)*
+- [x] "Read the full story" disclosure is collapsed by default; user scrolls less than one screen to reach the moment + key figures + Next Steps (once Phase 5 ships). *(Article body gated behind a `storyExpanded` disclosure; expansion fires `chapter_section_expanded` with `section: 'story'`.)*
+- [x] Digest email preview tests show the caption as the lead paragraph. *(New `extractChapterSnippet` test covers caption-first extraction + word-boundary truncation.)*
 
 ---
 

@@ -1040,6 +1040,65 @@ function computeDeterministicMetrics(params: {
   return { metrics, noteworthy_examples };
 }
 
+/**
+ * Phase 3.2 (docs/chapters-plan.md): attach a `delta` block to each
+ * arc in `metrics.arcs[]` so the LLM can cite week-over-week changes and the
+ * client detail screen can render arc lanes.
+ *
+ * Deltas are computed against a single prior weekly chapter's arc snapshot
+ * (see `PriorChapterArc`). We match on `arc_id` when present, falling back to
+ * case-insensitive title match for historical rows where the prior snapshot
+ * may be missing ids. When no prior exists for an arc we tag `new_or_first`
+ * and leave numeric deltas null so the UI can render the lane without a
+ * delta line. Mutates the `metrics.arcs` entries in place.
+ */
+function augmentArcsWithDeltas(
+  metrics: ChapterMetrics,
+  priorArcs: PriorChapterArc[] | null | undefined,
+): void {
+  const priorById = new Map<string, PriorChapterArc>();
+  const priorByTitleLc = new Map<string, PriorChapterArc>();
+  if (Array.isArray(priorArcs)) {
+    for (const pa of priorArcs) {
+      if (pa.arc_id) priorById.set(pa.arc_id, pa);
+      if (pa.arc_title) priorByTitleLc.set(pa.arc_title.toLowerCase(), pa);
+    }
+  }
+
+  for (const arc of metrics.arcs as any[]) {
+    const id = typeof arc?.arc_id === 'string' ? arc.arc_id : null;
+    const title = typeof arc?.arc_title === 'string' ? arc.arc_title : null;
+    const prior =
+      (id ? priorById.get(id) : null) ??
+      (title ? priorByTitleLc.get(title.toLowerCase()) : null) ??
+      null;
+
+    if (!prior) {
+      arc.delta = {
+        completed_delta: null,
+        active_days_delta: null,
+        activity_count_delta: null,
+        new_or_first: true,
+      };
+      continue;
+    }
+
+    const completedNow = typeof arc.completed_count === 'number' ? arc.completed_count : 0;
+    const completedPrior = typeof prior.completed_count === 'number' ? prior.completed_count : 0;
+    const activeNow = typeof arc.active_days_count === 'number' ? arc.active_days_count : 0;
+    const activePrior = typeof prior.active_days_count === 'number' ? prior.active_days_count : 0;
+    const totalNow = typeof arc.activity_count_total === 'number' ? arc.activity_count_total : 0;
+    const totalPrior = typeof prior.activity_count_total === 'number' ? prior.activity_count_total : 0;
+
+    arc.delta = {
+      completed_delta: completedNow - completedPrior,
+      active_days_delta: activeNow - activePrior,
+      activity_count_delta: totalNow - totalPrior,
+      new_or_first: false,
+    };
+  }
+}
+
 function resolveChaptersModel(): string {
   const raw = (Deno.env.get('KWILT_CHAPTERS_MODEL') ?? '').trim();
   // gpt-4o-mini defaults to corporate-safe phrasing that fights our
@@ -1088,6 +1147,14 @@ function resolveTemperature(kind: TemplateKind, tone: string | null): number {
   return 0.65; // gentle/neutral/default
 }
 
+type PriorChapterArc = {
+  arc_id: string | null;
+  arc_title: string | null;
+  completed_count: number | null;
+  active_days_count: number | null;
+  activity_count_total: number | null;
+};
+
 type PriorChapterContext = {
   title: string | null;
   dek: string | null;
@@ -1096,6 +1163,13 @@ type PriorChapterContext = {
   completed_count: number | null;
   active_days_count: number | null;
   longest_streak_days: number | null;
+  /**
+   * Arc-level snapshot from the prior chapter's deterministic metrics. Used by
+   * Phase 3.2 (docs/chapters-plan.md) to compute the arc-lane delta
+   * block on the current chapter's `metrics.arcs[]`. May be empty if the prior
+   * chapter predates the arc-snapshot plumbing.
+   */
+  arcs: PriorChapterArc[];
 } | null;
 
 function buildGoldenExample(cadence: Cadence): string {
@@ -1106,6 +1180,7 @@ function buildGoldenExample(cadence: Cadence): string {
     return JSON.stringify({
       title: 'Running came back; writing carried the year',
       dek: 'In a year with 142 active days and a 19-day streak, "Finish novel draft" and a rebuilt running habit anchored the Arcs that actually moved.',
+      caption: 'Writing carried the year — "Finish novel draft" closed after 241 days — while the Health Arc logged 38 completions across 61 activities.',
       opening_paragraphs: [
         'You closed 206 of the 318 activities you opened this year, and you stayed visible for 142 days of it. The shape of that work was not evenly distributed. Two Arcs carried the year: Writing (87 activities, 54 completed) and Health (61 activities, 38 completed).',
         'The Writing Arc bent around one long finish: "Finish novel draft", opened in March, closed in November. It was a 241-day arc that crossed 34 other activities — "Edit chapter 7", "Send draft to Mira", "Revise opening scene" — each a small plank on the same bridge.',
@@ -1116,6 +1191,7 @@ function buildGoldenExample(cadence: Cadence): string {
     return JSON.stringify({
       title: 'A month of unglamorous follow-through on the Family Arc',
       dek: 'You completed 38 of 46 activities in April — not your busiest month, but 6 of them carried forward from March and finally closed. The Family Arc did most of the work.',
+      caption: 'The Family Arc closed 14 of April\'s 38 finishes, including "Plan Mom\'s surprise dinner" — 6 of those carried forward from March.',
       opening_paragraphs: [
         'April was not the month you built the thing; it was the month you finished several things you had already built. Thirty-eight completions against forty-six opens, and of those completions, six were activities you had carried forward from March — including "Plan Mom\'s surprise dinner" (opened March 19, closed April 6).',
         'The Family Arc accounted for 14 of the 38 completions, more than any other Arc. That is not a huge number in isolation, but it is striking against your March average of 5.',
@@ -1126,6 +1202,7 @@ function buildGoldenExample(cadence: Cadence): string {
   return JSON.stringify({
     title: '7 active days, a 72-item backlog, and one finish that mattered',
     dek: 'You closed 12 activities this week and kept the streak alive every day — but the real story is "Workfront Planning Promo", which had been open for 23 days.',
+    caption: 'The Work Arc finally closed "Workfront Planning Promo" after 23 days open — one of 12 finishes across a 7-day active streak.',
     opening_paragraphs: [
       'You were active on all seven days of the week, extending the streak to six days, and you closed 12 activities. None of those headline numbers is the story. The story is that "Workfront Planning Promo" — an activity you opened 23 days ago — finally closed on Thursday, which makes this week the moment that long arc crossed the line.',
       'Around that finish, the Family Arc continued its quiet run (3 activities, all completed), and the Work Arc absorbed the bulk of the effort (8 activities, 6 completed). The 72 carry-forward count looks heavy in isolation, but 11 of those 72 have "Workfront" in the title and now belong to a thread that has started to close.',
@@ -1180,12 +1257,28 @@ function buildWritingRequirements(params: {
     `highlights.bullets must each start with a quoted activity title.`,
   ];
 
+  // Phase 3.1 (docs/chapters-plan.md): the signal-first caption.
+  // Same voice as story.body (warm investigative reporter) — continuous
+  // transition from caption → article. Required anchors: one quoted activity
+  // title, one Arc name, one number. Length kept short-by-construction so
+  // list cards + digest emails can use it as a lead-paragraph without
+  // truncation heuristics.
+  const captionRules = [
+    `sections.signal.caption MUST be 1–3 sentences summarizing the SINGLE top story hook of the period in reader-facing prose.`,
+    `Caption constraints: length 80–320 characters. Must NOT exceed 320 characters.`,
+    `Caption anchors (ALL THREE required): (a) at least ONE quoted activity title from evidence.activities_full wrapped in double quotes; (b) at least ONE Arc name from stable_context by its exact title; (c) at least ONE number from metrics.`,
+    `Caption voice: same investigative reporter voice as story.body. Do NOT say "this chapter highlights", "this week's chapter", "in this chapter", or any meta-framing. Write the hook directly.`,
+    `Caption alignment: the caption must reflect the same story hook as chosen_hook_id. Reader opens caption → reads story; voice + angle are continuous.`,
+    `Caption anti-spoiler rule: do not re-use the dek verbatim. Dek is a news dek; caption is a lede for a mobile reader.`,
+  ];
+
   return {
     headline_rules: [`title must be a headline (no cadence prefix, no date stamp)`, `4–12 words, specific to THIS period's evidence`],
     length_rule: lengthRule,
     subhead_rule: subheadRule,
     story_rules: rules,
     section_rules: sectionRules,
+    caption_rules: captionRules,
     tone_note: kind === 'report' ? 'Kind: report. Be neutral and tight.' : 'Kind: reflection. Warm reporter voice, first-person-to-the-reader.',
   };
 }
@@ -1261,6 +1354,7 @@ function buildChapterPrompt(params: {
       chosen_hook_id: 'string (MUST match one of evidence.story_hooks[].hook_id)',
       period: { start: 'string', end: 'string', label: 'string' },
       sections: [
+        { key: 'signal', title: 'The Signal', caption: 'string (1–3 sentence lede; see writing_requirements.caption_rules)' },
         { key: 'story', title: 'The Story', body: 'string (article body; include subheads inline for monthly/yearly)' },
         { key: 'where_time_went', title: 'Where the Work Landed', bullets: ['string'] },
         { key: 'forces', title: 'Your Forces', items: [{ force: 'string', body: 'string' }] },
@@ -1480,10 +1574,47 @@ function validateChapterOutput(params: {
 
   const sections = Array.isArray(out?.sections) ? out.sections : null;
   if (!sections) return { ok: false, error: 'Output missing sections array' };
-  const requiredKeys = ['story', 'where_time_went', 'forces', 'highlights', 'patterns', 'next_experiments'];
+  // Phase 3.1: `signal` is required alongside story. On non-strict (first
+  // attempt) we enforce it; we intentionally do NOT have a tolerance window
+  // like we did for `chosen_hook_id` because the detail-screen inversion in
+  // Phase 3.3 assumes every ready chapter has a caption.
+  const requiredKeys = ['signal', 'story', 'where_time_went', 'forces', 'highlights', 'patterns', 'next_experiments'];
   const keys = new Set(sections.map((s: any) => (typeof s?.key === 'string' ? s.key : null)).filter(Boolean));
   for (const k of requiredKeys) {
     if (!keys.has(k)) return { ok: false, error: `Output missing section: ${k}` };
+  }
+
+  // Caption validation (Phase 3.1). We read activity titles, arc titles
+  // below for story.body; re-use them here. Caption validation runs BEFORE
+  // story validation so a missing caption fails fast.
+  const signal = sections.find((s: any) => s && typeof s === 'object' && s.key === 'signal');
+  const caption = typeof signal?.caption === 'string' ? signal.caption.trim() : '';
+  if (!caption) return { ok: false, error: 'sections.signal.caption is missing' };
+  if (caption.length < 80) {
+    return { ok: false, error: `sections.signal.caption is too short (< 80 chars; got ${caption.length})` };
+  }
+  if (caption.length > 320) {
+    return { ok: false, error: `sections.signal.caption is too long (> 320 chars; got ${caption.length})` };
+  }
+  const captionLc = caption.toLowerCase();
+  for (const phrase of BANNED_DEK_PHRASES) {
+    if (captionLc.includes(phrase)) {
+      return { ok: false, error: `sections.signal.caption contains banned phrase: "${phrase}"` };
+    }
+  }
+  for (const word of BANNED_DEK_WORDS) {
+    const re = new RegExp(`\\b${word}\\b`, 'i');
+    if (re.test(caption)) {
+      return { ok: false, error: `sections.signal.caption contains banned word: "${word}"` };
+    }
+  }
+  // Meta-framing rejections (caption must read as article lede, not as a
+  // description of the chapter itself).
+  const metaPhrases = ['this chapter', 'this week\u2019s chapter', "this week's chapter", 'in this chapter', 'this report'];
+  for (const phrase of metaPhrases) {
+    if (captionLc.includes(phrase)) {
+      return { ok: false, error: `sections.signal.caption contains meta-framing phrase: "${phrase}"` };
+    }
   }
 
   const story = sections.find((s: any) => s && typeof s === 'object' && s.key === 'story');
@@ -1529,6 +1660,29 @@ function validateChapterOutput(params: {
     const lc = body.toLowerCase();
     const mentioned = arcTitles.some((t) => t && lc.includes(t.toLowerCase()));
     if (!mentioned) return { ok: false, error: 'story.body must name at least one Arc from stable_context' };
+  }
+
+  // Phase 3.1 caption anchor checks (run here, after arcTitles/activityTitles
+  // are hoisted for story.body validation). Caption must quote at least one
+  // activity title, name at least one Arc, and include at least one number.
+  if (!/\d/.test(caption)) {
+    return { ok: false, error: 'sections.signal.caption must include at least one number from metrics' };
+  }
+  if (arcTitles.length > 0) {
+    const capLc = caption.toLowerCase();
+    const arcMentioned = arcTitles.some((t) => t && capLc.includes(t.toLowerCase()));
+    if (!arcMentioned) {
+      return { ok: false, error: 'sections.signal.caption must name at least one Arc from stable_context' };
+    }
+  }
+  // Require at least one quoted activity title (tolerates smart quotes).
+  const captionQuotedCount = countQuotedTitles(caption, activityTitles);
+  if (activityTitles.length > 0 && captionQuotedCount < 1) {
+    return { ok: false, error: 'sections.signal.caption must quote at least one activity title verbatim' };
+  }
+  // Anti-spoiler: caption must not be byte-for-byte identical to the dek.
+  if (caption === dek) {
+    return { ok: false, error: 'sections.signal.caption must not be identical to dek' };
   }
 
   // If user notes exist, at least one note must appear quoted in body.
@@ -1645,6 +1799,16 @@ async function getPriorReadyChapter(admin: any, params: {
   const completed = typeof met?.activities?.completed_count === 'number' ? met.activities.completed_count : null;
   const activeDays = typeof met?.time_shape?.active_days_count === 'number' ? met.time_shape.active_days_count : null;
   const streak = typeof met?.time_shape?.longest_active_streak_days === 'number' ? met.time_shape.longest_active_streak_days : null;
+
+  const rawArcs = Array.isArray(met?.arcs) ? met.arcs : [];
+  const arcs: PriorChapterArc[] = rawArcs.map((a: any) => ({
+    arc_id: typeof a?.arc_id === 'string' ? a.arc_id : null,
+    arc_title: typeof a?.arc_title === 'string' ? a.arc_title : null,
+    completed_count: typeof a?.completed_count === 'number' ? a.completed_count : null,
+    active_days_count: typeof a?.active_days_count === 'number' ? a.active_days_count : null,
+    activity_count_total: typeof a?.activity_count_total === 'number' ? a.activity_count_total : null,
+  }));
+
   return {
     title,
     dek,
@@ -1653,6 +1817,7 @@ async function getPriorReadyChapter(admin: any, params: {
     completed_count: completed,
     active_days_count: activeDays,
     longest_streak_days: streak,
+    arcs,
   };
 }
 
@@ -1986,6 +2151,12 @@ serve(async (req) => {
       templateId: t.id,
       periodStartIso: period.start.toISO() ?? '',
     });
+
+    // Phase 3.2: fold week-over-week arc deltas into metrics.arcs[] so the
+    // prompt can cite them and the client can render arc lanes. Deltas are
+    // computed before prompt assembly so the LLM sees them; the mutation is
+    // in-place on the same metrics object written to kwilt_chapters.metrics.
+    augmentArcsWithDeltas(metrics, priorChapter?.arcs ?? null);
 
     const allowedIds = new Set<string>([
       ...noteworthy_examples.map((e) => e.activity_id),

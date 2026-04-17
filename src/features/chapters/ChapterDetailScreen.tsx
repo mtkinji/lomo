@@ -88,6 +88,47 @@ function detectCadence(chapter: ChapterRow | null): 'weekly' | 'monthly' | 'year
   return 'manual';
 }
 
+/**
+ * Phase 3.3 arc-lane formatting. Input is an arc entry from
+ * `metrics.arcs[]` (server-augmented with a `delta` block by
+ * `augmentArcsWithDeltas` in `supabase/functions/chapters-generate`). We show
+ * the headline "{N} completed" (or "{N} active" if nothing closed this week)
+ * as the primary, and a short delta line as a secondary. Missing deltas
+ * render as empty strings so pre-Phase-3 chapters degrade gracefully.
+ */
+function formatArcLanePrimary(arc: any): string {
+  const completed = typeof arc?.completed_count === 'number' ? arc.completed_count : null;
+  const total = typeof arc?.activity_count_total === 'number' ? arc.activity_count_total : null;
+  if (completed != null && completed > 0) {
+    return `${completed} completed`;
+  }
+  if (total != null && total > 0) {
+    return `${total} active`;
+  }
+  return 'Quiet this period';
+}
+
+function formatArcLaneDelta(arc: any, cadence: 'weekly' | 'monthly' | 'yearly' | 'manual'): string {
+  const delta = arc?.delta ?? null;
+  if (!delta || typeof delta !== 'object') return '';
+  const periodWord = cadence === 'weekly' ? 'week' : cadence === 'monthly' ? 'month' : cadence === 'yearly' ? 'year' : 'period';
+  if (delta.new_or_first === true) {
+    return `New this ${periodWord}`;
+  }
+  const completedDelta = typeof delta.completed_delta === 'number' ? delta.completed_delta : null;
+  if (completedDelta == null) return '';
+  if (completedDelta === 0) {
+    const activeDelta = typeof delta.active_days_delta === 'number' ? delta.active_days_delta : null;
+    if (activeDelta != null && activeDelta !== 0) {
+      const arrow = activeDelta > 0 ? '+' : '';
+      return `${arrow}${activeDelta} active day${Math.abs(activeDelta) === 1 ? '' : 's'} vs last ${periodWord}`;
+    }
+    return `Steady vs last ${periodWord}`;
+  }
+  const arrow = completedDelta > 0 ? '+' : '';
+  return `${arrow}${completedDelta} completed vs last ${periodWord}`;
+}
+
 function buildCadenceKicker(chapter: ChapterRow | null, periodStart: string, periodEnd: string): string {
   const cadence = detectCadence(chapter);
   const formatShort = (iso: string) => {
@@ -125,6 +166,11 @@ export function ChapterDetailScreen() {
 
   const [loading, setLoading] = React.useState(true);
   const [chapter, setChapter] = React.useState<ChapterRow | null>(null);
+  // Phase 3.3: the article body is now behind a "Read the full story"
+  // disclosure. Default collapsed so the signal-first layout stays
+  // signal-first. Instrumented so we can see the tap-through rate relative
+  // to `chapter_viewed`.
+  const [storyExpanded, setStoryExpanded] = React.useState(false);
   const [detailsExpanded, setDetailsExpanded] = React.useState(false);
   const [neighbors, setNeighbors] = React.useState<{ previous: { id: string } | null; next: { id: string } | null }>({
     previous: null,
@@ -191,6 +237,10 @@ export function ChapterDetailScreen() {
   const kicker = buildCadenceKicker(chapter, periodStart, periodEnd);
   const cadenceForCopy = detectCadence(chapter);
 
+  // Phase 3.1/3.3: the caption is the primary above-the-fold hook on the
+  // detail screen. When present we hide the dek here (it'd duplicate the
+  // same story); legacy chapters without a caption still see the dek.
+  const caption = asString(pickSection(outputJson, 'signal')?.caption) ?? null;
   const story = asString(pickSection(outputJson, 'story')?.body) ?? null;
   const readingMinutes = estimateReadingMinutes(story);
   const whereTimeWent = (asArray(pickSection(outputJson, 'where_time_went')?.bullets).filter((x) => typeof x === 'string') as string[]).slice(0, 6);
@@ -200,7 +250,11 @@ export function ChapterDetailScreen() {
   const forcesItems = (asArray(pickSection(outputJson, 'forces')?.items).filter((x) => x && typeof x === 'object') as any[]).slice(0, 6);
 
   const metrics = chapter?.metrics ?? null;
-  const topArcs = Array.isArray(metrics?.arcs) ? (metrics.arcs as any[]).slice(0, 3) : [];
+  // Phase 3.3 arc lanes: up to 4 top arcs by activity, each with its delta
+  // block (populated by `augmentArcsWithDeltas` on the server). We surface
+  // lanes even when deltas are missing (pre-Phase-3 chapters) — the lane
+  // still communicates weight.
+  const arcLanes = Array.isArray(metrics?.arcs) ? (metrics.arcs as any[]).slice(0, 4) : [];
 
   const completed = typeof metrics?.activities?.completed_count === 'number' ? metrics.activities.completed_count : null;
   const activeDays = typeof metrics?.time_shape?.active_days_count === 'number' ? metrics.time_shape.active_days_count : null;
@@ -303,27 +357,41 @@ export function ChapterDetailScreen() {
               </View>
             ) : null}
             <Text style={styles.headline}>{title}</Text>
-            {dek ? <Text style={styles.dek}>{dek}</Text> : null}
+            {/* Phase 3.3: caption is the signal-first hero. Dek is only
+                rendered as fallback for legacy chapters without a caption. */}
+            {caption ? (
+              <Text style={styles.caption}>{caption}</Text>
+            ) : dek ? (
+              <Text style={styles.dek}>{dek}</Text>
+            ) : null}
             {loading ? <Text style={styles.meta}>Loading…</Text> : null}
             {!loading && !chapter ? <Text style={styles.meta}>Not found.</Text> : null}
           </View>
 
           {chapter ? (
             <>
-              {topArcs.length > 0 ? (
-                <View style={styles.topArcsRow} accessibilityLabel="Arcs reflected in this chapter">
-                  {topArcs.map((arc, idx) => {
-                    const arcTitle = asString(arc?.arc_title) ?? null;
-                    if (!arcTitle) return null;
-                    const count = typeof arc?.activity_count_total === 'number' ? arc.activity_count_total : null;
-                    return (
-                      <View key={`arc-${idx}`} style={styles.topArcChip}>
-                        <Text style={styles.topArcChipText} numberOfLines={1}>
-                          {count != null ? `${arcTitle} · ${count}` : arcTitle}
-                        </Text>
-                      </View>
-                    );
-                  })}
+              {arcLanes.length > 0 ? (
+                <View style={styles.arcLanesBlock} accessibilityLabel="Arcs reflected in this chapter">
+                  <Text style={styles.sectionLabel}>Arcs this {cadenceForCopy === 'weekly' ? 'week' : cadenceForCopy === 'monthly' ? 'month' : cadenceForCopy === 'yearly' ? 'year' : 'period'}</Text>
+                  <VStack space="xs">
+                    {arcLanes.map((arc, idx) => {
+                      const arcTitle = asString(arc?.arc_title) ?? null;
+                      if (!arcTitle) return null;
+                      const primary = formatArcLanePrimary(arc);
+                      const delta = formatArcLaneDelta(arc, cadenceForCopy);
+                      return (
+                        <View key={`arc-lane-${idx}`} style={styles.arcLaneRow}>
+                          <Text style={styles.arcLaneTitle} numberOfLines={1}>{arcTitle}</Text>
+                          <View style={styles.arcLaneMetaCol}>
+                            <Text style={styles.arcLanePrimary} numberOfLines={1}>{primary}</Text>
+                            {delta ? (
+                              <Text style={styles.arcLaneDelta} numberOfLines={1}>{delta}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </VStack>
                 </View>
               ) : null}
 
@@ -347,34 +415,64 @@ export function ChapterDetailScreen() {
                 </Text>
               </View>
 
-              <View style={styles.articleWrap}>
-                {story ? (
-                  <VStack space="sm">
-                    {splitArticleBlocks(story).map((b, idx) =>
-                      b.kind === 'h2' ? (
-                        <Text key={`h-${idx}`} style={styles.articleSubhead}>
-                          {b.text}
-                        </Text>
-                      ) : (
-                        <Text key={`p-${idx}`} style={styles.articleBody}>
-                          {b.text}
-                        </Text>
-                      ),
-                    )}
-                  </VStack>
-                ) : chapter.status === 'failed' ? (
-                  <VStack space="sm">
+              {/* Phase 3.3: article body is now the secondary read, behind
+                  a "Read the full story" disclosure. Failed / pending states
+                  still render inline since there's no long-form to hide. */}
+              {story ? (
+                <View style={styles.articleWrap}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={storyExpanded ? 'Hide the full story' : 'Read the full story'}
+                    onPress={() =>
+                      setStoryExpanded((v) => {
+                        const next = !v;
+                        if (next) {
+                          capture(AnalyticsEvent.ChapterSectionExpanded, {
+                            section: 'story',
+                            period_key: chapter?.period_key ?? null,
+                          });
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    <View style={styles.storyDiscloseRow}>
+                      <Text style={styles.storyDiscloseLabel}>
+                        {storyExpanded ? 'Hide the full story' : 'Read the full story'}
+                      </Text>
+                      <Text style={styles.storyDiscloseMeta}>{`${readingMinutes} min`}</Text>
+                    </View>
+                  </Pressable>
+                  {storyExpanded ? (
+                    <VStack space="sm" style={styles.storyBody}>
+                      {splitArticleBlocks(story).map((b, idx) =>
+                        b.kind === 'h2' ? (
+                          <Text key={`h-${idx}`} style={styles.articleSubhead}>
+                            {b.text}
+                          </Text>
+                        ) : (
+                          <Text key={`p-${idx}`} style={styles.articleBody}>
+                            {b.text}
+                          </Text>
+                        ),
+                      )}
+                    </VStack>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={styles.articleWrap}>
+                  {chapter.status === 'failed' ? (
                     <Text style={styles.articleBody}>
                       We couldn&apos;t write this week&apos;s chapter. Your data is safe; we just hit a
                       snag assembling the story. We&apos;ll try again next week.
                     </Text>
-                  </VStack>
-                ) : (
-                  <Text style={styles.articleBody}>
-                    Your chapter is being written. This usually takes under a minute — pull to refresh if it doesn&apos;t appear shortly.
-                  </Text>
-                )}
-              </View>
+                  ) : (
+                    <Text style={styles.articleBody}>
+                      Your chapter is being written. This usually takes under a minute — pull to refresh if it doesn&apos;t appear shortly.
+                    </Text>
+                  )}
+                </View>
+              )}
 
               {highlights.length > 0 ? (
                 <VStack space="xs" style={styles.highlightsBlock}>
@@ -610,27 +708,72 @@ const styles = StyleSheet.create({
   keyFiguresWrap: {
     width: '100%',
   },
-  topArcsRow: {
+  caption: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'left',
+    marginTop: spacing.xs,
+    lineHeight: 24,
+  },
+  // Phase 3.3 arc lanes — a stacked list of Arc × delta rows. Designed to
+  // read as the primary above-the-fold signal, not a chip garnish. Rows use
+  // a two-column layout (title left, metric stack right) so longer Arc
+  // titles can wrap while the numbers stay right-aligned.
+  arcLanesBlock: {
     width: '100%',
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: spacing.xs,
-    rowGap: spacing.xs,
   },
-  topArcChip: {
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    maxWidth: '100%',
-  },
-  topArcChipText: {
+  sectionLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    letterSpacing: 0.2,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  arcLaneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    columnGap: spacing.md,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  arcLaneTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flexShrink: 1,
+    flexGrow: 1,
+  },
+  arcLaneMetaCol: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    maxWidth: '55%',
+  },
+  arcLanePrimary: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  arcLaneDelta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  storyDiscloseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  storyDiscloseLabel: {
+    ...typography.bodySm,
+    color: colors.pine700,
+    fontWeight: '700',
+  },
+  storyDiscloseMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  storyBody: {
+    marginTop: spacing.md,
   },
   metricsBand: {
     width: '100%',

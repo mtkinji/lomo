@@ -4,12 +4,17 @@
 // so in-app snippets and email-digest snippets stay consistent.
 //
 // Rules (single sentence, list-card-friendly):
-//   1. Prefer `output_json.sections[key=story].body`.
-//   2. Fall back to the first non-empty `sections[].body` or legacy
+//   1. Prefer `output_json.sections[key=signal].caption` — Phase 3.1 of
+//      docs/chapters-plan.md introduced this short, pre-computed lede
+//      that's specifically written for list cards + digest emails. It is
+//      voice-matched to the article body, so we return it verbatim when
+//      present and length-safe.
+//   2. Fall back to `output_json.sections[key=story].body`.
+//   3. Fall back to the first non-empty `sections[].body` or legacy
 //      `outputJson.narrative` string.
-//   3. Strip leading markdown `##` subheads; they're article scaffolding,
+//   4. Strip leading markdown `##` subheads; they're article scaffolding,
 //      not prose.
-//   4. Slice at the first sentence boundary (`.`, `?`, `!`), fallback to
+//   5. Slice at the first sentence boundary (`.`, `?`, `!`), fallback to
 //      the paragraph break, fallback to a word-boundary ellipsis.
 //
 // Returns `''` when no narrative is available.
@@ -17,6 +22,22 @@
 const DEFAULT_MAX_CHARS = 140;
 
 export function getChapterHistorySnippet(outputJson: unknown, maxChars: number = DEFAULT_MAX_CHARS): string {
+  const caption = pickCaption(outputJson);
+  if (caption) {
+    const trimmed = caption.trim();
+    if (trimmed.length <= maxChars) return trimmed;
+    // Caption is validator-capped at 320; list cards default to 140.
+    // Slice at sentence boundary if possible.
+    const sentenceMatch = trimmed.match(/^[^.!?\n]{12,}?[.!?](?:\s|$)/);
+    if (sentenceMatch && sentenceMatch[0].trim().length <= maxChars) {
+      return sentenceMatch[0].trim();
+    }
+    const slice = trimmed.slice(0, maxChars - 1);
+    const lastSpace = slice.lastIndexOf(' ');
+    const safe = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
+    return `${safe.trimEnd()}\u2026`;
+  }
+
   const raw = pickNarrative(outputJson);
   if (!raw) return '';
   const cleaned = stripLeadingSubheads(raw).replace(/\r\n/g, '\n').trim();
@@ -39,6 +60,21 @@ export function getChapterHistorySnippet(outputJson: unknown, maxChars: number =
   const lastSpace = slice.lastIndexOf(' ');
   const safe = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
   return `${safe.trimEnd()}\u2026`;
+}
+
+function pickCaption(outputJson: unknown): string {
+  if (!outputJson || typeof outputJson !== 'object') return '';
+  const obj = outputJson as Record<string, unknown>;
+  const sections = obj.sections;
+  if (!Array.isArray(sections)) return '';
+  const signal = sections.find(
+    (s): s is { key: 'signal'; caption?: unknown } =>
+      s != null && typeof s === 'object' && (s as { key?: unknown }).key === 'signal',
+  );
+  if (signal && typeof signal.caption === 'string' && signal.caption.trim().length > 0) {
+    return signal.caption;
+  }
+  return '';
 }
 
 function pickNarrative(outputJson: unknown): string {

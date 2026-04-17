@@ -134,7 +134,29 @@ describe('CTA URL migration (Phase 3 of email-system-ga-plan.md)', () => {
 });
 
 describe('extractChapterSnippet', () => {
-  it('reads the canonical sections.story.body field', () => {
+  it('prefers sections.signal.caption over story.body (Phase 3.1)', () => {
+    const { extractChapterSnippet } = loadTemplates();
+    const snippet = extractChapterSnippet({
+      title: 'Test',
+      sections: [
+        { key: 'signal', title: 'The Signal', caption: 'The Work Arc closed "Workfront Promo" after 23 days open.' },
+        { key: 'story', title: 'The Story', body: 'This is the lede paragraph and it is short.' },
+      ],
+    });
+    expect(snippet).toBe('The Work Arc closed "Workfront Promo" after 23 days open.');
+  });
+
+  it('truncates a caption that exceeds maxChars at a word boundary', () => {
+    const { extractChapterSnippet } = loadTemplates();
+    const caption = 'The Work Arc finally closed a thing and then it did another thing and kept going and going';
+    const snippet = extractChapterSnippet({
+      sections: [{ key: 'signal', caption }],
+    }, 40);
+    expect(snippet.length).toBeLessThanOrEqual(40);
+    expect(snippet.endsWith('\u2026')).toBe(true);
+  });
+
+  it('falls back to sections.story.body when signal is missing', () => {
     const { extractChapterSnippet } = loadTemplates();
     const snippet = extractChapterSnippet({
       title: 'Test',

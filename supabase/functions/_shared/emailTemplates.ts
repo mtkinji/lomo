@@ -449,20 +449,36 @@ export function buildWelcomeDay7Email(
 /**
  * Extract a human-readable narrative snippet from a chapter `output_json`.
  *
- * The canonical narrative lives at `output_json.sections[?(key === 'story')].body`
- * (per `chapters-generate/index.ts` validator + prompt). We accept a few legacy
- * shapes defensively:
- *   - `output_json.narrative` (the old field this template used to read; kept
- *     so an in-flight migration doesn't dark-render).
- *   - `output_json.sections[].body` falling back to the first section if no
- *     `key === 'story'` entry exists.
+ * Preference order (docs/chapters-plan.md Phase 3.1 + 3.4):
+ *   1. `output_json.sections[?(key === 'signal')].caption` — a short, pre-
+ *      composed lede the generator writes specifically for list cards +
+ *      digest emails. Length is validator-capped at 80–320 chars; we emit
+ *      it verbatim and skip the article-body truncation heuristic.
+ *   2. `output_json.sections[?(key === 'story')].body` — the article body
+ *      (legacy source for pre-Phase-3 chapters and a safety net for any
+ *      future `signal`-less outputs).
+ *   3. `output_json.narrative` (legacy flat string) or the first section
+ *      with a string `body`.
  *
- * Truncation: we slice at the first paragraph break (double newline) when one
- * appears within `maxChars`, otherwise we slice at the last word boundary
- * before `maxChars` and append a single ellipsis. Returns `''` if no narrative
- * could be located.
+ * For the article-body fall-through, we slice at the first paragraph break
+ * (double newline) when one appears within `maxChars`, otherwise at the
+ * last word boundary before `maxChars` with a single ellipsis. Returns ''
+ * if no narrative could be located.
  */
 export function extractChapterSnippet(outputJson: unknown, maxChars = 280): string {
+  const caption = pickChapterCaption(outputJson);
+  if (caption) {
+    const trimmed = caption.trim();
+    if (trimmed.length <= maxChars) return trimmed;
+    // Caption exceeds maxChars (rare — validator caps at 320, email calls
+    // with 280). Truncate at a word boundary so the email still renders
+    // cleanly.
+    const slice = trimmed.slice(0, maxChars - 1);
+    const lastSpace = slice.lastIndexOf(' ');
+    const safe = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
+    return `${safe.trimEnd()}\u2026`;
+  }
+
   const narrative = pickChapterNarrative(outputJson);
   if (!narrative) return '';
   const cleaned = narrative.replace(/\r\n/g, '\n').trim();
@@ -478,6 +494,21 @@ export function extractChapterSnippet(outputJson: unknown, maxChars = 280): stri
   const lastSpace = slice.lastIndexOf(' ');
   const safe = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
   return `${safe.trimEnd()}\u2026`;
+}
+
+function pickChapterCaption(outputJson: unknown): string {
+  if (!outputJson || typeof outputJson !== 'object') return '';
+  const obj = outputJson as Record<string, unknown>;
+  const sections = obj.sections;
+  if (!Array.isArray(sections)) return '';
+  const signal = sections.find(
+    (s): s is { key: 'signal'; caption?: unknown } =>
+      s != null && typeof s === 'object' && (s as { key?: unknown }).key === 'signal',
+  );
+  if (signal && typeof signal.caption === 'string' && signal.caption.trim().length > 0) {
+    return signal.caption;
+  }
+  return '';
 }
 
 function pickChapterNarrative(outputJson: unknown): string {
@@ -509,7 +540,8 @@ function pickChapterNarrative(outputJson: unknown): string {
 export function buildChapterDigestEmail(params: {
   chapterTitle: string;
   /** Full chapter `output_json` produced by `chapters-generate`. The template
-   *  extracts the narrative snippet from `sections.story.body`. */
+   *  extracts a snippet via `extractChapterSnippet` — preferring
+   *  `sections.signal.caption` (Phase 3.1), falling back to `sections.story.body`. */
   outputJson: unknown;
   chapterId: string;
   cadence: PeriodCadence;
