@@ -374,7 +374,7 @@ Files: `supabase/functions/_shared/emailTemplates.ts`, optionally `supabase/func
 
 ### Related
 
-Chapters work beyond these two fixes (analytics, unread state, default template flip, settings surface) lives in a sibling plan: **`docs/chapters-ga-hardening-plan.md`**. Phase 3.5 is scoped deliberately narrowly to the digest content so the email GA plan doesn't balloon into a feature-polish plan.
+Chapters work beyond these two fixes (analytics, unread state, default template flip, settings surface, signal-first reframe, Next Steps) lives in a sibling plan: **`docs/chapters-plan.md`**. Phase 3.5 is scoped deliberately narrowly to the digest content so the email GA plan doesn't balloon into a feature-polish plan.
 
 ---
 
@@ -948,7 +948,7 @@ After each phase:
 
 - `docs/growth-loops-strategy.md` — source strategy; this plan closes GA-readiness gaps in §1 (triggered email) and §3 (widgets/deep links).
 - `docs/growth-loops-execution-plan.md` — Sprint 4 shipped the email system; this plan hardens it for GA.
-- `docs/chapters-ga-hardening-plan.md` — sibling plan owning the Chapter *destination* feature (analytics, unread state, settings, default template flip). Runs in parallel; the Chapter Digest cannot go out at scale until that plan's Phase A ships.
-- `docs/chapters-build-plan.md` — original Chapters feature build plan (schema, generation, UI); largely executed through its Phase 3. The GA-hardening plan picks up from there.
+- `docs/chapters-plan.md` — sibling plan owning the Chapter *destination* feature (GA plumbing + weekly-only cutover + signal-first reframe + Next Steps loop). Runs in parallel; the Chapter Digest cannot go out at scale until that plan's Phase 1 ships.
+- `docs/chapters-build-plan.md` — original Chapters feature build plan (schema, generation, UI); largely executed through its Phase 3. `docs/chapters-plan.md` picks up from there.
 - `docs/notifications-paradigm-prd.md` — local/push notification PRD; unrelated but shares the deep-link infrastructure being completed here.
 - `kwilt-site/LAUNCH_CHECKLIST.md` — Vercel / DNS / Universal Link setup checklist; Phase 1 depends on items there being completed.

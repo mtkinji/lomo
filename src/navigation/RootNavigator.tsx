@@ -83,9 +83,11 @@ import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen'
 import { MoreScreen } from '../features/more/MoreScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
+import { ChapterDigestSettingsScreen } from '../features/chapters/ChapterDigestSettingsScreen';
 import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
+import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -155,17 +157,12 @@ export type MainTabsParamList = {
 export type MoreStackParamList = {
   MoreHome: undefined;
   MoreArcs: NavigatorScreenParams<ArcsStackParamList> | undefined;
-  MoreChapters:
-    | {
-        /**
-         * When true, trigger the "create chapter" flow from the global + button.
-         * We keep this as a navigation param so the bottom bar can stay dumb and
-         * screens can own their own side-effects (auth prompts, RPCs, etc).
-         */
-        openCreateChapter?: boolean;
-      }
-    | undefined;
+  // Chapters are server-scheduled-only (Phase 2.1 of docs/chapters-plan.md);
+  // the screen takes no params and there is no user-initiated generation
+  // entrypoint.
+  MoreChapters: undefined;
   MoreChapterDetail: { chapterId: string };
+  MoreChapterDigestSettings: undefined;
 };
 
 export type ArcsStackParamList = {
@@ -392,6 +389,37 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           utm_medium: emailAttribution.utmMedium,
           target_route: emailAttribution.targetRoute,
         });
+      }
+
+      // Chapter-open attribution: stash a hint if the URL targets a chapter
+      // detail route so `chapter_viewed` can report a correct `from` dimension
+      // (Phase 1.1 of docs/chapters-plan.md). Works for both
+      // email CTAs (`utm_source=email`) and any other deep-link entrypoints.
+      try {
+        const parsed = new URL(url);
+        const rawPath = (() => {
+          if (parsed.protocol === 'kwilt:') {
+            const host = parsed.hostname ?? '';
+            const suffix = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname : '';
+            return (host + suffix).replace(/^\/+/, '');
+          }
+          let path = parsed.pathname.replace(/^\/+/, '');
+          if (path === 'open' || path.startsWith('open/')) {
+            path = path.slice('open'.length).replace(/^\/+/, '');
+          }
+          return path;
+        })();
+        const match = rawPath.match(/^chapters\/([^/?#]+)/);
+        if (match && match[1]) {
+          const isEmail = parsed.searchParams.get('utm_source') === 'email';
+          recordChapterOpenHint(
+            match[1],
+            isEmail ? 'email' : 'deep_link',
+            parsed.searchParams.get('utm_campaign'),
+          );
+        }
+      } catch {
+        // Best-effort: malformed URLs just fall through without a hint.
       }
 
       const didHandleShare = await handleIncomingShareUrl(url);
@@ -802,6 +830,10 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MoreArcs" component={ArcsStackNavigator} />
       <MoreStack.Screen name="MoreChapters" component={ChaptersScreen} />
       <MoreStack.Screen name="MoreChapterDetail" component={ChapterDetailScreen} />
+      <MoreStack.Screen
+        name="MoreChapterDigestSettings"
+        component={ChapterDigestSettingsScreen}
+      />
     </MoreStack.Navigator>
   );
 }

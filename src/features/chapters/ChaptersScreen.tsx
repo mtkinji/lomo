@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -9,24 +9,49 @@ import { VStack, Text, EmptyState } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import {
   createDefaultWeeklyReflectionTemplate,
-  createDefaultMonthlyReflectionTemplate,
-  createDefaultYearlyReflectionTemplate,
-  createDefaultManualReflectionTemplate,
   fetchMyChapters,
-  triggerChapterGeneration,
   type ChapterRow,
 } from '../../services/chapters';
 import type { MoreStackParamList } from '../../navigation/RootNavigator';
-import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
-import { ChapterGenerateDrawer, type ChapterPeriodChoice, type ChapterCadenceChoice } from './ChapterGenerateDrawer';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { recordChapterOpenHint } from './chapterOpenSource';
+import { getChapterHistorySnippet } from './chapterSnippet';
+import {
+  getChapterReadMap,
+  getChapterReadMapSync,
+  subscribeChapterReadChanges,
+} from './chapterReadState';
+
+function buildFirstChapterEta(): string {
+  // Scheduled weekly chapters are generated once the ISO week closes, so the
+  // first chapter lands next Monday (local time). We surface a human ETA +
+  // the lookback range so the empty state reads like a promise, not a blank.
+  try {
+    const now = new Date();
+    const dow = now.getDay(); // 0=Sun..6=Sat
+    // Days until next Monday (1..7). If today is Monday, "next Monday" is 7d out.
+    const daysUntilMonday = ((1 - dow + 7) % 7) || 7;
+    const nextMonday = new Date(now);
+    nextMonday.setDate(now.getDate() + daysUntilMonday);
+    const weekStart = new Date(nextMonday);
+    weekStart.setDate(nextMonday.getDate() - 7);
+    const weekEnd = new Date(nextMonday);
+    weekEnd.setDate(nextMonday.getDate() - 1);
+    const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
+    const shortFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+    return `Your first chapter arrives next ${dayFmt.format(nextMonday)}. It'll recap ${shortFmt.format(weekStart)}–${shortFmt.format(weekEnd)} using the Arcs you're showing up for.`;
+  } catch {
+    return "Your first chapter arrives next Monday. It'll recap the past week using the Arcs you're showing up for.";
+  }
+}
 
 export function ChaptersScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList, 'MoreChapters'>>();
-  const route = useRoute<RouteProp<MoreStackParamList, 'MoreChapters'>>();
-  const showToast = useToastStore((s) => s.showToast);
+  const { capture } = useAnalytics();
+  const listViewTrackedRef = React.useRef(false);
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
@@ -40,22 +65,21 @@ export function ChaptersScreen() {
   const repairWindowActive = useRepairWindowActive(streakBreakState);
   const [refreshing, setRefreshing] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
-  const [drawerVisible, setDrawerVisible] = React.useState(false);
-  const [cadence, setCadence] = React.useState<ChapterCadenceChoice>('weekly');
-  const [periodChoice, setPeriodChoice] = React.useState<ChapterPeriodChoice>('lastComplete');
-  const [overwrite, setOverwrite] = React.useState(false);
-  const [generating, setGenerating] = React.useState(false);
-  const manualRangeEnabled = true;
-  const [manualStartDate, setManualStartDate] = React.useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d;
-  });
-  const [manualEndDate, setManualEndDate] = React.useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1); // exclusive end; default "through today"
-    return d;
-  });
+  const [readMap, setReadMap] = React.useState<Record<string, string>>(() => getChapterReadMapSync());
+
+  React.useEffect(() => {
+    let mounted = true;
+    void getChapterReadMap().then((map) => {
+      if (mounted) setReadMap({ ...map });
+    });
+    const unsub = subscribeChapterReadChanges(() => {
+      if (mounted) setReadMap({ ...getChapterReadMapSync() });
+    });
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, []);
 
   const latest = chapters[0] ?? null;
   const history = chapters.slice(1);
@@ -76,111 +100,28 @@ export function ChaptersScreen() {
       // Best-effort fetch: we don't want to force an auth prompt just to view the page.
       const rows = await fetchMyChapters({ limit: 30 });
       setChapters(rows);
+      if (!listViewTrackedRef.current) {
+        listViewTrackedRef.current = true;
+        capture(AnalyticsEvent.ChapterListViewed, { chapter_count: rows.length });
+      }
     } catch {
       // Best-effort: keep placeholder UI if user cancels sign-in or network fails.
       setChapters([]);
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [capture]);
 
   useFocusEffect(
     React.useCallback(() => {
       // OOTB template: create in the background if signed in, without prompting.
+      // Phase 2.1 + 2.5: we only ever create the weekly template; monthly /
+      // yearly / manual factories are cut. The cron does the rest.
       void createDefaultWeeklyReflectionTemplate().catch(() => null);
       void refresh();
       return () => {};
     }, [refresh]),
   );
-
-  // Global + button entrypoint: open the Generate Chapter drawer.
-  React.useEffect(() => {
-    if (!route.params?.openCreateChapter) return;
-    setDrawerVisible(true);
-    navigation.setParams({ openCreateChapter: false });
-  }, [navigation, route.params?.openCreateChapter]);
-
-  React.useEffect(() => {
-    if (cadence !== 'weekly' && periodChoice === 'prev3') {
-      setPeriodChoice('lastComplete');
-    }
-    if (cadence === 'manual' && periodChoice !== 'custom') {
-      setPeriodChoice('custom');
-    }
-  }, [cadence, periodChoice]);
-
-  const formatLocalYmd = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
-  const onPressGenerate = React.useCallback(async () => {
-    if (generating) return;
-    setGenerating(true);
-    try {
-      await ensureSignedInWithPrompt('settings');
-      const template =
-        cadence === 'manual'
-          ? await createDefaultManualReflectionTemplate()
-          : cadence === 'yearly'
-            ? await createDefaultYearlyReflectionTemplate()
-            : cadence === 'monthly'
-              ? await createDefaultMonthlyReflectionTemplate()
-              : await createDefaultWeeklyReflectionTemplate();
-      if (!template?.id) {
-        showToast({ message: 'Unable to access template', variant: 'danger', durationMs: 2600 });
-        return;
-      }
-
-      const periodOffset =
-        periodChoice === 'lastComplete'
-          ? 0
-          : periodChoice === 'prev1'
-            ? 1
-            : periodChoice === 'prev3'
-              ? 3
-              : 0;
-      const result =
-        cadence === 'manual' || periodChoice === 'custom'
-          ? await triggerChapterGeneration({
-              templateId: template.id,
-              force: overwrite,
-              start: formatLocalYmd(manualStartDate),
-              end: formatLocalYmd(manualEndDate),
-            })
-          : await triggerChapterGeneration({
-              templateId: template.id,
-              force: overwrite,
-              periodOffset,
-            });
-
-      await refresh();
-
-      if (!result) {
-        showToast({ message: 'Unable to generate Chapter', variant: 'danger', durationMs: 2600 });
-        return;
-      }
-      if (result.action === 'generated') {
-        const label = result.periodKey ? `Generated Chapter (${result.periodKey})` : 'Generated Chapter';
-        showToast({ message: label, variant: 'success', durationMs: 2200 });
-        setDrawerVisible(false);
-        return;
-      }
-      if (result.action === 'skipped') {
-        const label = result.periodKey ? `Already exists (${result.periodKey})` : 'Already exists';
-        showToast({ message: label, variant: 'default', durationMs: 2400 });
-        return;
-      }
-      const msg = result.error ? `Chapter generation failed: ${result.error}` : 'Chapter generation failed';
-      showToast({ message: msg, variant: 'danger', durationMs: 3200 });
-    } catch {
-      showToast({ message: 'Unable to generate Chapter', variant: 'danger', durationMs: 2600 });
-    } finally {
-      setGenerating(false);
-    }
-  }, [cadence, generating, overwrite, periodChoice, refresh, showToast]);
 
   return (
     <AppShell>
@@ -194,40 +135,41 @@ export function ChaptersScreen() {
         shieldCount={shieldCount}
         repairWindowActive={repairWindowActive}
       />
-      <ChapterGenerateDrawer
-        visible={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-        cadence={cadence}
-        onChangeCadence={setCadence}
-        periodChoice={periodChoice}
-        onChangePeriodChoice={setPeriodChoice}
-        manualRangeEnabled={manualRangeEnabled}
-        manualStartDate={manualStartDate}
-        manualEndDate={manualEndDate}
-        onChangeManualStartDate={setManualStartDate}
-        onChangeManualEndDate={setManualEndDate}
-        overwrite={overwrite}
-        onChangeOverwrite={setOverwrite}
-        onPressGenerate={onPressGenerate}
-        generating={generating}
-      />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
+        <View style={styles.subHeaderRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open Chapter digest settings"
+            onPress={() => navigation.navigate('MoreChapterDigestSettings')}
+            hitSlop={8}
+          >
+            <Text style={styles.subHeaderLink}>Digest settings</Text>
+          </Pressable>
+        </View>
         <VStack space="lg">
           {latest ? (
             <>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Open latest chapter"
-                onPress={() => navigation.navigate('MoreChapterDetail', { chapterId: latest.id })}
+                accessibilityLabel={readMap[latest.id] ? 'Open latest chapter' : 'Open latest chapter (unread)'}
+                onPress={() => {
+                  recordChapterOpenHint(latest.id, 'list');
+                  navigation.navigate('MoreChapterDetail', { chapterId: latest.id });
+                }}
               >
                 <Card style={styles.card} marginTop="lg">
                   <VStack space="xs">
-                    <Text style={styles.cardTitle}>
-                      {typeof latest?.output_json?.title === 'string' ? latest.output_json.title : 'Latest Chapter'}
-                    </Text>
+                    <View style={styles.cardTitleRow}>
+                      {!readMap[latest.id] ? (
+                        <View style={styles.unreadDot} accessibilityElementsHidden importantForAccessibility="no" />
+                      ) : null}
+                      <Text style={[styles.cardTitle, styles.cardTitleText]}>
+                        {typeof latest?.output_json?.title === 'string' ? latest.output_json.title : 'Latest Chapter'}
+                      </Text>
+                    </View>
                     {typeof latest?.output_json?.dek === 'string' && latest.output_json.dek.trim() ? (
                       <Text style={styles.cardMeta}>{latest.output_json.dek}</Text>
                     ) : null}
@@ -253,33 +195,50 @@ export function ChaptersScreen() {
               {history.length > 0 ? (
                 <VStack space="sm">
                   <Text style={styles.sectionTitle}>History</Text>
-                  {history.map((c) => (
-                    <Pressable
-                      key={c.id}
-                      accessibilityRole="button"
-                      accessibilityLabel="Open chapter"
-                      onPress={() => navigation.navigate('MoreChapterDetail', { chapterId: c.id })}
-                    >
-                      <Card padding="sm" style={styles.card} marginVertical="xs">
-                        <VStack space="xs">
-                          <Text style={styles.historyTitle}>
-                            {typeof c?.output_json?.title === 'string' ? c.output_json.title : `Chapter ${c.period_key}`}
-                          </Text>
-                          <Text style={styles.cardMeta}>
-                            {formatShortDate(c.period_start)} – {formatShortDate(c.period_end)}
-                          </Text>
-                        </VStack>
-                      </Card>
-                    </Pressable>
-                  ))}
+                  {history.map((c) => {
+                    const snippet = getChapterHistorySnippet(c.output_json);
+                    const unread = !readMap[c.id];
+                    return (
+                      <Pressable
+                        key={c.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={unread ? 'Open chapter (unread)' : 'Open chapter'}
+                        onPress={() => {
+                          recordChapterOpenHint(c.id, 'list');
+                          navigation.navigate('MoreChapterDetail', { chapterId: c.id });
+                        }}
+                      >
+                        <Card padding="sm" style={styles.card} marginVertical="xs">
+                          <VStack space="xs">
+                            <View style={styles.cardTitleRow}>
+                              {unread ? (
+                                <View style={styles.unreadDot} accessibilityElementsHidden importantForAccessibility="no" />
+                              ) : null}
+                              <Text style={[styles.historyTitle, styles.cardTitleText]}>
+                                {typeof c?.output_json?.title === 'string' ? c.output_json.title : `Chapter ${c.period_key}`}
+                              </Text>
+                            </View>
+                            <Text style={styles.cardMeta}>
+                              {formatShortDate(c.period_start)} – {formatShortDate(c.period_end)}
+                            </Text>
+                            {snippet ? (
+                              <Text style={styles.cardSnippet} numberOfLines={2}>
+                                {snippet}
+                              </Text>
+                            ) : null}
+                          </VStack>
+                        </Card>
+                      </Pressable>
+                    );
+                  })}
                 </VStack>
               ) : null}
             </>
           ) : (
             <EmptyState
-              title="No chapters yet"
+              title="Your first chapter is on its way"
               iconName="chapters"
-              instructions="Tap the green + button to generate your first Chapter."
+              instructions={buildFirstChapterEta()}
               style={styles.emptyState}
             />
           )}
@@ -303,9 +262,29 @@ const styles = StyleSheet.create({
     ...typography.titleSm,
     color: colors.textPrimary,
   },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  cardTitleText: {
+    flexShrink: 1,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+    marginRight: spacing.xs,
+  },
   historyTitle: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  cardSnippet: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   sectionTitle: {
     ...typography.titleSm,
@@ -327,15 +306,13 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  emptyTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
+  subHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingTop: spacing.sm,
   },
-  emptyBody: {
+  subHeaderLink: {
     ...typography.bodySm,
-    color: colors.textSecondary,
+    color: colors.accent,
   },
 });
-
-

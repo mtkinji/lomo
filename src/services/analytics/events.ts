@@ -94,6 +94,20 @@ export const AnalyticsEvent = {
   // Notification copy variant tracking
   NotificationCopyVariant: 'notification_copy_variant',
 
+  // Chapters (see docs/chapters-plan.md Phase 1.1).
+  //
+  // Phase 2.1 dropped user-initiated chapter generation: Chapters land from a
+  // server-side cron every Monday, not a user tap. Scheduled-generation
+  // observability lives in server logs / Sentry, not product analytics, so
+  // we intentionally do NOT emit `chapter_generate_started / _succeeded /
+  // _failed` from the client.
+  ChapterListViewed: 'chapter_list_viewed',
+  ChapterViewed: 'chapter_viewed',
+  ChapterSectionExpanded: 'chapter_section_expanded',
+  ChapterShared: 'chapter_shared',
+  ChapterFeedbackSubmitted: 'chapter_feedback_submitted',
+  ChapterPrevNextTapped: 'chapter_prev_next_tapped',
+
   // Friends
   FriendInviteCreated: 'friend_invite_created',
   FriendInviteShared: 'friend_invite_shared',
