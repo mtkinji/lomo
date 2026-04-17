@@ -541,7 +541,16 @@ supabase functions deploy email-drip chapters-generate pro-codes \
   now in-repo and go through `sendEmailViaResend` → full `List-Unsubscribe`
   compliance, PostHog `distinct_id = user_id`, preference gating, daily
   cap, and kill switch all apply. The legacy "Kwilt Welcome Drip"
-  Automation in Resend should be paused (see §6 operational notes).
+  Automation in Resend was disabled 2026-04-17.
+- **"Welcome Day 1 Re-engage" is intentionally not replicated.** The
+  legacy Resend Automation had a third branch that, if a user hadn't
+  opened Day 1 within 2 days, sent a re-engagement variant. The in-repo
+  drip pipeline doesn't currently have access to Resend's open-event
+  signal from within the cron (it would need to query PostHog or a
+  local cache populated by `resend-webhook`). Users who miss Day 1
+  still get Day 3 + Day 7; the re-engage variant was a nice-to-have,
+  not a compliance item. Revisit if welcome-funnel conversion needs the
+  extra nudge post-GA.
 - **DMARC rollout is in progress.** Week 0 (`p=none` monitoring) TXT
   value is drafted in §8; pending DNS write at `_dmarc.kwilt.app` and the
   4-week ramp to `p=quarantine; pct=100`. Reports via Postmark DMARC
