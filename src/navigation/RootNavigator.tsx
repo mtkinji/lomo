@@ -83,6 +83,7 @@ import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen'
 import { MoreScreen } from '../features/more/MoreScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
+import { ChapterAlignScreen } from '../features/chapters/ChapterAlignScreen';
 import { ChapterDigestSettingsScreen } from '../features/chapters/ChapterDigestSettingsScreen';
 import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
@@ -161,8 +162,25 @@ export type MoreStackParamList = {
   // the screen takes no params and there is no user-initiated generation
   // entrypoint.
   MoreChapters: undefined;
-  MoreChapterDetail: { chapterId: string };
+  MoreChapterDetail: { chapterId: string; addLine?: boolean };
   MoreChapterDigestSettings: undefined;
+  /**
+   * Phase 6 of docs/chapters-plan.md — Next Steps "Align" CTA. Opens a
+   * lightweight surface that lets the user tag a list of untagged
+   * activities to an existing Goal in one step. Activities in Kwilt
+   * belong to Goals (not directly to Arcs); the Arc is carried only
+   * for display copy. All props are server-sourced from the Chapter's
+   * `recommendations[]` entry.
+   */
+  MoreChapterAlign: {
+    chapterId: string;
+    recommendationId: string;
+    goalId: string;
+    goalTitle: string;
+    arcId: string | null;
+    arcTitle: string | null;
+    activityIds: string[];
+  };
 };
 
 export type ArcsStackParamList = {
@@ -193,6 +211,16 @@ export type ArcsStackParamList = {
      * inline button.
      */
     openGoalCreation?: boolean;
+    /**
+     * Phase 6 of docs/chapters-plan.md — Next Steps "Create Goal" CTA.
+     * When a Chapter's Goal Nomination deep-links into this screen with
+     * `openGoalCreation: true`, it forwards the nominated title so the
+     * Goal creation drawer is pre-populated and defaulted to the manual
+     * tab. The drawer still respects the per-Arc Goal limit; paywall
+     * gating happens at the Chapter detail CTA, not here.
+     */
+    prefilledGoalTitle?: string;
+    goalCreationInitialTab?: 'ai' | 'manual';
     /**
      * When true, ArcDetail should show the first-Arc celebration interstitial
      * on first mount so the transition from onboarding feels intentional.
@@ -839,6 +867,7 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MoreArcs" component={ArcsStackNavigator} />
       <MoreStack.Screen name="MoreChapters" component={ChaptersScreen} />
       <MoreStack.Screen name="MoreChapterDetail" component={ChapterDetailScreen} />
+      <MoreStack.Screen name="MoreChapterAlign" component={ChapterAlignScreen} />
       <MoreStack.Screen
         name="MoreChapterDigestSettings"
         component={ChapterDigestSettingsScreen}

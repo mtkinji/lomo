@@ -14,6 +14,8 @@ import {
   fetchMyChapterNeighbors,
   fetchMyChapterFeedback,
   submitChapterFeedback,
+  updateChapterUserNote,
+  CHAPTER_USER_NOTE_MAX_LENGTH,
   type ChapterRow,
   type ChapterFeedbackRating,
   type ChapterFeedbackRow,
@@ -31,7 +33,7 @@ import {
 import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { canCreateArc } from '../../domain/limits';
+import { canCreateArc, canCreateGoalInArc } from '../../domain/limits';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 
@@ -140,6 +142,21 @@ function formatArcLaneDelta(arc: any, cadence: 'weekly' | 'monthly' | 'yearly' |
   return `${arrow}${completedDelta} completed vs last ${periodWord}`;
 }
 
+// Phase 7.1: short "Apr 9" style attribution for the user-note
+// pull-quote. Intentionally terse — the goal is to cue "this is the
+// user's own voice, from this moment" without stealing visual weight
+// from the note itself.
+function formatUserNoteAttributionDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  try {
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(ms));
+  } catch {
+    return null;
+  }
+}
+
 function buildCadenceKicker(chapter: ChapterRow | null, periodStart: string, periodEnd: string): string {
   const cadence = detectCadence(chapter);
   const formatShort = (iso: string) => {
@@ -190,6 +207,16 @@ export function ChapterDetailScreen() {
   const [feedback, setFeedback] = React.useState<ChapterFeedbackRow | null>(null);
   const [feedbackNoteVisible, setFeedbackNoteVisible] = React.useState(false);
   const [feedbackNote, setFeedbackNote] = React.useState('');
+  // Phase 7.1: first-class "add a line" user note. `userNoteEditing`
+  // controls whether the input is expanded; when collapsed we show
+  // either the saved note as a pull-quote or the CTA ("Anything we
+  // missed?"). `userNoteSaving` guards the in-flight RPC so we can
+  // disable Save and show a subtle state while persisting.
+  const [userNoteEditing, setUserNoteEditing] = React.useState(false);
+  const [userNoteDraft, setUserNoteDraft] = React.useState('');
+  const [userNoteSaving, setUserNoteSaving] = React.useState(false);
+  const userNoteInputRef = React.useRef<TextInput | null>(null);
+  const userNoteDeepLinkRef = React.useRef(false);
   const { capture } = useAnalytics();
   const viewedTrackedRef = React.useRef(false);
 
@@ -214,6 +241,7 @@ export function ChapterDetailScreen() {
         if (!mounted) return;
         setFeedback(fb);
         setFeedbackNote(fb?.note ?? '');
+        setUserNoteDraft(row?.user_note ?? '');
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -237,6 +265,32 @@ export function ChapterDetailScreen() {
     });
     void markChapterRead(chapterId);
   }, [capture, chapter, chapterId]);
+
+  // Phase 7.3: `?addLine=1` deep link from the digest email's secondary
+  // CTA opens the Chapter straight into the add-a-line affordance. We
+  // fire once per mount (ref-guarded) after the chapter loads so the
+  // TextInput exists and can receive focus. The guard also prevents
+  // the param from re-triggering when the user taps "Cancel" and the
+  // component re-renders.
+  const addLineParam = route.params?.addLine === true;
+  React.useEffect(() => {
+    if (!addLineParam) return;
+    if (userNoteDeepLinkRef.current) return;
+    if (!chapter) return;
+    userNoteDeepLinkRef.current = true;
+    setUserNoteEditing(true);
+    capture(AnalyticsEvent.ChapterUserNoteCtaTapped, {
+      chapter_id: chapterId,
+      period_key: chapter.period_key ?? null,
+      source: 'deep_link',
+    });
+    // Give the input a tick to mount before focusing so the keyboard
+    // animation doesn't race the scroll/layout pass.
+    const t = setTimeout(() => {
+      userNoteInputRef.current?.focus();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [addLineParam, capture, chapter, chapterId]);
 
   const outputJson = chapter?.output_json ?? null;
   const title = asString(outputJson?.title) ?? 'Chapter';
@@ -294,6 +348,7 @@ export function ChapterDetailScreen() {
   // Pro-tier users deep-link into the manual Arc creation modal with the
   // nominated title prefilled.
   const arcs = useAppStore((s) => s.arcs);
+  const goals = useAppStore((s) => s.goals);
   const isPro = useEntitlementsStore((s) => s.isPro);
 
   // Fire `chapter_next_step_shown` once per (chapter, recommendation_id)
@@ -331,41 +386,145 @@ export function ChapterDetailScreen() {
   const carriedCount = typeof metrics?.activities?.carried_forward_count === 'number' ? metrics.activities.carried_forward_count : null;
   const inProgressCount = typeof metrics?.activities?.started_not_completed_count === 'number' ? metrics.activities.started_not_completed_count : null;
 
-  // Phase 5.2: Next Steps CTA handlers.
+  // Phase 5.2 + Phase 6: Next Steps CTA handlers. One dispatcher routes
+  // each recommendation `kind` to the right follow-up flow + paywall
+  // gate. Align is never gated (it's reorganizing existing activities,
+  // not creating new structure).
   const handleNextStepCtaTap = React.useCallback(
-    (rec: { id?: string; kind?: string; payload?: { title?: string } }) => {
+    (rec: {
+      id?: string;
+      kind?: string;
+      payload?: {
+        title?: string;
+        arcId?: string;
+        arcTitle?: string;
+        goalId?: string;
+        goalTitle?: string;
+        activityIds?: string[];
+      };
+    }) => {
       const recommendationId = typeof rec?.id === 'string' ? rec.id : '';
-      if (rec?.kind !== 'arc') return;
-      const nominated = typeof rec?.payload?.title === 'string' ? rec.payload.title.trim() : '';
-      const gate = canCreateArc({ isPro, arcs });
-      if (!gate.ok) {
+      const kind = rec?.kind;
+
+      if (kind === 'arc') {
+        const nominated = typeof rec?.payload?.title === 'string' ? rec.payload.title.trim() : '';
+        const gate = canCreateArc({ isPro, arcs });
+        if (!gate.ok) {
+          capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
+            chapter_id: chapterId,
+            period_key: chapter?.period_key ?? null,
+            recommendation_id: recommendationId,
+            kind,
+            result: 'paywall',
+          });
+          openPaywallInterstitial({
+            reason: 'limit_arcs_total',
+            source: 'chapter_arc_nomination',
+          });
+          return;
+        }
         capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
           chapter_id: chapterId,
           period_key: chapter?.period_key ?? null,
           recommendation_id: recommendationId,
-          kind: rec.kind,
-          result: 'paywall',
+          kind,
+          result: 'create_flow',
         });
-        openPaywallInterstitial({
-          reason: 'limit_arcs_total',
-          source: 'chapter_arc_nomination',
-        });
+        if (!rootNavigationRef.isReady()) return;
+        rootNavigationRef.navigate('ArcsStack', {
+          screen: 'ArcsList',
+          params: { openCreateArc: true, prefilledArcName: nominated || undefined },
+        } as any);
         return;
       }
-      capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
-        chapter_id: chapterId,
-        period_key: chapter?.period_key ?? null,
-        recommendation_id: recommendationId,
-        kind: rec.kind,
-        result: 'create_flow',
-      });
-      if (!rootNavigationRef.isReady()) return;
-      rootNavigationRef.navigate('ArcsStack', {
-        screen: 'ArcsList',
-        params: { openCreateArc: true, prefilledArcName: nominated || undefined },
-      } as any);
+
+      if (kind === 'goal') {
+        const nominated = typeof rec?.payload?.title === 'string' ? rec.payload.title.trim() : '';
+        const targetArcId = typeof rec?.payload?.arcId === 'string' ? rec.payload.arcId : '';
+        if (!targetArcId) return;
+        const gate = canCreateGoalInArc({ isPro, goals, arcId: targetArcId });
+        if (!gate.ok) {
+          capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
+            chapter_id: chapterId,
+            period_key: chapter?.period_key ?? null,
+            recommendation_id: recommendationId,
+            kind,
+            result: 'paywall',
+          });
+          openPaywallInterstitial({
+            reason: 'limit_goals_per_arc',
+            source: 'chapter_goal_nomination',
+          });
+          return;
+        }
+        capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
+          chapter_id: chapterId,
+          period_key: chapter?.period_key ?? null,
+          recommendation_id: recommendationId,
+          kind,
+          result: 'create_flow',
+        });
+        if (!rootNavigationRef.isReady()) return;
+        // Deep-link into ArcDetail with prefilled Goal title + manual tab.
+        // The MoreArcs stack is the canonical host under the More tab,
+        // matching the navigation shape used elsewhere in the app.
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'MoreTab',
+          params: {
+            screen: 'MoreArcs',
+            params: {
+              screen: 'ArcDetail',
+              params: {
+                arcId: targetArcId,
+                openGoalCreation: true,
+                prefilledGoalTitle: nominated || undefined,
+                goalCreationInitialTab: 'manual',
+              },
+            },
+          },
+        } as any);
+        return;
+      }
+
+      if (kind === 'align') {
+        const targetGoalId = typeof rec?.payload?.goalId === 'string' ? rec.payload.goalId : '';
+        const targetGoalTitle =
+          typeof rec?.payload?.goalTitle === 'string' ? rec.payload.goalTitle : '';
+        const targetArcId =
+          typeof rec?.payload?.arcId === 'string' ? rec.payload.arcId : null;
+        const targetArcTitle =
+          typeof rec?.payload?.arcTitle === 'string' ? rec.payload.arcTitle : null;
+        const ids = Array.isArray(rec?.payload?.activityIds)
+          ? rec.payload.activityIds.filter((x) => typeof x === 'string')
+          : [];
+        if (!targetGoalId || ids.length === 0) return;
+        capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
+          chapter_id: chapterId,
+          period_key: chapter?.period_key ?? null,
+          recommendation_id: recommendationId,
+          kind,
+          result: 'align_flow',
+        });
+        if (!rootNavigationRef.isReady()) return;
+        rootNavigationRef.navigate('MainTabs', {
+          screen: 'MoreTab',
+          params: {
+            screen: 'MoreChapterAlign',
+            params: {
+              chapterId,
+              recommendationId,
+              goalId: targetGoalId,
+              goalTitle: targetGoalTitle,
+              arcId: targetArcId,
+              arcTitle: targetArcTitle,
+              activityIds: ids,
+            },
+          },
+        } as any);
+        return;
+      }
     },
-    [arcs, capture, chapter?.period_key, chapterId, isPro],
+    [arcs, capture, chapter?.period_key, chapterId, goals, isPro],
   );
 
   const handleNextStepDismiss = React.useCallback(
@@ -382,6 +541,75 @@ export function ChapterDetailScreen() {
     },
     [capture, chapter?.period_key, chapterId],
   );
+
+  // Phase 7.1 callbacks. `openUserNoteEditor` is the entry point from
+  // the CTA (no saved note yet) or the edit affordance (note exists).
+  // `saveUserNote` persists or clears the note via the
+  // `update_kwilt_chapter_user_note` RPC. Empty drafts clear the note.
+  const openUserNoteEditor = React.useCallback(() => {
+    setUserNoteEditing(true);
+    capture(AnalyticsEvent.ChapterUserNoteCtaTapped, {
+      chapter_id: chapterId,
+      period_key: chapter?.period_key ?? null,
+      source: 'detail',
+    });
+    const t = setTimeout(() => {
+      userNoteInputRef.current?.focus();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [capture, chapter?.period_key, chapterId]);
+
+  const cancelUserNoteEditor = React.useCallback(() => {
+    setUserNoteEditing(false);
+    setUserNoteDraft(chapter?.user_note ?? '');
+  }, [chapter?.user_note]);
+
+  const saveUserNote = React.useCallback(async () => {
+    if (userNoteSaving) return;
+    const raw = userNoteDraft;
+    const trimmed = raw.trim();
+    const previous = chapter?.user_note ?? null;
+    // No-op if nothing changed — avoids a pointless RPC + toast churn.
+    if ((trimmed.length === 0 && !previous) || trimmed === (previous ?? '')) {
+      setUserNoteEditing(false);
+      return;
+    }
+    setUserNoteSaving(true);
+    try {
+      const updated = await updateChapterUserNote({
+        chapterId,
+        note: trimmed.length > 0 ? trimmed : null,
+      });
+      if (!updated) {
+        showToast({
+          message: 'Could not save your line',
+          variant: 'danger',
+          durationMs: 2400,
+        });
+        return;
+      }
+      setChapter(updated);
+      setUserNoteDraft(updated.user_note ?? '');
+      setUserNoteEditing(false);
+      if (trimmed.length > 0) {
+        capture(AnalyticsEvent.ChapterUserNoteSaved, {
+          chapter_id: chapterId,
+          period_key: chapter?.period_key ?? null,
+          length: trimmed.length,
+          source: userNoteDeepLinkRef.current ? 'deep_link' : 'detail',
+        });
+        showToast({ message: 'Your line was added', variant: 'success', durationMs: 1800 });
+      } else {
+        capture(AnalyticsEvent.ChapterUserNoteCleared, {
+          chapter_id: chapterId,
+          period_key: chapter?.period_key ?? null,
+        });
+        showToast({ message: 'Your line was cleared', variant: 'default', durationMs: 1800 });
+      }
+    } finally {
+      setUserNoteSaving(false);
+    }
+  }, [capture, chapter?.period_key, chapter?.user_note, chapterId, showToast, userNoteDraft, userNoteSaving]);
 
   const handleShare = React.useCallback(async () => {
     if (!outputJson) return;
@@ -532,21 +760,68 @@ export function ChapterDetailScreen() {
                   <Text style={styles.sectionLabel}>Next steps</Text>
                   <VStack space="sm">
                     {visibleRecommendations.map((rec: any, idx: number) => {
-                      if (rec?.kind !== 'arc') return null;
+                      const kind = rec?.kind;
+                      if (kind !== 'arc' && kind !== 'goal' && kind !== 'align') return null;
                       const reason = asString(rec?.reason) ?? '';
-                      const title = asString(rec?.payload?.title) ?? null;
                       const key = asString(rec?.id) ?? `rec-${idx}`;
-                      const gate = canCreateArc({ isPro, arcs });
-                      const primaryLabel = gate.ok
-                        ? title
-                          ? `Create "${title}" Arc`
-                          : 'Create this Arc'
-                        : 'Unlock more Arcs';
+                      let cardTitle: string | null = null;
+                      let primaryLabel: string;
+
+                      if (kind === 'arc') {
+                        const title = asString(rec?.payload?.title) ?? null;
+                        cardTitle = title ? `${title} Arc` : null;
+                        const gate = canCreateArc({ isPro, arcs });
+                        primaryLabel = gate.ok
+                          ? title
+                            ? `Create "${title}" Arc`
+                            : 'Create this Arc'
+                          : 'Unlock more Arcs';
+                      } else if (kind === 'goal') {
+                        const title = asString(rec?.payload?.title) ?? null;
+                        const arcTitle = asString(rec?.payload?.arcTitle) ?? null;
+                        // "Climbing Goal under Fitness" — keeps the Arc
+                        // context visible at a glance so the user isn't
+                        // surprised when the form opens on that Arc.
+                        cardTitle = title
+                          ? arcTitle
+                            ? `${title} Goal · ${arcTitle}`
+                            : `${title} Goal`
+                          : null;
+                        const targetArcId =
+                          typeof rec?.payload?.arcId === 'string' ? rec.payload.arcId : '';
+                        const gate = targetArcId
+                          ? canCreateGoalInArc({ isPro, goals, arcId: targetArcId })
+                          : { ok: true as const, activeCount: 0, limit: 0 };
+                        primaryLabel = gate.ok
+                          ? title
+                            ? `Create "${title}" Goal`
+                            : 'Create this Goal'
+                          : 'Unlock more Goals';
+                      } else {
+                        // kind === 'align'
+                        const goalTitle = asString(rec?.payload?.goalTitle) ?? null;
+                        const arcTitle = asString(rec?.payload?.arcTitle) ?? null;
+                        const ids = Array.isArray(rec?.payload?.activityIds)
+                          ? rec.payload.activityIds.filter(
+                              (x: unknown) => typeof x === 'string',
+                            )
+                          : [];
+                        cardTitle = goalTitle
+                          ? arcTitle
+                            ? `Tag activities · ${goalTitle} (${arcTitle})`
+                            : `Tag activities · ${goalTitle}`
+                          : 'Tag activities';
+                        primaryLabel =
+                          ids.length === 1
+                            ? 'Tag 1 activity'
+                            : `Tag ${ids.length} activities`;
+                      }
+
                       return (
                         <View key={key} style={styles.nextStepCard}>
-                          {title ? (
+                          {cardTitle ? (
                             <Text style={styles.nextStepTitle} numberOfLines={2}>
-                              {title} Arc
+                              {cardTitle}
                             </Text>
                           ) : null}
                           {reason ? (
@@ -574,6 +849,99 @@ export function ChapterDetailScreen() {
                       );
                     })}
                   </VStack>
+                </View>
+              ) : null}
+
+              {/* Phase 7.1: first-class "add a line" user note. Sits
+                  between Next Steps and the full-story disclosure so
+                  it reads above the fold — the user's own voice beside
+                  the signal the generator just surfaced. Collapsed
+                  states: saved note renders as a pull-quote; empty
+                  state renders the CTA. Expanded state: multiline
+                  input + Save/Cancel (OS dictation works out of the
+                  box in a TextInput, so voice capture is free). */}
+              {chapter.status === 'ready' ? (
+                <View style={styles.userNoteWrap} accessibilityLabel="Add your own line to this chapter">
+                  {userNoteEditing ? (
+                    <>
+                      <Text style={styles.userNotePrompt}>Anything we missed? Add a line.</Text>
+                      <TextInput
+                        ref={userNoteInputRef}
+                        value={userNoteDraft}
+                        onChangeText={setUserNoteDraft}
+                        placeholder={`What stood out to you this ${
+                          cadenceForCopy === 'weekly'
+                            ? 'week'
+                            : cadenceForCopy === 'monthly'
+                              ? 'month'
+                              : cadenceForCopy === 'yearly'
+                                ? 'year'
+                                : 'period'
+                        }?`}
+                        placeholderTextColor={colors.textSecondary}
+                        style={styles.userNoteInput}
+                        multiline
+                        maxLength={CHAPTER_USER_NOTE_MAX_LENGTH}
+                        autoCorrect
+                        editable={!userNoteSaving}
+                      />
+                      <View style={styles.userNoteActions}>
+                        <Text style={styles.userNoteCount}>
+                          {`${userNoteDraft.trim().length}/${CHAPTER_USER_NOTE_MAX_LENGTH}`}
+                        </Text>
+                        <View style={styles.userNoteActionButtons}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Cancel adding a line"
+                            onPress={cancelUserNoteEditor}
+                            disabled={userNoteSaving}
+                            style={styles.userNoteCancel}
+                          >
+                            <Text style={styles.userNoteCancelLabel}>Cancel</Text>
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Save your line"
+                            onPress={() => void saveUserNote()}
+                            disabled={userNoteSaving}
+                            style={[styles.userNoteSave, userNoteSaving && styles.userNoteSaveDisabled]}
+                          >
+                            <Text style={styles.userNoteSaveLabel}>
+                              {userNoteSaving ? 'Saving…' : 'Save'}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </>
+                  ) : chapter.user_note ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit your line"
+                      onPress={openUserNoteEditor}
+                      style={styles.userNoteQuoteTouchable}
+                    >
+                      <View style={styles.userNoteQuote}>
+                        <Text style={styles.userNoteQuoteText}>{`“${chapter.user_note}”`}</Text>
+                        <Text style={styles.userNoteQuoteAttribution}>
+                          {`— you${
+                            formatUserNoteAttributionDate(chapter.user_note_updated_at)
+                              ? `, ${formatUserNoteAttributionDate(chapter.user_note_updated_at)}`
+                              : ''
+                          } · tap to edit`}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Anything we missed? Add a line."
+                      onPress={openUserNoteEditor}
+                      style={styles.userNoteCta}
+                    >
+                      <Icon name="plus" size={16} color={colors.pine700} />
+                      <Text style={styles.userNoteCtaLabel}>Anything we missed? Add a line.</Text>
+                    </Pressable>
+                  )}
                 </View>
               ) : null}
 
@@ -1128,6 +1496,107 @@ const styles = StyleSheet.create({
     color: colors.pine700,
     fontWeight: '700',
     paddingTop: 6,
+  },
+  // Phase 7.1 add-a-line note styles. The pull-quote form uses a left
+  // accent border + italic body to cue "this is the user's own voice"
+  // without competing with the AI prose above/below.
+  userNoteWrap: {
+    width: '100%',
+    marginTop: spacing.xs,
+  },
+  userNoteCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+  },
+  userNoteCtaLabel: {
+    ...typography.bodySm,
+    color: colors.pine700,
+    fontWeight: '600',
+  },
+  userNoteQuoteTouchable: {
+    width: '100%',
+  },
+  userNoteQuote: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.pine700,
+    paddingLeft: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  userNoteQuoteText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontStyle: 'italic',
+    lineHeight: 24,
+  },
+  userNoteQuoteAttribution: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  userNotePrompt: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  userNoteInput: {
+    ...typography.body,
+    color: colors.textPrimary,
+    minHeight: 72,
+    padding: spacing.sm,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.canvas,
+    textAlignVertical: 'top',
+  },
+  userNoteActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+    columnGap: spacing.sm,
+  },
+  userNoteCount: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  userNoteActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+  },
+  userNoteCancel: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+  },
+  userNoteCancelLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  userNoteSave: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.pine700,
+  },
+  userNoteSaveDisabled: {
+    opacity: 0.6,
+  },
+  userNoteSaveLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontWeight: '700',
   },
   neighborsRow: {
     flexDirection: 'row',

@@ -720,6 +720,20 @@ type GoalCoachDrawerProps = {
    * Useful for onboarding flows that want to route into the new Goal plan.
    */
   onGoalCreated?: (goalId: string) => void;
+  /**
+   * Pre-fill the manual goal title. Used by Phase 6 Chapter Next Steps
+   * (Goal Nomination) deep links so the suggested Goal name is primed
+   * when the drawer opens. Applied once per open; the user stays in
+   * full control of the field.
+   */
+  initialTitle?: string;
+  /**
+   * Force the drawer into a specific tab on open. Used by Chapter
+   * Next Steps deep links that prefer to route users straight to the
+   * manual form (no extra AI spend) when the nomination already named
+   * the Goal.
+   */
+  initialTab?: 'ai' | 'manual';
 };
 
 export function GoalCoachDrawer({
@@ -730,6 +744,8 @@ export function GoalCoachDrawer({
   launchFromArcId,
   navigateToGoalDetailOnCreate = true,
   onGoalCreated,
+  initialTitle,
+  initialTab,
 }: GoalCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
   const hasShownCreditsBlockedToastRef = React.useRef(false);
@@ -739,7 +755,7 @@ export function GoalCoachDrawer({
   const manualScrollRef = React.useRef<KeyboardAwareScrollViewHandle | null>(null);
   const buildEmptyDraft = React.useCallback(
     (): GoalCreationDraft => ({
-      title: '',
+      title: initialTitle?.trim() ?? '',
       description: '',
       status: 'planned',
       forceIntent: defaultForceLevels(0),
@@ -748,7 +764,7 @@ export function GoalCoachDrawer({
       thumbnailVariant: 0,
       heroImageMeta: undefined,
     }),
-    [launchFromArcId],
+    [launchFromArcId, initialTitle],
   );
   const [draft, setDraft] = React.useState<GoalCreationDraft>(() => buildEmptyDraft());
   const addGoal = useAppStore((state) => state.addGoal);
@@ -828,12 +844,15 @@ export function GoalCoachDrawer({
   React.useEffect(() => {
     if (!visible) {
       // Reset tab on next open. If credits are exhausted, default to Manual to avoid flashing
-      // the Goal AI surface for a frame.
-      setActiveTab(aiCreditsRemaining > 0 ? 'ai' : 'manual');
+      // the Goal AI surface for a frame. An explicit `initialTab` takes
+      // precedence (used by Phase 6 Chapter Next Steps Goal deep links
+      // to route straight to the prefilled manual form).
+      const nextTab = initialTab ?? (aiCreditsRemaining > 0 ? 'ai' : 'manual');
+      setActiveTab(nextTab);
       hasShownCreditsBlockedToastRef.current = false;
       setDraft(buildEmptyDraft());
     }
-  }, [aiCreditsRemaining, visible, buildEmptyDraft, setDraft]);
+  }, [aiCreditsRemaining, visible, buildEmptyDraft, setDraft, initialTab]);
 
   React.useEffect(() => {
     if (!visible) return;

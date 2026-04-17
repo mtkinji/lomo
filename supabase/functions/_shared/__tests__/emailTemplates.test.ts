@@ -287,6 +287,36 @@ describe('buildChapterDigestEmail (Phase 3 + 3.5 of email-system-ga-plan.md)', (
     expect(out.html).toContain('A short read about the week of Apr 13.');
     expect(out.html).not.toContain(`>${out.subject}<`);
   });
+
+  // Phase 7.3 of docs/chapters-plan.md: secondary "What did we miss?"
+  // CTA deep-links to the chapter detail with `addLine=1` so the
+  // detail screen auto-expands the user-note editor. Regression fence
+  // so we can't accidentally drop the link when the digest body evolves.
+  it('includes the Phase 7.3 "What did we miss?" secondary CTA', () => {
+    const { buildChapterDigestEmail } = loadTemplates();
+    const out = buildChapterDigestEmail({
+      chapterTitle: fixture.title,
+      outputJson: fixture,
+      chapterId: 'abc-123',
+      cadence: 'weekly',
+      periodStartIso: '2026-04-13T07:00:00.000Z',
+      periodEndIso: '2026-04-20T07:00:00.000Z',
+      timezone: 'America/Los_Angeles',
+    });
+    expect(out.html).toContain('What did we miss? Add a line.');
+    expect(out.html).toMatch(
+      /https:\/\/go\.kwilt\.app\/open\/chapters\/abc-123\?[^"\s]*addLine=1/,
+    );
+    // Distinct campaign so analytics can separate read-through from
+    // contribution funnels.
+    expect(out.html).toMatch(
+      /https:\/\/go\.kwilt\.app\/open\/chapters\/abc-123\?[^"\s]*utm_campaign=chapter_digest_add_line/,
+    );
+    expect(out.text).toContain('What did we miss? Add a line.');
+    // The primary CTA must still be present; the secondary link is
+    // additive, not a replacement.
+    expect(out.html).toContain('Read full chapter');
+  });
 });
 
 describe('brand logo rendering (Phase 4 of email-system-ga-plan.md)', () => {

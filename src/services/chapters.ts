@@ -33,9 +33,24 @@ export type ChapterRow = {
   status: 'ready' | 'pending' | 'failed';
   error: string | null;
   emailed_at: string | null;
+  /**
+   * Phase 7.1 of docs/chapters-plan.md: first-class "add a line" user
+   * note. Separate from the diagnostic `kwilt_chapter_feedback.note` so
+   * the generator can cite continuity ("after last week's open question
+   * about sleep…") without polluting the feedback signal.
+   */
+  user_note: string | null;
+  user_note_updated_at: string | null;
   created_at: string;
   updated_at: string;
 };
+
+/**
+ * Column list shared by every `kwilt_chapters` SELECT. Centralised so
+ * adding a column only requires touching one place.
+ */
+const CHAPTER_ROW_COLUMNS =
+  'id,user_id,template_id,period_start,period_end,period_key,input_summary,metrics,output_json,status,error,emailed_at,user_note,user_note_updated_at,created_at,updated_at';
 
 export type ChapterGenerationAction = 'generated' | 'skipped' | 'failed';
 export type ChapterGenerationResult = {
@@ -52,7 +67,7 @@ export async function fetchMyChapters(params: { limit?: number } = {}): Promise<
 
   const { data, error } = await supabase
     .from('kwilt_chapters')
-    .select('id,user_id,template_id,period_start,period_end,period_key,input_summary,metrics,output_json,status,error,emailed_at,created_at,updated_at')
+    .select(CHAPTER_ROW_COLUMNS)
     .order('period_start', { ascending: false })
     .limit(limit);
 
@@ -102,7 +117,7 @@ export async function fetchMyChapterById(chapterId: string): Promise<ChapterRow 
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('kwilt_chapters')
-    .select('id,user_id,template_id,period_start,period_end,period_key,input_summary,metrics,output_json,status,error,emailed_at,created_at,updated_at')
+    .select(CHAPTER_ROW_COLUMNS)
     .eq('id', id)
     .maybeSingle();
 
@@ -348,6 +363,49 @@ export async function submitChapterFeedback(params: {
 
   if (error || !data) return null;
   return data as ChapterFeedbackRow;
+}
+
+/**
+ * Maximum number of characters we persist for a user note. Keeps the
+ * value small enough to embed inline in the Chapter body and bounded
+ * enough for the generator's prompt budget. Whitespace-only notes are
+ * normalised to NULL by the `update_kwilt_chapter_user_note` RPC.
+ */
+export const CHAPTER_USER_NOTE_MAX_LENGTH = 500;
+
+/**
+ * Persist (or clear) a user-authored Chapter note. Phase 7.1 of
+ * docs/chapters-plan.md. Writes via a SECURITY DEFINER RPC so we don't
+ * have to open up the table's blanket "no direct writes" policy.
+ *
+ * Passing `null` or an empty / whitespace-only string clears the note.
+ * Returns the refreshed ChapterRow on success, or `null` if the save
+ * failed or the user isn't signed in.
+ */
+export async function updateChapterUserNote(params: {
+  chapterId: string;
+  note: string | null;
+}): Promise<ChapterRow | null> {
+  const id = (params.chapterId ?? '').trim();
+  if (!id) return null;
+
+  const raw = typeof params.note === 'string' ? params.note : '';
+  const trimmed = raw.trim();
+  const bounded = trimmed.length > CHAPTER_USER_NOTE_MAX_LENGTH
+    ? trimmed.slice(0, CHAPTER_USER_NOTE_MAX_LENGTH)
+    : trimmed;
+  const normalised = bounded.length > 0 ? bounded : null;
+
+  const supabase = getSupabaseClient();
+  const { error: rpcError } = await supabase.rpc('update_kwilt_chapter_user_note', {
+    p_chapter_id: id,
+    p_note: normalised,
+  });
+  if (rpcError) return null;
+
+  // Re-read the canonical row so callers get `user_note_updated_at` from
+  // the server (avoids drift if local clocks are off).
+  return fetchMyChapterById(id);
 }
 
 /**

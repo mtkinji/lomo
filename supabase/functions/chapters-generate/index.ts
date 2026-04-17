@@ -21,7 +21,7 @@ import { getSupabaseAdmin, json, requireUserId } from '../_shared/calendarUtils.
 import { buildChapterDigestEmail } from '../_shared/emailTemplates.ts';
 import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
 import { sendEmailViaResend } from '../_shared/emailSend.ts';
-import { computeArcNominations as sharedComputeArcNominations } from '../_shared/chapterRecommendations.ts';
+import { computeChapterRecommendations as sharedComputeChapterRecommendations } from '../_shared/chapterRecommendations.ts';
 import type { ChapterRecommendation } from '../_shared/chapterRecommendations.ts';
 
 type Cadence = 'weekly' | 'monthly' | 'yearly' | 'manual';
@@ -1172,6 +1172,16 @@ type PriorChapterContext = {
    * chapter predates the arc-snapshot plumbing.
    */
   arcs: PriorChapterArc[];
+  /**
+   * Phase 7.2 of docs/chapters-plan.md: the user's "add a line" note on
+   * the prior chapter, if any. Used by the continuity rule to subtly
+   * acknowledge the user's own words in the new chapter's opening
+   * paragraphs — never verbatim quoted (that would feel parrot-y), but
+   * referenced thematically. `null` when no prior note exists or the
+   * prior chapter predates Phase 7.
+   */
+  user_note: string | null;
+  user_note_updated_at: string | null;
 } | null;
 
 function buildGoldenExample(cadence: Cadence): string {
@@ -1242,6 +1252,15 @@ function buildWritingRequirements(params: {
       : `User-voice rule: if any evidence.activities_full[].notes_snippet exists, quote one verbatim.`,
     `Angle rule: pick ONE story hook from evidence.story_hooks. Echo its hook_id back as chosen_hook_id in the output. The headline MUST reflect that hook in concrete terms.`,
     `Continuity rule: if prior_chapter is provided, reference it subtly in the opening 2 paragraphs (e.g. "after last ${cadence === 'weekly' ? 'week' : cadence === 'monthly' ? 'month' : 'year'}'s …"). Do NOT invent anything about prior_chapter that isn't in the field.`,
+    // Phase 7.2: the prior user_note is the user's own voice on the
+    // last chapter. If present, acknowledge its THEME in the new
+    // chapter's signal.caption OR the opening 2 paragraphs. Never
+    // verbatim-quote it back at them (that reads parrot-y); paraphrase
+    // or reference the underlying concern/observation, and tie it to
+    // this period's evidence. If the theme has no evidence this
+    // period, say so honestly ("you noted last week you wanted to slow
+    // down; the evidence doesn't show that yet").
+    `User-note continuity rule: if prior_chapter.user_note is present, reference its THEME (not its exact words) once in either signal.caption or the opening 2 paragraphs of story.body. Paraphrase — never re-quote the note verbatim. If the note's theme has no supporting evidence this period, say so plainly rather than fabricate continuity.`,
     `Honest-not-boosterish rule: if the period was quiet or mixed, say so plainly, then interpret kindly. Never manufacture enthusiasm the evidence doesn't support.`,
     `Ban list (do not appear anywhere): "this chapter highlights", "reflecting on", "a week of growth", "meaningful activities", "personal and professional", "harnessing".`,
     `Headline ban: title must not start with "Reflection(s) on", "A week of", "This week/month/year", "Progress Report", "Weekly Recap", "Weekly Report", "Weekly Reflection", or "Monthly Reflection".`,
@@ -1783,7 +1802,9 @@ async function getPriorReadyChapter(admin: any, params: {
 }): Promise<PriorChapterContext> {
   const { data, error } = await admin
     .from('kwilt_chapters')
-    .select('output_json, metrics, period_key, period_start, period_end, status')
+    .select(
+      'output_json, metrics, period_key, period_start, period_end, status, user_note, user_note_updated_at',
+    )
     .eq('user_id', params.userId)
     .eq('template_id', params.templateId)
     .eq('status', 'ready')
@@ -1811,6 +1832,20 @@ async function getPriorReadyChapter(admin: any, params: {
     activity_count_total: typeof a?.activity_count_total === 'number' ? a.activity_count_total : null,
   }));
 
+  // Phase 7.2: carry the prior user note into the next chapter's
+  // context. We bound it to a generous character limit so an
+  // accidentally-pasted wall of text can't blow up the prompt budget;
+  // anything longer than 500 chars is already truncated at write time
+  // by `update_kwilt_chapter_user_note`, but the extra guard here
+  // defends against pre-Phase-7 rows that may have been backfilled.
+  const rawNote = typeof (data as any).user_note === 'string' ? (data as any).user_note : null;
+  const noteTrimmed = rawNote ? rawNote.trim() : '';
+  const userNote = noteTrimmed.length > 0 ? noteTrimmed.slice(0, 500) : null;
+  const userNoteUpdatedAt =
+    typeof (data as any).user_note_updated_at === 'string'
+      ? (data as any).user_note_updated_at
+      : null;
+
   return {
     title,
     dek,
@@ -1820,6 +1855,8 @@ async function getPriorReadyChapter(admin: any, params: {
     active_days_count: activeDays,
     longest_streak_days: streak,
     arcs,
+    user_note: userNote,
+    user_note_updated_at: userNote ? userNoteUpdatedAt : null,
   };
 }
 
@@ -2246,27 +2283,69 @@ serve(async (req) => {
       }
     }
 
-    // Phase 5.1: deterministic Next Steps recommendations are computed
+    // Phases 5–6: deterministic Next Steps recommendations are computed
     // server-side AFTER the LLM pass succeeds. They are not subject to
     // AI-output validation (they are pure functions of
     // metrics + evidence). Only attach when the Chapter is ready; a failed
     // Chapter has no output_json surface to hang them on. The
     // implementation lives in `_shared/chapterRecommendations.ts` so it
     // can be unit-tested from Jest (the Deno-only bits of this file can't
-    // be).
+    // be). The orchestrator runs all kinds (`arc`, `goal`, `align`),
+    // dedupes cross-kind overlap, and applies the 3-cap + priority
+    // ordering.
     if (finalOk && outputJson && typeof outputJson === 'object') {
-      const recommendations: ChapterRecommendation[] = sharedComputeArcNominations({
-        activitiesIncluded: included.map((a) => ({
-          id: String(a.id),
-          title: typeof a.title === 'string' ? a.title : null,
-          arcId: a.arcId ?? null,
-        })),
+      // Build the goalsByArcId lookup the orchestrator needs to gate
+      // Goal nominations (don't re-nominate a Goal that's already there
+      // under the Arc).
+      const goalsByArcId: Record<
+        string,
+        Array<{ id: string; arcId: string | null; title: string | null }>
+      > = {};
+      const goalsFlat: Array<{ id: string; arcId: string | null; title: string | null }> = [];
+      for (const g of Object.values(goalById) as any[]) {
+        const gArc = typeof g?.arc_id === 'string' ? g.arc_id : null;
+        const entry = {
+          id: typeof g?.id === 'string' ? g.id : '',
+          arcId: gArc,
+          title: typeof g?.title === 'string' ? g.title : null,
+        };
+        goalsFlat.push(entry);
+        if (!gArc) continue;
+        const list = goalsByArcId[gArc] ?? [];
+        list.push(entry);
+        goalsByArcId[gArc] = list;
+      }
+      // Compute EFFECTIVE arcId per activity. Activities in the client
+      // model only carry `goalId` — their Arc is `goal.arcId`. Without
+      // this derivation, Phase 5's `!a.arcId` filter treats every
+      // activity as "no Arc" regardless of its goal, over-firing Arc
+      // nominations. The effective-arc lookup fixes that and makes the
+      // Phase 6 Goal / Align triggers land on real data.
+      const recommendations: ChapterRecommendation[] = sharedComputeChapterRecommendations({
+        activitiesIncluded: included.map((a) => {
+          const goalId = a.goalId ?? null;
+          const directArcId = typeof a.arcId === 'string' && a.arcId ? a.arcId : null;
+          const viaGoalArcId = goalId && (goalById as any)[goalId]
+            ? ((goalById as any)[goalId].arc_id ?? null)
+            : null;
+          return {
+            id: String(a.id),
+            title: typeof a.title === 'string' ? a.title : null,
+            arcId: directArcId ?? viaGoalArcId ?? null,
+            goalId,
+          };
+        }),
         arcById: Object.fromEntries(
           Object.entries(arcById).map(([k, v]) => [
             k,
-            { title: typeof (v as any)?.title === 'string' ? (v as any).title : null },
+            {
+              id: k,
+              title: typeof (v as any)?.title === 'string' ? (v as any).title : null,
+            },
           ]),
         ),
+        goalsByArcId,
+        goalsAll: goalsFlat,
       });
       (outputJson as any).recommendations = recommendations;
     }

@@ -44,6 +44,11 @@ export type PaywallSource =
   // routes the user into the paywall interstitial with evidence-anchored
   // copy (see the card's `reason` line) instead of the Arc creation flow.
   | 'chapter_arc_nomination'
+  // Phase 6 of docs/chapters-plan.md: Next Steps Goal Nomination CTA for
+  // a Free user already at the 3-Goals-per-Arc limit for the suggested
+  // Arc. Surfaced on ChapterDetailScreen. (Align suggestions are never
+  // gated — they don't create new structure.)
+  | 'chapter_goal_nomination'
   | 'unknown';
 
 /**

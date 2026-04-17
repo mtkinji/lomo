@@ -6,7 +6,7 @@
 
 **Why now:** Chapters today is an essay engine with incomplete GA plumbing (analytics absent, digest content bugs, default template disabled) *and* a generation model that doesn't yet do the jobs the product actually needs (help me feel progress; anchor in Arcs; carry forward to next week). This plan closes both gaps in one integrated sequence: Phases 1–2 make today's feature GA-worthy; Phases 3–8 reshape it into the artifact the product needs it to be.
 
-**Where we are (Apr 2026):** Phases **1, 2, 3, 5** are landed on `docs/chapters-ga-hardening-plan`. Phase 4 (HealthKit) is the only remaining chunk independent of the others and is the next scoped decision; Phases 6–8 extend the Next Steps machinery shipped in Phase 5.
+**Where we are (Apr 2026):** Phases **1, 2, 3, 5, 6, 7** are landed on `docs/chapters-ga-hardening-plan`. Phase 4 (HealthKit) remains the only independent chunk and is the next scoped decision; Phase 8 extends the Next Steps machinery shipped in Phases 5–6 and now reads prior user notes shipped in Phase 7.
 
 **Scope invariant:**
 - No changes to the fundamental app shell / canvas UX layers.
@@ -416,7 +416,7 @@ Files: `supabase/functions/_shared/chapterRecommendations.ts` (new),
   (`call`, `email`, `meet`, …).
 - Runs after LLM validation succeeds; attached recommendations never gate
   Chapter readiness (they're purely additive signal).
-- Schema is stable/versioned; Phase 6 adds `goal | activity | align` kinds
+- Schema is stable/versioned; Phase 6 adds `goal | align` kinds (`activity` deferred)
   under the same field + a shared 3-cap prioritization.
 
 #### 5.2 Client surface: Next Steps section on detail screen — **Landed**
@@ -483,26 +483,37 @@ Files: `supabase/functions/_shared/emailTemplates.ts`,
 
 ---
 
-### Phase 6 — Next Steps v2: Goals, Activities, and Alignments
+### Phase 6 — Next Steps v2: Goals and Alignments
 
-**Theme:** Extend the Next Steps framework to the lower levels of the hierarchy. Most weeks won't generate an Arc Nomination; Goal- and Activity-level suggestions keep Next Steps useful every week.
+**Theme:** Extend the Next Steps framework to the lower levels of the hierarchy. Most weeks won't generate an Arc Nomination; Goal-level and Alignment-level suggestions keep Next Steps useful every week.
 
-**Status:** Not started. Depends on Phase 5.
+**Status:** **Landed.** Depends on Phase 5.
 
-Adds three new deterministic triggers behind the same `recommendations[]` field:
+Adds two new deterministic triggers behind the same `recommendations[]` field:
 
-- **`kind: 'goal'`** — nominates a Goal under an existing Arc when a cluster of activity in that Arc has no Goal home, or when a quiet Arc has enough activity to warrant a Goal to focus next weeks. Paywall at the 3-Goal-per-Arc Free limit.
-- **`kind: 'activity'`** — suggests a next Activity under an existing Goal when the Goal has been quiet, when the prior Chapter's `next_experiments` prose surfaced an obvious candidate, or when a pattern of almost-completed activities points at one. No paywall — pure engagement nudge.
-- **`kind: 'align'`** — proposes tagging untagged activities with an existing Arc/Goal. Hygiene-flavored; improves next Chapter's signal quality. No paywall.
+- **`kind: 'goal'`** — nominates a Goal under an existing Arc when a cluster of ≥3 untagged activities shares a theme token that matches the Arc's head word. Skipped when that Arc already has a Goal with that token. Paywall at the 3-Goal-per-Arc Free limit (`chapter_goal_nomination` source).
+- **`kind: 'align'`** — proposes tagging ≥2 untagged activities to an existing Goal whose title head token matches their shared theme word. Hygiene-flavored; improves next Chapter's signal quality. No paywall.
 
-Governance rules from Phase 5 apply uniformly. Total recommendations capped at 3 per Chapter, prioritized: `arc` > `goal` > `activity` > `align`.
+**Deferred:** `kind: 'activity'` — naturally depends on prior-Chapter context (`next_experiments` prose carried forward by Phase 7 / Next-Step outcomes in Phase 8). The slot is reserved in the `KIND_PRIORITY` ordering so the trigger can drop in without touching orchestrator call sites.
+
+Governance rules from Phase 5 apply uniformly. Total recommendations capped at 3 per Chapter, prioritized: `arc` > `goal` > `activity` *(reserved)* > `align`. Cross-kind dedupe drops an `align` whose Goal head token matches a claimed `arc` or `goal` nomination — the higher-priority move is the better next step.
+
+#### Phase 6 implementation summary
+
+- `supabase/functions/_shared/chapterRecommendations.ts` — adds `computeGoalNominations`, `computeAlignSuggestions`, and the `computeChapterRecommendations` orchestrator (priority sort + 3-cap + cross-kind dedupe).
+- `supabase/functions/chapters-generate/index.ts` — call site swapped to the orchestrator; derives an *effective* `arcId` per in-period activity by looking through `goalId → goal.arc_id`, since activities don't carry `arcId` directly in the client model.
+- `src/features/chapters/ChapterDetailScreen.tsx` — renders `goal` and `align` cards alongside the Phase 5 `arc` card, with per-kind CTA wiring + paywall gating where applicable.
+- `src/features/chapters/ChapterAlignScreen.tsx` — new lightweight confirm-and-apply surface for the Align CTA. Defaults all server-suggested activities to selected; on apply, calls `updateActivity` per id, dismisses the recommendation (90-day sleep), and returns to the Chapter.
+- `src/features/goals/GoalsScreen.tsx` (`GoalCoachDrawer`) — new `initialTitle` + `initialTab` props so Goal Nomination deep links prefill the manual form on an Arc's detail screen.
+- `src/services/paywall.ts` — adds `chapter_goal_nomination` to `PaywallSource`.
 
 #### Phase 6 acceptance criteria
 
-- [ ] Each Chapter shows 0–3 recommendations, mixed-kind where relevant.
-- [ ] Goal/Activity CTAs open existing creation flows with intelligent prefill.
-- [ ] Align CTA opens a lightweight tag-assignment surface for untagged activities.
-- [ ] All kinds respect the 90-day dismissal sleep and do not duplicate each other.
+- [x] Each Chapter shows 0–3 recommendations, mixed-kind where relevant.
+- [x] Goal CTA opens the Arc detail screen with the Goal creation drawer prefilled on the manual tab; respects the 3-Goals-per-Arc Free limit via `chapter_goal_nomination` paywall source.
+- [x] Align CTA opens a lightweight tag-assignment surface for untagged activities; `align_applied` result reported via `chapter_next_step_cta_tapped` with an `activities_tagged` count.
+- [x] All kinds respect the 90-day dismissal sleep and do not duplicate each other (orchestrator drops `align` when its Goal head token is claimed by an `arc` or `goal` nomination).
+- [ ] `kind: 'activity'` trigger — deferred to Phase 7/8 (see above).
 
 ---
 
@@ -510,36 +521,42 @@ Governance rules from Phase 5 apply uniformly. Total recommendations capped at 3
 
 **Theme:** Let the user deepen the Chapter *after* they read it. Never make them pay a capture tax for a good Chapter; invite them to contribute only once they've seen value.
 
-**Status:** Not started. Can ship at any point after Phase 3; recommended after Phase 5 so the engagement payoff is clearer.
+**Status:** **Landed (Apr 2026).** Ships end-to-end: DB column + RPC, first-class pull-quote UI on the detail screen, OS-dictation-capable multiline input, deep link from the digest's secondary CTA, prior-note continuity threaded into the generator. Analytics split organic vs. deep-link engagement. Left as-is by design: the **feedback** note on the bottom of the detail screen stays — it's the diagnostic signal the quality loop (Phase 1+) needs — and is intentionally visually subordinate to the new pull-quote.
 
-#### 7.1 Repurpose the feedback note as first-class content
+#### 7.1 Repurpose the feedback note as first-class content — **Landed**
 
-Files: `src/features/chapters/ChapterDetailScreen.tsx`, `src/services/chapters.ts`, migration to a user-note column on `kwilt_chapters` (separate from feedback), `supabase/functions/chapters-generate/index.ts`.
+Files: `src/features/chapters/ChapterDetailScreen.tsx`, `src/services/chapters.ts`, `supabase/migrations/20260417030000_kwilt_chapters_user_note.sql`, `src/services/analytics/events.ts`.
 
-- Today the feedback note field is for diagnostics ("what was off?"). Rename the primary affordance to: *"Anything we missed? Add a line."*
-- Store as `kwilt_chapters.user_note` (or equivalent; keep `kwilt_chapter_feedback.note` as distinct diagnostic signal).
-- Render the user's note as a visually distinct pull-quote inline in the Chapter body — styled italic, attributed ("— you, [date]"), so it reads as *the user's own voice* beside the AI prose.
-- One-tap voice capture (OS dictation) is free; no custom recording UI needed.
+- Adds `kwilt_chapters.user_note` + `user_note_updated_at`. The table keeps its v0 "owner read, no direct writes" RLS; writes route through a new `public.update_kwilt_chapter_user_note(chapter_id, note)` SECURITY DEFINER RPC that enforces `auth.uid() = user_id` and only touches the note columns. Empty / whitespace-only notes collapse to NULL so "clear the note" works on the same surface.
+- Client: `updateChapterUserNote({ chapterId, note })` calls the RPC, then re-reads the canonical row so `user_note_updated_at` comes from the server. `ChapterRow` grows the two fields and the select list is centralised in `CHAPTER_ROW_COLUMNS` so future additions touch one place.
+- UI: a new block sits between Next Steps and the "Read the full story" disclosure. Three states:
+  - **Empty:** a subtle CTA row — *"Anything we missed? Add a line."* — that reveals the editor.
+  - **Editing:** multiline `TextInput` (OS dictation works out of the box), live `x/500` counter, `Cancel` + `Save` actions, disabled-while-saving state.
+  - **Saved:** an italic pull-quote with a left pine accent bar and a muted attribution — *"— you, Apr 9 · tap to edit"*. Reads as the user's own voice, distinct from the AI prose above/below.
+- Kept distinct from the **feedback note** on the lower bottom section of the screen: the feedback surface still asks *"Did this capture your week?"* with thumbs + diagnostic-only note, unchanged.
+- Analytics: `chapter_user_note_cta_tapped`, `chapter_user_note_saved`, `chapter_user_note_cleared`. All three carry `{ chapter_id, period_key }`; `cta_tapped` + `saved` additionally carry `source: 'detail' | 'deep_link'` so we can separate organic engagement from digest-driven re-engagement.
 
-#### 7.2 Next Chapter reads the note
+#### 7.2 Next Chapter reads the note — **Landed**
 
-Files: `supabase/functions/chapters-generate/index.ts` (`getPriorReadyChapter`).
+Files: `supabase/functions/chapters-generate/index.ts` (`getPriorReadyChapter`, `buildWritingRequirements`).
 
-- Prior Chapter context for the LLM gains a `user_note` field if present.
-- Prompt rule: if the prior Chapter's user note exists, the new Chapter's `signal.caption` or opening paragraph must subtly reference it — never verbatim re-quote, but acknowledge the theme. Builds continuity from the user's own words.
+- `PriorChapterContext` grows `user_note` + `user_note_updated_at`. The loader trims and bounds to 500 chars (the RPC already enforces the same cap at write time; the extra guard defends against legacy rows).
+- New prompt rule next to the existing continuity rule: *"if `prior_chapter.user_note` is present, reference its THEME (not its exact words) once in either `signal.caption` or the opening 2 paragraphs of `story.body`. Paraphrase — never re-quote the note verbatim. If the note's theme has no supporting evidence this period, say so plainly rather than fabricate continuity."* The "no re-quote" framing is deliberate — verbatim reflection reads parrot-y; paraphrase keeps the user's voice as a seed, not a playback.
 
-#### 7.3 Digest email: the "what did we miss?" CTA
+#### 7.3 Digest email: the "what did we miss?" CTA — **Landed**
 
-Files: `supabase/functions/_shared/emailTemplates.ts`.
+Files: `supabase/functions/_shared/emailTemplates.ts`, `src/navigation/linkingConfig.ts`, `src/navigation/RootNavigator.tsx`, `src/features/chapters/ChapterDetailScreen.tsx` (auto-focus effect).
 
-- Add a secondary CTA to the digest: *"What did we miss?"* → deep-links directly into the add-a-line affordance. Tight re-engagement loop that ends in a *creative* action, not just consumption.
+- The digest body now renders a secondary text-link CTA — *"What did we miss? Add a line."* — below the primary "Read full chapter" button. Deep-links to `chapters/<id>?addLine=1` with its own `utm_campaign=chapter_digest_add_line` so we can split read-through funnels from contribution funnels in analytics.
+- Linking: `MoreChapterDetail` gains a parsed `addLine` boolean; the route param flows into `ChapterDetailScreen`, which — once the chapter is loaded — auto-expands the add-a-line editor and focuses the input (guarded with a ref so toggling out doesn't retrigger).
+- Text fallback and `renderFallbackLink` both carry the new URL, so link-list-only email clients still see it.
 
 #### Phase 7 acceptance criteria
 
-- [ ] User note renders inline in Chapter body as a visually distinct pull-quote.
-- [ ] Voice dictation works on iOS and Android for the input field.
-- [ ] Next Chapter context includes prior user note; prompt incorporates it when present.
-- [ ] Digest email CTA opens directly to the add-a-line UI via universal link.
+- [x] User note renders inline in Chapter body as a visually distinct pull-quote.
+- [x] Voice dictation works on iOS and Android for the input field. (`TextInput multiline` inherits the OS dictation affordance; no custom plumbing needed.)
+- [x] Next Chapter context includes prior user note; prompt incorporates it when present.
+- [x] Digest email CTA opens directly to the add-a-line UI via universal link. (`addLine=1` → auto-expand + focus.)
 
 ---
 
@@ -586,8 +603,8 @@ Combined list. Each should produce a one-line decision in this doc before the re
 6. ~~**Caption voice vs. article voice.**~~ **Decided:** same voice (investigative reporter) so the caption → article transition is continuous. Enforced by prompt `captionRules` + validator in `chapters-generate/index.ts`. *Closed with Phase 3.*
 7. **HealthKit inclusion thresholds.** The "positive-or-neutral" floor needs concrete numbers. Suggested starting point: include when any of (≥3 active days, ≥1 workout, ≥6h avg sleep, ≥1 min mindfulness). *Decide before Phase 4 — this is the gate question blocking Phase 4 kickoff.*
 8. ~~**Arc Nomination paywall copy.**~~ **Decided for v1:** shipped with existing paywall drawer copy, attributed via new `chapter_arc_nomination` source on `PaywallSource`. Contextual copy inside the paywall drawer is a future refinement (separate work item), not a gate. *Closed for shipping Phase 5; open for iterative upsell-copy work.*
-9. **Recommendation max per Chapter.** Capped at 3. Is 3 too many on weekly cadence? Guess: 1–2 typical, 3 as hard cap. *Still open — Phase 5 v1 ships at-most-1, so this re-opens when Phase 6 adds the other kinds.*
-10. **User note privacy posture.** The user's note is stored alongside AI output. Are there cases (sensitive content) where the user wants a note that's visible in-app but never fed to the next Chapter's LLM? Likely a toggle. *Decide before Phase 7.*
+9. **Recommendation max per Chapter.** Capped at 3. Is 3 too many on weekly cadence? Guess: 1–2 typical, 3 as hard cap. *Still open — Phase 6 now ships at-most-3 with `arc > goal > align` priority; revisit once we have tap-through/dismissal data across mixed-kind weeks.*
+10. **User note privacy posture.** The user's note is stored alongside AI output. Are there cases (sensitive content) where the user wants a note that's visible in-app but never fed to the next Chapter's LLM? Likely a toggle. *Phase 7 shipped with the note always flowing into the next Chapter's context (paraphrased, not quoted). Revisit with real usage data; a per-note "keep private" toggle is cheap to add later since the column + flow are already in place.*
 11. **What "acting on a Next Step" means.** For `kind: 'goal'`, does "acted on" require the Goal to be created, or also the first Activity under it? Lean: creation is enough; depth comes in subsequent Chapters. *Decide before Phase 8.*
 
 ---
@@ -626,11 +643,11 @@ Phase 2 ✅ (Weekly-only cutover + surface polish + defaults)
    │        │
    │        ├─── Phase 5 ✅ v1 (Next Steps — Arc Nominations)
    │        │        │
-   │        │        ├─── Phase 6 ⏳ (Next Steps v2 — Goals/Activities/Align)
+   │        │        ├─── Phase 6 ✅ v2 (Next Steps — Goals + Align; Activity deferred)
    │        │        │
    │        │        └─── Phase 8 ⏳ (Cross-Chapter continuity)
    │        │
-   │        └─── Phase 7 ⏳ (Chapter-as-invitation — add-a-line)
+   │        └─── Phase 7 ✅ (Chapter-as-invitation — add-a-line)
    │
    └─── Phase 4 ⏳ (HealthKit — independent; evidence for 5+)
 ```

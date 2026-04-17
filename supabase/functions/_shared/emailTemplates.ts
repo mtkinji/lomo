@@ -113,6 +113,23 @@ function renderCta(href: string, label: string): string {
       </div>`;
 }
 
+/**
+ * A secondary, text-only CTA to sit beneath a primary `renderCta` button.
+ * Used when a template wants to offer a soft alternative action without
+ * competing with the primary call to action (e.g. the chapter digest's
+ * Phase 7.3 "What did we miss? Add a line" link). Kept small + muted so
+ * it reads as *after* the primary button, not *next to it*.
+ */
+function renderSecondaryLink(href: string, label: string): string {
+  const { primaryColor } = getBrandConfig();
+  return `
+      <p style="margin:0 0 8px;font-size:13px;line-height:20px;color:#6b7280;">
+        <a href="${escapeHtml(href)}" style="color:${escapeHtml(primaryColor)};text-decoration:underline;">
+          ${escapeHtml(label)}
+        </a>
+      </p>`;
+}
+
 /** Standard "if the button doesn't work" paragraph to append below every CTA. */
 function renderFallbackLink(href: string): string {
   const { primaryColor } = getBrandConfig();
@@ -571,6 +588,18 @@ export function buildChapterDigestEmail(params: {
 
   const snippet = extractChapterSnippet(outputJson);
   const ctaUrl = makeOpenUrl(`chapters/${chapterId}`, {}, 'chapter_digest');
+  // Phase 7.3 of docs/chapters-plan.md: secondary "What did we miss?"
+  // CTA deep-links into the add-a-line affordance on the Chapter
+  // detail screen (the `addLine=1` param is parsed by linkingConfig to
+  // auto-expand + focus the user-note input). Using a distinct campaign
+  // so we can separate read-through funnels from contribution funnels
+  // in analytics.
+  const addLineUrl = makeOpenUrl(
+    `chapters/${chapterId}`,
+    { addLine: '1' },
+    'chapter_digest_add_line',
+  );
+  const addLineLabel = 'What did we miss? Add a line.';
 
   // Phase 5.3: Next Steps hint in the digest email. Appears as a single
   // curiosity-gap line between the snippet and the CTA iff the Chapter
@@ -587,6 +616,7 @@ export function buildChapterDigestEmail(params: {
     nextStepsHintText || null,
     `Read the full chapter:`,
     ctaUrl,
+    `${addLineLabel} ${addLineUrl}`,
   ].filter((p): p is string => Boolean(p && p.trim().length));
   const text = textParts.join('\n\n');
 
@@ -610,6 +640,7 @@ export function buildChapterDigestEmail(params: {
       ${snippetBlock}
       ${nextStepsHintBlock}
       ${renderCta(ctaUrl, 'Read full chapter')}
+      ${renderSecondaryLink(addLineUrl, addLineLabel)}
       ${renderFallbackLink(ctaUrl)}
     `,
     footerText: 'You\u2019re receiving this because you enabled chapter email delivery.',

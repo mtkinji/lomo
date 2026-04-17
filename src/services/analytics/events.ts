@@ -122,6 +122,18 @@ export const AnalyticsEvent = {
   ChapterNextStepCtaTapped: 'chapter_next_step_cta_tapped',
   ChapterNextStepDismissed: 'chapter_next_step_dismissed',
 
+  // Phase 7.1 of docs/chapters-plan.md: first-class user note ("add a
+  // line"). `cta` fires when the user taps the Add-a-line affordance to
+  // reveal the input (distinct from the feedback note — that's a
+  // diagnostic signal, this is creative contribution). `saved` fires
+  // when the user persists a note; `cleared` when a previously saved
+  // note is cleared. All three carry `{ chapter_id, period_key,
+  // source: 'detail' | 'deep_link' }` so we can separate organic
+  // engagement from digest-driven re-engagement.
+  ChapterUserNoteCtaTapped: 'chapter_user_note_cta_tapped',
+  ChapterUserNoteSaved: 'chapter_user_note_saved',
+  ChapterUserNoteCleared: 'chapter_user_note_cleared',
+
   // Friends
   FriendInviteCreated: 'friend_invite_created',
   FriendInviteShared: 'friend_invite_shared',

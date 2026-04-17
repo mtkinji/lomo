@@ -108,8 +108,13 @@ export function ArcDetailScreen() {
   const route = useRoute<ArcDetailRouteProp>();
   const navigation = useNavigation<ArcDetailNavigationProp>();
   const isFocused = useIsFocused();
-  const { arcId, openGoalCreation, showFirstArcCelebration: showCelebrationFromRoute } =
-    route.params;
+  const {
+    arcId,
+    openGoalCreation,
+    showFirstArcCelebration: showCelebrationFromRoute,
+    prefilledGoalTitle,
+    goalCreationInitialTab,
+  } = route.params;
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const createGoalCtaRef = useRef<View>(null);
@@ -1339,6 +1344,8 @@ export function ArcDetailScreen() {
         goals={goals}
         launchFromArcId={arc.id}
         navigateToGoalDetailOnCreate={false}
+        initialTitle={prefilledGoalTitle}
+        initialTab={goalCreationInitialTab}
         onGoalCreated={(goalId) => {
           if (arc.id === lastOnboardingArcId) {
             setLastOnboardingGoalId(goalId);
