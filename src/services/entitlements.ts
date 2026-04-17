@@ -445,20 +445,75 @@ export async function restorePurchases(): Promise<EntitlementsSnapshot> {
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey || typeof purchases.restorePurchases !== 'function') {
-    return getEntitlements({ forceRefresh: false });
+    // No RevenueCat on this build / device — do a normal refresh which already
+    // consults the server (pro codes + admin grants).
+    return getEntitlements({ forceRefresh: true });
   }
 
+  const cached = await readCachedEntitlements();
+  const proCodeOverride = await getProCodeOverrideEnabled().catch(() => false);
+
   await configureRevenueCatIfNeeded(purchases);
-  const info = await purchases.restorePurchases();
+
+  let rcIsPro = false;
+  let rcIsTrial = false;
+  let rcError: string | undefined;
+  try {
+    const info = await purchases.restorePurchases();
+    rcIsPro = extractIsPro(info);
+    rcIsTrial = extractIsProToolsTrial(info);
+  } catch (e: any) {
+    rcError = typeof e?.message === 'string' ? e.message : 'Failed to restore purchases';
+  }
+
+  // Even when RevenueCat has no active entitlement for this account (e.g. Pro
+  // was granted via a pro code or admin grant, not an App Store purchase), we
+  // still want Restore Purchases to recover the user's real entitlement.
+  let serverIsPro: boolean | null = false;
+  let serverError: string | undefined;
+  if (!rcIsPro) {
+    try {
+      const status = await getProStatus();
+      if (isAuthoritativeProStatus(status)) {
+        serverIsPro = Boolean(status.isPro);
+        if (!serverIsPro && proCodeOverride) {
+          await setProCodeOverrideEnabled(false);
+        }
+      } else {
+        serverIsPro = null;
+        serverError = status.errorMessage ?? 'Unable to verify Pro status';
+      }
+    } catch (e: any) {
+      serverIsPro = null;
+      serverError = typeof e?.message === 'string' ? e.message : 'Unable to verify Pro status';
+    }
+  }
+
+  // Sticky last-known: if neither RC nor the server authoritatively told us
+  // "not pro", don't downgrade a previously-pro user. This prevents a tap on
+  // "Restore Purchases" from wiping out a valid pro-code or admin grant when
+  // the server check is transiently unavailable.
+  const shouldStickyKeepPro =
+    serverIsPro == null && Boolean(cached?.isPro) && !rcIsPro && !proCodeOverride;
+
+  const isPro =
+    rcIsPro ||
+    serverIsPro === true ||
+    Boolean(proCodeOverride && !rcIsPro) ||
+    Boolean(shouldStickyKeepPro);
+  const isProToolsTrial = Boolean(!isPro && rcIsTrial);
   const snapshot: EntitlementsSnapshot = {
-    isPro: extractIsPro(info),
-    isProToolsTrial: extractIsProToolsTrial(info),
+    isPro,
+    isProToolsTrial,
     checkedAt: nowIso(),
-    source: 'revenuecat',
-    isStale: false,
+    source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
+    isStale: Boolean(serverIsPro == null || shouldStickyKeepPro),
+    ...(rcError || serverError || shouldStickyKeepPro
+      ? { error: rcError ?? serverError ?? 'Pro status check unavailable; using last-known tier' }
+      : {}),
   };
   await writeCachedEntitlements(snapshot);
-  return snapshot;
+  return await applyAdminOverride(snapshot);
 }
 
 export async function purchasePro(): Promise<EntitlementsSnapshot> {
