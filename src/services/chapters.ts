@@ -332,6 +332,127 @@ export async function fetchMyChapterFeedback(chapterId: string): Promise<Chapter
   return data as ChapterFeedbackRow;
 }
 
+// ----------------------------------------------------------------------
+// Phase 8 of docs/chapters-plan.md — Chapter recommendation outcomes.
+//
+// Each Chapter's `output_json.recommendations[]` emits up to 3 Next Steps
+// cards. Phase 8 persists a per-(chapter, recommendation) event when the
+// user acts on, dismisses, or ignores a card. The next Chapter's
+// generator reads these events to (a) cite acted-on outcomes in the new
+// narrative and (b) suppress re-nominations of objects the user just
+// created / dismissed.
+//
+// Direct client writes are allowed (RLS scoped to the owner + the
+// chapter's user_id) — this is an explicit user signal, not LLM content,
+// so the "edge function only writes" discipline we apply to
+// `kwilt_chapters` itself doesn't apply here.
+// ----------------------------------------------------------------------
+
+export type ChapterRecommendationEventAction = 'acted_on' | 'dismissed' | 'ignored';
+export type ChapterRecommendationEventKind = 'arc' | 'goal' | 'align' | 'activity';
+
+export type ChapterRecommendationEventRow = {
+  id: string;
+  user_id: string;
+  chapter_id: string;
+  recommendation_id: string;
+  kind: ChapterRecommendationEventKind;
+  action: ChapterRecommendationEventAction;
+  resulting_object_id: string | null;
+  acted_on_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const CHAPTER_REC_EVENT_COLUMNS =
+  'id,user_id,chapter_id,recommendation_id,kind,action,resulting_object_id,acted_on_at,created_at,updated_at';
+
+/**
+ * Upsert a recommendation outcome event. One row per
+ * (user_id, chapter_id, recommendation_id); the latest action wins so a
+ * user who first dismissed then later acted on a card ends up with the
+ * canonical `acted_on` state the generator uses for continuity
+ * citation.
+ *
+ * `acted_on_at` is set by the client (not the server) so the row
+ * reflects the user's local tap time even when the write is batched or
+ * retried later; the server's `updated_at` still gives us a canonical
+ * write-order for analytics.
+ *
+ * Returns the persisted row on success, or `null` if the user is signed
+ * out or the write failed. Callers are expected to fire-and-forget this
+ * helper — failure to record an event must NOT block the primary flow
+ * (Arc created, Goal created, Align applied). Missed events degrade to
+ * "no continuity citation next week", which is the pre-Phase-8 behavior.
+ */
+export async function recordChapterRecommendationEvent(params: {
+  chapterId: string;
+  recommendationId: string;
+  kind: ChapterRecommendationEventKind;
+  action: ChapterRecommendationEventAction;
+  resultingObjectId?: string | null;
+}): Promise<ChapterRecommendationEventRow | null> {
+  const chapterId = (params.chapterId ?? '').trim();
+  const recommendationId = (params.recommendationId ?? '').trim();
+  if (!chapterId || !recommendationId) return null;
+  if (!params.kind || !params.action) return null;
+
+  const supabase = getSupabaseClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id;
+  if (!userId) return null;
+
+  const nowIso = new Date().toISOString();
+  const resulting =
+    typeof params.resultingObjectId === 'string' && params.resultingObjectId.trim().length > 0
+      ? params.resultingObjectId.trim()
+      : null;
+  const actedOnAt = params.action === 'acted_on' ? nowIso : null;
+
+  const payload = {
+    user_id: userId,
+    chapter_id: chapterId,
+    recommendation_id: recommendationId,
+    kind: params.kind,
+    action: params.action,
+    resulting_object_id: resulting,
+    acted_on_at: actedOnAt,
+    updated_at: nowIso,
+  };
+
+  const { data, error } = await supabase
+    .from('kwilt_chapter_recommendation_events')
+    .upsert(payload, { onConflict: 'user_id,chapter_id,recommendation_id' })
+    .select(CHAPTER_REC_EVENT_COLUMNS)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as ChapterRecommendationEventRow;
+}
+
+/**
+ * Read every event for a single chapter. Used by the generator's prior-
+ * chapter loader (via `fetchMyChapterRecommendationEvents` on the client
+ * when we want the same data locally), and by ad-hoc debugging.
+ *
+ * The server-side generator re-reads via the admin client in
+ * `chapters-generate/index.ts` so this helper is intentionally
+ * client-oriented.
+ */
+export async function fetchMyChapterRecommendationEvents(
+  chapterId: string,
+): Promise<ChapterRecommendationEventRow[]> {
+  const id = (chapterId ?? '').trim();
+  if (!id) return [];
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('kwilt_chapter_recommendation_events')
+    .select(CHAPTER_REC_EVENT_COLUMNS)
+    .eq('chapter_id', id);
+  if (error || !Array.isArray(data)) return [];
+  return data as ChapterRecommendationEventRow[];
+}
+
 export async function submitChapterFeedback(params: {
   chapterId: string;
   rating: ChapterFeedbackRating;

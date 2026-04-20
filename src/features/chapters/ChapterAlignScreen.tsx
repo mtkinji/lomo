@@ -39,6 +39,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
 import { dismissRecommendation } from './chapterRecommendationDismissals';
+import { recordChapterRecommendationEvent } from '../../services/chapters';
 
 type Route = RouteProp<MoreStackParamList, 'MoreChapterAlign'>;
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterAlign'>;
@@ -125,6 +126,20 @@ export function ChapterAlignScreen() {
     // Sleep the recommendation so the card doesn't re-surface on the
     // Chapter detail after the user has acted on it.
     void dismissRecommendation(recommendationId);
+
+    // Phase 8 of docs/chapters-plan.md — persist the outcome so the
+    // next Chapter's generator can cite it ("last week you tagged 4
+    // activities against the Sleep Goal"). The resulting_object_id is
+    // the Goal the activities were tagged onto; the individual
+    // activity ids live in the recommendation's payload and aren't
+    // needed for continuity copy.
+    void recordChapterRecommendationEvent({
+      chapterId,
+      recommendationId,
+      kind: 'align',
+      action: 'acted_on',
+      resultingObjectId: targetGoal.id,
+    });
 
     const goalLabel = targetGoal.title ?? 'Goal';
     showToast({

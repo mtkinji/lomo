@@ -15,10 +15,12 @@ import {
   fetchMyChapterFeedback,
   submitChapterFeedback,
   updateChapterUserNote,
+  recordChapterRecommendationEvent,
   CHAPTER_USER_NOTE_MAX_LENGTH,
   type ChapterRow,
   type ChapterFeedbackRating,
   type ChapterFeedbackRow,
+  type ChapterRecommendationEventKind,
 } from '../../services/chapters';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -433,7 +435,18 @@ export function ChapterDetailScreen() {
         if (!rootNavigationRef.isReady()) return;
         rootNavigationRef.navigate('ArcsStack', {
           screen: 'ArcsList',
-          params: { openCreateArc: true, prefilledArcName: nominated || undefined },
+          params: {
+            openCreateArc: true,
+            prefilledArcName: nominated || undefined,
+            // Phase 8: thread the recommendation context through the
+            // Arc-creation flow so the NewArcModal can record an
+            // `acted_on` event once the Arc is actually created.
+            // Recording here (on CTA tap) would over-count users who
+            // bail before creating the Arc.
+            chapterRecommendation: recommendationId
+              ? { chapterId, recommendationId }
+              : undefined,
+          },
         } as any);
         return;
       }
@@ -479,6 +492,13 @@ export function ChapterDetailScreen() {
                 openGoalCreation: true,
                 prefilledGoalTitle: nominated || undefined,
                 goalCreationInitialTab: 'manual',
+                // Phase 8: carry the recommendation context into the
+                // Goal-creation flow so ArcDetailScreen can record an
+                // `acted_on` event (with the new goalId) once the
+                // drawer completes.
+                chapterRecommendation: recommendationId
+                  ? { chapterId, recommendationId }
+                  : undefined,
               },
             },
           },
@@ -538,6 +558,24 @@ export function ChapterDetailScreen() {
         kind: rec.kind ?? null,
       });
       void dismissRecommendation(recommendationId);
+      // Phase 8 of docs/chapters-plan.md — persist the dismissal
+      // server-side so the next Chapter's generator can (a) suppress
+      // the same recommendation id for 90 days across devices and (b)
+      // stay silent about it in the continuity opening.
+      const kind = rec.kind;
+      if (
+        kind === 'arc' ||
+        kind === 'goal' ||
+        kind === 'align' ||
+        kind === 'activity'
+      ) {
+        void recordChapterRecommendationEvent({
+          chapterId,
+          recommendationId,
+          kind: kind as ChapterRecommendationEventKind,
+          action: 'dismissed',
+        });
+      }
     },
     [capture, chapter?.period_key, chapterId],
   );

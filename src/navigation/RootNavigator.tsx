@@ -200,6 +200,18 @@ export type ArcsStackParamList = {
          * Pro-only in practice.
          */
         prefilledArcName?: string;
+        /**
+         * Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity.
+         * When the Chapter detail screen deep-links an Arc Nomination
+         * into Arc creation, it forwards the originating Chapter +
+         * recommendation ids. The NewArcModal records an `acted_on`
+         * event on successful Arc creation so the next Chapter's
+         * generator can cite the outcome and suppress re-nomination.
+         */
+        chapterRecommendation?: {
+          chapterId: string;
+          recommendationId: string;
+        };
       }
     | undefined;
   ArcDraftContinue: undefined;
@@ -221,6 +233,18 @@ export type ArcsStackParamList = {
      */
     prefilledGoalTitle?: string;
     goalCreationInitialTab?: 'ai' | 'manual';
+    /**
+     * Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity.
+     * When the Chapter detail screen deep-links a Goal Nomination into
+     * Goal creation, it forwards the originating Chapter +
+     * recommendation ids so ArcDetailScreen can record an `acted_on`
+     * event (with the new goalId as resulting_object_id) when the
+     * GoalCoachDrawer fires `onGoalCreated`.
+     */
+    chapterRecommendation?: {
+      chapterId: string;
+      recommendationId: string;
+    };
     /**
      * When true, ArcDetail should show the first-Arc celebration interstitial
      * on first mount so the transition from onboarding feels intentional.

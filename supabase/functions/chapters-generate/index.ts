@@ -23,6 +23,14 @@ import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
 import { sendEmailViaResend } from '../_shared/emailSend.ts';
 import { computeChapterRecommendations as sharedComputeChapterRecommendations } from '../_shared/chapterRecommendations.ts';
 import type { ChapterRecommendation } from '../_shared/chapterRecommendations.ts';
+import {
+  computeChapterHealthBlock,
+  containsHealthKeyword,
+} from '../_shared/chapterHealth.ts';
+import type {
+  ChapterHealthBlock,
+  HealthDailyRow,
+} from '../_shared/chapterHealth.ts';
 
 type Cadence = 'weekly' | 'monthly' | 'yearly' | 'manual';
 type TemplateKind = 'reflection' | 'report';
@@ -552,6 +560,18 @@ type ChapterMetrics = {
     active_days_count: number;
     longest_active_streak_days: number;
   };
+  /**
+   * Phase 4-backend of docs/chapters-plan.md — passive HealthKit
+   * signal. Present only when the week crosses the inclusion floor
+   * defined in `_shared/chapterHealth.ts`. Absent (undefined) for
+   * low-signal weeks, Chapters generated before Phase 4 ships, and
+   * users who never granted HealthKit permission. The prompt surfaces
+   * this field in the `metrics` object so the LLM MAY (not MUST)
+   * weave a single short health line into `story.body` or
+   * `signal.caption`; the validator rejects health prose when this
+   * field is absent.
+   */
+  health?: ChapterHealthBlock;
 };
 
 type NoteworthyExample = {
@@ -829,8 +849,20 @@ function computeDeterministicMetrics(params: {
   activitiesIncluded: Activity[];
   arcById: Record<string, any>;
   goalById: Record<string, any>;
+  /**
+   * Phase 4-backend of docs/chapters-plan.md — pre-queried rows from
+   * `kwilt_health_daily` that intersect the period window. Already
+   * filtered on the client by `(user_id, local_date)`; this function
+   * passes them to `computeChapterHealthBlock` which enforces the
+   * inclusion floor and shapes the block. Omit or pass `null` when
+   * the user hasn't granted HealthKit or when the window has no rows
+   * — the metrics block will simply not carry a `health` field, and
+   * every downstream consumer (prompt, validator) treats that as
+   * "no health signal this week."
+   */
+  healthDaily?: HealthDailyRow[] | null;
 }): { metrics: ChapterMetrics; noteworthy_examples: NoteworthyExample[] } {
-  const { template, period, activitiesAll, activitiesIncluded, arcById, goalById } = params;
+  const { template, period, activitiesAll, activitiesIncluded, arcById, goalById, healthDaily } = params;
   const tz = validZoneOrUtc(template.timezone);
   const startMs = period.start.toMillis();
   const endMs = period.end.toMillis();
@@ -1039,6 +1071,17 @@ function computeDeterministicMetrics(params: {
     time_shape: timeShape,
   };
 
+  // Phase 4-backend: attach the passive HealthKit block if the week
+  // passes the inclusion floor. `computeChapterHealthBlock` returns
+  // null for low-signal weeks; in that case we omit the `health` key
+  // entirely so the prompt's `metrics` object reads identically to
+  // pre-Phase-4 Chapters and legacy chapters continue to serialize
+  // unchanged.
+  const healthBlock = computeChapterHealthBlock(healthDaily ?? null);
+  if (healthBlock) {
+    metrics.health = healthBlock;
+  }
+
   return { metrics, noteworthy_examples };
 }
 
@@ -1129,6 +1172,23 @@ const BANNED_DEK_PHRASES = [
   'personal and professional',
 ];
 
+// Phase 8 of docs/chapters-plan.md — the continuity-citation sentence
+// for `acted_on` Next Step outcomes must read as investigative
+// reporter, not as a high-five. These phrases anywhere in the opening
+// paragraphs OR the signal.caption fail the validator on a strict
+// pass. Intentionally lowercase; the validator normalizes before
+// matching.
+const BANNED_CONTINUITY_PRAISE_PHRASES = [
+  'great job',
+  'amazing work',
+  'way to go',
+  'nice work',
+  'proud of you',
+  'well done',
+  'kudos',
+  'keep it up',
+];
+
 const BANNED_TITLE_PREFIX_RE =
   /^\s*(reflections?\s+on|a\s+(week|month|year)\s+of|this\s+(week|month|year)|your\s+(week|month|year)|progress\s+report|weekly\s+recap|weekly\s+report|weekly\s+reflection|monthly\s+reflection)\b/i;
 
@@ -1157,6 +1217,36 @@ type PriorChapterArc = {
   activity_count_total: number | null;
 };
 
+/**
+ * Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity outcome.
+ * Joins the prior Chapter's `output_json.recommendations[]` (Phase 5–6)
+ * with rows from `kwilt_chapter_recommendation_events` to surface what
+ * the user did with each Next Step. `acted_on` outcomes MUST be cited
+ * in the new Chapter's opening; `dismissed` outcomes must NOT be
+ * referenced (that would feel nagging); `ignored` is silent by default
+ * too.
+ */
+type PriorChapterRecommendationOutcome = {
+  recommendation_id: string;
+  kind: 'arc' | 'goal' | 'align' | 'activity';
+  action: 'acted_on' | 'dismissed' | 'ignored';
+  resulting_object_id: string | null;
+  /** Human-readable nominated title (e.g. "Fitness" for an Arc nom). */
+  nominated_title: string | null;
+  /**
+   * Label of the resulting object if it still exists in stable_context
+   * (e.g. the Arc title the user actually created, which may differ
+   * from `nominated_title` if they edited it before saving). `null`
+   * when the object isn't joinable (deleted, not yet synced, etc.).
+   */
+  resulting_title: string | null;
+  /**
+   * Arc context for `goal` / `align` recommendations — lets the prompt
+   * cite which Arc the Goal lives under without re-joining.
+   */
+  arc_title: string | null;
+};
+
 type PriorChapterContext = {
   title: string | null;
   dek: string | null;
@@ -1182,6 +1272,14 @@ type PriorChapterContext = {
    */
   user_note: string | null;
   user_note_updated_at: string | null;
+  /**
+   * Phase 8 of docs/chapters-plan.md: what the user did with each of
+   * the prior Chapter's Next Steps. Empty array for chapters that
+   * predate Phase 5 or had no recommendations. `acted_on` outcomes
+   * carry priority-evidence weight in the prompt and drive the
+   * continuity citation rule.
+   */
+  recommendation_outcomes: PriorChapterRecommendationOutcome[];
 } | null;
 
 function buildGoldenExample(cadence: Cadence): string {
@@ -1228,8 +1326,18 @@ function buildWritingRequirements(params: {
   detail: string;
   stricter: boolean;
   hasNotes: boolean;
+  /**
+   * Phase 4-backend of docs/chapters-plan.md — true when
+   * `metrics.health` is attached (week passed the inclusion floor).
+   * When true, the prompt invites (but does not require) a single
+   * health line anchored in a number from `metrics.health`. When
+   * false, the prompt BANS any health-keyword prose so the narrative
+   * never invents movement/sleep/workout/mindfulness facts. The
+   * validator enforces both directions.
+   */
+  hasHealth: boolean;
 }) {
-  const { cadence, kind, detail, stricter, hasNotes } = params;
+  const { cadence, kind, detail, stricter, hasNotes, hasHealth } = params;
 
   const isShortForm = cadence === 'weekly' || cadence === 'manual';
   const lengthRule = isShortForm
@@ -1261,6 +1369,24 @@ function buildWritingRequirements(params: {
     // period, say so honestly ("you noted last week you wanted to slow
     // down; the evidence doesn't show that yet").
     `User-note continuity rule: if prior_chapter.user_note is present, reference its THEME (not its exact words) once in either signal.caption or the opening 2 paragraphs of story.body. Paraphrase — never re-quote the note verbatim. If the note's theme has no supporting evidence this period, say so plainly rather than fabricate continuity.`,
+    // Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity. The
+    // prior Chapter's Next Steps are a structured signal the LLM has
+    // never seen before, so we teach the rule explicitly: cite
+    // `acted_on` outcomes with a concrete number / Arc / activity
+    // anchor from THIS period's evidence; stay silent on `dismissed`
+    // and `ignored`. The validator enforces the citation presence
+    // when any acted-on outcome exists.
+    `Next-Step-outcome continuity rule (Phase 8): if prior_chapter.recommendation_outcomes contains any entry with action="acted_on", the new Chapter MUST cite that outcome once in EITHER signal.caption OR the opening 2 paragraphs of story.body. Use the resulting object (Arc/Goal name from resulting_title, falling back to nominated_title) and anchor the mention in concrete evidence from THIS period's metrics or activities — e.g. "Since you named the Fitness Arc last week, you put 4 completions against it." Do NOT use congratulatory exclamations ("Great job", "Amazing work", "Way to go", "Nice work", "Proud of you") — investigative-reporter voice means you state the outcome, then interpret it neutrally. If prior_chapter.recommendation_outcomes contains entries with action="dismissed" or "ignored", DO NOT mention them at all — respecting a "not now" signal is core to the product voice.`,
+    // Phase 4-backend: passive HealthKit signal. Health prose is gated
+    // by whether the deterministic inclusion floor was crossed. When
+    // it was, we INVITE (not require) one short line; when it wasn't,
+    // we BAN any health-keyword prose. The validator enforces the ban
+    // direction and would otherwise let figurative "asleep at the
+    // wheel"-style usage through, so the rule is framed in product
+    // language, not regex language.
+    hasHealth
+      ? `Health rule (optional): metrics.health is attached this period. You MAY weave at most ONE short, concrete line about movement, sleep, workouts, or mindfulness into signal.caption OR story.body. The line MUST cite at least one number from metrics.health (e.g. "4 active days", "14,200 steps", "6.8 hours of sleep"). Do not add a health line unless it genuinely helps the story hook; a padded health mention is worse than no mention. Never frame the number in a shame direction.`
+      : `Health rule (ban): metrics.health is NOT present this period. Do NOT mention sleep, steps, walking, workouts, mindfulness, or meditation anywhere in signal.caption or story.body — the generator has no evidence to support such claims and inventing them would break the non-negotiable "never invent facts" rule.`,
     `Honest-not-boosterish rule: if the period was quiet or mixed, say so plainly, then interpret kindly. Never manufacture enthusiasm the evidence doesn't support.`,
     `Ban list (do not appear anywhere): "this chapter highlights", "reflecting on", "a week of growth", "meaningful activities", "personal and professional", "harnessing".`,
     `Headline ban: title must not start with "Reflection(s) on", "A week of", "This week/month/year", "Progress Report", "Weekly Recap", "Weekly Report", "Weekly Reflection", or "Monthly Reflection".`,
@@ -1341,6 +1467,7 @@ function buildChapterPrompt(params: {
     detail,
     stricter: Boolean(stricter),
     hasNotes,
+    hasHealth: Boolean((metrics as any)?.health),
   });
 
   const system = [
@@ -1531,6 +1658,27 @@ function validateChapterOutput(params: {
   noteSnippets: string[];
   cadence: Cadence;
   strict: boolean;
+  /**
+   * Phase 8 of docs/chapters-plan.md — the prior chapter's
+   * recommendation outcomes. When any entry has `action: 'acted_on'`,
+   * the validator enforces that the new Chapter cites it in either
+   * `signal.caption` or the opening 2 paragraphs of `story.body`. The
+   * citation must mention either the resulting object's title
+   * (`resulting_title`) or the originally nominated title
+   * (`nominated_title`) as a reasonable fallback. The banned-praise
+   * check runs here too so congratulatory phrasing in the continuity
+   * sentence gets caught.
+   */
+  priorRecommendationOutcomes?: PriorChapterRecommendationOutcome[];
+  /**
+   * Phase 4-backend of docs/chapters-plan.md — true when
+   * `metrics.health` was attached this period. When false, the
+   * validator rejects any health-keyword prose in signal.caption or
+   * story.body so the model can't invent movement/sleep data when
+   * the generator has no evidence for it. See `chapterHealth.ts`
+   * for the keyword list.
+   */
+  hasHealth?: boolean;
 }): { ok: true } | { ok: false; error: string } {
   const {
     outputJson: out,
@@ -1544,6 +1692,8 @@ function validateChapterOutput(params: {
     noteSnippets,
     cadence,
     strict,
+    priorRecommendationOutcomes,
+    hasHealth,
   } = params;
 
   const title = typeof out?.title === 'string' ? out.title.trim() : '';
@@ -1706,6 +1856,32 @@ function validateChapterOutput(params: {
     return { ok: false, error: 'sections.signal.caption must not be identical to dek' };
   }
 
+  // Phase 4-backend: health keyword ban. When `metrics.health` is NOT
+  // attached (week didn't cross the inclusion floor, or no HealthKit
+  // writer at all), signal.caption and story.body must not mention
+  // health-shaped keywords. The model has no evidence to support such
+  // claims. When metrics.health IS attached, the prompt already
+  // invites the mention; we don't add a positive-assertion check here
+  // because the generic per-paragraph anchor rule already requires a
+  // number/title/Arc, and a health line that doesn't cite a health
+  // number would still fail that existing rule.
+  if (hasHealth === false) {
+    if (containsHealthKeyword(caption)) {
+      return {
+        ok: false,
+        error:
+          'sections.signal.caption mentions health/sleep/movement/mindfulness but metrics.health is not attached — the generator has no evidence to support that claim',
+      };
+    }
+    if (containsHealthKeyword(body)) {
+      return {
+        ok: false,
+        error:
+          'story.body mentions health/sleep/movement/mindfulness but metrics.health is not attached — the generator has no evidence to support that claim',
+      };
+    }
+  }
+
   // If user notes exist, at least one note must appear quoted in body.
   if (noteSnippets.length > 0) {
     const hit = noteSnippets.some((n) => {
@@ -1741,6 +1917,51 @@ function validateChapterOutput(params: {
     if (!id || !allowedActivityIds.has(id)) return { ok: false, error: 'noteworthy_mentions references unknown activity_id' };
   }
 
+  // Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity
+  // citation. When the prior Chapter has any `acted_on` outcomes, the
+  // new Chapter MUST mention at least one by name (resulting_title
+  // preferred, nominated_title as fallback) in either signal.caption
+  // or the opening 2 paragraphs of story.body. The check runs after
+  // the generic anchor checks so it's layered, not replacement.
+  const actedOnOutcomes = Array.isArray(priorRecommendationOutcomes)
+    ? priorRecommendationOutcomes.filter((o) => o && o.action === 'acted_on')
+    : [];
+  if (actedOnOutcomes.length > 0) {
+    const candidates: string[] = [];
+    for (const o of actedOnOutcomes) {
+      const cand = (o.resulting_title || o.nominated_title || '').trim();
+      if (cand.length > 0) candidates.push(cand.toLowerCase());
+    }
+    if (candidates.length > 0) {
+      const openingParas = paragraphs.slice(0, 2).join('\n').toLowerCase();
+      const captionLower = caption.toLowerCase();
+      const cited = candidates.some((c) =>
+        openingParas.includes(c) || captionLower.includes(c),
+      );
+      if (!cited) {
+        return {
+          ok: false,
+          error:
+            `Phase 8 continuity: the new Chapter must cite at least one prior-Chapter acted-on Next Step (candidates: ${candidates
+              .slice(0, 3)
+              .map((c) => `"${c}"`)
+              .join(', ')}) in sections.signal.caption or the first 2 paragraphs of story.body`,
+        };
+      }
+    }
+    // Banned congratulatory phrasing anywhere in the opening + caption.
+    const scanArea =
+      caption.toLowerCase() + '\n' + paragraphs.slice(0, 2).join('\n').toLowerCase();
+    for (const phrase of BANNED_CONTINUITY_PRAISE_PHRASES) {
+      if (scanArea.includes(phrase)) {
+        return {
+          ok: false,
+          error: `Phase 8 continuity: opening/caption contains congratulatory phrase "${phrase}" — use investigative-reporter voice instead`,
+        };
+      }
+    }
+  }
+
   return { ok: true };
 }
 
@@ -1770,16 +1991,50 @@ async function listTemplates(
   return { ok: true as const, rows: (Array.isArray(data) ? (data as TemplateRow[]) : []) as TemplateRow[] };
 }
 
-async function loadUserDomain(admin: any, userId: string) {
-  const [arcsRes, goalsRes, actsRes] = await Promise.all([
+async function loadUserDomain(
+  admin: any,
+  userId: string,
+  options?: { healthStartDate?: string; healthEndDate?: string },
+) {
+  // Phase 4-backend of docs/chapters-plan.md — pre-query the
+  // `kwilt_health_daily` rows that intersect the Chapter period. The
+  // caller supplies `healthStartDate` / `healthEndDate` as ISO date
+  // strings (YYYY-MM-DD) in the template's local timezone; they
+  // match the way the client writer stamps `local_date`. Omitting
+  // them yields an empty health array — legacy callers and tests
+  // are unchanged.
+  const healthQuery = options?.healthStartDate && options?.healthEndDate
+    ? admin
+        .from('kwilt_health_daily')
+        .select(
+          'local_date, timezone, steps_count, active_minutes, workouts_count, sleep_hours, mindfulness_minutes',
+        )
+        .eq('user_id', userId)
+        .gte('local_date', options.healthStartDate)
+        .lt('local_date', options.healthEndDate)
+    : null;
+
+  const [arcsRes, goalsRes, actsRes, healthRes] = await Promise.all([
     admin.from('kwilt_arcs').select('id,data').eq('user_id', userId),
     admin.from('kwilt_goals').select('id,data').eq('user_id', userId),
     admin.from('kwilt_activities').select('id,data').eq('user_id', userId),
+    healthQuery ?? Promise.resolve({ data: [], error: null }),
   ]);
 
   if (arcsRes.error) return { ok: false as const, error: arcsRes.error };
   if (goalsRes.error) return { ok: false as const, error: goalsRes.error };
   if (actsRes.error) return { ok: false as const, error: actsRes.error };
+  // Health failures are non-fatal — a pre-Phase-4 project (table
+  // missing) or an RLS misconfig shouldn't kill Chapter generation.
+  // We log and degrade to "no health signal" rather than failing the
+  // whole row.
+  if (healthRes?.error) {
+    // eslint-disable-next-line no-console
+    console.warn('[chapters-generate] kwilt_health_daily read failed', {
+      userId,
+      error: (healthRes.error as any)?.message ?? String(healthRes.error),
+    });
+  }
 
   const activities: Activity[] = (Array.isArray(actsRes.data) ? actsRes.data : []).map((r: any) => {
     const data = typeof r?.data === 'object' && r?.data ? r.data : {};
@@ -1787,11 +2042,16 @@ async function loadUserDomain(admin: any, userId: string) {
     return { id: String(r.id), ...(data as any) } as Activity;
   });
 
+  const healthDaily: HealthDailyRow[] = Array.isArray(healthRes?.data)
+    ? (healthRes.data as HealthDailyRow[])
+    : [];
+
   return {
     ok: true as const,
     arcs: Array.isArray(arcsRes.data) ? arcsRes.data : [],
     goals: Array.isArray(goalsRes.data) ? goalsRes.data : [],
     activities,
+    healthDaily,
   };
 }
 
@@ -1799,11 +2059,17 @@ async function getPriorReadyChapter(admin: any, params: {
   userId: string;
   templateId: string;
   periodStartIso: string;
+  // Phase 8 governance context: the *current* period's live arcs /
+  // goals indexed by id. Used to look up the `resulting_title` for
+  // `acted_on` outcomes — we want the Arc's current title (which the
+  // user may have edited), not the nominated token.
+  arcById: Record<string, any>;
+  goalById: Record<string, any>;
 }): Promise<PriorChapterContext> {
   const { data, error } = await admin
     .from('kwilt_chapters')
     .select(
-      'output_json, metrics, period_key, period_start, period_end, status, user_note, user_note_updated_at',
+      'id, output_json, metrics, period_key, period_start, period_end, status, user_note, user_note_updated_at',
     )
     .eq('user_id', params.userId)
     .eq('template_id', params.templateId)
@@ -1846,6 +2112,89 @@ async function getPriorReadyChapter(admin: any, params: {
       ? (data as any).user_note_updated_at
       : null;
 
+  // Phase 8: load the recommendation outcomes for this prior chapter
+  // and join them against the prior `output_json.recommendations[]`
+  // metadata so the prompt receives the full picture (what was
+  // nominated, what the user did, what got created). This is a
+  // read-only join; the generator never mutates the events table.
+  const priorChapterId = typeof (data as any).id === 'string' ? (data as any).id : null;
+  const priorRecs = Array.isArray(out?.recommendations) ? out.recommendations : [];
+  const priorRecById = new Map<string, any>();
+  for (const r of priorRecs) {
+    const id = typeof r?.id === 'string' ? r.id : '';
+    if (!id) continue;
+    priorRecById.set(id, r);
+  }
+
+  let recommendationOutcomes: PriorChapterRecommendationOutcome[] = [];
+  if (priorChapterId) {
+    const { data: evRows } = await admin
+      .from('kwilt_chapter_recommendation_events')
+      .select('recommendation_id, kind, action, resulting_object_id')
+      .eq('user_id', params.userId)
+      .eq('chapter_id', priorChapterId);
+    const events: Array<{
+      recommendation_id: string;
+      kind: string;
+      action: string;
+      resulting_object_id: string | null;
+    }> = Array.isArray(evRows) ? (evRows as any) : [];
+
+    for (const ev of events) {
+      const kind = ev.kind;
+      const action = ev.action;
+      if (
+        (kind !== 'arc' && kind !== 'goal' && kind !== 'align' && kind !== 'activity') ||
+        (action !== 'acted_on' && action !== 'dismissed' && action !== 'ignored')
+      ) {
+        continue;
+      }
+      const rec = priorRecById.get(ev.recommendation_id) ?? null;
+      const payload = rec?.payload ?? {};
+      const nominatedTitle = typeof payload?.title === 'string' ? payload.title : null;
+      const arcTitleFromPayload =
+        typeof payload?.arcTitle === 'string' ? payload.arcTitle : null;
+      const resultingId =
+        typeof ev.resulting_object_id === 'string' && ev.resulting_object_id
+          ? ev.resulting_object_id
+          : null;
+
+      let resultingTitle: string | null = null;
+      let arcTitle: string | null = arcTitleFromPayload;
+      if (resultingId) {
+        if (kind === 'arc') {
+          const arcRow = (params.arcById as any)?.[resultingId];
+          if (arcRow && typeof arcRow.title === 'string') {
+            resultingTitle = arcRow.title;
+          }
+        } else if (kind === 'goal' || kind === 'align') {
+          const goalRow = (params.goalById as any)?.[resultingId];
+          if (goalRow && typeof goalRow.title === 'string') {
+            resultingTitle = goalRow.title;
+          }
+          const goalArcId =
+            goalRow && typeof goalRow.arc_id === 'string' ? goalRow.arc_id : null;
+          if (goalArcId) {
+            const arcRow = (params.arcById as any)?.[goalArcId];
+            if (arcRow && typeof arcRow.title === 'string') {
+              arcTitle = arcRow.title;
+            }
+          }
+        }
+      }
+
+      recommendationOutcomes.push({
+        recommendation_id: ev.recommendation_id,
+        kind: kind as PriorChapterRecommendationOutcome['kind'],
+        action: action as PriorChapterRecommendationOutcome['action'],
+        resulting_object_id: resultingId,
+        nominated_title: nominatedTitle,
+        resulting_title: resultingTitle,
+        arc_title: arcTitle,
+      });
+    }
+  }
+
   return {
     title,
     dek,
@@ -1857,6 +2206,7 @@ async function getPriorReadyChapter(admin: any, params: {
     arcs,
     user_note: userNote,
     user_note_updated_at: userNote ? userNoteUpdatedAt : null,
+    recommendation_outcomes: recommendationOutcomes,
   };
 }
 
@@ -2022,7 +2372,18 @@ serve(async (req) => {
       continue;
     }
 
-    const domainRes = await loadUserDomain(admin, t.user_id);
+    // Phase 4-backend: bound the `kwilt_health_daily` read to the
+    // Chapter period in the template's local timezone. `local_date` is
+    // stored as a DATE stamped by the writer in the user's tz, so we
+    // compare against the tz-local calendar day of `period.start`
+    // (inclusive) and `period.end` (exclusive) — matches how every
+    // other metric in this function buckets time.
+    const healthStartDate = period.start.setZone(validZoneOrUtc(t.timezone)).toISODate();
+    const healthEndDate = period.end.setZone(validZoneOrUtc(t.timezone)).toISODate();
+    const domainRes = await loadUserDomain(admin, t.user_id, {
+      healthStartDate: healthStartDate ?? undefined,
+      healthEndDate: healthEndDate ?? undefined,
+    });
     if (!domainRes.ok) {
       results.push({
         templateId: t.id,
@@ -2099,6 +2460,7 @@ serve(async (req) => {
       activitiesIncluded: included,
       arcById,
       goalById,
+      healthDaily: domainRes.healthDaily ?? null,
     });
 
     const endDisplay = period.end.minus({ days: 1 });
@@ -2185,11 +2547,37 @@ serve(async (req) => {
     const storyHooks = buildStoryHooks({ metrics, noteworthy_examples });
 
     // Prior chapter (same template, earlier period, status=ready) for continuity.
+    // Phase 8: arcById/goalById give the loader the live titles for
+    // `acted_on` outcomes' resulting objects, so the prompt can cite
+    // the current name (e.g. the user may have renamed "Fitness" to
+    // "Health" between weeks).
     const priorChapter = await getPriorReadyChapter(admin, {
       userId: t.user_id,
       templateId: t.id,
       periodStartIso: period.start.toISO() ?? '',
+      arcById,
+      goalById,
     });
+
+    // Phase 8 governance — load the sleep-window dismissals. Any
+    // recommendation id the user dismissed in the last 90 days should
+    // not re-surface on this Chapter even if the deterministic
+    // trigger would otherwise fire.
+    const SLEEP_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+    const sleepCutoffIso = new Date(Date.now() - SLEEP_WINDOW_MS).toISOString();
+    const { data: dismissedRows } = await admin
+      .from('kwilt_chapter_recommendation_events')
+      .select('recommendation_id, updated_at')
+      .eq('user_id', t.user_id)
+      .eq('action', 'dismissed')
+      .gte('updated_at', sleepCutoffIso);
+    const dismissedRecommendationIds = new Set<string>(
+      Array.isArray(dismissedRows)
+        ? (dismissedRows as any[])
+            .map((r) => (typeof r?.recommendation_id === 'string' ? r.recommendation_id : ''))
+            .filter((s) => s.length > 0)
+        : [],
+    );
 
     // Phase 3.2: fold week-over-week arc deltas into metrics.arcs[] so the
     // prompt can cite them and the client can render arc lanes. Deltas are
@@ -2250,6 +2638,15 @@ serve(async (req) => {
         noteSnippets,
         cadence: t.cadence,
         strict,
+        // Phase 8: prior-chapter Next Step outcomes feed the
+        // continuity-citation validator rule. Null-safe; an empty
+        // list short-circuits the check.
+        priorRecommendationOutcomes: priorChapter?.recommendation_outcomes ?? [],
+        // Phase 4-backend: when metrics.health is absent, reject any
+        // health-keyword prose to stop the model from inventing
+        // movement/sleep data. When present, the positive rule is
+        // already covered by the generic per-paragraph anchor check.
+        hasHealth: Boolean((metrics as any)?.health),
       });
 
     let aiRes = await runOnce(false);
@@ -2321,6 +2718,31 @@ serve(async (req) => {
       // activity as "no Arc" regardless of its goal, over-firing Arc
       // nominations. The effective-arc lookup fixes that and makes the
       // Phase 6 Goal / Align triggers land on real data.
+      // Phase 8 governance — derive the arc/goal-token suppression
+      // sets. An Arc token is "covered" when any existing Arc's head
+      // token matches it. Same for Goals. This catches the
+      // "out-of-band creation" case the plan calls out: if the user
+      // created a matching Arc this week through any path (Next Step
+      // CTA, Arcs tab "+", onboarding), the trigger shouldn't
+      // re-nominate the same theme. The check is deliberate in the
+      // governance layer (not the per-trigger check above) because
+      // per-trigger gates only look at the trigger's own
+      // dataset — the Arc-nom gate checks `arcTitles[i].includes(token)`,
+      // which fails when the user named the Arc "Health" but the
+      // untagged cluster still reads "fitness".
+      const suppressedArcTokens = new Set<string>();
+      for (const arc of Object.values(arcById) as any[]) {
+        const title = typeof arc?.title === 'string' ? arc.title.toLowerCase() : '';
+        const head = title.match(/[a-z]{4,}/)?.[0];
+        if (head) suppressedArcTokens.add(head);
+      }
+      const suppressedGoalTokens = new Set<string>();
+      for (const goal of goalsFlat) {
+        const title = typeof goal?.title === 'string' ? goal.title.toLowerCase() : '';
+        const head = title.match(/[a-z]{4,}/)?.[0];
+        if (head) suppressedGoalTokens.add(head);
+      }
+
       const recommendations: ChapterRecommendation[] = sharedComputeChapterRecommendations({
         activitiesIncluded: included.map((a) => {
           const goalId = a.goalId ?? null;
@@ -2346,6 +2768,9 @@ serve(async (req) => {
         ),
         goalsByArcId,
         goalsAll: goalsFlat,
+        dismissedRecommendationIds,
+        suppressedArcTokens,
+        suppressedGoalTokens,
       });
       (outputJson as any).recommendations = recommendations;
     }

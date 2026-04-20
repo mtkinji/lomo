@@ -423,6 +423,93 @@ describe('computeChapterRecommendations — orchestrator', () => {
   });
 });
 
+describe('computeChapterRecommendations — Phase 8 governance', () => {
+  // See docs/chapters-plan.md §8.2. The orchestrator accepts three
+  // governance inputs that suppress re-nominations of objects the
+  // user acted on or dismissed.
+
+  it('suppresses a recommendation whose id matches dismissedRecommendationIds', () => {
+    const recs = computeChapterRecommendations({
+      activitiesIncluded: [
+        { id: 'p1', title: 'Pottery class 1', arcId: null, goalId: null },
+        { id: 'p2', title: 'Pottery class 2', arcId: null, goalId: null },
+        { id: 'p3', title: 'Pottery class 3', arcId: null, goalId: null },
+        { id: 'p4', title: 'Pottery class 4', arcId: null, goalId: null },
+        { id: 'p5', title: 'Pottery class 5', arcId: null, goalId: null },
+      ],
+      arcById: {},
+      goalsByArcId: {},
+      goalsAll: [],
+      dismissedRecommendationIds: ['rec-arc-pottery'],
+    });
+    expect(recs).toHaveLength(0);
+  });
+
+  it('suppresses an Arc Nomination whose theme matches suppressedArcTokens', () => {
+    // Simulates the out-of-band case: user created the Arc through
+    // a non-Next-Step path (or renamed it during creation), so the
+    // nomination's token still clusters in untagged activities but
+    // governance should drop it.
+    const recs = computeChapterRecommendations({
+      activitiesIncluded: [
+        { id: 'p1', title: 'Pottery class 1', arcId: null, goalId: null },
+        { id: 'p2', title: 'Pottery class 2', arcId: null, goalId: null },
+        { id: 'p3', title: 'Pottery class 3', arcId: null, goalId: null },
+        { id: 'p4', title: 'Pottery class 4', arcId: null, goalId: null },
+        { id: 'p5', title: 'Pottery class 5', arcId: null, goalId: null },
+      ],
+      arcById: {},
+      goalsByArcId: {},
+      goalsAll: [],
+      suppressedArcTokens: ['pottery'],
+    });
+    expect(recs).toHaveLength(0);
+  });
+
+  it('suppresses a Goal Nomination whose theme matches suppressedGoalTokens', () => {
+    const recs = computeChapterRecommendations({
+      activitiesIncluded: [
+        { id: 'c1', title: 'Climbing session 1', arcId: null, goalId: null },
+        { id: 'c2', title: 'Climbing session 2', arcId: null, goalId: null },
+        { id: 'c3', title: 'Climbing session 3', arcId: null, goalId: null },
+      ],
+      arcById: {
+        'arc-fit': { id: 'arc-fit', title: 'Fitness' },
+        'arc-climbing': { id: 'arc-climbing', title: 'Climbing' },
+      },
+      goalsByArcId: {},
+      goalsAll: [],
+      // Even though the Goal-nom trigger would otherwise fire, a
+      // matching Goal was just created this period, so suppress.
+      suppressedGoalTokens: ['climbing'],
+    });
+    // Climbing Arc exists → arc-nom gated anyway. Goal-nom would
+    // have fired, but the suppression token removes it. What
+    // remains are any align suggestions — none here.
+    expect(recs.filter((r) => r.kind === 'goal')).toHaveLength(0);
+  });
+
+  it('respects governance without regressing the base case', () => {
+    const recs = computeChapterRecommendations({
+      activitiesIncluded: [
+        { id: 'p1', title: 'Pottery class 1', arcId: null, goalId: null },
+        { id: 'p2', title: 'Pottery class 2', arcId: null, goalId: null },
+        { id: 'p3', title: 'Pottery class 3', arcId: null, goalId: null },
+        { id: 'p4', title: 'Pottery class 4', arcId: null, goalId: null },
+        { id: 'p5', title: 'Pottery class 5', arcId: null, goalId: null },
+      ],
+      arcById: {},
+      goalsByArcId: {},
+      goalsAll: [],
+      // Different recommendation id, different token — the pottery
+      // Arc nom should still fire.
+      dismissedRecommendationIds: ['rec-arc-reading'],
+      suppressedArcTokens: ['reading'],
+    });
+    expect(recs.map((r) => r.kind)).toEqual(['arc']);
+  });
+});
+
 describe('hasAnyRecommendation', () => {
   it('returns false for legacy output_json without the field', () => {
     expect(hasAnyRecommendation({ sections: [] })).toBe(false);

@@ -460,6 +460,30 @@ export function computeChapterRecommendations(params: {
   arcById: Record<string, RecommendationArc | undefined>;
   goalsByArcId: Record<string, RecommendationGoal[]>;
   goalsAll: RecommendationGoal[];
+  /**
+   * Phase 8 of docs/chapters-plan.md — Governance: don't re-nominate
+   * what the user just acted on or dismissed.
+   *
+   *   * `dismissedRecommendationIds` — stable recommendation ids the
+   *     user has tapped "Not now" on within the sleep window
+   *     (default 90 days, applied upstream). The orchestrator filters
+   *     matching ids out of every kind after dedup so the card
+   *     doesn't resurface.
+   *   * `suppressedArcTokens` — theme tokens that should be
+   *     considered "already covered" by an existing Arc (e.g. because
+   *     the user created a matching Arc in this period via a
+   *     Next-Step CTA, so the token no longer constitutes an
+   *     under-served theme). Lowercase.
+   *   * `suppressedGoalTokens` — analogous coverage for existing
+   *     Goals: a token whose Goal already exists shouldn't produce a
+   *     Goal Nomination.
+   *
+   * All three fields are optional; omission keeps the pre-Phase-8
+   * behavior.
+   */
+  dismissedRecommendationIds?: Iterable<string>;
+  suppressedArcTokens?: Iterable<string>;
+  suppressedGoalTokens?: Iterable<string>;
 }): ChapterRecommendation[] {
   const arcRecs = computeArcNominations({
     activitiesIncluded: params.activitiesIncluded,
@@ -512,8 +536,59 @@ export function computeChapterRecommendations(params: {
     ...goalRecs,
     ...alignFiltered,
   ];
-  merged.sort((a, b) => KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind]);
-  return merged.slice(0, MAX_RECOMMENDATIONS_PER_CHAPTER);
+
+  // Phase 8 governance — apply caller-supplied suppressions as the
+  // final pass so they bind across kinds and dedup:
+  //   1. Drop any recommendation whose stable id matches the
+  //      dismissed set. The recommendation id is deterministic
+  //      (`rec-arc-<token>`, `rec-goal-<arcId>-<token>`,
+  //      `rec-align-<goalId>`) so this is a stable key across weeks.
+  //   2. Drop Arc nominations whose theme token is already "covered"
+  //      by a suppressed-arc-tokens entry (i.e. the user created the
+  //      matching Arc this period out of band — the trigger would
+  //      otherwise re-fire if the new Arc's title didn't yet contain
+  //      the token, which happens when the user edited the name on
+  //      the way in).
+  //   3. Drop Goal nominations analogously, and the matching Align
+  //      suggestion is dropped transitively by the same arc/goal
+  //      token suppression applied further upstream (the
+  //      align-filter loop above reads `payload.goalTitle` tokens,
+  //      so a Goal-token suppression still suppresses the Align as
+  //      long as the head token matches).
+  const dismissedSet = new Set<string>();
+  for (const id of params.dismissedRecommendationIds ?? []) {
+    if (typeof id === 'string' && id.trim().length > 0) {
+      dismissedSet.add(id.trim());
+    }
+  }
+  const arcSup = new Set<string>();
+  for (const t of params.suppressedArcTokens ?? []) {
+    if (typeof t === 'string' && t.trim().length > 0) {
+      arcSup.add(t.trim().toLowerCase());
+    }
+  }
+  const goalSup = new Set<string>();
+  for (const t of params.suppressedGoalTokens ?? []) {
+    if (typeof t === 'string' && t.trim().length > 0) {
+      goalSup.add(t.trim().toLowerCase());
+    }
+  }
+
+  const governed = merged.filter((r) => {
+    if (dismissedSet.has(r.id)) return false;
+    if (r.kind === 'arc') {
+      const token = typeof r.payload?.title === 'string' ? r.payload.title.toLowerCase() : '';
+      if (token && arcSup.has(token)) return false;
+    }
+    if (r.kind === 'goal') {
+      const token = typeof r.payload?.title === 'string' ? r.payload.title.toLowerCase() : '';
+      if (token && goalSup.has(token)) return false;
+    }
+    return true;
+  });
+
+  governed.sort((a, b) => KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind]);
+  return governed.slice(0, MAX_RECOMMENDATIONS_PER_CHAPTER);
 }
 
 /**

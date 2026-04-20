@@ -86,6 +86,7 @@ import { trackUnsplashDownload, withUnsplashReferral, type UnsplashPhoto } from 
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
+import { recordChapterRecommendationEvent } from '../../services/chapters';
 import { ArcBannerSheet } from './ArcBannerSheet';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -114,6 +115,7 @@ export function ArcDetailScreen() {
     showFirstArcCelebration: showCelebrationFromRoute,
     prefilledGoalTitle,
     goalCreationInitialTab,
+    chapterRecommendation,
   } = route.params;
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
@@ -1351,6 +1353,23 @@ export function ArcDetailScreen() {
             setLastOnboardingGoalId(goalId);
           }
           setPendingGoalCelebrationId(goalId);
+          // Phase 8 of docs/chapters-plan.md — if this Goal-creation
+          // flow was entered from a Chapter Next Steps CTA, persist
+          // the outcome event so the next Chapter can cite the new
+          // Goal by id and suppress re-nomination. We clear the
+          // route param after recording so a subsequent re-open of
+          // the drawer (without re-entering from the Chapter) doesn't
+          // re-record.
+          if (chapterRecommendation?.chapterId && chapterRecommendation?.recommendationId) {
+            void recordChapterRecommendationEvent({
+              chapterId: chapterRecommendation.chapterId,
+              recommendationId: chapterRecommendation.recommendationId,
+              kind: 'goal',
+              action: 'acted_on',
+              resultingObjectId: goalId,
+            });
+            navigation.setParams({ chapterRecommendation: undefined });
+          }
           navigation.navigate('GoalDetail', {
             goalId,
             entryPoint: 'arcsStack',

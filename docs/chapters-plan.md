@@ -6,7 +6,7 @@
 
 **Why now:** Chapters today is an essay engine with incomplete GA plumbing (analytics absent, digest content bugs, default template disabled) *and* a generation model that doesn't yet do the jobs the product actually needs (help me feel progress; anchor in Arcs; carry forward to next week). This plan closes both gaps in one integrated sequence: Phases 1–2 make today's feature GA-worthy; Phases 3–8 reshape it into the artifact the product needs it to be.
 
-**Where we are (Apr 2026):** Phases **1, 2, 3, 5, 6, 7** are landed on `docs/chapters-ga-hardening-plan`. Phase 4 (HealthKit) remains the only independent chunk and is the next scoped decision; Phase 8 extends the Next Steps machinery shipped in Phases 5–6 and now reads prior user notes shipped in Phase 7.
+**Where we are (Apr 2026):** Phases **1, 2, 3, 5, 6, 7, 8** are landed on `docs/chapters-ga-hardening-plan`. Phase 4 (HealthKit) remains the only independent chunk. Phase 4 is split into **4-backend** (migration + edge function evidence wiring + prompt rule + validator — shippable from this repo and fully unit-testable) and **4-native** (iOS HealthKit permission flow + background-fetch writer — requires a dev machine with Xcode). 4-backend ships first; 4-native follows as a separate chunk. Open Question #7 is closed below (thresholds locked for v1).
 
 **Scope invariant:**
 - No changes to the fundamental app shell / canvas UX layers.
@@ -338,9 +338,20 @@ Files: `src/features/chapters/ChaptersScreen.tsx`, `supabase/functions/_shared/e
 
 **Theme:** Pull a low-effort, high-delight signal into the evidence set for every user who has Apple Health set up, regardless of whether they have a Health-flavored Arc.
 
-**Status:** Not started. Independent of Phase 3 — can ship in parallel. **Non-goal in this phase:** Android Health Connect. iOS only.
+**Status:** 4-backend in flight; 4-native not started. Independent of Phase 3 — can ship in parallel. **Non-goal in this phase:** Android Health Connect. iOS only.
 
-#### 4.1 Permission flow
+**Inclusion thresholds (Open Question #7, closed for v1):** `metrics.health` is attached to the evidence only when the week crosses a "positive or neutral" floor. A week qualifies if **any** of the following hold:
+
+- `active_days_count ≥ 3` (days with ≥1 000 steps or ≥5 active minutes)
+- `workouts_count ≥ 1`
+- `avg_sleep_hours ≥ 6`
+- `mindfulness_minutes ≥ 1`
+
+Low-signal weeks attach no `metrics.health` block at all — the generator never references absence. Re-tune once we have live Chapters comparing the on/off distribution; revisit as an explicit product-quality check, not a code change.
+
+**Backend-first / native-second split:** 4-backend (§4.2b + 4.3 below) is the table, the `loadUserDomain` read path, the deterministic inclusion gate, the `metrics.health` shape, the prompt rule, and the validator extension — all of it shippable and unit-testable without Xcode. 4-native (§4.1 + 4.2a) is the iOS permission flow + the background-fetch writer that lands rows in `kwilt_health_daily`; needs a dev machine with iOS tooling to verify on device. Until 4-native ships, 4-backend is inert (no rows → no health block → no prompt/validator change on any real Chapter), which is the safe direction.
+
+#### 4.1 Permission flow (**4-native**)
 
 Files: new `src/services/health/healthKit.ts`, plus hook-up point in `ChapterDetailScreen` (post-first-Chapter footer prompt) and optional onboarding.
 
@@ -351,27 +362,33 @@ Files: new `src/services/health/healthKit.ts`, plus hook-up point in `ChapterDet
 
 #### 4.2 Weekly pull on generation
 
-Files: new server-side collection path. Options are either (a) pulling from a snapshotted `kwilt_health_samples` table the client writes to nightly, or (b) requesting a summary from the client at generation time. **Recommendation: (a)** — a nightly client-side job writes summarized daily totals to Supabase, and `chapters-generate` reads from there. This keeps the edge function's hot path off-device.
+This sub-phase has a **4-native** writer half and a **4-backend** reader half, deliberately decoupled so the backend ships without waiting on native device work.
 
-- New migration: `kwilt_health_daily` (RLS, user-owned), columns per metric + date.
-- Client: scheduled background fetch writes yesterday's totals each morning.
-- Generator: extends `loadUserDomain` to pull rows intersecting the period; feeds them into `computeDeterministicMetrics` as a new `metrics.health` block.
+**4.2a Client-side writer (4-native).** A scheduled background fetch (`expo-background-fetch` + `expo-task-manager`, already in the runtime) writes yesterday's per-metric daily totals to `kwilt_health_daily` every morning. Summarization happens on device against the HealthKit sample store — the edge function never sees raw samples.
 
-#### 4.3 Tasteful inclusion rule
+**4.2b Server-side reader (4-backend).** 
+- New migration: `kwilt_health_daily` (RLS, user-owned), one row per `(user_id, local_date, timezone)` with `steps_count`, `active_minutes`, `workouts_count`, `sleep_hours`, `mindfulness_minutes`. The `timezone` column is stamped by the writer so aggregation windows match the way the user's own iPhone bucketed the day; the edge function joins on the Chapter template's timezone.
+- `loadUserDomain` extends to pull health rows whose `local_date` intersects the period window.
+- `computeDeterministicMetrics` folds them into a new `metrics.health` block — see §4.3 for the gate.
 
-Files: `computeDeterministicMetrics` + prompt.
+#### 4.3 Tasteful inclusion rule (**4-backend**)
 
-- Include health lines in the evidence only when the week crosses a "positive or neutral" floor: ≥3 active days, OR ≥1 logged workout, OR ≥6h average sleep, OR any mindfulness minutes at all.
-- If the week is genuinely low, omit silently. The Chapter never mentions deficits. Same philosophy as the existing "honest not boosterish" rule.
-- Prompt gets a new evidence slot `metrics.health` with a note that *if present*, the LLM should weave one line into `story.body` or `signal.caption` — never generate a shame-flavored framing.
+Files: `computeDeterministicMetrics` + prompt + validator.
+
+- Include `metrics.health` on the evidence only when the week crosses the floor defined above. If the week is genuinely low, omit silently. The Chapter never mentions deficits. Same philosophy as the existing "honest not boosterish" rule.
+- Prompt gets a new evidence slot `metrics.health` with a note that *if present*, the LLM **may** weave at most one short line into `story.body` or `signal.caption` — never shame-flavored framing, never padded when the week wasn't notably health-shaped.
+- Validator extension: when `metrics.health` is present **and** the narrative references any health keyword (`sleep`, `walked`, `steps`, `workout`, `mindful`, etc.), at least one concrete number from `metrics.health` must appear in the referencing paragraph — otherwise the attempt fails the validator and goes to stricter retry. When `metrics.health` is absent, no health keyword checks apply (old Chapters unaffected).
 
 #### Phase 4 acceptance criteria
 
-- [ ] Permission flow appears after the first successful Chapter, once per user, respectful of denial.
-- [ ] `kwilt_health_daily` rows accumulate for permitted users.
-- [ ] A Chapter for a user with good-week health data renders a single positive health line in the caption or story.
-- [ ] A Chapter for a user with low-signal health data renders no health line at all (explicit test case).
-- [ ] No HealthKit? Chapter is identical to today's shape. No upsell, no badge, no nag.
+- [ ] **(4-native)** Permission flow appears after the first successful Chapter, once per user, respectful of denial.
+- [ ] **(4-native)** `kwilt_health_daily` rows accumulate for permitted users.
+- [x] **(4-backend)** `kwilt_health_daily` table + RLS live; reader path in `loadUserDomain` merges rows by local date.
+- [x] **(4-backend)** Threshold gate: good-week data → `metrics.health` block appears with the fields above; low-signal data → block is absent. Unit-tested with fixtures covering each threshold predicate on its own.
+- [x] **(4-backend)** Prompt rule added; validator rejects health-keyword prose when the referenced paragraph contains no number from `metrics.health`.
+- [ ] **(4-native, integration)** A Chapter for a user with good-week health data renders a single positive health line in the caption or story.
+- [ ] **(4-native, integration)** A Chapter for a user with low-signal health data renders no health line at all (explicit test case).
+- [ ] **(4-native, integration)** No HealthKit? Chapter is identical to today's shape. No upsell, no badge, no nag.
 
 ---
 
@@ -564,30 +581,31 @@ Files: `supabase/functions/_shared/emailTemplates.ts`, `src/navigation/linkingCo
 
 **Theme:** Close the loop. The next Chapter reads whether the user acted on the prior Chapter's Next Steps, and explicitly cites those outcomes.
 
-**Status:** Not started. Depends on Phase 5 at minimum; materially more valuable once Phase 6 is also live.
+**Status:** ✅ Shipped. Depends on Phase 5 (landed) and Phase 6 (landed). Phase 8 adds the outcome-persistence table + governance layer; Phase 7 already made the prior-chapter loader do work (user note), so Phase 8 piggy-backed on that loader.
 
 #### 8.1 Persist and read recommendation outcomes
 
-Files: new table `kwilt_chapter_recommendation_events` (`{chapter_id, recommendation_id, action: 'acted_on' | 'dismissed' | 'ignored', acted_on_at, resulting_object_id?}`), `src/services/chapters.ts`, `supabase/functions/chapters-generate/index.ts`.
+Files: new table `kwilt_chapter_recommendation_events` (`{chapter_id, recommendation_id, kind, action: 'acted_on' | 'dismissed' | 'ignored', resulting_object_id, acted_on_at}`), `src/services/chapters.ts` (`recordChapterRecommendationEvent`), `supabase/functions/chapters-generate/index.ts` (`PriorChapterContext.recommendation_outcomes`, continuity rule + validator).
 
-- When a user taps a Next Step CTA and completes the resulting flow (Arc created, Goal added, etc.), write an event.
-- On generation, the prior Chapter's recommendation events are passed to the LLM as priority evidence.
-- Prompt rule: for each `acted_on` event, the new Chapter *must* cite the outcome in `signal.caption` or the opening paragraph — *"Since you named the Fitness Arc last week, you put 4 completions against it."* For `dismissed` / `ignored`, stay silent. Validator rejects congratulatory exclamations / second-person "great job" patterns in the continuity sentence.
+- Tapping a Next Step CTA and completing the resulting flow (Arc created, Goal added, Align applied) writes an `acted_on` event with the new object's id as `resulting_object_id`. Dismissing a card writes a `dismissed` event (persists the 90-day sleep server-side so it survives device migration).
+- On generation, the prior Chapter's events are joined against its `output_json.recommendations[]` and current-period `arcById` / `goalById` so the prompt receives the full picture (nominated title, action, resulting object id, resulting_title from live stable_context).
+- Prompt rule (`Next-Step-outcome continuity rule`) mandates that for each `acted_on` outcome, the new Chapter cite the outcome once in `signal.caption` or the opening 2 paragraphs of `story.body` with a concrete anchor (number from metrics, quoted activity title, or named Arc/Goal). Dismissed/ignored outcomes stay silent by rule.
+- Validator enforces citation presence when `acted_on` outcomes exist (strict + non-strict) AND rejects congratulatory exclamations (`"Great job"`, `"Amazing work"`, `"Way to go"`, `"Nice work"`, `"Proud of you"`, `"Well done"`, `"Kudos"`, `"Keep it up"`) anywhere in the opening + caption.
 
 #### 8.2 Governance: don't re-nominate what the user just acted on
 
-Files: recommendation trigger logic.
+Files: `supabase/functions/_shared/chapterRecommendations.ts` (`computeChapterRecommendations` now accepts `dismissedRecommendationIds`, `suppressedArcTokens`, `suppressedGoalTokens`), `supabase/functions/chapters-generate/index.ts` (derive suppression sets from current stable_context + load 90-day dismissals from `kwilt_chapter_recommendation_events`).
 
-- If a `kind: 'arc'` recommendation was acted on in Chapter N, Chapter N+1's triggers exclude the Arc nominated (now a real Arc; its own rules take over).
-- At generation time, before emitting any recommendation, check whether the nominated object already exists (user may have created it via a different path); if so, suppress it. If the user created it within the week, treat as an implicit `acted_on` for continuity citation purposes.
-- If `dismissed`, sleep 90 days as before.
+- Dismissed recommendation ids are loaded for the user within the 90-day sleep window and passed as `dismissedRecommendationIds`; matching cards are dropped from the final output.
+- Arc / Goal token suppression sets are derived from current stable_context head tokens and passed as `suppressedArcTokens` / `suppressedGoalTokens`. This catches the out-of-band case the plan called out: if the user created a matching Arc this period through any path (Next Step CTA, Arcs tab "+", onboarding), the trigger doesn't re-nominate the same theme even when the new Arc's title doesn't literally contain the untagged-cluster token.
+- Implicit `acted_on` for in-week creations: the `resulting_object_id` in the `acted_on` event points at the created object, so `resulting_title` resolves via live stable_context; the continuity rule then cites the object by its current name without a special code path.
 
 #### Phase 8 acceptance criteria
 
-- [ ] Acting on a Next Step writes a recommendation event.
-- [ ] Next Chapter's `signal.caption` or opening explicitly cites an acted-on Next Step with a concrete outcome.
-- [ ] Dismissal correctly suppresses both citation and re-nomination.
-- [ ] Nominations for objects that already exist (created out-of-band) are suppressed.
+- [x] Acting on a Next Step writes a recommendation event (Arc create in `ArcsScreen.NewArcModal`, Goal create in `ArcDetailScreen` via `onGoalCreated`, Align apply in `ChapterAlignScreen.handleApply`; dismiss in `ChapterDetailScreen.handleNextStepDismiss`).
+- [x] Next Chapter's `signal.caption` or opening explicitly cites an acted-on Next Step with a concrete outcome (prompt rule + validator citation check).
+- [x] Dismissal correctly suppresses both citation (no prompt evidence exposed for `dismissed` outcomes) and re-nomination (`dismissedRecommendationIds` governance pass in the orchestrator).
+- [x] Nominations for objects that already exist (created out-of-band) are suppressed (`suppressedArcTokens` / `suppressedGoalTokens` derived from current stable_context).
 
 ---
 
@@ -601,11 +619,11 @@ Combined list. Each should produce a one-line decision in this doc before the re
 4. **Shareability.** There's no share UI on the detail screen. Chapters as a share asset (a weekly "what I actually did" post-card) could be a growth loop independent of email. Named identity moments from Phase 5+ strengthen the case. *Phase 5 has landed; open for a focused decision next.*
 5. ~~**Tone and length.**~~ **Decided by Phase 3:** signal-first layout with caption-as-hero + full article behind the "Read the full story" disclosure shipped. Revisit only if the signal-first layout doesn't solve the small-screen problem on its own. *Closed.*
 6. ~~**Caption voice vs. article voice.**~~ **Decided:** same voice (investigative reporter) so the caption → article transition is continuous. Enforced by prompt `captionRules` + validator in `chapters-generate/index.ts`. *Closed with Phase 3.*
-7. **HealthKit inclusion thresholds.** The "positive-or-neutral" floor needs concrete numbers. Suggested starting point: include when any of (≥3 active days, ≥1 workout, ≥6h avg sleep, ≥1 min mindfulness). *Decide before Phase 4 — this is the gate question blocking Phase 4 kickoff.*
+7. ~~**HealthKit inclusion thresholds.**~~ **Decided for v1:** include `metrics.health` when any of (`active_days_count ≥ 3`, `workouts_count ≥ 1`, `avg_sleep_hours ≥ 6`, `mindfulness_minutes ≥ 1`). Re-tune after first live Chapters land. *Closed with Phase 4 backend kickoff.*
 8. ~~**Arc Nomination paywall copy.**~~ **Decided for v1:** shipped with existing paywall drawer copy, attributed via new `chapter_arc_nomination` source on `PaywallSource`. Contextual copy inside the paywall drawer is a future refinement (separate work item), not a gate. *Closed for shipping Phase 5; open for iterative upsell-copy work.*
 9. **Recommendation max per Chapter.** Capped at 3. Is 3 too many on weekly cadence? Guess: 1–2 typical, 3 as hard cap. *Still open — Phase 6 now ships at-most-3 with `arc > goal > align` priority; revisit once we have tap-through/dismissal data across mixed-kind weeks.*
 10. **User note privacy posture.** The user's note is stored alongside AI output. Are there cases (sensitive content) where the user wants a note that's visible in-app but never fed to the next Chapter's LLM? Likely a toggle. *Phase 7 shipped with the note always flowing into the next Chapter's context (paraphrased, not quoted). Revisit with real usage data; a per-note "keep private" toggle is cheap to add later since the column + flow are already in place.*
-11. **What "acting on a Next Step" means.** For `kind: 'goal'`, does "acted on" require the Goal to be created, or also the first Activity under it? Lean: creation is enough; depth comes in subsequent Chapters. *Decide before Phase 8.*
+11. **What "acting on a Next Step" means.** For `kind: 'goal'`, does "acted on" require the Goal to be created, or also the first Activity under it? **Decided for Phase 8:** creation is enough (Goal Coach `onGoalCreated` writes the event with `resulting_object_id = goalId`). Depth accumulates naturally since Phase 6's Align + Phase 5's subsequent Chapter will surface the Goal's concrete outcomes via normal metrics. Revisit only if tap-through → Goal-create rate is high but attachment rate stays low.*
 
 ---
 
@@ -645,14 +663,16 @@ Phase 2 ✅ (Weekly-only cutover + surface polish + defaults)
    │        │        │
    │        │        ├─── Phase 6 ✅ v2 (Next Steps — Goals + Align; Activity deferred)
    │        │        │
-   │        │        └─── Phase 8 ⏳ (Cross-Chapter continuity)
+   │        │        └─── Phase 8 ✅ (Cross-Chapter continuity)
    │        │
    │        └─── Phase 7 ✅ (Chapter-as-invitation — add-a-line)
    │
-   └─── Phase 4 ⏳ (HealthKit — independent; evidence for 5+)
+   └─── Phase 4 🟡 (HealthKit — backend-first shippable here; native writer next)
+             ├─── 4-backend ⏳ (migration + reader + metrics gate + prompt/validator)
+             └─── 4-native  ⏳ (iOS permission flow + background-fetch writer — needs Xcode)
 ```
 
-Legend: ✅ landed, ⏳ not started.
+Legend: ✅ landed, 🟡 partially landed, ⏳ not started.
 
 **Cross-plan dependencies:**
 - Phase 1.2 + 1.3 (digest content bugs) overlap with **Phase 3.5 in `docs/email-system-ga-plan.md`**. Track in one plan, not both.

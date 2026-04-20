@@ -41,6 +41,7 @@ import { buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { LinearGradient } from 'expo-linear-gradient';
 import { buildArcThumbnailSeed, getArcGradient } from './thumbnailVisuals';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { recordChapterRecommendationEvent } from '../../services/chapters';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import {
   DropdownMenu,
@@ -75,6 +76,14 @@ export function ArcsScreen() {
   // render) because the clear-params call below mutates the route, which
   // would wipe the value before the modal has a chance to read it.
   const [prefilledArcName, setPrefilledArcName] = useState<string | undefined>(undefined);
+  // Phase 8 of docs/chapters-plan.md — continuity context threaded in
+  // from the Chapter detail CTA. When set, the NewArcModal will fire
+  // `recordChapterRecommendationEvent({ action: 'acted_on' })` on
+  // successful Arc creation so the next Chapter's generator can cite
+  // the outcome.
+  const [chapterRecommendation, setChapterRecommendation] = useState<
+    { chapterId: string; recommendationId: string } | undefined
+  >(undefined);
   const [showArchived, setShowArchived] = useState(true);
   const [archivedExpanded, setArchivedExpanded] = useState(false);
 
@@ -107,10 +116,27 @@ export function ArcsScreen() {
       if (prefill && prefill.trim().length > 0) {
         setPrefilledArcName(prefill.trim());
       }
+      const rec = route.params.chapterRecommendation;
+      if (rec?.chapterId && rec?.recommendationId) {
+        setChapterRecommendation({
+          chapterId: rec.chapterId,
+          recommendationId: rec.recommendationId,
+        });
+      }
       handleOpenNewArc();
-      navigation.setParams({ openCreateArc: undefined, prefilledArcName: undefined });
+      navigation.setParams({
+        openCreateArc: undefined,
+        prefilledArcName: undefined,
+        chapterRecommendation: undefined,
+      });
     }
-  }, [handleOpenNewArc, navigation, route.params?.openCreateArc, route.params?.prefilledArcName]);
+  }, [
+    handleOpenNewArc,
+    navigation,
+    route.params?.openCreateArc,
+    route.params?.prefilledArcName,
+    route.params?.chapterRecommendation,
+  ]);
 
   const goalCountByArc = useMemo(
     () =>
@@ -263,8 +289,10 @@ export function ArcsScreen() {
         onClose={() => {
           setNewArcModalVisible(false);
           setPrefilledArcName(undefined);
+          setChapterRecommendation(undefined);
         }}
         prefilledName={prefilledArcName}
+        chapterRecommendation={chapterRecommendation}
       />
     </AppShell>
   );
@@ -879,6 +907,18 @@ type NewArcModalProps = {
    * on the AI tab.
    */
   prefilledName?: string;
+  /**
+   * Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity. When
+   * the Arc-creation flow was entered from a Chapter Next Steps CTA,
+   * this carries the originating Chapter + recommendation ids so the
+   * modal can record an `acted_on` event (with the new Arc id as
+   * `resulting_object_id`) once the Arc is actually created. Absent
+   * when entered from the Arcs tab's own primary action.
+   */
+  chapterRecommendation?: {
+    chapterId: string;
+    recommendationId: string;
+  };
 };
 
 function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -902,7 +942,12 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
   );
 }
 
-function NewArcModal({ visible, onClose, prefilledName }: NewArcModalProps) {
+function NewArcModal({
+  visible,
+  onClose,
+  prefilledName,
+  chapterRecommendation,
+}: NewArcModalProps) {
   const addArc = useAppStore((state) => state.addArc);
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
@@ -1000,6 +1045,18 @@ function NewArcModal({ visible, onClose, prefilledName }: NewArcModalProps) {
       fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
     });
     void ensureArcDevelopmentInsights(id);
+    // Phase 8 of docs/chapters-plan.md — if the user entered this
+    // flow from a Chapter's Next Steps "Create Arc" CTA, write the
+    // outcome event so next week's Chapter cites it.
+    if (chapterRecommendation) {
+      void recordChapterRecommendationEvent({
+        chapterId: chapterRecommendation.chapterId,
+        recommendationId: chapterRecommendation.recommendationId,
+        kind: 'arc',
+        action: 'acted_on',
+        resultingObjectId: arc.id,
+      });
+    }
     onClose();
     navigation.navigate('ArcDetail', { arcId: id });
   };
@@ -1081,6 +1138,21 @@ function NewArcModal({ visible, onClose, prefilledName }: NewArcModalProps) {
                 fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
               });
               void ensureArcDevelopmentInsights(id);
+              // Phase 8 of docs/chapters-plan.md — record the outcome
+              // event if the user entered this flow from a Chapter
+              // Next Steps CTA. AI-composed Arcs can still be
+              // attributed back to the nomination that kicked them
+              // off, which is the hook the next Chapter needs to
+              // cite.
+              if (chapterRecommendation) {
+                void recordChapterRecommendationEvent({
+                  chapterId: chapterRecommendation.chapterId,
+                  recommendationId: chapterRecommendation.recommendationId,
+                  kind: 'arc',
+                  action: 'acted_on',
+                  resultingObjectId: arc.id,
+                });
+              }
               onClose();
               navigation.navigate('ArcDetail', { arcId: id });
             }}
