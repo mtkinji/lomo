@@ -4,6 +4,9 @@
 # because `production-widgets` uses `credentialsSource: "local"` and needs those
 # files available during the remote build.
 
+# Git history (not needed by EAS Build; saves ~128 MB on upload).
+.git/
+
 # dependencies
 node_modules/
 
