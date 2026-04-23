@@ -724,7 +724,7 @@ export function NotificationsSettingsScreen() {
               <Pressable
                 style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
                 accessibilityRole="button"
-                accessibilityLabel="Open Chapter digest settings"
+                accessibilityLabel="Open Chapter Settings"
                 onPress={() => {
                   // Jump over to the More tab's Chapters stack so the user lands
                   // in the same place whether they came from the Chapters screen
@@ -735,7 +735,7 @@ export function NotificationsSettingsScreen() {
                 }}
               >
                 <VStack>
-                  <Text style={styles.rowTitle}>Chapter digest</Text>
+                  <Text style={styles.rowTitle}>Chapter Settings</Text>
                   <Text style={styles.rowSubtitle}>Manage your weekly chapter email and schedule.</Text>
                 </VStack>
               </Pressable>

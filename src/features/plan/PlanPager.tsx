@@ -1517,14 +1517,12 @@ export function PlanPager({
                   onFindActivities: () => {
                     // Close the sheet first so we don't leave a modal floating over another tab.
                     setSheetSnapIndex(0);
-                    if (!rootNavigationRef.isReady()) return;
-                    rootNavigationRef.navigate('MainTabs', {
-                      screen: 'ActivitiesTab',
-                      params: {
-                        screen: 'ActivitiesList',
-                        params: { openSearch: true },
-                      },
-                    } as any);
+                    // Use the global search drawer (pre-scoped to Activities)
+                    // so the user stays on Plan rather than getting yanked
+                    // to the Activities tab.
+                    useAppStore
+                      .getState()
+                      .openGlobalSearch({ initialScope: 'activities' });
                   },
                   onDismissForToday: handleDismissForToday,
                   onReviewPlan: () => setSheetSnapIndex(0),

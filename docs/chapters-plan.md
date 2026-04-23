@@ -6,7 +6,7 @@
 
 **Why now:** Chapters today is an essay engine with incomplete GA plumbing (analytics absent, digest content bugs, default template disabled) *and* a generation model that doesn't yet do the jobs the product actually needs (help me feel progress; anchor in Arcs; carry forward to next week). This plan closes both gaps in one integrated sequence: Phases 1–2 make today's feature GA-worthy; Phases 3–8 reshape it into the artifact the product needs it to be.
 
-**Where we are (Apr 2026):** Phases **1, 2, 3, 5, 6, 7, 8** are landed on `docs/chapters-ga-hardening-plan`. Phase 4 (HealthKit) remains the only independent chunk. Phase 4 is split into **4-backend** (migration + edge function evidence wiring + prompt rule + validator — shippable from this repo and fully unit-testable) and **4-native** (iOS HealthKit permission flow + background-fetch writer — requires a dev machine with Xcode). 4-backend ships first; 4-native follows as a separate chunk. Open Question #7 is closed below (thresholds locked for v1).
+**Where we are (Apr 2026):** Phases **1, 2, 3, 5, 6, 7, 8, 4-backend** are landed on `docs/chapters-ga-hardening-plan`. The only remaining chunk is **Phase 4-native** — the iOS HealthKit permission flow + background-fetch writer that populates `kwilt_health_daily`. Until 4-native ships, the already-landed 4-backend pipeline is inert in production (no rows → no `metrics.health` block → the prompt rule and validator extension are no-ops on every real Chapter), which is the safe direction. Open Question #7 is closed below (thresholds locked for v1).
 
 **Scope invariant:**
 - No changes to the fundamental app shell / canvas UX layers.
@@ -338,7 +338,7 @@ Files: `src/features/chapters/ChaptersScreen.tsx`, `supabase/functions/_shared/e
 
 **Theme:** Pull a low-effort, high-delight signal into the evidence set for every user who has Apple Health set up, regardless of whether they have a Health-flavored Arc.
 
-**Status:** 4-backend in flight; 4-native not started. Independent of Phase 3 — can ship in parallel. **Non-goal in this phase:** Android Health Connect. iOS only.
+**Status:** 4-backend ✅ landed (migration + reader + inclusion gate + prompt rule + validator extension all shipped and unit-tested in `_shared/chapterHealth.ts`); 4-native ⏳ not started. Independent of Phase 3 — 4-native can ship in parallel with any other phase. **Non-goal in this phase:** Android Health Connect. iOS only.
 
 **Inclusion thresholds (Open Question #7, closed for v1):** `metrics.health` is attached to the evidence only when the week crosses a "positive or neutral" floor. A week qualifies if **any** of the following hold:
 
@@ -667,8 +667,8 @@ Phase 2 ✅ (Weekly-only cutover + surface polish + defaults)
    │        │
    │        └─── Phase 7 ✅ (Chapter-as-invitation — add-a-line)
    │
-   └─── Phase 4 🟡 (HealthKit — backend-first shippable here; native writer next)
-             ├─── 4-backend ⏳ (migration + reader + metrics gate + prompt/validator)
+   └─── Phase 4 🟡 (HealthKit — backend landed; native writer next)
+             ├─── 4-backend ✅ (migration + reader + metrics gate + prompt/validator)
              └─── 4-native  ⏳ (iOS permission flow + background-fetch writer — needs Xcode)
 ```
 

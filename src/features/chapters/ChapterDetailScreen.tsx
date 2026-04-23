@@ -38,6 +38,11 @@ import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { canCreateArc, canCreateGoalInArc } from '../../domain/limits';
 import { openPaywallInterstitial } from '../../services/paywall';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import {
+  getHealthKitAvailability,
+  requestHealthKitReadPermission,
+  syncYesterdayHealthDailyToSupabase,
+} from '../../services/health/healthKit';
 
 type Route = RouteProp<MoreStackParamList, 'MoreChapterDetail'>;
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDetail'>;
@@ -352,6 +357,9 @@ export function ChapterDetailScreen() {
   const arcs = useAppStore((s) => s.arcs);
   const goals = useAppStore((s) => s.goals);
   const isPro = useEntitlementsStore((s) => s.isPro);
+  const healthPreferences = useAppStore((s) => s.healthPreferences);
+  const setHealthPreferences = useAppStore((s) => s.setHealthPreferences);
+  const [healthPromptBusy, setHealthPromptBusy] = React.useState(false);
 
   // Fire `chapter_next_step_shown` once per (chapter, recommendation_id)
   // rendered. We keep a ref so re-renders from dismissal/nav don't re-log.
@@ -713,6 +721,48 @@ export function ChapterDetailScreen() {
   );
 
   const hasDetails = forcesItems.length > 0 || patterns.length > 0 || nextExperiments.length > 0 || whereTimeWent.length > 0;
+  const showHealthPrompt =
+    chapter?.status === 'ready' &&
+    !healthPreferences.enabled &&
+    healthPreferences.osPermissionStatus === 'notRequested' &&
+    !healthPreferences.promptDismissedAtIso &&
+    !neighbors.previous;
+
+  const handleEnableHealthPrompt = React.useCallback(async () => {
+    if (healthPromptBusy) return;
+    setHealthPromptBusy(true);
+    try {
+      const availability = await getHealthKitAvailability();
+      if (!availability.available) {
+        setHealthPreferences((current) => ({
+          ...current,
+          enabled: false,
+          osPermissionStatus: availability.permissionStatus,
+          promptDismissedAtIso: new Date().toISOString(),
+        }));
+        return;
+      }
+      const permission = await requestHealthKitReadPermission();
+      setHealthPreferences((current) => ({
+        ...current,
+        enabled: permission.granted,
+        osPermissionStatus: permission.permissionStatus,
+        promptDismissedAtIso: permission.granted ? null : new Date().toISOString(),
+      }));
+      if (permission.granted) {
+        void syncYesterdayHealthDailyToSupabase();
+      }
+    } finally {
+      setHealthPromptBusy(false);
+    }
+  }, [healthPromptBusy, setHealthPreferences]);
+
+  const handleDismissHealthPrompt = React.useCallback(() => {
+    setHealthPreferences((current) => ({
+      ...current,
+      promptDismissedAtIso: new Date().toISOString(),
+    }));
+  }, [setHealthPreferences]);
 
   return (
     <AppShell>
@@ -1197,6 +1247,43 @@ export function ChapterDetailScreen() {
                 </Card>
               ) : null}
 
+              {showHealthPrompt ? (
+                <View style={styles.healthPromptCard}>
+                  <Text style={styles.healthPromptTitle}>
+                    Add Apple Health to next week&apos;s Chapter?
+                  </Text>
+                  <Text style={styles.healthPromptBody}>
+                    We can fold your movement, workouts, sleep, and mindfulness minutes into
+                    next week&apos;s evidence. You can change this anytime in Chapter Settings.
+                  </Text>
+                  <View style={styles.healthPromptActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Not now"
+                      onPress={handleDismissHealthPrompt}
+                      disabled={healthPromptBusy}
+                      style={styles.healthPromptSecondary}
+                    >
+                      <Text style={styles.healthPromptSecondaryLabel}>Not now</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Enable Apple Health"
+                      onPress={() => void handleEnableHealthPrompt()}
+                      disabled={healthPromptBusy}
+                      style={[
+                        styles.healthPromptPrimary,
+                        healthPromptBusy && styles.healthPromptPrimaryDisabled,
+                      ]}
+                    >
+                      <Text style={styles.healthPromptPrimaryLabel}>
+                        {healthPromptBusy ? 'Checking…' : 'Enable'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
               {(neighbors.previous || neighbors.next) ? (
                 <View style={styles.neighborsRow}>
                   <Pressable
@@ -1635,6 +1722,56 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.canvas,
     fontWeight: '700',
+  },
+  healthPromptCard: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.canvas,
+  },
+  healthPromptTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  healthPromptBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  healthPromptActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  healthPromptPrimary: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: colors.pine700,
+  },
+  healthPromptPrimaryDisabled: {
+    opacity: 0.6,
+  },
+  healthPromptPrimaryLabel: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontWeight: '700',
+  },
+  healthPromptSecondary: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+  },
+  healthPromptSecondaryLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   neighborsRow: {
     flexDirection: 'row',

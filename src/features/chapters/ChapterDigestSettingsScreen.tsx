@@ -23,6 +23,12 @@ import {
   updateWeeklyDigestSettings,
   type WeeklyDigestSettings,
 } from '../../services/chapters';
+import {
+  getHealthKitAvailability,
+  requestHealthKitReadPermission,
+  syncYesterdayHealthDailyToSupabase,
+  type HealthPermissionStatus,
+} from '../../services/health/healthKit';
 
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDigestSettings'>;
 
@@ -55,11 +61,14 @@ export function ChapterDigestSettingsScreen() {
   const navigation = useNavigation<Nav>();
   const showToast = useToastStore((s) => s.showToast);
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const healthPreferences = useAppStore((state) => state.healthPreferences);
+  const setHealthPreferences = useAppStore((state) => state.setHealthPreferences);
   const defaultEmail = (authIdentity?.email ?? '').trim() || null;
 
   const [loading, setLoading] = React.useState(true);
   const [settings, setSettings] = React.useState<WeeklyDigestSettings | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [healthSaving, setHealthSaving] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -74,6 +83,21 @@ export function ChapterDigestSettingsScreen() {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const availability = await getHealthKitAvailability();
+      if (cancelled) return;
+      setHealthPreferences((current) => {
+        if (current.osPermissionStatus === availability.permissionStatus) return current;
+        return { ...current, osPermissionStatus: availability.permissionStatus };
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [setHealthPreferences]);
 
   const handleToggleAutoGenerate = React.useCallback(
     async (nextValue: boolean) => {
@@ -143,9 +167,76 @@ export function ChapterDigestSettingsScreen() {
     [defaultEmail, saving, settings, showToast],
   );
 
+  const describeHealthState = React.useCallback(
+    (status: HealthPermissionStatus, enabled: boolean): string => {
+      if (enabled && status === 'authorized') {
+        return 'On — movement, workouts, sleep, and mindfulness can appear in future chapters.';
+      }
+      if (status === 'denied' || status === 'restricted') {
+        return 'Off — iOS denied access. Re-enable in Settings → Privacy & Security → Health.';
+      }
+      if (status === 'unavailable') {
+        return 'Off — Apple Health is unavailable on this device/build.';
+      }
+      return 'Off — allow access to include Health evidence in your weekly chapter.';
+    },
+    [],
+  );
+
+  const handleToggleHealth = React.useCallback(
+    async (nextValue: boolean) => {
+      if (healthSaving) return;
+
+      if (!nextValue) {
+        setHealthPreferences((current) => ({ ...current, enabled: false }));
+        return;
+      }
+
+      setHealthSaving(true);
+      try {
+        const availability = await getHealthKitAvailability();
+        if (!availability.available) {
+          setHealthPreferences((current) => ({
+            ...current,
+            enabled: false,
+            osPermissionStatus: availability.permissionStatus,
+          }));
+          Alert.alert(
+            'Apple Health unavailable',
+            'This build or device cannot read Apple Health data yet.',
+          );
+          return;
+        }
+
+        if (availability.permissionStatus === 'authorized') {
+          setHealthPreferences((current) => ({
+            ...current,
+            enabled: true,
+            osPermissionStatus: 'authorized',
+          }));
+          void syncYesterdayHealthDailyToSupabase();
+          return;
+        }
+
+        const permission = await requestHealthKitReadPermission();
+        setHealthPreferences((current) => ({
+          ...current,
+          enabled: permission.granted,
+          osPermissionStatus: permission.permissionStatus,
+        }));
+        if (permission.granted) {
+          void syncYesterdayHealthDailyToSupabase();
+        }
+      } finally {
+        setHealthSaving(false);
+      }
+    },
+    [healthSaving, setHealthPreferences],
+  );
+
   return (
     <AppShell>
-      <PageHeader title="Chapter digest" onPressBack={() => navigation.goBack()} />
+      <PageHeader title="Chapter Settings" onPressBack={() => navigation.goBack()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -159,7 +250,7 @@ export function ChapterDigestSettingsScreen() {
           <VStack space="md">
             <View style={styles.card}>
               <VStack space="sm">
-                <Text style={styles.sectionTitle}>Chapter digest</Text>
+                <Text style={styles.sectionTitle}>Chapter Settings</Text>
 
                 <View style={styles.row}>
                   <View style={styles.rowText}>
@@ -212,6 +303,30 @@ export function ChapterDigestSettingsScreen() {
                 <Text style={styles.rowSubtitle}>
                   Timezone · {settings.template.timezone || 'device default'}
                 </Text>
+              </VStack>
+            </View>
+
+            <View style={styles.card}>
+              <VStack space="sm">
+                <Text style={styles.sectionTitle}>Apple Health</Text>
+                <View style={styles.row}>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowTitle}>Include Apple Health in my chapter evidence</Text>
+                    <Text style={styles.rowSubtitle}>
+                      {describeHealthState(
+                        healthPreferences.osPermissionStatus,
+                        healthPreferences.enabled,
+                      )}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={healthPreferences.enabled}
+                    onValueChange={(v) => void handleToggleHealth(v)}
+                    disabled={healthSaving}
+                    trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                    thumbColor={colors.canvas}
+                  />
+                </View>
               </VStack>
             </View>
 

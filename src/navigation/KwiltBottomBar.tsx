@@ -55,12 +55,25 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     {},
   );
   const activeRouteName = state.routes[state.index]?.name;
+  const activeTabRoute = state.routes[state.index];
+  const activeMoreLeafRoute = activeRouteName === 'MoreTab' ? getDeepestRoute(activeTabRoute) : null;
+  const activeMoreLeafRouteName = activeMoreLeafRoute?.name as string | undefined;
+  const activeMoreLeafParams = activeMoreLeafRoute?.params as { chapterId?: string } | undefined;
+  const isChaptersSurface =
+    activeMoreLeafRouteName === 'MoreChapters' ||
+    activeMoreLeafRouteName === 'MoreChapterDetail' ||
+    activeMoreLeafRouteName === 'MoreChapterAlign' ||
+    activeMoreLeafRouteName === 'MoreChapterDigestSettings';
   const actionIcon: IconName =
     activeRouteName === 'PlanTab'
       ? 'checklist'
       : activeRouteName === 'ActivitiesTab'
         ? 'search'
-        : 'plus';
+        : activeRouteName === 'MoreTab'
+          ? isChaptersSurface
+            ? 'aiGuide'
+            : 'search'
+          : 'plus';
   const showActionBadge = activeRouteName === 'PlanTab' && planRecommendationsCount > 0;
   const handlePlaceItemLayout = useCallback(
     (routeKey: string) => (event: LayoutChangeEvent) => {
@@ -83,10 +96,10 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   );
   const handleActionPress = () => {
     if (activeRouteName === 'ActivitiesTab') {
-      navigation.navigate('ActivitiesTab', {
-        screen: 'ActivitiesList',
-        params: { openSearch: true },
-      });
+      // Open the global search drawer pre-scoped to Activities so the user
+      // stays on the Activities canvas instead of getting bounced to a
+      // dedicated search route.
+      useAppStore.getState().openGlobalSearch({ initialScope: 'activities' });
       return;
     }
     if (activeRouteName === 'GoalsTab') {
@@ -101,18 +114,52 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       return;
     }
     if (activeRouteName === 'MoreTab') {
-      // Chapters are server-scheduled-only (Phase 2.1 of
-      // docs/chapters-plan.md); there is no user-initiated "create
-      // chapter" flow to route the global + button into. Fall through to the
-      // Arc-create affordance, which is the only create-flow the More tab
-      // currently supports.
-      navigation.navigate('MoreTab', {
-        screen: 'MoreArcs',
-        params: { screen: 'ArcsList', params: { openCreateArc: true } },
-      });
+      if (isChaptersSurface) {
+        // Chapter-specific copilot surface: launch Agent with chapter context
+        // + a lightweight chapter-oriented coaching brief.
+        const chapterId =
+          typeof activeMoreLeafParams?.chapterId === 'string' && activeMoreLeafParams.chapterId.trim().length > 0
+            ? activeMoreLeafParams.chapterId.trim()
+            : 'chapters';
+        const chapterCoachSnapshot = [
+          'CHAPTERS COACHING CONTEXT',
+          '- The user is reviewing weekly Chapters (retrospective evidence).',
+          '- Focus on interpretation, continuity, and practical next moves for the coming week.',
+          '- Prefer concrete suggestions anchored in recently observed behavior, not generic motivation.',
+          '- If evidence is thin, ask one clarifying question before proposing changes.',
+        ].join('\n');
+        const parentNav = navigation.getParent() as any;
+        parentNav?.navigate('Agent', {
+          launchContext: {
+            source: 'chapterDetail',
+            intent: 'freeCoach',
+            objectType: 'chapter',
+            objectId: chapterId,
+          },
+          workspaceSnapshot: chapterCoachSnapshot,
+          resumeDraft: false,
+          hidePromptSuggestions: false,
+        });
+        return;
+      }
+      // More home/global utility: open the global (all-objects) search
+      // drawer without navigating away.
+      useAppStore.getState().openGlobalSearch();
       return;
     }
   };
+  const actionA11yLabel =
+    activeRouteName === 'PlanTab'
+      ? 'Open plan recommendations'
+      : activeRouteName === 'ActivitiesTab'
+        ? 'Search activities'
+        : activeRouteName === 'MoreTab'
+          ? isChaptersSurface
+            ? 'Open chapter coach workspace'
+            : 'Search Kwilt'
+          : activeRouteName === 'GoalsTab'
+            ? 'Create a goal'
+            : 'Primary action';
 
   useEffect(() => {
     if (shouldHideTabBar) {
@@ -276,7 +323,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
           <Pressable
             onPress={handleActionPress}
             accessibilityRole="button"
-            accessibilityLabel="Primary action"
+            accessibilityLabel={actionA11yLabel}
             style={styles.actionButton}
           >
             <View style={styles.actionWrapper} pointerEvents="box-none">
@@ -303,6 +350,13 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       </View>
     </>
   );
+}
+
+function getDeepestRoute(route: any): any {
+  if (!route || !route.state || !Array.isArray(route.state.routes)) return route;
+  const idx = typeof route.state.index === 'number' ? route.state.index : 0;
+  const next = route.state.routes[idx];
+  return getDeepestRoute(next);
 }
 
 const FLOATING_SIZE = KWILT_BOTTOM_BAR_FLOATING_SIZE_PX;

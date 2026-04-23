@@ -96,6 +96,8 @@ import type {
   ActivitiesWidgetRouteParams,
   JoinSharedGoalRouteParams,
 } from './routeParams';
+import type { LaunchContext } from '../domain/workflows';
+import type { ChatMode } from '../features/ai/workflowRegistry';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -110,7 +112,16 @@ export type RootDrawerParamList = {
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
    */
-  Agent: undefined;
+  Agent:
+    | {
+        mode?: ChatMode;
+        launchContext?: LaunchContext;
+        workspaceSnapshot?: string;
+        workflowDefinitionId?: string;
+        resumeDraft?: boolean;
+        hidePromptSuggestions?: boolean;
+      }
+    | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {

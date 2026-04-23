@@ -8,6 +8,13 @@ import { colors, spacing, typography } from '../../theme';
 import { VStack, Text, EmptyState } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
+import { Icon } from '../../ui/Icon';
+import {
   createDefaultWeeklyReflectionTemplate,
   fetchMyChapters,
   type ChapterRow,
@@ -66,6 +73,23 @@ export function ChaptersScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
   const [readMap, setReadMap] = React.useState<Record<string, string>>(() => getChapterReadMapSync());
+  const chapterSettingsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger accessibilityLabel="Chapter options">
+        <View style={styles.moreMenuButton}>
+          <Icon name="more" size={20} color={colors.textPrimary} />
+        </View>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+        <DropdownMenuItem
+          onPress={() => navigation.navigate('MoreChapterDigestSettings')}
+          accessibilityLabel="Open Chapter Settings"
+        >
+          <Text style={styles.menuItemText}>Chapter Settings</Text>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   React.useEffect(() => {
     let mounted = true;
@@ -134,21 +158,12 @@ export function ChaptersScreen() {
         streakShowedUpToday={showedUpToday}
         shieldCount={shieldCount}
         repairWindowActive={repairWindowActive}
+        moreMenu={chapterSettingsMenu}
       />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <View style={styles.subHeaderRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open Chapter digest settings"
-            onPress={() => navigation.navigate('MoreChapterDigestSettings')}
-            hitSlop={8}
-          >
-            <Text style={styles.subHeaderLink}>Digest settings</Text>
-          </Pressable>
-        </View>
         <VStack space="lg">
           {latest ? (
             <>
@@ -306,13 +321,16 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  subHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingTop: spacing.sm,
+  moreMenuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  subHeaderLink: {
+  menuItemText: {
     ...typography.bodySm,
-    color: colors.accent,
+    color: colors.textPrimary,
   },
 });
