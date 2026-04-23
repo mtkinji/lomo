@@ -408,8 +408,8 @@ This PRD is the strategic roadmap. Each milestone below maps to one (or more) sm
 | Milestone | Build plan file | Status |
 |---|---|---|
 | M0 — tokens package | `kwilt-desktop-m0-tokens.plan.md` | done |
-| M1a — desktop repo scaffold | `kwilt-desktop-m1a-scaffold.plan.md` | not started |
-| M1b — auth + keychain | `kwilt-desktop-m1b-auth.plan.md` | not started |
+| M1a — desktop repo scaffold | `kwilt-desktop-m1a-scaffold.plan.md` | done |
+| M1b — auth + keychain | `kwilt-desktop-m1b-auth.plan.md` | done |
 | M1c — onboarding shell + telemetry + codesigning spike | `kwilt-desktop-m1c-onboarding.plan.md` | not started |
 | M2 — quick capture end-to-end (offline-first) | `kwilt-desktop-m2-capture.plan.md` | not started |
 | M3 — main window + Inbox + command palette | `kwilt-desktop-m3-main-window.plan.md` | not started |
