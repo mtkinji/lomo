@@ -94,6 +94,46 @@ export const AnalyticsEvent = {
   // Notification copy variant tracking
   NotificationCopyVariant: 'notification_copy_variant',
 
+  // Chapters (see docs/chapters-plan.md Phase 1.1).
+  //
+  // Phase 2.1 dropped user-initiated chapter generation: Chapters land from a
+  // server-side cron every Monday, not a user tap. Scheduled-generation
+  // observability lives in server logs / Sentry, not product analytics, so
+  // we intentionally do NOT emit `chapter_generate_started / _succeeded /
+  // _failed` from the client.
+  ChapterListViewed: 'chapter_list_viewed',
+  ChapterViewed: 'chapter_viewed',
+  ChapterSectionExpanded: 'chapter_section_expanded',
+  ChapterShared: 'chapter_shared',
+  ChapterFeedbackSubmitted: 'chapter_feedback_submitted',
+  ChapterPrevNextTapped: 'chapter_prev_next_tapped',
+
+  // Phase 5.2 of docs/chapters-plan.md: Next Steps v1 — Arc Nominations.
+  // `shown` fires once per (chapter, recommendation) pair when the card is
+  // rendered (not when the Chapter is opened if the card is sleeping from a
+  // prior dismissal). `cta` fires on the primary action — for Arc Nominations
+  // the primary is either "Create Arc" (Pro) or the paywall upsell (Free).
+  // `dismissed` fires on "Not now" and puts the recommendation to sleep for
+  // 90 days (see `chapterRecommendationDismissals.ts`). All three carry
+  // `{ chapter_id, recommendation_id, kind }`; `cta` additionally carries
+  // `{ result: 'paywall' | 'create_flow' }` so we can separate free-tier
+  // upsell funnels from Pro-tier adoption.
+  ChapterNextStepShown: 'chapter_next_step_shown',
+  ChapterNextStepCtaTapped: 'chapter_next_step_cta_tapped',
+  ChapterNextStepDismissed: 'chapter_next_step_dismissed',
+
+  // Phase 7.1 of docs/chapters-plan.md: first-class user note ("add a
+  // line"). `cta` fires when the user taps the Add-a-line affordance to
+  // reveal the input (distinct from the feedback note — that's a
+  // diagnostic signal, this is creative contribution). `saved` fires
+  // when the user persists a note; `cleared` when a previously saved
+  // note is cleared. All three carry `{ chapter_id, period_key,
+  // source: 'detail' | 'deep_link' }` so we can separate organic
+  // engagement from digest-driven re-engagement.
+  ChapterUserNoteCtaTapped: 'chapter_user_note_cta_tapped',
+  ChapterUserNoteSaved: 'chapter_user_note_saved',
+  ChapterUserNoteCleared: 'chapter_user_note_cleared',
+
   // Friends
   FriendInviteCreated: 'friend_invite_created',
   FriendInviteShared: 'friend_invite_shared',

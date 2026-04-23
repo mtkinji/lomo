@@ -99,6 +99,8 @@ const config: ExpoConfig = {
         'Kwilt uses your calendar to schedule activities you choose to add.',
       NSRemindersUsageDescription:
         'Kwilt uses reminders only if you choose to add activities as reminders.',
+      NSHealthShareUsageDescription:
+        'Kwilt reads your Apple Health movement, workout, sleep, and mindfulness summaries to enrich your weekly chapter.',
     },
   },
   android: {
@@ -143,6 +145,13 @@ const config: ExpoConfig = {
     'expo-notifications',
     'expo-localization',
     'expo-location',
+    [
+      '@kingstinct/react-native-healthkit',
+      {
+        NSHealthShareUsageDescription:
+          'Kwilt reads your Apple Health movement, workout, sleep, and mindfulness summaries to enrich your weekly chapter.',
+      },
+    ],
     './plugins/withAppleEcosystemIntegrations',
   ],
   extra: {

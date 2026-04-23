@@ -717,6 +717,30 @@ export function NotificationsSettingsScreen() {
               <Text style={styles.helperText}>Plan your day prompts appear in app, not as push notifications.</Text>
             </VStack>
           </View>
+
+          <View style={styles.card}>
+            <VStack space="sm">
+              <Text style={styles.sectionTitle}>Email digest</Text>
+              <Pressable
+                style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Open Chapter Settings"
+                onPress={() => {
+                  // Jump over to the More tab's Chapters stack so the user lands
+                  // in the same place whether they came from the Chapters screen
+                  // or from Notifications settings.
+                  (navigation as any).navigate('MoreTab', {
+                    screen: 'MoreChapterDigestSettings',
+                  });
+                }}
+              >
+                <VStack>
+                  <Text style={styles.rowTitle}>Chapter Settings</Text>
+                  <Text style={styles.rowSubtitle}>Manage your weekly chapter email and schedule.</Text>
+                </VStack>
+              </Pressable>
+            </VStack>
+          </View>
         </ScrollView>
 
         <BottomDrawer

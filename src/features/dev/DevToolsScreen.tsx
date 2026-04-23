@@ -1627,6 +1627,28 @@ export function DevToolsScreen() {
       ) : (
         <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.stack}>
+            {devOverrideIsPro != null ? (
+              <View style={styles.devOverrideBanner}>
+                <HStack space="sm" style={styles.devOverrideBannerHeader}>
+                  <Icon name="warning" size={20} color={colors.warning} />
+                  <Text style={styles.devOverrideBannerTitle}>
+                    Simulated tier: {devOverrideIsPro ? 'Pro' : 'Free'}
+                  </Text>
+                </HStack>
+                <Text style={styles.devOverrideBannerBody}>
+                  Your real server entitlement is being overridden in this dev build.
+                  Every entitlement refresh will reassert this value, so Restore Purchases and
+                  sign-out/in will not change the tier until you clear the override.
+                </Text>
+                <Button
+                  variant="accent"
+                  onPress={() => devClearProOverride()}
+                  style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}
+                >
+                  <ButtonLabel size="md">Clear override (use real tier)</ButtonLabel>
+                </Button>
+              </View>
+            ) : null}
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Screenshot demo pack (dev)</Text>
               <Text style={styles.cardBody}>
@@ -2218,6 +2240,25 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
     elevation: 6,
+  },
+  devOverrideBanner: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  devOverrideBannerHeader: {
+    alignItems: 'center',
+  },
+  devOverrideBannerTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  devOverrideBannerBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   cardHeaderRow: {
     flexDirection: 'row',

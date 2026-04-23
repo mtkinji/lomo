@@ -35,12 +35,14 @@ import {
   reconcileNotificationsFiredEstimated,
   registerNotificationReconcileTask,
 } from './src/services/notifications/notificationBackgroundTask';
+import { registerHealthDailySyncTask } from './src/services/health/healthBackgroundTask';
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
 import { PartnerProgressGuideHost } from './src/ui/PartnerProgressGuide';
+import { GlobalSearchDrawer } from './src/features/search/GlobalSearchDrawer';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
@@ -345,6 +347,11 @@ export default function App() {
         console.warn('[notifications] failed to register background reconcile task', error);
       }
     });
+    registerHealthDailySyncTask().catch((error) => {
+      if (__DEV__) {
+        console.warn('[health] failed to register background sync task', error);
+      }
+    });
     // Reconcile on launch too (covers cases where background fetch doesn't run).
     reconcileNotificationsFiredEstimated('app_launch').catch((error) => {
       if (__DEV__) {
@@ -555,6 +562,7 @@ export default function App() {
       <FirstTimeUxFlow />
       <CelebrationInterstitialHost />
       <PartnerProgressGuideHost />
+      <GlobalSearchDrawer />
     </PostHogProvider>
   ) : (
     <>
@@ -562,6 +570,7 @@ export default function App() {
       <FirstTimeUxFlow />
       <CelebrationInterstitialHost />
       <PartnerProgressGuideHost />
+      <GlobalSearchDrawer />
     </>
   );
 

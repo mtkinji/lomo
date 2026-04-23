@@ -96,6 +96,13 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
             },
             MoreChapterDetail: {
               path: 'chapters/:chapterId',
+              parse: {
+                // Phase 7.3 of docs/chapters-plan.md: the weekly
+                // digest's secondary "What did we miss?" CTA opens the
+                // Chapter detail with `addLine=1`, which the screen
+                // uses to auto-expand + focus the Add-a-line input.
+                addLine: (v: string) => v === '1' || v === 'true',
+              },
             },
           },
         },

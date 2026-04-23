@@ -83,9 +83,12 @@ import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen'
 import { MoreScreen } from '../features/more/MoreScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
+import { ChapterAlignScreen } from '../features/chapters/ChapterAlignScreen';
+import { ChapterDigestSettingsScreen } from '../features/chapters/ChapterDigestSettingsScreen';
 import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
+import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -93,6 +96,8 @@ import type {
   ActivitiesWidgetRouteParams,
   JoinSharedGoalRouteParams,
 } from './routeParams';
+import type { LaunchContext } from '../domain/workflows';
+import type { ChatMode } from '../features/ai/workflowRegistry';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -107,7 +112,16 @@ export type RootDrawerParamList = {
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
    */
-  Agent: undefined;
+  Agent:
+    | {
+        mode?: ChatMode;
+        launchContext?: LaunchContext;
+        workspaceSnapshot?: string;
+        workflowDefinitionId?: string;
+        resumeDraft?: boolean;
+        hidePromptSuggestions?: boolean;
+      }
+    | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools:
     | {
@@ -155,17 +169,29 @@ export type MainTabsParamList = {
 export type MoreStackParamList = {
   MoreHome: undefined;
   MoreArcs: NavigatorScreenParams<ArcsStackParamList> | undefined;
-  MoreChapters:
-    | {
-        /**
-         * When true, trigger the "create chapter" flow from the global + button.
-         * We keep this as a navigation param so the bottom bar can stay dumb and
-         * screens can own their own side-effects (auth prompts, RPCs, etc).
-         */
-        openCreateChapter?: boolean;
-      }
-    | undefined;
-  MoreChapterDetail: { chapterId: string };
+  // Chapters are server-scheduled-only (Phase 2.1 of docs/chapters-plan.md);
+  // the screen takes no params and there is no user-initiated generation
+  // entrypoint.
+  MoreChapters: undefined;
+  MoreChapterDetail: { chapterId: string; addLine?: boolean };
+  MoreChapterDigestSettings: undefined;
+  /**
+   * Phase 6 of docs/chapters-plan.md — Next Steps "Align" CTA. Opens a
+   * lightweight surface that lets the user tag a list of untagged
+   * activities to an existing Goal in one step. Activities in Kwilt
+   * belong to Goals (not directly to Arcs); the Arc is carried only
+   * for display copy. All props are server-sourced from the Chapter's
+   * `recommendations[]` entry.
+   */
+  MoreChapterAlign: {
+    chapterId: string;
+    recommendationId: string;
+    goalId: string;
+    goalTitle: string;
+    arcId: string | null;
+    arcTitle: string | null;
+    activityIds: string[];
+  };
 };
 
 export type ArcsStackParamList = {
@@ -176,6 +202,27 @@ export type ArcsStackParamList = {
          * Used by the floating bottom bar primary action on the Arcs tab.
          */
         openCreateArc?: boolean;
+        /**
+         * Phase 5.2 of docs/chapters-plan.md — Next Steps "Create Arc"
+         * CTA. When the Chapter detail screen deep-links an Arc
+         * Nomination into Arc creation, it forwards the nominated title
+         * so the manual tab is pre-populated. Free-tier users are never
+         * routed here (the CTA hits the paywall instead), so this is
+         * Pro-only in practice.
+         */
+        prefilledArcName?: string;
+        /**
+         * Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity.
+         * When the Chapter detail screen deep-links an Arc Nomination
+         * into Arc creation, it forwards the originating Chapter +
+         * recommendation ids. The NewArcModal records an `acted_on`
+         * event on successful Arc creation so the next Chapter's
+         * generator can cite the outcome and suppress re-nomination.
+         */
+        chapterRecommendation?: {
+          chapterId: string;
+          recommendationId: string;
+        };
       }
     | undefined;
   ArcDraftContinue: undefined;
@@ -187,6 +234,28 @@ export type ArcsStackParamList = {
      * inline button.
      */
     openGoalCreation?: boolean;
+    /**
+     * Phase 6 of docs/chapters-plan.md — Next Steps "Create Goal" CTA.
+     * When a Chapter's Goal Nomination deep-links into this screen with
+     * `openGoalCreation: true`, it forwards the nominated title so the
+     * Goal creation drawer is pre-populated and defaulted to the manual
+     * tab. The drawer still respects the per-Arc Goal limit; paywall
+     * gating happens at the Chapter detail CTA, not here.
+     */
+    prefilledGoalTitle?: string;
+    goalCreationInitialTab?: 'ai' | 'manual';
+    /**
+     * Phase 8 of docs/chapters-plan.md — Cross-Chapter continuity.
+     * When the Chapter detail screen deep-links a Goal Nomination into
+     * Goal creation, it forwards the originating Chapter +
+     * recommendation ids so ArcDetailScreen can record an `acted_on`
+     * event (with the new goalId as resulting_object_id) when the
+     * GoalCoachDrawer fires `onGoalCreated`.
+     */
+    chapterRecommendation?: {
+      chapterId: string;
+      recommendationId: string;
+    };
     /**
      * When true, ArcDetail should show the first-Arc celebration interstitial
      * on first mount so the transition from onboarding feels intentional.
@@ -392,6 +461,37 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           utm_medium: emailAttribution.utmMedium,
           target_route: emailAttribution.targetRoute,
         });
+      }
+
+      // Chapter-open attribution: stash a hint if the URL targets a chapter
+      // detail route so `chapter_viewed` can report a correct `from` dimension
+      // (Phase 1.1 of docs/chapters-plan.md). Works for both
+      // email CTAs (`utm_source=email`) and any other deep-link entrypoints.
+      try {
+        const parsed = new URL(url);
+        const rawPath = (() => {
+          if (parsed.protocol === 'kwilt:') {
+            const host = parsed.hostname ?? '';
+            const suffix = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname : '';
+            return (host + suffix).replace(/^\/+/, '');
+          }
+          let path = parsed.pathname.replace(/^\/+/, '');
+          if (path === 'open' || path.startsWith('open/')) {
+            path = path.slice('open'.length).replace(/^\/+/, '');
+          }
+          return path;
+        })();
+        const match = rawPath.match(/^chapters\/([^/?#]+)/);
+        if (match && match[1]) {
+          const isEmail = parsed.searchParams.get('utm_source') === 'email';
+          recordChapterOpenHint(
+            match[1],
+            isEmail ? 'email' : 'deep_link',
+            parsed.searchParams.get('utm_campaign'),
+          );
+        }
+      } catch {
+        // Best-effort: malformed URLs just fall through without a hint.
       }
 
       const didHandleShare = await handleIncomingShareUrl(url);
@@ -802,6 +902,11 @@ function MoreStackNavigator() {
       <MoreStack.Screen name="MoreArcs" component={ArcsStackNavigator} />
       <MoreStack.Screen name="MoreChapters" component={ChaptersScreen} />
       <MoreStack.Screen name="MoreChapterDetail" component={ChapterDetailScreen} />
+      <MoreStack.Screen name="MoreChapterAlign" component={ChapterAlignScreen} />
+      <MoreStack.Screen
+        name="MoreChapterDigestSettings"
+        component={ChapterDigestSettingsScreen}
+      />
     </MoreStack.Navigator>
   );
 }

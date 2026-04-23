@@ -64,6 +64,20 @@ describe('linkingConfig', () => {
       expect(leaf?.params).toEqual({ chapterId: 'abc-123_XYZ' });
     });
 
+    // Phase 7.3: the digest email's secondary "What did we miss?" CTA
+    // appends `?addLine=1` to the chapter deep link. The detail screen
+    // uses the parsed boolean to auto-expand + focus the add-a-line
+    // input. Regression fence so the parser stays wired.
+    test('chapters/:id?addLine=1 parses the boolean param', () => {
+      const leaf = parse('chapters/abc123?addLine=1');
+      expect(leaf?.params).toMatchObject({ chapterId: 'abc123', addLine: true });
+    });
+
+    test('chapters/:id without addLine leaves the param absent', () => {
+      const leaf = parse('chapters/abc123');
+      expect(leaf?.params).toEqual({ chapterId: 'abc123' });
+    });
+
     test('kwilt://settings/subscription resolves to SettingsManageSubscription', () => {
       const leaf = parse('settings/subscription');
       expect(leaf).not.toBeNull();

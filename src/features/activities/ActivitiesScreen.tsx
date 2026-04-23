@@ -118,7 +118,6 @@ import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBotto
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
-import { ActivitySearchDrawer } from './ActivitySearchDrawer';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
@@ -294,7 +293,6 @@ export function ActivitiesScreen() {
 
   const [filterDrawerVisible, setFilterDrawerVisible] = React.useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = React.useState(false);
-  const [searchDrawerVisible, setSearchDrawerVisible] = React.useState(false);
 
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
   const quickAddFocusedRef = React.useRef(false);
@@ -411,7 +409,10 @@ export function ActivitiesScreen() {
 
   React.useEffect(() => {
     if (!route.params?.openSearch) return;
-    setSearchDrawerVisible(true);
+    // Route the legacy `openSearch: true` deep-link through the unified
+    // global search drawer (pre-scoped to Activities so this entry point
+    // still feels Activities-specific).
+    useAppStore.getState().openGlobalSearch({ initialScope: 'activities' });
     try {
       (navigation as any).setParams?.({ openSearch: undefined });
     } catch {
@@ -2928,15 +2929,6 @@ export function ActivitiesScreen() {
           </VStack>
         </View>
       </BottomDrawer>
-      <ActivitySearchDrawer
-        visible={searchDrawerVisible}
-        onClose={() => setSearchDrawerVisible(false)}
-        activities={activities}
-        goalTitleById={goalTitleById}
-        onPressActivity={navigateToActivityDetail}
-        onToggleComplete={handleToggleComplete}
-        onTogglePriority={handleTogglePriorityOne}
-      />
       <FilterDrawer
         visible={filterDrawerVisible}
         onClose={() => setFilterDrawerVisible(false)}

@@ -33,6 +33,7 @@ import {
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { cardElevation, spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -70,8 +71,18 @@ import { PaywallContent } from '../paywall/PaywallDrawer';
 import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import { ARC_HERO_LIBRARY } from '../arcs/arcHeroLibrary';
 import { hashStringToIndex } from '../arcs/thumbnailVisuals';
+import type { LaunchContext } from '../../domain/workflows';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
+
+type AgentRouteParams = {
+  mode?: ChatMode;
+  launchContext?: LaunchContext;
+  workspaceSnapshot?: string;
+  workflowDefinitionId?: string;
+  resumeDraft?: boolean;
+  hidePromptSuggestions?: boolean;
+};
 
 type ChatMessage = {
   id: string;
@@ -4553,6 +4564,9 @@ export function AiChatScreen() {
   const { useAnalytics } = require('../../services/analytics/useAnalytics') as typeof import('../../services/analytics/useAnalytics');
   const { suggestTagsFromText } = require('../../utils/tags') as typeof import('../../utils/tags');
   const { geocodePlaceBestEffort } = require('../../services/locationOffers/geocodePlace') as typeof import('../../services/locationOffers/geocodePlace');
+  const route =
+    useRoute<RouteProp<Record<string, AgentRouteParams | undefined>, string>>();
+  const routeParams = (route?.params ?? {}) as AgentRouteParams;
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const sharePayload = useShareIntentStore((s: any) => s.payload) as any;
@@ -4849,14 +4863,19 @@ export function AiChatScreen() {
 
   // Default: if no share payload, behave like the legacy standalone coach.
   if (!sharePayload) {
+    const fallbackLaunchContext: LaunchContext = {
+      source: 'standaloneCoach',
+      intent: 'freeCoach',
+    };
     return (
       <AppShell>
         <AgentWorkspace
-          mode={undefined}
-          launchContext={{
-            source: 'standaloneCoach',
-            intent: 'freeCoach',
-          }}
+          mode={routeParams.mode}
+          workflowDefinitionId={routeParams.workflowDefinitionId}
+          launchContext={routeParams.launchContext ?? fallbackLaunchContext}
+          workspaceSnapshot={routeParams.workspaceSnapshot}
+          resumeDraft={routeParams.resumeDraft}
+          hidePromptSuggestions={routeParams.hidePromptSuggestions}
         />
       </AppShell>
     );

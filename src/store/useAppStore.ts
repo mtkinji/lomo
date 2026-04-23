@@ -609,6 +609,16 @@ interface AppState {
     defaultCooldownMs: number;
   };
   /**
+   * Apple Health integration settings for Chapter evidence (Phase 4-native).
+   */
+  healthPreferences: {
+    enabled: boolean;
+    osPermissionStatus: 'notRequested' | 'authorized' | 'denied' | 'restricted' | 'unavailable';
+    lastDailySyncDate: string | null;
+    lastSyncAtIso: string | null;
+    promptDismissedAtIso: string | null;
+  };
+  /**
    * Which "Send to…" destinations are enabled for the user.
    *
    * - Built-in retailers (Amazon/Home Depot/Instacart/DoorDash) can be toggled here.
@@ -644,21 +654,79 @@ interface AppState {
   /**
    * Whether activity search should include completed & closed activities.
    * Default: false.
+   * @deprecated Migrated to `globalSearchIncludeCompleted`. Kept on the state
+   *   shape (and in `partialize`) for one release so existing persisted
+   *   snapshots rehydrate without losing the user's preference.
    */
   activitySearchIncludeCompleted: boolean;
   setActivitySearchIncludeCompleted: (include: boolean) => void;
   /**
    * Whether activity search should show the completion check circle.
    * Default: false.
+   * @deprecated Global search no longer exposes inline completion toggles;
+   *   we always render the check circle when the scope is locked to
+   *   activities, and never otherwise.
    */
   activitySearchShowCheckCircle: boolean;
   setActivitySearchShowCheckCircle: (show: boolean) => void;
   /**
    * Whether activity search should show the metadata row.
    * Default: false.
+   * @deprecated Migrated to `globalSearchShowMeta`. See note above.
    */
   activitySearchShowMeta: boolean;
   setActivitySearchShowMeta: (show: boolean) => void;
+  /**
+   * Global (cross-object) search overlay state.
+   *
+   * The drawer is hosted at the app root so any screen can open it without
+   * navigating away. Callers open it via `openGlobalSearch({ initialScope })`
+   * and the host reads these flags to drive visibility + pre-selected scope.
+   *
+   * `initialScope`:
+   * - `'activities' | 'goals' | 'arcs' | 'chapters'` seeds the chip bar so
+   *   that only the requested scope is selected on open (used when the
+   *   caller is a scope-specific entry point like the Activities tab FAB).
+   *   The chip bar remains visible and users can broaden their search by
+   *   toggling other chips on.
+   * - `null` preserves the user's last chip selection (falling back to all
+   *   scopes on if nothing is selected).
+   */
+  globalSearchOpen: boolean;
+  globalSearchInitialScope: 'activities' | 'goals' | 'arcs' | 'chapters' | null;
+  /**
+   * Selected object-kind scopes for the global search drawer. Backed by a
+   * plain object keyed by scope for persistence-friendly serialization.
+   * Treat as "all on" when every key is true.
+   */
+  globalSearchScopes: {
+    activities: boolean;
+    goals: boolean;
+    arcs: boolean;
+    chapters: boolean;
+  };
+  /**
+   * Global replacement for `activitySearchIncludeCompleted`. Applied per-kind
+   * (Activities: status !== done/cancelled; Goals: status !== completed/archived;
+   * Arcs: status !== archived; Chapters: no-op).
+   */
+  globalSearchIncludeCompleted: boolean;
+  /**
+   * Whether to render the per-kind metadata row (e.g. goal title on an
+   * Activity row, arc name on a Goal row). Applies in all scopes.
+   */
+  globalSearchShowMeta: boolean;
+  openGlobalSearch: (
+    opts?: { initialScope?: AppState['globalSearchInitialScope'] },
+  ) => void;
+  closeGlobalSearch: () => void;
+  setGlobalSearchScopes: (
+    updater:
+      | ((current: AppState['globalSearchScopes']) => AppState['globalSearchScopes'])
+      | AppState['globalSearchScopes'],
+  ) => void;
+  setGlobalSearchIncludeCompleted: (include: boolean) => void;
+  setGlobalSearchShowMeta: (show: boolean) => void;
   /**
    * Selected soundscape track id for Focus sessions.
    */
@@ -1007,6 +1075,11 @@ interface AppState {
     updater:
       | ((current: AppState['locationOfferPreferences']) => AppState['locationOfferPreferences'])
       | AppState['locationOfferPreferences'],
+  ) => void;
+  setHealthPreferences: (
+    updater:
+      | ((current: AppState['healthPreferences']) => AppState['healthPreferences'])
+      | AppState['healthPreferences'],
   ) => void;
   setLastFocusMinutes: (minutes: number) => void;
   setFocusOverlayColorIndex: (index: number) => void;
@@ -1362,6 +1435,13 @@ export const useAppStore = create<AppState>()(
         globalMinSpacingMs: 6 * 60 * 60 * 1000,
         defaultCooldownMs: 2 * 60 * 60 * 1000,
       },
+      healthPreferences: {
+        enabled: false,
+        osPermissionStatus: 'notRequested',
+        lastDailySyncDate: null,
+        lastSyncAtIso: null,
+        promptDismissedAtIso: null,
+      },
       lastFocusMinutes: null,
       focusOverlayColorIndex: 0,
       soundscapeEnabled: true,
@@ -1371,6 +1451,16 @@ export const useAppStore = create<AppState>()(
       activitySearchIncludeCompleted: false,
       activitySearchShowCheckCircle: false,
       activitySearchShowMeta: false,
+      globalSearchOpen: false,
+      globalSearchInitialScope: null,
+      globalSearchScopes: {
+        activities: true,
+        goals: true,
+        arcs: true,
+        chapters: true,
+      },
+      globalSearchIncludeCompleted: false,
+      globalSearchShowMeta: false,
       enabledSendToDestinations: {},
       lastShowUpDate: null,
       currentShowUpStreak: 0,
@@ -2226,6 +2316,16 @@ export const useAppStore = create<AppState>()(
               : updater;
           return { locationOfferPreferences: next };
         }),
+      setHealthPreferences: (updater) =>
+        set((state) => {
+          const next =
+            typeof updater === 'function'
+              ? (updater as (current: AppState['healthPreferences']) => AppState['healthPreferences'])(
+                  state.healthPreferences,
+                )
+              : updater;
+          return { healthPreferences: next };
+        }),
       setLastFocusMinutes: (minutes) =>
         set(() => ({
           lastFocusMinutes: Number.isFinite(minutes) ? Math.max(1, Math.round(minutes)) : null,
@@ -2262,6 +2362,62 @@ export const useAppStore = create<AppState>()(
       setActivitySearchShowMeta: (show) =>
         set(() => ({
           activitySearchShowMeta: Boolean(show),
+        })),
+      openGlobalSearch: (opts) =>
+        set((state) => {
+          const scope = typeof opts?.initialScope === 'string' ? opts.initialScope : null;
+          const next: Partial<AppState> = {
+            globalSearchOpen: true,
+            globalSearchInitialScope: scope,
+          };
+          // When callers ask for a specific scope (e.g. the Activities FAB),
+          // seed the chip selection so only that scope is active — but keep
+          // the chip bar visible and interactive so users can broaden from
+          // there. If no scope is provided, preserve the user's last chip
+          // selection unless it has collapsed to zero (safety net).
+          if (scope) {
+            next.globalSearchScopes = {
+              activities: scope === 'activities',
+              goals: scope === 'goals',
+              arcs: scope === 'arcs',
+              chapters: scope === 'chapters',
+            };
+          } else {
+            const current = state.globalSearchScopes;
+            const anyOn =
+              current.activities || current.goals || current.arcs || current.chapters;
+            if (!anyOn) {
+              next.globalSearchScopes = {
+                activities: true,
+                goals: true,
+                arcs: true,
+                chapters: true,
+              };
+            }
+          }
+          return next;
+        }),
+      closeGlobalSearch: () =>
+        set(() => ({
+          globalSearchOpen: false,
+          globalSearchInitialScope: null,
+        })),
+      setGlobalSearchScopes: (updater) =>
+        set((state) => ({
+          globalSearchScopes:
+            typeof updater === 'function'
+              ? (updater as (
+                  current: typeof state.globalSearchScopes,
+                ) => typeof state.globalSearchScopes)(state.globalSearchScopes)
+              : updater,
+        })),
+      setGlobalSearchIncludeCompleted: (include) =>
+        set(() => ({
+          globalSearchIncludeCompleted: Boolean(include),
+        })),
+      setGlobalSearchShowMeta: (show) =>
+        set(() => ({
+          globalSearchShowMeta: Boolean(show),
         })),
       setFocusContextGoalId: (goalId) =>
         set(() => ({
@@ -2631,6 +2787,13 @@ export const useAppStore = create<AppState>()(
             globalMinSpacingMs: 6 * 60 * 60 * 1000,
             defaultCooldownMs: 2 * 60 * 60 * 1000,
           },
+          healthPreferences: {
+            enabled: false,
+            osPermissionStatus: 'notRequested',
+            lastDailySyncDate: null,
+            lastSyncAtIso: null,
+            promptDismissedAtIso: null,
+          },
           enabledSendToDestinations: {
             amazon: false,
             home_depot: false,
@@ -2675,6 +2838,64 @@ export const useAppStore = create<AppState>()(
         }
         if (!Array.isArray(anyState.activityViews) || anyState.activityViews.length === 0) {
           anyState.activityViews = initialActivityViews;
+        }
+        // Global search rehydration + one-time migration from activitySearch*
+        // prefs so a returning user's "include completed" / "show metadata"
+        // preferences carry over into the unified drawer.
+        if (
+          !anyState.globalSearchScopes ||
+          typeof anyState.globalSearchScopes !== 'object'
+        ) {
+          anyState.globalSearchScopes = {
+            activities: true,
+            goals: true,
+            arcs: true,
+            chapters: true,
+          };
+        } else {
+          const scopes = anyState.globalSearchScopes;
+          if (typeof scopes.activities !== 'boolean') scopes.activities = true;
+          if (typeof scopes.goals !== 'boolean') scopes.goals = true;
+          if (typeof scopes.arcs !== 'boolean') scopes.arcs = true;
+          if (typeof scopes.chapters !== 'boolean') scopes.chapters = true;
+        }
+        if (typeof anyState.globalSearchIncludeCompleted !== 'boolean') {
+          anyState.globalSearchIncludeCompleted = Boolean(
+            anyState.activitySearchIncludeCompleted,
+          );
+        }
+        if (typeof anyState.globalSearchShowMeta !== 'boolean') {
+          anyState.globalSearchShowMeta = Boolean(anyState.activitySearchShowMeta);
+        }
+        // Drawer open-state is runtime-only; never persist it across launches.
+        anyState.globalSearchOpen = false;
+        anyState.globalSearchInitialScope = null;
+
+        if (
+          !anyState.healthPreferences ||
+          typeof anyState.healthPreferences !== 'object'
+        ) {
+          anyState.healthPreferences = {
+            enabled: false,
+            osPermissionStatus: 'notRequested',
+            lastDailySyncDate: null,
+            lastSyncAtIso: null,
+          };
+        } else {
+          const prefs = anyState.healthPreferences;
+          if (typeof prefs.enabled !== 'boolean') prefs.enabled = false;
+          if (
+            prefs.osPermissionStatus !== 'notRequested' &&
+            prefs.osPermissionStatus !== 'authorized' &&
+            prefs.osPermissionStatus !== 'denied' &&
+            prefs.osPermissionStatus !== 'restricted' &&
+            prefs.osPermissionStatus !== 'unavailable'
+          ) {
+            prefs.osPermissionStatus = 'notRequested';
+          }
+          if (typeof prefs.lastDailySyncDate !== 'string') prefs.lastDailySyncDate = null;
+          if (typeof prefs.lastSyncAtIso !== 'string') prefs.lastSyncAtIso = null;
+          if (typeof prefs.promptDismissedAtIso !== 'string') prefs.promptDismissedAtIso = null;
         }
         // Migration: keep a stable, shared set of system Activity views for everyone.
         // - Custom (non-system) views are preserved.

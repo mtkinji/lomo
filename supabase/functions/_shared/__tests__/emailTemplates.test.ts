@@ -134,7 +134,29 @@ describe('CTA URL migration (Phase 3 of email-system-ga-plan.md)', () => {
 });
 
 describe('extractChapterSnippet', () => {
-  it('reads the canonical sections.story.body field', () => {
+  it('prefers sections.signal.caption over story.body (Phase 3.1)', () => {
+    const { extractChapterSnippet } = loadTemplates();
+    const snippet = extractChapterSnippet({
+      title: 'Test',
+      sections: [
+        { key: 'signal', title: 'The Signal', caption: 'The Work Arc closed "Workfront Promo" after 23 days open.' },
+        { key: 'story', title: 'The Story', body: 'This is the lede paragraph and it is short.' },
+      ],
+    });
+    expect(snippet).toBe('The Work Arc closed "Workfront Promo" after 23 days open.');
+  });
+
+  it('truncates a caption that exceeds maxChars at a word boundary', () => {
+    const { extractChapterSnippet } = loadTemplates();
+    const caption = 'The Work Arc finally closed a thing and then it did another thing and kept going and going';
+    const snippet = extractChapterSnippet({
+      sections: [{ key: 'signal', caption }],
+    }, 40);
+    expect(snippet.length).toBeLessThanOrEqual(40);
+    expect(snippet.endsWith('\u2026')).toBe(true);
+  });
+
+  it('falls back to sections.story.body when signal is missing', () => {
     const { extractChapterSnippet } = loadTemplates();
     const snippet = extractChapterSnippet({
       title: 'Test',
@@ -264,6 +286,36 @@ describe('buildChapterDigestEmail (Phase 3 + 3.5 of email-system-ga-plan.md)', (
     // the HTML and is not byte-identical to the subject.
     expect(out.html).toContain('A short read about the week of Apr 13.');
     expect(out.html).not.toContain(`>${out.subject}<`);
+  });
+
+  // Phase 7.3 of docs/chapters-plan.md: secondary "What did we miss?"
+  // CTA deep-links to the chapter detail with `addLine=1` so the
+  // detail screen auto-expands the user-note editor. Regression fence
+  // so we can't accidentally drop the link when the digest body evolves.
+  it('includes the Phase 7.3 "What did we miss?" secondary CTA', () => {
+    const { buildChapterDigestEmail } = loadTemplates();
+    const out = buildChapterDigestEmail({
+      chapterTitle: fixture.title,
+      outputJson: fixture,
+      chapterId: 'abc-123',
+      cadence: 'weekly',
+      periodStartIso: '2026-04-13T07:00:00.000Z',
+      periodEndIso: '2026-04-20T07:00:00.000Z',
+      timezone: 'America/Los_Angeles',
+    });
+    expect(out.html).toContain('What did we miss? Add a line.');
+    expect(out.html).toMatch(
+      /https:\/\/go\.kwilt\.app\/open\/chapters\/abc-123\?[^"\s]*addLine=1/,
+    );
+    // Distinct campaign so analytics can separate read-through from
+    // contribution funnels.
+    expect(out.html).toMatch(
+      /https:\/\/go\.kwilt\.app\/open\/chapters\/abc-123\?[^"\s]*utm_campaign=chapter_digest_add_line/,
+    );
+    expect(out.text).toContain('What did we miss? Add a line.');
+    // The primary CTA must still be present; the secondary link is
+    // additive, not a replacement.
+    expect(out.html).toContain('Read full chapter');
   });
 });
 
@@ -416,6 +468,71 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
     expect(out.html).not.toMatch(/\u2022 Focus Mode/);
     expect(out.html).toMatch(/<strong>Focus Mode<\/strong>/);
     expect(out.html).toMatch(/<strong>Saved Views<\/strong>/);
+  });
+
+  // Phase 5.3 of docs/chapters-plan.md: Next Steps hint line.
+  describe('Next Steps digest hint (Phase 5.3 of chapters-plan.md)', () => {
+    const baseParams = {
+      chapterTitle: 'A Quiet Comeback Week',
+      chapterId: 'c-1',
+      cadence: 'weekly' as const,
+      periodStartIso: '2026-04-13T07:00:00.000Z',
+      periodEndIso: '2026-04-20T07:00:00.000Z',
+      timezone: 'America/Los_Angeles',
+    };
+
+    it('OMITS the hint when output_json has no recommendations', () => {
+      const { buildChapterDigestEmail } = loadTemplates();
+      const out = buildChapterDigestEmail({
+        ...baseParams,
+        outputJson: { sections: [{ key: 'story', body: 'Your week in review.' }] },
+      });
+      expect(out.html).not.toMatch(/Kwilt noticed something worth naming/);
+      expect(out.text).not.toMatch(/Kwilt noticed something worth naming/);
+    });
+
+    it('EMITS a single curiosity-gap line when at least one recommendation exists', () => {
+      const { buildChapterDigestEmail } = loadTemplates();
+      const out = buildChapterDigestEmail({
+        ...baseParams,
+        outputJson: {
+          sections: [{ key: 'story', body: 'Your week in review.' }],
+          recommendations: [
+            {
+              id: 'rec-arc-pottery',
+              kind: 'arc',
+              payload: { title: 'Pottery' },
+              reason: "5 activities share a pottery theme.",
+              evidence_ids: ['a1', 'a2', 'a3', 'a4', 'a5'],
+            },
+          ],
+        },
+      });
+      expect(out.html).toMatch(/Kwilt noticed something worth naming — open to see\./);
+      expect(out.text).toMatch(/Kwilt noticed something worth naming — open to see\./);
+    });
+
+    it('does not leak the recommendation content into the email body', () => {
+      const { buildChapterDigestEmail } = loadTemplates();
+      const out = buildChapterDigestEmail({
+        ...baseParams,
+        outputJson: {
+          sections: [{ key: 'story', body: 'Your week in review.' }],
+          recommendations: [
+            {
+              id: 'rec-arc-pottery',
+              kind: 'arc',
+              payload: { title: 'Pottery' },
+              reason: 'SECRET_REASON_SHOULD_NOT_SHIP',
+              evidence_ids: [],
+            },
+          ],
+        },
+      });
+      expect(out.html).not.toContain('SECRET_REASON_SHOULD_NOT_SHIP');
+      expect(out.html).not.toContain('Pottery');
+      expect(out.text).not.toContain('SECRET_REASON_SHOULD_NOT_SHIP');
+    });
   });
 
   it('Chapter digest snippet is a border-left blockquote, not a filled box (Phase 5.3)', () => {
