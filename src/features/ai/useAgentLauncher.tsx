@@ -36,6 +36,13 @@ type AgentLauncherOptions = {
    */
   hideBrandHeader?: boolean;
   /**
+   * Default: false. When true, suppresses AiChatPane's default prompt
+   * suggestion pills (e.g. "Best way to learn a new language"). Hosts that
+   * provide their own framing prompt (like the Chapter coach launcher) should
+   * set this to avoid off-topic pills in an otherwise context-specific sheet.
+   */
+  hidePromptSuggestions?: boolean;
+  /**
    * Optional ChatMode to use when launching the agent from the overall screen
    * context (as opposed to a specific field).
    *
@@ -126,6 +133,7 @@ export function useAgentLauncher(workspaceSnapshot?: string, options?: AgentLaun
   const AgentWorkspaceSheet = useMemo(() => {
     const snapPoints = options?.snapPoints ?? (['90%'] as BottomDrawerSnapPoint[]);
     const hideBrandHeader = options?.hideBrandHeader ?? true;
+    const hidePromptSuggestions = options?.hidePromptSuggestions ?? false;
     return (
       <BottomDrawer
         visible={visible}
@@ -145,6 +153,7 @@ export function useAgentLauncher(workspaceSnapshot?: string, options?: AgentLaun
             workflowDefinitionId={undefined}
             resumeDraft={false}
             hideBrandHeader={hideBrandHeader}
+            hidePromptSuggestions={hidePromptSuggestions}
             // BottomDrawer pads its sheet by safe-area bottom; AiChatPane should subtract it.
             hostBottomInsetAlreadyApplied
             // Ensure in-workspace dismiss actions (e.g., paywall close / "X") can actually
@@ -155,7 +164,14 @@ export function useAgentLauncher(workspaceSnapshot?: string, options?: AgentLaun
         ) : null}
       </BottomDrawer>
     );
-  }, [close, options?.hideBrandHeader, options?.snapPoints, state, visible]);
+  }, [
+    close,
+    options?.hideBrandHeader,
+    options?.hidePromptSuggestions,
+    options?.snapPoints,
+    state,
+    visible,
+  ]);
 
   return {
     openForScreenContext,

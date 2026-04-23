@@ -7,11 +7,22 @@ import { colors, spacing, typography, fonts } from '../theme';
 import { Icon, type IconName } from '../ui/Icon';
 import { PLACE_TABS } from './placeTabs';
 import { useAppStore } from '../store/useAppStore';
+import { useAgentLauncher } from '../features/ai/useAgentLauncher';
 import {
   KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX,
   KWILT_BOTTOM_BAR_FLOATING_SIZE_PX,
   KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX,
 } from './kwiltBottomBarMetrics';
+
+// Static coaching brief passed to the Chapters copilot. Defined module-level
+// so identity is stable and useAgentLauncher's memoized sheet doesn't churn.
+const CHAPTER_COACH_SNAPSHOT = [
+  'CHAPTERS COACHING CONTEXT',
+  '- The user is reviewing weekly Chapters (retrospective evidence).',
+  '- Focus on interpretation, continuity, and practical next moves for the coming week.',
+  '- Prefer concrete suggestions anchored in recently observed behavior, not generic motivation.',
+  '- If evidence is thin, ask one clarifying question before proposing changes.',
+].join('\n');
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -27,6 +38,17 @@ function withAlpha(hex: string, alpha: number) {
 export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const planRecommendationsCount = useAppStore((s) => s.planRecommendationsCount);
+  // Chapters copilot: launch AgentWorkspace in a drawer so users can dismiss
+  // back to their Chapter context without losing the page they came from.
+  // `hidePromptSuggestions` suppresses AiChatPane's generic starter pills so
+  // the sheet stays focused on chapter reflection.
+  const {
+    openForScreenContext: openChapterAgent,
+    AgentWorkspaceSheet: ChapterAgentSheet,
+  } = useAgentLauncher(CHAPTER_COACH_SNAPSHOT, {
+    hideBrandHeader: false,
+    hidePromptSuggestions: true,
+  });
   const [tabLayouts, setTabLayouts] = useState<Record<string, { x: number; y: number; width: number; height: number }>>(
     {},
   );
@@ -115,31 +137,14 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     }
     if (activeRouteName === 'MoreTab') {
       if (isChaptersSurface) {
-        // Chapter-specific copilot surface: launch Agent with chapter context
-        // + a lightweight chapter-oriented coaching brief.
+        // Chapter-specific copilot surface: launch AgentWorkspace in a
+        // bottom drawer so the user can swipe/tap-backdrop to return to
+        // the Chapter they were reading without a navigation transition.
         const chapterId =
           typeof activeMoreLeafParams?.chapterId === 'string' && activeMoreLeafParams.chapterId.trim().length > 0
             ? activeMoreLeafParams.chapterId.trim()
             : 'chapters';
-        const chapterCoachSnapshot = [
-          'CHAPTERS COACHING CONTEXT',
-          '- The user is reviewing weekly Chapters (retrospective evidence).',
-          '- Focus on interpretation, continuity, and practical next moves for the coming week.',
-          '- Prefer concrete suggestions anchored in recently observed behavior, not generic motivation.',
-          '- If evidence is thin, ask one clarifying question before proposing changes.',
-        ].join('\n');
-        const parentNav = navigation.getParent() as any;
-        parentNav?.navigate('Agent', {
-          launchContext: {
-            source: 'chapterDetail',
-            intent: 'freeCoach',
-            objectType: 'chapter',
-            objectId: chapterId,
-          },
-          workspaceSnapshot: chapterCoachSnapshot,
-          resumeDraft: false,
-          hidePromptSuggestions: false,
-        });
+        openChapterAgent({ objectType: 'chapter', objectId: chapterId });
         return;
       }
       // More home/global utility: open the global (all-objects) search
@@ -348,6 +353,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
           </Pressable>
         </View>
       </View>
+      {ChapterAgentSheet}
     </>
   );
 }
