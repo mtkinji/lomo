@@ -118,9 +118,7 @@ export function GlobalSearchDrawer() {
 
   const activeScopeCount = ALL_GLOBAL_SEARCH_SCOPES.filter((s) => scopes[s]).length;
   // When exactly one chip is active we drop section headers and render a
-  // Spotlight-style flat list. For the Activities case we also upgrade to the
-  // rich ActivityListItem row (checkbox + priority star + meta) so the
-  // power-user experience carries over from the old Activities-only drawer.
+  // Spotlight-style flat list.
   const soloScope: GlobalSearchScope | null =
     activeScopeCount === 1
       ? (ALL_GLOBAL_SEARCH_SCOPES.find((s) => scopes[s]) ?? null)
@@ -273,11 +271,34 @@ export function GlobalSearchDrawer() {
   >(() => {
     if (showingRecents) {
       // Empty-query mode: render one unified recommendations list (no per-kind
-      // section headers) that can include any selected object type.
+      // section headers) and rank globally across selected object types.
       return sections
-        .flatMap((section) =>
-          section.rows.map((row) => ({ type: 'row' as const, row, scope: section.scope })),
-        )
+        .flatMap((section) => {
+          return section.rows.map((row, idx) => {
+            const rankScore = 1 / (idx + 1);
+            // Blend per-kind rank (already sorted by that kind's relevance
+            // model) with a cross-kind recency factor so we can compare all
+            // object types in one list without ordering bias by type.
+            const globalScore = rankScore * 0.65 + getGlobalRecencyScore(row) * 0.35;
+            return {
+              type: 'row' as const,
+              row,
+              scope: section.scope,
+              globalScore,
+              rankIndex: idx,
+            };
+          });
+        })
+        .sort((a, b) => {
+          if (b.globalScore !== a.globalScore) return b.globalScore - a.globalScore;
+          const aDate = getRecommendationDateMs(a.row);
+          const bDate = getRecommendationDateMs(b.row);
+          if (bDate !== aDate) return bDate - aDate;
+          if (a.rankIndex !== b.rankIndex) return a.rankIndex - b.rankIndex;
+          if (a.scope !== b.scope) return a.scope.localeCompare(b.scope);
+          return rowKey(a.row).localeCompare(rowKey(b.row));
+        })
+        .map(({ type, row, scope }) => ({ type, row, scope }))
         .slice(0, GLOBAL_RECOMMENDATIONS_LIMIT);
     }
     if (soloScope) {
@@ -602,6 +623,37 @@ function rowKey(row: UnifiedResultRow): string {
     case 'chapter':
       return row.chapter.id;
   }
+}
+
+function getRecommendationDateMs(row: UnifiedResultRow): number {
+  const parseMs = (iso: string | null | undefined): number => {
+    if (!iso) return 0;
+    const ms = Date.parse(iso);
+    return Number.isFinite(ms) ? ms : 0;
+  };
+  switch (row.kind) {
+    case 'activity':
+      return parseMs(row.activity.updatedAt ?? row.activity.createdAt);
+    case 'goal':
+      return parseMs(row.goal.updatedAt ?? row.goal.createdAt);
+    case 'arc':
+      return parseMs(row.arc.updatedAt ?? row.arc.createdAt);
+    case 'chapter':
+      // Chapters are periodic snapshots; `period_start` better matches user
+      // mental model ("most recent week") than insertion timestamp.
+      return parseMs(row.chapter.period_start);
+  }
+}
+
+function getGlobalRecencyScore(row: UnifiedResultRow): number {
+  const ms = getRecommendationDateMs(row);
+  if (!ms) return 0;
+  const days = Math.max(0, (Date.now() - ms) / (1000 * 60 * 60 * 24));
+  if (days <= 3) return 1;
+  if (days <= 7) return 0.8;
+  if (days <= 14) return 0.6;
+  if (days <= 30) return 0.4;
+  return 0.2;
 }
 
 type SearchRowProps = {
