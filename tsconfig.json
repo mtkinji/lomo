@@ -7,7 +7,10 @@
     "paths": {
       "@/*": ["./*"],
       "@kwilt/arc-survey": ["./packages/arc-survey/src/index.ts"],
-      "@kwilt/arc-survey/*": ["./packages/arc-survey/src/*"]
+      "@kwilt/arc-survey/*": ["./packages/arc-survey/src/*"],
+      "@kwilt/tokens": ["./packages/kwilt-tokens/src/index.ts"],
+      "@kwilt/tokens/tailwind-preset": ["./packages/kwilt-tokens/src/tailwind-preset.ts"],
+      "@kwilt/tokens/*": ["./packages/kwilt-tokens/src/*"]
     },
     "types": [
       "node"

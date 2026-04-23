@@ -1,0 +1,96 @@
+{
+  "name": "@kwilt/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Kwilt design tokens (colors, spacing, typography, motion, surfaces, overlays) shared across mobile, web, and desktop clients.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./tailwind-preset": {
+      "react-native": "./src/tailwind-preset.ts",
+      "types": "./dist/tailwind-preset.d.ts",
+      "import": "./dist/tailwind-preset.js",
+      "require": "./dist/tailwind-preset.cjs",
+      "default": "./dist/tailwind-preset.js"
+    },
+    "./colors": {
+      "react-native": "./src/colors.ts",
+      "types": "./dist/colors.d.ts",
+      "import": "./dist/colors.js",
+      "require": "./dist/colors.cjs",
+      "default": "./dist/colors.js"
+    },
+    "./spacing": {
+      "react-native": "./src/spacing.ts",
+      "types": "./dist/spacing.d.ts",
+      "import": "./dist/spacing.js",
+      "require": "./dist/spacing.cjs",
+      "default": "./dist/spacing.js"
+    },
+    "./typography": {
+      "react-native": "./src/typography.ts",
+      "types": "./dist/typography.d.ts",
+      "import": "./dist/typography.js",
+      "require": "./dist/typography.cjs",
+      "default": "./dist/typography.js"
+    },
+    "./motion": {
+      "react-native": "./src/motion.ts",
+      "types": "./dist/motion.d.ts",
+      "import": "./dist/motion.js",
+      "require": "./dist/motion.cjs",
+      "default": "./dist/motion.js"
+    },
+    "./surfaces": {
+      "react-native": "./src/surfaces.ts",
+      "types": "./dist/surfaces.d.ts",
+      "import": "./dist/surfaces.js",
+      "require": "./dist/surfaces.cjs",
+      "default": "./dist/surfaces.js"
+    },
+    "./overlays": {
+      "react-native": "./src/overlays.ts",
+      "types": "./dist/overlays.d.ts",
+      "import": "./dist/overlays.js",
+      "require": "./dist/overlays.cjs",
+      "default": "./dist/overlays.js"
+    },
+    "./colorUtils": {
+      "react-native": "./src/colorUtils.ts",
+      "types": "./dist/colorUtils.d.ts",
+      "import": "./dist/colorUtils.js",
+      "require": "./dist/colorUtils.cjs",
+      "default": "./dist/colorUtils.js"
+    },
+    "./objectTypeBadges": {
+      "react-native": "./src/objectTypeBadges.ts",
+      "types": "./dist/objectTypeBadges.d.ts",
+      "import": "./dist/objectTypeBadges.js",
+      "require": "./dist/objectTypeBadges.cjs",
+      "default": "./dist/objectTypeBadges.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "~5.9.2"
+  }
+}
