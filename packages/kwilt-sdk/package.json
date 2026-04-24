@@ -1,0 +1,43 @@
+{
+  "name": "@kwilt/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed Kwilt data access helpers shared by mobile, desktop, and web clients.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./views": {
+      "react-native": "./src/views.ts",
+      "types": "./dist/views.d.ts",
+      "import": "./dist/views.js",
+      "require": "./dist/views.cjs",
+      "default": "./dist/views.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.78.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "~5.9.2"
+  }
+}

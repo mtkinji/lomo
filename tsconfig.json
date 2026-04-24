@@ -10,7 +10,9 @@
       "@kwilt/arc-survey/*": ["./packages/arc-survey/src/*"],
       "@kwilt/tokens": ["./packages/kwilt-tokens/src/index.ts"],
       "@kwilt/tokens/tailwind-preset": ["./packages/kwilt-tokens/src/tailwind-preset.ts"],
-      "@kwilt/tokens/*": ["./packages/kwilt-tokens/src/*"]
+      "@kwilt/tokens/*": ["./packages/kwilt-tokens/src/*"],
+      "@kwilt/sdk": ["./packages/kwilt-sdk/src/index.ts"],
+      "@kwilt/sdk/*": ["./packages/kwilt-sdk/src/*"]
     },
     "types": [
       "node"
