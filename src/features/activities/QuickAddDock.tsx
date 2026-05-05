@@ -19,6 +19,7 @@ const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 const QUICK_ADD_DOCK_SURFACE_RADIUS = 14;
 const QUICK_ADD_DOCK_CHROME_ANIMATION_MS = 260;
 const QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX = 8;
+const QUICK_ADD_DOCK_FADE_MAX_ALPHA = 0.88;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -243,8 +244,8 @@ export function QuickAddDock({
             <LinearGradient
               colors={[
                 'rgba(255,255,255,0)',
-                'rgba(255,255,255,0.92)',
-                colors.canvas,
+                `rgba(255,255,255,${QUICK_ADD_DOCK_FADE_MAX_ALPHA})`,
+                `rgba(255,255,255,${QUICK_ADD_DOCK_FADE_MAX_ALPHA})`,
               ]}
               {...({ locations: [0, footerFadeRampEnd, 1] } as any)}
               start={{ x: 0.5, y: 0 }}
