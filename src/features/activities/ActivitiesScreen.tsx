@@ -9,12 +9,14 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Switch,
   UIManager,
   View,
   TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
   runOnJS,
@@ -201,6 +203,8 @@ const HEADER_COLLAPSE_DISTANCE_FALLBACK = 88;
 const CHROME_HIDE_DELTA = 16;
 const CHROME_REVEAL_DELTA = 12;
 const CHROME_ANIMATION_MS = 260;
+const HEADER_GHOST_FADE_EDGE_DISTANCE_PX = 8;
+const HEADER_GHOST_FADE_MAX_ALPHA = 0.88;
 
 export function ActivitiesScreen() {
   useDrawerMenuEnabled();
@@ -946,6 +950,11 @@ export function ActivitiesScreen() {
     inventoryCanMeaningfullyScroll;
 
   const headerSlotHeight = collapsibleHeaderHeight || HEADER_COLLAPSE_DISTANCE_FALLBACK;
+  const headerGhostFadeHeight = Math.max(fixedToolbarMeasuredHeight || 64, 1);
+  const headerGhostFadeRampStart = Math.max(
+    0,
+    Math.min(0.92, 1 - (HEADER_GHOST_FADE_EDGE_DISTANCE_PX / headerGhostFadeHeight)),
+  );
 
   const collapsibleHeaderSlotAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -970,6 +979,21 @@ export function ActivitiesScreen() {
       transform: [{ translateY: -headerSlotHeight * progress }],
     };
   }, [headerCollapseProgress, headerSlotHeight]);
+
+  const inventoryListBodyAnimatedStyle = useAnimatedStyle(() => {
+    const progress = headerCollapseProgress.value;
+
+    return {
+      marginTop: -headerGhostFadeHeight * progress,
+    };
+  }, [headerCollapseProgress, headerGhostFadeHeight]);
+
+  const headerGhostFadeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: headerGhostFadeHeight,
+      opacity: headerCollapseProgress.value,
+    };
+  }, [headerCollapseProgress, headerGhostFadeHeight]);
 
   const setHeaderCollapsedForA11yIfNeeded = React.useCallback((next: boolean) => {
     setHeaderCollapsedForA11y((current) => (current === next ? current : next));
@@ -2532,7 +2556,7 @@ export function ActivitiesScreen() {
       </Dialog>
       <Animated.View style={[styles.inventoryBody, inventoryBodyAnimatedStyle]}>
         {/* Toolbar and suggestions rendered outside scroll views so they stay fixed when scrolling */}
-        <View>
+        <View style={styles.inventoryToolbarLayer}>
           {activities.length > 0 && (
             <Animated.View
               style={[
@@ -2780,6 +2804,24 @@ export function ActivitiesScreen() {
       )}
     </View>
 
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.headerGhostFade, headerGhostFadeAnimatedStyle]}
+      >
+        <LinearGradient
+          colors={[
+            `rgba(255,255,255,${HEADER_GHOST_FADE_MAX_ALPHA})`,
+            `rgba(255,255,255,${HEADER_GHOST_FADE_MAX_ALPHA})`,
+            'rgba(255,255,255,0)',
+          ]}
+          {...({ locations: [0, headerGhostFadeRampStart, 1] } as any)}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+
+      <Animated.View style={[styles.inventoryListBody, inventoryListBodyAnimatedStyle]}>
       {/* Render either Kanban or List view based on activeView.layout */}
       {activeView?.layout === 'kanban' ? (
         <KanbanBoard
@@ -3017,6 +3059,7 @@ export function ActivitiesScreen() {
           }
         />
       )}
+      </Animated.View>
       </Animated.View>
 
       {!isKanbanLayout && (

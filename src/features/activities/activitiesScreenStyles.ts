@@ -16,6 +16,23 @@ export const styles = StyleSheet.create({
     minHeight: 0,
     zIndex: 1,
   },
+  inventoryToolbarLayer: {
+    position: 'relative',
+    zIndex: 3,
+  },
+  headerGhostFade: {
+    position: 'absolute',
+    left: -spacing.sm,
+    right: -spacing.sm,
+    top: 0,
+    zIndex: 2,
+  },
+  inventoryListBody: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+    zIndex: 1,
+  },
   fixedToolbarAnimatedWrapper: {
     overflow: 'hidden',
   },
