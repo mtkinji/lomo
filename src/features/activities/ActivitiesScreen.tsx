@@ -966,6 +966,7 @@ export function ActivitiesScreen() {
     const progress = headerCollapseProgress.value;
 
     return {
+      marginBottom: -headerSlotHeight * progress,
       transform: [{ translateY: -headerSlotHeight * progress }],
     };
   }, [headerCollapseProgress, headerSlotHeight]);

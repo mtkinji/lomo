@@ -13,6 +13,7 @@ export const styles = StyleSheet.create({
   },
   inventoryBody: {
     flex: 1,
+    minHeight: 0,
     zIndex: 1,
   },
   fixedToolbarAnimatedWrapper: {
