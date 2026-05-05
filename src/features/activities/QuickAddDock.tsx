@@ -18,7 +18,7 @@ const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 const QUICK_ADD_DOCK_SURFACE_RADIUS = 14;
 const QUICK_ADD_DOCK_CHROME_ANIMATION_MS = 260;
-const QUICK_ADD_DOCK_FADE_EXTRA_HEIGHT_PX = 96;
+const QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX = 8;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -218,7 +218,11 @@ export function QuickAddDock({
   const canSubmit = value.trim().length > 0;
   const measuredCollapsedSurfaceHeight = measuredCollapsedSurfaceHeightRef.current || QUICK_ADD_BAR_HEIGHT;
   const footerFadeHeight =
-    measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + QUICK_ADD_DOCK_FADE_EXTRA_HEIGHT_PX;
+    measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX;
+  const footerFadeRampEnd = Math.min(
+    0.16,
+    Math.max(0.04, QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX / Math.max(1, footerFadeHeight)),
+  );
 
   return (
     <>
@@ -242,7 +246,7 @@ export function QuickAddDock({
                 'rgba(255,255,255,0.92)',
                 colors.canvas,
               ]}
-              {...({ locations: [0, 0.58, 1] } as any)}
+              {...({ locations: [0, footerFadeRampEnd, 1] } as any)}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
               style={StyleSheet.absoluteFillObject}
