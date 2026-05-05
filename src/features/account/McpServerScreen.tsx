@@ -87,7 +87,7 @@ export function McpServerScreen() {
           <VStack space="sm">
             <Heading variant="sm">Connect via MCP</Heading>
             <Text style={styles.subtle}>
-              Let any MCP client (Cursor, Claude Desktop, etc.) create and manage Activities in Kwilt.
+              Let any MCP client (Cursor, Claude Desktop, etc.) create and manage to-dos in Kwilt.
             </Text>
           </VStack>
 

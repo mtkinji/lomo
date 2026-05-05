@@ -42,9 +42,8 @@ export const OOTB_DESTINATIONS: OotbDestination[] = [
   {
     kind: 'cursor_repo',
     displayName: 'Cursor',
-    description: 'Hand off engineering Activities to Cursor via Kwilt MCP.',
+    description: 'Hand off engineering to-dos to Cursor via Kwilt MCP.',
     supportedTypes: ['task', 'checklist', 'plan', 'instructions'],
   },
 ];
-
 

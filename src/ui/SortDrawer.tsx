@@ -165,7 +165,7 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
     <BottomDrawer visible={visible} onClose={onClose} snapPoints={['95%']} keyboardAvoidanceEnabled={false}>
       <VStack flex={1} style={styles.container}>
         <BottomDrawerHeader
-          title="Sort Activities"
+          title="Sort To-dos"
           containerStyle={styles.header}
           titleStyle={styles.headerTitle}
           variant="withClose"
@@ -189,7 +189,7 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                 <Text style={styles.modeTitle}>Default: {getDefaultSortLabel(defaultSortMode)}</Text>
                 <Text style={styles.modeBody}>
                   {defaultSortMode === 'manual'
-                    ? 'Drag activities in the list to reorder them.'
+                    ? 'Drag to-dos in the list to reorder them.'
                     : 'Switch to Custom to add multi-level sorts.'}
                 </Text>
               </VStack>

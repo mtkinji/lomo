@@ -494,11 +494,10 @@ export async function shareGoalInviteLink(params: {
   await new Promise<void>((resolve) => {
     Alert.alert(
       'Invite link ready',
-      `You’re inviting ${kindLabel === 'people' ? 'people' : `a ${kindLabel}`}.\n\nBy default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.`,
+      `You’re inviting ${kindLabel === 'people' ? 'people' : `a ${kindLabel}`}.\n\nBy default you share signals only (check-ins + cheers). To-do titles stay private unless you choose to share them.`,
       [{ text: 'OK', onPress: () => resolve() }],
       { cancelable: true },
     );
   });
 }
-
 

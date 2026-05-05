@@ -52,7 +52,7 @@ export const SYSTEM_VIEWS: ViewConfig[] = [
     filters: [{ id: 'scheduled-today', field: 'scheduledDate', operator: 'eq', value: 'today' }],
     sort: [{ field: 'scheduledAt', direction: 'asc' }],
   }),
-  systemView({ id: 'all-activities', name: 'All Activities', objectType: 'activity' }),
+  systemView({ id: 'all-activities', name: 'All To-dos', objectType: 'activity' }),
   systemView({
     id: 'unplanned',
     name: 'Unplanned',

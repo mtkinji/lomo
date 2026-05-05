@@ -50,7 +50,7 @@ const difficultyOptions = [
 const activityTypeOptions = [
   {
     value: 'task',
-    label: 'Task',
+    label: 'To-do',
     keywords: ['todo', 'to-do', 'action'],
     leftElement: <Icon name="activity" size={16} color={colors.textSecondary} />,
   },
@@ -244,7 +244,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
               style={styles.titleInput}
               value={draft.title}
               onChangeText={(title) => onChange((prev) => ({ ...prev, title }))}
-              placeholder="Name this activity"
+              placeholder="Name this to-do"
               placeholderTextColor={colors.muted}
               multiline
               scrollEnabled={false}
@@ -338,7 +338,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 newStepInputRef.current?.focus();
               });
             }}
-            accessibilityLabel="Add a step to this activity"
+            accessibilityLabel="Add a step to this to-do"
             style={[styles.stepRow, styles.addStepRow]}
             contentStyle={styles.stepRowContent}
           >
@@ -533,7 +533,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           hideLabel
           surfaceVariant="filled"
           value={draft.notes ?? ''}
-          placeholder="Add context or reminders for this activity."
+          placeholder="Add context or reminders for this to-do."
           autosaveDebounceMs={0}
           onChange={(next) => onChange((prev) => ({ ...prev, notes: next }))}
         />
@@ -628,7 +628,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           placeholder="Select type…"
           searchPlaceholder="Search types…"
           emptyText="No type options found."
-          accessibilityLabel="Change activity type"
+          accessibilityLabel="Change to-do type"
           presentation="drawer"
           size="compact"
           leadingIcon="activity"
@@ -1051,5 +1051,4 @@ const styles = StyleSheet.create({
     color: colors.destructive,
   },
 });
-
 

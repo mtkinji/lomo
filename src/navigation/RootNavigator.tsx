@@ -879,7 +879,7 @@ function MainTabsNavigator() {
       <Tabs.Screen
         name="ActivitiesTab"
         component={ActivitiesStackNavigator}
-        options={{ title: 'Activities' }}
+        options={{ title: 'To-dos' }}
       />
       <Tabs.Screen
         name="PlanTab"

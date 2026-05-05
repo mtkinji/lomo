@@ -436,11 +436,11 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       kind: 'assistant_copy_only',
       label: 'Closing – Arc adopted',
       prompt:
-        'In 2–3 short sentences, congratulate the user, briefly recap that they now have a clear identity Arc saved in kwilt, and remind them they can always refine it or add more Arcs, goals, and activities once they are in the app. Emphasize that this Arc is a starting point, not a life sentence.',
+        'In 2–3 short sentences, congratulate the user, briefly recap that they now have a clear identity Arc saved in kwilt, and remind them they can always refine it or add more Arcs, goals, and to-dos once they are in the app. Emphasize that this Arc is a starting point, not a life sentence.',
       renderMode: 'static',
       staticCopy:
         'Great—we’ve turned what you shared into a clear identity Arc to start from.\n\n' +
-        'This isn’t meant to be a perfect definition of you; it’s a simple storyline you can grow into and refine as you go. As you spend more time in kwilt, you’ll be able to add more Arcs, attach goals and activities, and design concrete plans that actually fit your real life.\n\n' +
+        'This isn’t meant to be a perfect definition of you; it’s a simple storyline you can grow into and refine as you go. As you spend more time in kwilt, you’ll be able to add more Arcs, attach goals and to-dos, and design concrete plans that actually fit your real life.\n\n' +
         'From here, you can explore your new Arc, add your own goals, or just let this sit at the top of your identity layer while you get used to the app.',
       copyLength: 'short_paragraph',
       validationHint:

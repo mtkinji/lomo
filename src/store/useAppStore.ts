@@ -1288,7 +1288,7 @@ type ForceSeed = {
 const canonicalForceSeeds: ForceSeed[] = [
   {
     id: 'force-activity',
-    name: '🏃 Activity',
+    name: '🏃 To-do',
     emoji: '🏃',
     definition:
       'Work that engages your body, hands, or physical energy. Tangible doing that anchors you in the real world.',
@@ -1352,7 +1352,7 @@ const initialActivities: Activity[] = [];
 const initialActivityViews: ActivityView[] = [
   {
     id: 'default',
-    name: '🗂️ All activities',
+    name: '🗂️ All to-dos',
     filterMode: 'all',
     sortMode: 'manual',
     showCompleted: true,

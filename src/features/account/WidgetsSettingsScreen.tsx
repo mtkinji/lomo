@@ -70,7 +70,7 @@ export function WidgetsSettingsScreen() {
               <VStack space="sm">
                 <Text style={styles.offerTitle}>Keep your next step one tap away</Text>
                 <Text style={styles.offerBody}>
-                  Add a Kwilt widget to your Home Screen so you can jump straight into Activities—without hunting for
+                  Add a Kwilt widget to your Home Screen so you can jump straight into To-dos—without hunting for
                   the app.
                 </Text>
 

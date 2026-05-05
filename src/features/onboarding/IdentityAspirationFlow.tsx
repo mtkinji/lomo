@@ -2323,7 +2323,7 @@ export function IdentityAspirationFlow({
     // Message 1 (handoff from FTUE)
     'You probably have aspirations in a few areas of life. For now, we’ll pick one and turn it into an **Arc** — a clear picture of **who you want to become**.',
     // Message 2 (connect Arc → Goals → Activities)
-    "Then we’ll turn it into clear **Goals** and small daily **Activities**. I’ll use AI and behavior-change best practices to draft high-quality options, and then you’ll be able to review and tweak them anytime. (Tap “Learn more” below.)",
+    "Then we’ll turn it into clear **Goals** and small daily **To-dos**. I’ll use AI and behavior-change best practices to draft high-quality options, and then you’ll be able to review and tweak them anytime. (Tap “Learn more” below.)",
     // Message 3 (lead-in to the minimal + archetype flow)
     'Next, a few quick questions to focus on one aspiration and build your first Arc.',
   ];

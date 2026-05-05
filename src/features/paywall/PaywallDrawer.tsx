@@ -28,13 +28,13 @@ const PRO_VALUE_ATTAINMENTS: PaywallBenefit[] = [
     title: 'Unlimited arcs + goals',
   },
   {
-    title: 'Attachments for activities',
+    title: 'Attachments for to-dos',
   },
   {
     title: 'Focus sessions up to 180 minutes',
   },
   {
-    title: 'Saved views + advanced filters for activities',
+    title: 'Saved views + advanced filters for to-dos',
   },
   {
     title: 'More banner images + search',
@@ -85,19 +85,19 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       };
     case 'pro_only_attachments':
       return {
-        title: 'Keep everything for an activity in one place',
+        title: 'Keep everything for a to-do in one place',
         subtitle:
-          'Attachments are part of Pro Tools—add photos, documents, and recordings right on the activity so execution stays frictionless.',
+          'Attachments are part of Pro Tools—add photos, documents, and recordings right on the to-do so execution stays frictionless.',
       };
     case 'pro_only_calendar_export':
       return {
         title: 'Make your plan show up in your real life',
         subtitle:
-          'Get your activities into your calendar so your intentions become commitments—and your days feel aligned instead of reactive.',
+          'Get your to-dos into your calendar so your intentions become commitments—and your days feel aligned instead of reactive.',
       };
     case 'pro_only_views_filters':
       return {
-        title: 'Turn your Activities list into a tool',
+        title: 'Turn your to-dos list into a tool',
         subtitle:
           'Pro Tools unlocks saved views plus filtering and sorting—so you can focus on what matters right now without losing your place.',
       };
@@ -105,7 +105,7 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       return {
         title: 'Turn motivation into a realistic weekly plan',
         subtitle:
-          'Pro Tools helps you schedule activities into your life so progress doesn’t depend on willpower or perfect timing.',
+          'Pro Tools helps you schedule to-dos into your life so progress doesn’t depend on willpower or perfect timing.',
       };
     case 'pro_only_streak_shields':
       return {
@@ -541,5 +541,3 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
 });
-
-

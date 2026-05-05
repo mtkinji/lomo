@@ -9,7 +9,7 @@ import { ACTIVITY_GUIDANCE_SYSTEM_PROMPT } from '../systemPrompts';
  */
 export const activityGuidanceWorkflow: WorkflowDefinition = {
   id: 'activityGuidance', // Matches ChatMode
-  label: 'Activity Guidance',
+  label: 'To-do Guidance',
   version: 1,
   chatMode: 'activityGuidance',
   systemPrompt: ACTIVITY_GUIDANCE_SYSTEM_PROMPT,
@@ -27,11 +27,10 @@ export const activityGuidanceWorkflow: WorkflowDefinition = {
       label: 'Offer guidance',
       fieldsCollected: [],
       promptTemplate:
-        'Produce a 1–2 sentence opening that asks how you can help with the focused Activity, then output an AGENT_OFFERS_JSON block with 3–5 selectable offers tailored to the Activity. Include an offer for breaking the activity into smaller scheduled chunks on the calendar.',
+        'Produce a 1–2 sentence opening that asks how you can help with the focused to-do, then output an AGENT_OFFERS_JSON block with 3–5 selectable offers tailored to the to-do. Include an offer for breaking the to-do into smaller scheduled chunks on the calendar.',
       validationHint:
-        'Ensure advice references the focused activity and stays concrete and actionable.',
+        'Ensure advice references the focused to-do and stays concrete and actionable.',
     },
   ],
 };
-
 

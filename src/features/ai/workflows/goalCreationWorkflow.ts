@@ -81,7 +81,7 @@ export const goalCreationWorkflow: WorkflowDefinition = {
           "- The description should include a clear definition of done and an implied timeframe that matches the user's intent.",
           '- Always include `targetDate`. It must not be in the past. If the user didn’t specify one, choose a reasonable date that matches the stated horizon (default to ~30 days from today). Prefer YYYY-MM-DD.',
           '- If you can express definition-of-done as a simple metric, include one entry in `metrics` (milestone for binary outcomes; count/event_count for repeats).',
-          '- Use the workspace snapshot to avoid duplicating existing goals/activities verbatim.',
+          '- Use the workspace snapshot to avoid duplicating existing goals/to-dos verbatim.',
           '- Do NOT use markdown fences around the JSON.',
         ].join('\n'),
       validationHint:

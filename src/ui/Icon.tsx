@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { KwiltIcon, type KwiltIconName } from '../icons/KwiltIcons';
 
 // NOTE:
@@ -14,13 +14,15 @@ import { KwiltIcon, type KwiltIconName } from '../icons/KwiltIcons';
 // language consistent and the app stable while we focus on product work.
 
 type FeatherName = ComponentProps<typeof Feather>['name'];
+type FontAwesome5Name = ComponentProps<typeof FontAwesome5>['name'];
 type IonName = ComponentProps<typeof Ionicons>['name'];
 type MciName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-type IconLibrary = 'feather' | 'ion' | 'kwilt' | 'mci';
+type IconLibrary = 'feather' | 'fa5' | 'ion' | 'kwilt' | 'mci';
 
 type IconEntry =
   | { library: 'feather'; name: FeatherName }
+  | { library: 'fa5'; name: FontAwesome5Name }
   | { library: 'ion'; name: IonName }
   | { library: 'kwilt'; name: KwiltIconName }
   | { library: 'mci'; name: MciName };
@@ -118,6 +120,7 @@ const iconMap: Record<string, IconEntry> = {
   play: { library: 'feather', name: 'play' },
   stop: { library: 'feather', name: 'square' },
   box: { library: 'feather', name: 'box' },
+  emptyBox: { library: 'fa5', name: 'box-open' },
   // Editor toolbar icons
   // Use Ionicons here because it has more "toolbar-ish" glyphs than Feather for lists.
   listBulleted: { library: 'ion', name: 'list' },
@@ -170,6 +173,10 @@ export function Icon({ name, size = 20, color = '#F9FAFB', ...rest }: IconProps)
     return <MaterialCommunityIcons name={entry.name} size={size} color={color} {...rest} />;
   }
 
+  if (entry.library === 'fa5') {
+    return <FontAwesome5 name={entry.name} size={size} color={color} {...rest} />;
+  }
+
   if (entry.library === 'kwilt') {
     // `@expo/vector-icons` color prop allows `OpaqueColorValue`; KwiltIcons are string-only.
     const kwiltColor = typeof color === 'string' ? color : '#000';
@@ -178,5 +185,3 @@ export function Icon({ name, size = 20, color = '#F9FAFB', ...rest }: IconProps)
 
   return <Feather name={entry.name} size={size} color={color} {...rest} />;
 }
-
-

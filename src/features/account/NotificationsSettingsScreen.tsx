@@ -474,11 +474,11 @@ export function NotificationsSettingsScreen() {
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
                   accessibilityRole="button"
-                  accessibilityLabel="Toggle Activity reminders"
+                  accessibilityLabel="Toggle To-do reminders"
                   onPress={handleToggleActivityReminders}
                 >
                   <VStack>
-                    <Text style={styles.rowTitle}>Activity reminders</Text>
+                    <Text style={styles.rowTitle}>To-do reminders</Text>
                     {!activityRemindersEnabled ? <Text style={styles.rowSubtitle}>Off</Text> : null}
                   </VStack>
                 </Pressable>

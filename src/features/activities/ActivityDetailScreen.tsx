@@ -569,7 +569,7 @@ export function ActivityDetailScreen() {
     () => [
       {
         value: 'task',
-        label: 'Task',
+        label: 'To-do',
         keywords: ['todo', 'to-do', 'action'],
         leftElement: <Icon name="activity" size={16} color={colors.textSecondary} />,
       },
@@ -1650,7 +1650,7 @@ export function ActivityDetailScreen() {
       const text = activityExportText;
       if (!text) return;
       await Clipboard.setStringAsync(text);
-      Alert.alert('Copied', 'Activity details copied to clipboard.');
+      Alert.alert('Copied', 'To-do details copied to clipboard.');
     } catch {
       Alert.alert('Copy failed', 'Unable to copy to clipboard on this device right now.');
     }
@@ -1832,7 +1832,7 @@ export function ActivityDetailScreen() {
 
   const detailGuideBody = (() => {
     if (detailGuideStep === 0) {
-      return 'Check steps to make progress—when all steps are checked, the Activity is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.';
+      return 'Check steps to make progress—when all steps are checked, the to-do is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.';
     }
     if (detailGuideStep === 1) {
       return 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
@@ -1840,7 +1840,7 @@ export function ActivityDetailScreen() {
     if (detailGuideStep === 2) {
       return 'Use the left action dock for common shortcuts like Focus mode, Calendar, Send to… (when available), and AI help.';
     }
-    return 'Use the bottom-right button to mark the activity done (or undo). When your steps are complete, you’ll see the progress ring fill and the button celebrate.';
+    return 'Use the bottom-right button to mark the to-do done (or undo). When your steps are complete, you’ll see the progress ring fill and the button celebrate.';
   })();
 
   const detailGuidePlacement = detailGuideStep >= 2 ? 'above' : 'below';
@@ -1871,8 +1871,8 @@ export function ActivityDetailScreen() {
   const handleDeleteActivity = () => {
     if (!activity) return;
     Alert.alert(
-      'Delete activity?',
-      'This will remove the activity from your list.',
+      'Delete to-do?',
+      'This will remove the to-do from your list.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -2588,7 +2588,7 @@ export function ActivityDetailScreen() {
       const windows = getWindowsForMode(dayAvailability, mode);
       if (windows.length === 0) {
         showToast({
-          message: 'No availability window for this activity.',
+          message: 'No availability window for this to-do.',
           variant: 'default',
           durationMs: 2400,
         });
@@ -3159,8 +3159,8 @@ export function ActivityDetailScreen() {
       if (!linkedActivityId) return;
 
       Alert.alert(
-        'Unlink activity?',
-        'This will turn the row back into a normal checklist step. The linked activity will remain.',
+        'Unlink to-do?',
+        'This will turn the row back into a normal checklist step. The linked to-do will remain.',
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -3612,7 +3612,7 @@ export function ActivityDetailScreen() {
   const prevCompletedCountRef = useRef<number>(completedStepsCount);
   const activityTypeLabel = useMemo(() => {
     const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity?.type);
-    return (match?.label ?? 'Activity') as string;
+    return (match?.label ?? 'To-do') as string;
   }, [activity?.type, activityTypeOptions]);
 
   useEffect(() => {
@@ -3887,21 +3887,21 @@ export function ActivityDetailScreen() {
     if (!domainHydrated) {
       return (
         <AppShell>
-          <PageHeader title="Activity" onPressBack={handleBackToActivities} />
+          <PageHeader title="To-do" onPressBack={handleBackToActivities} />
           <View style={styles.emptyState}>
             <ActivityIndicator color={colors.textPrimary} />
-            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading activity…</Text>
+            <Text style={[styles.emptyBody, { marginTop: spacing.lg }]}>Loading to-do…</Text>
           </View>
         </AppShell>
       );
     }
     return (
       <AppShell>
-        <PageHeader title="Activity" onPressBack={handleBackToActivities} />
+        <PageHeader title="To-do" onPressBack={handleBackToActivities} />
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Activity not found</Text>
+          <Text style={styles.emptyTitle}>To-do not found</Text>
           <Text style={styles.emptyBody}>
-            This activity may have been deleted or moved.
+            This to-do may have been deleted or moved.
           </Text>
         </View>
       </AppShell>
@@ -4097,8 +4097,8 @@ export function ActivityDetailScreen() {
                     id: 'done',
                     icon: 'check',
                     accessibilityLabel: isCompleted
-                      ? 'Mark activity as not done'
-                      : 'Mark activity as done',
+                      ? 'Mark to-do as not done'
+                      : 'Mark to-do as done',
                     onPress: handleToggleComplete,
                     testID: 'e2e.activityDetail.dock.donePrimary',
                     // Reflect explicit Activity completion (users may keep all steps checked but un-mark the Activity).
@@ -4923,7 +4923,7 @@ export function ActivityDetailScreen() {
                   titleStyle={styles.sheetTitle}
                 />
                 <Text style={styles.sheetDescription}>
-                  Start a distraction-free timer for this activity. Pick a duration, then tap Start.
+                  Start a distraction-free timer for this to-do. Pick a duration, then tap Start.
                 </Text>
               </View>
 
@@ -5073,7 +5073,7 @@ export function ActivityDetailScreen() {
       >
         <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
           <BottomDrawerHeader
-            title="Schedule activity"
+            title="Schedule to-do"
             variant="withClose"
             onClose={() => setActiveSheet(null)}
             containerStyle={styles.sheetHeader}
@@ -5215,7 +5215,7 @@ export function ActivityDetailScreen() {
                     selectedSlot
                       ? [
                           {
-                            title: activity?.title ?? 'Activity',
+                            title: activity?.title ?? 'To-do',
                             start: new Date(selectedSlot.startDate),
                             end: new Date(selectedSlot.endDate),
                           },
@@ -5372,8 +5372,8 @@ export function ActivityDetailScreen() {
       <ArcBannerSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
-        objectLabel="Activity"
-        arcName={activity?.title ?? 'Activity'}
+        objectLabel="To-do"
+        arcName={activity?.title ?? 'To-do'}
         arcNarrative={activity?.notes}
         canUseUnsplash={canUseUnsplash}
         onRequestUpgrade={() => {
@@ -5582,7 +5582,7 @@ export function ActivityDetailScreen() {
                       fullWidth
                       accessibilityLabel="Delete attachment"
                       onPress={() => {
-                        Alert.alert('Delete attachment?', 'This will remove it from this activity.', [
+                        Alert.alert('Delete attachment?', 'This will remove it from this to-do.', [
                           { text: 'Cancel', style: 'cancel' },
                           {
                             text: 'Delete',
@@ -5629,7 +5629,7 @@ export function ActivityDetailScreen() {
             titleStyle={styles.sheetTitle}
           />
           <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
-            Record a quick voice note and attach it to this activity.
+            Record a quick voice note and attach it to this to-do.
           </Text>
 
           <VStack space="sm">

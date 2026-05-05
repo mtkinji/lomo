@@ -119,7 +119,7 @@ const GOAL_FORCE_ORDER: Array<'force-activity' | 'force-connection' | 'force-mas
   ['force-activity', 'force-connection', 'force-mastery', 'force-spirituality'];
 
 const GOAL_FORCE_LABELS: Record<(typeof GOAL_FORCE_ORDER)[number], string> = {
-  'force-activity': 'Activity',
+  'force-activity': 'To-do',
   'force-connection': 'Connection',
   'force-mastery': 'Mastery',
   'force-spirituality': 'Spirituality',
@@ -431,7 +431,11 @@ export function GoalsScreen() {
       />
       <CanvasScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: fabClearancePx }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: fabClearancePx },
+          !hasGoals && archivedGoals.length === 0 ? styles.scrollEmptyContent : null,
+        ]}
         showsVerticalScrollIndicator={false}
       >
       {hasGoals ? (
@@ -481,6 +485,7 @@ export function GoalsScreen() {
       ) : (
         <EmptyState
           title={archivedGoals.length > 0 ? 'No active goals' : 'No goals yet'}
+          iconName="emptyBox"
           instructions={
             archivedGoals.length > 0
               ? 'Your archived goals are below.'
@@ -1575,11 +1580,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing['2xl'],
   },
+  scrollEmptyContent: {
+    flexGrow: 1,
+  },
   masonryOuter: {
     width: '100%',
   },
   emptyState: {
-    marginTop: spacing['2xl'],
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: 0,
   },
   archivedSection: {
     marginTop: spacing.xl,
@@ -2230,5 +2240,4 @@ const styles = StyleSheet.create({
     color: colors.canvas,
   },
 });
-
 

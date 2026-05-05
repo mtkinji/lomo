@@ -48,10 +48,10 @@ export async function handoffActivityToExecutionTarget(args: {
     if (!updateRes.error) {
       return { ok: true };
     }
-    return { ok: false, message: updateRes.error.message ?? 'Unable to hand off activity.' };
+    return { ok: false, message: updateRes.error.message ?? 'Unable to hand off to-do.' };
   }
 
-  return { ok: false, message: insertRes.error.message ?? 'Unable to hand off activity.' };
+  return { ok: false, message: insertRes.error.message ?? 'Unable to hand off to-do.' };
 }
 
 

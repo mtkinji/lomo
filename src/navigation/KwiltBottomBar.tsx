@@ -157,7 +157,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     activeRouteName === 'PlanTab'
       ? 'Open plan recommendations'
       : activeRouteName === 'ActivitiesTab'
-        ? 'Search activities'
+        ? 'Search to-dos'
         : activeRouteName === 'MoreTab'
           ? isChaptersSurface
             ? 'Open chapter coach workspace'

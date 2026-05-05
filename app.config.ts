@@ -90,15 +90,15 @@ const config: ExpoConfig = {
       UIBackgroundModes: ['audio', 'fetch', 'remote-notification', 'location'],
       // Location offers (geofence enter/exit) permission strings.
       NSLocationWhenInUseUsageDescription:
-        'Kwilt uses your location to set up activity places and show maps.',
+        'Kwilt uses your location to set up to-do places and show maps.',
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        'Kwilt uses your location in the background to nudge you when you arrive or leave a place for an activity.',
+        'Kwilt uses your location in the background to nudge you when you arrive or leave a place for a to-do.',
       // ExpoCalendar: required usage strings. Without these, iOS can crash at runtime
       // when the Calendar module initializes.
       NSCalendarsUsageDescription:
-        'Kwilt uses your calendar to schedule activities you choose to add.',
+        'Kwilt uses your calendar to schedule to-dos you choose to add.',
       NSRemindersUsageDescription:
-        'Kwilt uses reminders only if you choose to add activities as reminders.',
+        'Kwilt uses reminders only if you choose to add to-dos as reminders.',
       NSHealthShareUsageDescription:
         'Kwilt reads your Apple Health movement, workout, sleep, and mindfulness summaries to enrich your weekly chapter.',
     },
@@ -243,5 +243,4 @@ const config: ExpoConfig = {
 };
 
 export default config;
-
 

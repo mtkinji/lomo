@@ -666,11 +666,11 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       effectiveMode === 'goalCreation'
         ? 'This coach helps you shape one clear 30–90 day goal inside your life architecture, using any Arc and Goal context the app has already collected.'
         : effectiveMode === 'activityCreation'
-        ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term.'
+        ? 'This coach helps you turn your current goals and arcs into small, concrete to-dos you can actually do in the near term.'
         : effectiveMode === 'firstTimeOnboarding'
         ? 'This guide helps you define an initial identity direction and aspiration using quick, tap-first inputs.'
         : effectiveMode === 'activityGuidance'
-        ? 'This coach helps you clarify the activity, make it smaller, and choose the next best step — using the goal/arc context attached to this activity.'
+        ? 'This coach helps you clarify the to-do, make it smaller, and choose the next best step — using the goal/arc context attached to this to-do.'
         : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
 
     return (

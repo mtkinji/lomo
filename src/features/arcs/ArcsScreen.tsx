@@ -221,6 +221,7 @@ export function ArcsScreen() {
               archivedArcs.length > 0 ? (
                 <EmptyState
                   title="No active arcs"
+                  iconName="emptyBox"
                   instructions="Your archived arcs are below."
                   primaryAction={{
                     label: 'Create Arc',
@@ -233,6 +234,7 @@ export function ArcsScreen() {
               ) : (
                 <EmptyState
                   title="No arcs yet"
+                  iconName="emptyBox"
                   instructions="Create an Arc to define a meaningful direction."
                   primaryAction={{
                     label: 'Create Arc',
@@ -310,7 +312,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   emptyState: {
-    marginTop: spacing['2xl'],
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: 0,
   },
   archivedSection: {
     paddingHorizontal: 0,
@@ -928,7 +932,7 @@ function ArcInfoModal({ visible, onClose }: { visible: boolean; onClose: () => v
       <Text style={styles.infoBody}>
         An Arc is a long-horizon identity direction—like Discipleship, Craft, or Family Stewardship.
         It names a future version of you that feels worth becoming, then gives your goals and
-        activities something meaningful to aim at.
+        to-dos something meaningful to aim at.
       </Text>
       <Text style={styles.infoBody}>
         When your goals and daily actions sit inside a clear Arc, your effort stops feeling random

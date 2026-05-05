@@ -50,7 +50,7 @@ export function CompletedActivitySection({
         onPress={() => setExpanded((current) => !current)}
         style={styles.completedToggle}
         accessibilityRole="button"
-        accessibilityLabel={expanded ? 'Hide completed and closed activities' : 'Show completed and closed activities'}
+        accessibilityLabel={expanded ? 'Hide completed and closed to-dos' : 'Show completed and closed to-dos'}
       >
         <HStack alignItems="center" space="xs">
           <Text style={styles.completedToggleLabel}>Completed & closed</Text>

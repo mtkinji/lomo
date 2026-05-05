@@ -898,10 +898,10 @@ export function ChapterDetailScreen() {
                           ? arcTitle
                             ? `Tag activities · ${goalTitle} (${arcTitle})`
                             : `Tag activities · ${goalTitle}`
-                          : 'Tag activities';
+                          : 'Tag to-dos';
                         primaryLabel =
                           ids.length === 1
-                            ? 'Tag 1 activity'
+                            ? 'Tag 1 to-do'
                             : `Tag ${ids.length} activities`;
                       }
 

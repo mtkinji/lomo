@@ -102,7 +102,7 @@ export function ActivityPeekSteps({
                   isLinked ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={linkedActivity ? `Open linked activity: ${primaryTitle}` : 'Linked activity missing'}
+                      accessibilityLabel={linkedActivity ? `Open linked activity: ${primaryTitle}` : 'Linked to-do missing'}
                       disabled={!linkedActivityId || !linkedActivity}
                       hitSlop={8}
                       onPress={() => {

@@ -90,7 +90,7 @@ export function ConnectCursorScreen() {
               <VStack space="xs">
                 <Heading variant="sm">Connect via MCP</Heading>
                 <Text style={styles.subtle}>
-                  Use this configuration to let any MCP client (Cursor, Claude Desktop, etc.) create and manage Activities in Kwilt.
+                  Use this configuration to let any MCP client (Cursor, Claude Desktop, etc.) create and manage to-dos in Kwilt.
                 </Text>
               </VStack>
 
@@ -198,4 +198,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-

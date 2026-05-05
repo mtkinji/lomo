@@ -102,7 +102,7 @@ export function GoalFeedSection({
     } catch (err) {
       // Show a user-friendly error, not the raw technical message
       console.warn('[GoalFeedSection] Feed load error:', err);
-      setError('Unable to load activity. Check your connection and try again.');
+      setError('Unable to load to-do. Check your connection and try again.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -175,8 +175,8 @@ export function GoalFeedSection({
     <View style={[styles.container, maxHeight ? { maxHeight } : undefined]}>
       {items.length === 0 ? (
         <EmptyState
-          title="No activity yet"
-          instructions="When you or your partner complete activities, progress will automatically show up here."
+          title="No to-do yet"
+          instructions="When you or your partner complete to-dos, progress will automatically show up here."
           variant="compact"
           iconName="activity"
           style={styles.emptyContainer}

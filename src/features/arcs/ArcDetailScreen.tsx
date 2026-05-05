@@ -843,7 +843,7 @@ export function ArcDetailScreen() {
       >
         <Heading variant="sm">🚀 Your first Arc is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          This Arc is saved to your Arcs list. Next we’ll turn it into a Goal (and then small Activities) so you
+          This Arc is saved to your Arcs list. Next we’ll turn it into a Goal (and then small To-dos) so you
           have a clear next step. Tap “Go to Goals” to continue.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">

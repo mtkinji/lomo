@@ -168,7 +168,7 @@ export function ChapterAlignScreen() {
   return (
     <AppShell>
       <PageHeader
-        title="Tag activities"
+        title="Tag to-dos"
         onPressBack={() => {
           if (navigation.canGoBack()) navigation.goBack();
         }}
@@ -186,7 +186,7 @@ export function ChapterAlignScreen() {
               </Text>
             ) : null}
             <Text style={styles.body}>
-              Kwilt noticed these activities look like{' '}
+              Kwilt noticed these to-dos look like{' '}
               <Text style={styles.bodyEmphasis}>{goalTitle || 'this Goal'}</Text>{' '}
               work. Tag them to sharpen next week&apos;s signal.
             </Text>
@@ -212,7 +212,7 @@ export function ChapterAlignScreen() {
           ) : candidateActivities.length === 0 ? (
             <View style={styles.emptyStateBlock}>
               <Text style={styles.body}>
-                These activities have already been tagged or removed. You&apos;re
+                These to-dos have already been tagged or removed. You&apos;re
                 all set.
               </Text>
               <Pressable
@@ -250,7 +250,7 @@ export function ChapterAlignScreen() {
                         ) : null}
                       </View>
                       <Text style={styles.rowTitle} numberOfLines={2}>
-                        {a.title ?? 'Untitled activity'}
+                        {a.title ?? 'Untitled to-do'}
                       </Text>
                     </Pressable>
                   );
@@ -262,7 +262,7 @@ export function ChapterAlignScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={
                     selectedIds.size === 1
-                      ? 'Tag 1 activity'
+                      ? 'Tag 1 to-do'
                       : `Tag ${selectedIds.size} activities`
                   }
                   disabled={selectedIds.size === 0}
@@ -276,7 +276,7 @@ export function ChapterAlignScreen() {
                     {selectedIds.size === 0
                       ? 'Select at least one'
                       : selectedIds.size === 1
-                        ? 'Tag 1 activity'
+                        ? 'Tag 1 to-do'
                         : `Tag ${selectedIds.size} activities`}
                   </Text>
                 </Pressable>

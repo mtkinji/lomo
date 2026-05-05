@@ -71,8 +71,8 @@ export function BuiltInDestinationDetailScreen() {
               />
               <Text style={styles.hint}>
                 {isInstalled
-                  ? 'This will appear in “Send to…” for supported Activity types.'
-                  : 'Install to make this available in “Send to…” for supported Activity types.'}
+                  ? 'This will appear in “Send to…” for supported to-do types.'
+                  : 'Install to make this available in “Send to…” for supported to-do types.'}
               </Text>
             </VStack>
           </Card>
@@ -97,5 +97,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
-
 
