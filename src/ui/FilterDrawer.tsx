@@ -250,7 +250,7 @@ const DIFFICULTY_OPTIONS: ObjectPickerOption[] = [
 ];
 
 const TYPE_OPTIONS: ObjectPickerOption[] = [
-  { value: 'task', label: 'Task' },
+  { value: 'task', label: 'To-do' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'shopping_list', label: 'Shopping List' },
   { value: 'instructions', label: 'Instructions' },
@@ -344,7 +344,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
     <BottomDrawer visible={visible} onClose={onClose} snapPoints={['95%']} keyboardAvoidanceEnabled={false}>
       <VStack flex={1} style={styles.container}>
         <BottomDrawerHeader
-          title="Filter Activities"
+          title="Filter To-dos"
           containerStyle={styles.header}
           titleStyle={styles.headerTitle}
           variant="withClose"
@@ -497,7 +497,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
 
           {localGroups.length === 0 && (
             <Text style={styles.emptyHint}>
-              Filter activities by status, date, priority, and more.
+              Filter to-dos by status, date, priority, and more.
             </Text>
           )}
 
@@ -880,4 +880,3 @@ const styles = StyleSheet.create({
     // Avoid a "separate white footer bar" treatment.
   },
 });
-

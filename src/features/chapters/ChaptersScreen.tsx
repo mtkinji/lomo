@@ -164,7 +164,7 @@ export function ChaptersScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <VStack space="lg">
+        <VStack space="lg" style={styles.contentStack}>
           {latest ? (
             <>
               <Pressable
@@ -252,7 +252,7 @@ export function ChaptersScreen() {
           ) : (
             <EmptyState
               title="Your first chapter is on its way"
-              iconName="chapters"
+              iconName="emptyBox"
               instructions={buildFirstChapterEta()}
               style={styles.emptyState}
             />
@@ -265,10 +265,16 @@ export function ChaptersScreen() {
 
 const styles = StyleSheet.create({
   emptyState: {
-    marginTop: spacing['2xl'],
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: 0,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: spacing.xl,
+  },
+  contentStack: {
+    flex: 1,
   },
   card: {
     width: '100%',

@@ -1255,7 +1255,7 @@ export function PlanPager({
       return {
         kind: 'nothing_to_recommend',
         title: 'Nothing to recommend',
-        description: 'Add more activities to see recommendations.',
+        description: 'Add more to-dos to see recommendations.',
       };
     }
     if (authRequired) {

@@ -145,7 +145,7 @@ export function buildActivityCoachLaunchContext(
   const lines: string[] = [];
 
   lines.push(
-    'Existing workspace snapshot: the user already has the following goals and activities. Use this to keep proposed activities realistic, non-duplicative, and complementary.'
+    'Existing workspace snapshot: the user already has the following goals and to-dos. Use this to keep proposed to-dos realistic, non-duplicative, and complementary.'
   );
   lines.push(`Total goals: ${goals.length}. Total activities: ${activities.length}.`);
   lines.push('');
@@ -232,7 +232,7 @@ export function buildActivityCoachLaunchContext(
         lines.push(`…and ${steps.length - 12} more.`);
       }
     } else {
-      lines.push('No steps are currently attached to this activity.');
+      lines.push('No steps are currently attached to this to-do.');
     }
 
     lines.push(''); // spacer after focused activity
@@ -262,18 +262,18 @@ export function buildActivityCoachLaunchContext(
 
     const focusActivities = activities.filter((activity) => activity.goalId === focusGoal.id);
     if (focusActivities.length > 0) {
-      lines.push('Existing activities for the focused goal (avoid duplicates):');
+      lines.push('Existing to-dos for the focused goal (avoid duplicates):');
       focusActivities.forEach((activity) => {
         lines.push(`- ${activity.title} (status: ${activity.status})`);
       });
     } else {
-      lines.push('No activities are currently attached to the focused goal.');
+      lines.push('No to-dos are currently attached to the focused goal.');
     }
 
     if (focusArc) {
       lines.push('');
       lines.push(
-        'FOCUSED ARC (this goal belongs to this arc; keep activities aligned to its storyline):',
+        'FOCUSED ARC (this goal belongs to this arc; keep to-dos aligned to its storyline):',
         `- ${focusArc.name} (status: ${focusArc.status}, id: ${focusArc.id})`
       );
       if (focusArc.narrative) {
@@ -315,7 +315,7 @@ export function buildActivityCoachLaunchContext(
       // section above that the agent should prioritise.
       const shouldCompact = Boolean(focusGoal) && goal.id !== focusGoal?.id;
       const shown = shouldCompact ? goalActivities.slice(0, 4) : goalActivities;
-      lines.push(shouldCompact ? 'Activities for this goal (sample):' : 'Activities for this goal:');
+      lines.push(shouldCompact ? 'To-dos for this goal (sample):' : 'To-dos for this goal:');
       shown.forEach((activity) => {
         const base = `- ${activity.title} (status: ${activity.status})`;
         const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
@@ -326,7 +326,7 @@ export function buildActivityCoachLaunchContext(
         lines.push(`…and ${goalActivities.length - shown.length} more.`);
       }
     } else {
-      lines.push('No activities are currently attached to this goal.');
+      lines.push('No to-dos are currently attached to this goal.');
     }
 
     lines.push(''); // spacer between goals
@@ -334,7 +334,7 @@ export function buildActivityCoachLaunchContext(
 
   const unassignedActivities = activities.filter((activity) => !activity.goalId);
   if (unassignedActivities.length > 0) {
-    lines.push('Unassigned activities (not linked to a specific goal yet):');
+    lines.push('Unassigned to-dos (not linked to a specific goal yet):');
     unassignedActivities.forEach((activity) => {
       const base = `- ${activity.title} (status: ${activity.status})`;
       const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';

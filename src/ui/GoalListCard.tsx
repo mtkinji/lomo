@@ -107,7 +107,7 @@ export function GoalListCard({
 
   const defaultActivityLabel =
     activityCount === 0
-      ? 'No activities yet'
+      ? 'No to-dos yet'
       : `${activityCount} ${activityCount === 1 ? 'activity' : 'activities'}`;
   const activityLabel = activityMetaOverride ?? defaultActivityLabel;
 

@@ -258,7 +258,7 @@ export function PlanRecsPage({
       switch (emptyState.kind) {
         case 'nothing_to_recommend':
           return onFindActivities
-            ? { label: 'Find activities', onPress: onFindActivities, fullWidth: true }
+            ? { label: 'Find to-dos', onPress: onFindActivities, fullWidth: true }
             : null;
         case 'choose_calendar':
         case 'sign_in_required':
@@ -322,7 +322,7 @@ export function PlanRecsPage({
                 <Text style={styles.warningTitle}>Due today didn’t fit</Text>
                 <Text style={styles.warningBody}>
                   {dueUnplaced.length === 1
-                    ? 'One due-today activity couldn’t be scheduled within your availability and conflicts.'
+                    ? 'One due-today to-do couldn’t be scheduled within your availability and conflicts.'
                     : `${dueUnplaced.length} due-today activities couldn’t be scheduled within your availability and conflicts.`}
                 </Text>
               </VStack>

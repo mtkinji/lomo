@@ -155,7 +155,7 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
   if (!activity || !loc) {
     if (__DEV__) {
       // eslint-disable-next-line no-console
-      console.log('[locationOffers] geofence ignored (activity not found / missing location)', {
+      console.log('[locationOffers] geofence ignored (to-do not found / missing location)', {
         activityId,
         foundActivity: Boolean(activity),
         hasLocation: Boolean(loc),
@@ -190,7 +190,7 @@ TaskManager.defineTask(LOCATION_OFFER_GEOFENCE_TASK, async ({ data, error }) => 
   });
   if (!shouldFire) return;
 
-  const title = activity.title?.trim() ? activity.title.trim() : 'Activity';
+  const title = activity.title?.trim() ? activity.title.trim() : 'To-do';
   const locationLabel = typeof loc?.label === 'string' && loc.label.trim() ? loc.label.trim() : 'your place';
   const whenLabel = event === 'enter' ? 'Arrived at' : 'Left';
 

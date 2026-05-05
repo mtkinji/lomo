@@ -64,7 +64,7 @@ export function SharedGoalActivityDrawer({
         {/* Header */}
         <View style={styles.header}>
           <VStack space="xs">
-            <Text style={styles.title}>Activity</Text>
+            <Text style={styles.title}>To-do</Text>
             {goalTitle ? (
               <Text style={styles.subtitle} numberOfLines={1}>
                 {goalTitle}

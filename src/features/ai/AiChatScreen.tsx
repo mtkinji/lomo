@@ -1345,7 +1345,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     if (launchContext) {
       blocks.push(
         '---',
-        'Launch context + workspace snapshot (may include focused arcs/goals/activities). Use this to stay grounded, avoid duplicates, and tailor guidance to what the user is currently looking at.',
+        'Launch context + workspace snapshot (may include focused arcs/goals/to-dos). Use this to stay grounded, avoid duplicates, and tailor guidance to what the user is currently looking at.',
         launchContext.trim()
       );
     }
@@ -3020,10 +3020,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
     if (focusedGoalTitle) {
       return [
         `You're currently working on a goal called **${focusedGoalTitle}.**`,
-        "I’ll generate a short set of activities for this week — and I’ll choose the best format for each one (task, checklist, plan, etc.).",
+        "I’ll generate a short set of to-dos for this week — and I’ll choose the best format for each one (to-do, checklist, plan, etc.).",
       ].join(' ');
     }
-    return "I’ll generate a short set of activities for this week — and I’ll choose the best format for each one (task, checklist, plan, etc.).";
+    return "I’ll generate a short set of to-dos for this week — and I’ll choose the best format for each one (to-do, checklist, plan, etc.).";
   }, [launchContext]);
 
   const fetchActivitySuggestionsOnly = useCallback(
@@ -3174,12 +3174,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
         if (isGenerativeQuotaError(err)) {
           // Expected state (user hit their AI credit/quota gate). Avoid surfacing as an "error"
           // to dev overlays / logging that might show scary banners in the UI.
-          console.warn('kwilt Activities AI quota reached (suggestions suppressed).');
+          console.warn('kwilt To-do AI quota reached (suggestions suppressed).');
           setHasGenerativeQuotaExceeded(true);
           setHasTransportError(false);
           setActivitySuggestions(null);
         } else {
-          console.error('kwilt Activities AI suggestions-only fetch failed', err);
+          console.error('kwilt To-do AI suggestions-only fetch failed', err);
           setHasTransportError(true);
           setActivitySuggestions(null);
           onTransportError?.();
@@ -3228,7 +3228,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       return;
     }
     await sendMessageWithContent(
-      'Let’s try a fresh set of concrete activity suggestions for this goal.'
+      'Let’s try a fresh set of concrete to-do suggestions for this goal.'
     );
   };
 
@@ -3546,7 +3546,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     mode === 'goalCreation'
       ? 'This coach helps you shape one clear 30–90 day goal inside your life architecture, using any Arc and Goal context the app has already collected.'
       : mode === 'activityCreation'
-      ? 'This coach helps you turn your current goals and arcs into small, concrete activities you can actually do in the near term. It also looks at Activities you’ve already added (especially for this Goal) to keep suggestions aligned and non-duplicative.'
+      ? 'This coach helps you turn your current goals and arcs into small, concrete to-dos you can actually do in the near term. It also looks at to-dos you’ve already added (especially for this Goal) to keep suggestions aligned and non-duplicative.'
       : mode === 'firstTimeOnboarding'
       ? 'This guide helps you define an initial identity direction and aspiration using quick, tap-first inputs.'
       : isArcCreationMode
@@ -3669,13 +3669,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                   bootstrapped &&
                   !showActivitySummary && (
                     <View style={styles.activitySuggestionsStack}>
-                      <Text style={styles.activitySuggestionsLabel}>Suggested activities</Text>
+                      <Text style={styles.activitySuggestionsLabel}>Suggested to-dos</Text>
                       {adoptedActivityCount > 0 && (
                         <View style={styles.activityInlineConfirmationRow}>
                           <Text style={styles.activityInlineConfirmationText}>
                             {adoptedActivityCount === 1
-                              ? 'Added to Activities.'
-                              : `${adoptedActivityCount} activities added so far.`}
+                              ? 'Added to To-dos.'
+                              : `${adoptedActivityCount} to-dos added so far.`}
                           </Text>
                         </View>
                       )}
@@ -3709,7 +3709,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                             [suggestion.id]: text,
                                           }));
                                         }}
-                                        placeholder="Edit activity"
+                                        placeholder="Edit to-do"
                                         placeholderTextColor={CHAT_COLORS.textSecondary}
                                         multiline={false}
                                         numberOfLines={1}
@@ -3723,7 +3723,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                             current === suggestion.id ? null : current,
                                           );
                                         }}
-                                        accessibilityLabel={`Activity title input for ${suggestion.title}`}
+                                        accessibilityLabel={`To-do title input for ${suggestion.title}`}
                                       />
                                     </View>
                                   ) : (
@@ -3769,7 +3769,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                                       );
                                     }}
                                     accessibilityRole="button"
-                                    accessibilityLabel={`Add activity: ${getEffectiveActivitySuggestionTitle(
+                                    accessibilityLabel={`Add to-do: ${getEffectiveActivitySuggestionTitle(
                                       suggestion,
                                     )}`}
                                   >
@@ -3921,8 +3921,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     <View style={styles.activitySummaryCard}>
                       <Text style={styles.activitySummaryBody}>
                         {adoptedActivityCount === 1
-                          ? "Nice — I added 1 activity to your list. You can always come back for more ideas."
-                          : `Nice — I added ${adoptedActivityCount} activities to your list. You can always come back for more ideas.`}
+                          ? "Nice — I added 1 to-do to your list. You can always come back for more ideas."
+                          : `Nice — I added ${adoptedActivityCount} to-dos to your list. You can always come back for more ideas.`}
                       </Text>
                       <View style={styles.activitySummaryActionsRow}>
                         <Button
@@ -3954,9 +3954,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
                 {mode === 'activityCreation' && hasTransportError && (
                   <View style={styles.manualFallbackCard}>
-                    <Text style={styles.manualFallbackTitle}>Add an activity manually</Text>
+                    <Text style={styles.manualFallbackTitle}>Add a to-do manually</Text>
                     <Text style={styles.manualFallbackBody}>
-                      If AI is having trouble loading, you can still add an activity yourself.
+                      If AI is having trouble loading, you can still add a to-do yourself.
                     </Text>
                     <Button
                       variant="outline"
@@ -4335,7 +4335,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     <Text style={styles.arcInfoSectionLabel}>What’s an Arc?</Text>
                     <Text style={styles.arcInfoBody}>
                       An Arc is a long‑term identity direction in a part of your life — a stable
-                      storyline you can hang future goals and activities on.
+                      storyline you can hang future goals and to-dos on.
                     </Text>
                   </View>
                 )}
@@ -4345,8 +4345,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     <Text style={styles.arcInfoSectionLabel}>Context for this chat</Text>
                     {mode === 'activityCreation' && (
                       <Text style={styles.arcInfoBody}>
-                        We use your focused Goal, its existing Activities, and your wider workspace (other goals and
-                        activities) to suggest next steps that fit what you’re already doing — without repeating
+                        We use your focused Goal, its existing to-dos, and your wider workspace (other goals and
+                        to-dos) to suggest next steps that fit what you’re already doing — without repeating
                         what’s already on your list.
                       </Text>
                     )}
@@ -4354,9 +4354,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     {mode === 'activityGuidance' && (
                       <View style={styles.arcInfoSubSection}>
                         <View style={styles.arcInfoContextCard}>
-                          <Text style={styles.arcInfoGoalsLabel}>Focused Activity</Text>
+                          <Text style={styles.arcInfoGoalsLabel}>Focused To-do</Text>
                           <Text style={styles.arcInfoContextTitle}>
-                            {focusedActivityTitle ?? 'This activity'}
+                            {focusedActivityTitle ?? 'This to-do'}
                           </Text>
                         </View>
 
@@ -4646,7 +4646,7 @@ export function AiChatScreen() {
           orderIndex: index,
         })) ?? [];
 
-      const title = (suggestion.title ?? '').trim() || 'New activity';
+      const title = (suggestion.title ?? '').trim() || 'New to-do';
       const goalId = goalIdOverride ?? null;
       const activity = {
         id,
@@ -5836,4 +5836,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 });
-

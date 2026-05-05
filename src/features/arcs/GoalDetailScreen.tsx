@@ -813,7 +813,7 @@ export function GoalDetailScreen() {
       // On Android, most targets only receive `message`, so include the link there.
       const baseMessage =
         `Join my shared goal in Kwilt: “${goal.title}”.\n\n` +
-        `Default sharing: signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
+        `Default sharing: signals only (check-ins + cheers). To-do titles stay private unless we choose to share them.\n\n` +
         `Plus: we’ll both get +25 AI credits when you join.`;
       const message = Platform.OS === 'android' ? baseMessage : undefined;
 
@@ -1472,7 +1472,7 @@ export function GoalDetailScreen() {
         id: `activity-created-${activity.id}`,
         kind: 'activityCreated',
         timestamp: createdAt,
-        title: activity.title || 'Activity added',
+        title: activity.title || 'To-do added',
         dateLabel: formatDateLabel(createdAt),
         meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
       });
@@ -1500,7 +1500,7 @@ export function GoalDetailScreen() {
         id: `activity-completed-${activity.id}`,
         kind: 'activityCompleted',
         timestamp: activity.completedAt,
-        title: activity.title || 'Activity completed',
+        title: activity.title || 'To-do completed',
         dateLabel: formatDateLabel(activity.completedAt),
         meta: metaParts.length > 0 ? metaParts.join(' · ') : undefined,
       });
@@ -1677,7 +1677,7 @@ export function GoalDetailScreen() {
   const handleDeleteGoal = () => {
     Alert.alert(
       'Delete goal?',
-      'This will remove the goal and related activities.',
+      'This will remove the goal and related to-dos.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1812,7 +1812,7 @@ export function GoalDetailScreen() {
     // Note: Creating activities no longer counts as "showing up" for streaks.
     // Streaks require completing activities/focus sessions.
     addActivity(nextActivity);
-    showToast({ message: 'Activity created', variant: 'success', durationMs: 2200 });
+    showToast({ message: 'To-do created', variant: 'success', durationMs: 2200 });
     setActivityComposerVisible(false);
 
     // Enrich activity with AI details asynchronously
@@ -1873,7 +1873,7 @@ export function GoalDetailScreen() {
       .catch((err: unknown) => {
         // Silently fail - activity creation should succeed even if enrichment fails
         if (__DEV__) {
-          console.warn('[GoalDetailScreen] Failed to enrich activity:', err);
+          console.warn('[GoalDetailScreen] Failed to enrich to-do:', err);
         }
       });
   };
@@ -1980,7 +1980,7 @@ export function GoalDetailScreen() {
             <Text style={styles.celebrationBadge}>Goal created</Text>
             <Text style={[styles.celebrationTitle, { marginTop: spacing.sm }]}>Nice work.</Text>
             <Text style={[styles.celebrationSubtitle, { marginTop: spacing.sm }]}>
-              Your next step is simple: add a couple of Activities so you always know what to do next.
+              Your next step is simple: add a couple of to-dos so you always know what to do next.
             </Text>
           </View>
 
@@ -1998,7 +1998,7 @@ export function GoalDetailScreen() {
               fullWidth
               style={styles.celebrationContinueButton}
               onPress={handleContinueFirstGoalCelebration}
-              accessibilityLabel="Continue to activities"
+              accessibilityLabel="Continue to to-do planning"
             >
               <Text style={styles.celebrationContinueLabel}>Continue</Text>
             </Button>
@@ -2035,7 +2035,7 @@ export function GoalDetailScreen() {
         }
       >
         <Text style={styles.firstGoalBody}>
-          By default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.
+          By default you share signals only (check-ins + cheers). To-do titles stay private unless you choose to share them.
         </Text>
       </Dialog>
       <BottomGuide
@@ -2049,7 +2049,7 @@ export function GoalDetailScreen() {
       >
         <Heading variant="sm">Your new Goal is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Next, add a couple of Activities so you always know what to work on. We can use AI to help plan them
+          Next, add a couple of to-dos so you always know what to work on. We can use AI to help plan them
           out (or you can switch to Manual).
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
@@ -2075,7 +2075,7 @@ export function GoalDetailScreen() {
               setShouldPromptAddActivity(true);
             }}
           >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Add activities</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Add to-dos</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -2086,7 +2086,7 @@ export function GoalDetailScreen() {
       >
         <Heading variant="sm">Your first plan is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Great — you've got Activities to start with. Open one and schedule it so it actually happens.
+          Great — you've got to-dos to start with. Open one and schedule it so it actually happens.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
@@ -2104,7 +2104,7 @@ export function GoalDetailScreen() {
               }
             }}
           >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Open Activity</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Open To-do</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -2122,10 +2122,10 @@ export function GoalDetailScreen() {
         attentionPulse
         attentionPulseDelayMs={2500}
         attentionPulseDurationMs={15000}
-        title={<Text style={styles.goalCoachmarkTitle}>Add your first activities</Text>}
+        title={<Text style={styles.goalCoachmarkTitle}>Add your first to-dos</Text>}
         body={
           <Text style={styles.goalCoachmarkBody}>
-            Tap “Add activities” to generate Activities with AI (or switch to Manual for something you
+            Tap “Add to-dos” to generate to-dos with AI (or switch to Manual for something you
             already know you should do next).
           </Text>
         }
@@ -2417,14 +2417,14 @@ export function GoalDetailScreen() {
                     }}
                   >
                     <HStack alignItems="center" justifyContent="space-between">
-                      <Heading style={styles.sectionTitle}>Activities</Heading>
+                      <Heading style={styles.sectionTitle}>To-dos</Heading>
                       {!isPlanEmpty ? (
                         <View>
                           <Button
                             variant="ai"
                             size="sm"
                             onPress={handleOpenActivityCoach}
-                            accessibilityLabel="Plan activities with AI"
+                            accessibilityLabel="Plan to-dos with AI"
                           >
                             <HStack alignItems="center" space="xs">
                               <Icon name="sparkles" size={14} color={colors.primaryForeground} />
@@ -2451,13 +2451,13 @@ export function GoalDetailScreen() {
                       >
                         <OpportunityCard
                           title="Turn this goal into a plan"
-                          body="Activities are the concrete steps that move this goal forward. Add a few now so you always know what to do next."
+                          body="To-dos are the concrete steps that move this goal forward. Add a few now so you always know what to do next."
                           tone="brand"
-                          ctaLabel="Add activities"
+                          ctaLabel="Add to-dos"
                           ctaVariant="inverse"
                           shadow="layered"
                           onPressCta={handleOpenActivityCoach}
-                          ctaAccessibilityLabel="Add activities"
+                          ctaAccessibilityLabel="Add to-dos"
                           style={styles.planValueCard}
                         />
                       </View>
@@ -2536,8 +2536,8 @@ export function GoalDetailScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={
                               completedActivitiesExpanded
-                                ? 'Hide completed activities'
-                                : 'Show completed activities'
+                                ? 'Hide completed to-dos'
+                                : 'Show completed to-dos'
                             }
                             hitSlop={10}
                           >
@@ -2846,7 +2846,7 @@ export function GoalDetailScreen() {
               value={membersSheetTab}
               onChange={setMembersSheetTab}
               options={[
-                { value: 'activity', label: 'Activity' },
+                { value: 'activity', label: 'To-do' },
                 { value: 'members', label: 'Members' },
               ]}
               size="compact"
@@ -3629,10 +3629,10 @@ function GoalActivityComposerModal({
           contentContainerStyle={[styles.modalContent, { paddingTop: spacing.lg }]}
           showsVerticalScrollIndicator={false}
         >
-          <Heading style={styles.modalTitle}>Add Activity</Heading>
+          <Heading style={styles.modalTitle}>Add To-do</Heading>
           <Text style={styles.modalBody}>
             Capture a concrete step that moves this goal forward. You can refine details later from
-            the Activities canvas.
+            the To-dos canvas.
           </Text>
 
           <Text style={styles.modalLabel}>Title</Text>
@@ -3650,7 +3650,7 @@ function GoalActivityComposerModal({
             onChange={setActivityType}
             size="compact"
             options={[
-              { value: 'task', label: 'Task' },
+              { value: 'task', label: 'To-do' },
               { value: 'checklist', label: 'Checklist' },
               { value: 'shopping_list', label: 'List' },
               { value: 'instructions', label: 'Instructions' },
@@ -3663,7 +3663,7 @@ function GoalActivityComposerModal({
             style={[styles.input, styles.descriptionInput]}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Add a short note or checklist for this activity."
+            placeholder="Add a short note or checklist for this to-do."
             placeholderTextColor="#6B7280"
             multiline
           />
@@ -4030,20 +4030,20 @@ function GoalActivityCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={handleChangeMode}
-          objectLabel="Activities"
+          objectLabel="To-dos"
           onPressInfo={() => setIsActivityAiInfoVisible(true)}
-          infoAccessibilityLabel="Show context for Activities AI"
+          infoAccessibilityLabel="Show context for To-do AI"
         />
         <Dialog
           visible={isActivityAiInfoVisible}
           onClose={() => setIsActivityAiInfoVisible(false)}
-          title="Activities AI context"
-          description="Activities AI proposes concrete activities using your existing goals and plans as context."
+          title="To-do AI context"
+          description="To-do AI proposes concrete to-dos using your existing goals and plans as context."
         >
           <Text style={styles.modalBody}>
             {focusGoal
               ? `Goal: ${focusGoal.title}${arc ? `\nArc: ${arc.name}` : ''}\n\nI’m using this goal${arc ? ' and its Arc' : ''}, plus your other goals and activities, to keep suggestions realistic, aligned, and non-duplicative.`
-              : 'I’m using your existing goals and activities to keep suggestions realistic, aligned, and non-duplicative.'}
+              : 'I’m using your existing goals and to-dos to keep suggestions realistic, aligned, and non-duplicative.'}
           </Text>
         </Dialog>
         {activeTab === 'ai' ? (
@@ -4097,7 +4097,7 @@ function GoalActivityCoachDrawer({
                   onPress={handleConfirmManualActivity}
                   disabled={manualDraft.title.trim().length === 0}
                 >
-                  <Text style={styles.primaryCtaText}>Create activity</Text>
+                  <Text style={styles.primaryCtaText}>Create to-do</Text>
                 </Button>
               </View>
             </KeyboardAwareScrollView>
@@ -5223,5 +5223,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
 });
-
-

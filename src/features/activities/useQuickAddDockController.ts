@@ -222,7 +222,7 @@ export function useQuickAddDockController(params: Params) {
     onCreated?.(activity);
 
     showToast({
-      message: 'Activity created',
+      message: 'To-do created',
       variant: 'success',
       durationMs: 2200,
       bottomOffset: toastBottomOffset,

@@ -226,7 +226,7 @@ export function ActivityListItem({
               {onToggleComplete ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={isCompleted ? 'Mark activity as not done' : 'Mark activity as done'}
+                  accessibilityLabel={isCompleted ? 'Mark to-do as not done' : 'Mark to-do as done'}
                   hitSlop={8}
                   onPress={handlePressComplete}
                 >
@@ -338,7 +338,7 @@ export function ActivityListItem({
             ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={isPriorityOne ? 'Remove star from activity' : 'Star this activity'}
+                  accessibilityLabel={isPriorityOne ? 'Remove star from to-do' : 'Star this to-do'}
                   hitSlop={8}
                   onPress={onTogglePriority}
                 >

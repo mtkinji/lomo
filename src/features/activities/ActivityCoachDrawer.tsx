@@ -178,7 +178,7 @@ export function ActivityCoachDrawer({
       activity_id: activity.id,
       goal_id: null,
     });
-    showToast({ message: 'Activity created', variant: 'success', durationMs: 2200 });
+    showToast({ message: 'To-do created', variant: 'success', durationMs: 2200 });
     void HapticsService.trigger('outcome.success');
     onClose();
   }, [
@@ -392,18 +392,18 @@ export function ActivityCoachDrawer({
         <AgentModeHeader
           activeMode={activeTab}
           onChangeMode={handleChangeMode}
-          objectLabel="Activities"
+          objectLabel="To-dos"
           onPressInfo={() => setIsActivityAiInfoVisible(true)}
-          infoAccessibilityLabel="Show context for Activities AI"
+          infoAccessibilityLabel="Show context for To-do AI"
         />
         <Dialog
           visible={isActivityAiInfoVisible}
           onClose={() => setIsActivityAiInfoVisible(false)}
-          title="Activities AI context"
-          description="Activities AI proposes concrete activities using your existing goals and plans as context."
+          title="To-do AI context"
+          description="To-do AI proposes concrete to-dos using your existing goals and plans as context."
         >
           <Text style={styles.modalBody}>
-            I'm using your existing goals and activities to keep suggestions realistic, aligned,
+            I'm using your existing goals and to-dos to keep suggestions realistic, aligned,
             and non-duplicative.
           </Text>
         </Dialog>
@@ -461,7 +461,7 @@ export function ActivityCoachDrawer({
                 onPress={handleConfirmManualActivity}
                 disabled={manualDraft.title.trim().length === 0}
               >
-                <Text style={{ color: colors.canvas }}>Create activity</Text>
+                <Text style={{ color: colors.canvas }}>Create to-do</Text>
               </Button>
             </View>
           </KeyboardAwareScrollView>
@@ -489,4 +489,3 @@ export function SheetOption({ label, onPress }: SheetOptionProps) {
     </Pressable>
   );
 }
-

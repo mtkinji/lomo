@@ -71,7 +71,7 @@ export function templateToView(
 export const LIST_TEMPLATES: ViewTemplate[] = [
   {
     id: 'template-list-all',
-    label: '🗂️ All activities',
+    label: '🗂️ All to-dos',
     description: 'Everything in one place',
     icon: 'viewList',
     layout: 'list',
@@ -122,7 +122,7 @@ export const LIST_TEMPLATES: ViewTemplate[] = [
   {
     id: 'template-list-past-due',
     label: '⚠️ Past due',
-    description: 'Overdue activities',
+    description: 'Overdue to-dos',
     icon: 'today',
     layout: 'list',
     category: 'list',
@@ -163,7 +163,7 @@ export const LIST_TEMPLATES: ViewTemplate[] = [
   {
     id: 'template-list-priorities',
     label: 'Priorities',
-    description: 'Starred activities only',
+    description: 'Starred to-dos only',
     icon: 'starFilled',
     layout: 'list',
     category: 'list',

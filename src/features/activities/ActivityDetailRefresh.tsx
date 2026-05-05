@@ -349,7 +349,7 @@ export function ActivityDetailRefresh(props: any) {
           left={
             <HeaderActionPill
               onPress={handleBackToActivities}
-              accessibilityLabel="Back to Activities"
+              accessibilityLabel="Back to To-dos"
               materialOpacity={headerActionPillOpacity}
               materialVariant={headerPillMaterialVariant}
             >
@@ -371,10 +371,10 @@ export function ActivityDetailRefresh(props: any) {
                 </Button>
               ) : (
                 <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                  <DropdownMenuTrigger accessibilityLabel="To-do actions">
                     <View pointerEvents="none">
                       <HeaderActionPill
-                        accessibilityLabel="Activity actions"
+                        accessibilityLabel="To-do actions"
                         materialOpacity={headerActionPillOpacity}
                         materialVariant={headerPillMaterialVariant}
                       >
@@ -411,7 +411,7 @@ export function ActivityDetailRefresh(props: any) {
                       <View style={styles.menuItemRow}>
                         <Icon name="trash" size={16} color={colors.destructive} />
                         <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Delete activity
+                          Delete to-do
                         </Text>
                       </View>
                     </DropdownMenuItem>
@@ -502,19 +502,19 @@ export function ActivityDetailRefresh(props: any) {
                           return [
                             {
                               id: 'parentActivity',
-                              label: parent.title ?? 'Activity',
+                              label: parent.title ?? 'To-do',
                               onPress: () => openActivityDetail?.(parentId),
                             },
                           ];
                         })()
                       : []),
-                    { id: 'activity', label: activity?.title ?? 'Activity' },
+                    { id: 'activity', label: activity?.title ?? 'To-do' },
                   ]}
                 />
               </View>
               <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
                 <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="Activity actions">
+                  <DropdownMenuTrigger accessibilityLabel="To-do actions">
                     <View pointerEvents="none">
                       <IconButton style={styles.optionsButton} accessible={false}>
                         <Icon name="more" size={18} color={headerInk} />
@@ -550,7 +550,7 @@ export function ActivityDetailRefresh(props: any) {
                       <View style={styles.menuItemRow}>
                         <Icon name="trash" size={16} color={colors.destructive} />
                         <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Delete activity
+                          Delete to-do
                         </Text>
                       </View>
                     </DropdownMenuItem>
@@ -610,7 +610,7 @@ export function ActivityDetailRefresh(props: any) {
               <View style={localStyles.activityHeroImageClip}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Edit Activity header image"
+                  accessibilityLabel="Edit To-do header image"
                   onPress={() => {
                     onPressEditHeaderImage?.();
                   }}
@@ -670,8 +670,8 @@ export function ActivityDetailRefresh(props: any) {
             <NarrativeEditableTitle
               ref={titleRef}
               value={activity.title ?? ''}
-              placeholder="Name this activity"
-              accessibilityLabel="Edit activity title"
+              placeholder="Name this to-do"
+              accessibilityLabel="Edit to-do title"
               onCommit={(trimmed) => {
                 if (!trimmed || trimmed === (activity.title ?? '').trim()) return;
                 const timestamp = new Date().toISOString();
@@ -697,14 +697,14 @@ export function ActivityDetailRefresh(props: any) {
                   {hasParentActivityLink ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Open parent activity: ${parentActivity?.title ?? 'Parent activity'}`}
+                      accessibilityLabel={`Open parent activity: ${parentActivity?.title ?? 'Parent to-do'}`}
                       onPress={() => openActivityDetail?.(parentId)}
                       style={({ pressed }) => [styles.originLinkRow, pressed ? { opacity: 0.7 } : null]}
                       hitSlop={8}
                     >
                       <Icon name="link" size={12} color={colors.textSecondary} />
                       <Text style={styles.originLinkText} numberOfLines={1} ellipsizeMode="tail">
-                        {parentActivity?.title ?? 'Parent activity'}
+                        {parentActivity?.title ?? 'Parent to-do'}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -774,7 +774,7 @@ export function ActivityDetailRefresh(props: any) {
                       : linkedActivity.status === 'in_progress'
                         ? 'In progress'
                         : 'Planned'
-                    : 'Activity missing';
+                    : 'To-do missing';
                   return (
                     <View key={step.id}>
                       <ThreeColumnRow
@@ -785,7 +785,7 @@ export function ActivityDetailRefresh(props: any) {
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel={
-                                linkedActivity ? `Open linked activity: ${primaryTitle}` : 'Linked activity missing'
+                                linkedActivity ? `Open linked activity: ${primaryTitle}` : 'Linked to-do missing'
                               }
                               disabled={!openLinkedActivity}
                               hitSlop={8}
@@ -853,7 +853,7 @@ export function ActivityDetailRefresh(props: any) {
                                   {linkedActivityId && linkedActivity ? (
                                     <DropdownMenuItem onPress={() => openActivityDetail?.(linkedActivityId)}>
                                       <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                                        Open activity
+                                        Open to-do
                                       </Text>
                                     </DropdownMenuItem>
                                   ) : null}
@@ -866,7 +866,7 @@ export function ActivityDetailRefresh(props: any) {
                               ) : (
                                 <DropdownMenuItem onPress={() => handleConvertStepToActivity?.(step.id)}>
                                   <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                                    Convert to activity
+                                    Convert to to-do
                                   </Text>
                                 </DropdownMenuItem>
                               )}
@@ -955,7 +955,7 @@ export function ActivityDetailRefresh(props: any) {
               right={null}
               onPress={beginAddStepInline}
               testID="e2e.activityDetail.steps.addRow"
-              accessibilityLabel="Add a step to this activity"
+              accessibilityLabel="Add a step to this to-do"
               style={[styles.stepRow, styles.addStepRow]}
               contentStyle={styles.stepRowContent}
             >
@@ -1203,7 +1203,7 @@ export function ActivityDetailRefresh(props: any) {
                   hideLabel
                   surfaceVariant="filled"
                   value={activity.notes ?? ''}
-                  placeholder="Add context or reminders for this activity."
+                  placeholder="Add context or reminders for this to-do."
                   autosaveDebounceMs={900}
                   onChange={(next) => {
                     const nextValue = next.trim().length ? next : '';
@@ -1671,7 +1671,7 @@ export function ActivityDetailRefresh(props: any) {
                   placeholder="Select type…"
                   searchPlaceholder="Search types…"
                   emptyText="No type options found."
-                  accessibilityLabel="Change activity type"
+                  accessibilityLabel="Change to-do type"
                   allowDeselect={false}
                   presentation="drawer"
                   size="compact"

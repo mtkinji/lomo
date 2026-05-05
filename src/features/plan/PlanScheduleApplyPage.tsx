@@ -282,7 +282,7 @@ export function PlanScheduleApplyPage({
         Alert.alert('Success', `${successCount} activities scheduled on your calendar.`);
         onClearSelection();
       } else {
-        Alert.alert('Error', 'Failed to schedule activities. Please check calendar permissions.');
+        Alert.alert('Error', 'Failed to schedule to-dos. Please check calendar permissions.');
       }
     } finally {
       setIsApplying(false);
@@ -318,7 +318,7 @@ export function PlanScheduleApplyPage({
       if (typeof setLastSchedulingApply === 'function') {
         setLastSchedulingApply(null);
       }
-      Alert.alert('Undone', 'Removed the scheduled events and restored your activities.');
+      Alert.alert('Undone', 'Removed the scheduled events and restored your to-dos.');
     } finally {
       setIsUndoing(false);
     }
@@ -336,11 +336,11 @@ export function PlanScheduleApplyPage({
     return (
       <View style={[styles.center, { padding: contentPadding }]}>
         <EmptyState
-          title={mode === 'selected' ? 'Select activities to schedule' : 'Nothing to schedule'}
+          title={mode === 'selected' ? 'Select to-dos to schedule' : 'Nothing to schedule'}
           instructions={
             mode === 'selected'
               ? 'Pick a few recommendations, then come back to schedule them.'
-              : 'Add some activities to see a proposed schedule.'
+              : 'Add some to-dos to see a proposed schedule.'
           }
         />
         {mode === 'selected' ? (

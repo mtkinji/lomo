@@ -166,7 +166,7 @@ export function GoalMasonryTile({
     if (goal.status === 'archived') return null;
     if (goal.status === 'completed') return { label: 'Completed', icon: 'check' as IconName, muted: true };
 
-    if (activityCount === 0) return { label: 'Add first activity', icon: 'plus' as IconName, muted: false };
+    if (activityCount === 0) return { label: 'Add first to-do', icon: 'plus' as IconName, muted: false };
     if (doneCount >= activityCount && activityCount > 0) {
       return { label: 'Mark complete', icon: 'check' as IconName, muted: false };
     }
@@ -176,8 +176,8 @@ export function GoalMasonryTile({
       return { label: 'Adjust finish date', icon: 'today' as IconName, muted: false };
     if (nextScheduledLabel) return { label: `${nextScheduledLabel}`, icon: 'today' as IconName, muted: false };
     if (hasUnscheduledIncomplete)
-      return { label: 'Schedule an activity', icon: 'today' as IconName, muted: false };
-    return { label: 'Pick an activity', icon: 'activities' as IconName, muted: false };
+      return { label: 'Schedule a to-do', icon: 'today' as IconName, muted: false };
+    return { label: 'Pick a to-do', icon: 'activities' as IconName, muted: false };
   }, [activityCount, doneCount, finishBy?.value, goal.status, goal.targetDate, hasUnscheduledIncomplete, nextScheduledLabel]);
 
   const description = React.useMemo(() => {

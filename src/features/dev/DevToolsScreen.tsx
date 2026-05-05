@@ -239,10 +239,10 @@ export function DevToolsScreen() {
     const activity: Activity = {
       id,
       goalId: null,
-      title: '🧪 Dev: Activity guide test',
+      title: '🧪 Dev: To-do guide test',
       type: 'task',
       tags: [],
-      notes: 'This Activity exists to test ActivityDetail coachmarks from DevTools.',
+      notes: 'This To-do exists to test ActivityDetail coachmarks from DevTools.',
       steps: [],
       reminderAt: null,
       priority: undefined,
@@ -461,7 +461,7 @@ export function DevToolsScreen() {
       id: goalId,
       arcId: targetArcId,
       title: '🎯 Dev: Plan-ready Goal',
-      description: 'Goal with seeded activities for testing the plan-ready → activity-detail handoff.',
+      description: 'Goal with seeded to-dos for testing the plan-ready → to-do detail handoff.',
       status: 'planned',
       startDate: nowIso,
       targetDate: undefined,
@@ -477,7 +477,7 @@ export function DevToolsScreen() {
       const activity: Activity = {
         id: actId,
         goalId,
-        title: i === 0 ? '🧪 Dev: First plan activity' : '🧪 Dev: Second plan activity',
+        title: i === 0 ? '🧪 Dev: First plan to-do' : '🧪 Dev: Second plan to-do',
         type: 'task',
         tags: [],
         notes: '',
@@ -1652,7 +1652,7 @@ export function DevToolsScreen() {
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Screenshot demo pack (dev)</Text>
               <Text style={styles.cardBody}>
-                Installs a deterministic set of realistic Arcs/Goals/Activities locally (no backend writes) so you can
+                Installs a deterministic set of realistic Arcs/Goals/To-dos locally (no backend writes) so you can
                 screenshot real screens instantly.
               </Text>
               <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
@@ -1740,10 +1740,10 @@ export function DevToolsScreen() {
                 </ButtonLabel>
               </Button>
               <Button testID="e2e.seed.showActivitiesListGuide" variant="secondary" onPress={handleShowActivitiesListGuide} style={styles.cardAction}>
-                <ButtonLabel size="md">Show Activities list guide</ButtonLabel>
+                <ButtonLabel size="md">Show To-dos list guide</ButtonLabel>
               </Button>
               <Button testID="e2e.seed.showActivityDetailGuide" variant="secondary" onPress={handleShowActivityDetailGuide} style={styles.cardAction}>
-                <ButtonLabel size="md">Show Activity detail guide</ButtonLabel>
+                <ButtonLabel size="md">Show To-do detail guide</ButtonLabel>
               </Button>
               {isFlowActive && (
                 <Button variant="secondary" onPress={dismissFlow} style={styles.cardAction}>
@@ -1757,7 +1757,7 @@ export function DevToolsScreen() {
                 <ButtonLabel size="md">Show first-goal celebration</ButtonLabel>
               </Button>
               <Button testID="e2e.seed.showOnboardingPlanReadyHandoff" variant="secondary" onPress={handleShowOnboardingPlanReadyHandoff} style={styles.cardAction}>
-                <ButtonLabel size="md">Show plan-ready → activity handoff</ButtonLabel>
+                <ButtonLabel size="md">Show plan-ready → to-do handoff</ButtonLabel>
               </Button>
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
@@ -1768,16 +1768,16 @@ export function DevToolsScreen() {
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Celebration Interstitials</Text>
               <Text style={styles.cardBody}>
-                Full-screen GIPHY-powered celebration moments that appear at key milestones (goal completion, activity completion, streaks).
+                Full-screen GIPHY-powered celebration moments that appear at key milestones (goal completion, to-do completion, streaks).
               </Text>
               <Button variant="secondary" onPress={() => celebrateGoalCompleted('Test Goal')} style={styles.cardAction}>
                 <ButtonLabel size="md">Goal Completed 🏆</ButtonLabel>
               </Button>
-              <Button variant="secondary" onPress={() => celebrateActivityCompleted('Test Activity')} style={styles.cardAction}>
-                <ButtonLabel size="md">Activity Completed ✨</ButtonLabel>
+              <Button variant="secondary" onPress={() => celebrateActivityCompleted('Test To-do')} style={styles.cardAction}>
+                <ButtonLabel size="md">To-do Completed ✨</ButtonLabel>
               </Button>
               <Button variant="secondary" onPress={() => celebrateFirstActivity()} style={styles.cardAction}>
-                <ButtonLabel size="md">First Activity 🎯</ButtonLabel>
+                <ButtonLabel size="md">First To-do 🎯</ButtonLabel>
               </Button>
               <Button variant="secondary" onPress={() => celebrateWeeklyStreak(3)} style={styles.cardAction}>
                 <ButtonLabel size="md">Weekly Streak 🔥</ButtonLabel>
@@ -1996,7 +1996,7 @@ export function DevToolsScreen() {
                 />
               </View>
               <Text style={styles.meta}>
-                When enabled, Arc → Goal → Activity will render as a tappable breadcrumb path.
+                When enabled, Arc → Goal → To-do will render as a tappable breadcrumb path.
               </Text>
 
               <View style={styles.switchRow}>
@@ -2042,7 +2042,7 @@ export function DevToolsScreen() {
                 />
               </View>
               <Text style={styles.meta}>
-                When enabled, top-level canvases (Goals/Activities/Plan/More/Arcs) show a menu button that opens the navigation drawer.
+                When enabled, top-level canvases (Goals/To-dos/Plan/More/Arcs) show a menu button that opens the navigation drawer.
               </Text>
 
             </View>
@@ -2635,5 +2635,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
 

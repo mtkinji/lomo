@@ -272,7 +272,7 @@ export function ConnectCursorWizardScreen() {
       <HStack justifyContent="space-between" alignItems="center">
         <VStack space="xs" style={{ flex: 1 }}>
           <Text style={styles.stepTitle}>Connect Cursor</Text>
-          <Text style={styles.subtle}>Set up a Cursor destination so Cursor can create and manage your Activities.</Text>
+          <Text style={styles.subtle}>Set up a Cursor destination so Cursor can create and manage your to-dos.</Text>
         </VStack>
       </HStack>
       <HStack space="xs" alignItems="center" style={styles.stepperRow}>
@@ -615,5 +615,4 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
 });
-
 

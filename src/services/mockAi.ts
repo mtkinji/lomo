@@ -23,7 +23,7 @@ const arcTemplates: GeneratedArc[] = [
     narrative:
       'Lead with patience, listen with attention, form traditions, and build emotional safety so that family life reflects warmth and generosity.',
     status: 'active',
-    suggestedForces: ['🤝 Connection', '🏃 Activity'],
+    suggestedForces: ['🤝 Connection', '🏃 To-do'],
   },
   {
     name: '🧠 Craft & Contribution',
@@ -37,7 +37,7 @@ const arcTemplates: GeneratedArc[] = [
     narrative:
       'Use woodworking and embodied craft as a spiritual counterweight to digital life—creating durable, beautiful things with care.',
     status: 'active',
-    suggestedForces: ['🏃 Activity', '🧠 Mastery'],
+    suggestedForces: ['🏃 To-do', '🧠 Mastery'],
   },
 ];
 

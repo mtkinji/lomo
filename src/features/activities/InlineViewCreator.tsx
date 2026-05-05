@@ -175,7 +175,7 @@ export function InlineViewCreator({
                 <TextInput
                   ref={inputRef}
                   style={styles.aiInput}
-                  placeholder="e.g., High priority tasks due this week"
+                  placeholder="e.g., High priority to-dos due this week"
                   placeholderTextColor={colors.muted}
                   value={aiPrompt}
                   onChangeText={setAiPrompt}
@@ -287,4 +287,3 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
 });
-

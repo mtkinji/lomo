@@ -145,7 +145,7 @@ export function ActivityEventPeek({
           rightAction={<BottomDrawerHeaderClose onPress={onRequestClose} />}
           titleStyle={styles.headerTitle}
         />
-        <Text style={styles.bodyText}>This activity can’t be found.</Text>
+        <Text style={styles.bodyText}>This to-do can’t be found.</Text>
       </View>
     );
   }
@@ -203,7 +203,7 @@ export function ActivityEventPeek({
                     icon: 'moveTime',
                     label: 'Move',
                     onPress: handleMovePress,
-                    accessibilityHint: 'Change the scheduled time for this activity.',
+                    accessibilityHint: 'Change the scheduled time for this to-do.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -212,7 +212,7 @@ export function ActivityEventPeek({
                     icon: 'unschedule',
                     label: 'Unschedule',
                     onPress: () => onUnscheduleCommitment(activityId),
-                    accessibilityHint: 'Remove this activity from your plan.',
+                    accessibilityHint: 'Remove this to-do from your plan.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -224,7 +224,7 @@ export function ActivityEventPeek({
                       onRequestClose();
                       onOpenFullActivity(activityId);
                     },
-                    accessibilityHint: 'Open the full activity details.',
+                    accessibilityHint: 'Open the full to-do details.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -238,7 +238,7 @@ export function ActivityEventPeek({
                       onRequestClose();
                       onOpenFullActivity(activityId);
                     },
-                    accessibilityHint: 'Open the full activity details.',
+                    accessibilityHint: 'Open the full to-do details.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -247,7 +247,7 @@ export function ActivityEventPeek({
                     icon: 'moveTime',
                     label: 'Move',
                     onPress: handleMovePress,
-                    accessibilityHint: 'Change the scheduled time for this activity.',
+                    accessibilityHint: 'Change the scheduled time for this to-do.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },
@@ -256,7 +256,7 @@ export function ActivityEventPeek({
                     icon: 'unschedule',
                     label: 'Unschedule',
                     onPress: () => onUnscheduleCommitment(activityId),
-                    accessibilityHint: 'Remove this activity from your plan.',
+                    accessibilityHint: 'Remove this to-do from your plan.',
                     tileBackgroundColor: colors.canvas,
                     tileBorderColor: colors.border,
                   },

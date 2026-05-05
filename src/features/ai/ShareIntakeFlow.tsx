@@ -39,7 +39,7 @@ export function ShareIntakeFlow() {
       </Text>
       <View style={styles.buttonRow}>
         <Button variant="ai" onPress={() => choose(['activity'])} style={styles.button}>
-          <Text style={styles.primaryButtonText}>Activity</Text>
+          <Text style={styles.primaryButtonText}>To-do</Text>
         </Button>
         <Button variant="ai" onPress={() => choose(['goal'])} style={styles.button}>
           <Text style={styles.primaryButtonText}>Goal</Text>
@@ -50,7 +50,7 @@ export function ShareIntakeFlow() {
       </View>
       <View style={styles.secondaryRow}>
         <Button variant="outline" onPress={() => choose(['arc', 'goal', 'activity'])} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>Create all (Arc + Goal + Activities)</Text>
+          <Text style={styles.secondaryButtonText}>Create all (Arc + Goal + To-dos)</Text>
         </Button>
       </View>
     </View>

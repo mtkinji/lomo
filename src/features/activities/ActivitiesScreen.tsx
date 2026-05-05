@@ -701,7 +701,7 @@ export function ActivitiesScreen() {
 
   const wrappedShowToast = React.useCallback(
     (payload: any) => {
-      if (payload.message === 'Activity created' && lastCreatedActivityRef.current) {
+      if (payload.message === 'To-do created' && lastCreatedActivityRef.current) {
         const activity = lastCreatedActivityRef.current;
         const matches =
           QueryService.applyActivityFilters(
@@ -1255,8 +1255,8 @@ export function ActivitiesScreen() {
       return {
         title: 'Start here',
         body: isKanbanLayout
-          ? 'Use “Add card” in a column to add your first Activity. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.'
-          : 'Use the field at the bottom to add your first Activity. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+          ? 'Use “Add card” in a column to add your first to-do. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.'
+          : 'Use the field at the bottom to add your first to-do. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
       };
     }
     if (activitiesGuideStep === 0) {
@@ -1372,8 +1372,8 @@ export function ActivitiesScreen() {
 
       const launchContextSummary = [
         'Launch source: activities_quick_add_toolbar',
-        'Intent: generate a single new Activity title to prefill the quick-add input.',
-        'Constraints: Output ONLY the Activity title as plain text on a single line. No quotes. No bullets. No numbering. No trailing punctuation.',
+        'Intent: generate a single new to-do title to prefill the quick-add input.',
+        'Constraints: Output ONLY the to-do title as plain text on a single line. No quotes. No bullets. No numbering. No trailing punctuation.',
         snapshot ? `\n${snapshot}` : '',
       ].join('\n');
 
@@ -1381,18 +1381,18 @@ export function ActivitiesScreen() {
         {
           role: 'system',
           content:
-            'You are generating a single Activity title for the user.\n' +
+            'You are generating a single to-do title for the user.\n' +
             '- Output MUST be exactly one line: the title only.\n' +
             '- Keep it concrete and action-oriented (3–10 words).\n' +
-            '- Choose the SINGLE highest-value activity the user can realistically do next.\n' +
-            '- It MUST NOT duplicate or near-duplicate any existing activity title from the workspace snapshot (case-insensitive; ignore punctuation; avoid minor rewordings like swapping synonyms).\n' +
-            '- Prefer high-leverage activities that unblock progress across the user’s current Arcs/Goals or create a clear next step.\n' +
+            '- Choose the SINGLE highest-value to-do the user can realistically do next.\n' +
+            '- It MUST NOT duplicate or near-duplicate any existing to-do title from the workspace snapshot (case-insensitive; ignore punctuation; avoid minor rewordings like swapping synonyms).\n' +
+            '- Prefer high-leverage to-dos that unblock progress across the user’s current Arcs/Goals or create a clear next step.\n' +
             '- Do not include any explanation.',
         },
         {
           role: 'user',
           content:
-            'Suggest one new, highest-value activity that fits the user’s current arcs and goals, complements existing activities, and is not already in their activity list.',
+            'Suggest one new, highest-value to-do that fits the user’s current arcs and goals, complements existing to-dos, and is not already in their to-do list.',
         },
       ];
 
@@ -1414,7 +1414,7 @@ export function ActivitiesScreen() {
       });
     } catch (err) {
       if (__DEV__) {
-        console.warn('[ActivitiesScreen] Failed to generate quick-add activity title:', err);
+        console.warn('[ActivitiesScreen] Failed to generate quick-add to-do title:', err);
       }
     } finally {
       setIsQuickAddAiGenerating(false);
@@ -2115,7 +2115,7 @@ export function ActivitiesScreen() {
   return (
     <AppShell>
       <PageHeader
-        title="Activities"
+        title="To-dos"
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
@@ -2201,7 +2201,7 @@ export function ActivitiesScreen() {
       >
         <VStack space="md">
           <Text style={styles.widgetModalBody}>
-            After you add it, tapping the widget should open Kwilt directly to Today or your next Activity.
+            After you add it, tapping the widget should open Kwilt directly to Today or your next To-do.
           </Text>
           <HStack justifyContent="space-between" alignItems="center">
             <Button variant="secondary" onPress={() => handleDismissWidgetPrompt('modal')}>
@@ -2261,7 +2261,7 @@ export function ActivitiesScreen() {
                         <HStack alignItems="center" space="xs">
                           <Icon name="panelLeft" size={14} color={colors.textPrimary} />
                           <Text style={styles.toolbarButtonLabel}>
-                            {activeView?.name ?? '🗂️ All activities'}
+                            {activeView?.name ?? '🗂️ All to-dos'}
                           </Text>
                         </HStack>
                       </Button>
@@ -2308,7 +2308,7 @@ export function ActivitiesScreen() {
                         <HStack alignItems="center" space="xs">
                           <Icon name="panelLeft" size={14} color={colors.textPrimary} />
                           <Text style={styles.toolbarButtonLabel}>
-                            {activeView?.name ?? '🗂️ All activities'}
+                            {activeView?.name ?? '🗂️ All to-dos'}
                           </Text>
                         </HStack>
                       </Button>
@@ -2357,7 +2357,7 @@ export function ActivitiesScreen() {
                           accessibilityLabel={
                             filterCount > 0
                               ? `Filter activities (${filterCount})`
-                              : 'Filter activities'
+                              : 'Filter to-dos'
                           }
                         >
                           <HStack alignItems="center" space="xs">
@@ -2376,7 +2376,7 @@ export function ActivitiesScreen() {
                     <Pressable
                       testID="e2e.activities.toolbar.filter"
                       accessibilityRole="button"
-                      accessibilityLabel="Filter activities (Pro)"
+                      accessibilityLabel="Filter to-dos (Pro)"
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
                       }
@@ -2413,7 +2413,7 @@ export function ActivitiesScreen() {
                           accessibilityLabel={
                             appliedSortCount > 0
                               ? `Sort activities (${appliedSortCount})`
-                              : 'Sort activities'
+                              : 'Sort to-dos'
                           }
                         >
                           <HStack alignItems="center" space="xs">
@@ -2432,7 +2432,7 @@ export function ActivitiesScreen() {
                     <Pressable
                       testID="e2e.activities.toolbar.sort"
                       accessibilityRole="button"
-                      accessibilityLabel="Sort activities (Pro)"
+                      accessibilityLabel="Sort to-dos (Pro)"
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
@@ -2563,7 +2563,7 @@ export function ActivitiesScreen() {
             !hasAnyActivities ? (
               filterGroups.length > 0 ? (
                 <EmptyState
-                  title="No matching activities"
+                  title="No matching to-dos"
                   instructions="Check your filters to see more results."
                   iconName="search"
                   primaryAction={{
@@ -2582,14 +2582,14 @@ export function ActivitiesScreen() {
                 />
               ) : (
               <EmptyState
-                title="No activities yet"
-                instructions="Add your first activity to start building momentum."
-                  iconName="box"
+                title="No to-dos yet"
+                instructions="Add your first to-do to start building momentum."
+                iconName="emptyBox"
                 primaryAction={{
-                  label: 'Add activity',
+                  label: 'Add to-do',
                   variant: 'accent',
                   onPress: () => setActivityCoachVisible(true),
-                  accessibilityLabel: 'Add a new activity',
+                  accessibilityLabel: 'Add a new to-do',
                 }}
                 style={styles.emptyState}
               />
@@ -2709,7 +2709,7 @@ export function ActivitiesScreen() {
             !hasAnyActivities ? (
               filterGroups.length > 0 ? (
                 <EmptyState
-                  title="No matching activities"
+                  title="No matching to-dos"
                   instructions="Check your filters to see more results."
                   iconName="search"
                   primaryAction={{
@@ -2728,14 +2728,14 @@ export function ActivitiesScreen() {
                 />
               ) : (
               <EmptyState
-                title="No activities yet"
-                instructions="Add your first activity to start building momentum."
-                  iconName="box"
+                title="No to-dos yet"
+                instructions="Add your first to-do to start building momentum."
+                iconName="emptyBox"
                 primaryAction={{
-                  label: 'Add activity',
+                  label: 'Add to-do',
                   variant: 'accent',
                   onPress: () => setActivityCoachVisible(true),
-                  accessibilityLabel: 'Add a new activity',
+                  accessibilityLabel: 'Add a new to-do',
                 }}
                 style={styles.emptyState}
               />
@@ -2795,7 +2795,7 @@ export function ActivitiesScreen() {
       >
         <Text style={styles.triggerGuideTitle}>Filter active</Text>
         <Text style={styles.triggerGuideBody}>
-          This activity doesn't match your current filters. It's only visible until you refresh the view.
+          This to-do doesn't match your current filters. It's only visible until you refresh the view.
         </Text>
         <HStack space="sm" alignItems="center" style={styles.triggerGuideActions}>
           <Button variant="ghost" onPress={dismissGhostWarning}>
@@ -3087,7 +3087,7 @@ export function ActivitiesScreen() {
                 <Text style={styles.viewEditorToggleLabel}>Show completed </Text>
                 <Pressable
                   accessibilityRole="switch"
-                  accessibilityLabel="Toggle visibility of completed activities section"
+                  accessibilityLabel="Toggle visibility of completed to-dos section"
                   accessibilityState={{ checked: showCompleted }}
                   onPress={() => handleUpdateShowCompleted(!showCompleted)}
                   style={[

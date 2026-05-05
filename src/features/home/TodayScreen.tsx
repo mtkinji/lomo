@@ -203,7 +203,7 @@ export function TodayScreen() {
                   Track your arcs, review goal drafts, and keep the day grounded in meaningful work.
                 </Text>
                 <Button size="small" style={styles.primaryAction}>
-                  <Text style={styles.primaryActionText}>Create New Task</Text>
+                  <Text style={styles.primaryActionText}>Create New To-do</Text>
                 </Button>
                 {networkCheck !== 'success' && (
                   <Text style={styles.networkText}>
@@ -226,7 +226,7 @@ export function TodayScreen() {
                     {suggested?.kind === 'setup'
                       ? suggested.reason === 'no_goals'
                         ? 'Create your first Goal so Kwilt can help you stay consistent.'
-                        : 'Add one Activity so you can build momentum today.'
+                        : 'Add one to-do so you can build momentum today.'
                       : 'Here’s a tiny step you can complete today.'}
                   </Text>
                 </VStack>
@@ -238,8 +238,9 @@ export function TodayScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            title="No activities yet"
-            instructions="Create an Arc, then a Goal, then your first Activity."
+            title="No to-dos yet"
+            iconName="emptyBox"
+            instructions="Create an Arc, then a Goal, then your first to-do."
             style={styles.emptyState}
           />
         }
@@ -311,7 +312,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   emptyState: {
-    marginTop: spacing['2xl'],
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: 0,
   },
   emptyTitle: {
     ...typography.titleSm,
@@ -353,5 +356,3 @@ const styles = StyleSheet.create({
     height: spacing.md,
   },
 });
-
-

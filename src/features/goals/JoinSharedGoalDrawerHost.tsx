@@ -219,7 +219,7 @@ export function JoinSharedGoalDrawerHost() {
         ) : null}
 
         <Text style={styles.body}>
-          By default you share <Text style={styles.bold}>signals only</Text> (check-ins + cheers). Activity titles stay
+          By default you share <Text style={styles.bold}>signals only</Text> (check-ins + cheers). To-do titles stay
           private unless you choose to share them.
         </Text>
 

@@ -619,7 +619,7 @@ export function SuperAdminToolsScreen() {
     if (!key || key === 'none') return '—';
     if (key === 'ai') return 'AI';
     if (key === 'checkin') return 'Check-in';
-    if (key === 'activity') return 'Activity';
+    if (key === 'activity') return 'To-do';
     if (key === 'goal') return 'Goal';
     if (key === 'arc') return 'Arc';
     return key;
@@ -885,7 +885,7 @@ export function SuperAdminToolsScreen() {
                     <Text style={styles.metricsGridValue}>
                       {metricsLoading ? '…' : metricsData?.activitiesCreated ?? '—'}
                     </Text>
-                    <Text style={styles.metricsGridLabel}>Activities</Text>
+                    <Text style={styles.metricsGridLabel}>To-dos</Text>
                   </View>
                   <View style={styles.metricsGridItem}>
                     <Text style={styles.metricsGridValue}>
@@ -940,7 +940,7 @@ export function SuperAdminToolsScreen() {
                           No location data available yet
                         </Text>
                         <Text style={styles.metricsMapHint}>
-                          Locations are collected from activities with place data
+                          Locations are collected from to-dos with place data
                         </Text>
                       </View>
                     );
@@ -1002,7 +1002,7 @@ export function SuperAdminToolsScreen() {
                         // Fallback for Android - show summary
                         <View style={styles.metricsMapPlaceholder}>
                           <Text style={styles.metricsMapPlaceholderText}>
-                            {locations.length} location{locations.length !== 1 ? 's' : ''} with activity
+                            {locations.length} location{locations.length !== 1 ? 's' : ''} with to-do
                           </Text>
                           {locations.slice(0, 5).map((loc, idx) => (
                             <Text key={idx} style={styles.metricsMapHint}>
@@ -1012,7 +1012,7 @@ export function SuperAdminToolsScreen() {
                         </View>
                       )}
                       <Text style={styles.metricsMapLegend}>
-                        {locations.length} location{locations.length !== 1 ? 's' : ''} • {locations.reduce((sum, l) => sum + l.count, 0)} activities
+                        {locations.length} location{locations.length !== 1 ? 's' : ''} • {locations.reduce((sum, l) => sum + l.count, 0)} to-dos
                       </Text>
                       <View style={styles.metricsMapTapHint}>
                         <Text style={styles.metricsMapTapHintText}>Tap to explore</Text>
@@ -1196,7 +1196,7 @@ export function SuperAdminToolsScreen() {
               })()}
               <View style={styles.hotspotsModalLegend}>
                 <Text style={styles.metricsMapLegend}>
-                  {(metricsData?.userLocations ?? []).length} location{(metricsData?.userLocations ?? []).length !== 1 ? 's' : ''} • {(metricsData?.userLocations ?? []).reduce((sum, l) => sum + l.count, 0)} activities
+                  {(metricsData?.userLocations ?? []).length} location{(metricsData?.userLocations ?? []).length !== 1 ? 's' : ''} • {(metricsData?.userLocations ?? []).reduce((sum, l) => sum + l.count, 0)} to-dos
                 </Text>
               </View>
             </SafeAreaView>
@@ -1481,7 +1481,7 @@ export function SuperAdminToolsScreen() {
                     {(() => {
                       const loc = directoryDetailRow.user?.roughLocation ?? directoryDetailRow.install?.roughLocation;
                       if (!loc) return null;
-                      
+
                       // Build location string with available precision
                       const parts: string[] = [];
                       if (loc.city) parts.push(loc.city);
@@ -1492,13 +1492,13 @@ export function SuperAdminToolsScreen() {
                       
                       // Determine precision label based on source and available data
                       const hasCityLevel = Boolean(loc.city);
-                      const sourceLabel = loc.source === 'gps' 
-                        ? 'GPS (~5mi)' 
-                        : loc.source === 'activity_place' 
-                        ? 'Activity place' 
+                      const sourceLabel = loc.source === 'gps'
+                        ? 'GPS (~5mi)'
+                        : loc.source === 'activity_place'
+                        ? 'To-do place'
                         : 'IP-based';
-                      const precisionNote = hasCityLevel 
-                        ? `City-level precision • ${sourceLabel}` 
+                      const precisionNote = hasCityLevel
+                        ? `City-level precision • ${sourceLabel}`
                         : `Country/region level • ${sourceLabel}`;
                       
                       return (
@@ -1763,7 +1763,7 @@ export function SuperAdminToolsScreen() {
                                 <Text style={styles.useDashboardValue}>
                                   {loading ? '…' : s?.activities_created ?? '—'}
                                 </Text>
-                                <Text style={styles.useDashboardLabel}>Activities</Text>
+                                <Text style={styles.useDashboardLabel}>To-dos</Text>
                               </View>
                             </HStack>
                           </View>
@@ -1849,7 +1849,7 @@ export function SuperAdminToolsScreen() {
                           {/* Location map card - always show */}
                           {(() => {
                             const loc = directoryDetailRow.user?.roughLocation ?? directoryDetailRow.install?.roughLocation;
-                            
+
                             // Build location label if we have data
                             const labelParts: string[] = [];
                             if (loc?.city) labelParts.push(loc.city);
@@ -1860,14 +1860,14 @@ export function SuperAdminToolsScreen() {
                             
                             // Determine precision info
                             const hasCityLevel = Boolean(loc?.city);
-                            const sourceLabel = loc?.source === 'gps' 
-                              ? 'GPS' 
-                              : loc?.source === 'activity_place' 
-                              ? 'Activity' 
+                            const sourceLabel = loc?.source === 'gps'
+                              ? 'GPS'
+                              : loc?.source === 'activity_place'
+                              ? 'To-do'
                               : loc?.source === 'ip'
                               ? 'IP'
                               : null;
-                            
+
                             // Calculate zoom based on precision
                             const hasCoords = typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number';
                             const zoom = loc?.source === 'gps' ? 13 
@@ -2423,5 +2423,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shell,
   },
 });
-
 

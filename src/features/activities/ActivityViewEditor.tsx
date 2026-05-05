@@ -119,7 +119,7 @@ export function ActivityViewEditor({
               <Text style={styles.viewEditorToggleLabel}>Show completed </Text>
               <Pressable
                 accessibilityRole="switch"
-                accessibilityLabel="Toggle visibility of completed activities section"
+                accessibilityLabel="Toggle visibility of completed to-dos section"
                 accessibilityState={{ checked: showCompleted }}
                 onPress={() => onUpdateShowCompleted(!showCompleted)}
                 style={[

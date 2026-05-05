@@ -738,7 +738,7 @@ export const buildUserProfileSummary = (): string | undefined => {
   if (typeof consent.useHistoryForCoaching === 'boolean') {
     parts.push(
       consent.useHistoryForCoaching
-        ? 'You may use past arcs, goals, and activities to tailor guidance.'
+        ? 'You may use past arcs, goals, and to-dos to tailor guidance.'
         : 'Avoid making inferences from detailed historical behavior.'
     );
   }
@@ -1063,7 +1063,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
         function: {
           name: 'enter_focus_mode' as CoachToolName,
           description:
-            'Open Focus Mode for the currently focused activity. This will open the focus sheet in the UI; the user still confirms starting the timer.',
+            'Open Focus Mode for the currently focused to-do. This will open the focus sheet in the UI; the user still confirms starting the timer.',
           parameters: {
             type: 'object',
             properties: {
@@ -1083,7 +1083,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
         function: {
           name: 'schedule_activity_on_calendar' as CoachToolName,
           description:
-            'Open the calendar scheduling sheet for the focused activity, optionally prefilled with a start time and duration. The user still confirms creating the calendar event.',
+            'Open the calendar scheduling sheet for the focused to-do, optionally prefilled with a start time and duration. The user still confirms creating the calendar event.',
           parameters: {
             type: 'object',
             properties: {
@@ -1107,7 +1107,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
         function: {
           name: 'schedule_activity_chunks_on_calendar' as CoachToolName,
           description:
-            'Create multiple calendar events for the focused activity by splitting it into smaller time chunks. Use only after the user explicitly agrees to schedule chunks on their calendar.',
+            'Create multiple calendar events for the focused to-do by splitting it into smaller time chunks. Use only after the user explicitly agrees to schedule chunks on their calendar.',
           parameters: {
             type: 'object',
             properties: {
@@ -1138,7 +1138,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
         function: {
           name: 'activity_steps_edit' as CoachToolName,
           description:
-            'Add/modify/remove steps on an activity. Use replace to set the full list, append to add new ones, update to edit one step, remove to delete one by index.',
+            'Add/modify/remove steps on a to-do. Use replace to set the full list, append to add new ones, update to edit one step, remove to delete one by index.',
           parameters: {
             type: 'object',
             properties: {
@@ -1184,7 +1184,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
         function: {
           name: 'update_activity_fields' as CoachToolName,
           description:
-            'Update one or more top-level fields on an activity (e.g. title, notes, estimateMinutes, priority, difficulty, tags, scheduledDate, type). Use this when the user asks to change a property of the activity itself, NOT its steps.',
+            'Update one or more top-level fields on a to-do (e.g. title, notes, estimateMinutes, priority, difficulty, tags, scheduledDate, type). Use this when the user asks to change a property of the to-do itself, NOT its steps.',
           parameters: {
             type: 'object',
             properties: {
@@ -1193,7 +1193,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
                 type: 'object',
                 description: 'Key-value pairs of fields to update.',
                 properties: {
-                  title: { type: 'string', description: 'New title for the activity.' },
+                  title: { type: 'string', description: 'New title for the to-do.' },
                   notes: { type: 'string', description: 'New notes (replaces existing).' },
                   estimateMinutes: {
                     type: ['number', 'null'],
@@ -1221,7 +1221,7 @@ const buildCoachToolsForMode = (mode?: ChatMode) => {
                   type: {
                     type: 'string',
                     enum: ['task', 'checklist', 'shopping_list', 'instructions', 'plan'],
-                    description: 'Activity type.',
+                    description: 'To-do type.',
                   },
                 },
                 additionalProperties: false,
@@ -1291,7 +1291,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
     if (!activityId) return { ok: false, error: 'Missing activityId' };
 
     const activity = state.activities.find((a) => a.id === activityId) ?? null;
-    if (!activity) return { ok: false, error: 'Activity not found' };
+    if (!activity) return { ok: false, error: 'To-do not found' };
 
     const minutes =
       typeof payload.minutes === 'number' && Number.isFinite(payload.minutes)
@@ -1313,7 +1313,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
     if (!activityId) return { ok: false, error: 'Missing activityId' };
 
     const activity = state.activities.find((a) => a.id === activityId) ?? null;
-    if (!activity) return { ok: false, error: 'Activity not found' };
+    if (!activity) return { ok: false, error: 'To-do not found' };
 
     const startAtISO = typeof payload.startAtISO === 'string' ? payload.startAtISO : undefined;
     const durationMinutes =
@@ -1340,7 +1340,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
     if (!activityId) return { ok: false, error: 'Missing activityId' };
 
     const activity = state.activities.find((a) => a.id === activityId) ?? null;
-    if (!activity) return { ok: false, error: 'Activity not found' };
+    if (!activity) return { ok: false, error: 'To-do not found' };
 
     if (Platform.OS === 'web') {
       return { ok: false, error: 'Calendar scheduling is not available on web.' };
@@ -1390,7 +1390,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
 
       const goalTitle =
         activity.goalId ? state.goals.find((g) => g.id === activity.goalId)?.title ?? null : null;
-      const notesBase = [goalTitle ? `Goal: ${goalTitle}` : null, `Activity: ${activity.title}`]
+      const notesBase = [goalTitle ? `Goal: ${goalTitle}` : null, `To-do: ${activity.title}`]
         .filter(Boolean)
         .join('\n');
 
@@ -1438,7 +1438,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
     const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
     if (!activityId) return { ok: false, error: 'Missing activityId' };
     const activity = state.activities.find((a) => a.id === activityId) ?? null;
-    if (!activity) return { ok: false, error: 'Activity not found' };
+    if (!activity) return { ok: false, error: 'To-do not found' };
 
     const operation = payload.operation;
     if (!operation) return { ok: false, error: 'Missing operation' };
@@ -1549,7 +1549,7 @@ const runCoachTool = async (tool: CoachToolCall) => {
     const activityId = typeof payload.activityId === 'string' ? payload.activityId : '';
     if (!activityId) return { ok: false, error: 'Missing activityId' };
     const activity = state.activities.find((a) => a.id === activityId) ?? null;
-    if (!activity) return { ok: false, error: 'Activity not found' };
+    if (!activity) return { ok: false, error: 'To-do not found' };
 
     const fields = payload.fields;
     if (!fields || typeof fields !== 'object') return { ok: false, error: 'Missing fields' };
@@ -3340,7 +3340,7 @@ export async function enrichActivityWithAI(
         : [];
 
     const systemPrompt =
-      'You enrich a single task/activity with helpful supporting details.\n' +
+      'You enrich a single to-do with helpful supporting details.\n' +
       'Return JSON only, matching the schema.\n' +
       '- notes: 1–3 short sentences, practical and specific.\n' +
       '- tags: 0–5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
@@ -3351,12 +3351,12 @@ export async function enrichActivityWithAI(
       'Important: avoid duplication.\n' +
       '- Do NOT repeat the user-provided notes.\n' +
       '- Do NOT propose tags that are already present in Existing tags.\n' +
-      '- If provided a list of existing goal activities, avoid producing steps/notes that substantially duplicate those items.\n' +
+      '- If provided a list of existing goal to-dos, avoid producing steps/notes that substantially duplicate those items.\n' +
       'Do not include any PII and do not invent constraints the user did not imply.';
 
     const userPrompt = [
-      `Activity title: ${title}`,
-      params.activityType ? `Activity type: ${String(params.activityType).trim()}` : 'Activity type: (unknown)',
+      `To-do title: ${title}`,
+      params.activityType ? `To-do type: ${String(params.activityType).trim()}` : 'To-do type: (unknown)',
       goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
       goalDescriptionPlain ? `Goal context: ${goalDescriptionPlain}` : 'Goal context: (none)',
       arc?.name ? `Arc: ${arc.name}` : 'Arc: (none)',
@@ -3369,10 +3369,10 @@ export async function enrichActivityWithAI(
         : 'Existing tags: (none)',
       siblingActivitiesOnGoal.length > 0
         ? [
-            'Other existing activities on this goal (avoid duplicating these; make this activity complementary):',
+            'Other existing to-dos on this goal (avoid duplicating these; make this to-do complementary):',
             ...siblingActivitiesOnGoal.map((a) => `- ${String(a.title ?? '').trim()} (status: ${String(a.status ?? '')})`),
           ].join('\n')
-        : 'Other existing activities on this goal: (none)',
+        : 'Other existing to-dos on this goal: (none)',
     ].join('\n');
 
     const body = {
@@ -3494,14 +3494,14 @@ export async function inferActivitySchedulingDomainWithAI(params: {
     if (!title) return null;
 
     const systemPrompt =
-      'You classify a task/activity into a scheduling domain.\n' +
+      'You classify a to-do into a scheduling domain.\n' +
       'Return JSON only, matching the schema.\n' +
       'Domains should be one of: work|personal|health|family|home|finance|learning|social|other.\n' +
       'Choose the best single domain.\n' +
       'Do not include any PII and do not add extra keys.';
 
     const userPrompt = [
-      `Activity title: ${title}`,
+      `To-do title: ${title}`,
       params.goalTitle ? `Goal: ${String(params.goalTitle).trim()}` : 'Goal: (none)',
       params.goalDescriptionPlain
         ? `Goal context: ${String(params.goalDescriptionPlain).trim()}`
@@ -3608,7 +3608,7 @@ export async function suggestActivityTagsWithAi(
 
     const model: LlmModel = 'gpt-4o-mini';
     const systemPrompt =
-      'You suggest a few simple user tags for a single activity.\n' +
+      'You suggest a few simple user tags for a single to-do.\n' +
       '- Prefer using tags from TAG HISTORY when they fit.\n' +
       '- Only invent new tags if none of the existing tags match.\n' +
       '- Tags should be short (1–2 words), lowercase-ish, no #, no punctuation.\n' +
@@ -3616,11 +3616,11 @@ export async function suggestActivityTagsWithAi(
       `- Include 0–${maxTags} tags. Do not include any other text.`;
 
     const userPrompt = [
-      `Activity title: ${title}`,
+      `To-do title: ${title}`,
       goalTitle ? `Goal: ${goalTitle}` : null,
       notesPlain ? `Notes: ${notesPlain.slice(0, 600)}` : null,
       tagHistoryCompact ? `TAG HISTORY: ${tagHistoryCompact}` : 'TAG HISTORY: (none)',
-      'Pick the best tags for this activity.',
+      'Pick the best tags for this to-do.',
     ]
       .filter(Boolean)
       .join('\n');
@@ -3799,5 +3799,3 @@ export async function refineWritingWithAI(params: RefineWritingParams): Promise<
     return null;
   }
 }
-
-

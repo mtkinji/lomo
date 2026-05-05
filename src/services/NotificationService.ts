@@ -116,15 +116,15 @@ const DAILY_SHOW_UP_VARIANTS: CopyVariant[] = [
 
 const ACTIVITY_REMINDER_VARIANTS: CopyVariant[] = [
   (ctx) => ({
-    title: `${ctx.activityTitle ?? 'Activity reminder'}${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
-    body: ctx.goalTitle ? (ctx.arcName && ctx.arcName.length <= 26 ? `${ctx.goalTitle} · ${ctx.arcName}` : ctx.goalTitle) : 'Take a tiny step on this activity.',
+    title: `${ctx.activityTitle ?? 'To-do reminder'}${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
+    body: ctx.goalTitle ? (ctx.arcName && ctx.arcName.length <= 26 ? `${ctx.goalTitle} · ${ctx.arcName}` : ctx.goalTitle) : 'Take a tiny step on this to-do.',
   }),
   (ctx) => ({
     title: ctx.streak >= 2 ? `Day ${ctx.streak + 1}: ${ctx.activityTitle ?? 'Time to act'}` : (ctx.activityTitle ?? 'Time to act'),
     body: ctx.goalTitle ? `Part of your ${ctx.goalTitle} goal.` : 'This is the tiny step that builds your streak.',
   }),
   (ctx) => ({
-    title: ctx.activityTitle ?? 'Activity reminder',
+    title: ctx.activityTitle ?? 'To-do reminder',
     body: ctx.streak >= 2 ? `Completing this continues your ${ctx.streak}-day streak.` : 'One tiny step — that\'s all it takes.',
   }),
 ];
@@ -744,7 +744,7 @@ async function cancelAllScheduledActivityReminders(activityId: string, reason: '
     });
     } catch (error) {
       if (__DEV__) {
-      console.warn('[notifications] failed to cancel activity reminders', {
+      console.warn('[notifications] failed to cancel to-do reminders', {
         activityId,
           error,
         });
@@ -776,7 +776,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
 
     const actCtx: CopyVariantContext = {
       streak,
-      activityTitle: activity.title?.trim() || 'Activity reminder',
+      activityTitle: activity.title?.trim() || 'To-do reminder',
       goalTitle: goalTitle || undefined,
       arcName: arcName || undefined,
     };
@@ -954,7 +954,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
     });
   } catch (error) {
     if (__DEV__) {
-      console.warn('[notifications] failed to schedule activity reminder', {
+      console.warn('[notifications] failed to schedule to-do reminder', {
         activityId: activity.id,
         error,
       });
@@ -1104,7 +1104,7 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
       copyTitle = isSetup?.reason === 'no_goals' ? 'Start your first goal' : 'Add one tiny step';
       copyBody = isSetup?.reason === 'no_goals'
         ? 'Create one goal so Kwilt can start nudging you at the right moments.'
-        : 'Add one Activity so you can build momentum today.';
+        : 'Add one to-do so you can build momentum today.';
     } else {
       const ctx: CopyVariantContext = {
         streak,
@@ -2013,7 +2013,7 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
     Alert.alert(
       'Allow gentle reminders?',
       reason === 'activity'
-        ? 'Kwilt can send you gentle reminders when Activities are due so tiny steps don’t slip through the cracks.'
+        ? 'Kwilt can send you gentle reminders when to-dos are due so tiny steps don’t slip through the cracks.'
         : 'Kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
       [
         {
@@ -2303,7 +2303,7 @@ export const NotificationService = {
       case 'setupNextStep':
         content = {
           title: 'Dev: Setup next step test',
-          body: 'Tap to open Activities and highlight Suggested.',
+          body: 'Tap to open To-dos and highlight Suggested.',
           data: { type: 'setupNextStep', reason: 'no_goals' } satisfies NotificationData,
         };
         break;
@@ -2361,5 +2361,4 @@ export const NotificationService = {
     }
   },
 };
-
 

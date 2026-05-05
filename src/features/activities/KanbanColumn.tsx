@@ -357,7 +357,7 @@ export function KanbanColumn({
           {activities.length === 0 && (
             <View style={styles.emptyState}>
               <Icon name="inbox" size={24} color={colors.gray300} />
-              <Text style={styles.emptyText}>No activities</Text>
+              <Text style={styles.emptyText}>No to-dos</Text>
             </View>
           )}
         </ScrollView>

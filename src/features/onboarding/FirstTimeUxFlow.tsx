@@ -402,7 +402,7 @@ export function FirstTimeUxFlow() {
       case 'notifications':
         title = 'Setup regular prompts';
         body =
-          "Kwilt will help you along with gentle reminders so tiny steps don't slip through the cracks. If you attach a place to an Activity, Kwilt can also nudge you when you arrive or leave—so it's easy to mark it done.";
+          "Kwilt will help you along with gentle reminders so tiny steps don't slip through the cracks. If you attach a place to a to-do, Kwilt can also nudge you when you arrive or leave—so it's easy to mark it done.";
         ctaLabel = 'Continue';
         nextStep = 'path';
         break;
@@ -410,7 +410,7 @@ export function FirstTimeUxFlow() {
       default:
         title = 'Build your path forward';
         body =
-          'We’ll start by turning an aspiration you have into an identity Arc (a clear picture of who you want to become), then shape Goals and small daily Activities. Next, you’ll answer a few quick questions in chat to build your first Arc.';
+          'We’ll start by turning an aspiration you have into an identity Arc (a clear picture of who you want to become), then shape Goals and small daily To-dos. Next, you’ll answer a few quick questions in chat to build your first Arc.';
         ctaLabel = 'Let’s begin';
         nextStep = 'workflow';
         break;
@@ -422,7 +422,7 @@ export function FirstTimeUxFlow() {
           We’ll start by turning one aspiration into your first identity{' '}
           <Text style={styles.ftueBodyEmphasis}>Arc</Text> (a clear picture of who you’re becoming), then
           shape <Text style={styles.ftueBodyEmphasis}>Goals</Text> and small daily{' '}
-          <Text style={styles.ftueBodyEmphasis}>Activities</Text>. Next, you’ll answer a few quick questions
+          <Text style={styles.ftueBodyEmphasis}>To-dos</Text>. Next, you’ll answer a few quick questions
           in chat to build your first Arc.
         </>
       ) : (
@@ -971,5 +971,4 @@ const styles = StyleSheet.create({
     color: colors.destructive,
   },
 });
-
 

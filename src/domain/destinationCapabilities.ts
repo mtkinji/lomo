@@ -25,7 +25,7 @@ export function getDestinationSupportedActivityTypes(kind: string): ActivityType
 }
 
 export function formatActivityTypeLabel(t: ActivityType): string {
-  if (t === 'task') return 'Task';
+  if (t === 'task') return 'To-do';
   if (t === 'checklist') return 'Checklist';
   if (t === 'shopping_list') return 'Shopping list';
   if (t === 'instructions') return 'Instructions';
@@ -33,5 +33,4 @@ export function formatActivityTypeLabel(t: ActivityType): string {
   if (typeof t === 'string' && t.startsWith('custom:')) return 'Custom';
   return String(t);
 }
-
 

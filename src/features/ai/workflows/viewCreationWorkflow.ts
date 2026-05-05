@@ -6,7 +6,7 @@ import type { WorkflowDefinition } from '../../../domain/workflows';
  * The AI helps users create custom activity views by interpreting natural
  * language descriptions and generating appropriate filter/sort configurations.
  */
-const VIEW_CREATION_SYSTEM_PROMPT = `You are a helpful assistant that creates custom activity views for a personal productivity app called Kwilt.
+const VIEW_CREATION_SYSTEM_PROMPT = `You are a helpful assistant that creates custom to-do views for a personal productivity app called Kwilt.
 
 Users describe what they want to see in natural language, and you translate that into a structured view configuration.
 
@@ -17,22 +17,22 @@ Users describe what they want to see in natural language, and you translate that
 - "kanban": Horizontal swimlane board with columns
 
 ### Kanban Grouping Options (when layout is "kanban")
-- "status": Group by activity status (To Do, In Progress, Done)
+- "status": Group by to-do status (To Do, In Progress, Done)
 - "goal": Group by linked goal
 - "priority": Group by priority level (High, Medium, Low)
 - "phase": Group by planning phase (Planning, Ready, Active, Review)
 
 ### Filter Fields
-- "title": Activity title (text search)
-- "status": Activity status ("todo", "in_progress", "completed")
+- "title": To-do title (text search)
+- "status": To-do status ("todo", "in_progress", "completed")
 - "priority": Priority level (1 = high/starred, 2 = medium, 3 = low)
 - "scheduledDate": Due date (supports relative values like "today", "+7days", "-1week")
 - "reminderAt": Reminder time
-- "tags": Activity tags (array)
+- "tags": To-do tags (array)
 - "difficulty": Difficulty rating
 - "estimateMinutes": Time estimate
 - "goalId": Linked goal ID
-- "type": Activity type ("task", "habit", "event", etc.)
+- "type": item type ("task", "habit", "event", etc.)
 
 ### Filter Operators
 - "eq": Equals
@@ -92,7 +92,7 @@ When the user describes what they want, respond with a JSON object containing:
 
 ## Examples
 
-User: "Show me high priority tasks due this week"
+User: "Show me high priority to-dos due this week"
 Response:
 \`\`\`json
 {
@@ -112,7 +112,7 @@ Response:
 }
 \`\`\`
 
-User: "Board view of my tasks grouped by goal"
+User: "Board view of my to-dos grouped by goal"
 Response:
 \`\`\`json
 {
@@ -148,7 +148,7 @@ Response:
 
 1. Infer reasonable defaults when the user's description is vague
 2. Prefer "list" layout unless the user specifically asks for a board/kanban view
-3. Default to hiding completed activities unless the user asks to see them
+3. Default to hiding completed to-dos unless the user asks to see them
 4. Generate descriptive, concise view names
 5. Keep filter configurations simple - don't over-engineer
 6. If the user's request doesn't map cleanly to available options, create a best-effort interpretation and explain any limitations
@@ -189,7 +189,7 @@ export const viewCreationWorkflow: WorkflowDefinition = {
       label: 'Describe your view',
       fieldsCollected: ['description'],
       promptTemplate:
-        'Listen to the user describe what kind of activities they want to see. Interpret their natural language and generate a view configuration.',
+        'Listen to the user describe what kind of to-dos they want to see. Interpret their natural language and generate a view configuration.',
       nextStepId: 'generate_view',
     },
     {
@@ -211,4 +211,3 @@ export const viewCreationWorkflow: WorkflowDefinition = {
     },
   ],
 };
-

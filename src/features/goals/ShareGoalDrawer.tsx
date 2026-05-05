@@ -84,7 +84,7 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
 
   const description = useMemo(
     () =>
-      'Invite a buddy (1 person) or start a squad (2–6).\n\nBy default you share signals only (check-ins + cheers). Activity titles stay private unless you choose to share them.',
+      'Invite a buddy (1 person) or start a squad (2–6).\n\nBy default you share signals only (check-ins + cheers). To-do titles stay private unless you choose to share them.',
     [],
   );
 
@@ -118,7 +118,9 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
         const message =
           `${kind === 'squad' ? 'Join my shared goal squad' : 'Join my goal'} in Kwilt: “${goalTitle}”.\n\n` +
           `Tap to open: ${tapUrl}\n\n` +
-          `Default sharing: signals only (check-ins + cheers). Activity titles stay private unless we choose to share them.\n\n` +
+          `Default sharing: signals only (check-ins + cheers). To-do titles stay private unless we choose to share them.
+
+` +
           `Plus: we’ll both get +25 AI credits when you join.\n\n` +
           `If needed, copy/paste: ${open.alt}`;
 

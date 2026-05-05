@@ -84,7 +84,7 @@ export function useActivitiesGuide({
     if (guideVariant === 'empty') {
       return {
         title: 'Start here',
-        body: 'Use the field at the bottom to add your first Activity. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
+        body: 'Use the field at the bottom to add your first to-do. Then use Plan to schedule it for Today. Once you have a few, Pro Tools lets you use Views, Filters, and Sort to stay focused.',
       };
     }
     if (activitiesGuideStep === 0) {
@@ -99,8 +99,8 @@ export function useActivitiesGuide({
       return {
         title: isPro ? 'Filter the list' : 'Pro Tools: Filters',
         body: isPro
-          ? 'Switch between All, Active, Completed, or Starred. Tap the ★ on an activity to star it.'
-          : 'Upgrade to Pro to filter your Activities list (All, Active, Completed, Starred).',
+          ? 'Switch between All, Active, Completed, or Starred. Tap the ★ on a to-do to star it.'
+          : 'Upgrade to Pro to filter your to-dos list (All, Active, Completed, Starred).',
       };
     }
     return {
@@ -123,4 +123,3 @@ export function useActivitiesGuide({
     guideCopy,
   };
 }
-

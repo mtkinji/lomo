@@ -92,7 +92,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     id: 'integrations',
     title: 'Integrations',
-    description: 'Connect destinations that can receive handed-off Activities.',
+    description: 'Connect destinations that can receive handed-off To-dos.',
     items: [
       {
         id: 'execution_targets',
@@ -292,7 +292,7 @@ export function SettingsHomeScreen() {
   // Calculate streak status
   const getStreakStatus = () => {
     if (!lastShowUpDate || currentStreak === 0) {
-      return { status: 'none', message: 'Complete an activity to start your streak!' } as const;
+      return { status: 'none', message: 'Complete a to-do to start your streak!' } as const;
     }
 
     const now = new Date();
@@ -311,7 +311,7 @@ export function SettingsHomeScreen() {
       } as const;
     }
 
-    return { status: 'at_risk', message: "Complete an activity to keep your streak!" } as const;
+    return { status: 'at_risk', message: "Complete a to-do to keep your streak!" } as const;
   };
 
   const streakStatus = getStreakStatus();
@@ -1029,5 +1029,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
 });
-
 

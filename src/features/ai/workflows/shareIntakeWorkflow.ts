@@ -15,7 +15,7 @@ export const shareIntakeWorkflow: WorkflowDefinition = {
   chatMode: 'shareIntake',
   // Required by workflow validation; not used because this workflow never invokes the agent.
   systemPrompt:
-    'You are the Kwilt coach. Help the user turn shared content into an Arc, Goal, or Activity. Keep the flow lightweight.',
+    'You are the Kwilt coach. Help the user turn shared content into an Arc, Goal, or To-do. Keep the flow lightweight.',
   tools: [],
   autoBootstrapFirstMessage: false,
   renderableComponents: ['InstructionCard'],

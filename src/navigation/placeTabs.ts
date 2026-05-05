@@ -15,7 +15,7 @@ export type PlaceTabConfig = {
  */
 export const PLACE_TABS: PlaceTabConfig[] = [
   { name: 'GoalsTab', label: 'Goals', icon: 'goals' },
-  { name: 'ActivitiesTab', label: 'Activities', icon: 'activities' },
+  { name: 'ActivitiesTab', label: 'To-dos', icon: 'activities' },
   { name: 'PlanTab', label: 'Plan', icon: 'plan' },
   { name: 'MoreTab', label: 'More', icon: 'more' },
 ];

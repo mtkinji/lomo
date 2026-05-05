@@ -182,7 +182,7 @@ export function useActivityListData({
 
   const wrappedShowToast = React.useCallback(
     (payload: any) => {
-      if (payload.message === 'Activity created' && lastCreatedActivityRef.current) {
+      if (payload.message === 'To-do created' && lastCreatedActivityRef.current) {
         const activity = lastCreatedActivityRef.current;
         const matches =
           QueryService.applyActivityFilters(

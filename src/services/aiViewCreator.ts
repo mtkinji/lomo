@@ -19,7 +19,7 @@ const LOG_PREFIX = '[aiViewCreator]';
 /**
  * System prompt for AI view creation.
  */
-const VIEW_CREATION_SYSTEM_PROMPT = `You are a helpful assistant that creates custom activity views for a personal productivity app.
+const VIEW_CREATION_SYSTEM_PROMPT = `You are a helpful assistant that creates custom to-do views for a personal productivity app.
 
 Users describe what they want to see in natural language, and you translate that into a structured view configuration.
 
@@ -39,7 +39,7 @@ Users describe what they want to see in natural language, and you translate that
 - "status": "todo" | "in_progress" | "completed"
 - "priority": 1 (high) | 2 (medium) | 3 (low)
 - "scheduledDate": Due date (use "today", "+7days", "+30days" for relative)
-- "tags": Activity tags (array)
+- "tags": To-do tags (array)
 - "goalId": Linked goal ID
 
 ### Filter Operators

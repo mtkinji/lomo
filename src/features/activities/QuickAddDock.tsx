@@ -155,7 +155,7 @@ export function QuickAddDock({
           <ToolbarGroup>
             <ToolbarButton
               accessibilityLabel={
-                'Generate activity suggestion'
+                'Generate to-do suggestion'
               }
               onPress={onPressGenerateActivityTitle}
               disabled={Boolean(isGeneratingActivityTitle)}
@@ -264,7 +264,7 @@ export function QuickAddDock({
                 <Pressable
                   testID="e2e.activities.quickAdd.submit"
                   accessibilityRole="button"
-                  accessibilityLabel="Create activity"
+                  accessibilityLabel="Create to-do"
                   accessibilityState={{ disabled: !canSubmit }}
                   onPress={() => {
                     if (!canSubmit) return;
@@ -305,7 +305,7 @@ export function QuickAddDock({
                       testID="e2e.activities.quickAdd.input"
                       value={value}
                       onChangeText={onChangeText}
-                      placeholder="Add an activity"
+                      placeholder="Add a to-do"
                       placeholderTextColor={colors.textSecondary}
                       returnKeyType="done"
                       showSoftInputOnFocus
@@ -335,7 +335,7 @@ export function QuickAddDock({
                       autoCapitalize="sentences"
                       autoCorrect
                       style={styles.input}
-                      accessibilityLabel="Activity title"
+                      accessibilityLabel="To-do title"
                     />
                   </View>
                 </View>
@@ -354,7 +354,7 @@ function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
     <Pressable
       testID="e2e.activities.quickAdd.open"
       accessibilityRole="button"
-      accessibilityLabel="Add an activity"
+      accessibilityLabel="Add a to-do"
       onPress={onPress}
       style={styles.collapsedPressable}
     >
@@ -368,7 +368,7 @@ function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
           <View style={styles.collapsedLeftIconSlot}>
             <Icon name="plus" size={16} color={colors.textSecondary} />
           </View>
-          <Text style={styles.collapsedPlaceholderText}>Add an activity</Text>
+          <Text style={styles.collapsedPlaceholderText}>Add a to-do</Text>
         </HStack>
         {/* Reserve the same trailing "star" column width as ActivityListItem */}
         <View style={styles.collapsedRightSpacer} />
@@ -567,5 +567,4 @@ const styles = StyleSheet.create({
     flex: 0,
   },
 });
-
 

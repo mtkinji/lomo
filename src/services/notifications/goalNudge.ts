@@ -102,7 +102,7 @@ export function buildGoalNudgeContent(params: {
   const title = `Tiny step for: ${goalTitle}`;
   const body = arcName.length > 0
     ? `Open Kwilt to pick one activity for ${goalTitle} (${arcName}).`
-    : 'Open Kwilt to choose one activity and keep momentum.';
+    : 'Open Kwilt to choose one to-do and keep momentum.';
   return {
     title,
     body,

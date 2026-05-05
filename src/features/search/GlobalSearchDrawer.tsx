@@ -49,7 +49,7 @@ type ScopeChipDef = {
 };
 
 const SCOPE_CHIPS: ScopeChipDef[] = [
-  { scope: 'activities', label: 'Activities', icon: 'activities' },
+  { scope: 'activities', label: 'To-dos', icon: 'activities' },
   { scope: 'goals', label: 'Goals', icon: 'goals' },
   { scope: 'arcs', label: 'Arcs', icon: 'arcs' },
   { scope: 'chapters', label: 'Chapters', icon: 'chapters' },
@@ -218,7 +218,7 @@ export function GlobalSearchDrawer() {
     const all: Section[] = [];
     if (scopes.activities && activityResults.length > 0) {
       all.push({
-        title: 'Activities',
+        title: 'To-dos',
         scope: 'activities',
         rows: activityResults.map((activity) => ({
           kind: 'activity' as const,
@@ -408,7 +408,7 @@ export function GlobalSearchDrawer() {
         title: soloScope ? `Search ${scopeLabel(soloScope)}` : 'Search Kwilt',
         instructions: soloScope
           ? `Start typing to search your ${scopeLabel(soloScope).toLowerCase()}.`
-          : 'Start typing to search across Arcs, Goals, Activities, and Chapters.',
+          : 'Start typing to search across Arcs, Goals, To-dos, and Chapters.',
       };
     }
     return {
@@ -602,7 +602,7 @@ export function GlobalSearchDrawer() {
 function scopeLabel(scope: GlobalSearchScope): string {
   switch (scope) {
     case 'activities':
-      return 'Activities';
+      return 'To-dos';
     case 'goals':
       return 'Goals';
     case 'arcs':
@@ -717,7 +717,7 @@ function describeRow(
         // nav). Feather's `activity` pulse line looks like a status indicator
         // rather than an object type, which reads wrong here.
         icon: 'activities',
-        title: row.activity.title || 'Untitled activity',
+        title: row.activity.title || 'Untitled to-do',
         meta: parts.length > 0 ? parts.join(' • ') : undefined,
       };
     }
