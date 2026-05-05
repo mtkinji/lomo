@@ -45,6 +45,14 @@ type DomainState = Pick<AppState, 'arcs' | 'goals' | 'activities' | 'activityTag
 export const DOMAIN_STORAGE_KEY_LEGACY = 'kwilt-domain-v1';
 export const getDomainStorageKey = (userId: string): string => `kwilt-domain-v1:${userId}`;
 
+export type DomainSyncStatus = 'idle' | 'loading-local' | 'pulling-remote' | 'ready' | 'error';
+
+export type DomainSyncRemoteCounts = {
+  arcs: number;
+  goals: number;
+  activities: number;
+};
+
 // In dev, JS reloads can interrupt scheduled persistence; keep the debounce short and avoid
 // InteractionManager deferrals so domain objects survive quick reloads.
 const DOMAIN_PERSIST_DEBOUNCE_MS = __DEV__ ? 250 : 3000;
@@ -207,6 +215,10 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
       activities: [],
       activityTagHistory: {},
       domainHydrated: false,
+      domainSyncStatus: userId ? 'loading-local' : 'idle',
+      domainSyncError: null,
+      domainSyncRemoteCounts: null,
+      domainSyncLastSuccessfulPullAt: null,
     } as any,
     false,
   );
@@ -217,7 +229,13 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
   // 4. Load the incoming user's domain (or set empty for signed-out state).
   if (!userId) {
     if (gen === switchDomainGeneration) {
-      useAppStore.setState({ domainHydrated: true } as any);
+      useAppStore.setState({
+        domainHydrated: true,
+        domainSyncStatus: 'ready',
+        domainSyncError: null,
+        domainSyncRemoteCounts: { arcs: 0, goals: 0, activities: 0 },
+        domainSyncLastSuccessfulPullAt: null,
+      } as any);
     }
     return false;
   }
@@ -245,9 +263,18 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
       const next = normalizeDomainSnapshot(parsed);
 
       if (Object.keys(next).length > 0) {
-        useAppStore.setState({ ...(next as any), domainHydrated: true } as any);
+        useAppStore.setState({
+          ...(next as any),
+          domainHydrated: true,
+          domainSyncStatus: 'ready',
+          domainSyncError: null,
+        } as any);
       } else {
-        useAppStore.setState({ domainHydrated: true } as any);
+        useAppStore.setState({
+          domainHydrated: true,
+          domainSyncStatus: 'ready',
+          domainSyncError: null,
+        } as any);
       }
 
       if (didMigrateLegacy) {
@@ -258,6 +285,11 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
     } else {
       // No local data for this user. Leave domainHydrated = false so the UI
       // shows a loading indicator until the backend pull completes.
+      useAppStore.setState({
+        domainHydrated: false,
+        domainSyncStatus: 'pulling-remote',
+        domainSyncError: null,
+      } as any);
       return false;
     }
   } catch (error) {
@@ -266,7 +298,11 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
       console.warn('[store] switchDomainUser failed', error);
     }
     if (gen === switchDomainGeneration) {
-      useAppStore.setState({ domainHydrated: true } as any);
+      useAppStore.setState({
+        domainHydrated: false,
+        domainSyncStatus: 'pulling-remote',
+        domainSyncError: null,
+      } as any);
     }
     return false;
   }
@@ -551,6 +587,10 @@ interface AppState {
    * states until this is true, because the arrays start empty on cold start.
    */
   domainHydrated: boolean;
+  domainSyncStatus: DomainSyncStatus;
+  domainSyncError: string | null;
+  domainSyncRemoteCounts: DomainSyncRemoteCounts | null;
+  domainSyncLastSuccessfulPullAt: string | null;
   /**
    * Dev-only feature flags / experiments. Persisted so we can A/B UX patterns
    * locally across reloads, but always gated behind `__DEV__` at the callsite.
@@ -1398,6 +1438,46 @@ const initialActivityViews: ActivityView[] = [
   },
 ];
 
+export function mergeActivityViewsWithSystemDefaults(
+  persistedViews: unknown,
+): ActivityView[] {
+  const existingViews = Array.isArray(persistedViews) ? persistedViews : [];
+  const requiredIds = new Set(initialActivityViews.map((view) => view.id));
+  const existingById = new Map<string, Record<string, unknown>>();
+
+  existingViews.forEach((view) => {
+    if (!view || typeof view !== 'object') return;
+    const id = (view as { id?: unknown }).id;
+    if (typeof id === 'string') {
+      existingById.set(id, view as Record<string, unknown>);
+    }
+  });
+
+  const systemViews = initialActivityViews.map((seed) => {
+    const persisted = existingById.get(seed.id);
+    if (!persisted) return seed;
+
+    const overrides = Object.fromEntries(
+      Object.entries(persisted).filter(
+        ([key, value]) => key !== 'id' && key !== 'isSystem' && value !== undefined,
+      ),
+    );
+
+    return {
+      ...seed,
+      ...overrides,
+      id: seed.id,
+      isSystem: true,
+    } as ActivityView;
+  });
+
+  const customViews = existingViews.filter((view: any) => {
+    return view && typeof view === 'object' && view.isSystem !== true && !requiredIds.has(view.id);
+  });
+
+  return [...systemViews, ...customViews];
+}
+
 export const useAppStore = create<AppState>()(
   subscribeWithSelector(
     persist<AppState>((set, get) => ({
@@ -1407,6 +1487,10 @@ export const useAppStore = create<AppState>()(
       activities: initialActivities,
       activityTagHistory: {},
       domainHydrated: false,
+      domainSyncStatus: 'idle',
+      domainSyncError: null,
+      domainSyncRemoteCounts: null,
+      domainSyncLastSuccessfulPullAt: null,
       devBreadcrumbsEnabled: false,
       devObjectDetailHeaderV2Enabled: false,
       devArcDetailDebugLoggingEnabled: false,
@@ -2725,6 +2809,10 @@ export const useAppStore = create<AppState>()(
           activities: [],
           activityTagHistory: {},
           domainHydrated: true,
+          domainSyncStatus: 'ready',
+          domainSyncError: null,
+          domainSyncRemoteCounts: { arcs: 0, goals: 0, activities: 0 },
+          domainSyncLastSuccessfulPullAt: null,
           devBreadcrumbsEnabled: false,
           devObjectDetailHeaderV2Enabled: false,
           devArcDetailDebugLoggingEnabled: false,
@@ -2817,6 +2905,10 @@ export const useAppStore = create<AppState>()(
           activities,
           activityTagHistory,
           domainHydrated,
+          domainSyncStatus,
+          domainSyncError,
+          domainSyncRemoteCounts,
+          domainSyncLastSuccessfulPullAt,
           authIdentity,
           isPlanKickoffVisible,
           ...rest
@@ -2897,16 +2989,12 @@ export const useAppStore = create<AppState>()(
           if (typeof prefs.lastSyncAtIso !== 'string') prefs.lastSyncAtIso = null;
           if (typeof prefs.promptDismissedAtIso !== 'string') prefs.promptDismissedAtIso = null;
         }
-        // Migration: keep a stable, shared set of system Activity views for everyone.
-        // - Custom (non-system) views are preserved.
-        // - System views are overwritten to match the current OOTB set.
+        // Migration: keep the required system Activity views present while preserving
+        // user edits to those views (system views are editable guardrails, not resets).
         try {
-          const requiredSystemViews = initialActivityViews;
-          const requiredIds = new Set(requiredSystemViews.map((v) => v.id));
-          const existingViews = Array.isArray(anyState.activityViews) ? anyState.activityViews : [];
-          const customViews = existingViews.filter((v: any) => v && v.isSystem !== true);
-          const dedupedCustomViews = customViews.filter((v: any) => !requiredIds.has(v?.id));
-          anyState.activityViews = [...requiredSystemViews, ...dedupedCustomViews];
+          anyState.activityViews = mergeActivityViewsWithSystemDefaults(
+            anyState.activityViews,
+          );
 
           const activeId = anyState.activeActivityViewId;
           const allowedIds = new Set((anyState.activityViews ?? []).map((v: any) => v?.id).filter(Boolean));
@@ -2920,6 +3008,10 @@ export const useAppStore = create<AppState>()(
         // Domain objects are loaded per-user via switchDomainUser.
         // Ensure the runtime flag starts false each launch so screens can gate their empty states.
         anyState.domainHydrated = false;
+        anyState.domainSyncStatus = 'idle';
+        anyState.domainSyncError = null;
+        anyState.domainSyncRemoteCounts = null;
+        anyState.domainSyncLastSuccessfulPullAt = null;
         // Backward-compatible: older persisted stores won't have hapticsEnabled.
         if (!('hapticsEnabled' in anyState) || typeof anyState.hapticsEnabled !== 'boolean') {
           anyState.hapticsEnabled = true;
@@ -3493,5 +3585,3 @@ export const defaultForceLevels = (levels: ForceLevel = 0): Record<string, Force
     acc[force.id] = levels;
     return acc;
   }, {});
-
-
