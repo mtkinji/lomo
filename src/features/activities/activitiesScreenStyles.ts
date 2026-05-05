@@ -7,6 +7,14 @@ import { menuStyles } from '../../ui/menuStyles';
 export const QUICK_ADD_BAR_HEIGHT = 64;
 
 export const styles = StyleSheet.create({
+  collapsibleHeaderAnimatedWrapper: {
+    overflow: 'hidden',
+    zIndex: 2,
+  },
+  inventoryBody: {
+    flex: 1,
+    zIndex: 1,
+  },
   fixedToolbarAnimatedWrapper: {
     overflow: 'hidden',
   },
@@ -644,4 +652,3 @@ export const styles = StyleSheet.create({
     color: colors.canvas,
   },
 });
-

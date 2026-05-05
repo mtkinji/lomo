@@ -79,6 +79,7 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 import { Button } from '../ui/Button';
 import { rootNavigationRef } from './rootNavigationRef';
 import { KwiltBottomBar } from './KwiltBottomBar';
+import { ChromeVisibilityProvider } from './ChromeVisibilityContext';
 import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
 import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
@@ -718,24 +719,30 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
 }
 
 export function RootNavigator() {
-  return <RootNavigatorBase />;
+  return (
+    <ChromeVisibilityProvider>
+      <RootNavigatorBase />
+    </ChromeVisibilityProvider>
+  );
 }
 
 export function RootNavigatorWithPostHog() {
   const { posthog } = useAnalytics();
 
   return (
-    <RootNavigatorBase
-      trackScreen={(screenName, params) => {
-        try {
-          posthog?.screen(screenName, params);
-        } catch (error) {
-          if (__DEV__) {
-            console.warn('[posthog] failed to capture screen', error);
+    <ChromeVisibilityProvider>
+      <RootNavigatorBase
+        trackScreen={(screenName, params) => {
+          try {
+            posthog?.screen(screenName, params);
+          } catch (error) {
+            if (__DEV__) {
+              console.warn('[posthog] failed to capture screen', error);
+            }
           }
-        }
-      }}
-    />
+        }}
+      />
+    </ChromeVisibilityProvider>
   );
 }
 
@@ -1296,6 +1303,5 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
 });
-
 
 

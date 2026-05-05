@@ -314,6 +314,9 @@ export type DraggableListProps<T extends { id: string }> = {
   ListFooterComponent?: React.ReactNode;
   ListEmptyComponent?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  onLayout?: (event: any) => void;
+  onContentSizeChange?: (width: number, height: number) => void;
+  onScrollOffsetChange?: (offsetY: number) => void;
 };
 
 export function DraggableList<T extends { id: string }>({
@@ -326,6 +329,9 @@ export function DraggableList<T extends { id: string }>({
   ListFooterComponent,
   ListEmptyComponent,
   style,
+  onLayout,
+  onContentSizeChange,
+  onScrollOffsetChange,
 }: DraggableListProps<T>) {
   const triggerDragHaptic = React.useCallback(() => {
     void HapticsService.trigger('canvas.selection');
@@ -380,8 +386,11 @@ export function DraggableList<T extends { id: string }>({
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
       scrollY.value = e.contentOffset.y;
+      if (onScrollOffsetChange) {
+        runOnJS(onScrollOffsetChange)(e.contentOffset.y);
+      }
     },
-  });
+  }, [onScrollOffsetChange]);
 
   // Handle reorder - called when drag ends with position change
   // This triggers the data update; animation reset happens after re-render
@@ -410,9 +419,11 @@ export function DraggableList<T extends { id: string }>({
       scrollEventThrottle={16}
       style={[{ flex: 1 }, style]}
       contentContainerStyle={contentContainerStyle}
+      onContentSizeChange={onContentSizeChange}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       onLayout={(e) => {
+        onLayout?.(e);
         containerHeight.value = e.nativeEvent.layout.height;
         // Measure absolute position on screen using the native ref
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -463,4 +474,3 @@ export function DraggableList<T extends { id: string }>({
     </Animated.ScrollView>
   );
 }
-
