@@ -263,6 +263,9 @@ describe('recordShowUp streak grace', () => {
     const state = useAppStore.getState();
     expect(state.lastShowUpDate).toBe('2026-04-15');
     expect(state.currentShowUpStreak).toBe(6);
+    expect(state.lastStreakDateKey).toBe('2026-04-15');
+    expect(state.currentCoveredShowUpStreak).toBe(6);
+    expect(state.streakUpdatedAtIso).toBe('2026-04-15T16:00:00.000Z');
     expect(state.streakGrace?.graceDaysUsed).toBe(0);
   });
 
@@ -285,6 +288,9 @@ describe('recordShowUp streak grace', () => {
     const state = useAppStore.getState();
     expect(state.lastShowUpDate).toBe('2026-04-15');
     expect(state.currentShowUpStreak).toBe(6);
+    expect(state.lastStreakDateKey).toBe('2026-04-15');
+    expect(state.currentCoveredShowUpStreak).toBe(7);
+    expect(state.streakUpdatedAtIso).toBe('2026-04-15T16:00:00.000Z');
     expect(state.streakGrace?.graceDaysUsed).toBe(1);
     expect(state.streakGrace?.freeDaysRemaining).toBe(0);
   });
@@ -308,6 +314,9 @@ describe('recordShowUp streak grace', () => {
     const state = useAppStore.getState();
     expect(state.lastShowUpDate).toBe('2026-04-15');
     expect(state.currentShowUpStreak).toBe(1);
+    expect(state.lastStreakDateKey).toBe('2026-04-15');
+    expect(state.currentCoveredShowUpStreak).toBe(1);
+    expect(state.streakUpdatedAtIso).toBe('2026-04-15T16:00:00.000Z');
     expect(state.streakGrace?.graceDaysUsed).toBe(0);
   });
 });
@@ -328,6 +337,11 @@ describe('resetUserSpecificState', () => {
       hasDismissedOnboardingGoalGuide: true,
       hasDismissedOnboardingActivitiesGuide: true,
       hasDismissedOnboardingPlanReadyGuide: true,
+      lastShowUpDate: '2026-04-15',
+      currentShowUpStreak: 6,
+      lastStreakDateKey: '2026-04-15',
+      currentCoveredShowUpStreak: 7,
+      streakUpdatedAtIso: '2026-04-15T16:00:00.000Z',
     } as any);
 
     resetUserSpecificState();
@@ -341,6 +355,11 @@ describe('resetUserSpecificState', () => {
     expect(state.hasDismissedOnboardingGoalGuide).toBe(false);
     expect(state.hasDismissedOnboardingActivitiesGuide).toBe(false);
     expect(state.hasDismissedOnboardingPlanReadyGuide).toBe(false);
+    expect(state.lastShowUpDate).toBeNull();
+    expect(state.currentShowUpStreak).toBe(0);
+    expect(state.lastStreakDateKey).toBeNull();
+    expect(state.currentCoveredShowUpStreak).toBe(0);
+    expect(state.streakUpdatedAtIso).toBeNull();
   });
 
   it('preserves device-level settings', () => {
@@ -615,6 +634,9 @@ describe('recordShowUp streak repair window', () => {
     const state = useAppStore.getState();
     expect(state.streakBreakState.brokenAtDateKey).toBeNull();
     expect(state.streakBreakState.brokenStreakLength).toBeNull();
+    expect(state.lastStreakDateKey).toBeNull();
+    expect(state.currentCoveredShowUpStreak).toBe(0);
+    expect(state.streakUpdatedAtIso).not.toBeNull();
   });
 
   it('does not set break state when prevStreak is 0 (fresh start)', () => {
@@ -718,4 +740,3 @@ describe('weekly recap dismiss', () => {
     expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBe('2026-W16');
   });
 });
-

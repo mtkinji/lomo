@@ -268,6 +268,9 @@ if (typeof window !== 'undefined') {
     useAppStore.setState({
       currentShowUpStreak: repairedStreak,
       lastShowUpDate: lastShowUpDate ?? todayKey,
+      lastStreakDateKey: todayKey,
+      currentCoveredShowUpStreak: repairedStreak,
+      streakUpdatedAtIso: new Date(nowMs).toISOString(),
       streakBreakState: {
         brokenAtDateKey: null,
         brokenStreakLength: null,
@@ -820,4 +823,3 @@ export function recordShowUpWithCelebration() {
     }
   }
 }
-

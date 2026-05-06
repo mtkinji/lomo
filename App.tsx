@@ -53,6 +53,7 @@ import { ReturningUserPermissionsFlow } from './src/features/onboarding/Returnin
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
+import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
@@ -374,6 +375,8 @@ export default function App() {
     startSpotlightIndexSync();
     // Best-effort domain sync (Arcs/Goals/Activities) when authenticated.
     startDomainSync();
+    // Best-effort streak sync when authenticated; local streak UX remains available offline.
+    startStreakSync();
     // Register/unregister push token based on auth state.
     startPushTokenSync();
     // Partner progress alerts for shared goals (checks on foreground).
