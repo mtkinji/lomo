@@ -833,9 +833,10 @@ export function ActivitiesScreen() {
   const hasAnyActivities = visibleActivities.length > 0;
   const hasAnyStoredActivities = activities.length > 0;
   const isDomainLoading =
-    !domainHydrated ||
-    domainSyncStatus === 'loading-local' ||
-    domainSyncStatus === 'pulling-remote';
+    !hasAnyStoredActivities &&
+    (!domainHydrated ||
+      domainSyncStatus === 'loading-local' ||
+      domainSyncStatus === 'pulling-remote');
   const hasDomainLoadError = domainSyncStatus === 'error' && !hasAnyStoredActivities;
   const canShowEmptyState =
     domainHydrated &&

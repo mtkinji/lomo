@@ -51,6 +51,7 @@ export function resetPrevIds(): void {
 const PUSH_DEBOUNCE_MS = 1200;
 const IS_JEST = typeof process !== 'undefined' && Boolean((process as any).env?.JEST_WORKER_ID);
 const FIRST_PULL_RETRY_DELAYS_MS = IS_JEST ? [1, 1, 1] : [500, 1000, 2000];
+const REMOTE_TABLE_FETCH_TIMEOUT_MS = IS_JEST ? 50 : 12000;
 
 function getErrorMessage(e: unknown): string {
   if (!e) return '';
@@ -107,10 +108,21 @@ function lwwPreferRemote(local: { updatedAt?: string } | null, remote: { updated
 
 async function fetchRemoteTable(table: DomainTable, userId: string): Promise<RemoteRow[]> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  const abortController = createAbortController();
+  const queryBase = supabase
     .from(table)
     .select('id, data, is_deleted, deleted_at, updated_at')
     .eq('user_id', userId);
+  const query: PromiseLike<{ data: any[] | null; error: any }> =
+    abortController && typeof (queryBase as any)?.abortSignal === 'function'
+      ? (queryBase as any).abortSignal(abortController.signal)
+      : (queryBase as any);
+  const { data, error } = await withTimeout(
+    query,
+    REMOTE_TABLE_FETCH_TIMEOUT_MS,
+    `${table}: timed out while loading records`,
+    () => abortController?.abort(),
+  );
   if (error) {
     throw new Error(`${table}: ${getConciseSyncError(error)}`);
   }
@@ -118,6 +130,38 @@ async function fetchRemoteTable(table: DomainTable, userId: string): Promise<Rem
     throw new Error(`${table}: unexpected response while loading records`);
   }
   return data as any;
+}
+
+function createAbortController(): AbortController | null {
+  try {
+    return typeof AbortController === 'undefined' ? null : new AbortController();
+  } catch {
+    return null;
+  }
+}
+
+function withTimeout<T>(
+  promise: PromiseLike<T>,
+  ms: number,
+  message: string,
+  onTimeout?: () => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      onTimeout?.();
+      reject(new Error(message));
+    }, ms);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 function applyRemoteMerge(params: {
