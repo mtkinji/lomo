@@ -29,6 +29,7 @@ import { ArcListCard } from '../../ui/ArcListCard';
 import { EmptyState, KeyboardAwareScrollView } from '../../ui/primitives';
 import { ensureArcDevelopmentInsights } from './arcDevelopmentInsights';
 import { ensureArcBannerPrefill } from './arcBannerPrefill';
+import { ensureArcGuide } from './arcGuidance';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HapticsService } from '../../services/HapticsService';
@@ -1048,6 +1049,7 @@ function NewArcModal({
     void ensureArcBannerPrefill(arc, {
       fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
     });
+    void ensureArcGuide(id);
     void ensureArcDevelopmentInsights(id);
     // Phase 8 of docs/chapters-plan.md — if the user entered this
     // flow from a Chapter's Next Steps "Create Arc" CTA, write the
@@ -1141,6 +1143,7 @@ function NewArcModal({
               void ensureArcBannerPrefill(arc, {
                 fallbackCurated: { userFocusAreas: userProfile?.focusAreas },
               });
+              void ensureArcGuide(id);
               void ensureArcDevelopmentInsights(id);
               // Phase 8 of docs/chapters-plan.md — record the outcome
               // event if the user entered this flow from a Chapter

@@ -71,6 +71,7 @@ import { PaywallContent } from '../paywall/PaywallDrawer';
 import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import { ARC_HERO_LIBRARY } from '../arcs/arcHeroLibrary';
 import { hashStringToIndex } from '../arcs/thumbnailVisuals';
+import { ensureArcGuide } from '../arcs/arcGuidance';
 import type { LaunchContext } from '../../domain/workflows';
 
 type ChatMessageRole = 'assistant' | 'user' | 'system';
@@ -4785,6 +4786,7 @@ export function AiChatScreen() {
               updatedAt: timestamp,
             };
             addArc(arc);
+            void ensureArcGuide(arc.id);
             void HapticsService.trigger('outcome.success');
             capture(AnalyticsEvent.ArcCreated, { source: 'ai', arc_id: arc.id });
             if (flow.plan.includes('goal')) {

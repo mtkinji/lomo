@@ -1,5 +1,9 @@
 Kwilt FTUE – Arc-Led Identity Aspiration
 
+Source of truth note:
+The deeper philosophy and behavior-change research behind Arcs now lives in [docs/research/arcs_identity_trajectory_research.md](/Users/andrewwatanabe/Kwilt/docs/research/arcs_identity_trajectory_research.md:1).
+This document remains the canonical FTUE and product-direction reference for how we translate that philosophy into onboarding.
+
 ## Purpose
 
 This document captures the updated philosophy and product direction for how Kwilt guides new users into the product, with a specific focus on identity aspiration and Arcs. It also defines our **gold-standard model for Arc creation** that should be used consistently across FTUE, coach-led Arc creation, and future identity flows.
@@ -262,5 +266,4 @@ The core design principle:
 - Data and architecture:
   - No new core types are introduced; Arcs remain the primary aspirational object.
   - The onboarding Arc can be tagged or recognized in the store as the “identity aspiration” Arc for this season, but this is a semantic convention rather than a new schema field.
-
 

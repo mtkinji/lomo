@@ -44,6 +44,7 @@ import {
 } from '@kwilt/arc-survey';
 import type { ChatTimelineController } from '../ai/AiChatScreen';
 import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
+import { ensureArcGuide } from '../arcs/arcGuidance';
 import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import type { AgentTimelineItem } from '../ai/agentRuntime';
 import { ArcListCard } from '../../ui/ArcListCard';
@@ -1058,19 +1059,35 @@ export function IdentityAspirationFlow({
     // Domain+Posture / Value+Domain / Two‑noun frame as graceful fallbacks.
     // Must be 1‑3 words (emoji prefix allowed).
     const generateArcName = (): string => {
-      // If nickname provided, use it (but ensure it's 1-3 words)
-      if (nickname && nickname.trim()) {
-        const words = nickname.trim().split(/\s+/);
-        if (words.length <= 3) {
-          return nickname.trim();
-        }
-        // If nickname is too long, use first 2-3 meaningful words
-        return words.slice(0, 3).join(' ');
-      }
-
       // Prefer stable identity-direction names, not the raw dream text.
       // Detect high-level domain signals from the dream + domain/vocation labels.
       const signalText = `${domainLabel} ${vocationLabel} ${dreamRaw}`.toLowerCase();
+      if (/\b(wood|woodwork|woodworking|carpentry|furniture)\b/.test(signalText)) {
+        return 'Woodshop Stewardship';
+      }
+      if (/\b(album|song|music|record)\b/.test(signalText)) {
+        return 'Honest Album';
+      }
+      if (/\b(cabin|airbnb|rental)\b/.test(signalText)) {
+        return 'Cabin Craft';
+      }
+      if (/\b(varsity|athlete|sport|training|practice|pressure)\b/.test(signalText)) {
+        return 'Steady Competitor';
+      }
+      if (/\b(kwilt|app|product|startup|venture|business|company)\b/.test(signalText)) {
+        return 'Venture Stewardship';
+      }
+      if (/\b(family|home|parent|kids|children)\b/.test(signalText)) {
+        return 'Family Stewardship';
+      }
+
+      // If nickname provided and it is not a generic archetype label, use it
+      // after concrete dream/domain names have had first chance.
+      if (nickname && nickname.trim() && !/^the\s+/i.test(nickname.trim())) {
+        const words = nickname.trim().split(/\s+/);
+        return words.slice(0, 3).join(' ');
+      }
+
       const isVenture =
         /\b(venture|startup|entrepreneur|business|company|app|product|studio|initiative|launch)\b/.test(
           signalText
@@ -1151,9 +1168,42 @@ export function IdentityAspirationFlow({
     const growthCore = short(growthEdgeLabel).toLowerCase();
 
     const dreamClause = (() => {
-      if (dreamHasKwilt) return 'build Kwilt into something real and useful';
-      if (dreamRaw) return 'bring that dream to life';
+      const lowerDream = dreamRaw.toLowerCase();
+      if (dreamHasKwilt) return 'build Kwilt into a useful product people can feel at home in';
+      if (/\b(wood|woodwork|woodworking|studio|furniture)\b/.test(lowerDream)) {
+        return 'build a small woodworking studio with patience and honest craft';
+      }
+      if (/\b(album|song|music|record)\b/.test(lowerDream)) {
+        return 'record honest music with people I trust';
+      }
+      if (/\b(cabin|airbnb|rental)\b/.test(lowerDream)) {
+        return 'build a cabin with care, follow-through, and useful beauty';
+      }
+      if (/\b(varsity|sport|team|practice)\b/.test(lowerDream)) {
+        return 'train toward varsity with calm, steady effort';
+      }
+      if (dreamRaw) return `make real progress on ${short(dreamRaw).toLowerCase()}`;
       return `grow in ${short(domainLabel).toLowerCase()}`;
+    })();
+
+    const sceneClause = (() => {
+      const signalText = `${domainLabel} ${vocationLabel} ${dreamRaw}`.toLowerCase();
+      if (/\b(wood|woodwork|woodworking|craft|build|maker|making|cabin)\b/.test(signalText)) {
+        return 'at the workbench';
+      }
+      if (/\b(album|music|art|creative|design|write|record)\b/.test(signalText)) {
+        return 'at my desk or in the studio';
+      }
+      if (/\b(varsity|athlete|sport|training|health|body)\b/.test(signalText)) {
+        return 'at practice';
+      }
+      if (/\b(family|home|parent|kids|relationship)\b/.test(signalText)) {
+        return 'at home';
+      }
+      if (/\b(work|career|venture|business|app|product|software|studio)\b/.test(signalText)) {
+        return 'at my desk';
+      }
+      return 'on an ordinary day';
     })();
 
     const tensionClause = whyCore
@@ -1164,7 +1214,7 @@ export function IdentityAspirationFlow({
 
     const sentence1 = `I want to ${dreamClause}, and do it with ${valuesCore.toLowerCase()} and ${philosophyCore.toLowerCase()}.`;
     const sentence2 = `This matters now because ${tensionClause}, and I want my energy to go toward ${meaningCore.toLowerCase()} and ${impactCore.toLowerCase()}.`;
-    const sentence3 = `On normal days, I see this when I’m ${proudMomentCore}, then taking one small step and calling it done.`;
+    const sentence3 = `I see this ${sceneClause} when I’m ${proudMomentCore}, choosing one concrete action over drifting or overthinking.`;
 
     const aspirationSentence = oneLine(`${sentence1} ${sentence2} ${sentence3}`);
 
@@ -2211,6 +2261,7 @@ export function IdentityAspirationFlow({
     if (!prefetchedArcHero?.thumbnailUrl) {
       void ensureArcBannerPrefill(arc);
     }
+    void ensureArcGuide(arc.id);
     // Fire-and-forget: generate Arc Development Insights in the background so
     // they are ready (or gracefully fall back) by the time the user lands on
     // the Arc detail screen. This should never block the onboarding flow.
@@ -5188,5 +5239,3 @@ const styles = StyleSheet.create({
     height: 12,
   },
 });
-
-

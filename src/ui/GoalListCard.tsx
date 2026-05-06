@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Card, type CardPadding } from './Card';
 import { Icon } from './Icon';
 import { Badge } from './Badge';
-import { colors, spacing, typography } from '../theme';
+import { colors, fonts, spacing, typography } from '../theme';
 import type { Arc, Goal, ThumbnailStyle } from '../domain/types';
 import {
   ARC_MOSAIC_COLS,
@@ -77,6 +77,7 @@ type GoalListCardProps = {
    * keeping the shared goal card shell.
    */
   headerLabel?: ReactNode;
+  titleEmphasis?: 'default' | 'subtle';
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 };
@@ -96,6 +97,7 @@ export function GoalListCard({
   compact = false,
   children,
   headerLabel,
+  titleEmphasis = 'default',
   style,
   onPress,
 }: GoalListCardProps) {
@@ -270,7 +272,13 @@ export function GoalListCard({
             {headerLabel}
             <HStack alignItems="center" space="xs">
               <Heading
-                style={[styles.goalTitle, isDense && styles.goalTitleDense, { flex: 1 }]}
+                style={[
+                  styles.goalTitle,
+                  isDense && styles.goalTitleDense,
+                  titleEmphasis === 'subtle' && styles.goalTitleSubtle,
+                  isDense && titleEmphasis === 'subtle' && styles.goalTitleDenseSubtle,
+                  { flex: 1 },
+                ]}
                 numberOfLines={2}
                 ellipsizeMode="tail"
               >
@@ -474,6 +482,14 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     fontFamily: typography.titleSm.fontFamily,
   },
+  goalTitleSubtle: {
+    fontFamily: fonts.medium,
+  },
+  goalTitleDenseSubtle: {
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    lineHeight: 20,
+  },
   goalMetaRow: {
     marginTop: spacing.xs / 2,
   },
@@ -497,5 +513,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
 

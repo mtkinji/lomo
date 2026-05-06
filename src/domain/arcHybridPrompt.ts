@@ -30,6 +30,7 @@ export const HYBRID_ARC_HARD_CONSTRAINTS = [
   'Narrative MUST start with: "I want".',
   'Avoid clichés and mush phrases (no "journey", no "mindset", no "purposeful impact").',
   'Avoid guru/cosmic/therapy language and prescriptive "shoulds".',
+  'Avoid generic filler phrases like "bring that dream to life", "one small step", "unlock my potential", or "become my best self".',
 ].join('\n');
 
 /**
@@ -42,6 +43,49 @@ export const HYBRID_ARC_SENTENCE_ROLES = [
   'Sentence 1: Start with "I want…" and state the identity direction in plain language.',
   'Sentence 2: Why this matters now (use user signals; keep it specific).',
   'Sentence 3: Include (a) one ordinary-life scene AND (b) one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week"). Make it easy to picture.',
+].join('\n');
+
+/**
+ * Extra instructions aimed at moving Arc quality from merely "correct" to
+ * personally resonant. These came out of synthetic-response review: weaker
+ * drafts were often valid JSON and followed the sentence pattern, but they
+ * still felt interchangeable because they summarized every input instead of
+ * choosing a sharp human center.
+ */
+export const HYBRID_ARC_RESONANCE_REQUIREMENTS = [
+  'Before drafting, silently choose ONE "resonance anchor" and ONE "growth tension".',
+  'Resonance anchor priority:',
+  '1) a concrete big dream, if present;',
+  '2) a role-model / admired-quality signal, if present;',
+  '3) the ordinary proud moment;',
+  '4) the domain + vibe.',
+  '',
+  'Growth tension examples:',
+  '- consistency vs. pressure',
+  '- craft vs. rushing',
+  '- courage vs. hiding',
+  '- care vs. emotional reactivity',
+  '- focus vs. scattering energy',
+  '',
+  'Use the anchor and tension to make the Arc feel like it could only belong to this person.',
+  'Do NOT try to mention every input. A strong Arc usually uses 2–4 signals deeply instead of 8 signals shallowly.',
+  'If the user gave a concrete dream, name the dream concretely at least once; do not replace it with "that dream".',
+  'If the user gave role-model qualities, translate one quality into behavior in the scene sentence.',
+  'The final sentence should be cinematic but ordinary: a real place, a real action, and a small choice the user can picture.',
+].join('\n');
+
+/**
+ * Naming rules that keep Arc names from landing in the "technically valid but
+ * forgettable" zone. Names should feel like containers a person might actually
+ * adopt, not rubric labels.
+ */
+export const HYBRID_ARC_NAME_RESONANCE_RULES = [
+  'Name selection rules:',
+  '- Prefer a concrete domain noun over an abstract trait: Woodshop, Studio, Team, Home, Practice, Classroom, Table, Venture.',
+  '- Pair the domain noun with a posture only when the pairing feels natural: Stewardship, Courage, Discipline, Clarity, Care, Craft.',
+  '- Avoid generic names like "Identity Growth", "Creative Journey", "Strong Mindset", "Personal Development", or raw nicknames like "The Builder" unless the nickname is genuinely distinctive.',
+  '- If a big dream names a real arena (album, studio, cabin, app, varsity, classroom), let that arena influence the Arc name.',
+  '- The name should sound like a stable chapter of life, not a task title or a personality type.',
 ].join('\n');
 
 /**
@@ -84,9 +128,14 @@ export const buildHybridArcGuidelinesBlock = (): string => {
     'Sentence roles:',
     HYBRID_ARC_SENTENCE_ROLES,
     '',
+    'Resonance requirements:',
+    HYBRID_ARC_RESONANCE_REQUIREMENTS,
+    '',
+    'Arc name resonance:',
+    HYBRID_ARC_NAME_RESONANCE_RULES,
+    '',
     'Quality requirements:',
     HYBRID_ARC_QUALITY_REQUIREMENTS,
   ].join('\n');
 };
-
 

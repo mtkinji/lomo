@@ -17,6 +17,37 @@ export interface Arc {
   id: string;
   name: string;
   narrative?: string;
+  identity?: {
+    statement: string;
+    centralInsight: string;
+    whyItMatters?: string;
+  };
+  howThisShowsUp?: Array<{
+    text: string;
+    source?: 'survey' | 'ai_generated' | 'user_added';
+  }>;
+  shape?: {
+    whatComesNaturally: string;
+    whereItGetsHard: string;
+    whatCanPullYouAway: string;
+  };
+  practice?: {
+    name: string;
+    description: string;
+    cadence?: 'daily' | 'weekly' | 'monthly' | 'project_based' | 'flexible';
+  };
+  whenThisGetsHard?: {
+    reframe: string;
+    nextBestMove: string;
+    ifThen?: {
+      if: string;
+      then: string;
+    };
+  };
+  reflection?: {
+    prompt: string;
+  };
+  guideVersion?: 1;
   /**
    * Optional, lightweight developmental insights attached to this Arc.
    * These are short bullet-point lists generated during onboarding that
@@ -920,4 +951,3 @@ export interface UserProfile {
     useHistoryForCoaching?: boolean;
   };
 }
-

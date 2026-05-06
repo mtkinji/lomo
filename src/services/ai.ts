@@ -811,12 +811,43 @@ export type CoachChatOptions = {
   workflowInstanceId?: string;
   workflowStepId?: string;
   launchContextSummary?: string;
+  aiJob?: KwiltAiJob;
   /**
    * Optional paywall attribution used when generative credits are exhausted.
    * If omitted, we fall back to 'unknown'.
    */
   paywallSource?: PaywallSource;
 };
+
+type KwiltAiJob =
+  | 'arc_generation'
+  | 'goal_generation'
+  | 'deep_planning'
+  | 'activity_generation'
+  | 'arc_image_query'
+  | 'conversation_summary'
+  | 'lightweight_helper'
+  | 'default_chat';
+
+function getCoachAiJob(options?: CoachChatOptions): KwiltAiJob {
+  if (options?.aiJob) return options.aiJob;
+
+  const stepId = options?.workflowStepId ?? '';
+  if (options?.mode === 'arcCreation' || stepId === 'agent_generate_arc' || stepId === 'aspiration_generate') {
+    return 'arc_generation';
+  }
+  if (options?.mode === 'goalCreation' || stepId === 'agent_generate_goals') {
+    return 'goal_generation';
+  }
+  if (options?.mode === 'activityCreation' || stepId === 'agent_generate_activities') {
+    return 'activity_generation';
+  }
+  if (stepId === 'arc_insights_generate') {
+    return 'arc_generation';
+  }
+
+  return 'default_chat';
+}
 
 export const COACH_CONVERSATION_SUMMARY_PREFIX = 'kwilt-coach-summary:v1:';
 
@@ -1848,6 +1879,7 @@ export async function judgeArcRubric(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        'x-kwilt-ai-job': 'lightweight_helper',
       },
       body: JSON.stringify(body),
     },
@@ -2056,6 +2088,7 @@ export async function judgeArcComparisonRubric(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        'x-kwilt-ai-job': 'lightweight_helper',
       },
       body: JSON.stringify(body),
     },
@@ -2218,6 +2251,7 @@ Return one photo-library search phrase that matches the Arc's vibe.
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        'x-kwilt-ai-job': 'arc_image_query',
       },
       body: JSON.stringify(body),
     },
@@ -2315,6 +2349,9 @@ async function requestOpenAiArcs(
     // and use it to sharpen the Arc voice—without name-dropping role models.
     'Before writing, silently infer 2–3 admired qualities this person seems drawn to.',
     'Use them to make the arcs feel specific and true-to-inputs (but do not list those qualities explicitly unless the user did).',
+    'Then choose ONE resonance anchor and ONE growth tension. Use those to make each Arc feel specific instead of trying to summarize every input.',
+    'If a concrete dream is present, name it concretely at least once. Do not replace it with "that dream" or "bring that dream to life".',
+    'In the final scene sentence, show the identity through a real place + a real behavior, not a virtue label.',
     '',
     'Return 2–3 Arc suggestions that feel genuinely different (not synonyms).',
     'Status should default to "active".',
@@ -2386,6 +2423,7 @@ async function requestOpenAiArcs(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        'x-kwilt-ai-job': 'arc_generation',
       },
       body: JSON.stringify(body),
     },
@@ -2688,6 +2726,7 @@ export async function sendCoachChat(
     if (options?.workflowStepId) {
       kwiltProxyHeaders['x-kwilt-workflow-step-id'] = options.workflowStepId;
     }
+    kwiltProxyHeaders['x-kwilt-ai-job'] = 'conversation_summary';
 
     const summaryResponse = await fetchWithTimeout(
       OPENAI_COMPLETIONS_URL,
@@ -2769,6 +2808,7 @@ export async function sendCoachChat(
   if (options?.workflowStepId) {
     kwiltProxyHeaders['x-kwilt-workflow-step-id'] = options.workflowStepId;
   }
+  kwiltProxyHeaders['x-kwilt-ai-job'] = getCoachAiJob(options);
 
   let response: Response;
   try {
@@ -3422,6 +3462,7 @@ export async function enrichActivityWithAI(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'lightweight_helper',
         },
         body: JSON.stringify(body),
       },
@@ -3542,6 +3583,7 @@ export async function inferActivitySchedulingDomainWithAI(params: {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'lightweight_helper',
         },
         body: JSON.stringify(body),
       },
@@ -3642,6 +3684,7 @@ export async function suggestActivityTagsWithAi(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'lightweight_helper',
         },
         body: JSON.stringify(body),
       },
@@ -3778,6 +3821,7 @@ export async function refineWritingWithAI(params: RefineWritingParams): Promise<
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'lightweight_helper',
         },
         body: JSON.stringify(body),
       },

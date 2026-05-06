@@ -11,13 +11,14 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { resolveKwiltAiModel } from '../_shared/aiModelRouting.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-kwilt-install-id, x-kwilt-is-pro, x-kwilt-client, x-kwilt-chat-mode, x-kwilt-workflow-step-id',
+    'authorization, x-client-info, apikey, content-type, x-kwilt-install-id, x-kwilt-is-pro, x-kwilt-client, x-kwilt-chat-mode, x-kwilt-workflow-step-id, x-kwilt-ai-job',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
@@ -329,6 +330,7 @@ serve(async (req) => {
 
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
+  const aiJob = (req.headers.get('x-kwilt-ai-job') ?? '').trim();
   const isOnboarding = chatMode === 'firstTimeOnboarding';
   const isPreview = chatMode.startsWith('preview_');
   // Preview calls should not consume the user's monthly credits. We isolate them into a separate
@@ -370,28 +372,16 @@ serve(async (req) => {
     return json(400, { error: { message: shape.message, code: 'bad_request' } });
   }
 
-  // Enforce plan-based model access (route-aware).
-  // - Chat: Pro can use GPT-5 tier; Free is clamped to a safe default.
-  // - Images: allow the image model.
-  if (typeof parsedBody?.model === 'string') {
-    const requested = String(parsedBody.model).trim();
-    if (route === '/v1/images/generations') {
-      const allowed = new Set(['gpt-image-1']);
-      if (!allowed.has(requested)) {
-        const clamped = 'gpt-image-1';
-        parsedBody.model = clamped;
-        model = clamped;
-      }
-    } else if (route === '/v1/chat/completions') {
-      const proAllowed = new Set(['gpt-4o-mini', 'gpt-4o', 'gpt-5.1', 'gpt-5.2']);
-      const freeAllowed = new Set(['gpt-4o-mini', 'gpt-4o']);
-      const allowed = isPro ? proAllowed : freeAllowed;
-      if (!allowed.has(requested)) {
-        const clamped = isPro ? 'gpt-5.2' : 'gpt-4o-mini';
-        parsedBody.model = clamped;
-        model = clamped;
-      }
-    }
+  // Server-authoritative model routing. The client may send an old persisted
+  // model value, but production cost/quality policy lives here by AI job.
+  const routedModel = resolveKwiltAiModel({
+    route,
+    requestedModel: model,
+    job: aiJob,
+  });
+  if (routedModel) {
+    parsedBody.model = routedModel;
+    model = routedModel;
   }
 
   // Determine action cost: 1 per chat completion call; higher for image generation.
@@ -648,5 +638,4 @@ serve(async (req) => {
     },
   });
 });
-
 
