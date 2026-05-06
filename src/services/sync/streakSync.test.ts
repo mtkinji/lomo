@@ -192,6 +192,40 @@ describe('streakSync', () => {
     });
   });
 
+  it('promotes an untimestamped legacy local streak when remote was seeded lower', async () => {
+    mockSummaryRows.set(
+      'user-a',
+      remoteSummary({
+        current_show_up_streak: 2,
+        current_covered_show_up_streak: 2,
+        last_show_up_date: '2026-04-15',
+        last_streak_date: '2026-04-15',
+        client_updated_at: '2026-04-15T15:00:00.000Z',
+        updated_at: '2026-04-15T15:00:00.000Z',
+      }),
+    );
+    useAppStore.setState({
+      lastShowUpDate: '2026-04-15',
+      currentShowUpStreak: 11,
+      lastStreakDateKey: null,
+      currentCoveredShowUpStreak: 0,
+      streakUpdatedAtIso: null,
+    } as any);
+
+    startStreakSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' } as any);
+
+    await waitFor(() => mockSummaryRows.get('user-a')?.current_show_up_streak === 11);
+    expect(useAppStore.getState().currentShowUpStreak).toBe(11);
+    expect(useAppStore.getState().currentCoveredShowUpStreak).toBe(11);
+    expect(useAppStore.getState().streakUpdatedAtIso).not.toBeNull();
+    expect(mockSummaryRows.get('user-a')).toMatchObject({
+      current_show_up_streak: 11,
+      current_covered_show_up_streak: 11,
+      last_show_up_date: '2026-04-15',
+    });
+  });
+
   it('keeps local streak updates working when cloud pull fails', async () => {
     mockSelectError = { message: 'network down' };
 

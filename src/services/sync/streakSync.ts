@@ -112,6 +112,24 @@ function nullableDateKey(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.slice(0, 10) : null;
 }
 
+function compareDateKeys(a: string | null, b: string | null): number {
+  if (!a && !b) return 0;
+  if (a && !b) return 1;
+  if (!a && b) return -1;
+  return a! > b! ? 1 : a! < b! ? -1 : 0;
+}
+
+function shouldPreferLegacyLocal(local: StreakSlice, remote: StreakSlice): boolean {
+  if (local.streakUpdatedAtIso) return false;
+  if (local.currentShowUpStreak <= 0 && !local.lastShowUpDate && !local.lastStreakDateKey) return false;
+  if (local.currentShowUpStreak > remote.currentShowUpStreak) return true;
+  if (local.currentShowUpStreak < remote.currentShowUpStreak) return false;
+  return compareDateKeys(
+    local.lastShowUpDate ?? local.lastStreakDateKey,
+    remote.lastShowUpDate ?? remote.lastStreakDateKey,
+  ) > 0;
+}
+
 function getTimezone(): string | null {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
@@ -367,7 +385,12 @@ async function enableForUser(user: SyncUser): Promise<void> {
       const remoteSlice = sliceFromRemote(remote);
       const remoteMs = parseIsoMs(remoteSlice.streakUpdatedAtIso);
       const localMs = parseIsoMs(local.streakUpdatedAtIso);
-      if (remoteMs > localMs) {
+      if (shouldPreferLegacyLocal(local, remoteSlice)) {
+        const promotedLocal = { ...local, streakUpdatedAtIso: new Date().toISOString() };
+        applyRemoteSlice(promotedLocal);
+        await upsertSummary(user, promotedLocal);
+        await upsertEvents(buildEvents(user, promotedLocal, null));
+      } else if (remoteMs > localMs) {
         applyRemoteSlice(remoteSlice);
       } else if (localMs > remoteMs || (localMs === 0 && remoteMs === 0)) {
         await upsertSummary(user, local);
