@@ -33,6 +33,9 @@ yarn-error.*
 eas_logs_local/
 eas_cloud_logs/
 
+# generated App Store screenshot exports
+app-store-screenshots/
+
 # local credentials (never commit)
 credentials.json
 

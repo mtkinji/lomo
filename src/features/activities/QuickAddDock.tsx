@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
+import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
@@ -16,6 +17,9 @@ import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBotto
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 const QUICK_ADD_DOCK_SURFACE_RADIUS = 14;
+const QUICK_ADD_DOCK_CHROME_ANIMATION_MS = 260;
+const QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX = 8;
+const QUICK_ADD_DOCK_FADE_MAX_ALPHA = 0.88;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -58,6 +62,11 @@ type QuickAddDockProps = {
    * This should be fed into the scroll view content container.
    */
   onReservedHeightChange?: (height: number) => void;
+  /**
+   * Bottom offset for the collapsed dock. Defaults to sitting above the global
+   * bottom bar, but To-dos can lower it when global chrome auto-hides.
+   */
+  collapsedBottomOffsetPx?: number;
 };
 
 export function QuickAddDock({
@@ -82,9 +91,12 @@ export function QuickAddDock({
   hasGeneratedActivityTitle,
   dismissAfterSubmit = true,
   onReservedHeightChange,
+  collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
 }: QuickAddDockProps) {
   const collapsedBottomOffsetPx =
-    placement === 'inline' ? 0 : KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + QUICK_ADD_DOCK_FLOATING_GAP_PX;
+    placement === 'inline'
+      ? 0
+      : collapsedBottomOffsetPxProp ?? KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + QUICK_ADD_DOCK_FLOATING_GAP_PX;
   
   // Generate accessory ID for keyboard toolbar
   // Keep stable ID in case we re-enable keyboard accessory behavior later.
@@ -100,6 +112,12 @@ export function QuickAddDock({
   const fallbackHeight = QUICK_ADD_BAR_HEIGHT + collapsedBottomOffsetPx + spacing.xs;
 
   const lastReservedHeightRef = React.useRef<number>(fallbackHeight);
+  const measuredCollapsedSurfaceHeightRef = React.useRef<number>(0);
+  const expandedCollapsedBottomOffsetRef = React.useRef(collapsedBottomOffsetPx);
+  const collapsedDockTranslateY = React.useRef(new Animated.Value(0)).current;
+  if (collapsedBottomOffsetPx > expandedCollapsedBottomOffsetRef.current) {
+    expandedCollapsedBottomOffsetRef.current = collapsedBottomOffsetPx;
+  }
 
   const reportReservedHeight = React.useCallback(
     (next: number) => {
@@ -111,6 +129,22 @@ export function QuickAddDock({
     },
     [onReservedHeightChange],
   );
+
+  React.useEffect(() => {
+    const nextTranslateY = Math.max(0, expandedCollapsedBottomOffsetRef.current - collapsedBottomOffsetPx);
+
+    Animated.timing(collapsedDockTranslateY, {
+      toValue: nextTranslateY,
+      duration: QUICK_ADD_DOCK_CHROME_ANIMATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    const measuredHeight = measuredCollapsedSurfaceHeightRef.current;
+    if (measuredHeight > 0) {
+      reportReservedHeight(measuredHeight + collapsedBottomOffsetPx + spacing.xs);
+    }
+  }, [collapsedDockTranslateY, collapsedBottomOffsetPx, reportReservedHeight]);
 
   // Focus the input after the focused drawer mounts.
   React.useEffect(() => {
@@ -183,32 +217,68 @@ export function QuickAddDock({
 
   const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
   const canSubmit = value.trim().length > 0;
+  const measuredCollapsedSurfaceHeight = measuredCollapsedSurfaceHeightRef.current || QUICK_ADD_BAR_HEIGHT;
+  const footerFadeHeight =
+    measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX;
+  const footerFadeRampEnd = Math.min(
+    0.16,
+    Math.max(0.04, QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX / Math.max(1, footerFadeHeight)),
+  );
 
   return (
     <>
       {/* Collapsed dock trigger (always mounted so we can open quickly). */}
       {placement === 'bottomDock' ? (
-        <View
-          style={[
-            styles.floatingDock,
-            { bottom: collapsedBottomOffsetPx },
-            isFocused ? styles.dockHidden : null,
-          ]}
-        >
-          <View
+        <>
+          <Animated.View
+            pointerEvents="none"
             style={[
-              styles.floatingSurface,
+              styles.footerFade,
+              {
+                height: footerFadeHeight,
+                transform: [{ translateY: collapsedDockTranslateY }],
+              },
+              isFocused ? styles.dockHidden : null,
             ]}
-            onLayout={(event) => {
-              const layoutHeight = Math.round(event.nativeEvent.layout.height);
-              reportReservedHeight(layoutHeight + collapsedBottomOffsetPx + spacing.xs);
-            }}
           >
-            <View style={styles.collapsedInputShell}>
-              <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
+            <LinearGradient
+              colors={[
+                'rgba(255,255,255,0)',
+                `rgba(255,255,255,${QUICK_ADD_DOCK_FADE_MAX_ALPHA})`,
+                `rgba(255,255,255,${QUICK_ADD_DOCK_FADE_MAX_ALPHA})`,
+              ]}
+              {...({ locations: [0, footerFadeRampEnd, 1] } as any)}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.floatingDock,
+              {
+                bottom: expandedCollapsedBottomOffsetRef.current,
+                transform: [{ translateY: collapsedDockTranslateY }],
+              },
+              isFocused ? styles.dockHidden : null,
+            ]}
+          >
+            <View
+              style={[
+                styles.floatingSurface,
+              ]}
+              onLayout={(event) => {
+                const layoutHeight = Math.round(event.nativeEvent.layout.height);
+                measuredCollapsedSurfaceHeightRef.current = layoutHeight;
+                reportReservedHeight(layoutHeight + collapsedBottomOffsetPx + spacing.xs);
+              }}
+            >
+              <View style={styles.collapsedInputShell}>
+                <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
+              </View>
             </View>
-          </View>
-        </View>
+          </Animated.View>
+        </>
       ) : (
         <View style={isFocused ? styles.inlineHidden : null}>
           <View style={styles.collapsedInputShell}>
@@ -378,6 +448,14 @@ function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  footerFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 45,
+    elevation: 45,
+  },
   floatingDock: {
     position: 'absolute',
     left: 0,
@@ -567,4 +645,3 @@ const styles = StyleSheet.create({
     flex: 0,
   },
 });
-

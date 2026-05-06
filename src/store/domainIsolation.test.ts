@@ -80,6 +80,8 @@ describe('switchDomainUser', () => {
     expect(hadCache).toBe(true);
     const state = useAppStore.getState();
     expect(state.domainHydrated).toBe(true);
+    expect(state.domainSyncStatus).toBe('ready');
+    expect(state.domainSyncError).toBeNull();
     expect(state.arcs.map((a) => a.id)).toEqual(['arc-a']);
     expect(state.goals.map((g) => g.id)).toEqual(['goal-a']);
     expect(state.activities).toEqual([]);
@@ -95,6 +97,7 @@ describe('switchDomainUser', () => {
     const state = useAppStore.getState();
     expect(state.arcs.map((a) => a.id)).toEqual(['arc-legacy']);
     expect(state.domainHydrated).toBe(true);
+    expect(state.domainSyncStatus).toBe('ready');
 
     // Legacy key should be removed.
     const legacyVal = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY_LEGACY);
@@ -111,6 +114,8 @@ describe('switchDomainUser', () => {
     const state = useAppStore.getState();
     expect(hadCache).toBe(false);
     expect(state.domainHydrated).toBe(false);
+    expect(state.domainSyncStatus).toBe('pulling-remote');
+    expect(state.domainSyncError).toBeNull();
     expect(state.arcs).toEqual([]);
     expect(state.goals).toEqual([]);
     expect(state.activities).toEqual([]);
@@ -129,6 +134,8 @@ describe('switchDomainUser', () => {
 
     const state = useAppStore.getState();
     expect(state.domainHydrated).toBe(true);
+    expect(state.domainSyncStatus).toBe('ready');
+    expect(state.domainSyncRemoteCounts).toEqual({ arcs: 0, goals: 0, activities: 0 });
     expect(state.arcs).toEqual([]);
     expect(state.goals).toEqual([]);
     expect(state.activities).toEqual([]);

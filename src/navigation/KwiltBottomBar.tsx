@@ -13,6 +13,7 @@ import {
   KWILT_BOTTOM_BAR_FLOATING_SIZE_PX,
   KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX,
 } from './kwiltBottomBarMetrics';
+import { useChromeVisibility } from './ChromeVisibilityContext';
 
 // Static coaching brief passed to the Chapters copilot. Defined module-level
 // so identity is stable and useAgentLauncher's memoized sheet doesn't churn.
@@ -23,6 +24,8 @@ const CHAPTER_COACH_SNAPSHOT = [
   '- Prefer concrete suggestions anchored in recently observed behavior, not generic motivation.',
   '- If evidence is thin, ask one clarifying question before proposing changes.',
 ].join('\n');
+
+const CHROME_ANIMATION_MS = 260;
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -37,6 +40,7 @@ function withAlpha(hex: string, alpha: number) {
 
 export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { bottomBarVisible } = useChromeVisibility();
   const planRecommendationsCount = useAppStore((s) => s.planRecommendationsCount);
   // Chapters copilot: launch AgentWorkspace in a drawer so users can dismiss
   // back to their Chapter context without losing the page they came from.
@@ -58,6 +62,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   const indicatorHeight = useRef(new Animated.Value(0)).current;
   const indicatorReady = useRef(false);
   const badgeScale = useRef(new Animated.Value(0)).current;
+  const chromeProgress = useRef(new Animated.Value(1)).current;
   const wasShowingBadge = useRef(false);
   const activeKey = state.routes[state.index]?.key;
   const activeLayout = activeKey ? tabLayouts[activeKey] : null;
@@ -216,6 +221,15 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     wasShowingBadge.current = showActionBadge;
   }, [badgeScale, showActionBadge, shouldHideTabBar]);
 
+  useEffect(() => {
+    Animated.timing(chromeProgress, {
+      toValue: bottomBarVisible ? 1 : 0,
+      duration: CHROME_ANIMATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [bottomBarVisible, chromeProgress]);
+
   if (shouldHideTabBar) return null;
 
   // Match the Activity detail “edge fade under controls” so scroll content fades under the floating bar.
@@ -227,10 +241,22 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   // Keep this tight: we want to fade *scroll content under the bar*, not wash over bottom docks
   // like the Activities quick-add field.
   const bottomFadeHeightPx = Math.max(0, KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + insets.bottom);
+  const hiddenTranslateY = KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + insets.bottom + spacing.lg;
+  const chromeAnimatedStyle = {
+    opacity: chromeProgress,
+    transform: [
+      {
+        translateY: chromeProgress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [hiddenTranslateY, 0],
+        }),
+      },
+    ],
+  };
 
   return (
     <>
-      <View pointerEvents="none" style={[styles.bottomFade, { height: bottomFadeHeightPx }]}>
+      <Animated.View pointerEvents="none" style={[styles.bottomFade, { height: bottomFadeHeightPx }, chromeAnimatedStyle]}>
         <LinearGradient
           colors={[scrimClear, scrimStrong, scrimStrong]}
           {...({ locations: [0, FADE_RAMP_FRACTION, 1] } as any)}
@@ -238,10 +264,10 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFillObject}
         />
-      </View>
-      <View
-        pointerEvents="box-none"
-        style={[styles.container, { bottom: KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX }]}
+      </Animated.View>
+      <Animated.View
+        pointerEvents={bottomBarVisible ? 'box-none' : 'none'}
+        style={[styles.container, { bottom: KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX }, chromeAnimatedStyle]}
       >
         <View style={styles.barRow}>
           <View style={styles.placeZone}>
@@ -352,7 +378,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
             </View>
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
       {ChapterAgentSheet}
     </>
   );
@@ -494,4 +520,3 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-

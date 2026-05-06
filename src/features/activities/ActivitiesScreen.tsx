@@ -9,12 +9,14 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Switch,
   UIManager,
   View,
   TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
   runOnJS,
@@ -115,6 +117,7 @@ import type {
 } from '../../domain/types';
 import { styles, QUICK_ADD_BAR_HEIGHT } from './activitiesScreenStyles';
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
+import { useChromeVisibility } from '../../navigation/ChromeVisibilityContext';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
@@ -124,6 +127,7 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
+import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
 import { PaywallContent } from '../paywall/PaywallDrawer';
 
@@ -194,6 +198,14 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
   { value: 'phase', label: 'Phase' },
 ];
 
+const INVENTORY_CHROME_SURFACE = 'activities-inventory';
+const HEADER_COLLAPSE_DISTANCE_FALLBACK = 88;
+const CHROME_HIDE_DELTA = 16;
+const CHROME_REVEAL_DELTA = 12;
+const CHROME_ANIMATION_MS = 260;
+const HEADER_GHOST_FADE_EDGE_DISTANCE_PX = 8;
+const HEADER_GHOST_FADE_MAX_ALPHA = 0.88;
+
 export function ActivitiesScreen() {
   useDrawerMenuEnabled();
   const isFocused = useIsFocused();
@@ -203,6 +215,13 @@ export function ActivitiesScreen() {
   const route = useRoute<RouteProp<ActivitiesStackParamList, any>>();
   const tabsNavigation = navigation.getParent<BottomTabNavigationProp<MainTabsParamList>>();
   const insets = useSafeAreaInsets();
+  const {
+    bottomBarVisible,
+    setChromeAutoHideEnabled,
+    setChromeVisibility,
+    notifyChromeScrollIntent,
+    setChromeInteractionLock,
+  } = useChromeVisibility();
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
   const widgetNudgesEnabled = useFeatureFlag('widget_nudges_enabled', false);
@@ -214,6 +233,9 @@ export function ActivitiesScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
+  const domainHydrated = useAppStore((state) => state.domainHydrated);
+  const domainSyncStatus = useAppStore((state) => state.domainSyncStatus);
+  const domainSyncError = useAppStore((state) => state.domainSyncError);
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
@@ -809,6 +831,208 @@ export function ActivitiesScreen() {
   );
 
   const hasAnyActivities = visibleActivities.length > 0;
+  const hasAnyStoredActivities = activities.length > 0;
+  const isDomainLoading =
+    !domainHydrated ||
+    domainSyncStatus === 'loading-local' ||
+    domainSyncStatus === 'pulling-remote';
+  const hasDomainLoadError = domainSyncStatus === 'error' && !hasAnyStoredActivities;
+  const canShowEmptyState =
+    domainHydrated &&
+    !hasAnyActivities;
+  const renderDomainEmptyState = React.useCallback(() => {
+    if (hasDomainLoadError) {
+      return (
+        <EmptyState
+          title="Couldn’t load your to-dos"
+          instructions={domainSyncError ?? 'Check your connection and try again.'}
+          iconName="warning"
+          primaryAction={{
+            label: 'Try again',
+            variant: 'accent',
+            onPress: () => {
+              void retryDomainPull();
+            },
+            accessibilityLabel: 'Retry loading to-dos',
+          }}
+          style={styles.emptyState}
+        />
+      );
+    }
+
+    if (isDomainLoading) {
+      return (
+        <EmptyState
+          title="Loading your to-dos…"
+          instructions="We’re syncing your Kwilt records."
+          iconName="refresh"
+          style={styles.emptyState}
+        />
+      );
+    }
+
+    if (!canShowEmptyState) return null;
+    if (filterGroups.length > 0 || hasAnyStoredActivities) {
+      return (
+        <EmptyState
+          title="No matching to-dos"
+          instructions="Check your filters to see more results."
+          iconName="search"
+          primaryAction={{
+            label: 'Adjust filters',
+            variant: 'outline',
+            onPress: () => setFilterDrawerVisible(true),
+            accessibilityLabel: 'Adjust filters',
+          }}
+          secondaryAction={
+            !isPro
+              ? {
+                  label: 'Try Saved Views with Pro',
+                  variant: 'outline',
+                  onPress: () =>
+                    openPaywallInterstitial({
+                      reason: 'pro_only_views_filters',
+                      source: 'activity_empty_state',
+                    }),
+                  accessibilityLabel: 'Learn about Pro saved views',
+                }
+              : undefined
+          }
+          style={styles.emptyState}
+        />
+      );
+    }
+
+    return (
+      <EmptyState
+        title="No to-dos yet"
+        instructions="Add your first to-do to start building momentum."
+        iconName="emptyBox"
+        primaryAction={{
+          label: 'Add to-do',
+          variant: 'accent',
+          onPress: () => setActivityCoachVisible(true),
+          accessibilityLabel: 'Add a new to-do',
+        }}
+        style={styles.emptyState}
+      />
+    );
+  }, [
+    canShowEmptyState,
+    domainSyncError,
+    filterGroups.length,
+    hasAnyStoredActivities,
+    hasDomainLoadError,
+    isDomainLoading,
+    isPro,
+  ]);
+
+  const headerCollapseProgress = useSharedValue(0);
+  const [collapsibleHeaderHeight, setCollapsibleHeaderHeight] = React.useState(0);
+  const [headerCollapsedForA11y, setHeaderCollapsedForA11y] = React.useState(false);
+  const [inventoryViewportHeight, setInventoryViewportHeight] = React.useState(0);
+  const [inventoryContentHeight, setInventoryContentHeight] = React.useState(0);
+  const lastInventoryScrollYRef = React.useRef(0);
+  const downwardScrollIntentRef = React.useRef(0);
+  const upwardScrollIntentRef = React.useRef(0);
+  const headerVisibleRef = React.useRef(true);
+
+  const headerCollapseDistance = Math.max(
+    collapsibleHeaderHeight,
+    HEADER_COLLAPSE_DISTANCE_FALLBACK,
+  );
+  const inventoryCanMeaningfullyScroll =
+    inventoryContentHeight - inventoryViewportHeight > headerCollapseDistance + spacing.xl;
+  const shouldAutoHideInventoryChrome =
+    isFocused &&
+    hasAnyActivities &&
+    !isKanbanLayout &&
+    inventoryCanMeaningfullyScroll;
+
+  const headerSlotHeight = collapsibleHeaderHeight || HEADER_COLLAPSE_DISTANCE_FALLBACK;
+  const headerGhostFadeHeight = Math.max(fixedToolbarMeasuredHeight || 64, 1);
+  const headerGhostFadeRampStart = Math.max(
+    0,
+    Math.min(0.92, 1 - (HEADER_GHOST_FADE_EDGE_DISTANCE_PX / headerGhostFadeHeight)),
+  );
+
+  const collapsibleHeaderSlotAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: headerSlotHeight,
+    };
+  }, [headerSlotHeight]);
+
+  const collapsibleHeaderContentAnimatedStyle = useAnimatedStyle(() => {
+    const progress = headerCollapseProgress.value;
+
+    return {
+      opacity: 1 - progress,
+      transform: [{ translateY: -headerSlotHeight * progress }],
+    };
+  }, [headerCollapseProgress, headerSlotHeight]);
+
+  const inventoryBodyAnimatedStyle = useAnimatedStyle(() => {
+    const progress = headerCollapseProgress.value;
+
+    return {
+      marginBottom: -headerSlotHeight * progress,
+      transform: [{ translateY: -headerSlotHeight * progress }],
+    };
+  }, [headerCollapseProgress, headerSlotHeight]);
+
+  const inventoryListBodyAnimatedStyle = useAnimatedStyle(() => {
+    const progress = headerCollapseProgress.value;
+
+    return {
+      marginTop: -headerGhostFadeHeight * progress,
+    };
+  }, [headerCollapseProgress, headerGhostFadeHeight]);
+
+  const headerGhostFadeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      height: headerGhostFadeHeight,
+      opacity: headerCollapseProgress.value,
+    };
+  }, [headerCollapseProgress, headerGhostFadeHeight]);
+
+  const setHeaderCollapsedForA11yIfNeeded = React.useCallback((next: boolean) => {
+    setHeaderCollapsedForA11y((current) => (current === next ? current : next));
+  }, []);
+
+  const resetInventoryChrome = React.useCallback(() => {
+    headerCollapseProgress.value = withTiming(0, {
+      duration: CHROME_ANIMATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+    setHeaderCollapsedForA11y(false);
+    headerVisibleRef.current = true;
+    lastInventoryScrollYRef.current = 0;
+    downwardScrollIntentRef.current = 0;
+    upwardScrollIntentRef.current = 0;
+    setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
+  }, [headerCollapseProgress, setChromeVisibility]);
+
+  const setInventoryHeaderVisible = React.useCallback(
+    (visible: boolean) => {
+      headerVisibleRef.current = visible;
+      if (visible) {
+        setHeaderCollapsedForA11yIfNeeded(false);
+      }
+      headerCollapseProgress.value = withTiming(
+        visible ? 0 : 1,
+        {
+          duration: CHROME_ANIMATION_MS,
+          easing: Easing.out(Easing.cubic),
+        },
+        (finished) => {
+          if (finished && !visible) {
+            runOnJS(setHeaderCollapsedForA11yIfNeeded)(true);
+          }
+        },
+      );
+    },
+    [headerCollapseProgress, setHeaderCollapsedForA11yIfNeeded],
+  );
 
   // (removed) Suggested/AI-pick card logic (Plan now owns primary scheduling flow)
 
@@ -834,7 +1058,12 @@ export function ActivitiesScreen() {
     return enrichingActivityIdsRef.current.has(activityId);
   }, []);
 
-  const quickAddDockBottomOffsetPx = isKanbanLayout ? 0 : KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + spacing.sm;
+  const quickAddCompactBottomOffsetPx = Math.max(insets.bottom + spacing.sm, spacing.md);
+  const quickAddDockBottomOffsetPx = isKanbanLayout
+    ? 0
+    : bottomBarVisible
+      ? KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + spacing.sm
+      : quickAddCompactBottomOffsetPx;
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
@@ -1185,6 +1414,37 @@ export function ActivitiesScreen() {
   const [quickAddRepeatSheetVisible, setQuickAddRepeatSheetVisible] = React.useState(false);
   const [quickAddEstimateSheetVisible, setQuickAddEstimateSheetVisible] = React.useState(false);
   const [quickAddIsDueDatePickerVisible, setQuickAddIsDueDatePickerVisible] = React.useState(false);
+  const quickAddChromeLocked =
+    isQuickAddFocused ||
+    quickAddReminderSheetVisible ||
+    quickAddDueDateSheetVisible ||
+    quickAddRepeatSheetVisible ||
+    quickAddEstimateSheetVisible;
+
+  React.useEffect(() => {
+    setChromeInteractionLock(INVENTORY_CHROME_SURFACE, quickAddChromeLocked);
+    if (quickAddChromeLocked) {
+      resetInventoryChrome();
+    }
+    return () => setChromeInteractionLock(INVENTORY_CHROME_SURFACE, false);
+  }, [quickAddChromeLocked, resetInventoryChrome, setChromeInteractionLock]);
+
+  React.useEffect(() => {
+    setChromeAutoHideEnabled(INVENTORY_CHROME_SURFACE, shouldAutoHideInventoryChrome);
+    if (!shouldAutoHideInventoryChrome) {
+      resetInventoryChrome();
+    }
+
+    return () => {
+      setChromeAutoHideEnabled(INVENTORY_CHROME_SURFACE, false);
+      setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
+    };
+  }, [
+    resetInventoryChrome,
+    setChromeAutoHideEnabled,
+    setChromeVisibility,
+    shouldAutoHideInventoryChrome,
+  ]);
   const canvasScrollRef = React.useRef<FlatList<Activity> | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const { keyboardHeight, lastKnownKeyboardHeight } = useKeyboardHeight();
@@ -1550,6 +1810,63 @@ export function ActivitiesScreen() {
     : isQuickAddFocused
       ? quickAddReservedHeight + effectiveKeyboardHeight
       : quickAddReservedHeight;
+
+  const handleInventoryListLayout = React.useCallback((event: any) => {
+    setInventoryViewportHeight(event.nativeEvent.layout.height);
+  }, []);
+
+  const handleInventoryContentSizeChange = React.useCallback((_width: number, height: number) => {
+    setInventoryContentHeight(height);
+  }, []);
+
+  const handleInventoryScroll = React.useCallback(
+    (event: any) => {
+      const y = Math.max(0, event.nativeEvent.contentOffset.y ?? 0);
+
+      if (!shouldAutoHideInventoryChrome || quickAddChromeLocked) {
+        lastInventoryScrollYRef.current = y;
+        return;
+      }
+
+      if (y <= 2) {
+        downwardScrollIntentRef.current = 0;
+        upwardScrollIntentRef.current = 0;
+        notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'up', 0);
+        setInventoryHeaderVisible(true);
+        lastInventoryScrollYRef.current = y;
+        return;
+      }
+
+      const delta = y - lastInventoryScrollYRef.current;
+      lastInventoryScrollYRef.current = y;
+      if (Math.abs(delta) < 1) return;
+
+      if (delta > 0) {
+        downwardScrollIntentRef.current += delta;
+        upwardScrollIntentRef.current = 0;
+        if (downwardScrollIntentRef.current >= CHROME_HIDE_DELTA) {
+          notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'down', downwardScrollIntentRef.current);
+          setInventoryHeaderVisible(false);
+          downwardScrollIntentRef.current = 0;
+        }
+        return;
+      }
+
+      upwardScrollIntentRef.current += Math.abs(delta);
+      downwardScrollIntentRef.current = 0;
+      if (upwardScrollIntentRef.current >= CHROME_REVEAL_DELTA) {
+        notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'up', upwardScrollIntentRef.current);
+        setInventoryHeaderVisible(true);
+        upwardScrollIntentRef.current = 0;
+      }
+    },
+    [
+      notifyChromeScrollIntent,
+      quickAddChromeLocked,
+      setInventoryHeaderVisible,
+      shouldAutoHideInventoryChrome,
+    ],
+  );
 
   const setQuickAddDueDateByOffsetDays = React.useCallback((offsetDays: number) => {
     const date = new Date();
@@ -2114,46 +2431,70 @@ export function ActivitiesScreen() {
 
   return (
     <AppShell>
-      <PageHeader
-        title="To-dos"
-        onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
-        avatarName={avatarName}
-        avatarUrl={avatarUrl}
-        streakCount={currentShowUpStreak ?? 0}
-        streakShowedUpToday={showedUpToday}
-        shieldCount={shieldCount}
-        repairWindowActive={repairWindowActive}
-        rightElement={
-          isQuickAddFocused ? (
-            <Button
-              variant="secondary"
-              size="xs"
-              testID="e2e.activities.quickAdd.done"
-              accessibilityRole="button"
-              accessibilityLabel="Done"
-              onPress={collapseQuickAdd}
-            >
-              <ButtonLabel size="xs">Done</ButtonLabel>
-            </Button>
-          ) : null
-        }
+      <Animated.View
+        style={[styles.collapsibleHeaderAnimatedWrapper, collapsibleHeaderSlotAnimatedStyle]}
+        pointerEvents={headerCollapsedForA11y ? 'none' : 'auto'}
+        accessibilityElementsHidden={headerCollapsedForA11y}
+        importantForAccessibility={headerCollapsedForA11y ? 'no-hide-descendants' : 'auto'}
       >
-        {focusContextGoalId ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ ...typography.bodySm, color: colors.textSecondary }}>
-              Focus Filter: {goalTitleById[focusContextGoalId] ?? 'Goal'}
-            </Text>
-            <Button
-              variant="secondary"
-              size="xs"
-              accessibilityLabel="Clear Focus Filter"
-              onPress={() => setFocusContextGoalId(null)}
+        <Animated.View style={collapsibleHeaderContentAnimatedStyle}>
+          <View
+            onLayout={(event) => {
+              const h = event.nativeEvent.layout.height;
+              if (h <= 0) return;
+              setCollapsibleHeaderHeight((prev) => {
+                const shouldAcceptHeight =
+                  prev === 0 ||
+                  headerVisibleRef.current ||
+                  h > prev;
+
+                return shouldAcceptHeight && Math.abs(prev - h) > 1 ? h : prev;
+              });
+            }}
+          >
+            <PageHeader
+              title="To-dos"
+              onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
+              avatarName={avatarName}
+              avatarUrl={avatarUrl}
+              streakCount={currentShowUpStreak ?? 0}
+              streakShowedUpToday={showedUpToday}
+              shieldCount={shieldCount}
+              repairWindowActive={repairWindowActive}
+              rightElement={
+                isQuickAddFocused ? (
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    testID="e2e.activities.quickAdd.done"
+                    accessibilityRole="button"
+                    accessibilityLabel="Done"
+                    onPress={collapseQuickAdd}
+                  >
+                    <ButtonLabel size="xs">Done</ButtonLabel>
+                  </Button>
+                ) : null
+              }
             >
-              <ButtonLabel size="xs">Clear</ButtonLabel>
-            </Button>
+              {focusContextGoalId ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ ...typography.bodySm, color: colors.textSecondary }}>
+                    Focus Filter: {goalTitleById[focusContextGoalId] ?? 'Goal'}
+                  </Text>
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    accessibilityLabel="Clear Focus Filter"
+                    onPress={() => setFocusContextGoalId(null)}
+                  >
+                    <ButtonLabel size="xs">Clear</ButtonLabel>
+                  </Button>
+                </View>
+              ) : null}
+            </PageHeader>
           </View>
-        ) : null}
-      </PageHeader>
+        </Animated.View>
+      </Animated.View>
       <Coachmark
         visible={activitiesGuideHost.coachmarkVisible}
         targetRef={guideTargetRef}
@@ -2213,29 +2554,30 @@ export function ActivitiesScreen() {
           </HStack>
         </VStack>
       </Dialog>
-      {/* Toolbar and suggestions rendered outside scroll views so they stay fixed when scrolling */}
-      <View>
-      {activities.length > 0 && (
-        <Animated.View
-          style={[
-            styles.fixedToolbarAnimatedWrapper,
-            fixedToolbarAnimatedStyle,
-          ]}
-          pointerEvents={shouldShowFixedToolbar ? 'auto' : 'none'}
-          accessibilityElementsHidden={!shouldShowFixedToolbar}
-          importantForAccessibility={shouldShowFixedToolbar ? 'auto' : 'no-hide-descendants'}
-        >
-          <View
-            style={styles.fixedToolbarContainer}
-            onLayout={(e) => {
-              if (!shouldShowFixedToolbar) return;
-              const h = e.nativeEvent.layout.height;
-              // Ignore tiny heights that can happen during animation/clipping.
-              if (h >= 40) {
-                // Capture the "natural" toolbar height (including padding) while visible.
-                setFixedToolbarMeasuredHeight((prev) => (prev === 0 || Math.abs(prev - h) > 1 ? h : prev));
-              }
-            }}
+      <Animated.View style={[styles.inventoryBody, inventoryBodyAnimatedStyle]}>
+        {/* Toolbar and suggestions rendered outside scroll views so they stay fixed when scrolling */}
+        <View style={styles.inventoryToolbarLayer}>
+          {activities.length > 0 && (
+            <Animated.View
+              style={[
+                styles.fixedToolbarAnimatedWrapper,
+                fixedToolbarAnimatedStyle,
+              ]}
+              pointerEvents={shouldShowFixedToolbar ? 'auto' : 'none'}
+              accessibilityElementsHidden={!shouldShowFixedToolbar}
+              importantForAccessibility={shouldShowFixedToolbar ? 'auto' : 'no-hide-descendants'}
+            >
+              <View
+                style={styles.fixedToolbarContainer}
+                onLayout={(e) => {
+                  if (!shouldShowFixedToolbar) return;
+                  const h = e.nativeEvent.layout.height;
+                  // Ignore tiny heights that can happen during animation/clipping.
+                  if (h >= 40) {
+                    // Capture the "natural" toolbar height (including padding) while visible.
+                    setFixedToolbarMeasuredHeight((prev) => (prev === 0 || Math.abs(prev - h) > 1 ? h : prev));
+                  }
+                }}
           >
             <HStack
               style={styles.toolbarRow}
@@ -2462,6 +2804,24 @@ export function ActivitiesScreen() {
       )}
     </View>
 
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.headerGhostFade, headerGhostFadeAnimatedStyle]}
+      >
+        <LinearGradient
+          colors={[
+            `rgba(255,255,255,${HEADER_GHOST_FADE_MAX_ALPHA})`,
+            `rgba(255,255,255,${HEADER_GHOST_FADE_MAX_ALPHA})`,
+            'rgba(255,255,255,0)',
+          ]}
+          {...({ locations: [0, headerGhostFadeRampStart, 1] } as any)}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+
+      <Animated.View style={[styles.inventoryListBody, inventoryListBodyAnimatedStyle]}>
       {/* Render either Kanban or List view based on activeView.layout */}
       {activeView?.layout === 'kanban' ? (
         <KanbanBoard
@@ -2484,6 +2844,11 @@ export function ActivitiesScreen() {
         <DraggableList
           items={activeActivities}
           onOrderChange={handleReorderActivities}
+          onLayout={handleInventoryListLayout}
+          onContentSizeChange={handleInventoryContentSizeChange}
+          onScrollOffsetChange={(offsetY) => {
+            handleInventoryScroll({ nativeEvent: { contentOffset: { y: offsetY } } });
+          }}
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
@@ -2559,43 +2924,7 @@ export function ActivitiesScreen() {
               )}
             </>
           }
-          ListEmptyComponent={
-            !hasAnyActivities ? (
-              filterGroups.length > 0 ? (
-                <EmptyState
-                  title="No matching to-dos"
-                  instructions="Check your filters to see more results."
-                  iconName="search"
-                  primaryAction={{
-                    label: 'Adjust filters',
-                    variant: 'outline',
-                    onPress: () => setFilterDrawerVisible(true),
-                    accessibilityLabel: 'Adjust filters',
-                  }}
-                  secondaryAction={!isPro ? {
-                    label: 'Try Saved Views with Pro',
-                    variant: 'outline',
-                    onPress: () => openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_empty_state' }),
-                    accessibilityLabel: 'Learn about Pro saved views',
-                  } : undefined}
-                  style={styles.emptyState}
-                />
-              ) : (
-              <EmptyState
-                title="No to-dos yet"
-                instructions="Add your first to-do to start building momentum."
-                iconName="emptyBox"
-                primaryAction={{
-                  label: 'Add to-do',
-                  variant: 'accent',
-                  onPress: () => setActivityCoachVisible(true),
-                  accessibilityLabel: 'Add a new to-do',
-                }}
-                style={styles.emptyState}
-              />
-              )
-            ) : null
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
               <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
@@ -2618,6 +2947,9 @@ export function ActivitiesScreen() {
         <CanvasFlatListWithRef
           ref={canvasScrollRef}
           style={styles.scroll}
+          onLayout={handleInventoryListLayout}
+          onContentSizeChange={handleInventoryContentSizeChange}
+          onScroll={handleInventoryScroll}
           contentContainerStyle={[
             styles.scrollContent,
             activeActivities.length === 0 ? { flexGrow: 1 } : null,
@@ -2705,43 +3037,7 @@ export function ActivitiesScreen() {
               )}
             </>
           }
-          ListEmptyComponent={
-            !hasAnyActivities ? (
-              filterGroups.length > 0 ? (
-                <EmptyState
-                  title="No matching to-dos"
-                  instructions="Check your filters to see more results."
-                  iconName="search"
-                  primaryAction={{
-                    label: 'Adjust filters',
-                    variant: 'outline',
-                    onPress: () => setFilterDrawerVisible(true),
-                    accessibilityLabel: 'Adjust filters',
-                  }}
-                  secondaryAction={!isPro ? {
-                    label: 'Try Saved Views with Pro',
-                    variant: 'outline',
-                    onPress: () => openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_empty_state' }),
-                    accessibilityLabel: 'Learn about Pro saved views',
-                  } : undefined}
-                  style={styles.emptyState}
-                />
-              ) : (
-              <EmptyState
-                title="No to-dos yet"
-                instructions="Add your first to-do to start building momentum."
-                iconName="emptyBox"
-                primaryAction={{
-                  label: 'Add to-do',
-                  variant: 'accent',
-                  onPress: () => setActivityCoachVisible(true),
-                  accessibilityLabel: 'Add a new to-do',
-                }}
-                style={styles.emptyState}
-              />
-              )
-            ) : null
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
               <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
@@ -2763,6 +3059,8 @@ export function ActivitiesScreen() {
           }
         />
       )}
+      </Animated.View>
+      </Animated.View>
 
       {!isKanbanLayout && (
         <QuickAddDock
@@ -2785,6 +3083,7 @@ export function ActivitiesScreen() {
           isGeneratingActivityTitle={isQuickAddAiGenerating}
           hasGeneratedActivityTitle={hasQuickAddAiGenerated}
           onReservedHeightChange={setQuickAddReservedHeight}
+          collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
         />
       )}
       <BottomGuide

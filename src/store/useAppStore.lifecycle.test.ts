@@ -1,7 +1,11 @@
-import { useAppStore, resetUserSpecificState } from './useAppStore';
+import {
+  mergeActivityViewsWithSystemDefaults,
+  useAppStore,
+  resetUserSpecificState,
+} from './useAppStore';
 import { useEntitlementsStore } from './useEntitlementsStore';
 import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../domain/limits';
-import type { Activity, Arc, Goal } from '../domain/types';
+import type { Activity, ActivityView, Arc, Goal } from '../domain/types';
 
 function arc(overrides: Partial<Arc> = {}): Arc {
   const nowIso = new Date('2026-01-01T12:00:00.000Z').toISOString();
@@ -169,6 +173,50 @@ describe('useAppStore object lifecycles', () => {
       activeCount: 3,
       limit: 3,
     });
+  });
+});
+
+describe('activity view migrations', () => {
+  it('preserves saved edits to system views during rehydrate migration', () => {
+    const customizedDefault: ActivityView = {
+      id: 'default',
+      name: '🗂️ All to-dos',
+      filterMode: 'all',
+      sortMode: 'manual',
+      sorts: [{ field: 'createdAt', direction: 'desc' }],
+      showCompleted: false,
+      isSystem: true,
+    };
+
+    const migrated = mergeActivityViewsWithSystemDefaults([customizedDefault]);
+    const defaultView = migrated.find((view) => view.id === 'default');
+
+    expect(defaultView?.sorts).toEqual([{ field: 'createdAt', direction: 'desc' }]);
+    expect(defaultView?.showCompleted).toBe(false);
+    expect(defaultView?.isSystem).toBe(true);
+  });
+
+  it('adds missing system views while preserving custom views', () => {
+    const customView: ActivityView = {
+      id: 'view-custom',
+      name: 'Custom',
+      filterMode: 'all',
+      sortMode: 'manual',
+      sorts: [{ field: 'priority', direction: 'asc' }],
+      isSystem: false,
+    };
+
+    const migrated = mergeActivityViewsWithSystemDefaults([customView]);
+
+    expect(migrated.map((view) => view.id)).toEqual([
+      'default',
+      'dueToday',
+      'pastDue',
+      'view-custom',
+    ]);
+    expect(migrated.find((view) => view.id === 'view-custom')?.sorts).toEqual([
+      { field: 'priority', direction: 'asc' },
+    ]);
   });
 });
 
@@ -670,5 +718,4 @@ describe('weekly recap dismiss', () => {
     expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBe('2026-W16');
   });
 });
-
 

@@ -16,6 +16,16 @@ type RemoteRow = {
   updated_at?: string | null;
 };
 
+type DomainRemoteCounts = {
+  arcs: number;
+  goals: number;
+  activities: number;
+};
+
+type DomainPullResult = {
+  counts: DomainRemoteCounts;
+};
+
 let started = false;
 let stopAuthSub: (() => void) | null = null;
 let stopDomainSub: (() => void) | null = null;
@@ -39,6 +49,8 @@ export function resetPrevIds(): void {
 }
 
 const PUSH_DEBOUNCE_MS = 1200;
+const IS_JEST = typeof process !== 'undefined' && Boolean((process as any).env?.JEST_WORKER_ID);
+const FIRST_PULL_RETRY_DELAYS_MS = IS_JEST ? [1, 1, 1] : [500, 1000, 2000];
 
 function getErrorMessage(e: unknown): string {
   if (!e) return '';
@@ -49,6 +61,11 @@ function getErrorMessage(e: unknown): string {
   } catch {
     return '';
   }
+}
+
+function getConciseSyncError(e: unknown): string {
+  const msg = getErrorMessage(e).trim();
+  return msg || 'Unable to load your Kwilt records right now.';
 }
 
 function maybeDisableIfSchemaCacheMissingTable(e: unknown): boolean {
@@ -94,7 +111,12 @@ async function fetchRemoteTable(table: DomainTable, userId: string): Promise<Rem
     .from(table)
     .select('id, data, is_deleted, deleted_at, updated_at')
     .eq('user_id', userId);
-  if (error || !Array.isArray(data)) return [];
+  if (error) {
+    throw new Error(`${table}: ${getConciseSyncError(error)}`);
+  }
+  if (!Array.isArray(data)) {
+    throw new Error(`${table}: unexpected response while loading records`);
+  }
   return data as any;
 }
 
@@ -162,26 +184,70 @@ function applyRemoteMerge(params: {
   );
 }
 
-async function pullAndMerge(user: SyncUser): Promise<void> {
+async function pullAndMerge(user: SyncUser): Promise<DomainPullResult> {
   const [arcs, goals, activities] = await Promise.all([
     fetchRemoteTable('kwilt_arcs', user.userId),
     fetchRemoteTable('kwilt_goals', user.userId),
     fetchRemoteTable('kwilt_activities', user.userId),
   ]);
 
+  const alive = (rows: RemoteRow[]) => rows.filter((r) => !r.is_deleted).length;
+  const dead = (rows: RemoteRow[]) => rows.filter((r) => r.is_deleted).length;
+  const counts = {
+    arcs: alive(arcs),
+    goals: alive(goals),
+    activities: alive(activities),
+  };
+
   if (__DEV__) {
-    const alive = (rows: RemoteRow[]) => rows.filter((r) => !r.is_deleted).length;
-    const dead = (rows: RemoteRow[]) => rows.filter((r) => r.is_deleted).length;
     // eslint-disable-next-line no-console
     console.log(
       `[domainSync] pullAndMerge for ${user.userId.slice(0, 8)}… — ` +
-      `arcs: ${alive(arcs)} alive / ${dead(arcs)} tombstoned, ` +
-      `goals: ${alive(goals)} alive / ${dead(goals)} tombstoned, ` +
-      `activities: ${alive(activities)} alive / ${dead(activities)} tombstoned`,
+      `arcs: ${counts.arcs} alive / ${dead(arcs)} tombstoned, ` +
+      `goals: ${counts.goals} alive / ${dead(goals)} tombstoned, ` +
+      `activities: ${counts.activities} alive / ${dead(activities)} tombstoned`,
     );
   }
 
   applyRemoteMerge({ arcs, goals, activities });
+  return { counts };
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pullAndMergeWithRetry(user: SyncUser): Promise<DomainPullResult> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt <= FIRST_PULL_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await pullAndMerge(user);
+    } catch (e) {
+      lastError = e;
+      if (attempt >= FIRST_PULL_RETRY_DELAYS_MS.length) break;
+      await wait(FIRST_PULL_RETRY_DELAYS_MS[attempt] ?? 0);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(getConciseSyncError(lastError));
+}
+
+function markDomainPullReady(result: DomainPullResult): void {
+  useAppStore.setState({
+    domainHydrated: true,
+    domainSyncStatus: 'ready',
+    domainSyncError: null,
+    domainSyncRemoteCounts: result.counts,
+    domainSyncLastSuccessfulPullAt: new Date().toISOString(),
+  } as any);
+}
+
+function markDomainPullError(e: unknown, opts: { keepHydrated: boolean }): void {
+  const message = getConciseSyncError(e);
+  useAppStore.setState({
+    domainHydrated: opts.keepHydrated,
+    domainSyncStatus: 'error',
+    domainSyncError: message,
+  } as any);
 }
 
 function buildUpsertRows<T extends { id: string }>(user: SyncUser, items: T[], extra?: Record<string, any>) {
@@ -305,19 +371,33 @@ async function enableForUser(user: SyncUser): Promise<void> {
     // User has cached data -- show it immediately and refresh from backend in the background.
     InteractionManager.runAfterInteractions(() => {
       if (gen !== enableGeneration) return;
-      void pullAndMerge(user).catch(() => undefined);
+      void pullAndMerge(user)
+        .then((result) => {
+          if (gen !== enableGeneration) return;
+          markDomainPullReady(result);
+        })
+        .catch((e) => {
+          if (gen !== enableGeneration) return;
+          markDomainPullError(e, { keepHydrated: true });
+        });
     });
   } else {
     // No local cache (e.g. fresh install or second account). Await the backend pull
     // so the UI stays on a loading indicator instead of flashing an empty state.
     try {
-      await pullAndMerge(user);
-    } catch {
-      // Network failure -- still unblock UI.
+      useAppStore.setState({
+        domainHydrated: false,
+        domainSyncStatus: 'pulling-remote',
+        domainSyncError: null,
+      } as any);
+      const result = await pullAndMergeWithRetry(user);
+      if (gen !== enableGeneration) return;
+      markDomainPullReady(result);
+    } catch (e) {
+      if (gen !== enableGeneration) return;
+      markDomainPullError(e, { keepHydrated: false });
     }
-    if (gen !== enableGeneration) return;
     seedPrevIds();
-    useAppStore.setState({ domainHydrated: true } as any);
   }
 
   // Subscribe to domain slice changes and push debounced.
@@ -392,6 +472,31 @@ export function stopDomainSync(): void {
   started = false;
 }
 
+export async function retryDomainPull(): Promise<void> {
+  const user = activeUser;
+  if (!user) return;
+
+  const gen = enableGeneration;
+  useAppStore.setState({
+    domainHydrated: false,
+    domainSyncStatus: 'pulling-remote',
+    domainSyncError: null,
+  } as any);
+
+  try {
+    const result = await pullAndMergeWithRetry(user);
+    if (gen !== enableGeneration) return;
+    const s = useAppStore.getState();
+    prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
+    prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
+    prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
+    markDomainPullReady(result);
+  } catch (e) {
+    if (gen !== enableGeneration) return;
+    markDomainPullError(e, { keepHydrated: false });
+  }
+}
+
 /**
  * Check if a user has any existing synced data (Arcs, Goals, or Activities).
  * Used to determine if this is a returning user on a fresh install.
@@ -446,5 +551,3 @@ export async function checkUserHasSyncedData(userId: string): Promise<boolean> {
     return false;
   }
 }
-
-

@@ -481,7 +481,7 @@ export async function installScreenshotSeedPack(now: Date = new Date()): Promise
       repeatRule: 'weekdays',
       phase: 'Reset',
       planGroupId: null,
-      scheduledAt: null,
+      scheduledAt: iso(atHour(addDays(now, 0), 15, 30)),
       reminderAt: null,
       orderIndex: 1,
       actualMinutes: null,
@@ -631,7 +631,7 @@ export async function installScreenshotSeedPack(now: Date = new Date()): Promise
       type: 'shopping_list',
       tags: ['errands', 'food'],
       notes: 'Quick run, no overthinking.',
-      estimateMinutes: 35,
+      estimateMinutes: 50,
       priority: 2,
       scheduledDate: iso(atHour(addDays(now, 1), 18, 15)),
       status: 'planned',
@@ -644,7 +644,7 @@ export async function installScreenshotSeedPack(now: Date = new Date()): Promise
       repeatRule: undefined,
       phase: 'Food',
       planGroupId: null,
-      scheduledAt: null,
+      scheduledAt: iso(atHour(addDays(now, 0), 17, 45)),
       reminderAt: null,
       orderIndex: 20,
       actualMinutes: null,
@@ -744,7 +744,7 @@ export async function installScreenshotSeedPack(now: Date = new Date()): Promise
       repeatRule: 'weekly',
       phase: 'Deep work',
       planGroupId: null,
-      scheduledAt: null,
+      scheduledAt: iso(atHour(addDays(now, 0), 16, 15)),
       reminderAt: iso(atHour(addDays(now, 1), 9, 55)),
       orderIndex: 101,
       actualMinutes: null,
@@ -794,7 +794,7 @@ export async function installScreenshotSeedPack(now: Date = new Date()): Promise
       repeatRule: undefined,
       phase: 'Draft',
       planGroupId: null,
-      scheduledAt: null,
+      scheduledAt: iso(atHour(addDays(now, 0), 19, 15)),
       reminderAt: null,
       orderIndex: 121,
       actualMinutes: null,
@@ -1126,5 +1126,3 @@ export function removeScreenshotSeedPack(): RemoveResult {
   }
   return { status: 'removed', removed: { arcs: removed } };
 }
-
-
