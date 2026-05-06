@@ -330,6 +330,24 @@ export function resetUserSpecificState(): void {
     redeemedReferralCodes: {},
     dailyPlanHistory: {},
     dailyActivityResolutions: {},
+    lastShowUpDate: null,
+    currentShowUpStreak: 0,
+    lastStreakDateKey: null,
+    currentCoveredShowUpStreak: 0,
+    streakUpdatedAtIso: null,
+    streakGrace: {
+      freeDaysRemaining: 1,
+      lastFreeResetWeek: null,
+      shieldsAvailable: 0,
+      lastShieldEarnedWeekKey: null,
+      graceDaysUsed: 0,
+    },
+    streakBreakState: {
+      brokenAtDateKey: null,
+      brokenStreakLength: null,
+      eligibleRepairUntilMs: null,
+      repairedAtMs: null,
+    },
     lastSchedulingApply: null,
     lastKickoffShownDateKey: null,
     hasSeenOnboardingSharePrompt: false,
@@ -776,6 +794,9 @@ interface AppState {
    */
   lastShowUpDate: string | null;
   currentShowUpStreak: number;
+  lastStreakDateKey: string | null;
+  currentCoveredShowUpStreak: number;
+  streakUpdatedAtIso: string | null;
   lastActiveDate: string | null;
   /**
    * Streak grace system (like Duolingo's streak freeze).
@@ -1548,6 +1569,9 @@ export const useAppStore = create<AppState>()(
       enabledSendToDestinations: {},
       lastShowUpDate: null,
       currentShowUpStreak: 0,
+      lastStreakDateKey: null,
+      currentCoveredShowUpStreak: 0,
+      streakUpdatedAtIso: null,
       lastActiveDate: null,
       streakGrace: {
         freeDaysRemaining: 1,
@@ -2515,6 +2539,13 @@ export const useAppStore = create<AppState>()(
           const todayKey = localDateKey(nowDate);
           const prevKey = state.lastShowUpDate;
           const prevStreak = state.currentShowUpStreak ?? 0;
+          const rawPrevCoveredStreak = Math.max(
+            0,
+            Math.floor(state.currentCoveredShowUpStreak ?? prevStreak ?? 0),
+          );
+          const prevCoveredStreak =
+            rawPrevCoveredStreak > 0 || prevStreak <= 0 ? rawPrevCoveredStreak : prevStreak;
+          const streakUpdatedAtIso = nowDate.toISOString();
           const breakState = state.streakBreakState ?? {
             brokenAtDateKey: null,
             brokenStreakLength: null,
@@ -2598,6 +2629,9 @@ export const useAppStore = create<AppState>()(
               ...state,
               lastShowUpDate: todayKey,
               currentShowUpStreak: repairedStreak,
+              lastStreakDateKey: todayKey,
+              currentCoveredShowUpStreak: repairedStreak,
+              streakUpdatedAtIso,
               streakGrace: { ...nextGrace, graceDaysUsed: 0 },
               streakBreakState: nextBreakState,
               lastActiveDate: nowDate.toISOString(),
@@ -2606,6 +2640,7 @@ export const useAppStore = create<AppState>()(
           }
 
           let nextStreak = 1;
+          let nextCoveredStreak = 1;
           let graceDaysUsed = 0;
           let nextBreakState = {
             brokenAtDateKey: null as string | null,
@@ -2631,6 +2666,7 @@ export const useAppStore = create<AppState>()(
 
               if (diffDays === 1) {
                 nextStreak = prevStreak + 1;
+                nextCoveredStreak = prevCoveredStreak + 1;
                 nextGrace = { ...nextGrace, graceDaysUsed: 0 };
               } else if (diffDays > 1) {
                 const missedDays = diffDays - 1;
@@ -2639,6 +2675,7 @@ export const useAppStore = create<AppState>()(
                 if (graceAvailable >= missedDays) {
                   graceDaysUsed = missedDays;
                   nextStreak = prevStreak + 1;
+                  nextCoveredStreak = prevCoveredStreak + missedDays + 1;
 
                   let remaining = missedDays;
                   const freeUsed = Math.min(remaining, nextGrace.freeDaysRemaining);
@@ -2654,6 +2691,7 @@ export const useAppStore = create<AppState>()(
                 } else {
                   // Not enough grace — enter repair window instead of immediately resetting
                   nextStreak = 1;
+                  nextCoveredStreak = 1;
                   nextGrace = { ...nextGrace, graceDaysUsed: 0 };
                   if (prevStreak > 0) {
                     nextBreakState = {
@@ -2688,6 +2726,9 @@ export const useAppStore = create<AppState>()(
             ...state,
             lastShowUpDate: todayKey,
             currentShowUpStreak: nextStreak,
+            lastStreakDateKey: todayKey,
+            currentCoveredShowUpStreak: nextCoveredStreak,
+            streakUpdatedAtIso,
             streakGrace: nextGrace,
             streakBreakState: nextBreakState,
             lastActiveDate: nowDate.toISOString(),
@@ -2736,6 +2777,9 @@ export const useAppStore = create<AppState>()(
           ...state,
           lastShowUpDate: null,
           currentShowUpStreak: 0,
+          lastStreakDateKey: null,
+          currentCoveredShowUpStreak: 0,
+          streakUpdatedAtIso: now(),
           streakGrace: {
             ...state.streakGrace,
             graceDaysUsed: 0,
@@ -2762,6 +2806,7 @@ export const useAppStore = create<AppState>()(
           const MAX_SHIELDS = 3;
           return {
             ...state,
+            streakUpdatedAtIso: now(),
             streakGrace: {
               ...grace,
               shieldsAvailable: Math.min(MAX_SHIELDS, grace.shieldsAvailable + count),
@@ -2850,6 +2895,9 @@ export const useAppStore = create<AppState>()(
           hasCompletedFirstTimeOnboarding: false,
           lastShowUpDate: null,
           currentShowUpStreak: 0,
+          lastStreakDateKey: null,
+          currentCoveredShowUpStreak: 0,
+          streakUpdatedAtIso: null,
           lastActiveDate: null,
           streakGrace: {
             freeDaysRemaining: 1,
@@ -2988,6 +3036,24 @@ export const useAppStore = create<AppState>()(
           if (typeof prefs.lastDailySyncDate !== 'string') prefs.lastDailySyncDate = null;
           if (typeof prefs.lastSyncAtIso !== 'string') prefs.lastSyncAtIso = null;
           if (typeof prefs.promptDismissedAtIso !== 'string') prefs.promptDismissedAtIso = null;
+        }
+        if (typeof anyState.currentShowUpStreak !== 'number' || !Number.isFinite(anyState.currentShowUpStreak)) {
+          anyState.currentShowUpStreak = 0;
+        }
+        if (typeof anyState.lastShowUpDate !== 'string') {
+          anyState.lastShowUpDate = null;
+        }
+        if (typeof anyState.lastStreakDateKey !== 'string') {
+          anyState.lastStreakDateKey = anyState.lastShowUpDate;
+        }
+        if (
+          typeof anyState.currentCoveredShowUpStreak !== 'number' ||
+          !Number.isFinite(anyState.currentCoveredShowUpStreak)
+        ) {
+          anyState.currentCoveredShowUpStreak = Math.max(0, Math.floor(anyState.currentShowUpStreak ?? 0));
+        }
+        if (typeof anyState.streakUpdatedAtIso !== 'string') {
+          anyState.streakUpdatedAtIso = null;
         }
         // Migration: keep the required system Activity views present while preserving
         // user edits to those views (system views are editable guardrails, not resets).

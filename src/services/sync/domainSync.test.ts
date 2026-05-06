@@ -7,8 +7,9 @@ const NOW_ISO = new Date('2026-01-15T12:00:00.000Z').toISOString();
 
 type TableName = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
 type SelectResult = { data: any[] | null; error: any | null };
+type QueuedSelectResult = SelectResult | 'hang';
 
-const mockSelectQueues: Record<TableName, SelectResult[]> = {
+const mockSelectQueues: Record<TableName, QueuedSelectResult[]> = {
   kwilt_arcs: [],
   kwilt_goals: [],
   kwilt_activities: [],
@@ -18,6 +19,7 @@ const defaultEmptyResult = (): SelectResult => ({ data: [], error: null });
 
 const mockNextSelectResult = (table: TableName): Promise<SelectResult> => {
   const queued = mockSelectQueues[table].shift();
+  if (queued === 'hang') return new Promise(() => undefined);
   return Promise.resolve(queued ?? defaultEmptyResult());
 };
 
@@ -99,6 +101,7 @@ function queueRemote(params: {
   goals?: Goal[];
   activities?: Activity[];
   errors?: Partial<Record<TableName, any>>;
+  hanging?: TableName[];
 }) {
   mockSelectQueues.kwilt_arcs.push({
     data: params.errors?.kwilt_arcs ? null : (params.arcs ?? []).map(row),
@@ -112,6 +115,10 @@ function queueRemote(params: {
     data: params.errors?.kwilt_activities ? null : (params.activities ?? []).map(row),
     error: params.errors?.kwilt_activities ?? null,
   });
+  for (const table of params.hanging ?? []) {
+    mockSelectQueues[table].pop();
+    mockSelectQueues[table].push('hang');
+  }
 }
 
 function seedDomainSnapshot(key: string, arcs: Arc[], goals: Goal[], activities: Activity[]) {
@@ -237,6 +244,22 @@ describe('domainSync account transitions', () => {
     expect(state.domainSyncError).toContain('RLS denied');
     expect(state.arcs).toEqual([]);
     expect(state.goals).toEqual([]);
+    expect(state.activities).toEqual([]);
+  });
+
+  it('no local cache + hanging remote table times out into a retryable error', async () => {
+    for (let i = 0; i < 4; i += 1) {
+      queueRemote({ hanging: ['kwilt_activities'] });
+    }
+
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' } as any);
+
+    await waitForStore(() => useAppStore.getState().domainSyncStatus === 'error');
+
+    const state = useAppStore.getState();
+    expect(state.domainHydrated).toBe(false);
+    expect(state.domainSyncError).toContain('timed out');
     expect(state.activities).toEqual([]);
   });
 
