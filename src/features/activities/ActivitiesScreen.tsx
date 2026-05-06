@@ -831,15 +831,14 @@ export function ActivitiesScreen() {
   );
 
   const hasAnyActivities = visibleActivities.length > 0;
+  const hasAnyStoredActivities = activities.length > 0;
   const isDomainLoading =
     !domainHydrated ||
     domainSyncStatus === 'loading-local' ||
     domainSyncStatus === 'pulling-remote';
-  const hasDomainLoadError = domainSyncStatus === 'error' && !hasAnyActivities;
-  const canShowTrueEmptyState =
+  const hasDomainLoadError = domainSyncStatus === 'error' && !hasAnyStoredActivities;
+  const canShowEmptyState =
     domainHydrated &&
-    domainSyncStatus === 'ready' &&
-    !domainSyncError &&
     !hasAnyActivities;
   const renderDomainEmptyState = React.useCallback(() => {
     if (hasDomainLoadError) {
@@ -872,8 +871,8 @@ export function ActivitiesScreen() {
       );
     }
 
-    if (!canShowTrueEmptyState) return null;
-    if (filterGroups.length > 0) {
+    if (!canShowEmptyState) return null;
+    if (filterGroups.length > 0 || hasAnyStoredActivities) {
       return (
         <EmptyState
           title="No matching to-dos"
@@ -919,9 +918,10 @@ export function ActivitiesScreen() {
       />
     );
   }, [
-    canShowTrueEmptyState,
+    canShowEmptyState,
     domainSyncError,
     filterGroups.length,
+    hasAnyStoredActivities,
     hasDomainLoadError,
     isDomainLoading,
     isPro,
