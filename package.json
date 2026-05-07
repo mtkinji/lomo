@@ -91,6 +91,7 @@
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
+    "@types/react-native": "^0.72.8",
     "baseline-browser-mapping": "^2.9.14",
     "dotenv": "^17.2.3",
     "eas-cli": "^16.28.0",
