@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { Button } from './Button';
 import { HStack, VStack } from './Stack';
-import { ButtonLabel, Text } from './Typography';
+import { ButtonLabel, Heading, Text } from './Typography';
 import { QuestionCard } from './QuestionCard';
 import { cardElevation, cardSurfaceStyle, colors, spacing } from '../theme';
 
@@ -18,7 +18,7 @@ export type SurveyStep = {
   canProceed?: boolean;
 };
 
-type SurveyCardVariant = 'stacked' | 'flat';
+type SurveyCardVariant = 'stacked' | 'flat' | 'panel';
 type SurveyCardMode = 'active' | 'completed';
 
 type SurveyCardProps = {
@@ -77,6 +77,7 @@ export function SurveyCard({
   style,
   cardStyle,
 }: SurveyCardProps) {
+  const { height: windowHeight } = useWindowDimensions();
   const totalSteps = Math.max(0, steps.length);
   const safeIndex = Math.min(Math.max(0, currentStepIndex), Math.max(0, totalSteps - 1));
   const step = steps[safeIndex];
@@ -91,63 +92,162 @@ export function SurveyCard({
 
   const resolvedStepLabel =
     stepLabel ?? (isCompleted ? completedLabel : `${safeIndex + 1} of ${totalSteps}`);
+  const panelMinHeight = variant === 'panel' ? Math.max(600, Math.round(windowHeight * 0.72)) : undefined;
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, variant === 'panel' && styles.panelContainer, style]}>
       <View style={styles.deck}>
         {variant === 'stacked' ? (
           <View pointerEvents="none" style={styles.behindCard} />
         ) : null}
 
-        <QuestionCard
-          title={step.title}
-          titleAccessory={step.titleAccessory}
-          // Use the app's standard Card look for consistency.
-          elevation="soft"
-          style={[styles.frontCard, cardStyle]}
-        >
-          <VStack space="md">
-            <View>{step.render()}</View>
-            <HStack
-              alignItems="center"
-              justifyContent="space-between"
-              space="sm"
-              style={styles.footerRow}
-            >
-              {footerLeft ? footerLeft : (
-                <Text style={styles.footerStepLabel}>{resolvedStepLabel}</Text>
-              )}
-              {footerRight ? (
-                footerRight
-              ) : isCompleted ? (
-                <View style={styles.completedBadge} accessibilityLabel={completedLabel}>
-                  <Text style={styles.completedBadgeText}>✓ {completedLabel}</Text>
-                </View>
-              ) : (
-                <HStack alignItems="center" justifyContent="flex-end" space="sm">
-                  {!isFirst ? (
-                    <Button variant="ghost" onPress={onBack} accessibilityLabel={backLabel}>
-                      <ButtonLabel size="md">{backLabel}</ButtonLabel>
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="primary"
-                    disabled={isPrimaryDisabled}
-                    style={isPrimaryDisabled ? styles.primaryDisabled : undefined}
-                    onPress={isLast ? onSubmit : onNext}
-                    accessibilityLabel={primaryLabel}
-                  >
-                    <ButtonLabel size="md" tone={isPrimaryDisabled ? 'muted' : 'inverse'}>
-                      {primaryLabel}
-                    </ButtonLabel>
-                  </Button>
-                </HStack>
-              )}
-            </HStack>
-          </VStack>
-        </QuestionCard>
+        {variant === 'panel' ? (
+          <View style={[styles.panel, panelMinHeight ? { minHeight: panelMinHeight } : null, cardStyle]}>
+            <View style={styles.panelStack}>
+              <HStack alignItems="center" style={styles.panelHeaderRow}>
+                <Heading variant="sm" style={styles.panelTitle}>
+                  {step.title}
+                </Heading>
+                {step.titleAccessory ? (
+                  <View style={styles.panelTitleAccessory}>{step.titleAccessory}</View>
+                ) : null}
+              </HStack>
+              <SurveyCardBody
+                step={step}
+                footerLeft={footerLeft}
+                footerRight={footerRight}
+                isCompleted={isCompleted}
+                isFirst={isFirst}
+                isLast={isLast}
+                isPrimaryDisabled={isPrimaryDisabled}
+                resolvedStepLabel={resolvedStepLabel}
+                completedLabel={completedLabel}
+                backLabel={backLabel}
+                primaryLabel={primaryLabel}
+                onBack={onBack}
+                onNext={onNext}
+                onSubmit={onSubmit}
+                anchoredFooter
+              />
+            </View>
+          </View>
+        ) : (
+          <QuestionCard
+            title={step.title}
+            titleAccessory={step.titleAccessory}
+            // Use the app's standard Card look for consistency.
+            elevation="soft"
+            style={[styles.frontCard, cardStyle]}
+          >
+            <SurveyCardBody
+              step={step}
+              footerLeft={footerLeft}
+              footerRight={footerRight}
+              isCompleted={isCompleted}
+              isFirst={isFirst}
+              isLast={isLast}
+              isPrimaryDisabled={isPrimaryDisabled}
+              resolvedStepLabel={resolvedStepLabel}
+              completedLabel={completedLabel}
+              backLabel={backLabel}
+              primaryLabel={primaryLabel}
+              onBack={onBack}
+              onNext={onNext}
+              onSubmit={onSubmit}
+            />
+          </QuestionCard>
+        )}
       </View>
     </View>
+  );
+}
+
+function SurveyCardBody({
+  step,
+  footerLeft,
+  footerRight,
+  isCompleted,
+  isFirst,
+  isLast,
+  isPrimaryDisabled,
+  resolvedStepLabel,
+  completedLabel,
+  backLabel,
+  primaryLabel,
+  onBack,
+  onNext,
+  onSubmit,
+  anchoredFooter = false,
+}: {
+  step: SurveyStep;
+  footerLeft?: ReactNode;
+  footerRight?: ReactNode;
+  isCompleted: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  isPrimaryDisabled: boolean;
+  resolvedStepLabel: string;
+  completedLabel: string;
+  backLabel: string;
+  primaryLabel: string;
+  onBack?: () => void;
+  onNext?: () => void;
+  onSubmit?: () => void;
+  anchoredFooter?: boolean;
+}) {
+  const footer = (
+    <HStack
+      alignItems="center"
+      justifyContent="space-between"
+      space="sm"
+      style={styles.footerRow}
+    >
+      {footerLeft ? footerLeft : (
+        <Text style={styles.footerStepLabel}>{resolvedStepLabel}</Text>
+      )}
+      {footerRight ? (
+        footerRight
+      ) : isCompleted ? (
+        <View style={styles.completedBadge} accessibilityLabel={completedLabel}>
+          <Text style={styles.completedBadgeText}>✓ {completedLabel}</Text>
+        </View>
+      ) : (
+        <HStack alignItems="center" justifyContent="flex-end" space="sm">
+          {!isFirst ? (
+            <Button variant="ghost" onPress={onBack} accessibilityLabel={backLabel}>
+              <ButtonLabel size="md">{backLabel}</ButtonLabel>
+            </Button>
+          ) : null}
+          <Button
+            variant="primary"
+            disabled={isPrimaryDisabled}
+            style={isPrimaryDisabled ? styles.primaryDisabled : undefined}
+            onPress={isLast ? onSubmit : onNext}
+            accessibilityLabel={primaryLabel}
+          >
+            <ButtonLabel size="md" tone={isPrimaryDisabled ? 'muted' : 'inverse'}>
+              {primaryLabel}
+            </ButtonLabel>
+          </Button>
+        </HStack>
+      )}
+    </HStack>
+  );
+
+  if (anchoredFooter) {
+    return (
+      <View style={styles.panelBody}>
+        <View style={styles.panelContent}>{step.render()}</View>
+        {footer}
+      </View>
+    );
+  }
+
+  return (
+          <VStack space="md">
+            <View>{step.render()}</View>
+            {footer}
+          </VStack>
   );
 }
 
@@ -162,6 +262,10 @@ const styles = StyleSheet.create({
     // Extra separation from the content above so the behind card doesn't
     // visually collide with prior bubbles.
     marginTop: spacing.lg,
+  },
+  panelContainer: {
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
   },
   deck: {
     position: 'relative',
@@ -187,6 +291,28 @@ const styles = StyleSheet.create({
     // the behind card aligns and reads like a true “stack”.
     marginVertical: 0,
     // Let the standard Card look show through.
+  },
+  panel: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  panelStack: {
+    flex: 1,
+  },
+  panelHeaderRow: {
+    paddingBottom: spacing.sm,
+  },
+  panelTitle: {},
+  panelTitleAccessory: {
+    paddingLeft: spacing.xs,
+  },
+  panelBody: {
+    flex: 1,
+    justifyContent: 'space-between',
+    rowGap: spacing.lg,
+  },
+  panelContent: {
+    flexGrow: 1,
   },
   footerRow: {
     paddingTop: spacing.xs,

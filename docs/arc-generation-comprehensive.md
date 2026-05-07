@@ -1,5 +1,9 @@
 # Comprehensive Arc Generation Concept
 
+Source of truth note:
+The canonical philosophical and research foundation for Arcs now lives in [docs/research/arcs_identity_trajectory_research.md](/Users/andrewwatanabe/Kwilt/docs/research/arcs_identity_trajectory_research.md:1).
+This document remains the canonical implementation-oriented reference for Arc generation, naming, narrative structure, grading, and workflow behavior.
+
 This document consolidates the complete model for how Arcs are generated in Kwilt, including naming conventions, narrative structure, grading criteria, and the full generation workflow.
 
 ---
@@ -594,4 +598,3 @@ When generating an Arc, ensure:
 ---
 
 *This document consolidates Arc generation concepts from: `docs/life-architecture-model.md`, `docs/arc-aspiration-ftue.md`, `src/domain/idealArcs.ts`, `src/features/ai/chatRegistry.ts`, `src/services/ai.ts`, and `src/features/arcs/arcDevelopmentInsights.ts`.*
-

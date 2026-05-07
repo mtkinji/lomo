@@ -9,6 +9,7 @@
 import type { GeneratedArc, ArcRubricJudgeResult, ArcComparisonRubricJudgeResult } from '../../services/ai';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateArcs, judgeArcRubric, judgeArcComparisonRubric } from '../../services/ai';
+import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
 
 /**
  * Synthetic questionnaire response structure matching the IdentityAspirationFlow inputs
@@ -533,23 +534,23 @@ const arcConstraintScore = (arc: GeneratedArc): { score: number; notes: string[]
   const sentences = sentenceSplit(narrative).length;
 
   const meaningfulWords = countMeaningfulNameWords(name);
-  if (meaningfulWords < 1 || meaningfulWords > 3) {
+  if (meaningfulWords < 2 || meaningfulWords > 5) {
     score -= 2;
-    notes.push('name not 1–3 words');
+    notes.push('name not 2-5 words');
   }
   if (name.length > 42) {
     score -= 1;
     notes.push('name too long');
   }
-  if (!/^I want(?:\s|…)/.test(narrative)) {
+  if (!/^You are becoming(?:\s|…)/.test(narrative)) {
     score -= 2;
-    notes.push('narrative does not start with “I want…”');
+    notes.push('narrative does not start with "You are becoming"');
   }
   if (sentences !== 3) {
     score -= 2;
     notes.push('narrative not exactly 3 sentences');
   }
-  if (words < 40 || words > 120) {
+  if (words < 35 || words > 65) {
     score -= 2;
     notes.push('narrative word count out of bounds');
   }
@@ -753,6 +754,8 @@ const questionCountByParadigmId: Record<string, number> = {
   archetype_emulation: 4,
   // Minimal essentials + (optional) role model taps
   hybrid_minimalist_archetype: 5,
+  // Same question count as hybrid; prompt changes only.
+  resonant_hybrid_v2: 5,
 };
 
 const easeAnswering14yoByParadigmId: Record<string, number> = {
@@ -768,6 +771,8 @@ const easeAnswering14yoByParadigmId: Record<string, number> = {
   archetype_emulation: 9,
   // Minimal + tap-centric; designed for teens.
   hybrid_minimalist_archetype: 9,
+  // Same UX as hybrid; prompt changes only.
+  resonant_hybrid_v2: 9,
 };
 
 const surveyLengthScore = (questionCount: number) => {
@@ -2029,9 +2034,10 @@ ${roleModelSignals || 'No role model signals provided.'}
 
 HARD OUTPUT CONSTRAINTS (must follow exactly):
 - Return 1 arc.
-- Arc name must be 1–3 meaningful words (no more than 3). Prefer 2 words.
-- Arc narrative MUST be exactly 3 sentences, one paragraph, 40–120 words total.
-- Narrative MUST start with "I want".
+- Arc name must be 2-5 meaningful words. Prefer 2-4 words.
+- Arc narrative MUST be exactly 3 sentences, one paragraph, 35-65 words total.
+- Narrative MUST start with "You are becoming".
+- Use "you", not "I".
 - Avoid clichés and vague phrases (no "journey", no "mindset", no "purposeful impact").
 
 QUALITY REQUIREMENTS (what "best" means):
@@ -2041,6 +2047,102 @@ QUALITY REQUIREMENTS (what "best" means):
 - Useful: make the arc feel like a clear identity direction someone could adopt.
 
 Also include up to 4 suggestedForces as short, concrete phrases (no abstract virtues-only lists).`,
+    };
+  },
+};
+
+/**
+ * PARADIGM 11: Resonant Hybrid v2
+ *
+ * Same lightweight survey shape as the Hybrid paradigm, but with a stricter
+ * drafting strategy aimed at the specific 7/10 failure mode we have seen in
+ * review: arcs that are valid, pleasant, and broadly aligned, yet too generic
+ * to feel adopted.
+ */
+const paradigm11_ResonantHybridV2: PromptParadigm = {
+  id: 'resonant_hybrid_v2',
+  name: 'Resonant Hybrid v2',
+  description:
+    'Uses the hybrid inputs but forces a resonance anchor, growth tension, concrete arena naming, and anti-generic language.',
+  buildPrompt: (response) => {
+    const tappedRoleModelType = labelFor(ARCHETYPE_ROLE_MODEL_TYPES, response.roleModelTypeId);
+    const tappedSpecificRoleModel =
+      response.specificRoleModelId && response.specificRoleModelId !== 'none' && response.specificRoleModelId !== 'not_sure'
+        ? labelFor(ARCHETYPE_SPECIFIC_ROLE_MODELS, response.specificRoleModelId)
+        : response.specificRoleModelId === 'none'
+        ? 'No one specific'
+        : response.specificRoleModelId === 'not_sure'
+        ? 'Not sure'
+        : undefined;
+    const tappedWhy = labelFor(ARCHETYPE_ROLE_MODEL_WHY, response.roleModelWhyId);
+    const tappedQualities = labelsFor(ARCHETYPE_ADMIRED_QUALITIES, response.admiredQualityIds as string[] | undefined);
+    const dreams = response.bigDreams.length > 0 ? response.bigDreams.join('; ') : 'None specified';
+
+    const roleModelSignals = [
+      tappedRoleModelType ? `Kind of people they look up to: ${tappedRoleModelType}` : '',
+      tappedSpecificRoleModel ? `Specific role model: ${tappedSpecificRoleModel}` : '',
+      tappedWhy ? `Why that role model matters: ${tappedWhy}` : '',
+      tappedQualities.length > 0 ? `Admired qualities: ${tappedQualities.join('; ')}` : '',
+      response.roleModelType ? `Typed role model category: ${response.roleModelType}` : '',
+      response.specificRoleModels && response.specificRoleModels.length > 0
+        ? `Typed specific role models: ${response.specificRoleModels.join('; ')}`
+        : '',
+      response.admiredQualities && response.admiredQualities.length > 0
+        ? `Typed admired qualities: ${response.admiredQualities.join('; ')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const fullSignalMap = [
+      `Age band: ${response.ageBand}`,
+      `Domain: ${response.domain}`,
+      `Future-self vibe: ${response.motivation}`,
+      `How others experience them: ${response.signatureTrait}`,
+      `Growth edge: ${response.growthEdge}`,
+      `Everyday proud moment: ${response.proudMoment}`,
+      `Meaning source: ${response.meaning}`,
+      `Desired impact: ${response.impact}`,
+      `Value orientation: ${response.valueOrientation}`,
+      `Life philosophy: ${response.philosophy}`,
+      `Vocation: ${response.vocation}`,
+      response.whyNow ? `Why now: ${response.whyNow}` : '',
+      `Concrete dream(s): ${dreams}`,
+      response.nickname ? `Optional nickname: ${response.nickname}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return {
+      prompt: [
+        'Generate ONE Identity Arc for this synthetic user response.',
+        'The goal is not a merely correct Arc. The goal is an Arc the person might read and think: "that is uncomfortably specific in a good way."',
+        '',
+        buildHybridArcGuidelinesBlock(),
+        '',
+        'FULL SIGNAL MAP',
+        fullSignalMap,
+        '',
+        'ROLE MODEL SIGNALS',
+        roleModelSignals || 'No explicit role model signals provided.',
+        '',
+        'DRAFTING METHOD',
+        '1. Choose the resonance anchor and growth tension before writing.',
+        '2. Build the Arc name from a concrete arena plus posture when possible.',
+        '3. Write the narrative around only the strongest 2–4 signals.',
+        '4. Make sentence 3 show the admired quality through a small ordinary behavior.',
+        '',
+        'ABSOLUTE AVOID LIST',
+        '- "bring that dream to life"',
+        '- "one small step"',
+        '- "calling it done"',
+        '- "unlock my potential"',
+        '- "best self"',
+        '- "journey"',
+        '- raw copying of the nickname if it starts with "The"',
+        '',
+        'Also include up to 4 suggestedForces as short behavior phrases, not virtues.',
+      ].join('\n'),
     };
   },
 };
@@ -2059,6 +2161,7 @@ export const PROMPT_PARADIGMS: PromptParadigm[] = [
   paradigm8_ValuesFirst,
   paradigm9_ArchetypeEmulation,
   paradigm10_HybridMinimalistArchetype,
+  paradigm11_ResonantHybridV2,
 ];
 
 export const getActivePromptParadigms = (): PromptParadigm[] =>
@@ -2186,4 +2289,3 @@ export function formatTestResults(comparison: ComparisonResult): string {
 
   return lines.join('\n');
 }
-

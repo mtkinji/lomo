@@ -8,6 +8,10 @@ jest.mock('../store/useAppStore', () => ({
   },
 }));
 
+jest.mock('../navigation/rootNavigationRef', () => ({
+  navigateWhenReady: jest.fn(),
+}));
+
 jest.mock('./notifications/NotificationDeliveryLedger', () => ({
   loadSystemNudgeLedger: jest.fn(async () => ({
     days: {},
@@ -42,6 +46,8 @@ jest.mock('./recommendations/nextStep', () => ({
 }));
 
 import { useAppStore } from '../store/useAppStore';
+import { useToastStore } from '../store/useToastStore';
+import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { loadSystemNudgeLedger } from './notifications/NotificationDeliveryLedger';
 import { NotificationService } from './NotificationService';
 import { getSuggestedNextStep } from './recommendations/nextStep';
@@ -242,6 +248,42 @@ describe('NotificationService system-nudge policy', () => {
     await NotificationService.scheduleGoalNudge();
 
     expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+
+  it('lets users jump from the adaptive timing toast to notification settings', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000'));
+    setStoreState({
+      activityCompletionHours: [13, 13, 13, 13, 13],
+      lastAdaptiveTimingSuggestionDateKey: null,
+    });
+
+    const showToast = jest.fn();
+    jest.spyOn(useToastStore, 'getState').mockReturnValue({ showToast } as any);
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+    await NotificationService.scheduleDailyShowUp('09:00');
+
+    expect(scheduleSpy).toHaveBeenCalled();
+    expect(useAppStore.setState).toHaveBeenCalledWith({
+      lastAdaptiveTimingSuggestionDateKey: '2026-01-01',
+    });
+
+    jest.runOnlyPendingTimers();
+
+    expect(showToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'You usually show up around 1 PM. Want to adjust your reminder?',
+        actionLabel: 'Adjust',
+        actionOnPress: expect.any(Function),
+      }),
+    );
+
+    const payload = showToast.mock.calls[0]?.[0];
+    payload.actionOnPress();
+
+    expect(navigateWhenReady).toHaveBeenCalledWith('Settings', {
+      screen: 'SettingsNotifications',
+    });
   });
 });
 
@@ -466,5 +508,4 @@ describe('NotificationService streak-aware copy', () => {
     expect(arg.content.body).toBeTruthy();
   });
 });
-
 

@@ -1,5 +1,9 @@
 # FTUE Arc Generation Workflow Map
 
+Source of truth note:
+For the underlying philosophy of Arcs and the research for how they support lasting change, see [docs/research/arcs_identity_trajectory_research.md](/Users/andrewwatanabe/Kwilt/docs/research/arcs_identity_trajectory_research.md:1).
+This document is a workflow/debugging map for the FTUE implementation, not the canonical philosophy document.
+
 This document maps the complete end-to-end flow for generating Arcs during First Time User Experience (FTUE), including all prompts, steps, and decision points. Use this to identify simplification opportunities.
 
 **Decision**: We are keeping the **10-question variant** (IdentityAspirationFlow) as the primary flow. Simplification efforts focus on streamlining prompts and generation logic while preserving the rich data collection.
@@ -595,4 +599,3 @@ After Arc is created:
 - `src/services/ai.ts` - AI service layer
 - `src/features/arcs/arcDevelopmentInsights.ts` - Post-generation insights
 - `src/domain/idealArcs.ts` - Ideal Arc templates
-

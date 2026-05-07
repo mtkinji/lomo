@@ -4,6 +4,10 @@
 
 **A methodology for identity-driven progress and reflection**
 
+Philosophy note:
+The canonical research-backed explanation of why Arcs work and how they support real change now lives in [docs/research/arcs_identity_trajectory_research.md](/Users/andrewwatanabe/Kwilt/docs/research/arcs_identity_trajectory_research.md:1).
+This document remains the canonical system-model reference for object definitions, relationships, and AI-usage guidance inside Kwilt.
+
 This document defines the purpose, shape, and correct use of the core objects in the Life Architecture system:
 
 - **Arc** – identity direction
@@ -341,5 +345,4 @@ AI assists in generating options, **not dictating behavior**.
   - Are **retrospective only**, summarizing lived experience into a narrative, not a backlog.
 
 As the product evolves, any new UX labels or iconography for these objects should stay **consistent** with the identity-first philosophy and the intent/actual Force distinction captured here.
-
 

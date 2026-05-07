@@ -1019,6 +1019,10 @@ async function scheduleDailyShowUpInternal(time: string, prefs: NotificationPref
           message: `You usually show up around ${formattedHour}. Want to adjust your reminder?`,
           variant: 'default',
           durationMs: 6000,
+          actionLabel: 'Adjust',
+          actionOnPress: () => {
+            navigateWhenReady('Settings', { screen: 'SettingsNotifications' } as any);
+          },
         });
       }, 1000);
     }
@@ -2361,4 +2365,3 @@ export const NotificationService = {
     }
   },
 };
-

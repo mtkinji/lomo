@@ -24,7 +24,7 @@ import {
   OBJECT_PAGE_HEADER_BAR_HEIGHT,
 } from '../../ui/layout/ObjectPageHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -48,13 +48,11 @@ import {
   HStack,
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
-import { LongTextField } from '../../ui/LongTextField';
 import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import { BottomGuide } from '../../ui/BottomGuide';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
-import { EditableTextArea } from '../../ui/EditableTextArea';
 import { Card } from '../../ui/Card';
 import {
   DropdownMenu,
@@ -88,6 +86,7 @@ import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { GoalCoachDrawer } from '../goals/GoalsScreen';
 import { recordChapterRecommendationEvent } from '../../services/chapters';
 import { ArcBannerSheet } from './ArcBannerSheet';
+import { ensureArcGuide, hasArcGuide } from './arcGuidance';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ArcsStackParamList } from '../../navigation/RootNavigator';
@@ -217,9 +216,9 @@ export function ArcDetailScreen() {
   const onboardingArcHandoffHapticPlayedRef = useRef(false);
   const hasConsumedRouteCelebrationRef = useRef(false);
   const [goalsSectionOffset, setGoalsSectionOffset] = useState<number | null>(null);
-  const [insightsSectionOffset, setInsightsSectionOffset] = useState<number | null>(null);
+  const [, setInsightsSectionOffset] = useState<number | null>(null);
 
-  const { openForScreenContext, openForFieldContext, AgentWorkspaceSheet } = useAgentLauncher();
+  const { openForScreenContext, AgentWorkspaceSheet } = useAgentLauncher();
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
   // Header bar height below the safe area inset.
@@ -227,8 +226,6 @@ export function ArcDetailScreen() {
   const ARC_HEADER_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT;
   const HEADER_BOTTOM_Y = insets.top + ARC_HEADER_HEIGHT;
   const SHEET_HEADER_TRANSITION_RANGE_PX = 72;
-  const BOTTOM_CTA_BAR_HEIGHT = 92;
-
   const scrollY = useRef(new Animated.Value(0)).current;
   const sheetTopRef = useRef<View | null>(null);
   const [sheetTopAtRestWindowY, setSheetTopAtRestWindowY] = useState<number | null>(null);
@@ -702,6 +699,14 @@ export function ArcDetailScreen() {
     ((arc.developmentStrengths && arc.developmentStrengths.length > 0) ||
       (arc.developmentGrowthEdges && arc.developmentGrowthEdges.length > 0) ||
       (arc.developmentPitfalls && arc.developmentPitfalls.length > 0));
+  const hasStructuredGuide = hasArcGuide(arc);
+
+  useEffect(() => {
+    if (!isFocused || !arc || hasStructuredGuide) {
+      return;
+    }
+    void ensureArcGuide(arc.id);
+  }, [arc, hasStructuredGuide, isFocused]);
 
   // History tab removed (Airbnb-style listing scroll). We may reintroduce a timeline section later.
 
@@ -829,10 +834,125 @@ export function ArcDetailScreen() {
     );
   };
 
-  const showBottomCtaBar = arcGoals.length > 0;
-  // When the bottom CTA bar is hidden (e.g. empty goals), the last card's iOS shadow can get
-  // clipped by the scrollview bounds. Add a bit of extra visual gutter in that case.
-  const scrollBottomGutter = showBottomCtaBar ? BOTTOM_CTA_BAR_HEIGHT : spacing.xl;
+  const renderShapeItem = (label: string, iconName: IconName, value?: string) => {
+    if (!value) return null;
+    return (
+      <View style={styles.guideSubsectionRow} key={label}>
+        <View style={styles.guideSubsectionIconBadge}>
+          <Icon name={iconName} size={14} color={colors.textSecondary} />
+        </View>
+        <View style={styles.guideSubsection}>
+          <Text style={styles.guideSubsectionLabel}>{label}</Text>
+          <Text style={styles.guideSubsectionBody}>{value}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderIndentedGuideItem = (label: string, iconName: IconName, content: ReactNode) => {
+    return (
+      <View style={styles.guideSubsectionRow} key={label}>
+        <View style={styles.guideSubsectionIconBadge}>
+          <Icon name={iconName} size={14} color={colors.textSecondary} />
+        </View>
+        <View style={styles.guideSubsection}>
+          <Text style={styles.guideSubsectionLabel}>{label}</Text>
+          {content}
+        </View>
+      </View>
+    );
+  };
+
+  const renderIdentitySection = () => {
+    const statement = arc.identity?.statement?.trim();
+    const centralInsight = arc.identity?.centralInsight?.trim();
+    const whyItMatters = arc.identity?.whyItMatters?.trim();
+    const fallbackNarrative = arc.narrative?.trim();
+
+    return (
+      <View style={hasStructuredGuide ? styles.arcLeadSection : styles.guideSection}>
+        {!hasStructuredGuide ? <Text style={styles.sectionTitleBlock}>Identity</Text> : null}
+        {statement ? <Text style={styles.identityStatement}>{statement}</Text> : null}
+        {!hasStructuredGuide && centralInsight ? (
+          <Text style={styles.identityInsight}>{centralInsight}</Text>
+        ) : null}
+        {!hasStructuredGuide && whyItMatters ? <Text style={styles.identityWhy}>{whyItMatters}</Text> : null}
+        {!statement && !centralInsight && fallbackNarrative ? (
+          <Text style={styles.identityFallback}>{fallbackNarrative}</Text>
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderHowThisShowsUpSection = () => {
+    if (!hasStructuredGuide || !arc.howThisShowsUp || arc.howThisShowsUp.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.guideSection}>
+        <Text style={styles.guideSectionEyebrow}>How this shows up</Text>
+        <View style={styles.guideBulletList}>
+          {arc.howThisShowsUp.map((item, index) => (
+            <View key={`${item.text}-${index}`} style={styles.guideBulletRow}>
+              <View style={styles.guideBulletDot} />
+              <Text style={styles.guideBulletText}>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const renderShapeSection = () => {
+    if (!hasStructuredGuide || !arc.shape) {
+      return null;
+    }
+
+    return (
+      <View style={styles.guideSection}>
+        <Text style={styles.guideSectionEyebrow}>The shape of this Arc</Text>
+        <View style={styles.guideSubsectionStack}>
+          {renderShapeItem('What comes naturally', 'sparkles', arc.shape.whatComesNaturally)}
+          {renderShapeItem('Where it gets hard', 'activity', arc.shape.whereItGetsHard)}
+          {renderShapeItem('What can pull you away', 'warning', arc.shape.whatCanPullYouAway)}
+        </View>
+      </View>
+    );
+  };
+
+  const renderWhenHardSection = () => {
+    if (!hasStructuredGuide || !arc.whenThisGetsHard) {
+      return null;
+    }
+
+    return (
+      <View style={styles.guideSection}>
+        <Text style={styles.guideSectionEyebrow}>When this gets hard</Text>
+        <View style={styles.guideSubsectionStack}>
+          <Text style={styles.guideBody}>{arc.whenThisGetsHard.reframe}</Text>
+          {renderIndentedGuideItem(
+            'Next best move',
+            'arrowRight',
+            <Text style={styles.guideSubsectionBody}>{arc.whenThisGetsHard.nextBestMove}</Text>
+          )}
+          {arc.whenThisGetsHard.ifThen ? (
+            renderIndentedGuideItem(
+              'If / then',
+              'link',
+              <>
+                <Text style={styles.guideSubsectionBody}>{arc.whenThisGetsHard.ifThen.if}</Text>
+                <Text style={styles.guideSubsectionBody}>{arc.whenThisGetsHard.ifThen.then}</Text>
+              </>
+            )
+          ) : null}
+        </View>
+      </View>
+    );
+  };
+
+  // Keep a little extra visual gutter so the last card shadow doesn't clip at the bottom.
+  const scrollBottomGutter = spacing.xl;
 
   return (
     <AppShell fullBleedCanvas>
@@ -1119,38 +1239,7 @@ export function ArcDetailScreen() {
                       : `${arcGoals.length} goal${arcGoals.length === 1 ? '' : 's'} · ${completedArcGoals.length} completed`}
                   </Text>
 
-                  <View style={{ marginTop: spacing.sm }}>
-                    <LongTextField
-                      label="Description"
-                      hideLabel
-                      surfaceVariant="flat"
-                      value={arc.narrative ?? ''}
-                      placeholder="Add a short note about this Arc…"
-                      enableAi
-                      aiContext={{
-                        objectType: 'arc',
-                        objectId: arc.id,
-                        fieldId: 'narrative',
-                      }}
-                      onChange={(nextNarrative) => {
-                        const trimmed = nextNarrative.trim();
-                        updateArc(arc.id, (current) => ({
-                          ...current,
-                          narrative: trimmed.length === 0 ? undefined : trimmed,
-                          updatedAt: new Date().toISOString(),
-                        }));
-                      }}
-                      onRequestAiHelp={({ objectType, objectId, fieldId, currentText }) => {
-                        openForFieldContext({
-                          objectType,
-                          objectId,
-                          fieldId,
-                          currentText,
-                          fieldLabel: 'Arc narrative',
-                        });
-                      }}
-                    />
-                  </View>
+                  {renderIdentitySection()}
 
                   <View
                     style={styles.goalsSection}
@@ -1158,7 +1247,6 @@ export function ArcDetailScreen() {
                       setGoalsSectionOffset(event.nativeEvent.layout.y);
                     }}
                   >
-                    <View style={[styles.sectionDivider, styles.sectionDividerTightTop]} />
                     <View style={styles.goalsDrawerInner}>
                       <View
                         ref={goalsHeaderRef}
@@ -1169,13 +1257,13 @@ export function ArcDetailScreen() {
                           styles.goalsHeaderRowLeft,
                         ]}
                       >
-                        <Text style={styles.sectionTitle}>Goals <Text style={styles.goalCount}>({arcGoals.length})</Text></Text>
+                        <Text style={styles.sectionTitle}>Ways to make it real <Text style={styles.goalCount}>({arcGoals.length})</Text></Text>
                       </View>
 
                       {arcGoals.length === 0 ? (
                         <OpportunityCard
-                          title="Turn this Arc into clear goals"
-                          body={'Add 3–5 goals so kwilt knows what "success" looks like here.'}
+                          title="Give this Arc a real next step"
+                          body={'Add 3–5 goals so this Arc has visible ways to take shape in your life.'}
                           tone="brand"
                           shadow="layered"
                           ctaLabel="Create goal"
@@ -1202,6 +1290,7 @@ export function ArcDetailScreen() {
                                 density="dense"
                                 variant="flat"
                                 showActivityMeta={false}
+                                titleEmphasis="subtle"
                                 onPress={() =>
                                   navigation.navigate('GoalDetail', {
                                     goalId: goal.id,
@@ -1216,9 +1305,7 @@ export function ArcDetailScreen() {
 
                       <View
                         collapsable={false}
-                        style={{
-                          marginTop: arcGoals.length === 0 ? spacing.sm : spacing.xs,
-                        }}
+                        style={styles.goalsAddButtonWrap}
                       >
                         {arcGoals.length > 0 ? (
                           <Button
@@ -1234,16 +1321,28 @@ export function ArcDetailScreen() {
                           </Button>
                         ) : null}
                       </View>
+
                     </View>
                   </View>
 
-                  {hasDevelopmentInsights ? (
-                    <>
-                      <View
-                        style={styles.sectionDivider}
-                      />
+                  {hasStructuredGuide ? (
+                    <View style={styles.supportingGuideSection}>
+                      <View style={styles.guideBand}>
+                        {renderHowThisShowsUpSection()}
+                      </View>
+                      <View style={[styles.guideBand, styles.guideBandMuted]}>
+                        {renderShapeSection()}
+                      </View>
+                      <View style={styles.guideBand}>
+                        {renderWhenHardSection()}
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {!hasStructuredGuide && hasDevelopmentInsights ? (
+                    <View style={styles.legacyInsightsSection}>
                       {renderInsightsSection()}
-                    </>
+                    </View>
                   ) : null}
 
                   {headerV2Enabled ? (
@@ -1277,36 +1376,6 @@ export function ArcDetailScreen() {
               </View>
             </View>
           </KeyboardAwareScrollView>
-          {showBottomCtaBar ? (
-            <View pointerEvents="box-none" style={[styles.bottomCtaBar, { paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomCtaRow}>
-                <View style={styles.bottomCtaLeftMeta}>
-                  <Text style={styles.bottomCtaMetaTitle}>Goals</Text>
-                  <Text style={styles.bottomCtaMetaBody}>
-                    {arcGoals.length === 0 ? 'None yet' : `${completedArcGoals.length}/${arcGoals.length} completed`}
-                  </Text>
-                </View>
-                <View style={styles.bottomCtaRight}>
-                  <View ref={createGoalCtaRef} collapsable={false} style={styles.bottomCtaActionTarget}>
-                    {shouldShowOnboardingGoalGuide ? (
-                      <View pointerEvents="none" style={styles.bottomCtaPrimaryButtonRing} />
-                    ) : null}
-                    <Button
-                      variant="ai"
-                      fullWidth={false}
-                      onPress={() => {
-                        setHasDismissedOnboardingGoalGuide(true);
-                        setIsGoalCoachVisible(true);
-                      }}
-                      accessibilityLabel="Create a goal for this Arc"
-                    >
-                      <Text style={styles.bottomCtaLabel}>Create goal</Text>
-                    </Button>
-                  </View>
-                </View>
-              </View>
-            </View>
-          ) : null}
         </View>
       <ArcBannerSheet
         visible={isHeroModalVisible}
@@ -1512,57 +1581,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   // Header styles live in `ObjectPageHeader`.
-  bottomCtaBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.canvas,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    // Used to reserve scroll space so content doesn't hide beneath the CTA.
-    minHeight: 92,
-  },
-  bottomCtaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  bottomCtaLeftMeta: {
-    flex: 1,
-    minWidth: 120,
-  },
-  bottomCtaRight: {
-    alignItems: 'flex-end',
-  },
-  bottomCtaActionTarget: {
-    position: 'relative',
-    alignSelf: 'flex-end',
-  },
-  bottomCtaPrimaryButtonRing: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  bottomCtaMetaTitle: {
-    ...typography.label,
-    color: colors.textSecondary,
-  },
-  bottomCtaMetaBody: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-  bottomCtaLabel: {
-    ...typography.body,
-    color: colors.canvas,
-    fontWeight: '700',
-  },
   scroll: {
     flex: 1,
   },
@@ -2048,13 +2066,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
     maxWidth: 420,
+    lineHeight: 46,
   },
   arcTitleMeta: {
     ...typography.bodySm,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xl,
   },
   arcNarrativeTitleInput: {
     ...typography.titleLg,
@@ -2078,11 +2097,121 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+    fontFamily: fonts.semibold,
   },
   sectionTitleBlock: {
-    ...typography.titleSm,
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.md,
+  },
+  guideSectionEyebrow: {
+    ...typography.bodySm,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.lg,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  guideSection: {
+    marginTop: 0,
+  },
+  arcLeadSection: {
+    marginTop: 0,
+    marginBottom: spacing.xl,
+  },
+  identityStatement: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'left',
+    fontFamily: fonts.regular,
+    fontSize: 18,
+    lineHeight: 26,
+  },
+  identityInsight: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'left',
+    marginTop: spacing.md,
+    lineHeight: 24,
+  },
+  identityWhy: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'left',
+    marginTop: spacing.md,
+    lineHeight: 22,
+    maxWidth: 420,
+  },
+  identityFallback: {
+    ...typography.body,
+    color: colors.textPrimary,
+    textAlign: 'left',
+    lineHeight: 24,
+  },
+  guideBulletList: {
+    gap: spacing.md,
+  },
+  guideBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  guideBulletDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: colors.textPrimary,
+    marginTop: 8,
+    flexShrink: 0,
+  },
+  guideBulletText: {
+    ...typography.body,
+    color: colors.textPrimary,
+    flex: 1,
+    lineHeight: 24,
+  },
+  guideSubsectionStack: {
+    gap: spacing.lg,
+  },
+  guideSubsection: {
+    gap: spacing.xs,
+    flex: 1,
+  },
+  guideSubsectionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  guideSubsectionIconBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cardMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  guideSubsectionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    marginTop: 2,
+  },
+  guideSubsectionBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+    lineHeight: 24,
+  },
+  guideBody: {
+    ...typography.body,
+    color: colors.textPrimary,
+    lineHeight: 24,
   },
   goalsDrawerHeaderRow: {
     flexDirection: 'row',
@@ -2090,32 +2219,31 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   goalsDrawerHeaderRowRaised: {
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   goalsHeaderRowLeft: {
     justifyContent: 'flex-start',
     columnGap: spacing.sm,
   },
   goalsSection: {
+    marginTop: spacing.xl,
+  },
+  goalsAddButtonWrap: {
     marginTop: 0,
   },
-  sectionDivider: {
-    // Canonical section rhythm: keep divider spacing perfectly symmetric.
-    // If the gap below reads well, the gap above should match exactly.
-    marginVertical: spacing.xl,
-    // Use a full-width, pill-shaped rule so the section break is legible
-    // against the light shell background while still feeling airy.
-    height: StyleSheet.hairlineWidth,
-    // Darker than `colors.border` so it reads as a real divider even at hairline thickness.
-    backgroundColor: colors.gray300,
-    borderRadius: 999,
+  supportingGuideSection: {
+    marginTop: spacing['3xl'],
   },
-  sectionDividerTightTop: {
-    // Optical compensation: the narrative LongTextField (flat) and rich text rendering
-    // can make the space *above* the first divider read slightly larger than below.
-    // Reduce only the top margin here to preserve the overall airy rhythm while
-    // restoring perceived symmetry.
-    marginTop: spacing.xl - spacing.sm,
+  guideBand: {
+    marginHorizontal: -spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+  },
+  guideBandMuted: {
+    backgroundColor: 'rgba(86, 108, 93, 0.08)',
+  },
+  legacyInsightsSection: {
+    marginTop: spacing['3xl'],
   },
   sectionActionText: {
     ...typography.bodySm,
@@ -2201,7 +2329,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   goalsScrollContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xs,
   },
   goalsEmptyStateContainer: {
     marginTop: spacing.lg,
@@ -2664,4 +2792,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
 });
-
