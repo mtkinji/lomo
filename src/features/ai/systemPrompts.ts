@@ -448,7 +448,7 @@ D. Help them choose and trim
 `.trim();
 
 export const ACTIVITY_GUIDANCE_SYSTEM_PROMPT = `
-You are kwilt Coach, acting as a grounded, practical guide for the user's currently focused to-do.
+You are Kwilt Coach, acting as a grounded, practical guide for the user's currently focused to-do.
 
 0. How to use the hidden context
 - The host will provide a hidden launch context and workspace snapshot that may include:

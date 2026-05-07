@@ -526,7 +526,7 @@ export function DevToolsScreen() {
   const handleClearChatHistory = async () => {
     Alert.alert(
       'Clear chat history?',
-      'This will remove all locally stored kwilt Coach dev history.',
+      'This will remove all locally stored Kwilt Coach dev history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -764,7 +764,7 @@ export function DevToolsScreen() {
             <View style={styles.interstitialHeroBlock}>
               <View style={styles.launchBrandLockup}>
                 <Logo size={72} />
-                <Text style={styles.launchWordmark}>kwilt</Text>
+                <Text style={styles.launchWordmark}>Kwilt</Text>
               </View>
             </View>
           </View>
@@ -1125,7 +1125,7 @@ export function DevToolsScreen() {
             </Text>
             <View style={styles.typeTokenRow}>
               <Text style={styles.typeTokenName}>Brand</Text>
-              <Text style={typography.brand}>kwilt</Text>
+              <Text style={typography.brand}>Kwilt</Text>
             </View>
             <View style={styles.typeTokenRow}>
               <Text style={styles.typeTokenName}>Title / MD</Text>
@@ -1144,7 +1144,7 @@ export function DevToolsScreen() {
           <View style={styles.card}>
             <Text style={styles.cardEyebrow}>Pine scale</Text>
             <Text style={styles.gallerySectionDescription}>
-              Primary brand green scale used by kwilt, aligned with the logo accent.
+              Primary brand green scale used by Kwilt, aligned with the logo accent.
             </Text>
             <View style={styles.colorList}>
               {pineScale.map((swatch) => (
@@ -2063,7 +2063,7 @@ export function DevToolsScreen() {
                 </Button>
               </View>
               <Text style={styles.cardBody}>
-                Inspect recent kwilt Coach conversations captured from this device. History is
+                Inspect recent Kwilt Coach conversations captured from this device. History is
                 stored locally and only in development builds.
               </Text>
               {chatHistory.length === 0 ? (

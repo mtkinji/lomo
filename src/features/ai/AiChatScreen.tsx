@@ -117,7 +117,7 @@ async function loadArcCreationDraft(): Promise<ChatDraft | null> {
     }
     return parsed;
   } catch (err) {
-    console.warn('Failed to load kwilt Coach arc draft', err);
+    console.warn('Failed to load Kwilt Coach arc draft', err);
     return null;
   }
 }
@@ -130,7 +130,7 @@ async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
     }
     await AsyncStorage.setItem(ARC_CREATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
   } catch (err) {
-    console.warn('Failed to save kwilt Coach arc draft', err);
+    console.warn('Failed to save Kwilt Coach arc draft', err);
   }
 }
 
@@ -892,7 +892,7 @@ type ArcContextSummary = {
 // We stream this into the timeline so it always appears with the same typing
 // animation as other assistant replies instead of popping in fully formed.
 const COACH_INTRO_TEXT =
-  "I'm your kwilt Agent. Think of me as a smart friend who can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?";
+  "I'm your Kwilt Agent. Think of me as a smart friend who can help you clarify goals, design arcs, and plan today's focus. What's the most important thing you want to move forward right now?";
 
 const PROMPT_SUGGESTIONS = [
   'Best way to learn a new language',
@@ -1142,12 +1142,19 @@ export type AiChatPaneProps = {
    */
   onTransportError?: () => void;
   /**
+   * Workflow step that can be safely retried after a transient transport
+   * failure. Kept host-owned so quota/paywall states can opt out.
+   */
+  retryableWorkflowStepId?: string | null;
+  isRetryingWorkflowStep?: boolean;
+  onRetryWorkflowStep?: (stepId: string) => void;
+  /**
    * Optional hook so hosts can respond when the user taps a manual fallback
    * card (for example, by switching to a manual creation tab).
    */
   onManualFallbackRequested?: () => void;
   /**
-   * When true, hide the kwilt brand header row so hosts (like BottomDrawer
+   * When true, hide the Kwilt brand header row so hosts (like BottomDrawer
    * sheets) can render their own mode header outside the chat timeline.
    */
   hideBrandHeader?: boolean;
@@ -1257,6 +1264,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
     hostBottomInsetAlreadyApplied = false,
     stepCardKeyboardBehavior = 'avoid',
     onTransportError,
+    retryableWorkflowStepId = null,
+    isRetryingWorkflowStep = false,
+    onRetryWorkflowStep,
     onManualFallbackRequested,
     onAdoptActivitySuggestion,
     onDismiss,
@@ -1766,9 +1776,9 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
       const previousIndex = index;
 
-      // Propose the next index based on the typing speed. Slightly slower so
-      // longer replies feel more readable without dragging.
-      let nextIndex = Math.min(index + 2, totalLength);
+      // Propose the next index based on the typing speed. Keep replies readable
+      // while moving faster through workflow-generated text.
+      let nextIndex = Math.min(index + 3, totalLength);
 
       // Skip over any pause points we've already passed.
       while (
@@ -1804,7 +1814,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       });
 
       if (index < totalLength) {
-        const delay = crossedPause ? 800 : 40;
+        const delay = crossedPause ? 530 : 40;
         timeoutId = setTimeout(step, delay);
       } else {
         finish();
@@ -2653,7 +2663,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       } catch (err) {
         // Any failure bootstrapping the initial reply should surface a friendly
         // error message so the canvas is never left blank.
-        console.error('kwilt Coach initial chat failed', err);
+        console.error('Kwilt Coach initial chat failed', err);
         const errMessage =
           (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
         const lower = errMessage.toLowerCase();
@@ -2679,7 +2689,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
             id: `assistant-error-bootstrap-${Date.now()}`,
             role: 'assistant',
             content:
-              'kwilt is having trouble loading right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+              'Kwilt is having trouble loading right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
           };
           setMessages((prev) => {
             const next = [...prev, errorMessage];
@@ -2935,7 +2945,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         },
       });
     } catch (err) {
-      console.error('kwilt Coach chat failed', err);
+      console.error('Kwilt Coach chat failed', err);
       const errMessage =
         (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
       const lower = errMessage.toLowerCase();
@@ -2957,7 +2967,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
         id: `assistant-error-${Date.now() + 2}`,
         role: 'assistant',
         content:
-          'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+          'Kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
       };
       setMessages((prev) => {
         const next = [...prev, errorMessage];
@@ -2990,7 +3000,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     } catch (err) {
       // `sendMessageWithContent` already handles most transport errors internally, but
       // some workflow branches can still throw. Avoid unhandled promise warnings.
-      console.error('kwilt Coach send failed', err);
+      console.error('Kwilt Coach send failed', err);
       onTransportError?.();
     }
   };
@@ -3202,12 +3212,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
         if (isGenerativeQuotaError(err)) {
           // Expected state (user hit their AI credit/quota gate). Avoid surfacing as an "error"
           // to dev overlays / logging that might show scary banners in the UI.
-          console.warn('kwilt To-do AI quota reached (suggestions suppressed).');
+          console.warn('Kwilt To-do AI quota reached (suggestions suppressed).');
           setHasGenerativeQuotaExceeded(true);
           setHasTransportError(false);
           setActivitySuggestions(null);
         } else {
-          console.error('kwilt To-do AI suggestions-only fetch failed', err);
+          console.error('Kwilt To-do AI suggestions-only fetch failed', err);
           setHasTransportError(true);
           setActivitySuggestions(null);
           onTransportError?.();
@@ -3589,6 +3599,14 @@ export const AiChatPane = forwardRef(function AiChatPane(
       ? 'This coach helps you design one long‑term Arc for your life — not manage tasks or habits.'
       : 'This coach adapts to the current workflow and context on this screen so you can move forward with less typing.';
 
+  const latestRetryableWorkflowErrorMessageId = retryableWorkflowStepId
+    ? [...messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.role === 'assistant' && message.id.startsWith('assistant-error-workflow-')
+        )?.id ?? null
+    : null;
 
   return (
     <>
@@ -3682,14 +3700,37 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     return (
                       <Fragment key={message.id}>
                         {message.role === 'assistant' ? (
-                          <Pressable
-                            style={styles.assistantMessage}
-                            onPress={() => typingControllerRef.current?.skip()}
-                            accessibilityRole="button"
-                            accessibilityLabel="Skip assistant typing and show full message"
-                          >
-                            <Markdown style={markdownStyles}>{message.content}</Markdown>
-                          </Pressable>
+                          <View style={styles.assistantMessage}>
+                            <Pressable
+                              onPress={() => typingControllerRef.current?.skip()}
+                              accessibilityRole="button"
+                              accessibilityLabel="Skip assistant typing and show full message"
+                            >
+                              <Markdown style={markdownStyles}>{message.content}</Markdown>
+                            </Pressable>
+                            {message.id === latestRetryableWorkflowErrorMessageId &&
+                            retryableWorkflowStepId ? (
+                              <View style={styles.workflowRetryActions}>
+                                <Button
+                                  variant="outline"
+                                  size="small"
+                                  disabled={isRetryingWorkflowStep}
+                                  onPress={() => onRetryWorkflowStep?.(retryableWorkflowStepId)}
+                                >
+                                  <HStack space="xs" alignItems="center">
+                                    {isRetryingWorkflowStep ? (
+                                      <ActivityIndicator size="small" color={CHAT_COLORS.textPrimary} />
+                                    ) : (
+                                      <Icon name="refresh" size={14} color={CHAT_COLORS.textPrimary} />
+                                    )}
+                                    <ButtonLabel size="sm">
+                                      {isRetryingWorkflowStep ? 'Trying again…' : 'Try again'}
+                                    </ButtonLabel>
+                                  </HStack>
+                                </Button>
+                              </View>
+                            ) : null}
+                          </View>
                         ) : (
                           <UserMessageBubble content={message.content} />
                         )}
@@ -5263,6 +5304,11 @@ const styles = StyleSheet.create({
   manualFallbackButtonText: {
     ...typography.bodySm,
     color: CHAT_COLORS.textPrimary,
+  },
+  workflowRetryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
   },
   assistantMessage: {
     // Align assistant replies like a chat bubble on the left and prevent
