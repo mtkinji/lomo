@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, Pressable, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { StyleSheet, View, Pressable, ActivityIndicator, RefreshControl, ScrollView, TextInput } from 'react-native';
 import { Text, HStack, VStack } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { EmptyState } from '../../ui/EmptyState';
@@ -24,6 +24,7 @@ import {
   type ReactionSummary,
 } from '../../services/reactions';
 import { getPresetLabel, type CheckinPreset } from '../../services/checkins';
+import { submitCheckinReply } from '../../services/checkinReplies';
 import { HapticsService } from '../../services/HapticsService';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -175,8 +176,8 @@ export function GoalFeedSection({
     <View style={[styles.container, maxHeight ? { maxHeight } : undefined]}>
       {items.length === 0 ? (
         <EmptyState
-          title="No to-do yet"
-          instructions="When you or your partner complete to-dos, progress will automatically show up here."
+          title="Send the first update"
+          instructions="Check-ins and cheers will show up here once you or a partner shares progress."
           variant="compact"
           iconName="activity"
           style={styles.emptyContainer}
@@ -193,8 +194,10 @@ export function GoalFeedSection({
           {items.map((item) => (
             <FeedItemCard
               key={item.id}
+              goalId={goalId}
               item={item}
               onReaction={handleReaction}
+              onReplySubmitted={() => loadFeed(true)}
             />
           ))}
         </ScrollView>
@@ -208,22 +211,26 @@ export function GoalFeedSection({
 // ─────────────────────────────────────────────────────────────────────────────
 
 type FeedItemCardProps = {
+  goalId: string;
   item: FeedItem;
   onReaction: (feedEventId: string, reaction: ReactionType, currentReaction: ReactionType | null) => void;
+  onReplySubmitted: () => void;
 };
 
-function FeedItemCard({ item, onReaction }: FeedItemCardProps) {
+function FeedItemCard({ goalId, item, onReaction, onReplySubmitted }: FeedItemCardProps) {
   const timeAgo = formatTimeAgo(new Date(item.createdAt));
 
   // Render based on event type
   if (item.type === 'checkin_submitted') {
     return (
       <CheckinCard
+        goalId={goalId}
         item={item}
         timeAgo={timeAgo}
         onReaction={(reaction) =>
           onReaction(item.id, reaction, item.reactions?.myReaction ?? null)
         }
+        onReplySubmitted={onReplySubmitted}
       />
     );
   }
@@ -272,6 +279,10 @@ function FeedItemCard({ item, onReaction }: FeedItemCardProps) {
     );
   }
 
+  if (item.type === 'checkin_reply') {
+    return <ReplyCard item={item} timeAgo={timeAgo} />;
+  }
+
   // Fallback for unknown types
   return null;
 }
@@ -281,12 +292,18 @@ function FeedItemCard({ item, onReaction }: FeedItemCardProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 type CheckinCardProps = {
+  goalId: string;
   item: FeedItem;
   timeAgo: string;
   onReaction: (reaction: ReactionType) => void;
+  onReplySubmitted: () => void;
 };
 
-function CheckinCard({ item, timeAgo, onReaction }: CheckinCardProps) {
+function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted }: CheckinCardProps) {
+  const { capture } = useAnalytics();
+  const [replyVisible, setReplyVisible] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replyBusy, setReplyBusy] = useState(false);
   const payload = item.payload as {
     preset?: CheckinPreset | null;
     text?: string | null;
@@ -324,6 +341,86 @@ function CheckinCard({ item, timeAgo, onReaction }: CheckinCardProps) {
             reactions={reactions}
             onReaction={onReaction}
           />
+          {replyVisible ? (
+            <VStack space="xs" style={styles.replyComposer}>
+              <TextInput
+                value={replyText}
+                onChangeText={setReplyText}
+                placeholder="Write a quick reply"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.replyInput}
+                maxLength={160}
+                editable={!replyBusy}
+              />
+              <HStack space="xs" justifyContent="flex-end">
+                <Pressable
+                  onPress={() => {
+                    setReplyVisible(false);
+                    setReplyText('');
+                  }}
+                  disabled={replyBusy}
+                  style={styles.replyAction}
+                >
+                  <Text style={styles.replyActionText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={async () => {
+                    const text = replyText.trim();
+                    if (!text || replyBusy) return;
+                    setReplyBusy(true);
+                    try {
+                      await submitCheckinReply({ goalId, targetEventId: item.id, text });
+                      capture(AnalyticsEvent.SharedGoalReplyCreated, { goalId, targetEventId: item.id });
+                      setReplyText('');
+                      setReplyVisible(false);
+                      onReplySubmitted();
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : 'Failed to send reply';
+                      capture(AnalyticsEvent.SharedGoalReplyFailed, { goalId, targetEventId: item.id, error: message });
+                    } finally {
+                      setReplyBusy(false);
+                    }
+                  }}
+                  disabled={replyBusy || !replyText.trim()}
+                  style={[styles.replyAction, styles.replySendAction]}
+                >
+                  <Text style={styles.replySendText}>{replyBusy ? 'Sending…' : 'Send'}</Text>
+                </Pressable>
+              </HStack>
+            </VStack>
+          ) : (
+            <Pressable
+              onPress={() => setReplyVisible(true)}
+              style={styles.replyLink}
+              accessibilityRole="button"
+              accessibilityLabel="Reply to check-in"
+            >
+              <Text style={styles.replyLinkText}>Reply</Text>
+            </Pressable>
+          )}
+        </VStack>
+      </HStack>
+    </View>
+  );
+}
+
+function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
+  const payload = item.payload as { text?: string | null };
+  return (
+    <View style={styles.replyCard}>
+      <HStack space="sm" alignItems="flex-start">
+        <ProfileAvatar
+          name={item.actorName ?? undefined}
+          avatarUrl={item.actorAvatarUrl ?? undefined}
+          size={28}
+          borderRadius={14}
+        />
+        <VStack flex={1} space="xs">
+          <HStack space="xs" alignItems="center">
+            <Text style={styles.checkinActorName}>{item.actorName ?? 'Someone'}</Text>
+            <Text style={styles.checkinTime}>{timeAgo}</Text>
+          </HStack>
+          <Text style={styles.checkinText}>{payload.text ?? 'Replied'}</Text>
         </VStack>
       </HStack>
     </View>
@@ -544,6 +641,50 @@ const styles = StyleSheet.create({
   checkinText: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  replyComposer: {
+    marginTop: spacing.xs,
+  },
+  replyInput: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    backgroundColor: colors.shell,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  replyAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  replySendAction: {
+    backgroundColor: colors.accent,
+  },
+  replyActionText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.medium,
+  },
+  replySendText: {
+    ...typography.bodySm,
+    color: colors.canvas,
+    fontFamily: fonts.medium,
+  },
+  replyLink: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  replyLinkText: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.medium,
+  },
+  replyCard: {
+    ...cardSurfaceStyle,
+    borderRadius: 12,
+    padding: spacing.sm,
+    marginLeft: spacing.lg,
   },
   reactionBar: {
     marginTop: spacing.xs,

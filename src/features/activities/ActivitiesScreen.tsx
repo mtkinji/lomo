@@ -75,6 +75,7 @@ import {
   submitOneTapCheckin,
   type CheckinTrigger,
 } from '../../services/checkins';
+import { shouldShowLowPriorityMomentNow } from '../../services/moments/orchestrator';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
@@ -2018,17 +2019,18 @@ export function ActivitiesScreen() {
         if (activityGoalId) {
           const trigger: CheckinTrigger = 'activity_complete';
           const { shouldShowNudge } = useCheckinNudgeStore.getState();
-          if (shouldShowNudge(activityGoalId, trigger)) {
+          const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
+          if (shouldShowNudge(activityGoalId, trigger) && momentGate.ok) {
             void (async () => {
               const canSubmit = await canSubmitCheckin(activityGoalId);
               if (!canSubmit) return;
               // Show a toast with an action to check in
               setTimeout(() => {
                 useToastStore.getState().showToast({
-                  message: 'Share your progress with your team?',
+                  message: 'Progress made. Send a quick goal update?',
                   variant: 'default',
                   durationMs: 4000,
-                  actionLabel: 'Check in',
+                  actionLabel: 'Send update',
                   actionOnPress: async () => {
                     capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
                       goalId: activityGoalId,

@@ -22,7 +22,8 @@ export type FeedEventType =
   | 'member_left'
   | 'invite_created'
   | 'progress_made'
-  | 'goal_completed';
+  | 'goal_completed'
+  | 'checkin_reply';
 
 export type FeedItem = {
   id: string;
@@ -62,6 +63,14 @@ export type ProgressMadeFeedItem = FeedItem & {
 export type GoalCompletedFeedItem = FeedItem & {
   type: 'goal_completed';
   payload: Record<string, unknown>;
+};
+
+export type CheckinReplyFeedItem = FeedItem & {
+  type: 'checkin_reply';
+  payload: {
+    targetEventId: string;
+    text: string;
+  };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,7 +116,7 @@ export async function fetchGoalFeed(params: FetchGoalFeedParams): Promise<GoalFe
     .eq('entity_type', 'goal')
     .eq('entity_id', params.goalId)
     // Filter to displayable event types (exclude reaction_added, etc.)
-    .in('type', ['checkin_submitted', 'member_joined', 'member_left', 'invite_created', 'progress_made', 'goal_completed'])
+    .in('type', ['checkin_submitted', 'member_joined', 'member_left', 'invite_created', 'progress_made', 'goal_completed', 'checkin_reply'])
     .order('created_at', { ascending: false })
     .limit(limit + 1); // +1 to detect hasMore
 

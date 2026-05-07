@@ -26,8 +26,13 @@ describe('extractInviteCode', () => {
     expect(extractInviteCode('https://kwilt.app/i/HELLO')).toBe('HELLO');
   });
 
+  it('extracts the code from hosted share invite URLs', () => {
+    expect(extractInviteCode('https://go.kwilt.app/share/HELLO')).toBe('HELLO');
+    expect(extractInviteCode('https://kwilt.app/share/HELLO')).toBe('HELLO');
+  });
+
   it('decodes percent-encoded codes from path segments', () => {
-    expect(extractInviteCode('https://go.kwilt.app/i/some%20code')).toBe('some code');
+    expect(extractInviteCode('https://go.kwilt.app/share/some%20code')).toBe('some code');
   });
 
   it('returns empty string for unrelated URLs', () => {

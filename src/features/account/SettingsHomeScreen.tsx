@@ -133,6 +133,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         route: 'SettingsNotifications',
         tags: ['reminders', 'nudges', 'alerts'],
       },
+      {
+        id: 'sharing',
+        title: 'Sharing',
+        description: 'Manage accountability reminders and shared goals.',
+        icon: 'share',
+        route: 'SettingsSharing',
+        tags: ['sharing', 'accountability', 'partners'],
+      },
     ],
   },
 ];

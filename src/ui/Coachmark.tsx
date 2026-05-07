@@ -75,7 +75,7 @@ export type CoachmarkProps = {
   actions?: Array<{
     id: string;
     label: string;
-    variant?: 'outline' | 'accent';
+    variant?: 'outline' | 'accent' | 'ghost';
   }>;
   /**
    * Optional progress indicator label, e.g. "1 of 3".
@@ -591,15 +591,19 @@ export function Coachmark({
                   const buttonStyle =
                     variant === 'accent'
                       ? { backgroundColor: resolvedActionColor, borderColor: resolvedActionColor }
+                      : variant === 'ghost'
+                        ? undefined
                       : { borderColor: resolvedActionColor };
                   const labelStyle =
                     variant === 'accent'
                       ? styles.actionLabelInverse
+                      : variant === 'ghost'
+                        ? styles.actionLabelQuiet
                       : { color: resolvedActionColor };
                   return (
                     <Button
                       key={action.id}
-                      variant={variant}
+                      variant={variant === 'accent' ? 'accent' : variant === 'ghost' ? 'ghost' : 'outline'}
                       size="small"
                       onPress={handlePress}
                       style={buttonStyle}
@@ -694,6 +698,9 @@ const styles = StyleSheet.create({
   },
   actionLabelInverse: {
     color: colors.canvas,
+  },
+  actionLabelQuiet: {
+    color: colors.textSecondary,
   },
 });
 

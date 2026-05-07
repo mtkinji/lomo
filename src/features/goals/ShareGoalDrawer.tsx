@@ -1,12 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, Share, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  Share,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
-import { Heading, Input, Text, VStack } from '../../ui/primitives';
+import { Input, Text, VStack } from '../../ui/primitives';
 import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
-import { colors, spacing } from '../../theme';
+import { Icon, type IconName } from '../../ui/Icon';
+import { colors, fonts, spacing, typography } from '../../theme';
 import { shareUrlWithPreview } from '../../utils/share';
 import {
   buildInviteOpenUrl,
@@ -20,117 +30,133 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
 import { createReferralCode } from '../../services/referrals';
 
-type Step = 'kind' | 'channel' | 'email' | 'sent';
+type Step = 'offer' | 'email' | 'sent';
 
-export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; goalId: string; goalTitle: string }) {
-  const { visible, onClose, goalId, goalTitle } = props;
+export function ShareGoalDrawer(props: {
+  visible: boolean;
+  onClose: () => void;
+  goalId: string;
+  goalTitle: string;
+  isShared?: boolean;
+  memberCount?: number;
+  onSendUpdate?: () => void;
+  onManageSharing?: () => void;
+  onInviteCreated?: () => void;
+}) {
+  const {
+    visible,
+    onClose,
+    goalId,
+    goalTitle,
+    isShared = false,
+    memberCount = 0,
+    onSendUpdate,
+    onManageSharing,
+    onInviteCreated,
+  } = props;
   const { capture } = useAnalytics();
   const showToast = useToastStore((s) => s.showToast);
+
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<Step>('kind');
-  const [inviteKind, setInviteKind] = useState<InviteKind>('buddy');
+  const [preparing, setPreparing] = useState(false);
+  const [step, setStep] = useState<Step>('offer');
+  const [inviteKind] = useState<InviteKind>('people');
   const [inviteCode, setInviteCode] = useState<string>('');
   const [referralCode, setReferralCode] = useState<string>('');
   const [tapUrl, setTapUrl] = useState<string>('');
-  const [shareUrl, setShareUrl] = useState<string>('');
   const [altUrl, setAltUrl] = useState<string>('');
   const [shareMessage, setShareMessage] = useState<string>('');
   const [recipientEmail, setRecipientEmail] = useState('');
 
+  const inviteReady = shareMessage.length > 0;
+
+  // Pre-generate invite when drawer opens so channel taps are immediate.
   useEffect(() => {
     if (!visible) {
       setBusy(false);
-      setStep('kind');
+      setPreparing(false);
+      setStep('offer');
       setShareMessage('');
       setInviteCode('');
       setReferralCode('');
       setTapUrl('');
-      setShareUrl('');
       setAltUrl('');
       setRecipientEmail('');
       return;
     }
     capture(AnalyticsEvent.ShareGoalDrawerOpened, { goalId });
-    // Generate (or reuse) inviter referral code for this install so the recipient can
-    // earn credits and the inviter gets credited when they redeem.
-    createReferralCode()
-      .then((code) => setReferralCode(code))
-      .catch(() => setReferralCode(''));
-    return () => {
-      capture(AnalyticsEvent.ShareGoalDrawerClosed, { goalId });
-    };
-  }, [visible]);
+    capture(AnalyticsEvent.ShareDrawerOpened, { goalId, isShared, memberCount });
 
-  const withRef = useCallback(
-    (rawUrl: string): string => {
-      const ref = referralCode.trim();
-      if (!rawUrl) return rawUrl;
-      if (!ref) return rawUrl;
+    let cancelled = false;
+    setPreparing(true);
+
+    (async () => {
       try {
-        const u = new URL(rawUrl);
-        // Preserve existing params; only add if missing.
-        if (!(u.searchParams.get('ref') ?? '').trim()) {
-          u.searchParams.set('ref', ref);
-        }
-        return u.toString();
-      } catch {
-        // If URL parsing fails, fall back to a simple append.
-        const joiner = rawUrl.includes('?') ? '&' : '?';
-        return `${rawUrl}${joiner}ref=${encodeURIComponent(ref)}`;
-      }
-    },
-    [referralCode],
-  );
+        const code = await createReferralCode({ kind: 'shared_goal_invite' }).catch(() => '');
+        if (cancelled) return;
+        setReferralCode(code);
 
-  const description = useMemo(
-    () =>
-      'Invite a buddy (1 person) or start a squad (2–6).\n\nBy default you share signals only (check-ins + cheers). To-do titles stay private unless you choose to share them.',
-    [],
-  );
-
-  const buildAndSetInvite = useCallback(
-    async (kind: InviteKind) => {
-      setInviteKind(kind);
-      capture(AnalyticsEvent.ShareInviteKindSelected, { goalId, kind });
-      setBusy(true);
-      try {
         const isExpoGo = Constants.appOwnership === 'expo';
-        const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({ goalId, goalTitle, kind });
-        const code = extractInviteCode(inviteUrl);
-        setInviteCode(code);
-        const open = buildInviteOpenUrl(code);
+        const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({
+          goalId,
+          goalTitle,
+          kind: 'people',
+        });
+        if (cancelled) return;
+
+        const codeFromUrl = extractInviteCode(inviteUrl);
+        setInviteCode(codeFromUrl);
+        const open = buildInviteOpenUrl(codeFromUrl);
         const fallbackTapUrl = inviteRedirectUrl
           ? isExpoGo
             ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
             : inviteRedirectUrl
           : open.primary;
-        // Share-sheet preview needs OG metadata; our Edge Function (`inviteRedirectUrl`) provides it.
-        const shareUrlBase = inviteRedirectUrl ?? inviteLandingUrl ?? fallbackTapUrl;
-
-        // Tap/open URL for humans: prefer the landing host when available.
         const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
-        const tapUrl = withRef(tapUrlBase);
-        const shareUrl = withRef(shareUrlBase);
-        setTapUrl(tapUrl);
-        setShareUrl(shareUrl);
+
+        const ref = (code ?? '').trim();
+        const addRef = (raw: string): string => {
+          if (!raw || !ref) return raw;
+          try {
+            const u = new URL(raw);
+            if (!(u.searchParams.get('ref') ?? '').trim()) {
+              u.searchParams.set('ref', ref);
+            }
+            return u.toString();
+          } catch {
+            const j = raw.includes('?') ? '&' : '?';
+            return `${raw}${j}ref=${encodeURIComponent(ref)}`;
+          }
+        };
+        const tapU = addRef(tapUrlBase);
+        setTapUrl(tapU);
         setAltUrl(open.alt);
 
         const message =
-          `${kind === 'squad' ? 'Join my shared goal squad' : 'Join my goal'} in Kwilt: “${goalTitle}”.\n\n` +
-          `Tap to open: ${tapUrl}\n\n` +
-          `Default sharing: signals only (check-ins + cheers). To-do titles stay private unless we choose to share them.
-
-` +
-          `Plus: we’ll both get +25 AI credits when you join.\n\n` +
-          `If needed, copy/paste: ${open.alt}`;
-
+          `Hey 👋 I’m using an app called Kwilt to stay on track with a goal: ` +
+          `“${goalTitle}”\n\n` +
+          `Would you be my accountability partner? I’ll send occasional check-ins, and you can cheer me on or encourage me if I go quiet.\n\n` +
+          `${tapU}`;
         setShareMessage(message);
-        setStep('channel');
+      } catch {
+        // Leave inviteReady false; rows show a retry hint via disabled state.
       } finally {
-        setBusy(false);
+        if (!cancelled) setPreparing(false);
       }
+    })();
+
+    return () => {
+      cancelled = true;
+      capture(AnalyticsEvent.ShareGoalDrawerClosed, { goalId });
+    };
+  }, [capture, goalId, goalTitle, isShared, memberCount, visible]);
+
+  const markSent = useCallback(
+    (channel: string) => {
+      capture(AnalyticsEvent.ShareInviteSent, { goalId, channel, kind: inviteKind });
+      onInviteCreated?.();
     },
-    [goalId, goalTitle],
+    [capture, goalId, inviteKind, onInviteCreated],
   );
 
   const openSms = useCallback(async () => {
@@ -147,38 +173,40 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
           message: shareMessage,
           subject: `Join my goal in Kwilt: “${goalTitle}”`,
           androidDialogTitle: 'Share goal invite',
-          androidAppendUrl: false, // shareMessage already contains links
+          androidAppendUrl: false,
         }).catch(() => {});
       } else {
         await Share.share({ message: shareMessage }).catch(() => {});
       }
+      markSent('sms_fallback');
       return;
     }
     await Linking.openURL(smsUrl);
     capture(AnalyticsEvent.ShareInviteSmsComposerOpened, { goalId, kind: inviteKind });
+    markSent('sms');
     showToast({ message: 'Message ready', variant: 'success', durationMs: 2200 });
     onClose();
-  }, [altUrl, capture, goalId, goalTitle, inviteKind, onClose, shareMessage, showToast, tapUrl]);
-
-  const shareMore = useCallback(async () => {
-    const url = (shareUrl || tapUrl || altUrl).trim();
-    if (!shareMessage || !url) return;
-    await shareUrlWithPreview({
-      url,
-      message: shareMessage,
-      subject: `Join my goal in Kwilt: “${goalTitle}”`,
-      androidDialogTitle: 'Share goal invite',
-      androidAppendUrl: false, // shareMessage already contains links
-    }).catch(() => {});
-  }, [altUrl, goalTitle, shareMessage, shareUrl, tapUrl]);
+  }, [
+    altUrl,
+    capture,
+    goalId,
+    goalTitle,
+    inviteKind,
+    markSent,
+    onClose,
+    shareMessage,
+    showToast,
+    tapUrl,
+  ]);
 
   const copyInviteLink = useCallback(async () => {
     const link = tapUrl || altUrl;
     if (!link) return;
     await Clipboard.setStringAsync(link);
     capture(AnalyticsEvent.ShareInviteCopyLink, { goalId, kind: inviteKind });
+    markSent('copy_link');
     showToast({ message: 'Link copied', variant: 'success', durationMs: 2000 });
-  }, [altUrl, capture, goalId, inviteKind, showToast, tapUrl]);
+  }, [altUrl, capture, goalId, inviteKind, markSent, showToast, tapUrl]);
 
   const startEmail = useCallback(() => {
     capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId, kind: inviteKind, channel: 'email' });
@@ -203,6 +231,7 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
         referralCode: referralCode || null,
       });
       capture(AnalyticsEvent.ShareInviteEmailSendSucceeded, { goalId, kind: inviteKind });
+      markSent('email');
       setStep('sent');
     } catch (e: any) {
       capture(AnalyticsEvent.ShareInviteEmailSendFailed, {
@@ -215,14 +244,35 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
     } finally {
       setBusy(false);
     }
-  }, [capture, goalId, goalTitle, inviteCode, inviteKind, recipientEmail]);
+  }, [
+    capture,
+    goalId,
+    goalTitle,
+    inviteCode,
+    inviteKind,
+    markSent,
+    recipientEmail,
+    referralCode,
+  ]);
+
+  const offerHeadline = isShared
+    ? memberCount > 1
+      ? 'Keep your partners in the loop'
+      : 'Keep your partner in the loop'
+    : 'Invite a partner to cheer you on';
+
+  const showAccountabilityInfo = useCallback(() => {
+    Alert.alert(
+      'Why invite a partner?',
+      'Accountability partners can make goals easier to return to because someone else can notice progress, celebrate wins, and nudge you when a goal gets quiet. In Kwilt, they support from the side: they can see your updates and cheer or reply, but they cannot edit your to-dos.',
+    );
+  }, []);
 
   return (
     <BottomDrawer
       visible={visible}
       onClose={onClose}
-      snapPoints={['52%', '82%']}
-      initialSnapIndex={0}
+      snapPoints={['94%']}
       dismissable
       enableContentPanningGesture
       sheetStyle={styles.sheet}
@@ -231,45 +281,96 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
     >
       <View style={styles.surface}>
         <BottomDrawerHeader
-          title="Share goal"
+          title={step === 'email' ? 'Email invite' : step === 'sent' ? 'Invite sent' : 'Share goal'}
           rightAction={<BottomDrawerHeaderClose onPress={onClose} />}
           titleStyle={styles.headerTitle}
         />
 
-        {step === 'kind' ? (
-          <VStack space="md">
-            <Text style={styles.body}>{description}</Text>
-            <Button onPress={() => void buildAndSetInvite('buddy')} disabled={busy}>
-              {busy ? <ActivityIndicator color={colors.canvas} /> : 'Invite buddy'}
-            </Button>
-            <Button onPress={() => void buildAndSetInvite('squad')} disabled={busy} variant="secondary">
-              {busy ? <ActivityIndicator color={colors.textPrimary} /> : 'Start squad'}
-            </Button>
-          </VStack>
-        ) : step === 'channel' ? (
-          <VStack space="md">
-            <Text style={styles.body}>
-              Invite ready ({inviteKind === 'squad' ? 'squad' : 'buddy'}). How do you want to send it?
+        <GoalContext title={goalTitle} />
+
+        {step === 'offer' ? (
+          <VStack space="lg">
+            <View style={styles.stepsList}>
+              <StepRow
+                index={1}
+                title={offerHeadline}
+                subtitle="A partner can celebrate wins and help you return when this goal gets quiet."
+                onInfoPress={showAccountabilityInfo}
+              />
+              <StepRow
+                index={2}
+                title={
+                  isShared
+                    ? 'They follow your check-ins'
+                    : 'They get a simple link'
+                }
+                subtitle="They can see check-ins, cheer, and reply. You’ll see their support in your goal feed."
+              />
+            </View>
+
+            {isShared && onSendUpdate ? (
+              <PrimaryRow
+                icon="send"
+                title="Send a check-in update"
+                subtitle={
+                  memberCount > 1
+                    ? `Tell your ${memberCount} partners how it’s going`
+                    : 'Tell your partner how it’s going'
+                }
+                onPress={onSendUpdate}
+              />
+            ) : null}
+
+            {isShared ? <Text style={styles.sectionLabel}>Invite another partner</Text> : null}
+
+            <View style={styles.channelCard}>
+              <ChannelRow
+                icon="messageSquare"
+                label="Text message"
+                onPress={() => void openSms()}
+                disabled={!inviteReady}
+                loading={preparing && !inviteReady}
+              />
+              <View style={styles.divider} />
+              <ChannelRow
+                icon="mail"
+                label="Email"
+                onPress={startEmail}
+                disabled={busy || !inviteReady}
+                loading={preparing && !inviteReady}
+              />
+              <View style={styles.divider} />
+              <ChannelRow
+                icon="link"
+                label="Copy link"
+                onPress={() => void copyInviteLink()}
+                disabled={!tapUrl && !altUrl}
+                loading={preparing && !tapUrl && !altUrl}
+              />
+            </View>
+
+            <Text style={styles.privacyLine}>
+              Your to-dos stay private — partners can’t edit them.
             </Text>
-            <Button onPress={() => void openSms()} disabled={busy || !shareMessage} fullWidth>
-              Send by text
-            </Button>
-            <Button onPress={startEmail} disabled={busy} variant="secondary" fullWidth>
-              Send by email
-            </Button>
-            <Button onPress={() => void copyInviteLink()} disabled={busy || (!tapUrl && !altUrl)} variant="outline" fullWidth>
-              Copy link
-            </Button>
-            <Button onPress={() => void shareMore()} disabled={busy || !shareMessage || (!tapUrl && !altUrl)} variant="ghost" fullWidth>
-              More…
-            </Button>
-            <Button onPress={() => setStep('kind')} variant="ghost" disabled={busy} fullWidth>
-              Back
-            </Button>
+
+            {isShared && onManageSharing ? (
+              <Pressable
+                onPress={onManageSharing}
+                style={({ pressed }) => [styles.manageRow, pressed && styles.manageRowPressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Manage who can see this goal"
+              >
+                <Icon name="users" size={16} color={colors.textSecondary} />
+                <Text style={styles.manageRowText}>Manage who can see this goal</Text>
+                <Icon name="chevronRight" size={14} color={colors.muted} />
+              </Pressable>
+            ) : null}
           </VStack>
         ) : step === 'email' ? (
           <VStack space="md">
-            <Text style={styles.body}>Send an invite email (we’ll email a link that opens the app).</Text>
+            <Text style={styles.body}>
+              Send the invite to their inbox. They’ll get a link that opens Kwilt.
+            </Text>
             <Input
               value={recipientEmail}
               onChangeText={setRecipientEmail}
@@ -281,36 +382,141 @@ export function ShareGoalDrawer(props: { visible: boolean; onClose: () => void; 
             <Button onPress={() => void sendEmail()} disabled={busy} fullWidth>
               {busy ? <ActivityIndicator color={colors.canvas} /> : 'Send email invite'}
             </Button>
-            <Button onPress={() => setStep('channel')} variant="ghost" disabled={busy} fullWidth>
+            <Button onPress={() => setStep('offer')} variant="ghost" disabled={busy} fullWidth>
               Back
             </Button>
           </VStack>
         ) : (
           <VStack space="md">
-            <Text style={styles.body}>Invite sent. Want to send another?</Text>
+            <View style={styles.successCard}>
+              <View style={styles.successIcon}>
+                <Icon name="checkCircle" size={20} color={colors.canvas} />
+              </View>
+              <Text style={styles.successTitle}>Invite on its way</Text>
+              <Text style={styles.successBody}>
+                We’ll let you know when they cheer or reply.
+              </Text>
+            </View>
             <Button
               onPress={() => {
-                setStep('channel');
+                setStep('offer');
                 setRecipientEmail('');
               }}
               variant="secondary"
               fullWidth
             >
-              Send another
+              Invite someone else
             </Button>
-            <Button
-              onPress={() => {
-                showToast({ message: 'Invite sent', variant: 'success', durationMs: 2200 });
-                onClose();
-              }}
-              fullWidth
-            >
+            <Button onPress={onClose} fullWidth>
               Done
             </Button>
           </VStack>
         )}
       </View>
     </BottomDrawer>
+  );
+}
+
+function GoalContext(props: { title: string }) {
+  return (
+    <View style={styles.goalContext}>
+      <Text style={styles.goalLabel}>Goal</Text>
+      <View style={styles.goalWell}>
+        <Text style={styles.goalTitleInline} numberOfLines={2}>
+          {props.title}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function StepRow(props: {
+  index: number;
+  title: string;
+  subtitle?: string;
+  onInfoPress?: () => void;
+}) {
+  return (
+    <View style={styles.stepRow}>
+      <View style={styles.stepNumber}>
+        <Text style={styles.stepNumberText}>{props.index}</Text>
+      </View>
+      <View style={styles.stepTextWrap}>
+        <View style={styles.stepTitleRow}>
+          <Text style={styles.stepTitle}>{props.title}</Text>
+          {props.onInfoPress ? (
+            <Pressable
+              onPress={props.onInfoPress}
+              accessibilityRole="button"
+              accessibilityLabel="Learn why accountability partners help"
+              hitSlop={8}
+              style={({ pressed }) => [styles.infoButton, pressed && styles.infoButtonPressed]}
+            >
+              <Icon name="info" size={14} color={colors.textSecondary} />
+            </Pressable>
+          ) : null}
+        </View>
+        {props.subtitle ? <Text style={styles.stepSubtitle}>{props.subtitle}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function PrimaryRow(props: {
+  icon: IconName;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={props.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={props.title}
+      style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
+    >
+      <View style={styles.primaryRowIcon}>
+        <Icon name={props.icon} size={18} color={colors.canvas} />
+      </View>
+      <View style={styles.primaryRowText}>
+        <Text style={styles.primaryRowTitle}>{props.title}</Text>
+        <Text style={styles.primaryRowSubtitle}>{props.subtitle}</Text>
+      </View>
+      <Icon name="chevronRight" size={18} color={colors.canvas} />
+    </Pressable>
+  );
+}
+
+function ChannelRow(props: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const { icon, label, onPress, disabled, loading } = props;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      style={({ pressed }) => [
+        styles.channelRow,
+        pressed && !disabled && styles.channelRowPressed,
+      ]}
+    >
+      <View style={[styles.channelIconWrap, disabled && styles.channelIconWrapDisabled]}>
+        <Icon name={icon} size={18} color={disabled ? colors.muted : colors.textPrimary} />
+      </View>
+      <Text style={[styles.channelLabel, disabled && styles.channelLabelDisabled]}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator size="small" color={colors.muted} />
+      ) : (
+        <Icon name="chevronRight" size={16} color={disabled ? colors.muted : colors.textSecondary} />
+      )}
+    </Pressable>
   );
 }
 
@@ -329,9 +535,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.canvas,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   headerTitle: {
     textAlign: 'left',
@@ -339,6 +545,217 @@ const styles = StyleSheet.create({
   body: {
     color: colors.textSecondary,
   },
+  goalContext: {
+    gap: spacing.xs,
+  },
+  goalLabel: {
+    ...typography.caption,
+    color: colors.muted,
+    fontFamily: fonts.semibold,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  goalWell: {
+    borderRadius: 12,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  goalTitleInline: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  stepsList: {
+    gap: spacing.lg,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.shellAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepNumberText: {
+    ...typography.caption,
+    color: colors.accent,
+    fontFamily: fonts.semibold,
+  },
+  stepTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  stepTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stepTitle: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  infoButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+  },
+  infoButtonPressed: {
+    opacity: 0.65,
+  },
+  stepSubtitle: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  sectionLabel: {
+    ...typography.caption,
+    color: colors.muted,
+    fontFamily: fonts.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: -spacing.xs,
+  },
+  // Primary action row (shared state, "Send update")
+  primaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.accent,
+    borderRadius: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  primaryRowPressed: {
+    opacity: 0.85,
+  },
+  primaryRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryRowText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  primaryRowTitle: {
+    ...typography.body,
+    color: colors.canvas,
+    fontFamily: fonts.semibold,
+  },
+  primaryRowSubtitle: {
+    ...typography.bodySm,
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 1,
+  },
+  // Channel rows card
+  channelCard: {
+    backgroundColor: colors.canvas,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  channelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+  },
+  channelRowPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  channelIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.shellAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  channelIconWrapDisabled: {
+    opacity: 0.55,
+  },
+  channelLabel: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  channelLabelDisabled: {
+    color: colors.muted,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginLeft: 0,
+  },
+  privacyLine: {
+    ...typography.bodySm,
+    color: colors.muted,
+    lineHeight: 18,
+    paddingHorizontal: spacing.xs,
+  },
+  // Manage row
+  manageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  manageRowPressed: {
+    opacity: 0.6,
+  },
+  manageRowText: {
+    flex: 1,
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.medium,
+  },
+  // Success state
+  successCard: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 16,
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  successIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  successTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  successBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 });
-
-

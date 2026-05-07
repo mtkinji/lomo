@@ -175,7 +175,7 @@ export async function createGoalInvite(params: {
   const inviteRedirectUrl = redirectBase ? `${redirectBase}/i/${encodeURIComponent(inviteCode)}` : null;
 
   const landingBase = getInviteLandingBaseUrl();
-  const inviteLandingUrl = landingBase ? `${landingBase}/i/${encodeURIComponent(inviteCode)}` : null;
+  const inviteLandingUrl = landingBase ? `${landingBase}/share/${encodeURIComponent(inviteCode)}` : null;
 
   return { inviteCode, inviteUrl, inviteRedirectUrl, inviteLandingUrl };
 }
@@ -191,11 +191,11 @@ export function extractInviteCode(inviteUrlOrCode: string): string {
     const codeFromQuery = (u.searchParams.get('code') ?? '').trim();
     if (codeFromQuery) return codeFromQuery;
 
-    // 2) https://go.kwilt.app/i/<code> (or kwilt.app)
+    // 2) https://go.kwilt.app/i/<code> or /share/<code> (or kwilt.app)
     const host = (u.hostname ?? '').toLowerCase();
     if (u.protocol === 'https:' || u.protocol === 'http:') {
       if (host === 'go.kwilt.app' || host === 'kwilt.app') {
-        const m = /^\/i\/([^/]+)$/.exec(u.pathname ?? '');
+        const m = /^\/(?:i|share)\/([^/]+)$/.exec(u.pathname ?? '');
         if (m?.[1]) {
           try {
             return decodeURIComponent(m[1]).trim();
@@ -282,6 +282,7 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
   inviter?: { userId: string; name?: string | null; avatarUrl?: string | null } | null;
   inviteState?: 'active' | 'expired' | 'consumed';
   canJoin?: boolean;
+  progressPreview?: { checkinCount: number; lastPreset: string | null; memberCount: number } | null;
 }> {
   const base = getEdgeFunctionUrl('invite-preview');
   if (!base) throw new Error('Invites service not configured');
@@ -333,12 +334,20 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
       ? (data.inviteState as 'active' | 'expired' | 'consumed')
       : undefined;
   const canJoin = typeof data?.canJoin === 'boolean' ? data.canJoin : undefined;
+  const progressPreview =
+    data?.progressPreview && typeof data.progressPreview === 'object'
+      ? {
+          checkinCount: typeof data.progressPreview.checkinCount === 'number' ? data.progressPreview.checkinCount : 0,
+          lastPreset: typeof data.progressPreview.lastPreset === 'string' ? data.progressPreview.lastPreset : null,
+          memberCount: typeof data.progressPreview.memberCount === 'number' ? data.progressPreview.memberCount : 0,
+        }
+      : null;
 
   if (!goalId) {
     throw new Error('Invite response missing goal id');
   }
 
-  return { goalId, goalTitle, inviter, inviteState, canJoin };
+  return { goalId, goalTitle, inviter, inviteState, canJoin, progressPreview };
 }
 
 /**
@@ -375,13 +384,13 @@ export async function handleIncomingInviteUrl(url: string): Promise<boolean> {
     }
 
     // 3) Universal link format:
-    // - https://go.kwilt.app/i/<code>
-    // - https://kwilt.app/i/<code>
+    // - https://go.kwilt.app/i/<code> or /share/<code>
+    // - https://kwilt.app/i/<code> or /share/<code>
     if (!code && (parsed.protocol === 'https:' || parsed.protocol === 'http:')) {
       const host = (parsed.hostname ?? '').toLowerCase();
       if (host === 'go.kwilt.app' || host === 'kwilt.app') {
         const path = parsed.pathname ?? '';
-        const m = /^\/i\/([^/]+)$/.exec(path);
+        const m = /^\/(?:i|share)\/([^/]+)$/.exec(path);
         if (m?.[1]) {
           looksLikeInvite = true;
           try {

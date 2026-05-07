@@ -132,7 +132,43 @@ serve(async (req) => {
     }
   }
 
-  return json(200, { ok: true, entityType, entityId, payload, inviter, inviteState, canJoin });
+  let progressPreview: { checkinCount: number; lastPreset: string | null; memberCount: number } = {
+    checkinCount: 0,
+    lastPreset: null,
+    memberCount: 0,
+  };
+  try {
+    const [{ count: checkinCount }, { data: lastCheckins }, { count: memberCount }] = await Promise.all([
+      admin
+        .from('goal_checkins')
+        .select('id', { count: 'exact', head: true })
+        .eq('goal_id', entityId),
+      admin
+        .from('goal_checkins')
+        .select('preset')
+        .eq('goal_id', entityId)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      admin
+        .from('kwilt_memberships')
+        .select('id', { count: 'exact', head: true })
+        .eq('entity_type', 'goal')
+        .eq('entity_id', entityId)
+        .eq('status', 'active'),
+    ]);
+    const lastPreset = Array.isArray(lastCheckins) && typeof lastCheckins[0]?.preset === 'string'
+      ? lastCheckins[0].preset
+      : null;
+    progressPreview = {
+      checkinCount: typeof checkinCount === 'number' ? checkinCount : 0,
+      lastPreset,
+      memberCount: typeof memberCount === 'number' ? memberCount : 0,
+    };
+  } catch {
+    // Preview should remain available even if aggregates fail.
+  }
+
+  return json(200, { ok: true, entityType, entityId, payload, inviter, inviteState, canJoin, progressPreview });
 });
 
 

@@ -102,6 +102,8 @@ const iconMap: Record<string, IconEntry> = {
   userPlus: { library: 'feather', name: 'user-plus' },
   userMinus: { library: 'feather', name: 'user-minus' },
   messageCircle: { library: 'feather', name: 'message-circle' },
+  messageSquare: { library: 'feather', name: 'message-square' },
+  mail: { library: 'feather', name: 'mail' },
   // Star icons: use Ionicons for both outline and filled variants so the shape stays consistent.
   flame: { library: 'mci', name: 'fire' },
   shield: { library: 'mci', name: 'shield-outline' },

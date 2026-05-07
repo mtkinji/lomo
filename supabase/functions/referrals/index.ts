@@ -183,12 +183,15 @@ serve(async (req) => {
   const quotaKey = `install:${installId}`;
 
   if (route === '/create') {
+    const rawKind = typeof (body as any)?.kind === 'string' ? (body as any).kind.trim() : 'standard';
+    const kind = rawKind === 'shared_goal_invite' ? 'shared_goal_invite' : 'standard';
     // Create or reuse an existing code for this inviter.
     try {
       const { data: existing } = await admin
         .from('kwilt_referrals')
         .select('referral_code')
         .eq('inviter_quota_key', quotaKey)
+        .eq('kind', kind)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -206,6 +209,7 @@ serve(async (req) => {
       const { error } = await admin.from('kwilt_referrals').insert({
         referral_code: referralCode,
         inviter_quota_key: quotaKey,
+        kind,
       });
       if (!error) {
         return json(200, { referralCode });

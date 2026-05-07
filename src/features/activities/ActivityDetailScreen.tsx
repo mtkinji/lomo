@@ -130,6 +130,7 @@ import {
   submitOneTapCheckin,
   type CheckinTrigger,
 } from '../../services/checkins';
+import { shouldShowLowPriorityMomentNow } from '../../services/moments/orchestrator';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
@@ -2179,32 +2180,68 @@ export function ActivityDetailScreen() {
     // Check-in nudge for activities under shared goals
     const activityGoalId = activity?.goalId;
     if (activityGoalId) {
+      const trigger: CheckinTrigger = 'focus_complete';
       const { shouldShowNudge } = useCheckinNudgeStore.getState();
-      if (shouldShowNudge(activityGoalId, 'focus_complete')) {
-        setTimeout(() => {
-          useToastStore.getState().showToast({
-            message: 'Great focus session! Share with your team?',
-            variant: 'default',
-            durationMs: 4000,
-            actionLabel: 'Check in',
-            actionOnPress: () => {
-              rootNavigationRef.navigate('MainTabs', {
-                screen: 'MoreTab',
-                params: {
-                  screen: 'MoreArcs',
-                  params: {
-                    screen: 'GoalDetail',
+      const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
+      if (shouldShowNudge(activityGoalId, trigger) && momentGate.ok) {
+        void (async () => {
+          const canSubmit = await canSubmitCheckin(activityGoalId);
+          if (!canSubmit) return;
+          setTimeout(() => {
+            useToastStore.getState().showToast({
+              message: 'Great focus session. Send a quick goal update?',
+              variant: 'default',
+              durationMs: 4000,
+              actionLabel: 'Send update',
+              actionOnPress: async () => {
+                capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
+                  goalId: activityGoalId,
+                  trigger,
+                  source: 'activity_detail_focus',
+                });
+                try {
+                  await submitOneTapCheckin({ goalId: activityGoalId, trigger });
+                  useCheckinNudgeStore.getState().recordCheckin(activityGoalId);
+                  capture(AnalyticsEvent.SharedGoalCheckinCreated, {
+                    goalId: activityGoalId,
+                    hasPreset: true,
+                    preset: getOneTapCheckinPreset(trigger),
+                    hasText: false,
+                    source: 'checkin_nudge_toast',
+                    trigger,
+                  });
+                  rootNavigationRef.navigate('MainTabs', {
+                    screen: 'MoreTab',
                     params: {
-                      goalId: activityGoalId,
-                      entryPoint: 'activitiesStack',
-                      openActivitySheet: true,
+                      screen: 'MoreArcs',
+                      params: {
+                        screen: 'GoalDetail',
+                        params: {
+                          goalId: activityGoalId,
+                          entryPoint: 'activitiesStack',
+                          openActivitySheet: true,
+                        },
+                      },
                     },
-                  },
-                },
-              });
-            },
-          });
-        }, 1500); // Slightly longer delay to not compete with completion celebration
+                  });
+                } catch (err) {
+                  const message = err instanceof Error ? err.message : 'Failed to send update';
+                  capture(AnalyticsEvent.SharedGoalCheckinFailed, {
+                    goalId: activityGoalId,
+                    error: message,
+                    source: 'checkin_nudge_toast',
+                    trigger,
+                  });
+                  useToastStore.getState().showToast({
+                    message,
+                    variant: 'danger',
+                    durationMs: 2600,
+                  });
+                }
+              },
+            });
+          }, 1500); // Slightly longer delay to not compete with completion celebration
+        })();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2986,32 +3023,68 @@ export function ActivityDetailScreen() {
         // Check-in nudge for activities under shared goals
         const activityGoalId = activity.goalId;
         if (activityGoalId) {
+          const trigger: CheckinTrigger = 'activity_complete';
           const { shouldShowNudge } = useCheckinNudgeStore.getState();
-          if (shouldShowNudge(activityGoalId, 'activity_complete')) {
-            setTimeout(() => {
-              useToastStore.getState().showToast({
-                message: 'Share your progress with your team?',
-                variant: 'default',
-                durationMs: 4000,
-                actionLabel: 'Check in',
-                actionOnPress: () => {
-                  rootNavigationRef.navigate('MainTabs', {
-                    screen: 'MoreTab',
-                    params: {
-                      screen: 'MoreArcs',
-                      params: {
-                        screen: 'GoalDetail',
+          const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
+          if (shouldShowNudge(activityGoalId, trigger) && momentGate.ok) {
+            void (async () => {
+              const canSubmit = await canSubmitCheckin(activityGoalId);
+              if (!canSubmit) return;
+              setTimeout(() => {
+                useToastStore.getState().showToast({
+                  message: 'Progress made. Send a quick goal update?',
+                  variant: 'default',
+                  durationMs: 4000,
+                  actionLabel: 'Send update',
+                  actionOnPress: async () => {
+                    capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
+                      goalId: activityGoalId,
+                      trigger,
+                      source: 'activity_detail',
+                    });
+                    try {
+                      await submitOneTapCheckin({ goalId: activityGoalId, trigger });
+                      useCheckinNudgeStore.getState().recordCheckin(activityGoalId);
+                      capture(AnalyticsEvent.SharedGoalCheckinCreated, {
+                        goalId: activityGoalId,
+                        hasPreset: true,
+                        preset: getOneTapCheckinPreset(trigger),
+                        hasText: false,
+                        source: 'checkin_nudge_toast',
+                        trigger,
+                      });
+                      rootNavigationRef.navigate('MainTabs', {
+                        screen: 'MoreTab',
                         params: {
-                          goalId: activityGoalId,
-                          entryPoint: 'activitiesStack',
-                          openActivitySheet: true,
+                          screen: 'MoreArcs',
+                          params: {
+                            screen: 'GoalDetail',
+                            params: {
+                              goalId: activityGoalId,
+                              entryPoint: 'activitiesStack',
+                              openActivitySheet: true,
+                            },
+                          },
                         },
-                      },
-                    },
-                  });
-                },
-              });
-            }, 1200);
+                      });
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : 'Failed to send update';
+                      capture(AnalyticsEvent.SharedGoalCheckinFailed, {
+                        goalId: activityGoalId,
+                        error: message,
+                        source: 'checkin_nudge_toast',
+                        trigger,
+                      });
+                      useToastStore.getState().showToast({
+                        message,
+                        variant: 'danger',
+                        durationMs: 2600,
+                      });
+                    }
+                  },
+                });
+              }, 1200);
+            })();
           }
         }
       }

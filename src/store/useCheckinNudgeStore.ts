@@ -24,6 +24,13 @@ const NUDGE_DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 /** Cooldown after a successful check-in before showing another nudge (4 hours) */
 const POST_CHECKIN_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
+/** Cooldown after dismissing the share coachmark for a specific goal (14 days) */
+const SHARE_COACHMARK_GOAL_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** Global cap for share coachmarks (2 per 7 days) */
+const SHARE_COACHMARK_GLOBAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const SHARE_COACHMARK_GLOBAL_CAP = 2;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +48,12 @@ type CheckinNudgeState = {
   lastVisitByGoalId: Record<string, string>;
   /** goalId -> ISO timestamp of last dismissed nudge */
   dismissedNudgesByGoalId: Record<string, string>;
+  /** goalId -> ISO timestamp of last dismissed share coachmark */
+  dismissedShareCoachmarkByGoalId: Record<string, string>;
+  /** ISO timestamps for global share coachmark exposure cap */
+  shareCoachmarkShownAt: string[];
+  /** goalIds that have already been shared on this device */
+  sharedGoalIds: Record<string, true>;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Actions
@@ -57,6 +70,18 @@ type CheckinNudgeState = {
 
   /** Check if we should show a nudge for a goal */
   shouldShowNudge: (goalId: string, trigger: NudgeTrigger) => boolean;
+
+  /** Record that the share coachmark was shown */
+  recordShareCoachmarkShown: (goalId: string) => void;
+
+  /** Record that the user dismissed the share coachmark for a goal */
+  dismissShareCoachmark: (goalId: string) => void;
+
+  /** Record that the goal was shared so the coachmark never refires for it */
+  markGoalShared: (goalId: string) => void;
+
+  /** Check if the share coachmark can show for a goal */
+  shouldShowShareCoachmark: (goalId: string) => boolean;
 
   /** Get time since last check-in in ms (null if never) */
   getTimeSinceLastCheckin: (goalId: string) => number | null;
@@ -78,6 +103,9 @@ export const useCheckinNudgeStore = create<CheckinNudgeState>()(
       lastCheckinByGoalId: {},
       lastVisitByGoalId: {},
       dismissedNudgesByGoalId: {},
+      dismissedShareCoachmarkByGoalId: {},
+      shareCoachmarkShownAt: [],
+      sharedGoalIds: {},
 
       recordCheckin: (goalId: string) => {
         const now = new Date().toISOString();
@@ -145,6 +173,54 @@ export const useCheckinNudgeStore = create<CheckinNudgeState>()(
         return true;
       },
 
+      recordShareCoachmarkShown: (goalId: string) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          shareCoachmarkShownAt: [...state.shareCoachmarkShownAt, now],
+        }));
+      },
+
+      dismissShareCoachmark: (goalId: string) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          dismissedShareCoachmarkByGoalId: {
+            ...state.dismissedShareCoachmarkByGoalId,
+            [goalId]: now,
+          },
+        }));
+      },
+
+      markGoalShared: (goalId: string) => {
+        set((state) => ({
+          sharedGoalIds: {
+            ...state.sharedGoalIds,
+            [goalId]: true,
+          },
+        }));
+      },
+
+      shouldShowShareCoachmark: (goalId: string): boolean => {
+        const state = get();
+        const now = Date.now();
+
+        if (state.sharedGoalIds[goalId]) return false;
+
+        const dismissedAt = state.dismissedShareCoachmarkByGoalId[goalId];
+        if (dismissedAt) {
+          const dismissedMs = Date.parse(dismissedAt);
+          if (now - dismissedMs < SHARE_COACHMARK_GOAL_COOLDOWN_MS) {
+            return false;
+          }
+        }
+
+        const recentShows = state.shareCoachmarkShownAt.filter((iso) => {
+          const shownMs = Date.parse(iso);
+          return Number.isFinite(shownMs) && now - shownMs < SHARE_COACHMARK_GLOBAL_WINDOW_MS;
+        });
+
+        return recentShows.length < SHARE_COACHMARK_GLOBAL_CAP;
+      },
+
       getTimeSinceLastCheckin: (goalId: string): number | null => {
         const lastCheckin = get().lastCheckinByGoalId[goalId];
         if (!lastCheckin) return null;
@@ -162,6 +238,9 @@ export const useCheckinNudgeStore = create<CheckinNudgeState>()(
           lastCheckinByGoalId: {},
           lastVisitByGoalId: {},
           dismissedNudgesByGoalId: {},
+          dismissedShareCoachmarkByGoalId: {},
+          shareCoachmarkShownAt: [],
+          sharedGoalIds: {},
         });
       },
     }),
@@ -173,6 +252,9 @@ export const useCheckinNudgeStore = create<CheckinNudgeState>()(
         lastCheckinByGoalId: state.lastCheckinByGoalId,
         lastVisitByGoalId: state.lastVisitByGoalId,
         dismissedNudgesByGoalId: state.dismissedNudgesByGoalId,
+        dismissedShareCoachmarkByGoalId: state.dismissedShareCoachmarkByGoalId,
+        shareCoachmarkShownAt: state.shareCoachmarkShownAt,
+        sharedGoalIds: state.sharedGoalIds,
       }),
     }
   )

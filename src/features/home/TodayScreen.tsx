@@ -11,6 +11,9 @@ import { Card } from '../../ui/Card';
 import { VStack, Heading, Text, HStack, EmptyState } from '../../ui/primitives';
 import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from '../../services/recommendations/nextStep';
 import { toLocalDateKey } from '../../services/plan/planDates';
+import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import { useSharingSettingsStore } from '../../store/useSharingSettingsStore';
 
 const NETWORK_CHECK_URL = 'https://jsonplaceholder.typicode.com/todos/1';
 
@@ -22,6 +25,9 @@ export function TodayScreen() {
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const isFocused = useIsFocused();
+  const sharingRemindersMuted = useSharingSettingsStore(
+    (state) => state.masterMuted || state.reminderFrequency === 'off',
+  );
   const goalLookup = goals.reduce<Record<string, string>>((acc, goal) => {
     acc[goal.id] = goal.title;
     return acc;
@@ -42,6 +48,17 @@ export function TodayScreen() {
     if (!suggested) return false;
     return !hasAnyActivitiesScheduledForToday({ activities, now: new Date() });
   }, [activities, suggested]);
+  const stalledGoal = useMemo(() => {
+    if (sharingRemindersMuted) return null;
+    const store = useCheckinNudgeStore.getState();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    return goals.find((goal) => {
+      if (goal.status === 'completed' || goal.status === 'archived') return false;
+      const sinceVisit = store.getTimeSinceLastVisit(goal.id);
+      const sinceCheckin = store.getTimeSinceLastCheckin(goal.id);
+      return (sinceVisit == null || sinceVisit > sevenDaysMs) && (sinceCheckin == null || sinceCheckin > sevenDaysMs);
+    }) ?? null;
+  }, [goals, isFocused, sharingRemindersMuted]);
   const greeting = useMemo(
     () =>
       today.toLocaleDateString(undefined, {
@@ -233,6 +250,32 @@ export function TodayScreen() {
               </Card>
             )}
 
+            {stalledGoal ? (
+              <Card style={[styles.heroCard, styles.suggestedCard]}>
+                <VStack space="sm">
+                  <Text style={styles.suggestedTitle}>Want to check in?</Text>
+                  <Text style={styles.heroBody}>
+                    Revisit “{stalledGoal.title}” and send a quick update when you are ready.
+                  </Text>
+                  <Button
+                    size="small"
+                    variant="secondary"
+                    onPress={() => {
+                      rootNavigationRef.navigate('MainTabs', {
+                        screen: 'GoalsTab',
+                        params: {
+                          screen: 'GoalDetail',
+                          params: { goalId: stalledGoal.id, entryPoint: 'goalsTab', openActivitySheet: true },
+                        },
+                      });
+                    }}
+                  >
+                    <Text style={styles.secondaryActionText}>Open goal</Text>
+                  </Button>
+                </VStack>
+              </Card>
+            ) : null}
+
             <Text style={styles.sectionTitle}>Priorities</Text>
           </VStack>
         }
@@ -299,6 +342,11 @@ const styles = StyleSheet.create({
   primaryActionText: {
     ...typography.body,
     color: '#FFFFFF',
+    fontFamily: typography.body.fontFamily,
+  },
+  secondaryActionText: {
+    ...typography.body,
+    color: colors.textPrimary,
     fontFamily: typography.body.fontFamily,
   },
   networkText: {

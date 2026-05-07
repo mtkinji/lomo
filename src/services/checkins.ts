@@ -136,7 +136,8 @@ export async function submitCheckin(params: SubmitCheckinParams): Promise<Checki
 
 /**
  * Best-effort check to see if a user can submit a check-in for this goal.
- * Requires: signed in + shared goal (2+ active members).
+ * Requires: signed in + active goal membership. A goal with only the owner as
+ * a member can still check in; RLS remains the source of truth.
  */
 export async function canSubmitCheckin(goalId: string): Promise<boolean> {
   const supabase = getSupabaseClient();
@@ -154,11 +155,11 @@ export async function canSubmitCheckin(goalId: string): Promise<boolean> {
     .eq('entity_type', 'goal')
     .eq('entity_id', goalId)
     .eq('status', 'active')
-    .limit(2);
+    .limit(1);
 
   if (membersError || !members) return false;
 
-  return members.length >= 2;
+  return members.length >= 1;
 }
 
 export function getOneTapCheckinPreset(trigger: CheckinTrigger): CheckinPreset {
