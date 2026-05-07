@@ -57,6 +57,19 @@ export const AnalyticsEvent = {
   ShareInviteEmailSendSucceeded: 'share_invite_email_send_succeeded',
   ShareInviteEmailSendFailed: 'share_invite_email_send_failed',
   ShareInviteCopyLink: 'share_invite_copy_link',
+  ShareCoachmarkShown: 'share_coachmark_shown',
+  ShareCoachmarkDismissed: 'share_coachmark_dismissed',
+  ShareDrawerOpened: 'share_drawer_opened',
+  ShareInviteSent: 'share_invite_sent',
+  ShareWebInviteViewed: 'share_web_invite_viewed',
+  ShareWebCheerSent: 'share_web_cheer_sent',
+  SharePartnerOptedIn: 'share_partner_opted_in',
+  SharePartnerAccountCreated: 'share_partner_account_created',
+  SharePartnerFirstGoalCreated: 'share_partner_first_goal_created',
+  ShareSeedCheerSent: 'share_seed_cheer_sent',
+  SharePartnerUnsubscribed: 'share_partner_unsubscribed',
+  ShareQuietGoalNudgeSent: 'share_quiet_goal_nudge_sent',
+  ShareQuietGoalNudgeActed: 'share_quiet_goal_nudge_acted',
 
   JoinGoalDrawerOpened: 'join_goal_drawer_opened',
   JoinGoalDrawerClosed: 'join_goal_drawer_closed',
@@ -77,6 +90,8 @@ export const AnalyticsEvent = {
   SharedGoalReactionAdded: 'shared_goal_reaction_added',
   SharedGoalReactionRemoved: 'shared_goal_reaction_removed',
   SharedGoalFeedViewed: 'shared_goal_feed_viewed',
+  SharedGoalReplyCreated: 'shared_goal_reply_created',
+  SharedGoalReplyFailed: 'shared_goal_reply_failed',
 
   // Server-side milestones
   MilestoneRecorded: 'milestone_recorded',

@@ -48,7 +48,7 @@ export async function grantBonusCreditsSuperAdmin(params: { installId: string; b
   };
 }
 
-export async function createReferralCode(): Promise<string> {
+export async function createReferralCode(params?: { kind?: 'standard' | 'shared_goal_invite' }): Promise<string> {
   const base = getReferralsBaseUrl();
   if (!base) {
     throw new Error('Referrals service not configured');
@@ -57,7 +57,7 @@ export async function createReferralCode(): Promise<string> {
   const res = await fetch(`${base}/create`, {
     method: 'POST',
     headers: await buildEdgeHeaders(),
-    body: JSON.stringify({}),
+    body: JSON.stringify({ kind: params?.kind ?? 'standard' }),
   });
   const data = await res.json().catch(() => null);
   const code = typeof data?.referralCode === 'string' ? data.referralCode.trim() : '';

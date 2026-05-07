@@ -30,6 +30,7 @@ export function JoinSharedGoalDrawerHost() {
     inviter?: { userId: string; name?: string | null; avatarUrl?: string | null } | null;
     canJoin?: boolean;
     inviteState?: 'active' | 'expired' | 'consumed';
+    progressPreview?: { checkinCount: number; lastPreset: string | null; memberCount: number } | null;
   } | null>(null);
 
   const effectiveInviteCode = (inviteCode ?? '').trim();
@@ -223,6 +224,22 @@ export function JoinSharedGoalDrawerHost() {
           private unless you choose to share them.
         </Text>
 
+        {preview?.progressPreview ? (
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>Progress preview</Text>
+            <Text style={styles.subtle}>
+              {preview.progressPreview.checkinCount} check-in
+              {preview.progressPreview.checkinCount === 1 ? '' : 's'}
+              {preview.progressPreview.lastPreset
+                ? ` · latest: ${preview.progressPreview.lastPreset.replace(/_/g, ' ')}`
+                : ''}
+            </Text>
+            <Text style={styles.subtle}>
+              {preview.progressPreview.memberCount} member{preview.progressPreview.memberCount === 1 ? '' : 's'} on this goal.
+            </Text>
+          </View>
+        ) : null}
+
         <Text style={styles.subtle}>Invite code: {effectiveInviteCode || '—'}</Text>
 
         <View style={styles.ctaRow}>
@@ -273,6 +290,18 @@ const styles = StyleSheet.create({
   },
   subtle: {
     color: colors.textSecondary,
+  },
+  previewCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  previewTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   ctaRow: {
     marginTop: spacing.md,

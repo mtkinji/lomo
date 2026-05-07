@@ -127,6 +127,11 @@ import { createReferralCode } from '../../services/referrals';
 import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
 import { createProgressSignal } from '../../services/progressSignals';
 import { GoalFeedSection } from '../goals/GoalFeedSection';
+import { CheckinComposer } from '../goals/CheckinComposer';
+import { ShareGoalDrawer } from '../goals/ShareGoalDrawer';
+import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import { useSharingSettingsStore } from '../../store/useSharingSettingsStore';
+import { shouldShowLowPriorityMomentNow } from '../../services/moments/orchestrator';
 import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
@@ -152,6 +157,9 @@ export function GoalDetailScreen() {
   const { capture } = useAnalytics();
   const isFocused = useIsFocused();
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const sharingRemindersMuted = useSharingSettingsStore(
+    (state) => state.masterMuted || state.reminderFrequency === 'off',
+  );
   const userProfile = useAppStore((state) => state.userProfile);
   const { height: windowHeight } = useWindowDimensions();
   const canOpenActivityDetail = useNavigationTapGuard({ cooldownMs: 2000 });
@@ -222,6 +230,9 @@ export function GoalDetailScreen() {
   const [pendingOnboardingSharePrompt, setPendingOnboardingSharePrompt] = useState(false);
   const [shareSignInSheetVisible, setShareSignInSheetVisible] = useState(false);
   const [shareSignInSheetBusy, setShareSignInSheetBusy] = useState(false);
+  const [shareDrawerVisible, setShareDrawerVisible] = useState(false);
+  const [shareCoachmarkVisible, setShareCoachmarkVisible] = useState(false);
+  const shareButtonRef = useRef<View>(null);
   // Track activity count transitions so we only trigger onboarding handoffs on
   // *real* changes (not just because a goal already has activities when the screen mounts).
   const onboardingSharePrevActivityCountRef = useRef<number | null>(null);
@@ -231,7 +242,7 @@ export function GoalDetailScreen() {
   const insets = useSafeAreaInsets();
   const [activityComposerVisible, setActivityComposerVisible] = useState(false);
   const [activityCoachVisible, setActivityCoachVisible] = useState(false);
-  // Share UX: vNext prefers native share sheet (FTUE provides onboarding copy once).
+  // Share UX: header share opens the Kwilt accountability drawer.
 
   // --- Scroll-linked header + hero behavior (sheet-top threshold) ---
   // Header bar height below the safe area inset (not including inset).
@@ -567,6 +578,7 @@ export function GoalDetailScreen() {
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
   const [membersSheetTab, setMembersSheetTab] = useState<'activity' | 'members'>('activity');
   const [feedRefreshKey, setFeedRefreshKey] = useState(0);
+  const [checkinComposerVisible, setCheckinComposerVisible] = useState(false);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
 
   // Determine if this is a shared goal (has members beyond just the current user)
@@ -585,6 +597,40 @@ export function GoalDetailScreen() {
       return () => clearTimeout(timer);
     }
   }, [openActivitySheet, isFocused]);
+
+  useEffect(() => {
+    if (!isFocused || !goalId) return;
+    useCheckinNudgeStore.getState().recordVisit(goalId);
+  }, [goalId, isFocused]);
+
+  useEffect(() => {
+    if (!isFocused || !goalId || isSharedGoal || sharingRemindersMuted) {
+      setShareCoachmarkVisible(false);
+      return;
+    }
+    if (showFirstGoalCelebration || shareDrawerVisible || membersSheetVisible) {
+      setShareCoachmarkVisible(false);
+      return;
+    }
+    const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
+    const store = useCheckinNudgeStore.getState();
+    if (!momentGate.ok || !store.shouldShowShareCoachmark(goalId)) {
+      setShareCoachmarkVisible(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      useCheckinNudgeStore.getState().recordShareCoachmarkShown(goalId);
+      setShareCoachmarkVisible(true);
+      capture(AnalyticsEvent.ShareCoachmarkShown, { goalId });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [capture, goalId, isFocused, isSharedGoal, membersSheetVisible, shareDrawerVisible, sharingRemindersMuted, showFirstGoalCelebration]);
+
+  const handleCheckinSubmitted = useCallback(() => {
+    useCheckinNudgeStore.getState().recordCheckin(goalId);
+    setCheckinComposerVisible(false);
+    setFeedRefreshKey((key) => key + 1);
+  }, [goalId]);
 
   const canLeaveSharedGoal = useMemo(() => {
     const uid = authIdentity?.userId ?? '';
@@ -619,15 +665,22 @@ export function GoalDetailScreen() {
     };
   }, [goalId, isFocused]);
 
-  const headerAvatars = useMemo(() => {
-    if (Array.isArray(sharedMembers) && sharedMembers.length > 0) {
-      return sharedMembers.map((m) => ({ id: m.userId, name: m.name ?? null, avatarUrl: m.avatarUrl ?? null }));
-    }
-    const fallbackId = authIdentity?.userId || userProfile?.id || 'local';
-    const fallbackName = authIdentity?.name || userProfile?.fullName || 'You';
-    const fallbackAvatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl || null;
-    return [{ id: String(fallbackId), name: fallbackName, avatarUrl: fallbackAvatarUrl }];
-  }, [authIdentity?.avatarUrl, authIdentity?.name, authIdentity?.userId, sharedMembers, userProfile?.avatarUrl, userProfile?.fullName, userProfile?.id]);
+  const headerPartnerAvatars = useMemo(() => {
+    if (!Array.isArray(sharedMembers) || sharedMembers.length <= 1) return [];
+    const currentUserIds = new Set(
+      [authIdentity?.userId, userProfile?.id]
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        .map((id) => id.trim()),
+    );
+    return sharedMembers
+      .filter((m) => {
+        const userId = m.userId.trim();
+        if (!userId) return false;
+        if (currentUserIds.has(userId)) return false;
+        return (m.role ?? '').toLowerCase() !== 'owner';
+      })
+      .map((m) => ({ id: m.userId, name: m.name ?? null, avatarUrl: m.avatarUrl ?? null }));
+  }, [authIdentity?.userId, sharedMembers, userProfile?.id]);
 
   const setGoalTargetDateByOffsetDays = useCallback(
     (offsetDays: number) => {
@@ -752,7 +805,7 @@ export function GoalDetailScreen() {
     try {
       if (!goal) return;
       capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId: goal.id, channel: 'share_sheet' });
-      const referralCode = await createReferralCode().catch(() => '');
+      const referralCode = await createReferralCode({ kind: 'shared_goal_invite' }).catch(() => '');
       const goalImageUrl = (() => {
         const raw = (displayThumbnailUrl ?? '').trim();
         if (!raw) return undefined;
@@ -830,13 +883,8 @@ export function GoalDetailScreen() {
 
   const handleShareGoal = useCallback(async () => {
     if (!goal) return;
-    if (!authIdentity) {
-      // Standard share UX: show a bottom sheet auth gate (not a system Alert).
-      setShareSignInSheetVisible(true);
-      return;
-    }
-    await performShareGoalInvite();
-  }, [authIdentity, goal, performShareGoalInvite]);
+    setShareDrawerVisible(true);
+  }, [goal]);
 
   useEffect(() => {
     // no-op placeholder; reserved for future debug instrumentation
@@ -1256,17 +1304,8 @@ export function GoalDetailScreen() {
     }
     onboardingSharePrevActivityCountRef.current = next;
 
-    if (
-      prev === 0 &&
-      next > 0 &&
-      goal.id === lastOnboardingGoalId &&
-      !hasSeenOnboardingSharePrompt
-    ) {
-      // Handoff first: switch to the Plan canvas so the user sees their newly
-      // created Activities, then queue the share prompt after the plan-ready
-      // guide has had a chance to run.
-      setPendingOnboardingSharePrompt(true);
-    }
+    // Sharing is intentionally not introduced during FTUE. The post-FTUE
+    // header coachmark handles accountability sharing with cooldowns.
   }, [
     goalActivities.length,
     goal?.id,
@@ -1881,7 +1920,29 @@ export function GoalDetailScreen() {
   return (
     <AppShell fullBleedCanvas>
       <StatusBar style={statusBarStyle} animated />
-      {/* ShareGoalDrawer deprecated in vNext share UX; keep removed from render to avoid non-standard flows. */}
+      <ShareGoalDrawer
+        visible={shareDrawerVisible}
+        onClose={() => setShareDrawerVisible(false)}
+        goalId={goalId}
+        goalTitle={goal?.title ?? 'this goal'}
+        isShared={isSharedGoal}
+        memberCount={sharedMembers?.length ?? 0}
+        onSendUpdate={() => {
+          setShareDrawerVisible(false);
+          setMembersSheetTab('activity');
+          setCheckinComposerVisible(true);
+          setMembersSheetVisible(true);
+        }}
+        onManageSharing={() => {
+          setShareDrawerVisible(false);
+          setMembersSheetTab('members');
+          setMembersSheetVisible(true);
+        }}
+        onInviteCreated={() => {
+          useCheckinNudgeStore.getState().markGoalShared(goalId);
+          setShareCoachmarkVisible(false);
+        }}
+      />
       <BottomDrawer
         visible={shareSignInSheetVisible}
         onClose={() => {
@@ -2137,6 +2198,44 @@ export function GoalDetailScreen() {
         }}
         placement="below"
       />
+      <Coachmark
+        visible={shareCoachmarkVisible}
+        targetRef={shareButtonRef}
+        scrimToken="pineSubtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius="auto"
+        offset={spacing.xs}
+        attentionPulse
+        attentionPulseDelayMs={2500}
+        attentionPulseDurationMs={12000}
+        title={<Text style={styles.goalCoachmarkTitle}>Want backup?</Text>}
+        body={
+          <Text style={styles.goalCoachmarkBody}>
+            Invite someone to cheer your wins and keep you moving.
+          </Text>
+        }
+        actions={[
+          { id: 'later', label: 'Maybe later', variant: 'ghost' },
+          { id: 'invite', label: 'Invite a partner', variant: 'accent' },
+        ]}
+        onAction={(actionId) => {
+          if (actionId === 'invite') {
+            setShareCoachmarkVisible(false);
+            setShareDrawerVisible(true);
+            return;
+          }
+          useCheckinNudgeStore.getState().dismissShareCoachmark(goalId);
+          setShareCoachmarkVisible(false);
+          capture(AnalyticsEvent.ShareCoachmarkDismissed, { goalId });
+        }}
+        onDismiss={() => {
+          useCheckinNudgeStore.getState().dismissShareCoachmark(goalId);
+          setShareCoachmarkVisible(false);
+          capture(AnalyticsEvent.ShareCoachmarkDismissed, { goalId });
+        }}
+        placement="below"
+      />
       {editingForces && (
         <TouchableOpacity
           activeOpacity={1}
@@ -2162,28 +2261,39 @@ export function GoalDetailScreen() {
               }
               right={
                 <HStack alignItems="center" space="sm">
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="View members"
-                    hitSlop={12}
-                    onPress={() => setMembersSheetVisible(true)}
-                    style={styles.headerMembersStandalone}
-                  >
-                    <OverlappingAvatarStack
-                      avatars={headerAvatars}
+                  <View ref={shareButtonRef} collapsable={false}>
+                    <HeaderActionPill
+                      accessibilityLabel={
+                        headerPartnerAvatars.length > 0
+                          ? `Shared with ${headerPartnerAvatars.length} ${headerPartnerAvatars.length === 1 ? 'partner' : 'partners'}. Invite another partner.`
+                          : 'Share goal'
+                      }
+                      materialOpacity={headerActionPillOpacity}
                       size={HEADER_ACTION_PILL_SIZE}
-                      maxVisible={2}
-                      overlapPx={18}
-                    />
-                  </Pressable>
-                  <HeaderActionPill
-                    accessibilityLabel="Share goal"
-                    materialOpacity={headerActionPillOpacity}
-                    size={HEADER_ACTION_PILL_SIZE}
-                    onPress={handleShareGoal}
-                  >
-                    <Icon name="share" size={22} color={colors.textPrimary} />
-                  </HeaderActionPill>
+                      onPress={handleShareGoal}
+                      style={
+                        headerPartnerAvatars.length > 0
+                          ? styles.headerSharedWithSignal
+                          : styles.headerShareInvitePill
+                      }
+                    >
+                      {headerPartnerAvatars.length > 0 ? (
+                        <>
+                          <OverlappingAvatarStack
+                            avatars={headerPartnerAvatars}
+                            size={30}
+                            maxVisible={2}
+                            overlapPx={11}
+                          />
+                          <View style={styles.headerSharedPlusBadge}>
+                            <Icon name="plus" size={12} color={colors.canvas} />
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={styles.headerShareInviteText}>Share</Text>
+                      )}
+                    </HeaderActionPill>
+                  </View>
                   <DropdownMenu>
                     <DropdownMenuTrigger accessibilityLabel="Goal actions">
                       <View pointerEvents="none">
@@ -2833,6 +2943,7 @@ export function GoalDetailScreen() {
         visible={membersSheetVisible}
         onClose={() => {
           setMembersSheetVisible(false);
+          setCheckinComposerVisible(false);
           // Reset to Activity tab for next open
           setMembersSheetTab('activity');
         }}
@@ -2856,7 +2967,36 @@ export function GoalDetailScreen() {
           {/* Activity Tab */}
           {membersSheetTab === 'activity' ? (
             <View style={styles.activityTabContent}>
-              {/* Feed - automatic progress signals, no manual check-in */}
+              <View style={styles.checkinComposerHost}>
+                {checkinComposerVisible ? (
+                  <CheckinComposer
+                    goalId={goalId}
+                    compact
+                    onCheckinSubmitted={handleCheckinSubmitted}
+                    onDismiss={() => setCheckinComposerVisible(false)}
+                  />
+                ) : (
+                  <VStack space="sm" style={styles.checkinPromptCard}>
+                    <Text style={styles.checkinPromptTitle}>Send an update</Text>
+                    <Text style={styles.checkinPromptBody}>
+                      Share a quick check-in so accountability partners know how this goal is going.
+                    </Text>
+                    <Button
+                      variant="secondary"
+                      size="compact"
+                      onPress={() => setCheckinComposerVisible(true)}
+                      accessibilityLabel="Send a goal update"
+                    >
+                      <HStack alignItems="center" space="xs">
+                        <Icon name="messageCircle" size={16} color={colors.accent} />
+                        <Text style={styles.checkinPromptButtonLabel}>Send update</Text>
+                      </HStack>
+                    </Button>
+                  </VStack>
+                )}
+              </View>
+
+              {/* Feed - check-ins and partner reactions */}
               <View style={styles.feedSection}>
                 <GoalFeedSection goalId={goalId} refreshKey={feedRefreshKey} />
               </View>
@@ -4679,9 +4819,32 @@ const styles = StyleSheet.create({
   heroAttributionLink: {
     textDecorationLine: 'underline',
   },
-  headerMembersStandalone: {
-    height: '100%',
+  headerSharedWithSignal: {
+    width: 56,
+    paddingLeft: 7,
+    paddingRight: 15,
+  },
+  headerShareInvitePill: {
+    width: 68,
+    paddingHorizontal: spacing.md,
+  },
+  headerShareInviteText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  headerSharedPlusBadge: {
+    position: 'absolute',
+    right: 4,
+    bottom: 5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.canvas,
   },
   goalSheet: {
     marginTop: -20,
@@ -4784,6 +4947,28 @@ const styles = StyleSheet.create({
   },
   activityTabContent: {
     flex: 1,
+  },
+  checkinComposerHost: {
+    marginBottom: spacing.md,
+  },
+  checkinPromptCard: {
+    ...cardSurfaceStyle,
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+  checkinPromptTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  checkinPromptBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  checkinPromptButtonLabel: {
+    ...typography.bodySm,
+    color: colors.accent,
+    fontFamily: fonts.medium,
   },
   membersTabContent: {
     flex: 1,

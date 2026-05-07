@@ -55,6 +55,8 @@ export type Chapter = JsonObject & {
 export type CheckIn = JsonObject & {
   id: string;
   goalId: string;
+  userId?: string;
+  preset?: 'made_progress' | 'struggled_today' | 'need_encouragement' | 'just_checking_in' | null;
   text?: string;
   createdAt?: string;
   updatedAt?: string;

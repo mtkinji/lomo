@@ -47,6 +47,7 @@ import { AppearanceSettingsScreen } from '../features/account/AppearanceSettings
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
+import { SharingSettingsScreen } from '../features/account/SharingSettingsScreen';
 import { RedeemProCodeScreen } from '../features/account/RedeemProCodeScreen';
 import { ExecutionTargetsSettingsScreen } from '../features/account/ExecutionTargetsSettingsScreen';
 import { DestinationsLibraryScreen } from '../features/account/DestinationsLibraryScreen';
@@ -290,6 +291,7 @@ export type SettingsStackParamList = {
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
+  SettingsSharing: undefined;
   SettingsHaptics: undefined;
   SettingsWidgets: undefined;
   SettingsRedeemProCode: undefined;
@@ -937,6 +939,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsNotifications"
         component={NotificationsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsSharing"
+        component={SharingSettingsScreen}
       />
       <SettingsStack.Screen
         name="SettingsHaptics"
