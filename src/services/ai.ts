@@ -4,7 +4,6 @@ import Constants from 'expo-constants';
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
 import { getFocusAreaLabel } from '../domain/focusAreas';
-import { listIdealArcTemplates } from '../domain/idealArcs';
 import { buildHybridArcGuidelinesBlock } from '../domain/arcHybridPrompt';
 import { mockGenerateArcs } from './mockAi';
 import { getEnvVar } from '../utils/getEnv';
@@ -124,28 +123,39 @@ export type ArcComparisonRubricJudgeResult = {
 };
 
 const formatIdealArcExamplesForPrompt = (maxExamples = 4): string => {
-  const templates = listIdealArcTemplates();
-  const examples: string[] = [];
+  const examples = [
+    [
+      'Example - The Steady Keeper:',
+      '- name: "The Steady Keeper"',
+      '- narrative: "You are becoming someone who protects your attention and presence before the day gets away from you. The central shift is choosing what matters without carrying everything at once. Progress looks like naming one clear priority, protecting a quiet pocket of focus, and closing the day with intention."',
+    ],
+    [
+      'Example - The Steady Maker:',
+      '- name: "The Steady Maker"',
+      '- narrative: "You are becoming someone who turns creative energy into visible work, one finished piece at a time. Your ideas need rhythm, feedback, and the courage to be seen before they feel perfect. Progress looks like opening the rough draft, shipping one small piece, and sharing it with one real person."',
+    ],
+    [
+      'Example - The Patient Parent:',
+      '- name: "The Patient Parent"',
+      '- narrative: "You are becoming someone who helps home feel safe, steady, and seen. The central shift is treating family life as something you can practice with care, not something left to stress. Progress looks like putting your phone down, listening before reacting, and doing one quiet thing that helps the house feel cared for."',
+    ],
+    [
+      'Example - The Visible Maker:',
+      '- name: "The Visible Maker"',
+      '- narrative: "You are becoming someone who lets creative work become real by sharing it before it feels finished. The important shift is not having more ideas, but giving one idea enough form and feedback to grow. Progress looks like making a rough piece, showing it to one real person, and returning to the work with what you learned."',
+    ],
+    [
+      'Example - The Courageous Beginner:',
+      '- name: "The Courageous Beginner"',
+      '- narrative: "You are becoming someone who practices before you feel fully ready. The important shift is letting small honest attempts teach you more than private overthinking ever could. Progress looks like asking one question, making the first rough version, and returning to the work after feedback."',
+    ],
+  ];
 
-  templates.slice(0, Math.max(0, maxExamples)).forEach((template) => {
-    const sentences = template.narrative
-      .split(/[.!?]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-      .slice(0, 3);
-
-    if (sentences.length >= 3) {
-      const exampleNarrative = sentences.join('. ') + '.';
-      examples.push(
-        `Example - ${template.name}:`,
-        `- name: "${template.name}"`,
-        `- narrative: "${exampleNarrative}"`,
-        '',
-      );
-    }
-  });
-
-  return examples.join('\n').trim();
+  return examples
+    .slice(0, Math.max(0, maxExamples))
+    .map((example) => example.join('\n'))
+    .join('\n\n')
+    .trim();
 };
 
 const normalizeNarrative = (value: string): string =>
@@ -191,8 +201,8 @@ const validateGeneratedArc = (arc: GeneratedArc): { ok: boolean; reasons: string
     reasons.push('missing_name');
   } else {
     const meaningfulWords = countMeaningfulNameWords(name);
-    if (meaningfulWords < 1 || meaningfulWords > 3) {
-      reasons.push('name_not_1_to_3_words');
+    if (meaningfulWords < 2 || meaningfulWords > 5) {
+      reasons.push('name_not_2_to_5_words');
     }
     if (name.length > 42) {
       reasons.push('name_too_long');
@@ -202,11 +212,11 @@ const validateGeneratedArc = (arc: GeneratedArc): { ok: boolean; reasons: string
   if (!narrative) {
     reasons.push('missing_narrative');
   } else {
-    if (!/^I want(?:\s|…)/.test(narrative)) {
-      reasons.push('narrative_missing_I_want_prefix');
+    if (!/^You are becoming(?:\s|…)/.test(narrative)) {
+      reasons.push('narrative_missing_you_are_becoming_prefix');
     }
     const wordCount = countWords(narrative);
-    if (wordCount < 40 || wordCount > 120) {
+    if (wordCount < 35 || wordCount > 65) {
       reasons.push('narrative_word_count_out_of_bounds');
     }
     const sentenceCount = countSentences(narrative);
@@ -1808,7 +1818,7 @@ export async function judgeArcRubric(
     '- readingEase: easy to read for this age band; short sentences; minimal jargon.',
     '- everydayConcreteness: you can picture it in daily life; specific verbs/contexts; not just abstractions.',
     '- clarity: precise wording; avoids vague terms; name is legible and identity-like.',
-    '- constraintCompliance: obeys format constraints (name 1–3 words; narrative starts "I want"; exactly 3 sentences; 40–120 words; single paragraph).',
+    '- constraintCompliance: obeys format constraints (name 2-5 words; narrative starts "You are becoming"; exactly 3 sentences; 35-65 words; single paragraph).',
     '- adoptionLikelihood: how likely a real user would tap "Yes, I’d love to become like this".',
     '',
     'Notes:',
@@ -1991,7 +2001,7 @@ export async function judgeArcComparisonRubric(
     '- readingEase: easy to understand for this age band; minimal jargon; not overly complex sentences.',
     '- everydayConcreteness: you can picture it in daily life; tangible verbs; some context/scene.',
     '- clarity: precise wording; avoids vague terms; name is legible and identity-like.',
-    '- constraintCompliance: name 1–3 words; narrative starts "I want"; exactly 3 sentences; 40–120 words; one paragraph.',
+    '- constraintCompliance: name 2-5 words; narrative starts "You are becoming"; exactly 3 sentences; 35-65 words; one paragraph.',
     '- adoptionLikelihood: how likely a real user would tap "Yes, I’d love to become like this".',
     '- nonParroting: transforms inputs into identity language; does NOT copy the user’s dream or phrases verbatim.',
     '',
@@ -3153,12 +3163,12 @@ function buildDevMockCoachChatReply(messages: CoachChatTurn[], options?: CoachCh
     // IdentityAspirationFlow expects structured JSON for several steps.
     // Return JSON-only (no markdown) so its parsers succeed.
     if (stepId === 'aspiration_generate') {
-      const name = 'Identity Growth';
+      const name = 'The Steady Self';
       return JSON.stringify(
         {
           name,
           narrative:
-            "You’re becoming the kind of person who shows up consistently for what matters—especially when the excitement fades and it’s just you and the work.",
+            "You are becoming someone who shows up steadily for what matters, especially when the excitement fades. The central shift is building trust through small visible choices instead of waiting for perfect motivation. Progress looks like opening the work, choosing one concrete action, and returning to it with care.",
           nextSmallStep: 'Pick one tiny action you can do in the next 10 minutes to move this Arc forward.',
         },
         null,

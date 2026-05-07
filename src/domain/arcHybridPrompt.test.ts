@@ -11,8 +11,8 @@ describe('arcHybridPrompt', () => {
     expect(HYBRID_ARC_RESONANCE_REQUIREMENTS).toContain('Do NOT try to mention every input');
   });
 
-  it('pushes names toward concrete arenas instead of generic labels', () => {
-    expect(HYBRID_ARC_NAME_RESONANCE_RULES).toContain('concrete domain noun');
+  it('pushes names toward people-in-formation instead of generic labels', () => {
+    expect(HYBRID_ARC_NAME_RESONANCE_RULES).toContain('kind of person');
     expect(HYBRID_ARC_NAME_RESONANCE_RULES).toContain('Identity Growth');
   });
 
@@ -20,6 +20,6 @@ describe('arcHybridPrompt', () => {
     const block = buildHybridArcGuidelinesBlock();
     expect(block).toContain('Resonance requirements:');
     expect(block).toContain('Arc name resonance:');
-    expect(block).toContain('bring that dream to life');
+    expect(block).toContain('You are becoming');
   });
 });

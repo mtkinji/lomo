@@ -623,7 +623,9 @@ function extractArcProposalFromAssistantMessage(content: string): ParsedAssistan
   try {
     const parsed = JSON.parse(jsonText) as GeneratedArc;
     return {
-      displayContent: visiblePart || content,
+      // The proposal card is the visible response for Arc creation, so hide
+      // any model-generated preface instead of duplicating the Arc narrative.
+      displayContent: '',
       arcProposal: parsed,
     };
   } catch (err) {
@@ -1166,6 +1168,13 @@ export type AiChatPaneProps = {
    */
   hostBottomInsetAlreadyApplied?: boolean;
   /**
+   * Controls keyboard behavior for workflow step cards when the composer is hidden.
+   *
+   * - "avoid" keeps the focused field/CTA above the keyboard.
+   * - "overlay" leaves the step card fixed and lets the keyboard cover the lower viewport.
+   */
+  stepCardKeyboardBehavior?: 'avoid' | 'overlay';
+  /**
    * Optional hook fired when the user taps "Accept" on an AI-generated
    * activity suggestion card in activityCreation mode.
    */
@@ -1246,6 +1255,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     hideBrandHeader = false,
     hidePromptSuggestions = false,
     hostBottomInsetAlreadyApplied = false,
+    stepCardKeyboardBehavior = 'avoid',
     onTransportError,
     onManualFallbackRequested,
     onAdoptActivitySuggestion,
@@ -1277,6 +1287,8 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
   const composerPlaceholder =
     mode === 'goalCreation' ? 'Your goal (and when)…' : 'Ask, Search or Chat…';
+  const shouldOverlayStepCardKeyboard =
+    stepCardKeyboardBehavior === 'overlay' && !shouldShowComposer && hasStepCard;
 
   const modeConfig = mode ? WORKFLOW_REGISTRY[mode] : undefined;
   const modeSystemPrompt = modeConfig?.systemPrompt;
@@ -1297,7 +1309,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // keyboard is up.
   const STEP_CARD_KEYBOARD_CLEARANCE = isOnboardingMode ? 104 : 104;
   const keyboardClearance =
-    !shouldShowComposer && hasStepCard ? STEP_CARD_KEYBOARD_CLEARANCE : spacing.lg;
+    shouldOverlayStepCardKeyboard
+      ? 0
+      : !shouldShowComposer && hasStepCard
+        ? STEP_CARD_KEYBOARD_CLEARANCE
+        : spacing.lg;
 
   const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1499,7 +1515,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     const composerContribution = shouldShowComposer ? composerHeight : 0;
     const restingBottomForPadding = shouldShowComposer ? composerRestingBottom : hostBottomInset;
     const bottomInsetForPadding =
-      keyboardHeight > 0
+      keyboardHeight > 0 && !shouldOverlayStepCardKeyboard
         ? keyboardHeight + composerKeyboardGap + keyboardClearance
         : restingBottomForPadding;
     return base + bottomInsetForPadding + composerContribution;
@@ -1510,6 +1526,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     hostBottomInset,
     keyboardClearance,
     keyboardHeight,
+    shouldOverlayStepCardKeyboard,
     shouldShowComposer,
   ]);
 
@@ -2518,6 +2535,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
         } else if (mode === 'arcCreation') {
           const parsed = extractArcProposalFromAssistantMessage(fullText);
           if (parsed.arcProposal) {
+            const latestStatus = [...messagesRef.current]
+              .slice()
+              .reverse()
+              .find((m) => m.role === 'assistant' && m.id.startsWith('assistant-arc-status-'));
+            if (latestStatus) {
+              const nextMessages = messagesRef.current.filter((m) => m.id !== latestStatus.id);
+              messagesRef.current = nextMessages;
+              setMessages(nextMessages);
+              scheduleDraftSave(nextMessages, input);
+            }
             setArcProposal(parsed.arcProposal);
             setArcDraftName(parsed.arcProposal.name ?? '');
             setArcDraftNarrative(parsed.arcProposal.narrative ?? '');
@@ -3470,7 +3497,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
       const adjusted = Math.max(0, rawHeight - safeAreaToSubtract);
       setKeyboardHeight(adjusted);
 
-      if (adjusted > 0) {
+      if (adjusted > 0 && !shouldOverlayStepCardKeyboard) {
         // Defer the reveal until after the ScrollView padding + composer positioning
         // updates have been committed to layout.
         pendingRevealRef.current = true;
@@ -3525,6 +3552,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
     hostBottomInsetAlreadyApplied,
     insets.bottom,
     keyboardClearance,
+    shouldOverlayStepCardKeyboard,
   ]);
 
   // Run the reveal after the keyboard-driven layout update has been applied.
@@ -3532,6 +3560,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // that happens when we measure/scroll during the keyboard animation.
   useLayoutEffect(() => {
     if (keyboardHeight <= 0) return;
+    if (shouldOverlayStepCardKeyboard) return;
     if (!pendingRevealRef.current) return;
     pendingRevealRef.current = false;
 
@@ -3540,7 +3569,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
     requestAnimationFrame(() => {
       alignFocusedInputToKeyboard(keyboardClearance);
     });
-  }, [alignFocusedInputToKeyboard, keyboardClearance, keyboardHeight, resolvedPaddingBottom]);
+  }, [
+    alignFocusedInputToKeyboard,
+    keyboardClearance,
+    keyboardHeight,
+    resolvedPaddingBottom,
+    shouldOverlayStepCardKeyboard,
+  ]);
 
   const workflowInfoTitle = modeLabel ?? workflowLabel ?? 'AI coach';
   const workflowInfoSubtitle =
@@ -3583,7 +3618,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
             // Important: prefer the measure-based alignment (less "jumpy" than
             // scrollResponderScrollNativeHandleToKeyboard) so repeated taps don't
             // subtly change the card's resting position.
-            if (!shouldShowComposer) {
+            if (!shouldShowComposer && !shouldOverlayStepCardKeyboard) {
               requestAnimationFrame(() => {
                 alignFocusedInputToKeyboard(keyboardClearance);
               });

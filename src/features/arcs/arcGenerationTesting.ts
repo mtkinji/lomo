@@ -534,23 +534,23 @@ const arcConstraintScore = (arc: GeneratedArc): { score: number; notes: string[]
   const sentences = sentenceSplit(narrative).length;
 
   const meaningfulWords = countMeaningfulNameWords(name);
-  if (meaningfulWords < 1 || meaningfulWords > 3) {
+  if (meaningfulWords < 2 || meaningfulWords > 5) {
     score -= 2;
-    notes.push('name not 1–3 words');
+    notes.push('name not 2-5 words');
   }
   if (name.length > 42) {
     score -= 1;
     notes.push('name too long');
   }
-  if (!/^I want(?:\s|…)/.test(narrative)) {
+  if (!/^You are becoming(?:\s|…)/.test(narrative)) {
     score -= 2;
-    notes.push('narrative does not start with “I want…”');
+    notes.push('narrative does not start with "You are becoming"');
   }
   if (sentences !== 3) {
     score -= 2;
     notes.push('narrative not exactly 3 sentences');
   }
-  if (words < 40 || words > 120) {
+  if (words < 35 || words > 65) {
     score -= 2;
     notes.push('narrative word count out of bounds');
   }
@@ -2034,9 +2034,10 @@ ${roleModelSignals || 'No role model signals provided.'}
 
 HARD OUTPUT CONSTRAINTS (must follow exactly):
 - Return 1 arc.
-- Arc name must be 1–3 meaningful words (no more than 3). Prefer 2 words.
-- Arc narrative MUST be exactly 3 sentences, one paragraph, 40–120 words total.
-- Narrative MUST start with "I want".
+- Arc name must be 2-5 meaningful words. Prefer 2-4 words.
+- Arc narrative MUST be exactly 3 sentences, one paragraph, 35-65 words total.
+- Narrative MUST start with "You are becoming".
+- Use "you", not "I".
 - Avoid clichés and vague phrases (no "journey", no "mindset", no "purposeful impact").
 
 QUALITY REQUIREMENTS (what "best" means):

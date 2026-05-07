@@ -24,13 +24,26 @@
  * Keep this stable so rubric comparisons remain meaningful.
  */
 export const HYBRID_ARC_HARD_CONSTRAINTS = [
-  'Return 1–3 Arc suggestions (as requested).',
-  'Arc name: 1–3 meaningful words (emoji allowed). Prefer 2 words.',
-  'Arc narrative: exactly 3 sentences, single paragraph (no newlines), 40–120 words.',
-  'Narrative MUST start with: "I want".',
-  'Avoid clichés and mush phrases (no "journey", no "mindset", no "purposeful impact").',
+  'Return exactly ONE Arc suggestion unless another workflow explicitly requests multiple.',
+  'Arc name: 2-5 meaningful words. Prefer 2-4 words.',
+  'Arc name must describe a person-in-formation, not an activity, project, job title, category, or process.',
+  'Arc narrative: exactly 3 sentences, single paragraph with no newlines, 35-65 words.',
+  'Narrative sentence 1 MUST start with: "You are becoming".',
+  'Narrative sentence 1 names the identity trajectory.',
+  'Narrative sentence 2 names the central insight, tension, or why this matters.',
+  'Narrative sentence 3 names 1-3 concrete ordinary-life behaviors that would make progress visible.',
+  'Keep each sentence readable on mobile. Prefer shorter sentences over packed compound sentences.',
+  'Avoid short-horizon goal language like "this week", "today", "next step", "focus block", or "outcome" unless the user explicitly wrote it.',
+  'Avoid turning the Arc into a productivity system. The proposal should name a becoming-self, not a way to manage tasks.',
+  'Use "you", not "I".',
+  'Do not start with "I want".',
+  'Avoid parenthetical lists in the proposal narrative.',
+  'Avoid semicolon-heavy or comma-stacked sentences that read like compressed essays.',
+  'Avoid clichés and mush phrases: no "journey", no "mindset", no "purposeful impact", no "unlock my potential", no "best self", no "level up".',
   'Avoid guru/cosmic/therapy language and prescriptive "shoulds".',
-  'Avoid generic filler phrases like "bring that dream to life", "one small step", "unlock my potential", or "become my best self".',
+  'Avoid generic filler phrases like "bring that dream to life", "one small step", or "meaningful change" unless the user used those words.',
+  'Avoid loaded clinical terms like "burnout" unless the user explicitly provided that language.',
+  'Avoid shame-coded phrases like "reaching for escape" unless the user used similar language; prefer gentler language like "reaching for distraction" or "drifting into avoidance".',
 ].join('\n');
 
 /**
@@ -40,9 +53,9 @@ export const HYBRID_ARC_HARD_CONSTRAINTS = [
  * - a small concrete behavior cue (no explicit timeframe)
  */
 export const HYBRID_ARC_SENTENCE_ROLES = [
-  'Sentence 1: Start with "I want…" and state the identity direction in plain language.',
-  'Sentence 2: Why this matters now (use user signals; keep it specific).',
-  'Sentence 3: Include (a) one ordinary-life scene AND (b) one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week"). Make it easy to picture.',
+  'Sentence 1: Start with "You are becoming..." and name the identity trajectory in plain language.',
+  'Sentence 2: Name the central insight, tension, or why this matters.',
+  'Sentence 3: Name 1-3 concrete ordinary-life behaviors that would make progress visible.',
 ].join('\n');
 
 /**
@@ -53,25 +66,45 @@ export const HYBRID_ARC_SENTENCE_ROLES = [
  * choosing a sharp human center.
  */
 export const HYBRID_ARC_RESONANCE_REQUIREMENTS = [
-  'Before drafting, silently choose ONE "resonance anchor" and ONE "growth tension".',
-  'Resonance anchor priority:',
-  '1) a concrete big dream, if present;',
-  '2) a role-model / admired-quality signal, if present;',
-  '3) the ordinary proud moment;',
-  '4) the domain + vibe.',
+  'Before drafting, silently choose ONE resonance anchor and ONE growth tension.',
   '',
-  'Growth tension examples:',
-  '- consistency vs. pressure',
-  '- craft vs. rushing',
-  '- courage vs. hiding',
-  '- care vs. emotional reactivity',
-  '- focus vs. scattering energy',
+  'For Survey v2 inputs, resonance anchor priority:',
+  '1) identityDirection, especially the user-facing label and generationMeaning;',
+  '2) howThisShowsUpSeeds, especially concrete ordinary-day behaviors;',
+  '3) primaryArena;',
+  '4) whyNow;',
+  '5) personalTexture or custom text.',
   '',
-  'Use the anchor and tension to make the Arc feel like it could only belong to this person.',
-  'Do NOT try to mention every input. A strong Arc usually uses 2–4 signals deeply instead of 8 signals shallowly.',
-  'If the user gave a concrete dream, name the dream concretely at least once; do not replace it with "that dream".',
-  'If the user gave role-model qualities, translate one quality into behavior in the scene sentence.',
-  'The final sentence should be cinematic but ordinary: a real place, a real action, and a small choice the user can picture.',
+  'If multiple Survey v2 signals compete, prioritize:',
+  '1) identityDirection;',
+  '2) primaryArena;',
+  '3) howThisShowsUpSeeds / ordinary-day progress;',
+  '4) driftPatterns;',
+  '5) tonePreferences.',
+  '',
+  'For Survey v2 inputs, growth tension priority:',
+  '1) driftPatterns;',
+  '2) whyNow;',
+  '3) mismatch between desired direction and current obstacle;',
+  '4) any user-supplied custom text that names friction.',
+  '',
+  'For legacy Survey v1 inputs, resonance anchor priority:',
+  '1) the ordinary proud moment;',
+  '2) a concrete dream, if present;',
+  '3) role-model / admired-quality signals;',
+  '4) domain + motivation.',
+  '',
+  'If the user gave a concrete dream or project, use it as an expression of the Arc, not as the whole Arc.',
+  'A strong Arc should usually be broader than the project that inspired it.',
+  '',
+  'Tone preferences are optional flavor, not required content. Use them only when they naturally strengthen the Arc.',
+  'If the user selects include_faith, faith may be treated as a source of grounding, meaning, or return, but do not make theological claims or over-spiritualize the Arc.',
+  'If the user selects include_creative_work but the primary arena is not creative work, do not make creative work the main endpoint. Mention it only if it naturally fits.',
+  '',
+  'Use the anchor and tension to make the Arc feel like it could only belong to this user.',
+  'Do NOT try to mention every input. A strong Arc usually uses 2-4 signals deeply instead of many signals shallowly.',
+  '',
+  'The best proposal should create a quick recognition moment: the user should feel, "Yes, that names what I am trying to become."',
 ].join('\n');
 
 /**
@@ -81,11 +114,13 @@ export const HYBRID_ARC_RESONANCE_REQUIREMENTS = [
  */
 export const HYBRID_ARC_NAME_RESONANCE_RULES = [
   'Name selection rules:',
-  '- Prefer a concrete domain noun over an abstract trait: Woodshop, Studio, Team, Home, Practice, Classroom, Table, Venture.',
-  '- Pair the domain noun with a posture only when the pairing feels natural: Stewardship, Courage, Discipline, Clarity, Care, Craft.',
-  '- Avoid generic names like "Identity Growth", "Creative Journey", "Strong Mindset", "Personal Development", or raw nicknames like "The Builder" unless the nickname is genuinely distinctive.',
-  '- If a big dream names a real arena (album, studio, cabin, app, varsity, classroom), let that arena influence the Arc name.',
-  '- The name should sound like a stable chapter of life, not a task title or a personality type.',
+  '- Name the kind of person the user is becoming, not the activity they are doing.',
+  '- Prefer 2-5 words that feel human, memorable, and identity-shaped.',
+  '- Avoid generic names like "Creative Entrepreneur", "Health Growth", "Personal Development", "Better Parent", "Productivity", or "Identity Growth".',
+  '- Avoid activity/process names like "Creative Shipping", "Goal Building", or "Life Alignment".',
+  '- Avoid functional operator names like "The Prioritizer", "The Optimizer", "The Executor", "The Planner", or "The Achiever".',
+  '- For focus/prioritization inputs, prefer human names like "The Steady Keeper", "The Clear Keeper", "The Grounded Steward", or "The Focused Builder".',
+  '- If a big dream names a real arena (album, studio, cabin, app, varsity, classroom), let that arena influence the identity name without making the project itself the Arc.',
 ].join('\n');
 
 /**

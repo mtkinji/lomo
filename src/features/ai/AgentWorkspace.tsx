@@ -99,6 +99,10 @@ export type AgentWorkspaceProps = {
    */
   hostBottomInsetAlreadyApplied?: boolean;
   /**
+   * Forwarded to AiChatPane for structured step-card forms.
+   */
+  stepCardKeyboardBehavior?: 'avoid' | 'overlay';
+  /**
    * Optional hook fired when the underlying chat transport fails. Hosts can
    * use this to surface manual fallbacks.
    */
@@ -440,9 +444,26 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
               return `- ${key}: [unserializable]`;
             }
           });
+          const collectedInputPrompt =
+            workflowDefinition.chatMode === 'arcCreation'
+              ? [
+                  'Workflow-collected user inputs (authoritative):',
+                  '',
+                  'Use these inputs as the primary source of truth for Arc generation.',
+                  'If a value includes a visible label and hidden generationMeaning, treat the label as the user-facing choice and generationMeaning as interpretation support.',
+                  'If a custom text value exists, prioritize the custom text over inferred meaning.',
+                  'Do not mention every input. Synthesize the strongest 2-4 signals.',
+                  'Use drift/obstacle signals to create a useful central tension, not to shame or diagnose the user.',
+                  'Tone preferences are optional flavor, not required content. Use them only when they naturally strengthen the Arc.',
+                  'If include_faith is selected, faith may be a source of grounding, meaning, or return, but do not make theological claims or over-spiritualize the Arc.',
+                  'If include_creative_work is selected but the primary arena is not creative work, do not make creative work the main endpoint.',
+                  '',
+                  ...lines,
+                ].join('\n')
+              : ['Workflow-collected user inputs (authoritative):', ...lines].join('\n');
           stepGuidanceTurns.push({
             role: 'system',
-            content: ['Workflow-collected user inputs (authoritative):', ...lines].join('\n'),
+            content: collectedInputPrompt,
           });
         }
 
@@ -573,11 +594,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
           />
         );
       }
-      return (
-        <ArcCreationFlow
-          chatControllerRef={chatPaneRef as React.RefObject<ChatTimelineController | null>}
-        />
-      );
+      return <ArcCreationFlow />;
     }
 
     if (workflowDefinition.chatMode === 'goalCreation') {
@@ -758,6 +775,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         hideBrandHeader={hideBrandHeader}
         hidePromptSuggestions={hidePromptSuggestions}
         hostBottomInsetAlreadyApplied={hostBottomInsetAlreadyApplied}
+        stepCardKeyboardBehavior={props.stepCardKeyboardBehavior}
         onConfirmArc={onConfirmArc}
         onGoalCreated={onGoalCreated}
         onAdoptGoalProposal={onAdoptGoalProposal}

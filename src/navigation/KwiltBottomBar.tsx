@@ -91,6 +91,9 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     activeMoreLeafRouteName === 'MoreChapterDetail' ||
     activeMoreLeafRouteName === 'MoreChapterAlign' ||
     activeMoreLeafRouteName === 'MoreChapterDigestSettings';
+  const isArcsSurface =
+    activeMoreLeafRouteName === 'MoreArcs' ||
+    activeMoreLeafRouteName === 'ArcsList';
   const actionIcon: IconName =
     activeRouteName === 'PlanTab'
       ? 'checklist'
@@ -99,7 +102,9 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
         : activeRouteName === 'MoreTab'
           ? isChaptersSurface
             ? 'aiGuide'
-            : 'search'
+            : isArcsSurface
+              ? 'plus'
+              : 'search'
           : 'plus';
   const showActionBadge = activeRouteName === 'PlanTab' && planRecommendationsCount > 0;
   const handlePlaceItemLayout = useCallback(
@@ -152,6 +157,16 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
         openChapterAgent({ objectType: 'chapter', objectId: chapterId });
         return;
       }
+      if (isArcsSurface) {
+        navigation.navigate('MoreTab', {
+          screen: 'MoreArcs',
+          params: {
+            screen: 'ArcsList',
+            params: { openCreateArc: true },
+          },
+        });
+        return;
+      }
       // More home/global utility: open the global (all-objects) search
       // drawer without navigating away.
       useAppStore.getState().openGlobalSearch();
@@ -166,7 +181,9 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
         : activeRouteName === 'MoreTab'
           ? isChaptersSurface
             ? 'Open chapter coach workspace'
-            : 'Search Kwilt'
+            : isArcsSurface
+              ? 'Create an Arc'
+              : 'Search Kwilt'
           : activeRouteName === 'GoalsTab'
             ? 'Create a goal'
             : 'Primary action';

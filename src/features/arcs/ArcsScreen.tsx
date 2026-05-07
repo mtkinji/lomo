@@ -1107,6 +1107,7 @@ function NewArcModal({
             hideBrandHeader
             hidePromptSuggestions
             hostBottomInsetAlreadyApplied
+            stepCardKeyboardBehavior="overlay"
             onConfirmArc={(proposal) => {
               const canCreate = canCreateArc({ isPro, arcs });
               if (!canCreate.ok) {

@@ -56,7 +56,27 @@ import {
   PROUD_MOMENT_OPTIONS,
   WHY_NOW_OPTIONS,
 } from '@kwilt/arc-survey';
-import { ARC_CREATION_SURVEY_COPY, ARC_CREATION_SURVEY_STEP_ORDER } from '@kwilt/arc-survey';
+import {
+  ARC_CREATION_SURVEY_COPY,
+  ARC_CREATION_SURVEY_STEP_ORDER,
+  buildArcGenerationInputFromSurveyV2,
+  driftPatternOptions,
+  getHowThisShowsUpOptions,
+  identityDirectionOptions,
+  personalTextureToneOptions,
+  practiceStyleOptions,
+  primaryArenaOptions,
+  whyNowOptions,
+  type ArcSurveyOption,
+  type ArcSurveyV2Response,
+  type DriftPatternKey,
+  type HowThisShowsUpOption,
+  type IdentityDirectionKey,
+  type PersonalTextureTonePreference,
+  type PracticeStyleKey,
+  type PrimaryArenaKey,
+  type WhyNowKey,
+} from '@kwilt/arc-survey';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -342,6 +362,12 @@ const TWEAK_OPTIONS: ChoiceOption[] = [
 ];
 
 type Phase =
+  | 'identityDirection'
+  | 'primaryArena'
+  | 'howThisShowsUpSeeds'
+  | 'driftPatterns'
+  | 'practiceStyle'
+  | 'personalTexture'
   | 'domain'
   | 'motivation'
   // NOTE: The original FTUE collected a richer 10-question identity snapshot.
@@ -440,6 +466,18 @@ function splitAspirationNarrative(narrative?: string | null): ArcIdentitySlices 
   return { identity, why, daily };
 }
 
+function findSurveyOption<TKey extends string>(
+  options: Array<ArcSurveyOption<TKey>>,
+  key: TKey | null | undefined
+) {
+  if (!key) return null;
+  return options.find((option) => option.key === key) ?? null;
+}
+
+function selectedSurveyCustomTextRequired(options: ArcSurveyOption[], selectedKeys: string[]) {
+  return selectedKeys.some((key) => options.find((option) => option.key === key)?.allowsCustomText);
+}
+
 type AspirationPayload = {
   arcName: string;
   aspirationSentence: string;
@@ -489,7 +527,7 @@ export function IdentityAspirationFlow({
   const userProfile = useAppStore((state) => state.userProfile);
 
   const [phase, setPhase] = useState<Phase>(
-    mode === 'reuseIdentityForNewArc' ? 'dreams' : 'dreams',
+    mode === 'reuseIdentityForNewArc' ? 'identityDirection' : 'identityDirection',
   );
   const [surveyStepIndex, setSurveyStepIndex] = useState(0);
   const [hasSubmittedFirstTimeSurvey, setHasSubmittedFirstTimeSurvey] = useState(false);
@@ -523,6 +561,18 @@ export function IdentityAspirationFlow({
   >(null);
   const [roleModelWhyId, setRoleModelWhyId] = useState<ArchetypeRoleModelWhyId | null>(null);
   const [admiredQualityIds, setAdmiredQualityIds] = useState<ArchetypeAdmiredQualityId[]>([]);
+  const [identityDirectionKey, setIdentityDirectionKey] = useState<IdentityDirectionKey | null>(null);
+  const [identityDirectionCustomText, setIdentityDirectionCustomText] = useState('');
+  const [primaryArenaKey, setPrimaryArenaKey] = useState<PrimaryArenaKey | null>(null);
+  const [primaryArenaCustomText, setPrimaryArenaCustomText] = useState('');
+  const [whyNowKey, setWhyNowKey] = useState<WhyNowKey | null>(null);
+  const [howThisShowsUpKeys, setHowThisShowsUpKeys] = useState<string[]>([]);
+  const [howThisShowsUpCustomText, setHowThisShowsUpCustomText] = useState('');
+  const [driftPatternKeys, setDriftPatternKeys] = useState<DriftPatternKey[]>([]);
+  const [driftPatternCustomText, setDriftPatternCustomText] = useState('');
+  const [practiceStyleKey, setPracticeStyleKey] = useState<PracticeStyleKey | null>(null);
+  const [personalTextureText, setPersonalTextureText] = useState('');
+  const [tonePreferences, setTonePreferences] = useState<PersonalTextureTonePreference[]>([]);
   // Use a stable, per-session id for the draft Arc so that the preview card
   // and the eventually-created Arc share the same visual seed (gradient,
   // thumbnail variants, etc.).
@@ -624,6 +674,97 @@ export function IdentityAspirationFlow({
 
   const isFirstTimeOnboarding = mode === 'firstTimeOnboarding';
 
+  const howThisShowsUpOptions = useMemo(
+    () => getHowThisShowsUpOptions(identityDirectionKey),
+    [identityDirectionKey]
+  );
+
+  const buildFirstTimeSurveyV2Response = useCallback((): ArcSurveyV2Response | null => {
+    const identityDirection = findSurveyOption(identityDirectionOptions, identityDirectionKey);
+    const primaryArena = findSurveyOption(primaryArenaOptions, primaryArenaKey);
+    const whyNowOption = findSurveyOption(whyNowOptions, whyNowKey);
+    const practiceStyle = findSurveyOption(practiceStyleOptions, practiceStyleKey);
+    if (!identityDirection || !primaryArena || !whyNowOption || !practiceStyle) return null;
+    if (identityDirection.allowsCustomText && !identityDirectionCustomText.trim()) return null;
+    if (primaryArena.allowsCustomText && !primaryArenaCustomText.trim()) return null;
+
+    const howSeeds = howThisShowsUpKeys
+      .map((key) => howThisShowsUpOptions.find((option) => option.key === key) ?? null)
+      .filter((option): option is HowThisShowsUpOption => Boolean(option));
+    if (howSeeds.length < 1 || howSeeds.length > 3) return null;
+    if (selectedSurveyCustomTextRequired(howThisShowsUpOptions, howThisShowsUpKeys) && !howThisShowsUpCustomText.trim()) {
+      return null;
+    }
+
+    const driftPatterns = driftPatternKeys
+      .map((key) => findSurveyOption(driftPatternOptions, key))
+      .filter((option): option is ArcSurveyOption<DriftPatternKey> => Boolean(option));
+    if (driftPatterns.length < 1 || driftPatterns.length > 2) return null;
+    if (selectedSurveyCustomTextRequired(driftPatternOptions, driftPatternKeys) && !driftPatternCustomText.trim()) {
+      return null;
+    }
+
+    const personalTexture =
+      personalTextureText.trim().length > 0 || tonePreferences.length > 0
+        ? {
+            ...(personalTextureText.trim() ? { freeText: personalTextureText.trim() } : {}),
+            ...(tonePreferences.length > 0 ? { tonePreferences } : {}),
+          }
+        : undefined;
+
+    return {
+      version: 2,
+      identityDirection: {
+        key: identityDirection.key,
+        label: identityDirection.label,
+        generationMeaning: identityDirection.generationMeaning,
+        ...(identityDirection.allowsCustomText ? { customText: identityDirectionCustomText.trim() } : {}),
+      },
+      primaryArena: {
+        key: primaryArena.key,
+        label: primaryArena.label,
+        ...(primaryArena.allowsCustomText ? { customText: primaryArenaCustomText.trim() } : {}),
+      },
+      whyNow: {
+        key: whyNowOption.key,
+        label: whyNowOption.label,
+        generationMeaning: whyNowOption.generationMeaning,
+      },
+      howThisShowsUpSeeds: howSeeds.map((option) => ({
+        key: option.key,
+        label: option.label,
+        generationMeaning: option.generationMeaning,
+        ...(option.allowsCustomText ? { customText: howThisShowsUpCustomText.trim() } : {}),
+      })),
+      driftPatterns: driftPatterns.map((option) => ({
+        key: option.key,
+        label: option.label,
+        generationMeaning: option.generationMeaning,
+        ...(option.allowsCustomText ? { customText: driftPatternCustomText.trim() } : {}),
+      })),
+      practiceStyle: {
+        key: practiceStyle.key,
+        label: practiceStyle.label,
+        generationMeaning: practiceStyle.generationMeaning,
+      },
+      ...(personalTexture ? { personalTexture } : {}),
+    };
+  }, [
+    driftPatternCustomText,
+    driftPatternKeys,
+    howThisShowsUpCustomText,
+    howThisShowsUpKeys,
+    howThisShowsUpOptions,
+    identityDirectionCustomText,
+    identityDirectionKey,
+    personalTextureText,
+    practiceStyleKey,
+    primaryArenaCustomText,
+    primaryArenaKey,
+    tonePreferences,
+    whyNowKey,
+  ]);
+
   const setSurveyPhaseByIndex = useCallback(
     (index: number) => {
       const bounded = Math.max(
@@ -631,7 +772,7 @@ export function IdentityAspirationFlow({
         Math.min(index, FIRST_TIME_ONBOARDING_SURVEY_PHASES.length - 1)
       );
       setSurveyStepIndex(bounded);
-      setPhase(FIRST_TIME_ONBOARDING_SURVEY_PHASES[bounded] ?? 'dreams');
+      setPhase(FIRST_TIME_ONBOARDING_SURVEY_PHASES[bounded] ?? 'identityDirection');
     },
     []
   );
@@ -894,9 +1035,9 @@ export function IdentityAspirationFlow({
     return nextSmallStep;
   };
 
-  // Sanitize Arc name to ensure it follows 1-3 word pattern
+  // Sanitize Arc name while preserving compact person-in-formation names.
   const sanitizeArcName = (name: string): string => {
-    if (!name) return 'Identity Growth';
+    if (!name) return 'The Steady Self';
     
     let cleaned = name.trim();
     
@@ -910,7 +1051,7 @@ export function IdentityAspirationFlow({
     cleaned = cleaned.replace(/\bi want\b/gi, '');
     cleaned = cleaned.replace(/\bi['’]d\b/gi, '');
     
-    // Split into words and take first 1-3 meaningful words
+    // Split into words and take the first few meaningful words for a compact name.
     const words = cleaned.split(/\s+/).filter((word) => {
       const lower = word.toLowerCase();
       const hasLetter = /[\p{L}\p{N}]/u.test(lower);
@@ -922,7 +1063,6 @@ export function IdentityAspirationFlow({
           'to',
           'a',
           'an',
-          'the',
           'and',
           'or',
           'but',
@@ -941,10 +1081,10 @@ export function IdentityAspirationFlow({
       );
     });
     
-    // Take first 1-3 words, capitalize first letter of each
-    const meaningfulWords = words.slice(0, 3);
+    // Take first 2-5 words, capitalize first letter of each.
+    const meaningfulWords = words.slice(0, 5);
     if (meaningfulWords.length === 0) {
-      return 'Identity Growth';
+      return 'The Steady Self';
     }
     
     return meaningfulWords
@@ -1150,7 +1290,7 @@ export function IdentityAspirationFlow({
         return domainWord.charAt(0).toUpperCase() + domainWord.slice(1);
       }
 
-      return 'Identity Growth';
+      return 'The Steady Self';
     };
 
     const arcName = sanitizeArcName(generateArcName());
@@ -1212,9 +1352,9 @@ export function IdentityAspirationFlow({
         ? `I'm working on ${growthCore}`
         : "I'm learning to follow through on what matters";
 
-    const sentence1 = `I want to ${dreamClause}, and do it with ${valuesCore.toLowerCase()} and ${philosophyCore.toLowerCase()}.`;
-    const sentence2 = `This matters now because ${tensionClause}, and I want my energy to go toward ${meaningCore.toLowerCase()} and ${impactCore.toLowerCase()}.`;
-    const sentence3 = `I see this ${sceneClause} when I’m ${proudMomentCore}, choosing one concrete action over drifting or overthinking.`;
+    const sentence1 = `You are becoming someone who can ${dreamClause} with ${valuesCore.toLowerCase()} and ${philosophyCore.toLowerCase()}.`;
+    const sentence2 = `The central tension is ${tensionClause}, while your energy is trying to move toward ${meaningCore.toLowerCase()} and ${impactCore.toLowerCase()}.`;
+    const sentence3 = `Progress looks like being ${sceneClause}, ${proudMomentCore}, and choosing one concrete action over drifting or overthinking.`;
 
     const aspirationSentence = oneLine(`${sentence1} ${sentence2} ${sentence3}`);
 
@@ -1766,16 +1906,21 @@ export function IdentityAspirationFlow({
       setPrefetchedArcHero(null);
       arcHeroPrefetchRunIdRef.current += 1;
 
-      // HYBRID-MINIMAL INPUT SUMMARY:
-      // We intentionally keep the required input set small:
-      // - Domain, Vibe, Proud moment, Big dream
-      // …then optionally add Archetype taps (role models + admired qualities) to increase felt accuracy.
-      const inputsSummaryLines = [
-        `domain of becoming: ${domain}`,
-        `motivational style / vibe: ${motivation}`,
-        `everyday proud moment: ${proudMoment}`,
-        `big dream (primary anchor): ${bigDreams.length > 0 ? bigDreams.join('; ') : 'not provided'}`,
-      ];
+      const surveyV2Response = buildFirstTimeSurveyV2Response();
+      const surveyV2Input = surveyV2Response ? buildArcGenerationInputFromSurveyV2(surveyV2Response) : null;
+      // Survey v2 is the preferred source. Keep the legacy summary as fallback
+      // for old payloads and partially completed sessions.
+      const inputsSummaryLines = surveyV2Input
+        ? [
+            'Arc Survey v2 structured response:',
+            surveyV2Input.additionalContext,
+          ]
+        : [
+            `domain of becoming: ${domain}`,
+            `motivational style / vibe: ${motivation}`,
+            `everyday proud moment: ${proudMoment}`,
+            `big dream (primary anchor): ${bigDreams.length > 0 ? bigDreams.join('; ') : 'not provided'}`,
+          ];
       // Hybrid archetype taps: include any explicit role model signals in the prompt so the model
       // can improve felt accuracy without adding more free-text.
       if (roleModelTypeId) {
@@ -1804,7 +1949,7 @@ export function IdentityAspirationFlow({
         }
       }
       // Optional: nickname still supported, but not part of the minimal required set.
-      if (nickname.trim()) {
+      if (!surveyV2Input && nickname.trim()) {
         inputsSummaryLines.push(`optional nickname: ${nickname.trim()}`);
       }
       if (tweakHint) {
@@ -1894,18 +2039,21 @@ export function IdentityAspirationFlow({
           '-----------------------------------------',
           'The Arc narrative MUST:',
           '- be exactly 3 sentences in a single paragraph,',
-          '- be 40–120 words,',
-          '- have the FIRST sentence start with: "I want…",',
+          '- be 35-65 words,',
+          '- have the FIRST sentence start with: "You are becoming",',
+          '- use "you", not "I",',
           '- use plain, grounded language suitable for ages 14–50+,',
           '- avoid guru-speak, cosmic language, therapy language, or prescriptive "shoulds",',
-          '- avoid describing who the user IS today,',
-          '- describe only who they WANT TO BECOME and why it matters now.',
+          '- avoid parenthetical lists and packed compound sentences,',
+          '- avoid short-horizon goal language like "this week", "today", "next step", "focus block", or "outcome" unless the user explicitly wrote it,',
+          '- describe the identity trajectory the user is growing into,',
+          '- do not start with "I want".',
           '- keep each sentence reasonably short and readable — no sentence should be longer than about 30 words.',
           '',
           'Sentence roles:',
-          '1. Sentence 1: Begin with "I want…", clearly expressing the identity direction within this Arc. When the user has given a specific big dream (e.g., record an album, build a cabin, start a studio), weave that dream directly into this first sentence so it feels like the heart of the direction, not a side note.',
-          '2. Sentence 2: In a short sentence, explain why this direction matters now, using the user\'s signals (domain, vibe, social presence, strength, proud moment, dream).',
-          '3. Sentence 3: In another short sentence, give one concrete, ordinary-life scene AND one small concrete behavior cue that fits a normal day (no explicit timeframe language like "this week" or "start by…").',
+          '1. Sentence 1: Begin with "You are becoming", clearly naming the identity trajectory. If the user gave a specific big dream, treat it as an expression of the Arc, not the whole Arc.',
+          '2. Sentence 2: In a short sentence, name the central insight, tension, or why this matters.',
+          '3. Sentence 3: In another short sentence, name 1-3 concrete ordinary-day behaviors that would make progress visible.',
           '',
           'Tone:',
           '- grounded, human, reflective,',
@@ -1920,19 +2068,19 @@ export function IdentityAspirationFlow({
           'These examples show the style, structure, and level of concreteness you should aim for. Do NOT copy them; adapt the same pattern to the user\'s signals.',
           '',
           'Example 1 (Venture / Entrepreneurship):',
-          '- name: "🚀 Venture Stewardship"',
+          '- name: "The Steady Builder"',
           '- narrative:',
-          '"I want to build small, thoughtful ventures that support my family, my curiosity, and the kind of life I actually want to live. This matters to me because I\'m tired of work that scatters my energy, and I want my effort to go into things that are useful, honest, and aligned with my values. I see this direction on ordinary days when I sketch ideas at the kitchen table, ship a tiny improvement, or share early progress with someone I trust instead of keeping it all in my head."',
+          '"You are becoming someone who turns useful ideas into real, trustworthy work. The important shift is learning to protect your energy from scattered effort and give one venture enough rhythm to grow. Progress looks like sketching at the kitchen table, shipping one small improvement, and sharing early progress with someone you trust."',
           '',
           'Example 2 (Making & Embodied Creativity):',
-          '- name: "🪚 Making & Embodied Creativity"',
+          '- name: "The Grounded Maker"',
           '- narrative:',
-          '"I want to stay connected to the physical world through the work of my hands—building, fixing, and creating things that are tangible and lasting. This matters to me because too much of my life can drift into screens and abstraction, and I feel calmer and more myself when I\'m shaping real materials with care. I notice this Arc on regular days when I step into the garage, pick up a tool, and make a small bit of progress on a project that didn\'t exist before."',
+          '"You are becoming someone who stays connected to the physical world through the work of your hands. The tension is between drifting into screens and returning to materials, tools, and patient attention. Progress looks like stepping into the garage, picking up one tool, and making one visible improvement to something real."',
           '',
           'Example 3 (Family Stewardship):',
-          '- name: "🏡 Family Stewardship"',
+          '- name: "The Patient Parent"',
           '- narrative:',
-          '"I want to become someone who actively builds a home where the people I love feel safe, seen, and lifted. This matters to me because I know how much atmosphere at home shapes everyone\'s confidence and peace, and I don\'t want that to be left to chance or just to my schedule. I see this Arc in simple moments when I put my phone down, really listen to a family member, or do one quiet thing that makes the house feel a little more cared for."',
+          '"You are becoming someone who helps home feel safe, steady, and seen. The central shift is treating the atmosphere of family life as something you can practice with care, not something left to stress or schedule. Progress looks like putting your phone down, listening before reacting, and doing one quiet thing that makes the house feel cared for."',
           '',
           'Your goal is to produce outputs that feel as clear, grounded, and personally meaningful as these examples, but customized to the user\'s signals.',
           '',
@@ -2165,6 +2313,7 @@ export function IdentityAspirationFlow({
     },
     [
       buildConversationSnapshotFromTimeline,
+      buildFirstTimeSurveyV2Response,
       canGenerate,
       draftArcId,
       domain,
@@ -2372,7 +2521,7 @@ export function IdentityAspirationFlow({
 
   const INTRO_MESSAGES: string[] = [
     // Message 1 (handoff from FTUE)
-    'You probably have aspirations in a few areas of life. For now, we’ll pick one and turn it into an **Arc** — a clear picture of **who you want to become**.',
+    'An Arc is one direction you want to grow — not your whole life plan. You can add more later.',
     // Message 2 (connect Arc → Goals → Activities)
     "Then we’ll turn it into clear **Goals** and small daily **To-dos**. I’ll use AI and behavior-change best practices to draft high-quality options, and then you’ll be able to review and tweak them anytime. (Tap “Learn more” below.)",
     // Message 3 (lead-in to the minimal + archetype flow)
@@ -2627,7 +2776,7 @@ export function IdentityAspirationFlow({
   }, [isFirstTimeOnboarding, phase, surveyStepIndex, hasStreamedDreamsIntroCopy]);
 
   const introResponseOptions: ChoiceOption[][] = [
-    [{ id: 'sounds_good', label: '👍 Sounds good — let’s pick one' }],
+    [{ id: 'sounds_good', label: ARC_CREATION_SURVEY_COPY.introCta }],
     [
       { id: 'makes_sense', label: '✅ Got it' },
       { id: 'learn_more', label: 'Learn more' },
@@ -4180,26 +4329,189 @@ export function IdentityAspirationFlow({
   const renderFirstTimeSurvey = () => {
     const total = FIRST_TIME_ONBOARDING_SURVEY_PHASES.length;
     const stepLabel = `${surveyStepIndex + 1} of ${total}`;
-    const currentSurveyPhase = FIRST_TIME_ONBOARDING_SURVEY_PHASES[surveyStepIndex] ?? phase;
+    const selectedIdentityDirection = findSurveyOption(identityDirectionOptions, identityDirectionKey);
+    const selectedPrimaryArena = findSurveyOption(primaryArenaOptions, primaryArenaKey);
+    const selectedHowCustom = howThisShowsUpKeys.includes('custom');
+    const selectedDriftCustom = driftPatternKeys.includes('custom');
 
-    const handleNext = () => {
-      if (currentSurveyPhase === 'dreams') {
-        const trimmed = dreamInput.trim();
-        if (!trimmed) return;
-        workflowRuntime?.completeStep('big_dream', { bigDream: trimmed });
-        setError(null);
-        setSurveyPhaseByIndex(surveyStepIndex + 1);
-        return;
-      }
+    const renderCustomInput = (
+      value: string,
+      onChangeText: (value: string) => void,
+      placeholder: string
+    ) => (
+      <Input
+        value={value}
+        onChangeText={onChangeText}
+        multiline
+        multilineMinHeight={82}
+        multilineMaxHeight={120}
+        placeholder={placeholder}
+        autoCapitalize="sentences"
+        returnKeyType="done"
+        blurOnSubmit
+        onSubmitEditing={() => Keyboard.dismiss()}
+        style={styles.surveyCustomInput}
+      />
+    );
 
-      setSurveyPhaseByIndex(surveyStepIndex + 1);
+    const renderSingleSelect = <TKey extends string>(
+      options: Array<ArcSurveyOption<TKey>>,
+      selectedKey: TKey | null,
+      onSelect: (key: TKey) => void,
+      onAfterSelect?: (option: ArcSurveyOption<TKey>) => void
+    ) => (
+      <View style={styles.fullWidthList}>
+        {options.map((option) => {
+          const selected = selectedKey === option.key;
+          return (
+            <Pressable
+              key={option.key}
+              style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              onPress={() => {
+                void HapticsService.trigger('canvas.selection');
+                onSelect(option.key);
+                onAfterSelect?.(option);
+                if (!option.allowsCustomText) {
+                  setError(null);
+                  setSurveyPhaseByIndex(surveyStepIndex + 1);
+                }
+              }}
+            >
+              <View style={styles.fullWidthOptionContent}>
+                {renderRadioIndicator(selected)}
+                <Text style={[styles.fullWidthOptionLabel, selected && styles.fullWidthOptionLabelSelected]}>
+                  {option.label}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+
+    const renderChipSelect = <TKey extends string>(
+      options: Array<ArcSurveyOption<TKey>>,
+      selectedKey: TKey | null,
+      onSelect: (key: TKey) => void
+    ) => (
+      <View style={styles.optionChipGrid}>
+        {options.map((option) => {
+          const selected = selectedKey === option.key;
+          return (
+            <Pressable
+              key={option.key}
+              style={[styles.optionChip, selected && styles.optionChipSelected]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              onPress={() => {
+                void HapticsService.trigger('canvas.selection');
+                onSelect(option.key);
+                if (!option.allowsCustomText) {
+                  setError(null);
+                  setSurveyPhaseByIndex(surveyStepIndex + 1);
+                }
+              }}
+            >
+              <Text style={[styles.optionChipLabel, selected && styles.optionChipLabelSelected]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+
+    const renderMultiSelect = <TKey extends string>(
+      options: Array<ArcSurveyOption<TKey>>,
+      selectedKeys: string[],
+      maxSelections: number,
+      onToggle: (key: TKey) => void
+    ) => (
+      <View style={styles.fullWidthList}>
+        {options.map((option) => {
+          const selected = selectedKeys.includes(option.key);
+          return (
+            <Pressable
+              key={option.key}
+              style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
+              onPress={() => {
+                void HapticsService.trigger('canvas.selection');
+                onToggle(option.key);
+              }}
+            >
+              <View style={styles.fullWidthOptionContent}>
+                {renderCheckboxIndicator(selected)}
+                <Text style={[styles.fullWidthOptionLabel, selected && styles.fullWidthOptionLabelSelected]}>
+                  {option.label}
+                </Text>
+                {!selected && selectedKeys.length >= maxSelections ? (
+                  <Text style={styles.surveyMaxLabel}>Max {maxSelections}</Text>
+                ) : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+
+    const renderMultiChipSelect = <TKey extends string>(
+      options: Array<ArcSurveyOption<TKey>>,
+      selectedKeys: string[],
+      onToggle: (key: TKey) => void
+    ) => (
+      <View style={styles.optionChipGrid}>
+        {options.map((option) => {
+          const selected = selectedKeys.includes(option.key);
+          return (
+            <Pressable
+              key={option.key}
+              style={[styles.optionChip, selected && styles.optionChipSelected]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selected }}
+              onPress={() => {
+                void HapticsService.trigger('canvas.selection');
+                onToggle(option.key);
+              }}
+            >
+              <Text style={[styles.optionChipLabel, selected && styles.optionChipLabelSelected]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+
+    const toggleHowSeed = (key: string) => {
+      setHowThisShowsUpKeys((current) => {
+        if (current.includes(key)) return current.filter((item) => item !== key);
+        if (current.length >= 3) return current;
+        return [...current, key];
+      });
+    };
+
+    const toggleDrift = (key: DriftPatternKey) => {
+      setDriftPatternKeys((current) => {
+        if (current.includes(key)) return current.filter((item) => item !== key);
+        if (current.length >= 2) return current;
+        return [...current, key];
+      });
     };
 
     const handleSubmit = () => {
-      const labels = admiredQualityIds
-        .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
-        .filter((l): l is string => Boolean(l));
-      if (labels.length === 0) return;
+      const response = buildFirstTimeSurveyV2Response();
+      if (!response) return;
+      const input = buildArcGenerationInputFromSurveyV2(response);
+      workflowRuntime?.completeStep('big_dream', {
+        bigDream: input.prompt,
+        arcSurveyResponse: response,
+        arcSurveyAdditionalContext: input.additionalContext,
+      });
+      appendChatUserMessage(input.prompt);
       setHasSubmittedFirstTimeSurvey(true);
       setPhase('generating');
       void generateArc();
@@ -4207,494 +4519,157 @@ export function IdentityAspirationFlow({
 
     return (
       <SurveyCard
-        variant="stacked"
+        variant="panel"
         steps={[
           {
-            id: 'dreams',
-            title: ARC_CREATION_SURVEY_COPY.dreamsTitle,
-            canProceed: hasStreamedDreamsIntroCopy && dreamInput.trim().length > 0,
-            render: () => {
-              if (!hasStreamedDreamsIntroCopy) {
-                return (
-                  <Text style={styles.bodyText} tone="secondary">
-                    One sec…
-                  </Text>
-                );
-              }
-              return (
-                <Input
-                  ref={dreamInputRef}
-                  value={dreamInput}
-                  onChangeText={setDreamInput}
-                  multiline
-                  // Keep the textarea fully visible above the keyboard by using a stable height
-                  // (avoid auto-growing off-screen during placeholder/content size changes).
-                  multilineMinHeight={140}
-                  multilineMaxHeight={140}
-                  placeholder={ARC_CREATION_SURVEY_COPY.dreamsPlaceholder}
-                  autoCapitalize="sentences"
-                  returnKeyType="done"
-                  blurOnSubmit
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                />
-              );
-            },
+            id: 'identityDirection',
+            title: ARC_CREATION_SURVEY_COPY.identityDirectionTitle,
+            canProceed:
+              Boolean(identityDirectionKey) &&
+              (!selectedIdentityDirection?.allowsCustomText || identityDirectionCustomText.trim().length > 0),
+            render: () => (
+              <>
+                {renderSingleSelect(
+                  identityDirectionOptions,
+                  identityDirectionKey,
+                  setIdentityDirectionKey,
+                  () => {
+                    setHowThisShowsUpKeys([]);
+                    setHowThisShowsUpCustomText('');
+                  }
+                )}
+                {selectedIdentityDirection?.allowsCustomText
+                  ? renderCustomInput(
+                      identityDirectionCustomText,
+                      setIdentityDirectionCustomText,
+                      ARC_CREATION_SURVEY_COPY.identityDirectionCustomPlaceholder
+                    )
+                  : null}
+              </>
+            ),
+          },
+          {
+            id: 'primaryArena',
+            title: ARC_CREATION_SURVEY_COPY.primaryArenaTitle,
+            canProceed:
+              Boolean(primaryArenaKey) &&
+              (!selectedPrimaryArena?.allowsCustomText || primaryArenaCustomText.trim().length > 0),
+            render: () => (
+              <>
+                {renderChipSelect(primaryArenaOptions, primaryArenaKey, setPrimaryArenaKey)}
+                {selectedPrimaryArena?.allowsCustomText
+                  ? renderCustomInput(
+                      primaryArenaCustomText,
+                      setPrimaryArenaCustomText,
+                      ARC_CREATION_SURVEY_COPY.primaryArenaCustomPlaceholder
+                    )
+                  : null}
+              </>
+            ),
           },
           {
             id: 'whyNow',
             title: ARC_CREATION_SURVEY_COPY.whyNowTitle,
+            canProceed: Boolean(whyNowKey),
+            render: () => renderSingleSelect(whyNowOptions, whyNowKey, setWhyNowKey),
+          },
+          {
+            id: 'howThisShowsUpSeeds',
+            title: ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsTitle,
+            canProceed:
+              howThisShowsUpKeys.length >= 1 &&
+              howThisShowsUpKeys.length <= 3 &&
+              (!selectedHowCustom || howThisShowsUpCustomText.trim().length > 0),
+            render: () => (
+              <>
+                <Text style={styles.selectOnlyOneLabel}>PICK UP TO 3</Text>
+                {renderMultiSelect(howThisShowsUpOptions, howThisShowsUpKeys, 3, toggleHowSeed)}
+                {selectedHowCustom
+                  ? renderCustomInput(
+                      howThisShowsUpCustomText,
+                      setHowThisShowsUpCustomText,
+                      ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsCustomPlaceholder
+                    )
+                  : null}
+              </>
+            ),
+          },
+          {
+            id: 'driftPatterns',
+            title: ARC_CREATION_SURVEY_COPY.driftPatternsTitle,
+            canProceed:
+              driftPatternKeys.length >= 1 &&
+              driftPatternKeys.length <= 2 &&
+              (!selectedDriftCustom || driftPatternCustomText.trim().length > 0),
+            render: () => (
+              <>
+                <Text style={styles.selectOnlyOneLabel}>PICK UP TO 2</Text>
+                {renderMultiChipSelect(driftPatternOptions, driftPatternKeys, toggleDrift)}
+                {selectedDriftCustom
+                  ? renderCustomInput(
+                      driftPatternCustomText,
+                      setDriftPatternCustomText,
+                      ARC_CREATION_SURVEY_COPY.driftPatternsCustomPlaceholder
+                    )
+                  : null}
+              </>
+            ),
+          },
+          {
+            id: 'practiceStyle',
+            title: ARC_CREATION_SURVEY_COPY.practiceStyleTitle,
+            canProceed: Boolean(practiceStyleKey),
+            render: () => renderSingleSelect(practiceStyleOptions, practiceStyleKey, setPracticeStyleKey),
+          },
+          {
+            id: 'personalTexture',
+            title: ARC_CREATION_SURVEY_COPY.personalTextureTitle,
             canProceed: true,
             render: () => (
-              <View style={styles.fullWidthList}>
-                {WHY_NOW_OPTIONS.map((option) => {
-                  const selected = whyNowIds.includes(option.id);
-                  return (
-                    <Pressable
-                      key={option.id}
-                      style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected }}
-                      onPress={() => {
-                        void HapticsService.trigger('canvas.selection');
-                        setWhyNowIds([option.id]);
-                        appendChatUserMessage(option.label);
-                        setError(null);
-                        setSurveyPhaseByIndex(surveyStepIndex + 1);
-                      }}
-                    >
-                      <View style={styles.fullWidthOptionContent}>
-                        {renderRadioIndicator(selected)}
-                        <Text
-                          style={[
-                            styles.fullWidthOptionLabel,
-                            selected && styles.fullWidthOptionLabelSelected,
-                          ]}
-                        >
+              <>
+                <Text style={styles.bodyText} tone="secondary">
+                  {ARC_CREATION_SURVEY_COPY.personalTextureHelper}
+                </Text>
+                {renderCustomInput(
+                  personalTextureText,
+                  setPersonalTextureText,
+                  ARC_CREATION_SURVEY_COPY.personalTexturePlaceholder
+                )}
+                <View style={styles.textureChipWrap}>
+                  {personalTextureToneOptions.map((option) => {
+                    const selected = tonePreferences.includes(option.key);
+                    return (
+                      <Pressable
+                        key={option.key}
+                        style={[styles.textureChip, selected && styles.textureChipSelected]}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: selected }}
+                        onPress={() => {
+                          void HapticsService.trigger('canvas.selection');
+                          setTonePreferences((current) =>
+                            current.includes(option.key)
+                              ? current.filter((item) => item !== option.key)
+                              : [...current, option.key]
+                          );
+                        }}
+                      >
+                        <Text style={[styles.textureChipLabel, selected && styles.fullWidthOptionLabelSelected]}>
                           {option.label}
                         </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-                <View style={styles.whyNowFooterRow}>
-                  <Button
-                    variant="ghost"
-                    onPress={() => {
-                      setError(null);
-                      setSurveyPhaseByIndex(surveyStepIndex + 1);
-                    }}
-                    accessibilityLabel={ARC_CREATION_SURVEY_COPY.skipWhyNowLabel}
-                  >
-                    <ButtonLabel size="md">{ARC_CREATION_SURVEY_COPY.skipWhyNowLabel}</ButtonLabel>
-                  </Button>
-                </View>
-              </View>
-            ),
-          },
-          {
-            id: 'domain',
-            title: (
-              <>
-                {ARC_CREATION_SURVEY_COPY.domainTitle}{' '}
-                <Pressable
-                  style={styles.questionInfoTrigger}
-                  accessibilityRole="button"
-                  accessibilityLabel="Why this question?"
-                  onPress={() => toggleQuestionInfo('domain')}
-                >
-                  <Icon name="info" size={16} color={colors.textSecondary} />
-                </Pressable>
-              </>
-            ),
-            canProceed: domainIds.length > 0,
-            render: () => (
-              <>
-                <Text style={styles.selectOnlyOneLabel}>PICK ONLY ONE</Text>
-                <View style={styles.fullWidthList}>
-                  {DOMAIN_OPTIONS.map((option) => {
-                    const selected = domainIds.includes(option.id);
-                    const labelWithEmoji = option.emoji
-                      ? `${option.emoji} ${option.label}`
-                      : option.label;
-                    return (
-                      <Pressable
-                        key={option.id}
-                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                          void HapticsService.trigger('canvas.selection');
-                          const previousSelected = DOMAIN_OPTIONS.filter((o) => domainIds.includes(o.id));
-                          previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                          updateSignatureForOption(option, true);
-                          setDomainIds([option.id]);
-                          workflowRuntime?.completeStep('vibe_select', { domain: option.label });
-                          setError(null);
-                          setSurveyPhaseByIndex(surveyStepIndex + 1);
-                        }}
-                      >
-                        <View style={styles.fullWidthOptionContent}>
-                          {renderRadioIndicator(selected)}
-                          {option.emoji ? (
-                            <Text
-                              style={[
-                                styles.fullWidthOptionEmoji,
-                                selected && styles.fullWidthOptionEmojiSelected,
-                              ]}
-                            >
-                              {option.emoji}
-                            </Text>
-                          ) : null}
-                          <Text
-                            style={[
-                              styles.fullWidthOptionLabel,
-                              selected && styles.fullWidthOptionLabelSelected,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <Dialog
-                  visible={openQuestionInfoKey === 'domain'}
-                  onClose={() => setOpenQuestionInfoKey(null)}
-                  title="Why this question matters"
-                  description="This first choice helps me understand which part of you most wants to grow so I can anchor your Identity Arc there."
-                >
-                  <Text style={styles.bodyText}>
-                    The options are based on research in motivation and values. Each one is a different
-                    growth lane—creativity, craft, leadership, relationships, contribution, courage,
-                    habits, adventure, or inner life—so your choice gives a strong signal about which
-                    future self to focus your Arc around.
-                  </Text>
-                </Dialog>
-              </>
-            ),
-          },
-          {
-            id: 'proudMoment',
-            title: (
-              <>
-                {ARC_CREATION_SURVEY_COPY.proudMomentTitle}{' '}
-                <Text
-                  style={styles.questionInfoTrigger}
-                  accessibilityRole="button"
-                  accessibilityLabel="Why this question?"
-                  onPress={() => toggleQuestionInfo('proud')}
-                >
-                  ⓘ
-                </Text>
-              </>
-            ),
-            canProceed: proudMomentIds.length > 0,
-            render: () => (
-              <>
-                <Text style={styles.selectOnlyOneLabel}>SELECT ONLY ONE</Text>
-                <View style={styles.fullWidthList}>
-                  {(() => {
-                    const expanded = Boolean(expandedOptionSets.proudMoment);
-                    const { visibleOptions, hasMore } = getAdaptiveOptionsCollapsed({
-                      base: PROUD_MOMENT_OPTIONS,
-                      topN: 6,
-                      expanded,
-                      selectedIds: proudMomentIds,
-                    });
-                    return (
-                      <>
-                        {visibleOptions.map((option) => {
-                    const selected = proudMomentIds.includes(option.id);
-                    return (
-                      <Pressable
-                        key={option.id}
-                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                          void HapticsService.trigger('canvas.selection');
-                          const previousSelected = PROUD_MOMENT_OPTIONS.filter((o) =>
-                            proudMomentIds.includes(o.id)
-                          );
-                          previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                          updateSignatureForOption(option, true);
-                          setProudMomentIds([option.id]);
-                          workflowRuntime?.completeStep('everyday_moment', { proudMoment: option.label });
-                          setError(null);
-                          setSurveyPhaseByIndex(surveyStepIndex + 1);
-                        }}
-                      >
-                        <View style={styles.fullWidthOptionContent}>
-                          {renderRadioIndicator(selected)}
-                          <Text
-                            style={[
-                              styles.fullWidthOptionLabel,
-                              selected && styles.fullWidthOptionLabelSelected,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                        })}
-                        {hasMore ? (
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            onPress={() =>
-                              setExpandedOptionSets((prev) => ({
-                                ...prev,
-                                proudMoment: true,
-                              }))
-                            }
-                          >
-                            <ButtonLabel size="md">Show more options</ButtonLabel>
-                          </Button>
-                        ) : expanded ? (
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            onPress={() =>
-                              setExpandedOptionSets((prev) => ({
-                                ...prev,
-                                proudMoment: false,
-                              }))
-                            }
-                          >
-                            <ButtonLabel size="md">Show fewer options</ButtonLabel>
-                          </Button>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </View>
-                <Dialog
-                  visible={openQuestionInfoKey === 'proud'}
-                  onClose={() => setOpenQuestionInfoKey(null)}
-                  title="Why this question matters"
-                  description="This question turns your future identity into something you can picture on an ordinary day."
-                >
-                  <Text style={styles.bodyText}>
-                    Research on habits and identity—from implementation intentions to tiny‑habits work
-                    (Gollwitzer, Fogg, and others)—suggests that small, repeatable actions do more to change who
-                    we are than occasional big wins. That includes things like caring for your body and energy,
-                    following through on a small promise, or quietly helping someone. Choosing a 'quietly proud'
-                    moment helps your Identity Arc translate into daily behavior, not just an inspiring headline.
-                  </Text>
-                </Dialog>
-              </>
-            ),
-          },
-          {
-            id: 'motivation',
-            title: (
-              <>
-                {ARC_CREATION_SURVEY_COPY.motivationTitle}{' '}
-                <Text
-                  style={styles.questionInfoTrigger}
-                  accessibilityRole="button"
-                  accessibilityLabel="Why this question?"
-                  onPress={() => toggleQuestionInfo('motivation')}
-                >
-                  ⓘ
-                </Text>
-              </>
-            ),
-            canProceed: motivationIds.length > 0,
-            render: () => (
-              <>
-                <Text style={styles.selectOnlyOneLabel}>SELECT ONLY ONE</Text>
-                <View style={styles.fullWidthList}>
-                  {(() => {
-                    const expanded = Boolean(expandedOptionSets.motivation);
-                    const { visibleOptions, hasMore } = getAdaptiveOptionsCollapsed({
-                      base: MOTIVATION_OPTIONS,
-                      topN: 5,
-                      expanded,
-                      selectedIds: motivationIds,
-                    });
-                    return (
-                      <>
-                        {visibleOptions.map((option) => {
-                    const selected = motivationIds.includes(option.id);
-                    return (
-                      <Pressable
-                        key={option.id}
-                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                          void HapticsService.trigger('canvas.selection');
-                          const previousSelected = MOTIVATION_OPTIONS.filter((o) =>
-                            motivationIds.includes(o.id)
-                          );
-                          previousSelected.forEach((prev) => updateSignatureForOption(prev, false));
-                          updateSignatureForOption(option, true);
-                          setMotivationIds([option.id]);
-                          workflowRuntime?.completeStep('social_mirror', { motivation: option.label });
-                          setError(null);
-                          setSurveyPhaseByIndex(surveyStepIndex + 1);
-                        }}
-                      >
-                        <View style={styles.fullWidthOptionContent}>
-                          {renderRadioIndicator(selected)}
-                          {option.emoji ? (
-                            <Text
-                              style={[
-                                styles.fullWidthOptionEmoji,
-                                selected && styles.fullWidthOptionEmojiSelected,
-                              ]}
-                            >
-                              {option.emoji}
-                            </Text>
-                          ) : null}
-                          <Text
-                            style={[
-                              styles.fullWidthOptionLabel,
-                              selected && styles.fullWidthOptionLabelSelected,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                        })}
-                        {hasMore ? (
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            onPress={() =>
-                              setExpandedOptionSets((prev) => ({
-                                ...prev,
-                                motivation: true,
-                              }))
-                            }
-                          >
-                            <ButtonLabel size="md">Show more options</ButtonLabel>
-                          </Button>
-                        ) : expanded ? (
-                          <Button
-                            variant="ghost"
-                            size="small"
-                            onPress={() =>
-                              setExpandedOptionSets((prev) => ({
-                                ...prev,
-                                motivation: false,
-                              }))
-                            }
-                          >
-                            <ButtonLabel size="md">Show fewer options</ButtonLabel>
-                          </Button>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </View>
-                <Dialog
-                  visible={openQuestionInfoKey === 'motivation'}
-                  onClose={() => setOpenQuestionInfoKey(null)}
-                  title="Why this question matters"
-                  description="This question looks past today’s mood and focuses on what really fuels that future version of you in this area."
-                >
-                  <Text style={styles.bodyText}>
-                    Motivation science—especially work on intrinsic motivation and Self‑Determination Theory
-                    (Deci & Ryan)—shows people stick with change longer when their goals match their deeper
-                    drives, like caring for others, mastering hard things, or bringing new ideas into the world.
-                    Your choice here is a quick way of capturing those drives so your Identity Arc reflects why
-                    you do things, not just what you do.
-                  </Text>
-                </Dialog>
-              </>
-            ),
-          },
-          {
-            id: 'roleModelType',
-            title: ARC_CREATION_SURVEY_COPY.roleModelTypeTitle,
-            canProceed: Boolean(roleModelTypeId),
-            render: () => (
-              <>
-                <Text style={styles.selectOnlyOneLabel}>SELECT ONLY ONE</Text>
-                <View style={styles.fullWidthList}>
-                  {ARCHETYPE_ROLE_MODEL_TYPES.map((option) => {
-                    const selected = roleModelTypeId === option.id;
-                    return (
-                      <Pressable
-                        key={option.id}
-                        style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                          void HapticsService.trigger('canvas.selection');
-                          setRoleModelTypeId(option.id);
-                          setSurveyPhaseByIndex(surveyStepIndex + 1);
-                        }}
-                      >
-                        <View style={styles.fullWidthOptionContent}>
-                          {renderRadioIndicator(selected)}
-                          <Text
-                            style={[
-                              styles.fullWidthOptionLabel,
-                              selected && styles.fullWidthOptionLabelSelected,
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                        </View>
                       </Pressable>
                     );
                   })}
                 </View>
               </>
-            ),
-          },
-          {
-            id: 'admiredQualities',
-            title: ARC_CREATION_SURVEY_COPY.admiredQualitiesTitle,
-            canProceed: admiredQualityIds.length > 0,
-            render: () => (
-              <View style={styles.fullWidthList}>
-                {ARCHETYPE_ADMIRED_QUALITIES.map((option) => {
-                  const selected = admiredQualityIds.includes(option.id);
-                  return (
-                    <Pressable
-                      key={option.id}
-                      style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: selected }}
-                      onPress={() => {
-                        const next = toggleIdInList(option.id, admiredQualityIds);
-                        if (next.length > 3) return;
-                        void HapticsService.trigger('canvas.selection');
-                        setAdmiredQualityIds(next as ArchetypeAdmiredQualityId[]);
-                      }}
-                    >
-                      <View style={styles.fullWidthOptionContent}>
-                        {renderCheckboxIndicator(selected)}
-                        <Text
-                          style={[
-                            styles.fullWidthOptionLabel,
-                            selected && styles.fullWidthOptionLabelSelected,
-                          ]}
-                        >
-                          {option.label}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
             ),
           },
         ]}
         currentStepIndex={surveyStepIndex}
         stepLabel={stepLabel}
         nextLabel="Next"
-        submitLabel="Submit"
+        submitLabel="Create Arc"
         onBack={() => setSurveyPhaseByIndex(surveyStepIndex - 1)}
-        onNext={handleNext}
+        onNext={() => setSurveyPhaseByIndex(surveyStepIndex + 1)}
         onSubmit={handleSubmit}
       />
     );
@@ -4731,6 +4706,18 @@ export function IdentityAspirationFlow({
               setSpecificRoleModelId(null);
               setRoleModelWhyId(null);
               setAdmiredQualityIds([]);
+              setIdentityDirectionKey(null);
+              setIdentityDirectionCustomText('');
+              setPrimaryArenaKey(null);
+              setPrimaryArenaCustomText('');
+              setWhyNowKey(null);
+              setHowThisShowsUpKeys([]);
+              setHowThisShowsUpCustomText('');
+              setDriftPatternKeys([]);
+              setDriftPatternCustomText('');
+              setPracticeStyleKey(null);
+              setPersonalTextureText('');
+              setTonePreferences([]);
               setIdentitySignature({} as Record<IdentityTag, number>);
               setExpandedOptionSets({});
 
@@ -4747,7 +4734,7 @@ export function IdentityAspirationFlow({
     return (
       <SurveyCard
         mode="completed"
-        variant="stacked"
+        variant="panel"
         style={styles.surveyCompleteCard}
         footerLeft={
           <Button
@@ -4814,7 +4801,7 @@ export function IdentityAspirationFlow({
     return renderGenerating();
   }
 
-  if (isFirstTimeOnboarding && FIRST_TIME_ONBOARDING_SURVEY_PHASES.includes(phase)) {
+  if (FIRST_TIME_ONBOARDING_SURVEY_PHASES.includes(phase)) {
     return renderFirstTimeSurvey();
   }
 
@@ -5128,6 +5115,65 @@ const styles = StyleSheet.create({
   fullWidthOptionLabelSelected: {
     color: colors.accent,
     fontWeight: '600',
+  },
+  optionChipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.sm,
+  },
+  optionChip: {
+    width: '48.5%',
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionChipSelected: {
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(47, 111, 77, 0.1)',
+  },
+  optionChipLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  optionChipLabelSelected: {
+    color: colors.textPrimary,
+  },
+  surveyCustomInput: {
+    marginTop: spacing.md,
+  },
+  surveyMaxLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+  },
+  textureChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  textureChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  textureChipSelected: {
+    borderColor: colors.accent,
+  },
+  textureChipLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
   },
   inlineActions: {
     flexDirection: 'column',
