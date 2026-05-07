@@ -15,7 +15,8 @@
       "@kwilt/sdk/*": ["./packages/kwilt-sdk/src/*"]
     },
     "types": [
-      "node"
+      "node",
+      "jest"
     ]
   },
   "exclude": [

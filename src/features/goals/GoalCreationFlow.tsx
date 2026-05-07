@@ -219,7 +219,7 @@ export function GoalCreationFlow({ chatControllerRef, autoRecommendOnMount = fal
         // has permission to generate immediately (without user typing).
         workflowRuntime.completeStep('context_collect', {
           prompt:
-            'Propose one starter goal based on my existing context in kwilt (arcs/goals/to-dos and any focused Arc). Assume a near-term horizon (roughly 30–90 days) unless the context strongly implies otherwise.',
+            'Propose one starter goal based on my existing context in Kwilt (arcs/goals/to-dos and any focused Arc). Assume a near-term horizon (roughly 30–90 days) unless the context strongly implies otherwise.',
           constraints: null,
         }, 'agent_generate_goals');
 

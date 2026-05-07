@@ -82,7 +82,7 @@ export type AgentWorkspaceProps = {
   onComplete?: (outcome: unknown) => void;
   onDismiss?: () => void;
   /**
-   * When true, hide the kwilt brand header inside the chat timeline.
+   * When true, hide the Kwilt brand header inside the chat timeline.
    * Hosts that render their own header chrome (e.g., New Arc bottom sheet)
    * can use this to avoid duplicate branding.
    */
@@ -230,6 +230,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
 
   const [isWorkflowInfoVisible, setIsWorkflowInfoVisible] = useState(false);
   const [hasAiQuotaExceeded, setHasAiQuotaExceeded] = useState(false);
+  const [retryableWorkflowStepId, setRetryableWorkflowStepId] = useState<string | null>(null);
+  const [retryingWorkflowStepId, setRetryingWorkflowStepId] = useState<string | null>(null);
   const arcDraftPayload = useArcDraftClaimStore((s) => s.payload);
 
   useEffect(() => {
@@ -398,6 +400,8 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       const controller = chatPaneRef.current as ChatTimelineController | null;
       if (!controller) return;
 
+      setRetryableWorkflowStepId((current) => (current === stepId ? null : current));
+
       const history: CoachChatTurn[] = controller.getHistory();
 
       const coachOptions: CoachChatOptions = {
@@ -493,9 +497,10 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         }
 
         controller.streamAssistantReplyFromWorkflow(
-          'kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
+          'Kwilt is having trouble responding right now. Try again in a moment, and if it keeps happening you can check your connection in Settings.',
           'assistant-error-workflow'
         );
+        setRetryableWorkflowStepId(stepId);
         props.onTransportError?.();
         if (__DEV__) {
           // eslint-disable-next-line no-console
@@ -508,6 +513,21 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
       }
     },
     [launchContextText, props.onTransportError, workflowDefinition, workflowInstance]
+  );
+
+  const handleRetryWorkflowStep = useCallback(
+    async (stepId: string) => {
+      if (retryingWorkflowStepId) return;
+
+      setRetryingWorkflowStepId(stepId);
+      setRetryableWorkflowStepId(null);
+      try {
+        await invokeAgentStep({ stepId });
+      } finally {
+        setRetryingWorkflowStepId(null);
+      }
+    },
+    [invokeAgentStep, retryingWorkflowStepId]
   );
 
   // Emit step-completion analytics after the instance state has been updated.
@@ -782,6 +802,11 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         onComplete={onComplete}
         stepCard={workflowStepCard}
         onTransportError={props.onTransportError}
+        retryableWorkflowStepId={retryableWorkflowStepId}
+        isRetryingWorkflowStep={Boolean(retryingWorkflowStepId)}
+        onRetryWorkflowStep={(stepId) => {
+          void handleRetryWorkflowStep(stepId);
+        }}
         onManualFallbackRequested={props.onManualFallbackRequested}
         onAdoptActivitySuggestion={props.onAdoptActivitySuggestion}
         onDismiss={props.onDismiss}

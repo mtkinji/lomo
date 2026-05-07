@@ -774,7 +774,7 @@ export type CoachChatTurn = {
 };
 
 /**
- * Dev-only storage key for inspecting raw kwilt Coach conversations from the
+ * Dev-only storage key for inspecting raw Kwilt Coach conversations from the
  * in-app DevTools screen. This is intentionally not used for any production
  * features and is gated by `__DEV__` so we don't accumulate unbounded history
  * in release builds.
@@ -2598,8 +2598,8 @@ async function requestOpenAiArcHeroImage(
 }
 
 /**
- * Generic kwilt Coach chat endpoint backed by OpenAI's Chat Completions API.
- * This powers the free-form kwilt Coach conversation in the bottom sheet.
+ * Generic Kwilt Coach chat endpoint backed by OpenAI's Chat Completions API.
+ * This powers the free-form Kwilt Coach conversation in the bottom sheet.
  */
 export async function sendCoachChat(
   messages: CoachChatTurn[],
@@ -2662,7 +2662,7 @@ export async function sendCoachChat(
 
   const isFirstTimeOnboarding = options?.mode === 'firstTimeOnboarding';
 
-  // Enforce kwilt's generative credit gate at the shared service layer so
+  // Enforce Kwilt's generative credit gate at the shared service layer so
   // any UI path that calls sendCoachChat cannot bypass paywall restrictions.
   //
   // Exception: first-time onboarding is "shielded" so the user can complete setup
@@ -2682,7 +2682,7 @@ export async function sendCoachChat(
   }
 
   const baseSystemPrompt =
-    'You are kwilt Coach, a calm, practical life architecture coach. ' +
+    'You are Kwilt Coach, a calm, practical life architecture coach. ' +
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
     'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
 
@@ -2905,7 +2905,7 @@ export async function sendCoachChat(
       errorCode: error.code,
       fullResponse: error.raw,
     });
-    throw new Error(`Unable to reach kwilt Coach: ${error.message}`);
+    throw new Error(`Unable to reach Kwilt Coach: ${error.message}`);
   }
 
   const data = await response.json();
@@ -3070,7 +3070,7 @@ export async function sendCoachChat(
         fullResponse: error.raw,
       });
     }
-    throw new Error(`Unable to reach kwilt Coach (follow-up): ${error.message}`);
+    throw new Error(`Unable to reach Kwilt Coach (follow-up): ${error.message}`);
   }
 
   const followupData = await followupResponse.json();

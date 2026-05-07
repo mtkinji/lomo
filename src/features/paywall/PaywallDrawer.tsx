@@ -57,7 +57,7 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       return {
         title: 'AI is temporarily unavailable',
         subtitle:
-          'Upgrade to Pro to unlock more AI capacity and keep shaping goals with kwilt Coach.',
+          'Upgrade to Pro to unlock more AI capacity and keep shaping goals with Kwilt Coach.',
       };
     case 'limit_goals_per_arc':
       return {

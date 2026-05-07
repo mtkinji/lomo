@@ -257,7 +257,7 @@ describe('recordShowUp streak grace', () => {
       },
     });
 
-    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    jest.setSystemTime(new Date('2026-04-15T16:00:00.000Z'));
     useAppStore.getState().recordShowUp();
 
     const state = useAppStore.getState();
@@ -282,7 +282,7 @@ describe('recordShowUp streak grace', () => {
       },
     });
 
-    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    jest.setSystemTime(new Date('2026-04-15T16:00:00.000Z'));
     useAppStore.getState().recordShowUp();
 
     const state = useAppStore.getState();
@@ -308,7 +308,7 @@ describe('recordShowUp streak grace', () => {
       },
     });
 
-    jest.setSystemTime(new Date(2026, 3, 15, 10, 0, 0));
+    jest.setSystemTime(new Date('2026-04-15T16:00:00.000Z'));
     useAppStore.getState().recordShowUp();
 
     const state = useAppStore.getState();

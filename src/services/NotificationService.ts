@@ -2290,7 +2290,7 @@ export const NotificationService = {
     if (permissions.status !== 'granted') {
       Alert.alert(
         'Notifications disabled',
-        'Enable notifications for kwilt in system settings and in the Notifications settings screen before testing.',
+        'Enable notifications for Kwilt in system settings and in the Notifications settings screen before testing.',
       );
       return;
     }

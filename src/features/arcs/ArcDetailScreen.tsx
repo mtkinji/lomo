@@ -160,7 +160,7 @@ export function ArcDetailScreen() {
     try {
       if (!arc) return;
       await Share.share({
-        message: `Arc in kwilt: “${arc.name ?? 'Arc'}”.`,
+        message: `Arc in Kwilt: “${arc.name ?? 'Arc'}”.`,
       });
     } catch {
       // No-op: Share sheets can be dismissed or unavailable on some platforms.
