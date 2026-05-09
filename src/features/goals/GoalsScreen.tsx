@@ -488,8 +488,8 @@ export function GoalsScreen() {
           iconName="emptyBox"
           instructions={
             archivedGoals.length > 0
-              ? 'Your archived goals are below.'
-              : 'Create your first goal, then connect it to an Arc anytime.'
+              ? 'Your archived goals are below. Create a new goal when something deserves attention.'
+              : 'Start with one goal you want to make room for, then connect it to an Arc anytime.'
           }
           primaryAction={{
             label: 'Create goal',
@@ -1328,7 +1328,7 @@ export function GoalCoachDrawer({
         >
           {launchArc && (
             <Text style={styles.modalBody}>
-              {`Arc: ${launchArc.name}\n\nI’m using your Arc’s narrative and focus to keep this goal aligned with the version of you you’re trying to grow into.`}
+              {`Arc: ${launchArc.name}\n\nI’m using your Arc’s narrative and focus to keep this goal aligned with the direction you want to practice.`}
             </Text>
           )}
         </Dialog>

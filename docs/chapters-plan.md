@@ -688,3 +688,15 @@ Legend: ✅ landed, 🟡 partially landed, ⏳ not started.
 - `docs/email-system-ga-plan.md` — owns digest delivery infrastructure. This plan owns digest *destination* and *content*; the digest content model changes here (caption lead once Phase 3 ships, Next Steps hint once Phase 5 ships) in ways that plan's Phase 3.5 should accommodate.
 - `docs/growth-loops-strategy.md` — Chapters is the primary engagement spine. Success metrics for that loop are only achievable after Phase 1 measurement lands; behavioral upsell only exists once Phase 5 lands.
 - `docs/life-architecture-model.md` — requires the single-line amendment in §Amendments before Phase 5 ships.
+
+---
+
+## JTBDs served
+
+This plan serves:
+
+- **`jtbd-make-sense-of-the-season`** — Chapters are the canonical realization of this top-level job. Every Phase here (templates, voice, delivery cadence) is in service of "help me understand the season of life I just lived through."
+- **`jtbd-capture-and-find-meaning`** — Chapters close the loop on captured Activities by giving them narrative meaning, which is the second half of this JTBD ("...and find meaning in it without it becoming admin work"). Without Chapters, capture stays inert.
+- **`jtbd-trust-this-app-with-my-life`** — the voice/style rules ("grounded and human," "non-shaming," "data-anchored with humble interpretation") and opt-in delivery posture explicitly serve the meta-JTBD around trust. Violating these would cost trust faster than any other surface in Kwilt.
+
+See [`docs/jtbd/_index.md`](jtbd/_index.md) for the taxonomy.

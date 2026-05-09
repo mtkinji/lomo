@@ -135,7 +135,7 @@ export function ShareGoalDrawer(props: {
         const message =
           `Hey 👋 I’m using an app called Kwilt to stay on track with a goal: ` +
           `“${goalTitle}”\n\n` +
-          `Would you be my accountability partner? I’ll send occasional check-ins, and you can cheer me on or encourage me if I go quiet.\n\n` +
+          `Want to follow along? I’ll send occasional check-ins, and you can notice what moved or nudge me if I go quiet.\n\n` +
           `${tapU}`;
         setShareMessage(message);
       } catch {
@@ -259,12 +259,12 @@ export function ShareGoalDrawer(props: {
     ? memberCount > 1
       ? 'Keep your partners in the loop'
       : 'Keep your partner in the loop'
-    : 'Invite a partner to cheer you on';
+    : 'Invite someone to follow along';
 
   const showAccountabilityInfo = useCallback(() => {
     Alert.alert(
       'Why invite a partner?',
-      'Accountability partners can make goals easier to return to because someone else can notice progress, celebrate wins, and nudge you when a goal gets quiet. In Kwilt, they support from the side: they can see your updates and cheer or reply, but they cannot edit your to-dos.',
+      'Goals can be easier to return to when someone else can notice progress and nudge you when things get quiet. In Kwilt, they support from the side: they can see your updates and reply, but they cannot edit your to-dos.',
     );
   }, []);
 
@@ -294,7 +294,7 @@ export function ShareGoalDrawer(props: {
               <StepRow
                 index={1}
                 title={offerHeadline}
-                subtitle="A partner can celebrate wins and help you return when this goal gets quiet."
+                subtitle="They can notice what moved and help you return when this goal gets quiet."
                 onInfoPress={showAccountabilityInfo}
               />
               <StepRow
@@ -304,7 +304,7 @@ export function ShareGoalDrawer(props: {
                     ? 'They follow your check-ins'
                     : 'They get a simple link'
                 }
-                subtitle="They can see check-ins, cheer, and reply. You’ll see their support in your goal feed."
+                subtitle="They can see check-ins and reply. You’ll see their support in your goal feed."
               />
             </View>
 

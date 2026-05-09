@@ -4,7 +4,7 @@
  * Tracks per-goal check-in times, visit times, and dismissed nudge state
  * to power contextual check-in prompts for shared goals.
  *
- * @see docs/prds/social-dynamics-evolution-prd.md
+ * @see docs/feature-briefs/social-dynamics-evolution.md
  */
 
 import { create } from 'zustand';

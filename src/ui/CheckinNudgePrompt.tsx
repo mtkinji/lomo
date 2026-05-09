@@ -25,9 +25,9 @@ import { Icon } from './Icon';
 
 export type CheckinNudgePromptProps = {
   goalId: string;
-  /** Headline text (e.g., "How's it going?") */
+  /** Headline text (e.g., "Worth a quick update?") */
   headline?: string;
-  /** Subheadline text (e.g., "Let your team know") */
+  /** Subheadline text (e.g., "Share what moved, what slipped, or what comes next.") */
   subheadline?: string;
   /** Called after a successful check-in */
   onCheckinSubmitted?: () => void;
@@ -43,8 +43,8 @@ export type CheckinNudgePromptProps = {
 
 export function CheckinNudgePrompt({
   goalId,
-  headline = "How's it going?",
-  subheadline = 'Let your team know',
+  headline = 'Worth a quick update?',
+  subheadline = 'Share what moved, what slipped, or what comes next.',
   onCheckinSubmitted,
   onDismiss,
   source = 'nudge_prompt',

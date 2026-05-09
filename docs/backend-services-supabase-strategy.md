@@ -14,7 +14,7 @@ This doc proposes a backend architecture that:
 - Preserves the fundamental UX layers:
   - **App shell** (nav + gutters) remains stable
   - **Canvas** remains the action surface (no “backend mode” screens)
-- Stays compatible with the PRD posture:
+- Stays compatible with the feature brief posture:
   - **No forced auth for v0** evangelism/sharing
   - **Auth required** when collaboration/sync makes it necessary
 - Is **CLI-first** so Cursor can automate setup/migrations/deploy with minimal manual overhead.
@@ -39,11 +39,11 @@ Use **Supabase as the backend spine**:
 ### Non-negotiables (aligned to existing docs)
 
 - **Local-first, sync-ready** (`docs/ux-flow.md`): core product must still work offline.
-- **No forced auth for launch-safe sharing** (`docs/prds/growth-evangelism-shared-goals-prd.md`, `docs/onboarding-cycle-plan.md`):
+- **No forced auth for launch-safe sharing** (`docs/feature-briefs/growth-evangelism-shared-goals.md`, `docs/onboarding-cycle-plan.md`):
   - Share-sheet evangelism can work without an account.
 - **True collaboration** (this conversation):
   - Once a user joins/creates shared objects, the system must support realtime edits + conflict posture.
-- **AI proxy** (`docs/prds/ai-proxy-and-quotas-prd.md`):
+- **AI proxy** (`docs/feature-briefs/ai-proxy-and-quotas.md`):
   - No OpenAI key in the client; server enforces quotas.
 
 ### Explicit non-goals for the first backend iteration
@@ -207,7 +207,7 @@ If audio bandwidth/storage costs grow, move object storage to **Cloudflare R2** 
 
 ## AI proxy + quotas (server-side, production required)
 
-### Requirements (from `docs/prds/ai-proxy-and-quotas-prd.md`)
+### Requirements (from `docs/feature-briefs/ai-proxy-and-quotas.md`)
 
 - No embedded OpenAI key in the client
 - Quota + abuse protection
@@ -258,7 +258,7 @@ Recommendation:
 
 ### Phase 0 (launch-safe): share sheet + optional link
 
-From `docs/prds/growth-evangelism-shared-goals-prd.md`:
+From `docs/feature-briefs/growth-evangelism-shared-goals.md`:
 
 - Share message works without an account.
 - Optional link:

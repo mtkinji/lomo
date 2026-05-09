@@ -9,7 +9,7 @@
  * - Invite-only: No public search/discovery (preserves privacy)
  * - Uses existing kwilt_invites infrastructure for invite codes
  *
- * @see docs/prds/social-dynamics-evolution-prd.md (Phase 3)
+ * @see docs/feature-briefs/social-dynamics-evolution.md (Phase 3)
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';

@@ -908,7 +908,7 @@ export function ActivitiesScreen() {
     return (
       <EmptyState
         title="No to-dos yet"
-        instructions="Add your first to-do to start building momentum."
+        instructions="Add one to-do you can actually make room for."
         iconName="emptyBox"
         primaryAction={{
           label: 'Add to-do',

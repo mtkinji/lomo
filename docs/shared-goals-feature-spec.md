@@ -8,9 +8,9 @@ This doc is intentionally high level so the feature can be implemented in a futu
 
 > **Status / scope note (Dec 2025)**: This doc is a broad, long-term concept spec.
 > The **canonical v1 implementation spec** for “Shared Goals + Auth + signals-only social mechanics” is:
-> - `docs/prds/social-goals-auth-prd.md`
+> - `docs/feature-briefs/social-goals-auth.md`
 >
-> If you see differences, treat this doc as “future expansion ideas” and keep v1 aligned to the PRD above.
+> If you see differences, treat this doc as “future expansion ideas” and keep v1 aligned to the feature brief above.
 
 ---
 
@@ -258,6 +258,6 @@ These should be clarified before implementation:
   - What events generate notifications (check-ins, completed milestones, nudges)?
   - How do we avoid notification fatigue while preserving accountability?
 
-For v1 answers and the build plan, see `docs/prds/social-goals-auth-prd.md`.
+For v1 answers and the build plan, see `docs/feature-briefs/social-goals-auth.md`.
 
 

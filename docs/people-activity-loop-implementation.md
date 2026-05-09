@@ -1,6 +1,6 @@
 # People Activity Loop (Duolingo-style) — Implementation Spec
 
-This doc turns the remaining items in `docs/prds/social-dynamics-evolution-prd.md` (Phase 2B optional + Phase 4–5) into an **integrated system** with concrete contracts.
+This doc turns the remaining items in `docs/feature-briefs/social-dynamics-evolution.md` (Phase 2B optional + Phase 4–5) into an **integrated system** with concrete contracts.
 
 ## Goal
 

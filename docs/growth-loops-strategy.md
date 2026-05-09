@@ -369,9 +369,94 @@ The recommendations above are strongest when they reinforce each other. Here are
 3. User upgrades to Pro → gets 1000 credits/month.
 4. Deeper AI engagement → better Arcs/Goals → more Activities → more show-ups → longer streaks.
 
+### Loop 5: External AI surface → Cross-surface capture → In-app retention
+
+1. User installs the Kwilt connector in Claude or ChatGPT (one click from the directory listing — see [`docs/feature-briefs/external-ai-connector.md`](feature-briefs/external-ai-connector.md)).
+2. Mid-conversation, the user captures Activities and reads Arcs via MCP tool calls — counts as a show-up day even if Kwilt isn't opened.
+3. After 3 successful captures from a single external surface, the next tool response includes a one-line install nudge for the mobile app.
+4. User installs the mobile app from the conversation prompt → lands in their already-populated workspace → sees Lock Screen widget, weekly Chapter, ambient surfaces.
+5. The streak continues across surfaces; Pro upsells fire contextually when a tool call hits a feature limit (e.g. 3-Goal cap).
+
+This loop closes Loops 1, 2, and 4 from a *new origin point*: the user doesn't need to discover Kwilt through the App Store. They discover it through the AI surface they already use. Notably, the connector is free at every tier — see "Monetization in a bring-your-own-LLM world" below for why this strengthens monetization rather than weakening it.
+
+### Loop 6: Text Coach → Follow-through → Loop closure → Chapter evidence
+
+1. User texts Kwilt an intention in the moment: "Call Dad this weekend," "I owe Alex an apology," "Charlie has tryouts Friday."
+2. Kwilt captures the intention as an Activity or follow-through prompt, asking one clarification only when needed.
+3. Kwilt prompts at the right time, offers a draft or concrete next step when activation energy is high, and accepts minimal replies like `done`, `snooze`, or `pause`.
+4. User follows through; Kwilt logs the outcome as Activity evidence and records a show-up when appropriate.
+5. The next Chapter reflects not only what the user captured, but what Kwilt helped them carry through.
+
+This is the sharpest Pro loop: Free Kwilt helps the user capture and reflect; Pro Kwilt helps the user follow through. MCP distributes Kwilt into external AI surfaces, but Text Coach is Kwilt's own monetizable agency layer.
+
+### Loop 7: Chapter → Background Options → User confirmation → Show-up
+
+1. User lives the week and captures Activities across Kwilt and external AI surfaces.
+2. A Chapter makes retrospective meaning from the week that just happened.
+3. The Weekly Planning Agent runs as a Pro background ritual and prepares a small set of Weekly Options for the coming week.
+4. User reviews proposals in a lightweight review surface, accepting, editing, deferring, or dismissing each one.
+5. Accepted Activities become the coming week's plan; user acts; the next Chapter has better material.
+
+This loop is now best understood as a later ritual under the Text Coach / follow-through-agent umbrella, not the primary Pro story. Claude/ChatGPT can help while the user is actively chatting; Kwilt Text Coach can carry intentions forward when the user is away.
+
 ---
 
-## 7. Prioritized implementation order
+## 7. Monetization in a bring-your-own-LLM world
+
+The external AI connector (Loop 5) prompts a fair question: *if users can talk to Kwilt's data through Claude/ChatGPT — which they're already paying for — does that erode our ability to monetize?*
+
+Honest answer: **the AI-credits lever weakens, but the overall Pro pitch gets stronger** because it's forced to be about leverage rather than capacity. This section is the strategic frame for U-series upsell decisions going forward.
+
+### What erodes
+
+- The "you ran out of AI credits" upsell loses some force. A power user who prefers Claude for reflection can use MCP to read/write Kwilt data without ever burning a Kwilt AI credit.
+- "More AI credits" as a top-line Pro feature becomes less differentiating. The competitor is no longer "Kwilt free tier"; it's "Claude Pro + Kwilt free tier."
+
+### What does not erode (and quietly strengthens)
+
+The MCP catalog only exposes what the tool descriptors describe. Everything else is Kwilt-only by construction:
+
+- **The data model and longitudinal record.** Claude doesn't store Arcs/Goals/Activities/Chapters. Kwilt does. The place agents come back to is Kwilt.
+- **The four-object identity model + Forces (Intent vs Actual).** A frame Claude can read but cannot conjure. The framing *is* the product.
+- **Ambient surfaces (Loops 1, 2, 3 in this doc).** Lock Screen widget, Live Activities, push notifications, daily show-up streak, weekly Chapter digest emails. None of this lives in Claude. None ever will.
+- **Calm-UX brand promise.** "Trust this place with my life" depends on the place being Kwilt, not a chat surface that's also doing 47 other things.
+- **Chapter generation.** Read-only via MCP (`get_current_chapter`); no `generate_chapter` write tool. In-app Chapters lean into multimodal differentiation (image rendering, voice options, Live Activity celebration on completion) — surface-level differentiators Claude can't replicate via tools.
+- **Pro Tools that have nothing to do with AI credits.** Saved Views, Focus Mode, attachments, Unsplash banners, Streak Shields. None exposed via MCP. None substituted by Claude.
+
+### The reframed Pro pitch
+
+| Pro pillar | Examples | Substitutable by Claude+MCP? |
+|---|---|---|
+| **Capacity & comfort** | Unlimited Arcs/Goals, 1,000 AI credits, attachments, Unsplash banners | Partially — the credit pool faces real substitution pressure |
+| **Ambient surfaces** | Saved Views, Focus Mode, Streak Shields, multimodal Chapters with images/voice | No |
+| **Trusted follow-through** | Text Coach, right-time prompts, Activity creation from intentions, loop closure via `done`/`snooze`/`pause`, drafts for relational action | No — requires Kwilt-owned memory, permissions, scheduling, and action logging |
+| **Agentic automation rituals** | Weekly Options, quiet Arc re-entry, Goal closeout, Chapter-to-action follow-ups | No — built on the same follow-through substrate |
+
+The future Pro story converges on **follow-through, not capacity**: free is generous and includes capture, reflection, and full read+write MCP access; Pro is for when you want Kwilt to help carry intentions into action across time.
+
+The first concrete Pro pillar is **Kwilt Text Coach** in [`docs/feature-briefs/kwilt-text-coach.md`](feature-briefs/kwilt-text-coach.md): a text-native follow-through agent that captures intentions, prompts at useful times, helps with drafts or next steps, and logs loop closure. Weekly Options in [`docs/feature-briefs/background-agents-weekly-planning.md`](feature-briefs/background-agents-weekly-planning.md) becomes a later background ritual under that broader follow-through concept.
+
+### B2B as a downstream consequence
+
+A polished, OAuth-protected MCP source is the *entry ticket* to selling to organizations. The path Notion / Linear / Slack are on:
+
+- Admin-installed connector via Anthropic's admin path (`https://claude.ai/admin-settings/connectors?...`).
+- Per-tenant URL via the `custom_connection` auth type Anthropic enables per partner.
+- Audit logs, SCIM, role-based read scopes.
+
+This is not a launch concern but it is the long-term shape of B2B Kwilt — and it depends on the connector being live and well-reviewed. Building the connector now compounds.
+
+### One real risk to watch
+
+**Don't let MCP make in-app Chapter generation feel pointless.** If a power user can ask Claude to read 90 days of Activities and write a "chapter," our most-expensive AI operation gets substituted. Mitigations:
+
+- No `generate_chapter` tool (already in the catalog spec).
+- `list_recent_activities` returns lean fields (title + when + anchors) by default; rich reads (notes, attachments, voice transcripts) are an opt-in flag, gated for sensitivity reasons. This protects both privacy and the substitution risk.
+- In-app Chapters lean into surface-level differentiation Claude can't replicate via tools.
+
+---
+
+## 8. Prioritized implementation order
 
 | Priority | Item | Loop | Est. effort | Status |
 |----------|------|------|-------------|--------|
@@ -397,12 +482,18 @@ The recommendations above are strongest when they reinforce each other. Here are
 | P3 | N5: Adaptive notification timing | 1 | M | **Done** |
 | P3 | U4: Improved credit exhaustion UX | 4 | S | **Done** |
 | P3 | W4: Android widget | 1 | L | |
+| P1 | X1: External AI connector — foundation + read tools (Sprints A–B in [feature brief](feature-briefs/external-ai-connector.md)) | 5 | M | Planned |
+| P1 | X2: External AI connector — directory submissions (Sprint C in feature brief) | 5 | M | Planned |
+| P2 | X3: External AI connector — cross-surface activation loops (Sprint D in feature brief) | 2, 5 | S | Planned |
+| P2 | X4: External AI connector — expansion & polish (Sprint E in feature brief) | 5 | M | Planned |
+| P1 | T1: Kwilt Text Coach — Pro text-native follow-through agent | 6 | M | Planned |
+| P2 | B1: Weekly Planning Agent — Pro background Weekly Options ritual | 7 | M | Planned |
 
 **S** = small (< 1 week), **M** = medium (1–2 weeks), **L** = large (2+ weeks)
 
 ---
 
-## 8. Success metrics
+## 9. Success metrics
 
 | Metric | Current baseline | 90-day target |
 |--------|-----------------|---------------|
@@ -416,6 +507,16 @@ The recommendations above are strongest when they reinforce each other. Here are
 | Reactivation notification → return rate | Shipped (Sprint 1) | > 10% return within 48h |
 | Welcome drip open rate | Shipped (Sprint 4, Resend Automation) | > 40% Day 0 open rate |
 | Pro preview → conversion rate | Shipped (Sprint 4) | Instrument + establish baseline |
+| Directory listing approval (Anthropic + OpenAI) | N/A | Both live by 90 days post-submission |
+| % of new users whose first Activity was captured via external surface | N/A | ≥ 10% within 90 days of directory listing |
+| D30 retention lift for connected users vs non-connected | N/A | ≥ 1.3× |
+| Captures from external surfaces as % of total captures (connected users) | N/A | ≥ 20% |
+| External-only users → mobile install conversion (within 14 days) | N/A | ≥ 30% |
+| Text Coach beta users who text one real intention within 7 days | N/A | ≥ 60% |
+| Text Coach right-time prompt → `done`/`snooze`/`pause` reply | N/A | ≥ 40% |
+| Text Coach users who close one loop through text | N/A | ≥ 25% |
+| Weekly Options review rate (within 72h) | N/A | ≥ 35% of generated option sets |
+| Reviewed Weekly Options → accepted/edited proposal | N/A | ≥ 25% of reviewed option sets |
 
 ---
 
@@ -424,8 +525,12 @@ The recommendations above are strongest when they reinforce each other. Here are
 This strategy doc sits **above** the following and should be referenced as the coordination layer:
 
 - `docs/engagement-and-motivation-system.md` — behavioral model (this doc adds implementation gaps + priorities)
-- `docs/notifications-paradigm-prd.md` — notification system PRD (this doc adds streak/reactivation scheduling + email)
+- `docs/notifications-paradigm-prd.md` — notification system feature brief (this doc adds streak/reactivation scheduling + email)
 - `docs/apple-ecosystem-opportunities.md` — widget/ecosystem strategy (this doc adds Lock Screen + adoption loop)
 - `docs/value-realization-roadmap.md` — product roadmap (this doc adds growth-specific sequencing)
 - `.cursor/plans/streak-retention-loops.plan.md` — streak execution plan (this doc provides the broader context for those tasks)
 - `docs/ai-credits-and-rewards.md` — credit system (this doc adds upsell refinements around credits)
+- `docs/feature-briefs/external-ai-connector.md` — Loop 5 (external AI connector) full feature brief with sprint plan, tool catalog, pricing posture, and the bring-your-own-LLM monetization analysis this doc summarizes in §7
+- `docs/feature-briefs/kwilt-text-coach.md` — Loop 6 (Text Coach → follow-through → loop closure → Chapter evidence) and the primary Pro follow-through pillar
+- `docs/feature-briefs/background-agents-weekly-planning.md` — Loop 7 (Chapter → background options → user confirmation → show-up), a later ritual under the follow-through agent umbrella
+- `docs/mcp-strategic-proposal.md` — outbound connector framing (Send to…); Loop 5 is its inbound counterpart

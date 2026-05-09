@@ -99,10 +99,10 @@ export function buildGoalNudgeContent(params: {
 }): Notifications.NotificationContentInput {
   const goalTitle = params.goalTitle.trim();
   const arcName = (params.arcName ?? '').trim();
-  const title = `Tiny step for: ${goalTitle}`;
+  const title = `A small step for ${goalTitle}`;
   const body = arcName.length > 0
-    ? `Open Kwilt to pick one activity for ${goalTitle} (${arcName}).`
-    : 'Open Kwilt to choose one to-do and keep momentum.';
+    ? `Pick one activity that moves ${goalTitle} today. (${arcName})`
+    : 'Choose the smallest useful to-do for today.';
   return {
     title,
     body,

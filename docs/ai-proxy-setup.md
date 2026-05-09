@@ -3,7 +3,7 @@
 This repo now routes all AI calls through a **web proxy** (Supabase Edge Function) so **no OpenAI key ships in the client**.
 
 Primary references:
-- PRD: `docs/prds/ai-proxy-and-quotas-prd.md`
+- feature brief: `docs/feature-briefs/ai-proxy-and-quotas.md`
 - Backend posture: `docs/backend-services-supabase-strategy.md`
 
 ---

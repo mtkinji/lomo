@@ -316,8 +316,8 @@ export function celebrateGoalCompleted(goalTitle: string, onDismiss?: () => void
   useCelebrationStore.getState().celebrate({
     id: `goal-completed-${Date.now()}`,
     kind: 'goalCompleted',
-    headline: 'Goal Achieved! 🏆',
-    subheadline: `You completed "${goalTitle}" — that's real progress.`,
+    headline: 'That’s a big win. 🏆',
+    subheadline: `You completed "${goalTitle}". That’s real progress.`,
     priority: 'high',
     onDismiss,
   });
@@ -330,8 +330,8 @@ export function celebrateActivityCompleted(activityTitle: string, onDismiss?: ()
   useCelebrationStore.getState().celebrate({
     id: `activity-completed-${Date.now()}`,
     kind: 'activityCompleted',
-    headline: 'Nice work! ✨',
-    subheadline: `"${activityTitle}" is done. Keep the momentum going!`,
+    headline: 'There it is. ✨',
+    subheadline: `"${activityTitle}" is done. That one moved.`,
     autoDismissMs: ACTIVITY_COMPLETED_AUTO_DISMISS_MS,
     priority: 'low', // Low priority - drop if conflicts exist
     onDismiss,
@@ -352,8 +352,8 @@ export function celebrateFirstActivity(onDismiss?: () => void) {
   store.celebrate({
     id: celebrationId,
     kind: 'firstActivity',
-    headline: 'First Step Taken! 🎯',
-    subheadline: 'Every journey starts with a single step. You just took yours.',
+    headline: 'First to-do done. 🎯',
+    subheadline: 'You made room for it and followed through.',
     priority: 'high',
     onDismiss,
   });
@@ -367,7 +367,7 @@ export function celebrateWeeklyStreak(weekCount: number, onDismiss?: () => void)
     id: `weekly-streak-${weekCount}`,
     kind: 'weeklyStreak',
     headline: `${weekCount} Week Streak! 🔥`,
-    subheadline: `You've been showing up consistently for ${weekCount} week${weekCount === 1 ? '' : 's'}. Unstoppable!`,
+    subheadline: `You’ve kept coming back for ${weekCount} week${weekCount === 1 ? '' : 's'}. That counts.`,
     priority: 'normal',
     onDismiss,
   });
@@ -424,77 +424,77 @@ function getStreakMessage(days: number): {
   if (days === 3) {
     return {
       headline: '3 Day Streak! 🌱',
-      subheadline: "You're building momentum. Three days of showing up!",
+      subheadline: 'Three days of showing up. A little momentum. We’ll take it.',
       isSpecial: true,
     };
   }
   if (days === 7) {
     return {
       headline: '1 Week Streak! 🔥',
-      subheadline: "A full week of progress. You're on fire!",
+      subheadline: 'A full week of progress. Strong work.',
       isSpecial: true,
     };
   }
   if (days === 14) {
     return {
       headline: '2 Week Streak! 💪',
-      subheadline: 'Two weeks strong! This is becoming a habit.',
+      subheadline: 'Two weeks of returning to what matters.',
       isSpecial: true,
     };
   }
   if (days === 21) {
     return {
       headline: '3 Week Streak! 🚀',
-      subheadline: 'They say it takes 21 days to form a habit. You did it!',
+      subheadline: 'Three weeks of showing up. That was not nothing.',
       isSpecial: true,
     };
   }
   if (days === 30) {
     return {
       headline: '30 Day Streak! 🏆',
-      subheadline: "A whole month of consistency. You're unstoppable!",
+      subheadline: 'A whole month of making room for this.',
       isSpecial: true,
     };
   }
   if (days === 50) {
     return {
       headline: '50 Day Streak! ⭐',
-      subheadline: 'Fifty days! Your dedication is truly inspiring.',
+      subheadline: 'Fifty days of coming back to what matters.',
       isSpecial: true,
     };
   }
   if (days === 75) {
     return {
       headline: '75 Day Streak! 💎',
-      subheadline: "75 days of showing up. That's real commitment!",
+      subheadline: '75 days of showing up. That’s real commitment.',
       isSpecial: true,
     };
   }
   if (days === 100) {
     return {
       headline: '100 Day Streak! 🎯',
-      subheadline: 'Triple digits! 100 days of progress. Legendary!',
+      subheadline: 'One hundred days. You kept making room for this.',
       isSpecial: true,
     };
   }
   if (days === 150) {
     return {
       headline: '150 Day Streak! 🌟',
-      subheadline: "150 days! You're in the top tier of dedicated users.",
+      subheadline: '150 days of attention. You kept showing up.',
       isSpecial: true,
     };
   }
   if (days === 200) {
     return {
       headline: '200 Day Streak! 👑',
-      subheadline: "200 days of consistency. You're royalty!",
+      subheadline: 'Two hundred days of returning to what matters.',
       isSpecial: true,
     };
   }
   if (days === 365) {
     return {
       headline: '1 Year Streak! 🎉',
-      subheadline: 'ONE FULL YEAR of showing up every single day. Incredible!',
+      subheadline: 'One full year of showing up. You kept coming back.',
       isSpecial: true,
     };
   }
@@ -504,7 +504,7 @@ function getStreakMessage(days: number): {
     const years = Math.floor(days / 365);
     return {
       headline: `${years} Year${years === 1 ? '' : 's'} Streak! 🎊`,
-      subheadline: `${years} year${years === 1 ? '' : 's'} of daily dedication. You're a legend!`,
+      subheadline: `${years} year${years === 1 ? '' : 's'} of returning to what matters.`,
       isSpecial: true,
     };
   }
@@ -513,7 +513,7 @@ function getStreakMessage(days: number): {
   if (days > 365 && days % 100 === 0) {
     return {
       headline: `${days} Day Streak! 🔥`,
-      subheadline: `${days} days of showing up! Your consistency is remarkable.`,
+      subheadline: `${days} days of showing up. That added up.`,
       isSpecial: true,
     };
   }
@@ -521,12 +521,12 @@ function getStreakMessage(days: number): {
   // Regular daily celebrations (quick, encouraging)
   // Vary the message based on the day to keep it fresh
   const encouragements = [
-    { headline: `Day ${days}! ✨`, subheadline: 'Keep it going!' },
-    { headline: `Day ${days}! 💫`, subheadline: "You're on a roll!" },
-    { headline: `Day ${days}! ⚡`, subheadline: 'Another day, another win!' },
-    { headline: `Day ${days}! 🌟`, subheadline: 'Consistency is key!' },
-    { headline: `Day ${days}! 💪`, subheadline: "You've got this!" },
-    { headline: `Day ${days}! 🎯`, subheadline: 'Staying on target!' },
+    { headline: `Day ${days}! ✨`, subheadline: 'There it is.' },
+    { headline: `Day ${days}! 💫`, subheadline: 'A little momentum. We’ll take it.' },
+    { headline: `Day ${days}! ⚡`, subheadline: 'You showed up again.' },
+    { headline: `Day ${days}! 🌟`, subheadline: 'That one counts.' },
+    { headline: `Day ${days}! 💪`, subheadline: 'You made room for it.' },
+    { headline: `Day ${days}! 🎯`, subheadline: 'That was the move.' },
   ];
   const picked = encouragements[days % encouragements.length];
   return { ...picked, isSpecial: false };
@@ -574,8 +574,8 @@ export function celebrateAllActivitiesDone(onDismiss?: () => void) {
   useCelebrationStore.getState().celebrate({
     id: `all-done-${Date.now()}`,
     kind: 'allActivitiesDone',
-    headline: 'All Clear! 🎉',
-    subheadline: "You knocked out everything on your list. Time to plan what's next!",
+    headline: 'All clear. 🎉',
+    subheadline: 'You finished what was on the plan. That deserves a moment.',
     autoDismissMs: ALL_ACTIVITIES_DONE_AUTO_DISMISS_MS,
     priority: 'low', // Low priority - drop if conflicts exist
     onDismiss,
@@ -597,9 +597,9 @@ export function celebrateDailyHeroActionsDay(dateKey: string, onDismiss?: () => 
   store.celebrate({
     id: celebrationId,
     kind: 'milestone',
-    headline: 'Hero Day Complete! ⚡',
-    subheadline: 'You completed work, created something new, and finished a focus session today.',
-    ctaLabel: 'Keep Going',
+    headline: 'That was a full day. ⚡',
+    subheadline: 'You completed work, created something new, and finished a focus session.',
+    ctaLabel: 'Continue',
     priority: 'high',
     onDismiss,
   });
@@ -624,15 +624,12 @@ export function celebrateStreakSaved(
     return;
   }
 
-  const graceDescription =
-    graceDaysUsed === 1 ? '1 grace day' : `${graceDaysUsed} grace days`;
-
-  let subheadline = `You missed ${graceDaysUsed === 1 ? 'a day' : `${graceDaysUsed} days`}, but we've got your back! Your ${streakDays}-day streak lives on.`;
+  let subheadline = `This one slipped, and a grace day covered it. Your ${streakDays}-day streak is still intact.`;
 
   // Add info about remaining grace
   const totalRemaining = remainingFreeGrace + remainingShields;
   if (totalRemaining === 0) {
-    subheadline += " ⚠️ You're out of grace days until next week - don't miss tomorrow!";
+    subheadline += ' No grace days left this week. Tomorrow is a clean next choice.';
   } else if (totalRemaining === 1) {
     subheadline += ' You have 1 grace day left this week.';
   } else {
@@ -642,9 +639,9 @@ export function celebrateStreakSaved(
   store.celebrate({
     id: celebrationId,
     kind: 'streakSaved',
-    headline: 'Streak Saved! 🛡️',
+    headline: 'Covered by grace. 🛡️',
     subheadline,
-    ctaLabel: "I'm back!",
+    ctaLabel: 'Continue',
     autoDismissMs: 0, // Require tap to dismiss - this is educational
     priority: 'high', // Important to inform user about grace usage
     onDismiss,
@@ -662,9 +659,9 @@ export function celebrateStreakRepairOpportunity(brokenStreakLength: number, onD
   store.celebrate({
     id: celebrationId,
     kind: 'streakRepairOpportunity',
-    headline: 'Streak Broken — But Not Gone!',
-    subheadline: `Your ${brokenStreakLength}-day streak broke, but you have 48 hours to repair it. Show up today to get it back!`,
-    ctaLabel: 'Repair It',
+    headline: 'This one slipped.',
+    subheadline: `Your ${brokenStreakLength}-day streak can still come back. You have 48 hours to make one small step count.`,
+    ctaLabel: 'Make it count',
     autoDismissMs: 0,
     priority: 'high',
     onDismiss,
@@ -682,9 +679,9 @@ export function celebrateStreakRepaired(repairedStreak: number, onDismiss?: () =
   store.celebrate({
     id: celebrationId,
     kind: 'streakRepaired',
-    headline: `Streak Repaired! Back to ${repairedStreak} Days!`,
-    subheadline: 'You came back in time. Your streak lives on — keep the momentum going!',
-    ctaLabel: 'Keep Going',
+    headline: `Back to ${repairedStreak} days.`,
+    subheadline: 'You came back and made today count. Strong work.',
+    ctaLabel: 'Continue',
     autoDismissMs: 0,
     priority: 'high',
     onDismiss,

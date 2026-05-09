@@ -9,7 +9,7 @@
 -- - Invite-only: No public search/discovery (preserves privacy)
 -- - Order-independent storage: user_a < user_b to prevent duplicate rows
 --
--- @see docs/prds/social-dynamics-evolution-prd.md (Phase 3)
+-- @see docs/feature-briefs/social-dynamics-evolution.md (Phase 3)
 -- ============================================================================
 
 -- ──────────────────────────────────────────────────────────────────────────────

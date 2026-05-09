@@ -597,7 +597,7 @@ export async function openManageSubscription(): Promise<void> {
     await Linking.openURL('https://apps.apple.com/account/subscriptions');
     return;
   }
-  // Fallback: do nothing (Android/Web not in scope for MVP PRD).
+  // Fallback: do nothing (Android/Web not in scope for MVP feature brief).
 }
 
 /**

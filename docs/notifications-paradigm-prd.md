@@ -1,4 +1,4 @@
-## Kwilt Notifications System PRD
+## Kwilt Notifications System feature brief
 
 This document defines the **local notifications system** for Kwilt and how it supports the broader **Engagement and Motivation System** described in `docs/engagement-and-motivation-system.md`.
 
@@ -173,7 +173,7 @@ Create a `NotificationService` (name flexible) encapsulating all notification-re
   - `syncFromActivities(activities)` – reconcile all Activity-based notifications.  
   - `applySettings(notificationPreferences)` – update scheduling based on new app-level settings.
 
-Implementation detail (library choice, exact function names) is out of scope for this PRD but must support iOS and Android local notifications with scheduling and cancellation.
+Implementation detail (library choice, exact function names) is out of scope for this feature brief but must support iOS and Android local notifications with scheduling and cancellation.
 
 ### 5.2 Subscribing to Activity Changes
 
@@ -343,7 +343,7 @@ Store app-level preferences (likely in `useAppStore`):
 - Copy and brand voice:
   - Final notification copy variants per type and per state (e.g., early streak vs long streak vs lapsed).
 
-These should be resolved in collaboration between product, design, and engineering when implementing the first phases, with this PRD as the behavioral and architectural guide.
+These should be resolved in collaboration between product, design, and engineering when implementing the first phases, with this feature brief as the behavioral and architectural guide.
 
 ---
 
@@ -430,6 +430,6 @@ Use this as the living checklist as you implement the notifications + engagement
 - [ ] Tune notification copy with design to ensure tone matches `ux-style-guide.md`.  
 - [ ] Refine streak and celebration visuals in Today to match shell/canvas design standards.  
 - [ ] Update `engagement-and-motivation-system.md` with any implementation-driven learnings or changes.  
-- [ ] Update this PRD’s phasing and checklist as the system evolves.  
+- [ ] Update this feature brief’s phasing and checklist as the system evolves.  
 
 

@@ -121,7 +121,7 @@ function buildGiphyQuery(params: FetchCelebrationGifParams): string {
     return 'first one down proud start beginning';
   }
   if (role === 'celebration' && kind === 'weeklyStreak') {
-    return 'crushing it unstoppable momentum winning';
+    return 'real win strong work tiny parade celebration';
   }
   if (role === 'celebration' && kind === 'dailyStreak') {
     return 'consistent dedicated showing up daily routine';

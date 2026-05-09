@@ -597,7 +597,7 @@ export interface Activity {
    * intentionally separate from `scheduledDate` which behaves more like a due
    * date / "anytime today" marker.
    *
-   * See: `docs/prds/calendar-export-ics-prd.md`
+   * See: `docs/feature-briefs/calendar-export-ics.md`
    */
   scheduledAt?: string | null;
   /**

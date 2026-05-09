@@ -8,7 +8,7 @@
 -- Milestones are private by default. Visibility is controlled by friendship
 -- settings (Phase 3+).
 --
--- @see docs/prds/social-dynamics-evolution-prd.md (Phase 2B)
+-- @see docs/feature-briefs/social-dynamics-evolution.md (Phase 2B)
 -- ============================================================================
 
 -- ──────────────────────────────────────────────────────────────────────────────

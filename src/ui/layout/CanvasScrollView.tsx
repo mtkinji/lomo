@@ -32,7 +32,7 @@ export const CanvasScrollView = React.forwardRef<ScrollView, CanvasScrollViewPro
 ) {
   // Keyboard behavior guidance:
   // - `docs/keyboard-input-safety-implementation.md`
-  // - `docs/prds/keyboard-input-safety-prd.md`
+  // - `docs/feature-briefs/keyboard-input-safety.md`
   const insets = useSafeAreaInsets();
 
   const flat = StyleSheet.flatten(contentContainerStyle) as ViewStyle | undefined;

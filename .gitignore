@@ -56,6 +56,10 @@ JWT Key Generator
 # Cursor local config (contains API keys, plugin state)
 .cursor/
 
+# local git worktrees
+.worktrees
+.worktrees/
+
 # generated native folders
 /ios
 /android

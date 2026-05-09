@@ -5,7 +5,7 @@
  * They represent an explicit, user-initiated signal that says "I engaged with this goal"
  * without revealing specifics about what activities were worked on.
  *
- * @see docs/prds/social-goals-auth-prd.md
+ * @see docs/feature-briefs/social-goals-auth.md
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';

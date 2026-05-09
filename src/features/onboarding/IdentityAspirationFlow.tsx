@@ -1448,7 +1448,7 @@ export function IdentityAspirationFlow({
     const dreamSnippet =
       bigDreams.length > 0
         ? bigDreams[0]
-        : 'one or two concrete things you’d love to bring to life';
+        : 'one or two concrete things you want to make room for';
 
     const strengths: string[] = [];
     const growthEdges: string[] = [];
@@ -1567,7 +1567,7 @@ export function IdentityAspirationFlow({
         `- core values: ${valueOrientation || 'unknown'}`,
         `- life philosophy: ${philosophy || 'unknown'}`,
         `- vocational orientation: ${vocation || 'unknown'}`,
-        `- concrete big things they’d love to bring to life: ${
+        `- concrete big things they want to make room for: ${
           bigDreams.length > 0 ? bigDreams.join('; ') : 'none named'
         }`,
         '',
@@ -1676,7 +1676,7 @@ export function IdentityAspirationFlow({
         `- core values: ${valueOrientation || 'unknown'}`,
         `- life philosophy: ${philosophy || 'unknown'}`,
         `- vocational orientation: ${vocation || 'unknown'}`,
-        `- concrete big things they’d love to bring to life: ${
+        `- concrete big things they want to make room for: ${
           bigDreams.length > 0 ? bigDreams.join('; ') : 'none named'
         }`,
         '',
@@ -1765,7 +1765,7 @@ export function IdentityAspirationFlow({
 
       if (bigDreams.length > 0) {
         identitySignalsLines.push(
-          `concrete big things the user would love to bring to life: ${bigDreams.join('; ')}`
+          `concrete big things the user wants to make room for: ${bigDreams.join('; ')}`
         );
       }
 
@@ -1968,15 +1968,15 @@ export function IdentityAspirationFlow({
           '- a direction for who they want to become in one area of life,',
           '- not a task list, not a project, not a personality label, and not corporate-speak.',
           '',
-          'You will receive structured signals about the user\'s imagined future self:',
+          'You will receive structured signals about the direction the user wants to practice:',
           '- domain of life needing attention',
           '- emotional vibe',
-          '- how others experience their future presence',
+          '- how they want to show up around other people',
           '- kind of strength they grow into',
           '- what they do on a normal "proud" day',
           '- optional nickname',
           '- optional age band',
-          '- optional big dream (a concrete picture of something they\'d love to bring to life)',
+          '- optional big dream (a concrete picture of something they want to make room for)',
           '',
           'Your job is to generate:',
           '1. Arc.name — a short, stable identity direction label (1–3 words, emoji optional)',
@@ -2543,7 +2543,7 @@ export function IdentityAspirationFlow({
     const step = workflowRuntime.definition.steps.find((s) => s.id === 'soft_start');
     const fallback =
       (step?.staticCopy as string | undefined) ??
-      'Let’s uncover the version of you that feels the most you.';
+      'Let’s name one direction you want to make easier to practice.';
 
     const queue = INTRO_MESSAGES.length > 0 ? INTRO_MESSAGES : [fallback];
     const current = queue[introIndex];
@@ -2715,8 +2715,8 @@ export function IdentityAspirationFlow({
       domainIds.length === 0 &&
       motivationIds.length === 0 &&
       proudMomentIds.length === 0
-        ? "Let’s start with one big thing you’d love to bring to life. You can always refine it later."
-        : 'That gives me a solid sketch of who your future self is becoming. 🎉';
+        ? "Let’s start with one big thing you want to make room for. You can always refine it later."
+        : 'That gives me a solid sketch of the direction you want to practice. 🎉';
 
     controller.streamAssistantReplyFromWorkflow(copy, 'assistant-dreams-intro', {
       onDone: () => {
@@ -3088,7 +3088,7 @@ export function IdentityAspirationFlow({
 
   const renderNickname = () => {
     return (
-      <QuestionCard title="If future-you had a nickname…">
+      <QuestionCard title="If this Arc had a short name…">
         <Text style={styles.bodyText}>One or two words. (You can skip.)</Text>
         <Input
           value={nickname}
@@ -3274,7 +3274,7 @@ export function IdentityAspirationFlow({
         <Text style={styles.bodyText}>
           The options are based on research in motivation and values. Each one is a different growth
           lane—creativity, craft, leadership, relationships, contribution, courage, habits, adventure,
-          or inner life—so your choice gives a strong signal about which future self to focus your Arc
+          or inner life—so your choice gives a strong signal about which direction to focus your Arc
           around.
         </Text>
       </Dialog>
@@ -3287,7 +3287,7 @@ export function IdentityAspirationFlow({
       <View style={styles.stepBody}>
           <Text style={styles.questionMeta}>2 of 6</Text>
         <Text style={styles.questionTitle}>
-          What do you think would motivate future you the most here?{' '}
+          What kind of motivation would help this stick?{' '}
             <Text
               style={styles.questionInfoTrigger}
               accessibilityRole="button"
@@ -3348,7 +3348,7 @@ export function IdentityAspirationFlow({
         visible={openQuestionInfoKey === 'motivation'}
         onClose={() => setOpenQuestionInfoKey(null)}
         title="Why this question matters"
-        description="This question looks past today’s mood and focuses on what really fuels that future version of you in this area."
+        description="This question looks past today’s mood and focuses on what will help this direction hold up in normal life."
       >
         <Text style={styles.bodyText}>
           Motivation science—especially work on intrinsic motivation and Self‑Determination Theory
@@ -3473,8 +3473,8 @@ export function IdentityAspirationFlow({
         <Text style={styles.bodyText}>
           Narrative identity research (McAdams and others) shows that how we frame our challenges
           shapes the story we tell about who we are. Naming one core growth edge lets your Identity Arc
-          acknowledge reality without turning into a list of problems or advice, so the future you
-          imagine still feels believable.
+          acknowledge reality without turning into a list of problems or advice, so the direction
+          still feels believable.
         </Text>
       </Dialog>
     </>
@@ -3928,7 +3928,7 @@ export function IdentityAspirationFlow({
       <View style={styles.dreamsStack}>
         <QuestionCard
           stepLabel="4 of 6"
-          title="Looking ahead, what’s one big thing you’d love to bring to life?"
+          title="Looking ahead, what’s one big thing you want to make room for?"
         >
           <Input
             value={dreamInput}

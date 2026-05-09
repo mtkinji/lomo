@@ -13,15 +13,15 @@ It is grounded in the current app implementation:
 - AI calls are currently made directly from the client to OpenAI in `src/services/ai.ts` (must be changed for a paid/scalable launch).
 - Chapters is hidden from primary nav for this release (removed from drawer routes in `src/navigation/RootNavigator.tsx`).
 
-### Linked PRDs (workstreams)
+### Linked feature briefs (workstreams)
 
-- **Monetization + Paywall**: `docs/prds/monetization-paywall-revenuecat-prd.md`
-- **AI Proxy + Quotas**: `docs/prds/ai-proxy-and-quotas-prd.md`
-- **Notifications v1.5 (copy + caps + goal nudges)**: `docs/prds/notifications-v1-5-prd.md` (addendum to `docs/notifications-paradigm-prd.md`)
-- **Arc/Goal Lifecycle + Limits**: `docs/prds/arc-goal-lifecycle-and-limits-prd.md`
-- **Calendar Export (ICS) + Scheduling Model**: `docs/prds/calendar-export-ics-prd.md`
-- **Keyboard & Input Safety**: `docs/prds/keyboard-input-safety-prd.md`
-- **Growth Flywheel (Evangelism + Shared Goals + Accountability)**: `docs/prds/growth-evangelism-shared-goals-prd.md` (builds on `docs/shared-goals-feature-spec.md`)
+- **Monetization + Paywall**: `docs/feature-briefs/monetization-paywall-revenuecat.md`
+- **AI Proxy + Quotas**: `docs/feature-briefs/ai-proxy-and-quotas.md`
+- **Notifications v1.5 (copy + caps + goal nudges)**: `docs/feature-briefs/notifications-v1-5.md` (addendum to `docs/notifications-paradigm-prd.md`)
+- **Arc/Goal Lifecycle + Limits**: `docs/feature-briefs/arc-goal-lifecycle-and-limits.md`
+- **Calendar Export (ICS) + Scheduling Model**: `docs/feature-briefs/calendar-export-ics.md`
+- **Keyboard & Input Safety**: `docs/feature-briefs/keyboard-input-safety.md`
+- **Growth Flywheel (Evangelism + Shared Goals + Accountability)**: `docs/feature-briefs/growth-evangelism-shared-goals.md` (builds on `docs/shared-goals-feature-spec.md`)
 
 ### Scope posture (do not paint ourselves into a corner)
 
@@ -43,12 +43,12 @@ It is grounded in the current app implementation:
   - Daily show‑up reminder is available (user-controlled).
 - **Pro**
   - **Unlimited Arcs** (and more than one active Arc allowed).
-  - **Higher or unlimited Goals per Arc** (exact number defined in Monetization PRD).
-  - AI scheduling + calendar export features (see Calendar PRD).
+  - **Higher or unlimited Goals per Arc** (exact number defined in Monetization feature brief).
+  - AI scheduling + calendar export features (see Calendar feature brief).
 
 ### Non-goals for MVP (explicit cuts)
 
-- Shared goals / social accountability / deep invite mechanics (aspirational; see Growth Flywheel PRD)
+- Shared goals / social accountability / deep invite mechanics (aspirational; see Growth Flywheel feature brief)
 - Cross-device sync
 - Server push notifications
 - Full Google/Microsoft calendar OAuth sync (MVP uses ICS export)
@@ -84,7 +84,7 @@ It is grounded in the current app implementation:
   - Free: block creating a second Arc (manual and AI creation flows both show upgrade path).
   - Free: block creating the 4th active Goal within the same Arc.
 
-Owner doc: `docs/prds/monetization-paywall-revenuecat-prd.md`
+Owner doc: `docs/feature-briefs/monetization-paywall-revenuecat.md`
 
 ### Milestone 2 — “AI proxy + quotas”
 
@@ -92,7 +92,7 @@ Owner doc: `docs/prds/monetization-paywall-revenuecat-prd.md`
 - [x] Quota enforcement by tier.
 - [x] Degraded mode: if proxy unavailable, user gets a safe fallback (templates/cached suggestion) instead of a hard dead-end.
 
-Owner doc: `docs/prds/ai-proxy-and-quotas-prd.md`
+Owner doc: `docs/feature-briefs/ai-proxy-and-quotas.md`
 
 ### Milestone 3 — “Notifications v2 (system nudges)”
 
@@ -100,22 +100,22 @@ Owner doc: `docs/prds/ai-proxy-and-quotas-prd.md`
 - [x] Add goal-level daily nudge (optional, capped, non-spammy).
 - [x] Add lightweight caps/backoff for non-explicit nudges (never cap explicit `reminderAt` reminders).
 
-Owner doc: `docs/prds/notifications-v1-5-prd.md` (and `docs/notifications-paradigm-prd.md`)
+Owner doc: `docs/feature-briefs/notifications-v1-5.md` (and `docs/notifications-paradigm-prd.md`)
 
 ### Milestone 4 — “Calendar export MVP”
 
 - [x] Add a consistent scheduling model (`scheduledAt`) for Activities.
 - [x] Add “Add to calendar” that exports `.ics` via share sheet.
-- [x] Gate as Pro (or freemium teaser) per Monetization PRD.
+- [x] Gate as Pro (or freemium teaser) per Monetization feature brief.
 
-Owner doc: `docs/prds/calendar-export-ics-prd.md`
+Owner doc: `docs/feature-briefs/calendar-export-ics.md`
 
 ### Milestone 5 — “Keyboard + input safety”
 
 - [x] Standardize scroll containers on keyboard-safe primitives.
 - [ ] Validate the top input-heavy screens (Activity detail, Goal creation, AI chat) meet the bar.
 
-Owner doc: `docs/prds/keyboard-input-safety-prd.md`
+Owner doc: `docs/feature-briefs/keyboard-input-safety.md`
 
 ---
 
@@ -131,7 +131,7 @@ Owner doc: `docs/prds/keyboard-input-safety-prd.md`
 ## Post-launch (Jan → Feb) strategic follow-ups
 
 - Growth flywheel rollout (evangelism → lightweight accountability → shared goals) — see:
-  - `docs/prds/growth-evangelism-shared-goals-prd.md`
+  - `docs/feature-briefs/growth-evangelism-shared-goals.md`
   - `docs/shared-goals-feature-spec.md`
 - Apple ecosystem integrations (retention + “glanceable state” + Focus timer reliability):
   - `docs/apple-ecosystem-opportunities.md`

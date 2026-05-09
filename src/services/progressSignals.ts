@@ -5,7 +5,7 @@
  * (e.g., completing activities, completing goals). These signals replace
  * manual check-ins with zero-friction automatic updates.
  *
- * @see docs/prds/social-dynamics-evolution-prd.md
+ * @see docs/feature-briefs/social-dynamics-evolution.md
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';

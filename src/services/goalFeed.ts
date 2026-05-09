@@ -4,7 +4,7 @@
  * Aggregates feed events (check-ins, joins, reactions) into a unified feed
  * for display in the Goal detail screen.
  *
- * @see docs/prds/social-goals-auth-prd.md
+ * @see docs/feature-briefs/social-goals-auth.md
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';

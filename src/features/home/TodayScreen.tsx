@@ -207,7 +207,7 @@ export function TodayScreen() {
               </Text>
               {currentShowUpStreak > 0 && (
                 <Text style={styles.streak}>
-                  You&apos;ve showed up {currentShowUpStreak} day
+                  You&apos;ve shown up {currentShowUpStreak} day
                   {currentShowUpStreak === 1 ? '' : 's'} in a row.
                 </Text>
               )}
@@ -217,7 +217,7 @@ export function TodayScreen() {
               <VStack space="md">
                 <Text style={styles.heroTitle}>Today&apos;s focus</Text>
                 <Text style={styles.heroBody}>
-                  Track your arcs, review goal drafts, and keep the day grounded in meaningful work.
+                  Pick one thing worth protecting today. The rest can wait its turn.
                 </Text>
                 <Button size="small" style={styles.primaryAction}>
                   <Text style={styles.primaryActionText}>Create New To-do</Text>
@@ -242,9 +242,9 @@ export function TodayScreen() {
                   <Text style={styles.heroBody}>
                     {suggested?.kind === 'setup'
                       ? suggested.reason === 'no_goals'
-                        ? 'Create your first Goal so Kwilt can help you stay consistent.'
-                        : 'Add one to-do so you can build momentum today.'
-                      : 'Here’s a tiny step you can complete today.'}
+                        ? 'Create your first Goal so Kwilt has something real to help you protect.'
+                        : 'Add one to-do so today has a clear next step.'
+                      : 'Here’s a small step you can complete today.'}
                   </Text>
                 </VStack>
               </Card>
@@ -283,7 +283,7 @@ export function TodayScreen() {
           <EmptyState
             title="No to-dos yet"
             iconName="emptyBox"
-            instructions="Create an Arc, then a Goal, then your first to-do."
+            instructions="Start with one to-do you’ll be glad you protected today."
             style={styles.emptyState}
           />
         }

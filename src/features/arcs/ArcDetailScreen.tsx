@@ -1564,7 +1564,7 @@ function ArcNarrativeEditorSheet({
             style={styles.narrativeSheetTextInput}
             multiline
             textAlignVertical="top"
-            placeholder="Describe this Arc in your own words. What future version of you is this chapter about, and how do you imagine it changing your goals and days?"
+            placeholder="Describe this Arc in your own words. What direction is this about, and how do you imagine it changing your goals and days?"
             placeholderTextColor={colors.textSecondary}
             value={draft}
             onChangeText={setDraft}

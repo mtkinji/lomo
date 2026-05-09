@@ -173,7 +173,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
         'Welcome the user with one gentle line about uncovering the version of them that feels most themselves. Do not ask any questions or mention steps – just set a curious, low-pressure tone.',
       renderMode: 'static',
       staticCopy:
-        'Let’s uncover the version of you that feels the most you.',
+        'Let’s name one direction you want to make easier to practice.',
       copyLength: 'one_sentence',
       validationHint:
         'No fields collected; keep the message short, warm, and free of instructions or pressure.',
@@ -194,7 +194,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       next: 'social_mirror',
       ui: {
         title: 'Choose a direction',
-        description: 'What area of life does your future self most want to grow into right now?',
+        description: 'Where do you want to practice becoming steadier right now?',
       },
     },
     {
@@ -260,7 +260,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       ui: {
         title: 'On a normal day…',
         description:
-          'Picture future-you on a normal day — not a big moment. What are they doing that makes them feel proud?',
+          'Picture an ordinary day where this is going well. What are you doing?',
       },
     },
     {
@@ -331,7 +331,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       collects: ['vocation'],
       hideFreeformChatInput: true,
       prompt:
-        'The host shows a tap-only card asking which kind of work/creation is closest to the user’s future self. Capture the selection as “vocation”.',
+        'The host shows a tap-only card asking which kind of work/creation belongs in this Arc. Capture the selection as “vocation”.',
       copyLength: 'one_sentence',
       validationHint:
         'vocation is a short phrase describing a vocational/creative lane (craft, ventures, teaching, ideas, etc.).',
@@ -347,13 +347,13 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       collects: ['bigDream'],
       hideFreeformChatInput: true,
       prompt:
-        'The host will ask for one short free-response “big dream” the user would love to bring to life. Capture it as “bigDream”.',
+        'The host will ask for one short free-response “big dream” the user wants to make room for. Capture it as “bigDream”.',
       copyLength: 'one_sentence',
       validationHint: 'bigDream is a short free-response sentence or phrase. It should not be empty.',
       next: 'nickname_optional',
       ui: {
         title: 'One big dream',
-        description: 'Looking ahead, what’s one big thing you’d love to bring to life?',
+        description: 'Looking ahead, what’s one big thing you want to make room for?',
         fields: [
           {
             id: 'bigDream',
@@ -372,14 +372,14 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       collects: ['nickname'],
       hideFreeformChatInput: true,
       prompt:
-        'The host will invite the user to optionally type a one- or two-word nickname for their future self (e.g., “The Builder”, “The Quiet Genius”, “The Reliable One”) and also let them skip with a tap. Do not pressure the user to type anything; a skip is a perfectly good outcome.',
+        'The host will invite the user to optionally type a one- or two-word name for this Arc (e.g., “The Builder”, “The Quiet Genius”, “The Reliable One”) and also let them skip with a tap. Do not pressure the user to type anything; a skip is a perfectly good outcome.',
       copyLength: 'short_paragraph',
       validationHint:
         'nickname is optional and may be blank. When present, it is a very strong signal of the user’s internal metaphor; when absent, you should still be able to synthesize an aspiration.',
       next: 'aspiration_generate',
       ui: {
-        title: 'If future-you had a nickname…',
-        description: 'If that future-you had a nickname, what would it be? (Optional)',
+        title: 'If this Arc had a short name…',
+        description: 'If this direction had a short name, what would fit? (Optional)',
         fields: [
           {
             id: 'nickname',
@@ -425,10 +425,10 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       label: 'Confirmation',
       collects: ['confirmed'],
       prompt:
-        'The host asks: “Does this feel like the future you?” with two taps: Yes / Close but tweak it. Do not override that binary choice. Treat a “Yes” as confirmed=true and any other path as confirmed=false.',
+        'The host asks: “Does this feel like the direction you want to practice?” with two taps: Yes / Close but tweak it. Do not override that binary choice. Treat a “Yes” as confirmed=true and any other path as confirmed=false.',
       copyLength: 'two_sentences',
       validationHint:
-        'confirmed is a boolean reflecting whether the user said the aspiration feels like their future self. The host may still allow a light “tweak” loop before finalizing; the final stored Arc should only represent a version the user said Yes to.',
+        'confirmed is a boolean reflecting whether the user said the aspiration feels like the direction they want to practice. The host may still allow a light “tweak” loop before finalizing; the final stored Arc should only represent a version the user said Yes to.',
       next: 'closing_arc',
     },
     {
@@ -440,7 +440,7 @@ export const FIRST_TIME_ONBOARDING_V2_SPEC: WorkflowSpec = {
       renderMode: 'static',
       staticCopy:
         'Great—we’ve turned what you shared into a clear identity Arc to start from.\n\n' +
-        'This isn’t meant to be a perfect definition of you; it’s a simple storyline you can grow into and refine as you go. As you spend more time in Kwilt, you’ll be able to add more Arcs, attach goals and to-dos, and design concrete plans that actually fit your real life.\n\n' +
+        'This isn’t meant to be a perfect definition of you; it’s a working draft you can use and refine as you go. As you spend more time in Kwilt, you’ll be able to add more Arcs, attach goals and to-dos, and design concrete plans that actually fit your real life.\n\n' +
         'From here, you can explore your new Arc, add your own goals, or just let this sit at the top of your identity layer while you get used to the app.',
       copyLength: 'short_paragraph',
       validationHint:

@@ -57,7 +57,7 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       return {
         title: 'AI is temporarily unavailable',
         subtitle:
-          'Upgrade to Pro to unlock more AI capacity and keep shaping goals with Kwilt Coach.',
+          'Upgrade to Pro for more AI capacity and keep shaping goals with Kwilt Coach.',
       };
     case 'limit_goals_per_arc':
       return {
@@ -67,21 +67,21 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       };
     case 'limit_arcs_total':
       return {
-        title: 'Grow into more than one version of yourself',
+        title: 'Make room for more than one direction',
         subtitle:
-          'You can be ambitious in multiple directions. Pro lets you run multiple arcs so your goals don’t have to compete for space.',
+          'Your life can hold more than one meaningful thread. Pro lets you run multiple arcs so your goals don’t have to compete for space.',
       };
     case 'pro_only_unsplash_banners':
       return {
         title: 'Make your arcs feel unmistakably yours',
         subtitle:
-          'Unlock a wider banner library and search so each arc has a visual that pulls you back in—every time you open the app.',
+          'Pro adds a wider banner library and search so each arc has a visual that pulls you back in.',
       };
     case 'pro_only_focus_mode':
       return {
         title: 'Go deep when it’s time to work',
         subtitle:
-          'Pro unlocks longer focus sessions so you can do real work—not just get started. Protect your attention and finish what you begin.',
+          'Pro adds longer focus sessions so you can do real work, not just get started. Protect your attention and finish what you begin.',
       };
     case 'pro_only_attachments':
       return {
@@ -99,7 +99,7 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       return {
         title: 'Turn your to-dos list into a tool',
         subtitle:
-          'Pro Tools unlocks saved views plus filtering and sorting—so you can focus on what matters right now without losing your place.',
+          'Pro Tools adds saved views plus filtering and sorting so you can focus on what matters right now without losing your place.',
       };
     case 'pro_only_ai_scheduling':
       return {
@@ -109,15 +109,15 @@ function getPaywallCopy(reason: PaywallReason, source: PaywallSource) {
       };
     case 'pro_only_streak_shields':
       return {
-        title: 'Pro shields would have saved your streak',
+        title: 'Grace for the weeks that get away',
         subtitle:
-          'Upgrade now and we\u2019ll restore your streak instantly. Plus, you\u2019ll get Streak Shields that protect your progress when life gets in the way.',
+          'Upgrade and we\u2019ll bring your streak back. Pro also adds Streak Shields for the weeks when life gets crowded.',
       };
     default:
       return {
         title: 'Build a system you’ll actually stick with',
         subtitle:
-          'Pro removes limits and unlocks tools that make follow-through easier—so you keep showing up, even when life gets busy.',
+          'Pro removes limits and adds tools that make follow-through easier, even when life gets busy.',
       };
   }
 }
@@ -278,7 +278,7 @@ export function PaywallContent(props: {
       {/* Pro value units (consistent across paywall reasons) - only show for non-pro users */}
       {!isPro ? (
         <View style={styles.valueSection}>
-          <Text style={styles.sectionLabel}>What you unlock</Text>
+          <Text style={styles.sectionLabel}>What Pro adds</Text>
           <VStack space="sm">
             {PRO_VALUE_ATTAINMENTS.map((benefit) => (
               <View key={benefit.title} style={styles.valueRow}>

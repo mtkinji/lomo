@@ -7,6 +7,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { sendEmailViaResend } from '../_shared/emailSend.ts';
+import { buildSharedGoalDigestEmail } from '../_shared/emailTemplates.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -35,14 +36,6 @@ function getSupabaseAdmin() {
 function enabled() {
   const raw = (Deno.env.get('KWILT_SHARE_DIGEST_EMAIL_ENABLED') ?? '').trim().toLowerCase();
   return raw !== '0' && raw !== 'false' && raw !== 'off';
-}
-
-function escapeHtml(raw: string) {
-  return raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 serve(async (req) => {
@@ -105,17 +98,21 @@ serve(async (req) => {
     const checkins = goalEvents.filter((event) => event.type === 'checkin_submitted').length;
     const cheers = goalEvents.filter((event) => event.type === 'reaction_added').length;
     const replies = goalEvents.filter((event) => event.type === 'checkin_reply').length;
-    const text = `Your shared goal had ${checkins} check-ins, ${cheers} cheers, and ${replies} replies this week. Open Kwilt to share your week.`;
-    const html = `<p>${escapeHtml(text)}</p><p><a href="kwilt://goal/${encodeURIComponent(goalId)}">Open goal in Kwilt</a></p>`;
+    const emailContent = buildSharedGoalDigestEmail({
+      goalId,
+      checkins,
+      cheers,
+      replies,
+    });
 
     const outcome = await sendEmailViaResend({
       resendKey,
       from,
       to: email,
-      subject: 'Your Kwilt accountability week',
-      text,
-      html,
-      campaign: 'goal_invite',
+      subject: emailContent.subject,
+      text: emailContent.text,
+      html: emailContent.html,
+      campaign: 'share_digest',
       userId,
       admin,
       idempotencyKey: `share-digest/${goalId}/${new Date().toISOString().slice(0, 10)}`,

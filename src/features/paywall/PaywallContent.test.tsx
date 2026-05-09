@@ -56,7 +56,7 @@ describe('PaywallContent', () => {
         onClose={() => undefined}
       />,
     );
-    expect(getByText('Grow into more than one version of yourself')).toBeTruthy();
+    expect(getByText('Make room for more than one direction')).toBeTruthy();
   });
 
   it('invokes onClose when the Close paywall button is pressed', () => {
@@ -83,10 +83,10 @@ describe('PaywallContent', () => {
     );
     expect(queryByText('Upgrade')).toBeNull();
     expect(getByLabelText('Close')).toBeTruthy();
-    expect(queryByText('What you unlock')).toBeNull();
+    expect(queryByText('What Pro adds')).toBeNull();
   });
 
-  it('shows the "What you unlock" benefits list for free users', () => {
+  it('shows the "What Pro adds" benefits list for free users', () => {
     const { getByText } = renderWithProviders(
       <PaywallContent
         reason="limit_arcs_total"
@@ -94,7 +94,7 @@ describe('PaywallContent', () => {
         onClose={() => undefined}
       />,
     );
-    expect(getByText('What you unlock')).toBeTruthy();
+    expect(getByText('What Pro adds')).toBeTruthy();
     expect(getByText('1,000 AI credits / month')).toBeTruthy();
     expect(getByText('Unlimited arcs + goals')).toBeTruthy();
   });

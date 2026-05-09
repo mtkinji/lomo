@@ -145,7 +145,7 @@ describe('pickGoalNudgeCandidate', () => {
 describe('buildGoalNudgeContent', () => {
   it('includes the goal title in the notification title', () => {
     const content = buildGoalNudgeContent({ goalTitle: 'Run 5K' });
-    expect(content.title).toBe('Tiny step for: Run 5K');
+    expect(content.title).toBe('A small step for Run 5K');
   });
 
   it('mentions the arc name when provided', () => {
@@ -159,7 +159,7 @@ describe('buildGoalNudgeContent', () => {
 
   it('uses the generic body when no arc name is provided', () => {
     const content = buildGoalNudgeContent({ goalTitle: 'Run 5K' });
-    expect(content.body).toMatch(/momentum/i);
+    expect(content.body).toMatch(/smallest useful/i);
   });
 
   it('treats whitespace-only arc names as missing', () => {
@@ -167,6 +167,6 @@ describe('buildGoalNudgeContent', () => {
       goalTitle: 'Run 5K',
       arcName: '   ',
     });
-    expect(content.body).toMatch(/momentum/i);
+    expect(content.body).toMatch(/smallest useful/i);
   });
 });

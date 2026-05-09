@@ -2,7 +2,7 @@
 
 This doc is the **engineering playbook** for ensuring the software keyboard **never covers an active input** anywhere in the app.
 
-- Product requirements live in: `docs/prds/keyboard-input-safety-prd.md`
+- Product requirements live in: `docs/feature-briefs/keyboard-input-safety.md`
 - Core primitives involved:
   - `src/ui/layout/CanvasScrollView.tsx`
   - `src/ui/layout/CanvasFlatList.tsx`

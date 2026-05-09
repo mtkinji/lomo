@@ -395,7 +395,7 @@ export function FirstTimeUxFlow() {
       case 'welcome':
         title = 'Welcome to Kwilt';
         body =
-          'Kwilt makes it easier to clarify who you want to become and grow into the best version of yourself.';
+          'Kwilt helps you name what matters, make a realistic plan, and protect time for the next step.';
         ctaLabel = totalSteps > 2 ? 'Next' : 'Continue';
         nextStep = totalSteps > 2 ? 'notifications' : 'path';
         break;

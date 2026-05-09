@@ -27,7 +27,7 @@ describe('PaywallInterstitialScreen', () => {
 
   it('renders the underlying paywall content for the route params', () => {
     const { getByText } = renderWithProviders(<PaywallInterstitialScreen />);
-    expect(getByText('Grow into more than one version of yourself')).toBeTruthy();
+    expect(getByText('Make room for more than one direction')).toBeTruthy();
   });
 
   it('calls navigation.goBack when the close button is pressed', () => {

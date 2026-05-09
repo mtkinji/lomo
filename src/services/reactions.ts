@@ -5,7 +5,7 @@
  * to feed events like check-ins. They provide encouragement without
  * requiring a full conversation.
  *
- * @see docs/prds/social-goals-auth-prd.md
+ * @see docs/feature-briefs/social-goals-auth.md
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';
@@ -64,7 +64,7 @@ export type AddReactionParams = {
  * Add a reaction to a feed event.
  *
  * This uses the feed events table itself to store reactions (type: 'reaction_added'),
- * following the PRD's suggestion to model reactions as feed events.
+ * following the feature brief's suggestion to model reactions as feed events.
  *
  * Idempotent: If the user already has a reaction on this event, it will be updated.
  */

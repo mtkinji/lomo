@@ -4,7 +4,7 @@
  * Shows the user's friends, pending requests, and provides ability to
  * add new friends via invite link.
  *
- * @see docs/prds/social-dynamics-evolution-prd.md (Phase 3)
+ * @see docs/feature-briefs/social-dynamics-evolution.md (Phase 3)
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -105,7 +105,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
       const url = buildFriendInviteUrl(invite.code);
 
       await Share.share({
-        message: `Add me as a friend on Kwilt! ${url}`,
+        message: `Add me on Kwilt so we can see what each other is working on. ${url}`,
         url,
       });
 
@@ -268,7 +268,7 @@ export function FriendsScreen({}: FriendsScreenProps) {
         <Icon name="Users" size={48} color={colors.textSecondary} />
         <Text style={styles.emptyTitle}>No friends yet</Text>
         <Text style={styles.emptySubtext}>
-          Share an invite link to add friends who can cheer your milestones!
+          Share an invite link with someone who will notice when your goals move.
         </Text>
       </View>
     ),

@@ -49,9 +49,9 @@ function buildFirstChapterEta(): string {
     weekEnd.setDate(nextMonday.getDate() - 1);
     const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
     const shortFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-    return `Your first chapter arrives next ${dayFmt.format(nextMonday)}. It'll recap ${shortFmt.format(weekStart)}–${shortFmt.format(weekEnd)} using the Arcs you're showing up for.`;
+    return `Your first chapter arrives next ${dayFmt.format(nextMonday)}. It’ll recap ${shortFmt.format(weekStart)}–${shortFmt.format(weekEnd)} and name what moved.`;
   } catch {
-    return "Your first chapter arrives next Monday. It'll recap the past week using the Arcs you're showing up for.";
+    return 'Your first chapter arrives next Monday. It’ll recap the past week and name what moved.';
   }
 }
 

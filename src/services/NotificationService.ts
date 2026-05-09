@@ -97,65 +97,65 @@ function pickVariant(variants: CopyVariant[], type: NotificationType): { variant
 
 const DAILY_SHOW_UP_VARIANTS: CopyVariant[] = [
   (ctx) => ({
-    title: `Align your day with your arcs${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
-    body: ctx.hasActivitiesToday ? 'Open Kwilt to review Today and choose one tiny step.' : 'Today is empty—pick one tiny step to keep momentum.',
+    title: `Choose what gets attention today${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
+    body: ctx.hasActivitiesToday ? 'Open Kwilt to review Today and pick one small step.' : 'Today is empty. Pick one small thing worth making room for.',
   }),
   (ctx) => ({
-    title: ctx.streak >= 2 ? `Day ${ctx.streak + 1} — keep the momentum` : 'Start building momentum today',
-    body: 'One tiny step moves you forward. Open Kwilt to pick yours.',
+    title: ctx.streak >= 2 ? `Day ${ctx.streak + 1} — one small step` : 'Start with one small step',
+    body: 'Open Kwilt and choose the smallest useful version.',
   }),
   (ctx) => ({
-    title: ctx.arcName ? `Your ${ctx.arcName} Arc is waiting` : 'Your Arcs are waiting',
-    body: ctx.streak >= 2 ? `Day ${ctx.streak + 1} — show up for the life you're building.` : 'Show up for the life you\'re building.',
+    title: ctx.arcName ? `Make room for ${ctx.arcName}` : 'Make room for an Arc today',
+    body: ctx.streak >= 2 ? `Day ${ctx.streak + 1}. Pick one action that keeps this moving.` : 'Pick one action that keeps this moving.',
   }),
   (ctx) => ({
-    title: ctx.streak >= 2 ? 'Don\'t break the chain' : 'Today is a fresh start',
-    body: ctx.streak >= 2 ? `${ctx.streak} days and counting. One step keeps it alive.` : 'One small action today sets the tone for tomorrow.',
+    title: ctx.streak >= 2 ? 'Still worth a small step?' : 'Today is a fresh start',
+    body: ctx.streak >= 2 ? `${ctx.streak} days of showing up. One small step can keep this moving.` : 'One small action today can make the day feel clearer.',
   }),
 ];
 
 const ACTIVITY_REMINDER_VARIANTS: CopyVariant[] = [
   (ctx) => ({
     title: `${ctx.activityTitle ?? 'To-do reminder'}${ctx.streak >= 2 ? ` — day ${ctx.streak + 1}` : ''}`,
-    body: ctx.goalTitle ? (ctx.arcName && ctx.arcName.length <= 26 ? `${ctx.goalTitle} · ${ctx.arcName}` : ctx.goalTitle) : 'Take a tiny step on this to-do.',
+    body: ctx.goalTitle ? (ctx.arcName && ctx.arcName.length <= 26 ? `${ctx.goalTitle} · ${ctx.arcName}` : ctx.goalTitle) : 'Take one small step on this to-do.',
   }),
   (ctx) => ({
     title: ctx.streak >= 2 ? `Day ${ctx.streak + 1}: ${ctx.activityTitle ?? 'Time to act'}` : (ctx.activityTitle ?? 'Time to act'),
-    body: ctx.goalTitle ? `Part of your ${ctx.goalTitle} goal.` : 'This is the tiny step that builds your streak.',
+    body: ctx.goalTitle ? `Part of your ${ctx.goalTitle} goal.` : 'This is one small step you can protect today.',
   }),
   (ctx) => ({
     title: ctx.activityTitle ?? 'To-do reminder',
-    body: ctx.streak >= 2 ? `Completing this continues your ${ctx.streak}-day streak.` : 'One tiny step — that\'s all it takes.',
+    body: ctx.streak >= 2 ? `This can count toward your ${ctx.streak}-day streak.` : 'One small step is enough to start.',
   }),
 ];
 
 const STREAK_AT_RISK_VARIANTS: CopyVariant[] = [
   (ctx) => ({
-    title: `Your ${ctx.streak}-day streak is at risk`,
-    body: 'Show up before midnight — one tiny step keeps it alive.',
+    title: `${ctx.streak}-day streak: still time today`,
+    body: `Your ${ctx.streak}-day streak can keep moving if today gets one action.`,
   }),
   (ctx) => ({
-    title: ctx.streak >= 30 ? `${ctx.streak} days of showing up — don't stop now` : `${ctx.streak}-day streak: still time today`,
-    body: 'You\'ve built something real. One tiny step protects it.',
+    title: ctx.streak >= 30 ? `${ctx.streak} days of showing up` : `${ctx.streak}-day streak: still time today`,
+    body: 'You’ve built something real. Pick the smallest useful step.',
   }),
   (ctx) => ({
-    title: ctx.streak >= 7 ? `Day ${ctx.streak} is on the line` : `Your ${ctx.streak}-day streak needs you`,
-    body: ctx.streak >= 30 ? 'A streak this long deserves protection. Show up now.' : 'Open Kwilt before midnight to keep your streak alive.',
+    title: ctx.streak >= 7 ? `Day ${ctx.streak} can still count` : `${ctx.streak}-day streak: still time today`,
+    body: ctx.streak >= 30 ? 'A streak this long deserves a small next step.' : 'Open Kwilt before midnight if you want today to count.',
   }),
 ];
 
 const REACTIVATION_VARIANTS: CopyVariant[] = [
   (ctx) => ({
     title: ctx.streak > 1 ? `You had a ${ctx.streak}-day streak going` : 'Your goals are waiting',
-    body: ctx.streak > 1 ? 'Come back and start building again — one tiny step is all it takes.' : 'It\'s been a few days. Ready for one tiny step?',
+    body: ctx.streak > 1 ? 'That rhythm can restart smaller. Pick one step today.' : 'It’s been a few days. Ready for one small step?',
   }),
   (ctx) => ({
-    title: ctx.streak > 1 ? `You showed up ${ctx.streak} days in a row — you can do it again` : 'Ready for a fresh start?',
-    body: 'Your Arcs are still here. One tiny step starts a new streak.',
+    title: ctx.streak > 1 ? `You showed up ${ctx.streak} days in a row` : 'Ready for a fresh start?',
+    body: 'Your Arcs are still here. One small step starts the return.',
   }),
   (ctx) => ({
     title: 'Your Arc is still here',
-    body: ctx.streak > 1 ? `You built a ${ctx.streak}-day streak once. Ready for another?` : 'One tiny step is all it takes to start again.',
+    body: ctx.streak > 1 ? `You built a ${ctx.streak}-day rhythm once. Want to start smaller today?` : 'One small step is enough to start again.',
   }),
 ];
 

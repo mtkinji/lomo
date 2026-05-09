@@ -950,5 +950,5 @@ After each phase:
 - `docs/growth-loops-execution-plan.md` — Sprint 4 shipped the email system; this plan hardens it for GA.
 - `docs/chapters-plan.md` — sibling plan owning the Chapter *destination* feature (GA plumbing + weekly-only cutover + signal-first reframe + Next Steps loop). Runs in parallel; the Chapter Digest cannot go out at scale until that plan's Phase 1 ships.
 - `docs/chapters-build-plan.md` — original Chapters feature build plan (schema, generation, UI); largely executed through its Phase 3. `docs/chapters-plan.md` picks up from there.
-- `docs/notifications-paradigm-prd.md` — local/push notification PRD; unrelated but shares the deep-link infrastructure being completed here.
+- `docs/notifications-paradigm-prd.md` — local/push notification feature brief; unrelated but shares the deep-link infrastructure being completed here.
 - `kwilt-site/LAUNCH_CHECKLIST.md` — Vercel / DNS / Universal Link setup checklist; Phase 1 depends on items there being completed.

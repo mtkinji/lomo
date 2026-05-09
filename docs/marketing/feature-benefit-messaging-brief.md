@@ -22,7 +22,7 @@
 
 Each item is labeled:
 - **Shipped**: behavior exists in app/code today.
-- **Designed / Planned**: specified in docs/PRDs and partially scaffolded, but not fully shipped.
+- **Designed / Planned**: specified in docs/feature briefs and partially scaffolded, but not fully shipped.
 
 ### 1) Life Architecture core (method + objects)
 
@@ -168,7 +168,7 @@ Each item is labeled:
   - “Helpful reminders without notification spam.”
 - **Credibility notes**
   - `NotificationService` enforces daily caps + spacing (`src/services/NotificationService.ts`).
-  - PRD articulates identity-first copy and user control (`docs/notifications-paradigm-prd.md`).
+  - feature brief articulates identity-first copy and user control (`docs/notifications-paradigm-prd.md`).
 
 #### 3.5 Celebrations (micro-rewards) — **Shipped (media system optional)**
 - **What it is**: Celebration moments can include optional GIF media fetched via a curated, safety-restricted GIPHY integration; always degrades gracefully if unavailable or disabled.
@@ -262,7 +262,7 @@ Each item is labeled:
   - “Your environment becomes your reminder.”
   - “Mark done at the moment it naturally happens.”
 - **Credibility notes**
-  - Fully specified in `docs/prds/geolocation-activity-offers-prd.md`.
+  - Fully specified in `docs/feature-briefs/geolocation-activity-offers.md`.
   - This is explicitly **offer-based** (not auto-complete) to preserve agency and trust.
 
 ---

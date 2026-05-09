@@ -1,7 +1,7 @@
 ## Kwilt Product Roadmap – Primary Source of Truth
 
 This doc is the **primary roadmap** for tracking progress toward real user value, launch readiness, and revenue.  
-It sits above execution plans and PRDs (e.g. `docs/launch/mvp-app-launch-jan-1-2026.md`, `docs/prds/*`) and should remain the **single source of truth** for “what are we building next, and why?”
+It sits above execution plans and feature briefs (e.g. `docs/launch/mvp-app-launch-jan-1-2026.md`, `docs/feature-briefs/*`) and should remain the **single source of truth** for “what are we building next, and why?”
 
 Use it as a living document:
 - Update checkboxes as work progresses.
@@ -37,7 +37,7 @@ Owner execution plan: `docs/launch/mvp-app-launch-jan-1-2026.md`
   - [x] Free: **3 active Goals per Arc**
 - [x] Add canonical upgrade entry points (Settings + limit-triggered affordances)
 
-Owner PRD: `docs/prds/monetization-paywall-revenuecat-prd.md`
+Owner feature brief: `docs/feature-briefs/monetization-paywall-revenuecat.md`
 
 ### 0.2 AI proxy + quotas (cost + key safety)
 
@@ -46,7 +46,7 @@ Owner PRD: `docs/prds/monetization-paywall-revenuecat-prd.md`
 - [x] Degraded mode UX for quota exceeded / provider unavailable
 - [x] Basic observability: request count, latency, error rate, quota rejects
 
-Owner PRD: `docs/prds/ai-proxy-and-quotas-prd.md`
+Owner feature brief: `docs/feature-briefs/ai-proxy-and-quotas.md`
 
 ### 0.3 Notifications v2 (system nudges + caps)
 
@@ -54,7 +54,7 @@ Owner PRD: `docs/prds/ai-proxy-and-quotas-prd.md`
 - [x] Goal nudges (opt-in or clear opt-out) with strict caps/backoff
 - [x] Deep links preserve shell/canvas model (tap → correct canvas)
 
-Owner PRD: `docs/prds/notifications-v1-5-prd.md`
+Owner feature brief: `docs/feature-briefs/notifications-v1-5.md`
 
 ### 0.4 Arc/Goal lifecycle + limits (avoid destructive deletes)
 
@@ -66,7 +66,7 @@ Owner PRD: `docs/prds/notifications-v1-5-prd.md`
 - [x] Limits enforced at initiation points (manual + AI)
   - [x] Automated lifecycle unit tests (Jest) for arc/goal lifecycle + limits ([PR #18](https://github.com/mtkinji/lomo/pull/18), [PR #19](https://github.com/mtkinji/lomo/pull/19))
 
-Owner PRD: `docs/prds/arc-goal-lifecycle-and-limits-prd.md`
+Owner feature brief: `docs/feature-briefs/arc-goal-lifecycle-and-limits.md`
 
 ### 0.5 Calendar export MVP (ICS) + scheduling model
 
@@ -74,14 +74,14 @@ Owner PRD: `docs/prds/arc-goal-lifecycle-and-limits-prd.md`
 - [x] “Add to calendar” exports `.ics` via share sheet
 - [x] Gate per monetization posture (Pro or freemium teaser)
 
-Owner PRD: `docs/prds/calendar-export-ics-prd.md`
+Owner feature brief: `docs/feature-briefs/calendar-export-ics.md`
 
 ### 0.6 Keyboard & input safety quality bar
 
 - [x] Standardize screen + sheet input handling on keyboard-safe primitives
 - [ ] Validate top input-heavy surfaces: Activity detail, Goal creation, AI chat
 
-Owner PRD: `docs/prds/keyboard-input-safety-prd.md`  
+Owner feature brief: `docs/feature-briefs/keyboard-input-safety.md`  
 Implementation guide: `docs/keyboard-input-safety-implementation.md`
 
 ### 0.7 Explicit MVP cuts (do not expand scope pre-launch)
@@ -132,7 +132,7 @@ Implementation guide: `docs/keyboard-input-safety-implementation.md`
 - [ ] Implement device calendar integration (no OAuth) using native calendar access, defaulting to a dedicated “Kwilt” calendar for easy opt-out.
 - [ ] Undo + safety semantics: apply creates a change set; undo removes created calendar events and reverts `scheduledAt` for affected activities.
 
-Owner PRD: `docs/prds/auto-schedule-prd.md`
+Owner feature brief: `docs/feature-briefs/auto-schedule.md`
 
 ### 1.4 Agent OS hardening (workflows as the control plane)
 
@@ -256,8 +256,8 @@ When **users can reliably return to the Today tab, log Activities, see small but
   - [ ] MCP-backed calendar connectors (server-side) so the Agent can call a standard interface:
     - `calendar.freebusy`, `calendar.create_event`, `calendar.update_event`, `calendar.delete_event`
 
-Owner context: `docs/prds/calendar-export-ics-prd.md`
-Owner PRD: `docs/prds/auto-schedule-prd.md`
+Owner context: `docs/feature-briefs/calendar-export-ics.md`
+Owner feature brief: `docs/feature-briefs/auto-schedule.md`
 
 ### 3.4 “Send to…” connectors (export + integrations without UI clutter)
 
@@ -292,7 +292,7 @@ This phase is intentionally lightweight; it should evolve as usage data arrives.
 - [ ] Phase 1+: shared goals (1:1) with minimal identity (recommended: Sign in with Apple + Google only when needed)
 - [ ] Phase 2+: check-ins, reactions, shared feed, AI-assisted “gentle nudges”
 
-Owner PRD: `docs/prds/growth-evangelism-shared-goals-prd.md` (builds on `docs/shared-goals-feature-spec.md`)
+Owner feature brief: `docs/feature-briefs/growth-evangelism-shared-goals.md` (builds on `docs/shared-goals-feature-spec.md`)
 
 
 

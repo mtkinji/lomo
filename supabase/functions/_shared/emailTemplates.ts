@@ -323,27 +323,68 @@ export function buildGoalInviteEmail(params: { goalTitle: string; inviteLink: st
   return { subject, text, html };
 }
 
+function countLabel(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+export function buildSharedGoalDigestEmail(params: {
+  goalId: string;
+  checkins: number;
+  cheers: number;
+  replies: number;
+}): EmailContent {
+  const goalId = params.goalId.trim();
+  const checkins = Math.max(0, Math.floor(params.checkins));
+  const cheers = Math.max(0, Math.floor(params.cheers));
+  const replies = Math.max(0, Math.floor(params.replies));
+  const subject = 'Your shared goal got attention this week';
+  const ctaUrl = makeOpenUrl(`goal/${goalId}`, {}, 'share_digest');
+  const activityLine = `Your shared goal had ${countLabel(checkins, 'check-in')}, ${countLabel(cheers, 'cheer')}, and ${countLabel(replies, 'reply', 'replies')} this week.`;
+  const nextLine = 'Open Kwilt to see what moved and add your own note.';
+
+  const text = [
+    subject,
+    activityLine,
+    nextLine,
+    ctaUrl,
+  ].join('\n\n');
+
+  const html = renderLayout({
+    title: subject,
+    preheader: 'See what moved and add your own note.',
+    bodyHtml: `
+      <p style="margin:0 0 14px;">${escapeHtml(activityLine)}</p>
+      <p style="margin:0 0 24px;color:#6b7280;">${escapeHtml(nextLine)}</p>
+      ${renderCta(ctaUrl, 'Open shared goal')}
+      ${renderFallbackLink(ctaUrl)}
+    `,
+    footerText: 'You’re receiving this because you share a goal in Kwilt.',
+  });
+
+  return { subject, text, html };
+}
+
 // ---------------------------------------------------------------------------
 // Welcome drip emails (days 0, 1, 3, 7)
 // ---------------------------------------------------------------------------
 
 export function buildWelcomeDay0Email(opts: { unsubscribeUrl?: string } = {}): EmailContent {
-  const subject = 'Welcome to Kwilt \u2014 your Arc is waiting';
+  const subject = 'Welcome to Kwilt \u2014 start with one Arc';
   const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_0');
 
   const text = [
     'Welcome to Kwilt.',
-    "You've taken the first step toward showing up for the life you want.",
-    'Kwilt turns intentions into daily action. Start by defining an Arc \u2014 a meaningful direction for your life right now.',
+    'You’ve taken the first step toward making room for what matters.',
+    'Kwilt helps you name what matters and give it real time. Start by defining one Arc \u2014 a meaningful direction for your life right now.',
     ctaUrl,
   ].join('\n\n');
 
   const html = renderLayout({
     title: 'Welcome to Kwilt',
-    preheader: 'The smallest version of showing up is enough.',
+    preheader: 'Start with one meaningful direction.',
     bodyHtml: `
-      <p style="margin:0 0 14px;">You\u2019ve taken the first step toward showing up for the life you want.</p>
-      <p style="margin:0 0 24px;">Kwilt turns intentions into daily action. Start by defining an <strong>Arc</strong> \u2014 a meaningful direction for your life right now.</p>
+      <p style="margin:0 0 14px;">You\u2019ve taken the first step toward making room for what matters.</p>
+      <p style="margin:0 0 24px;">Kwilt helps you name what matters and give it real time. Start by defining one <strong>Arc</strong> \u2014 a meaningful direction for your life right now.</p>
       ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
@@ -355,21 +396,21 @@ export function buildWelcomeDay0Email(opts: { unsubscribeUrl?: string } = {}): E
 }
 
 export function buildWelcomeDay1Email(opts: { unsubscribeUrl?: string } = {}): EmailContent {
-  const subject = 'Your first tiny step';
+  const subject = 'Your first small step';
   const ctaUrl = makeOpenUrl('today', {}, 'welcome_day_1');
 
   const text = [
-    'Ready to build some momentum?',
-    "Complete your first Activity in Kwilt today \u2014 even something small counts. That's all it takes to start your show-up streak.",
+    'Ready to make one thing move?',
+    'Complete your first Activity in Kwilt today \u2014 even something small counts. That is enough to start.',
     ctaUrl,
   ].join('\n\n');
 
   const html = renderLayout({
     title: subject,
-    preheader: 'The first Activity is always the hardest \u2014 and the smallest.',
+    preheader: 'Small counts. Start there.',
     bodyHtml: `
-      <p style="margin:0 0 14px;">Ready to build some momentum?</p>
-      <p style="margin:0 0 24px;">Complete your first <strong>Activity</strong> in Kwilt today \u2014 even something small counts. That\u2019s all it takes to start your show-up streak.</p>
+      <p style="margin:0 0 14px;">Ready to make one thing move?</p>
+      <p style="margin:0 0 24px;">Complete your first <strong>Activity</strong> in Kwilt today \u2014 even something small counts. That is enough to start.</p>
       ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
@@ -385,23 +426,23 @@ export function buildWelcomeDay3Email(
 ): EmailContent {
   const streak = params.streakLength;
   const streakLine =
-    streak >= 2 ? `You\u2019re on a ${streak}-day streak \u2014 nice work!` : 'Build a streak by showing up each day.';
+    streak >= 2 ? `You\u2019ve shown up for ${streak} days \u2014 nice work.` : 'You can start with one small action today.';
   const subject = 'How\u2019s your first Arc going?';
   const planUrl = makeOpenUrl('plan', {}, 'welcome_day_3');
 
   const text = [
     subject,
     streakLine,
-    'Check out the Plan tab to see your week at a glance and set intentions for the days ahead.',
+    'Open Plan to see your week at a glance and choose what deserves calendar time.',
     planUrl,
   ].join('\n\n');
 
   const html = renderLayout({
     title: subject,
-    preheader: 'Your first Arc, your first rhythm.',
+    preheader: 'A quick check on your first Arc.',
     bodyHtml: `
       <p style="margin:0 0 14px;">${escapeHtml(streakLine)}</p>
-      <p style="margin:0 0 24px;">Check out the <strong>Plan</strong> tab to see your week at a glance and set intentions for the days ahead.</p>
+      <p style="margin:0 0 24px;">Open <strong>Plan</strong> to see your week at a glance and choose what deserves calendar time.</p>
       ${renderCta(planUrl, 'Open Plan')}
       ${renderFallbackLink(planUrl)}
     `,
@@ -440,7 +481,7 @@ export function buildWelcomeDay7Email(
   const text = [
     'Your first week in Kwilt.',
     inlineStatsText,
-    'Every day you show up is a vote for the person you\u2019re becoming. Keep going.',
+    'You made progress this week. Pick one thing worth protecting next.',
     ctaUrl,
   ].join('\n\n');
 
@@ -449,8 +490,8 @@ export function buildWelcomeDay7Email(
     preheader,
     bodyHtml: `
       <p style="margin:0 0 14px;">${inlineStatsHtml}</p>
-      <p style="margin:0 0 24px;">Every day you show up is a vote for the person you\u2019re becoming. Keep going.</p>
-      ${renderCta(ctaUrl, 'Keep going')}
+      <p style="margin:0 0 24px;">You made progress this week. Pick one thing worth protecting next.</p>
+      ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
     footerText: 'You\u2019re receiving this because you signed up for Kwilt.',
@@ -671,35 +712,32 @@ export function buildStreakWinback1Email(
 ): EmailContent {
   const ctaUrl = makeOpenUrl('today', {}, 'winback_1');
   const streak = params.streakLength;
-  const subject =
-    streak >= 3
-      ? `Your ${streak}-day streak is still yours to rebuild`
-      : 'Your goals are still waiting for you';
+  const subject = 'You can start small again today';
   const streakLineHtml =
     streak >= 3
-      ? `You had a <strong>${streak}-day streak</strong> going \u2014 that\u2019s real momentum.`
+      ? `You had a <strong>${streak}-day rhythm</strong> going. It can restart smaller.`
       : 'You were building something meaningful.';
   const streakLineText =
     streak >= 3
-      ? `You had a ${streak}-day streak going \u2014 that\u2019s real momentum.`
+      ? `You had a ${streak}-day rhythm going. It can restart smaller.`
       : 'You were building something meaningful.';
 
   const text = [
     subject,
     streakLineText,
-    "It's been a few days since you last showed up. Life happens \u2014 what matters is what you do next.",
-    'One tiny step is all it takes to start again.',
+    "It's been a few days. Life happens \u2014 what matters is the next honest choice.",
+    'Pick one small step and make it easy to do today.',
     ctaUrl,
   ].join('\n\n');
 
   const html = renderLayout({
     title: subject,
-    preheader: 'One tiny step is all it takes to start again.',
+    preheader: 'Pick one small step and make it easy to do today.',
     bodyHtml: `
       <p style="margin:0 0 14px;">${streakLineHtml}</p>
-      <p style="margin:0 0 14px;">It\u2019s been a few days since you last showed up. Life happens \u2014 what matters is what you do next.</p>
-      <p style="margin:0 0 24px;color:#6b7280;">One tiny step is all it takes to start again.</p>
-      ${renderCta(ctaUrl, 'Show up today')}
+      <p style="margin:0 0 14px;">It\u2019s been a few days. Life happens \u2014 what matters is the next honest choice.</p>
+      <p style="margin:0 0 24px;color:#6b7280;">Pick one small step and make it easy to do today.</p>
+      ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,
     footerText: 'You\u2019re receiving this because you use Kwilt.',
@@ -716,32 +754,32 @@ export function buildStreakWinback2Email(
   const streak = params.streakLength;
   const subject =
     streak >= 3
-      ? `Your ${streak}-day streak is fading \u2014 but it\u2019s not gone`
+      ? 'This can still come back into the week'
       : 'Ready for a fresh start?';
   const streakLineHtml =
     streak >= 3
-      ? `A week ago you were on a <strong>${streak}-day streak</strong>.`
+      ? `A week ago you had a <strong>${streak}-day rhythm</strong> going.`
       : 'A week ago you were building something meaningful.';
   const streakLineText =
     streak >= 3
-      ? `A week ago you were on a ${streak}-day streak.`
+      ? `A week ago you had a ${streak}-day rhythm going.`
       : 'A week ago you were building something meaningful.';
 
   const text = [
     subject,
     streakLineText,
-    "It's been a week. Your Arc is still here, your goals are still waiting.",
-    "You don't need to pick up where you left off. Just pick one tiny step and do it today.",
+    "It's been a week. Your Arc is still here, and the goal can still get a small next step.",
+    "You don't need to pick up where you left off. Pick one small step and make it easy to do today.",
     ctaUrl,
   ].join('\n\n');
 
   const html = renderLayout({
     title: subject,
-    preheader: 'Your Arc is still here. Ready for one tiny step?',
+    preheader: 'Your Arc is still here. Ready for one small step?',
     bodyHtml: `
       <p style="margin:0 0 14px;">${streakLineHtml}</p>
-      <p style="margin:0 0 14px;">It\u2019s been a week. Your Arc is still here, your goals are still waiting.</p>
-      <p style="margin:0 0 24px;color:#6b7280;">You don\u2019t need to pick up where you left off. Just pick one tiny step and do it today.</p>
+      <p style="margin:0 0 14px;">It\u2019s been a week. Your Arc is still here, and the goal can still get a small next step.</p>
+      <p style="margin:0 0 24px;color:#6b7280;">You don\u2019t need to pick up where you left off. Pick one small step and make it easy to do today.</p>
       ${renderCta(ctaUrl, 'Open Kwilt')}
       ${renderFallbackLink(ctaUrl)}
     `,

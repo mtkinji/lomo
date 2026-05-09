@@ -36,15 +36,15 @@ const TERMS_URL = 'https://kwilt.app/terms';
 const PRIVACY_URL = 'https://kwilt.app/privacy';
 
 const CATCH_MESSAGES = [
-  'See the “you” you’re\nbuilding.',
-  'Your vision, sharpened\ninto clear goals.',
-  'From dream to direction.\nOne step at a time.',
-  'Craft your path.\nLive with intention.',
-  'Your potential,\nmapped out.',
-  'Small steps lead to\nbig transformations.',
-  'Design the life\nyou keep imagining.',
-  'Every great journey\nstarts with a plan.',
-  'Build momentum.\nSee it compound.',
+  'Make room for\nwhat matters.',
+  'Name the direction.\nPlan the next step.',
+  'From idea to time\non the calendar.',
+  'Choose what matters.\nGive it time.',
+  'One clear goal.\nOne real step.',
+  'Small steps.\nReal progress.',
+  'Turn the thing you keep\nimagining into a plan.',
+  'Start with one thing\nworth protecting.',
+  'Build momentum.\nSee what moves.',
 ] as const;
 
 const ROTATION_MS = 14_000;

@@ -251,7 +251,7 @@ export function PlanScheduleApplyPage({
       }
       
       if (successCount > 0) {
-        // Persist domain→calendar mapping only on Apply (per PRD).
+        // Persist domain→calendar mapping only on Apply (per feature brief).
         const domainCalendarMappingApplied = { ...(pendingDomainMapping ?? {}) };
         if (Object.keys(domainCalendarMappingApplied).length > 0 && userProfile) {
           updateUserProfile((current) => {
@@ -339,8 +339,8 @@ export function PlanScheduleApplyPage({
           title={mode === 'selected' ? 'Select to-dos to schedule' : 'Nothing to schedule'}
           instructions={
             mode === 'selected'
-              ? 'Pick a few recommendations, then come back to schedule them.'
-              : 'Add some to-dos to see a proposed schedule.'
+              ? 'Pick the recommendations you want to protect, then come back to schedule them.'
+              : 'Add one to-do to see where it could fit this week.'
           }
         />
         {mode === 'selected' ? (

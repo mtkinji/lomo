@@ -21,7 +21,9 @@
     "test:ci": "jest --ci --coverage",
     "visual:collect": "node scripts/visual-regression/collect.js",
     "visual:compare": "node scripts/visual-regression/compare.js",
-    "visual:update": "node scripts/visual-regression/compare.js --update"
+    "visual:update": "node scripts/visual-regression/compare.js --update",
+    "product:lint": "node scripts/product-lint.mjs",
+    "jtbd:lint": "npm run product:lint"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

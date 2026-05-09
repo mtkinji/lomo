@@ -2,7 +2,7 @@
 
 **Purpose:** Define how Kwilt gently motivates people to keep showing up for their life architecture (Arcs → Goals → Activities → Chapters), drawing on Duolingo-style engagement patterns while staying true to Kwilt’s calm, identity-first philosophy.
 
-This document sits above channel-specific PRDs (e.g. notifications) and describes **what behaviors we want to encourage**, **how we encourage them**, and **how that shows up across app surfaces** (Today, Activities, Arcs, Chapters, celebration, and notifications).
+This document sits above channel-specific feature briefs (e.g. notifications) and describes **what behaviors we want to encourage**, **how we encourage them**, and **how that shows up across app surfaces** (Today, Activities, Arcs, Chapters, celebration, and notifications).
 
 ---
 
@@ -241,14 +241,14 @@ These metrics should be reviewed periodically and feed back into copy, timing, a
 
 **Downstream docs:**
 
-- `docs/notifications-paradigm-prd.md` – channel‑specific PRD for local notifications, including OS permissions, scheduling, and settings.  
+- `docs/notifications-paradigm-prd.md` – channel‑specific feature brief for local notifications, including OS permissions, scheduling, and settings.  
 - `docs/ux-flow.md`, `docs/value-realization-roadmap.md`, `docs/agent-onboarding-flow.md` – should reference this engagement model when adding new flows or surfaces that motivate behavior.
 
 ---
 
 ## 8. Implementation Checklist (Working)
 
-Use this checklist as you build out the engagement system. It mirrors the phases above and the notifications PRD.
+Use this checklist as you build out the engagement system. It mirrors the phases above and the notifications feature brief.
 
 ### Phase 1 – Foundations (mostly implemented)
 

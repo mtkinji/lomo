@@ -109,6 +109,16 @@ describe('CTA URL migration (Phase 3 of email-system-ga-plan.md)', () => {
     expectsFallbackBlock(out.html);
   });
 
+  it('Shared Goal Digest → /open/goal/<id> with share_digest campaign', () => {
+    const { buildSharedGoalDigestEmail } = loadTemplates();
+    const out = buildSharedGoalDigestEmail({ goalId: 'goal_42', checkins: 2, cheers: 3, replies: 1 });
+    expectsOpenCta(out.html, { path: 'goal/goal_42', campaign: 'share_digest' });
+    expectsFallbackBlock(out.html);
+    expect(out.subject).toBe('Your shared goal got attention this week');
+    expect(out.text).toContain('2 check-ins, 3 cheers, and 1 reply this week');
+    expect(out.html).toContain('Open shared goal');
+  });
+
   it('Pro Grant → /open/settings/subscription with pro_granted campaign', () => {
     const { buildProGrantEmail } = loadTemplates();
     const out = buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' });
@@ -417,6 +427,7 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
       buildProGrantEmail,
       buildChapterDigestEmail,
       buildGoalInviteEmail,
+      buildSharedGoalDigestEmail,
     } = loadTemplates();
 
     const ctaSignature = /padding:\s*12px\s*18px;border-radius:\s*10px;font-weight:\s*700/;
@@ -431,6 +442,7 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
       { name: 'trial', html: buildTrialExpiryEmail({ daysRemaining: 3 }).html },
       { name: 'pro_grant', html: buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' }).html },
       { name: 'goal_invite', html: buildGoalInviteEmail({ goalTitle: 'Ship v1', inviteLink: 'https://go.kwilt.app/i/abc' }).html },
+      { name: 'share_digest', html: buildSharedGoalDigestEmail({ goalId: 'g-1', checkins: 2, cheers: 3, replies: 1 }).html },
       {
         name: 'chapter_digest',
         html: buildChapterDigestEmail({
@@ -566,6 +578,7 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
       buildProCodeEmail,
       buildGoalInviteEmail,
       buildChapterDigestEmail,
+      buildSharedGoalDigestEmail,
     } = loadTemplates();
 
     const samples = [
@@ -579,6 +592,7 @@ describe('email UX refinement (Phase 5 of email-system-ga-plan.md)', () => {
       buildProGrantEmail({ expiresAtIso: '2026-12-31T00:00:00.000Z' }),
       buildProCodeEmail({ code: 'ABCD-1234' }),
       buildGoalInviteEmail({ goalTitle: 'Ship v1', inviteLink: 'https://go.kwilt.app/i/abc' }),
+      buildSharedGoalDigestEmail({ goalId: 'g-1', checkins: 2, cheers: 3, replies: 1 }),
       buildChapterDigestEmail({
         chapterTitle: 'A Quiet Comeback Week',
         outputJson: { sections: [{ key: 'story', body: 'Snippet.' }] },
