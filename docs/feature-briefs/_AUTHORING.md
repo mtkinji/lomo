@@ -74,6 +74,24 @@ Feature briefs should improve a job-flow delivery score or explain why the work 
 [Things still unresolved at feature brief-acceptance time. Updated as we go.]
 ```
 
+## Translating a feature brief into public docs
+
+Feature briefs are internal source-of-truth artifacts. Public docs are customer-safe translations. When a brief describes shipped user-facing behavior, use it as input for `kwilt-site` docs without exposing internal taxonomy ids, persona names, delivery scores, private repo paths, or unresolved product strategy.
+
+Use this translation map:
+
+| Brief section | Public docs use |
+| --- | --- |
+| `Context` | Why the user might care, rewritten in plain customer language. |
+| `JTBD framing` | The benefit or job the doc should help with; remove `jtbd-*` ids and internal audience labels. |
+| `Design` | What the feature does, where to find it, and what the user can expect. |
+| `Success signal` | What good usage looks like for a customer. |
+| `Open questions` | Keep internal unless the uncertainty affects current customer expectations. |
+
+Public docs should be organized by user job or surface, not one page per internal feature by default. A single public article may cite multiple source briefs in `kwilt-site/lib/docs.ts` via `sourceBriefs: ["<brief-slug>"]`. That metadata is for maintainers and tests; it should not be rendered publicly unless we intentionally create a developer-facing transparency view.
+
+Before public copy ships, review it against the Kwilt voice guide: concrete, warm, practical, non-shaming, and free of self-help fog or internal product-taxonomy jargon.
+
 ## Existing feature briefs (pre-front-matter)
 
 Feature briefs already in `docs/feature-briefs/` from before this convention stay as-is. When we touch one substantively, we add a short trailer section:

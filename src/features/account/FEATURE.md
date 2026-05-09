@@ -14,6 +14,7 @@ briefs:
   - ai-proxy-and-quotas
   - external-ai-connector
   - monetization-paywall-revenuecat
+  - notifications-v1-5
   - social-goals-auth
 status: shipped
 last_reviewed: 2026-05-09

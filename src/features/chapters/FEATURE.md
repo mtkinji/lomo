@@ -9,7 +9,8 @@ serves:
   - jtbd-make-sense-of-the-season
   - jtbd-see-who-im-becoming
   - jtbd-trust-this-app-with-my-life
-briefs: []
+briefs:
+  - chapters-retrospective-sensemaking
 status: shipped
 last_reviewed: 2026-05-09
 ---

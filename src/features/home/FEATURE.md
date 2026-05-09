@@ -9,7 +9,8 @@ serves:
   - jtbd-see-my-arcs-in-everyday-moments
   - jtbd-move-the-few-things-that-matter
   - jtbd-capture-and-find-meaning
-briefs: []
+briefs:
+  - home-today-orientation
 status: shipped
 last_reviewed: 2026-05-09
 ---

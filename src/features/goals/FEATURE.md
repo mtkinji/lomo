@@ -12,6 +12,7 @@ serves:
 briefs:
   - arc-goal-lifecycle-and-limits
   - growth-evangelism-shared-goals
+  - keyboard-input-safety
   - social-goals-auth
   - social-dynamics-evolution
 status: shipped

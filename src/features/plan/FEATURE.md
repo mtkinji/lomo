@@ -16,6 +16,7 @@ briefs:
   - background-agents-weekly-planning
   - calendar-export-ics
   - desktop-app
+  - notifications-v1-5
 status: shipped
 last_reviewed: 2026-05-09
 ---

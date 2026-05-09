@@ -13,6 +13,7 @@ briefs:
   - auto-schedule
   - calendar-export-ics
   - geolocation-activity-offers
+  - keyboard-input-safety
   - kwilt-text-coach
 status: shipped
 last_reviewed: 2026-05-09

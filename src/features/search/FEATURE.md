@@ -8,7 +8,8 @@ serves:
   - jtbd-capture-and-find-meaning
   - jtbd-move-the-few-things-that-matter
   - jtbd-trust-this-app-with-my-life
-briefs: []
+briefs:
+  - global-search-findability
 status: shipped
 last_reviewed: 2026-05-09
 ---

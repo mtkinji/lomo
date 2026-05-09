@@ -15,6 +15,7 @@ serves:
 briefs:
   - ai-proxy-and-quotas
   - external-ai-connector
+  - keyboard-input-safety
 status: shipped
 last_reviewed: 2026-05-09
 ---
