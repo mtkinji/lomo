@@ -115,6 +115,16 @@ Preconditions:
   - Expected: AI entry points show an upgrade/paywall message instead of silently failing.
   - Expected: no negative credit counts; app stays usable in manual flows.
 
+### 5) Phone Agent SMS beta
+- Link a test phone in **Settings → Phone Agent**.
+- Text “Call Dad this weekend” to the Kwilt number.
+  - Expected: Activity appears with phone-agent source metadata and a calm SMS receipt.
+- Text “Lily’s birthday is Oct 12. She likes dragons.”
+  - Expected: internal person/event/memory rows are created, no People/CRM app surface appears, and analytics does not include Lily’s name or the memory text.
+- Send a due follow-up with `phone-agent-tick`.
+- Reply `done`.
+  - Expected: prompt closes, action log records loop closure, and no private message body appears in analytics.
+
 ## Local vs production parity note
 - Follow `docs/auth-parity-runbook.md` before release sign-off so local auth checks mirror production config assumptions.
 

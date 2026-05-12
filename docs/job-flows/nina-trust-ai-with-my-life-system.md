@@ -31,15 +31,17 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 
 ## Current Kwilt Flow
 
-1. Mobile capture and planned external connector support capture.
+1. Mobile capture and planned Phone Agent support capture from owned Kwilt channels.
 2. Desktop feature brief defines command-center and AI operator direction.
-3. MCP and connector docs point toward cross-tool access.
-4. Trust JTBD and context primer require transparency and calm UX.
-5. Full permission/preview/undo patterns are still largely future work.
+3. MCP and connector docs point toward cross-tool access from external AI surfaces.
+4. Phone Agent now frames SMS/voice as Kwilt-owned capture, recall, planning, and follow-through channels.
+5. Trust JTBD and context primer require transparency and calm UX.
+6. Full permission/preview/undo patterns are still largely future work.
 
 ## Offerings
 
 - Mobile capture.
+- Phone Agent / Kwilt Keep.
 - Desktop command center.
 - External AI connector.
 - MCP / tool access.

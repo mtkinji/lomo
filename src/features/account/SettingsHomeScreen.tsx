@@ -95,6 +95,15 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     description: 'Connect destinations that can receive handed-off To-dos.',
     items: [
       {
+        id: 'phone_agent',
+        title: 'Phone Agent',
+        description: 'Text Kwilt to capture, follow up, and close loops.',
+        icon: 'activities',
+        route: 'SettingsPhoneAgent',
+        status: 'new',
+        tags: ['phone', 'sms', 'follow-through'],
+      },
+      {
         id: 'execution_targets',
         title: 'Destinations',
         description: 'Install and configure destinations like Cursor.',
