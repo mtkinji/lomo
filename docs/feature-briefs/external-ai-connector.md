@@ -12,10 +12,11 @@ serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-see-my-arcs-in-everyday-moments
 related_briefs:
+  - brief-kwilt-phone-agent
   - brief-background-agents-weekly-planning
   - brief-kwilt-text-coach
 owner: andrew
-last_updated: 2026-05-08
+last_updated: 2026-05-10
 ---
 
 ## Context
@@ -26,7 +27,7 @@ Both Anthropic and OpenAI have just shipped official directories that solve the 
 
 This feature brief is the inbound counterpart to [`docs/mcp-strategic-proposal.md`](../mcp-strategic-proposal.md) (which covers the outbound "Send to…" model). Together, the two define Kwilt's complete connector posture: stable internal UX, expanding capability surface in both directions.
 
-It is also the external-AI counterpart to [`docs/feature-briefs/kwilt-text-coach.md`](kwilt-text-coach.md). MCP and Text Coach should share the same domain-level action tools, but they serve different moments: MCP lets a user-initiated Claude/ChatGPT conversation act on Kwilt data; Text Coach lets Kwilt carry intentions forward through its own text prompts and loop closure.
+It is also the external-AI counterpart to [`docs/feature-briefs/kwilt-phone-agent.md`](kwilt-phone-agent.md). MCP and Phone Agent should share the same domain-level action tools, but they serve different moments: MCP lets a user-initiated Claude/ChatGPT conversation act on Kwilt data; Phone Agent is Kwilt's owned phone-number surface for text, calls, prompts, and loop closure. [`docs/feature-briefs/kwilt-text-coach.md`](kwilt-text-coach.md) is the SMS-first slice of that broader phone surface.
 
 ## JTBD framing
 
@@ -111,9 +112,9 @@ Designed against [Anthropic's review criteria](https://claude.com/docs/connector
 
 Notably absent (deliberate, by anti-pattern): no `delete_*`, no `set_streak`, no tool that returns a composite "growth score," no tool that lets the agent author Chapters.
 
-### Relationship to Text Coach action tools
+### Relationship to Phone Agent action tools
 
-MCP should not grow a separate action model from Text Coach. The same domain-level operations should sit beneath both surfaces:
+MCP should not grow a separate action model from Phone Agent / Text Coach. The same domain-level operations should sit beneath both surfaces:
 
 | Shared operation | MCP initiation | Text Coach initiation |
 |---|---|---|
@@ -123,7 +124,7 @@ MCP should not grow a separate action model from Text Coach. The same domain-lev
 | Draft message | User asks Claude/ChatGPT for a draft using Kwilt context | Kwilt offers a draft at the moment follow-through is due |
 | Propose Goal | External AI proposes and deep-links to confirmation | Text Coach proposes only when strongly supported; confirmation required |
 
-The distinction is **who initiates**. MCP is pull-based: the user is already in an external chat and asks for something. Text Coach is follow-through-based: Kwilt carries a previously captured intention across time and prompts the user later. Both must write to the same audit/action log so the app, Chapters, and user settings can explain what happened.
+The distinction is **who initiates**. MCP is pull-based: the user is already in an external chat and asks for something. Phone Agent is Kwilt-owned: the user texts or calls Kwilt directly, and Kwilt can later carry a previously captured intention across time through SMS prompts. Both must write to the same audit/action log so the app, Chapters, and user settings can explain what happened.
 
 ### Architecture
 
@@ -326,6 +327,7 @@ See [`docs/jtbd/_index.md`](../jtbd/_index.md) for the taxonomy.
 
 - [`docs/mcp-strategic-proposal.md`](../mcp-strategic-proposal.md) — outbound connector view; this feature brief is its inbound counterpart.
 - [`docs/send-to-connector-strategy.md`](../send-to-connector-strategy.md) — outbound UX (Send to…); the surface-origin badge in this feature brief is its inbound mirror.
+- [`docs/feature-briefs/kwilt-phone-agent.md`](kwilt-phone-agent.md) — owned phone-number agent surface that shares the same action tools.
 - [`docs/growth-loops-strategy.md`](../growth-loops-strategy.md) — the strategic frame (activation, retention, upsell) this feature brief plugs into.
 - [`docs/growth-loops-execution-plan.md`](../growth-loops-execution-plan.md) — sprint structure modeled on this plan; show-up streak attribution depends on Sprint 1 here.
 - [`docs/feature-briefs/kwilt-text-coach.md`](kwilt-text-coach.md) — Kwilt-owned follow-through surface that should share the same action-tool substrate.

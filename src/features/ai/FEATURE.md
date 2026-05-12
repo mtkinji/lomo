@@ -1,7 +1,7 @@
 ---
 feature: ai
-audiences: [audience-ai-native-life-operators]
-personas: [Nina]
+audiences: [audience-ai-native-life-operators, audience-burned-out-productivity-power-users]
+personas: [Nina, Marcus]
 hero_jtbd: jtbd-trust-this-app-with-my-life
 job_flow: job-flow-nina-trust-ai-with-my-life-system
 serves:
@@ -16,13 +16,14 @@ briefs:
   - ai-proxy-and-quotas
   - external-ai-connector
   - keyboard-input-safety
+  - kwilt-phone-agent
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-05-10
 ---
 
 # ai
 
-Helps Nina use AI near her life system while preserving inspection, permission, reversibility, and calm control.
+Helps Nina use AI near her life system while preserving inspection, permission, reversibility, and calm control. Also supports Marcus when AI carries fragile intentions into concrete follow-through without creating another planning system.
 
 ## Surfaces in this folder
 

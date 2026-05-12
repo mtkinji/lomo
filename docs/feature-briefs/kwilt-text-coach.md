@@ -1,6 +1,6 @@
 ---
 id: brief-kwilt-text-coach
-title: Kwilt Text Coach — text-native follow-through agent
+title: Kwilt Text Coach — SMS-first slice of the Kwilt Phone Agent
 status: draft
 audiences: [audience-burned-out-productivity-power-users]
 personas: [Marcus]
@@ -12,17 +12,22 @@ serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-trust-this-app-with-my-life
 related_briefs:
+  - brief-kwilt-phone-agent
   - brief-background-agents-weekly-planning
   - brief-external-ai-connector
 owner: andrew
-last_updated: 2026-05-08
+last_updated: 2026-05-10
 ---
 
 ## Context
 
-Kwilt-keep explored a compelling adjacent wedge: an SMS-first "relational chief of staff" that remembers meaningful details, prompts at the right time, helps the user act, and closes the loop. That pattern is closer to a monetizable WOW than "more AI credits" or a passive weekly suggestions surface. The opportunity is to make this Kwilt-native: a text-based follow-through agent that writes into Kwilt's Activity/Goal/Arc/Chapter system instead of becoming a separate memory product.
+Kwilt-keep explored a compelling adjacent wedge: an SMS-first "relational chief of staff" that remembers meaningful details, prompts at the right time, helps the user act, and closes the loop. That pattern is closer to a monetizable WOW than "more AI credits" or a passive weekly suggestions surface. The opportunity is now captured in [`docs/feature-briefs/kwilt-phone-agent.md`](kwilt-phone-agent.md): Kwilt Keep becomes Kwilt's owned phone-number agent surface, and Text Coach is its first SMS-native follow-through slice.
 
 The strategic move: **Free Kwilt helps me capture and reflect. Pro Kwilt helps me follow through.**
+
+## Parent boundary
+
+Text Coach is no longer the parent agent concept. The parent surface is **Kwilt Phone Agent / Kwilt Keep**: users can text or call a Kwilt number to capture, recall, plan, and follow through. Text Coach owns the SMS-first behavior: capture receipts, right-time prompts, minimal loop-closure replies, and draft-first activation help. Voice calls, channel-level permissions, phone linking, and shared action-tool substrate decisions live in the parent brief.
 
 ## Target audience
 
@@ -292,11 +297,12 @@ Recommended beta boundary:
 
 ### Relationship to other agent work
 
-Text Coach should become the sharper parent concept for the earlier Weekly Planning Agent:
+Text Coach should become the first SMS follow-through slice under the broader Phone Agent concept:
 
-- Weekly Planning Agent = one background ritual that prepares weekly options.
-- Text Coach = continuous follow-through surface that captures, prompts, helps, and closes loops.
-- Permissioned Activity Agent = internal substrate that lets Text Coach safely perform bounded actions.
+- Kwilt Phone Agent = owned phone-number surface for text and calls.
+- Text Coach = SMS-first follow-through slice that captures, prompts, helps, and closes loops.
+- Weekly Planning Agent = one background ritual that can hand options to Text Coach / Phone Agent.
+- Permissioned Activity Agent = internal substrate that lets all agent surfaces safely perform bounded actions.
 
 ### Anti-pattern guardrails
 
@@ -333,6 +339,7 @@ Reject the design if it includes:
 ## Related
 
 - [`docs/design-explorations/kwilt-text-coach-action-agent/`](../design-explorations/kwilt-text-coach-action-agent/) — design loop artifacts.
+- [`docs/feature-briefs/kwilt-phone-agent.md`](kwilt-phone-agent.md) — parent phone-number agent strategy.
 - [`docs/feature-briefs/background-agents-weekly-planning.md`](background-agents-weekly-planning.md) — narrower background weekly ritual.
 - [`docs/feature-briefs/external-ai-connector.md`](external-ai-connector.md) — Claude/ChatGPT connector that can eventually expose the same action tools.
 - [`docs/ai-chat-architecture.md`](../ai-chat-architecture.md) — existing mode/tool architecture that Text Coach should reuse.

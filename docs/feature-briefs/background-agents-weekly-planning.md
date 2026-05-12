@@ -12,17 +12,18 @@ serves:
   - jtbd-recover-when-i-drift-from-an-arc
   - jtbd-trust-this-app-with-my-life
 related_briefs:
+  - brief-kwilt-phone-agent
   - brief-external-ai-connector
   - brief-kwilt-text-coach
 owner: andrew
-last_updated: 2026-05-08
+last_updated: 2026-05-10
 ---
 
 ## Context
 
-The external AI connector makes Kwilt data available inside Claude and ChatGPT, which is strategically good but weakens "more Kwilt AI credits" as the main Pro story. The stronger Pro pillar now lives in [`docs/feature-briefs/kwilt-text-coach.md`](kwilt-text-coach.md): trusted follow-through. Text Coach captures intentions, prompts at useful times, helps with drafts or next steps, and closes loops. Weekly Planning is a narrower ritual inside that broader follow-through agent concept.
+The external AI connector makes Kwilt data available inside Claude and ChatGPT, which is strategically good but weakens "more Kwilt AI credits" as the main Pro story. The stronger Pro pillar now lives in [`docs/feature-briefs/kwilt-phone-agent.md`](kwilt-phone-agent.md): trusted follow-through through Kwilt's owned phone-number surface. Text Coach is the SMS-first slice of that parent concept: it captures intentions, prompts at useful times, helps with drafts or next steps, and closes loops. Weekly Planning is a narrower ritual inside the broader follow-through agent concept.
 
-This feature brief defines a future background-agent ritual: a **Weekly Planning Agent** that reviews the week and prepares a small, confirmable set of **Weekly Options** for the week ahead. It connects to Chapters as retrospective input, but it is not a Chapter feature and does not depend on the Plan feature. Chapters remain lookbacks. Text Coach is the parent follow-through surface; Weekly Options is one cadence-based ritual it can trigger or hand off.
+This feature brief defines a future background-agent ritual: a **Weekly Planning Agent** that reviews the week and prepares a small, confirmable set of **Weekly Options** for the week ahead. It connects to Chapters as retrospective input, but it is not a Chapter feature and does not depend on the Plan feature. Chapters remain lookbacks. Phone Agent is the parent follow-through surface; Text Coach is the first SMS slice; Weekly Options is one cadence-based ritual it can trigger or hand off.
 
 ## JTBD framing
 
@@ -43,7 +44,7 @@ Every week, Pro users can have Kwilt run a background planning ritual that reads
 
 ### Product boundary
 
-This remains a separate feature brief because the weekly ritual has its own cadence, surfaces, and success signals. But it is no longer the parent "agentic automation" concept. It should reuse the Text Coach / permissioned Activity Agent substrate for prompts, standing Activity permissions, loop closure, and action auditing. The connector can later expose proposal read/confirm tools, but Claude/ChatGPT are not the proactive surface.
+This remains a separate feature brief because the weekly ritual has its own cadence, surfaces, and success signals. But it is no longer the parent "agentic automation" concept. It should reuse the Phone Agent / Text Coach / permissioned Activity Agent substrate for prompts, standing Activity permissions, loop closure, and action auditing. The connector can later expose proposal read/confirm tools, but Claude/ChatGPT are not the proactive surface.
 
 This is also **not a Chapters extension**. Chapters are retrospective meaning objects. The Weekly Planning Agent may read a Chapter summary as signal, but the proposal container is its own review surface, not the Chapter body and not the Plan canvas.
 
@@ -192,7 +193,8 @@ Qualitative success: in interviews, users describe the feature as "Kwilt helped 
 ## Related
 
 - [`docs/design-explorations/background-agents-weekly-planning-agent/`](../design-explorations/background-agents-weekly-planning-agent/) — Frame/Diverge/Converge artifacts.
-- [`docs/feature-briefs/kwilt-text-coach.md`](kwilt-text-coach.md) — parent follow-through agent and shared action-tool substrate.
+- [`docs/feature-briefs/kwilt-phone-agent.md`](kwilt-phone-agent.md) — parent phone-number agent and follow-through surface.
+- [`docs/feature-briefs/kwilt-text-coach.md`](kwilt-text-coach.md) — SMS-first follow-through slice and shared action-tool substrate.
 - [`docs/feature-briefs/external-ai-connector.md`](external-ai-connector.md) — connector that can later expose proposal review tools.
 - [`docs/growth-loops-strategy.md`](../growth-loops-strategy.md) — Pro positioning in a bring-your-own-LLM world.
 - [`docs/growth-loops-execution-plan.md`](../growth-loops-execution-plan.md) — planned sequencing after the external connector.

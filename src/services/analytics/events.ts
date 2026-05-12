@@ -23,6 +23,21 @@ export const AnalyticsEvent = {
   ActivityCompletionToggled: 'activity_completion_toggled',
   ActivityActionInvoked: 'activity_action_invoked',
 
+  // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
+  // channel, action type, prompt kind, object kind, and booleans.
+  PhoneAgentLinkCodeRequested: 'phone_agent_link_code_requested',
+  PhoneAgentLinked: 'phone_agent_linked',
+  PhoneAgentSmsCaptured: 'phone_agent_sms_captured',
+  PhoneAgentPersonRemembered: 'phone_agent_person_remembered',
+  PhoneAgentMemorySaved: 'phone_agent_memory_saved',
+  PhoneAgentEventSaved: 'phone_agent_event_saved',
+  PhoneAgentCadenceSaved: 'phone_agent_cadence_saved',
+  PhoneAgentFollowupSent: 'phone_agent_followup_sent',
+  PhoneAgentLoopClosed: 'phone_agent_loop_closed',
+  PhoneAgentPromptSnoozed: 'phone_agent_prompt_snoozed',
+  PhoneAgentPromptPaused: 'phone_agent_prompt_paused',
+  PhoneAgentRevoked: 'phone_agent_revoked',
+
   // Apple ecosystem adoption (widgets)
   WidgetPromptExposed: 'widget_prompt_exposed',
   WidgetPromptDismissed: 'widget_prompt_dismissed',

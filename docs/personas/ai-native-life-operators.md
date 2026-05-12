@@ -61,6 +61,7 @@ Feature-level descent:
 ## Evidence In The Product
 
 - `docs/feature-briefs/desktop-app.md`
+- `docs/feature-briefs/kwilt-phone-agent.md`
 - `docs/feature-briefs/external-ai-connector.md`
 - `docs/mcp-strategic-proposal.md`
 - `docs/kwilt-cross-workspace-cursor-planning.md`
