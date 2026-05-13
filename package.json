@@ -19,6 +19,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage",
+    "mcp:smoke": "node scripts/mcp-smoke.mjs",
     "visual:collect": "node scripts/visual-regression/collect.js",
     "visual:compare": "node scripts/visual-regression/compare.js",
     "visual:update": "node scripts/visual-regression/compare.js --update",

@@ -139,4 +139,51 @@ export async function leaveSharedGoal(goalId: string): Promise<{ ok: true }> {
   return { ok: true };
 }
 
+export async function removeGoalPartner(goalId: string, userId: string): Promise<{ ok: true }> {
+  const base = getEdgeFunctionUrl('memberships-remove');
+  if (!base) {
+    throw new Error('Membership service not configured');
+  }
+
+  let res: Response;
+  let rawText: string | null = null;
+  try {
+    res = await fetch(base, {
+      method: 'POST',
+      headers: await buildEdgeHeaders(true),
+      body: JSON.stringify({ entityType: 'goal', entityId: goalId, userId }),
+    });
+    rawText = await res.text().catch(() => null);
+  } catch (e: any) {
+    const msg = typeof e?.message === 'string' ? e.message : 'Network request failed';
+    throw new Error(`[memberships-remove] ${msg}`);
+  }
+
+  let data: any = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    const msg =
+      typeof data?.error?.message === 'string'
+        ? data.error.message
+        : typeof data?.message === 'string'
+          ? data.message
+          : `Unable to remove partner (status ${res.status})`;
+    const code = typeof data?.error?.code === 'string' ? data.error.code : undefined;
+    const bodyPreview = typeof rawText === 'string' && rawText.length > 0 ? rawText.slice(0, 500) : '(empty)';
+    const err = new Error(`[memberships-remove] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = res.status;
+    err.code = code;
+    throw err;
+  }
+
+  return { ok: true };
+}
+
 

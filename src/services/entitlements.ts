@@ -81,6 +81,19 @@ type RevenueCatPurchasesLike = {
 
 const nowIso = () => new Date().toISOString();
 
+export const SUBSCRIPTION_PACKAGES_UNAVAILABLE_CODE = 'subscription_packages_unavailable';
+
+export class SubscriptionPackagesUnavailableError extends Error {
+  code = SUBSCRIPTION_PACKAGES_UNAVAILABLE_CODE;
+  details: Record<string, unknown>;
+
+  constructor(details: Record<string, unknown>) {
+    super('Subscriptions are temporarily unavailable');
+    this.name = 'SubscriptionPackagesUnavailableError';
+    this.details = details;
+  }
+}
+
 function isAuthoritativeProStatus(status: ProStatus | null | undefined): boolean {
   // `getProStatus()` returns { isPro: false } for many non-200 cases (401/500/etc).
   // Treat only HTTP 200 as definitive to avoid downgrading due to transient auth/token issues.
@@ -182,6 +195,27 @@ function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): 
 function extractIsProToolsTrial(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
   const active = customerInfo?.entitlements?.active ?? {};
   return Boolean((active as any).pro_tools_trial);
+}
+
+function buildOfferingDiagnostics(args: {
+  offerings: any;
+  desiredSku: string;
+  availablePackages: any[];
+  canPurchasePackage: boolean;
+}) {
+  const currentOffering = args.offerings?.current;
+  return {
+    desiredSku: args.desiredSku,
+    hasOfferings: Boolean(args.offerings),
+    hasCurrentOffering: Boolean(currentOffering),
+    currentOfferingIdentifier:
+      typeof currentOffering?.identifier === 'string' ? currentOffering.identifier : null,
+    packageCount: args.availablePackages.length,
+    productIds: args.availablePackages
+      .map((pkg) => pkg?.product?.identifier ?? pkg?.product?.productIdentifier)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    canPurchasePackage: args.canPurchasePackage,
+  };
 }
 
 async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): Promise<void> {
@@ -537,7 +571,14 @@ export async function purchasePro(): Promise<EntitlementsSnapshot> {
   const selectedPackage = matchingPackage ?? availablePackages[0];
 
   if (!selectedPackage || typeof purchases.purchasePackage !== 'function') {
-    throw new Error('No subscription packages available');
+    throw new SubscriptionPackagesUnavailableError(
+      buildOfferingDiagnostics({
+        offerings,
+        desiredSku,
+        availablePackages,
+        canPurchasePackage: typeof purchases.purchasePackage === 'function',
+      }),
+    );
   }
 
   const result = await purchases.purchasePackage(selectedPackage);
@@ -576,7 +617,14 @@ export async function purchaseProSku(params: {
   const selectedPackage = matchingPackage ?? availablePackages[0];
 
   if (!selectedPackage || typeof purchases.purchasePackage !== 'function') {
-    throw new Error('No subscription packages available');
+    throw new SubscriptionPackagesUnavailableError(
+      buildOfferingDiagnostics({
+        offerings,
+        desiredSku,
+        availablePackages,
+        canPurchasePackage: typeof purchases.purchasePackage === 'function',
+      }),
+    );
   }
 
   const result = await purchases.purchasePackage(selectedPackage);

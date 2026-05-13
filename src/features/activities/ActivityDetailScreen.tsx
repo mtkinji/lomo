@@ -279,6 +279,14 @@ export function ActivityDetailScreen() {
   const setHasDismissedActivityDetailGuide = useAppStore(
     (state) => state.setHasDismissedActivityDetailGuide,
   );
+  const hasSeenFocusModeCoachmark = useAppStore((state) => state.hasSeenFocusModeCoachmark);
+  const setHasSeenFocusModeCoachmark = useAppStore(
+    (state) => state.setHasSeenFocusModeCoachmark,
+  );
+  const hasCompletedFirstTimeOnboarding = useAppStore(
+    (state) => state.hasCompletedFirstTimeOnboarding,
+  );
+  const isPlanKickoffVisible = useAppStore((state) => state.isPlanKickoffVisible);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const enabledSendToDestinations = useAppStore((state) => state.enabledSendToDestinations);
 
@@ -1554,8 +1562,10 @@ export function ActivityDetailScreen() {
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
+  const focusActionTargetRef = useRef<View | null>(null);
   const actionDockLeftRef = useRef<View | null>(null);
   const actionDockRightRef = useRef<View | null>(null);
+  const focusModeCoachmarkWasVisibleRef = useRef(false);
   const finishMutationRef = useRef<{ completedAtStamp: string; stepIds: string[] } | null>(null);
   const [detailGuideStep, setDetailGuideStep] = useState(0);
   const [isTitleStepsBundleReady, setIsTitleStepsBundleReady] = useState(false);
@@ -1809,6 +1819,41 @@ export function ActivityDetailScreen() {
   });
 
   const isCompleted = activity?.status === 'done';
+  const shouldShowFocusModeCoachmark =
+    isFocused &&
+    Boolean(activity) &&
+    !isCompleted &&
+    hasCompletedFirstTimeOnboarding &&
+    !hasSeenFocusModeCoachmark &&
+    isActionDockReady &&
+    !shouldShowDetailGuide &&
+    !detailGuideHost.coachmarkVisible &&
+    !editingUiActive &&
+    !goalComboboxOpen &&
+    !difficultyComboboxOpen &&
+    activeSheet == null &&
+    focusSession == null &&
+    !isPlanKickoffVisible;
+
+  useEffect(() => {
+    if (shouldShowFocusModeCoachmark) {
+      focusModeCoachmarkWasVisibleRef.current = true;
+    }
+  }, [shouldShowFocusModeCoachmark]);
+
+  useEffect(
+    () => () => {
+      if (focusModeCoachmarkWasVisibleRef.current) {
+        useAppStore.getState().setHasSeenFocusModeCoachmark(true);
+      }
+    },
+    [],
+  );
+
+  const markFocusModeCoachmarkSeen = useCallback(() => {
+    setHasSeenFocusModeCoachmark(true);
+  }, [setHasSeenFocusModeCoachmark]);
+
   const showTagsAutofill =
     (activity?.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0;
 
@@ -4115,7 +4160,9 @@ export function ActivityDetailScreen() {
                       id: 'focus',
                       icon: 'focus',
                       accessibilityLabel: 'Open focus mode',
+                      targetRef: focusActionTargetRef,
                       onPress: () => {
+                        markFocusModeCoachmarkSeen();
                         capture(AnalyticsEvent.ActivityActionInvoked, {
                           activityId: activity.id,
                           action: 'focusMode',
@@ -4245,6 +4292,46 @@ export function ActivityDetailScreen() {
         }}
         onDismiss={dismissDetailGuide}
         placement={detailGuidePlacement}
+      />
+
+      <Coachmark
+        visible={shouldShowFocusModeCoachmark}
+        targetRef={focusActionTargetRef}
+        scrimToken="pineSubtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius="auto"
+        offset={spacing.xs}
+        highlightColor={colors.turmeric}
+        actionColor={colors.turmeric}
+        attentionPulse
+        attentionPulseDelayMs={2500}
+        attentionPulseDurationMs={15000}
+        title={<Text style={styles.detailGuideTitle}>Protect time for this</Text>}
+        body={
+          <Text style={styles.detailGuideBody}>
+            Focus starts a timer for this to-do, with optional soundscape audio when you
+            want fewer distractions.
+          </Text>
+        }
+        actions={[
+          { id: 'dismiss', label: 'Got it', variant: 'outline' },
+          { id: 'startFocus', label: 'Start Focus', variant: 'accent' },
+        ]}
+        onAction={(actionId) => {
+          markFocusModeCoachmarkSeen();
+          if (actionId === 'startFocus') {
+            if (activity) {
+              capture(AnalyticsEvent.ActivityActionInvoked, {
+                activityId: activity.id,
+                action: 'focusMode',
+              });
+            }
+            openFocusSheet();
+          }
+        }}
+        onDismiss={markFocusModeCoachmarkSeen}
+        placement="above"
       />
 
       <BottomDrawer
@@ -4996,7 +5083,8 @@ export function ActivityDetailScreen() {
                   titleStyle={styles.sheetTitle}
                 />
                 <Text style={styles.sheetDescription}>
-                  Start a distraction-free timer for this to-do. Pick a duration, then tap Start.
+                  Pick a duration. Kwilt keeps the session tied to this to-do, so the
+                  work has a place to land.
                 </Text>
               </View>
 

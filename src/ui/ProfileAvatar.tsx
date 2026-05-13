@@ -118,9 +118,8 @@ export function ProfileAvatar({
           styles.initials,
           {
             fontSize: initialsFontSize,
-            // Use a slightly taller lineHeight so flex centering works properly
-            // (matching fontSize causes font metrics to push text off-center)
-            lineHeight: Math.round(initialsFontSize * 1.2),
+            height: size,
+            lineHeight: size,
           },
         ]}
         numberOfLines={1}
@@ -145,5 +144,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textAlignVertical: 'center',
     includeFontPadding: false,
+    width: '100%',
   },
 });

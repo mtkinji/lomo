@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   Share,
+  Image,
   StyleSheet,
   View,
 } from 'react-native';
@@ -37,10 +38,7 @@ export function ShareGoalDrawer(props: {
   onClose: () => void;
   goalId: string;
   goalTitle: string;
-  isShared?: boolean;
-  memberCount?: number;
-  onSendUpdate?: () => void;
-  onManageSharing?: () => void;
+  goalImageUrl?: string | null;
   onInviteCreated?: () => void;
 }) {
   const {
@@ -48,10 +46,7 @@ export function ShareGoalDrawer(props: {
     onClose,
     goalId,
     goalTitle,
-    isShared = false,
-    memberCount = 0,
-    onSendUpdate,
-    onManageSharing,
+    goalImageUrl,
     onInviteCreated,
   } = props;
   const { capture } = useAnalytics();
@@ -85,7 +80,7 @@ export function ShareGoalDrawer(props: {
       return;
     }
     capture(AnalyticsEvent.ShareGoalDrawerOpened, { goalId });
-    capture(AnalyticsEvent.ShareDrawerOpened, { goalId, isShared, memberCount });
+    capture(AnalyticsEvent.ShareDrawerOpened, { goalId });
 
     let cancelled = false;
     setPreparing(true);
@@ -133,9 +128,9 @@ export function ShareGoalDrawer(props: {
         setAltUrl(open.alt);
 
         const message =
-          `Hey 👋 I’m using an app called Kwilt to stay on track with a goal: ` +
-          `“${goalTitle}”\n\n` +
-          `Want to follow along? I’ll send occasional check-ins, and you can notice what moved or nudge me if I go quiet.\n\n` +
+          `I'm working on a goal in Kwilt: ` +
+          `"${goalTitle}"\n\n` +
+          `I'll share what I finish here. You can cheer me on or nudge me if I go quiet — no app install required.\n\n` +
           `${tapU}`;
         setShareMessage(message);
       } catch {
@@ -149,7 +144,7 @@ export function ShareGoalDrawer(props: {
       cancelled = true;
       capture(AnalyticsEvent.ShareGoalDrawerClosed, { goalId });
     };
-  }, [capture, goalId, goalTitle, isShared, memberCount, visible]);
+  }, [capture, goalId, goalTitle, visible]);
 
   const markSent = useCallback(
     (channel: string) => {
@@ -255,19 +250,6 @@ export function ShareGoalDrawer(props: {
     referralCode,
   ]);
 
-  const offerHeadline = isShared
-    ? memberCount > 1
-      ? 'Keep your partners in the loop'
-      : 'Keep your partner in the loop'
-    : 'Invite someone to follow along';
-
-  const showAccountabilityInfo = useCallback(() => {
-    Alert.alert(
-      'Why invite a partner?',
-      'Goals can be easier to return to when someone else can notice progress and nudge you when things get quiet. In Kwilt, they support from the side: they can see your updates and reply, but they cannot edit your to-dos.',
-    );
-  }, []);
-
   return (
     <BottomDrawer
       visible={visible}
@@ -281,47 +263,22 @@ export function ShareGoalDrawer(props: {
     >
       <View style={styles.surface}>
         <BottomDrawerHeader
-          title={step === 'email' ? 'Email invite' : step === 'sent' ? 'Invite sent' : 'Share goal'}
+          title={
+            step === 'email'
+              ? 'Email invite'
+              : step === 'sent'
+                ? 'Invite sent'
+                : 'Share this goal'
+          }
           rightAction={<BottomDrawerHeaderClose onPress={onClose} />}
           titleStyle={styles.headerTitle}
         />
 
-        <GoalContext title={goalTitle} />
+        <GoalContext title={goalTitle} imageUrl={goalImageUrl} />
 
         {step === 'offer' ? (
           <VStack space="lg">
-            <View style={styles.stepsList}>
-              <StepRow
-                index={1}
-                title={offerHeadline}
-                subtitle="They can notice what moved and help you return when this goal gets quiet."
-                onInfoPress={showAccountabilityInfo}
-              />
-              <StepRow
-                index={2}
-                title={
-                  isShared
-                    ? 'They follow your check-ins'
-                    : 'They get a simple link'
-                }
-                subtitle="They can see check-ins and reply. You’ll see their support in your goal feed."
-              />
-            </View>
-
-            {isShared && onSendUpdate ? (
-              <PrimaryRow
-                icon="send"
-                title="Send a check-in update"
-                subtitle={
-                  memberCount > 1
-                    ? `Tell your ${memberCount} partners how it’s going`
-                    : 'Tell your partner how it’s going'
-                }
-                onPress={onSendUpdate}
-              />
-            ) : null}
-
-            {isShared ? <Text style={styles.sectionLabel}>Invite another partner</Text> : null}
+            <Text style={styles.sectionLabel}>Share with</Text>
 
             <View style={styles.channelCard}>
               <ChannelRow
@@ -350,21 +307,8 @@ export function ShareGoalDrawer(props: {
             </View>
 
             <Text style={styles.privacyLine}>
-              Your to-dos stay private — partners can’t edit them.
+              Partners can see check-ins. Your to-dos stay private.
             </Text>
-
-            {isShared && onManageSharing ? (
-              <Pressable
-                onPress={onManageSharing}
-                style={({ pressed }) => [styles.manageRow, pressed && styles.manageRowPressed]}
-                accessibilityRole="button"
-                accessibilityLabel="Manage who can see this goal"
-              >
-                <Icon name="users" size={16} color={colors.textSecondary} />
-                <Text style={styles.manageRowText}>Manage who can see this goal</Text>
-                <Icon name="chevronRight" size={14} color={colors.muted} />
-              </Pressable>
-            ) : null}
           </VStack>
         ) : step === 'email' ? (
           <VStack space="md">
@@ -417,73 +361,22 @@ export function ShareGoalDrawer(props: {
   );
 }
 
-function GoalContext(props: { title: string }) {
+function GoalContext(props: { title: string; imageUrl?: string | null }) {
   return (
-    <View style={styles.goalContext}>
-      <Text style={styles.goalLabel}>Goal</Text>
-      <View style={styles.goalWell}>
+    <View style={styles.goalCard}>
+      <View style={styles.goalCardIcon}>
+        {props.imageUrl ? (
+          <Image source={{ uri: props.imageUrl }} style={styles.goalCardImage} />
+        ) : (
+          <Icon name="target" size={16} color={colors.accent} />
+        )}
+      </View>
+      <View style={styles.goalCardText}>
         <Text style={styles.goalTitleInline} numberOfLines={2}>
           {props.title}
         </Text>
       </View>
     </View>
-  );
-}
-
-function StepRow(props: {
-  index: number;
-  title: string;
-  subtitle?: string;
-  onInfoPress?: () => void;
-}) {
-  return (
-    <View style={styles.stepRow}>
-      <View style={styles.stepNumber}>
-        <Text style={styles.stepNumberText}>{props.index}</Text>
-      </View>
-      <View style={styles.stepTextWrap}>
-        <View style={styles.stepTitleRow}>
-          <Text style={styles.stepTitle}>{props.title}</Text>
-          {props.onInfoPress ? (
-            <Pressable
-              onPress={props.onInfoPress}
-              accessibilityRole="button"
-              accessibilityLabel="Learn why accountability partners help"
-              hitSlop={8}
-              style={({ pressed }) => [styles.infoButton, pressed && styles.infoButtonPressed]}
-            >
-              <Icon name="info" size={14} color={colors.textSecondary} />
-            </Pressable>
-          ) : null}
-        </View>
-        {props.subtitle ? <Text style={styles.stepSubtitle}>{props.subtitle}</Text> : null}
-      </View>
-    </View>
-  );
-}
-
-function PrimaryRow(props: {
-  icon: IconName;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={props.onPress}
-      accessibilityRole="button"
-      accessibilityLabel={props.title}
-      style={({ pressed }) => [styles.primaryRow, pressed && styles.primaryRowPressed]}
-    >
-      <View style={styles.primaryRowIcon}>
-        <Icon name={props.icon} size={18} color={colors.canvas} />
-      </View>
-      <View style={styles.primaryRowText}>
-        <Text style={styles.primaryRowTitle}>{props.title}</Text>
-        <Text style={styles.primaryRowSubtitle}>{props.subtitle}</Text>
-      </View>
-      <Icon name="chevronRight" size={18} color={colors.canvas} />
-    </Pressable>
   );
 }
 
@@ -545,79 +438,38 @@ const styles = StyleSheet.create({
   body: {
     color: colors.textSecondary,
   },
-  goalContext: {
-    gap: spacing.xs,
-  },
-  goalLabel: {
-    ...typography.caption,
-    color: colors.muted,
-    fontFamily: fonts.semibold,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  goalWell: {
-    borderRadius: 12,
-    backgroundColor: colors.shellAlt,
+  goalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: 16,
+    backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
   },
-  goalTitleInline: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  stepsList: {
-    gap: spacing.lg,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  stepNumber: {
-    width: 24,
-    height: 24,
+  goalCardIcon: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: colors.shellAlt,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 1,
+    overflow: 'hidden',
   },
-  stepNumberText: {
-    ...typography.caption,
-    color: colors.accent,
-    fontFamily: fonts.semibold,
+  goalCardImage: {
+    width: '100%',
+    height: '100%',
   },
-  stepTextWrap: {
+  goalCardText: {
     flex: 1,
     minWidth: 0,
     gap: 2,
   },
-  stepTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  stepTitle: {
-    flex: 1,
+  goalTitleInline: {
     ...typography.body,
     color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  infoButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.shellAlt,
-  },
-  infoButtonPressed: {
-    opacity: 0.65,
-  },
-  stepSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   sectionLabel: {
     ...typography.caption,
@@ -626,41 +478,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: -spacing.xs,
-  },
-  // Primary action row (shared state, "Send update")
-  primaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.accent,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  primaryRowPressed: {
-    opacity: 0.85,
-  },
-  primaryRowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryRowText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  primaryRowTitle: {
-    ...typography.body,
-    color: colors.canvas,
-    fontFamily: fonts.semibold,
-  },
-  primaryRowSubtitle: {
-    ...typography.bodySm,
-    color: 'rgba(255,255,255,0.78)',
-    marginTop: 1,
   },
   // Channel rows card
   channelCard: {
@@ -710,23 +527,6 @@ const styles = StyleSheet.create({
     color: colors.muted,
     lineHeight: 18,
     paddingHorizontal: spacing.xs,
-  },
-  // Manage row
-  manageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  manageRowPressed: {
-    opacity: 0.6,
-  },
-  manageRowText: {
-    flex: 1,
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    fontFamily: fonts.medium,
   },
   // Success state
   successCard: {

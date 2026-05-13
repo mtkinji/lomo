@@ -93,19 +93,19 @@ serve(async (req) => {
     return json(200, { ok: true, entityType, entityId });
   }
 
-  // Avoid leaving an entity without any active "owner" semantics.
-  // Today we primarily assign `co_owner` (not `owner`) for shared goals, but keep a safe guardrail anyway.
   const role = ((membership as any).role ?? '').toString();
-  if (role === 'owner') {
-    const { count } = await admin
-      .from('kwilt_memberships')
-      .select('id', { count: 'exact', head: true })
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .eq('status', 'active');
-    if (typeof count === 'number' && count > 1) {
-      return json(409, { error: { message: 'Owner cannot leave while others are members', code: 'owner_cannot_leave' } });
-    }
+  const { data: ownedGoal } =
+    entityType === 'goal'
+      ? await admin
+          .from('kwilt_goals')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('id', entityId)
+          .maybeSingle()
+      : { data: null };
+
+  if (role === 'owner' || ownedGoal) {
+    return json(409, { error: { message: 'Owner cannot leave their own goal', code: 'owner_cannot_leave' } });
   }
 
   const now = new Date().toISOString();

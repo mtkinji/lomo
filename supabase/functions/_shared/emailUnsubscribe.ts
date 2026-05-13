@@ -133,7 +133,8 @@ async function signPayload(payload: Uint8Array, secret: string): Promise<string>
     false,
     ['sign'],
   );
-  const signature = await crypto.subtle.sign('HMAC', key, payload);
+  const payloadBuffer = payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength) as ArrayBuffer;
+  const signature = await crypto.subtle.sign('HMAC', key, payloadBuffer);
   return toBase64Url(new Uint8Array(signature));
 }
 

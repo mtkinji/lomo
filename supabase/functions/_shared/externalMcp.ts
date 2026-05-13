@@ -1,0 +1,486 @@
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type JsonObject = { [key: string]: JsonValue };
+
+export type ExternalMcpToolDefinition = {
+  name: string;
+  description: string;
+  scope?: 'read' | 'write';
+  inputSchema: JsonObject;
+  annotations: {
+    readOnlyHint: boolean;
+    destructiveHint: boolean;
+    openWorldHint: boolean;
+  };
+};
+
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  openWorldHint: false,
+};
+
+const WRITE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: false,
+};
+
+const DELETE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  openWorldHint: false,
+};
+
+export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
+  {
+    name: 'list_arcs',
+    description: 'List the user-owned Kwilt Arcs. Returns compact identity context only.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['active', 'paused', 'archived'] },
+        limit: { type: 'integer', minimum: 1, maximum: 100 },
+      },
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+  {
+    name: 'get_arc',
+    description: 'Get one user-owned Kwilt Arc and its recent Goals.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        arc_id: { type: 'string' },
+      },
+      required: ['arc_id'],
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+  {
+    name: 'list_goals',
+    description: 'List user-owned Kwilt Goals, optionally filtered by Arc or status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        arc_id: { type: 'string' },
+        status: { oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] },
+        limit: { type: 'integer', minimum: 1, maximum: 100 },
+      },
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+  {
+    name: 'get_goal',
+    description: 'Get one user-owned Kwilt Goal and its most recent Activities.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+      },
+      required: ['goal_id'],
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+  {
+    name: 'list_recent_activities',
+    description: 'List user-owned Kwilt Activities updated in the last N days. Rich fields require include_rich=true.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: { type: 'integer', minimum: 1, maximum: 90 },
+        include_rich: { type: 'boolean' },
+      },
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+  {
+    name: 'get_current_chapter',
+    description: 'Get the latest ready Kwilt Chapter narrative for the user.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+  {
+    name: 'get_show_up_status',
+    description: "Get the user's current Kwilt show-up streak status.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+];
+
+const IDEMPOTENCY_PROPERTY = {
+  type: 'string',
+  description: 'Optional stable key for safely retrying the same write without creating duplicates.',
+};
+
+export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
+  {
+    name: 'create_arc',
+    description: 'Create a Kwilt Arc for the authenticated user. The Arc appears exactly as if the user created it in Kwilt.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        name: { type: 'string' },
+        narrative: { type: 'string' },
+        identity_statement: { type: 'string' },
+        status: { type: 'string', enum: ['active', 'paused', 'archived'] },
+      },
+      required: ['name'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'update_arc',
+    description: 'Update fields on a user-owned Kwilt Arc.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        arc_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        name: { type: 'string' },
+        narrative: { type: 'string' },
+        identity_statement: { type: 'string' },
+        status: { type: 'string', enum: ['active', 'paused', 'archived'] },
+      },
+      required: ['arc_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'delete_arc',
+    description: 'Delete a user-owned Kwilt Arc using the same recoverable delete behavior as the Kwilt app.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        arc_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['arc_id'],
+    },
+    annotations: DELETE_ANNOTATIONS,
+  },
+  {
+    name: 'create_goal',
+    description: 'Create a Kwilt Goal for the authenticated user. The Goal appears exactly as if the user created it in Kwilt.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        title: { type: 'string' },
+        description: { type: 'string' },
+        arc_id: { type: ['string', 'null'] },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'completed', 'archived'] },
+        priority: { type: 'integer', enum: [1, 2, 3] },
+        target_date: { type: 'string' },
+      },
+      required: ['title'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'update_goal',
+    description: 'Update fields on a user-owned Kwilt Goal.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        title: { type: 'string' },
+        description: { type: 'string' },
+        arc_id: { type: ['string', 'null'] },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'completed', 'archived'] },
+        priority: { type: 'integer', enum: [1, 2, 3] },
+        target_date: { type: ['string', 'null'] },
+      },
+      required: ['goal_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'delete_goal',
+    description: 'Delete a user-owned Kwilt Goal using the same recoverable delete behavior as the Kwilt app.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['goal_id'],
+    },
+    annotations: DELETE_ANNOTATIONS,
+  },
+  {
+    name: 'add_goal_checkin',
+    description: 'Add a Kwilt check-in to a goal the authenticated user can access.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        preset: { type: ['string', 'null'], enum: ['made_progress', 'struggled_today', 'need_encouragement', 'just_checking_in', null] },
+        text: { type: 'string' },
+      },
+      required: ['goal_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'capture_activity',
+    description: 'Create a Kwilt To-do for the authenticated user. The To-do appears exactly as if the user created it in Kwilt.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        goal_id: { type: ['string', 'null'] },
+        title: { type: 'string' },
+        notes: { type: 'string' },
+        type: { type: 'string' },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
+        tags: { type: 'array', items: { type: 'string' } },
+        priority: { type: 'integer', enum: [1, 2, 3] },
+        scheduled_date: { type: ['string', 'null'] },
+      },
+      required: ['title'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'update_activity',
+    description: 'Update fields on a user-owned Kwilt To-do.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        goal_id: { type: ['string', 'null'] },
+        title: { type: 'string' },
+        notes: { type: 'string' },
+        type: { type: 'string' },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
+        tags: { type: 'array', items: { type: 'string' } },
+        priority: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
+        scheduled_date: { type: ['string', 'null'] },
+      },
+      required: ['activity_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'mark_activity_done',
+    description: 'Mark a user-owned Kwilt To-do done.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        completed_at: { type: 'string' },
+      },
+      required: ['activity_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'set_focus_today',
+    description: "Schedule a user-owned Kwilt To-do for today's focus.",
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        date: { type: 'string' },
+      },
+      required: ['activity_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'delete_activity',
+    description: 'Delete a user-owned Kwilt To-do using the same recoverable delete behavior as the Kwilt app.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['activity_id'],
+    },
+    annotations: DELETE_ANNOTATIONS,
+  },
+  {
+    name: 'update_chapter_user_note',
+    description: "Update the authenticated user's private note on an existing Kwilt Chapter.",
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chapter_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        note: { type: 'string' },
+      },
+      required: ['chapter_id', 'note'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+];
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function asInt(value: unknown): number | null {
+  const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return Number.isFinite(numberValue) ? Math.floor(numberValue) : null;
+}
+
+function asBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.trim().toLowerCase() === 'true';
+  return false;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function toJsonObject(value: unknown): JsonObject {
+  return asRecord(value) ? (value as JsonObject) : {};
+}
+
+export function normalizeListRecentActivitiesArgs(raw: unknown): { days: number; includeRich: boolean } {
+  const args = asRecord(raw) ?? {};
+  return {
+    days: clamp(asInt(args.days) ?? 7, 1, 90),
+    includeRich: asBoolean(args.include_rich),
+  };
+}
+
+const GOAL_STATUSES = new Set(['planned', 'in_progress', 'completed', 'archived']);
+const DEFAULT_GOAL_STATUSES = ['planned', 'in_progress'];
+
+export function normalizeListGoalsArgs(raw: unknown): { arcId: string | null; statuses: string[]; limit: number } {
+  const args = asRecord(raw) ?? {};
+  const rawStatuses = Array.isArray(args.status)
+    ? args.status
+    : asString(args.status)
+      ? [args.status]
+      : [];
+  const statuses = rawStatuses
+    .map(asString)
+    .filter((status): status is string => !!status && GOAL_STATUSES.has(status));
+
+  return {
+    arcId: asString(args.arc_id),
+    statuses: statuses.length > 0 ? statuses : DEFAULT_GOAL_STATUSES,
+    limit: clamp(asInt(args.limit) ?? 50, 1, 100),
+  };
+}
+
+export function normalizeGetArcArgs(raw: unknown): { arcId: string | null } {
+  const args = asRecord(raw) ?? {};
+  return { arcId: asString(args.arc_id) };
+}
+
+export function normalizeGetGoalArgs(raw: unknown): { goalId: string | null } {
+  const args = asRecord(raw) ?? {};
+  return { goalId: asString(args.goal_id) };
+}
+
+export function summarizeArc(raw: unknown): JsonObject {
+  const arc = asRecord(raw) ?? {};
+  const identity = asRecord(arc.identity);
+  return {
+    id: asString(arc.id) ?? '',
+    name: asString(arc.name) ?? 'Untitled Arc',
+    status: asString(arc.status) ?? 'active',
+    identity_statement: asString(identity?.statement),
+    updated_at: asString(arc.updatedAt) ?? asString(arc.updated_at),
+  };
+}
+
+export function summarizeGoal(raw: unknown): JsonObject {
+  const goal = asRecord(raw) ?? {};
+  return {
+    id: asString(goal.id) ?? '',
+    arc_id: asString(goal.arcId),
+    title: asString(goal.title) ?? 'Untitled Goal',
+    status: asString(goal.status) ?? 'planned',
+    force_intent: toJsonObject(goal.forceIntent),
+    updated_at: asString(goal.updatedAt) ?? asString(goal.updated_at),
+  };
+}
+
+export function summarizeActivity(raw: unknown, options: { includeRich: boolean }): JsonObject {
+  const activity = asRecord(raw) ?? {};
+  const summary: JsonObject = {
+    id: asString(activity.id) ?? '',
+    goal_id: asString(activity.goalId),
+    title: asString(activity.title) ?? 'Untitled Activity',
+    status: asString(activity.status) ?? 'planned',
+    type: asString(activity.type) ?? 'task',
+    scheduled_date: asString(activity.scheduledDate),
+    completed_at: asString(activity.completedAt),
+    updated_at: asString(activity.updatedAt) ?? asString(activity.updated_at),
+  };
+
+  if (options.includeRich) {
+    summary.notes = asString(activity.notes);
+    summary.tags = Array.isArray(activity.tags) ? activity.tags.map(asString).filter((tag): tag is string => !!tag) : [];
+    summary.force_actual = toJsonObject(activity.forceActual);
+  }
+
+  return summary;
+}
+
+export function summarizeChapter(raw: unknown): JsonObject {
+  const chapter = asRecord(raw) ?? {};
+  const output = asRecord(chapter.output_json);
+  return {
+    id: asString(chapter.id) ?? '',
+    period_start: asString(chapter.period_start),
+    period_end: asString(chapter.period_end),
+    period_key: asString(chapter.period_key),
+    title: asString(output?.title),
+    narrative: asString(output?.narrative),
+    updated_at: asString(chapter.updated_at),
+  };
+}
+
+export function summarizeShowUpStatus(raw: unknown): JsonObject {
+  const status = asRecord(raw) ?? {};
+  const repairUntil = asInt(status.eligible_repair_until_ms);
+  return {
+    last_show_up_date: asString(status.last_show_up_date),
+    current_show_up_streak: asInt(status.current_show_up_streak) ?? 0,
+    current_covered_show_up_streak: asInt(status.current_covered_show_up_streak) ?? 0,
+    repair_window_active: repairUntil != null && repairUntil > Date.now(),
+  };
+}

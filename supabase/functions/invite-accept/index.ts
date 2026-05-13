@@ -122,13 +122,14 @@ serve(async (req) => {
     return json(409, { error: { message: 'Invite already used', code: 'invite_consumed' } });
   }
 
-  // Create membership (idempotent) first.
+  // Invitees join as partners. The database role stays implementation-shaped;
+  // product copy maps this to "Partner" in the app.
   const { error: memberErr } = await admin.from('kwilt_memberships').upsert(
     {
       entity_type: entityType,
       entity_id: entityId,
       user_id: userId,
-      role: 'co_owner',
+      role: 'collaborator',
       status: 'active',
     },
     { onConflict: 'entity_type,entity_id,user_id' },

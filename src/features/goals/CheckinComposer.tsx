@@ -6,11 +6,11 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, TextInput, View, Pressable } from 'react-native';
-import { Text, HStack, VStack } from '../../ui/primitives';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { Text, HStack } from '../../ui/primitives';
 import { Button } from '../../ui/Button';
-import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../../theme';
-import { submitCheckin, CHECKIN_PRESETS, type CheckinPreset } from '../../services/checkins';
+import { colors, spacing, typography, cardSurfaceStyle } from '../../theme';
+import { submitCheckin } from '../../services/checkins';
 import { HapticsService } from '../../services/HapticsService';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -40,20 +40,14 @@ export function CheckinComposer({
   compact = false,
 }: CheckinComposerProps) {
   const { capture } = useAnalytics();
-  const [selectedPreset, setSelectedPreset] = useState<CheckinPreset | null>(null);
   const [text, setText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handlePresetPress = useCallback((preset: CheckinPreset) => {
-    void HapticsService.trigger('canvas.selection');
-    setSelectedPreset((current) => (current === preset ? null : preset));
-    setError(null);
-  }, []);
-
   const handleSubmit = useCallback(async () => {
-    if (!selectedPreset && !text.trim()) {
-      setError('Select a status or add a message');
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setError('Add a message');
       return;
     }
 
@@ -63,22 +57,21 @@ export function CheckinComposer({
     try {
       await submitCheckin({
         goalId,
-        preset: selectedPreset,
-        text: text.trim() || null,
+        preset: null,
+        text: trimmed,
       });
 
       capture(AnalyticsEvent.SharedGoalCheckinCreated, {
         goalId,
-        hasPreset: Boolean(selectedPreset),
-        preset: selectedPreset,
-        hasText: Boolean(text.trim()),
+        hasPreset: false,
+        preset: null,
+        hasText: true,
+        source: 'manual_composer',
       });
 
       void HapticsService.trigger('outcome.success');
       onCheckinSubmitted?.();
 
-      // Reset form
-      setSelectedPreset(null);
       setText('');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to check in';
@@ -90,60 +83,34 @@ export function CheckinComposer({
     } finally {
       setIsSubmitting(false);
     }
-  }, [goalId, selectedPreset, text, capture, onCheckinSubmitted]);
+  }, [goalId, text, capture, onCheckinSubmitted]);
 
-  const canSubmit = Boolean(selectedPreset || text.trim());
+  const canSubmit = Boolean(text.trim());
 
   return (
-    <View style={[styles.container, compact && styles.containerCompact]}>
-      {!compact && (
-        <Text style={styles.title}>Check in</Text>
-      )}
+    <View style={compact ? styles.containerCompact : styles.container}>
+      {!compact ? <Text style={styles.title}>Write a check-in</Text> : null}
 
-      {/* Preset chips */}
-      <View style={styles.presetsRow}>
-        {CHECKIN_PRESETS.map((preset) => {
-          const isSelected = selectedPreset === preset.id;
-          return (
-            <Pressable
-              key={preset.id}
-              style={[
-                styles.presetChip,
-                isSelected && styles.presetChipSelected,
-              ]}
-              onPress={() => handlePresetPress(preset.id)}
-              disabled={isSubmitting}
-            >
-              <Text style={styles.presetEmoji}>{preset.emoji}</Text>
-              <Text
-                style={[
-                  styles.presetLabel,
-                  isSelected && styles.presetLabelSelected,
-                ]}
-              >
-                {preset.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Optional text input */}
+      {/* Text input — the primary affordance. Manual check-ins are a fallback
+          for moments without a triggering completion, so we lead with words. */}
       <TextInput
-        style={styles.textInput}
-        placeholder="Add a message (optional)"
+        style={[styles.textInput, compact && styles.textInputCompact]}
+        placeholder="Say what moved today."
         placeholderTextColor={colors.textSecondary}
         value={text}
         onChangeText={setText}
         multiline
-        maxLength={280}
+        maxLength={500}
         editable={!isSubmitting}
+        autoFocus
       />
 
       {/* Error message */}
       {error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : null}
+
+      <Text style={styles.privacyHint}>Only send what you want partners to see.</Text>
 
       {/* Actions */}
       <HStack space="sm" style={styles.actions}>
@@ -158,7 +125,7 @@ export function CheckinComposer({
         ) : null}
         <Button
           variant="primary"
-          label={isSubmitting ? 'Checking in…' : 'Check in'}
+          label={isSubmitting ? 'Sending…' : 'Send'}
           onPress={handleSubmit}
           disabled={!canSubmit || isSubmitting}
           size="compact"
@@ -180,44 +147,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   containerCompact: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.shellAlt,
     padding: spacing.sm,
   },
   title: {
     ...typography.titleSm,
     color: colors.textPrimary,
     marginBottom: spacing.md,
-  },
-  presetsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  presetChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
-    backgroundColor: colors.shell,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  presetChipSelected: {
-    backgroundColor: colors.pine100,
-    borderColor: colors.accent,
-  },
-  presetEmoji: {
-    fontSize: 16,
-    marginRight: spacing.xs,
-  },
-  presetLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  presetLabelSelected: {
-    color: colors.accent,
-    fontFamily: fonts.medium,
   },
   textInput: {
     ...typography.body,
@@ -230,9 +169,20 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: spacing.sm,
   },
+  textInputCompact: {
+    backgroundColor: 'transparent',
+    minHeight: 56,
+    paddingHorizontal: 0,
+    paddingVertical: spacing.xs,
+  },
   errorText: {
     ...typography.bodySm,
     color: colors.destructive,
+    marginBottom: spacing.sm,
+  },
+  privacyHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
   actions: {

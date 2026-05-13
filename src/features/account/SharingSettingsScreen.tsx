@@ -1,10 +1,13 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Card } from '../../ui/Card';
 import { HStack, Text, VStack } from '../../ui/primitives';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Icon } from '../../ui/Icon';
+import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { useSharingSettingsStore, type SharingReminderFrequency } from '../../store/useSharingSettingsStore';
 
 const FREQUENCY_OPTIONS: Array<{ value: SharingReminderFrequency; label: string; description: string }> = [
@@ -14,6 +17,7 @@ const FREQUENCY_OPTIONS: Array<{ value: SharingReminderFrequency; label: string;
 ];
 
 export function SharingSettingsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList, 'SettingsSharing'>>();
   const masterMuted = useSharingSettingsStore((state) => state.masterMuted);
   const reminderFrequency = useSharingSettingsStore((state) => state.reminderFrequency);
   const setMasterMuted = useSharingSettingsStore((state) => state.setMasterMuted);
@@ -22,7 +26,7 @@ export function SharingSettingsScreen() {
   return (
     <AppShell>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <PageHeader title="Sharing">
+        <PageHeader title="Sharing" onPressBack={() => navigation.goBack()}>
           <Text style={styles.body}>Control accountability reminders and shared-goal notifications.</Text>
         </PageHeader>
 

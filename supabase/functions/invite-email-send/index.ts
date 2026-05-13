@@ -138,13 +138,44 @@ serve(async (req) => {
     // best-effort only
   }
 
-  // Ensure inviter is a member (co_owner). Idempotent.
+  const { data: existingMembership, error: existingMembershipErr } = await admin
+    .from('kwilt_memberships')
+    .select('role, status')
+    .eq('entity_type', 'goal')
+    .eq('entity_id', goalId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existingMembershipErr) {
+    return json(503, { error: { message: 'Unable to verify membership', code: 'provider_unavailable' } });
+  }
+
+  const existingRole = ((existingMembership as any)?.role ?? '').toString().toLowerCase();
+  if (existingRole && existingRole !== 'owner' && existingRole !== 'co_owner') {
+    return json(403, { error: { message: 'Only the goal owner can invite partners', code: 'forbidden' } });
+  }
+  if (!existingRole) {
+    const { data: ownedGoal, error: ownedGoalErr } = await admin
+      .from('kwilt_goals')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('id', goalId)
+      .maybeSingle();
+    if (ownedGoalErr) {
+      return json(503, { error: { message: 'Unable to verify goal owner', code: 'provider_unavailable' } });
+    }
+    if (!ownedGoal) {
+      return json(403, { error: { message: 'Only the goal owner can invite partners', code: 'forbidden' } });
+    }
+  }
+
+  // Ensure inviter is the canonical goal owner. Idempotent.
   await admin.from('kwilt_memberships').upsert(
     {
       entity_type: 'goal',
       entity_id: goalId,
       user_id: userId,
-      role: 'co_owner',
+      role: 'owner',
       status: 'active',
     },
     { onConflict: 'entity_type,entity_id,user_id' },
@@ -236,14 +267,13 @@ serve(async (req) => {
     if (outcome.reason === 'kill_switch') {
       return json(503, { error: { message: 'Email sending disabled', code: 'sending_disabled' } });
     }
-    return json(outcome.status === 503 ? 503 : 502, {
-      error: {
-        message: 'Email send failed',
-        code: 'provider_error',
-        status: outcome.status,
-        body: typeof outcome.body === 'string' ? outcome.body.slice(0, 500) : undefined,
-      },
-    });
+    const errorBody: Record<string, JsonValue> = {
+      message: 'Email send failed',
+      code: 'provider_error',
+    };
+    if (typeof outcome.status === 'number') errorBody.status = outcome.status;
+    if (typeof outcome.body === 'string') errorBody.body = outcome.body.slice(0, 500);
+    return json(outcome.status === 503 ? 503 : 502, { error: errorBody });
   }
 
   // Emit lightweight feed event (members-only). Best-effort.

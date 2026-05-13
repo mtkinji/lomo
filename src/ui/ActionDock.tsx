@@ -88,6 +88,10 @@ export type ActionDockItem = {
   onPress: () => void;
   testID?: string;
   /**
+   * Optional ref target for coachmarks/tutorials to spotlight this specific action.
+   */
+  targetRef?: RefObject<View | null>;
+  /**
    * Optional label rendered under the icon (used in expanded mode when desired).
    */
   label?: string;
@@ -549,6 +553,7 @@ export function ActionDock({
               const tint = item.color ?? colors.textPrimary;
               return (
                 <Pressable
+                  ref={item.targetRef}
                   key={item.id}
                   testID={item.testID}
                   accessibilityRole="button"

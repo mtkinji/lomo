@@ -132,10 +132,19 @@ serve(async (req) => {
     }
   }
 
-  let progressPreview: { checkinCount: number; lastPreset: string | null; memberCount: number } = {
+  let progressPreview: {
+    checkinCount: number;
+    lastPreset: string | null;
+    memberCount: number;
+    /** Sanitized text from the inviter's latest check-in, if any. */
+    latestCheckinText: string | null;
+    latestCheckinAt: string | null;
+  } = {
     checkinCount: 0,
     lastPreset: null,
     memberCount: 0,
+    latestCheckinText: null,
+    latestCheckinAt: null,
   };
   try {
     const [{ count: checkinCount }, { data: lastCheckins }, { count: memberCount }] = await Promise.all([
@@ -145,7 +154,7 @@ serve(async (req) => {
         .eq('goal_id', entityId),
       admin
         .from('goal_checkins')
-        .select('preset')
+        .select('preset, text, created_at')
         .eq('goal_id', entityId)
         .order('created_at', { ascending: false })
         .limit(1),
@@ -159,10 +168,20 @@ serve(async (req) => {
     const lastPreset = Array.isArray(lastCheckins) && typeof lastCheckins[0]?.preset === 'string'
       ? lastCheckins[0].preset
       : null;
+    const latestCheckinText =
+      Array.isArray(lastCheckins) && typeof lastCheckins[0]?.text === 'string'
+        ? lastCheckins[0].text.trim().slice(0, 240)
+        : null;
+    const latestCheckinAt =
+      Array.isArray(lastCheckins) && typeof lastCheckins[0]?.created_at === 'string'
+        ? lastCheckins[0].created_at
+        : null;
     progressPreview = {
       checkinCount: typeof checkinCount === 'number' ? checkinCount : 0,
       lastPreset,
       memberCount: typeof memberCount === 'number' ? memberCount : 0,
+      latestCheckinText: latestCheckinText || null,
+      latestCheckinAt,
     };
   } catch {
     // Preview should remain available even if aggregates fail.

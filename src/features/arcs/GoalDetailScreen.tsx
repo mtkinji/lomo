@@ -124,12 +124,22 @@ import { GOAL_STATUS_OPTIONS, getGoalStatusAppearance } from '../../ui/goalStatu
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { buildInviteOpenUrl, createGoalInvite, extractInviteCode } from '../../services/invites';
 import { createReferralCode } from '../../services/referrals';
-import { leaveSharedGoal, listGoalMembers, type SharedMember } from '../../services/sharedGoals';
+import { leaveSharedGoal, listGoalMembers, removeGoalPartner, type SharedMember } from '../../services/sharedGoals';
 import { createProgressSignal } from '../../services/progressSignals';
 import { GoalFeedSection } from '../goals/GoalFeedSection';
-import { CheckinComposer } from '../goals/CheckinComposer';
 import { ShareGoalDrawer } from '../goals/ShareGoalDrawer';
-import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
+import { PendingCheckinDraftCard } from '../goals/PendingCheckinDraftCard';
+import { CheckinApprovalSheet } from '../goals/CheckinApprovalSheet';
+import {
+  buildPartnerCircleKey,
+  makeDraftItem,
+  shouldShowImmediatePrompt as canShowImmediateApprovalPrompt,
+} from '../../services/checkinDrafts';
+import {
+  useCheckinDraftStore,
+  selectHasPendingDraft,
+} from '../../store/useCheckinDraftStore';
+import { useCheckinNudgeStore, type PartnerPromptTrigger } from '../../store/useCheckinNudgeStore';
 import { useSharingSettingsStore } from '../../store/useSharingSettingsStore';
 import { shouldShowLowPriorityMomentNow } from '../../services/moments/orchestrator';
 import Constants from 'expo-constants';
@@ -147,6 +157,17 @@ const FORCE_ORDER: Array<string> = [
 ];
 
 const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.png');
+
+function isGoalOwnerRole(role: string | null | undefined): boolean {
+  const value = (role ?? '').toLowerCase();
+  return value === 'owner' || value === 'co_owner';
+}
+
+function sharedMemberRoleLabel(member: SharedMember, currentUserIds: Set<string>): string {
+  if (member.role === 'owner') return 'Owner';
+  if ((member.role ?? '').toLowerCase() === 'co_owner' && currentUserIds.has(member.userId.trim())) return 'Owner';
+  return 'Partner';
+}
 
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
@@ -232,6 +253,8 @@ export function GoalDetailScreen() {
   const [shareSignInSheetBusy, setShareSignInSheetBusy] = useState(false);
   const [shareDrawerVisible, setShareDrawerVisible] = useState(false);
   const [shareCoachmarkVisible, setShareCoachmarkVisible] = useState(false);
+  const [activePartnerPromptTrigger, setActivePartnerPromptTrigger] =
+    useState<PartnerPromptTrigger | null>(null);
   const shareButtonRef = useRef<View>(null);
   // Track activity count transitions so we only trigger onboarding handoffs on
   // *real* changes (not just because a goal already has activities when the screen mounts).
@@ -576,23 +599,25 @@ export function GoalDetailScreen() {
   const [sharedMembers, setSharedMembers] = useState<SharedMember[] | null>(null);
   const [sharedMembersBusy, setSharedMembersBusy] = useState(false);
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
-  const [membersSheetTab, setMembersSheetTab] = useState<'activity' | 'members'>('activity');
+  const [membersSheetTab, setMembersSheetTab] = useState<'checkins' | 'partners'>('checkins');
   const [feedRefreshKey, setFeedRefreshKey] = useState(0);
-  const [checkinComposerVisible, setCheckinComposerVisible] = useState(false);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
+  const [removingPartnerUserId, setRemovingPartnerUserId] = useState<string | null>(null);
+  const [checkinApprovalSheetVisible, setCheckinApprovalSheetVisible] = useState(false);
+  const [pendingDraftBusy, setPendingDraftBusy] = useState(false);
 
   // Determine if this is a shared goal (has members beyond just the current user)
   const isSharedGoal = useMemo(() => {
     return Array.isArray(sharedMembers) && sharedMembers.length > 1;
   }, [sharedMembers]);
 
-  // Open the activity sheet if requested via route param (e.g., from activity completion nudge)
+  // Open the check-ins sheet if requested via route param (e.g., from activity completion nudge)
   useEffect(() => {
     if (openActivitySheet && isFocused) {
       // Small delay to let the screen settle before showing the sheet
       const timer = setTimeout(() => {
         setMembersSheetVisible(true);
-        setMembersSheetTab('activity');
+        setMembersSheetTab('checkins');
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -603,41 +628,167 @@ export function GoalDetailScreen() {
     useCheckinNudgeStore.getState().recordVisit(goalId);
   }, [goalId, isFocused]);
 
+  // Per-goal partner-prompt lifecycle.
+  //
+  // The prompt only appears on unshared goals once the goal has enough shape
+  // for inviting someone to make sense. v1 triggers:
+  //   1. `first_todo_added`: goal has at least one to-do or accepted plan.
+  //   2. `first_progress_alone`: the user has completed at least one to-do
+  //      while still unshared.
+  // The prompt is anchored to the header userPlus button (`shareButtonRef`),
+  // so the affordance always remains in place — the prompt just draws focus
+  // to it at the right moment.
+  const goalActivityCounts = useMemo(() => {
+    let todoCount = 0;
+    let completedCount = 0;
+    for (const activity of activities) {
+      if (activity.goalId !== goalId) continue;
+      todoCount += 1;
+      if (activity.status === 'done') completedCount += 1;
+    }
+    return { todoCount, completedCount };
+  }, [activities, goalId]);
+
+  // Capture "first progress while unshared" as a sticky per-goal event.
+  // We mark it the moment we see a completed to-do on an unshared goal so
+  // that even if the user shares later, our prompt history reflects what
+  // really happened.
+  useEffect(() => {
+    if (!goalId || isSharedGoal) return;
+    if (goalActivityCounts.completedCount <= 0) return;
+    useCheckinNudgeStore.getState().markFirstProgressAlone(goalId);
+  }, [goalId, goalActivityCounts.completedCount, isSharedGoal]);
+
   useEffect(() => {
     if (!isFocused || !goalId || isSharedGoal || sharingRemindersMuted) {
       setShareCoachmarkVisible(false);
+      setActivePartnerPromptTrigger(null);
       return;
     }
     if (showFirstGoalCelebration || shareDrawerVisible || membersSheetVisible) {
       setShareCoachmarkVisible(false);
+      setActivePartnerPromptTrigger(null);
+      return;
+    }
+    if (goalActivityCounts.todoCount <= 0) {
+      // Blank goal: no prompt yet. Header userPlus remains available.
+      setShareCoachmarkVisible(false);
+      setActivePartnerPromptTrigger(null);
       return;
     }
     const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
-    const store = useCheckinNudgeStore.getState();
-    if (!momentGate.ok || !store.shouldShowShareCoachmark(goalId)) {
+    if (!momentGate.ok) {
       setShareCoachmarkVisible(false);
+      setActivePartnerPromptTrigger(null);
+      return;
+    }
+    const store = useCheckinNudgeStore.getState();
+    // Prefer the "first progress alone" trigger once it's eligible; it's the
+    // stronger moment for adding a partner. Otherwise fall back to the setup
+    // trigger fired by the first to-do/accepted plan.
+    const candidates: PartnerPromptTrigger[] = goalActivityCounts.completedCount > 0
+      ? ['first_progress_alone', 'first_todo_added']
+      : ['first_todo_added'];
+    const trigger = candidates.find((t) => store.shouldShowPartnerPrompt(goalId, t));
+    if (!trigger) {
+      setShareCoachmarkVisible(false);
+      setActivePartnerPromptTrigger(null);
       return;
     }
     const timer = setTimeout(() => {
-      useCheckinNudgeStore.getState().recordShareCoachmarkShown(goalId);
+      useCheckinNudgeStore.getState().recordPartnerPromptShown(goalId, trigger);
+      setActivePartnerPromptTrigger(trigger);
       setShareCoachmarkVisible(true);
-      capture(AnalyticsEvent.ShareCoachmarkShown, { goalId });
+      capture(AnalyticsEvent.PartnerPromptShown, { goalId, trigger });
     }, 1000);
     return () => clearTimeout(timer);
-  }, [capture, goalId, isFocused, isSharedGoal, membersSheetVisible, shareDrawerVisible, sharingRemindersMuted, showFirstGoalCelebration]);
+  }, [
+    capture,
+    goalActivityCounts.completedCount,
+    goalActivityCounts.todoCount,
+    goalId,
+    isFocused,
+    isSharedGoal,
+    membersSheetVisible,
+    shareDrawerVisible,
+    sharingRemindersMuted,
+    showFirstGoalCelebration,
+  ]);
 
-  const handleCheckinSubmitted = useCallback(() => {
-    useCheckinNudgeStore.getState().recordCheckin(goalId);
-    setCheckinComposerVisible(false);
-    setFeedRefreshKey((key) => key + 1);
-  }, [goalId]);
+  const handleOpenPartnersCheckins = useCallback(() => {
+    setMembersSheetTab('checkins');
+    setMembersSheetVisible(true);
+  }, []);
+
+  const handleOpenPartnersAccess = useCallback(() => {
+    setMembersSheetTab('partners');
+    setMembersSheetVisible(true);
+  }, []);
+
+  const currentUserIds = useMemo(
+    () =>
+      new Set(
+        [authIdentity?.userId, userProfile?.id]
+          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+          .map((id) => id.trim()),
+      ),
+    [authIdentity?.userId, userProfile?.id],
+  );
+
+  const currentMembership = useMemo(() => {
+    if (!Array.isArray(sharedMembers) || sharedMembers.length === 0) return null;
+    return sharedMembers.find((m) => currentUserIds.has(m.userId.trim())) ?? null;
+  }, [currentUserIds, sharedMembers]);
 
   const canLeaveSharedGoal = useMemo(() => {
-    const uid = authIdentity?.userId ?? '';
-    if (!uid) return false;
-    if (!Array.isArray(sharedMembers) || sharedMembers.length === 0) return false;
-    return sharedMembers.some((m) => m.userId === uid);
-  }, [authIdentity?.userId, sharedMembers]);
+    const me = currentMembership;
+    if (!me) return false;
+    return !isGoalOwnerRole(me.role);
+  }, [currentMembership]);
+
+  const canRemoveGoalPartners = useMemo(() => {
+    const me = currentMembership;
+    if (!me) return false;
+    return isGoalOwnerRole(me.role);
+  }, [currentMembership]);
+
+  const handleRemovePartner = useCallback(
+    (member: SharedMember) => {
+      if (!goalId || !canRemoveGoalPartners || currentUserIds.has(member.userId.trim())) return;
+      const partnerName = member.name?.trim() || 'this partner';
+      Alert.alert(
+        'Remove partner?',
+        `${partnerName} will lose access to this goal and its check-ins.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setRemovingPartnerUserId(member.userId);
+                await removeGoalPartner(goalId, member.userId);
+                setSharedMembers((members) =>
+                  Array.isArray(members) ? members.filter((m) => m.userId !== member.userId) : members,
+                );
+                setFeedRefreshKey((key) => key + 1);
+                useToastStore.getState().showToast({
+                  message: 'Partner removed',
+                  variant: 'success',
+                  durationMs: 2200,
+                });
+              } catch {
+                Alert.alert('Unable to remove partner', 'Please try again.');
+              } finally {
+                setRemovingPartnerUserId(null);
+              }
+            },
+          },
+        ],
+      );
+    },
+    [canRemoveGoalPartners, currentUserIds, goalId],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -667,11 +818,6 @@ export function GoalDetailScreen() {
 
   const headerPartnerAvatars = useMemo(() => {
     if (!Array.isArray(sharedMembers) || sharedMembers.length <= 1) return [];
-    const currentUserIds = new Set(
-      [authIdentity?.userId, userProfile?.id]
-        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-        .map((id) => id.trim()),
-    );
     return sharedMembers
       .filter((m) => {
         const userId = m.userId.trim();
@@ -680,7 +826,107 @@ export function GoalDetailScreen() {
         return (m.role ?? '').toLowerCase() !== 'owner';
       })
       .map((m) => ({ id: m.userId, name: m.name ?? null, avatarUrl: m.avatarUrl ?? null }));
-  }, [authIdentity?.userId, sharedMembers, userProfile?.id]);
+  }, [currentUserIds, sharedMembers]);
+
+  const partnerCircleKey = useMemo(() => {
+    if (!Array.isArray(sharedMembers)) return 'solo';
+    return buildPartnerCircleKey(sharedMembers.map((m) => m.userId));
+  }, [sharedMembers]);
+
+  const partnerDisplayNames = useMemo<string[]>(
+    () =>
+      headerPartnerAvatars
+        .map((p) => (p.name ?? '').trim())
+        .filter((name) => name.length > 0),
+    [headerPartnerAvatars],
+  );
+
+  const pendingDraft = useCheckinDraftStore((state) => state.draftsByGoalId[goalId] ?? null);
+  const hasPendingDraft = useCheckinDraftStore((state) =>
+    selectHasPendingDraft(state, goalId)
+  );
+
+  // Keep the draft's partner circle key in sync with the live membership list so
+  // partner changes mid-draft trigger the re-approval state.
+  useEffect(() => {
+    if (!pendingDraft) return;
+    if (pendingDraft.partnerCircleKey === partnerCircleKey) return;
+    useCheckinDraftStore.getState().updatePartnerCircle({
+      goalId,
+      partnerCircleKey,
+    });
+  }, [pendingDraft, partnerCircleKey, goalId]);
+
+  const handleSendPendingDraft = useCallback(
+    async (text: string) => {
+      if (!goalId) return;
+      const trimmed = text.trim();
+      if (trimmed.length === 0) return;
+      setPendingDraftBusy(true);
+      try {
+        const { submitCheckin } = await import('../../services/checkins');
+        await submitCheckin({ goalId, preset: null, text: trimmed });
+        capture(AnalyticsEvent.CheckinDraftSent, {
+          goalId,
+          itemCount: pendingDraft?.items.length ?? 0,
+        });
+        useCheckinDraftStore.getState().markSent(goalId);
+        useCheckinNudgeStore.getState().recordCheckin(goalId);
+        setFeedRefreshKey((key) => key + 1);
+        useToastStore.getState().showToast({
+          message: 'Check-in sent',
+          variant: 'success',
+          durationMs: 2200,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to send check-in';
+        capture(AnalyticsEvent.SharedGoalCheckinFailed, { goalId, error: message });
+        Alert.alert('Unable to send', message);
+      } finally {
+        setPendingDraftBusy(false);
+      }
+    },
+    [capture, goalId, pendingDraft]
+  );
+
+  const handleSkipPendingDraft = useCallback(() => {
+    if (!goalId) return;
+    capture(AnalyticsEvent.CheckinDraftSkipped, {
+      goalId,
+      itemCount: pendingDraft?.items.length ?? 0,
+    });
+    useCheckinDraftStore.getState().markSkipped(goalId);
+  }, [capture, goalId, pendingDraft]);
+
+  const handleRemovePendingDraftItem = useCallback(
+    (itemId: string) => {
+      if (!goalId) return;
+      capture(AnalyticsEvent.CheckinDraftItemRemoved, { goalId, itemId });
+      useCheckinDraftStore.getState().removeItem({ goalId, itemId });
+    },
+    [capture, goalId]
+  );
+
+  const handleApprovalSheetDismiss = useCallback(() => {
+    setCheckinApprovalSheetVisible(false);
+    if (goalId) {
+      useCheckinDraftStore.getState().markDismissed(goalId);
+      capture(AnalyticsEvent.CheckinDraftDismissed, { goalId });
+    }
+  }, [capture, goalId]);
+
+  const handleApprovalSheetSend = useCallback(
+    async (text: string) => {
+      setCheckinApprovalSheetVisible(false);
+      await handleSendPendingDraft(text);
+    },
+    [handleSendPendingDraft]
+  );
+
+  const handleApprovalSheetSkip = useCallback(() => {
+    setCheckinApprovalSheetVisible(false);
+    handleSkipPendingDraft();
+  }, [handleSkipPendingDraft]);
 
   const setGoalTargetDateByOffsetDays = useCallback(
     (offsetDays: number) => {
@@ -1204,6 +1450,7 @@ export function GoalDetailScreen() {
       const timestamp = new Date().toISOString();
       let didFireHaptic = false;
       let wasCompleted = false;
+      let completedTitle = '';
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
         if (!didFireHaptic) {
@@ -1211,6 +1458,7 @@ export function GoalDetailScreen() {
           void HapticsService.trigger(nextIsDone ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
         }
         wasCompleted = nextIsDone;
+        completedTitle = activity.title ?? '';
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -1218,12 +1466,66 @@ export function GoalDetailScreen() {
           updatedAt: timestamp,
         };
       });
-      // Fire progress signal for shared goals (fire-and-forget)
-      if (wasCompleted && goalId) {
-        void createProgressSignal({ goalId, type: 'progress_made' });
+
+      if (goalId) {
+        if (wasCompleted) {
+          // Fire progress signal for shared goals (fire-and-forget)
+          void createProgressSignal({ goalId, type: 'progress_made' });
+
+          // Queue an approval-ready draft when the goal is shared with partners.
+          if (isSharedGoal && partnerCircleKey !== 'solo' && completedTitle.trim().length > 0) {
+            const titleForDraft = completedTitle.trim();
+            const store = useCheckinDraftStore.getState();
+            const existing = store.getDraft(goalId);
+            const draft = store.ensureDraft({
+              goalId,
+              partnerCircleKey,
+              initialItem: makeDraftItem({
+                sourceType: 'activity',
+                sourceId: activityId,
+                title: titleForDraft,
+                completedAt: timestamp,
+              }),
+            });
+
+            if (!existing || existing.status !== 'active' || existing.items.length === 0) {
+              capture(AnalyticsEvent.CheckinDraftCreated, {
+                goalId,
+                sourceType: 'activity',
+              });
+              if (canShowImmediateApprovalPrompt(draft)) {
+                store.markPrompted(goalId);
+                capture(AnalyticsEvent.CheckinDraftShown, {
+                  goalId,
+                  trigger: 'activity_complete',
+                });
+                setCheckinApprovalSheetVisible(true);
+              }
+            } else {
+              capture(AnalyticsEvent.CheckinDraftItemAppended, {
+                goalId,
+                sourceType: 'activity',
+                itemCount: draft.items.length,
+              });
+              useToastStore.getState().showToast({
+                message: 'Added to your draft check-in.',
+                variant: 'success',
+                durationMs: 1800,
+              });
+            }
+          }
+        } else {
+          // Undoing a completion: remove this item from any active draft so
+          // partners aren't told about something the user un-did.
+          useCheckinDraftStore.getState().removeItemBySource({
+            goalId,
+            sourceType: 'activity',
+            sourceId: activityId,
+          });
+        }
       }
     },
-    [updateActivity, goalId]
+    [updateActivity, goalId, isSharedGoal, partnerCircleKey, capture]
   );
 
   const handleOpenActivityDetail = useCallback(
@@ -1925,23 +2227,24 @@ export function GoalDetailScreen() {
         onClose={() => setShareDrawerVisible(false)}
         goalId={goalId}
         goalTitle={goal?.title ?? 'this goal'}
-        isShared={isSharedGoal}
-        memberCount={sharedMembers?.length ?? 0}
-        onSendUpdate={() => {
-          setShareDrawerVisible(false);
-          setMembersSheetTab('activity');
-          setCheckinComposerVisible(true);
-          setMembersSheetVisible(true);
-        }}
-        onManageSharing={() => {
-          setShareDrawerVisible(false);
-          setMembersSheetTab('members');
-          setMembersSheetVisible(true);
-        }}
+        goalImageUrl={displayThumbnailUrl}
         onInviteCreated={() => {
           useCheckinNudgeStore.getState().markGoalShared(goalId);
           setShareCoachmarkVisible(false);
+          setActivePartnerPromptTrigger(null);
         }}
+      />
+      <CheckinApprovalSheet
+        visible={checkinApprovalSheetVisible}
+        draft={pendingDraft}
+        partnerNames={partnerDisplayNames}
+        goalTitle={goal?.title ?? null}
+        busy={pendingDraftBusy}
+        onSend={(text) => {
+          void handleApprovalSheetSend(text);
+        }}
+        onSkip={handleApprovalSheetSkip}
+        onDismiss={handleApprovalSheetDismiss}
       />
       <BottomDrawer
         visible={shareSignInSheetVisible}
@@ -2209,30 +2512,48 @@ export function GoalDetailScreen() {
         attentionPulse
         attentionPulseDelayMs={2500}
         attentionPulseDurationMs={12000}
-        title={<Text style={styles.goalCoachmarkTitle}>Want backup?</Text>}
+        title={
+          <Text style={styles.goalCoachmarkTitle}>
+            {activePartnerPromptTrigger === 'first_progress_alone'
+              ? 'Want someone to see this progress?'
+              : 'Add a partner'}
+          </Text>
+        }
         body={
           <Text style={styles.goalCoachmarkBody}>
-            Invite someone to cheer your wins and keep you moving.
+            {activePartnerPromptTrigger === 'first_progress_alone'
+              ? 'Add a partner before your next check-in.'
+              : 'Invite someone who can cheer your wins and keep you moving.'}
           </Text>
         }
         actions={[
-          { id: 'later', label: 'Maybe later', variant: 'ghost' },
+          {
+            id: 'later',
+            label: activePartnerPromptTrigger === 'first_progress_alone' ? 'Not now' : 'Maybe later',
+            variant: 'ghost',
+          },
           { id: 'invite', label: 'Invite a partner', variant: 'accent' },
         ]}
         onAction={(actionId) => {
+          const trigger = activePartnerPromptTrigger ?? 'first_todo_added';
           if (actionId === 'invite') {
             setShareCoachmarkVisible(false);
+            setActivePartnerPromptTrigger(null);
             setShareDrawerVisible(true);
+            capture(AnalyticsEvent.PartnerPromptInviteTapped, { goalId, trigger });
             return;
           }
-          useCheckinNudgeStore.getState().dismissShareCoachmark(goalId);
+          useCheckinNudgeStore.getState().dismissPartnerPrompt(goalId, trigger);
           setShareCoachmarkVisible(false);
-          capture(AnalyticsEvent.ShareCoachmarkDismissed, { goalId });
+          setActivePartnerPromptTrigger(null);
+          capture(AnalyticsEvent.PartnerPromptDismissed, { goalId, trigger });
         }}
         onDismiss={() => {
-          useCheckinNudgeStore.getState().dismissShareCoachmark(goalId);
+          const trigger = activePartnerPromptTrigger ?? 'first_todo_added';
+          useCheckinNudgeStore.getState().dismissPartnerPrompt(goalId, trigger);
           setShareCoachmarkVisible(false);
-          capture(AnalyticsEvent.ShareCoachmarkDismissed, { goalId });
+          setActivePartnerPromptTrigger(null);
+          capture(AnalyticsEvent.PartnerPromptDismissed, { goalId, trigger });
         }}
         placement="below"
       />
@@ -2261,37 +2582,47 @@ export function GoalDetailScreen() {
               }
               right={
                 <HStack alignItems="center" space="sm">
+                  {isSharedGoal ? (
+                    <Pressable
+                      accessibilityLabel={
+                        hasPendingDraft
+                          ? 'Partners — you have a pending check-in'
+                          : 'View partners for this goal'
+                      }
+                      accessibilityRole="button"
+                      hitSlop={10}
+                      onPress={handleOpenPartnersCheckins}
+                      style={({ pressed }) => [
+                        styles.headerPartnerAvatarButton,
+                        pressed && styles.headerPartnerAvatarButtonPressed,
+                      ]}
+                    >
+                      <OverlappingAvatarStack
+                        avatars={headerPartnerAvatars}
+                        size={HEADER_ACTION_PILL_SIZE}
+                        maxVisible={2}
+                        overlapPx={16}
+                        style={styles.headerPartnerAvatarStack}
+                      />
+                      {hasPendingDraft ? (
+                        <View
+                          pointerEvents="none"
+                          style={styles.headerPartnerPendingBadge}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no-hide-descendants"
+                        />
+                      ) : null}
+                    </Pressable>
+                  ) : null}
                   <View ref={shareButtonRef} collapsable={false}>
                     <HeaderActionPill
-                      accessibilityLabel={
-                        headerPartnerAvatars.length > 0
-                          ? `Shared with ${headerPartnerAvatars.length} ${headerPartnerAvatars.length === 1 ? 'partner' : 'partners'}. Invite another partner.`
-                          : 'Share goal'
-                      }
+                      accessibilityLabel="Share goal"
                       materialOpacity={headerActionPillOpacity}
                       size={HEADER_ACTION_PILL_SIZE}
                       onPress={handleShareGoal}
-                      style={
-                        headerPartnerAvatars.length > 0
-                          ? styles.headerSharedWithSignal
-                          : styles.headerShareInvitePill
-                      }
+                      style={styles.headerShareInvitePill}
                     >
-                      {headerPartnerAvatars.length > 0 ? (
-                        <>
-                          <OverlappingAvatarStack
-                            avatars={headerPartnerAvatars}
-                            size={30}
-                            maxVisible={2}
-                            overlapPx={11}
-                          />
-                          <View style={styles.headerSharedPlusBadge}>
-                            <Icon name="plus" size={12} color={colors.canvas} />
-                          </View>
-                        </>
-                      ) : (
-                        <Text style={styles.headerShareInviteText}>Share</Text>
-                      )}
+                      <Icon name="userPlus" size={21} color={colors.textPrimary} />
                     </HeaderActionPill>
                   </View>
                   <DropdownMenu>
@@ -2943,9 +3274,8 @@ export function GoalDetailScreen() {
         visible={membersSheetVisible}
         onClose={() => {
           setMembersSheetVisible(false);
-          setCheckinComposerVisible(false);
-          // Reset to Activity tab for next open
-          setMembersSheetTab('activity');
+          // Reset to Check-ins tab for next open
+          setMembersSheetTab('checkins');
         }}
         snapPoints={['90%']}
         scrimToken="pineSubtle"
@@ -2957,76 +3287,135 @@ export function GoalDetailScreen() {
               value={membersSheetTab}
               onChange={setMembersSheetTab}
               options={[
-                { value: 'activity', label: 'To-do' },
-                { value: 'members', label: 'Members' },
+                { value: 'checkins', label: 'Check-ins' },
+                { value: 'partners', label: 'Partners' },
               ]}
               size="compact"
             />
           </View>
 
-          {/* Activity Tab */}
-          {membersSheetTab === 'activity' ? (
+          {/* Check-ins Tab */}
+          {membersSheetTab === 'checkins' ? (
             <View style={styles.activityTabContent}>
-              <View style={styles.checkinComposerHost}>
-                {checkinComposerVisible ? (
-                  <CheckinComposer
-                    goalId={goalId}
-                    compact
-                    onCheckinSubmitted={handleCheckinSubmitted}
-                    onDismiss={() => setCheckinComposerVisible(false)}
+              {pendingDraft ? (
+                <View style={styles.pendingDraftHost}>
+                  <PendingCheckinDraftCard
+                    draft={pendingDraft}
+                    partnerNames={partnerDisplayNames}
+                    busy={pendingDraftBusy}
+                    onSend={(text) => {
+                      void handleSendPendingDraft(text);
+                    }}
+                    onSkip={handleSkipPendingDraft}
+                    onRemoveItem={handleRemovePendingDraftItem}
                   />
-                ) : (
-                  <VStack space="sm" style={styles.checkinPromptCard}>
-                    <Text style={styles.checkinPromptTitle}>Send an update</Text>
-                    <Text style={styles.checkinPromptBody}>
-                      Share a quick check-in so accountability partners know how this goal is going.
-                    </Text>
-                    <Button
-                      variant="secondary"
-                      size="compact"
-                      onPress={() => setCheckinComposerVisible(true)}
-                      accessibilityLabel="Send a goal update"
-                    >
-                      <HStack alignItems="center" space="xs">
-                        <Icon name="messageCircle" size={16} color={colors.accent} />
-                        <Text style={styles.checkinPromptButtonLabel}>Send update</Text>
-                      </HStack>
-                    </Button>
-                  </VStack>
-                )}
-              </View>
+                </View>
+              ) : null}
+
+              {!pendingDraft ? (
+                <View style={styles.checkinsEmptyCard}>
+                  <View style={styles.checkinsEmptyIcon}>
+                    <Icon name="checklist" size={22} color={colors.pine700} />
+                  </View>
+                  <Text style={styles.checkinsEmptyTitle}>Nothing to check in yet</Text>
+                  <Text style={styles.checkinsEmptyBody}>
+                    Finish a to-do or complete this goal and Kwilt will draft a check-in from what moved.
+                  </Text>
+                </View>
+              ) : null}
 
               {/* Feed - check-ins and partner reactions */}
-              <View style={styles.feedSection}>
-                <GoalFeedSection goalId={goalId} refreshKey={feedRefreshKey} />
+              <View style={[styles.feedSection, !pendingDraft && styles.feedSectionEmpty]}>
+                <GoalFeedSection goalId={goalId} refreshKey={feedRefreshKey} showEmptyState={false} />
               </View>
+
             </View>
           ) : null}
 
-          {/* Members Tab */}
-          {membersSheetTab === 'members' ? (
+          {/* Partners Tab */}
+          {membersSheetTab === 'partners' ? (
             <View style={styles.membersTabContent}>
           {authIdentity ? (
             <>
               {sharedMembersBusy ? (
                 <Text style={styles.membersSheetBody}>Loading members…</Text>
               ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
-                <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                  {sharedMembers.map((m) => (
-                    <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
-                      <ProfileAvatar
-                        name={m.name ?? undefined}
-                        avatarUrl={m.avatarUrl ?? undefined}
-                        size={36}
-                        borderRadius={18}
-                      />
-                      <VStack flex={1} space="xs">
-                        <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
-                        {m.role ? <Text style={styles.memberMeta}>{m.role}</Text> : null}
-                      </VStack>
-                    </HStack>
-                  ))}
-                </VStack>
+                isSharedGoal ? (
+                  <VStack space="sm" style={{ marginTop: spacing.sm }}>
+                    {sharedMembers.map((m) => {
+                      const userId = m.userId.trim();
+                      const isCurrentUser = currentUserIds.has(userId);
+                      const roleLabel = sharedMemberRoleLabel(m, currentUserIds);
+                      const canRemoveMember =
+                        canRemoveGoalPartners && !isCurrentUser && (m.role ?? '').toLowerCase() !== 'owner';
+                      const isRemoving = removingPartnerUserId === m.userId;
+                      return (
+                        <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
+                          <ProfileAvatar
+                            name={m.name ?? undefined}
+                            avatarUrl={m.avatarUrl ?? undefined}
+                            size={36}
+                            borderRadius={18}
+                          />
+                          <VStack flex={1} space="xs">
+                            <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
+                            <Text style={styles.memberMeta}>{roleLabel}</Text>
+                          </VStack>
+                          {canRemoveMember ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Remove ${m.name ?? 'partner'}`}
+                              disabled={Boolean(removingPartnerUserId)}
+                              onPress={() => handleRemovePartner(m)}
+                              style={[
+                                styles.removePartnerButton,
+                                Boolean(removingPartnerUserId) && styles.removePartnerButtonDisabled,
+                              ]}
+                            >
+                              {isRemoving ? (
+                                <ActivityIndicator size="small" color={colors.madder} />
+                              ) : (
+                                <Text style={styles.removePartnerButtonText}>Remove</Text>
+                              )}
+                            </Pressable>
+                          ) : null}
+                        </HStack>
+                      );
+                    })}
+                  </VStack>
+                ) : (
+                  <View style={styles.partnersEmptyCard}>
+                    <View style={styles.partnersEmptyIcon}>
+                      <Icon name="userPlus" size={22} color={colors.pine700} />
+                    </View>
+                    <Text style={styles.partnersEmptyTitle}>No partner yet</Text>
+                    <Text style={styles.partnersEmptyBody}>
+                      Add someone who can follow this goal and cheer what moves.
+                    </Text>
+                    {canRemoveGoalPartners ? (
+                      <View style={styles.partnersEmptyCta}>
+                        <Button
+                          variant="primary"
+                          fullWidth
+                          onPress={() => {
+                            const trigger: PartnerPromptTrigger = 'partners_tab_empty';
+                            useCheckinNudgeStore
+                              .getState()
+                              .recordPartnerPromptShown(goalId, trigger);
+                            capture(AnalyticsEvent.PartnerPromptInviteTapped, {
+                              goalId,
+                              trigger,
+                            });
+                            setMembersSheetVisible(false);
+                            void handleShareGoal();
+                          }}
+                          label="Invite a partner"
+                          accessibilityLabel="Invite a partner"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                )
               ) : (
                 <Text style={styles.membersSheetBody}>
                   No members found yet. If you just joined, try again in a moment.
@@ -3082,16 +3471,18 @@ export function GoalDetailScreen() {
                 accessibilityLabel="Leave shared goal"
               />
             ) : null}
-            <Button
-              variant="primary"
-              fullWidth
-              onPress={() => {
-                setMembersSheetVisible(false);
-                void handleShareGoal();
-              }}
-              label="Invite"
-              accessibilityLabel="Invite"
-            />
+            {canRemoveGoalPartners && isSharedGoal ? (
+              <Button
+                variant="primary"
+                fullWidth
+                onPress={() => {
+                  setMembersSheetVisible(false);
+                  void handleShareGoal();
+                }}
+                label="Invite"
+                accessibilityLabel="Invite partners"
+              />
+            ) : null}
           </View>
             </View>
           ) : null}
@@ -3254,6 +3645,32 @@ export function GoalDetailScreen() {
                       celebrateGoalCompleted(goal.title);
                       // Fire progress signal for shared goals (fire-and-forget)
                       void createProgressSignal({ goalId: goal.id, type: 'goal_completed' });
+
+                      if (isSharedGoal && partnerCircleKey !== 'solo' && goal.title) {
+                        const store = useCheckinDraftStore.getState();
+                        const draft = store.ensureDraft({
+                          goalId: goal.id,
+                          partnerCircleKey,
+                          initialItem: makeDraftItem({
+                            sourceType: 'goal',
+                            sourceId: goal.id,
+                            title: goal.title.trim(),
+                            completedAt: timestamp,
+                          }),
+                        });
+                        capture(AnalyticsEvent.CheckinDraftCreated, {
+                          goalId: goal.id,
+                          sourceType: 'goal',
+                        });
+                        if (canShowImmediateApprovalPrompt(draft)) {
+                          store.markPrompted(goal.id);
+                          capture(AnalyticsEvent.CheckinDraftShown, {
+                            goalId: goal.id,
+                            trigger: 'goal_completed',
+                          });
+                          setCheckinApprovalSheetVisible(true);
+                        }
+                      }
                     }
                   }}
                 >
@@ -4819,31 +5236,32 @@ const styles = StyleSheet.create({
   heroAttributionLink: {
     textDecorationLine: 'underline',
   },
-  headerSharedWithSignal: {
-    width: 56,
-    paddingLeft: 7,
-    paddingRight: 15,
-  },
   headerShareInvitePill: {
-    width: 68,
-    paddingHorizontal: spacing.md,
+    width: 44,
+    paddingHorizontal: 0,
   },
-  headerShareInviteText: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-  },
-  headerSharedPlusBadge: {
-    position: 'absolute',
-    right: 4,
-    bottom: 5,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.accent,
+  headerPartnerAvatarButton: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+  },
+  headerPartnerAvatarButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
+  },
+  headerPartnerAvatarStack: {
+    justifyContent: 'center',
+  },
+  headerPartnerPendingBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.warning,
+    borderWidth: 2,
     borderColor: colors.canvas,
   },
   goalSheet: {
@@ -4908,7 +5326,7 @@ const styles = StyleSheet.create({
   },
   membersSheetContent: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.sm,
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
   },
@@ -4933,6 +5351,22 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  removePartnerButton: {
+    minHeight: 32,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray100,
+  },
+  removePartnerButtonDisabled: {
+    opacity: 0.6,
+  },
+  removePartnerButtonText: {
+    ...typography.label,
+    color: colors.madder,
+    fontFamily: fonts.medium,
+  },
   membersSheetActions: {
     marginTop: spacing.lg,
     gap: spacing.sm,
@@ -4948,33 +5382,79 @@ const styles = StyleSheet.create({
   activityTabContent: {
     flex: 1,
   },
-  checkinComposerHost: {
+  pendingDraftHost: {
     marginBottom: spacing.md,
   },
-  checkinPromptCard: {
-    ...cardSurfaceStyle,
-    borderRadius: 16,
-    padding: spacing.md,
+  checkinsEmptyCard: {
+    flex: 1,
+    minHeight: 320,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  checkinPromptTitle: {
-    ...typography.body,
+  checkinsEmptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.pine50,
+    marginBottom: spacing.sm,
+  },
+  checkinsEmptyTitle: {
+    ...typography.titleSm,
     color: colors.textPrimary,
-    fontFamily: fonts.medium,
+    textAlign: 'center',
   },
-  checkinPromptBody: {
+  checkinsEmptyBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
-  checkinPromptButtonLabel: {
+  partnersEmptyCard: {
+    flex: 1,
+    minHeight: 280,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  partnersEmptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.pine50,
+    marginBottom: spacing.sm,
+  },
+  partnersEmptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  partnersEmptyBody: {
     ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.medium,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  partnersEmptyCta: {
+    alignSelf: 'stretch',
+    marginTop: spacing.xs,
   },
   membersTabContent: {
     flex: 1,
   },
   feedSection: {
     flex: 1,
+    marginTop: spacing.md,
+  },
+  feedSectionEmpty: {
+    flex: 0,
+    marginTop: 0,
   },
   editableField: {
     borderWidth: 1,

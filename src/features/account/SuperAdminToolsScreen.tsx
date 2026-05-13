@@ -103,7 +103,7 @@ function buildShareMessage(args: { code: string; expiresAt?: string | null }) {
     args.expiresAt && args.expiresAt.trim()
       ? `\nExpires: ${formatExpiresAt(args.expiresAt)}`
       : '\nExpires: 1 year after generation';
-  return `Kwilt Pro access code (one-time): ${args.code}${expires}\n\nOpen Kwilt → Settings → Redeem Pro code.`;
+  return `Kwilt Pro access code (one-time): ${args.code}${expires}\n\nUse support-assisted redemption or a non-App Store Kwilt access flow to apply this code.`;
 }
 
 export function SuperAdminToolsScreen() {

@@ -1,7 +1,7 @@
 ---
 feature: goals
-audiences: [audience-burned-out-productivity-power-users]
-personas: [Marcus]
+audiences: [audience-burned-out-productivity-power-users, audience-private-accountability-seekers]
+personas: [Marcus, David]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves:
@@ -16,7 +16,7 @@ briefs:
   - social-goals-auth
   - social-dynamics-evolution
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-05-12
 ---
 
 # goals

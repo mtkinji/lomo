@@ -82,7 +82,7 @@ serve(async (req) => {
       .select('user_id')
       .eq('entity_type', 'goal')
       .eq('entity_id', goalId)
-      .eq('role', 'co_owner')
+      .in('role', ['owner', 'co_owner'])
       .eq('status', 'active')
       .order('created_at', { ascending: true })
       .limit(1)
