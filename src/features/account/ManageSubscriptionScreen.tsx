@@ -11,7 +11,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { paywallTheme } from '../paywall/paywallTheme';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { getActiveBillingCadence, getProSku, getProSkuPricing, openManageSubscription } from '../../services/entitlements';
+import {
+  SUBSCRIPTION_PACKAGES_UNAVAILABLE_CODE,
+  getActiveBillingCadence,
+  getProSku,
+  getProSkuPricing,
+  openManageSubscription,
+} from '../../services/entitlements';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { useAppStore } from '../../store/useAppStore';
 import { FREE_MAX_ACTIVE_GOALS_PER_ARC, FREE_MAX_ARCS_TOTAL } from '../../domain/limits';
@@ -475,10 +481,18 @@ export function ManageSubscriptionScreen() {
                     );
                   })
                   .catch((e: any) => {
-                    const message = typeof e?.message === 'string' ? e.message : 'Purchase failed';
+                    const isSubscriptionConfigError =
+                      e?.code === SUBSCRIPTION_PACKAGES_UNAVAILABLE_CODE;
+                    const message = isSubscriptionConfigError
+                      ? 'Subscriptions are not available yet. Please try again in a moment or contact support if this keeps happening.'
+                      : typeof e?.message === 'string'
+                        ? e.message
+                        : 'Purchase failed';
                     capture(AnalyticsEvent.PurchaseFailed, {
                       ...purchaseProps,
                       error: message,
+                      error_code: isSubscriptionConfigError ? e.code : undefined,
+                      revenuecat_details: isSubscriptionConfigError ? e.details : undefined,
                     });
                     Alert.alert('Purchase failed', message);
                   })

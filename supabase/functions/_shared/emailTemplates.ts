@@ -277,18 +277,18 @@ export function buildProCodeEmail(params: { code: string; note?: string | null }
 
   const text =
     `Here is your Kwilt Pro access code:\n\n${code}\n\n` +
-    `Open Kwilt \u2192 Settings \u2192 Redeem Pro code.` +
+    `Use support-assisted redemption or a non-App Store Kwilt access flow to apply this code.` +
     (note ? `\n\nNote: ${note}` : '');
 
   const html = renderLayout({
     title: 'Your Pro access code',
-    preheader: 'Copy the code and redeem it from Settings.',
+    preheader: 'Copy the code and keep it for support-assisted redemption.',
     bodyHtml: `
       <p style="margin:0 0 14px;">Here is your Kwilt Pro access code:</p>
       <div style="margin:0 0 18px;padding:14px 16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
         <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:18px;letter-spacing:0.06em;font-weight:800;color:#111827;">${escapeHtml(code)}</div>
       </div>
-      <p style="margin:0 0 18px;">Open <strong>Kwilt</strong> \u2192 <strong>Settings</strong> \u2192 <strong>Redeem Pro code</strong>.</p>
+      <p style="margin:0 0 18px;">Use support-assisted redemption or a non-App Store Kwilt access flow to apply this code.</p>
       ${note ? `<p style="margin:0;color:#6b7280;"><strong>Note:</strong> ${escapeHtml(note)}</p>` : ''}
     `,
   });

@@ -354,6 +354,7 @@ export function resetUserSpecificState(): void {
     hasSeenShareSignInHero: false,
     hasSeenCreditsEducationInterstitial: false,
     hasSeenRefineUndoCoachmark: false,
+    hasSeenFocusModeCoachmark: false,
     hasDismissedOnboardingGoalGuide: false,
     hasDismissedOnboardingActivitiesGuide: false,
     hasDismissedOnboardingPlanReadyGuide: false,
@@ -1068,6 +1069,10 @@ interface AppState {
    */
   hasSeenRefineUndoCoachmark: boolean;
   /**
+   * One-time Activity detail coachmark that teaches Focus mode from the action dock.
+   */
+  hasSeenFocusModeCoachmark: boolean;
+  /**
    * Saved configurations for the Activities list. Includes both system views
    * like "Default view" and user-created custom views.
    */
@@ -1225,6 +1230,7 @@ interface AppState {
   setHasSeenShareSignInHero: (seen: boolean) => void;
   setHasSeenCreditsEducationInterstitial: (seen: boolean) => void;
   setHasSeenRefineUndoCoachmark: (seen: boolean) => void;
+  setHasSeenFocusModeCoachmark: (seen: boolean) => void;
   setHasDismissedOnboardingGoalGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingActivitiesGuide: (dismissed: boolean) => void;
   setHasDismissedOnboardingPlanReadyGuide: (dismissed: boolean) => void;
@@ -1750,6 +1756,7 @@ export const useAppStore = create<AppState>()(
       hasSeenCreditsEducationInterstitial: false,
       redeemedReferralCodes: {},
       hasSeenRefineUndoCoachmark: false,
+      hasSeenFocusModeCoachmark: false,
       hasDismissedOnboardingGoalGuide: false,
       hasDismissedOnboardingActivitiesGuide: false,
       hasDismissedOnboardingPlanReadyGuide: false,
@@ -2144,6 +2151,10 @@ export const useAppStore = create<AppState>()(
       setHasSeenRefineUndoCoachmark: (seen) =>
         set(() => ({
           hasSeenRefineUndoCoachmark: seen,
+        })),
+      setHasSeenFocusModeCoachmark: (seen) =>
+        set(() => ({
+          hasSeenFocusModeCoachmark: seen,
         })),
       setHasDismissedOnboardingGoalGuide: (dismissed) =>
         set(() => ({
@@ -2838,6 +2849,7 @@ export const useAppStore = create<AppState>()(
             hasDismissedActivitiesListGuide: false,
             activitiesScreenVisitCount: 0,
             hasDismissedActivityDetailGuide: false,
+            hasSeenFocusModeCoachmark: false,
             hasDismissedArcExploreGuide: false,
             // When we explicitly reset onboarding answers (typically from dev
             // tooling), also reset the one-time celebrations so the overlays
@@ -2878,6 +2890,7 @@ export const useAppStore = create<AppState>()(
           hasSeenFirstArcCelebration: false,
           hasSeenOnboardingSharePrompt: false,
           hasSeenRefineUndoCoachmark: false,
+          hasSeenFocusModeCoachmark: false,
           hasDismissedOnboardingGoalGuide: false,
           hasDismissedOnboardingActivitiesGuide: false,
           hasDismissedOnboardingPlanReadyGuide: false,
@@ -2978,6 +2991,9 @@ export const useAppStore = create<AppState>()(
         }
         if (!Array.isArray(anyState.activityViews) || anyState.activityViews.length === 0) {
           anyState.activityViews = initialActivityViews;
+        }
+        if (typeof anyState.hasSeenFocusModeCoachmark !== 'boolean') {
+          anyState.hasSeenFocusModeCoachmark = false;
         }
         // Global search rehydration + one-time migration from activitySearch*
         // prefs so a returning user's "include completed" / "show metadata"

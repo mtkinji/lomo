@@ -36,7 +36,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.56',
+  version: '1.0.57',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -64,7 +64,7 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '56',
+    buildNumber: '57',
     // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
     // This prevents non-widget production builds from requiring widget target credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -87,7 +87,8 @@ const config: ExpoConfig = {
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
       LSApplicationQueriesSchemes: ['ms-outlook'],
       // Needed for soundscapes to continue playing when the screen locks.
-      UIBackgroundModes: ['audio', 'fetch', 'remote-notification', 'location'],
+      // Location offers use region monitoring/geofences, not continuous background location.
+      UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
       // Location offers (geofence enter/exit) permission strings.
       NSLocationWhenInUseUsageDescription:
         'Kwilt uses your location to set up to-do places and show maps.',
@@ -141,7 +142,15 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-font',
-    'expo-image-picker',
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Kwilt uses your photo library so you can attach images to a to-do or pick a hero image for an Arc or Goal; for example, choosing a vacation photo as the cover for a travel Arc.',
+        cameraPermission:
+          'Kwilt uses the camera so you can take a photo to attach to a to-do; for example, snapping a receipt to log an expense or a finished workout as proof of show-up.',
+      },
+    ],
     'expo-notifications',
     'expo-localization',
     'expo-location',

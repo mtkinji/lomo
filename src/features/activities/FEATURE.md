@@ -12,11 +12,12 @@ serves:
 briefs:
   - auto-schedule
   - calendar-export-ics
+  - focus-mode-education
   - geolocation-activity-offers
   - keyboard-input-safety
   - kwilt-text-coach
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-05-12
 ---
 
 # activities

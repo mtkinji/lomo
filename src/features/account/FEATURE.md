@@ -28,7 +28,7 @@ Helps Nina trust Kwilt enough to connect identity, destinations, subscriptions, 
 
 - `SettingsHomeScreen.tsx` - entry point for account and app-level configuration.
 - `AuthPromptDrawerHost.tsx` and `ProfileSettingsScreen.tsx` - identity and sign-in posture.
-- `ManageSubscriptionScreen.tsx`, `ChangePlanScreen.tsx`, and `RedeemProCodeScreen.tsx` - plan and entitlement management.
+- `ManageSubscriptionScreen.tsx` and `ChangePlanScreen.tsx` - plan and entitlement management.
 - `DestinationsLibraryScreen.tsx`, `DestinationDetailScreen.tsx`, `ConnectCursorScreen.tsx`, and `McpServerScreen.tsx` - external execution and connector configuration.
 - `NotificationsSettingsScreen.tsx`, `SharingSettingsScreen.tsx`, `AiModelSettingsScreen.tsx`, and `ExecutionTargetsSettingsScreen.tsx` - controls that keep automation permissioned.
 

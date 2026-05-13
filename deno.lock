@@ -1,0 +1,107 @@
+{
+  "version": "5",
+  "remote": {
+    "https://deno.land/std@0.224.0/async/delay.ts": "f90dd685b97c2f142b8069082993e437b1602b8e2561134827eeb7c12b95c499",
+    "https://deno.land/std@0.224.0/http/server.ts": "f9313804bf6467a1704f45f76cb6cd0a3396a3b31c316035e6a4c2035d1ea514"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo-google-fonts/inter@~0.4.2",
+        "npm:@expo-google-fonts/urbanist@~0.4.2",
+        "npm:@gorhom/bottom-sheet@^5.2.6",
+        "npm:@kingstinct/react-native-healthkit@14",
+        "npm:@react-native-aria/focus@~0.2.9",
+        "npm:@react-native-aria/interactions@~0.2.16",
+        "npm:@react-native-aria/overlays@~0.3.15",
+        "npm:@react-native-async-storage/async-storage@^2.2.0",
+        "npm:@react-native-community/datetimepicker@8.4.4",
+        "npm:@react-native-picker/picker@2.11.1",
+        "npm:@react-navigation/bottom-tabs@^7.8.5",
+        "npm:@react-navigation/drawer@^7.7.3",
+        "npm:@react-navigation/native-stack@^7.6.3",
+        "npm:@react-navigation/native@^7.1.20",
+        "npm:@rn-primitives/dialog@^1.2.0",
+        "npm:@rn-primitives/dropdown-menu@^1.2.0",
+        "npm:@rn-primitives/portal@1",
+        "npm:@supabase/supabase-js@^2.78.0",
+        "npm:@testing-library/react-native@^13.3.3",
+        "npm:@types/jest@30",
+        "npm:@types/react-native@~0.72.8",
+        "npm:@types/react@19.1",
+        "npm:baseline-browser-mapping@^2.9.14",
+        "npm:dotenv@^17.2.3",
+        "npm:eas-cli@^16.28.0",
+        "npm:expo-application@~7.0.8",
+        "npm:expo-auth-session@^7.0.10",
+        "npm:expo-av@~16.0.8",
+        "npm:expo-background-fetch@~14.0.9",
+        "npm:expo-blur@~15.0.8",
+        "npm:expo-calendar@~15.0.8",
+        "npm:expo-clipboard@~8.0.7",
+        "npm:expo-dev-client@~6.0.20",
+        "npm:expo-device@~8.0.10",
+        "npm:expo-file-system@~19.0.21",
+        "npm:expo-font@~14.0.9",
+        "npm:expo-haptics@~15.0.8",
+        "npm:expo-image-picker@~17.0.8",
+        "npm:expo-linear-gradient@~15.0.7",
+        "npm:expo-localization@~17.0.8",
+        "npm:expo-location@~19.0.8",
+        "npm:expo-notifications@~0.32.14",
+        "npm:expo-status-bar@~3.0.8",
+        "npm:expo-task-manager@~14.0.9",
+        "npm:expo-web-browser@^15.0.10",
+        "npm:expo@~54.0.24",
+        "npm:https-proxy-agent@^7.0.6",
+        "npm:jest-expo@^54.0.16",
+        "npm:jest@^29.7.0",
+        "npm:jsonwebtoken@^9.0.3",
+        "npm:lucide-react-native@0.553",
+        "npm:pixelmatch@^7.1.0",
+        "npm:pngjs@7",
+        "npm:posthog-react-native@^4.14.3",
+        "npm:react-dom@^19.1.0",
+        "npm:react-native-draggable-flatlist@^4.0.3",
+        "npm:react-native-gesture-handler@2.28",
+        "npm:react-native-is-edge-to-edge@^1.2.1",
+        "npm:react-native-maps@1.20.1",
+        "npm:react-native-markdown-display@^7.0.2",
+        "npm:react-native-nitro-modules@~0.35.5",
+        "npm:react-native-pell-rich-editor@^1.9.0",
+        "npm:react-native-purchases@^9.6.11",
+        "npm:react-native-reanimated@~4.1.1",
+        "npm:react-native-render-html@^6.3.4",
+        "npm:react-native-safe-area-context@^5.6.2",
+        "npm:react-native-screens@4.16",
+        "npm:react-native-svg@15.12.1",
+        "npm:react-native-url-polyfill@3",
+        "npm:react-native-webview@13.15.0",
+        "npm:react-native-worklets@~0.5.1",
+        "npm:react-native@0.81.5",
+        "npm:react@19.1.0",
+        "npm:typescript@~5.9.2",
+        "npm:zustand@^5.0.8"
+      ]
+    },
+    "members": {
+      "packages/kwilt-sdk": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@supabase/supabase-js@^2.78.0",
+            "npm:tsup@^8.3.5",
+            "npm:typescript@~5.9.2"
+          ]
+        }
+      },
+      "packages/kwilt-tokens": {
+        "packageJson": {
+          "dependencies": [
+            "npm:tsup@^8.3.5",
+            "npm:typescript@~5.9.2"
+          ]
+        }
+      }
+    }
+  }
+}

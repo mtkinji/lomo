@@ -466,17 +466,6 @@ export function SettingsHomeScreen() {
   }));
 
   const utilityRows: RowAction[] = [
-    ...(!isPro
-      ? ([
-          {
-            id: 'redeemProCode',
-            title: 'Redeem Pro code',
-            icon: 'sparkles',
-            onPress: () => navigation.navigate('SettingsRedeemProCode'),
-            showChevron: true,
-          },
-        ] satisfies RowAction[])
-      : []),
     ...(!authIdentity
       ? ([
           {

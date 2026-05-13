@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, Pressable, ActivityIndicator, RefreshControl, ScrollView, TextInput } from 'react-native';
 import { Text, HStack, VStack } from '../../ui/primitives';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
-import { EmptyState } from '../../ui/EmptyState';
 import { colors, spacing, typography, fonts, cardSurfaceStyle } from '../../theme';
 import {
   fetchGoalFeed,
@@ -68,6 +67,8 @@ export type GoalFeedSectionProps = {
   refreshKey?: number;
   /** Max height for the feed section (enables internal scrolling) */
   maxHeight?: number;
+  /** Some parent surfaces render their own empty-state card. */
+  showEmptyState?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ export function GoalFeedSection({
   goalId,
   refreshKey = 0,
   maxHeight,
+  showEmptyState = true,
 }: GoalFeedSectionProps) {
   const { capture } = useAnalytics();
   const [feedResult, setFeedResult] = useState<GoalFeedResult | null>(null);
@@ -103,7 +105,7 @@ export function GoalFeedSection({
     } catch (err) {
       // Show a user-friendly error, not the raw technical message
       console.warn('[GoalFeedSection] Feed load error:', err);
-      setError('Unable to load to-do. Check your connection and try again.');
+      setError('Unable to load check-ins. Check your connection and try again.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -175,13 +177,17 @@ export function GoalFeedSection({
   return (
     <View style={[styles.container, maxHeight ? { maxHeight } : undefined]}>
       {items.length === 0 ? (
-        <EmptyState
-          title="Send the first update"
-          instructions="Check-ins and cheers will show up here once you or a partner shares progress."
-          variant="compact"
-          iconName="activity"
-          style={styles.emptyContainer}
-        />
+        showEmptyState ? (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIcon}>
+              <Icon name="messageCircle" size={22} color={colors.pine700} />
+            </View>
+            <Text style={styles.emptyTitle}>Nothing to check in yet</Text>
+            <Text style={styles.emptyBody}>
+              Finish a to-do or complete this goal and Kwilt will draft a check-in from what moved.
+            </Text>
+          </View>
+        ) : null
       ) : (
         <ScrollView
           style={styles.feedScroll}
@@ -257,12 +263,9 @@ function FeedItemCard({ goalId, item, onReaction, onReplySubmitted }: FeedItemCa
 
   if (item.type === 'progress_made') {
     return (
-      <ProgressCard
+      <ProgressSignalRow
         item={item}
         timeAgo={timeAgo}
-        onReaction={(reaction) =>
-          onReaction(item.id, reaction, item.reactions?.myReaction ?? null)
-        }
       />
     );
   }
@@ -405,19 +408,31 @@ function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted }: Ch
 }
 
 function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
-  const payload = item.payload as { text?: string | null };
+  const payload = item.payload as {
+    text?: string | null;
+    webReply?: boolean;
+    senderName?: string | null;
+  };
+  const isWeb = Boolean(payload.webReply);
+  const displayName =
+    item.actorName ??
+    (payload.senderName ? payload.senderName.trim() : null) ??
+    (isWeb ? 'A partner from the invite link' : 'Someone');
   return (
     <View style={styles.replyCard}>
       <HStack space="sm" alignItems="flex-start">
         <ProfileAvatar
-          name={item.actorName ?? undefined}
+          name={displayName}
           avatarUrl={item.actorAvatarUrl ?? undefined}
           size={28}
           borderRadius={14}
         />
         <VStack flex={1} space="xs">
           <HStack space="xs" alignItems="center">
-            <Text style={styles.checkinActorName}>{item.actorName ?? 'Someone'}</Text>
+            <Text style={styles.checkinActorName}>{displayName}</Text>
+            <View style={styles.replyBadge}>
+              <Text style={styles.replyBadgeText}>{isWeb ? 'Reply • Web' : 'Reply'}</Text>
+            </View>
             <Text style={styles.checkinTime}>{timeAgo}</Text>
           </HStack>
           <Text style={styles.checkinText}>{payload.text ?? 'Replied'}</Text>
@@ -428,45 +443,21 @@ function ReplyCard({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Progress Card (activity completed)
+// Progress Signal Row (quiet automatic progress event)
+//
+// Renders as a single muted row rather than a card so the feed doesn't read
+// like the same progress is being logged twice (once as a check-in, once as a
+// system signal). User-authored check-ins remain the hero treatment.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type ProgressCardProps = {
-  item: FeedItem;
-  timeAgo: string;
-  onReaction: (reaction: ReactionType) => void;
-};
-
-function ProgressCard({ item, timeAgo, onReaction }: ProgressCardProps) {
-  const reactions = item.reactions;
-
+function ProgressSignalRow({ item, timeAgo }: { item: FeedItem; timeAgo: string }) {
+  const actor = item.actorName ?? 'Someone';
   return (
-    <View style={styles.progressCard}>
-      <HStack space="sm" alignItems="flex-start">
-        <ProfileAvatar
-          name={item.actorName ?? undefined}
-          avatarUrl={item.actorAvatarUrl ?? undefined}
-          size={36}
-          borderRadius={18}
-        />
-        <VStack flex={1} space="xs">
-          <HStack space="xs" alignItems="center">
-            <Text style={styles.progressActorName}>
-              {item.actorName ?? 'Someone'}
-            </Text>
-            <Text style={styles.progressTime}>{timeAgo}</Text>
-          </HStack>
-
-          <HStack space="xs" alignItems="center">
-            <Icon name="check" size={14} color={colors.success} />
-            <Text style={styles.progressText}>Made progress</Text>
-          </HStack>
-
-          {/* Reactions row */}
-          <ReactionBar reactions={reactions} onReaction={onReaction} />
-        </VStack>
-      </HStack>
-    </View>
+    <HStack space="sm" style={styles.systemEventCard} alignItems="center">
+      <Icon name="check" size={14} color={colors.textSecondary} />
+      <Text style={styles.systemEventText}>{`${actor} made progress`}</Text>
+      <Text style={styles.systemEventTime}>{timeAgo}</Text>
+    </HStack>
   );
 }
 
@@ -524,11 +515,18 @@ type ReactionBarProps = {
 
 function ReactionBar({ reactions, onReaction }: ReactionBarProps) {
   const myReaction = reactions?.myReaction ?? null;
-  const total = reactions?.total ?? 0;
+  const visibleReactions = REACTION_TYPES.filter((reactionType) => {
+    const count = reactions?.counts[reactionType.id] ?? 0;
+    return count > 0 || myReaction === reactionType.id;
+  });
+
+  if (visibleReactions.length === 0) {
+    return null;
+  }
 
   return (
     <HStack space="xs" style={styles.reactionBar}>
-      {REACTION_TYPES.map((reactionType) => {
+      {visibleReactions.map((reactionType) => {
         const count = reactions?.counts[reactionType.id] ?? 0;
         const isSelected = myReaction === reactionType.id;
 
@@ -538,21 +536,19 @@ function ReactionBar({ reactions, onReaction }: ReactionBarProps) {
             style={[
               styles.reactionButton,
               isSelected && styles.reactionButtonSelected,
-              count > 0 && styles.reactionButtonWithCount,
+              styles.reactionButtonWithCount,
             ]}
             onPress={() => onReaction(reactionType.id)}
           >
             <Text style={styles.reactionEmoji}>{reactionType.emoji}</Text>
-            {count > 0 ? (
-              <Text
-                style={[
-                  styles.reactionCount,
-                  isSelected && styles.reactionCountSelected,
-                ]}
-              >
-                {count}
-              </Text>
-            ) : null}
+            <Text
+              style={[
+                styles.reactionCount,
+                isSelected && styles.reactionCountSelected,
+              ]}
+            >
+              {count}
+            </Text>
           </Pressable>
         );
       })}
@@ -607,10 +603,35 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.accent,
   },
-  emptyContainer: {
-    padding: spacing.xl,
-    paddingTop: spacing.md,
+  emptyCard: {
+    marginTop: spacing.sm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.pine100,
+    backgroundColor: colors.pine50,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.canvas,
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   feedScroll: {
     flex: 1,
@@ -684,7 +705,20 @@ const styles = StyleSheet.create({
     ...cardSurfaceStyle,
     borderRadius: 12,
     padding: spacing.sm,
-    marginLeft: spacing.lg,
+    marginLeft: spacing.xl,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.border,
+  },
+  replyBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: colors.shell,
+  },
+  replyBadgeText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontFamily: fonts.medium,
   },
   reactionBar: {
     marginTop: spacing.xs,
@@ -728,26 +762,6 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     fontSize: 12,
-  },
-  progressCard: {
-    ...cardSurfaceStyle,
-    borderRadius: 12,
-    padding: spacing.sm,
-  },
-  progressActorName: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
-  },
-  progressTime: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  progressText: {
-    ...typography.bodySm,
-    color: colors.success,
-    fontFamily: fonts.medium,
   },
   goalCompletedCard: {
     ...cardSurfaceStyle,

@@ -1,11 +1,11 @@
-// Leave a shared entity (auth-backed)
+// Remove a partner from a shared entity (auth-backed)
 //
 // Route:
-// - POST /memberships-leave  -> { ok, entityType, entityId }
+// - POST /memberships-remove -> { ok, entityType, entityId, userId }
 //
 // Notes:
 // - Requires Authorization: Bearer <supabase access token>
-// - Uses service role to update membership + emit feed events
+// - Only an owner can remove another active non-owner member.
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -44,6 +44,12 @@ function requireBearerToken(req: Request): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
+function isOwnerRole(role: unknown): boolean {
+  const value = String(role ?? '').toLowerCase();
+  // `co_owner` is legacy creator data. Treat it as owner for permissions only.
+  return value === 'owner' || value === 'co_owner';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -64,70 +70,91 @@ serve(async (req) => {
   }
 
   const { data: userData, error: userErr } = await admin.auth.getUser(token);
-  const userId = userData?.user?.id ?? null;
-  if (userErr || !userId) {
+  const requesterId = userData?.user?.id ?? null;
+  if (userErr || !requesterId) {
     return json(401, { error: { message: 'Invalid auth token', code: 'unauthorized' } });
   }
 
   const body = await req.json().catch(() => null);
   const entityType = typeof body?.entityType === 'string' ? body.entityType.trim() : '';
   const entityId = typeof body?.entityId === 'string' ? body.entityId.trim() : '';
-  if (!entityType || !entityId) {
-    return json(400, { error: { message: 'Missing entityType/entityId', code: 'bad_request' } });
+  const targetUserId = typeof body?.userId === 'string' ? body.userId.trim() : '';
+  if (!entityType || !entityId || !targetUserId) {
+    return json(400, { error: { message: 'Missing entityType/entityId/userId', code: 'bad_request' } });
+  }
+  if (targetUserId === requesterId) {
+    return json(400, { error: { message: 'Use leave instead of removing yourself', code: 'bad_request' } });
   }
 
-  // Verify current membership.
-  const { data: membership, error: membershipErr } = await admin
-    .from('kwilt_memberships')
-    .select('id, role, status')
-    .eq('entity_type', entityType)
-    .eq('entity_id', entityId)
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (membershipErr || !membership) {
-    return json(403, { error: { message: 'Not a member', code: 'forbidden' } });
-  }
-
-  if ((membership as any).status === 'left') {
-    return json(200, { ok: true, entityType, entityId });
-  }
-
-  const role = ((membership as any).role ?? '').toString();
-  const { data: ownedGoal } =
+  const { data: requesterOwnedGoal } =
     entityType === 'goal'
       ? await admin
           .from('kwilt_goals')
           .select('id')
-          .eq('user_id', userId)
+          .eq('user_id', requesterId)
           .eq('id', entityId)
           .maybeSingle()
       : { data: null };
 
-  if (role === 'owner' || ownedGoal) {
-    return json(409, { error: { message: 'Owner cannot leave their own goal', code: 'owner_cannot_leave' } });
+  const { data: requesterMembership, error: requesterErr } = await admin
+    .from('kwilt_memberships')
+    .select('id, role, status')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .eq('user_id', requesterId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (requesterErr || !requesterMembership || (!requesterOwnedGoal && !isOwnerRole((requesterMembership as any).role))) {
+    return json(403, { error: { message: 'Only the goal owner can remove partners', code: 'forbidden' } });
+  }
+
+  const { data: targetMembership, error: targetErr } = await admin
+    .from('kwilt_memberships')
+    .select('id, role, status')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .eq('user_id', targetUserId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (targetErr || !targetMembership) {
+    return json(404, { error: { message: 'Partner not found', code: 'not_found' } });
+  }
+
+  const { data: targetOwnedGoal } =
+    entityType === 'goal'
+      ? await admin
+          .from('kwilt_goals')
+          .select('id')
+          .eq('user_id', targetUserId)
+          .eq('id', entityId)
+          .maybeSingle()
+      : { data: null };
+
+  if (String((targetMembership as any).role ?? '').toLowerCase() === 'owner' || targetOwnedGoal) {
+    return json(409, { error: { message: 'Goal owner cannot be removed', code: 'owner_cannot_be_removed' } });
   }
 
   const now = new Date().toISOString();
   const { error: updateErr } = await admin
     .from('kwilt_memberships')
     .update({ status: 'left', left_at: now, updated_at: now })
-    .eq('id', (membership as any).id);
+    .eq('id', (targetMembership as any).id);
 
   if (updateErr) {
-    return json(503, { error: { message: 'Unable to leave goal', code: 'provider_unavailable' } });
+    return json(503, { error: { message: 'Unable to remove partner', code: 'provider_unavailable' } });
   }
 
-  // Emit feed event (best-effort).
+  // Emit feed event (best-effort). Actor is the owner who removed access.
   await admin.from('kwilt_feed_events').insert({
     entity_type: entityType,
     entity_id: entityId,
-    actor_id: userId,
+    actor_id: requesterId,
     type: 'member_left',
-    payload: {},
+    payload: { removedUserId: targetUserId },
   });
 
-  return json(200, { ok: true, entityType, entityId });
+  return json(200, { ok: true, entityType, entityId, userId: targetUserId });
 });
-
 
