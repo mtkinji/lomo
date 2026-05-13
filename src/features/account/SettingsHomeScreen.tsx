@@ -104,6 +104,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         tags: ['phone', 'sms', 'follow-through'],
       },
       {
+        id: 'connected_tools',
+        title: 'Connected tools',
+        description: 'Review and revoke AI agents connected to Kwilt.',
+        icon: 'settings',
+        route: 'SettingsConnectedTools',
+        tags: ['mcp', 'cursor', 'claude', 'codex', 'agents'],
+      },
+      {
         id: 'execution_targets',
         title: 'Destinations',
         description: 'Install and configure destinations like Cursor.',

@@ -1,5 +1,6 @@
 import {
   EXTERNAL_MCP_READ_TOOLS,
+  EXTERNAL_MCP_WRITE_TOOLS,
   normalizeGetArcArgs,
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
@@ -30,6 +31,37 @@ describe('externalMcp helpers', () => {
         expect(tool.annotations.readOnlyHint).toBe(true);
         expect(tool.annotations.destructiveHint).toBe(false);
         expect(tool.annotations.openWorldHint).toBe(false);
+      }
+    });
+  });
+
+  describe('EXTERNAL_MCP_WRITE_TOOLS', () => {
+    test('advertises the write tool set for Arcs, Goals, Activities, check-ins, and chapter notes', () => {
+      expect(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => tool.name)).toEqual([
+        'create_arc',
+        'update_arc',
+        'delete_arc',
+        'create_goal',
+        'update_goal',
+        'delete_goal',
+        'add_goal_checkin',
+        'capture_activity',
+        'update_activity',
+        'mark_activity_done',
+        'set_focus_today',
+        'delete_activity',
+        'update_chapter_user_note',
+      ]);
+    });
+
+    test('marks all write tools as non-read-only and delete tools as destructive', () => {
+      for (const tool of EXTERNAL_MCP_WRITE_TOOLS) {
+        const schema = tool.inputSchema as any;
+        expect(tool.scope).toBe('write');
+        expect(tool.annotations.readOnlyHint).toBe(false);
+        expect(tool.annotations.openWorldHint).toBe(false);
+        expect(schema.properties?.idempotency_key).toBeDefined();
+        expect(tool.annotations.destructiveHint).toBe(tool.name.startsWith('delete_'));
       }
     });
   });

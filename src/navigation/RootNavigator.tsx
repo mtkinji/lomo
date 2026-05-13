@@ -47,6 +47,7 @@ import { AppearanceSettingsScreen } from '../features/account/AppearanceSettings
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
 import { PhoneAgentSettingsScreen } from '../features/account/PhoneAgentSettingsScreen';
+import { ConnectedToolsScreen } from '../features/account/ConnectedToolsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { SharingSettingsScreen } from '../features/account/SharingSettingsScreen';
 import { ExecutionTargetsSettingsScreen } from '../features/account/ExecutionTargetsSettingsScreen';
@@ -292,6 +293,7 @@ export type SettingsStackParamList = {
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
   SettingsPhoneAgent: undefined;
+  SettingsConnectedTools: undefined;
   SettingsSharing: undefined;
   SettingsHaptics: undefined;
   SettingsWidgets: undefined;
@@ -943,6 +945,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsPhoneAgent"
         component={PhoneAgentSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsConnectedTools"
+        component={ConnectedToolsScreen}
       />
       <SettingsStack.Screen
         name="SettingsSharing"

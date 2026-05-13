@@ -25,9 +25,9 @@ plugin) and is the auth path documented for users on the marketing site.
 PKCE `S256` is required for the consent step. The token endpoint accepts both
 `S256` and `plain` to support older clients that don't yet hash.
 
-## Read-only Sprint A tools
+## Tools
 
-The function dispatches seven owner-scoped, read-only tools:
+The function dispatches owner-scoped read tools:
 
 - `list_arcs`
 - `get_arc`
@@ -37,7 +37,18 @@ The function dispatches seven owner-scoped, read-only tools:
 - `get_current_chapter`
 - `get_show_up_status`
 
-Schemas live in `_shared/externalMcp.ts` and are advertised by `tools/list`.
+When the token has `write` scope, `tools/list` also advertises write tools:
+
+- `create_arc`, `update_arc`, `delete_arc`
+- `create_goal`, `update_goal`, `delete_goal`, `add_goal_checkin`
+- `capture_activity`, `update_activity`, `mark_activity_done`, `set_focus_today`, `delete_activity`
+- `update_chapter_user_note`
+
+Write tools create the same domain rows as the Kwilt app. Delete tools use the
+same recoverable soft-delete model (`is_deleted`, `deleted_at`, `data: {}`).
+Origin is recorded in `kwilt_external_capture_log`, not stamped onto the object.
+Schemas live in `_shared/externalMcp.ts` and write helpers live in
+`_shared/externalMcpWrite.ts`.
 
 ## Storage
 
@@ -47,7 +58,7 @@ State lives in tables created by
 - `kwilt_external_oauth_clients` — DCR registrations
 - `kwilt_external_oauth_authorization_codes` — short-lived auth codes
 - `kwilt_external_oauth_tokens` — access tokens (with optional refresh hash)
-- `kwilt_external_capture_log` — per-tool audit trail
+- `kwilt_external_capture_log` — per-tool audit trail, including write object ids and idempotency hashes
 
 Every table is service-role only; only `kwilt_external_capture_log` exposes an
 owner-scoped `SELECT` policy.

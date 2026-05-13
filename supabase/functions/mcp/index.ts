@@ -8,6 +8,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   EXTERNAL_MCP_READ_TOOLS,
+  EXTERNAL_MCP_WRITE_TOOLS,
   normalizeGetArcArgs,
   normalizeGetGoalArgs,
   normalizeListGoalsArgs,
@@ -18,6 +19,22 @@ import {
   summarizeGoal,
   summarizeShowUpStatus,
 } from '../_shared/externalMcp.ts';
+import {
+  addGoalCheckinForUser,
+  createActivityForUser,
+  createArcForUser,
+  createGoalForUser,
+  deleteActivityForUser,
+  deleteArcForUser,
+  deleteGoalForUser,
+  markActivityDoneForUser,
+  setFocusTodayForUser,
+  updateActivityForUser,
+  updateArcForUser,
+  updateChapterUserNoteForUser,
+  updateGoalForUser,
+  type ExternalWriteResult,
+} from '../_shared/externalMcpWrite.ts';
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
@@ -45,6 +62,7 @@ type ExternalTokenContext = {
 };
 
 const MCP_PROTOCOL_VERSION = '2024-11-05';
+const ALL_EXTERNAL_MCP_TOOLS = [...EXTERNAL_MCP_READ_TOOLS, ...EXTERNAL_MCP_WRITE_TOOLS];
 
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -135,6 +153,23 @@ function asInt(value: unknown): number | null {
   return Number.isFinite(n) ? Math.floor(n) : null;
 }
 
+function scopeSet(scope: string): Set<string> {
+  return new Set(scope.split(/\s+/).filter(Boolean));
+}
+
+function hasScope(context: ExternalTokenContext, scope: 'read' | 'write'): boolean {
+  return scopeSet(context.scope).has(scope);
+}
+
+function getToolScope(name: string): 'read' | 'write' | null {
+  const tool = ALL_EXTERNAL_MCP_TOOLS.find((candidate) => candidate.name === name);
+  return tool?.scope === 'write' ? 'write' : tool ? 'read' : null;
+}
+
+function getIdempotencyKey(args: unknown): string | null {
+  return asString(asRecord(args)?.idempotency_key);
+}
+
 function base64Url(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
@@ -202,9 +237,7 @@ async function requireExternalToken(req: Request): Promise<
     return { ok: false, response: json(401, { error: { message: 'Unauthorized', code: 'unauthorized' } }) };
   }
   const scope = normalizeOAuthScope(row.scope);
-  if (!scope.split(/\s+/).includes('read')) {
-    return { ok: false, response: json(403, { error: { message: 'Read scope required', code: 'insufficient_scope' } }) };
-  }
+  if (!scope) return { ok: false, response: json(403, { error: { message: 'Invalid scope', code: 'insufficient_scope' } }) };
 
   try {
     await admin.from('kwilt_external_oauth_tokens').update({ last_used_at: new Date().toISOString() }).eq('id', row.id);
@@ -242,7 +275,21 @@ function rpcId(raw: unknown): string | number | null {
 async function auditToolCall(
   admin: any,
   context: ExternalTokenContext,
-  params: { toolName: string; args: unknown; success: boolean; errorCode?: string | null; requestId?: string | null; userAgent?: string | null },
+  params: {
+    toolName: string;
+    toolKind: 'read' | 'write';
+    scopeUsed: 'read' | 'write';
+    args: unknown;
+    success: boolean;
+    errorCode?: string | null;
+    requestId?: string | null;
+    userAgent?: string | null;
+    objectType?: string | null;
+    objectId?: string | null;
+    idempotencyKeyHash?: string | null;
+    resultStatus?: 'success' | 'error' | 'idempotent_replay' | null;
+    resultSummary?: string | null;
+  },
 ) {
   try {
     await admin.from('kwilt_external_capture_log').insert({
@@ -250,12 +297,18 @@ async function auditToolCall(
       surface: context.surface,
       oauth_client_id: context.clientId,
       tool_name: params.toolName,
-      tool_kind: 'read',
+      tool_kind: params.toolKind,
       input_hash: await sha256Hex(JSON.stringify(params.args ?? {})),
       success: params.success,
       error_code: params.errorCode ?? null,
       request_id_hash: params.requestId ? await sha256Hex(params.requestId) : null,
       user_agent_hash: params.userAgent ? await sha256Hex(params.userAgent) : null,
+      object_type: params.objectType ?? null,
+      object_id: params.objectId ?? null,
+      idempotency_key_hash: params.idempotencyKeyHash ?? null,
+      scope_used: params.scopeUsed,
+      result_status: params.resultStatus ?? (params.success ? 'success' : 'error'),
+      result_summary: params.resultSummary ?? null,
     });
   } catch {
     // Audit is best-effort; tool behavior should not fail because logging failed.
@@ -434,6 +487,58 @@ async function handleReadTool(admin: any, context: ExternalTokenContext, name: s
   throw new Error('unknown_tool');
 }
 
+async function findIdempotentWrite(admin: any, context: ExternalTokenContext, idempotencyKeyHash: string): Promise<JsonObject | null> {
+  const { data } = await admin
+    .from('kwilt_external_capture_log')
+    .select('object_type,object_id,result_summary,result_status')
+    .eq('user_id', context.userId)
+    .eq('oauth_client_id', context.clientId)
+    .eq('idempotency_key_hash', idempotencyKeyHash)
+    .eq('success', true)
+    .maybeSingle();
+  const row = data as any;
+  if (!row?.object_type || !row?.object_id) return null;
+  return {
+    idempotent_replay: true,
+    object_type: String(row.object_type),
+    object_id: String(row.object_id),
+    result_summary: asString(row.result_summary) ?? 'Already completed.',
+  };
+}
+
+async function handleWriteTool(admin: any, context: ExternalTokenContext, name: string, args: unknown): Promise<ExternalWriteResult> {
+  switch (name) {
+    case 'create_arc':
+      return createArcForUser(admin, context.userId, args);
+    case 'update_arc':
+      return updateArcForUser(admin, context.userId, args);
+    case 'delete_arc':
+      return deleteArcForUser(admin, context.userId, args);
+    case 'create_goal':
+      return createGoalForUser(admin, context.userId, args);
+    case 'update_goal':
+      return updateGoalForUser(admin, context.userId, args);
+    case 'delete_goal':
+      return deleteGoalForUser(admin, context.userId, args);
+    case 'add_goal_checkin':
+      return addGoalCheckinForUser(admin, context.userId, args);
+    case 'capture_activity':
+      return createActivityForUser(admin, context.userId, args);
+    case 'update_activity':
+      return updateActivityForUser(admin, context.userId, args);
+    case 'mark_activity_done':
+      return markActivityDoneForUser(admin, context.userId, args);
+    case 'set_focus_today':
+      return setFocusTodayForUser(admin, context.userId, args);
+    case 'delete_activity':
+      return deleteActivityForUser(admin, context.userId, args);
+    case 'update_chapter_user_note':
+      return updateChapterUserNoteForUser(admin, context.userId, args);
+    default:
+      throw new Error('unknown_tool');
+  }
+}
+
 async function handleRegister(req: Request) {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
   const admin = getSupabaseAdmin();
@@ -541,6 +646,9 @@ async function handleAuthorizeApprove(req: Request) {
   if (!client || client.revoked_at || !redirectUriAllowed(client, redirectUri)) return json(400, { error: 'invalid_request' });
   if (!codeChallenge || codeChallengeMethod !== 'S256') return json(400, { error: 'invalid_request', error_description: 'S256 PKCE is required' });
 
+  const scope = normalizeOAuthScope(body.scope);
+  if (!scope) return json(400, { error: 'invalid_scope' });
+
   const code = randomToken('kwilt_code', 32);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const { error } = await admin.from('kwilt_external_oauth_authorization_codes').insert({
@@ -550,7 +658,7 @@ async function handleAuthorizeApprove(req: Request) {
     redirect_uri: redirectUri,
     code_challenge: codeChallenge,
     code_challenge_method: codeChallengeMethod,
-    scope: normalizeOAuthScope(body.scope),
+    scope,
     expires_at: expiresAt,
   });
   if (error) return json(500, { error: 'authorization_code_failed' });
@@ -612,7 +720,9 @@ async function handleToken(req: Request) {
       .maybeSingle();
     if (!claimed) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
-    scope = normalizeOAuthScope(row.scope);
+    const normalizedScope = normalizeOAuthScope(row.scope);
+    if (!normalizedScope) return json(400, { error: 'invalid_grant' });
+    scope = normalizedScope;
   } else if (grantType === 'refresh_token') {
     const refreshToken = asString(body.refresh_token);
     if (!refreshToken) return json(400, { error: 'invalid_grant' });
@@ -624,7 +734,9 @@ async function handleToken(req: Request) {
     const row = data as any;
     if (!row || row.client_id !== clientId || row.revoked_at) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
-    scope = normalizeOAuthScope(row.scope);
+    const normalizedScope = normalizeOAuthScope(row.scope);
+    if (!normalizedScope) return json(400, { error: 'invalid_grant' });
+    scope = normalizedScope;
   } else {
     return json(400, { error: 'unsupported_grant_type' });
   }
@@ -696,7 +808,8 @@ async function handleMcp(req: Request) {
   }
 
   if (method === 'tools/list') {
-    return json(200, rpcResult(id, { tools: EXTERNAL_MCP_READ_TOOLS } as JsonObject));
+    const tools = hasScope(auth.context, 'write') ? ALL_EXTERNAL_MCP_TOOLS : EXTERNAL_MCP_READ_TOOLS;
+    return json(200, rpcResult(id, { tools } as JsonObject));
   }
 
   if (method !== 'tools/call') return json(200, rpcError(id, -32601, `Method not found: ${method}`));
@@ -704,16 +817,31 @@ async function handleMcp(req: Request) {
   const name = asString(params.name);
   const args = params.arguments ?? {};
   if (!name) return json(200, rpcError(id, -32602, 'Missing tool name'));
-  if (!EXTERNAL_MCP_READ_TOOLS.some((tool) => tool.name === name)) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
+  const toolScope = getToolScope(name);
+  if (!toolScope) return json(200, rpcError(id, -32601, `Unknown tool: ${name}`));
+  if (!hasScope(auth.context, toolScope)) return json(200, rpcError(id, -32000, `${toolScope} scope required`));
 
   try {
-    const result = await handleReadTool(auth.admin, auth.context, name, args);
+    const idempotencyKey = toolScope === 'write' ? getIdempotencyKey(args) : null;
+    const idempotencyKeyHash = idempotencyKey ? await sha256Hex(`${name}:${idempotencyKey}`) : null;
+    const replay = idempotencyKeyHash ? await findIdempotentWrite(auth.admin, auth.context, idempotencyKeyHash) : null;
+    const writeResult = toolScope === 'write' && !replay
+      ? await handleWriteTool(auth.admin, auth.context, name, args)
+      : null;
+    const finalResult = replay ?? (writeResult ? writeResult.structured : await handleReadTool(auth.admin, auth.context, name, args));
     await auditToolCall(auth.admin, auth.context, {
       toolName: name,
+      toolKind: toolScope,
+      scopeUsed: toolScope,
       args,
       success: true,
       requestId: typeof id === 'string' || typeof id === 'number' ? String(id) : null,
       userAgent: req.headers.get('user-agent'),
+      objectType: writeResult?.object_type ?? (replay ? asString(replay.object_type) : null),
+      objectId: writeResult?.object_id ?? (replay ? asString(replay.object_id) : null),
+      idempotencyKeyHash: replay ? null : idempotencyKeyHash,
+      resultStatus: replay ? 'idempotent_replay' : 'success',
+      resultSummary: writeResult?.result_summary ?? (replay ? asString(replay.result_summary) : null),
     });
     await capturePosthogEvent({
       distinctId: auth.context.userId,
@@ -721,20 +849,24 @@ async function handleMcp(req: Request) {
       properties: {
         surface: auth.context.surface,
         tool_name: name,
-        tool_kind: 'read',
+        tool_kind: toolScope,
+        scope_used: toolScope,
         success: true,
       },
     });
-    return json(200, rpcResult(id, { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result } as JsonObject));
+    return json(200, rpcResult(id, { content: [{ type: 'text', text: JSON.stringify(finalResult) }], structuredContent: finalResult } as JsonObject));
   } catch (error) {
     const errorCode = error instanceof Error ? error.message : 'tool_failed';
     await auditToolCall(auth.admin, auth.context, {
       toolName: name,
+      toolKind: toolScope,
+      scopeUsed: toolScope,
       args,
       success: false,
       errorCode,
       requestId: typeof id === 'string' || typeof id === 'number' ? String(id) : null,
       userAgent: req.headers.get('user-agent'),
+      resultStatus: 'error',
     });
     await capturePosthogEvent({
       distinctId: auth.context.userId,
@@ -742,7 +874,8 @@ async function handleMcp(req: Request) {
       properties: {
         surface: auth.context.surface,
         tool_name: name,
-        tool_kind: 'read',
+        tool_kind: toolScope,
+        scope_used: toolScope,
         success: false,
         error_code: errorCode,
       },

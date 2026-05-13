@@ -15,6 +15,7 @@ import type { RootDrawerParamList } from './RootNavigator';
  *   - `kwilt://chapters` -> MoreTab > MoreChapters
  *   - `kwilt://chapters/abc123` -> MoreTab > MoreChapterDetail (chapterId=abc123)
  *   - `kwilt://settings/subscription` -> Settings > SettingsManageSubscription
+ *   - `kwilt://settings/connections` -> Settings > SettingsConnectedTools
  *
  * When adding a new deep link path:
  *   1. Add the `path` under the correct nested `screens` here.
@@ -134,6 +135,9 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
               return Number.isFinite(parsed) ? parsed : undefined;
             },
           },
+        },
+        SettingsConnectedTools: {
+          path: 'settings/connections',
         },
       },
     },

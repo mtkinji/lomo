@@ -1,7 +1,7 @@
 ---
 id: brief-external-ai-connector
-title: External AI connector — Kwilt as a remote MCP for Claude & ChatGPT
-status: draft
+title: External AI connector — Kwilt as a remote MCP for AI agents
+status: accepted
 audiences: [audience-ai-native-life-operators]
 personas: [Nina]
 hero_jtbd: jtbd-trust-this-app-with-my-life
@@ -16,7 +16,7 @@ related_briefs:
   - brief-background-agents-weekly-planning
   - brief-kwilt-text-coach
 owner: andrew
-last_updated: 2026-05-10
+last_updated: 2026-05-13
 ---
 
 ## Context
@@ -74,7 +74,7 @@ The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
 - The user says natural-language things; Claude/ChatGPT calls Kwilt tools to fulfill them.
 - Every successful write tool call returns a confirmation snippet that is **calm, identity-anchored, and never gamified** (see anti-pattern guardrails below). Example: `capture_activity` returns *"Logged 'Walk with Mara, 30m' to Family Arc — Saturday 9am. Showed up today."* — never *"Crushed it!"* or *"+1 streak day!"*
-- For destructive or scoped writes (`create_goal`, `propose_arc`, `mark_activity_done` with confirmation flag), the tool response includes a `kwilt://confirm` deep link so the user can review in-app before the change is final. This honors the **no auto-anchoring** anti-pattern from the context primer.
+- Agent actions are direct after the user approves OAuth write scope. Creating, editing, or deleting Arcs, Goals, and Activities through MCP produces the same domain rows and recovery behavior as doing it in the Kwilt app. Origin stays in the connection/action audit log, not as a badge on the object.
 
 **Inside Kwilt:**
 

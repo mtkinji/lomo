@@ -4,6 +4,7 @@ type JsonObject = { [key: string]: JsonValue };
 export type ExternalMcpToolDefinition = {
   name: string;
   description: string;
+  scope?: 'read' | 'write';
   inputSchema: JsonObject;
   annotations: {
     readOnlyHint: boolean;
@@ -15,6 +16,18 @@ export type ExternalMcpToolDefinition = {
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
+  openWorldHint: false,
+};
+
+const WRITE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  openWorldHint: false,
+};
+
+const DELETE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: true,
   openWorldHint: false,
 };
 
@@ -30,6 +43,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       },
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
   },
   {
     name: 'get_arc',
@@ -42,6 +56,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       required: ['arc_id'],
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
   },
   {
     name: 'list_goals',
@@ -55,6 +70,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       },
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
   },
   {
     name: 'get_goal',
@@ -67,6 +83,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       required: ['goal_id'],
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
   },
   {
     name: 'list_recent_activities',
@@ -79,6 +96,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       },
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
   },
   {
     name: 'get_current_chapter',
@@ -88,6 +106,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       properties: {},
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
   },
   {
     name: 'get_show_up_status',
@@ -97,6 +116,235 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       properties: {},
     },
     annotations: READ_ONLY_ANNOTATIONS,
+    scope: 'read',
+  },
+];
+
+const IDEMPOTENCY_PROPERTY = {
+  type: 'string',
+  description: 'Optional stable key for safely retrying the same write without creating duplicates.',
+};
+
+export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
+  {
+    name: 'create_arc',
+    description: 'Create a Kwilt Arc for the authenticated user. The Arc appears exactly as if the user created it in Kwilt.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        name: { type: 'string' },
+        narrative: { type: 'string' },
+        identity_statement: { type: 'string' },
+        status: { type: 'string', enum: ['active', 'paused', 'archived'] },
+      },
+      required: ['name'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'update_arc',
+    description: 'Update fields on a user-owned Kwilt Arc.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        arc_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        name: { type: 'string' },
+        narrative: { type: 'string' },
+        identity_statement: { type: 'string' },
+        status: { type: 'string', enum: ['active', 'paused', 'archived'] },
+      },
+      required: ['arc_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'delete_arc',
+    description: 'Delete a user-owned Kwilt Arc using the same recoverable delete behavior as the Kwilt app.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        arc_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['arc_id'],
+    },
+    annotations: DELETE_ANNOTATIONS,
+  },
+  {
+    name: 'create_goal',
+    description: 'Create a Kwilt Goal for the authenticated user. The Goal appears exactly as if the user created it in Kwilt.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        title: { type: 'string' },
+        description: { type: 'string' },
+        arc_id: { type: ['string', 'null'] },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'completed', 'archived'] },
+        priority: { type: 'integer', enum: [1, 2, 3] },
+        target_date: { type: 'string' },
+      },
+      required: ['title'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'update_goal',
+    description: 'Update fields on a user-owned Kwilt Goal.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        title: { type: 'string' },
+        description: { type: 'string' },
+        arc_id: { type: ['string', 'null'] },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'completed', 'archived'] },
+        priority: { type: 'integer', enum: [1, 2, 3] },
+        target_date: { type: ['string', 'null'] },
+      },
+      required: ['goal_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'delete_goal',
+    description: 'Delete a user-owned Kwilt Goal using the same recoverable delete behavior as the Kwilt app.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['goal_id'],
+    },
+    annotations: DELETE_ANNOTATIONS,
+  },
+  {
+    name: 'add_goal_checkin',
+    description: 'Add a Kwilt check-in to a goal the authenticated user can access.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        preset: { type: ['string', 'null'], enum: ['made_progress', 'struggled_today', 'need_encouragement', 'just_checking_in', null] },
+        text: { type: 'string' },
+      },
+      required: ['goal_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'capture_activity',
+    description: 'Create a Kwilt To-do for the authenticated user. The To-do appears exactly as if the user created it in Kwilt.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        goal_id: { type: ['string', 'null'] },
+        title: { type: 'string' },
+        notes: { type: 'string' },
+        type: { type: 'string' },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
+        tags: { type: 'array', items: { type: 'string' } },
+        priority: { type: 'integer', enum: [1, 2, 3] },
+        scheduled_date: { type: ['string', 'null'] },
+      },
+      required: ['title'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'update_activity',
+    description: 'Update fields on a user-owned Kwilt To-do.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        goal_id: { type: ['string', 'null'] },
+        title: { type: 'string' },
+        notes: { type: 'string' },
+        type: { type: 'string' },
+        status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
+        tags: { type: 'array', items: { type: 'string' } },
+        priority: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
+        scheduled_date: { type: ['string', 'null'] },
+      },
+      required: ['activity_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'mark_activity_done',
+    description: 'Mark a user-owned Kwilt To-do done.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        completed_at: { type: 'string' },
+      },
+      required: ['activity_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'set_focus_today',
+    description: "Schedule a user-owned Kwilt To-do for today's focus.",
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        date: { type: 'string' },
+      },
+      required: ['activity_id'],
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: 'delete_activity',
+    description: 'Delete a user-owned Kwilt To-do using the same recoverable delete behavior as the Kwilt app.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['activity_id'],
+    },
+    annotations: DELETE_ANNOTATIONS,
+  },
+  {
+    name: 'update_chapter_user_note',
+    description: "Update the authenticated user's private note on an existing Kwilt Chapter.",
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chapter_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        note: { type: 'string' },
+      },
+      required: ['chapter_id', 'note'],
+    },
+    annotations: WRITE_ANNOTATIONS,
   },
 ];
 

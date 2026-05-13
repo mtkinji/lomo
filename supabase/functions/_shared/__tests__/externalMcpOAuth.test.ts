@@ -68,11 +68,20 @@ describe('externalMcpOAuth helpers', () => {
   });
 
   describe('normalizeOAuthScope', () => {
-    test('always returns the read scope while we are read-only', () => {
+    test('defaults to the read scope', () => {
       expect(normalizeOAuthScope(null)).toBe('read');
       expect(normalizeOAuthScope('')).toBe('read');
-      expect(normalizeOAuthScope('read write')).toBe('read');
-      expect(normalizeOAuthScope('write')).toBe('read');
+    });
+
+    test('normalizes supported scopes and makes write imply read', () => {
+      expect(normalizeOAuthScope('read write')).toBe('read write');
+      expect(normalizeOAuthScope('write')).toBe('read write');
+      expect(normalizeOAuthScope('write read write')).toBe('read write');
+    });
+
+    test('rejects unknown scopes', () => {
+      expect(normalizeOAuthScope('admin')).toBeNull();
+      expect(normalizeOAuthScope('read delete')).toBeNull();
     });
   });
 
@@ -107,7 +116,7 @@ describe('externalMcpOAuth helpers', () => {
       expect(meta.registration_endpoint).toBe(`${issuer}/register`);
       expect(meta.revocation_endpoint).toBe(`${issuer}/revoke`);
       expect(meta.code_challenge_methods_supported).toEqual(['S256']);
-      expect(meta.scopes_supported).toEqual(['read']);
+      expect(meta.scopes_supported).toEqual(['read', 'write']);
       expect(meta.token_endpoint_auth_methods_supported).toEqual([
         'client_secret_post',
         'client_secret_basic',
@@ -120,7 +129,7 @@ describe('externalMcpOAuth helpers', () => {
       expect(meta.resource).toBe(issuer);
       expect(meta.authorization_servers).toEqual([issuer]);
       expect(meta.bearer_methods_supported).toEqual(['header']);
-      expect(meta.scopes_supported).toEqual(['read']);
+      expect(meta.scopes_supported).toEqual(['read', 'write']);
     });
   });
 });

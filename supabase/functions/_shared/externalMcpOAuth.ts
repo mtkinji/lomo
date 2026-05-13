@@ -1,4 +1,6 @@
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+const SUPPORTED_OAUTH_SCOPES = ['read', 'write'] as const;
+const SUPPORTED_OAUTH_SCOPES_JSON = ['read', 'write'];
 
 export type NormalizedClientRegistration =
   | {
@@ -101,9 +103,15 @@ export async function verifyPkceChallenge(params: {
   return false;
 }
 
-export function normalizeOAuthScope(raw: unknown): string {
+export function normalizeOAuthScope(raw: unknown): string | null {
   const requested = typeof raw === 'string' ? raw.split(/\s+/).filter(Boolean) : [];
-  return requested.includes('read') ? 'read' : 'read';
+  if (requested.some((scope) => !SUPPORTED_OAUTH_SCOPES.includes(scope as (typeof SUPPORTED_OAUTH_SCOPES)[number]))) {
+    return null;
+  }
+
+  const scopes = new Set(requested.length > 0 ? requested : ['read']);
+  scopes.add('read');
+  return SUPPORTED_OAUTH_SCOPES.filter((scope) => scopes.has(scope)).join(' ');
 }
 
 export function buildAuthorizationServerMetadata(baseUrl: string): Record<string, JsonValue> {
@@ -118,7 +126,7 @@ export function buildAuthorizationServerMetadata(baseUrl: string): Record<string
     grant_types_supported: ['authorization_code', 'refresh_token'],
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'none'],
     code_challenge_methods_supported: ['S256'],
-    scopes_supported: ['read'],
+    scopes_supported: SUPPORTED_OAUTH_SCOPES_JSON,
   };
 }
 
@@ -127,7 +135,7 @@ export function buildProtectedResourceMetadata(baseUrl: string): Record<string, 
   return {
     resource,
     authorization_servers: [resource],
-    scopes_supported: ['read'],
+    scopes_supported: SUPPORTED_OAUTH_SCOPES_JSON,
     bearer_methods_supported: ['header'],
     resource_documentation: 'https://kwilt.app/privacy',
   };

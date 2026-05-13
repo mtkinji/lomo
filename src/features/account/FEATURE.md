@@ -17,7 +17,7 @@ briefs:
   - notifications-v1-5
   - social-goals-auth
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-05-13
 ---
 
 # account
@@ -29,7 +29,7 @@ Helps Nina trust Kwilt enough to connect identity, destinations, subscriptions, 
 - `SettingsHomeScreen.tsx` - entry point for account and app-level configuration.
 - `AuthPromptDrawerHost.tsx` and `ProfileSettingsScreen.tsx` - identity and sign-in posture.
 - `ManageSubscriptionScreen.tsx` and `ChangePlanScreen.tsx` - plan and entitlement management.
-- `DestinationsLibraryScreen.tsx`, `DestinationDetailScreen.tsx`, `ConnectCursorScreen.tsx`, and `McpServerScreen.tsx` - external execution and connector configuration.
+- `DestinationsLibraryScreen.tsx`, `DestinationDetailScreen.tsx`, `ConnectCursorScreen.tsx`, `McpServerScreen.tsx`, and `ConnectedToolsScreen.tsx` - external execution, connector configuration, action history, and revocation.
 - `NotificationsSettingsScreen.tsx`, `SharingSettingsScreen.tsx`, `AiModelSettingsScreen.tsx`, and `ExecutionTargetsSettingsScreen.tsx` - controls that keep automation permissioned.
 
 ## Notes
