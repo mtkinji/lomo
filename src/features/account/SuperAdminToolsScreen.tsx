@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
-  Share,
   StyleSheet,
   View,
   type NativeSyntheticEvent,
@@ -25,10 +24,9 @@ import { SegmentedControl } from '../../ui/SegmentedControl';
 import { cardSurfaceStyle, colors, spacing, typography } from '../../theme';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
-import { createProCodeAdmin, getAdminProCodesStatus, grantProSuperAdmin, revokeProSuperAdmin, sendProCodeSuperAdmin } from '../../services/proCodes';
+import { getAdminProCodesStatus } from '../../services/proCodes';
 import { grantBonusCreditsSuperAdmin } from '../../services/referrals';
 import { BottomDrawer, BottomDrawerScrollView, BottomDrawerNativeGestureView } from '../../ui/BottomDrawer';
-import { getInstallId } from '../../services/installId';
 import {
   adminGetUseSummary,
   adminListInstalls,
@@ -40,13 +38,6 @@ import {
   type AdoptionMetrics,
   type MetricsTimePeriod,
 } from '../../services/kwiltUsersDirectory';
-import {
-  clearAdminEntitlementsOverrideTier,
-  getAdminEntitlementsOverrideTier,
-  setAdminEntitlementsOverrideTier,
-  type AdminEntitlementsOverrideTier,
-} from '../../services/entitlements';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useAppStore } from '../../store/useAppStore';
 import { StaticMapImage } from '../../ui/maps/StaticMapImage';
 import {
@@ -60,12 +51,6 @@ import { Icon } from '../../ui/Icon';
 import MapView, { Circle } from 'react-native-maps';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsSuperAdminTools'>;
-
-const oneYearFromNowIso = () => {
-  const d = new Date();
-  d.setUTCFullYear(d.getUTCFullYear() + 1);
-  return d.toISOString();
-};
 
 const formatExpiresAt = (iso: string): string => {
   try {
@@ -84,9 +69,8 @@ const formatProSourceLabel = (source?: string | null): string => {
     case 'revenuecat':
       return 'Apple subscription (RevenueCat)';
     case 'code':
-      return 'Redeemed Pro code';
     case 'admin':
-      return 'Admin grant';
+      return 'Internal entitlement';
     case 'dev':
       return 'Dev override';
     case 'cache':
@@ -97,14 +81,6 @@ const formatProSourceLabel = (source?: string | null): string => {
       return source ?? '—';
   }
 };
-
-function buildShareMessage(args: { code: string; expiresAt?: string | null }) {
-  const expires =
-    args.expiresAt && args.expiresAt.trim()
-      ? `\nExpires: ${formatExpiresAt(args.expiresAt)}`
-      : '\nExpires: 1 year after generation';
-  return `Kwilt Pro access code (one-time): ${args.code}${expires}\n\nUse support-assisted redemption or a non-App Store Kwilt access flow to apply this code.`;
-}
 
 export function SuperAdminToolsScreen() {
   const navigation = useNavigation<Nav>();
@@ -118,20 +94,7 @@ export function SuperAdminToolsScreen() {
   const [debugSupabaseUrl, setDebugSupabaseUrl] = useState<string | null>(null);
   const authIdentity = useAppStore((s) => s.authIdentity);
 
-  const [tier, setTier] = useState<AdminEntitlementsOverrideTier>('real');
-  const isPro = useEntitlementsStore((s) => s.isPro);
-  const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
-  const lastSource = useEntitlementsStore((s) => s.lastSource);
-  const refreshEntitlements = useEntitlementsStore((s) => s.refreshEntitlements);
-
-  const [lastCode, setLastCode] = useState<string | null>(null);
-  const [lastExpiresAt, setLastExpiresAt] = useState<string | null>(null);
-  const [sendToEmail, setSendToEmail] = useState('');
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [codeDrawerVisible, setCodeDrawerVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [tab, setTab] = useState<'directory' | 'metrics' | 'utilities'>('directory');
+  const [tab, setTab] = useState<'directory' | 'metrics'>('directory');
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [usersPage, setUsersPage] = useState(1);
@@ -153,15 +116,6 @@ export function SuperAdminToolsScreen() {
   
   // Full-screen modal for User Hotspots map
   const [hotspotsMapModalVisible, setHotspotsMapModalVisible] = useState(false);
-
-  const [grantDrawerVisible, setGrantDrawerVisible] = useState(false);
-  const [grantTarget, setGrantTarget] = useState<'user' | 'install'>('user');
-  const [grantEmail, setGrantEmail] = useState('');
-  const [grantInstallId, setGrantInstallId] = useState('');
-  const [grantIsSubmitting, setGrantIsSubmitting] = useState(false);
-  const [grantResult, setGrantResult] = useState<{ quotaKey: string; expiresAt: string; userId?: string | null; email?: string | null } | null>(
-    null,
-  );
 
   useEffect(() => {
     let mounted = true;
@@ -190,78 +144,18 @@ export function SuperAdminToolsScreen() {
         if (!mounted) return;
         setIsChecking(false);
       });
-
-    getAdminEntitlementsOverrideTier()
-      .then((v) => {
-        if (!mounted) return;
-        setTier(v);
-      })
-      .catch(() => undefined);
-
     return () => {
       mounted = false;
     };
   }, []);
 
   const canUseTools = isSuperAdmin && !isChecking;
-  const canGenerate = !isChecking && !isSubmitting;
 
   const USERS_PER_PAGE = 50;
   const INSTALLS_PAGE_SIZE = 50;
   const LOAD_MORE_THRESHOLD_PX = 220;
 
   const isFetchingMoreRef = useRef(false);
-
-  const tierOptions = useMemo(
-    () =>
-      [
-        { value: 'real', label: 'Real' },
-        { value: 'free', label: 'Free' },
-        { value: 'trial', label: 'Trial' },
-        { value: 'pro', label: 'Pro' },
-      ] as const,
-    [],
-  );
-
-  const handleSetTier = async (next: AdminEntitlementsOverrideTier) => {
-    setTier(next);
-    setError(null);
-    try {
-      if (next === 'real') {
-        await clearAdminEntitlementsOverrideTier();
-      } else {
-        await setAdminEntitlementsOverrideTier(next);
-      }
-      await refreshEntitlements({ force: true });
-    } catch (e: any) {
-      const msg = typeof e?.message === 'string' ? e.message : 'Unable to update tier';
-      setError(msg);
-    }
-  };
-
-  const handleCreateOneYear = async () => {
-    if (isChecking || isSubmitting) return;
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const expiresAt = oneYearFromNowIso();
-      const { code } = await createProCodeAdmin({
-        maxUses: 1,
-        expiresAt,
-      });
-      setLastCode(code);
-      setLastExpiresAt(expiresAt);
-      setSendToEmail('');
-      await Clipboard.setStringAsync(code);
-      setCodeDrawerVisible(true);
-    } catch (e: any) {
-      const msg = typeof e?.message === 'string' ? e.message : 'Unable to create/send code';
-      setError(msg);
-      Alert.alert('Unable to create code', msg);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const loadAdoptionMetrics = async () => {
     if (!canUseTools) return;
@@ -531,59 +425,6 @@ export function SuperAdminToolsScreen() {
     if (distanceFromBottom <= LOAD_MORE_THRESHOLD_PX) maybeLoadMore();
   };
 
-  const openGrantDrawer = async () => {
-    setGrantResult(null);
-    setGrantDrawerVisible(true);
-    // Best-effort: prefill installId so granting to a device is one tap away.
-    if (!grantInstallId.trim()) {
-      try {
-        const id = await getInstallId();
-        setGrantInstallId(id);
-      } catch {
-        // ignore
-      }
-    }
-  };
-
-  const handleGrantOneYear = async () => {
-    if (!canUseTools) {
-      Alert.alert('Not authorized', 'You are not authorized for Super Admin tools.');
-      return;
-    }
-    if (grantIsSubmitting) return;
-    setGrantIsSubmitting(true);
-    setGrantResult(null);
-    try {
-      if (grantTarget === 'user') {
-        const email = grantEmail.trim();
-        if (!email) {
-          Alert.alert('Missing email', 'Enter the user email to grant Pro.');
-          return;
-        }
-        const res = await grantProSuperAdmin({ targetType: 'user', email });
-        if (!res?.quotaKey || !res?.expiresAt) throw new Error('No grant result returned');
-        setGrantResult({ quotaKey: res.quotaKey, expiresAt: res.expiresAt, userId: res.userId, email: res.email });
-        Alert.alert('Granted', 'Granted Pro for 1 year.');
-        return;
-      }
-
-      const installId = grantInstallId.trim();
-      if (!installId) {
-        Alert.alert('Missing install ID', 'Enter the device install ID to grant Pro.');
-        return;
-      }
-      const res = await grantProSuperAdmin({ targetType: 'install', installId });
-      if (!res?.quotaKey || !res?.expiresAt) throw new Error('No grant result returned');
-      setGrantResult({ quotaKey: res.quotaKey, expiresAt: res.expiresAt, userId: res.userId, email: res.email });
-      Alert.alert('Granted', 'Granted Pro for 1 year.');
-    } catch (e: any) {
-      const msg = typeof e?.message === 'string' ? e.message : 'Unable to grant Pro';
-      Alert.alert('Unable to grant Pro', msg);
-    } finally {
-      setGrantIsSubmitting(false);
-    }
-  };
-
   const [directoryDetailRow, setDirectoryDetailRow] = useState<DirectoryRow | null>(null);
   const directoryDetailVisible = Boolean(directoryDetailRow);
   const [detailTab, setDetailTab] = useState<'details' | 'subscription' | 'use'>('details');
@@ -738,7 +579,6 @@ export function SuperAdminToolsScreen() {
               [
                 { value: 'directory', label: 'Directory' },
                 { value: 'metrics', label: 'Metrics' },
-                { value: 'utilities', label: 'Utilities' },
               ] as const
             }
           />
@@ -1028,55 +868,6 @@ export function SuperAdminToolsScreen() {
                 </Text>
               ) : null}
             </VStack>
-          ) : tab === 'utilities' ? (
-            <VStack space="md">
-              <View style={styles.card}>
-                <VStack space="sm">
-                  <Text style={styles.cardTitle}>Simulate plan (device)</Text>
-                  <Text style={styles.body}>
-                    Current: {isPro ? 'Pro' : isProToolsTrial ? 'Trial' : 'Free'} • source: {lastSource ?? 'unknown'}
-                  </Text>
-                  <SegmentedControl
-                    value={tier}
-                    onChange={(next) => handleSetTier(next as AdminEntitlementsOverrideTier)}
-                    options={tierOptions as any}
-                  />
-                  {error ? <Text style={styles.error}>{error}</Text> : null}
-                </VStack>
-              </View>
-
-              <View style={styles.card}>
-                <VStack space="sm">
-                  <Text style={styles.cardTitle}>1-year Pro access code (one-time)</Text>
-                  <Text style={styles.body}>One-time use. Expires 1 year after generation.</Text>
-                  <Button disabled={!canGenerate} onPress={() => handleCreateOneYear()}>
-                    <Text style={styles.buttonLabel}>
-                      {isChecking ? 'Checking access…' : isSubmitting ? 'Working…' : 'Generate one-time code'}
-                    </Text>
-                  </Button>
-
-                  {lastCode ? (
-                    <View style={styles.result}>
-                      <Text style={styles.resultLabel}>Last generated</Text>
-                      <Text style={styles.body}>Open to view + share the code.</Text>
-                      <Button variant="secondary" onPress={() => setCodeDrawerVisible(true)}>
-                        <Text style={styles.secondaryButtonLabel}>Open</Text>
-                      </Button>
-                    </View>
-                  ) : null}
-                </VStack>
-              </View>
-
-              <View style={styles.card}>
-                <VStack space="sm">
-                  <Text style={styles.cardTitle}>Grant Pro (1 year)</Text>
-                  <Text style={styles.body}>Manually grant Pro to a user or device. This takes effect immediately.</Text>
-                  <Button disabled={!canUseTools} onPress={() => void openGrantDrawer()}>
-                    <Text style={styles.buttonLabel}>Open grant tool</Text>
-                  </Button>
-                </VStack>
-              </View>
-            </VStack>
           ) : (
             <VStack space="sm">
               <Input
@@ -1202,177 +993,6 @@ export function SuperAdminToolsScreen() {
             </SafeAreaView>
           </Modal>
         ) : null}
-
-        <BottomDrawer
-          visible={codeDrawerVisible}
-          onClose={() => setCodeDrawerVisible(false)}
-          snapPoints={['52%']}
-          keyboardAvoidanceEnabled={false}
-        >
-          <VStack space="md">
-            <VStack space="xs">
-              <Heading>Pro code</Heading>
-              {lastExpiresAt ? (
-                <Text style={styles.body}>One-time use • expires {formatExpiresAt(lastExpiresAt)}</Text>
-              ) : (
-                <Text style={styles.body}>One-time use</Text>
-              )}
-            </VStack>
-
-            <View style={styles.drawerCodeBox}>
-              <Text style={styles.drawerCode}>{lastCode ?? ''}</Text>
-            </View>
-
-            <Text style={styles.drawerHint}>Copied to clipboard on generation.</Text>
-
-            <VStack space="xs">
-              <Input
-                label="Send to email (optional)"
-                placeholder="someone@example.com"
-                value={sendToEmail}
-                onChangeText={setSendToEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                returnKeyType="done"
-                variant="outline"
-              />
-              <Button
-                variant="secondary"
-                disabled={!canUseTools || !lastCode || isSendingEmail || !sendToEmail.trim()}
-                onPress={async () => {
-                  if (!lastCode) return;
-                  const email = sendToEmail.trim();
-                  if (!email) return;
-                  setError(null);
-                  try {
-                    setIsSendingEmail(true);
-                    await sendProCodeSuperAdmin({
-                      channel: 'email',
-                      code: lastCode,
-                      recipientEmail: email,
-                    });
-                    Alert.alert('Sent', `Sent code to ${email}.`);
-                  } catch (e: any) {
-                    const msg = typeof e?.message === 'string' ? e.message : 'Unable to send email';
-                    Alert.alert('Unable to send email', msg);
-                  } finally {
-                    setIsSendingEmail(false);
-                  }
-                }}
-              >
-                <Text style={styles.secondaryButtonLabel}>{isSendingEmail ? 'Sending…' : 'Send email'}</Text>
-              </Button>
-            </VStack>
-
-            <View style={styles.drawerActions}>
-              <Button
-                variant="secondary"
-                disabled={!lastCode}
-                onPress={async () => {
-                  if (!lastCode) return;
-                  await Clipboard.setStringAsync(lastCode);
-                  Alert.alert('Copied', 'Code copied to clipboard.');
-                }}
-              >
-                <Text style={styles.secondaryButtonLabel}>Copy</Text>
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={!lastCode}
-                onPress={async () => {
-                  if (!lastCode) return;
-                  await Share.share({ message: buildShareMessage({ code: lastCode, expiresAt: lastExpiresAt }) });
-                }}
-              >
-                <Text style={styles.secondaryButtonLabel}>Share</Text>
-              </Button>
-            </View>
-          </VStack>
-        </BottomDrawer>
-
-        <BottomDrawer
-          visible={grantDrawerVisible}
-          onClose={() => setGrantDrawerVisible(false)}
-          snapPoints={['62%']}
-          keyboardAvoidanceEnabled
-        >
-          <VStack space="md">
-            <VStack space="xs">
-              <Heading>Grant Pro (1 year)</Heading>
-              <Text style={styles.body}>Creates a 1-year Pro entitlement for either a user or a device install ID.</Text>
-            </VStack>
-
-            <SegmentedControl
-              value={grantTarget}
-              onChange={(next) => {
-                setGrantTarget(next as 'user' | 'install');
-                setGrantResult(null);
-              }}
-              options={
-                [
-                  { value: 'user', label: 'User' },
-                  { value: 'install', label: 'Device' },
-                ] as const
-              }
-            />
-
-            {grantTarget === 'user' ? (
-              <Input
-                label="User email"
-                placeholder="someone@example.com"
-                value={grantEmail}
-                onChangeText={(t) => {
-                  setGrantEmail(t);
-                  setGrantResult(null);
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                returnKeyType="done"
-                variant="outline"
-              />
-            ) : (
-              <Input
-                label="Install ID"
-                placeholder="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
-                value={grantInstallId}
-                onChangeText={(t) => {
-                  setGrantInstallId(t);
-                  setGrantResult(null);
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="default"
-                returnKeyType="done"
-                variant="outline"
-              />
-            )}
-
-            <Button disabled={!canUseTools || grantIsSubmitting} onPress={() => void handleGrantOneYear()}>
-              <Text style={styles.buttonLabel}>{grantIsSubmitting ? 'Granting…' : 'Grant Pro for 1 year'}</Text>
-            </Button>
-
-            {grantResult ? (
-              <View style={styles.result}>
-                <Text style={styles.resultLabel}>Granted</Text>
-                <Text style={styles.body}>Quota key: {grantResult.quotaKey}</Text>
-                <Text style={styles.body}>Expires: {formatExpiresAt(grantResult.expiresAt)}</Text>
-                <HStack space="sm" alignItems="center">
-                  <Button
-                    variant="secondary"
-                    onPress={async () => {
-                      await Clipboard.setStringAsync(grantResult.quotaKey);
-                      Alert.alert('Copied', 'Quota key copied to clipboard.');
-                    }}
-                  >
-                    <Text style={styles.secondaryButtonLabel}>Copy quota key</Text>
-                  </Button>
-                </HStack>
-              </View>
-            ) : null}
-          </VStack>
-        </BottomDrawer>
 
         <BottomDrawer
           visible={directoryDetailVisible}
@@ -1549,7 +1169,7 @@ export function SuperAdminToolsScreen() {
                       {renderDetailField({
                         label: 'Source',
                         value: formatProSourceLabel(directoryDetailRow.pro.source),
-                        helperText: "Where Kwilt got this user's Pro status (subscription vs redeemed code vs admin grant).",
+                        helperText: "Where Kwilt got this user's Pro status for support review.",
                       })}
                       {directoryDetailRow.pro.expiresAt
                         ? renderDetailField({
@@ -1577,110 +1197,6 @@ export function SuperAdminToolsScreen() {
                         label: 'Current month',
                         value: getMonthKey(new Date()),
                       })}
-                    </VStack>
-
-                    <VStack space="sm">
-                      <Text style={styles.body}>
-                        {directoryDetailRow.pro.isPro
-                          ? 'This user has an active Pro subscription. Granting Pro temporarily will create a separate entitlement that bypasses Apple subscription management.'
-                          : 'Grant Pro temporarily (1 year). This creates a quota-based entitlement that bypasses Apple subscription management.'}
-                      </Text>
-                      <Text style={styles.body}>
-                        Note: Temporary grants do not affect Apple subscription status. Users with active Apple subscriptions will continue to be billed through Apple.
-                      </Text>
-                      <Button
-                        disabled={!canUseTools}
-                        onPress={async () => {
-                          if (!canUseTools) return;
-                          try {
-                            const email = (
-                              directoryDetailRow.user?.email ??
-                              directoryDetailRow.install?.userEmail ??
-                              (Array.isArray(directoryDetailRow.install?.identities) && directoryDetailRow.install?.identities?.length
-                                ? directoryDetailRow.install.identities[0]?.userEmail
-                                : null) ??
-                              ''
-                            ).trim();
-                            const installId =
-                              (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
-                                ? directoryDetailRow.user!.installIds![0]
-                                : directoryDetailRow.install?.installId) ?? '';
-                            if (email) {
-                              await grantProSuperAdmin({ targetType: 'user', email });
-                              Alert.alert('Upgraded', 'Granted Pro for 1 year.');
-                              await refreshDirectory();
-                              return;
-                            }
-                            if (installId) {
-                              await grantProSuperAdmin({ targetType: 'install', installId });
-                              Alert.alert('Upgraded', 'Granted Pro for 1 year.');
-                              await refreshDirectory();
-                              return;
-                            }
-                            Alert.alert('Missing target', 'No email or install ID available to grant Pro.');
-                          } catch (e: any) {
-                            Alert.alert('Unable to upgrade', typeof e?.message === 'string' ? e.message : 'Please try again.');
-                          }
-                        }}
-                      >
-                        <Text style={styles.buttonLabel}>
-                          {directoryDetailRow.pro.isPro ? 'Grant Pro again (1 year)' : 'Upgrade to Pro'}
-                        </Text>
-                      </Button>
-
-                      <Button
-                        variant="secondary"
-                        disabled={!canUseTools || !directoryDetailRow.pro.isPro}
-                        onPress={async () => {
-                          if (!canUseTools) return;
-                          if (!directoryDetailRow.pro.isPro) return;
-
-                          Alert.alert(
-                            'Downgrade to Free?',
-                            'This revokes Kwilt’s admin-granted Pro entitlement. If the user has a real paid subscription (RevenueCat/Apple), they will remain Pro.',
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              {
-                                text: 'Downgrade',
-                                style: 'destructive',
-                                onPress: async () => {
-                                  try {
-                                    const email = (
-                                      directoryDetailRow.user?.email ??
-                                      directoryDetailRow.install?.userEmail ??
-                                      (Array.isArray(directoryDetailRow.install?.identities) && directoryDetailRow.install?.identities?.length
-                                        ? directoryDetailRow.install.identities[0]?.userEmail
-                                        : null) ??
-                                      ''
-                                    ).trim();
-                                    const installId =
-                                      (Array.isArray(directoryDetailRow.user?.installIds) && directoryDetailRow.user!.installIds!.length
-                                        ? directoryDetailRow.user!.installIds![0]
-                                        : directoryDetailRow.install?.installId) ?? '';
-                                    if (email) {
-                                      await revokeProSuperAdmin({ targetType: 'user', email });
-                                      Alert.alert('Downgraded', 'Revoked admin Pro entitlement.');
-                                      await refreshDirectory();
-                                      return;
-                                    }
-                                    if (installId) {
-                                      await revokeProSuperAdmin({ targetType: 'install', installId });
-                                      Alert.alert('Downgraded', 'Revoked admin Pro entitlement.');
-                                      await refreshDirectory();
-                                      return;
-                                    }
-                                    Alert.alert('Missing target', 'No email or install ID available to revoke Pro.');
-                                  } catch (e: any) {
-                                    Alert.alert('Unable to downgrade', typeof e?.message === 'string' ? e.message : 'Please try again.');
-                                  }
-                                },
-                              },
-                            ],
-                          );
-                        }}
-                      >
-                        <Text style={styles.secondaryButtonLabel}>Downgrade to Free</Text>
-                      </Button>
                     </VStack>
 
                     <VStack space="sm">
@@ -2009,44 +1525,6 @@ const styles = StyleSheet.create({
   secondaryButtonLabel: {
     ...typography.body,
     color: colors.textPrimary,
-  },
-  result: {
-    marginTop: spacing.md,
-    gap: spacing.xs,
-  },
-  resultLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  resultCode: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  resultMeta: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  drawerCodeBox: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.card,
-  },
-  drawerCode: {
-    ...typography.titleMd,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  drawerHint: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  drawerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   row: {
     flexDirection: 'row',
@@ -2423,4 +1901,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shell,
   },
 });
-
