@@ -231,6 +231,8 @@ export function ActivitiesScreen() {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const quickAddAiActions = useAppStore((state) => state.quickAddAiActions);
+  const setQuickAddAiActions = useAppStore((state) => state.setQuickAddAiActions);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const reorderActivities = useAppStore((state) => state.reorderActivities);
@@ -1379,6 +1381,11 @@ export function ActivitiesScreen() {
     },
     enrichActivityWithAI,
     markActivityEnrichment,
+    tryConsumeGenerativeCredit,
+    aiCreditTier: isPro ? 'pro' : 'free',
+    onAiCreditsExhausted: () => {
+      openPaywallInterstitial({ reason: 'generative_quota_exceeded', source: 'activity_quick_add_ai' });
+    },
   });
 
   const kanbanAddCardAnchorRef = React.useRef<any>(null);
@@ -2903,6 +2910,8 @@ export function ActivitiesScreen() {
           setIsFocused={setQuickAddFocused}
           onSubmit={handleQuickAddActivity}
           onCollapse={collapseQuickAdd}
+          selectedAiActions={quickAddAiActions}
+          onSelectedAiActionsChange={setQuickAddAiActions}
           onReservedHeightChange={setQuickAddReservedHeight}
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
         />

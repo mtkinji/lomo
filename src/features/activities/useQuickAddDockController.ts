@@ -6,13 +6,18 @@ import type { ActivityRepeatRule } from '../../domain/types';
 import { spacing } from '../../theme';
 import { HapticsService } from '../../services/HapticsService';
 
-export type QuickAddAiAction = 'details' | 'steps' | 'estimate';
+export type QuickAddAiAction = 'steps' | 'triggers' | 'details';
 
-export const DEFAULT_QUICK_ADD_AI_ACTIONS: QuickAddAiAction[] = ['details', 'steps', 'estimate'];
+export const DEFAULT_QUICK_ADD_AI_ACTIONS: QuickAddAiAction[] = ['steps', 'triggers', 'details'];
 
 type QuickAddSubmitOptions = {
   aiActions?: QuickAddAiAction[];
 };
+
+type ConsumeGenerativeCredit = (params: {
+  tier: 'free' | 'pro';
+  amount?: number;
+}) => { ok: boolean; remaining: number; limit: number };
 
 type ToastPayload = {
   message: string;
@@ -74,6 +79,9 @@ type Params = {
     existingTags?: string[];
   }) => Promise<any>;
   markActivityEnrichment?: (activityId: string, enriching: boolean) => void;
+  tryConsumeGenerativeCredit?: ConsumeGenerativeCredit;
+  aiCreditTier?: 'free' | 'pro';
+  onAiCreditsExhausted?: () => void;
   /**
    * When true (default), re-focus the input after creating an activity to enable rapid entry.
    * When false, callers can dismiss/collapse the dock after submit without it re-opening.
@@ -96,6 +104,9 @@ export function useQuickAddDockController(params: Params) {
     onCreated,
     enrichActivityWithAI,
     markActivityEnrichment,
+    tryConsumeGenerativeCredit,
+    aiCreditTier = 'free',
+    onAiCreditsExhausted,
     focusAfterSubmit = true,
   } = params;
 
@@ -156,6 +167,19 @@ export function useQuickAddDockController(params: Params) {
   const submit = React.useCallback((options?: QuickAddSubmitOptions) => {
     const trimmed = value.trim();
     if (!trimmed) return;
+
+    const aiActions = options?.aiActions ?? DEFAULT_QUICK_ADD_AI_ACTIONS;
+    const shouldEnrichWithAI = aiActions.length > 0 && Boolean(enrichActivityWithAI && updateActivity);
+    if (
+      shouldEnrichWithAI &&
+      !consumeQuickAddAiActionCredits(aiActions, {
+        tier: aiCreditTier,
+        tryConsumeGenerativeCredit,
+      })
+    ) {
+      onAiCreditsExhausted?.();
+      return;
+    }
 
     const timestamp = new Date().toISOString();
     const id = `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -250,10 +274,7 @@ export function useQuickAddDockController(params: Params) {
       });
     }
 
-    const aiActions = options?.aiActions ?? DEFAULT_QUICK_ADD_AI_ACTIONS;
-    const shouldEnrichWithAI = aiActions.length > 0;
-
-    if (enrichActivityWithAI && updateActivity && shouldEnrichWithAI) {
+    if (shouldEnrichWithAI && enrichActivityWithAI && updateActivity) {
       markActivityEnrichment?.(activity.id, true);
       enrichActivityWithAI({
         activityId: activity.id,
@@ -287,6 +308,9 @@ export function useQuickAddDockController(params: Params) {
     goalId,
     enrichActivityWithAI,
     markActivityEnrichment,
+    tryConsumeGenerativeCredit,
+    aiCreditTier,
+    onAiCreditsExhausted,
     onCreated,
     recordShowUp,
     reminderAt,
@@ -323,6 +347,21 @@ export function useQuickAddDockController(params: Params) {
   };
 }
 
+export function consumeQuickAddAiActionCredits(
+  selectedActions: QuickAddAiAction[],
+  options: {
+    tier: 'free' | 'pro';
+    tryConsumeGenerativeCredit?: ConsumeGenerativeCredit;
+  },
+): boolean {
+  const actionCount = selectedActions.length;
+  if (actionCount <= 0 || !options.tryConsumeGenerativeCredit) return true;
+  return options.tryConsumeGenerativeCredit({
+    tier: options.tier,
+    amount: actionCount,
+  }).ok;
+}
+
 export function applyQuickAddAiEnrichment(
   activity: Activity,
   enrichment: any,
@@ -342,6 +381,18 @@ export function applyQuickAddAiEnrichment(
     if (enrichment.tags && enrichment.tags.length > 0 && (!activity.tags || activity.tags.length === 0)) {
       updates.tags = enrichment.tags;
     }
+    if (enrichment.goalId && !activity.goalId) {
+      updates.goalId = enrichment.goalId;
+    }
+    if (enrichment.type && activity.type === 'task' && enrichment.type !== 'task') {
+      updates.type = enrichment.type;
+    }
+    if (enrichment.estimateMinutes != null && activity.estimateMinutes == null) {
+      updates.estimateMinutes = enrichment.estimateMinutes;
+    }
+    if (enrichment.difficulty && !activity.difficulty) {
+      updates.difficulty = enrichment.difficulty;
+    }
   }
 
   if (selectedActions.has('steps')) {
@@ -355,22 +406,15 @@ export function applyQuickAddAiEnrichment(
     }
   }
 
-  if (selectedActions.has('estimate')) {
-    if (enrichment.estimateMinutes != null && activity.estimateMinutes == null) {
-      updates.estimateMinutes = enrichment.estimateMinutes;
+  if (selectedActions.has('triggers')) {
+    if (enrichment.reminderAt && !activity.reminderAt) {
+      updates.reminderAt = enrichment.reminderAt;
     }
-    if (enrichment.priority != null && activity.priority == null) {
-      updates.priority = enrichment.priority;
+    if (enrichment.scheduledDate && !activity.scheduledDate) {
+      updates.scheduledDate = enrichment.scheduledDate;
     }
-    if (enrichment.difficulty) {
-      updates.aiPlanning = {
-        ...activity.aiPlanning,
-        difficulty: enrichment.difficulty,
-        estimateMinutes: enrichment.estimateMinutes ?? activity.aiPlanning?.estimateMinutes,
-        confidence: 0.7,
-        lastUpdatedAt: options.timestamp,
-        source: 'quick_suggest' as const,
-      };
+    if (enrichment.repeatRule && !activity.repeatRule) {
+      updates.repeatRule = enrichment.repeatRule;
     }
   }
 
