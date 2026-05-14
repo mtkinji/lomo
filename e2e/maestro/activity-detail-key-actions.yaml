@@ -14,9 +14,6 @@ appId: com.andrewwatanabe.kwilt
 - tapOn:
     id: "nav.drawer.item.DevTools"
 
-- tapOn:
-    id: "devtools.tab.tools"
-
 - scrollUntilVisible:
     element:
       id: "e2e.seed.showActivityDetailGuide"
@@ -57,5 +54,4 @@ appId: com.andrewwatanabe.kwilt
 
 - tapOn:
     id: "e2e.activityDetail.focus.cancel"
-
 

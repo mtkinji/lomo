@@ -68,15 +68,7 @@ import {
   useCelebrationStore,
   recordShowUpWithCelebration,
 } from '../../store/useCelebrationStore';
-import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
-import {
-  canSubmitCheckin,
-  getOneTapCheckinPreset,
-  submitOneTapCheckin,
-  type CheckinTrigger,
-} from '../../services/checkins';
-import { shouldShowLowPriorityMomentNow } from '../../services/moments/orchestrator';
-import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
@@ -2017,71 +2009,17 @@ export function ActivitiesScreen() {
         const completedActivity = activities.find((a) => a.id === activityId);
         const activityGoalId = completedActivity?.goalId;
         if (activityGoalId) {
-          const trigger: CheckinTrigger = 'activity_complete';
-          const { shouldShowNudge } = useCheckinNudgeStore.getState();
-          const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
-          if (shouldShowNudge(activityGoalId, trigger) && momentGate.ok) {
-            void (async () => {
-              const canSubmit = await canSubmitCheckin(activityGoalId);
-              if (!canSubmit) return;
-              // Show a toast with an action to check in
-              setTimeout(() => {
-                useToastStore.getState().showToast({
-                  message: 'Progress made. Send a quick goal update?',
-                  variant: 'default',
-                  durationMs: 4000,
-                  actionLabel: 'Send update',
-                  actionOnPress: async () => {
-                    capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
-                      goalId: activityGoalId,
-                      trigger,
-                      source: 'activities_list',
-                    });
-                    try {
-                      await submitOneTapCheckin({ goalId: activityGoalId, trigger });
-                      useCheckinNudgeStore.getState().recordCheckin(activityGoalId);
-                      capture(AnalyticsEvent.SharedGoalCheckinCreated, {
-                        goalId: activityGoalId,
-                        hasPreset: true,
-                        preset: getOneTapCheckinPreset(trigger),
-                        hasText: false,
-                        source: 'checkin_nudge_toast',
-                        trigger,
-                      });
-                      // Navigate to goal detail with activity sheet open
-                      rootNavigationRef.navigate('MainTabs', {
-                        screen: 'MoreTab',
-                        params: {
-                          screen: 'MoreArcs',
-                          params: {
-                            screen: 'GoalDetail',
-                            params: {
-                              goalId: activityGoalId,
-                              entryPoint: 'activitiesStack',
-                              openActivitySheet: true,
-                            },
-                          },
-                        },
-                      });
-                    } catch (err) {
-                      const message = err instanceof Error ? err.message : 'Failed to check in';
-                      capture(AnalyticsEvent.SharedGoalCheckinFailed, {
-                        goalId: activityGoalId,
-                        error: message,
-                        source: 'checkin_nudge_toast',
-                        trigger,
-                      });
-                      useToastStore.getState().showToast({
-                        message,
-                        variant: 'danger',
-                        durationMs: 2600,
-                      });
-                    }
-                  },
-                });
-              }, 1200); // Delay to not compete with celebration
-            })();
-          }
+          void queueCheckinDraftFromProgress({
+            goalId: activityGoalId,
+            trigger: 'activity_complete',
+            source: 'activities_list',
+            sourceType: 'activity',
+            sourceId: activityId,
+            title: completedActivity?.title ?? '',
+            completedAt: timestamp,
+            openPromptDelayMs: 1200,
+            capture,
+          });
         }
       }
     },

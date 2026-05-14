@@ -25,7 +25,7 @@ type SegmentedControlProps<Value extends string> = {
 
 /**
  * Pills-style segmented control with an animated thumb, used for simple
- * two- or three-way toggles in the app shell (e.g., Dev tools vs Components).
+ * two- or three-way toggles in the app shell.
  */
 export function SegmentedControl<Value extends string>({
   value,
@@ -157,5 +157,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
   },
 });
-
 

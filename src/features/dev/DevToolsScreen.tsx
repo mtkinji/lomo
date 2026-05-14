@@ -1,24 +1,15 @@
 import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RouteProp } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
 import { colors, spacing, typography, fonts } from '../../theme';
-import { Button, IconButton } from '../../ui/Button';
-import { Input } from '../../ui/Input';
-import { Badge } from '../../ui/Badge';
-import { Card } from '../../ui/Card';
+import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { VStack, HStack, Text, Heading, Textarea, ButtonLabel, KeyboardAwareScrollView } from '../../ui/primitives';
-import { Dialog } from '../../ui/Dialog';
-import { BottomDrawer } from '../../ui/BottomDrawer';
+import { HStack, Text, ButtonLabel } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
-import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
-import { Logo } from '../../ui/Logo';
 import { Toast, type ToastVariant } from '../../ui/Toast';
 import type { RootDrawerParamList } from '../../navigation/RootNavigator';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
@@ -28,26 +19,19 @@ import { ensureArcBannerPrefill } from '../arcs/arcBannerPrefill';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
-import { openRootDrawer } from '../../navigation/openDrawer';
 import {
   DEV_COACH_CHAT_HISTORY_STORAGE_KEY,
-  clearAllCoachConversationMemory,
-  clearCoachConversationMemoryByKey,
   type CoachChatTurn,
-  type CoachConversationSummaryRecordV1,
   type DevCoachChatLogEntry,
   type DevCoachChatFeedback,
-  listCoachConversationMemoryKeys,
-  loadCoachConversationMemoryByKey,
 } from '../../services/ai';
 import { resetOpenAiQuotaFlag } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
-import { ArcTestingLauncher } from './ArcTestingLauncher';
 import type { Activity } from '../../domain/types';
-import { AgentWorkspace } from '../ai/AgentWorkspace';
-import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
-import type { LaunchContext } from '../../domain/workflows';
 import { installScreenshotSeedPack, removeScreenshotSeedPack, SCREENSHOT_PACK_ARC_IDS } from './screenshotSeedPack';
+import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
+import { makeDraftItem } from '../../services/checkinDrafts';
+import { useCheckinDraftStore } from '../../store/useCheckinDraftStore';
 import {
   useCelebrationStore,
   celebrateGoalCompleted,
@@ -59,15 +43,13 @@ import {
   celebrateStreakSaved,
 } from '../../store/useCelebrationStore';
 
-type InterstitialVariant = 'launch' | 'auth' | 'streak';
-type DevToolsRoute = RouteProp<RootDrawerParamList, 'DevTools'>;
+type DevToolSectionId = 'seed' | 'preview' | 'simulate' | 'experiments' | 'diagnostics';
 
 export function DevToolsScreen() {
+  if (!__DEV__) return null;
+
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
-  const route = useRoute<DevToolsRoute>();
-  const drawerStatus = useDrawerStatus();
   const insets = useSafeAreaInsets();
-  const menuOpen = drawerStatus === 'open';
   const isFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
   const lastTriggeredAt = useFirstTimeUxStore((state) => state.lastTriggeredAt);
@@ -124,46 +106,18 @@ export function DevToolsScreen() {
   const devSetIsPro = useEntitlementsStore((state) => state.devSetIsPro);
   const devClearProOverride = useEntitlementsStore((state) => state.devClearProOverride);
 
-  const initialTab = route.params?.initialTab ?? 'tools';
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [feedbackDrafts, setFeedbackDrafts] = useState<Record<string, string>>({});
   const [feedbackSummary, setFeedbackSummary] = useState<string>('');
-  const [viewMode, setViewMode] = useState<
-    'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory' | 'e2e'
-  >(initialTab);
-  const [demoDialogVisible, setDemoDialogVisible] = useState(false);
-  const [demoSheetVisible, setDemoSheetVisible] = useState(false);
-  const [interactionTapCount, setInteractionTapCount] = useState(0);
-  const [keyboardTapCount, setKeyboardTapCount] = useState(0);
-  const [keyboardSubmitCount, setKeyboardSubmitCount] = useState(0);
-  const [keyboardHarnessValues, setKeyboardHarnessValues] = useState<Record<string, string>>({
-    field1: '',
-    field2: '',
-    field3: '',
-    field4: '',
-    field5: '',
-    field6: '',
-    field7: '',
-    last: '',
+  const [expandedSections, setExpandedSections] = useState<Record<DevToolSectionId, boolean>>({
+    seed: true,
+    preview: true,
+    simulate: false,
+    experiments: false,
+    diagnostics: false,
   });
-  const [keyboardSheetVisible, setKeyboardSheetVisible] = useState(false);
-  const [keyboardSheetValue, setKeyboardSheetValue] = useState('');
-  const [agentHarnessVisible, setAgentHarnessVisible] = useState(false);
-  const [interstitialVariant, setInterstitialVariant] = useState<InterstitialVariant>('launch');
-  const [isInterstitialFullScreenVisible, setIsInterstitialFullScreenVisible] = useState(false);
-  const [memoryKeys, setMemoryKeys] = useState<string[]>([]);
-  const [memoryRecords, setMemoryRecords] = useState<Record<string, CoachConversationSummaryRecordV1 | null>>(
-    {}
-  );
-  const [memoryExpandedKey, setMemoryExpandedKey] = useState<string | null>(null);
-  const [isLoadingMemory, setIsLoadingMemory] = useState(false);
-
-  const [launchBody, setLaunchBody] = useState('Grow into the person you want to be.');
-  const [authBody, setAuthBody] = useState(
-    'Save your arcs and sync your progress across devices.'
-  );
 
   const [devToastMessage, setDevToastMessage] = useState('');
   const [devToastVariant, setDevToastVariant] = useState<ToastVariant>('default');
@@ -174,10 +128,6 @@ export function DevToolsScreen() {
   const [screenshotSeeding, setScreenshotSeeding] = useState(false);
   const screenshotPackInstalled = useAppStore((state) =>
     SCREENSHOT_PACK_ARC_IDS.some((id) => state.arcs.some((a) => a.id === id))
-  );
-  const [streakDays, setStreakDays] = useState('21');
-  const [streakBody, setStreakBody] = useState(
-    'You’ve shown up 21 days in a row. Keep the thread going with one small action.'
   );
 
   const loadChatHistory = async () => {
@@ -201,29 +151,6 @@ export function DevToolsScreen() {
   useEffect(() => {
     void loadChatHistory();
   }, []);
-
-  const loadMemory = async () => {
-    try {
-      setIsLoadingMemory(true);
-      const keys = await listCoachConversationMemoryKeys();
-      setMemoryKeys(keys);
-      const nextRecords: Record<string, CoachConversationSummaryRecordV1 | null> = {};
-      await Promise.all(
-        keys.map(async (key) => {
-          nextRecords[key] = await loadCoachConversationMemoryByKey(key);
-        })
-      );
-      setMemoryRecords(nextRecords);
-    } finally {
-      setIsLoadingMemory(false);
-    }
-  };
-
-  useEffect(() => {
-    if (route.params?.initialTab) {
-      setViewMode(route.params.initialTab);
-    }
-  }, [route.params?.initialTab]);
 
   const handleTriggerFirstTimeUx = () => {
     resetOnboardingAnswers();
@@ -266,6 +193,155 @@ export function DevToolsScreen() {
     return id;
   };
 
+  const ensureDevCheckinTarget = ({ alwaysCreate = false }: { alwaysCreate?: boolean } = {}) => {
+    if (!alwaysCreate) {
+      const existing = [...activities].reverse().find((activity) => {
+        if (!activity.goalId) return false;
+        return goals.some((goal) => goal.id === activity.goalId);
+      });
+      if (existing?.goalId) {
+        return { goalId: existing.goalId, activity: existing };
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    let targetArcId = arcs.length > 0 ? arcs[arcs.length - 1].id : null;
+    if (!targetArcId) {
+      targetArcId = `dev-checkin-arc-${Date.now()}`;
+      const arc = {
+        id: targetArcId,
+        name: 'Dev: Check-in testing',
+        narrative: 'Local dev Arc for testing check-in approval surfaces.',
+        status: 'active',
+        startDate: nowIso,
+        endDate: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      } as const;
+      addArc(arc);
+      void ensureArcBannerPrefill(arc);
+    }
+
+    const goalId = `dev-checkin-goal-${Date.now()}`;
+    addGoal({
+      id: goalId,
+      arcId: targetArcId,
+      title: 'Dev: Shared check-in test',
+      description: 'Local dev goal for testing check-in approval.',
+      status: 'planned',
+      startDate: nowIso,
+      targetDate: undefined,
+      forceIntent: {},
+      metrics: [],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    });
+
+    const activity: Activity = {
+      id: `dev-checkin-activity-${Date.now()}`,
+      goalId,
+      title: 'Draft the weekly update',
+      type: 'task',
+      tags: [],
+      notes: '',
+      steps: [],
+      reminderAt: null,
+      priority: undefined,
+      estimateMinutes: null,
+      creationSource: 'manual',
+      planGroupId: null,
+      scheduledDate: null,
+      repeatRule: undefined,
+      repeatCustom: undefined,
+      orderIndex: (activities.length || 0) + 1,
+      phase: null,
+      status: 'done',
+      actualMinutes: null,
+      startedAt: null,
+      completedAt: nowIso,
+      forceActual: defaultForceLevels(0),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    addActivity(activity);
+
+    return { goalId, activity };
+  };
+
+  const navigateToCheckinApproval = (goalId: string) => {
+    navigation.navigate('MainTabs', {
+      screen: 'MoreTab',
+      params: {
+        screen: 'MoreArcs',
+        params: {
+          screen: 'GoalDetail',
+          params: {
+            goalId,
+            entryPoint: 'arcsStack',
+            openCheckinApprovalSheet: true,
+          },
+        },
+      },
+    });
+  };
+
+  const handleTriggerRealCheckinNudge = () => {
+    const target = ensureDevCheckinTarget();
+    void (async () => {
+      const result = await queueCheckinDraftFromProgress({
+        goalId: target.goalId,
+        trigger: 'activity_complete',
+        source: 'dev_tools',
+        sourceType: 'activity',
+        sourceId: target.activity.id,
+        title: target.activity.title,
+        completedAt: target.activity.completedAt ?? new Date().toISOString(),
+        openPromptDelayMs: 350,
+      });
+
+      if (result.status === 'skipped') {
+        const reason =
+          result.eligibilityReason === 'no_partners'
+            ? 'No active partners on this goal.'
+            : result.eligibilityReason === 'signed_out'
+              ? 'Sign in first.'
+              : result.eligibilityReason === 'not_a_member'
+                ? 'Current user is not an active member of this goal.'
+                : result.reason === 'missing_title'
+                  ? 'The test to-do needs a title.'
+                  : 'Unable to confirm check-in audience.';
+        showDevToast(`Check-in nudge skipped: ${reason}`, 'warning');
+        return;
+      }
+
+      if (result.status === 'created' && !result.promptOpened) {
+        showDevToast('Draft created, but the real nudge gate suppressed the prompt.', 'warning');
+        return;
+      }
+
+      showDevToast('Opening real check-in approval flow.', 'success');
+    })();
+  };
+
+  const handleOpenLocalCheckinSheetDemo = () => {
+    const nowIso = new Date().toISOString();
+    const target = ensureDevCheckinTarget({ alwaysCreate: true });
+    useCheckinDraftStore.getState().ensureDraft({
+      goalId: target.goalId,
+      partnerCircleKey: 'dev-current-user|dev-partner',
+      initialItem: makeDraftItem(
+        {
+          sourceType: 'activity',
+          sourceId: `dev-local-checkin-${Date.now()}`,
+          title: target.activity.title || 'Draft the weekly update',
+          completedAt: nowIso,
+        },
+        new Date(nowIso),
+      ),
+    });
+    navigateToCheckinApproval(target.goalId);
+  };
+
   const handleShowActivitiesListGuide = () => {
     setHasDismissedActivitiesListGuide(false);
     navigation.navigate('MainTabs', {
@@ -298,6 +374,15 @@ export function DevToolsScreen() {
   const handleDebugReactivationNotification = () => {
     void NotificationService.debugFireNotification('reactivation');
   };
+
+  const handleNavigateBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('Settings', { screen: 'SettingsHome' });
+  }, [navigation]);
 
   const handleShowFirstArcCelebration = () => {
     // Fast path for testing the "Arc just created" landing moment:
@@ -661,972 +746,22 @@ export function DevToolsScreen() {
     setFeedbackSummary(lines.join('\n'));
   };
 
-  const isGallery = viewMode === 'gallery';
-  const isTypeAndColor = viewMode === 'typeColor';
-  const isArcTesting = viewMode === 'arcTesting';
-  const isMemory = viewMode === 'memory';
-  const isE2E = viewMode === 'e2e';
-
-  const interstitialSegmentOptions: { value: InterstitialVariant; label: string }[] = [
-    { value: 'launch', label: 'Launch' },
-    { value: 'auth', label: 'Auth' },
-    { value: 'streak', label: 'Streak' },
-  ];
-
-  const renderInterstitialPreview = (options?: { fullScreen?: boolean }) => {
-    const fullScreen = options?.fullScreen ?? false;
-
-    switch (interstitialVariant) {
-      case 'auth':
-        return (
-          <View style={styles.interstitialContent}>
-            {fullScreen && __DEV__ && (
-              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
-                <Button
-                  variant="accent"
-                  size="icon"
-                  iconButtonSize={28}
-                  onPress={() => setIsInterstitialFullScreenVisible(false)}
-                  accessibilityLabel="Close interstitial and return to Dev tools"
-                  style={styles.devExitButton}
-                >
-                  <Icon name="dev" color={colors.canvas} size={16} />
-                </Button>
-              </View>
-            )}
-            <View style={styles.interstitialHeroBlock}>
-              <Text style={styles.interstitialTitle}>Sign in to continue</Text>
-              <Text style={styles.interstitialBody}>{authBody}</Text>
-            </View>
-            <View style={styles.interstitialAuthCard}>
-              <Input label="Email" placeholder="you@example.com" />
-              <Input label="Password" placeholder="••••••••" />
-              <Button variant="accent" fullWidth>
-                <ButtonLabel size="md" tone="inverse">
-                  Continue
-                </ButtonLabel>
-              </Button>
-              <Button variant="ghost" fullWidth>
-                <ButtonLabel size="md">Create an account</ButtonLabel>
-              </Button>
-            </View>
-          </View>
-        );
-      case 'streak':
-        return (
-          <View style={styles.interstitialContent}>
-            {fullScreen && __DEV__ && (
-              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
-                <Button
-                  variant="accent"
-                  size="icon"
-                  iconButtonSize={28}
-                  onPress={() => setIsInterstitialFullScreenVisible(false)}
-                  accessibilityLabel="Close interstitial and return to Dev tools"
-                  style={styles.devExitButton}
-                >
-                  <Icon name="dev" color={colors.canvas} size={16} />
-                </Button>
-              </View>
-            )}
-            <View style={styles.streakHeroBlock}>
-              <Text style={styles.streakLabel}>Current streak</Text>
-              <Text style={styles.streakNumber}>{streakDays}</Text>
-              <Text style={styles.streakBody}>{streakBody}</Text>
-            </View>
-            <View style={styles.interstitialFooterBlock}>
-              <Button variant="accent" fullWidth>
-                <ButtonLabel size="md" tone="inverse">
-                  Plan today’s step
-                </ButtonLabel>
-              </Button>
-            </View>
-          </View>
-        );
-      case 'launch':
-      default:
-        return (
-          <View style={styles.interstitialContent}>
-            {fullScreen && __DEV__ && (
-              <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
-                <Button
-                  variant="accent"
-                  size="icon"
-                  iconButtonSize={28}
-                  onPress={() => setIsInterstitialFullScreenVisible(false)}
-                  accessibilityLabel="Close interstitial and return to Dev tools"
-                  style={styles.devExitButton}
-                >
-                  <Icon name="dev" color={colors.canvas} size={16} />
-                </Button>
-              </View>
-            )}
-            <View style={styles.interstitialHeroBlock}>
-              <View style={styles.launchBrandLockup}>
-                <Logo size={72} />
-                <Text style={styles.launchWordmark}>Kwilt</Text>
-              </View>
-            </View>
-          </View>
-        );
-    }
-  };
-
-  const renderComponentGallery = () => {
-    return (
-      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.stack}>
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Buttons</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Variants and sizes from the shared `Button` adapter.
-            </Text>
-            <VStack space="sm">
-              <HStack space="sm">
-                <Button variant="accent">
-                  <ButtonLabel size="md" tone="inverse">
-                    Primary
-                  </ButtonLabel>
-                </Button>
-                <Button variant="secondary">
-                  <ButtonLabel size="md">Secondary</ButtonLabel>
-                </Button>
-                <Button variant="outline">
-                  <ButtonLabel size="md">Outline</ButtonLabel>
-                </Button>
-              </HStack>
-              <HStack space="sm">
-                <Button variant="destructive">
-                  <ButtonLabel size="md" tone="inverse">
-                    Destructive
-                  </ButtonLabel>
-                </Button>
-                <Button variant="ghost">
-                  <ButtonLabel size="md">Ghost</ButtonLabel>
-                </Button>
-              </HStack>
-              <View style={styles.gallerySubsectionHeader}>
-                <Text style={styles.galleryFieldLabel}>Size variants</Text>
-              </View>
-              <HStack space="sm" alignItems="flex-start">
-                <Button variant="accent" size="lg">
-                  <ButtonLabel size="lg" tone="inverse">
-                    Large
-                  </ButtonLabel>
-                </Button>
-                <Button variant="accent">
-                  <ButtonLabel size="md" tone="inverse">
-                    Medium
-                  </ButtonLabel>
-                </Button>
-                <Button variant="accent" size="small">
-                  <ButtonLabel size="sm" tone="inverse">
-                    Small
-                  </ButtonLabel>
-                </Button>
-                <IconButton accessibilityLabel="Icon button example">
-                  <Icon name="more" size={18} color={colors.canvas} />
-                </IconButton>
-              </HStack>
-              <View style={styles.gallerySubsectionHeader}>
-                <Text style={styles.galleryFieldLabel}>Full-width</Text>
-              </View>
-              <Button variant="accent" fullWidth>
-                <ButtonLabel size="md" tone="inverse">
-                  Full width action
-                </ButtonLabel>
-              </Button>
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Inputs</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Labeled inputs with helper and error text states.
-            </Text>
-            <VStack space="sm">
-              <Input label="Surface input" placeholder="Type something" />
-              <Input
-                label="Outline input"
-                variant="outline"
-                placeholder="Search"
-                leadingIcon="search"
-              />
-              <Input
-                label="With helper text"
-                helperText="Explain what belongs here."
-                placeholder="Add details"
-              />
-              <View style={styles.gallerySubsectionHeader}>
-                <Text style={styles.galleryFieldLabel}>Textarea</Text>
-              </View>
-              <Textarea
-                label="Notes"
-                placeholder="Long-form copy or notes across multiple lines."
-                multiline
-                numberOfLines={4}
-              />
-              <Input
-                label="Error state"
-                errorText="Something went wrong"
-                placeholder="Try again"
-              />
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Badges</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Status and meta labels using the shared `Badge` adapter.
-            </Text>
-            <HStack space="sm">
-              <Badge>Default</Badge>
-              <Badge variant="secondary">Secondary</Badge>
-              <Badge variant="info">Info</Badge>
-              <Badge variant="outline">Outline</Badge>
-              <Badge variant="destructive">Destructive</Badge>
-            </HStack>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Cards</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Surface container from the `Card` adapter.
-            </Text>
-            <Card style={{ padding: spacing.md }}>
-              <VStack space="xs">
-                <Heading variant="sm">Card title</Heading>
-                <Text>
-                  Use cards to group related content on the main canvas without changing the shell
-                  background.
-                </Text>
-                <Button size="small">
-                  <Text style={styles.primaryButtonLabel}>Primary action</Text>
-                </Button>
-              </VStack>
-            </Card>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Typography</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Heading and text primitives with tone variants.
-            </Text>
-            <VStack space="sm">
-              <Heading variant="xl">Heading XL</Heading>
-              <Heading variant="lg">Heading LG</Heading>
-              <Heading variant="md">Heading MD</Heading>
-              <Heading variant="sm">Heading SM</Heading>
-              <Text>Body (default)</Text>
-              <Text variant="body">Body (body)</Text>
-              <Text variant="bodySm">Body (bodySm)</Text>
-              <Text variant="label">Label</Text>
-              <HStack space="sm" style={{ marginTop: spacing.sm }}>
-                <Text tone="secondary">Secondary tone</Text>
-                <Text tone="muted">Muted tone</Text>
-                <Text tone="accent">Accent tone</Text>
-                <Text tone="destructive">Destructive tone</Text>
-              </HStack>
-            </VStack>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Dialog</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Modal confirmation dialog using the shared `Dialog` adapter.
-            </Text>
-            <Button variant="accent" onPress={() => setDemoDialogVisible(true)}>
-              <Text style={styles.primaryButtonLabel}>Open dialog</Text>
-            </Button>
-            <Dialog
-              visible={demoDialogVisible}
-              onClose={() => setDemoDialogVisible(false)}
-              title="Example dialog"
-              description="Use dialogs for confirmations or focused decisions."
-              footer={
-                <HStack space="sm" style={{ justifyContent: 'flex-end' }}>
-                  <Button variant="outline" size="small" onPress={() => setDemoDialogVisible(false)}>
-                    <Text style={styles.secondaryButtonLabel}>Cancel</Text>
-                  </Button>
-                  <Button size="small" onPress={() => setDemoDialogVisible(false)}>
-                    <Text style={styles.primaryButtonLabel}>Confirm</Text>
-                  </Button>
-                </HStack>
-              }
-            >
-              <Text>
-                This is a live dialog preview. In real flows, you’d wire the actions to your feature
-                logic.
-              </Text>
-            </Dialog>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Bottom sheet</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Sliding panel built on the shared `BottomDrawer` primitive.
-            </Text>
-            <Button testID="e2e.openBottomDrawer" variant="accent" onPress={() => setDemoSheetVisible(true)}>
-              <Text style={styles.primaryButtonLabel}>Open bottom sheet</Text>
-            </Button>
-            <Text style={styles.galleryHelperText}>
-              On device, swipe down or tap the scrim to dismiss.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>E2E: touchability harness</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Catches a regression where closing a bottom drawer leaves an invisible overlay that
-              blocks taps on the underlying canvas.
-            </Text>
-            <Button
-              testID="e2e.tapTarget"
-              variant="outline"
-              onPress={() => setInteractionTapCount((prev) => prev + 1)}
-            >
-              <Text style={styles.secondaryButtonLabel}>Tap target ({interactionTapCount})</Text>
-            </Button>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Interstitials</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Full-screen guidance and celebration layouts that sit on top of the app shell.
-            </Text>
-            <SegmentedControl
-              style={styles.interstitialVariantTabs}
-              value={interstitialVariant}
-              onChange={(next) => setInterstitialVariant(next as InterstitialVariant)}
-              options={interstitialSegmentOptions}
-            />
-
-            {interstitialVariant === 'auth' && (
-              <VStack space="sm" style={styles.interstitialControls}>
-                <Textarea
-                  label="Supporting copy"
-                  placeholder="Explain why signing in matters"
-                  value={authBody}
-                  onChangeText={setAuthBody}
-                  numberOfLines={3}
-                />
-              </VStack>
-            )}
-
-            {interstitialVariant === 'streak' && (
-              <VStack space="sm" style={styles.interstitialControls}>
-                <Input
-                  label="Streak days"
-                  value={streakDays}
-                  keyboardType="number-pad"
-                  onChangeText={setStreakDays}
-                />
-                <Textarea
-                  label="Supporting copy"
-                  value={streakBody}
-                  onChangeText={setStreakBody}
-                  numberOfLines={3}
-                />
-              </VStack>
-            )}
-
-            <View style={styles.interstitialPreviewSurface}>{renderInterstitialPreview()}</View>
-
-            <Button
-              variant="accent"
-              fullWidth
-              style={styles.interstitialLaunchButton}
-              onPress={() => setIsInterstitialFullScreenVisible(true)}
-            >
-              <ButtonLabel size="md" tone="inverse">
-                Launch full-screen
-              </ButtonLabel>
-            </Button>
-          </View>
-        </View>
-
-        <BottomDrawer
-          visible={demoSheetVisible}
-          onClose={() => setDemoSheetVisible(false)}
-          snapPoints={['40%']}
-        >
-          <View style={styles.sheetContent}>
-            <Heading variant="sm">Bottom sheet preview</Heading>
-            <Text style={styles.sheetBody}>
-              Use sheets for secondary flows and filters that should feel attached to the current
-              canvas.
-            </Text>
-            <Button
-              testID="e2e.closeBottomDrawer"
-              variant="accent"
-              size="small"
-              onPress={() => setDemoSheetVisible(false)}
-            >
-              <Text style={styles.primaryButtonLabel}>Close sheet</Text>
-            </Button>
-          </View>
-        </BottomDrawer>
-      </CanvasScrollView>
-    );
-  };
-
-  const renderTypeAndColorGallery = () => {
-    const pineScale = [
-      { token: 'pine50', label: 'Pine 50', value: colors.pine50 },
-      { token: 'pine100', label: 'Pine 100', value: colors.pine100 },
-      { token: 'pine200', label: 'Pine 200', value: colors.pine200 },
-      { token: 'pine300', label: 'Pine 300', value: colors.pine300 },
-      { token: 'pine400', label: 'Pine 400', value: colors.pine400 },
-      { token: 'pine500', label: 'Pine 500', value: colors.pine500 },
-      { token: 'pine600', label: 'Pine 600', value: colors.pine600 },
-      { token: 'pine700', label: 'Pine 700', value: colors.pine700 },
-      { token: 'pine800', label: 'Pine 800', value: colors.pine800 },
-      { token: 'pine900', label: 'Pine 900', value: colors.pine900 },
-    ];
-
-    const grayScale = [
-      { token: 'gray50', label: 'Gray 50', value: colors.gray50 },
-      { token: 'gray100', label: 'Gray 100', value: colors.gray100 },
-      { token: 'gray200', label: 'Gray 200', value: colors.gray200 },
-      { token: 'gray300', label: 'Gray 300', value: colors.gray300 },
-      { token: 'gray400', label: 'Gray 400', value: colors.gray400 },
-      { token: 'gray500', label: 'Gray 500', value: colors.gray500 },
-      { token: 'gray600', label: 'Gray 600', value: colors.gray600 },
-      { token: 'gray700', label: 'Gray 700', value: colors.gray700 },
-      { token: 'gray800', label: 'Gray 800', value: colors.gray800 },
-      { token: 'gray900', label: 'Gray 900', value: colors.gray900 },
-    ];
-
-    const brandPalette = [
-      { token: 'accent', label: 'Accent', value: colors.accent },
-      { token: 'accentMuted', label: 'Accent muted', value: colors.accentMuted },
-      { token: 'accentRose', label: 'Accent rose', value: colors.accentRose },
-      {
-        token: 'accentRoseStrong',
-        label: 'Accent rose (strong)',
-        value: colors.accentRoseStrong,
-      },
-      { token: 'indigo', label: 'Indigo', value: colors.indigo },
-      { token: 'turmeric', label: 'Turmeric', value: colors.turmeric },
-      { token: 'madder', label: 'Madder', value: colors.madder },
-      { token: 'quiltBlue', label: 'Quilt blue', value: colors.quiltBlue },
-      { token: 'clay', label: 'Clay', value: colors.clay },
-      { token: 'moss', label: 'Moss', value: colors.moss },
-      { token: 'sumi', label: 'Sumi', value: colors.sumi },
-    ];
-
-    return (
-      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.stack}>
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Typography tokens</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Inspect the base type ramp used across headings, body copy, and labels.
-            </Text>
-            <View style={styles.typeTokenRow}>
-              <Text style={styles.typeTokenName}>Brand</Text>
-              <Text style={typography.brand}>Kwilt</Text>
-            </View>
-            <View style={styles.typeTokenRow}>
-              <Text style={styles.typeTokenName}>Title / MD</Text>
-              <Text style={typography.titleMd}>Architect your next arc</Text>
-            </View>
-            <View style={styles.typeTokenRow}>
-              <Text style={styles.typeTokenName}>Body</Text>
-              <Text style={styles.typeTokenSample}>Gentle guidance and daily steps.</Text>
-            </View>
-            <View style={styles.typeTokenRow}>
-              <Text style={styles.typeTokenName}>Label</Text>
-              <Text style={typography.label}>Label</Text>
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Pine scale</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Primary brand green scale used by Kwilt, aligned with the logo accent.
-            </Text>
-            <View style={styles.colorList}>
-              {pineScale.map((swatch) => (
-                <View key={swatch.token} style={styles.colorRow}>
-                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.colorLabel}>{swatch.label}</Text>
-                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Gray scale</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Neutral ramp used for canvas, borders, and text contrast.
-            </Text>
-            <View style={styles.colorList}>
-              {grayScale.map((swatch) => (
-                <View key={swatch.token} style={styles.colorRow}>
-                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.colorLabel}>{swatch.label}</Text>
-                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardEyebrow}>Brand accents</Text>
-            <Text style={styles.gallerySectionDescription}>
-              Hero brand hues used for illustration, emphasis, and celebration moments.
-            </Text>
-            <View style={styles.colorList}>
-              {brandPalette.map((swatch) => (
-                <View key={swatch.token} style={styles.colorRow}>
-                  <View style={[styles.colorSwatch, { backgroundColor: swatch.value }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.colorLabel}>{swatch.label}</Text>
-                    <Text style={styles.colorToken}>{swatch.value.toUpperCase()}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      </CanvasScrollView>
-    );
-  };
-
-  const renderE2EHarness = () => {
-    const devActivityIdForAgent = ensureDevActivityId();
-    const agentLaunchContext: LaunchContext = {
-      source: 'devTools',
-      intent: 'freeCoach',
-      objectType: 'activity',
-      objectId: devActivityIdForAgent,
-    };
-    const agentWorkspaceSnapshot = buildActivityCoachLaunchContext(
-      goals,
-      activities,
-      undefined,
-      arcs,
-      devActivityIdForAgent,
-    );
-
-    return (
-      <>
-        <KeyboardAwareScrollView
-          keyboardShouldPersistTaps="handled"
-          automaticallyAdjustKeyboardInsets={false}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.stack}>
-            <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>E2E harness</Text>
-              <Text style={styles.cardBody}>
-                Deterministic surfaces for native regressions (keyboard avoidance, tap-through, and
-                bottom drawers). Maestro should prefer these over “real data” flows when possible.
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>Keyboard: long form</Text>
-              <Text style={styles.cardBody}>
-                Focus the last field, type, and confirm you can still tap actions while the keyboard
-                is open.
-              </Text>
-              <VStack space="sm" style={{ marginTop: spacing.md }}>
-                <Input
-                  label="Field 1"
-                  value={keyboardHarnessValues.field1}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field1: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  label="Field 2"
-                  value={keyboardHarnessValues.field2}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field2: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  label="Field 3"
-                  value={keyboardHarnessValues.field3}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field3: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  label="Field 4"
-                  value={keyboardHarnessValues.field4}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field4: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  label="Field 5"
-                  value={keyboardHarnessValues.field5}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field5: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  label="Field 6"
-                  value={keyboardHarnessValues.field6}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field6: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  label="Field 7"
-                  value={keyboardHarnessValues.field7}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, field7: t }))}
-                  returnKeyType="next"
-                />
-                <Input
-                  testID="e2e.keyboard.lastInput"
-                  label="Last field"
-                  value={keyboardHarnessValues.last}
-                  onChangeText={(t) => setKeyboardHarnessValues((p) => ({ ...p, last: t }))}
-                  returnKeyType="done"
-                />
-              </VStack>
-
-              <HStack space="sm" style={{ marginTop: spacing.md }}>
-                <Button
-                  testID="e2e.keyboard.tapWhileOpen"
-                  variant="outline"
-                  onPress={() => setKeyboardTapCount((prev) => prev + 1)}
-                >
-                  <Text style={styles.secondaryButtonLabel}>Tap while open ({keyboardTapCount})</Text>
-                </Button>
-                <Button
-                  testID="e2e.keyboard.submit"
-                  variant="accent"
-                  onPress={() => setKeyboardSubmitCount((prev) => prev + 1)}
-                >
-                  <Text style={styles.primaryButtonLabel}>Submit ({keyboardSubmitCount})</Text>
-                </Button>
-              </HStack>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>Keyboard: inside a bottom drawer</Text>
-              <Text style={styles.cardBody}>
-                Opens a bottom drawer with an input. Tests keyboard lifting inside modal overlays +
-                “close → taps still work”.
-              </Text>
-              <HStack space="sm" style={{ marginTop: spacing.md }}>
-                <Button
-                  testID="e2e.keyboard.openSheet"
-                  variant="accent"
-                  onPress={() => setKeyboardSheetVisible(true)}
-                >
-                  <Text style={styles.primaryButtonLabel}>Open keyboard sheet</Text>
-                </Button>
-                <Button
-                  testID="e2e.keyboard.reset"
-                  variant="outline"
-                  onPress={() => {
-                    setKeyboardHarnessValues({
-                      field1: '',
-                      field2: '',
-                      field3: '',
-                      field4: '',
-                      field5: '',
-                      field6: '',
-                      field7: '',
-                      last: '',
-                    });
-                    setKeyboardSheetValue('');
-                    setKeyboardTapCount(0);
-                    setKeyboardSubmitCount(0);
-                  }}
-                >
-                  <Text style={styles.secondaryButtonLabel}>Reset</Text>
-                </Button>
-              </HStack>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>Agent workspace: smoke</Text>
-              <Text style={styles.cardBody}>
-                Opens a real AgentWorkspace surface. For deterministic tests, validate interaction
-                basics (composer focus + send button visibility) without relying on network replies.
-              </Text>
-              <HStack space="sm" style={{ marginTop: spacing.md }}>
-                <Button
-                  testID="e2e.agent.open"
-                  variant="accent"
-                  onPress={() => setAgentHarnessVisible(true)}
-                >
-                  <Text style={styles.primaryButtonLabel}>Open agent workspace</Text>
-                </Button>
-                <Button
-                  testID="e2e.agent.close"
-                  variant="outline"
-                  onPress={() => setAgentHarnessVisible(false)}
-                >
-                  <Text style={styles.secondaryButtonLabel}>Close</Text>
-                </Button>
-              </HStack>
-            </View>
-          </View>
-        </KeyboardAwareScrollView>
-
-        <BottomDrawer
-          visible={keyboardSheetVisible}
-          onClose={() => setKeyboardSheetVisible(false)}
-          snapPoints={['55%']}
-        >
-          <KeyboardAwareScrollView
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={false}
-            contentContainerStyle={{ paddingBottom: spacing.lg }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={{ gap: spacing.md }}>
-              <Heading variant="sm">Keyboard sheet</Heading>
-              <Text style={styles.sheetBody}>
-                Focus the field, type, then submit and close. After close, the underlying DevTools
-                canvas should remain tappable.
-              </Text>
-              <Input
-                testID="e2e.keyboard.sheetInput"
-                label="Sheet input"
-                value={keyboardSheetValue}
-                onChangeText={setKeyboardSheetValue}
-              />
-              <HStack space="sm" style={{ justifyContent: 'flex-end' }}>
-                <Button
-                  testID="e2e.keyboard.closeSheet"
-                  variant="outline"
-                  size="small"
-                  onPress={() => setKeyboardSheetVisible(false)}
-                >
-                  <Text style={styles.secondaryButtonLabel}>Close</Text>
-                </Button>
-                <Button
-                  testID="e2e.keyboard.sheetSubmit"
-                  variant="accent"
-                  size="small"
-                  onPress={() => setKeyboardSubmitCount((prev) => prev + 1)}
-                >
-                  <Text style={styles.primaryButtonLabel}>Submit</Text>
-                </Button>
-              </HStack>
-            </View>
-          </KeyboardAwareScrollView>
-        </BottomDrawer>
-
-        <BottomDrawer
-          visible={agentHarnessVisible}
-          onClose={() => setAgentHarnessVisible(false)}
-          snapPoints={['92%']}
-          // Agent chat manages its own keyboard math; avoid double offsets.
-          keyboardAvoidanceEnabled={false}
-        >
-          <View style={{ gap: spacing.md }}>
-            <HStack justifyContent="space-between" alignItems="center">
-              <Heading variant="sm">Agent workspace</Heading>
-              <Button
-                testID="e2e.agent.sheetClose"
-                variant="outline"
-                size="small"
-                onPress={() => setAgentHarnessVisible(false)}
-              >
-                <Text style={styles.secondaryButtonLabel}>Close</Text>
-              </Button>
-            </HStack>
-            <AgentWorkspace
-              mode={undefined}
-              launchContext={agentLaunchContext}
-              workspaceSnapshot={agentWorkspaceSnapshot}
-              workflowDefinitionId={undefined}
-              resumeDraft={false}
-              // BottomDrawer pads by safe-area; AiChatPane should subtract it.
-              hostBottomInsetAlreadyApplied
-              hidePromptSuggestions={false}
-              hideBrandHeader={false}
-            />
-          </View>
-        </BottomDrawer>
-      </>
-    );
-  };
+  const toggleSection = useCallback((sectionId: DevToolSectionId) => {
+    setExpandedSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }));
+  }, []);
 
   return (
     <AppShell>
-      <PageHeader
-        title="Dev mode"
-        iconName="dev"
-        menuOpen={menuOpen}
-        onPressMenu={() => openRootDrawer(navigation as DrawerNavigationProp<RootDrawerParamList>)}
-      >
-        <Text style={[styles.screenSubtitle, { paddingTop: spacing.lg }]}>
-          {isGallery
-            ? 'Preview shared UI primitives live on-device. Only visible in development builds.'
-            : isE2E
-            ? 'Deterministic harness surfaces for end-to-end testing. Only visible in development builds.'
-            : isTypeAndColor
-            ? 'Inspect base typography and color tokens that underpin the shared UI system.'
-            : 'Utilities for testing and development. Only visible in development builds.'}
+      <PageHeader title="Dev tools" onPressBack={handleNavigateBack}>
+        <Text style={[styles.screenSubtitle, { paddingTop: spacing.sm }]}>
+          Utilities for testing and development. Only visible in development builds.
         </Text>
-        <SegmentedControl
-          style={styles.tabSwitcher}
-          value={viewMode}
-          onChange={(next) => setViewMode(next)}
-          testIDPrefix="devtools.tab"
-          options={[
-            { value: 'tools', label: 'Tools' },
-            { value: 'memory', label: 'Memory' },
-            { value: 'gallery', label: 'Components' },
-            { value: 'typeColor', label: 'Type & Color' },
-            { value: 'arcTesting', label: 'Arc Testing' },
-            { value: 'e2e', label: 'E2E' },
-          ]}
-        />
       </PageHeader>
-      {isArcTesting ? (
-        <ArcTestingLauncher />
-      ) : isE2E ? (
-        renderE2EHarness()
-      ) : isMemory ? (
-        <CanvasScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.stack}>
-            <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>Coach memory (device)</Text>
-              <Text style={styles.cardBody}>
-                These are the persisted “conversation memory summaries” used to keep the coach
-                consistent over time without sending the full transcript every turn.
-              </Text>
-              <HStack space="sm" style={{ marginTop: spacing.md }}>
-                <Button variant="accent" onPress={() => void loadMemory()}>
-                  <Text style={styles.primaryButtonLabel}>
-                    {isLoadingMemory ? 'Loading…' : 'Refresh'}
-                  </Text>
-                </Button>
-                <Button
-                  variant="outline"
-                  onPress={() => {
-                    Alert.alert(
-                      'Clear all memory?',
-                      'This removes all persisted coach memory summaries on this device.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Clear all',
-                          style: 'destructive',
-                          onPress: () => {
-                            void clearAllCoachConversationMemory().then(loadMemory);
-                          },
-                        },
-                      ]
-                    );
-                  }}
-                >
-                  <Text style={styles.secondaryButtonLabel}>Clear all</Text>
-                </Button>
-              </HStack>
-              <Text style={styles.meta}>
-                {memoryKeys.length} {memoryKeys.length === 1 ? 'record' : 'records'}
-              </Text>
-            </View>
-
-            {memoryKeys.length === 0 ? (
-              <View style={styles.card}>
-                <Text style={styles.cardBody}>
-                  No memory summaries stored yet. Have a longer chat, then come back and refresh.
-                </Text>
-              </View>
-            ) : (
-              memoryKeys.map((key) => {
-                const record = memoryRecords[key];
-                const isExpanded = memoryExpandedKey === key;
-                const preview = (record?.summary ?? '').trim();
-                return (
-                  <View key={key} style={styles.card}>
-                    <HStack justifyContent="space-between" alignItems="center">
-                      <Text style={styles.memoryKey} numberOfLines={2}>
-                        {key.replace('kwilt-coach-summary:v1:', '')}
-                      </Text>
-                      <Button
-                        variant="ghost"
-                        size="small"
-                        onPress={() => setMemoryExpandedKey(isExpanded ? null : key)}
-                      >
-                        <Text style={styles.memoryLinkText}>{isExpanded ? 'Hide' : 'View'}</Text>
-                      </Button>
-                    </HStack>
-
-                    {record ? (
-                      <>
-                        <Text style={styles.meta}>
-                          Updated {record.updatedAt} • summarized={record.summarizedEligibleCount}
-                        </Text>
-                        <Text style={styles.memoryPreview} numberOfLines={isExpanded ? 0 : 6}>
-                          {preview.length > 0 ? preview : '(empty)'}
-                        </Text>
-                        {isExpanded && (
-                          <HStack space="sm" style={{ marginTop: spacing.md }}>
-                            <Button
-                              variant="outline"
-                              onPress={() => {
-                                Alert.alert(
-                                  'Clear memory?',
-                                  'This removes this one memory summary.',
-                                  [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    {
-                                      text: 'Clear',
-                                      style: 'destructive',
-                                      onPress: () => {
-                                        void clearCoachConversationMemoryByKey(key).then(loadMemory);
-                                      },
-                                    },
-                                  ]
-                                );
-                              }}
-                            >
-                              <Text style={styles.secondaryButtonLabel}>Clear</Text>
-                            </Button>
-                          </HStack>
-                        )}
-                      </>
-                    ) : (
-                      <Text style={styles.cardBody}>Unable to load record.</Text>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </CanvasScrollView>
-      ) : isGallery ? (
-        <>
-          {renderComponentGallery()}
-          <FullScreenInterstitial
-            visible={isInterstitialFullScreenVisible}
-            onDismiss={() => setIsInterstitialFullScreenVisible(false)}
-            progression={interstitialVariant === 'launch' ? 1500 : 'button'}
-            transition={interstitialVariant === 'launch' ? 'launch' : 'fade'}
-            backgroundColor={
-              interstitialVariant === 'launch'
-                ? 'pine300'
-                : interstitialVariant === 'streak'
-                ? 'indigo'
-                : 'shell'
-            }
-          >
-            {renderInterstitialPreview({ fullScreen: true })}
-          </FullScreenInterstitial>
-        </>
-      ) : isTypeAndColor ? (
-        renderTypeAndColorGallery()
-      ) : (
-        <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.stack}>
+      <CanvasScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.stack}>
             {devOverrideIsPro != null ? (
               <View style={styles.devOverrideBanner}>
                 <HStack space="sm" style={styles.devOverrideBannerHeader}>
@@ -1649,6 +784,13 @@ export function DevToolsScreen() {
                 </Button>
               </View>
             ) : null}
+          <DevToolSection
+            title="Seed & reset"
+            description="Install demo data and replay onboarding handoffs."
+            count={8}
+            expanded={expandedSections.seed}
+            onToggle={() => toggleSection('seed')}
+          >
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Screenshot demo pack (dev)</Text>
               <Text style={styles.cardBody}>
@@ -1729,11 +871,6 @@ export function DevToolsScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>First-time UX</Text>
-              {/* <Heading style={styles.cardTitle}>Trigger onboarding flow</Heading> */}
-              {/* <Text style={styles.cardBody}>
-                Launches the first-time experience overlay immediately, even if it was already
-                completed.
-              </Text> */}
               <Button testID="e2e.seed.triggerFirstTimeUx" variant="accent" onPress={handleTriggerFirstTimeUx} style={styles.cardAction}>
                 <ButtonLabel size="md" tone="inverse">
                   Trigger first-time UX
@@ -1762,6 +899,41 @@ export function DevToolsScreen() {
               <Text style={styles.meta}>
                 Triggered {triggerCount} {triggerCount === 1 ? 'time' : 'times'} • Last:{' '}
                 {lastTriggeredLabel}
+              </Text>
+            </View>
+          </DevToolSection>
+
+          <DevToolSection
+            title="Preview flows"
+            description="Fire user-facing moments without walking the full app path."
+            count={21}
+            expanded={expandedSections.preview}
+            onToggle={() => toggleSection('preview')}
+          >
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Check-in nudges (dev)</Text>
+              <Text style={styles.cardBody}>
+                Preview the check-in invitation sheet after a completed to-do. Uses a fictional partner
+                when you do not have a backend shared goal ready.
+              </Text>
+              <Button
+                testID="devtools.checkin.openLocalSheet"
+                variant="accent"
+                onPress={handleOpenLocalCheckinSheetDemo}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md" tone="inverse">Trigger check-in invitation</ButtonLabel>
+              </Button>
+              <Button
+                testID="devtools.checkin.triggerRealNudge"
+                variant="secondary"
+                onPress={handleTriggerRealCheckinNudge}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md">Test real partner gate</ButtonLabel>
+              </Button>
+              <Text style={styles.meta}>
+                Invitation preview is for visual QA. Real partner gate requires an active backend partner.
               </Text>
             </View>
 
@@ -1840,6 +1012,44 @@ export function DevToolsScreen() {
               </Text>
             </View>
 
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Toast (dev)</Text>
+              <Text style={styles.cardBody}>
+                Fire an in-app toast on demand to verify the UI and safe-area positioning.
+              </Text>
+              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
+                <Button
+                  variant="secondary"
+                  onPress={() => showDevToast('This is a test toast.')}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Show toast</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => showDevToast('Saved successfully.', 'success')}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Success</ButtonLabel>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onPress={() => showDevToast('Warning: you are nearing a limit.', 'warning')}
+                  style={styles.cardAction}
+                >
+                  <ButtonLabel size="md">Warning</ButtonLabel>
+                </Button>
+              </HStack>
+            </View>
+          </DevToolSection>
+
+          <DevToolSection
+            title="Simulate state"
+            description="Override tier, paywalls, and AI credit states."
+            count={9}
+            expanded={expandedSections.simulate}
+            onToggle={() => toggleSection('simulate')}
+          >
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Monetization (dev)</Text>
               <Text style={styles.cardBody}>
@@ -1946,37 +1156,15 @@ export function DevToolsScreen() {
                 </Button>
               </HStack>
             </View>
+          </DevToolSection>
 
-            <View style={styles.card}>
-              <Text style={styles.cardEyebrow}>Toast (dev)</Text>
-              <Text style={styles.cardBody}>
-                Fire an in-app toast on demand to verify the UI and safe-area positioning.
-              </Text>
-              <HStack space="sm" style={{ marginTop: spacing.md, flexWrap: 'wrap' }}>
-                <Button
-                  variant="secondary"
-                  onPress={() => showDevToast('This is a test toast.')}
-                  style={styles.cardAction}
-                >
-                  <ButtonLabel size="md">Show toast</ButtonLabel>
-                </Button>
-                <Button
-                  variant="secondary"
-                  onPress={() => showDevToast('Saved successfully.', 'success')}
-                  style={styles.cardAction}
-                >
-                  <ButtonLabel size="md">Success</ButtonLabel>
-                </Button>
-                <Button
-                  variant="secondary"
-                  onPress={() => showDevToast('Warning: you are nearing a limit.', 'warning')}
-                  style={styles.cardAction}
-                >
-                  <ButtonLabel size="md">Warning</ButtonLabel>
-                </Button>
-              </HStack>
-            </View>
-
+          <DevToolSection
+            title="Experiments"
+            description="Toggle dev-only navigation and object-detail flags."
+            count={4}
+            expanded={expandedSections.experiments}
+            onToggle={() => toggleSection('experiments')}
+          >
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardEyebrow}>Navigation experiments</Text>
@@ -2046,7 +1234,15 @@ export function DevToolsScreen() {
               </Text>
 
             </View>
+          </DevToolSection>
 
+          <DevToolSection
+            title="Diagnostics"
+            description="Inspect local agent history and workflow feedback."
+            count={1}
+            expanded={expandedSections.diagnostics}
+            onToggle={() => toggleSection('diagnostics')}
+          >
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardEyebrow}>Agent chat history</Text>
@@ -2200,9 +1396,9 @@ export function DevToolsScreen() {
                 </>
               )}
             </View>
-          </View>
-        </CanvasScrollView>
-      )}
+          </DevToolSection>
+        </View>
+      </CanvasScrollView>
       <Toast
         visible={devToastMessage.length > 0}
         message={devToastMessage}
@@ -2215,6 +1411,49 @@ export function DevToolsScreen() {
   );
 }
 
+function DevToolSection({
+  title,
+  description,
+  count,
+  expanded,
+  onToggle,
+  children,
+}: {
+  title: string;
+  description: string;
+  count: number;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.section}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        onPress={onToggle}
+        style={({ pressed }) => [styles.sectionHeader, pressed && styles.sectionHeaderPressed]}
+      >
+        <View style={styles.sectionTitleBlock}>
+          <HStack space="sm" alignItems="center">
+            <Text style={styles.sectionTitle}>{title}</Text>
+            <View style={styles.sectionCountPill}>
+              <Text style={styles.sectionCountText}>{count}</Text>
+            </View>
+          </HStack>
+          <Text style={styles.sectionDescription}>{description}</Text>
+        </View>
+        <Icon
+          name={expanded ? 'chevronUp' : 'chevronDown'}
+          size={22}
+          color={colors.textSecondary}
+        />
+      </Pressable>
+      {expanded ? <View style={styles.sectionContent}>{children}</View> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.xl,
@@ -2222,24 +1461,72 @@ const styles = StyleSheet.create({
   stack: {
     gap: spacing.sm,
   },
-  tabSwitcher: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.lg,
-  },
   screenSubtitle: {
     ...typography.body,
     color: colors.textSecondary,
   },
+  section: {
+    borderRadius: 22,
+    backgroundColor: colors.shellAlt,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  sectionHeader: {
+    minHeight: 84,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  sectionHeaderPressed: {
+    opacity: 0.72,
+  },
+  sectionTitleBlock: {
+    flex: 1,
+    gap: spacing.xs / 2,
+  },
+  sectionTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  sectionDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  sectionCountPill: {
+    minWidth: 28,
+    height: 24,
+    borderRadius: 999,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.canvas,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  sectionCountText: {
+    ...typography.bodySm,
+    color: colors.muted,
+    fontFamily: fonts.semibold,
+  },
+  sectionContent: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
   card: {
     backgroundColor: colors.canvas,
-    borderRadius: 28,
-    padding: spacing.xl,
+    borderRadius: 18,
+    padding: spacing.lg,
     gap: spacing.sm,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   devOverrideBanner: {
     backgroundColor: '#FFF7ED',
@@ -2282,10 +1569,6 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.muted,
   },
-  cardTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
   cardBody: {
     ...typography.body,
     color: colors.textSecondary,
@@ -2303,23 +1586,6 @@ const styles = StyleSheet.create({
   meta: {
     ...typography.bodySm,
     color: colors.muted,
-    marginTop: spacing.sm,
-  },
-  memoryKey: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.semibold,
-    flex: 1,
-    paddingRight: spacing.sm,
-  },
-  memoryLinkText: {
-    ...typography.bodySm,
-    color: colors.accent,
-    fontFamily: fonts.semibold,
-  },
-  memoryPreview: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
     marginTop: spacing.sm,
   },
   cardAction: {
@@ -2450,189 +1716,4 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
   },
-  typeTokenRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  typeTokenName: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginRight: spacing.md,
-    minWidth: 96,
-  },
-  typeTokenSample: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 18,
-    backgroundColor: colors.canvas,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  colorList: {
-    gap: spacing.xs,
-  },
-  colorSwatch: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  colorLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  colorToken: {
-    ...typography.bodySm,
-    color: colors.muted,
-    marginTop: spacing.xs / 4,
-  },
-  interstitialTabRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  interstitialPreviewSurface: {
-    borderRadius: 24,
-    backgroundColor: colors.pine100,
-    padding: spacing.lg,
-  },
-  interstitialContent: {
-    flex: 1,
-    flexDirection: 'column',
-    rowGap: spacing['2xl'],
-  },
-  interstitialHeroBlock: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    rowGap: spacing.lg,
-  },
-  interstitialFooterBlock: {
-    marginTop: 'auto',
-    rowGap: spacing.md,
-  },
-  interstitialTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  interstitialBody: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  interstitialAuthCard: {
-    borderRadius: 24,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.canvas,
-    rowGap: spacing.md,
-  },
-  streakHeroBlock: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    rowGap: spacing.md,
-  },
-  streakLabel: {
-    ...typography.bodySm,
-    color: colors.canvas,
-  },
-  streakNumber: {
-    ...typography.titleXl,
-    fontSize: 56,
-    lineHeight: 60,
-    color: colors.canvas,
-  },
-  streakBody: {
-    ...typography.bodySm,
-    color: colors.canvas,
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-  interstitialVariantTabs: {
-    marginTop: spacing.sm,
-  },
-  interstitialControls: {
-    marginTop: spacing.md,
-  },
-  interstitialLaunchButton: {
-    marginTop: spacing.md,
-    alignSelf: 'stretch',
-  },
-  launchBrandLockup: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    rowGap: spacing.sm,
-  },
-  launchWordmark: {
-    ...typography.brand,
-    color: colors.pine700,
-    fontSize: 36,
-    lineHeight: 42,
-    textShadowColor: colors.pine800,
-    textShadowOffset: { width: 0.4, height: 0.4 },
-    textShadowRadius: 1,
-  },
-  launchTagline: {
-    ...typography.body,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-    marginTop: spacing.lg,
-    maxWidth: 280,
-  },
-  gallerySectionDescription: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  gallerySubsectionHeader: {
-    marginTop: spacing.sm,
-  },
-  galleryFieldLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  galleryHelperText: {
-    ...typography.bodySm,
-    color: colors.muted,
-    marginTop: spacing.xs,
-  },
-  sheetContent: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  sheetBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  devExitRow: {
-    position: 'absolute',
-    right: 12,
-    zIndex: 2,
-  },
-  devExitButton: {
-    backgroundColor: '#EA580C',
-    borderColor: '#EA580C',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 });
-

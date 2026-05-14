@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { Icon } from '../../ui/Icon';
-import { HStack, Text, VStack } from '../../ui/primitives';
+import { Button, HStack, Text, VStack } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import { createPat } from '../../services/executionTargets/pats';
+import { getKwiltMcpBaseUrl } from '../../services/executionTargets/executionTargets';
+import { useToastStore } from '../../store/useToastStore';
 import {
   fetchExternalConnections,
   revokeExternalConnection,
-  type ExternalActionHistoryItem,
   type ExternalConnection,
 } from '../../services/externalConnections';
 
@@ -20,6 +22,9 @@ type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsConnectedT
 function formatSurface(surface: string): string {
   if (surface === 'claude') return 'Claude';
   if (surface === 'chatgpt') return 'ChatGPT';
+  if (surface === 'cursor') return 'Cursor';
+  if (surface === 'claude_desktop') return 'Claude Desktop';
+  if (surface === 'manual') return 'Access key';
   return 'Connected tool';
 }
 
@@ -30,27 +35,35 @@ function formatDate(value: string | null): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function linkForAction(action: ExternalActionHistoryItem): string | null {
-  if (!action.object_type || !action.object_id) return null;
-  if (action.object_type === 'arc') return `kwilt://arc/${encodeURIComponent(action.object_id)}`;
-  if (action.object_type === 'goal') return `kwilt://goal/${encodeURIComponent(action.object_id)}`;
-  if (action.object_type === 'activity') return `kwilt://activity/${encodeURIComponent(action.object_id)}`;
-  return null;
-}
-
 export function ConnectedToolsScreen() {
   const navigation = useNavigation<Nav>();
   const [connections, setConnections] = useState<ExternalConnection[]>([]);
-  const [actions, setActions] = useState<ExternalActionHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [generatedKey, setGeneratedKey] = useState<string>('');
   const [revokingClientId, setRevokingClientId] = useState<string | null>(null);
+  const showToast = useToastStore((s) => s.showToast);
+
+  const mcpUrl = getKwiltMcpBaseUrl() ?? 'https://<your-project>.supabase.co/functions/v1/kwilt-mcp';
+
+  const buildConfigSnippet = useCallback((token: string) => JSON.stringify(
+    {
+      kwilt: {
+        url: mcpUrl,
+        headers: {
+          Authorization: `Bearer ${token || '<create an access key first>'}`,
+        },
+      },
+    },
+    null,
+    2,
+  ), [mcpUrl]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const result = await fetchExternalConnections();
       setConnections(result.connections);
-      setActions(result.actions);
     } catch (error: any) {
       Alert.alert('Unable to load connected tools', typeof error?.message === 'string' ? error.message : 'Please try again.');
     } finally {
@@ -61,6 +74,29 @@ export function ConnectedToolsScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const copy = useCallback(async (text: string, message = 'Copied') => {
+    try {
+      await Clipboard.setStringAsync(text);
+      showToast({ message, variant: 'success', durationMs: 1800 });
+    } catch {
+      showToast({ message: 'Unable to copy', variant: 'danger', durationMs: 2000 });
+    }
+  }, [showToast]);
+
+  const createAccessKey = useCallback(async () => {
+    setCreatingKey(true);
+    try {
+      const result = await createPat({ label: 'Manual access key' });
+      setGeneratedKey(result.token);
+      await copy(result.token, 'Access key copied');
+      await load();
+    } catch (error: any) {
+      Alert.alert('Unable to create access key', typeof error?.message === 'string' ? error.message : 'Please try again.');
+    } finally {
+      setCreatingKey(false);
+    }
+  }, [copy, load]);
 
   const revoke = useCallback((connection: ExternalConnection) => {
     Alert.alert(
@@ -87,11 +123,6 @@ export function ConnectedToolsScreen() {
     );
   }, [load]);
 
-  const openAction = useCallback((action: ExternalActionHistoryItem) => {
-    const link = linkForAction(action);
-    if (link) void Linking.openURL(link);
-  }, []);
-
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -101,17 +132,56 @@ export function ConnectedToolsScreen() {
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           showsVerticalScrollIndicator={false}
         >
-          <VStack space="sm" style={styles.introCard}>
-            <Text style={styles.introTitle}>Agent connections</Text>
-            <Text style={styles.introText}>
-              Tools connected through Kwilt MCP act just like you do in the app. Arcs, Goals, and To-dos they create or edit do not carry special badges; this page keeps the audit trail.
-            </Text>
+          <Text style={styles.helperText}>
+            Manage tools that can read or update Kwilt.
+          </Text>
+
+          <VStack space="sm" style={styles.setupCard}>
+            <HStack alignItems="flex-start" justifyContent="space-between" space="md">
+              <VStack flex={1} space={4}>
+                <Text style={styles.setupTitle}>Add a tool</Text>
+                <Text style={styles.setupText}>
+                  Create a key for Cursor or another MCP client.
+                </Text>
+              </VStack>
+              <Button
+                variant="secondary"
+                size="sm"
+                onPress={createAccessKey}
+                disabled={creatingKey}
+                label={creatingKey ? 'Creating...' : 'Create key'}
+              />
+            </HStack>
+            {generatedKey ? (
+              <VStack space="sm" style={styles.generatedKeyBlock}>
+                <Text style={styles.metaText}>
+                  Copy this now. It will not be shown again.
+                </Text>
+                <View style={styles.codeBlock}>
+                  <Text selectable style={styles.codeText}>{buildConfigSnippet(generatedKey)}</Text>
+                </View>
+                <HStack justifyContent="flex-end" space="sm">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => copy(`Authorization: Bearer ${generatedKey}`, 'Auth header copied')}
+                    label="Copy header"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => copy(buildConfigSnippet(generatedKey), 'Config copied')}
+                    label="Copy config"
+                  />
+                </HStack>
+              </VStack>
+            ) : null}
           </VStack>
 
           <VStack space="sm">
             <Text style={styles.sectionTitle}>Connections</Text>
             {connections.length === 0 && !loading ? (
-              <Text style={styles.emptyText}>No connected tools yet.</Text>
+              <Text style={styles.emptyText}>No tools connected yet.</Text>
             ) : null}
             {connections.map((connection) => {
               const revoked = Boolean(connection.revoked_at);
@@ -124,7 +194,9 @@ export function ConnectedToolsScreen() {
                         {formatSurface(connection.surface)} · Last used {formatDate(connection.last_used_at)}
                       </Text>
                       <Text style={styles.metaText}>
-                        {connection.write_count} recent write{connection.write_count === 1 ? '' : 's'}
+                        {connection.connection_type === 'pat'
+                          ? 'Manual access key'
+                          : `${connection.write_count} recent write${connection.write_count === 1 ? '' : 's'}`}
                       </Text>
                     </VStack>
                     <View style={[styles.statusPill, revoked ? styles.statusPillRevoked : null]}>
@@ -149,35 +221,6 @@ export function ConnectedToolsScreen() {
               );
             })}
           </VStack>
-
-          <VStack space="sm">
-            <Text style={styles.sectionTitle}>Recent actions</Text>
-            {actions.length === 0 && !loading ? (
-              <Text style={styles.emptyText}>No agent write history yet.</Text>
-            ) : null}
-            {actions.map((action) => {
-              const link = linkForAction(action);
-              return (
-                <Pressable
-                  key={action.id}
-                  accessibilityRole={link ? 'button' : undefined}
-                  disabled={!link}
-                  onPress={() => openAction(action)}
-                  style={styles.actionRow}
-                >
-                  <VStack flex={1} space={2}>
-                    <Text style={styles.actionTitle}>
-                      {action.result_summary || action.tool_name.replace(/_/g, ' ')}
-                    </Text>
-                    <Text style={styles.metaText}>
-                      {formatSurface(action.surface)} · {formatDate(action.created_at)}
-                    </Text>
-                  </VStack>
-                  {link ? <Icon name="chevronRight" size={18} color={colors.textSecondary} /> : null}
-                </Pressable>
-              );
-            })}
-          </VStack>
         </ScrollView>
       </View>
     </AppShell>
@@ -189,22 +232,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    gap: spacing.lg,
+    padding: spacing.xl,
     paddingBottom: spacing['2xl'],
+    gap: spacing.md,
   },
-  introCard: {
-    borderRadius: 24,
-    backgroundColor: colors.card,
-    padding: spacing.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  introTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  introText: {
-    ...typography.body,
+  helperText: {
+    ...typography.bodySm,
     color: colors.textSecondary,
   },
   sectionTitle: {
@@ -215,16 +248,50 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
   },
-  card: {
-    borderRadius: 20,
-    backgroundColor: colors.canvas,
+  setupCard: {
+    borderRadius: 16,
+    backgroundColor: colors.card,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  setupTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+  },
+  setupText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  generatedKeyBlock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  codeBlock: {
+    borderRadius: 14,
+    backgroundColor: colors.cardMuted,
     borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    padding: spacing.sm,
+  },
+  codeText: {
+    ...typography.mono,
+    color: colors.textPrimary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  card: {
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    padding: spacing.md,
+    borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.sm,
   },
   cardTitle: {
-    ...typography.bodyBold,
+    ...typography.body,
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   metaText: {
@@ -259,20 +326,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontFamily: typography.bodyBold.fontFamily,
     color: colors.accentRoseStrong,
-  },
-  actionRow: {
-    minHeight: 64,
-    borderRadius: 18,
-    backgroundColor: colors.canvas,
-    padding: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  actionTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
   },
 });

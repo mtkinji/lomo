@@ -11,14 +11,7 @@ appId: com.andrewwatanabe.kwilt
 - tapOn:
     id: "nav.drawer.item.DevTools"
 
-- scrollUntilVisible:
-    element:
-      id: "e2e.openBottomDrawer"
-    direction: DOWN
-
 - assertVisible:
-    id: "e2e.openBottomDrawer"
+    text: "Dev tools"
 
-- takeScreenshot: "devtools-gallery"
-
-
+- takeScreenshot: "devtools"

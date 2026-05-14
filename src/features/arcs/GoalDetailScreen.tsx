@@ -172,7 +172,7 @@ function sharedMemberRoleLabel(member: SharedMember, currentUserIds: Set<string>
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();
   const navigation = useNavigation();
-  const { goalId, entryPoint, initialTab, openActivitySheet } = route.params;
+  const { goalId, entryPoint, initialTab, openActivitySheet, openCheckinApprovalSheet } = route.params;
   const showToast = useToastStore((state) => state.showToast);
   const setToastsSuppressed = useToastStore((state) => state.setToastsSuppressed);
   const { capture } = useAnalytics();
@@ -601,10 +601,13 @@ export function GoalDetailScreen() {
   const [membersSheetVisible, setMembersSheetVisible] = useState(false);
   const [membersSheetTab, setMembersSheetTab] = useState<'checkins' | 'partners'>('checkins');
   const [feedRefreshKey, setFeedRefreshKey] = useState(0);
+  const [checkinsFeedItemCount, setCheckinsFeedItemCount] = useState(0);
+  const [checkinsFeedLoaded, setCheckinsFeedLoaded] = useState(false);
   const [leaveSharedGoalBusy, setLeaveSharedGoalBusy] = useState(false);
   const [removingPartnerUserId, setRemovingPartnerUserId] = useState<string | null>(null);
   const [checkinApprovalSheetVisible, setCheckinApprovalSheetVisible] = useState(false);
   const [pendingDraftBusy, setPendingDraftBusy] = useState(false);
+  const hasOpenedRouteCheckinApprovalRef = useRef(false);
 
   // Determine if this is a shared goal (has members beyond just the current user)
   const isSharedGoal = useMemo(() => {
@@ -845,6 +848,39 @@ export function GoalDetailScreen() {
   const hasPendingDraft = useCheckinDraftStore((state) =>
     selectHasPendingDraft(state, goalId)
   );
+  const approvalPartnerDisplayNames = useMemo<string[]>(() => {
+    if (__DEV__ && pendingDraft?.partnerCircleKey.includes('dev-partner')) {
+      return ['Jordan'];
+    }
+    return partnerDisplayNames;
+  }, [partnerDisplayNames, pendingDraft?.partnerCircleKey]);
+  const approvalPartnerCount =
+    __DEV__ && pendingDraft?.partnerCircleKey.includes('dev-partner')
+      ? 1
+      : headerPartnerAvatars.length;
+
+  useEffect(() => {
+    if (!openCheckinApprovalSheet) {
+      hasOpenedRouteCheckinApprovalRef.current = false;
+      return;
+    }
+    if (!isFocused || !pendingDraft || hasOpenedRouteCheckinApprovalRef.current) return;
+    const timer = setTimeout(() => {
+      hasOpenedRouteCheckinApprovalRef.current = true;
+      setCheckinApprovalSheetVisible(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [openCheckinApprovalSheet, isFocused, pendingDraft]);
+
+  useEffect(() => {
+    setCheckinsFeedLoaded(false);
+    setCheckinsFeedItemCount(0);
+  }, [goalId]);
+
+  const handleCheckinsFeedStateChange = useCallback((state: { loaded: boolean; itemCount: number }) => {
+    setCheckinsFeedLoaded(state.loaded);
+    setCheckinsFeedItemCount(state.itemCount);
+  }, []);
 
   // Keep the draft's partner circle key in sync with the live membership list so
   // partner changes mid-draft trigger the re-approval state.
@@ -2237,7 +2273,8 @@ export function GoalDetailScreen() {
       <CheckinApprovalSheet
         visible={checkinApprovalSheetVisible}
         draft={pendingDraft}
-        partnerNames={partnerDisplayNames}
+        partnerNames={approvalPartnerDisplayNames}
+        partnerCount={approvalPartnerCount}
         goalTitle={goal?.title ?? null}
         busy={pendingDraftBusy}
         onSend={(text) => {
@@ -2512,24 +2549,15 @@ export function GoalDetailScreen() {
         attentionPulse
         attentionPulseDelayMs={2500}
         attentionPulseDurationMs={12000}
-        title={
-          <Text style={styles.goalCoachmarkTitle}>
-            {activePartnerPromptTrigger === 'first_progress_alone'
-              ? 'Want someone to see this progress?'
-              : 'Add a partner'}
-          </Text>
-        }
         body={
           <Text style={styles.goalCoachmarkBody}>
-            {activePartnerPromptTrigger === 'first_progress_alone'
-              ? 'Add a partner before your next check-in.'
-              : 'Invite someone who can cheer your wins and keep you moving.'}
+            Invite someone to cheer the progress you choose to share.
           </Text>
         }
         actions={[
           {
             id: 'later',
-            label: activePartnerPromptTrigger === 'first_progress_alone' ? 'Not now' : 'Maybe later',
+            label: 'Not now',
             variant: 'ghost',
           },
           { id: 'invite', label: 'Invite a partner', variant: 'accent' },
@@ -3312,7 +3340,7 @@ export function GoalDetailScreen() {
                 </View>
               ) : null}
 
-              {!pendingDraft ? (
+              {!pendingDraft && checkinsFeedLoaded && checkinsFeedItemCount === 0 ? (
                 <View style={styles.checkinsEmptyCard}>
                   <View style={styles.checkinsEmptyIcon}>
                     <Icon name="checklist" size={22} color={colors.pine700} />
@@ -3325,8 +3353,20 @@ export function GoalDetailScreen() {
               ) : null}
 
               {/* Feed - check-ins and partner reactions */}
-              <View style={[styles.feedSection, !pendingDraft && styles.feedSectionEmpty]}>
-                <GoalFeedSection goalId={goalId} refreshKey={feedRefreshKey} showEmptyState={false} />
+              <View
+                style={[
+                  styles.feedSection,
+                  !pendingDraft && checkinsFeedLoaded && checkinsFeedItemCount === 0
+                    ? styles.feedSectionEmpty
+                    : null,
+                ]}
+              >
+                <GoalFeedSection
+                  goalId={goalId}
+                  refreshKey={feedRefreshKey}
+                  showEmptyState={false}
+                  onFeedStateChange={handleCheckinsFeedStateChange}
+                />
               </View>
 
             </View>

@@ -3,8 +3,8 @@
  *
  * Shows up after a user completes a meaningful piece of work on a shared
  * goal (an activity, a focus session, or the goal itself). Frames the
- * moment as a celebration of what just moved, and offers Send / Edit /
- * Skip on the auto-generated specific draft text.
+ * moment as a compact confirmation, and offers Skip / Send on the
+ * auto-generated specific draft text.
  *
  * Closing the sheet without sending records a dismissal and keeps the
  * pending draft recoverable from the Partners sheet. Skip clears the
@@ -15,14 +15,13 @@
  * and specific.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { Button } from '../../ui/Button';
 import { HStack, Text, VStack } from '../../ui/primitives';
-import { colors, spacing, typography } from '../../theme';
+import { ProfileAvatar } from '../../ui/ProfileAvatar';
+import { cardSurfaceStyle, colors, fonts, spacing, typography } from '../../theme';
 import {
   type CheckinDraft,
   shouldConfirmSkip,
@@ -31,8 +30,10 @@ import {
 export type CheckinApprovalSheetProps = {
   visible: boolean;
   draft: CheckinDraft | null;
-  /** Names of partners in the audience — used for "Share this with..." copy. */
+  /** Names of partners in the audience — used for partner-aware invitation copy. */
   partnerNames: ReadonlyArray<string>;
+  /** Count of partners in the audience; used when names are unavailable. */
+  partnerCount?: number;
   /** Goal title — used as fallback context in the title. */
   goalTitle?: string | null;
   busy?: boolean;
@@ -48,32 +49,20 @@ export function CheckinApprovalSheet({
   visible,
   draft,
   partnerNames,
-  goalTitle,
+  partnerCount = partnerNames.length,
   busy = false,
   onSend,
   onSkip,
   onDismiss,
 }: CheckinApprovalSheetProps) {
-  const [isEditing, setEditing] = useState(false);
-  const [editText, setEditText] = useState<string>(draft?.draftText ?? '');
-
-  // Reset local editor state whenever a new draft is shown.
-  useEffect(() => {
-    if (visible && draft) {
-      setEditing(false);
-      setEditText(draft.draftText);
-    }
-  }, [visible, draft?.id, draft?.draftText, draft]);
-
-  const audienceLine = useMemo(() => formatAudienceLine(partnerNames), [partnerNames]);
-  const finalText = (isEditing ? editText : draft?.draftText ?? '').trim();
+  const finalText = (draft?.draftText ?? '').trim();
   const canSend = finalText.length > 0 && !busy;
 
   if (!draft) {
     return null;
   }
 
-  const headerTitle = composeTitle(draft, goalTitle ?? null);
+  const headerTitle = formatHeaderLine(partnerNames, partnerCount);
 
   const handleSend = () => {
     if (!canSend) return;
@@ -97,42 +86,38 @@ export function CheckinApprovalSheet({
   };
 
   return (
-    <BottomDrawer visible={visible} onClose={onDismiss} snapPoints={['62%']} scrimToken="pineSubtle">
+    <BottomDrawer
+      visible={visible}
+      onClose={onDismiss}
+      snapPoints={['30%']}
+      dynamicSizing
+      keyboardAvoidanceEnabled={false}
+      scrimToken="pineSubtle"
+      sheetStyle={styles.compactSheet}
+      handleContainerStyle={styles.compactHandleContainer}
+      handleStyle={styles.compactHandle}
+    >
       <View style={styles.surface}>
-        <BottomDrawerHeader
-          variant="withClose"
-          title={headerTitle}
-          subtitle={audienceLine || 'Send a check-in to your partners.'}
-          onClose={onDismiss}
-        />
+        <Text style={styles.title} numberOfLines={2}>{headerTitle}</Text>
 
-        <VStack space="md" style={styles.body}>
-          {isEditing ? (
-            <TextInput
-              style={styles.editor}
-              value={editText}
-              onChangeText={setEditText}
-              multiline
-              autoFocus
-              maxLength={500}
-              placeholder="Say what you finished."
-              placeholderTextColor={colors.textSecondary}
-            />
-          ) : (
-            <Text style={styles.draftText}>{draft.draftText || 'Say what you finished.'}</Text>
-          )}
-
-          <Text style={styles.privacyHint}>Only send what you want partners to see.</Text>
+        <VStack space="sm" style={styles.body}>
+          <View style={styles.previewCard}>
+            <HStack space="sm" alignItems="flex-start">
+              <ProfileAvatar name="You" size={32} borderRadius={16} />
+              <VStack flex={1} space="xs">
+                <HStack space="xs" alignItems="center">
+                  <Text style={styles.previewActor}>You</Text>
+                  <Text style={styles.previewTime}>just now</Text>
+                </HStack>
+                <Text style={styles.previewText} numberOfLines={3}>
+                  {finalText || 'Say what you finished.'}
+                </Text>
+              </VStack>
+            </HStack>
+          </View>
 
           <HStack alignItems="center" space="sm" style={styles.actions}>
-            <Button
-              variant="ghost"
-              size="compact"
-              label={isEditing ? 'Done' : 'Edit'}
-              onPress={() => setEditing((current) => !current)}
-              disabled={busy}
-              accessibilityLabel={isEditing ? 'Finish editing' : 'Edit check-in'}
-            />
+            <View style={{ flex: 1 }} />
             <Button
               variant="ghost"
               size="compact"
@@ -141,7 +126,6 @@ export function CheckinApprovalSheet({
               disabled={busy}
               accessibilityLabel="Skip this check-in"
             />
-            <View style={{ flex: 1 }} />
             <Button
               variant="primary"
               size="compact"
@@ -157,53 +141,66 @@ export function CheckinApprovalSheet({
   );
 }
 
-function composeTitle(draft: CheckinDraft, goalTitle: string | null): string {
-  const included = draft.items.filter((i) => i.includeInDraft);
-  if (included.length === 0) {
-    return goalTitle ? `${goalTitle} moved` : 'That moved.';
-  }
-  if (included.length === 1) {
-    return 'That moved.';
-  }
-  return 'You moved this goal.';
-}
-
-function formatAudienceLine(partnerNames: ReadonlyArray<string>): string {
+function formatHeaderLine(partnerNames: ReadonlyArray<string>, partnerCount: number): string {
   const cleaned = partnerNames.map((n) => (n ?? '').trim()).filter((n) => n.length > 0);
-  if (cleaned.length === 0) return '';
-  if (cleaned.length === 1) return `Share this with ${cleaned[0]}?`;
-  if (cleaned.length === 2) return `Share this with ${cleaned[0]} and ${cleaned[1]}?`;
-  return `Share this with ${cleaned[0]} + ${cleaned.length - 1} others?`;
+  const count = Math.max(partnerCount, cleaned.length);
+  if (cleaned.length === 1 && count === 1) {
+    return `Send ${cleaned[0]} a check-in`;
+  }
+  if (cleaned.length === 2 && count === 2) {
+    return `Send ${cleaned[0]} and ${cleaned[1]} a check-in`;
+  }
+  if (cleaned.length > 0 && count > 1) {
+    return `Send ${cleaned[0]} + ${count - 1} others a check-in`;
+  }
+  return `Send a check-in to your ${count > 1 ? 'partners' : 'partner'}`;
 }
 
 const styles = StyleSheet.create({
   surface: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  body: {
-    paddingTop: spacing.sm,
+  compactSheet: {
+    paddingTop: 0,
   },
-  draftText: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-    lineHeight: 24,
+  compactHandleContainer: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
-  editor: {
+  compactHandle: {
+    width: 52,
+  },
+  title: {
     ...typography.body,
     color: colors.textPrimary,
-    backgroundColor: colors.shell,
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 96,
-    textAlignVertical: 'top',
+    fontFamily: fonts.medium,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
   },
-  privacyHint: {
-    ...typography.caption,
+  body: {
+    paddingTop: 0,
+  },
+  previewCard: {
+    ...cardSurfaceStyle,
+    borderRadius: 12,
+    padding: spacing.sm,
+  },
+  previewActor: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+  },
+  previewTime: {
+    ...typography.bodySm,
     color: colors.textSecondary,
+    fontSize: 12,
+  },
+  previewText: {
+    ...typography.body,
+    color: colors.textPrimary,
   },
   actions: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    justifyContent: 'flex-end',
   },
 });

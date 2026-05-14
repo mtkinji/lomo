@@ -99,21 +99,8 @@ Keep this suite small (5–10 tests), high-signal, and run it often.
 
 ### B) Drawer touchability regression (your “dead taps” bug)
 
-Create a deterministic harness and assert:
-
-1. Navigate to **Dev Mode → Gallery**
-2. Tap “Open bottom sheet”
-3. Tap “Close sheet”
-4. Tap a “Tap target (N)” button on the underlying page
-5. Assert the counter increments (meaning touches are working)
-
-This is the single best canary for “invisible overlay intercepting touches.”
-
-**Implementation note**: the DevTools Gallery now includes a small harness with testIDs:
-
-- `e2e.openBottomDrawer`
-- `e2e.closeBottomDrawer`
-- `e2e.tapTarget`
+The old DevTools Gallery harness for bottom-drawer tap-through testing has been removed.
+Cover drawer and overlay regressions through the real surfaces that own those interactions.
 
 ### C) Keyboard avoidance regressions (practical, testable)
 
@@ -169,9 +156,6 @@ These should be driven via DevTools “seed” actions so tests don’t depend o
 
 - **Smoke (DevTools reachable)**: `e2e/maestro/smoke-devtools.yaml`
 - **Auth gate smoke (signed-out launch + interstitial visible)**: `e2e/maestro/auth-gate-smoke.yaml`
-- **Bottom drawer tap-through regression**: `e2e/maestro/bottomdrawer-touch-regression.yaml`
-- **Keyboard harness (form + sheet)**: `e2e/maestro/keyboard-harness.yaml`
-- **Agent workspace smoke (composer + close)**: `e2e/maestro/agent-workspace-smoke.yaml`
 - **Activities quick add (dock expand → create)**: `e2e/maestro/activities-quickadd.yaml`
 - **Activity detail (key actions drawers)**: `e2e/maestro/activity-detail-key-actions.yaml`
 
@@ -273,6 +257,3 @@ Add flows under `e2e/maestro/` and run them against a simulator build of your de
 See the starter flow files:
 
 - `e2e/maestro/smoke-devtools.yaml`
-- `e2e/maestro/bottomdrawer-touch-regression.yaml`
-
-

@@ -69,6 +69,8 @@ export type GoalFeedSectionProps = {
   maxHeight?: number;
   /** Some parent surfaces render their own empty-state card. */
   showEmptyState?: boolean;
+  /** Lets parent-owned empty states wait for the feed to actually load. */
+  onFeedStateChange?: (state: { loaded: boolean; itemCount: number }) => void;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,6 +82,7 @@ export function GoalFeedSection({
   refreshKey = 0,
   maxHeight,
   showEmptyState = true,
+  onFeedStateChange,
 }: GoalFeedSectionProps) {
   const { capture } = useAnalytics();
   const [feedResult, setFeedResult] = useState<GoalFeedResult | null>(null);
@@ -153,6 +156,13 @@ export function GoalFeedSection({
     [goalId, capture, loadFeed]
   );
 
+  const items = feedResult?.items ?? [];
+
+  useEffect(() => {
+    if (!feedResult) return;
+    onFeedStateChange?.({ loaded: true, itemCount: items.length });
+  }, [feedResult, items.length, onFeedStateChange]);
+
   if (isLoading && !feedResult) {
     return (
       <View style={styles.loadingContainer}>
@@ -171,8 +181,6 @@ export function GoalFeedSection({
       </View>
     );
   }
-
-  const items = feedResult?.items ?? [];
 
   return (
     <View style={[styles.container, maxHeight ? { maxHeight } : undefined]}>
@@ -331,12 +339,10 @@ function CheckinCard({ goalId, item, timeAgo, onReaction, onReplySubmitted }: Ch
             <Text style={styles.checkinTime}>{timeAgo}</Text>
           </HStack>
 
-          {presetLabel ? (
+          {payload.text?.trim() ? (
+            <Text style={styles.checkinText}>{payload.text.trim()}</Text>
+          ) : presetLabel ? (
             <Text style={styles.checkinPreset}>{presetLabel}</Text>
-          ) : null}
-
-          {payload.text ? (
-            <Text style={styles.checkinText}>{payload.text}</Text>
           ) : null}
 
           {/* Reactions row */}
@@ -656,8 +662,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   checkinPreset: {
-    ...typography.body,
-    color: colors.textPrimary,
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   checkinText: {
     ...typography.body,
@@ -789,4 +795,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
 });
-

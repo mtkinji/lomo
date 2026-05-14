@@ -567,12 +567,14 @@ export function Coachmark({
               />
             ) : null}
 
-            <View style={styles.headerRow}>
-              {title ? <View style={styles.titleRow}>{title}</View> : null}
-              {progressLabel ? (
-                <Text style={styles.progressLabel}>{progressLabel}</Text>
-              ) : null}
-            </View>
+            {title || progressLabel ? (
+              <View style={styles.headerRow}>
+                {title ? <View style={styles.titleRow}>{title}</View> : null}
+                {progressLabel ? (
+                  <Text style={styles.progressLabel}>{progressLabel}</Text>
+                ) : null}
+              </View>
+            ) : null}
             {media ? <View style={styles.mediaRow}>{media}</View> : null}
             <View style={[styles.bodyRow, footerActions.length === 0 ? styles.bodyRowNoFooter : null]}>
               {body}
@@ -703,5 +705,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
 

@@ -98,7 +98,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         id: 'phone_agent',
         title: 'Phone Agent',
         description: 'Text Kwilt to capture, follow up, and close loops.',
-        icon: 'activities',
+        icon: 'phone',
         route: 'SettingsPhoneAgent',
         status: 'new',
         tags: ['phone', 'sms', 'follow-through'],
@@ -146,7 +146,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         id: 'notifications',
         title: 'Notifications',
         description: 'Plan gentle reminders from Kwilt.',
-        icon: 'activities',
+        icon: 'bell',
         route: 'SettingsNotifications',
         tags: ['reminders', 'nudges', 'alerts'],
       },
@@ -1043,4 +1043,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
 });
-
