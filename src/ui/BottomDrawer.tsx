@@ -241,6 +241,7 @@ export function BottomDrawer({
   // translateY is used only for the close animation (slide down off-screen).
   const translateY = useSharedValue(0);
   const isAnimating = useSharedValue(false);
+  const hasRunOpenAnimationRef = useRef(false);
 
   const requestCloseAnimated = () => {
     if (!dismissable) return;
@@ -287,6 +288,10 @@ export function BottomDrawer({
   }, [hasDynamicTarget, initialSnapIndex, snapIndex, snapHeights.length]);
 
   useEffect(() => {
+    if (!visible) {
+      hasRunOpenAnimationRef.current = false;
+    }
+
     if (visible) {
       if (!mounted) setMounted(true);
       return;
@@ -325,13 +330,25 @@ export function BottomDrawer({
   useEffect(() => {
     if (!mounted) return;
     if (!visible) return;
-    isAnimating.value = true;
-    // Animate from off-screen to reinforce the "drawer slides up" mental model.
-    translateY.value = closedOffset;
     const targetHeight = snapHeights[openToIndex] ?? maxSnapHeight;
-    sheetHeight.value = targetHeight;
-    translateY.value = withTiming(0, { duration: 320 }, (finished) => {
-      isAnimating.value = false;
+
+    if (!hasRunOpenAnimationRef.current) {
+      hasRunOpenAnimationRef.current = true;
+      isAnimating.value = true;
+      // Animate from off-screen to reinforce the "drawer slides up" mental model.
+      translateY.value = closedOffset;
+      sheetHeight.value = targetHeight;
+      translateY.value = withTiming(0, { duration: 320 }, (finished) => {
+        isAnimating.value = false;
+        if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
+      });
+      return;
+    }
+
+    // Snap-height changes while open should resize the sheet in place. Replaying
+    // the entrance animation here makes under-keyboard composers appear to close
+    // and reopen whenever their content grows by a line.
+    sheetHeight.value = withTiming(targetHeight, { duration: 180 }, (finished) => {
       if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -742,5 +759,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
-
 

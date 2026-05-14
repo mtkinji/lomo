@@ -2940,14 +2940,6 @@ export function GoalDetailScreen() {
                           setIsFocused={setQuickAddFocused}
                           onSubmit={handleQuickAddActivity}
                           onCollapse={collapseQuickAdd}
-                          reminderAt={quickAddReminderAt}
-                          scheduledDate={quickAddScheduledDate}
-                          repeatRule={quickAddRepeatRule}
-                          estimateMinutes={quickAddEstimateMinutes}
-                          onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
-                          onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
-                          onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
-                          onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
                         />
                       </View>
                     </>
@@ -2986,14 +2978,6 @@ export function GoalDetailScreen() {
                           setIsFocused={setQuickAddFocused}
                           onSubmit={handleQuickAddActivity}
                           onCollapse={collapseQuickAdd}
-                          reminderAt={quickAddReminderAt}
-                          scheduledDate={quickAddScheduledDate}
-                          repeatRule={quickAddRepeatRule}
-                          estimateMinutes={quickAddEstimateMinutes}
-                          onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
-                          onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
-                          onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
-                          onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
                         />
                       </View>
 

@@ -6,6 +6,14 @@ import type { ActivityRepeatRule } from '../../domain/types';
 import { spacing } from '../../theme';
 import { HapticsService } from '../../services/HapticsService';
 
+export type QuickAddAiAction = 'details' | 'steps' | 'estimate';
+
+export const DEFAULT_QUICK_ADD_AI_ACTIONS: QuickAddAiAction[] = ['details', 'steps', 'estimate'];
+
+type QuickAddSubmitOptions = {
+  aiActions?: QuickAddAiAction[];
+};
+
 type ToastPayload = {
   message: string;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'credits';
@@ -145,7 +153,7 @@ export function useQuickAddDockController(params: Params) {
     return reservedHeight + spacing.sm;
   }, [reservedHeight, toastBottomOffsetOverridePx]);
 
-  const submit = React.useCallback(() => {
+  const submit = React.useCallback((options?: QuickAddSubmitOptions) => {
     const trimmed = value.trim();
     if (!trimmed) return;
 
@@ -242,7 +250,10 @@ export function useQuickAddDockController(params: Params) {
       });
     }
 
-    if (enrichActivityWithAI && updateActivity) {
+    const aiActions = options?.aiActions ?? DEFAULT_QUICK_ADD_AI_ACTIONS;
+    const shouldEnrichWithAI = aiActions.length > 0;
+
+    if (enrichActivityWithAI && updateActivity && shouldEnrichWithAI) {
       markActivityEnrichment?.(activity.id, true);
       enrichActivityWithAI({
         activityId: activity.id,
@@ -255,36 +266,11 @@ export function useQuickAddDockController(params: Params) {
           if (!enrichment) return;
           const ts = new Date().toISOString();
           updateActivity(activity.id, (prev) => {
-            const updates: Partial<Activity> = { updatedAt: ts };
-            if (enrichment.notes && !prev.notes) updates.notes = enrichment.notes;
-            if (enrichment.tags && enrichment.tags.length > 0 && (!prev.tags || prev.tags.length === 0)) {
-              updates.tags = enrichment.tags;
-            }
-            if (enrichment.steps && enrichment.steps.length > 0 && (!prev.steps || prev.steps.length === 0)) {
-              updates.steps = enrichment.steps.map((step: any, idx: number) => ({
-                id: `step-${activity.id}-${idx}`,
-                title: step.title,
-                orderIndex: idx,
-                completedAt: null,
-              }));
-            }
-            if (enrichment.estimateMinutes != null && prev.estimateMinutes == null) {
-              updates.estimateMinutes = enrichment.estimateMinutes;
-            }
-            if (enrichment.priority != null && prev.priority == null) {
-              updates.priority = enrichment.priority;
-            }
-            if (enrichment.difficulty) {
-              updates.aiPlanning = {
-                ...prev.aiPlanning,
-                difficulty: enrichment.difficulty,
-                estimateMinutes: enrichment.estimateMinutes ?? prev.aiPlanning?.estimateMinutes,
-                confidence: 0.7,
-                lastUpdatedAt: ts,
-                source: 'quick_suggest' as const,
-              };
-            }
-            return { ...prev, ...updates };
+            return applyQuickAddAiEnrichment(prev, enrichment, {
+              activityId: activity.id,
+              selectedActions: aiActions,
+              timestamp: ts,
+            });
           });
         })
         .catch(() => undefined)
@@ -337,4 +323,56 @@ export function useQuickAddDockController(params: Params) {
   };
 }
 
+export function applyQuickAddAiEnrichment(
+  activity: Activity,
+  enrichment: any,
+  options: {
+    activityId: string;
+    selectedActions: QuickAddAiAction[];
+    timestamp: string;
+  },
+): Activity {
+  const selectedActions = new Set(options.selectedActions);
+  if (selectedActions.size === 0) return activity;
 
+  const updates: Partial<Activity> = { updatedAt: options.timestamp };
+
+  if (selectedActions.has('details')) {
+    if (enrichment.notes && !activity.notes) updates.notes = enrichment.notes;
+    if (enrichment.tags && enrichment.tags.length > 0 && (!activity.tags || activity.tags.length === 0)) {
+      updates.tags = enrichment.tags;
+    }
+  }
+
+  if (selectedActions.has('steps')) {
+    if (enrichment.steps && enrichment.steps.length > 0 && (!activity.steps || activity.steps.length === 0)) {
+      updates.steps = enrichment.steps.map((step: any, idx: number) => ({
+        id: `step-${options.activityId}-${idx}`,
+        title: step.title,
+        orderIndex: idx,
+        completedAt: null,
+      }));
+    }
+  }
+
+  if (selectedActions.has('estimate')) {
+    if (enrichment.estimateMinutes != null && activity.estimateMinutes == null) {
+      updates.estimateMinutes = enrichment.estimateMinutes;
+    }
+    if (enrichment.priority != null && activity.priority == null) {
+      updates.priority = enrichment.priority;
+    }
+    if (enrichment.difficulty) {
+      updates.aiPlanning = {
+        ...activity.aiPlanning,
+        difficulty: enrichment.difficulty,
+        estimateMinutes: enrichment.estimateMinutes ?? activity.aiPlanning?.estimateMinutes,
+        confidence: 0.7,
+        lastUpdatedAt: options.timestamp,
+        source: 'quick_suggest' as const,
+      };
+    }
+  }
+
+  return { ...activity, ...updates };
+}

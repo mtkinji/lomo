@@ -3,16 +3,15 @@ import { useMemo } from 'react';
 import type { RefObject } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { Activity } from '../../domain/types';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
-import { cardElevation } from '../../theme/surfaces';
 import { Icon } from '../../ui/Icon';
 import { HStack } from '../../ui/primitives';
 import { EditorSurface } from '../../ui/EditorSurface';
-import { Toolbar, ToolbarButton, ToolbarGroup } from '../../ui/Toolbar';
 import { UnderKeyboardDrawer } from '../../ui/UnderKeyboardDrawer';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
+import { DEFAULT_QUICK_ADD_AI_ACTIONS, type QuickAddAiAction } from './useQuickAddDockController';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
@@ -24,6 +23,19 @@ const QUICK_ADD_DOCK_FADE_MAX_ALPHA = 0.88;
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
 const KEYBOARD_DEFAULT_GUESS_HEIGHT = 320;
+const QUICK_ADD_INPUT_MIN_HEIGHT = 22;
+const QUICK_ADD_INPUT_MAX_HEIGHT = 96;
+const QUICK_ADD_INPUT_APPROX_CHARS_PER_LINE = 44;
+
+const AI_ACTION_OPTIONS: Array<{
+  id: QuickAddAiAction;
+  label: string;
+  icon: 'fileText' | 'checklist' | 'estimate';
+}> = [
+  { id: 'details', label: 'Fill details', icon: 'fileText' },
+  { id: 'steps', label: 'Add steps', icon: 'checklist' },
+  { id: 'estimate', label: 'Estimate time', icon: 'estimate' },
+];
 
 type QuickAddDockProps = {
   /**
@@ -37,21 +49,9 @@ type QuickAddDockProps = {
   inputRef: RefObject<TextInput | null>;
   isFocused: boolean;
   setIsFocused: (next: boolean) => void;
-  onSubmit: () => void;
+  onSubmit: (options?: { aiActions?: QuickAddAiAction[] }) => void;
   onCollapse: () => void;
 
-  reminderAt: string | null;
-  scheduledDate: string | null;
-  repeatRule: Activity['repeatRule'] | undefined;
-  estimateMinutes: number | null;
-
-  onPressReminder: () => void;
-  onPressDueDate: () => void;
-  onPressRepeat: () => void;
-  onPressEstimate: () => void;
-  onPressGenerateActivityTitle?: () => void;
-  isGeneratingActivityTitle?: boolean;
-  hasGeneratedActivityTitle?: boolean;
   /**
    * When true (default), the focused drawer collapses after a successful submit.
    */
@@ -78,17 +78,6 @@ export function QuickAddDock({
   setIsFocused,
   onSubmit,
   onCollapse,
-  reminderAt,
-  scheduledDate,
-  repeatRule,
-  estimateMinutes,
-  onPressReminder,
-  onPressDueDate,
-  onPressRepeat,
-  onPressEstimate,
-  onPressGenerateActivityTitle,
-  isGeneratingActivityTitle,
-  hasGeneratedActivityTitle,
   dismissAfterSubmit = true,
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
@@ -103,6 +92,11 @@ export function QuickAddDock({
   const accessoryId = useMemo(() => 'quick-add-dock-accessory', []);
 
   const [measuredComposerHeight, setMeasuredComposerHeight] = React.useState<number | null>(null);
+  const [selectedAiActions, setSelectedAiActions] = React.useState<QuickAddAiAction[]>(
+    DEFAULT_QUICK_ADD_AI_ACTIONS,
+  );
+  const [isAiMenuOpen, setIsAiMenuOpen] = React.useState(false);
+  const [inputHeight, setInputHeight] = React.useState(QUICK_ADD_INPUT_MIN_HEIGHT);
   
   // Guard against blur events that fire immediately after focus (e.g., during layout transitions).
   const lastFocusTimeRef = React.useRef<number>(0);
@@ -154,69 +148,53 @@ export function QuickAddDock({
     });
   }, [inputRef, isFocused]);
 
-  const renderToolbar = React.useCallback(() => {
-    return (
-      <View style={styles.toolbarWrapper}>
-        <Toolbar center style={styles.toolbar}>
-          <ToolbarGroup>
-            <ToolbarButton
-              accessibilityLabel="Set reminder"
-              onPress={onPressReminder}
-              icon="bell"
-              variant={reminderAt ? 'primary' : 'secondary'}
-            />
-            <ToolbarButton
-              accessibilityLabel="Set due date"
-              onPress={onPressDueDate}
-              icon="today"
-              variant={scheduledDate ? 'primary' : 'secondary'}
-            />
-            <ToolbarButton
-              accessibilityLabel="Set repeat"
-              onPress={onPressRepeat}
-              icon="refresh"
-              variant={repeatRule ? 'primary' : 'secondary'}
-            />
-          </ToolbarGroup>
-          <ToolbarGroup>
-            <ToolbarButton
-              accessibilityLabel="Set time estimate"
-              onPress={onPressEstimate}
-              icon="estimate"
-              variant={estimateMinutes != null ? 'primary' : 'secondary'}
-            />
-          </ToolbarGroup>
-          <ToolbarGroup>
-            <ToolbarButton
-              accessibilityLabel={
-                'Generate to-do suggestion'
-              }
-              onPress={onPressGenerateActivityTitle}
-              disabled={Boolean(isGeneratingActivityTitle)}
-              icon="sparkles"
-              label="AI Suggestion"
-              tone="ai"
-            />
-          </ToolbarGroup>
-        </Toolbar>
-      </View>
-    );
-  }, [
-    estimateMinutes,
-    hasGeneratedActivityTitle,
-    isGeneratingActivityTitle,
-    onPressDueDate,
-    onPressEstimate,
-    onPressGenerateActivityTitle,
-    onPressReminder,
-    onPressRepeat,
-    reminderAt,
-    repeatRule,
-    scheduledDate,
-  ]);
+  React.useEffect(() => {
+    if (value.trim().length === 0 && inputHeight !== QUICK_ADD_INPUT_MIN_HEIGHT) {
+      setInputHeight(QUICK_ADD_INPUT_MIN_HEIGHT);
+    }
+  }, [inputHeight, value]);
 
+  const resolveInputHeightForText = React.useCallback((text: string, measuredContentHeight?: number) => {
+    const explicitLines = text.split('\n').length;
+    const shouldWrap = explicitLines > 1 || text.length > QUICK_ADD_INPUT_APPROX_CHARS_PER_LINE;
+    if (!shouldWrap) return QUICK_ADD_INPUT_MIN_HEIGHT;
+
+    const wrappedLines = Math.max(
+      explicitLines,
+      Math.ceil(text.length / QUICK_ADD_INPUT_APPROX_CHARS_PER_LINE),
+      1,
+    );
+    const estimatedHeight = Math.max(
+      QUICK_ADD_INPUT_MIN_HEIGHT,
+      wrappedLines * 22 + 8,
+      measuredContentHeight ?? 0,
+    );
+    return Math.min(QUICK_ADD_INPUT_MAX_HEIGHT, estimatedHeight);
+  }, []);
+
+  const setResolvedInputHeight = React.useCallback((nextHeight: number) => {
+    setInputHeight((current) => (current === nextHeight ? current : nextHeight));
+  }, []);
+
+  const isInputExpanded = inputHeight > QUICK_ADD_INPUT_MIN_HEIGHT;
   const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
   const canSubmit = value.trim().length > 0;
+  const selectedAiActionSet = React.useMemo(() => new Set(selectedAiActions), [selectedAiActions]);
+  const toggleAiAction = React.useCallback((action: QuickAddAiAction) => {
+    setSelectedAiActions((current) => {
+      if (current.includes(action)) return current.filter((item) => item !== action);
+      return [...current, action];
+    });
+  }, []);
+  const submitQuickAdd = React.useCallback(() => {
+    if (!canSubmit) return;
+    setIsAiMenuOpen(false);
+    onSubmit({ aiActions: selectedAiActions });
+    if (dismissAfterSubmit) onCollapse();
+  }, [canSubmit, dismissAfterSubmit, onCollapse, onSubmit, selectedAiActions]);
+  const selectedAiActionCount = selectedAiActions.length;
+  const aiActionSummary =
+    selectedAiActionCount === 0 ? 'Off' : `${selectedAiActionCount} on`;
   const measuredCollapsedSurfaceHeight = measuredCollapsedSurfaceHeightRef.current || QUICK_ADD_BAR_HEIGHT;
   const footerFadeHeight =
     measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX;
@@ -329,88 +307,192 @@ export function QuickAddDock({
             style={styles.editorSurface}
             bodyStyle={styles.editorBody}
           >
-            <View style={styles.contentStack}>
-              <View style={styles.composerRow}>
-                <Pressable
-                  testID="e2e.activities.quickAdd.submit"
-                  accessibilityRole="button"
-                  accessibilityLabel="Create to-do"
-                  accessibilityState={{ disabled: !canSubmit }}
-                  onPress={() => {
-                    if (!canSubmit) return;
-                    onSubmit();
-                    if (dismissAfterSubmit) onCollapse();
-                  }}
-                  style={[
-                    styles.affordance,
-                    styles.affordanceIdle,
-                    !canSubmit ? styles.affordanceDisabled : null,
-                  ]}
-                >
-                  {hasGeneratedActivityTitle ? (
-                    <View style={styles.aiSuggestedAffordance}>
-                      <Icon
-                        name="sparkles"
-                        size={16}
-                        color={canSubmit ? colors.accent : colors.textSecondary}
-                      />
-                    </View>
-                  ) : (
-                    // Keep this as an "empty checkbox" affordance while composing (no completion signal).
+            <View style={styles.composerCard}>
+                <View style={[styles.composerInputRow, isInputExpanded ? styles.composerInputRowExpanded : null]}>
+                  <View style={[styles.affordance, isInputExpanded ? styles.affordanceExpanded : null]}>
                     <View
                       style={[
                         styles.createCheckboxBase,
                         styles.createCheckboxDisabled,
                       ]}
-                    >
-                      {/* Intentionally no inner icon while composing */}
-                    </View>
-                  )}
-                </Pressable>
-
-                <View style={styles.inputContainer}>
-                  <View style={styles.titleFieldClipper}>
-                    <RNTextInput
-                      ref={inputRef}
-                      testID="e2e.activities.quickAdd.input"
-                      value={value}
-                      onChangeText={onChangeText}
-                      placeholder="Add a to-do"
-                      placeholderTextColor={colors.textSecondary}
-                      returnKeyType="done"
-                      showSoftInputOnFocus
-                      blurOnSubmit
-                      multiline={false}
-                      numberOfLines={1}
-                      onSubmitEditing={() => {
-                        if (value.trim().length === 0) {
-                          onCollapse();
-                          return;
-                        }
-                        onSubmit();
-                        if (dismissAfterSubmit) onCollapse();
-                      }}
-                      onFocus={() => {
-                        lastFocusTimeRef.current = Date.now();
-                        setIsFocused(true);
-                      }}
-                      onBlur={() => {
-                        const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
-                        if (timeSinceFocus < BLUR_GUARD_MS) {
-                          inputRef.current?.focus();
-                          return;
-                        }
-                        // Don't auto-collapse on blur; the user likely tapped toolbar buttons.
-                      }}
-                      autoCapitalize="sentences"
-                      autoCorrect
-                      style={styles.input}
-                      accessibilityLabel="To-do title"
                     />
                   </View>
+
+                  <View style={styles.inputContainer}>
+                    <View style={styles.titleFieldClipper}>
+                      <RNTextInput
+                        ref={inputRef}
+                        testID="e2e.activities.quickAdd.input"
+                        value={value}
+                        onChangeText={(next) => {
+                          onChangeText(next);
+                          setResolvedInputHeight(resolveInputHeightForText(next));
+                        }}
+                        placeholder="Add a to-do"
+                        placeholderTextColor={colors.textSecondary}
+                        returnKeyType="done"
+                        showSoftInputOnFocus
+                        blurOnSubmit
+                        multiline={isInputExpanded}
+                        scrollEnabled={isInputExpanded && inputHeight >= QUICK_ADD_INPUT_MAX_HEIGHT}
+                        onContentSizeChange={(event) => {
+                          const contentHeight = Math.ceil(event.nativeEvent.contentSize.height);
+                          setResolvedInputHeight(resolveInputHeightForText(value, contentHeight));
+                        }}
+                        onSubmitEditing={() => {
+                          if (value.trim().length === 0) {
+                            onCollapse();
+                            return;
+                          }
+                          submitQuickAdd();
+                        }}
+                        onFocus={() => {
+                          lastFocusTimeRef.current = Date.now();
+                          setIsFocused(true);
+                        }}
+                        onBlur={() => {
+                          const timeSinceFocus = Date.now() - lastFocusTimeRef.current;
+                          if (timeSinceFocus < BLUR_GUARD_MS) {
+                            inputRef.current?.focus();
+                            return;
+                          }
+                          // Don't auto-collapse on blur; the user likely tapped composer actions.
+                        }}
+                        autoCapitalize="sentences"
+                        autoCorrect
+                        style={[
+                          styles.input,
+                          { height: inputHeight },
+                          value.length > 0 && !isInputExpanded ? styles.inputWithSingleLineValue : null,
+                        ]}
+                        accessibilityLabel="To-do title"
+                      />
+                    </View>
+                  </View>
                 </View>
-              </View>
-              {renderToolbar()}
+
+                <View style={styles.composerActionsRow}>
+                  <DropdownMenu
+                    {...({
+                      open: isAiMenuOpen,
+                      onOpenChange: setIsAiMenuOpen,
+                    } as any)}
+                  >
+                    <DropdownMenuTrigger {...({ asChild: true } as any)}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="AI actions"
+                        accessibilityState={{ expanded: isAiMenuOpen }}
+                        hitSlop={6}
+                        style={({ pressed }) => [
+                          styles.aiMenuTrigger,
+                          pressed ? styles.aiMenuTriggerPressed : null,
+                        ]}
+                      >
+                        <Icon
+                          name="sparkles"
+                          size={14}
+                          color={isAiMenuOpen ? colors.textPrimary : colors.textSecondary}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.aiMenuTriggerText,
+                            isAiMenuOpen ? styles.aiMenuTriggerTextOpen : null,
+                          ]}
+                        >
+                          AI actions
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.aiMenuTriggerMeta,
+                            isAiMenuOpen ? styles.aiMenuTriggerMetaOpen : null,
+                          ]}
+                        >
+                          {aiActionSummary}
+                        </Text>
+                        <Icon
+                          name={isAiMenuOpen ? 'chevronUp' : 'chevronDown'}
+                          size={14}
+                          color={isAiMenuOpen ? colors.textPrimary : colors.textSecondary}
+                        />
+                      </Pressable>
+                    </DropdownMenuTrigger>
+
+                    {isAiMenuOpen ? (
+                      <DropdownMenuContent
+                        side="top"
+                        align="start"
+                        sideOffset={8}
+                        style={styles.aiMenuCard}
+                      >
+                        <View style={styles.aiMenuHeader}>
+                          <Text style={styles.aiMenuTitle}>AI actions</Text>
+                          <Text style={styles.aiMenuSummary}>{aiActionSummary}</Text>
+                        </View>
+                        {AI_ACTION_OPTIONS.map((chip) => {
+                          const selected = selectedAiActionSet.has(chip.id);
+                          return (
+                            <Pressable
+                              key={chip.id}
+                              accessibilityRole="switch"
+                              accessibilityLabel={`AI ${chip.label.toLowerCase()}`}
+                              accessibilityState={{ checked: selected }}
+                              onPress={() => toggleAiAction(chip.id)}
+                              style={({ pressed }) => [
+                                styles.aiMenuItem,
+                                pressed ? styles.aiMenuItemPressed : null,
+                              ]}
+                            >
+                              <View style={styles.aiMenuItemIcon}>
+                                <Icon
+                                  name={chip.icon}
+                                  size={15}
+                                  color={selected ? colors.textPrimary : colors.textSecondary}
+                                />
+                              </View>
+                              <Text style={styles.aiMenuItemLabel}>{chip.label}</Text>
+                              <View
+                                style={[
+                                  styles.aiMenuSwitchTrack,
+                                  selected ? styles.aiMenuSwitchTrackOn : null,
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.aiMenuSwitchThumb,
+                                    selected ? styles.aiMenuSwitchThumbOn : null,
+                                  ]}
+                                />
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    ) : null}
+                  </DropdownMenu>
+
+                  <Pressable
+                    testID="e2e.activities.quickAdd.submit"
+                    accessibilityRole="button"
+                    accessibilityLabel="Create to-do"
+                    accessibilityState={{ disabled: !canSubmit }}
+                    onPress={submitQuickAdd}
+                    hitSlop={8}
+                    style={({ pressed }) => [
+                      styles.sendButton,
+                      !canSubmit ? styles.sendButtonDisabled : null,
+                      pressed && canSubmit ? styles.sendButtonPressed : null,
+                    ]}
+                  >
+                    <Icon
+                      name="arrowUp"
+                      size={18}
+                      color={canSubmit ? colors.primaryForeground : colors.textSecondary}
+                    />
+                  </Pressable>
+                </View>
             </View>
           </EditorSurface>
         </View>
@@ -516,23 +598,31 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
-  contentStack: {
+  composerCard: {
     width: '100%',
-    // Keep the toolbar visually attached to the input (no big gap).
-    rowGap: spacing.xs,
-  },
-  composerRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
     columnGap: spacing.sm,
     backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS,
+    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS + 2,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    minHeight: 44,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    rowGap: spacing.xs,
+    minHeight: 92,
+    overflow: 'visible',
+    position: 'relative',
+    zIndex: 2,
+  },
+  composerInputRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    minHeight: 42,
+  },
+  composerInputRowExpanded: {
+    alignItems: 'flex-start',
   },
   affordance: {
     width: 28,
@@ -540,13 +630,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  affordanceIdle: {
-    borderRadius: 0,
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-  },
-  affordanceDisabled: {
-    opacity: 0.5,
+  affordanceExpanded: {
+    marginTop: 10,
   },
   createCheckboxBase: {
     width: 24,
@@ -566,14 +651,17 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   titleFieldClipper: {
-    flex: 1,
+    width: '100%',
     minWidth: 0,
-    overflow: 'hidden',
   },
   input: {
-    flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    flexShrink: 1,
     ...typography.body,
     fontFamily: fonts.semibold,
     fontSize: 15,
@@ -584,30 +672,154 @@ const styles = StyleSheet.create({
       ? {
           marginTop: 0,
           paddingTop: 0,
-          paddingBottom: 1,
-          transform: [{ translateY: -1 }],
+          paddingBottom: 0,
         }
-      : null),
+      : {
+          textAlignVertical: 'top',
+        }),
     color: colors.textPrimary,
     minWidth: 0,
   },
-  aiSuggestedAffordance: {
-    width: 24,
-    height: 24,
+  inputWithSingleLineValue: {
+    ...(Platform.OS === 'ios'
+      ? {
+          transform: [{ translateY: -4 }],
+        }
+      : null),
+  },
+  composerActionsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: spacing.sm,
+  },
+  aiMenuTrigger: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    backgroundColor: 'transparent',
+    flexShrink: 1,
+  },
+  aiMenuTriggerPressed: {
+    opacity: 0.62,
+  },
+  aiMenuTriggerText: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  aiMenuTriggerTextOpen: {
+    color: colors.textPrimary,
+  },
+  aiMenuTriggerMeta: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  aiMenuTriggerMetaOpen: {
+    color: colors.textSecondary,
+  },
+  aiMenuCard: {
+    width: 264,
+    minWidth: 264,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  aiMenuHeader: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    justifyContent: 'space-between',
+  },
+  aiMenuTitle: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  aiMenuSummary: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  aiMenuItem: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 10,
+  },
+  aiMenuItemPressed: {
+    backgroundColor: colors.secondary,
+  },
+  aiMenuItemIcon: {
+    width: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  toolbar: {
-    backgroundColor: 'transparent',
-    // Let the toolbar sit naturally inside the dock surface.
-    paddingHorizontal: spacing.sm,
-    width: '100%',
+  aiMenuItemLabel: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    flex: 1,
   },
-  toolbarWrapper: {
+  aiMenuSwitchTrack: {
+    width: 38,
+    height: 22,
+    borderRadius: 999,
+    padding: 2,
+    justifyContent: 'center',
+    backgroundColor: colors.secondary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  aiMenuSwitchTrackOn: {
+    backgroundColor: colors.textPrimary,
+    borderColor: colors.textPrimary,
+  },
+  aiMenuSwitchThumb: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
     backgroundColor: colors.canvas,
-    paddingTop: 0,
-    paddingBottom: spacing.xs,
-    alignItems: 'stretch',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  aiMenuSwitchThumbOn: {
+    alignSelf: 'flex-end',
+  },
+  sendButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.textPrimary,
+  },
+  sendButtonDisabled: {
+    backgroundColor: colors.secondary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  sendButtonPressed: {
+    opacity: 0.86,
   },
   drawerSheet: {
     backgroundColor: colors.canvas,
@@ -628,13 +840,16 @@ const styles = StyleSheet.create({
   drawerContent: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     backgroundColor: colors.canvas,
+    overflow: 'visible',
   },
   editorSurface: {
     // Override EditorSurface's default flex: 1 to allow it to size to content
     flex: 0,
     backgroundColor: 'transparent',
     minHeight: 0,
+    overflow: 'visible',
   },
   editorBody: {
     // Remove all padding since outer container already provides padding
@@ -643,5 +858,6 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     // Allow body to size to content, not flex
     flex: 0,
+    overflow: 'visible',
   },
 });
