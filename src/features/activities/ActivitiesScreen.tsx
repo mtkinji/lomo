@@ -59,7 +59,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVariant';
-import { enrichActivityWithAI, sendCoachChat, type CoachChatTurn } from '../../services/ai';
+import { enrichActivityWithAI } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
 import {
@@ -90,7 +90,6 @@ import { useKeyboardHeight } from '../../ui/hooks/useKeyboardHeight';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
 import { useQuickAddDockController } from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
-import { buildActivityCoachLaunchContext, buildArcCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
@@ -313,9 +312,6 @@ export function ActivitiesScreen() {
   const quickAddFocusedRef = React.useRef(false);
   const quickAddLastFocusAtRef = React.useRef<number>(0);
   const canOpenActivityDetail = useNavigationTapGuard({ cooldownMs: 2000 });
-  const [isQuickAddAiGenerating, setIsQuickAddAiGenerating] = React.useState(false);
-  const [hasQuickAddAiGenerated, setHasQuickAddAiGenerated] = React.useState(false);
-  const lastQuickAddAiTitleRef = React.useRef<string | null>(null);
   // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
   const [enrichingActivityIds, setEnrichingActivityIds] = React.useState<Set<string>>(() => new Set());
   const enrichingActivityIdsRef = React.useRef<Set<string>>(new Set());
@@ -1380,8 +1376,6 @@ export function ActivitiesScreen() {
         has_reminder: Boolean(activity.reminderAt),
         has_estimate: Boolean(activity.estimateMinutes),
       });
-      setHasQuickAddAiGenerated(false);
-      lastQuickAddAiTitleRef.current = null;
     },
     enrichActivityWithAI,
     markActivityEnrichment,
@@ -1590,109 +1584,6 @@ export function ActivitiesScreen() {
 
   // QuickAdd dock state + create handler are centralized in `useQuickAddDockController`
   // so Goal:Plan and Activities list stay in sync without duplicating behavior.
-
-  const normalizeQuickAddAiTitle = React.useCallback((raw: string): string | null => {
-    const firstLine = (raw ?? '')
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line.length > 0);
-    if (!firstLine) return null;
-
-    let title = firstLine;
-    title = title.replace(/^[\-\*\d]+[.)\s-]+/, '').trim();
-    title = title.replace(/^["'`]+/, '').replace(/["'`]+$/, '').trim();
-    title = title.replace(/[.!?]+$/, '').trim();
-    if (!title) return null;
-    if (title.length > 80) title = `${title.slice(0, 80).trim()}`;
-    return title.length > 0 ? title : null;
-  }, []);
-
-  const handleGenerateQuickAddActivityTitle = React.useCallback(async () => {
-    if (isQuickAddAiGenerating) return;
-    setIsQuickAddAiGenerating(true);
-
-    try {
-      const arcSnapshot = buildArcCoachLaunchContext(arcs, goals);
-      const activitySnapshot = buildActivityCoachLaunchContext(
-        goals,
-        activities,
-        undefined,
-        arcs,
-        undefined,
-        activityTagHistory
-      );
-      const combinedSnapshot = [arcSnapshot, activitySnapshot].filter(Boolean).join('\n\n').trim();
-      const snapshot = combinedSnapshot.length > 8000 ? `${combinedSnapshot.slice(0, 7999)}…` : combinedSnapshot;
-
-      const launchContextSummary = [
-        'Launch source: activities_quick_add_toolbar',
-        'Intent: generate a single new to-do title to prefill the quick-add input.',
-        'Constraints: Output ONLY the to-do title as plain text on a single line. No quotes. No bullets. No numbering. No trailing punctuation.',
-        snapshot ? `\n${snapshot}` : '',
-      ].join('\n');
-
-      const turns: CoachChatTurn[] = [
-        {
-          role: 'system',
-          content:
-            'You are generating a single to-do title for the user.\n' +
-            '- Output MUST be exactly one line: the title only.\n' +
-            '- Keep it concrete and action-oriented (3–10 words).\n' +
-            '- Choose the SINGLE highest-value to-do the user can realistically do next.\n' +
-            '- It MUST NOT duplicate or near-duplicate any existing to-do title from the workspace snapshot (case-insensitive; ignore punctuation; avoid minor rewordings like swapping synonyms).\n' +
-            '- Prefer high-leverage to-dos that unblock progress across the user’s current Arcs/Goals or create a clear next step.\n' +
-            '- Do not include any explanation.',
-        },
-        {
-          role: 'user',
-          content:
-            'Suggest one new, highest-value to-do that fits the user’s current arcs and goals, complements existing to-dos, and is not already in their to-do list.',
-        },
-      ];
-
-      const reply = await sendCoachChat(turns, {
-        launchContextSummary,
-        paywallSource: 'activity_quick_add_ai',
-      });
-      const title = normalizeQuickAddAiTitle(reply);
-      if (!title) return;
-
-      setQuickAddTitle(title);
-      setHasQuickAddAiGenerated(true);
-      lastQuickAddAiTitleRef.current = title;
-      if (!quickAddFocusedRef.current) {
-        setQuickAddFocused(true);
-      }
-      requestAnimationFrame(() => {
-        quickAddInputRef.current?.focus();
-      });
-    } catch (err) {
-      if (__DEV__) {
-        console.warn('[ActivitiesScreen] Failed to generate quick-add to-do title:', err);
-      }
-    } finally {
-      setIsQuickAddAiGenerating(false);
-    }
-  }, [
-    activities,
-    arcs,
-    goals,
-    isQuickAddAiGenerating,
-    normalizeQuickAddAiTitle,
-    setQuickAddTitle,
-  ]);
-
-  const handleQuickAddChangeText = React.useCallback(
-    (next: string) => {
-      setQuickAddTitle(next);
-      const lastAi = lastQuickAddAiTitleRef.current;
-      if (hasQuickAddAiGenerated && lastAi && next !== lastAi) {
-        setHasQuickAddAiGenerated(false);
-        lastQuickAddAiTitleRef.current = null;
-      }
-    },
-    [hasQuickAddAiGenerated],
-  );
 
   // NOTE: We intentionally avoid blurring the quick-add input on keyboard hide.
   // On iOS, keyboard show/hide transitions can fire events that cause a just-focused
@@ -3006,23 +2897,12 @@ export function ActivitiesScreen() {
       {!isKanbanLayout && (
         <QuickAddDock
           value={quickAddTitle}
-          onChangeText={handleQuickAddChangeText}
+          onChangeText={setQuickAddTitle}
           inputRef={quickAddInputRef}
           isFocused={isQuickAddFocused}
           setIsFocused={setQuickAddFocused}
           onSubmit={handleQuickAddActivity}
           onCollapse={collapseQuickAdd}
-          reminderAt={quickAddReminderAt}
-          scheduledDate={quickAddScheduledDate}
-          repeatRule={quickAddRepeatRule}
-          estimateMinutes={quickAddEstimateMinutes}
-          onPressReminder={() => openQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(true))}
-          onPressDueDate={() => openQuickAddToolDrawer(() => setQuickAddDueDateSheetVisible(true))}
-          onPressRepeat={() => openQuickAddToolDrawer(() => setQuickAddRepeatSheetVisible(true))}
-          onPressEstimate={() => openQuickAddToolDrawer(() => setQuickAddEstimateSheetVisible(true))}
-          onPressGenerateActivityTitle={handleGenerateQuickAddActivityTitle}
-          isGeneratingActivityTitle={isQuickAddAiGenerating}
-          hasGeneratedActivityTitle={hasQuickAddAiGenerated}
           onReservedHeightChange={setQuickAddReservedHeight}
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
         />
