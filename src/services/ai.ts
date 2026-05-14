@@ -75,8 +75,7 @@ type GenerateArcParams = {
   timeHorizon?: string;
   additionalContext?: string;
   /**
-   * Optional model override used by dev tooling (Arc testing) to compare outputs.
-   * This bypasses the persisted model selection in the app store.
+   * Optional model override that bypasses the persisted model selection in the app store.
    */
   modelOverride?: string;
 };
@@ -922,63 +921,6 @@ export async function saveCoachConversationSummaryRecord(
     await AsyncStorage.setItem(key, JSON.stringify(record));
   } catch {
     // Ignore persistence errors; chat should still work.
-  }
-}
-
-export async function clearCoachConversationMemory(opts?: CoachChatOptions): Promise<void> {
-  try {
-    const key = buildCoachConversationSummaryStorageKey(opts);
-    await AsyncStorage.removeItem(key);
-  } catch {
-    // Ignore; best-effort only.
-  }
-}
-
-export async function listCoachConversationMemoryKeys(): Promise<string[]> {
-  try {
-    const keys = await AsyncStorage.getAllKeys();
-    return keys.filter((k) => k.startsWith(COACH_CONVERSATION_SUMMARY_PREFIX)).sort();
-  } catch {
-    return [];
-  }
-}
-
-export async function loadCoachConversationMemoryByKey(
-  key: string
-): Promise<CoachConversationSummaryRecordV1 | null> {
-  try {
-    const raw = await AsyncStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<CoachConversationSummaryRecordV1> | null;
-    if (!parsed || parsed.version !== 1) return null;
-    if (typeof parsed.summary !== 'string') return null;
-    return {
-      version: 1,
-      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : new Date().toISOString(),
-      summary: parsed.summary,
-      summarizedEligibleCount:
-        typeof parsed.summarizedEligibleCount === 'number' ? parsed.summarizedEligibleCount : 0,
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function clearCoachConversationMemoryByKey(key: string): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(key);
-  } catch {
-    // Ignore; best-effort only.
-  }
-}
-
-export async function clearAllCoachConversationMemory(): Promise<void> {
-  try {
-    const keys = await listCoachConversationMemoryKeys();
-    if (keys.length === 0) return;
-    await AsyncStorage.multiRemove(keys);
-  } catch {
-    // Ignore; best-effort only.
   }
 }
 

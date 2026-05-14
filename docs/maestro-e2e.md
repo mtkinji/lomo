@@ -2,9 +2,9 @@
 
 This repo uses **Maestro** for end-to-end (E2E) testing of native interactions like:
 
-- keyboard avoidance / focus flows
-- bottom drawer open/close regressions (e.g. “dead taps after close”)
 - navigation smoke tests
+- real object detail and drawer flows
+- onboarding, gating, and deep-link regressions
 
 Maestro runs against a **real simulator/device build** (iOS/Android).
 
@@ -17,9 +17,6 @@ Maestro runs against a **real simulator/device build** (iOS/Android).
 Starter flows:
 
 - `e2e/maestro/smoke-devtools.yaml`
-- `e2e/maestro/bottomdrawer-touch-regression.yaml`
-- `e2e/maestro/keyboard-harness.yaml`
-- `e2e/maestro/agent-workspace-smoke.yaml`
 - `e2e/maestro/onboarding-plan-ready-touch-regression.yaml`
 - `e2e/maestro/activities-quickadd.yaml`
 - `e2e/maestro/activity-detail-key-actions.yaml`
@@ -55,7 +52,7 @@ This repo’s current app id is set in `e2e/maestro/*.yaml` as:
 
 From the repo root:
 
-- `maestro test e2e/maestro/bottomdrawer-touch-regression.yaml`
+- `maestro test e2e/maestro/smoke-devtools.yaml`
 
 ### 3) Run the whole suite
 
@@ -94,21 +91,6 @@ To keep E2E stable, we use `testID`s instead of visible text.
 
 - Drawer toggle (hamburger): `nav.drawer.toggle`
 - Drawer item: DevTools: `nav.drawer.item.DevTools`
-- DevTools tab switcher: `devtools.tab.<value>` (e.g. `devtools.tab.e2e`)
-- DevTools → Gallery harness:
-  - `e2e.openBottomDrawer`
-  - `e2e.closeBottomDrawer`
-  - `e2e.tapTarget`
-- DevTools → E2E harness:
-  - `e2e.keyboard.lastInput`
-  - `e2e.keyboard.tapWhileOpen`
-  - `e2e.keyboard.submit`
-  - `e2e.keyboard.openSheet`
-  - `e2e.keyboard.sheetInput`
-  - `e2e.keyboard.sheetSubmit`
-  - `e2e.keyboard.closeSheet`
-  - `e2e.agent.open`
-  - `e2e.agent.sheetClose`
 
 - DevTools → Tools (seed actions):
   - `e2e.seed.triggerFirstTimeUx`
@@ -182,5 +164,3 @@ To keep E2E stable, we use `testID`s instead of visible text.
 - **Make failures actionable**:
   - Keep assertions simple (“button label changed”, “counter incremented”).
   - Use harness screens for tricky native layout/keyboard cases rather than relying on real data.
-
-

@@ -43,6 +43,17 @@ function getSupabaseAnon() {
   });
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function inferManualSurface(label: unknown): string {
+  const normalized = (asString(label) ?? '').toLowerCase();
+  if (normalized.includes('cursor')) return 'cursor';
+  if (normalized.includes('claude')) return 'claude_desktop';
+  return 'manual';
+}
+
 async function requireUser(req: Request): Promise<{ ok: true; userId: string } | { ok: false; response: Response }> {
   const token = getBearerToken(req);
   if (!token) return { ok: false, response: json(401, { error: 'missing_authorization' }) };
@@ -70,6 +81,21 @@ async function listConnections(admin: any, userId: string) {
     .limit(50);
   if (actionError) throw new Error('actions_read_failed');
 
+  const { data: patRows, error: patError } = await admin
+    .from('kwilt_pats')
+    .select('id,label,created_at,last_used_at,revoked_at')
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false });
+  if (patError) throw new Error('manual_connections_read_failed');
+
+  const { data: mcpRows, error: mcpError } = await admin
+    .from('kwilt_mcp_audit_log')
+    .select('id,tool_name,activity_id,summary,created_at')
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (mcpError) throw new Error('manual_actions_read_failed');
+
   const connectionMap = new Map<string, any>();
   for (const row of Array.isArray(tokenRows) ? tokenRows as any[] : []) {
     const client = Array.isArray(row.kwilt_external_oauth_clients)
@@ -81,6 +107,7 @@ async function listConnections(admin: any, userId: string) {
     connectionMap.set(key, {
       client_id: key,
       client_name: String(client?.client_name ?? 'Kwilt connector'),
+      connection_type: 'oauth',
       surface: String(client?.surface ?? 'custom'),
       scope: String(row.scope ?? 'read'),
       connected_at: existing?.connected_at ?? row.created_at ?? null,
@@ -89,9 +116,57 @@ async function listConnections(admin: any, userId: string) {
     });
   }
 
+  for (const row of Array.isArray(patRows) ? patRows as any[] : []) {
+    const id = String(row.id);
+    connectionMap.set(`pat:${id}`, {
+      client_id: `pat:${id}`,
+      client_name: String(row.label || 'Access key'),
+      connection_type: 'pat',
+      surface: inferManualSurface(row.label),
+      scope: 'read write',
+      connected_at: row.created_at ?? null,
+      last_used_at: row.last_used_at ?? null,
+      revoked_at: row.revoked_at ?? null,
+    });
+  }
+
+  const externalActions = (Array.isArray(actionRows) ? actionRows as any[] : []).map((action) => ({
+    id: String(action.id),
+    client_id: action.oauth_client_id ? String(action.oauth_client_id) : null,
+    surface: String(action.surface ?? 'custom'),
+    tool_name: String(action.tool_name),
+    tool_kind: String(action.tool_kind),
+    object_type: action.object_type ? String(action.object_type) : null,
+    object_id: action.object_id ? String(action.object_id) : null,
+    success: Boolean(action.success),
+    error_code: action.error_code ? String(action.error_code) : null,
+    result_status: action.result_status ? String(action.result_status) : null,
+    result_summary: action.result_summary ? String(action.result_summary) : null,
+    created_at: String(action.created_at),
+  }));
+
+  const manualActions = (Array.isArray(mcpRows) ? mcpRows as any[] : []).map((action) => ({
+    id: `mcp:${String(action.id)}`,
+    client_id: null,
+    surface: 'manual',
+    tool_name: String(action.tool_name),
+    tool_kind: 'tool',
+    object_type: action.activity_id ? 'activity' : null,
+    object_id: action.activity_id ? String(action.activity_id) : null,
+    success: true,
+    error_code: null,
+    result_status: 'success',
+    result_summary: action.summary ? String(action.summary) : null,
+    created_at: String(action.created_at),
+  }));
+
+  const combinedActions = [...externalActions, ...manualActions]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 50);
+
   const connections = Array.from(connectionMap.values()).map((connection) => {
-    const actions = (Array.isArray(actionRows) ? actionRows as any[] : []).filter(
-      (action) => String(action.oauth_client_id ?? '') === connection.client_id,
+    const actions = externalActions.filter(
+      (action) => String(action.client_id ?? '') === connection.client_id,
     );
     return {
       ...connection,
@@ -102,20 +177,7 @@ async function listConnections(admin: any, userId: string) {
 
   return {
     connections,
-    actions: (Array.isArray(actionRows) ? actionRows as any[] : []).map((action) => ({
-      id: String(action.id),
-      client_id: action.oauth_client_id ? String(action.oauth_client_id) : null,
-      surface: String(action.surface ?? 'custom'),
-      tool_name: String(action.tool_name),
-      tool_kind: String(action.tool_kind),
-      object_type: action.object_type ? String(action.object_type) : null,
-      object_id: action.object_id ? String(action.object_id) : null,
-      success: Boolean(action.success),
-      error_code: action.error_code ? String(action.error_code) : null,
-      result_status: action.result_status ? String(action.result_status) : null,
-      result_summary: action.result_summary ? String(action.result_summary) : null,
-      created_at: String(action.created_at),
-    })),
+    actions: combinedActions,
   };
 }
 
@@ -123,6 +185,17 @@ async function revokeConnection(admin: any, userId: string, body: Record<string,
   const clientId = typeof body.client_id === 'string' && body.client_id.trim() ? body.client_id.trim() : null;
   if (!clientId) return json(400, { error: 'missing_client_id' });
   const revokedAt = new Date().toISOString();
+  if (clientId.startsWith('pat:')) {
+    const patId = clientId.slice(4);
+    const { data, error } = await admin
+      .from('kwilt_pats')
+      .update({ revoked_at: revokedAt })
+      .eq('owner_id', userId)
+      .eq('id', patId)
+      .select('id');
+    if (error) return json(500, { error: 'revoke_failed' });
+    return json(200, { revoked: Array.isArray(data) ? data.length : 0, revoked_at: revokedAt });
+  }
   const { data, error } = await admin
     .from('kwilt_external_oauth_tokens')
     .update({ revoked_at: revokedAt })

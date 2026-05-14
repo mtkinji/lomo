@@ -25,6 +25,11 @@ export type GoalDetailRouteParams = {
    * Used by check-in nudges after activity completion.
    */
   openActivitySheet?: boolean;
+  /**
+   * When true, open the low check-in approval sheet on mount.
+   * Used by completion-triggered draft check-ins.
+   */
+  openCheckinApprovalSheet?: boolean;
 };
 
 export type ActivityDetailRouteParams = {
@@ -115,5 +120,4 @@ export type ActivitiesWidgetRouteParams = {
 export type JoinSharedGoalRouteParams = {
   inviteCode: string;
 };
-
 

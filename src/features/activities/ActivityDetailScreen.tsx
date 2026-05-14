@@ -123,14 +123,7 @@ import { openPaywallInterstitial } from '../../services/paywall';
 import {
   recordShowUpWithCelebration,
 } from '../../store/useCelebrationStore';
-import { useCheckinNudgeStore } from '../../store/useCheckinNudgeStore';
-import {
-  canSubmitCheckin,
-  getOneTapCheckinPreset,
-  submitOneTapCheckin,
-  type CheckinTrigger,
-} from '../../services/checkins';
-import { shouldShowLowPriorityMomentNow } from '../../services/moments/orchestrator';
+import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
 import {
   cancelAudioRecording,
@@ -2225,69 +2218,22 @@ export function ActivityDetailScreen() {
     // Check-in nudge for activities under shared goals
     const activityGoalId = activity?.goalId;
     if (activityGoalId) {
-      const trigger: CheckinTrigger = 'focus_complete';
-      const { shouldShowNudge } = useCheckinNudgeStore.getState();
-      const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
-      if (shouldShowNudge(activityGoalId, trigger) && momentGate.ok) {
-        void (async () => {
-          const canSubmit = await canSubmitCheckin(activityGoalId);
-          if (!canSubmit) return;
-          setTimeout(() => {
-            useToastStore.getState().showToast({
-              message: 'Great focus session. Send a quick goal update?',
-              variant: 'default',
-              durationMs: 4000,
-              actionLabel: 'Send update',
-              actionOnPress: async () => {
-                capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
-                  goalId: activityGoalId,
-                  trigger,
-                  source: 'activity_detail_focus',
-                });
-                try {
-                  await submitOneTapCheckin({ goalId: activityGoalId, trigger });
-                  useCheckinNudgeStore.getState().recordCheckin(activityGoalId);
-                  capture(AnalyticsEvent.SharedGoalCheckinCreated, {
-                    goalId: activityGoalId,
-                    hasPreset: true,
-                    preset: getOneTapCheckinPreset(trigger),
-                    hasText: false,
-                    source: 'checkin_nudge_toast',
-                    trigger,
-                  });
-                  rootNavigationRef.navigate('MainTabs', {
-                    screen: 'MoreTab',
-                    params: {
-                      screen: 'MoreArcs',
-                      params: {
-                        screen: 'GoalDetail',
-                        params: {
-                          goalId: activityGoalId,
-                          entryPoint: 'activitiesStack',
-                          openActivitySheet: true,
-                        },
-                      },
-                    },
-                  });
-                } catch (err) {
-                  const message = err instanceof Error ? err.message : 'Failed to send update';
-                  capture(AnalyticsEvent.SharedGoalCheckinFailed, {
-                    goalId: activityGoalId,
-                    error: message,
-                    source: 'checkin_nudge_toast',
-                    trigger,
-                  });
-                  useToastStore.getState().showToast({
-                    message,
-                    variant: 'danger',
-                    durationMs: 2600,
-                  });
-                }
-              },
-            });
-          }, 1500); // Slightly longer delay to not compete with completion celebration
-        })();
-      }
+      const durationMinutes = Math.max(
+        1,
+        Math.round((focusSession.endAtMs - focusSession.startedAtMs) / 60_000),
+      );
+      void queueCheckinDraftFromProgress({
+        goalId: activityGoalId,
+        trigger: 'focus_complete',
+        source: 'activity_detail_focus',
+        sourceType: 'focus_session',
+        sourceId: `${activity?.id ?? 'activity'}-${focusSession.startedAtMs}`,
+        title: activity?.title ?? 'this goal',
+        completedAt: new Date(focusSession.endAtMs).toISOString(),
+        durationMinutes,
+        openPromptDelayMs: 1500,
+        capture,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingFocusMs, focusSession?.mode]);
@@ -3068,69 +3014,17 @@ export function ActivityDetailScreen() {
         // Check-in nudge for activities under shared goals
         const activityGoalId = activity.goalId;
         if (activityGoalId) {
-          const trigger: CheckinTrigger = 'activity_complete';
-          const { shouldShowNudge } = useCheckinNudgeStore.getState();
-          const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
-          if (shouldShowNudge(activityGoalId, trigger) && momentGate.ok) {
-            void (async () => {
-              const canSubmit = await canSubmitCheckin(activityGoalId);
-              if (!canSubmit) return;
-              setTimeout(() => {
-                useToastStore.getState().showToast({
-                  message: 'Progress made. Send a quick goal update?',
-                  variant: 'default',
-                  durationMs: 4000,
-                  actionLabel: 'Send update',
-                  actionOnPress: async () => {
-                    capture(AnalyticsEvent.SharedGoalCheckinNudgeTapped, {
-                      goalId: activityGoalId,
-                      trigger,
-                      source: 'activity_detail',
-                    });
-                    try {
-                      await submitOneTapCheckin({ goalId: activityGoalId, trigger });
-                      useCheckinNudgeStore.getState().recordCheckin(activityGoalId);
-                      capture(AnalyticsEvent.SharedGoalCheckinCreated, {
-                        goalId: activityGoalId,
-                        hasPreset: true,
-                        preset: getOneTapCheckinPreset(trigger),
-                        hasText: false,
-                        source: 'checkin_nudge_toast',
-                        trigger,
-                      });
-                      rootNavigationRef.navigate('MainTabs', {
-                        screen: 'MoreTab',
-                        params: {
-                          screen: 'MoreArcs',
-                          params: {
-                            screen: 'GoalDetail',
-                            params: {
-                              goalId: activityGoalId,
-                              entryPoint: 'activitiesStack',
-                              openActivitySheet: true,
-                            },
-                          },
-                        },
-                      });
-                    } catch (err) {
-                      const message = err instanceof Error ? err.message : 'Failed to send update';
-                      capture(AnalyticsEvent.SharedGoalCheckinFailed, {
-                        goalId: activityGoalId,
-                        error: message,
-                        source: 'checkin_nudge_toast',
-                        trigger,
-                      });
-                      useToastStore.getState().showToast({
-                        message,
-                        variant: 'danger',
-                        durationMs: 2600,
-                      });
-                    }
-                  },
-                });
-              }, 1200);
-            })();
-          }
+          void queueCheckinDraftFromProgress({
+            goalId: activityGoalId,
+            trigger: 'activity_complete',
+            source: 'activity_detail',
+            sourceType: 'activity',
+            sourceId: activity.id,
+            title: activity.title ?? '',
+            completedAt: timestamp,
+            openPromptDelayMs: 1200,
+            capture,
+          });
         }
       }
     });

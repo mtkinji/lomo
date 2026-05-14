@@ -8,8 +8,6 @@ appId: com.andrewwatanabe.kwilt
     id: "nav.drawer.toggle"
 - tapOn:
     id: "nav.drawer.item.DevTools"
-- tapOn:
-    id: "devtools.tab.tools"
 
 - scrollUntilVisible:
     element:
@@ -47,5 +45,4 @@ appId: com.andrewwatanabe.kwilt
     id: "e2e.activityDetail.repeat.custom"
 - tapOn:
     id: "e2e.activityDetail.customRepeat.back"
-
 

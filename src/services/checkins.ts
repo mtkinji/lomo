@@ -9,6 +9,7 @@
  */
 
 import { getSupabaseClient } from './backend/supabaseClient';
+import { buildPartnerCircleKey } from './checkinDrafts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -50,6 +51,27 @@ export type SubmitCheckinParams = {
 };
 
 export type CheckinTrigger = 'activity_complete' | 'focus_complete';
+
+export type CheckinAudienceResult =
+  | {
+      eligible: true;
+      goalId: string;
+      currentUserId: string;
+      memberUserIds: string[];
+      partnerUserIds: string[];
+      partnerCircleKey: string;
+      partnerNames: string[];
+    }
+  | {
+      eligible: false;
+      goalId: string;
+      reason: 'signed_out' | 'membership_load_failed' | 'not_a_member' | 'no_partners';
+      currentUserId?: string;
+      memberUserIds?: string[];
+      partnerUserIds?: string[];
+      partnerCircleKey?: string;
+      partnerNames?: string[];
+    };
 
 const ONE_TAP_PRESET_BY_TRIGGER: Record<CheckinTrigger, CheckinPreset> = {
   activity_complete: 'just_checking_in',
@@ -136,10 +158,22 @@ export async function submitCheckin(params: SubmitCheckinParams): Promise<Checki
 
 /**
  * Best-effort check to see if a user can submit a check-in for this goal.
- * Requires: signed in + active goal membership. A goal with only the owner as
- * a member can still check in; RLS remains the source of truth.
+ * Requires: signed in + active goal membership + at least one partner.
+ * RLS remains the source of truth for the eventual write.
  */
 export async function canSubmitCheckin(goalId: string): Promise<boolean> {
+  const audience = await getCheckinAudienceForGoal(goalId);
+  return audience.eligible;
+}
+
+/**
+ * Partner-aware gate for completion nudges.
+ *
+ * RLS still decides whether a write is allowed, but the product-level nudge
+ * should only appear when there is actually someone besides the owner/current
+ * user to receive the check-in.
+ */
+export async function getCheckinAudienceForGoal(goalId: string): Promise<CheckinAudienceResult> {
   const supabase = getSupabaseClient();
 
   const {
@@ -147,19 +181,72 @@ export async function canSubmitCheckin(goalId: string): Promise<boolean> {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) return false;
+  if (userError || !user?.id) {
+    return { eligible: false, goalId, reason: 'signed_out' };
+  }
 
   const { data: members, error: membersError } = await supabase
     .from('kwilt_memberships')
     .select('user_id')
     .eq('entity_type', 'goal')
     .eq('entity_id', goalId)
-    .eq('status', 'active')
-    .limit(1);
+    .eq('status', 'active');
 
-  if (membersError || !members) return false;
+  if (membersError || !Array.isArray(members)) {
+    return {
+      eligible: false,
+      goalId,
+      reason: 'membership_load_failed',
+      currentUserId: user.id,
+    };
+  }
 
-  return members.length >= 1;
+  const memberRows = members
+    .map((member) => ({
+      userId: typeof member.user_id === 'string' ? member.user_id.trim() : '',
+    }))
+    .filter((member) => member.userId.length > 0);
+  const memberUserIds = Array.from(new Set(memberRows.map((member) => member.userId)));
+  const partnerRows = memberRows.filter((member) => member.userId !== user.id);
+  const partnerUserIds = Array.from(new Set(partnerRows.map((member) => member.userId)));
+  const partnerNames: string[] = [];
+  const partnerCircleKey = buildPartnerCircleKey(memberUserIds);
+
+  if (!memberUserIds.includes(user.id)) {
+    return {
+      eligible: false,
+      goalId,
+      reason: 'not_a_member',
+      currentUserId: user.id,
+      memberUserIds,
+      partnerUserIds,
+      partnerCircleKey,
+      partnerNames,
+    };
+  }
+
+  if (partnerUserIds.length === 0) {
+    return {
+      eligible: false,
+      goalId,
+      reason: 'no_partners',
+      currentUserId: user.id,
+      memberUserIds,
+      partnerUserIds,
+      partnerCircleKey,
+      partnerNames,
+    };
+  }
+
+  return {
+    eligible: true,
+    goalId,
+    currentUserId: user.id,
+    memberUserIds,
+    partnerUserIds,
+    partnerCircleKey,
+    partnerNames,
+  };
 }
 
 export function getOneTapCheckinPreset(trigger: CheckinTrigger): CheckinPreset {
@@ -242,4 +329,3 @@ export function getPresetLabel(preset: CheckinPreset | null): string | null {
   const found = CHECKIN_PRESETS.find((p) => p.id === preset);
   return found ? `${found.emoji} ${found.label}` : null;
 }
-

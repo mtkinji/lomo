@@ -74,7 +74,6 @@ import { colors, spacing, typography } from '../theme';
 import { Icon, IconName } from '../ui/Icon';
 import { Input } from '../ui/Input';
 import { DevToolsScreen } from '../features/dev/DevToolsScreen';
-import { ArcTestingResultsPage } from '../features/dev/ArcTestingResultsPage';
 import { useAppStore } from '../store/useAppStore';
 import { useEntitlementsStore } from '../store/useEntitlementsStore';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
@@ -126,30 +125,7 @@ export type RootDrawerParamList = {
       }
     | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
-  DevTools:
-    | {
-        initialTab?: 'tools' | 'gallery' | 'typeColor' | 'arcTesting' | 'memory' | 'e2e';
-      }
-    | undefined;
-  DevArcTestingResults:
-    | {
-        mode: 'full' | 'response';
-        responseId?: string;
-        /**
-         * Generation model under test (e.g. gpt-4o-mini vs gpt-5.2).
-         */
-        model?: string;
-        /**
-         * How to compute rubric scores.
-         */
-        scoringMode?: 'heuristic' | 'ai';
-        /**
-         * Optional judge model used when scoringMode === 'ai'.
-         * Defaults to gpt-4o-mini if omitted.
-         */
-        judgeModel?: string;
-      }
-    | undefined;
+  DevTools: undefined;
 };
 
 export type { ActivityDetailRouteParams, GoalDetailRouteParams } from './routeParams';
@@ -416,7 +392,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             'MainTabs',
             'ArcsStack',
             'Settings',
-            ...(showDevTools ? (['DevTools', 'DevArcTestingResults'] as const) : []),
+            ...(showDevTools ? (['DevTools'] as const) : []),
           ];
 
           const rootHasUnexpectedRoute =
@@ -693,14 +669,6 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
                 title: 'Developer tools',
                 // Keep the route available for deep links and programmatic navigation,
                 // but move the entry point into Settings (dev-only).
-                drawerItemStyle: { display: 'none' },
-              }}
-            />
-            <Drawer.Screen
-              name="DevArcTestingResults"
-              component={ArcTestingResultsPage}
-              options={{
-                title: 'Arc Testing Results',
                 drawerItemStyle: { display: 'none' },
               }}
             />
@@ -1018,8 +986,6 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
       return 'dot';
     case 'DevTools':
       return 'dev';
-    case 'DevArcTestingResults':
-      return 'dev';
     default:
       return 'dot';
   }
@@ -1043,7 +1009,6 @@ function KwiltDrawerContent(props: any) {
     (route: { name: string }) =>
       route.name !== 'MainTabs' &&
       route.name !== 'Settings' &&
-      route.name !== 'DevArcTestingResults' &&
       route.name !== 'DevTools' &&
       route.name !== 'ArcsStack', // ArcsStack is shown via PLACE_TABS, so exclude it from main routes
   );
@@ -1315,5 +1280,3 @@ const styles = StyleSheet.create({
     ...typography.body,
   },
 });
-
-
