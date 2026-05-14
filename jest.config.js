@@ -1,6 +1,8 @@
 module.exports = {
   preset: 'jest-expo',
   testMatch: ['**/?(*.)+(test).[tj]s?(x)'],
+  testPathIgnorePatterns: ['<rootDir>/.worktrees/'],
+  modulePathIgnorePatterns: ['<rootDir>/.worktrees/'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   // We use TS path aliases like @/...
   moduleNameMapper: {
@@ -67,5 +69,4 @@ module.exports = {
     },
   },
 };
-
 

@@ -342,7 +342,7 @@ export function QuickAddDock({
                         returnKeyType="done"
                         showSoftInputOnFocus
                         blurOnSubmit
-                        multiline={isInputExpanded}
+                        multiline
                         scrollEnabled={isInputExpanded && inputHeight >= QUICK_ADD_INPUT_MAX_HEIGHT}
                         onContentSizeChange={(event) => {
                           const contentHeight = Math.ceil(event.nativeEvent.contentSize.height);
@@ -372,7 +372,6 @@ export function QuickAddDock({
                         style={[
                           styles.input,
                           { height: inputHeight },
-                          value.length > 0 && !isInputExpanded ? styles.inputWithSingleLineValue : null,
                         ]}
                         accessibilityLabel="To-do title"
                       />
@@ -688,13 +687,6 @@ const styles = StyleSheet.create({
         }),
     color: colors.textPrimary,
     minWidth: 0,
-  },
-  inputWithSingleLineValue: {
-    ...(Platform.OS === 'ios'
-      ? {
-          transform: [{ translateY: -4 }],
-        }
-      : null),
   },
   composerActionsRow: {
     width: '100%',
