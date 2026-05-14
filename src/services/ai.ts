@@ -1,4 +1,4 @@
-import { Arc, GoalDraft, type AgeRange, type ActivityDifficulty, type ActivityType } from '../domain/types';
+import { Arc, GoalDraft, type AgeRange, type ActivityDifficulty, type ActivityRepeatRule, type ActivityType } from '../domain/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Calendar from 'expo-calendar';
@@ -26,6 +26,11 @@ function truncateMessageContent(content: string, limit: number = MAX_MESSAGE_CON
 export type ActivityAiEnrichment = {
   notes?: string;
   tags?: string[];
+  goalId?: string | null;
+  type?: ActivityType;
+  reminderAt?: string | null;
+  scheduledDate?: string | null;
+  repeatRule?: ActivityRepeatRule | null;
   steps?: Array<{ title: string }>;
   estimateMinutes?: number | null;
   priority?: 1 | 2 | 3 | null;
@@ -3308,6 +3313,7 @@ export async function enrichActivityWithAI(
 
     const title = params.title?.trim() ?? '';
     if (!title) return null;
+    const nowIso = new Date().toISOString();
 
     const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
     const goal =
@@ -3316,6 +3322,21 @@ export async function enrichActivityWithAI(
     const goalDescription = goal?.description ?? null;
     const goalDescriptionPlain = goalDescription ? richTextToPlainText(goalDescription) : null;
     const existingNotesPlain = params.existingNotes ? richTextToPlainText(params.existingNotes).trim() : '';
+    const validActivityTypes: ActivityType[] = ['task', 'checklist', 'shopping_list', 'instructions', 'plan'];
+    const validRepeatRules: ActivityRepeatRule[] = ['daily', 'weekly', 'weekdays', 'monthly', 'yearly'];
+    const goalCandidates =
+      state?.goals
+        ?.filter((g) => typeof g?.id === 'string' && typeof g?.title === 'string' && g.title.trim().length > 0)
+        .slice(0, 40)
+        .map((g) => {
+          const plainDescription = g.description ? richTextToPlainText(g.description).trim() : '';
+          return {
+            id: g.id,
+            title: g.title.trim(),
+            description: plainDescription ? plainDescription.slice(0, 220) : null,
+          };
+        }) ?? [];
+    const validGoalIds = new Set(goalCandidates.map((g) => g.id));
 
     const arc =
       goal?.arcId && state?.arcs ? state.arcs.find((a) => a.id === goal.arcId) ?? null : null;
@@ -3336,6 +3357,11 @@ export async function enrichActivityWithAI(
       'Return JSON only, matching the schema.\n' +
       '- notes: 1–3 short sentences, practical and specific.\n' +
       '- tags: 0–5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
+      '- goalId: one id from Candidate goals if the to-do clearly belongs to an existing goal; otherwise omit or null.\n' +
+      '- type: one of task|checklist|shopping_list|instructions|plan when a non-default type would fit better.\n' +
+      '- reminderAt: ISO datetime only when the title clearly implies a reminder/start time.\n' +
+      '- scheduledDate: ISO date/datetime or YYYY-MM-DD only when the title clearly implies a deadline/due date.\n' +
+      '- repeatRule: daily|weekly|weekdays|monthly|yearly only when the title clearly implies repetition.\n' +
       '- steps: 0–6 short action steps.\n' +
       '- estimateMinutes: integer minutes (5–180) if reasonable.\n' +
       '- priority: 1 (highest) to 3 if obvious, otherwise omit.\n' +
@@ -3348,9 +3374,19 @@ export async function enrichActivityWithAI(
 
     const userPrompt = [
       `To-do title: ${title}`,
+      `Current time: ${nowIso}`,
       params.activityType ? `To-do type: ${String(params.activityType).trim()}` : 'To-do type: (unknown)',
       goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
       goalDescriptionPlain ? `Goal context: ${goalDescriptionPlain}` : 'Goal context: (none)',
+      goalCandidates.length > 0
+        ? [
+            'Candidate goals for linking (choose goalId only from this list):',
+            ...goalCandidates.map((g) => {
+              const description = g.description ? ` — ${g.description}` : '';
+              return `- ${g.id}: ${g.title}${description}`;
+            }),
+          ].join('\n')
+        : 'Candidate goals for linking: (none)',
       arc?.name ? `Arc: ${arc.name}` : 'Arc: (none)',
       arcNarrativePlain ? `Arc narrative: ${arcNarrativePlain}` : 'Arc narrative: (none)',
       existingNotesPlain
@@ -3370,7 +3406,7 @@ export async function enrichActivityWithAI(
     const body = {
       model: resolveChatModel(),
       temperature: 0.4,
-      max_tokens: 350,
+      max_tokens: 450,
       response_format: {
         type: 'json_schema',
         json_schema: {
@@ -3380,6 +3416,11 @@ export async function enrichActivityWithAI(
             properties: {
               notes: { type: 'string' },
               tags: { type: 'array', items: { type: 'string' }, maxItems: 5 },
+              goalId: { type: ['string', 'null'] },
+              type: { type: 'string', enum: validActivityTypes },
+              reminderAt: { type: ['string', 'null'] },
+              scheduledDate: { type: ['string', 'null'] },
+              repeatRule: { type: ['string', 'null'], enum: [...validRepeatRules, null] },
               steps: {
                 type: 'array',
                 maxItems: 6,
@@ -3443,6 +3484,29 @@ export async function enrichActivityWithAI(
         .filter(Boolean)
         .slice(0, 5);
       if (tags.length > 0) normalized.tags = tags;
+    }
+    if (typeof parsed.goalId === 'string' && validGoalIds.has(parsed.goalId)) {
+      normalized.goalId = parsed.goalId;
+    } else if (parsed.goalId === null) {
+      normalized.goalId = null;
+    }
+    if (typeof parsed.type === 'string' && validActivityTypes.includes(parsed.type as ActivityType)) {
+      normalized.type = parsed.type as ActivityType;
+    }
+    if (typeof parsed.reminderAt === 'string' && Number.isFinite(Date.parse(parsed.reminderAt))) {
+      normalized.reminderAt = parsed.reminderAt.trim();
+    } else if (parsed.reminderAt === null) {
+      normalized.reminderAt = null;
+    }
+    if (typeof parsed.scheduledDate === 'string' && Number.isFinite(Date.parse(parsed.scheduledDate))) {
+      normalized.scheduledDate = parsed.scheduledDate.trim();
+    } else if (parsed.scheduledDate === null) {
+      normalized.scheduledDate = null;
+    }
+    if (typeof parsed.repeatRule === 'string' && validRepeatRules.includes(parsed.repeatRule as ActivityRepeatRule)) {
+      normalized.repeatRule = parsed.repeatRule as ActivityRepeatRule;
+    } else if (parsed.repeatRule === null) {
+      normalized.repeatRule = null;
     }
     if (Array.isArray(parsed.steps)) {
       const steps = parsed.steps

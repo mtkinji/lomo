@@ -5,6 +5,7 @@ import {
 } from './useAppStore';
 import { useEntitlementsStore } from './useEntitlementsStore';
 import { canCreateArc, canCreateGoalInArc, countActiveGoalsForArc } from '../domain/limits';
+import { FREE_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../domain/generativeCredits';
 import type { Activity, ActivityView, Arc, Goal } from '../domain/types';
 
 function arc(overrides: Partial<Arc> = {}): Arc {
@@ -173,6 +174,42 @@ describe('useAppStore object lifecycles', () => {
       activeCount: 3,
       limit: 3,
     });
+  });
+});
+
+describe('useAppStore generative credits', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('can consume multiple credits atomically', () => {
+    const monthKey = getMonthKey(new Date());
+    useAppStore.setState({
+      generativeCredits: {
+        monthKey,
+        usedThisMonth: FREE_GENERATIVE_CREDITS_PER_MONTH - 3,
+      },
+    });
+
+    const result = useAppStore.getState().tryConsumeGenerativeCredit({ tier: 'free', amount: 3 });
+
+    expect(result).toEqual({ ok: true, remaining: 0, limit: FREE_GENERATIVE_CREDITS_PER_MONTH });
+    expect(useAppStore.getState().generativeCredits.usedThisMonth).toBe(FREE_GENERATIVE_CREDITS_PER_MONTH);
+  });
+
+  it('does not partially consume when the requested amount exceeds remaining credits', () => {
+    const monthKey = getMonthKey(new Date());
+    useAppStore.setState({
+      generativeCredits: {
+        monthKey,
+        usedThisMonth: FREE_GENERATIVE_CREDITS_PER_MONTH - 2,
+      },
+    });
+
+    const result = useAppStore.getState().tryConsumeGenerativeCredit({ tier: 'free', amount: 3 });
+
+    expect(result).toEqual({ ok: false, remaining: 2, limit: FREE_GENERATIVE_CREDITS_PER_MONTH });
+    expect(useAppStore.getState().generativeCredits.usedThisMonth).toBe(FREE_GENERATIVE_CREDITS_PER_MONTH - 2);
   });
 });
 
@@ -651,6 +688,24 @@ describe('recordShowUp streak repair window', () => {
     const state = useAppStore.getState();
     expect(state.currentShowUpStreak).toBe(1);
     expect(state.streakBreakState.brokenAtDateKey).toBeNull();
+  });
+});
+
+describe('useAppStore quick-add AI action preferences', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('defaults to all quick-add AI actions enabled', () => {
+    expect(useAppStore.getState().quickAddAiActions).toEqual(['steps', 'triggers', 'details']);
+  });
+
+  it('persists a normalized quick-add AI action selection including none selected', () => {
+    useAppStore.getState().setQuickAddAiActions(['details', 'bogus' as any, 'steps', 'details']);
+    expect(useAppStore.getState().quickAddAiActions).toEqual(['steps', 'details']);
+
+    useAppStore.getState().setQuickAddAiActions([]);
+    expect(useAppStore.getState().quickAddAiActions).toEqual([]);
   });
 });
 
