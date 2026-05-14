@@ -37,6 +37,7 @@ import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
 import { useEntitlementsStore } from './useEntitlementsStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
+export type QuickAddAiActionPreference = 'steps' | 'triggers' | 'details';
 
 type Updater<T> = (item: T) => T;
 
@@ -918,6 +919,11 @@ interface AppState {
     usedThisMonth: number;
   };
   /**
+   * Persisted To-dos composer AI action preferences. Each selected action
+   * consumes one AI credit when quick-add enrichment runs.
+   */
+  quickAddAiActions: QuickAddAiActionPreference[];
+  /**
    * Bonus monthly AI credits (reward layer).
    * Additive to the base monthly allowance (Free/Pro) for the current month only.
    */
@@ -1205,7 +1211,9 @@ interface AppState {
   setLlmModelSystem: (model: LlmModel) => void;
   tryConsumeGenerativeCredit: (params: {
     tier: 'free' | 'pro';
+    amount?: number;
   }) => { ok: boolean; remaining: number; limit: number };
+  setQuickAddAiActions: (actions: QuickAddAiActionPreference[]) => void;
   setBonusGenerativeCreditsThisMonth: (bonusThisMonth: number) => void;
   addBonusGenerativeCreditsThisMonth: (bonusDelta: number) => void;
   /**
@@ -1464,6 +1472,26 @@ const initialActivityViews: ActivityView[] = [
     isSystem: true,
   },
 ];
+
+const DEFAULT_QUICK_ADD_AI_ACTIONS: QuickAddAiActionPreference[] = ['steps', 'triggers', 'details'];
+const QUICK_ADD_AI_ACTION_ORDER: QuickAddAiActionPreference[] = ['steps', 'triggers', 'details'];
+const QUICK_ADD_AI_ACTION_SET = new Set<QuickAddAiActionPreference>(QUICK_ADD_AI_ACTION_ORDER);
+
+function normalizeQuickAddAiActionPreferences(
+  actions: unknown,
+  options: { fallbackToDefault: boolean } = { fallbackToDefault: true },
+): QuickAddAiActionPreference[] {
+  if (!Array.isArray(actions)) {
+    return options.fallbackToDefault ? [...DEFAULT_QUICK_ADD_AI_ACTIONS] : [];
+  }
+  const selected = new Set<QuickAddAiActionPreference>();
+  actions.forEach((action) => {
+    if (typeof action !== 'string') return;
+    if (!QUICK_ADD_AI_ACTION_SET.has(action as QuickAddAiActionPreference)) return;
+    selected.add(action as QuickAddAiActionPreference);
+  });
+  return QUICK_ADD_AI_ACTION_ORDER.filter((action) => selected.has(action));
+}
 
 export function mergeActivityViewsWithSystemDefaults(
   persistedViews: unknown,
@@ -1736,6 +1764,7 @@ export const useAppStore = create<AppState>()(
         monthKey: getMonthKey(new Date()),
         usedThisMonth: 0,
       },
+      quickAddAiActions: ['steps', 'triggers', 'details'],
       bonusGenerativeCredits: {
         monthKey: getMonthKey(new Date()),
         bonusThisMonth: 0,
@@ -2323,7 +2352,15 @@ export const useAppStore = create<AppState>()(
       clearUserProfile: () => set({ userProfile: null }),
       setLlmModel: (model) => set({ llmModel: model, hasCustomizedLlmModel: true }),
       setLlmModelSystem: (model) => set({ llmModel: model }),
-      tryConsumeGenerativeCredit: ({ tier }) => {
+      setQuickAddAiActions: (actions) =>
+        set(() => ({
+          quickAddAiActions: normalizeQuickAddAiActionPreferences(actions, {
+            fallbackToDefault: false,
+          }),
+        })),
+      tryConsumeGenerativeCredit: ({ tier, amount = 1 }) => {
+        const requestedRaw = Number(amount);
+        const requested = Number.isFinite(requestedRaw) ? Math.max(0, Math.floor(requestedRaw)) : 1;
         const baseLimit =
           tier === 'pro' ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
         const currentKey = getMonthKey(new Date());
@@ -2344,16 +2381,19 @@ export const useAppStore = create<AppState>()(
         const usedRaw = Number((normalized as any).usedThisMonth ?? 0);
         const used = Number.isFinite(usedRaw) ? Math.max(0, Math.floor(usedRaw)) : 0;
         const remaining = Math.max(0, limit - used);
-        if (remaining <= 0) {
+        if (requested <= 0) {
+          return { ok: true, remaining, limit };
+        }
+        if (remaining < requested) {
           if (ledger.monthKey !== currentKey) {
             set(() => ({ generativeCredits: normalized }));
           }
           if (bonusLedger.monthKey !== currentKey) {
             set(() => ({ bonusGenerativeCredits: normalizedBonus }));
           }
-          return { ok: false, remaining: 0, limit };
+          return { ok: false, remaining, limit };
         }
-        const nextUsed = used + 1;
+        const nextUsed = used + requested;
         set(() => ({
           generativeCredits: { monthKey: currentKey, usedThisMonth: nextUsed },
         }));
@@ -3546,6 +3586,10 @@ export const useAppStore = create<AppState>()(
           monthKey === currentMonthKey
             ? { monthKey, usedThisMonth }
             : { monthKey: currentMonthKey, usedThisMonth: 0 };
+
+        // Backward-compatible normalization: older persisted stores won't have
+        // quick-add AI action preferences. Preserve an intentional empty selection.
+        state.quickAddAiActions = normalizeQuickAddAiActionPreferences((state as any).quickAddAiActions);
 
         // Backward-compatible normalization: bonus generative credits are monthly-scoped.
         const rawBonus = (state as any).bonusGenerativeCredits as

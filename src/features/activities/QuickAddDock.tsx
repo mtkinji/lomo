@@ -30,11 +30,11 @@ const QUICK_ADD_INPUT_APPROX_CHARS_PER_LINE = 44;
 const AI_ACTION_OPTIONS: Array<{
   id: QuickAddAiAction;
   label: string;
-  icon: 'fileText' | 'checklist' | 'estimate';
+  icon: 'checklist' | 'bell' | 'fileText';
 }> = [
-  { id: 'details', label: 'Fill details', icon: 'fileText' },
   { id: 'steps', label: 'Add steps', icon: 'checklist' },
-  { id: 'estimate', label: 'Estimate time', icon: 'estimate' },
+  { id: 'triggers', label: 'Set triggers', icon: 'bell' },
+  { id: 'details', label: 'Fill details', icon: 'fileText' },
 ];
 
 type QuickAddDockProps = {
@@ -51,6 +51,8 @@ type QuickAddDockProps = {
   setIsFocused: (next: boolean) => void;
   onSubmit: (options?: { aiActions?: QuickAddAiAction[] }) => void;
   onCollapse: () => void;
+  selectedAiActions?: QuickAddAiAction[];
+  onSelectedAiActionsChange?: (actions: QuickAddAiAction[]) => void;
 
   /**
    * When true (default), the focused drawer collapses after a successful submit.
@@ -78,6 +80,8 @@ export function QuickAddDock({
   setIsFocused,
   onSubmit,
   onCollapse,
+  selectedAiActions: selectedAiActionsProp,
+  onSelectedAiActionsChange,
   dismissAfterSubmit = true,
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
@@ -92,7 +96,7 @@ export function QuickAddDock({
   const accessoryId = useMemo(() => 'quick-add-dock-accessory', []);
 
   const [measuredComposerHeight, setMeasuredComposerHeight] = React.useState<number | null>(null);
-  const [selectedAiActions, setSelectedAiActions] = React.useState<QuickAddAiAction[]>(
+  const [localSelectedAiActions, setLocalSelectedAiActions] = React.useState<QuickAddAiAction[]>(
     DEFAULT_QUICK_ADD_AI_ACTIONS,
   );
   const [isAiMenuOpen, setIsAiMenuOpen] = React.useState(false);
@@ -179,13 +183,18 @@ export function QuickAddDock({
   const isInputExpanded = inputHeight > QUICK_ADD_INPUT_MIN_HEIGHT;
   const composerHeight = measuredComposerHeight ?? QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX;
   const canSubmit = value.trim().length > 0;
+  const selectedAiActions = selectedAiActionsProp ?? localSelectedAiActions;
   const selectedAiActionSet = React.useMemo(() => new Set(selectedAiActions), [selectedAiActions]);
   const toggleAiAction = React.useCallback((action: QuickAddAiAction) => {
-    setSelectedAiActions((current) => {
-      if (current.includes(action)) return current.filter((item) => item !== action);
-      return [...current, action];
-    });
-  }, []);
+    const next = selectedAiActions.includes(action)
+      ? selectedAiActions.filter((item) => item !== action)
+      : [...selectedAiActions, action];
+    if (selectedAiActionsProp) {
+      onSelectedAiActionsChange?.(next);
+      return;
+    }
+    setLocalSelectedAiActions(next);
+  }, [onSelectedAiActionsChange, selectedAiActions, selectedAiActionsProp]);
   const submitQuickAdd = React.useCallback(() => {
     if (!canSubmit) return;
     setIsAiMenuOpen(false);
