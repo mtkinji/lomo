@@ -1,5 +1,11 @@
 const mockGetUser = jest.fn();
+const mockGetMaybeRefreshedAccessToken = jest.fn();
 const mockFrom = jest.fn();
+
+jest.mock('./backend/auth', () => ({
+  getAccessToken: jest.fn(),
+  getMaybeRefreshedAccessToken: () => mockGetMaybeRefreshedAccessToken(),
+}));
 
 jest.mock('./backend/supabaseClient', () => ({
   getSupabaseClient: () => ({
@@ -10,7 +16,7 @@ jest.mock('./backend/supabaseClient', () => ({
   }),
 }));
 
-import { getWeeklyDigestSettings, updateWeeklyDigestSettings } from './chapters';
+import { fetchMyChapters, getWeeklyDigestSettings, updateWeeklyDigestSettings } from './chapters';
 
 function makeTemplate(overrides: Record<string, unknown>) {
   return {
@@ -35,6 +41,8 @@ function makeTemplate(overrides: Record<string, unknown>) {
 describe('Weekly Chapter settings', () => {
   beforeEach(() => {
     mockGetUser.mockReset();
+    mockGetMaybeRefreshedAccessToken.mockReset();
+    mockGetMaybeRefreshedAccessToken.mockResolvedValue('token-1');
     mockFrom.mockReset();
   });
 
@@ -110,5 +118,46 @@ describe('Weekly Chapter settings', () => {
         weeklyChapter: { deliveryWeekday: 4 },
       },
     });
+  });
+});
+
+describe('Chapter list fetching', () => {
+  beforeEach(() => {
+    mockGetMaybeRefreshedAccessToken.mockReset();
+    mockGetMaybeRefreshedAccessToken.mockResolvedValue('token-1');
+    mockFrom.mockReset();
+  });
+
+  it('refreshes auth before reading chapters so stale sessions do not render as empty', async () => {
+    const row = {
+      id: 'chapter-1',
+      user_id: 'user-1',
+      template_id: 'template-1',
+      period_start: '2026-05-11T06:00:00.000Z',
+      period_end: '2026-05-18T06:00:00.000Z',
+      period_key: '2026-W20',
+      input_summary: {},
+      metrics: {},
+      output_json: { title: 'A chapter' },
+      status: 'ready',
+      error: null,
+      emailed_at: null,
+      user_note: null,
+      user_note_updated_at: null,
+      created_at: '2026-05-21T00:00:00.000Z',
+      updated_at: '2026-05-21T00:00:00.000Z',
+    };
+    const query: any = {
+      select: jest.fn(() => query),
+      order: jest.fn(() => query),
+      limit: jest.fn(async () => ({ data: [row], error: null })),
+    };
+    mockFrom.mockReturnValue(query);
+
+    const rows = await fetchMyChapters();
+
+    expect(mockGetMaybeRefreshedAccessToken).toHaveBeenCalledTimes(1);
+    expect(mockFrom).toHaveBeenCalledWith('kwilt_chapters');
+    expect(rows).toEqual([row]);
   });
 });

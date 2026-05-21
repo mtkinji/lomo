@@ -1,5 +1,5 @@
 import { getSupabaseClient } from './backend/supabaseClient';
-import { getAccessToken } from './backend/auth';
+import { getAccessToken, getMaybeRefreshedAccessToken } from './backend/auth';
 import { getEdgeFunctionUrl } from './edgeFunctions';
 import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getInstallId } from './installId';
@@ -65,6 +65,7 @@ export type ChapterGenerationResult = {
 export async function fetchMyChapters(params: { limit?: number } = {}): Promise<ChapterRow[]> {
   const supabase = getSupabaseClient();
   const limit = typeof params.limit === 'number' ? Math.max(1, Math.min(Math.floor(params.limit), 100)) : 20;
+  await getMaybeRefreshedAccessToken().catch(() => null);
 
   const { data, error } = await supabase
     .from('kwilt_chapters')
@@ -83,6 +84,7 @@ export async function fetchMyChapterNeighbors(params: {
 }): Promise<{ previous: { id: string; period_start: string } | null; next: { id: string; period_start: string } | null }> {
   const supabase = getSupabaseClient();
   const { chapterId, templateId, periodStart } = params;
+  await getMaybeRefreshedAccessToken().catch(() => null);
 
   const [{ data: prev }, { data: next }] = await Promise.all([
     supabase
@@ -116,6 +118,7 @@ export async function fetchMyChapterById(chapterId: string): Promise<ChapterRow 
   if (!id) return null;
 
   const supabase = getSupabaseClient();
+  await getMaybeRefreshedAccessToken().catch(() => null);
   const { data, error } = await supabase
     .from('kwilt_chapters')
     .select(CHAPTER_ROW_COLUMNS)
