@@ -29,6 +29,7 @@ import {
 } from '../_shared/chapterHealth.ts';
 import {
   countQuoteableActivityTitles,
+  findMismatchedCompletionCount,
   resolveQuotedTitleRequirement,
 } from '../_shared/chapterOutputValidation.ts';
 import type {
@@ -1355,6 +1356,7 @@ function buildWritingRequirements(params: {
    */
   hasHealth: boolean;
   quoteableActivityTitleCount: number;
+  completedActivityCount: number;
 }) {
   const {
     cadence,
@@ -1364,6 +1366,7 @@ function buildWritingRequirements(params: {
     hasNotes,
     hasHealth,
     quoteableActivityTitleCount,
+    completedActivityCount,
   } = params;
 
   const isShortForm = cadence === 'weekly' || cadence === 'manual';
@@ -1385,6 +1388,7 @@ function buildWritingRequirements(params: {
   const rules = [
     `Anti-generic rule: do not use vague praise ("meaningful", "remarkable", "balance", "growth") anywhere in title, dek, or body.`,
     `Hard constraint: every paragraph in story.body must include at least ONE concrete anchor: (a) a number from metrics, OR (b) a quoted activity title, OR (c) a named arc or goal title from stable_context.`,
+    `Metric vocabulary rule: "completed", "closed", or "finished" activity counts MUST use metrics.activities.completed_count (${completedActivityCount}). metrics.activities.created_count means newly created/initiated, not completed.`,
     quotedTitleRequirement > 0
       ? `Quote rule: include at least ${quotedTitleRequirement} quoted activity titles EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`
       : `Quote rule: if you mention an activity title, quote it EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`,
@@ -1505,6 +1509,7 @@ function buildChapterPrompt(params: {
     hasNotes,
     hasHealth: Boolean((metrics as any)?.health),
     quoteableActivityTitleCount,
+    completedActivityCount: metrics.activities.completed_count,
   });
 
   const system = [
@@ -1716,6 +1721,7 @@ function validateChapterOutput(params: {
    * for the keyword list.
    */
   hasHealth?: boolean;
+  completedActivityCount?: number | null;
 }): { ok: true } | { ok: false; error: string } {
   const {
     outputJson: out,
@@ -1731,6 +1737,7 @@ function validateChapterOutput(params: {
     strict,
     priorRecommendationOutcomes,
     hasHealth,
+    completedActivityCount,
   } = params;
 
   const title = typeof out?.title === 'string' ? out.title.trim() : '';
@@ -1830,6 +1837,21 @@ function validateChapterOutput(params: {
   if (!body) return { ok: false, error: 'story.body is missing' };
   const minBody = cadence === 'weekly' || cadence === 'manual' ? 600 : 900;
   if (body.length < minBody) return { ok: false, error: `story.body is too short (< ${minBody} chars)` };
+
+  for (const [label, text] of [
+    ['title', title],
+    ['dek', dek],
+    ['sections.signal.caption', caption],
+    ['story.body', body],
+  ] as const) {
+    const mismatchedCount = findMismatchedCompletionCount(text, completedActivityCount);
+    if (mismatchedCount != null) {
+      return {
+        ok: false,
+        error: `${label} says ${mismatchedCount} activities were completed, but metrics.activities.completed_count is ${completedActivityCount}`,
+      };
+    }
+  }
 
   // Banned phrases/words in the body too.
   for (const phrase of BANNED_DEK_PHRASES) {
@@ -2704,6 +2726,7 @@ serve(async (req) => {
         // movement/sleep data. When present, the generic per-paragraph
         // anchor check still requires concrete evidence.
         hasHealth: Boolean((metrics as any)?.health),
+        completedActivityCount: metrics.activities.completed_count,
       });
 
     let aiRes = await runOnce(false);

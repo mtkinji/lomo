@@ -1,4 +1,7 @@
-import { resolveQuotedTitleRequirement } from '../chapterOutputValidation';
+import {
+  findMismatchedCompletionCount,
+  resolveQuotedTitleRequirement,
+} from '../chapterOutputValidation';
 
 describe('resolveQuotedTitleRequirement', () => {
   it('keeps weekly chapters grounded without requiring a long-form quote count', () => {
@@ -29,5 +32,25 @@ describe('resolveQuotedTitleRequirement', () => {
         quoteableActivityTitleCount: 3,
       }),
     ).toBe(3);
+  });
+});
+
+describe('findMismatchedCompletionCount', () => {
+  it('flags completion prose that uses a non-completed activity count', () => {
+    expect(
+      findMismatchedCompletionCount(
+        'Over seven active days, 12 activities were completed.',
+        11,
+      ),
+    ).toBe(12);
+  });
+
+  it('allows completion prose that matches the deterministic count', () => {
+    expect(
+      findMismatchedCompletionCount(
+        'Across the week, you completed 11 activities while creating 12.',
+        11,
+      ),
+    ).toBeNull();
   });
 });
