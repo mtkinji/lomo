@@ -21,6 +21,14 @@ export function resolveQuotedTitleRequirement(params: {
   return Math.min(base, available);
 }
 
+export function resolveCitedExampleRequirement(params: {
+  cadence: ChapterCadence;
+  strict: boolean;
+}): number {
+  if (params.cadence === 'weekly' || params.cadence === 'manual') return 4;
+  return params.strict ? 6 : 4;
+}
+
 export function shouldRequireVerbatimUserNote(cadence: ChapterCadence): boolean {
   return cadence === 'monthly' || cadence === 'yearly';
 }

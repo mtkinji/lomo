@@ -1,6 +1,7 @@
 import {
   allowedUnanchoredStoryParagraphs,
   findMismatchedCompletionCount,
+  resolveCitedExampleRequirement,
   resolveQuotedTitleRequirement,
   shouldRequireVerbatimUserNote,
 } from '../chapterOutputValidation';
@@ -34,6 +35,16 @@ describe('resolveQuotedTitleRequirement', () => {
         quoteableActivityTitleCount: 3,
       }),
     ).toBe(3);
+  });
+});
+
+describe('resolveCitedExampleRequirement', () => {
+  it('does not raise weekly strict retries to a long-form citation count', () => {
+    expect(resolveCitedExampleRequirement({ cadence: 'weekly', strict: true })).toBe(4);
+  });
+
+  it('keeps monthly strict retries at the richer evidence count', () => {
+    expect(resolveCitedExampleRequirement({ cadence: 'monthly', strict: true })).toBe(6);
   });
 });
 

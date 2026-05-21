@@ -31,6 +31,7 @@ import {
   allowedUnanchoredStoryParagraphs,
   countQuoteableActivityTitles,
   findMismatchedCompletionCount,
+  resolveCitedExampleRequirement,
   resolveQuotedTitleRequirement,
   shouldRequireVerbatimUserNote,
 } from '../_shared/chapterOutputValidation.ts';
@@ -1211,7 +1212,7 @@ const BANNED_CONTINUITY_PRAISE_PHRASES = [
 ];
 
 const BANNED_TITLE_PREFIX_RE =
-  /^\s*(reflections?\s+on|a\s+(week|month|year)\s+of|this\s+(week|month|year)|your\s+(week|month|year)|progress\s+report|weekly\s+recap|weekly\s+report|weekly\s+reflection|monthly\s+reflection)\b/i;
+  /^\s*(reflections?\s+on|this\s+(week|month|year)|your\s+(week|month|year)|progress\s+report|weekly\s+recap|weekly\s+report|weekly\s+reflection|monthly\s+reflection)\b/i;
 
 function resolveMaxOutputTokens(params: { detailLevel: string | null; kind: TemplateKind }): number {
   const dl = (params.detailLevel ?? '').trim().toLowerCase();
@@ -1434,7 +1435,7 @@ function buildWritingRequirements(params: {
     `Headline ban: title must not start with "Reflection(s) on", "A week of", "This week/month/year", "Progress Report", "Weekly Recap", "Weekly Report", "Weekly Reflection", or "Monthly Reflection".`,
     `Headline rules: 4–12 words, no date strings, no cadence labels, no colons unless essential. It must be a real headline.`,
     `Dek rule: 1–2 sentences, concrete, metric- or evidence-anchored.`,
-    `Include at least ${stricter ? '6' : '4–7'} cited activity examples drawn from evidence.noteworthy_examples (and add their ids to citations.examples_used).`,
+    `Include at least ${resolveCitedExampleRequirement({ cadence, strict: stricter })} cited activity examples drawn from evidence.noteworthy_examples (and add their ids to citations.examples_used).`,
     `Do not use numbered lists in the article body.`,
     `If there are "quiet" arcs/goals (low activity), mention neutrally (no shame).`,
   ];
@@ -1974,7 +1975,7 @@ function validateChapterOutput(params: {
   if (citations.metrics_used !== true) return { ok: false, error: 'citations.metrics_used must be true' };
   const examplesUsed = Array.isArray(citations.examples_used) ? citations.examples_used : null;
   if (!examplesUsed) return { ok: false, error: 'citations.examples_used must be an array' };
-  const minExamples = strict ? 6 : 4;
+  const minExamples = resolveCitedExampleRequirement({ cadence, strict });
   if (examplesUsed.length < minExamples) {
     return { ok: false, error: `citations.examples_used must include at least ${minExamples} activity ids` };
   }
