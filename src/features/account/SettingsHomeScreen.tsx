@@ -151,6 +151,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         tags: ['reminders', 'nudges', 'alerts'],
       },
       {
+        id: 'weekly_chapters',
+        title: 'Weekly Chapters',
+        description: 'Control generation, email delivery, and Apple Health summaries.',
+        icon: 'chapters',
+        route: 'SettingsWeeklyChapters',
+        tags: ['chapters', 'apple health', 'reflection'],
+      },
+      {
         id: 'sharing',
         title: 'Sharing',
         description: 'Manage accountability reminders and shared goals.',

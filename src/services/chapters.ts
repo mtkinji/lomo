@@ -11,6 +11,7 @@ export type ChapterTemplateRow = {
   kind: 'reflection' | 'report';
   cadence: 'weekly' | 'monthly' | 'yearly' | 'manual';
   timezone: string;
+  filter_json: unknown;
   enabled: boolean;
   email_enabled: boolean;
   email_recipient: string | null;
@@ -132,7 +133,7 @@ export async function fetchMyChapterTemplates(params: { limit?: number } = {}): 
   const { data, error } = await supabase
     .from('kwilt_chapter_templates')
     .select(
-      'id,user_id,name,kind,cadence,timezone,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at',
+      'id,user_id,name,kind,cadence,timezone,filter_json,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at',
     )
     .order('updated_at', { ascending: false })
     .limit(limit);
@@ -179,6 +180,70 @@ export async function createDefaultWeeklyReflectionTemplate(): Promise<ChapterTe
   return createDefaultReflectionTemplate('weekly', 'Weekly Reflection');
 }
 
+export type WeeklyChapterDeliveryWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export const WEEKLY_CHAPTER_DELIVERY_WEEKDAYS: Array<{
+  value: WeeklyChapterDeliveryWeekday;
+  label: string;
+  shortLabel: string;
+}> = [
+  { value: 1, label: 'Monday', shortLabel: 'Mon' },
+  { value: 2, label: 'Tuesday', shortLabel: 'Tue' },
+  { value: 3, label: 'Wednesday', shortLabel: 'Wed' },
+  { value: 4, label: 'Thursday', shortLabel: 'Thu' },
+  { value: 5, label: 'Friday', shortLabel: 'Fri' },
+  { value: 6, label: 'Saturday', shortLabel: 'Sat' },
+  { value: 7, label: 'Sunday', shortLabel: 'Sun' },
+];
+
+export const DEFAULT_WEEKLY_CHAPTER_DELIVERY_WEEKDAY: WeeklyChapterDeliveryWeekday = 1;
+
+function normalizeWeeklyChapterDeliveryWeekday(value: unknown): WeeklyChapterDeliveryWeekday {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  return n >= 1 && n <= 7 && Number.isInteger(n)
+    ? (n as WeeklyChapterDeliveryWeekday)
+    : DEFAULT_WEEKLY_CHAPTER_DELIVERY_WEEKDAY;
+}
+
+function getWeeklyChapterFilterSettings(filterJson: unknown): {
+  deliveryWeekday: WeeklyChapterDeliveryWeekday;
+} {
+  const source =
+    filterJson && typeof filterJson === 'object' && !Array.isArray(filterJson)
+      ? (filterJson as Record<string, unknown>)
+      : {};
+  const weeklyChapter =
+    source.weeklyChapter && typeof source.weeklyChapter === 'object'
+      ? (source.weeklyChapter as Record<string, unknown>)
+      : {};
+  return {
+    deliveryWeekday: normalizeWeeklyChapterDeliveryWeekday(weeklyChapter.deliveryWeekday),
+  };
+}
+
+function mergeWeeklyChapterFilterSettings(
+  filterJson: unknown,
+  patch: Partial<{ deliveryWeekday: WeeklyChapterDeliveryWeekday }>,
+): unknown {
+  const source: Record<string, unknown> =
+    filterJson && typeof filterJson === 'object' && !Array.isArray(filterJson)
+      ? { ...(filterJson as Record<string, unknown>) }
+      : { groups: Array.isArray(filterJson) ? filterJson : [] };
+  const weeklyChapter =
+    source.weeklyChapter && typeof source.weeklyChapter === 'object'
+      ? { ...(source.weeklyChapter as Record<string, unknown>) }
+      : {};
+
+  if (typeof patch.deliveryWeekday === 'number') {
+    weeklyChapter.deliveryWeekday = normalizeWeeklyChapterDeliveryWeekday(patch.deliveryWeekday);
+  }
+
+  return {
+    ...source,
+    weeklyChapter,
+  };
+}
+
 // Monthly / yearly / manual template factories were removed as part of Phase
 // 2.1 of docs/chapters-plan.md. Chapters are now a single weekly
 // rhythm generated server-side on a cron; user-initiated generation for other
@@ -198,17 +263,31 @@ async function createDefaultReflectionTemplate(
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const nowIso = new Date().toISOString();
 
-  // Idempotent-ish: if a default already exists, return it.
+  // Canonical config: keep the newest weekly reflection row as the single
+  // editable Weekly Chapters config. Older duplicates can exist from earlier
+  // product cuts, but they should not keep generating in the background.
   const { data: existing } = await supabase
     .from('kwilt_chapter_templates')
-    .select('id,user_id,name,kind,cadence,timezone,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at')
+    .select('id,user_id,name,kind,cadence,timezone,filter_json,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at')
     .eq('user_id', userId)
     .eq('cadence', cadence)
     .eq('kind', 'reflection')
     .order('updated_at', { ascending: false })
-    .limit(1);
+    .limit(10);
 
-  if (Array.isArray(existing) && existing[0]) return existing[0] as any;
+  if (Array.isArray(existing) && existing[0]) {
+    const [primary, ...duplicates] = existing as ChapterTemplateRow[];
+    const duplicateIds = duplicates
+      .filter((row) => row?.id && row.enabled !== false)
+      .map((row) => row.id);
+    if (duplicateIds.length > 0) {
+      await supabase
+        .from('kwilt_chapter_templates')
+        .update({ enabled: false, updated_at: nowIso })
+        .in('id', duplicateIds);
+    }
+    return primary as any;
+  }
 
   const { data, error } = await supabase
     .from('kwilt_chapter_templates')
@@ -218,14 +297,16 @@ async function createDefaultReflectionTemplate(
       kind: 'reflection',
       cadence,
       timezone: tz,
-      filter_json: [],
+      filter_json: mergeWeeklyChapterFilterSettings([], {
+        deliveryWeekday: DEFAULT_WEEKLY_CHAPTER_DELIVERY_WEEKDAY,
+      }),
       filter_group_logic: 'or',
       email_enabled: false,
       email_recipient: null,
       enabled: true,
       updated_at: nowIso,
     })
-    .select('id,user_id,name,kind,cadence,timezone,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at')
+    .select('id,user_id,name,kind,cadence,timezone,filter_json,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at')
     .maybeSingle();
 
   if (error || !data) return null;
@@ -235,6 +316,8 @@ async function createDefaultReflectionTemplate(
 export type UpdateWeeklyDigestSettingsInput = {
   /** Controls whether the daily cron auto-generates weekly chapters for this user. */
   enabled?: boolean;
+  /** ISO weekday, Monday=1 through Sunday=7, when the weekly Chapter should generate/send. */
+  deliveryWeekday?: WeeklyChapterDeliveryWeekday;
   /** Controls whether the digest email is sent after generation. */
   emailEnabled?: boolean;
   /** Recipient address for the digest email. Required the first time emailEnabled flips to true. */
@@ -246,6 +329,7 @@ export type WeeklyDigestSettings = {
   enabled: boolean;
   emailEnabled: boolean;
   emailRecipient: string | null;
+  deliveryWeekday: WeeklyChapterDeliveryWeekday;
 };
 
 /**
@@ -261,6 +345,7 @@ export async function getWeeklyDigestSettings(): Promise<WeeklyDigestSettings | 
     enabled: Boolean(template.enabled),
     emailEnabled: Boolean(template.email_enabled),
     emailRecipient: template.email_recipient ?? null,
+    deliveryWeekday: getWeeklyChapterFilterSettings(template.filter_json).deliveryWeekday,
   };
 }
 
@@ -279,6 +364,11 @@ export async function updateWeeklyDigestSettings(
     updated_at: new Date().toISOString(),
   };
   if (typeof input.enabled === 'boolean') patch.enabled = input.enabled;
+  if (typeof input.deliveryWeekday === 'number') {
+    patch.filter_json = mergeWeeklyChapterFilterSettings(template.filter_json, {
+      deliveryWeekday: input.deliveryWeekday,
+    });
+  }
   if (typeof input.emailEnabled === 'boolean') patch.email_enabled = input.emailEnabled;
   if (Object.prototype.hasOwnProperty.call(input, 'emailRecipient')) {
     patch.email_recipient = input.emailRecipient && input.emailRecipient.trim().length > 0
@@ -292,7 +382,7 @@ export async function updateWeeklyDigestSettings(
     .update(patch)
     .eq('id', template.id)
     .select(
-      'id,user_id,name,kind,cadence,timezone,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at',
+      'id,user_id,name,kind,cadence,timezone,filter_json,enabled,email_enabled,email_recipient,detail_level,tone,created_at,updated_at',
     )
     .maybeSingle();
 
@@ -303,6 +393,7 @@ export async function updateWeeklyDigestSettings(
     enabled: Boolean(row.enabled),
     emailEnabled: Boolean(row.email_enabled),
     emailRecipient: row.email_recipient ?? null,
+    deliveryWeekday: getWeeklyChapterFilterSettings(row.filter_json).deliveryWeekday,
   };
 }
 
@@ -595,5 +686,3 @@ export async function triggerChapterGeneration(
     error,
   };
 }
-
-

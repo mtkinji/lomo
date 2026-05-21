@@ -179,7 +179,10 @@ function getPurchasesModule(): RevenueCatPurchasesLike | null {
     // Intentionally use runtime require so the app can compile/run even before
     // `react-native-purchases` is added to dependencies.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('react-native-purchases') as RevenueCatPurchasesLike;
+    const mod = require('react-native-purchases') as
+      | RevenueCatPurchasesLike
+      | { default?: RevenueCatPurchasesLike; Purchases?: RevenueCatPurchasesLike };
+    return ((mod as any).default ?? (mod as any).Purchases ?? mod) as RevenueCatPurchasesLike;
   } catch {
     return null;
   }
@@ -735,5 +738,4 @@ export async function getProSkuPricing(): Promise<Record<string, ProSkuPricing>>
     return {};
   }
 }
-
 

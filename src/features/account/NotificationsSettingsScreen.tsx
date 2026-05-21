@@ -724,19 +724,14 @@ export function NotificationsSettingsScreen() {
               <Pressable
                 style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
                 accessibilityRole="button"
-                accessibilityLabel="Open Chapter Settings"
+                accessibilityLabel="Open Weekly Chapters settings"
                 onPress={() => {
-                  // Jump over to the More tab's Chapters stack so the user lands
-                  // in the same place whether they came from the Chapters screen
-                  // or from Notifications settings.
-                  (navigation as any).navigate('MoreTab', {
-                    screen: 'MoreChapterDigestSettings',
-                  });
+                  (navigation as any).navigate('SettingsWeeklyChapters');
                 }}
               >
                 <VStack>
-                  <Text style={styles.rowTitle}>Chapter Settings</Text>
-                  <Text style={styles.rowSubtitle}>Manage your weekly chapter email and schedule.</Text>
+                  <Text style={styles.rowTitle}>Weekly Chapters</Text>
+                  <Text style={styles.rowSubtitle}>Manage your weekly Chapter email and Apple Health summaries.</Text>
                 </VStack>
               </Pressable>
             </VStack>
@@ -899,5 +894,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
 });
-
 

@@ -87,4 +87,10 @@ describe('SettingsHomeScreen planning group', () => {
     fireEvent.press(getByText('Calendars'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsPlanCalendars');
   });
+
+  it('navigates to SettingsWeeklyChapters when Weekly Chapters is pressed', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Weekly Chapters'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsWeeklyChapters');
+  });
 });

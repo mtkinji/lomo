@@ -193,6 +193,69 @@ function buildCadenceKicker(chapter: ChapterRow | null, periodStart: string, per
   return '';
 }
 
+function formatWholeNumber(value: number): string {
+  try {
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
+  } catch {
+    return String(Math.round(value));
+  }
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${formatWholeNumber(count)} ${count === 1 ? singular : plural}`;
+}
+
+function buildHealthSummaryRows(health: any): Array<{ label: string; value: string; detail?: string }> {
+  if (!health || typeof health !== 'object') return [];
+  const rows: Array<{ label: string; value: string; detail?: string }> = [];
+
+  if (typeof health.active_days_count === 'number') {
+    rows.push({
+      label: 'Movement',
+      value: pluralize(health.active_days_count, 'active day'),
+      detail:
+        typeof health.total_active_minutes === 'number' && health.total_active_minutes > 0
+          ? `${pluralize(health.total_active_minutes, 'active minute')} total`
+          : undefined,
+    });
+  }
+
+  if (typeof health.total_steps === 'number' && health.total_steps > 0) {
+    rows.push({
+      label: 'Steps',
+      value: `${formatWholeNumber(health.total_steps)} total`,
+      detail:
+        typeof health.avg_steps_per_active_day === 'number' && health.avg_steps_per_active_day > 0
+          ? `${formatWholeNumber(health.avg_steps_per_active_day)} per active day`
+          : undefined,
+    });
+  }
+
+  if (typeof health.workouts_count === 'number') {
+    rows.push({
+      label: 'Workouts',
+      value: pluralize(health.workouts_count, 'workout'),
+    });
+  }
+
+  if (typeof health.avg_sleep_hours === 'number' && health.sleep_nights_count > 0) {
+    rows.push({
+      label: 'Sleep',
+      value: `${health.avg_sleep_hours.toFixed(1)} hr average`,
+      detail: `Across ${pluralize(health.sleep_nights_count, 'night')}`,
+    });
+  }
+
+  if (typeof health.mindfulness_minutes === 'number') {
+    rows.push({
+      label: 'Mindfulness',
+      value: pluralize(health.mindfulness_minutes, 'minute'),
+    });
+  }
+
+  return rows;
+}
+
 export function ChapterDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -322,6 +385,7 @@ export function ChapterDetailScreen() {
   const forcesItems = (asArray(pickSection(outputJson, 'forces')?.items).filter((x) => x && typeof x === 'object') as any[]).slice(0, 6);
 
   const metrics = chapter?.metrics ?? null;
+  const healthSummaryRows = buildHealthSummaryRows(metrics?.health);
   // Phase 3.3 arc lanes: up to 4 top arcs by activity, each with its delta
   // block (populated by `augmentArcsWithDeltas` on the server). We surface
   // lanes even when deltas are missing (pre-Phase-3 chapters) — the lane
@@ -843,6 +907,32 @@ export function ChapterDetailScreen() {
                 </Text>
               </View>
 
+              {healthSummaryRows.length > 0 ? (
+                <Card padding="md" style={styles.card}>
+                  <VStack space="sm">
+                    <View>
+                      <Text style={styles.sectionLabel}>Apple Health</Text>
+                      <Text style={styles.healthSummaryIntro}>
+                        Summaries Kwilt read for this Chapter period.
+                      </Text>
+                    </View>
+                    <View style={styles.healthSummaryGrid}>
+                      {healthSummaryRows.map((row) => (
+                        <View key={row.label} style={styles.healthSummaryRow}>
+                          <Text style={styles.healthSummaryLabel}>{row.label}</Text>
+                          <View style={styles.healthSummaryValueWrap}>
+                            <Text style={styles.healthSummaryValue}>{row.value}</Text>
+                            {row.detail ? (
+                              <Text style={styles.healthSummaryDetail}>{row.detail}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </VStack>
+                </Card>
+              ) : null}
+
               {visibleRecommendations.length > 0 ? (
                 <View style={styles.nextStepsBlock} accessibilityLabel="Next steps suggested by this chapter">
                   <Text style={styles.sectionLabel}>Next steps</Text>
@@ -1253,8 +1343,9 @@ export function ChapterDetailScreen() {
                     Add Apple Health to next week&apos;s Chapter?
                   </Text>
                   <Text style={styles.healthPromptBody}>
-                    We can fold your movement, workouts, sleep, and mindfulness minutes into
-                    next week&apos;s evidence. You can change this anytime in Chapter Settings.
+                    Kwilt can read Apple Health summaries for movement, workouts, sleep, and
+                    mindfulness, then show them in future Weekly Chapters. You can change this
+                    anytime in Weekly Chapters settings.
                   </Text>
                   <View style={styles.healthPromptActions}>
                     <Pressable
@@ -1268,7 +1359,7 @@ export function ChapterDetailScreen() {
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Enable Apple Health"
+                      accessibilityLabel="Enable Apple Health summaries"
                       onPress={() => void handleEnableHealthPrompt()}
                       disabled={healthPromptBusy}
                       style={[
@@ -1514,6 +1605,44 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: 'center',
+  },
+  healthSummaryIntro: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  healthSummaryGrid: {
+    gap: spacing.xs,
+  },
+  healthSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  healthSummaryLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  healthSummaryValueWrap: {
+    flex: 1.4,
+    alignItems: 'flex-end',
+  },
+  healthSummaryValue: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  healthSummaryDetail: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'right',
+    marginTop: 2,
   },
   articleWrap: {
     width: '100%',

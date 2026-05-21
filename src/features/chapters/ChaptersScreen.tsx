@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -7,6 +8,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
 import { VStack, Text, EmptyState } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
+import { Coachmark } from '../../ui/Coachmark';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +19,11 @@ import { Icon } from '../../ui/Icon';
 import {
   createDefaultWeeklyReflectionTemplate,
   fetchMyChapters,
+  getWeeklyDigestSettings,
+  updateWeeklyDigestSettings,
+  WEEKLY_CHAPTER_DELIVERY_WEEKDAYS,
+  type WeeklyChapterDeliveryWeekday,
+  type WeeklyDigestSettings,
   type ChapterRow,
 } from '../../services/chapters';
 import type { MoreStackParamList } from '../../navigation/RootNavigator';
@@ -32,26 +39,32 @@ import {
   subscribeChapterReadChanges,
 } from './chapterReadState';
 
-function buildFirstChapterEta(): string {
+const CHAPTER_SETTINGS_COACHMARK_KEY = 'kwilt:chapters-settings-coachmark:v1';
+
+function getWeekdayLabel(day: WeeklyChapterDeliveryWeekday | null): string {
+  return WEEKLY_CHAPTER_DELIVERY_WEEKDAYS.find((item) => item.value === day)?.label ?? 'Monday';
+}
+
+function buildFirstChapterArrival(deliveryWeekday: WeeklyChapterDeliveryWeekday | null): string {
   // Scheduled weekly chapters are generated once the ISO week closes, so the
-  // first chapter lands next Monday (local time). We surface a human ETA +
+  // first chapter lands on the configured delivery day. We surface a human ETA +
   // the lookback range so the empty state reads like a promise, not a blank.
   try {
     const now = new Date();
     const dow = now.getDay(); // 0=Sun..6=Sat
-    // Days until next Monday (1..7). If today is Monday, "next Monday" is 7d out.
-    const daysUntilMonday = ((1 - dow + 7) % 7) || 7;
-    const nextMonday = new Date(now);
-    nextMonday.setDate(now.getDate() + daysUntilMonday);
-    const weekStart = new Date(nextMonday);
-    weekStart.setDate(nextMonday.getDate() - 7);
-    const weekEnd = new Date(nextMonday);
-    weekEnd.setDate(nextMonday.getDate() - 1);
+    const targetJsDay = deliveryWeekday === 7 ? 0 : deliveryWeekday ?? 1;
+    const daysUntilDelivery = ((targetJsDay - dow + 7) % 7) || 7;
+    const nextDelivery = new Date(now);
+    nextDelivery.setDate(now.getDate() + daysUntilDelivery);
+    const weekStart = new Date(nextDelivery);
+    weekStart.setDate(nextDelivery.getDate() - 7);
+    const weekEnd = new Date(nextDelivery);
+    weekEnd.setDate(nextDelivery.getDate() - 1);
     const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
     const shortFmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-    return `Your first chapter arrives next ${dayFmt.format(nextMonday)}. It’ll recap ${shortFmt.format(weekStart)}–${shortFmt.format(weekEnd)} and name what moved.`;
+    return `First one arrives next ${dayFmt.format(nextDelivery)} for ${shortFmt.format(weekStart)}–${shortFmt.format(weekEnd)}.`;
   } catch {
-    return 'Your first chapter arrives next Monday. It’ll recap the past week and name what moved.';
+    return `First one arrives next ${getWeekdayLabel(deliveryWeekday)}.`;
   }
 }
 
@@ -59,6 +72,7 @@ export function ChaptersScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList, 'MoreChapters'>>();
   const { capture } = useAnalytics();
   const listViewTrackedRef = React.useRef(false);
+  const moreMenuTargetRef = React.useRef<View | null>(null);
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
@@ -72,20 +86,23 @@ export function ChaptersScreen() {
   const repairWindowActive = useRepairWindowActive(streakBreakState);
   const [refreshing, setRefreshing] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
+  const [weeklySettings, setWeeklySettings] = React.useState<WeeklyDigestSettings | null>(null);
+  const [settingsSaving, setSettingsSaving] = React.useState(false);
+  const [settingsCoachmarkDismissed, setSettingsCoachmarkDismissed] = React.useState(true);
   const [readMap, setReadMap] = React.useState<Record<string, string>>(() => getChapterReadMapSync());
   const chapterSettingsMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger accessibilityLabel="Chapter options">
-        <View style={styles.moreMenuButton}>
+        <View ref={moreMenuTargetRef} style={styles.moreMenuButton}>
           <Icon name="more" size={20} color={colors.textPrimary} />
         </View>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" sideOffset={6} align="end">
         <DropdownMenuItem
           onPress={() => navigation.navigate('MoreChapterDigestSettings')}
-          accessibilityLabel="Open Chapter Settings"
+          accessibilityLabel="Open Weekly Chapters settings"
         >
-          <Text style={styles.menuItemText}>Chapter Settings</Text>
+          <Text style={styles.menuItemText}>Weekly Chapters</Text>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -105,8 +122,25 @@ export function ChaptersScreen() {
     };
   }, []);
 
+  React.useEffect(() => {
+    let mounted = true;
+    void AsyncStorage.getItem(CHAPTER_SETTINGS_COACHMARK_KEY)
+      .then((value) => {
+        if (mounted) setSettingsCoachmarkDismissed(value === 'seen');
+      })
+      .catch(() => {
+        if (mounted) setSettingsCoachmarkDismissed(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const latest = chapters[0] ?? null;
   const history = chapters.slice(1);
+  const chaptersEnabled = weeklySettings?.enabled ?? false;
+  const deliveryWeekday = weeklySettings?.deliveryWeekday ?? null;
+  const showSettingsCoachmark = !latest && weeklySettings !== null && !settingsCoachmarkDismissed;
 
   const formatShortDate = (iso: string) => {
     try {
@@ -136,15 +170,46 @@ export function ChaptersScreen() {
     }
   }, [capture]);
 
+  const loadWeeklySettings = React.useCallback(async () => {
+    try {
+      const settings = await getWeeklyDigestSettings();
+      setWeeklySettings(settings);
+    } catch {
+      setWeeklySettings(null);
+    }
+  }, []);
+
+  const handleEnableWeeklyChapters = React.useCallback(async () => {
+    if (settingsSaving) return;
+    setSettingsSaving(true);
+    try {
+      const updated = await updateWeeklyDigestSettings({ enabled: true });
+      if (updated) setWeeklySettings(updated);
+    } finally {
+      setSettingsSaving(false);
+    }
+  }, [settingsSaving]);
+
+  const dismissSettingsCoachmark = React.useCallback(() => {
+    setSettingsCoachmarkDismissed(true);
+    void AsyncStorage.setItem(CHAPTER_SETTINGS_COACHMARK_KEY, 'seen').catch(() => undefined);
+  }, []);
+
+  const openChapterSettingsFromCoachmark = React.useCallback(() => {
+    dismissSettingsCoachmark();
+    navigation.navigate('MoreChapterDigestSettings');
+  }, [dismissSettingsCoachmark, navigation]);
+
   useFocusEffect(
     React.useCallback(() => {
       // OOTB template: create in the background if signed in, without prompting.
       // Phase 2.1 + 2.5: we only ever create the weekly template; monthly /
       // yearly / manual factories are cut. The cron does the rest.
       void createDefaultWeeklyReflectionTemplate().catch(() => null);
+      void loadWeeklySettings();
       void refresh();
       return () => {};
-    }, [refresh]),
+    }, [loadWeeklySettings, refresh]),
   );
 
   return (
@@ -251,14 +316,55 @@ export function ChaptersScreen() {
             </>
           ) : (
             <EmptyState
-              title="Your first chapter is on its way"
+              title={chaptersEnabled ? 'Your first weekly chapter is on its way' : 'Turn on weekly chapters'}
               iconName="emptyBox"
-              instructions={buildFirstChapterEta()}
+              instructions={
+                chaptersEnabled
+                  ? `A short recap of what moved this week. ${buildFirstChapterArrival(deliveryWeekday)}`
+                  : 'Get a weekly recap of what moved, with patterns and next steps.'
+              }
+              primaryAction={
+                chaptersEnabled
+                  ? undefined
+                  : {
+                      label: 'Turn on chapters',
+                      disabled: settingsSaving,
+                      onPress: () => void handleEnableWeeklyChapters(),
+                    }
+              }
               style={styles.emptyState}
             />
           )}
         </VStack>
       </ScrollView>
+      <Coachmark
+        visible={showSettingsCoachmark}
+        targetRef={moreMenuTargetRef}
+        scrimToken="subtle"
+        spotlight="hole"
+        spotlightPadding={spacing.xs}
+        spotlightRadius="auto"
+        offset={spacing.xs}
+        title={<Text style={styles.coachmarkTitle}>Chapter settings live here</Text>}
+        body={
+          <Text style={styles.coachmarkBody}>
+            Use this menu to change the schedule, email, and Apple Health later.
+          </Text>
+        }
+        actions={[
+          { id: 'dismiss', label: 'Got it', variant: 'outline' },
+          { id: 'settings', label: 'Open settings', variant: 'accent' },
+        ]}
+        onAction={(actionId) => {
+          if (actionId === 'settings') {
+            openChapterSettingsFromCoachmark();
+            return;
+          }
+          dismissSettingsCoachmark();
+        }}
+        onDismiss={dismissSettingsCoachmark}
+        placement="below"
+      />
     </AppShell>
   );
 }
@@ -268,10 +374,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     marginTop: 0,
+    paddingBottom: 120,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingBottom: 120,
   },
   contentStack: {
     flex: 1,
@@ -338,5 +446,13 @@ const styles = StyleSheet.create({
   menuItemText: {
     ...typography.bodySm,
     color: colors.textPrimary,
+  },
+  coachmarkTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  coachmarkBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
 });
