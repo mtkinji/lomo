@@ -1,4 +1,5 @@
 import {
+  allowedUnanchoredStoryParagraphs,
   findMismatchedCompletionCount,
   resolveQuotedTitleRequirement,
   shouldRequireVerbatimUserNote,
@@ -33,6 +34,16 @@ describe('resolveQuotedTitleRequirement', () => {
         quoteableActivityTitleCount: 3,
       }),
     ).toBe(3);
+  });
+});
+
+describe('allowedUnanchoredStoryParagraphs', () => {
+  it('allows one interpretive paragraph in weekly chapters', () => {
+    expect(allowedUnanchoredStoryParagraphs('weekly')).toBe(1);
+  });
+
+  it('keeps long-form chapters fully anchored paragraph by paragraph', () => {
+    expect(allowedUnanchoredStoryParagraphs('monthly')).toBe(0);
   });
 });
 

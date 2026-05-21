@@ -28,6 +28,7 @@ import {
   containsHealthKeyword,
 } from '../_shared/chapterHealth.ts';
 import {
+  allowedUnanchoredStoryParagraphs,
   countQuoteableActivityTitles,
   findMismatchedCompletionCount,
   resolveQuotedTitleRequirement,
@@ -1385,10 +1386,13 @@ function buildWritingRequirements(params: {
     strict: stricter,
     quoteableActivityTitleCount,
   });
+  const paragraphAnchorRule = isShortForm
+    ? `Anchor rule: nearly every paragraph in story.body must include a concrete anchor: (a) a number from metrics, OR (b) a quoted activity title, OR (c) a named arc or goal title from stable_context. At most one short interpretive paragraph may omit the anchor if the surrounding paragraphs are concrete.`
+    : `Hard constraint: every paragraph in story.body must include at least ONE concrete anchor: (a) a number from metrics, OR (b) a quoted activity title, OR (c) a named arc or goal title from stable_context.`;
 
   const rules = [
     `Anti-generic rule: do not use vague praise ("meaningful", "remarkable", "balance", "growth") anywhere in title, dek, or body.`,
-    `Hard constraint: every paragraph in story.body must include at least ONE concrete anchor: (a) a number from metrics, OR (b) a quoted activity title, OR (c) a named arc or goal title from stable_context.`,
+    paragraphAnchorRule,
     `Metric vocabulary rule: "completed", "closed", or "finished" activity counts MUST use metrics.activities.completed_count (${completedActivityCount}). metrics.activities.created_count means newly created/initiated, not completed.`,
     quotedTitleRequirement > 0
       ? `Quote rule: include at least ${quotedTitleRequirement} quoted activity titles EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`
@@ -1866,16 +1870,21 @@ function validateChapterOutput(params: {
   // Per-paragraph anchor check.
   const paragraphs = splitParagraphs(body);
   const activityTitles = Array.from(activityTitlesById.values());
+  const allowedUnanchored = allowedUnanchoredStoryParagraphs(cadence);
+  const unanchoredParagraphs: number[] = [];
   for (let i = 0; i < paragraphs.length; i += 1) {
     const para = paragraphs[i];
     // Let the very first paragraph slip if needed, but after that, enforce.
     if (i === 0) continue;
     if (!paragraphHasAnchor({ paragraph: para, arcTitles, goalTitles, activityTitles })) {
-      return {
-        ok: false,
-        error: `story.body paragraph ${i + 1} lacks a concrete anchor (number, quoted title, or named arc/goal)`,
-      };
+      unanchoredParagraphs.push(i + 1);
     }
+  }
+  if (unanchoredParagraphs.length > allowedUnanchored) {
+    return {
+      ok: false,
+      error: `story.body paragraph ${unanchoredParagraphs[0]} lacks a concrete anchor (number, quoted title, or named arc/goal)`,
+    };
   }
 
   // Quoted-title count.

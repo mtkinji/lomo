@@ -25,6 +25,10 @@ export function shouldRequireVerbatimUserNote(cadence: ChapterCadence): boolean 
   return cadence === 'monthly' || cadence === 'yearly';
 }
 
+export function allowedUnanchoredStoryParagraphs(cadence: ChapterCadence): number {
+  return cadence === 'weekly' || cadence === 'manual' ? 1 : 0;
+}
+
 export function findMismatchedCompletionCount(
   text: string,
   completedActivityCount: number | null | undefined,
