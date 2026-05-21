@@ -13,12 +13,16 @@ export function resolveQuotedTitleRequirement(params: {
   if (available === 0) return 0;
 
   const base = params.cadence === 'weekly' || params.cadence === 'manual'
-    ? 2
+    ? 1
     : params.strict
       ? 5
       : 4;
 
   return Math.min(base, available);
+}
+
+export function shouldRequireVerbatimUserNote(cadence: ChapterCadence): boolean {
+  return cadence === 'monthly' || cadence === 'yearly';
 }
 
 export function findMismatchedCompletionCount(

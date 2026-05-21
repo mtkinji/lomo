@@ -1,6 +1,7 @@
 import {
   findMismatchedCompletionCount,
   resolveQuotedTitleRequirement,
+  shouldRequireVerbatimUserNote,
 } from '../chapterOutputValidation';
 
 describe('resolveQuotedTitleRequirement', () => {
@@ -11,7 +12,7 @@ describe('resolveQuotedTitleRequirement', () => {
         strict: true,
         quoteableActivityTitleCount: 20,
       }),
-    ).toBe(2);
+    ).toBe(1);
   });
 
   it('keeps monthly strict retries at the long-form threshold', () => {
@@ -32,6 +33,17 @@ describe('resolveQuotedTitleRequirement', () => {
         quoteableActivityTitleCount: 3,
       }),
     ).toBe(3);
+  });
+});
+
+describe('shouldRequireVerbatimUserNote', () => {
+  it('treats weekly notes as prompt guidance instead of a hard generation blocker', () => {
+    expect(shouldRequireVerbatimUserNote('weekly')).toBe(false);
+  });
+
+  it('keeps long-form chapters under the stricter user-note citation rule', () => {
+    expect(shouldRequireVerbatimUserNote('monthly')).toBe(true);
+    expect(shouldRequireVerbatimUserNote('yearly')).toBe(true);
   });
 });
 

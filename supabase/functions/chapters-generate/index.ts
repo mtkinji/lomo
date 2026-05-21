@@ -31,6 +31,7 @@ import {
   countQuoteableActivityTitles,
   findMismatchedCompletionCount,
   resolveQuotedTitleRequirement,
+  shouldRequireVerbatimUserNote,
 } from '../_shared/chapterOutputValidation.ts';
 import type {
   ChapterHealthBlock,
@@ -1394,8 +1395,10 @@ function buildWritingRequirements(params: {
       : `Quote rule: if you mention an activity title, quote it EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`,
     `Arc rule: name at least ONE Arc from stable_context by its exact title in story.body.`,
     hasNotes
-      ? `User-voice rule: at least one evidence.activities_full[].notes_snippet MUST be quoted verbatim in story.body (wrap in double quotes). The user's own words are the single most important signal.`
-      : `User-voice rule: if any evidence.activities_full[].notes_snippet exists, quote one verbatim.`,
+      ? isShortForm
+        ? `User-voice rule: use evidence.activities_full[].notes_snippet as source material. Prefer quoting one short fragment verbatim when it fits, but do not force a long note quote over the main story hook.`
+        : `User-voice rule: at least one evidence.activities_full[].notes_snippet MUST be quoted verbatim in story.body (wrap in double quotes). The user's own words are the single most important signal.`
+      : `User-voice rule: if any evidence.activities_full[].notes_snippet exists, quote one verbatim when it fits naturally.`,
     `Angle rule: pick ONE story hook from evidence.story_hooks. Echo its hook_id back as chosen_hook_id in the output. The headline MUST reflect that hook in concrete terms.`,
     `Continuity rule: if prior_chapter is provided, reference it subtly in the opening 2 paragraphs (e.g. "after last ${cadence === 'weekly' ? 'week' : cadence === 'monthly' ? 'month' : 'year'}'s …"). Do NOT invent anything about prior_chapter that isn't in the field.`,
     // Phase 7.2: the prior user_note is the user's own voice on the
@@ -1943,7 +1946,7 @@ function validateChapterOutput(params: {
   }
 
   // If user notes exist, at least one note must appear quoted in body.
-  if (noteSnippets.length > 0) {
+  if (noteSnippets.length > 0 && shouldRequireVerbatimUserNote(cadence)) {
     const hit = noteSnippets.some((n) => {
       const trimmed = n.replace(/\s+/g, ' ').trim();
       if (trimmed.length < 8) return false;
