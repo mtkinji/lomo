@@ -27,6 +27,10 @@ import {
   computeChapterHealthBlock,
   containsHealthKeyword,
 } from '../_shared/chapterHealth.ts';
+import {
+  countQuoteableActivityTitles,
+  resolveQuotedTitleRequirement,
+} from '../_shared/chapterOutputValidation.ts';
 import type {
   ChapterHealthBlock,
   HealthDailyRow,
@@ -1350,8 +1354,17 @@ function buildWritingRequirements(params: {
    * validator enforces both directions.
    */
   hasHealth: boolean;
+  quoteableActivityTitleCount: number;
 }) {
-  const { cadence, kind, detail, stricter, hasNotes, hasHealth } = params;
+  const {
+    cadence,
+    kind,
+    detail,
+    stricter,
+    hasNotes,
+    hasHealth,
+    quoteableActivityTitleCount,
+  } = params;
 
   const isShortForm = cadence === 'weekly' || cadence === 'manual';
   const lengthRule = isShortForm
@@ -1363,11 +1376,18 @@ function buildWritingRequirements(params: {
   const subheadRule = isShortForm
     ? `Do NOT use markdown "## " subheads; weekly chapters should flow as continuous paragraphs.`
     : `Use 3–6 short markdown subheads ("## Like this"). Subheads must be evidence-anchored, not generic (e.g. "## The streak held" is better than "## The numbers").`;
+  const quotedTitleRequirement = resolveQuotedTitleRequirement({
+    cadence,
+    strict: stricter,
+    quoteableActivityTitleCount,
+  });
 
   const rules = [
     `Anti-generic rule: do not use vague praise ("meaningful", "remarkable", "balance", "growth") anywhere in title, dek, or body.`,
     `Hard constraint: every paragraph in story.body must include at least ONE concrete anchor: (a) a number from metrics, OR (b) a quoted activity title, OR (c) a named arc or goal title from stable_context.`,
-    `Quote rule: include at least ${stricter ? '5' : '4'} quoted activity titles EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`,
+    quotedTitleRequirement > 0
+      ? `Quote rule: include at least ${quotedTitleRequirement} quoted activity titles EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`
+      : `Quote rule: if you mention an activity title, quote it EXACTLY as given in evidence.activities_full (wrap titles in double quotes).`,
     `Arc rule: name at least ONE Arc from stable_context by its exact title in story.body.`,
     hasNotes
       ? `User-voice rule: at least one evidence.activities_full[].notes_snippet MUST be quoted verbatim in story.body (wrap in double quotes). The user's own words are the single most important signal.`
@@ -1471,6 +1491,11 @@ function buildChapterPrompt(params: {
   const detail = (template.detail_level ?? '').trim() || 'medium';
   const hasNotes = Array.isArray(evidence.activities_full) &&
     evidence.activities_full.some((a: any) => typeof a?.notes_snippet === 'string' && a.notes_snippet.trim().length > 0);
+  const quoteableActivityTitleCount = countQuoteableActivityTitles(
+    Array.isArray(evidence.activities_full)
+      ? evidence.activities_full.map((a: any) => (typeof a?.title === 'string' ? a.title : ''))
+      : [],
+  );
 
   const writing = buildWritingRequirements({
     cadence: template.cadence,
@@ -1479,6 +1504,7 @@ function buildChapterPrompt(params: {
     stricter: Boolean(stricter),
     hasNotes,
     hasHealth: Boolean((metrics as any)?.health),
+    quoteableActivityTitleCount,
   });
 
   const system = [
@@ -1828,7 +1854,11 @@ function validateChapterOutput(params: {
   }
 
   // Quoted-title count.
-  const minQuoted = strict ? 5 : 4;
+  const minQuoted = resolveQuotedTitleRequirement({
+    cadence,
+    strict,
+    quoteableActivityTitleCount: countQuoteableActivityTitles(activityTitles),
+  });
   const quotedCount = countQuotedTitles(body, activityTitles);
   if (quotedCount < minQuoted) {
     return {
