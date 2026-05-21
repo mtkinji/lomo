@@ -268,6 +268,7 @@ export type SettingsStackParamList = {
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
+  SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
   SettingsSharing: undefined;
@@ -909,6 +910,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsNotifications"
         component={NotificationsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsWeeklyChapters"
+        component={ChapterDigestSettingsScreen}
       />
       <SettingsStack.Screen
         name="SettingsPhoneAgent"

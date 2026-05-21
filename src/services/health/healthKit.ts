@@ -390,6 +390,18 @@ export async function syncYesterdayHealthDailyToSupabase(): Promise<HealthSyncRe
   return { status: 'synced', localDate: daily.localDate };
 }
 
+export async function clearHealthDailyFromSupabase(): Promise<void> {
+  const supabase = getSupabaseClient();
+  const userRes = await supabase.auth.getUser();
+  const userId = userRes.data.user?.id ?? null;
+  if (!userId) return;
+
+  await supabase
+    .from('kwilt_health_daily')
+    .delete()
+    .eq('user_id', userId);
+}
+
 export function buildDefaultHealthDailySeed(): HealthDailyTotals {
   return {
     localDate: getYesterdayLocalDate(),

@@ -2,7 +2,6 @@ import React from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,11 +18,14 @@ import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
 import type { MoreStackParamList } from '../../navigation/RootNavigator';
 import {
+  WEEKLY_CHAPTER_DELIVERY_WEEKDAYS,
   getWeeklyDigestSettings,
   updateWeeklyDigestSettings,
+  type WeeklyChapterDeliveryWeekday,
   type WeeklyDigestSettings,
 } from '../../services/chapters';
 import {
+  clearHealthDailyFromSupabase,
   getHealthKitAvailability,
   requestHealthKitReadPermission,
   syncYesterdayHealthDailyToSupabase,
@@ -32,10 +34,17 @@ import {
 
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDigestSettings'>;
 
-function describeCadence(cadence: WeeklyDigestSettings['template']['cadence'] | undefined): string {
+function describeDeliveryWeekday(day: WeeklyChapterDeliveryWeekday | undefined): string {
+  return WEEKLY_CHAPTER_DELIVERY_WEEKDAYS.find((item) => item.value === day)?.label ?? 'Monday';
+}
+
+function describeCadence(
+  cadence: WeeklyDigestSettings['template']['cadence'] | undefined,
+  deliveryWeekday: WeeklyChapterDeliveryWeekday | undefined,
+): string {
   switch (cadence) {
     case 'weekly':
-      return 'Weekly · every Monday (local time)';
+      return `Weekly · every ${describeDeliveryWeekday(deliveryWeekday)}`;
     case 'monthly':
       return 'Monthly · first of the month';
     case 'yearly':
@@ -45,16 +54,6 @@ function describeCadence(cadence: WeeklyDigestSettings['template']['cadence'] | 
     default:
       return 'Weekly';
   }
-}
-
-function describeIncluded(): string {
-  // Short, human summary of what the digest contains today. Kept in sync with
-  // the email template (`buildChapterDigestEmail` + chapter story output) so
-  // the user doesn't need to read that code to trust the email.
-  return (
-    'A short narrative of your week, top Arcs you showed up for, key patterns ' +
-    'and forces we noticed, and a link back to the full chapter in the app.'
-  );
 }
 
 export function ChapterDigestSettingsScreen() {
@@ -167,18 +166,42 @@ export function ChapterDigestSettingsScreen() {
     [defaultEmail, saving, settings, showToast],
   );
 
+  const handleChangeDeliveryWeekday = React.useCallback(
+    async (deliveryWeekday: WeeklyChapterDeliveryWeekday) => {
+      if (!settings || saving || settings.deliveryWeekday === deliveryWeekday) return;
+      setSaving(true);
+      const previous = settings;
+      setSettings({ ...settings, deliveryWeekday });
+      try {
+        const updated = await updateWeeklyDigestSettings({ deliveryWeekday });
+        if (!updated) {
+          setSettings(previous);
+          showToast({
+            message: 'Could not update schedule. Try again in a moment.',
+            variant: 'danger',
+          });
+          return;
+        }
+        setSettings(updated);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [saving, settings, showToast],
+  );
+
   const describeHealthState = React.useCallback(
     (status: HealthPermissionStatus, enabled: boolean): string => {
       if (enabled && status === 'authorized') {
-        return 'On — movement, workouts, sleep, and mindfulness can appear in future chapters.';
+        return 'On · movement, workouts, sleep, and mindfulness';
       }
       if (status === 'denied' || status === 'restricted') {
-        return 'Off — iOS denied access. Re-enable in Settings → Privacy & Security → Health.';
+        return 'Off · re-enable in iOS Health settings';
       }
       if (status === 'unavailable') {
-        return 'Off — Apple Health is unavailable on this device/build.';
+        return 'Unavailable on this device';
       }
-      return 'Off — allow access to include Health evidence in your weekly chapter.';
+      return 'Off · movement, workouts, sleep, and mindfulness';
     },
     [],
   );
@@ -188,7 +211,13 @@ export function ChapterDigestSettingsScreen() {
       if (healthSaving) return;
 
       if (!nextValue) {
-        setHealthPreferences((current) => ({ ...current, enabled: false }));
+        setHealthPreferences((current) => ({
+          ...current,
+          enabled: false,
+          lastDailySyncDate: null,
+          lastSyncAtIso: null,
+        }));
+        void clearHealthDailyFromSupabase();
         return;
       }
 
@@ -236,7 +265,7 @@ export function ChapterDigestSettingsScreen() {
 
   return (
     <AppShell>
-      <PageHeader title="Chapter Settings" onPressBack={() => navigation.goBack()} />
+      <PageHeader title="Weekly Chapters" onPressBack={() => navigation.goBack()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -248,20 +277,70 @@ export function ChapterDigestSettingsScreen() {
           </View>
         ) : (
           <VStack space="md">
-            <View style={styles.card}>
-              <VStack space="sm">
-                <Text style={styles.sectionTitle}>Chapter Settings</Text>
+            <View style={styles.masterRow}>
+              <View style={styles.rowText}>
+                <Text style={styles.masterTitle}>Generate weekly chapters</Text>
+                <Text style={styles.rowSubtitle}>A weekly recap of what moved.</Text>
+              </View>
+              <Switch
+                value={settings.enabled}
+                onValueChange={(v) => void handleToggleAutoGenerate(v)}
+                disabled={saving}
+                trackColor={{ false: colors.shellAlt, true: colors.accent }}
+                thumbColor={colors.canvas}
+              />
+            </View>
+
+            {settings.enabled ? (
+              <VStack space="sm" style={styles.settingsGroup}>
+                <View style={styles.inlineSection}>
+                  <Text style={styles.sectionTitle}>Schedule</Text>
+                  <Text style={styles.rowTitle}>
+                    {describeCadence(settings.template.cadence, settings.deliveryWeekday)}
+                  </Text>
+                  <Text style={styles.rowSubtitle}>
+                    Timezone · {settings.template.timezone || 'device default'}
+                  </Text>
+                  <View style={styles.weekdayGrid} accessibilityRole="radiogroup">
+                    {WEEKLY_CHAPTER_DELIVERY_WEEKDAYS.map((day) => {
+                      const selected = day.value === settings.deliveryWeekday;
+                      return (
+                        <Pressable
+                          key={day.value}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected, disabled: saving }}
+                          accessibilityLabel={`Send Weekly Chapter on ${day.label}`}
+                          disabled={saving}
+                          onPress={() => void handleChangeDeliveryWeekday(day.value)}
+                          style={({ pressed }) => [
+                            styles.weekdayChip,
+                            selected && styles.weekdayChipSelected,
+                            pressed && !selected && styles.weekdayChipPressed,
+                          ]}
+                        >
+                          <Text style={[styles.weekdayChipText, selected && styles.weekdayChipTextSelected]}>
+                            {day.shortLabel}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
 
                 <View style={styles.row}>
                   <View style={styles.rowText}>
-                    <Text style={styles.rowTitle}>Auto-generate my weekly chapter</Text>
+                    <Text style={styles.rowTitle}>Email me when a new chapter is ready</Text>
                     <Text style={styles.rowSubtitle}>
-                      Kwilt writes a new chapter at the end of each week.
+                      {settings.emailEnabled
+                        ? settings.emailRecipient ?? defaultEmail ?? 'Account email'
+                        : 'Off'}
                     </Text>
                   </View>
                   <Switch
-                    value={settings.enabled}
-                    onValueChange={(v) => void handleToggleAutoGenerate(v)}
+                    value={settings.emailEnabled}
+                    onValueChange={(v) => void handleToggleEmail(v)}
                     disabled={saving}
                     trackColor={{ false: colors.shellAlt, true: colors.accent }}
                     thumbColor={colors.canvas}
@@ -272,46 +351,7 @@ export function ChapterDigestSettingsScreen() {
 
                 <View style={styles.row}>
                   <View style={styles.rowText}>
-                    <Text style={styles.rowTitle}>Email me when a new chapter is ready</Text>
-                    <Text style={styles.rowSubtitle}>
-                      {settings.emailEnabled
-                        ? `Sending to ${settings.emailRecipient ?? defaultEmail ?? 'your account email'}`
-                        : 'Off — chapters will still appear here in the app.'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={settings.emailEnabled}
-                    onValueChange={(v) => void handleToggleEmail(v)}
-                    disabled={saving || !settings.enabled}
-                    trackColor={{ false: colors.shellAlt, true: colors.accent }}
-                    thumbColor={colors.canvas}
-                  />
-                </View>
-
-                {!settings.enabled ? (
-                  <Text style={styles.helperText}>
-                    Turn on auto-generate to enable the email digest.
-                  </Text>
-                ) : null}
-              </VStack>
-            </View>
-
-            <View style={styles.card}>
-              <VStack space="sm">
-                <Text style={styles.sectionTitle}>Schedule</Text>
-                <Text style={styles.rowTitle}>{describeCadence(settings.template.cadence)}</Text>
-                <Text style={styles.rowSubtitle}>
-                  Timezone · {settings.template.timezone || 'device default'}
-                </Text>
-              </VStack>
-            </View>
-
-            <View style={styles.card}>
-              <VStack space="sm">
-                <Text style={styles.sectionTitle}>Apple Health</Text>
-                <View style={styles.row}>
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowTitle}>Include Apple Health in my chapter evidence</Text>
+                    <Text style={styles.rowTitle}>Use Apple Health summaries</Text>
                     <Text style={styles.rowSubtitle}>
                       {describeHealthState(
                         healthPreferences.osPermissionStatus,
@@ -328,26 +368,7 @@ export function ChapterDigestSettingsScreen() {
                   />
                 </View>
               </VStack>
-            </View>
-
-            <View style={styles.card}>
-              <VStack space="sm">
-                <Text style={styles.sectionTitle}>What’s included</Text>
-                <Text style={styles.rowSubtitle}>{describeIncluded()}</Text>
-                <Pressable
-                  accessibilityRole="link"
-                  onPress={() => {
-                    void Linking.openURL('https://kwilt.app/privacy').catch(() => undefined);
-                  }}
-                >
-                  <Text style={styles.link}>Privacy &amp; data</Text>
-                </Pressable>
-              </VStack>
-            </View>
-
-            <Text style={styles.footerNote}>
-              More controls — cadence, tone, and filters — are on the way.
-            </Text>
+            ) : null}
           </VStack>
         )}
       </ScrollView>
@@ -361,7 +382,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingBottom: spacing['2xl'],
+    paddingHorizontal: spacing.md,
+    paddingBottom: 176,
     gap: spacing.md,
   },
   loadingBlock: {
@@ -369,13 +391,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.canvas,
+  masterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  masterTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  settingsGroup: {
+    paddingTop: spacing.xs,
   },
   sectionTitle: {
     ...typography.bodySm,
@@ -393,6 +421,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  inlineSection: {
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
   rowTitle: {
     ...typography.body,
     color: colors.textPrimary,
@@ -402,23 +434,41 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  helperText: {
-    ...typography.bodySm,
-    color: colors.muted,
-  },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
     marginVertical: spacing.xs,
   },
-  link: {
-    ...typography.bodySm,
-    color: colors.accent,
+  weekdayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
   },
-  footerNote: {
-    ...typography.bodySm,
-    color: colors.muted,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
+  weekdayChip: {
+    minWidth: 44,
+    minHeight: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.canvas,
+  },
+  weekdayChipPressed: {
+    backgroundColor: colors.shell,
+  },
+  weekdayChipSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  weekdayChipText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  weekdayChipTextSelected: {
+    color: colors.canvas,
   },
 });

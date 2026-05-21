@@ -1,5 +1,5 @@
 /**
- * Phase 4-backend of docs/chapters-plan.md — tasteful HealthKit signal.
+ * Phase 4-backend of docs/chapters-plan.md — Apple Health summaries.
  *
  * This module is framework-free (no Deno imports) so the threshold gate
  * can be unit-tested from Jest alongside the other shared chapter
@@ -7,19 +7,13 @@
  * for the Chapter period and hands them here; this module is
  * responsible for:
  *
- *   1. The inclusion floor (Open Question #7 in chapters-plan.md).
- *      A week qualifies if ANY of:
- *        * active_days_count >= 3
- *        * workouts_count    >= 1
- *        * avg_sleep_hours   >= 6
- *        * mindfulness_minutes >= 1
- *      Low-signal weeks produce `null` — the generator attaches nothing,
- *      the prompt never sees a health slot, and the Chapter reads
- *      identically to pre-Phase-4 Chapters. No shame framing.
+ *   1. The deterministic `metrics.health` shape. If the user has enabled
+ *      Apple Health and Kwilt has any daily summary rows for the Chapter
+ *      period, the Chapter gets a health block. Narrative interpretation
+ *      stays optional, but the factual summary is no longer gated on
+ *      whether the week was "notable" enough.
  *
- *   2. The `metrics.health` shape the LLM cites from.
- *
- *   3. A tiny health-keyword detector used by the validator to reject
+ *   2. A tiny health-keyword detector used by the validator to reject
  *      health prose when `metrics.health` is absent (the one-way
  *      inverse of the gate — "if we didn't attach it, you can't talk
  *      about it").
@@ -58,24 +52,17 @@ export type ChapterHealthBlock = {
   sleep_nights_count: number;
   /** Sum of mindfulness minutes across days with data. */
   mindfulness_minutes: number;
-  /** Distinct `local_date` count across rows (any metric). Denominator for tasteful prose. */
+  /** Distinct `local_date` count across rows (any metric). */
   days_with_data: number;
 };
 
 export const HEALTH_ACTIVE_DAY_MIN_STEPS = 1000;
 export const HEALTH_ACTIVE_DAY_MIN_MINUTES = 5;
 
-export const HEALTH_INCLUSION_THRESHOLDS = {
-  min_active_days: 3,
-  min_workouts: 1,
-  min_avg_sleep_hours: 6,
-  min_mindfulness_minutes: 1,
-} as const;
-
 /**
- * Apply the inclusion floor. Returns `null` when the week is
- * low-signal (silently omitted from the Chapter), otherwise returns
- * the populated block the prompt can cite from.
+ * Return the factual health block for a period. If rows exist, the Chapter
+ * can render what Kwilt read from Apple Health. Returns `null` only when
+ * there are no usable dated rows.
  */
 export function computeChapterHealthBlock(
   rows: HealthDailyRow[] | null | undefined,
@@ -118,19 +105,7 @@ export function computeChapterHealthBlock(
 
   const avgSleep = sleepNights > 0 ? round1(sleepSum / sleepNights) : null;
 
-  // Inclusion floor — ANY passes → include. Low-signal weeks silently
-  // omit. We intentionally evaluate the gate BEFORE packaging the
-  // block so a caller that just wants "should we attach health?" can
-  // pull the same predicates without reaching into the block's
-  // internals; today the block is either returned or not, which is
-  // the simplest contract.
-  const passes =
-    activeDays >= HEALTH_INCLUSION_THRESHOLDS.min_active_days ||
-    workoutsCount >= HEALTH_INCLUSION_THRESHOLDS.min_workouts ||
-    (avgSleep !== null && avgSleep >= HEALTH_INCLUSION_THRESHOLDS.min_avg_sleep_hours) ||
-    mindfulnessMinutes >= HEALTH_INCLUSION_THRESHOLDS.min_mindfulness_minutes;
-
-  if (!passes) return null;
+  if (uniqueDates.size === 0) return null;
 
   return {
     active_days_count: activeDays,

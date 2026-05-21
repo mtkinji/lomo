@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
@@ -65,6 +65,9 @@ const EMPTY_STATUS: PhoneAgentStatus = {
   recentActions: [],
 };
 
+const TERMS_URL = 'https://www.kwilt.app/terms';
+const PRIVACY_URL = 'https://www.kwilt.app/privacy';
+
 function firstLink(status: PhoneAgentStatus): PhoneAgentLink | null {
   return status.links[0] ?? null;
 }
@@ -106,6 +109,10 @@ export function PhoneAgentSettingsScreen() {
   }, [status.memorySummary]);
 
   const currentPermissions = link?.permissions ?? {};
+
+  const openExternalUrl = useCallback((url: string) => {
+    void Linking.openURL(url);
+  }, []);
 
   const saveSettings = useCallback(async (permissions: Record<string, boolean>, promptCap = Number(promptCapText)) => {
     if (!link) return;
@@ -205,9 +212,23 @@ export function PhoneAgentSettingsScreen() {
               autoCapitalize="none"
               editable={!isSaving}
             />
+            <Text style={styles.disclosure}>
+              By requesting a verification code, you agree to receive transactional and informational SMS from Kwilt Phone
+              Agent for phone verification, saved-item confirmations, account notices, and optional follow-up reminders.
+              Frequency varies, up to 3 messages per day by default. Message and data rates may apply. Reply STOP to opt
+              out, HELP for help. Terms:{' '}
+              <Text accessibilityRole="link" onPress={() => openExternalUrl(TERMS_URL)} style={styles.disclosureLink}>
+                kwilt.app/terms
+              </Text>
+              . Privacy:{' '}
+              <Text accessibilityRole="link" onPress={() => openExternalUrl(PRIVACY_URL)} style={styles.disclosureLink}>
+                kwilt.app/privacy
+              </Text>
+              .
+            </Text>
             <HStack space="sm">
               <Button size="sm" variant="secondary" onPress={handleRequestCode} disabled={!phone || isSaving}>
-                Request code
+                Send verification code
               </Button>
             </HStack>
             <Input
@@ -315,6 +336,16 @@ const styles = StyleSheet.create({
   body: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  disclosure: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  disclosureLink: {
+    ...typography.caption,
+    color: colors.textPrimary,
+    fontFamily: fonts.medium,
+    textDecorationLine: 'underline',
   },
   caption: {
     ...typography.caption,

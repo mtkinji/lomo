@@ -1,17 +1,15 @@
 // Jest tests for Phase 4-backend of docs/chapters-plan.md — the
-// HealthKit inclusion floor, the shaped `metrics.health` block, and
-// the health-keyword validator helper.
+// Apple Health summary block and the health-keyword validator helper.
 //
 // The module under test is framework-free (no Deno imports), so we
-// import directly. See `_shared/chapterHealth.ts` for the threshold
-// contract and active-day definition this file pins down.
+// import directly. See `_shared/chapterHealth.ts` for the deterministic
+// inclusion contract and active-day definition this file pins down.
 
 import {
   computeChapterHealthBlock,
   containsHealthKeyword,
   HEALTH_ACTIVE_DAY_MIN_MINUTES,
   HEALTH_ACTIVE_DAY_MIN_STEPS,
-  HEALTH_INCLUSION_THRESHOLDS,
 } from '../chapterHealth';
 import type { HealthDailyRow } from '../chapterHealth';
 
@@ -31,28 +29,33 @@ function row(
   };
 }
 
-describe('computeChapterHealthBlock — inclusion floor', () => {
+describe('computeChapterHealthBlock — deterministic inclusion', () => {
   it('returns null for empty / missing input', () => {
     expect(computeChapterHealthBlock(null)).toBeNull();
     expect(computeChapterHealthBlock(undefined)).toBeNull();
     expect(computeChapterHealthBlock([])).toBeNull();
   });
 
-  it('returns null when the week is below every threshold', () => {
+  it('returns a block even when the week is low signal', () => {
     const rows: HealthDailyRow[] = [
-      // Two "active" days (steps = 1200) — below min_active_days=3
       row('2026-04-13', { steps_count: 1200 }),
-      row('2026-04-14', { steps_count: 1200 }),
-      // One short meditation, below the 1-minute floor only because
-      // the column is 0, not null — we simulate the user having the
-      // permission but no sessions.
       row('2026-04-15', { mindfulness_minutes: 0 }),
     ];
     const block = computeChapterHealthBlock(rows);
-    expect(block).toBeNull();
+    expect(block).not.toBeNull();
+    expect(block!.active_days_count).toBe(1);
+    expect(block!.days_with_data).toBe(2);
   });
 
-  it('triggers on active_days_count >= 3 alone', () => {
+  it('returns a block for dated rows even when every metric is zero', () => {
+    const block = computeChapterHealthBlock([row('2026-04-13')]);
+    expect(block).not.toBeNull();
+    expect(block!.days_with_data).toBe(1);
+    expect(block!.total_steps).toBe(0);
+    expect(block!.avg_sleep_hours).toBeNull();
+  });
+
+  it('counts active days without gating Chapter inclusion', () => {
     const rows: HealthDailyRow[] = [
       row('2026-04-13', { steps_count: HEALTH_ACTIVE_DAY_MIN_STEPS }),
       row('2026-04-14', { steps_count: HEALTH_ACTIVE_DAY_MIN_STEPS + 500 }),
@@ -60,10 +63,10 @@ describe('computeChapterHealthBlock — inclusion floor', () => {
     ];
     const block = computeChapterHealthBlock(rows);
     expect(block).not.toBeNull();
-    expect(block!.active_days_count).toBe(HEALTH_INCLUSION_THRESHOLDS.min_active_days);
+    expect(block!.active_days_count).toBe(3);
   });
 
-  it('triggers on workouts_count >= 1 alone, even with no active days', () => {
+  it('includes workout-only data', () => {
     const rows: HealthDailyRow[] = [
       row('2026-04-13', { workouts_count: 1, steps_count: 200 }),
     ];
@@ -73,28 +76,18 @@ describe('computeChapterHealthBlock — inclusion floor', () => {
     expect(block!.active_days_count).toBe(0);
   });
 
-  it('triggers on avg_sleep_hours >= 6 alone, even with no active days or workouts', () => {
-    const rows: HealthDailyRow[] = [
-      row('2026-04-13', { sleep_hours: 7.2 }),
-      row('2026-04-14', { sleep_hours: 6.5 }),
-    ];
-    const block = computeChapterHealthBlock(rows);
-    expect(block).not.toBeNull();
-    expect(block!.avg_sleep_hours).toBeGreaterThanOrEqual(
-      HEALTH_INCLUSION_THRESHOLDS.min_avg_sleep_hours,
-    );
-    expect(block!.sleep_nights_count).toBe(2);
-  });
-
-  it('does not trigger on avg_sleep_hours below the 6h floor', () => {
+  it('includes sleep-only data', () => {
     const rows: HealthDailyRow[] = [
       row('2026-04-13', { sleep_hours: 5.2 }),
       row('2026-04-14', { sleep_hours: 5.5 }),
     ];
-    expect(computeChapterHealthBlock(rows)).toBeNull();
+    const block = computeChapterHealthBlock(rows);
+    expect(block).not.toBeNull();
+    expect(block!.avg_sleep_hours).toBe(5.4);
+    expect(block!.sleep_nights_count).toBe(2);
   });
 
-  it('triggers on mindfulness_minutes >= 1 alone', () => {
+  it('includes mindfulness-only data', () => {
     const rows: HealthDailyRow[] = [
       row('2026-04-13', { mindfulness_minutes: 5 }),
     ];

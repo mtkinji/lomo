@@ -36,7 +36,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.60',
+  version: '1.0.61',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -64,7 +64,7 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '60',
+    buildNumber: '61',
     // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
     // This prevents non-widget production builds from requiring widget target credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -101,14 +101,14 @@ const config: ExpoConfig = {
       NSRemindersUsageDescription:
         'Kwilt uses reminders only if you choose to add to-dos as reminders.',
       NSHealthShareUsageDescription:
-        'Kwilt reads your Apple Health movement, workout, sleep, and mindfulness summaries to enrich your weekly chapter.',
+        'Kwilt reads Apple Health summaries for movement, workouts, sleep, and mindfulness to show them in your Weekly Chapters and help interpret your week.',
     },
   },
   android: {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 60,
+    versionCode: 61,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -158,7 +158,7 @@ const config: ExpoConfig = {
       '@kingstinct/react-native-healthkit',
       {
         NSHealthShareUsageDescription:
-          'Kwilt reads your Apple Health movement, workout, sleep, and mindfulness summaries to enrich your weekly chapter.',
+          'Kwilt reads Apple Health summaries for movement, workouts, sleep, and mindfulness to show them in your Weekly Chapters and help interpret your week.',
       },
     ],
     './plugins/withAppleEcosystemIntegrations',

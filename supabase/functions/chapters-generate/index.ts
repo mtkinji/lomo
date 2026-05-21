@@ -102,6 +102,26 @@ type TemplateRow = {
 
 type Period = { start: DateTime; end: DateTime; key: string };
 
+function weeklyChapterDeliveryWeekday(filterJson: unknown): number {
+  const source =
+    filterJson && typeof filterJson === 'object' && !Array.isArray(filterJson)
+      ? (filterJson as Record<string, unknown>)
+      : {};
+  const weeklyChapter =
+    source.weeklyChapter && typeof source.weeklyChapter === 'object'
+      ? (source.weeklyChapter as Record<string, unknown>)
+      : {};
+  const raw = weeklyChapter.deliveryWeekday;
+  const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
+  return Number.isInteger(value) && value >= 1 && value <= 7 ? value : 1;
+}
+
+function isWeeklyChapterDeliveryDay(template: TemplateRow, now = DateTime.now()): boolean {
+  if (template.cadence !== 'weekly') return true;
+  const tz = validZoneOrUtc(template.timezone);
+  return now.setZone(tz).weekday === weeklyChapterDeliveryWeekday(template.filter_json);
+}
+
 function safeJson<T>(v: unknown, fallback: T): T {
   try {
     if (v === null || v === undefined) return fallback;
@@ -561,15 +581,11 @@ type ChapterMetrics = {
     longest_active_streak_days: number;
   };
   /**
-   * Phase 4-backend of docs/chapters-plan.md — passive HealthKit
-   * signal. Present only when the week crosses the inclusion floor
-   * defined in `_shared/chapterHealth.ts`. Absent (undefined) for
-   * low-signal weeks, Chapters generated before Phase 4 ships, and
-   * users who never granted HealthKit permission. The prompt surfaces
-   * this field in the `metrics` object so the LLM MAY (not MUST)
-   * weave a single short health line into `story.body` or
-   * `signal.caption`; the validator rejects health prose when this
-   * field is absent.
+   * Phase 4 of docs/chapters-plan.md — Apple Health summaries. Present
+   * when the period has stored Apple Health rows. The app renders this
+   * field declaratively, and the prompt may also weave a single short
+   * health line into `story.body` or `signal.caption`; the validator
+   * rejects health prose when this field is absent.
    */
   health?: ChapterHealthBlock;
 };
@@ -850,11 +866,11 @@ function computeDeterministicMetrics(params: {
   arcById: Record<string, any>;
   goalById: Record<string, any>;
   /**
-   * Phase 4-backend of docs/chapters-plan.md — pre-queried rows from
+   * Phase 4 of docs/chapters-plan.md — pre-queried rows from
    * `kwilt_health_daily` that intersect the period window. Already
    * filtered on the client by `(user_id, local_date)`; this function
-   * passes them to `computeChapterHealthBlock` which enforces the
-   * inclusion floor and shapes the block. Omit or pass `null` when
+   * passes them to `computeChapterHealthBlock`, which shapes the
+   * factual block. Omit or pass `null` when
    * the user hasn't granted HealthKit or when the window has no rows
    * — the metrics block will simply not carry a `health` field, and
    * every downstream consumer (prompt, validator) treats that as
@@ -1071,12 +1087,10 @@ function computeDeterministicMetrics(params: {
     time_shape: timeShape,
   };
 
-  // Phase 4-backend: attach the passive HealthKit block if the week
-  // passes the inclusion floor. `computeChapterHealthBlock` returns
-  // null for low-signal weeks; in that case we omit the `health` key
-  // entirely so the prompt's `metrics` object reads identically to
-  // pre-Phase-4 Chapters and legacy chapters continue to serialize
-  // unchanged.
+  // Phase 4: attach Apple Health summaries whenever the period has
+  // stored rows. Narrative health prose is still optional, but the app
+  // renders this block declaratively so the user's opt-in has a visible
+  // result.
   const healthBlock = computeChapterHealthBlock(healthDaily ?? null);
   if (healthBlock) {
     metrics.health = healthBlock;
@@ -1327,8 +1341,8 @@ function buildWritingRequirements(params: {
   stricter: boolean;
   hasNotes: boolean;
   /**
-   * Phase 4-backend of docs/chapters-plan.md — true when
-   * `metrics.health` is attached (week passed the inclusion floor).
+   * Phase 4 of docs/chapters-plan.md — true when `metrics.health` is
+   * attached.
    * When true, the prompt invites (but does not require) a single
    * health line anchored in a number from `metrics.health`. When
    * false, the prompt BANS any health-keyword prose so the narrative
@@ -1377,15 +1391,12 @@ function buildWritingRequirements(params: {
     // and `ignored`. The validator enforces the citation presence
     // when any acted-on outcome exists.
     `Next-Step-outcome continuity rule (Phase 8): if prior_chapter.recommendation_outcomes contains any entry with action="acted_on", the new Chapter MUST cite that outcome once in EITHER signal.caption OR the opening 2 paragraphs of story.body. Use the resulting object (Arc/Goal name from resulting_title, falling back to nominated_title) and anchor the mention in concrete evidence from THIS period's metrics or activities — e.g. "Since you named the Fitness Arc last week, you put 4 completions against it." Do NOT use congratulatory exclamations ("Great job", "Amazing work", "Way to go", "Nice work", "Proud of you") — investigative-reporter voice means you state the outcome, then interpret it neutrally. If prior_chapter.recommendation_outcomes contains entries with action="dismissed" or "ignored", DO NOT mention them at all — respecting a "not now" signal is core to the product voice.`,
-    // Phase 4-backend: passive HealthKit signal. Health prose is gated
-    // by whether the deterministic inclusion floor was crossed. When
-    // it was, we INVITE (not require) one short line; when it wasn't,
-    // we BAN any health-keyword prose. The validator enforces the ban
-    // direction and would otherwise let figurative "asleep at the
-    // wheel"-style usage through, so the rule is framed in product
-    // language, not regex language.
+    // Phase 4: Apple Health summaries. The app renders the factual
+    // metrics separately. Narrative health prose is invited (not
+    // required) only when the metrics exist; otherwise we ban health
+    // keywords so the model cannot invent health claims.
     hasHealth
-      ? `Health rule (optional): metrics.health is attached this period. You MAY weave at most ONE short, concrete line about movement, sleep, workouts, or mindfulness into signal.caption OR story.body. The line MUST cite at least one number from metrics.health (e.g. "4 active days", "14,200 steps", "6.8 hours of sleep"). Do not add a health line unless it genuinely helps the story hook; a padded health mention is worse than no mention. Never frame the number in a shame direction.`
+      ? `Health rule: metrics.health is attached this period, and the app will render a factual Apple Health summary separately. You MAY also weave at most ONE short, concrete line about movement, sleep, workouts, or mindfulness into signal.caption OR story.body. The line MUST cite at least one number from metrics.health (e.g. "4 active days", "14,200 steps", "6.8 hours of sleep"). Do not add a health line unless it genuinely helps the story hook; a padded health mention is worse than no mention. Never frame the number in a shame direction.`
       : `Health rule (ban): metrics.health is NOT present this period. Do NOT mention sleep, steps, walking, workouts, mindfulness, or meditation anywhere in signal.caption or story.body — the generator has no evidence to support such claims and inventing them would break the non-negotiable "never invent facts" rule.`,
     `Honest-not-boosterish rule: if the period was quiet or mixed, say so plainly, then interpret kindly. Never manufacture enthusiasm the evidence doesn't support.`,
     `Ban list (do not appear anywhere): "this chapter highlights", "reflecting on", "a week of growth", "meaningful activities", "personal and professional", "harnessing".`,
@@ -1857,14 +1868,11 @@ function validateChapterOutput(params: {
   }
 
   // Phase 4-backend: health keyword ban. When `metrics.health` is NOT
-  // attached (week didn't cross the inclusion floor, or no HealthKit
-  // writer at all), signal.caption and story.body must not mention
+  // attached, signal.caption and story.body must not mention
   // health-shaped keywords. The model has no evidence to support such
-  // claims. When metrics.health IS attached, the prompt already
-  // invites the mention; we don't add a positive-assertion check here
-  // because the generic per-paragraph anchor rule already requires a
-  // number/title/Arc, and a health line that doesn't cite a health
-  // number would still fail that existing rule.
+  // claims. When metrics.health IS attached, the generic per-paragraph
+  // anchor rule still requires a number/title/Arc, so health prose must
+  // cite concrete evidence instead of floating as interpretation.
   if (hasHealth === false) {
     if (containsHealthKeyword(caption)) {
       return {
@@ -1973,7 +1981,8 @@ async function listTemplates(
     .from('kwilt_chapter_templates')
     .select(
       'id,user_id,name,kind,cadence,timezone,filter_json,filter_group_logic,email_enabled,email_recipient,detail_level,tone,enabled'
-    );
+    )
+    .order('updated_at', { ascending: false });
 
   // Scheduled/cron runs only touch opt-in rows; manual generation (a user
   // tapping "Generate" with an explicit templateId) respects the user's intent
@@ -1988,7 +1997,15 @@ async function listTemplates(
 
   const { data, error } = await q;
   if (error) return { ok: false as const, error };
-  return { ok: true as const, rows: (Array.isArray(data) ? (data as TemplateRow[]) : []) as TemplateRow[] };
+  const rows = (Array.isArray(data) ? (data as TemplateRow[]) : []) as TemplateRow[];
+  const seenWeeklyReflectionUsers = new Set<string>();
+  const canonicalRows = rows.filter((row) => {
+    if (row.kind !== 'reflection' || row.cadence !== 'weekly') return true;
+    if (seenWeeklyReflectionUsers.has(row.user_id)) return false;
+    seenWeeklyReflectionUsers.add(row.user_id);
+    return true;
+  });
+  return { ok: true as const, rows: canonicalRows };
 }
 
 async function loadUserDomain(
@@ -2339,6 +2356,16 @@ serve(async (req) => {
   for (const t of templates) {
     // Scheduled run should ignore manual templates.
     if (!isManual && t.cadence === 'manual') continue;
+    if (!isManual && !isWeeklyChapterDeliveryDay(t)) {
+      results.push({
+        templateId: t.id,
+        userId: t.user_id,
+        ok: true,
+        action: 'skipped',
+        reason: 'not delivery day',
+      });
+      continue;
+    }
 
     const period = startDate && endDate
       ? parseManualRange({ timezone: t.timezone, startDate, endDate })
@@ -2644,8 +2671,8 @@ serve(async (req) => {
         priorRecommendationOutcomes: priorChapter?.recommendation_outcomes ?? [],
         // Phase 4-backend: when metrics.health is absent, reject any
         // health-keyword prose to stop the model from inventing
-        // movement/sleep data. When present, the positive rule is
-        // already covered by the generic per-paragraph anchor check.
+        // movement/sleep data. When present, the generic per-paragraph
+        // anchor check still requires concrete evidence.
         hasHealth: Boolean((metrics as any)?.health),
       });
 
@@ -2890,5 +2917,3 @@ serve(async (req) => {
 
   return json(200, { ok: true, mode: isManual ? 'manual' : 'scheduled', processed: results.length, results });
 });
-
-
