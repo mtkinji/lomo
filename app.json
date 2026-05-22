@@ -14,7 +14,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.andrewwatanabe.kwilt",
       "appleTeamId": "BK3N7YXHN7",
-      "buildNumber": "62",
+      "buildNumber": "63",
       "appExtensions": [
         {
           "targetName": "KwiltWidgets",
@@ -23,7 +23,7 @@
       ]
     },
     "android": {
-      "versionCode": 62,
+      "versionCode": 63,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
