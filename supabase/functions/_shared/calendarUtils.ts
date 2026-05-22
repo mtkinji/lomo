@@ -56,6 +56,12 @@ function fromBase64Url(raw: string): Uint8Array {
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
+function toBufferSource(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
 export function encodeState(payload: Record<string, unknown>, secret: string): Promise<string> {
   const json = JSON.stringify(payload);
   const data = new TextEncoder().encode(json);
@@ -77,8 +83,8 @@ export async function decodeState(state: string, secret: string): Promise<Record
 
 async function signState(payload: Uint8Array, secret: string): Promise<string> {
   const keyData = new TextEncoder().encode(secret);
-  const key = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, payload);
+  const key = await crypto.subtle.importKey('raw', toBufferSource(keyData), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, toBufferSource(payload));
   return toBase64Url(new Uint8Array(signature));
 }
 
@@ -90,7 +96,7 @@ export type EncryptedToken = {
 
 async function deriveAesKey(secret: string): Promise<CryptoKey> {
   const raw = new TextEncoder().encode(secret);
-  const hash = await crypto.subtle.digest('SHA-256', raw);
+  const hash = await crypto.subtle.digest('SHA-256', toBufferSource(raw));
   return await crypto.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 
@@ -98,7 +104,7 @@ export async function encryptToken(secret: string, plaintext: string): Promise<E
   const key = await deriveAesKey(secret);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded));
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: toBufferSource(iv) }, key, toBufferSource(encoded)));
   const tag = encrypted.slice(encrypted.length - 16);
   const ciphertext = encrypted.slice(0, encrypted.length - 16);
   return {
@@ -117,11 +123,10 @@ export async function decryptToken(secret: string, payload: EncryptedToken): Pro
   combined.set(ciphertext, 0);
   combined.set(tag, ciphertext.length);
   try {
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, combined);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: toBufferSource(iv) }, key, toBufferSource(combined));
     return new TextDecoder().decode(decrypted);
   } catch {
     return null;
   }
 }
-
 

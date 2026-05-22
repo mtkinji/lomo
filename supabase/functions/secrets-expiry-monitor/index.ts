@@ -47,7 +47,7 @@ type AlertItem = {
   severity: 'warning' | 'expired';
 };
 
-function csvList(raw: string | null): string[] {
+function csvList(raw: string | null | undefined): string[] {
   return (raw ?? '')
     .split(',')
     .map((s) => s.trim())
@@ -279,5 +279,4 @@ serve(async (req) => {
     headers: { 'Content-Type': 'application/json' },
   });
 });
-
 

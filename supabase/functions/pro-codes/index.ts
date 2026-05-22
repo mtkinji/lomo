@@ -813,13 +813,13 @@ serve(async (req) => {
           return json(503, { error: { message: 'Email sending disabled', code: 'sending_disabled' } });
         }
         return json(outcome.status === 503 ? 503 : 502, {
-          error: {
-            message: 'Email send failed',
-            code: 'provider_error',
-            status: outcome.status,
-            body: typeof outcome.body === 'string' ? outcome.body.slice(0, 500) : undefined,
-          },
-        });
+            error: {
+              message: 'Email send failed',
+              code: 'provider_error',
+              status: outcome.status ?? null,
+              body: typeof outcome.body === 'string' ? outcome.body.slice(0, 500) : null,
+            },
+          });
       }
       return json(200, { ok: true });
     }
@@ -1770,7 +1770,6 @@ serve(async (req) => {
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });
 });
-
 
 
 

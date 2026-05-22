@@ -16,6 +16,7 @@
     "ios:testflight": "eas build --platform ios --profile production-widgets --non-interactive --auto-submit",
     "ios:testflight:no-widgets": "eas build --platform ios --profile production --non-interactive --auto-submit",
     "lint": "tsc --noEmit",
+    "lint:supabase-functions": "find supabase/functions -path 'supabase/functions/node_modules' -prune -o -name '*.ts' ! -path '*/__tests__/*' -print0 | xargs -0 deno check --no-lock --config supabase/functions/tsconfig.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage",

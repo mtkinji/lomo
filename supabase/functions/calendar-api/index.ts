@@ -337,7 +337,7 @@ async function listMicrosoftEvents(params: {
         isAllDay: Boolean(e?.isAllDay),
       };
     })
-    .filter((e) => Boolean(e.eventId && e.start && e.end));
+    .filter((e: { eventId: string; start: string; end: string }) => Boolean(e.eventId && e.start && e.end));
 }
 
 function mergeIntervals(intervals: Array<{ start: string; end: string }>) {
@@ -718,8 +718,8 @@ serve(async (req) => {
           }),
         },
       );
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.id) {
+      const created = await res.json().catch(() => null);
+      if (!res.ok || !created?.id) {
         return json(500, { error: { message: 'Failed to create event', code: 'server_error' } });
       }
       return json(200, {
@@ -727,7 +727,7 @@ serve(async (req) => {
           provider: ref.provider,
           accountId: ref.accountId,
           calendarId: ref.calendarId,
-          eventId: json.id,
+          eventId: created.id,
         },
       });
     }
@@ -745,8 +745,8 @@ serve(async (req) => {
         body: { contentType: 'text', content: 'Created by Kwilt Plan' },
       }),
     });
-    const json = await res.json().catch(() => null);
-    if (!res.ok || !json?.id) {
+    const created = await res.json().catch(() => null);
+    if (!res.ok || !created?.id) {
       return json(500, { error: { message: 'Failed to create event', code: 'server_error' } });
     }
     return json(200, {
@@ -754,7 +754,7 @@ serve(async (req) => {
         provider: ref.provider,
         accountId: ref.accountId,
         calendarId: ref.calendarId,
-        eventId: json.id,
+        eventId: created.id,
       },
     });
   }
@@ -864,5 +864,4 @@ serve(async (req) => {
 
   return json(400, { error: { message: 'Unknown action', code: 'bad_request' } });
 });
-
 

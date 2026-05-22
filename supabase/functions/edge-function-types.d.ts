@@ -1,11 +1,5 @@
-// Type shims so VSCode/tsserver can type-check Supabase Edge Functions without requiring
-// Deno tooling to be active. Runtime is still Deno (Supabase edge runtime).
-
-declare namespace Deno {
-  const env: {
-    get(key: string): string | undefined;
-  };
-}
+// Type shim for the remote std/http import used by Supabase Edge Functions.
+// Deno globals and npm: package exports come from supabase/functions/tsconfig.json.
 
 declare module 'https://deno.land/std@0.224.0/http/server.ts' {
   export type ServeHandler = (req: Request) => Response | Promise<Response>;
@@ -19,9 +13,4 @@ declare module 'https://deno.land/std@0.224.0/http/server.ts' {
 
   export function serve(handler: ServeHandler, options?: ServeInit): void;
 }
-
-declare module 'npm:@supabase/supabase-js@2' {
-  export * from '@supabase/supabase-js';
-}
-
 
