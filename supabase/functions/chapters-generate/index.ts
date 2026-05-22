@@ -90,6 +90,21 @@ type Activity = {
   createdAt?: string;
   updatedAt?: string;
   notes?: string | null;
+  forceActual?: Record<string, number | null | undefined>;
+};
+
+const CANONICAL_FORCE_LABELS: Record<string, string> = {
+  'force-activity': 'To-do',
+  'force-connection': 'Connection',
+  'force-mastery': 'Mastery',
+  'force-spirituality': 'Spirituality',
+};
+
+const CANONICAL_FORCE_COLORS: Record<string, string> = {
+  'force-activity': '#4F8A72',
+  'force-connection': '#C26B58',
+  'force-mastery': '#4B6684',
+  'force-spirituality': '#C58B2A',
 };
 
 type TemplateRow = {
@@ -584,6 +599,16 @@ type ChapterMetrics = {
     first_activity_at: string | null;
     last_activity_at: string | null;
   }>;
+  forces: Array<{
+    force_id: string;
+    force_label: string;
+    force_color: string | null;
+    activity_count: number;
+    completed_count: number;
+    average_level: number;
+    level_sum: number;
+    example_activity_ids: string[];
+  }>;
   time_shape: {
     active_days_count: number;
     longest_active_streak_days: number;
@@ -1067,6 +1092,51 @@ function computeDeterministicMetrics(params: {
     last_activity_at: typeof a.last_activity_at_ms === 'number' ? new Date(a.last_activity_at_ms).toISOString() : null,
   }));
 
+  const perForce: Record<string, {
+    force_id: string;
+    force_label: string;
+    force_color: string | null;
+    activity_count: number;
+    completed_count: number;
+    level_sum: number;
+    example_activity_ids: string[];
+  }> = {};
+  for (const a of activitiesIncluded) {
+    const forceActual = a.forceActual && typeof a.forceActual === 'object' ? a.forceActual : null;
+    if (!forceActual) continue;
+    for (const [forceId, rawLevel] of Object.entries(forceActual)) {
+      const level = typeof rawLevel === 'number' && Number.isFinite(rawLevel) ? rawLevel : 0;
+      if (level <= 0) continue;
+      const entry = perForce[forceId] ?? {
+        force_id: forceId,
+        force_label: CANONICAL_FORCE_LABELS[forceId] ?? forceId,
+        force_color: CANONICAL_FORCE_COLORS[forceId] ?? null,
+        activity_count: 0,
+        completed_count: 0,
+        level_sum: 0,
+        example_activity_ids: [],
+      };
+      entry.activity_count += 1;
+      entry.level_sum += level;
+      const completionMs = completionMsOf(a);
+      if (completionMs != null && completionMs >= startMs && completionMs < endMs) {
+        entry.completed_count += 1;
+      }
+      if (entry.example_activity_ids.length < 5) {
+        entry.example_activity_ids.push(a.id);
+      }
+      perForce[forceId] = entry;
+    }
+  }
+
+  const forces = Object.values(perForce)
+    .map((f) => ({
+      ...f,
+      average_level: Number((f.level_sum / Math.max(1, f.activity_count)).toFixed(2)),
+    }))
+    .sort((a, b) => b.level_sum - a.level_sum || b.activity_count - a.activity_count)
+    .slice(0, 4);
+
   const timeShape = computeTimeShape({ activities: activitiesIncluded, period, timezone: tz });
   const noteworthy_examples = computeNoteworthyExamples({
     activitiesAll,
@@ -1092,6 +1162,7 @@ function computeDeterministicMetrics(params: {
     arcs: arcs
       .sort((a, b) => b.activity_count_total - a.activity_count_total || b.completed_count - a.completed_count)
       .slice(0, 60),
+    forces,
     time_shape: timeShape,
   };
 
@@ -1430,6 +1501,8 @@ function buildWritingRequirements(params: {
     hasHealth
       ? `Health rule: metrics.health is attached this period, and the app will render a factual Apple Health summary separately. You MAY also weave at most ONE short, concrete line about movement, sleep, workouts, or mindfulness into signal.caption OR story.body. The line MUST cite at least one number from metrics.health (e.g. "4 active days", "14,200 steps", "6.8 hours of sleep"). Do not add a health line unless it genuinely helps the story hook; a padded health mention is worse than no mention. Never frame the number in a shame direction.`
       : `Health rule (ban): metrics.health is NOT present this period. Do NOT mention sleep, steps, walking, workouts, mindfulness, or meditation anywhere in signal.caption or story.body — the generator has no evidence to support such claims and inventing them would break the non-negotiable "never invent facts" rule.`,
+    `Force-lens rule: if metrics.forces has entries, story.body MUST include one short interpretive sentence or paragraph naming the dominant force (metrics.forces[0].force_label, e.g. "Spirituality", "Mastery", "Connection", or "To-do") and anchoring it in that force's activity_count, completed_count, or an activity title from its example_activity_ids. This should read like a useful lens on the week, not a taxonomy lesson.`,
+    `Force-balance rule: if metrics.forces has entries, sections.forces.items[0] MUST state what the period skewed toward, and sections.forces.items[1] SHOULD name one underrepresented balancing direction as a gentle option for future to-dos. Do not say the user "should" do it; use "If you wanted more balance..." or "A balancing thread could be...". Only suggest categories supported by the canonical force labels, not made-up forces.`,
     `Honest-not-boosterish rule: if the period was quiet or mixed, say so plainly, then interpret kindly. Never manufacture enthusiasm the evidence doesn't support.`,
     `Ban list (do not appear anywhere): "this chapter highlights", "reflecting on", "a week of growth", "meaningful activities", "personal and professional", "harnessing".`,
     `Headline ban: title must not start with "Reflection(s) on", "A week of", "This week/month/year", "Progress Report", "Weekly Recap", "Weekly Report", "Weekly Reflection", or "Monthly Reflection".`,
@@ -1555,7 +1628,7 @@ function buildChapterPrompt(params: {
         { key: 'signal', title: 'The Signal', caption: 'string (1–3 sentence lede; see writing_requirements.caption_rules)' },
         { key: 'story', title: 'The Story', body: 'string (article body; include subheads inline for monthly/yearly)' },
         { key: 'where_time_went', title: 'Where the Work Landed', bullets: ['string'] },
-        { key: 'forces', title: 'Your Forces', items: [{ force: 'string', body: 'string' }] },
+        { key: 'forces', title: 'Forces in Play', items: [{ force: 'string (canonical force label from metrics.forces when available)', body: 'string (dominant skew or balancing direction)' }] },
         { key: 'highlights', title: 'Highlights', bullets: ['string'] },
         { key: 'patterns', title: 'Patterns', bullets: ['string'] },
         { key: 'next_experiments', title: 'Next Experiments', bullets: ['string'] },
@@ -1729,6 +1802,7 @@ function validateChapterOutput(params: {
    * for the keyword list.
    */
   hasHealth?: boolean;
+  forceLabels?: string[];
   completedActivityCount?: number | null;
 }): { ok: true } | { ok: false; error: string } {
   const {
@@ -1745,6 +1819,7 @@ function validateChapterOutput(params: {
     strict,
     priorRecommendationOutcomes,
     hasHealth,
+    forceLabels,
     completedActivityCount,
   } = params;
 
@@ -1907,6 +1982,26 @@ function validateChapterOutput(params: {
     const lc = body.toLowerCase();
     const mentioned = arcTitles.some((t) => t && lc.includes(t.toLowerCase()));
     if (!mentioned) return { ok: false, error: 'story.body must name at least one Arc from stable_context' };
+  }
+
+  const validForceLabels = Array.isArray(forceLabels)
+    ? forceLabels.filter((label) => typeof label === 'string' && label.trim().length > 0)
+    : [];
+  if (validForceLabels.length > 0) {
+    const bodyLc = body.toLowerCase();
+    const mentionedForce = validForceLabels.some((label) => bodyLc.includes(label.toLowerCase()));
+    if (!mentionedForce) {
+      return { ok: false, error: `story.body must name at least one force from metrics.forces: ${validForceLabels.join(', ')}` };
+    }
+    const forcesSection = sections.find((s: any) => s && typeof s === 'object' && s.key === 'forces');
+    const forceItems = Array.isArray(forcesSection?.items) ? forcesSection.items : [];
+    if (forceItems.length === 0) {
+      return { ok: false, error: 'sections.forces.items must include at least one force item when metrics.forces is present' };
+    }
+    const forceSectionText = JSON.stringify(forceItems).toLowerCase();
+    if (!validForceLabels.some((label) => forceSectionText.includes(label.toLowerCase()))) {
+      return { ok: false, error: `sections.forces.items must name at least one force from metrics.forces: ${validForceLabels.join(', ')}` };
+    }
   }
 
   // Phase 3.1 caption anchor checks (run here, after arcTitles/activityTitles
@@ -2739,6 +2834,11 @@ serve(async (req) => {
         // movement/sleep data. When present, the generic per-paragraph
         // anchor check still requires concrete evidence.
         hasHealth: Boolean((metrics as any)?.health),
+        forceLabels: Array.isArray((metrics as any)?.forces)
+          ? (metrics as any).forces
+              .map((force: any) => (typeof force?.force_label === 'string' ? force.force_label : ''))
+              .filter(Boolean)
+          : [],
         completedActivityCount: metrics.activities.completed_count,
       });
 

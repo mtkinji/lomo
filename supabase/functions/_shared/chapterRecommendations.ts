@@ -20,8 +20,11 @@
 //     Step-outcomes work in Phase 8), and is cleanest to ship once that
 //     context plumb exists.
 //   * Triggers share the `recommendations[]` field + the 3-cap
-//     prioritization (`arc > goal > activity > align`) enforced by
-//     `computeChapterRecommendations`.
+//     prioritization enforced by `computeChapterRecommendations`.
+//     Arc/Goal creation nominations remain as isolated pure helpers for
+//     possible future use, but the orchestrator no longer stamps them into
+//     Chapter output: token-cluster naming produced vague structural asks
+//     ("Activities Arc") that competed with the story instead of helping it.
 //   * Kept framework-free (no Deno / Supabase imports) so Jest can test it
 //     alongside periodLabels / emailTemplates.
 //
@@ -425,31 +428,20 @@ export function computeAlignSuggestions(params: {
 // Priority order for the global 3-cap. A higher-priority `kind` is
 // surfaced before a lower-priority one when the cap binds. This matches
 // the plan's explicit ordering: `arc > goal > activity > align`. The
-// 'activity' slot is reserved so when the deferred trigger lands it can
-// drop in without touching the sort call site.
 const KIND_PRIORITY: Record<string, number> = {
-  arc: 0,
-  goal: 1,
-  activity: 2,
-  align: 3,
+  align: 0,
 };
 
 export const MAX_RECOMMENDATIONS_PER_CHAPTER = 3;
 
 /**
- * Orchestrator (Phase 6). Runs all deterministic triggers, deduplicates
- * cross-kind overlaps, applies the global 3-cap, and returns the final
- * ordered recommendation list stamped onto `output_json.recommendations`
- * by the generator.
+ * Orchestrator (Phase 6). Returns the final ordered recommendation list
+ * stamped onto `output_json.recommendations` by the generator.
  *
- * Dedup rules (conservative — only remove clear overlaps):
- *   1. If an `arc` nomination's theme token matches an `align`
- *      suggestion's Arc head token, drop the `align` — the user's
- *      better next step is to create the Arc, not tag activities
- *      against the closest existing one.
- *   2. If a `goal` nomination's theme token matches a token already
- *      claimed by an `arc` nomination, drop the `goal` — the Arc is
- *      the bigger structural move.
+ * Product posture: Chapters should lead with interpretation. Follow-up
+ * actions should only be concrete cleanup of existing structure. Creating
+ * new Arcs/Goals from token clusters is too vague for the Chapter surface,
+ * so the orchestrator emits only `align` suggestions for now.
  *
  * Why not LLM-reorder? The trigger set is small and the product copy
  * is already deterministic; priority sorting + a couple of explicit
@@ -485,57 +477,11 @@ export function computeChapterRecommendations(params: {
   suppressedArcTokens?: Iterable<string>;
   suppressedGoalTokens?: Iterable<string>;
 }): ChapterRecommendation[] {
-  const arcRecs = computeArcNominations({
-    activitiesIncluded: params.activitiesIncluded,
-    arcById: params.arcById,
-  });
-  const goalRecs = computeGoalNominations({
-    activitiesIncluded: params.activitiesIncluded,
-    arcById: params.arcById,
-    goalsByArcId: params.goalsByArcId,
-  });
   const alignRecs = computeAlignSuggestions({
     activitiesIncluded: params.activitiesIncluded,
     arcById: params.arcById,
     goalsAll: params.goalsAll,
   });
-
-  // Tokens claimed by higher-priority recommendations. Each trigger
-  // writes its theme token to `payload.title` (arc + goal) as a
-  // lowercased-then-titlecased word, so we read it back straight from
-  // the payload rather than parsing ids (which may embed hyphenated
-  // arcIds and are brittle).
-  const arcTokens = new Set<string>();
-  for (const r of arcRecs) {
-    const t = typeof r.payload?.title === 'string' ? r.payload.title.toLowerCase() : '';
-    if (t) arcTokens.add(t);
-  }
-
-  const goalTokens = new Set<string>();
-  for (const r of goalRecs) {
-    const t = typeof r.payload?.title === 'string' ? r.payload.title.toLowerCase() : '';
-    if (t) goalTokens.add(t);
-  }
-
-  // Drop align suggestions whose Goal head token matches an arc nom
-  // OR a goal nom — in both cases the user's better next step is the
-  // higher-priority recommendation.
-  const alignFiltered = alignRecs.filter((r) => {
-    const goalTitle =
-      typeof r.payload?.goalTitle === 'string'
-        ? r.payload.goalTitle.toLowerCase()
-        : '';
-    const head = goalTitle.match(/[a-z]{4,}/)?.[0] ?? '';
-    if (head && arcTokens.has(head)) return false;
-    if (head && goalTokens.has(head)) return false;
-    return true;
-  });
-
-  const merged: ChapterRecommendation[] = [
-    ...arcRecs,
-    ...goalRecs,
-    ...alignFiltered,
-  ];
 
   // Phase 8 governance — apply caller-supplied suppressions as the
   // final pass so they bind across kinds and dedup:
@@ -574,16 +520,11 @@ export function computeChapterRecommendations(params: {
     }
   }
 
-  const governed = merged.filter((r) => {
+  const governed = alignRecs.filter((r) => {
     if (dismissedSet.has(r.id)) return false;
-    if (r.kind === 'arc') {
-      const token = typeof r.payload?.title === 'string' ? r.payload.title.toLowerCase() : '';
-      if (token && arcSup.has(token)) return false;
-    }
-    if (r.kind === 'goal') {
-      const token = typeof r.payload?.title === 'string' ? r.payload.title.toLowerCase() : '';
-      if (token && goalSup.has(token)) return false;
-    }
+    const goalTitle = typeof r.payload?.goalTitle === 'string' ? r.payload.goalTitle.toLowerCase() : '';
+    const head = goalTitle.match(/[a-z]{4,}/)?.[0] ?? '';
+    if (head && (arcSup.has(head) || goalSup.has(head))) return false;
     return true;
   });
 

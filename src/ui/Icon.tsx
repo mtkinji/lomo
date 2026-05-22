@@ -59,6 +59,8 @@ const iconMap: Record<string, IconEntry> = {
   mic: { library: 'feather', name: 'mic' },
   arrowUp: { library: 'feather', name: 'arrow-up' },
   arrowDown: { library: 'feather', name: 'arrow-down' },
+  trendUp: { library: 'feather', name: 'trending-up' },
+  trendDown: { library: 'feather', name: 'trending-down' },
   dot: { library: 'feather', name: 'circle' },
   arrowLeft: { library: 'feather', name: 'arrow-left' },
   plus: { library: 'feather', name: 'plus' },

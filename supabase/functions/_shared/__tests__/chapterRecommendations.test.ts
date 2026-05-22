@@ -7,8 +7,9 @@
 //   * Phase 6: Goal Nomination fires when a ≥3 untagged-by-Goal
 //     cluster shares a theme inside an existing Arc; Align suggestions
 //     fire when ≥2 untagged activities mention an existing Arc's name.
-//   * The orchestrator applies priority (`arc > goal > align`),
-//     enforces the 3-cap, and dedupes cross-kind token overlap.
+//   * The orchestrator only emits concrete Align cleanup actions; Arc and
+//     Goal nomination helpers remain tested in isolation but are not stamped
+//     into Chapter output.
 //   * `hasAnyRecommendation` correctly reads the output_json shape the
 //     client + email template consume.
 //
@@ -325,7 +326,7 @@ describe('computeAlignSuggestions — Align trigger', () => {
 });
 
 describe('computeChapterRecommendations — orchestrator', () => {
-  it('prioritizes arc > goal > align under the 3-cap', () => {
+  it('emits only concrete align suggestions for Chapter output', () => {
     const recs = computeChapterRecommendations({
       activitiesIncluded: [
         // 5 untagged "pottery" activities → fires Arc Nomination
@@ -354,15 +355,11 @@ describe('computeChapterRecommendations — orchestrator', () => {
       },
       goalsAll: [{ id: 'g-read', arcId: 'arc-fit', title: 'Reading consistency' }],
     });
-    // NOTE: the Phase 5 arc-nom "must-not-substring-existing-Arcs"
-    // gate means Climbing clusters are actually GATED OUT on arc-nom
-    // because an "Climbing" Arc exists. So 'Pottery' still fires arc;
-    // 'climbing' falls to goal; 'running' falls to align. Cap = 3.
     expect(recs.length).toBeLessThanOrEqual(MAX_RECOMMENDATIONS_PER_CHAPTER);
-    expect(recs.map((r) => r.kind)).toEqual(['arc', 'goal', 'align']);
+    expect(recs.map((r) => r.kind)).toEqual(['align']);
   });
 
-  it('dedupes align when the same token is claimed by a goal nomination', () => {
+  it('does not let a possible goal nomination suppress a concrete align action', () => {
     // ≥3 untagged "climbing" activities. There's a Climbing Arc with
     // NO Climbing Goal → fires Goal nomination. There's also a
     // "Climbing practice" Goal under a DIFFERENT Arc — which would
@@ -389,25 +386,21 @@ describe('computeChapterRecommendations — orchestrator', () => {
         { id: 'g-other', arcId: 'arc-other', title: 'Climbing sessions with Pat' },
       ],
     });
-    expect(recs.map((r) => r.kind)).toEqual(['goal']);
+    expect(recs.map((r) => r.kind)).toEqual(['align']);
   });
 
   it('caps the output at MAX_RECOMMENDATIONS_PER_CHAPTER', () => {
-    // 4 matching Arc/Goal clusters → 4 goal noms. Cap should trim to 3.
+    // 4 matching Align clusters. Cap should trim to 3.
     const recs = computeChapterRecommendations({
       activitiesIncluded: [
         { id: 'a1', title: 'Family dinner 1', arcId: null, goalId: null },
         { id: 'a2', title: 'Family dinner 2', arcId: null, goalId: null },
-        { id: 'a3', title: 'Family dinner 3', arcId: null, goalId: null },
         { id: 'b1', title: 'Fitness 1', arcId: null, goalId: null },
         { id: 'b2', title: 'Fitness 2', arcId: null, goalId: null },
-        { id: 'b3', title: 'Fitness 3', arcId: null, goalId: null },
         { id: 'c1', title: 'Pottery 1', arcId: null, goalId: null },
         { id: 'c2', title: 'Pottery 2', arcId: null, goalId: null },
-        { id: 'c3', title: 'Pottery 3', arcId: null, goalId: null },
         { id: 'd1', title: 'Drawing 1', arcId: null, goalId: null },
         { id: 'd2', title: 'Drawing 2', arcId: null, goalId: null },
-        { id: 'd3', title: 'Drawing 3', arcId: null, goalId: null },
       ],
       arcById: {
         'arc-family': { id: 'arc-family', title: 'Family' },
@@ -416,10 +409,15 @@ describe('computeChapterRecommendations — orchestrator', () => {
         'arc-drawing': { id: 'arc-drawing', title: 'Drawing' },
       },
       goalsByArcId: {},
-      goalsAll: [],
+      goalsAll: [
+        { id: 'g-family', arcId: 'arc-family', title: 'Family dinners' },
+        { id: 'g-fitness', arcId: 'arc-fitness', title: 'Fitness rhythm' },
+        { id: 'g-pottery', arcId: 'arc-pottery', title: 'Pottery practice' },
+        { id: 'g-drawing', arcId: 'arc-drawing', title: 'Drawing practice' },
+      ],
     });
     expect(recs).toHaveLength(MAX_RECOMMENDATIONS_PER_CHAPTER);
-    for (const r of recs) expect(r.kind).toBe('goal');
+    for (const r of recs) expect(r.kind).toBe('align');
   });
 });
 
@@ -433,60 +431,43 @@ describe('computeChapterRecommendations — Phase 8 governance', () => {
       activitiesIncluded: [
         { id: 'p1', title: 'Pottery class 1', arcId: null, goalId: null },
         { id: 'p2', title: 'Pottery class 2', arcId: null, goalId: null },
-        { id: 'p3', title: 'Pottery class 3', arcId: null, goalId: null },
-        { id: 'p4', title: 'Pottery class 4', arcId: null, goalId: null },
-        { id: 'p5', title: 'Pottery class 5', arcId: null, goalId: null },
       ],
-      arcById: {},
+      arcById: { 'arc-art': { id: 'arc-art', title: 'Art' } },
       goalsByArcId: {},
-      goalsAll: [],
-      dismissedRecommendationIds: ['rec-arc-pottery'],
+      goalsAll: [{ id: 'g-pottery', arcId: 'arc-art', title: 'Pottery practice' }],
+      dismissedRecommendationIds: ['rec-align-g-pottery'],
     });
     expect(recs).toHaveLength(0);
   });
 
-  it('suppresses an Arc Nomination whose theme matches suppressedArcTokens', () => {
-    // Simulates the out-of-band case: user created the Arc through
-    // a non-Next-Step path (or renamed it during creation), so the
-    // nomination's token still clusters in untagged activities but
-    // governance should drop it.
+  it('suppresses an Align suggestion whose goal head matches suppressedArcTokens', () => {
     const recs = computeChapterRecommendations({
       activitiesIncluded: [
         { id: 'p1', title: 'Pottery class 1', arcId: null, goalId: null },
         { id: 'p2', title: 'Pottery class 2', arcId: null, goalId: null },
-        { id: 'p3', title: 'Pottery class 3', arcId: null, goalId: null },
-        { id: 'p4', title: 'Pottery class 4', arcId: null, goalId: null },
-        { id: 'p5', title: 'Pottery class 5', arcId: null, goalId: null },
       ],
-      arcById: {},
+      arcById: { 'arc-art': { id: 'arc-art', title: 'Art' } },
       goalsByArcId: {},
-      goalsAll: [],
+      goalsAll: [{ id: 'g-pottery', arcId: 'arc-art', title: 'Pottery practice' }],
       suppressedArcTokens: ['pottery'],
     });
     expect(recs).toHaveLength(0);
   });
 
-  it('suppresses a Goal Nomination whose theme matches suppressedGoalTokens', () => {
+  it('suppresses an Align suggestion whose goal head matches suppressedGoalTokens', () => {
     const recs = computeChapterRecommendations({
       activitiesIncluded: [
         { id: 'c1', title: 'Climbing session 1', arcId: null, goalId: null },
         { id: 'c2', title: 'Climbing session 2', arcId: null, goalId: null },
-        { id: 'c3', title: 'Climbing session 3', arcId: null, goalId: null },
       ],
       arcById: {
-        'arc-fit': { id: 'arc-fit', title: 'Fitness' },
         'arc-climbing': { id: 'arc-climbing', title: 'Climbing' },
       },
       goalsByArcId: {},
-      goalsAll: [],
-      // Even though the Goal-nom trigger would otherwise fire, a
-      // matching Goal was just created this period, so suppress.
+      goalsAll: [{ id: 'g-climbing', arcId: 'arc-climbing', title: 'Climbing routine' }],
       suppressedGoalTokens: ['climbing'],
     });
-    // Climbing Arc exists → arc-nom gated anyway. Goal-nom would
-    // have fired, but the suppression token removes it. What
-    // remains are any align suggestions — none here.
-    expect(recs.filter((r) => r.kind === 'goal')).toHaveLength(0);
+    expect(recs).toHaveLength(0);
   });
 
   it('respects governance without regressing the base case', () => {
@@ -494,19 +475,14 @@ describe('computeChapterRecommendations — Phase 8 governance', () => {
       activitiesIncluded: [
         { id: 'p1', title: 'Pottery class 1', arcId: null, goalId: null },
         { id: 'p2', title: 'Pottery class 2', arcId: null, goalId: null },
-        { id: 'p3', title: 'Pottery class 3', arcId: null, goalId: null },
-        { id: 'p4', title: 'Pottery class 4', arcId: null, goalId: null },
-        { id: 'p5', title: 'Pottery class 5', arcId: null, goalId: null },
       ],
-      arcById: {},
+      arcById: { 'arc-art': { id: 'arc-art', title: 'Art' } },
       goalsByArcId: {},
-      goalsAll: [],
-      // Different recommendation id, different token — the pottery
-      // Arc nom should still fire.
+      goalsAll: [{ id: 'g-pottery', arcId: 'arc-art', title: 'Pottery practice' }],
       dismissedRecommendationIds: ['rec-arc-reading'],
       suppressedArcTokens: ['reading'],
     });
-    expect(recs.map((r) => r.kind)).toEqual(['arc']);
+    expect(recs.map((r) => r.kind)).toEqual(['align']);
   });
 });
 

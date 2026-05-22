@@ -1,16 +1,20 @@
 import React from 'react';
-import { Pressable, Share, ScrollView, StyleSheet, View, TextInput } from 'react-native';
+import { Image, Pressable, Share, ScrollView, StyleSheet, View, TextInput } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Line, Path, Text as SvgText } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
-import { PageHeader } from '../../ui/layout/PageHeader';
-import { VStack, Text, Heading } from '../../ui/primitives';
+import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
+import { VStack, Text } from '../../ui/primitives';
 import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import { colors, spacing, typography } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/RootNavigator';
 import {
   fetchMyChapterById,
+  fetchMyChapters,
   fetchMyChapterNeighbors,
   fetchMyChapterFeedback,
   submitChapterFeedback,
@@ -34,10 +38,9 @@ import {
 } from './chapterRecommendationDismissals';
 import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
-import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { canCreateArc, canCreateGoalInArc } from '../../domain/limits';
-import { openPaywallInterstitial } from '../../services/paywall';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { getEffectiveThumbnailUrl } from '../../domain/getEffectiveThumbnailUrl';
+import type { Activity } from '../../domain/types';
 import {
   getHealthKitAvailability,
   requestHealthKitReadPermission,
@@ -46,6 +49,55 @@ import {
 
 type Route = RouteProp<MoreStackParamList, 'MoreChapterDetail'>;
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDetail'>;
+type RichTextSegment = { text: string; bold?: boolean; italic?: boolean };
+type GoalStoryPlate = { id: string; title: string; imageUrl?: string };
+type ChapterGradientColors = [string, string, ...string[]];
+type TodoFlow = {
+  carriedIn: number;
+  added: number;
+  completed: number;
+  estimatedLeft: number;
+  netAdded: number;
+};
+type TodoFlowEvent = {
+  kind: 'added' | 'completed';
+  at: number;
+};
+type TodoFlowChartPoint = {
+  x: number;
+  y: number;
+  value: number;
+  label: string;
+};
+type CanonicalForceId =
+  | 'force-activity'
+  | 'force-connection'
+  | 'force-mastery'
+  | 'force-spirituality';
+
+const CANONICAL_FORCE_ORDER: CanonicalForceId[] = [
+  'force-activity',
+  'force-connection',
+  'force-mastery',
+  'force-spirituality',
+];
+
+const CANONICAL_FORCE_COLORS: Record<CanonicalForceId, string> = {
+  'force-activity': colors.pine500,
+  'force-connection': colors.madder500,
+  'force-mastery': colors.quiltBlue500,
+  'force-spirituality': colors.turmeric500,
+};
+
+const FORCE_ALIAS_TO_ID: Record<string, CanonicalForceId> = {
+  activity: 'force-activity',
+  'to-do': 'force-activity',
+  todo: 'force-activity',
+  connection: 'force-connection',
+  mastery: 'force-mastery',
+  spirituality: 'force-spirituality',
+  spiritual: 'force-spirituality',
+};
 
 function asString(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null;
@@ -86,6 +138,307 @@ function splitArticleBlocks(text: string): Array<{ kind: 'h2' | 'p'; text: strin
   }
   flush();
   return blocks;
+}
+
+function splitInlineDecorations(text: string): RichTextSegment[] {
+  const segments: RichTextSegment[] = [];
+  const re = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) != null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, match.index) });
+    }
+    const token = match[0];
+    if (token.startsWith('**')) {
+      segments.push({ text: token.slice(2, -2), bold: true });
+    } else {
+      segments.push({ text: token.slice(1, -1), italic: true });
+    }
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < text.length) segments.push({ text: text.slice(lastIndex) });
+  return segments.length > 0 ? segments : [{ text }];
+}
+
+function RichArticleText(props: { text: string; style: any; emphasizeFirstWord?: boolean }) {
+  const firstWordMatch = props.emphasizeFirstWord ? props.text.match(/^(\S+)(\s+[\s\S]*)?$/) : null;
+  const decoratedText = firstWordMatch ? firstWordMatch[2] ?? '' : props.text;
+  return (
+    <Text style={props.style}>
+      {firstWordMatch ? (
+        <Text style={[props.style, styles.inlineLeadWord]}>{firstWordMatch[1]}</Text>
+      ) : null}
+      {splitInlineDecorations(decoratedText).map((segment, idx) => (
+        <Text
+          key={`${idx}-${segment.text.slice(0, 8)}`}
+          style={[
+            props.style,
+            segment.bold && styles.inlineBold,
+            segment.italic && styles.inlineItalic,
+          ]}
+        >
+          {segment.text}
+        </Text>
+      ))}
+    </Text>
+  );
+}
+
+function goalMentionedInText(text: string, goalTitle: string): boolean {
+  const normalizedText = text.toLowerCase();
+  const normalizedTitle = goalTitle.trim().toLowerCase();
+  if (!normalizedTitle) return false;
+  if (normalizedText.includes(normalizedTitle)) return true;
+  const words = normalizedTitle.split(/\s+/).filter((w) => w.length >= 5);
+  return words.length >= 2 && words.every((word) => normalizedText.includes(word));
+}
+
+function normalizeForceKey(value: unknown): string {
+  return typeof value === 'string'
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/^.*?:\s*/, '')
+    : '';
+}
+
+function canonicalForceIdFrom(value: unknown): CanonicalForceId | null {
+  const key = normalizeForceKey(value);
+  if (CANONICAL_FORCE_ORDER.includes(key as CanonicalForceId)) return key as CanonicalForceId;
+  return FORCE_ALIAS_TO_ID[key] ?? null;
+}
+
+function colorForMetricForce(force: any, forceId: CanonicalForceId): string {
+  const provided = typeof force?.force_color === 'string' && /^#[0-9a-f]{6}$/i.test(force.force_color)
+    ? force.force_color
+    : null;
+  return provided ?? CANONICAL_FORCE_COLORS[forceId];
+}
+
+function buildChapterGradientColors(metrics: any, forcesItems: any[]): ChapterGradientColors {
+  const weightedByForce = new Map<CanonicalForceId, { color: string; weight: number }>();
+  const metricForces = Array.isArray(metrics?.forces) ? metrics.forces : [];
+
+  for (const force of metricForces) {
+    const forceId = canonicalForceIdFrom(force?.force_id) ?? canonicalForceIdFrom(force?.force_label);
+    if (!forceId) continue;
+    const weight =
+      typeof force?.level_sum === 'number'
+        ? force.level_sum
+        : typeof force?.activity_count === 'number'
+          ? force.activity_count
+          : 1;
+    if (weight <= 0) continue;
+    weightedByForce.set(forceId, {
+      color: colorForMetricForce(force, forceId),
+      weight: (weightedByForce.get(forceId)?.weight ?? 0) + weight,
+    });
+  }
+
+  if (weightedByForce.size === 0) {
+    for (const item of forcesItems) {
+      const forceId = canonicalForceIdFrom(item?.force);
+      if (forceId) weightedByForce.set(forceId, { color: CANONICAL_FORCE_COLORS[forceId], weight: 1 });
+    }
+  }
+
+  const weighted = CANONICAL_FORCE_ORDER
+    .map((forceId) => weightedByForce.get(forceId))
+    .filter((entry): entry is { color: string; weight: number } => Boolean(entry && entry.weight > 0));
+
+  if (weighted.length === 0) {
+    return [colors.pine700, colors.quiltBlue500, colors.turmeric500];
+  }
+
+  if (weighted.length === 1) {
+    return [weighted[0].color, weighted[0].color];
+  }
+
+  const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  const stopBudget = 12;
+  const gradientColors: string[] = weighted.flatMap((entry) => {
+    const count = Math.max(1, Math.round((entry.weight / totalWeight) * stopBudget));
+    return Array.from({ length: count }, () => entry.color);
+  });
+  return gradientColors as [string, string, ...string[]];
+}
+
+const TODO_FLOW_CHART = {
+  width: 320,
+  height: 192,
+  left: 40,
+  right: 0,
+  top: 18,
+  bottom: 10,
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function formatChapterDayLabel(periodStart: string, dayIndex: number, dayCount: number): string {
+  const startMs = Date.parse(periodStart);
+  if (!Number.isFinite(startMs)) return `Day ${dayIndex + 1}`;
+  const date = new Date(startMs + dayIndex * DAY_MS);
+  try {
+    if (dayCount > 8) {
+      return new Intl.DateTimeFormat(undefined, { day: 'numeric' }).format(date);
+    }
+    return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
+  } catch {
+    return `Day ${dayIndex + 1}`;
+  }
+}
+
+function buildTodoFlowSamplePositions(dayCount: number): number[] {
+  const stride = dayCount >= 6 ? 2 : 1;
+  const positions: number[] = [];
+  for (let day = 0; day < dayCount; day += stride) {
+    positions.push(day);
+  }
+  const finalDay = dayCount - 1;
+  if (positions[positions.length - 1] !== finalDay) {
+    positions.push(finalDay);
+  }
+  return positions;
+}
+
+function buildSmoothPath(points: TodoFlowChartPoint[]): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  const smoothness = 0.18;
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[Math.max(0, index - 1)];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[Math.min(points.length - 1, index + 2)];
+    const cp1x = current.x + (next.x - previous.x) * smoothness;
+    const cp1y = current.y + (next.y - previous.y) * smoothness;
+    const cp2x = next.x - (afterNext.x - current.x) * smoothness;
+    const cp2y = next.y - (afterNext.y - current.y) * smoothness;
+    path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
+  }
+  return path;
+}
+
+function formatTodoFlowAxisLabel(value: number): string {
+  return String(Math.round(value));
+}
+
+function buildFallbackTodoFlowEvents(todoFlow: TodoFlow, dayCount: number): TodoFlowEvent[] {
+  const addEvents = Array.from({ length: todoFlow.added }, (_, idx) => ({
+    kind: 'added' as const,
+    at: dayCount <= 1 ? 0 : ((idx + 1) / Math.max(1, todoFlow.added + 1)) * Math.max(1, dayCount - 1) * 0.55,
+  }));
+  const completedEvents = Array.from({ length: todoFlow.completed }, (_, idx) => ({
+    kind: 'completed' as const,
+    at:
+      dayCount <= 1
+        ? 0
+        : Math.max(1, dayCount - 1) * 0.55 +
+          ((idx + 1) / Math.max(1, todoFlow.completed + 1)) * Math.max(1, dayCount - 1) * 0.45,
+  }));
+  return [...addEvents, ...completedEvents].sort((a, b) => a.at - b.at);
+}
+
+function buildTodoFlowEventsFromActivities(params: {
+  todoFlow: TodoFlow;
+  activities: Activity[];
+  periodStart: string;
+  periodEnd: string;
+  dayCount: number;
+}): TodoFlowEvent[] {
+  const { todoFlow, activities, periodStart, periodEnd, dayCount } = params;
+  const startMs = Date.parse(periodStart);
+  const endMs = Date.parse(periodEnd);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return buildFallbackTodoFlowEvents(todoFlow, dayCount);
+  }
+
+  const toPosition = (iso: string | null | undefined) => {
+    if (!iso) return null;
+    const ms = Date.parse(iso);
+    if (!Number.isFinite(ms) || ms < startMs || ms >= endMs) return null;
+    return Math.max(0, Math.min(Math.max(0, dayCount - 1), ((ms - startMs) / (endMs - startMs)) * Math.max(0, dayCount - 1)));
+  };
+
+  const addedEvents = activities
+    .map((activity) => toPosition(activity.createdAt))
+    .filter((at): at is number => at != null)
+    .map((at) => ({ kind: 'added' as const, at }));
+  const completedEvents = activities
+    .map((activity) => toPosition(activity.completedAt))
+    .filter((at): at is number => at != null)
+    .map((at) => ({ kind: 'completed' as const, at }));
+
+  if (addedEvents.length !== todoFlow.added || completedEvents.length !== todoFlow.completed) {
+    return buildFallbackTodoFlowEvents(todoFlow, dayCount);
+  }
+
+  return [...addedEvents, ...completedEvents].sort((a, b) => {
+    if (a.at !== b.at) return a.at - b.at;
+    return a.kind === b.kind ? 0 : a.kind === 'added' ? -1 : 1;
+  });
+}
+
+function buildTodoFlowChart(params: {
+  todoFlow: TodoFlow;
+  activities: Activity[];
+  periodStart: string;
+  periodEnd: string;
+  periodDays: number | null;
+}) {
+  const { todoFlow, activities, periodStart, periodEnd, periodDays } = params;
+  const dayCount = Math.max(2, Math.min(14, Math.floor(periodDays ?? 7)));
+  const events = buildTodoFlowEventsFromActivities({ todoFlow, activities, periodStart, periodEnd, dayCount });
+  const samplePositions = buildTodoFlowSamplePositions(dayCount);
+  const valueAt = (position: number) => {
+    if (position >= dayCount - 1) return todoFlow.estimatedLeft;
+    return events.reduce(
+      (value, event) => (event.at <= position ? value + (event.kind === 'added' ? 1 : -1) : value),
+      todoFlow.carriedIn,
+    );
+  };
+  const lineValues = samplePositions.map(valueAt);
+  const rawMinValue = Math.min(...lineValues);
+  const rawMaxValue = Math.max(...lineValues);
+  const rawRange = Math.max(1, rawMaxValue - rawMinValue);
+  const paddedRange = Math.max(6, rawRange * 1.7, rawMaxValue * 0.12);
+  const valueCenter = (rawMinValue + rawMaxValue) / 2;
+  let minValue = Math.max(0, valueCenter - paddedRange / 2);
+  let maxValue = minValue + paddedRange;
+  if (maxValue < rawMaxValue + 1) {
+    maxValue = rawMaxValue + 1;
+    minValue = Math.max(0, maxValue - paddedRange);
+  }
+  const chartWidth = TODO_FLOW_CHART.width - TODO_FLOW_CHART.left - TODO_FLOW_CHART.right;
+  const chartHeight = TODO_FLOW_CHART.height - TODO_FLOW_CHART.top - TODO_FLOW_CHART.bottom;
+  const pointFor = (value: number, index: number) => {
+    const x = TODO_FLOW_CHART.left + (chartWidth * index) / Math.max(1, samplePositions.length - 1);
+    const y = TODO_FLOW_CHART.top + ((maxValue - value) / Math.max(1, maxValue - minValue)) * chartHeight;
+    return { x, y };
+  };
+  const points: TodoFlowChartPoint[] = samplePositions.map((position, index) => {
+    const value = valueAt(position);
+    return {
+      ...pointFor(value, index),
+      value,
+      label: formatChapterDayLabel(periodStart, position, dayCount),
+    };
+  });
+  const linePath = buildSmoothPath(points);
+  const baseY = TODO_FLOW_CHART.top + chartHeight;
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${baseY} L ${points[0].x} ${baseY} Z`;
+  const gridValues = [maxValue, minValue + (maxValue - minValue) * 0.75, minValue + (maxValue - minValue) * 0.5, minValue + (maxValue - minValue) * 0.25, minValue];
+  const grid = gridValues.map((value) => {
+    const y = TODO_FLOW_CHART.top + ((maxValue - value) / Math.max(1, maxValue - minValue)) * chartHeight;
+    return { y, value };
+  });
+  const yAxisLabels = [grid[0], grid[2], grid[4]].map((item) => ({
+    y: item.y,
+    label: formatTodoFlowAxisLabel(item.value),
+  }));
+  return { points, linePath, areaPath, grid, yAxisLabels };
 }
 
 // Approx reading time at 220 wpm; we show whole minutes with a 1-min floor.
@@ -205,6 +558,88 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
   return `${formatWholeNumber(count)} ${count === 1 ? singular : plural}`;
 }
 
+function chapterWeeklyVelocity(chapter: ChapterRow | null): number | null {
+  const completed =
+    typeof chapter?.metrics?.activities?.completed_count === 'number'
+      ? chapter.metrics.activities.completed_count
+      : null;
+  const periodDays =
+    typeof chapter?.metrics?.period_days === 'number'
+      ? chapter.metrics.period_days
+      : null;
+  if (completed == null || periodDays == null || periodDays <= 0) return null;
+  return completed / (periodDays / 7);
+}
+
+function allTimeWeeklyVelocity(chapters: ChapterRow[]): number | null {
+  let completedTotal = 0;
+  let weekTotal = 0;
+  for (const c of chapters) {
+    if (c.status !== 'ready') continue;
+    const completed =
+      typeof c.metrics?.activities?.completed_count === 'number'
+        ? c.metrics.activities.completed_count
+        : null;
+    const periodDays =
+      typeof c.metrics?.period_days === 'number'
+        ? c.metrics.period_days
+        : null;
+    if (completed == null || periodDays == null || periodDays <= 0) continue;
+    completedTotal += completed;
+    weekTotal += periodDays / 7;
+  }
+  return weekTotal > 0 ? completedTotal / weekTotal : null;
+}
+
+function formatVelocity(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function formatPercent(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${Math.round(value * 100)}%`;
+}
+
+function averageBacklogDaysForCompletedActivities(params: {
+  activities: Activity[];
+  periodStart: string;
+  periodEnd: string;
+}): number | null {
+  const startMs = Date.parse(params.periodStart);
+  const endMs = Date.parse(params.periodEnd);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
+
+  const ages = params.activities
+    .map((activity) => {
+      const createdMs = Date.parse(activity.createdAt);
+      const completedMs = activity.completedAt ? Date.parse(activity.completedAt) : NaN;
+      if (!Number.isFinite(createdMs) || !Number.isFinite(completedMs)) return null;
+      if (completedMs < startMs || completedMs >= endMs || completedMs < createdMs) return null;
+      return (completedMs - createdMs) / DAY_MS;
+    })
+    .filter((age): age is number => age != null);
+
+  if (ages.length === 0) return null;
+  return ages.reduce((sum, age) => sum + age, 0) / ages.length;
+}
+
+function formatBacklogAgeDays(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  if (value < 1) return '<1';
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function formatTodoFlowInsight(todoFlow: TodoFlow): string {
+  if (todoFlow.netAdded === 0) return 'Backlog held steady this period';
+  if (todoFlow.netAdded > 0) {
+    return `Backlog rose by ${todoFlow.netAdded} this period`;
+  }
+  return `Backlog fell by ${Math.abs(todoFlow.netAdded)} this period`;
+}
+
 function buildHealthSummaryRows(health: any): Array<{ label: string; value: string; detail?: string }> {
   if (!health || typeof health !== 'object') return [];
   const rows: Array<{ label: string; value: string; detail?: string }> = [];
@@ -259,17 +694,13 @@ function buildHealthSummaryRows(health: any): Array<{ label: string; value: stri
 export function ChapterDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
   const chapterId = route.params?.chapterId ?? '';
   const showToast = useToastStore((s) => s.showToast);
 
   const [loading, setLoading] = React.useState(true);
   const [chapter, setChapter] = React.useState<ChapterRow | null>(null);
-  // Phase 3.3: the article body is now behind a "Read the full story"
-  // disclosure. Default collapsed so the signal-first layout stays
-  // signal-first. Instrumented so we can see the tap-through rate relative
-  // to `chapter_viewed`.
-  const [storyExpanded, setStoryExpanded] = React.useState(false);
-  const [detailsExpanded, setDetailsExpanded] = React.useState(false);
+  const [allTimeVelocity, setAllTimeVelocity] = React.useState<number | null>(null);
   const [neighbors, setNeighbors] = React.useState<{ previous: { id: string } | null; next: { id: string } | null }>({
     previous: null,
     next: null,
@@ -312,6 +743,9 @@ export function ChapterDetailScreen() {
         setFeedback(fb);
         setFeedbackNote(fb?.note ?? '');
         setUserNoteDraft(row?.user_note ?? '');
+        const history = await fetchMyChapters({ limit: 100 });
+        if (!mounted) return;
+        setAllTimeVelocity(allTimeWeeklyVelocity(history));
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -364,27 +798,48 @@ export function ChapterDetailScreen() {
 
   const outputJson = chapter?.output_json ?? null;
   const title = asString(outputJson?.title) ?? 'Chapter';
-  const rawDek = asString(outputJson?.dek) ?? null;
-  const dek =
-    rawDek && !/^this chapter\b/i.test(rawDek.trim()) && !/^this (week|month|year)\b/i.test(rawDek.trim()) ? rawDek : null;
   const periodStart = chapter?.period_start ?? '';
   const periodEnd = chapter?.period_end ?? '';
   const kicker = buildCadenceKicker(chapter, periodStart, periodEnd);
   const cadenceForCopy = detectCadence(chapter);
 
-  // Phase 3.1/3.3: the caption is the primary above-the-fold hook on the
-  // detail screen. When present we hide the dek here (it'd duplicate the
-  // same story); legacy chapters without a caption still see the dek.
-  const caption = asString(pickSection(outputJson, 'signal')?.caption) ?? null;
   const story = asString(pickSection(outputJson, 'story')?.body) ?? null;
   const readingMinutes = estimateReadingMinutes(story);
   const whereTimeWent = (asArray(pickSection(outputJson, 'where_time_went')?.bullets).filter((x) => typeof x === 'string') as string[]).slice(0, 6);
   const highlights = (asArray(pickSection(outputJson, 'highlights')?.bullets).filter((x) => typeof x === 'string') as string[]).slice(0, 6);
   const patterns = (asArray(pickSection(outputJson, 'patterns')?.bullets).filter((x) => typeof x === 'string') as string[]).slice(0, 6);
-  const nextExperiments = (asArray(pickSection(outputJson, 'next_experiments')?.bullets).filter((x) => typeof x === 'string') as string[]).slice(0, 6);
   const forcesItems = (asArray(pickSection(outputJson, 'forces')?.items).filter((x) => x && typeof x === 'object') as any[]).slice(0, 6);
+  const forceStoryInset = React.useMemo(() => {
+    const first = forcesItems[0];
+    if (!first || typeof first !== 'object') return null;
+    const force = asString(first.force) ?? 'Forces';
+    const body = asString(first.body);
+    if (!body) return null;
+    return { label: `Vectors in play: ${force}`, text: body };
+  }, [forcesItems]);
 
   const metrics = chapter?.metrics ?? null;
+  const chapterGradientColors = React.useMemo(
+    () => buildChapterGradientColors(metrics, forcesItems),
+    [forcesItems, metrics],
+  );
+  const activitiesForFlow = useAppStore((s) => s.activities);
+  const goalsById = useAppStore((s) => s.goals);
+  const goalStoryPlates = React.useMemo<GoalStoryPlate[]>(() => {
+    const goalMetrics = Array.isArray(metrics?.goals) ? metrics.goals : [];
+    return goalMetrics
+      .map((goalMetric: any) => {
+        const id = typeof goalMetric?.goal_id === 'string' ? goalMetric.goal_id : '';
+        if (!id) return null;
+        const localGoal = goalsById.find((goal) => goal.id === id);
+        const title = asString(localGoal?.title) ?? asString(goalMetric?.goal_title) ?? null;
+        if (!title) return null;
+        const imageUrl = localGoal ? getEffectiveThumbnailUrl(localGoal) : undefined;
+        return { id, title, imageUrl };
+      })
+      .filter(Boolean)
+      .slice(0, 4) as GoalStoryPlate[];
+  }, [goalsById, metrics?.goals]);
   const healthSummaryRows = buildHealthSummaryRows(metrics?.health);
   // Phase 3.3 arc lanes: up to 4 top arcs by activity, each with its delta
   // block (populated by `augmentArcsWithDeltas` on the server). We surface
@@ -413,14 +868,10 @@ export function ChapterDetailScreen() {
     return rawRecommendations.filter((r: any) => !isRecommendationDismissed(String(r.id ?? '')));
     // dismissalNonce forces a recompute when the dismissal map mutates.
   }, [rawRecommendations, dismissalNonce]);
+  const actionableRecommendations = React.useMemo(() => {
+    return visibleRecommendations.filter((r: any) => r?.kind === 'align');
+  }, [visibleRecommendations]);
 
-  // Arc-limit gate — mirrors `ArcsScreen.handleOpenNewArc`. Free-tier users
-  // at the 1-Arc cap are routed to the paywall with contextual attribution;
-  // Pro-tier users deep-link into the manual Arc creation modal with the
-  // nominated title prefilled.
-  const arcs = useAppStore((s) => s.arcs);
-  const goals = useAppStore((s) => s.goals);
-  const isPro = useEntitlementsStore((s) => s.isPro);
   const healthPreferences = useAppStore((s) => s.healthPreferences);
   const setHealthPreferences = useAppStore((s) => s.setHealthPreferences);
   const [healthPromptBusy, setHealthPromptBusy] = React.useState(false);
@@ -430,7 +881,7 @@ export function ChapterDetailScreen() {
   const shownRecIdsRef = React.useRef<Set<string>>(new Set());
   React.useEffect(() => {
     if (!chapter) return;
-    for (const r of visibleRecommendations) {
+    for (const r of actionableRecommendations) {
       const id = String((r as any).id ?? '');
       if (!id) continue;
       const seenKey = `${chapterId}::${id}`;
@@ -443,27 +894,94 @@ export function ChapterDetailScreen() {
         kind: (r as any).kind ?? null,
       });
     }
-  }, [capture, chapter, chapterId, visibleRecommendations]);
+  }, [actionableRecommendations, capture, chapter, chapterId]);
 
   const completed = typeof metrics?.activities?.completed_count === 'number' ? metrics.activities.completed_count : null;
   const activeDays = typeof metrics?.time_shape?.active_days_count === 'number' ? metrics.time_shape.active_days_count : null;
   const streak = typeof metrics?.time_shape?.longest_active_streak_days === 'number' ? metrics.time_shape.longest_active_streak_days : null;
   const periodDays = typeof metrics?.period_days === 'number' ? metrics.period_days : null;
+  const currentVelocity = chapterWeeklyVelocity(chapter);
+  const velocityDelta =
+    currentVelocity != null && allTimeVelocity != null ? currentVelocity - allTimeVelocity : null;
+  const velocityValueColor =
+    velocityDelta == null || Math.abs(velocityDelta) < 0.05
+      ? colors.textPrimary
+      : velocityDelta > 0
+        ? colors.success
+        : colors.madder600;
 
   const primaryStats = [
-    { value: completed, label: 'Completed' },
-    { value: activeDays, label: periodDays ? `Active days · ${periodDays}` : 'Active days' },
-    { value: streak, label: 'Streak' },
+    { value: completed, label: 'to-dos' },
+    { value: activeDays, label: 'active days' },
+    { value: streak, label: 'day streak' },
   ];
 
   const createdCount = typeof metrics?.activities?.created_count === 'number' ? metrics.activities.created_count : null;
   const carriedCount = typeof metrics?.activities?.carried_forward_count === 'number' ? metrics.activities.carried_forward_count : null;
-  const inProgressCount = typeof metrics?.activities?.started_not_completed_count === 'number' ? metrics.activities.started_not_completed_count : null;
+  const todoFlow =
+    completed != null && createdCount != null && carriedCount != null
+      ? {
+          carriedIn: carriedCount,
+          added: createdCount,
+          completed,
+          estimatedLeft: Math.max(0, carriedCount + createdCount - completed),
+          netAdded: createdCount - completed,
+        } satisfies TodoFlow
+      : null;
+  const availableTodoCount = todoFlow ? todoFlow.carriedIn + todoFlow.added : null;
+  const completionRate =
+    completed != null && availableTodoCount != null && availableTodoCount > 0
+      ? completed / availableTodoCount
+      : null;
+  const averageBacklogDays = averageBacklogDaysForCompletedActivities({
+    activities: activitiesForFlow,
+    periodStart,
+    periodEnd,
+  });
+  const topArcMetric = arcLanes[0] ?? null;
+  const topArcTitle = asString(topArcMetric?.arc_title);
+  const topArcCompleted =
+    typeof topArcMetric?.completed_count === 'number' ? topArcMetric.completed_count : null;
+  const topArcTotal =
+    typeof topArcMetric?.activity_count_total === 'number' ? topArcMetric.activity_count_total : null;
+  const topFocusCount = topArcCompleted != null && topArcCompleted > 0 ? topArcCompleted : topArcTotal;
+  const insightMetrics = [
+    completionRate != null
+      ? {
+          title: 'Closed',
+          value: formatPercent(completionRate),
+          unit: `${completed ?? 0} of ${availableTodoCount ?? 0} available to-dos`,
+        }
+      : null,
+    averageBacklogDays != null
+      ? {
+          title: 'Avg. time to finish',
+          value: formatBacklogAgeDays(averageBacklogDays),
+          unit: 'days from add to done',
+        }
+      : null,
+    topArcTitle && topFocusCount != null
+      ? {
+          title: topArcTitle,
+          value: formatWholeNumber(topFocusCount),
+          unit: topArcCompleted != null && topArcCompleted > 0 ? 'to-dos completed' : 'to-dos touched',
+        }
+      : null,
+  ].filter(Boolean).slice(0, 2) as Array<{ title: string; value: string; unit: string }>;
+  const todoFlowChart = todoFlow
+    ? buildTodoFlowChart({
+        todoFlow,
+        activities: activitiesForFlow,
+        periodStart,
+        periodEnd,
+        periodDays,
+      })
+    : null;
+  const todoFlowInsight = todoFlow ? formatTodoFlowInsight(todoFlow) : null;
 
-  // Phase 5.2 + Phase 6: Next Steps CTA handlers. One dispatcher routes
-  // each recommendation `kind` to the right follow-up flow + paywall
-  // gate. Align is never gated (it's reorganizing existing activities,
-  // not creating new structure).
+  // Follow-up CTA handlers. The Chapter surface now only renders concrete
+  // cleanup actions (`align`) so it doesn't ask the user to create vague
+  // new structure from a token cluster.
   const handleNextStepCtaTap = React.useCallback(
     (rec: {
       id?: string;
@@ -479,104 +997,6 @@ export function ChapterDetailScreen() {
     }) => {
       const recommendationId = typeof rec?.id === 'string' ? rec.id : '';
       const kind = rec?.kind;
-
-      if (kind === 'arc') {
-        const nominated = typeof rec?.payload?.title === 'string' ? rec.payload.title.trim() : '';
-        const gate = canCreateArc({ isPro, arcs });
-        if (!gate.ok) {
-          capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
-            chapter_id: chapterId,
-            period_key: chapter?.period_key ?? null,
-            recommendation_id: recommendationId,
-            kind,
-            result: 'paywall',
-          });
-          openPaywallInterstitial({
-            reason: 'limit_arcs_total',
-            source: 'chapter_arc_nomination',
-          });
-          return;
-        }
-        capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
-          chapter_id: chapterId,
-          period_key: chapter?.period_key ?? null,
-          recommendation_id: recommendationId,
-          kind,
-          result: 'create_flow',
-        });
-        if (!rootNavigationRef.isReady()) return;
-        rootNavigationRef.navigate('ArcsStack', {
-          screen: 'ArcsList',
-          params: {
-            openCreateArc: true,
-            prefilledArcName: nominated || undefined,
-            // Phase 8: thread the recommendation context through the
-            // Arc-creation flow so the NewArcModal can record an
-            // `acted_on` event once the Arc is actually created.
-            // Recording here (on CTA tap) would over-count users who
-            // bail before creating the Arc.
-            chapterRecommendation: recommendationId
-              ? { chapterId, recommendationId }
-              : undefined,
-          },
-        } as any);
-        return;
-      }
-
-      if (kind === 'goal') {
-        const nominated = typeof rec?.payload?.title === 'string' ? rec.payload.title.trim() : '';
-        const targetArcId = typeof rec?.payload?.arcId === 'string' ? rec.payload.arcId : '';
-        if (!targetArcId) return;
-        const gate = canCreateGoalInArc({ isPro, goals, arcId: targetArcId });
-        if (!gate.ok) {
-          capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
-            chapter_id: chapterId,
-            period_key: chapter?.period_key ?? null,
-            recommendation_id: recommendationId,
-            kind,
-            result: 'paywall',
-          });
-          openPaywallInterstitial({
-            reason: 'limit_goals_per_arc',
-            source: 'chapter_goal_nomination',
-          });
-          return;
-        }
-        capture(AnalyticsEvent.ChapterNextStepCtaTapped, {
-          chapter_id: chapterId,
-          period_key: chapter?.period_key ?? null,
-          recommendation_id: recommendationId,
-          kind,
-          result: 'create_flow',
-        });
-        if (!rootNavigationRef.isReady()) return;
-        // Deep-link into ArcDetail with prefilled Goal title + manual tab.
-        // The MoreArcs stack is the canonical host under the More tab,
-        // matching the navigation shape used elsewhere in the app.
-        rootNavigationRef.navigate('MainTabs', {
-          screen: 'MoreTab',
-          params: {
-            screen: 'MoreArcs',
-            params: {
-              screen: 'ArcDetail',
-              params: {
-                arcId: targetArcId,
-                openGoalCreation: true,
-                prefilledGoalTitle: nominated || undefined,
-                goalCreationInitialTab: 'manual',
-                // Phase 8: carry the recommendation context into the
-                // Goal-creation flow so ArcDetailScreen can record an
-                // `acted_on` event (with the new goalId) once the
-                // drawer completes.
-                chapterRecommendation: recommendationId
-                  ? { chapterId, recommendationId }
-                  : undefined,
-              },
-            },
-          },
-        } as any);
-        return;
-      }
 
       if (kind === 'align') {
         const targetGoalId = typeof rec?.payload?.goalId === 'string' ? rec.payload.goalId : '';
@@ -616,7 +1036,7 @@ export function ChapterDetailScreen() {
         return;
       }
     },
-    [arcs, capture, chapter?.period_key, chapterId, goals, isPro],
+    [capture, chapter?.period_key, chapterId],
   );
 
   const handleNextStepDismiss = React.useCallback(
@@ -784,7 +1204,7 @@ export function ChapterDetailScreen() {
     [capture, chapter?.period_key, navigation, neighbors],
   );
 
-  const hasDetails = forcesItems.length > 0 || patterns.length > 0 || nextExperiments.length > 0 || whereTimeWent.length > 0;
+  const hasDetails = Boolean(todoFlow) || insightMetrics.length > 0 || patterns.length > 0 || whereTimeWent.length > 0;
   const showHealthPrompt =
     chapter?.status === 'ready' &&
     !healthPreferences.enabled &&
@@ -829,32 +1249,53 @@ export function ChapterDetailScreen() {
   }, [setHealthPreferences]);
 
   return (
-    <AppShell>
-      <PageHeader
-        title="Chapter"
-        onPressBack={() => {
-          if (navigation.canGoBack()) navigation.goBack();
-          else navigation.navigate('MoreChapters');
-        }}
-      />
+    <AppShell fullBleedCanvas>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <VStack space="lg">
+        <View style={styles.chapterHero}>
+          <LinearGradient
+            colors={chapterGradientColors}
+            start={{ x: 0.05, y: 0.05 }}
+            end={{ x: 0.95, y: 0.95 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.04)', 'rgba(0,0,0,0.22)']}
+              start={{ x: 0.2, y: 0 }}
+              end={{ x: 0.8, y: 1 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          </View>
+          <View style={[styles.chapterHeroControls, { paddingTop: insets.top + spacing.md }]}>
+            <View style={styles.chapterHeroControlsRow}>
+              <HeaderActionPill
+                accessibilityLabel="Back to chapters"
+                onPress={() => {
+                  if (navigation.canGoBack()) navigation.goBack();
+                  else navigation.navigate('MoreChapters');
+                }}
+                size={48}
+              >
+                <Icon name="arrowLeft" size={24} color={colors.textPrimary} />
+              </HeaderActionPill>
+              <HeaderActionPill
+                accessibilityLabel="Share this chapter"
+                onPress={() => void handleShare()}
+                size={48}
+              >
+                <Icon name="share" size={21} color={colors.textPrimary} />
+              </HeaderActionPill>
+            </View>
+          </View>
+        </View>
+
+        <VStack space="lg" style={styles.contentStack}>
           <View style={styles.headerBlock}>
-            {kicker ? (
-              <View style={styles.kickerRow}>
-                <Text style={styles.kicker}>{kicker.toUpperCase()}</Text>
-                {story ? (
-                  <Text style={styles.kickerMeta}>{`${readingMinutes} min read`}</Text>
-                ) : null}
-              </View>
-            ) : null}
             <Text style={styles.headline}>{title}</Text>
-            {/* Phase 3.3: caption is the signal-first hero. Dek is only
-                rendered as fallback for legacy chapters without a caption. */}
-            {caption ? (
-              <Text style={styles.caption}>{caption}</Text>
-            ) : dek ? (
-              <Text style={styles.dek}>{dek}</Text>
+            {kicker ? (
+              <Text style={styles.articleMeta}>
+                {story ? `${kicker} · ${readingMinutes} min read` : kicker}
+              </Text>
             ) : null}
             {loading ? <Text style={styles.meta}>Loading…</Text> : null}
             {!loading && !chapter ? <Text style={styles.meta}>Not found.</Text> : null}
@@ -862,53 +1303,23 @@ export function ChapterDetailScreen() {
 
           {chapter ? (
             <>
-              {arcLanes.length > 0 ? (
-                <View style={styles.arcLanesBlock} accessibilityLabel="Arcs reflected in this chapter">
-                  <Text style={styles.sectionLabel}>Arcs this {cadenceForCopy === 'weekly' ? 'week' : cadenceForCopy === 'monthly' ? 'month' : cadenceForCopy === 'yearly' ? 'year' : 'period'}</Text>
-                  <VStack space="xs">
-                    {arcLanes.map((arc, idx) => {
-                      const arcTitle = asString(arc?.arc_title) ?? null;
-                      if (!arcTitle) return null;
-                      const primary = formatArcLanePrimary(arc);
-                      const delta = formatArcLaneDelta(arc, cadenceForCopy);
-                      return (
-                        <View key={`arc-lane-${idx}`} style={styles.arcLaneRow}>
-                          <Text style={styles.arcLaneTitle} numberOfLines={1}>{arcTitle}</Text>
-                          <View style={styles.arcLaneMetaCol}>
-                            <Text style={styles.arcLanePrimary} numberOfLines={1}>{primary}</Text>
-                            {delta ? (
-                              <Text style={styles.arcLaneDelta} numberOfLines={1}>{delta}</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </VStack>
-                </View>
-              ) : null}
-
               <View style={styles.keyFiguresWrap}>
-                <View style={styles.metricsBand}>
+                <Text style={styles.achievementsLabel}>Achievements</Text>
+                <View style={styles.metricsRow}>
                   {primaryStats.map((s, idx) => (
-                    <View key={`p-${idx}`} style={[styles.metricsBandCol, idx < primaryStats.length - 1 && styles.metricsBandColDivider]}>
-                      <Text style={styles.metricsBandValue}>{s.value == null ? '—' : String(s.value)}</Text>
-                      <Text style={styles.metricsBandLabel}>{s.label}</Text>
+                    <View
+                      key={`p-${idx}`}
+                      style={[styles.metricPill, idx < primaryStats.length - 1 && styles.metricPillDivider]}
+                    >
+                      <Text style={styles.metricValue}>{s.value == null ? '—' : String(s.value)}</Text>
+                      <Text style={styles.metricLabel}>{s.label}</Text>
                     </View>
                   ))}
                 </View>
-                <Text style={styles.metricsFootnote} numberOfLines={2}>
-                  {[
-                    createdCount != null ? `${createdCount} created` : null,
-                    carriedCount != null ? `${carriedCount} carried forward` : null,
-                    inProgressCount != null ? `${inProgressCount} still in progress` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || ''}
-                </Text>
               </View>
 
               {healthSummaryRows.length > 0 ? (
-                <Card padding="md" style={styles.card}>
+                <View style={styles.healthSummaryBlock}>
                   <VStack space="sm">
                     <View>
                       <Text style={styles.sectionLabel}>Apple Health</Text>
@@ -930,114 +1341,100 @@ export function ChapterDetailScreen() {
                       ))}
                     </View>
                   </VStack>
-                </Card>
-              ) : null}
-
-              {visibleRecommendations.length > 0 ? (
-                <View style={styles.nextStepsBlock} accessibilityLabel="Next steps suggested by this chapter">
-                  <Text style={styles.sectionLabel}>Next steps</Text>
-                  <VStack space="sm">
-                    {visibleRecommendations.map((rec: any, idx: number) => {
-                      const kind = rec?.kind;
-                      if (kind !== 'arc' && kind !== 'goal' && kind !== 'align') return null;
-                      const reason = asString(rec?.reason) ?? '';
-                      const key = asString(rec?.id) ?? `rec-${idx}`;
-                      let cardTitle: string | null = null;
-                      let primaryLabel: string;
-
-                      if (kind === 'arc') {
-                        const title = asString(rec?.payload?.title) ?? null;
-                        cardTitle = title ? `${title} Arc` : null;
-                        const gate = canCreateArc({ isPro, arcs });
-                        primaryLabel = gate.ok
-                          ? title
-                            ? `Create "${title}" Arc`
-                            : 'Create this Arc'
-                          : 'Unlock more Arcs';
-                      } else if (kind === 'goal') {
-                        const title = asString(rec?.payload?.title) ?? null;
-                        const arcTitle = asString(rec?.payload?.arcTitle) ?? null;
-                        // "Climbing Goal under Fitness" — keeps the Arc
-                        // context visible at a glance so the user isn't
-                        // surprised when the form opens on that Arc.
-                        cardTitle = title
-                          ? arcTitle
-                            ? `${title} Goal · ${arcTitle}`
-                            : `${title} Goal`
-                          : null;
-                        const targetArcId =
-                          typeof rec?.payload?.arcId === 'string' ? rec.payload.arcId : '';
-                        const gate = targetArcId
-                          ? canCreateGoalInArc({ isPro, goals, arcId: targetArcId })
-                          : { ok: true as const, activeCount: 0, limit: 0 };
-                        primaryLabel = gate.ok
-                          ? title
-                            ? `Create "${title}" Goal`
-                            : 'Create this Goal'
-                          : 'Unlock more Goals';
-                      } else {
-                        // kind === 'align'
-                        const goalTitle = asString(rec?.payload?.goalTitle) ?? null;
-                        const arcTitle = asString(rec?.payload?.arcTitle) ?? null;
-                        const ids = Array.isArray(rec?.payload?.activityIds)
-                          ? rec.payload.activityIds.filter(
-                              (x: unknown) => typeof x === 'string',
-                            )
-                          : [];
-                        cardTitle = goalTitle
-                          ? arcTitle
-                            ? `Tag activities · ${goalTitle} (${arcTitle})`
-                            : `Tag activities · ${goalTitle}`
-                          : 'Tag to-dos';
-                        primaryLabel =
-                          ids.length === 1
-                            ? 'Tag 1 to-do'
-                            : `Tag ${ids.length} activities`;
-                      }
-
-                      return (
-                        <View key={key} style={styles.nextStepCard}>
-                          {cardTitle ? (
-                            <Text style={styles.nextStepTitle} numberOfLines={2}>
-                              {cardTitle}
-                            </Text>
-                          ) : null}
-                          {reason ? (
-                            <Text style={styles.nextStepReason}>{reason}</Text>
-                          ) : null}
-                          <View style={styles.nextStepActions}>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={primaryLabel}
-                              onPress={() => handleNextStepCtaTap(rec)}
-                              style={styles.nextStepPrimary}
-                            >
-                              <Text style={styles.nextStepPrimaryLabel}>{primaryLabel}</Text>
-                            </Pressable>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel="Not now"
-                              onPress={() => handleNextStepDismiss(rec)}
-                              style={styles.nextStepSecondary}
-                            >
-                              <Text style={styles.nextStepSecondaryLabel}>Not now</Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </VStack>
                 </View>
               ) : null}
 
-              {/* Phase 7.1: first-class "add a line" user note. Sits
-                  between Next Steps and the full-story disclosure so
-                  it reads above the fold — the user's own voice beside
-                  the signal the generator just surfaced. Collapsed
-                  states: saved note renders as a pull-quote; empty
-                  state renders the CTA. Expanded state: multiline
-                  input + Save/Cancel (OS dictation works out of the
-                  box in a TextInput, so voice capture is free). */}
+              {story ? (
+                <View style={styles.articleWrap}>
+                  <VStack space="md" style={styles.storyBody}>
+                    {(() => {
+                      const renderedGoalIds = new Set<string>();
+                      let paragraphIndex = 0;
+                      const blocks = splitArticleBlocks(story);
+                      const firstGoalBlockIndex = blocks.findIndex(
+                        (block) =>
+                          block.kind === 'p' &&
+                          goalStoryPlates.some((goal) => goalMentionedInText(block.text, goal.title)),
+                      );
+                      return blocks.map((b, idx) => {
+                        const paragraphOrdinal = b.kind === 'p' ? paragraphIndex++ : -1;
+                        const beforeGoalThreads = firstGoalBlockIndex === -1 || idx < firstGoalBlockIndex;
+                        const goalPlate =
+                          b.kind === 'p'
+                            ? goalStoryPlates.find((goal) => !renderedGoalIds.has(goal.id) && goalMentionedInText(b.text, goal.title)) ?? null
+                            : null;
+                        if (goalPlate) renderedGoalIds.add(goalPlate.id);
+                        const inset =
+                          b.kind === 'p' && beforeGoalThreads && paragraphOrdinal === 0 && forceStoryInset
+                            ? forceStoryInset
+                            : b.kind === 'p' && firstGoalBlockIndex === -1 && paragraphOrdinal === 1 && highlights.length > 0
+                              ? { label: 'Notable', text: highlights[0] }
+                              : b.kind === 'p' && firstGoalBlockIndex === -1 && paragraphOrdinal === 2 && whereTimeWent.length > 0
+                                ? { label: 'Work thread', text: whereTimeWent[0] }
+                                : b.kind === 'p' && firstGoalBlockIndex === -1 && paragraphOrdinal === 3 && arcLanes.length > 0
+                                  ? {
+                                      label: 'Arc in frame',
+                                      text: `${asString(arcLanes[0]?.arc_title) ?? 'An Arc'}: ${formatArcLanePrimary(arcLanes[0])}`,
+                                    }
+                                  : null;
+                        return (
+                          <React.Fragment key={`story-${idx}`}>
+                            {goalPlate ? (
+                              <View style={styles.goalStoryPlate}>
+                                {goalPlate.imageUrl ? (
+                                  <Image source={{ uri: goalPlate.imageUrl }} style={styles.goalStoryImage} />
+                                ) : (
+                                  <View style={styles.goalStoryImageFallback}>
+                                    <Icon name="target" size={18} color={colors.pine700} />
+                                  </View>
+                                )}
+                                <View style={styles.goalStoryText}>
+                                  <Text style={styles.storyInsetLabel}>Goal thread</Text>
+                                  <Text style={styles.goalStoryTitle} numberOfLines={2}>{goalPlate.title}</Text>
+                                </View>
+                              </View>
+                            ) : null}
+                            {b.kind === 'h2' ? (
+                              <RichArticleText text={b.text} style={styles.articleSubhead} />
+                            ) : (
+                              <RichArticleText
+                                text={b.text}
+                                style={styles.articleBody}
+                                emphasizeFirstWord={paragraphOrdinal === 0}
+                              />
+                            )}
+                            {inset ? (
+                              <View style={styles.storyInset}>
+                                <Text style={styles.storyInsetLabel}>{inset.label}</Text>
+                                <RichArticleText text={inset.text} style={styles.storyInsetText} />
+                              </View>
+                            ) : null}
+                          </React.Fragment>
+                        );
+                      });
+                    })()}
+                  </VStack>
+                </View>
+              ) : (
+                <View style={styles.articleWrap}>
+                  {chapter.status === 'failed' ? (
+                    <Text style={styles.articleBody}>
+                      We couldn&apos;t write this week&apos;s chapter. Your data is safe; we just hit a
+                      snag assembling the story. We&apos;ll try again next week.
+                    </Text>
+                  ) : (
+                    <Text style={styles.articleBody}>
+                      Your chapter is being written. This usually takes under a minute — pull to refresh if it doesn&apos;t appear shortly.
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Phase 7.1: first-class "add a line" user note. Collapsed
+                  states: saved note renders as a pull-quote; empty state
+                  renders the CTA. Expanded state: multiline input +
+                  Save/Cancel (OS dictation works out of the box in a
+                  TextInput, so voice capture is free). */}
               {chapter.status === 'ready' ? (
                 <View style={styles.userNoteWrap} accessibilityLabel="Add your own line to this chapter">
                   {userNoteEditing ? (
@@ -1123,74 +1520,6 @@ export function ChapterDetailScreen() {
                 </View>
               ) : null}
 
-              {/* Phase 3.3: article body is now the secondary read, behind
-                  a "Read the full story" disclosure. Failed / pending states
-                  still render inline since there's no long-form to hide. */}
-              {story ? (
-                <View style={styles.articleWrap}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={storyExpanded ? 'Hide the full story' : 'Read the full story'}
-                    onPress={() =>
-                      setStoryExpanded((v) => {
-                        const next = !v;
-                        if (next) {
-                          capture(AnalyticsEvent.ChapterSectionExpanded, {
-                            section: 'story',
-                            period_key: chapter?.period_key ?? null,
-                          });
-                        }
-                        return next;
-                      })
-                    }
-                  >
-                    <View style={styles.storyDiscloseRow}>
-                      <Text style={styles.storyDiscloseLabel}>
-                        {storyExpanded ? 'Hide the full story' : 'Read the full story'}
-                      </Text>
-                      <Text style={styles.storyDiscloseMeta}>{`${readingMinutes} min`}</Text>
-                    </View>
-                  </Pressable>
-                  {storyExpanded ? (
-                    <VStack space="sm" style={styles.storyBody}>
-                      {splitArticleBlocks(story).map((b, idx) =>
-                        b.kind === 'h2' ? (
-                          <Text key={`h-${idx}`} style={styles.articleSubhead}>
-                            {b.text}
-                          </Text>
-                        ) : (
-                          <Text key={`p-${idx}`} style={styles.articleBody}>
-                            {b.text}
-                          </Text>
-                        ),
-                      )}
-                    </VStack>
-                  ) : null}
-                </View>
-              ) : (
-                <View style={styles.articleWrap}>
-                  {chapter.status === 'failed' ? (
-                    <Text style={styles.articleBody}>
-                      We couldn&apos;t write this week&apos;s chapter. Your data is safe; we just hit a
-                      snag assembling the story. We&apos;ll try again next week.
-                    </Text>
-                  ) : (
-                    <Text style={styles.articleBody}>
-                      Your chapter is being written. This usually takes under a minute — pull to refresh if it doesn&apos;t appear shortly.
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              {highlights.length > 0 ? (
-                <VStack space="xs" style={styles.highlightsBlock}>
-                  <Text style={styles.appendixHeading}>Highlights</Text>
-                  {highlights.map((line, idx) => (
-                    <Text key={`hi-${idx}`} style={styles.body}>{`\u2022 ${line}`}</Text>
-                  ))}
-                </VStack>
-              ) : null}
-
               {story ? (
                 <View style={styles.feedbackWrap}>
                   <Text style={styles.feedbackPrompt}>
@@ -1220,15 +1549,6 @@ export function ChapterDetailScreen() {
                     >
                       <Icon name="thumbsDown" size={18} color={feedback?.rating === 'down' ? colors.canvas : colors.textSecondary} />
                       <Text style={[styles.feedbackButtonLabel, feedback?.rating === 'down' && styles.feedbackButtonLabelActive]}>Off</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Share this chapter"
-                      onPress={() => void handleShare()}
-                      style={styles.feedbackButton}
-                    >
-                      <Icon name="share" size={18} color={colors.textSecondary} />
-                      <Text style={styles.feedbackButtonLabel}>Share</Text>
                     </Pressable>
                   </View>
                   {(feedbackNoteVisible || (feedback?.rating === 'down' && !feedback?.note)) ? (
@@ -1263,78 +1583,188 @@ export function ChapterDetailScreen() {
               ) : null}
 
               {hasDetails ? (
-                <Card padding="md" style={styles.card}>
-                  <VStack space="xs">
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={detailsExpanded ? 'Hide chapter details' : 'Show chapter details'}
-                      onPress={() =>
-                        setDetailsExpanded((v) => {
-                          const next = !v;
-                          if (next) {
-                            capture(AnalyticsEvent.ChapterSectionExpanded, {
-                              section: 'details',
-                              period_key: chapter?.period_key ?? null,
-                            });
-                          }
-                          return next;
-                        })
-                      }
-                    >
-                      <View style={styles.detailsHeaderRow}>
-                        <Heading style={styles.sectionHeading}>Details</Heading>
-                        <Text style={styles.detailsToggle}>{detailsExpanded ? 'Hide' : 'Show'}</Text>
+                <View style={styles.detailsBlock}>
+                  <Text style={styles.sectionLabel}>Details</Text>
+                  <VStack space="sm" style={styles.detailsCards}>
+                    {currentVelocity != null || allTimeVelocity != null ? (
+                      <View style={styles.bigMetricRow}>
+                        <Card padding="sm" marginVertical={0} elevation="none" style={styles.bigMetricCard}>
+                          <Text style={styles.detailCardTitle}>Velocity</Text>
+                          <View style={styles.bigMetricBody}>
+                            <Text style={[styles.bigMetricValue, { color: velocityValueColor }]}>{formatVelocity(currentVelocity)}</Text>
+                            <Text style={styles.bigMetricUnit}>to-dos / week</Text>
+                          </View>
+                        </Card>
+                        <Card padding="sm" marginVertical={0} elevation="none" style={styles.bigMetricCard}>
+                          <Text style={styles.detailCardTitle}>All-time avg</Text>
+                          <View style={styles.bigMetricBody}>
+                            <Text style={styles.bigMetricValue}>{formatVelocity(allTimeVelocity)}</Text>
+                            <Text style={styles.bigMetricUnit}>to-dos / week</Text>
+                          </View>
+                        </Card>
                       </View>
-                    </Pressable>
+                    ) : null}
 
-                    {detailsExpanded ? (
-                      <VStack space="md">
-                        {whereTimeWent.length > 0 ? (
-                          <VStack space="xs">
-                            <Text style={styles.appendixHeading}>Where the work landed</Text>
-                            {whereTimeWent.map((line, idx) => (
-                              <Text key={`wtw-${idx}`} style={styles.body}>{`\u2022 ${line}`}</Text>
+                    {todoFlow && todoFlowChart ? (
+                      <Card padding="sm" marginVertical={0} elevation="none" style={styles.detailCard}>
+                        <View style={styles.todoFlowBlock}>
+                          <Text style={styles.detailCardTitle}>To-do flow</Text>
+                          <Text style={styles.detailCardDescription}>
+                            Showing backlog movement across this Chapter.
+                          </Text>
+                          <View style={styles.todoFlowChartWrap}>
+                            <Svg
+                              width="100%"
+                              height={TODO_FLOW_CHART.height}
+                              viewBox={`0 0 ${TODO_FLOW_CHART.width} ${TODO_FLOW_CHART.height}`}
+                              accessibilityLabel="To-do burn-down chart"
+                            >
+                              {todoFlowChart.grid.map((line, idx) => (
+                                <Line
+                                  key={`grid-${idx}`}
+                                  x1={TODO_FLOW_CHART.left}
+                                  x2={TODO_FLOW_CHART.width - TODO_FLOW_CHART.right}
+                                  y1={line.y}
+                                  y2={line.y}
+                                  stroke={colors.sumi200}
+                                  strokeWidth={1}
+                                />
+                              ))}
+                              {todoFlowChart.yAxisLabels.map((axisLabel, idx) => (
+                                <SvgText
+                                  key={`y-axis-${idx}`}
+                                  x={0}
+                                  y={axisLabel.y + 5}
+                                  fill={colors.textSecondary}
+                                  fontFamily={typography.bodySm.fontFamily}
+                                  fontSize={typography.bodySm.fontSize}
+                                  textAnchor="start"
+                                >
+                                  {axisLabel.label}
+                                </SvgText>
+                              ))}
+                              <Path d={todoFlowChart.areaPath} fill={colors.quiltBlue500} opacity={0.14} />
+                              <Path
+                                d={todoFlowChart.linePath}
+                                fill="none"
+                                stroke={colors.quiltBlue500}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </Svg>
+                          </View>
+                          <View style={styles.todoFlowChartLabels}>
+                            {todoFlowChart.points.map((point, idx) => (
+                              <Text key={`${point.label}-${idx}`} style={styles.todoFlowChartLabel}>
+                                {point.label}
+                              </Text>
                             ))}
-                          </VStack>
-                        ) : null}
+                          </View>
+                          <View style={styles.todoFlowFooter}>
+                            <View style={styles.todoFlowFooterTitleRow}>
+                              <Text style={styles.todoFlowFooterTitle}>
+                                {todoFlowInsight ?? 'Backlog held steady this period'}
+                              </Text>
+                              {todoFlow.netAdded !== 0 ? (
+                                <Icon
+                                  name={todoFlow.netAdded > 0 ? 'trendUp' : 'trendDown'}
+                                  size={16}
+                                  color={colors.textPrimary}
+                                />
+                              ) : null}
+                            </View>
+                            <Text style={styles.todoFlowFooterText}>
+                              {kicker || 'Chapter period'}
+                            </Text>
+                          </View>
+                        </View>
+                      </Card>
+                    ) : null}
 
-                        {nextExperiments.length > 0 ? (
-                          <VStack space="xs">
-                            <Text style={styles.appendixHeading}>Next experiments</Text>
-                            {nextExperiments.map((line, idx) => (
-                              <Text key={`nx-${idx}`} style={styles.body}>{`\u2022 ${line}`}</Text>
-                            ))}
-                          </VStack>
-                        ) : null}
-
-                        {forcesItems.length > 0 ? (
-                          <VStack space="xs">
-                            <Text style={styles.appendixHeading}>Forces</Text>
-                            {forcesItems.map((it, idx) => {
-                              const force = asString(it?.force) ?? 'Force';
-                              const body = asString(it?.body) ?? '';
-                              const line = body ? `${force}: ${body}` : force;
-                              return (
-                                <Text key={`forces-${idx}`} style={styles.body}>
-                                  {`\u2022 ${line}`}
-                                </Text>
-                              );
-                            })}
-                          </VStack>
-                        ) : null}
-
-                        {patterns.length > 0 ? (
-                          <VStack space="xs">
-                            <Text style={styles.appendixHeading}>Patterns</Text>
-                            {patterns.map((line, idx) => (
-                              <Text key={`pat-${idx}`} style={styles.body}>{`\u2022 ${line}`}</Text>
-                            ))}
-                          </VStack>
-                        ) : null}
-                      </VStack>
+                    {insightMetrics.length > 0 ? (
+                      <View style={styles.bigMetricRow}>
+                        {insightMetrics.map((metric) => (
+                          <Card key={metric.title} padding="sm" marginVertical={0} elevation="none" style={styles.bigMetricCard}>
+                            <Text style={styles.detailCardTitle}>{metric.title}</Text>
+                            <View style={styles.bigMetricBody}>
+                              <Text style={styles.bigMetricValue}>{metric.value}</Text>
+                              <Text style={styles.bigMetricUnit}>{metric.unit}</Text>
+                            </View>
+                          </Card>
+                        ))}
+                      </View>
                     ) : null}
                   </VStack>
-                </Card>
+
+                  {whereTimeWent.length > 0 ? (
+                    <VStack space="xs" style={styles.detailList}>
+                      <Text style={styles.appendixHeading}>Where the work landed</Text>
+                      {whereTimeWent.slice(1, 4).map((line, idx) => (
+                        <Text key={`wtw-${idx}`} style={styles.detailLine}>{line}</Text>
+                      ))}
+                    </VStack>
+                  ) : null}
+
+                  {patterns.length > 0 ? (
+                    <VStack space="xs" style={styles.detailList}>
+                      <Text style={styles.appendixHeading}>Patterns</Text>
+                      {patterns.slice(0, 3).map((line, idx) => (
+                        <Text key={`pat-${idx}`} style={styles.detailLine}>{line}</Text>
+                      ))}
+                    </VStack>
+                  ) : null}
+
+                </View>
+              ) : null}
+
+              {actionableRecommendations.length > 0 ? (
+                <View style={styles.nextStepsBlock} accessibilityLabel="Chapter follow-up actions">
+                  <Text style={styles.sectionLabel}>Loose ends</Text>
+                  <VStack space="sm">
+                    {actionableRecommendations.map((rec: any, idx: number) => {
+                      const reason = asString(rec?.reason) ?? '';
+                      const key = asString(rec?.id) ?? `rec-${idx}`;
+                      const goalTitle = asString(rec?.payload?.goalTitle) ?? null;
+                      const arcTitle = asString(rec?.payload?.arcTitle) ?? null;
+                      const ids = Array.isArray(rec?.payload?.activityIds)
+                        ? rec.payload.activityIds.filter((x: unknown) => typeof x === 'string')
+                        : [];
+                      const cardTitle = goalTitle
+                        ? arcTitle
+                          ? `${goalTitle} (${arcTitle})`
+                          : goalTitle
+                        : 'Tag loose to-dos';
+                      const primaryLabel = ids.length === 1 ? 'Tag 1 to-do' : `Tag ${ids.length} to-dos`;
+
+                      return (
+                        <View key={key} style={styles.nextStepCard}>
+                          <Text style={styles.nextStepEyebrow}>Optional cleanup</Text>
+                          <Text style={styles.nextStepTitle} numberOfLines={2}>{cardTitle}</Text>
+                          {reason ? <Text style={styles.nextStepReason} numberOfLines={3}>{reason}</Text> : null}
+                          <View style={styles.nextStepActions}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={primaryLabel}
+                              onPress={() => handleNextStepCtaTap(rec)}
+                              style={styles.nextStepPrimary}
+                            >
+                              <Text style={styles.nextStepPrimaryLabel}>{primaryLabel}</Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Not now"
+                              onPress={() => handleNextStepDismiss(rec)}
+                              style={styles.nextStepSecondary}
+                            >
+                              <Text style={styles.nextStepSecondaryLabel}>Not now</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </VStack>
+                </View>
               ) : null}
 
               {showHealthPrompt ? (
@@ -1409,38 +1839,39 @@ export function ChapterDetailScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: spacing.lg,
     paddingBottom: spacing['2xl'],
   },
-  headerBlock: {
-    marginTop: spacing.md,
+  chapterHero: {
+    height: 230,
     width: '100%',
+    overflow: 'hidden',
+    backgroundColor: colors.pine700,
   },
-  kickerRow: {
+  chapterHeroControls: {
+    paddingHorizontal: spacing.lg,
+  },
+  chapterHeroControlsRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs,
   },
-  kicker: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    letterSpacing: 1.2,
+  contentStack: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
-  kickerMeta: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+  headerBlock: {
+    width: '100%',
   },
   headline: {
     ...typography.titleLg,
     color: colors.textPrimary,
     textAlign: 'left',
   },
-  dek: {
-    ...typography.body,
-    color: colors.textPrimary,
-    textAlign: 'left',
-    marginTop: spacing.xs,
+  articleMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   meta: {
     ...typography.bodySm,
@@ -1453,13 +1884,8 @@ const styles = StyleSheet.create({
   },
   keyFiguresWrap: {
     width: '100%',
-  },
-  caption: {
-    ...typography.body,
-    color: colors.textPrimary,
-    textAlign: 'left',
-    marginTop: spacing.xs,
-    lineHeight: 24,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
   // Phase 3.3 arc lanes — a stacked list of Arc × delta rows. Designed to
   // read as the primary above-the-fold signal, not a chip garnish. Rows use
@@ -1504,22 +1930,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  storyDiscloseRow: {
+  storyHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  storyDiscloseLabel: {
-    ...typography.bodySm,
-    color: colors.pine700,
-    fontWeight: '700',
   },
   storyDiscloseMeta: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
   storyBody: {
-    marginTop: spacing.md,
+    marginTop: 0,
   },
   nextStepsBlock: {
     width: '100%',
@@ -1527,12 +1948,16 @@ const styles = StyleSheet.create({
   },
   nextStepCard: {
     width: '100%',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.pine100,
-    backgroundColor: colors.canvas,
-    padding: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
     gap: spacing.xs,
+  },
+  nextStepEyebrow: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   nextStepTitle: {
     ...typography.body,
@@ -1572,39 +1997,45 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '600',
   },
-  metricsBand: {
-    width: '100%',
-    borderRadius: 16,
-    backgroundColor: colors.pine700,
+  metricsRow: {
     flexDirection: 'row',
-    overflow: 'hidden',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    width: '100%',
   },
-  metricsBandCol: {
+  achievementsLabel: {
+    ...typography.bodyXs,
+    color: colors.sumi400,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
+  },
+  metricPill: {
     flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
-  metricsBandColDivider: {
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.25)',
+  metricValue: {
+    ...typography.titleMd,
+    color: colors.sumi900,
+    fontWeight: '600',
   },
-  metricsBandValue: {
-    ...typography.titleLg,
-    color: colors.canvas,
-  },
-  metricsBandLabel: {
+  metricLabel: {
     ...typography.bodySm,
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.sumi500,
     marginTop: 2,
     textAlign: 'center',
   },
-  metricsFootnote: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
+  metricPillDivider: {
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: colors.sumi200,
+  },
+  healthSummaryBlock: {
+    width: '100%',
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   healthSummaryIntro: {
     ...typography.bodySm,
@@ -1647,9 +2078,6 @@ const styles = StyleSheet.create({
   articleWrap: {
     width: '100%',
     marginTop: spacing.sm,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   sectionHeading: {
     ...typography.titleSm,
@@ -1666,25 +2094,208 @@ const styles = StyleSheet.create({
   },
   articleBody: {
     ...typography.body,
-    color: colors.textPrimary,
-    lineHeight: 24,
+    color: colors.sumi800,
+    lineHeight: 25,
   },
   articleSubhead: {
     ...typography.titleSm,
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
-  detailsToggle: {
+  storyInset: {
+    marginVertical: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.pine700,
+    backgroundColor: 'rgba(49,85,69,0.035)',
+  },
+  storyInsetLabel: {
     ...typography.bodySm,
     color: colors.pine700,
+    fontWeight: '700',
+    marginBottom: 2,
   },
-  detailsHeaderRow: {
+  storyInsetText: {
+    ...typography.bodySm,
+    color: colors.sumi700,
+    lineHeight: 20,
+  },
+  inlineBold: {
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  inlineLeadWord: {
+    fontFamily: typography.bodyBold.fontFamily,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  inlineItalic: {
+    fontStyle: 'italic',
+  },
+  goalStoryPlate: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    columnGap: spacing.sm,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  highlightsBlock: {
-    paddingTop: spacing.xs,
+  goalStoryImage: {
+    width: 76,
+    height: 58,
+    borderRadius: 8,
+    backgroundColor: colors.pine50,
+  },
+  goalStoryImageFallback: {
+    width: 76,
+    height: 58,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.pine50,
+  },
+  goalStoryText: {
+    flex: 1,
+  },
+  goalStoryTitle: {
+    ...typography.body,
+    color: colors.sumi900,
+    fontWeight: '600',
+  },
+  detailsBlock: {
+    width: '100%',
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  detailsCards: {
+    width: '100%',
+    marginTop: spacing.xs,
+  },
+  detailCard: {
+    width: '100%',
+  },
+  bigMetricRow: {
+    flexDirection: 'row',
+    columnGap: spacing.sm,
+    width: '100%',
+  },
+  bigMetricCard: {
+    flex: 1,
+    minHeight: 178,
+    alignItems: 'stretch',
+  },
+  bigMetricBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  bigMetricValue: {
+    ...typography.titleXl,
+    fontSize: 40,
+    lineHeight: 46,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  bigMetricUnit: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  todoFlowBlock: {
+    width: '100%',
+  },
+  detailCardTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+  },
+  detailCardDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  detailSupportingText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  todoFlowChartWrap: {
+    width: '100%',
+    height: TODO_FLOW_CHART.height,
+    marginTop: spacing['2xl'],
+  },
+  todoFlowChartLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingLeft: TODO_FLOW_CHART.left,
+    paddingRight: TODO_FLOW_CHART.right,
+    marginTop: spacing.xs,
+  },
+  todoFlowChartLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    flex: 1,
+    textAlign: 'center',
+  },
+  todoFlowFooter: {
+    marginTop: spacing['2xl'],
+  },
+  todoFlowFooterTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  todoFlowFooterTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: typography.bodyBold.fontFamily,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  todoFlowFooterText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  detailStatGrid: {
+    marginTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  detailStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  detailStatLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  detailStatValue: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  detailList: {
+    marginTop: spacing.md,
+  },
+  detailLine: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    lineHeight: 20,
   },
   feedbackWrap: {
     width: '100%',
