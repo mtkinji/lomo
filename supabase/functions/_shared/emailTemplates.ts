@@ -47,8 +47,8 @@ function getCompanyPostalAddress(): string[] {
   if (!raw) return [];
   return raw
     .split('|')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .map((line: string) => line.trim())
+    .filter((line: string) => line.length > 0);
 }
 
 // ---------------------------------------------------------------------------

@@ -338,12 +338,16 @@ function matchesCondition(activity: Activity, condition: FilterCondition): boole
       return false;
     }
     case 'gt':
+      if (value === undefined || value === null) return false;
       return activityValue > value;
     case 'lt':
+      if (value === undefined || value === null) return false;
       return activityValue < value;
     case 'gte':
+      if (value === undefined || value === null) return false;
       return activityValue >= value;
     case 'lte':
+      if (value === undefined || value === null) return false;
       return activityValue <= value;
     case 'exists':
       return activityValue !== null && activityValue !== undefined && activityValue !== '';
@@ -483,7 +487,7 @@ function buildGoalProgress(params: { activities: Activity[]; goalById: Record<st
     totalMinutes: entry.totalMinutes,
     stepsCompleted: entry.stepsCompleted || null,
     stepsTotal: entry.stepsTotal || null,
-    topTags: Object.entries(entry.topTags)
+    topTags: Object.entries(entry.topTags as Record<string, number>)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([tag, count]) => ({ tag, count })),

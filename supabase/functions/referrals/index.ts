@@ -51,7 +51,7 @@ function getSupabaseAdmin() {
   });
 }
 
-function parseCsvList(raw: string | null): string[] {
+function parseCsvList(raw: string | null | undefined): string[] {
   if (!raw) return [];
   return raw
     .split(',')
@@ -183,6 +183,7 @@ serve(async (req) => {
   const quotaKey = `install:${installId}`;
 
   if (route === '/create') {
+    const body = await req.json().catch(() => ({}));
     const rawKind = typeof (body as any)?.kind === 'string' ? (body as any).kind.trim() : 'standard';
     const kind = rawKind === 'shared_goal_invite' ? 'shared_goal_invite' : 'standard';
     // Create or reuse an existing code for this inviter.
@@ -305,5 +306,4 @@ serve(async (req) => {
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });
 });
-
 

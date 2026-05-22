@@ -52,6 +52,8 @@ type UserContext = {
   activitiesCompleted: number;
 };
 
+type DripResult = { userId: string; messageKey: string; ok: boolean; error: string | null };
+
 // Day 0 is sent synchronously on signup (below). Day 1/3/7 come from the
 // cron run — Day 1 was previously handled by a Resend Automation, moved
 // in-repo 2026-04 so every welcome touch carries List-Unsubscribe headers.
@@ -191,7 +193,7 @@ serve(async (req) => {
   // auth.users isn't directly queryable via PostgREST. Use an RPC or raw query.
   // Instead, query the admin auth API for user listing.
   const now = Date.now();
-  const results: Array<{ userId: string; messageKey: string; ok: boolean; error?: string | null }> = [];
+  const results: DripResult[] = [];
 
   // Use admin auth API to list users (paginated, max 1000 per page).
   // For cron runs, we only need users created in the last 8 days.
@@ -321,7 +323,7 @@ serve(async (req) => {
         userId: user.id,
         messageKey: msg.key,
         ok: sent,
-        ...(sent ? null : { error: outcome.reason }),
+        error: sent ? null : outcome.reason,
       });
       break; // one message per user per run
     }
@@ -485,20 +487,25 @@ serve(async (req) => {
         );
       }
 
-      winbackResults.push({ userId, messageKey, ok: sent });
+      winbackResults.push({ userId, messageKey, ok: sent, error: null });
     }
   }
 
-  return json(200, {
+  const responseBody = {
     ok: true,
     mode: isManual ? 'manual' : 'scheduled',
     evaluated: users.length,
     sent: results.filter((r) => r.ok).length,
     results,
-    winback: runWinback ? {
-      evaluated: winbackResults.length,
-      sent: winbackResults.filter((r) => r.ok).length,
-      results: winbackResults,
-    } : undefined,
-  });
+    ...(runWinback
+      ? {
+          winback: {
+            evaluated: winbackResults.length,
+            sent: winbackResults.filter((r) => r.ok).length,
+            results: winbackResults,
+          },
+        }
+      : {}),
+  };
+  return json(200, responseBody);
 });

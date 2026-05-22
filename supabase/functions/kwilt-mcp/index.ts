@@ -226,7 +226,7 @@ function pickStringArray(v: unknown): string[] {
 
 function normalizeStatusFilter(v: unknown, allowed: string[], fallback: string[]): string[] {
   const raw = Array.isArray(v)
-    ? v.map(asString).filter(Boolean)
+    ? v.map(asString).filter((item): item is string => Boolean(item))
     : asString(v)
       ? [asString(v) as string]
       : [];
@@ -1326,5 +1326,4 @@ serve(async (req) => {
     return json(200, rpcError(id, 500, msg));
   }
 });
-
 
