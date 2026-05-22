@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
@@ -63,6 +63,7 @@ jest.mock('../../services/LocationPermissionService', () => ({
 
 describe('NotificationsSettingsScreen', () => {
   beforeEach(() => {
+    jest.useRealTimers();
     resetAllStores();
     jest.spyOn(NotificationService, 'syncOsPermissionStatus').mockResolvedValue('authorized');
     jest.spyOn(NotificationService, 'applySettings').mockImplementation(async (next: any) => {
@@ -136,7 +137,9 @@ describe('NotificationsSettingsScreen', () => {
     });
 
     expect(queryByTestId('bottom-drawer')).toBeTruthy();
-    fireEvent.press(getByLabelText(saveLabel));
+    await act(async () => {
+      fireEvent.press(getByLabelText(saveLabel));
+    });
     await waitFor(() => {
       expect(queryByTestId('bottom-drawer')).toBeNull();
     });
