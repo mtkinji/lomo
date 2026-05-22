@@ -19,12 +19,14 @@ import { HStack, VStack } from './primitives';
 import { Icon, type IconName } from './Icon';
 import Svg, { Circle } from 'react-native-svg';
 import Reanimated, {
+  cancelAnimation,
   Easing as ReanimatedEasing,
   type SharedValue,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
@@ -86,6 +88,7 @@ export type ActionDockItem = {
   icon: IconName;
   accessibilityLabel: string;
   onPress: () => void;
+  disabled?: boolean;
   testID?: string;
   /**
    * Optional ref target for coachmarks/tutorials to spotlight this specific action.
@@ -134,6 +137,11 @@ type Props = {
    * When provided, a solid fill is drawn on top of the BlurView.
    */
   rightItemBackgroundColor?: string;
+  /**
+   * When true, the right-side action shows a pulsing AI halo and swaps its icon
+   * to the lightning glyph. The button may also be disabled via `rightItem.disabled`.
+   */
+  rightItemThinking?: boolean;
   /**
    * Monotonic key that triggers a staged completion celebration sequence
    * (ring -> fill -> confetti + haptic).
@@ -196,6 +204,48 @@ const DOCK_RADIUS = 99;
 const DOCK_ICON_SIZE = 22;
 const LEFT_ITEM_SIZE = 44;
 const RIGHT_ITEM_SIZE = 56;
+const THINKING_DOT_SIZE = 5;
+const THINKING_DOT_GAP = 4;
+
+type ThinkingDotsProps = {
+  color: string;
+  thinkingT: SharedValue<number>;
+};
+
+function ThinkingDots({ color, thinkingT }: ThinkingDotsProps) {
+  const dot1Style = useAnimatedStyle(() => {
+    const t = thinkingT.value;
+    const wave = Math.sin((t * Math.PI * 2) + 0);
+    return {
+      opacity: 0.58 + 0.42 * Math.max(0, wave),
+      transform: [{ translateY: -2.5 * Math.max(0, wave) }],
+    };
+  });
+  const dot2Style = useAnimatedStyle(() => {
+    const t = thinkingT.value;
+    const wave = Math.sin((t * Math.PI * 2) - 0.7);
+    return {
+      opacity: 0.58 + 0.42 * Math.max(0, wave),
+      transform: [{ translateY: -2.5 * Math.max(0, wave) }],
+    };
+  });
+  const dot3Style = useAnimatedStyle(() => {
+    const t = thinkingT.value;
+    const wave = Math.sin((t * Math.PI * 2) - 1.4);
+    return {
+      opacity: 0.58 + 0.42 * Math.max(0, wave),
+      transform: [{ translateY: -2.5 * Math.max(0, wave) }],
+    };
+  });
+
+  return (
+    <View pointerEvents="none" style={styles.thinkingDots}>
+      <AnimatedView style={[styles.thinkingDot, { backgroundColor: color }, dot1Style]} />
+      <AnimatedView style={[styles.thinkingDot, { backgroundColor: color }, dot2Style]} />
+      <AnimatedView style={[styles.thinkingDot, { backgroundColor: color }, dot3Style]} />
+    </View>
+  );
+}
 
 export function ActionDock({
   leftItems,
@@ -205,6 +255,7 @@ export function ActionDock({
   rightItemProgress,
   rightItemRingColor,
   rightItemBackgroundColor,
+  rightItemThinking = false,
   rightItemCelebrateKey,
   onRightItemCelebrateComplete,
   rightItemCenterLabel,
@@ -301,6 +352,7 @@ export function ActionDock({
   const bgOpacity = useSharedValue(0);
   const confettiT = useSharedValue(0);
   const centerLabelT = useSharedValue(0);
+  const thinkingT = useSharedValue(0);
   const lastBgColorRef = React.useRef<string | null>(null);
   if (rightItemBackgroundColor) lastBgColorRef.current = rightItemBackgroundColor;
   const effectiveBgColor = lastBgColorRef.current;
@@ -309,6 +361,23 @@ export function ActionDock({
   const hapticTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebrateCompleteTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevCenterLabelPulseKeyRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (rightItemThinking) {
+      thinkingT.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 700, easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic) }),
+          withTiming(0, { duration: 700, easing: ReanimatedEasing.inOut(ReanimatedEasing.cubic) }),
+        ),
+        -1,
+        false,
+      );
+      return;
+    }
+
+    cancelAnimation(thinkingT);
+    thinkingT.value = withTiming(0, { duration: 180, easing: ReanimatedEasing.out(ReanimatedEasing.cubic) });
+  }, [rightItemThinking, thinkingT]);
 
   // Initialize fill state so already-complete activities render correctly on first paint.
   React.useEffect(() => {
@@ -472,10 +541,21 @@ export function ActionDock({
   }, [centerLabelT, rightItemCenterLabel, rightItemCenterLabelPulseKey]);
 
   const centerCheckStyle = useAnimatedStyle(() => {
-    return { opacity: 1 - centerLabelT.value };
+    return { opacity: rightItemThinking ? 1 : 1 - centerLabelT.value };
   });
   const centerLabelStyle = useAnimatedStyle(() => {
     return { opacity: centerLabelT.value };
+  });
+  const thinkingHaloStyle = useAnimatedStyle(() => {
+    return {
+      opacity: rightItemThinking ? 0.22 + 0.22 * thinkingT.value : 0,
+      transform: [{ scale: 1 + 0.16 * thinkingT.value }],
+    };
+  });
+  const thinkingIconStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: 1 + 0.12 * thinkingT.value }],
+    };
   });
 
   const animatedRingProps = useAnimatedProps(() => {
@@ -558,11 +638,14 @@ export function ActionDock({
                   testID={item.testID}
                   accessibilityRole="button"
                   accessibilityLabel={item.accessibilityLabel}
+                  accessibilityState={item.disabled ? { disabled: true } : undefined}
                   hitSlop={10}
+                  disabled={item.disabled}
                   onPress={item.onPress}
                   style={({ pressed }) => [
                     styles.item,
-                    pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+                    item.disabled ? { opacity: 0.45 } : null,
+                    pressed && !item.disabled ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
                   ]}
                 >
                   <VStack alignItems="center" space="xs">
@@ -592,12 +675,14 @@ export function ActionDock({
                 testID={rightItem.testID}
                 accessibilityRole="button"
                 accessibilityLabel={rightItem.accessibilityLabel}
+                accessibilityState={rightItem.disabled ? { disabled: true } : undefined}
                 hitSlop={12}
+                disabled={rightItem.disabled}
                 onPress={rightItem.onPress}
                 style={({ pressed }) => [
                   styles.rightButton,
                   rightItemBackgroundColor ? { borderColor: withAlpha(rightItemBackgroundColor, 0.45) } : null,
-                  pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+                  pressed && !rightItem.disabled ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
                 ]}
               >
                 {/* Decorative layers (do not affect tap target or layout). */}
@@ -642,15 +727,22 @@ export function ActionDock({
                     </Svg>
                   </View>
                 ) : null}
+                {rightItemThinking ? (
+                  <AnimatedView pointerEvents="none" style={[styles.rightThinkingHalo, thinkingHaloStyle]} />
+                ) : null}
                 <View pointerEvents="none" style={styles.rightCenterOverlay}>
-                  <AnimatedView style={centerCheckStyle}>
-                    <Icon
-                      name={rightItem.icon}
-                      size={DOCK_ICON_SIZE}
-                      color={rightItem.color ?? colors.textPrimary}
-                    />
+                  <AnimatedView style={[centerCheckStyle, thinkingIconStyle]}>
+                    {rightItemThinking ? (
+                      <ThinkingDots color={rightItem.color ?? colors.textPrimary} thinkingT={thinkingT} />
+                    ) : (
+                      <Icon
+                        name={rightItem.icon}
+                        size={DOCK_ICON_SIZE}
+                        color={rightItem.color ?? colors.textPrimary}
+                      />
+                    )}
                   </AnimatedView>
-                  {rightItemCenterLabel ? (
+                  {rightItemCenterLabel && !rightItemThinking ? (
                     <AnimatedView style={[styles.rightCenterLabelWrap, centerLabelStyle]}>
                       <Text style={styles.rightCenterLabel} numberOfLines={1}>
                         {rightItemCenterLabel}
@@ -744,6 +836,30 @@ const styles = StyleSheet.create({
   rightRing: {
     ...StyleSheet.absoluteFillObject,
   },
+  rightThinkingHalo: {
+    position: 'absolute',
+    left: -5,
+    top: -5,
+    width: RIGHT_ITEM_SIZE + 10,
+    height: RIGHT_ITEM_SIZE + 10,
+    borderRadius: (RIGHT_ITEM_SIZE + 10) / 2,
+    borderWidth: 2,
+    borderColor: colors.accentMuted,
+    backgroundColor: withAlpha(colors.accentMuted, 0.12),
+  },
+  thinkingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: THINKING_DOT_GAP,
+    width: DOCK_ICON_SIZE,
+    height: DOCK_ICON_SIZE,
+  },
+  thinkingDot: {
+    width: THINKING_DOT_SIZE,
+    height: THINKING_DOT_SIZE,
+    borderRadius: THINKING_DOT_SIZE / 2,
+  },
   rightCenterOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -790,5 +906,3 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
 });
-
-

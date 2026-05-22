@@ -52,6 +52,7 @@ import {
   KeyboardAwareScrollView,
 } from '../../ui/primitives';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
+import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useToastStore } from '../../store/useToastStore';
@@ -1038,6 +1039,7 @@ export function ActivitiesScreen() {
   }, [enrichingActivityIds]);
 
   const markActivityEnrichment = React.useCallback((activityId: string, isEnriching: boolean) => {
+    useActivityEnrichmentStore.getState().markActivityEnrichment(activityId, isEnriching);
     setEnrichingActivityIds((prev) => {
       const next = new Set(prev);
       if (isEnriching) next.add(activityId);
@@ -1347,6 +1349,7 @@ export function ActivitiesScreen() {
       return Number.isFinite(min) ? min - 1 : 0;
     },
     getActivityDefaults: () => quickAddDefaultsFromFilters,
+    goals,
     addActivity,
     updateActivity,
     recordShowUp,

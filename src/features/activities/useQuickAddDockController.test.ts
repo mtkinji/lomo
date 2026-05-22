@@ -1,5 +1,10 @@
 import type { Activity } from '../../domain/types';
-import { applyQuickAddAiEnrichment, consumeQuickAddAiActionCredits } from './useQuickAddDockController';
+import {
+  applyQuickAddAiEnrichment,
+  consumeQuickAddAiActionCredits,
+  inferQuickAddTriggerDefaults,
+} from './useQuickAddDockController';
+import { toLocalDateKey } from '../../services/plan/planDates';
 
 const baseActivity = (overrides: Partial<Activity> = {}): Activity =>
   ({
@@ -114,6 +119,38 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.steps).toEqual([]);
   });
 
+  it('fills missing trigger fields with inferred defaults when Triggers is selected', () => {
+    const result = applyQuickAddAiEnrichment(
+      baseActivity({ title: 'Update the Orchard book writing system' }),
+      {
+        location: {
+          label: 'Current location',
+          latitude: 40.7128,
+          longitude: -74.006,
+          trigger: 'leave',
+          radiusM: 150,
+        },
+      },
+      {
+        activityId: 'activity-1',
+        selectedActions: ['triggers'],
+        timestamp: '2026-05-22T18:00:00.000Z',
+      },
+    );
+
+    expect(result.reminderAt).toEqual(expect.any(String));
+    expect(result.scheduledDate).toEqual(expect.any(String));
+    expect(result.repeatRule).toBe('weekly');
+    expect(toLocalDateKey(new Date(result.reminderAt!))).toBe(result.scheduledDate);
+    expect(result.location).toEqual({
+      label: 'Current location',
+      latitude: 40.7128,
+      longitude: -74.006,
+      trigger: 'leave',
+      radiusM: 150,
+    });
+  });
+
   it('leaves the activity untouched when no AI actions are selected', () => {
     const activity = baseActivity();
     const result = applyQuickAddAiEnrichment(activity, enrichment, {
@@ -162,6 +199,78 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.scheduledDate).toBe('2026-05-20');
     expect(result.repeatRule).toBe('daily');
     expect(result.aiPlanning).toBeUndefined();
+  });
+});
+
+describe('inferQuickAddTriggerDefaults', () => {
+  it('uses tomorrow at roughly the same time and weekly as the generic trigger default', () => {
+    const nowIso = new Date(2026, 4, 22, 18, 17).toISOString();
+    const result = inferQuickAddTriggerDefaults(
+      { title: 'Update the Orchard book writing system' },
+      {},
+      nowIso,
+    );
+    const reminder = new Date(result.reminderAt);
+
+    expect(reminder.getHours()).toBe(18);
+    expect(reminder.getMinutes()).toBe(15);
+    expect(toLocalDateKey(reminder)).toBe(result.scheduledDate);
+    expect(result.repeatRule).toBe('weekly');
+  });
+
+  it('infers weekday repetition from weekday language', () => {
+    const result = inferQuickAddTriggerDefaults(
+      { title: 'Review submissions every weekday morning' },
+      {},
+      '2026-05-22T18:00:00.000Z',
+    );
+
+    expect(new Date(result.reminderAt).getHours()).toBe(9);
+    expect(result.repeatRule).toBe('weekdays');
+  });
+
+  it('uses a near goal target date to increase urgency', () => {
+    const now = new Date(2026, 4, 22, 18, 17);
+    const result = inferQuickAddTriggerDefaults(
+      { title: 'Update the launch plan' },
+      {},
+      now.toISOString(),
+      { id: 'goal-1', targetDate: new Date(2026, 4, 24, 12, 0).toISOString(), priority: 1 },
+    );
+
+    expect(result.scheduledDate).toBe('2026-05-23');
+    expect(result.repeatRule).toBe('daily');
+  });
+
+  it('pulls an overdue goal target to today', () => {
+    const now = new Date(2026, 4, 22, 18, 17);
+    const result = inferQuickAddTriggerDefaults(
+      { title: 'Send a progress update' },
+      {},
+      now.toISOString(),
+      { id: 'goal-1', targetDate: new Date(2026, 4, 20, 12, 0).toISOString(), priority: 2 },
+    );
+    const reminder = new Date(result.reminderAt);
+
+    expect(result.scheduledDate).toBe('2026-05-22');
+    expect(result.repeatRule).toBe('daily');
+    expect(reminder.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it('preserves valid AI trigger fields when present', () => {
+    const result = inferQuickAddTriggerDefaults(
+      { title: 'Call the school tomorrow afternoon' },
+      {
+        reminderAt: '2026-05-23T19:30:00.000Z',
+        scheduledDate: '2026-05-23',
+        repeatRule: 'monthly',
+      },
+      '2026-05-22T18:00:00.000Z',
+    );
+
+    expect(result.reminderAt).toBe('2026-05-23T19:30:00.000Z');
+    expect(result.scheduledDate).toBe('2026-05-23');
+    expect(result.repeatRule).toBe('monthly');
   });
 });
 

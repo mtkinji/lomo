@@ -37,6 +37,8 @@ export type ActivityAiEnrichment = {
   difficulty?: ActivityDifficulty;
 };
 
+export type ActivityAiEnrichmentAction = 'steps' | 'triggers' | 'details';
+
 export type EnrichActivityWithAiParams = {
   /**
    * Optional: the id of the activity being enriched (so we can exclude it from
@@ -48,6 +50,7 @@ export type EnrichActivityWithAiParams = {
   activityType?: string;
   existingNotes?: string;
   existingTags?: string[];
+  selectedActions?: ActivityAiEnrichmentAction[];
 };
 
 export type SuggestActivityTagsWithAiParams = {
@@ -3296,6 +3299,68 @@ function resolveChatModel(): LlmModel {
   return 'gpt-4o-mini';
 }
 
+const ACTIVITY_ENRICHMENT_ACTIONS: ActivityAiEnrichmentAction[] = ['steps', 'triggers', 'details'];
+
+export function normalizeActivityAiEnrichmentActions(
+  actions: ActivityAiEnrichmentAction[] | null | undefined,
+): ActivityAiEnrichmentAction[] {
+  if (!Array.isArray(actions)) return ACTIVITY_ENRICHMENT_ACTIONS;
+  const seen = new Set<ActivityAiEnrichmentAction>();
+  const normalized: ActivityAiEnrichmentAction[] = [];
+  actions.forEach((action) => {
+    if (!ACTIVITY_ENRICHMENT_ACTIONS.includes(action)) return;
+    if (seen.has(action)) return;
+    seen.add(action);
+    normalized.push(action);
+  });
+  return normalized;
+}
+
+export function buildActivityEnrichmentSystemPrompt(
+  selectedActions: ActivityAiEnrichmentAction[],
+): string {
+  const selected = new Set(selectedActions);
+  const includeDetails = selected.has('details');
+  const includeSteps = selected.has('steps');
+  const includeTriggers = selected.has('triggers');
+
+  return (
+    'You enrich a single to-do with helpful supporting details.\n' +
+    'Return JSON only, matching the schema.\n' +
+    `Requested AI actions: ${selectedActions.length > 0 ? selectedActions.join(', ') : 'none'}.\n` +
+    (includeDetails
+      ? '- details: add notes, tags, goalId, type, estimateMinutes, priority, or difficulty when useful.\n'
+      : '- details is not requested: omit notes, tags, goalId, type, estimateMinutes, priority, and difficulty unless needed to satisfy another requested action.\n') +
+    (includeSteps
+      ? '- steps: add 0-6 short action steps when they make the to-do easier to start.\n'
+      : '- steps is not requested: omit steps.\n') +
+    (includeTriggers
+      ? '- triggers: populate reminderAt, scheduledDate, and repeatRule.\n' +
+        '  Use reminderAt for a nudge to act, scheduledDate for the day that nudge belongs to, and repeatRule for the assumed follow-up cadence.\n' +
+        '  If no explicit date is present, choose a gentle future reminder during waking hours within the next 1-7 days when that would help the user start.\n' +
+        '  If a mapped goal has a target date, use it to estimate urgency: near or overdue goals should get sooner reminders and a tighter cadence.\n' +
+        '  If no repetition is explicit, choose weekly as the default cadence because it is useful but not overly noisy.\n' +
+        '  Do not invent hard deadlines; scheduledDate can be a soft planned day rather than a claimed deadline.\n'
+      : '- triggers is not requested: omit reminderAt, scheduledDate, and repeatRule.\n') +
+    '- notes: 1-3 short sentences, practical and specific.\n' +
+    '- tags: 0-5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
+    '- goalId: one id from Candidate goals if the to-do clearly belongs to an existing goal; otherwise omit or null.\n' +
+    '- type: one of task|checklist|shopping_list|instructions|plan when a non-default type would fit better.\n' +
+    '- reminderAt: ISO datetime only, in the future relative to Current time.\n' +
+    '- scheduledDate: YYYY-MM-DD only when a day-level cue is useful.\n' +
+    '- repeatRule: daily|weekly|weekdays|monthly|yearly only when the title clearly implies repetition.\n' +
+    '- steps: 0-6 short action steps.\n' +
+    '- estimateMinutes: integer minutes (5-180) if reasonable.\n' +
+    '- priority: 1 (highest) to 3 if obvious, otherwise omit.\n' +
+    '- difficulty: one of very_easy|easy|medium|hard|very_hard if obvious.\n' +
+    'Important: avoid duplication.\n' +
+    '- Do NOT repeat the user-provided notes.\n' +
+    '- Do NOT propose tags that are already present in Existing tags.\n' +
+    '- If provided a list of existing goal to-dos, avoid producing steps/notes that substantially duplicate those items.\n' +
+    'Do not include any PII and do not invent constraints the user did not imply.'
+  );
+}
+
 /**
  * Lightweight activity enrichment used by quick-add and manual creation flows.
  *
@@ -3314,6 +3379,7 @@ export async function enrichActivityWithAI(
     const title = params.title?.trim() ?? '';
     if (!title) return null;
     const nowIso = new Date().toISOString();
+    const selectedActions = normalizeActivityAiEnrichmentActions(params.selectedActions);
 
     const state = typeof useAppStore.getState === 'function' ? useAppStore.getState() : undefined;
     const goal =
@@ -3352,32 +3418,17 @@ export async function enrichActivityWithAI(
             .slice(0, 14)
         : [];
 
-    const systemPrompt =
-      'You enrich a single to-do with helpful supporting details.\n' +
-      'Return JSON only, matching the schema.\n' +
-      '- notes: 1–3 short sentences, practical and specific.\n' +
-      '- tags: 0–5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
-      '- goalId: one id from Candidate goals if the to-do clearly belongs to an existing goal; otherwise omit or null.\n' +
-      '- type: one of task|checklist|shopping_list|instructions|plan when a non-default type would fit better.\n' +
-      '- reminderAt: ISO datetime only when the title clearly implies a reminder/start time.\n' +
-      '- scheduledDate: ISO date/datetime or YYYY-MM-DD only when the title clearly implies a deadline/due date.\n' +
-      '- repeatRule: daily|weekly|weekdays|monthly|yearly only when the title clearly implies repetition.\n' +
-      '- steps: 0–6 short action steps.\n' +
-      '- estimateMinutes: integer minutes (5–180) if reasonable.\n' +
-      '- priority: 1 (highest) to 3 if obvious, otherwise omit.\n' +
-      '- difficulty: one of very_easy|easy|medium|hard|very_hard if obvious.\n' +
-      'Important: avoid duplication.\n' +
-      '- Do NOT repeat the user-provided notes.\n' +
-      '- Do NOT propose tags that are already present in Existing tags.\n' +
-      '- If provided a list of existing goal to-dos, avoid producing steps/notes that substantially duplicate those items.\n' +
-      'Do not include any PII and do not invent constraints the user did not imply.';
+    const systemPrompt = buildActivityEnrichmentSystemPrompt(selectedActions);
 
     const userPrompt = [
       `To-do title: ${title}`,
       `Current time: ${nowIso}`,
+      `Requested AI actions: ${selectedActions.length > 0 ? selectedActions.join(', ') : 'none'}`,
       params.activityType ? `To-do type: ${String(params.activityType).trim()}` : 'To-do type: (unknown)',
       goalTitle ? `Goal: ${goalTitle}` : 'Goal: (none)',
       goalDescriptionPlain ? `Goal context: ${goalDescriptionPlain}` : 'Goal context: (none)',
+      goal?.targetDate ? `Goal target date: ${goal.targetDate}` : 'Goal target date: (none)',
+      goal?.priority ? `Goal priority: ${goal.priority}` : 'Goal priority: (none)',
       goalCandidates.length > 0
         ? [
             'Candidate goals for linking (choose goalId only from this list):',

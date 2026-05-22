@@ -428,6 +428,7 @@ export function GoalDetailScreen() {
       }
       return max + 1;
     },
+    goals,
     addActivity,
     updateActivity,
     recordShowUp,

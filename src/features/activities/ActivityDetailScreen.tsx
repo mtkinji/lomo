@@ -31,6 +31,7 @@ import { PortalHost } from '@rn-primitives/portal';
 import { FullWindowOverlay } from 'react-native-screens';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
+import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useCanUseProTools } from '../../store/proToolsAccess';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
@@ -3616,6 +3617,9 @@ export function ActivityDetailScreen() {
   const allStepsComplete = totalStepsCount > 0 && completedStepsCount >= totalStepsCount;
   const dockCompleteColor = colors.pine700;
   const actionDockCountLabel = totalStepsCount > 0 ? `${completedStepsCount}/${totalStepsCount}` : undefined;
+  const isAiEnrichingActivity = useActivityEnrichmentStore((state) =>
+    activity?.id ? Boolean(state.enrichingById[activity.id]) : false,
+  );
 
   const [rightItemCelebrateKey, setRightItemCelebrateKey] = useState(0);
   const prevProgressRef = useRef<number>(0);
@@ -4110,17 +4114,23 @@ export function ActivityDetailScreen() {
                   rightItem={{
                     id: 'done',
                     icon: 'check',
-                    accessibilityLabel: isCompleted
-                      ? 'Mark to-do as not done'
-                      : 'Mark to-do as done',
+                    accessibilityLabel: isAiEnrichingActivity
+                      ? 'AI is finishing this to-do'
+                      : isCompleted
+                        ? 'Mark to-do as not done'
+                        : 'Mark to-do as done',
                     onPress: handleToggleComplete,
                     testID: 'e2e.activityDetail.dock.donePrimary',
+                    disabled: isAiEnrichingActivity,
                     // Reflect explicit Activity completion (users may keep all steps checked but un-mark the Activity).
-                    color: isCompleted ? colors.parchment : colors.sumi,
+                    color: isAiEnrichingActivity ? colors.aiForeground : isCompleted ? colors.parchment : colors.sumi,
                   }}
                   rightItemProgress={actionDockRightProgress}
-                  rightItemRingColor={dockCompleteColor}
-                  rightItemBackgroundColor={isCompleted ? dockCompleteColor : undefined}
+                  rightItemRingColor={isAiEnrichingActivity ? colors.accentMuted : dockCompleteColor}
+                  rightItemBackgroundColor={
+                    isAiEnrichingActivity ? colors.accentMuted : isCompleted ? dockCompleteColor : undefined
+                  }
+                  rightItemThinking={isAiEnrichingActivity}
                   rightItemCelebrateKey={rightItemCelebrateKey}
                   onRightItemCelebrateComplete={() => {
                     if (!isFocusedRef.current) return;
