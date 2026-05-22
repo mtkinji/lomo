@@ -278,13 +278,13 @@ describe('consumeQuickAddAiActionCredits', () => {
   it('consumes one credit per selected AI action', () => {
     const consume = jest.fn(() => ({ ok: true, remaining: 47, limit: 50 }));
 
-    const ok = consumeQuickAddAiActionCredits(['steps', 'triggers', 'details'], {
+    const ok = consumeQuickAddAiActionCredits(['steps', 'triggers', 'details', 'cover_image'], {
       tier: 'free',
       tryConsumeGenerativeCredit: consume,
     });
 
     expect(ok).toBe(true);
-    expect(consume).toHaveBeenCalledWith({ tier: 'free', amount: 3 });
+    expect(consume).toHaveBeenCalledWith({ tier: 'free', amount: 4 });
   });
 
   it('does not partially consume when the credit gate rejects the requested action count', () => {

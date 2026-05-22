@@ -11,7 +11,7 @@ import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
-import { HStack, Text, VStack } from '../../ui/primitives';
+import { Text, VStack } from '../../ui/primitives';
 import { NotificationService } from '../../services/NotificationService';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
 import {
@@ -382,23 +382,12 @@ export function NotificationsSettingsScreen() {
     return 'Daily show-up time';
   }, [timePickerTarget]);
 
-  const handleTimeChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (!date || event.type === 'dismissed') {
-      if (Platform.OS !== 'ios') {
-        closeTimePicker();
-      }
-      return;
-    }
-    setTimePickerDraft(date);
-  };
-
-  const handleSaveTimePicker = async () => {
-    if (!timePickerTarget) return;
-    const hours = timePickerDraft.getHours().toString().padStart(2, '0');
-    const minutes = timePickerDraft.getMinutes().toString().padStart(2, '0');
+  const applyTimePickerDate = async (target: TimePickerTarget, date: Date, closeAfterSave = false) => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
     const time = `${hours}:${minutes}`;
     const next =
-      timePickerTarget === 'dailyFocus'
+      target === 'dailyFocus'
         ? {
             ...preferences,
             notificationsEnabled: true,
@@ -406,7 +395,7 @@ export function NotificationsSettingsScreen() {
             dailyFocusTime: time,
             dailyFocusTimeMode: 'manual' as const,
           }
-        : timePickerTarget === 'goalNudge'
+        : target === 'goalNudge'
           ? {
               ...preferences,
               notificationsEnabled: true,
@@ -420,7 +409,27 @@ export function NotificationsSettingsScreen() {
             dailyShowUpTime: time,
           };
     await NotificationService.applySettings(next);
-    closeTimePicker();
+    if (closeAfterSave) {
+      closeTimePicker();
+    }
+  };
+
+  const handleTimeChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (!date || event.type === 'dismissed') {
+      if (Platform.OS !== 'ios') {
+        closeTimePicker();
+      }
+      return;
+    }
+    setTimePickerDraft(date);
+    if (timePickerTarget) {
+      void applyTimePickerDate(timePickerTarget, date);
+    }
+  };
+
+  const handleSaveTimePicker = async () => {
+    if (!timePickerTarget) return;
+    await applyTimePickerDate(timePickerTarget, timePickerDraft, true);
   };
 
   const handleNavigateBack = () => {
@@ -745,7 +754,30 @@ export function NotificationsSettingsScreen() {
           keyboardAvoidanceEnabled={false}
           dynamicSizing
         >
-          <BottomDrawerHeader title={timePickerTitle} variant="withClose" onClose={closeTimePicker} />
+          <BottomDrawerHeader
+            title={timePickerTitle}
+            variant="navbar"
+            leftAction={
+              <Button
+                variant="ghost"
+                size="sm"
+                accessibilityLabel={`Cancel ${timePickerTitle.toLowerCase()}`}
+                onPress={closeTimePicker}
+              >
+                Cancel
+              </Button>
+            }
+            rightAction={
+              <Button
+                variant="link"
+                size="sm"
+                accessibilityLabel={`Save ${timePickerTitle.toLowerCase()}`}
+                onPress={() => void handleSaveTimePicker()}
+              >
+                Done
+              </Button>
+            }
+          />
           <VStack space="md" style={styles.timePickerSheetContent}>
             <Text style={styles.helperText}>Choose when this reminder should appear.</Text>
             <View style={styles.timePickerContainer}>
@@ -756,14 +788,6 @@ export function NotificationsSettingsScreen() {
                 onChange={handleTimeChange}
               />
             </View>
-            <HStack space="sm" style={styles.timePickerActions}>
-              <Button variant="ghost" fullWidth onPress={closeTimePicker}>
-                Cancel
-              </Button>
-              <Button variant="primary" fullWidth onPress={() => void handleSaveTimePicker()}>
-                Done
-              </Button>
-            </HStack>
           </VStack>
         </BottomDrawer>
       </View>
@@ -840,9 +864,6 @@ const styles = StyleSheet.create({
   timePickerSheetContent: {
     paddingBottom: spacing.lg,
   },
-  timePickerActions: {
-    justifyContent: 'space-between',
-  },
   optionWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -894,4 +915,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
 });
-

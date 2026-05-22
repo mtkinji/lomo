@@ -1,15 +1,12 @@
-import type { ImageSourcePropType } from 'react-native';
-
 export type AuthSignInWallpaper = {
   id: string;
-  source: ImageSourcePropType;
+  source: number;
 };
 
 /**
- * Hand-picked wallpapers for the auth / sign-in interstitial.
+ * Hand-picked wallpapers for the auth / sign-in interstitial and cover image library.
  *
  * IMPORTANT:
- * - This set should remain **exclusive** to auth surfaces.
  * - Keep `id` stable if you ever want to persist selection later.
  */
 export const AUTH_SIGNIN_WALLPAPERS: readonly AuthSignInWallpaper[] = [
@@ -32,5 +29,4 @@ export const AUTH_SIGNIN_WALLPAPERS: readonly AuthSignInWallpaper[] = [
   { id: 'sailing', source: require('../../assets/auth-wallpapers/sailing.png') },
   { id: 'sunset-highway', source: require('../../assets/auth-wallpapers/sunset highway.png') },
 ] as const;
-
 

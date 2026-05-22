@@ -37,7 +37,7 @@ import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
 import { useEntitlementsStore } from './useEntitlementsStore';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
-export type QuickAddAiActionPreference = 'steps' | 'triggers' | 'details';
+export type QuickAddAiActionPreference = 'steps' | 'triggers' | 'details' | 'cover_image';
 
 type Updater<T> = (item: T) => T;
 
@@ -1474,7 +1474,7 @@ const initialActivityViews: ActivityView[] = [
 ];
 
 const DEFAULT_QUICK_ADD_AI_ACTIONS: QuickAddAiActionPreference[] = ['steps', 'triggers', 'details'];
-const QUICK_ADD_AI_ACTION_ORDER: QuickAddAiActionPreference[] = ['steps', 'triggers', 'details'];
+const QUICK_ADD_AI_ACTION_ORDER: QuickAddAiActionPreference[] = ['steps', 'triggers', 'details', 'cover_image'];
 const QUICK_ADD_AI_ACTION_SET = new Set<QuickAddAiActionPreference>(QUICK_ADD_AI_ACTION_ORDER);
 
 function normalizeQuickAddAiActionPreferences(

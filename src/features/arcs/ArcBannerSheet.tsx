@@ -495,8 +495,10 @@ export function ArcBannerSheet({
                         onPress={onUpload}
                         style={styles.heroModalUpload}
                       >
-                        <Icon name="image" size={18} color={colors.textPrimary} />
-                        <Text style={styles.buttonTextAlt}>Upload</Text>
+                        <View style={styles.heroModalUploadButtonContent}>
+                          <Icon name="image" size={18} color={colors.textPrimary} />
+                          <Text style={styles.buttonTextAlt}>Upload</Text>
+                        </View>
                       </Button>
                     </View>
                   )}
@@ -778,6 +780,12 @@ const styles = StyleSheet.create({
   heroModalUpload: {
     width: '100%',
   },
+  heroModalUploadButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
   buttonTextAlt: {
     ...typography.body,
     color: colors.textPrimary,
@@ -917,5 +925,4 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 });
-
 

@@ -241,7 +241,7 @@ export function ActivityDetailRefresh(props: any) {
     outputRange: ['-90deg', '0deg'],
   });
 
-  const headerArtworkSource = getActivityHeaderArtworkSource(activity.type as ActivityType);
+  const headerArtworkSource = getActivityHeaderArtworkSource(activity);
   const effectiveThumbnailUrl = useHeroImageUrl(activity);
   const heroImageSource = effectiveThumbnailUrl ? { uri: effectiveThumbnailUrl } : headerArtworkSource;
   const resolvedHeroArtwork =
@@ -1765,5 +1765,4 @@ const localStyles = StyleSheet.create({
     backgroundColor: colors.border,
   },
 });
-
 
