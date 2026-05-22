@@ -9,9 +9,10 @@ import { toLocalDateKey } from '../../services/plan/planDates';
 import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 
-export type QuickAddAiAction = 'steps' | 'triggers' | 'details';
+export type QuickAddAiAction = 'steps' | 'triggers' | 'details' | 'cover_image';
 
 export const DEFAULT_QUICK_ADD_AI_ACTIONS: QuickAddAiAction[] = ['steps', 'triggers', 'details'];
+const ACTIVITY_ENRICHMENT_ACTIONS: QuickAddAiAction[] = ['steps', 'triggers', 'details'];
 
 type QuickAddSubmitOptions = {
   aiActions?: QuickAddAiAction[];
@@ -21,6 +22,8 @@ const VALID_REPEAT_RULES: ActivityRepeatRule[] = ['daily', 'weekly', 'weekdays',
 const DEFAULT_LOCATION_TRIGGER_RADIUS_M = 150;
 
 type QuickAddGoalContext = Pick<Goal, 'id' | 'targetDate' | 'priority'>;
+
+type QuickAddCoverImageSelection = Pick<Activity, 'thumbnailUrl' | 'heroImageMeta'>;
 
 type ConsumeGenerativeCredit = (params: {
   tier: 'free' | 'pro';
@@ -86,8 +89,15 @@ type Params = {
     activityType?: string;
     existingNotes?: string;
     existingTags?: string[];
-    selectedActions?: QuickAddAiAction[];
+    selectedActions?: Array<Exclude<QuickAddAiAction, 'cover_image'>>;
   }) => Promise<any>;
+  findCoverImageWithAI?: (params: {
+    activityId: string;
+    title: string;
+    goalId: string | null;
+    activityType?: string;
+    existingTags?: string[];
+  }) => Promise<QuickAddCoverImageSelection | null>;
   markActivityEnrichment?: (activityId: string, enriching: boolean) => void;
   tryConsumeGenerativeCredit?: ConsumeGenerativeCredit;
   aiCreditTier?: 'free' | 'pro';
@@ -114,6 +124,7 @@ export function useQuickAddDockController(params: Params) {
     toastBottomOffsetOverridePx,
     onCreated,
     enrichActivityWithAI,
+    findCoverImageWithAI,
     markActivityEnrichment,
     tryConsumeGenerativeCredit,
     aiCreditTier = 'free',
@@ -181,9 +192,14 @@ export function useQuickAddDockController(params: Params) {
     if (!trimmed) return;
 
     const aiActions = options?.aiActions ?? DEFAULT_QUICK_ADD_AI_ACTIONS;
-    const shouldEnrichWithAI = aiActions.length > 0 && Boolean(enrichActivityWithAI && updateActivity);
+    const enrichmentActions = aiActions.filter((action) =>
+      ACTIVITY_ENRICHMENT_ACTIONS.includes(action)
+    ) as Array<Exclude<QuickAddAiAction, 'cover_image'>>;
+    const shouldFindCoverImage = aiActions.includes('cover_image') && Boolean(findCoverImageWithAI && updateActivity);
+    const shouldEnrichWithAI = enrichmentActions.length > 0 && Boolean(enrichActivityWithAI && updateActivity);
+    const shouldRunAiActions = shouldEnrichWithAI || shouldFindCoverImage;
     if (
-      shouldEnrichWithAI &&
+      shouldRunAiActions &&
       !consumeQuickAddAiActionCredits(aiActions, {
         tier: aiCreditTier,
         tryConsumeGenerativeCredit,
@@ -290,7 +306,7 @@ export function useQuickAddDockController(params: Params) {
       });
     }
 
-    if (shouldEnrichWithAI && enrichActivityWithAI && updateActivity) {
+    if (shouldRunAiActions && updateActivity) {
       markSharedActivityEnrichment(activity.id, true);
       markActivityEnrichment?.(activity.id, true);
       const applyEnrichment = (enrichment: any, currentLocation?: { latitude: number; longitude: number } | null) => {
@@ -317,24 +333,56 @@ export function useQuickAddDockController(params: Params) {
           });
         });
       };
-      const currentLocationPromise = aiActions.includes('triggers')
+      const applyCoverImage = (selection: QuickAddCoverImageSelection | null | undefined) => {
+        if (!selection?.thumbnailUrl && !selection?.heroImageMeta) return;
+        const ts = new Date().toISOString();
+        updateActivity(activity.id, (prev) => ({
+          ...prev,
+          thumbnailUrl: selection.thumbnailUrl,
+          heroImageMeta: selection.heroImageMeta,
+          updatedAt: ts,
+        }));
+      };
+      const currentLocationPromise = enrichmentActions.includes('triggers')
         ? getCurrentLocationBestEffort().catch(() => null)
         : Promise.resolve(null);
-      enrichActivityWithAI({
-        activityId: activity.id,
-        title: trimmed,
-        goalId: goalId ?? null,
-        activityType: resolvedType,
-        existingTags: resolvedTags,
-        selectedActions: aiActions,
-      })
+      const enrichmentPromise =
+        shouldEnrichWithAI && enrichActivityWithAI
+          ? enrichActivityWithAI({
+              activityId: activity.id,
+              title: trimmed,
+              goalId: goalId ?? null,
+              activityType: resolvedType,
+              existingTags: resolvedTags,
+              selectedActions: enrichmentActions,
+            })
+          : Promise.resolve(null);
+      const coverImagePromise =
+        shouldFindCoverImage && findCoverImageWithAI
+          ? findCoverImageWithAI({
+              activityId: activity.id,
+              title: trimmed,
+              goalId: goalId ?? null,
+              activityType: resolvedType,
+              existingTags: resolvedTags,
+            })
+          : Promise.resolve(null);
+      Promise.allSettled([enrichmentPromise, coverImagePromise])
         .then(async (enrichment) => {
-          if (!enrichment && !aiActions.includes('triggers')) return;
-          const currentLocation = await currentLocationPromise;
-          applyEnrichment(enrichment, currentLocation);
+          const enrichmentResult = enrichment[0];
+          const coverResult = enrichment[1];
+          const enrichmentValue =
+            enrichmentResult.status === 'fulfilled' ? enrichmentResult.value : null;
+          if (enrichmentValue || enrichmentActions.includes('triggers')) {
+            const currentLocation = await currentLocationPromise;
+            applyEnrichment(enrichmentValue ?? {}, currentLocation);
+          }
+          if (coverResult.status === 'fulfilled') {
+            applyCoverImage(coverResult.value);
+          }
         })
         .catch(async () => {
-          if (!aiActions.includes('triggers')) return;
+          if (!enrichmentActions.includes('triggers')) return;
           const currentLocation = await currentLocationPromise;
           applyEnrichment({}, currentLocation);
         })
@@ -352,6 +400,7 @@ export function useQuickAddDockController(params: Params) {
     goalId,
     goals,
     enrichActivityWithAI,
+    findCoverImageWithAI,
     markActivityEnrichment,
     markSharedActivityEnrichment,
     tryConsumeGenerativeCredit,

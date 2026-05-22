@@ -60,7 +60,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVariant';
-import { enrichActivityWithAI } from '../../services/ai';
+import { enrichActivityWithAI, generateArcBannerVibeQuery } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
 import {
@@ -89,7 +89,7 @@ import { Coachmark } from '../../ui/Coachmark';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { useKeyboardHeight } from '../../ui/hooks/useKeyboardHeight';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
-import { useQuickAddDockController } from './useQuickAddDockController';
+import { useQuickAddDockController, type QuickAddAiAction } from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
@@ -119,6 +119,7 @@ import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
+import { searchUnsplashPhotos, trackUnsplashDownload, withUnsplashReferral } from '../../services/unsplash';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
@@ -242,6 +243,7 @@ export function ActivitiesScreen() {
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const isPro = useCanUseProTools('saved_views');
+  const canUseUnsplash = useCanUseProTools('unsplash_banners');
   const activityViews = useAppStore((state) => state.activityViews);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
@@ -1309,6 +1311,82 @@ export function ActivitiesScreen() {
     return defaults;
   }, [filterGroups]);
 
+  const effectiveQuickAddAiActions = React.useMemo(
+    () =>
+      canUseUnsplash
+        ? quickAddAiActions
+        : quickAddAiActions.filter((action) => action !== 'cover_image'),
+    [canUseUnsplash, quickAddAiActions]
+  );
+
+  const handleLockedQuickAddAiActionPress = React.useCallback((action: QuickAddAiAction) => {
+    if (action !== 'cover_image') return;
+    openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'activity_banner_sheet' });
+  }, []);
+
+  const findQuickAddCoverImageWithAI = React.useCallback(
+    async (params: {
+      activityId: string;
+      title: string;
+      goalId: string | null;
+      activityType?: string;
+      existingTags?: string[];
+    }) => {
+      if (!canUseUnsplash) return null;
+
+      const goal = params.goalId
+        ? goals.find((candidate) => candidate.id === params.goalId) ?? null
+        : null;
+      const arc = goal?.arcId
+        ? arcs.find((candidate) => candidate.id === goal.arcId) ?? null
+        : null;
+      const fallbackQuery = [params.title, ...(params.existingTags ?? [])]
+        .join(' ')
+        .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .slice(0, 5)
+        .join(' ');
+      const query =
+        (await generateArcBannerVibeQuery({
+          arcName: params.title,
+          arcNarrative: goal?.description ?? arc?.narrative,
+          goalTitles: [
+            goal?.title,
+            params.activityType ? `${params.activityType} to-do` : null,
+            ...(params.existingTags ?? []),
+          ].filter(Boolean) as string[],
+        }).catch(() => null)) ??
+        fallbackQuery;
+
+      if (!query) return null;
+
+      const photos = await searchUnsplashPhotos(query, {
+        perPage: 12,
+        page: 1,
+        orientation: 'landscape',
+      }).catch(() => []);
+      const photo = photos[0];
+      if (!photo) return null;
+
+      trackUnsplashDownload(photo.id).catch(() => undefined);
+      return {
+        thumbnailUrl: photo.urls.regular,
+        heroImageMeta: {
+          source: 'unsplash' as const,
+          prompt: query,
+          createdAt: new Date().toISOString(),
+          unsplashPhotoId: photo.id,
+          unsplashAuthorName: photo.user.name,
+          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
+          unsplashLink: withUnsplashReferral(photo.links.html),
+        },
+      };
+    },
+    [arcs, canUseUnsplash, goals]
+  );
+
   const {
     value: quickAddTitle,
     setValue: setQuickAddTitle,
@@ -1383,6 +1461,7 @@ export function ActivitiesScreen() {
       });
     },
     enrichActivityWithAI,
+    findCoverImageWithAI: findQuickAddCoverImageWithAI,
     markActivityEnrichment,
     tryConsumeGenerativeCredit,
     aiCreditTier: isPro ? 'pro' : 'free',
@@ -2913,8 +2992,10 @@ export function ActivitiesScreen() {
           setIsFocused={setQuickAddFocused}
           onSubmit={handleQuickAddActivity}
           onCollapse={collapseQuickAdd}
-          selectedAiActions={quickAddAiActions}
+          selectedAiActions={effectiveQuickAddAiActions}
           onSelectedAiActionsChange={setQuickAddAiActions}
+          lockedAiActions={canUseUnsplash ? undefined : { cover_image: 'Pro' }}
+          onLockedAiActionPress={handleLockedQuickAddAiActionPress}
           onReservedHeightChange={setQuickAddReservedHeight}
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
         />

@@ -298,7 +298,7 @@ export function ActivityDetailScreen() {
 
   const defaultHeroUrl = useMemo(() => {
     if (!activity) return undefined;
-    const source = getActivityHeaderArtworkSource(activity.type as any);
+    const source = getActivityHeaderArtworkSource(activity);
     if (!source) return undefined;
     try {
       const resolved = Image.resolveAssetSource(source);

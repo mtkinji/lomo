@@ -30,11 +30,12 @@ const QUICK_ADD_INPUT_APPROX_CHARS_PER_LINE = 44;
 const AI_ACTION_OPTIONS: Array<{
   id: QuickAddAiAction;
   label: string;
-  icon: 'checklist' | 'bell' | 'fileText';
+  icon: 'checklist' | 'bell' | 'fileText' | 'image';
 }> = [
   { id: 'steps', label: 'Add steps', icon: 'checklist' },
   { id: 'triggers', label: 'Set triggers', icon: 'bell' },
   { id: 'details', label: 'Fill details', icon: 'fileText' },
+  { id: 'cover_image', label: 'Find cover', icon: 'image' },
 ];
 
 type QuickAddDockProps = {
@@ -53,6 +54,8 @@ type QuickAddDockProps = {
   onCollapse: () => void;
   selectedAiActions?: QuickAddAiAction[];
   onSelectedAiActionsChange?: (actions: QuickAddAiAction[]) => void;
+  lockedAiActions?: Partial<Record<QuickAddAiAction, string>>;
+  onLockedAiActionPress?: (action: QuickAddAiAction) => void;
 
   /**
    * When true (default), the focused drawer collapses after a successful submit.
@@ -82,6 +85,8 @@ export function QuickAddDock({
   onCollapse,
   selectedAiActions: selectedAiActionsProp,
   onSelectedAiActionsChange,
+  lockedAiActions,
+  onLockedAiActionPress,
   dismissAfterSubmit = true,
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
@@ -186,6 +191,10 @@ export function QuickAddDock({
   const selectedAiActions = selectedAiActionsProp ?? localSelectedAiActions;
   const selectedAiActionSet = React.useMemo(() => new Set(selectedAiActions), [selectedAiActions]);
   const toggleAiAction = React.useCallback((action: QuickAddAiAction) => {
+    if (lockedAiActions?.[action]) {
+      onLockedAiActionPress?.(action);
+      return;
+    }
     const next = selectedAiActions.includes(action)
       ? selectedAiActions.filter((item) => item !== action)
       : [...selectedAiActions, action];
@@ -194,7 +203,7 @@ export function QuickAddDock({
       return;
     }
     setLocalSelectedAiActions(next);
-  }, [onSelectedAiActionsChange, selectedAiActions, selectedAiActionsProp]);
+  }, [lockedAiActions, onLockedAiActionPress, onSelectedAiActionsChange, selectedAiActions, selectedAiActionsProp]);
   const submitQuickAdd = React.useCallback(() => {
     if (!canSubmit) return;
     setIsAiMenuOpen(false);
@@ -441,12 +450,13 @@ export function QuickAddDock({
                         </View>
                         {AI_ACTION_OPTIONS.map((chip) => {
                           const selected = selectedAiActionSet.has(chip.id);
+                          const lockedLabel = lockedAiActions?.[chip.id];
                           return (
                             <Pressable
                               key={chip.id}
                               accessibilityRole="switch"
                               accessibilityLabel={`AI ${chip.label.toLowerCase()}`}
-                              accessibilityState={{ checked: selected }}
+                              accessibilityState={{ checked: selected, disabled: Boolean(lockedLabel) }}
                               onPress={() => toggleAiAction(chip.id)}
                               style={({ pressed }) => [
                                 styles.aiMenuItem,
@@ -460,7 +470,9 @@ export function QuickAddDock({
                                   color={selected ? colors.textPrimary : colors.textSecondary}
                                 />
                               </View>
-                              <Text style={styles.aiMenuItemLabel}>{chip.label}</Text>
+                              <Text style={styles.aiMenuItemLabel}>
+                                {lockedLabel ? `${chip.label} · ${lockedLabel}` : chip.label}
+                              </Text>
                               <View
                                 style={[
                                   styles.aiMenuSwitchTrack,

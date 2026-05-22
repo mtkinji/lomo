@@ -1,4 +1,5 @@
 import { Image } from 'react-native';
+import { AUTH_SIGNIN_WALLPAPERS } from '../assets/authSignInWallpapers';
 import type { FocusAreaId } from './types';
 
 export type ArcHeroEnergy = 'calm' | 'focused' | 'celebratory' | 'playful';
@@ -28,13 +29,194 @@ export type ArcHeroImage = {
   };
 };
 
+const AUTH_WALLPAPER_HERO_METADATA: Partial<Record<
+  string,
+  Pick<ArcHeroImage, 'palette' | 'tags'>
+>> = {
+  'jungle-river': {
+    palette: ['#0F3D2E', '#2F6F55', '#D9B56F'],
+    tags: {
+      focusAreas: ['health_energy', 'organizing_life'],
+      energy: 'calm',
+      timeHorizon: 'long_arc',
+      vibe: 'photo',
+      brightness: 'dark',
+    },
+  },
+  shinkansen: {
+    palette: ['#E5E7EB', '#1F2937', '#A7C7D9'],
+    tags: {
+      focusAreas: ['work_career', 'learning_skills'],
+      energy: 'focused',
+      timeHorizon: 'sprint',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  'bike-path': {
+    palette: ['#6B8E52', '#D8C08A', '#1F2937'],
+    tags: {
+      focusAreas: ['health_energy'],
+      energy: 'calm',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  'desert-camels': {
+    palette: ['#C08457', '#F3D8A6', '#4B5563'],
+    tags: {
+      focusAreas: ['organizing_life', 'relationships_family'],
+      energy: 'calm',
+      timeHorizon: 'long_arc',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  'angkor-wat': {
+    palette: ['#475569', '#A16207', '#D6D3D1'],
+    tags: {
+      focusAreas: ['organizing_life', 'learning_skills'],
+      energy: 'calm',
+      timeHorizon: 'long_arc',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  'study-window': {
+    palette: ['#1F2937', '#B08968', '#F5E6D3'],
+    tags: {
+      focusAreas: ['learning_skills', 'work_career'],
+      energy: 'focused',
+      timeHorizon: 'sprint',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  canoeing: {
+    palette: ['#0F766E', '#7DD3FC', '#D97706'],
+    tags: {
+      focusAreas: ['health_energy', 'relationships_family'],
+      energy: 'playful',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  hiking: {
+    palette: ['#14532D', '#84CC16', '#FDE68A'],
+    tags: {
+      focusAreas: ['health_energy'],
+      energy: 'focused',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  island: {
+    palette: ['#0E7490', '#FDE68A', '#F97316'],
+    tags: {
+      focusAreas: ['health_energy', 'relationships_family'],
+      energy: 'celebratory',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'light',
+    },
+  },
+  'japanese-lake': {
+    palette: ['#334155', '#93C5FD', '#F8FAFC'],
+    tags: {
+      focusAreas: ['organizing_life', 'health_energy'],
+      energy: 'calm',
+      timeHorizon: 'long_arc',
+      vibe: 'photo',
+      brightness: 'light',
+    },
+  },
+  'night-train': {
+    palette: ['#020617', '#F59E0B', '#64748B'],
+    tags: {
+      focusAreas: ['work_career', 'learning_skills'],
+      energy: 'focused',
+      timeHorizon: 'sprint',
+      vibe: 'photo',
+      brightness: 'dark',
+    },
+  },
+  'pacific-coast': {
+    palette: ['#0F766E', '#94A3B8', '#F8FAFC'],
+    tags: {
+      focusAreas: ['health_energy', 'organizing_life'],
+      energy: 'calm',
+      timeHorizon: 'long_arc',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  'rice-paddies': {
+    palette: ['#166534', '#84CC16', '#EAB308'],
+    tags: {
+      focusAreas: ['health_energy', 'organizing_life'],
+      energy: 'calm',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  'riverside-train': {
+    palette: ['#1E3A8A', '#64748B', '#FBBF24'],
+    tags: {
+      focusAreas: ['work_career', 'organizing_life'],
+      energy: 'focused',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  },
+  sailing: {
+    palette: ['#075985', '#BAE6FD', '#F8FAFC'],
+    tags: {
+      focusAreas: ['health_energy', 'relationships_family'],
+      energy: 'celebratory',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'light',
+    },
+  },
+  'sunset-highway': {
+    palette: ['#7C2D12', '#F97316', '#1F2937'],
+    tags: {
+      focusAreas: ['organizing_life', 'work_career'],
+      energy: 'focused',
+      timeHorizon: 'sprint',
+      vibe: 'photo',
+      brightness: 'dark',
+    },
+  },
+};
+
+const AUTH_WALLPAPER_HERO_LIBRARY: ArcHeroImage[] = AUTH_SIGNIN_WALLPAPERS.map((wallpaper) => {
+  const metadata = AUTH_WALLPAPER_HERO_METADATA[wallpaper.id];
+  return {
+    id: `auth-wallpaper-${wallpaper.id}`,
+    uri: resolveBundledUri(wallpaper.source),
+    palette: metadata?.palette,
+    tags: metadata?.tags ?? {
+      energy: 'calm',
+      timeHorizon: 'season',
+      vibe: 'photo',
+      brightness: 'medium',
+    },
+  };
+});
+
 /**
  * Lightweight, curated library of hero images.
  *
  * IMPORTANT: For persisted state, prefer storing `heroImageMeta.curatedId` and
  * re-resolving `uri` at runtime. Bundled asset URIs can change across builds.
  */
-export const ARC_HERO_LIBRARY: ArcHeroImage[] = [
+const CORE_ARC_HERO_LIBRARY: ArcHeroImage[] = [
   {
     id: 'arc-sandstone-waves-01',
     uri: resolveBundledUri(require('../assets/arc-banners/banner1.png')),
@@ -181,6 +363,11 @@ export const ARC_HERO_LIBRARY: ArcHeroImage[] = [
   },
 ];
 
+export const ARC_HERO_LIBRARY: ArcHeroImage[] = [
+  ...AUTH_WALLPAPER_HERO_LIBRARY,
+  ...CORE_ARC_HERO_LIBRARY,
+];
+
 const ARC_HERO_BY_ID: Record<string, ArcHeroImage> = Object.fromEntries(
   ARC_HERO_LIBRARY.map((entry) => [entry.id, entry])
 );
@@ -194,10 +381,5 @@ export function getArcHeroById(curatedId: string): ArcHeroImage | null {
 export function getArcHeroUriById(curatedId: string): string | null {
   return getArcHeroById(curatedId)?.uri ?? null;
 }
-
-
-
-
-
 
 

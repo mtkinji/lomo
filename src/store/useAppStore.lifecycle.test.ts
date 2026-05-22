@@ -696,13 +696,19 @@ describe('useAppStore quick-add AI action preferences', () => {
     useAppStore.getState().resetStore();
   });
 
-  it('defaults to all quick-add AI actions enabled', () => {
+  it('defaults to the core quick-add AI actions enabled', () => {
     expect(useAppStore.getState().quickAddAiActions).toEqual(['steps', 'triggers', 'details']);
   });
 
   it('persists a normalized quick-add AI action selection including none selected', () => {
-    useAppStore.getState().setQuickAddAiActions(['details', 'bogus' as any, 'steps', 'details']);
-    expect(useAppStore.getState().quickAddAiActions).toEqual(['steps', 'details']);
+    useAppStore.getState().setQuickAddAiActions([
+      'cover_image',
+      'details',
+      'bogus' as any,
+      'steps',
+      'details',
+    ]);
+    expect(useAppStore.getState().quickAddAiActions).toEqual(['steps', 'details', 'cover_image']);
 
     useAppStore.getState().setQuickAddAiActions([]);
     expect(useAppStore.getState().quickAddAiActions).toEqual([]);
