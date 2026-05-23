@@ -1,10 +1,15 @@
 const mockGetUser = jest.fn();
+const mockGetAccessToken = jest.fn();
 const mockGetMaybeRefreshedAccessToken = jest.fn();
 const mockFrom = jest.fn();
 
 jest.mock('./backend/auth', () => ({
-  getAccessToken: jest.fn(),
+  getAccessToken: () => mockGetAccessToken(),
   getMaybeRefreshedAccessToken: () => mockGetMaybeRefreshedAccessToken(),
+}));
+
+jest.mock('./edgeFunctions', () => ({
+  getEdgeFunctionUrl: () => 'https://example.test/functions/v1/chapters-generate',
 }));
 
 jest.mock('./backend/supabaseClient', () => ({
@@ -16,7 +21,12 @@ jest.mock('./backend/supabaseClient', () => ({
   }),
 }));
 
-import { fetchMyChapters, getWeeklyDigestSettings, updateWeeklyDigestSettings } from './chapters';
+import {
+  fetchMyChapters,
+  getWeeklyDigestSettings,
+  triggerChapterGeneration,
+  updateWeeklyDigestSettings,
+} from './chapters';
 
 function makeTemplate(overrides: Record<string, unknown>) {
   return {
@@ -159,5 +169,68 @@ describe('Chapter list fetching', () => {
     expect(mockGetMaybeRefreshedAccessToken).toHaveBeenCalledTimes(1);
     expect(mockFrom).toHaveBeenCalledWith('kwilt_chapters');
     expect(rows).toEqual([row]);
+  });
+
+  it('can surface chapter read failures to callers that need to avoid false empty states', async () => {
+    const query: any = {
+      select: jest.fn(() => query),
+      order: jest.fn(() => query),
+      limit: jest.fn(async () => ({ data: null, error: new Error('schema drift') })),
+    };
+    mockFrom.mockReturnValue(query);
+
+    await expect(fetchMyChapters({ throwOnError: true })).rejects.toThrow('schema drift');
+  });
+});
+
+describe('Manual Chapter generation', () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    mockGetAccessToken.mockReset();
+    mockGetAccessToken.mockResolvedValue('token-1');
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          results: [{ ok: true, action: 'generated', periodKey: '20260516_20260523' }],
+        }),
+    })) as any;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('can suppress digest email for DevTools demo generation', async () => {
+    const result = await triggerChapterGeneration({
+      templateId: 'template-1',
+      force: true,
+      skipEmail: true,
+      devHealthRows: [{ local_date: '2026-05-16', steps_count: 1000 }],
+      start: '2026-05-16',
+      end: '2026-05-23',
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'generated',
+      periodKey: '20260516_20260523',
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://example.test/functions/v1/chapters-generate',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          template_id: 'template-1',
+          force: true,
+          skip_email: true,
+          dev_health_rows: [{ local_date: '2026-05-16', steps_count: 1000 }],
+          start: '2026-05-16',
+          end: '2026-05-23',
+        }),
+      }),
+    );
   });
 });

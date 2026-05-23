@@ -46,6 +46,7 @@ import {
   requestHealthKitReadPermission,
   syncYesterdayHealthDailyToSupabase,
 } from '../../services/health/healthKit';
+import { getSupabaseClient } from '../../services/backend/supabaseClient';
 
 type Route = RouteProp<MoreStackParamList, 'MoreChapterDetail'>;
 type Nav = NativeStackNavigationProp<MoreStackParamList, 'MoreChapterDetail'>;
@@ -68,6 +69,18 @@ type TodoFlowChartPoint = {
   y: number;
   value: number;
   label: string;
+};
+type HealthDailyChartRow = {
+  local_date: string;
+  steps_count: number | null;
+};
+type StepsChart = {
+  points: TodoFlowChartPoint[];
+  linePath: string;
+  areaPath: string;
+  grid: Array<{ y: number; value: number }>;
+  yAxisLabels: Array<{ y: number; label: string }>;
+  averageY: number | null;
 };
 type CanonicalForceId =
   | 'force-activity'
@@ -273,6 +286,15 @@ const TODO_FLOW_CHART = {
   bottom: 10,
 };
 
+const STEPS_CHART = {
+  width: 320,
+  height: 150,
+  left: 26,
+  right: 0,
+  top: 16,
+  bottom: 30,
+};
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function formatChapterDayLabel(periodStart: string, dayIndex: number, dayCount: number): string {
@@ -439,6 +461,73 @@ function buildTodoFlowChart(params: {
     label: formatTodoFlowAxisLabel(item.value),
   }));
   return { points, linePath, areaPath, grid, yAxisLabels };
+}
+
+function dateOnlyFromIso(iso: string): string | null {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const d = new Date(ms);
+  const y = String(d.getFullYear());
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatStepsAxisLabel(value: number): string {
+  if (value >= 1000) {
+    const rounded = Math.round(value / 100) / 10;
+    return `${Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)}k`;
+  }
+  return formatWholeNumber(value);
+}
+
+function buildStepsChart(rows: HealthDailyChartRow[], averageSteps: number | null): StepsChart | null {
+  const usable = rows
+    .filter((row) => typeof row.local_date === 'string' && typeof row.steps_count === 'number')
+    .sort((a, b) => a.local_date.localeCompare(b.local_date));
+  if (usable.length < 2) return null;
+
+  const values = usable.map((row) => Math.max(0, Math.floor(row.steps_count ?? 0)));
+  if (values.every((value) => value === values[0])) return null;
+
+  const domainValues =
+    averageSteps != null && Number.isFinite(averageSteps) && averageSteps > 0
+      ? [...values, averageSteps]
+      : values;
+  const maxRaw = Math.max(...domainValues);
+  const minRaw = Math.min(...domainValues);
+  const padding = Math.max(500, (maxRaw - minRaw) * 0.18);
+  const maxValue = Math.ceil((maxRaw + padding) / 500) * 500;
+  const minValue = Math.max(0, Math.floor((minRaw - padding) / 500) * 500);
+  const chartWidth = STEPS_CHART.width - STEPS_CHART.left - STEPS_CHART.right;
+  const chartHeight = STEPS_CHART.height - STEPS_CHART.top - STEPS_CHART.bottom;
+  const points = usable.map((row, index) => {
+    const value = Math.max(0, Math.floor(row.steps_count ?? 0));
+    const x = STEPS_CHART.left + (chartWidth * index) / Math.max(1, usable.length - 1);
+    const y = STEPS_CHART.top + ((maxValue - value) / Math.max(1, maxValue - minValue)) * chartHeight;
+    const date = new Date(`${row.local_date}T00:00:00`);
+    const label = Number.isFinite(date.getTime())
+      ? new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date)
+      : row.local_date.slice(5);
+    return { x, y, value, label };
+  });
+  const linePath = buildSmoothPath(points);
+  const baseY = STEPS_CHART.top + chartHeight;
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${baseY} L ${points[0].x} ${baseY} Z`;
+  const gridValues = [maxValue, minValue + (maxValue - minValue) * 0.5, minValue];
+  const grid = gridValues.map((value) => {
+    const y = STEPS_CHART.top + ((maxValue - value) / Math.max(1, maxValue - minValue)) * chartHeight;
+    return { y, value };
+  });
+  const yAxisLabels = grid.map((item) => ({
+    y: item.y,
+    label: formatStepsAxisLabel(item.value),
+  }));
+  const averageY =
+    averageSteps != null && Number.isFinite(averageSteps) && averageSteps > 0
+      ? STEPS_CHART.top + ((maxValue - averageSteps) / Math.max(1, maxValue - minValue)) * chartHeight
+      : null;
+  return { points, linePath, areaPath, grid, yAxisLabels, averageY };
 }
 
 // Approx reading time at 220 wpm; we show whole minutes with a 1-min floor.
@@ -640,14 +729,15 @@ function formatTodoFlowInsight(todoFlow: TodoFlow): string {
   return `Backlog fell by ${Math.abs(todoFlow.netAdded)} this period`;
 }
 
-function buildHealthSummaryRows(health: any): Array<{ label: string; value: string; detail?: string }> {
+function buildHealthMetricCards(health: any): Array<{ title: string; value: string; unit: string; detail?: string }> {
   if (!health || typeof health !== 'object') return [];
-  const rows: Array<{ label: string; value: string; detail?: string }> = [];
+  const cards: Array<{ title: string; value: string; unit: string; detail?: string }> = [];
 
   if (typeof health.active_days_count === 'number') {
-    rows.push({
-      label: 'Movement',
-      value: pluralize(health.active_days_count, 'active day'),
+    cards.push({
+      title: 'Movement',
+      value: formatWholeNumber(health.active_days_count),
+      unit: health.active_days_count === 1 ? 'active day' : 'active days',
       detail:
         typeof health.total_active_minutes === 'number' && health.total_active_minutes > 0
           ? `${pluralize(health.total_active_minutes, 'active minute')} total`
@@ -655,40 +745,32 @@ function buildHealthSummaryRows(health: any): Array<{ label: string; value: stri
     });
   }
 
-  if (typeof health.total_steps === 'number' && health.total_steps > 0) {
-    rows.push({
-      label: 'Steps',
-      value: `${formatWholeNumber(health.total_steps)} total`,
-      detail:
-        typeof health.avg_steps_per_active_day === 'number' && health.avg_steps_per_active_day > 0
-          ? `${formatWholeNumber(health.avg_steps_per_active_day)} per active day`
-          : undefined,
-    });
-  }
-
-  if (typeof health.workouts_count === 'number') {
-    rows.push({
-      label: 'Workouts',
-      value: pluralize(health.workouts_count, 'workout'),
+  if (typeof health.workouts_count === 'number' && health.workouts_count > 0) {
+    cards.push({
+      title: 'Workouts',
+      value: formatWholeNumber(health.workouts_count),
+      unit: health.workouts_count === 1 ? 'workout' : 'workouts',
     });
   }
 
   if (typeof health.avg_sleep_hours === 'number' && health.sleep_nights_count > 0) {
-    rows.push({
-      label: 'Sleep',
-      value: `${health.avg_sleep_hours.toFixed(1)} hr average`,
+    cards.push({
+      title: 'Sleep',
+      value: health.avg_sleep_hours.toFixed(1),
+      unit: 'hr average',
       detail: `Across ${pluralize(health.sleep_nights_count, 'night')}`,
     });
   }
 
-  if (typeof health.mindfulness_minutes === 'number') {
-    rows.push({
-      label: 'Mindfulness',
-      value: pluralize(health.mindfulness_minutes, 'minute'),
+  if (typeof health.mindfulness_minutes === 'number' && health.mindfulness_minutes > 0) {
+    cards.push({
+      title: 'Mindfulness',
+      value: formatWholeNumber(health.mindfulness_minutes),
+      unit: health.mindfulness_minutes === 1 ? 'minute' : 'minutes',
     });
   }
 
-  return rows;
+  return cards;
 }
 
 export function ChapterDetailScreen() {
@@ -701,6 +783,7 @@ export function ChapterDetailScreen() {
   const [loading, setLoading] = React.useState(true);
   const [chapter, setChapter] = React.useState<ChapterRow | null>(null);
   const [allTimeVelocity, setAllTimeVelocity] = React.useState<number | null>(null);
+  const [healthDailyRows, setHealthDailyRows] = React.useState<HealthDailyChartRow[]>([]);
   const [neighbors, setNeighbors] = React.useState<{ previous: { id: string } | null; next: { id: string } | null }>({
     previous: null,
     next: null,
@@ -756,6 +839,46 @@ export function ChapterDetailScreen() {
       mounted = false;
     };
   }, [chapterId]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const startIso = chapter?.period_start ?? '';
+      const endIso = chapter?.period_end ?? '';
+      if (!chapter?.metrics?.health || !startIso || !endIso) {
+        setHealthDailyRows([]);
+        return;
+      }
+      const startDate = dateOnlyFromIso(startIso);
+      const endDate = dateOnlyFromIso(endIso);
+      if (!startDate || !endDate) {
+        setHealthDailyRows([]);
+        return;
+      }
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('kwilt_health_daily')
+        .select('local_date,steps_count')
+        .gte('local_date', startDate)
+        .lt('local_date', endDate)
+        .order('local_date', { ascending: true });
+      if (cancelled) return;
+      if (error || !Array.isArray(data)) {
+        setHealthDailyRows([]);
+        return;
+      }
+      setHealthDailyRows(
+        data.map((row: any) => ({
+          local_date: String(row.local_date ?? ''),
+          steps_count: typeof row.steps_count === 'number' ? row.steps_count : null,
+        })),
+      );
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [chapter?.id, chapter?.metrics?.health, chapter?.period_end, chapter?.period_start]);
 
   React.useEffect(() => {
     if (viewedTrackedRef.current) return;
@@ -840,7 +963,29 @@ export function ChapterDetailScreen() {
       .filter(Boolean)
       .slice(0, 4) as GoalStoryPlate[];
   }, [goalsById, metrics?.goals]);
-  const healthSummaryRows = buildHealthSummaryRows(metrics?.health);
+  const healthMetricCards = buildHealthMetricCards(metrics?.health);
+  const healthStepsTotal =
+    typeof metrics?.health?.total_steps === 'number' && metrics.health.total_steps > 0
+      ? metrics.health.total_steps
+      : null;
+  const healthStepsAverage =
+    typeof metrics?.health?.avg_steps_per_active_day === 'number' &&
+    metrics.health.avg_steps_per_active_day > 0
+      ? metrics.health.avg_steps_per_active_day
+      : healthStepsTotal != null &&
+          typeof metrics?.health?.active_days_count === 'number' &&
+          metrics.health.active_days_count > 0
+        ? healthStepsTotal / metrics.health.active_days_count
+        : null;
+  const healthStepsDetail =
+    healthStepsAverage != null
+      ? `${formatWholeNumber(healthStepsAverage)} per active day`
+      : undefined;
+  const stepsChart = React.useMemo(
+    () => buildStepsChart(healthDailyRows, healthStepsAverage),
+    [healthDailyRows, healthStepsAverage],
+  );
+  const showHealthDetails = healthStepsTotal != null || healthMetricCards.length > 0;
   // Phase 3.3 arc lanes: up to 4 top arcs by activity, each with its delta
   // block (populated by `augmentArcsWithDeltas` on the server). We surface
   // lanes even when deltas are missing (pre-Phase-3 chapters) — the lane
@@ -1318,32 +1463,6 @@ export function ChapterDetailScreen() {
                 </View>
               </View>
 
-              {healthSummaryRows.length > 0 ? (
-                <View style={styles.healthSummaryBlock}>
-                  <VStack space="sm">
-                    <View>
-                      <Text style={styles.sectionLabel}>Apple Health</Text>
-                      <Text style={styles.healthSummaryIntro}>
-                        Summaries Kwilt read for this Chapter period.
-                      </Text>
-                    </View>
-                    <View style={styles.healthSummaryGrid}>
-                      {healthSummaryRows.map((row) => (
-                        <View key={row.label} style={styles.healthSummaryRow}>
-                          <Text style={styles.healthSummaryLabel}>{row.label}</Text>
-                          <View style={styles.healthSummaryValueWrap}>
-                            <Text style={styles.healthSummaryValue}>{row.value}</Text>
-                            {row.detail ? (
-                              <Text style={styles.healthSummaryDetail}>{row.detail}</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  </VStack>
-                </View>
-              ) : null}
-
               {story ? (
                 <View style={styles.articleWrap}>
                   <VStack space="md" style={styles.storyBody}>
@@ -1718,6 +1837,128 @@ export function ChapterDetailScreen() {
                 </View>
               ) : null}
 
+              {showHealthDetails ? (
+                <View style={styles.healthDetailsBlock}>
+                  <Text style={styles.sectionLabel}>Apple Health</Text>
+
+                  {healthStepsTotal != null ? (
+                    <Card
+                      padding="sm"
+                      marginVertical={0}
+                      elevation="none"
+                      style={styles.healthStepsCard}
+                    >
+                      <View style={styles.healthStepsHeader}>
+                        <View style={styles.healthStepsTitleBlock}>
+                          <Text style={styles.detailCardTitle}>Steps</Text>
+                          {healthStepsDetail ? (
+                            <Text style={styles.healthStepsDetail}>{healthStepsDetail}</Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.healthStepsValueBlock}>
+                          <Text style={styles.healthStepsValue}>{formatWholeNumber(healthStepsTotal)}</Text>
+                        </View>
+                      </View>
+                      {stepsChart ? (
+                        <View style={styles.healthStepsChartWrap} accessibilityLabel="Daily step count chart">
+                          <Svg
+                            width="100%"
+                            height={STEPS_CHART.height}
+                            viewBox={`0 0 ${STEPS_CHART.width} ${STEPS_CHART.height}`}
+                          >
+                            {stepsChart.grid.map((gridLine, index) => (
+                              <Line
+                                key={`steps-grid-${index}`}
+                                x1={STEPS_CHART.left}
+                                x2={STEPS_CHART.width - STEPS_CHART.right}
+                                y1={gridLine.y}
+                                y2={gridLine.y}
+                                stroke={colors.border}
+                                strokeWidth={1}
+                              />
+                            ))}
+                            {stepsChart.yAxisLabels.map((label) => (
+                              <SvgText
+                                key={`steps-axis-${label.label}`}
+                                x={STEPS_CHART.left - 2}
+                                y={label.y + 4}
+                                fill={colors.textSecondary}
+                                fontSize={11}
+                                textAnchor="end"
+                              >
+                                {label.label}
+                              </SvgText>
+                            ))}
+                            <Path d={stepsChart.areaPath} fill={colors.quiltBlue50} opacity={0.85} />
+                            {stepsChart.averageY != null ? (
+                              <Line
+                                x1={STEPS_CHART.left}
+                                x2={STEPS_CHART.width - STEPS_CHART.right}
+                                y1={stepsChart.averageY}
+                                y2={stepsChart.averageY}
+                                stroke={colors.madder500}
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                opacity={0.85}
+                              />
+                            ) : null}
+                            <Path
+                              d={stepsChart.linePath}
+                              fill="none"
+                              stroke={colors.quiltBlue500}
+                              strokeWidth={3}
+                              strokeLinecap="round"
+                            />
+                            {stepsChart.points.map((point, index) => {
+                              const showLabel =
+                                index === 0 ||
+                                index === stepsChart.points.length - 1 ||
+                                index % 2 === 0;
+                              if (!showLabel) return null;
+                              return (
+                                <SvgText
+                                  key={`steps-label-${point.label}-${index}`}
+                                  x={point.x}
+                                  y={STEPS_CHART.height - 7}
+                                  fill={colors.textSecondary}
+                                  fontSize={12}
+                                  textAnchor="middle"
+                                >
+                                  {point.label}
+                                </SvgText>
+                              );
+                            })}
+                          </Svg>
+                        </View>
+                      ) : null}
+                    </Card>
+                  ) : null}
+
+                  {healthMetricCards.length > 0 ? (
+                    <View style={styles.healthMetricGrid}>
+                      {healthMetricCards.map((metric) => (
+                        <Card
+                          key={metric.title}
+                          padding="sm"
+                          marginVertical={0}
+                          elevation="none"
+                          style={styles.healthMetricCard}
+                        >
+                          <Text style={styles.detailCardTitle}>{metric.title}</Text>
+                          <View style={styles.healthMetricBody}>
+                            <Text style={styles.healthMetricValue}>{metric.value}</Text>
+                            <Text style={styles.healthMetricUnit}>{metric.unit}</Text>
+                            {metric.detail ? (
+                              <Text style={styles.healthMetricDetail}>{metric.detail}</Text>
+                            ) : null}
+                          </View>
+                        </Card>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
               {actionableRecommendations.length > 0 ? (
                 <View style={styles.nextStepsBlock} accessibilityLabel="Chapter follow-up actions">
                   <Text style={styles.sectionLabel}>Loose ends</Text>
@@ -1896,10 +2137,12 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     ...typography.bodySm,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+    fontFamily: typography.bodyBold.fontFamily,
+    fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   arcLaneRow: {
     flexDirection: 'row',
@@ -2031,50 +2274,6 @@ const styles = StyleSheet.create({
     borderRightWidth: StyleSheet.hairlineWidth,
     borderRightColor: colors.sumi200,
   },
-  healthSummaryBlock: {
-    width: '100%',
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  healthSummaryIntro: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  healthSummaryGrid: {
-    gap: spacing.xs,
-  },
-  healthSummaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingVertical: spacing.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  healthSummaryLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  healthSummaryValueWrap: {
-    flex: 1.4,
-    alignItems: 'flex-end',
-  },
-  healthSummaryValue: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  healthSummaryDetail: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'right',
-    marginTop: 2,
-  },
   articleWrap: {
     width: '100%',
     marginTop: spacing.sm,
@@ -2168,9 +2367,7 @@ const styles = StyleSheet.create({
   },
   detailsBlock: {
     width: '100%',
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    paddingTop: spacing['2xl'],
   },
   detailsCards: {
     width: '100%',
@@ -2296,6 +2493,85 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
     lineHeight: 20,
+  },
+  healthDetailsBlock: {
+    width: '100%',
+    paddingTop: spacing['2xl'],
+  },
+  healthStepsCard: {
+    width: '100%',
+    alignItems: 'stretch',
+  },
+  healthStepsHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    columnGap: spacing.md,
+  },
+  healthStepsTitleBlock: {
+    flex: 1,
+    flexShrink: 1,
+  },
+  healthStepsValueBlock: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+  },
+  healthStepsValue: {
+    ...typography.titleXl,
+    fontSize: 36,
+    lineHeight: 40,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  healthStepsDetail: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
+  healthStepsChartWrap: {
+    width: '100%',
+    height: STEPS_CHART.height,
+    marginTop: spacing.lg,
+  },
+  healthMetricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.sm,
+    rowGap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  healthMetricCard: {
+    width: '48.5%',
+    minHeight: 150,
+    alignItems: 'stretch',
+  },
+  healthMetricBody: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  healthMetricValue: {
+    ...typography.titleXl,
+    fontSize: 34,
+    lineHeight: 40,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  healthMetricUnit: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  healthMetricDetail: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   feedbackWrap: {
     width: '100%',

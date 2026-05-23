@@ -85,11 +85,14 @@ export function ChaptersScreen() {
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
   const repairWindowActive = useRepairWindowActive(streakBreakState);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [hasLoadedChapters, setHasLoadedChapters] = React.useState(false);
+  const [chaptersLoadFailed, setChaptersLoadFailed] = React.useState(false);
   const [chapters, setChapters] = React.useState<ChapterRow[]>([]);
   const [weeklySettings, setWeeklySettings] = React.useState<WeeklyDigestSettings | null>(null);
   const [settingsSaving, setSettingsSaving] = React.useState(false);
   const [settingsCoachmarkDismissed, setSettingsCoachmarkDismissed] = React.useState(true);
   const [readMap, setReadMap] = React.useState<Record<string, string>>(() => getChapterReadMapSync());
+  const hasLoadedChaptersRef = React.useRef(false);
   const chapterSettingsMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger accessibilityLabel="Chapter options">
@@ -141,6 +144,7 @@ export function ChaptersScreen() {
   const chaptersEnabled = weeklySettings?.enabled ?? false;
   const deliveryWeekday = weeklySettings?.deliveryWeekday ?? null;
   const showSettingsCoachmark = !latest && weeklySettings !== null && !settingsCoachmarkDismissed;
+  const isInitialChaptersLoad = !hasLoadedChapters;
 
   const formatShortDate = (iso: string) => {
     try {
@@ -152,21 +156,28 @@ export function ChaptersScreen() {
     }
   };
 
-  const refresh = React.useCallback(async () => {
-    setRefreshing(true);
+  const refresh = React.useCallback(async (mode: 'background' | 'pull' = 'background') => {
+    if (mode === 'pull') setRefreshing(true);
     try {
       // Best-effort fetch: we don't want to force an auth prompt just to view the page.
-      const rows = await fetchMyChapters({ limit: 30 });
+      const rows = await fetchMyChapters({ limit: 30, throwOnError: true });
       setChapters(rows);
+      setChaptersLoadFailed(false);
+      hasLoadedChaptersRef.current = true;
+      setHasLoadedChapters(true);
       if (!listViewTrackedRef.current) {
         listViewTrackedRef.current = true;
         capture(AnalyticsEvent.ChapterListViewed, { chapter_count: rows.length });
       }
     } catch {
-      // Best-effort: keep placeholder UI if user cancels sign-in or network fails.
-      setChapters([]);
+      setChaptersLoadFailed(true);
+      if (!hasLoadedChaptersRef.current) {
+        setChapters([]);
+        hasLoadedChaptersRef.current = true;
+        setHasLoadedChapters(true);
+      }
     } finally {
-      setRefreshing(false);
+      if (mode === 'pull') setRefreshing(false);
     }
   }, [capture]);
 
@@ -207,7 +218,7 @@ export function ChaptersScreen() {
       // yearly / manual factories are cut. The cron does the rest.
       void createDefaultWeeklyReflectionTemplate().catch(() => null);
       void loadWeeklySettings();
-      void refresh();
+      void refresh('background');
       return () => {};
     }, [loadWeeklySettings, refresh]),
   );
@@ -227,10 +238,14 @@ export function ChaptersScreen() {
       />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh('pull')} />}
       >
         <VStack space="lg" style={styles.contentStack}>
-          {latest ? (
+          {isInitialChaptersLoad ? (
+            <View style={styles.loadingState}>
+              <Text style={styles.loadingText}>Loading chapters…</Text>
+            </View>
+          ) : latest ? (
             <>
               <Pressable
                 accessibilityRole="button"
@@ -314,6 +329,13 @@ export function ChaptersScreen() {
                 </VStack>
               ) : null}
             </>
+          ) : chaptersLoadFailed ? (
+            <EmptyState
+              title="Couldn’t load chapters"
+              iconName="emptyBox"
+              instructions="Pull down to try again."
+              style={styles.emptyState}
+            />
           ) : (
             <EmptyState
               title={chaptersEnabled ? 'Your first weekly chapter is on its way' : 'Turn on weekly chapters'}
@@ -383,6 +405,16 @@ const styles = StyleSheet.create({
   },
   contentStack: {
     flex: 1,
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 120,
+  },
+  loadingText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   card: {
     width: '100%',

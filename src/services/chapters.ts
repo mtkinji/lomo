@@ -62,7 +62,7 @@ export type ChapterGenerationResult = {
   error?: string;
 };
 
-export async function fetchMyChapters(params: { limit?: number } = {}): Promise<ChapterRow[]> {
+export async function fetchMyChapters(params: { limit?: number; throwOnError?: boolean } = {}): Promise<ChapterRow[]> {
   const supabase = getSupabaseClient();
   const limit = typeof params.limit === 'number' ? Math.max(1, Math.min(Math.floor(params.limit), 100)) : 20;
   await getMaybeRefreshedAccessToken().catch(() => null);
@@ -73,7 +73,12 @@ export async function fetchMyChapters(params: { limit?: number } = {}): Promise<
     .order('period_start', { ascending: false })
     .limit(limit);
 
-  if (error || !Array.isArray(data)) return [];
+  if (error || !Array.isArray(data)) {
+    if (params.throwOnError) {
+      throw error ?? new Error('Unexpected chapter list response');
+    }
+    return [];
+  }
   return data as any;
 }
 
@@ -635,6 +640,8 @@ export async function triggerChapterGeneration(
   params: {
     templateId?: string | null;
     force?: boolean;
+    skipEmail?: boolean;
+    devHealthRows?: unknown[];
     periodOffset?: number;
     start?: string; // YYYY-MM-DD (template timezone)
     end?: string; // YYYY-MM-DD (exclusive end, template timezone)
@@ -647,6 +654,8 @@ export async function triggerChapterGeneration(
   const body: Record<string, unknown> = {};
   if (params.templateId) body.template_id = params.templateId;
   if (params.force === true) body.force = true;
+  if (params.skipEmail === true) body.skip_email = true;
+  if (Array.isArray(params.devHealthRows)) body.dev_health_rows = params.devHealthRows;
   if (typeof params.start === 'string' && params.start.trim()) body.start = params.start.trim();
   if (typeof params.end === 'string' && params.end.trim()) body.end = params.end.trim();
 

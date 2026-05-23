@@ -2443,6 +2443,10 @@ type ManualBody = {
   templateId?: unknown; // backward compat
   limit?: unknown;
   force?: unknown;
+  skip_email?: unknown;
+  skipEmail?: unknown; // backward compat / client naming
+  dev_health_rows?: unknown;
+  devHealthRows?: unknown; // client naming
   periodOffset?: unknown;
   start?: unknown;
   end?: unknown;
@@ -2450,6 +2454,39 @@ type ManualBody = {
   periodEnd?: unknown; // backward compat
   periodKey?: unknown; // backward compat (ignored for new manual key)
 };
+
+function normalizeManualHealthRows(raw: unknown): HealthDailyRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const rows: HealthDailyRow[] = [];
+  for (const item of raw.slice(0, 14)) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const localDate = typeof row.local_date === 'string' ? row.local_date.trim() : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) continue;
+    rows.push({
+      local_date: localDate,
+      timezone: typeof row.timezone === 'string' && row.timezone.trim() ? row.timezone.trim() : null,
+      steps_count: toOptionalNonNegativeInt(row.steps_count),
+      active_minutes: toOptionalNonNegativeInt(row.active_minutes),
+      workouts_count: toOptionalNonNegativeInt(row.workouts_count),
+      sleep_hours: toOptionalNonNegativeFloat(row.sleep_hours),
+      mindfulness_minutes: toOptionalNonNegativeInt(row.mindfulness_minutes),
+    });
+  }
+  return rows.length > 0 ? rows : null;
+}
+
+function toOptionalNonNegativeInt(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+}
+
+function toOptionalNonNegativeFloat(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
 
 serve(async (req) => {
   // Cron: allow GET; manual: POST.
@@ -2476,6 +2513,12 @@ serve(async (req) => {
         : null;
   const limit = clampInt(body?.limit, 50, 1, 500);
   const force = Boolean(body && (body as any).force === true);
+  const skipEmail = Boolean(
+    isManual && body && (((body as any).skip_email === true) || ((body as any).skipEmail === true))
+  );
+  const manualHealthRows = isManual
+    ? normalizeManualHealthRows((body as any)?.dev_health_rows ?? (body as any)?.devHealthRows)
+    : null;
   const periodOffset = clampInt((body as any)?.periodOffset, 0, 0, 260);
   const startDate =
     typeof (body as any)?.start === 'string'
@@ -2651,7 +2694,7 @@ serve(async (req) => {
       activitiesIncluded: included,
       arcById,
       goalById,
-      healthDaily: domainRes.healthDaily ?? null,
+      healthDaily: manualHealthRows ?? domainRes.healthDaily ?? null,
     });
 
     const endDisplay = period.end.minus({ days: 1 });
@@ -2995,7 +3038,7 @@ serve(async (req) => {
 
     // Email delivery: send a digest email if the template opts in and the chapter succeeded.
     let emailed = false;
-    if (finalOk && t.email_enabled && t.email_recipient) {
+    if (finalOk && !skipEmail && t.email_enabled && t.email_recipient) {
       try {
         const { data: emailPrefs } = await admin
           .from('kwilt_email_preferences')

@@ -27,6 +27,14 @@ import {
 } from '../../services/ai';
 import { resetOpenAiQuotaFlag } from '../../services/ai';
 import { NotificationService } from '../../services/NotificationService';
+import { getSupabaseClient } from '../../services/backend/supabaseClient';
+import {
+  createDefaultWeeklyReflectionTemplate,
+  fetchMyChapters,
+  getWeeklyDigestSettings,
+  triggerChapterGeneration,
+  updateWeeklyDigestSettings,
+} from '../../services/chapters';
 import type { Activity } from '../../domain/types';
 import { installScreenshotSeedPack, removeScreenshotSeedPack, SCREENSHOT_PACK_ARC_IDS } from './screenshotSeedPack';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
@@ -44,6 +52,79 @@ import {
 } from '../../store/useCelebrationStore';
 
 type DevToolSectionId = 'seed' | 'preview' | 'simulate' | 'experiments' | 'diagnostics';
+
+function formatLocalDate(date: Date): string {
+  const y = String(date.getFullYear());
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function compactDate(date: string): string {
+  return date.replace(/-/g, '');
+}
+
+function addLocalDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function buildHealthChapterDemoPeriod(): { start: string; end: string; periodKey: string } {
+  const endDate = new Date();
+  endDate.setHours(0, 0, 0, 0);
+  endDate.setDate(endDate.getDate() - 120);
+  const startDate = addLocalDays(endDate, -7);
+  const start = formatLocalDate(startDate);
+  const end = formatLocalDate(endDate);
+  return {
+    start,
+    end,
+    periodKey: `${compactDate(start)}_${compactDate(end)}`,
+  };
+}
+
+function buildDemoHealthRows(start: string, end: string) {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const rows: Array<{
+    local_date: string;
+    timezone: string;
+    steps_count: number;
+    active_minutes: number;
+    workouts_count: number;
+    sleep_hours: number | null;
+    mindfulness_minutes: number;
+    source: string;
+  }> = [];
+  const cursor = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  const samples = [
+    { steps: 8420, active: 32, workouts: 1, sleep: 6.7, mindful: 0 },
+    { steps: 11240, active: 48, workouts: 0, sleep: 7.1, mindful: 10 },
+    { steps: 6100, active: 21, workouts: 1, sleep: 6.4, mindful: 0 },
+    { steps: 3200, active: 8, workouts: 0, sleep: null, mindful: 0 },
+    { steps: 12880, active: 56, workouts: 1, sleep: 7.3, mindful: 12 },
+    { steps: 0, active: 0, workouts: 0, sleep: 6.5, mindful: 6 },
+    { steps: 7340, active: 21, workouts: 0, sleep: 6.2, mindful: 0 },
+  ];
+
+  for (let i = 0; cursor < endDate; i += 1) {
+    const sample = samples[i % samples.length];
+    rows.push({
+      local_date: formatLocalDate(cursor),
+      timezone,
+      steps_count: sample.steps,
+      active_minutes: sample.active,
+      workouts_count: sample.workouts,
+      sleep_hours: sample.sleep,
+      mindfulness_minutes: sample.mindful,
+      source: 'dev_seed',
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return rows;
+}
 
 export function DevToolsScreen() {
   if (!__DEV__) return null;
@@ -126,6 +207,7 @@ export function DevToolsScreen() {
     setDevToastMessage(message);
   }, []);
   const [screenshotSeeding, setScreenshotSeeding] = useState(false);
+  const [healthChapterSeeding, setHealthChapterSeeding] = useState(false);
   const screenshotPackInstalled = useAppStore((state) =>
     SCREENSHOT_PACK_ARC_IDS.some((id) => state.arcs.some((a) => a.id === id))
   );
@@ -604,6 +686,90 @@ export function DevToolsScreen() {
     });
   };
 
+  const handleSeedAppleHealthChapter = () => {
+    if (healthChapterSeeding) return;
+    void (async () => {
+      setHealthChapterSeeding(true);
+      try {
+        const template = await createDefaultWeeklyReflectionTemplate();
+        if (!template) {
+          showDevToast('Sign in before seeding a health Chapter.', 'warning');
+          return;
+        }
+
+        const { start, end, periodKey } = buildHealthChapterDemoPeriod();
+        const rows = buildDemoHealthRows(start, end);
+        const supabase = getSupabaseClient();
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id ?? null;
+        if (!userId) {
+          showDevToast('Sign in before seeding a health Chapter.', 'warning');
+          return;
+        }
+
+        const { error: healthError } = await supabase.from('kwilt_health_daily').upsert(
+          rows.map((row) => ({
+            user_id: userId,
+            ...row,
+          })),
+          { onConflict: 'user_id,local_date' },
+        );
+        if (healthError) {
+          showDevToast(`Health seed failed: ${healthError.message}`, 'warning');
+          return;
+        }
+
+        const previousSettings = await getWeeklyDigestSettings();
+        const shouldRestoreEmail =
+          previousSettings?.template.id === template.id && previousSettings.emailEnabled === true;
+        if (shouldRestoreEmail) {
+          await updateWeeklyDigestSettings({ emailEnabled: false });
+        }
+
+        let generation;
+        try {
+          generation = await triggerChapterGeneration({
+            templateId: template.id,
+            force: true,
+            skipEmail: true,
+            devHealthRows: rows,
+            start,
+            end,
+          });
+        } finally {
+          if (shouldRestoreEmail) {
+            await updateWeeklyDigestSettings({ emailEnabled: true });
+          }
+        }
+        if (!generation?.ok || generation.action !== 'generated') {
+          showDevToast(generation?.error ?? generation?.reason ?? 'Chapter generation failed.', 'warning');
+          return;
+        }
+
+        const chapters = await fetchMyChapters({ limit: 20 });
+        const chapter = chapters.find((c) => c.template_id === template.id && c.period_key === periodKey);
+        if (!chapter) {
+          showDevToast('Seeded health Chapter, but could not find it in the chapter list.', 'warning');
+          return;
+        }
+
+        showDevToast('Seeded Apple Health Chapter.', 'success');
+        navigation.navigate('MainTabs', {
+          screen: 'MoreTab',
+          params: {
+            screen: 'MoreChapterDetail',
+            params: { chapterId: chapter.id },
+          },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        showDevToast(`Health Chapter seed failed: ${message}`, 'warning');
+      } finally {
+        setHealthChapterSeeding(false);
+      }
+    })();
+  };
+
   const lastTriggeredLabel = lastTriggeredAt
     ? new Date(lastTriggeredAt).toLocaleString()
     : 'Never';
@@ -787,7 +953,7 @@ export function DevToolsScreen() {
           <DevToolSection
             title="Seed & reset"
             description="Install demo data and replay onboarding handoffs."
-            count={8}
+            count={9}
             expanded={expandedSections.seed}
             onToggle={() => toggleSection('seed')}
           >
@@ -867,6 +1033,25 @@ export function DevToolsScreen() {
               <Text style={styles.meta}>
                 Status: {screenshotPackInstalled ? 'Installed' : 'Not installed'}
               </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Apple Health Chapter (dev)</Text>
+              <Text style={styles.cardBody}>
+                Seeds one older week of Apple Health summary rows for this signed-in account,
+                generates a Weekly Chapter without sending email, then opens it.
+              </Text>
+              <Button
+                testID="devtools.seed.appleHealthChapter"
+                variant="accent"
+                onPress={handleSeedAppleHealthChapter}
+                disabled={healthChapterSeeding}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md" tone="inverse">
+                  {healthChapterSeeding ? 'Generating…' : 'Seed Apple Health Chapter'}
+                </ButtonLabel>
+              </Button>
             </View>
 
             <View style={styles.card}>
