@@ -107,6 +107,50 @@ describe('useAppStore object lifecycles', () => {
     expect(state.activities.map((a) => a.id)).toEqual(['act-2']);
   });
 
+  it('restoreRemovedActivity undoes a deletion without leaving linked steps detached', () => {
+    const parent = activity({
+      id: 'parent',
+      title: 'Parent',
+      steps: [
+        {
+          id: 'step-1',
+          title: 'Linked step',
+          orderIndex: 0,
+          completedAt: '2026-01-01T12:00:00.000Z',
+          linkedActivityId: 'child',
+          linkedAt: '2026-01-01T12:00:00.000Z',
+        },
+      ] as any,
+    });
+    const child = activity({
+      id: 'child',
+      title: 'Child',
+      origin: {
+        kind: 'activity_step',
+        parentActivityId: 'parent',
+        parentStepId: 'step-1',
+      },
+    } as any);
+
+    useAppStore.getState().addActivity(parent);
+    useAppStore.getState().addActivity(child);
+
+    useAppStore.getState().removeActivity('child');
+    expect(useAppStore.getState().activities.map((a) => a.id)).toEqual(['parent']);
+    expect((useAppStore.getState().activities[0]?.steps?.[0] as any)?.linkedActivityId).toBeNull();
+
+    useAppStore.getState().restoreRemovedActivity({
+      activity: child,
+      relatedActivities: [parent],
+      originalIndex: 1,
+    });
+
+    const state = useAppStore.getState();
+    expect(state.activities.map((a) => a.id)).toEqual(['parent', 'child']);
+    expect((state.activities[0]?.steps?.[0] as any)?.linkedActivityId).toBe('child');
+    expect((state.activities[1] as any)?.origin?.parentActivityId).toBe('parent');
+  });
+
   it('archive/restore is a status change (non-destructive) for arcs', () => {
     useAppStore.getState().addArc(arc({ id: 'arc-1', status: 'active' }));
 

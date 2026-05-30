@@ -73,6 +73,7 @@ import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
+import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -237,6 +238,8 @@ export function ActivitiesScreen() {
   const setQuickAddAiActions = useAppStore((state) => state.setQuickAddAiActions);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const removeActivity = useAppStore((state) => state.removeActivity);
+  const restoreRemovedActivity = useAppStore((state) => state.restoreRemovedActivity);
   const reorderActivities = useAppStore((state) => state.reorderActivities);
   // NOTE: Drag-and-drop reorder is temporarily disabled on this screen.
   // Manual order remains supported via Activity.orderIndex and the existing sorting logic.
@@ -1637,6 +1640,41 @@ export function ActivitiesScreen() {
     [canOpenActivityDetail, navigation],
   );
 
+  const handleDeleteActivity = React.useCallback(
+    (activity: Activity, source: string = 'activities_list_swipe') => {
+      const undoSnapshot =
+        buildActivityDeleteUndoSnapshot(activities, activity.id) ?? {
+          activity,
+          relatedActivities: [],
+          originalIndex: activities.length,
+        };
+
+      void HapticsService.trigger('canvas.destructive.confirm');
+      removeActivity(activity.id);
+      capture(AnalyticsEvent.ActivityActionInvoked, {
+        activityId: activity.id,
+        action: 'delete',
+        source,
+      });
+      showToast({
+        message: 'To-do deleted',
+        variant: 'light',
+        durationMs: 5000,
+        actionLabel: 'Undo',
+        actionOnPress: () => {
+          restoreRemovedActivity(undoSnapshot);
+          void HapticsService.trigger('canvas.step.undo');
+          capture(AnalyticsEvent.ActivityActionInvoked, {
+            activityId: activity.id,
+            action: 'delete_undo',
+            source,
+          });
+        },
+      });
+    },
+    [activities, capture, removeActivity, restoreRemovedActivity, showToast],
+  );
+
   // (moved) reorder mode handlers are declared below `handleUpdateSortMode`
 
   const buildQuickAddHeuristicPlan = React.useCallback(
@@ -2798,6 +2836,7 @@ export function ActivitiesScreen() {
                   isPriorityOne={activity.priority === 1}
                   onTogglePriority={isDragging ? undefined : () => handleTogglePriorityOne(activity.id)}
                   onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
+                  onDelete={isDragging ? undefined : () => handleDeleteActivity(activity)}
                   isDueToday={isDueToday}
                   isGhost={
                     sessionCreatedIdsForGhostContext.has(activity.id) &&
@@ -2855,6 +2894,7 @@ export function ActivitiesScreen() {
                   onToggleComplete={handleToggleComplete}
                   onTogglePriority={handleTogglePriorityOne}
                   onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+                  onDeleteActivity={(activity) => handleDeleteActivity(activity)}
                   isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
                   sessionCreatedIds={sessionCreatedIdsForGhostContext}
                   filterGroups={filterGroups}
@@ -2912,6 +2952,7 @@ export function ActivitiesScreen() {
                 isPriorityOne={activity.priority === 1}
                 onTogglePriority={() => handleTogglePriorityOne(activity.id)}
                 onPress={() => navigateToActivityDetail(activity.id)}
+                onDelete={() => handleDeleteActivity(activity)}
                 isDueToday={isDueToday}
                 isGhost={
                   sessionCreatedIdsForGhostContext.has(activity.id) &&
@@ -2968,6 +3009,7 @@ export function ActivitiesScreen() {
                   onToggleComplete={handleToggleComplete}
                   onTogglePriority={handleTogglePriorityOne}
                   onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+                  onDeleteActivity={(activity) => handleDeleteActivity(activity)}
                   isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
                   sessionCreatedIds={sessionCreatedIdsForGhostContext}
                   filterGroups={filterGroups}

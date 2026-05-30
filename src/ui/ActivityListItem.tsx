@@ -1,10 +1,13 @@
 import React from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableProps,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Card } from './Card';
 import { HStack, VStack, Text } from './primitives';
 import { Icon } from './Icon';
 import { Badge } from './Badge';
-import { colors, spacing, typography } from '../theme';
+import { cardSurfaceStyle, colors, spacing, typography } from '../theme';
 import { fonts } from '../theme/typography';
 
 type ActivityListItemProps = {
@@ -81,6 +84,11 @@ type ActivityListItemProps = {
    */
   onLongPress?: () => void;
   /**
+   * Optional destructive row action. When provided, swiping left
+   * reveals a Delete affordance; the parent owns removal and undo.
+   */
+  onDelete?: () => void;
+  /**
    * When true, highlights the meta row (text + leading icons) in a warning/red color
    * to indicate the activity is due today (Microsoft Outlook–style).
    */
@@ -109,6 +117,7 @@ export function ActivityListItem({
   showCheckbox = true,
   onPress,
   onLongPress,
+  onDelete,
   isDueToday = false,
   isGhost = false,
 }: ActivityListItemProps) {
@@ -201,6 +210,27 @@ export function ActivityListItem({
     : isDueToday
       ? colors.destructive
       : colors.textSecondary;
+
+  const renderDeleteAction: NonNullable<SwipeableProps['renderRightActions']> = React.useCallback(
+    (_progress, _dragX, swipeable) => (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Delete ${title}`}
+        onPress={() => {
+          swipeable.close();
+          onDelete?.();
+        }}
+        style={({ pressed }) => [
+          styles.swipeDeleteAction,
+          pressed && styles.swipeDeleteActionPressed,
+        ]}
+      >
+        <Icon name="trash" size={18} color={colors.primaryForeground} />
+        <Text style={styles.swipeDeleteLabel}>Delete</Text>
+      </Pressable>
+    ),
+    [onDelete, title],
+  );
 
   const content = (
     <Card
@@ -354,11 +384,7 @@ export function ActivityListItem({
     </Card>
   );
 
-  if (!onPress && !onLongPress) {
-    return content;
-  }
-
-  return (
+  const rowContent = !onPress && !onLongPress ? content : (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
@@ -370,11 +396,52 @@ export function ActivityListItem({
       {content}
     </Pressable>
   );
+
+  if (!onDelete) {
+    return rowContent;
+  }
+
+  return (
+    <ReanimatedSwipeable
+      friction={1.5}
+      rightThreshold={36}
+      overshootLeft={false}
+      overshootRight={false}
+      renderRightActions={renderDeleteAction}
+      containerStyle={styles.swipeContainer}
+    >
+      {rowContent}
+    </ReanimatedSwipeable>
+  );
 }
 
 const styles = StyleSheet.create({
   pressable: {
     width: '100%',
+  },
+  swipeContainer: {
+    width: '100%',
+  },
+  swipeDeleteAction: {
+    width: 96,
+    marginLeft: spacing.sm,
+    marginVertical: 0,
+    borderRadius: cardSurfaceStyle.borderRadius,
+    borderWidth: cardSurfaceStyle.borderWidth,
+    borderColor: colors.destructive,
+    backgroundColor: colors.destructive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  swipeDeleteActionPressed: {
+    opacity: 0.85,
+  },
+  swipeDeleteLabel: {
+    ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.primaryForeground,
   },
   card: {
     marginHorizontal: 0,
@@ -482,5 +549,3 @@ const styles = StyleSheet.create({
     borderColor: colors.turmeric300,
   },
 });
-
-

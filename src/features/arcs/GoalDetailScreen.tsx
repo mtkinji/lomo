@@ -111,6 +111,7 @@ import { PaywallContent } from '../paywall/PaywallDrawer';
 import { openPaywallPurchaseEntry } from '../../services/paywall';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { parseTags } from '../../utils/tags';
+import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
 import { QuickAddDock } from '../activities/QuickAddDock';
 import { useQuickAddDockController } from '../activities/useQuickAddDockController';
@@ -219,6 +220,8 @@ export function GoalDetailScreen() {
   const updateActivity = useAppStore((state) => state.updateActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const removeGoal = useAppStore((state) => state.removeGoal);
+  const removeActivity = useAppStore((state) => state.removeActivity);
+  const restoreRemovedActivity = useAppStore((state) => state.restoreRemovedActivity);
   const updateGoal = useAppStore((state) => state.updateGoal);
   const visuals = useAppStore((state) => state.userProfile?.visuals);
   const isPro = useEntitlementsStore((state) => state.isPro);
@@ -2052,6 +2055,42 @@ export function GoalDetailScreen() {
     setShouldPromptAddActivity(true);
   };
 
+  const handleDeleteActivity = useCallback(
+    (activity: Activity) => {
+      const source = 'goal_detail_swipe';
+      const undoSnapshot =
+        buildActivityDeleteUndoSnapshot(activities, activity.id) ?? {
+          activity,
+          relatedActivities: [],
+          originalIndex: goalActivities.findIndex((candidate) => candidate.id === activity.id),
+        };
+
+      void HapticsService.trigger('canvas.destructive.confirm');
+      removeActivity(activity.id);
+      capture(AnalyticsEvent.ActivityActionInvoked, {
+        activityId: activity.id,
+        action: 'delete',
+        source,
+      });
+      showToast({
+        message: 'To-do deleted',
+        variant: 'light',
+        durationMs: 5000,
+        actionLabel: 'Undo',
+        actionOnPress: () => {
+          restoreRemovedActivity(undoSnapshot);
+          void HapticsService.trigger('canvas.step.undo');
+          capture(AnalyticsEvent.ActivityActionInvoked, {
+            activityId: activity.id,
+            action: 'delete_undo',
+            source,
+          });
+        },
+      });
+    },
+    [activities, capture, goalActivities, removeActivity, restoreRemovedActivity, showToast],
+  );
+
   const handleDeleteGoal = () => {
     Alert.alert(
       'Delete goal?',
@@ -2962,6 +3001,7 @@ export function GoalDetailScreen() {
                                 isPriorityOne={activity.priority === 1}
                                 onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
                                 onPress={() => handleOpenActivityDetail(activity.id)}
+                                onDelete={() => handleDeleteActivity(activity)}
                                 isDueToday={isDueToday}
                               />
                             );
@@ -3024,6 +3064,7 @@ export function GoalDetailScreen() {
                                     isPriorityOne={activity.priority === 1}
                                     onTogglePriority={() => handleToggleActivityPriorityOne(activity.id)}
                                     onPress={() => handleOpenActivityDetail(activity.id)}
+                                    onDelete={() => handleDeleteActivity(activity)}
                                     isDueToday={isDueToday}
                                   />
                                 );

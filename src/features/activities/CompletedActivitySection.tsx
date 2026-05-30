@@ -16,6 +16,7 @@ export type CompletedActivitySectionProps = {
   onToggleComplete: (activityId: string) => void;
   onTogglePriority: (activityId: string) => void;
   onPressActivity: (activityId: string) => void;
+  onDeleteActivity?: (activity: Activity) => void;
   isMetaLoading?: (activityId: string) => boolean;
   /** Set of activity IDs created during this session (for ghost detection) */
   sessionCreatedIds: Set<string>;
@@ -31,6 +32,7 @@ export function CompletedActivitySection({
   onToggleComplete,
   onTogglePriority,
   onPressActivity,
+  onDeleteActivity,
   isMetaLoading,
   sessionCreatedIds,
   filterGroups,
@@ -86,6 +88,7 @@ export function CompletedActivitySection({
                   isPriorityOne={activity.priority === 1}
                   onTogglePriority={() => onTogglePriority(activity.id)}
                   onPress={() => onPressActivity(activity.id)}
+                  onDelete={onDeleteActivity ? () => onDeleteActivity(activity) : undefined}
                   isDueToday={isDueToday}
                   isGhost={
                     sessionCreatedIds.has(activity.id) &&
@@ -104,4 +107,3 @@ export function CompletedActivitySection({
     </VStack>
   );
 }
-

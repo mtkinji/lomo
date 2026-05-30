@@ -1197,6 +1197,11 @@ interface AppState {
    */
   reorderActivities: (orderedIds: string[]) => void;
   removeActivity: (activityId: string) => void;
+  restoreRemovedActivity: (params: {
+    activity: Activity;
+    relatedActivities?: Activity[];
+    originalIndex?: number;
+  }) => void;
   setGoalRecommendations: (arcId: string, goals: GoalDraft[]) => void;
   dismissGoalRecommendation: (arcId: string, goalTitle: string) => void;
   clearGoalRecommendations: (arcId: string) => void;
@@ -2026,6 +2031,27 @@ export const useAppStore = create<AppState>()(
           return {
             activities: nextActivities,
           };
+        }),
+      restoreRemovedActivity: ({ activity, relatedActivities = [], originalIndex }) =>
+        set((state) => {
+          const snapshotsById = new Map<string, Activity>();
+          relatedActivities.forEach((snapshot) => {
+            if (snapshot.id !== activity.id) snapshotsById.set(snapshot.id, snapshot);
+          });
+
+          const nextActivities = state.activities.map((current) => snapshotsById.get(current.id) ?? current);
+          const existingIndex = nextActivities.findIndex((current) => current.id === activity.id);
+          if (existingIndex >= 0) {
+            nextActivities[existingIndex] = activity;
+            return { activities: nextActivities };
+          }
+
+          const insertIndex =
+            typeof originalIndex === 'number'
+              ? Math.min(Math.max(0, originalIndex), nextActivities.length)
+              : nextActivities.length;
+          nextActivities.splice(insertIndex, 0, activity);
+          return { activities: nextActivities };
         }),
       setGoalRecommendations: (arcId, goals) =>
         set((state) => ({
