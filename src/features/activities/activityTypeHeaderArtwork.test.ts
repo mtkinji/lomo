@@ -25,6 +25,21 @@ describe('getActivityHeaderArtworkSource', () => {
     );
   });
 
+  it('keeps the same default image when an activity is renamed', () => {
+    const beforeRename = getActivityHeaderArtworkSource({
+      id: 'activity-rename-stable',
+      title: 'Book the campsite',
+      type: 'task',
+    });
+    const afterRename = getActivityHeaderArtworkSource({
+      id: 'activity-rename-stable',
+      title: 'Reserve a lakeside campsite',
+      type: 'task',
+    });
+
+    expect(afterRename).toEqual(beforeRename);
+  });
+
   it('varies defaults across different activity identities', () => {
     const selectedUris = new Set(
       ['one', 'two', 'three', 'four', 'five'].map((id) => {

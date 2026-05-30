@@ -1,5 +1,46 @@
 # App Review Reply - Submission a6ab4d24
 
+## Latest Rejection - May 29, 2026 - Build 64
+
+Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
+Review date: May 29, 2026
+Review device: iPhone 17 Pro Max
+Version reviewed: 1.0 (64)
+
+### Before Resubmitting
+
+- Ship a new binary with in-app account deletion exposed from Settings.
+- Deploy the `account-delete` Supabase Edge Function.
+- Verify deletion on a physical iPhone with a newly-created or demo account.
+- Attach a screen recording in App Review Information > Notes that shows:
+  - sign-in or account creation,
+  - Settings > Account settings > Delete account,
+  - the Apple subscription warning and Manage subscription option,
+  - both confirmation prompts,
+  - final account-deleted confirmation.
+
+### Paste-Ready Reply
+
+Hello,
+
+Thank you for the review note. We have updated Kwilt to support in-app account deletion.
+
+In the updated build, signed-in users can delete their account directly in the app:
+
+1. Open Kwilt and sign in.
+2. Open Settings.
+3. Tap Account settings.
+4. Tap Delete account.
+5. Review the warning that account deletion does not cancel any Apple-managed subscription. The user can tap Manage subscription to open Apple's subscription management, or continue with account deletion.
+6. Confirm the deletion prompts.
+7. Kwilt permanently deletes the signed-in Supabase Auth user and user-owned cloud data, then clears the local signed-in state.
+
+No customer service contact, email request, or external website is required to complete account deletion. Apple-managed subscription cancellation remains handled by Apple separately from account deletion. We will include a physical-device screen recording of the complete flow in the App Review Information Notes field for the next submission.
+
+Thank you.
+
+---
+
 Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
 Review date: May 14, 2026
 Review device: iPad Air 11-inch (M3), iPadOS 26.5

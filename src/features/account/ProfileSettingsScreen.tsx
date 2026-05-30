@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { spacing, cardSurfaceStyle } from '../../theme';
-import { useAppStore } from '../../store/useAppStore';
+import { colors, spacing, cardSurfaceStyle } from '../../theme';
+import { resetUserSpecificState, useAppStore } from '../../store/useAppStore';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
-import { Input, KeyboardAwareScrollView } from '../../ui/primitives';
+import { HStack, Input, KeyboardAwareScrollView, Text, VStack } from '../../ui/primitives';
+import { Icon } from '../../ui/Icon';
+import { deleteAccount } from '../../services/accountDeletion';
+import { clearAdminEntitlementsOverrideTier, openManageSubscription } from '../../services/entitlements';
+import { unregisterPushToken } from '../../services/pushTokenService';
 
 type SettingsNavigationProp = NativeStackNavigationProp<
   SettingsStackParamList,
@@ -17,6 +21,7 @@ type SettingsNavigationProp = NativeStackNavigationProp<
 
 export function ProfileSettingsScreen() {
   const navigation = useNavigation<SettingsNavigationProp>();
+  const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
 
@@ -24,6 +29,7 @@ export function ProfileSettingsScreen() {
   const [email, setEmail] = useState(userProfile?.email ?? '');
   const [birthdate, setBirthdate] = useState(userProfile?.birthdate ?? '');
   const [isBirthdatePickerVisible, setIsBirthdatePickerVisible] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const parseLocalDateKey = (key: string): Date | null => {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
@@ -104,11 +110,74 @@ export function ProfileSettingsScreen() {
     commitProfile({ birthdate: formatted });
   };
 
+  const completeAccountDeletion = async () => {
+    if (isDeletingAccount) return;
+    try {
+      setIsDeletingAccount(true);
+      await unregisterPushToken().catch(() => undefined);
+      await deleteAccount();
+      await clearAdminEntitlementsOverrideTier().catch(() => undefined);
+      resetUserSpecificState();
+      useAppStore.getState().clearAuthIdentity();
+      Alert.alert('Account deleted', 'Your Kwilt account has been deleted.');
+    } catch (err: any) {
+      Alert.alert(
+        'Unable to delete account',
+        typeof err?.message === 'string' ? err.message : 'Please try again.',
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleManageSubscriptionFromDeletion = () => {
+    openManageSubscription().catch(() => {
+      Alert.alert(
+        'Unable to open',
+        'Please open Apple subscription settings to manage your plan.',
+      );
+    });
+  };
+
+  const confirmAccountDeletion = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your Kwilt account and cloud data. This cannot be undone. If you have an Apple subscription, deleting your account does not cancel billing.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Manage subscription',
+          onPress: handleManageSubscriptionFromDeletion,
+        },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete permanently?',
+              'Your account, synced to-dos, goals, chapters, attachments, and connected services will be removed. Any Apple subscription remains managed by Apple until canceled.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete account',
+                  style: 'destructive',
+                  onPress: () => {
+                    completeAccountDeletion().catch(() => undefined);
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <AppShell>
       <View style={styles.screen}>
         <PageHeader
-          title="Profile"
+          title="Account settings"
           onPressBack={() => navigation.goBack()}
         />
         <KeyboardAwareScrollView
@@ -157,6 +226,35 @@ export function ProfileSettingsScreen() {
               />
             </View>
           )}
+          {authIdentity ? (
+            <View style={styles.dangerCard}>
+              <VStack space="xs">
+                <Text style={styles.dangerKicker}>Account deletion</Text>
+                <Text style={styles.dangerBody}>
+                  Permanently delete your Kwilt account and synced cloud data. Apple subscriptions are managed separately.
+                </Text>
+              </VStack>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete account"
+                accessibilityState={{ disabled: isDeletingAccount, busy: isDeletingAccount }}
+                disabled={isDeletingAccount}
+                onPress={confirmAccountDeletion}
+                style={({ pressed }) => [
+                  styles.deleteRow,
+                  pressed && !isDeletingAccount ? styles.deleteRowPressed : null,
+                  isDeletingAccount ? styles.deleteRowDisabled : null,
+                ]}
+              >
+                <HStack alignItems="center" space="sm">
+                  <Icon name="trash" size={18} color={isDeletingAccount ? colors.textSecondary : colors.destructive} />
+                  <Text style={[styles.deleteRowLabel, isDeletingAccount ? styles.deleteRowLabelDisabled : null]}>
+                    {isDeletingAccount ? 'Deleting account...' : 'Delete account'}
+                  </Text>
+                </HStack>
+              </Pressable>
+            </View>
+          ) : null}
         </KeyboardAwareScrollView>
       </View>
     </AppShell>
@@ -182,6 +280,44 @@ const styles = StyleSheet.create({
   datePickerContainer: {
     marginTop: spacing.md,
   },
+  dangerCard: {
+    ...cardSurfaceStyle,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  dangerKicker: {
+    color: colors.destructive,
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  dangerBody: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  deleteRow: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.destructive,
+    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.destructiveForeground,
+  },
+  deleteRowPressed: {
+    opacity: 0.82,
+  },
+  deleteRowDisabled: {
+    borderColor: colors.border,
+    backgroundColor: colors.cardMuted,
+  },
+  deleteRowLabel: {
+    color: colors.destructive,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  deleteRowLabelDisabled: {
+    color: colors.textSecondary,
+  },
 });
-
 

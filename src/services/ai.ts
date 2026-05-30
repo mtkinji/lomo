@@ -3339,7 +3339,7 @@ export function buildActivityEnrichmentSystemPrompt(
         '  Use reminderAt for a nudge to act, scheduledDate for the day that nudge belongs to, and repeatRule for the assumed follow-up cadence.\n' +
         '  If no explicit date is present, choose a gentle future reminder during waking hours within the next 1-7 days when that would help the user start.\n' +
         '  If a mapped goal has a target date, use it to estimate urgency: near or overdue goals should get sooner reminders and a tighter cadence.\n' +
-        '  If no repetition is explicit, choose weekly as the default cadence because it is useful but not overly noisy.\n' +
+        '  If repetition is not explicit or strongly implied, return repeatRule as null.\n' +
         '  Do not invent hard deadlines; scheduledDate can be a soft planned day rather than a claimed deadline.\n'
       : '- triggers is not requested: omit reminderAt, scheduledDate, and repeatRule.\n') +
     '- notes: 1-3 short sentences, practical and specific.\n' +

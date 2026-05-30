@@ -4368,6 +4368,7 @@ export function ActivityDetailScreen() {
             <SheetOption testID="e2e.activityDetail.repeat.monthly" label="Monthly" onPress={() => handleSelectRepeat('monthly')} />
             <SheetOption testID="e2e.activityDetail.repeat.yearly" label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
             <SheetOption testID="e2e.activityDetail.repeat.custom" label="Custom…" onPress={openCustomRepeat} />
+            <SheetOption testID="e2e.activityDetail.repeat.clear" label="Off" onPress={handleClearRepeatRule} />
           </VStack>
         </View>
       </BottomDrawer>

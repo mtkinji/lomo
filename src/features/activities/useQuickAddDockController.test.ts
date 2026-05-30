@@ -119,9 +119,9 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.steps).toEqual([]);
   });
 
-  it('fills missing trigger fields with inferred defaults when Triggers is selected', () => {
+  it('fills missing trigger fields without inventing recurrence for one-off to-dos', () => {
     const result = applyQuickAddAiEnrichment(
-      baseActivity({ title: 'Update the Orchard book writing system' }),
+      baseActivity({ title: 'Cancel the massage luxe membership' }),
       {
         location: {
           label: 'Current location',
@@ -140,7 +140,7 @@ describe('applyQuickAddAiEnrichment', () => {
 
     expect(result.reminderAt).toEqual(expect.any(String));
     expect(result.scheduledDate).toEqual(expect.any(String));
-    expect(result.repeatRule).toBe('weekly');
+    expect(result.repeatRule).toBeUndefined();
     expect(toLocalDateKey(new Date(result.reminderAt!))).toBe(result.scheduledDate);
     expect(result.location).toEqual({
       label: 'Current location',
@@ -149,6 +149,26 @@ describe('applyQuickAddAiEnrichment', () => {
       trigger: 'leave',
       radiusM: 150,
     });
+  });
+
+  it('respects an explicit AI no-repeat answer instead of falling back to weekly', () => {
+    const result = applyQuickAddAiEnrichment(
+      baseActivity({ title: 'Cancel the massage luxe membership' }),
+      {
+        reminderAt: '2026-05-23T16:00:00.000Z',
+        scheduledDate: '2026-05-23',
+        repeatRule: null,
+      },
+      {
+        activityId: 'activity-1',
+        selectedActions: ['triggers'],
+        timestamp: '2026-05-22T18:00:00.000Z',
+      },
+    );
+
+    expect(result.reminderAt).toBe('2026-05-23T16:00:00.000Z');
+    expect(result.scheduledDate).toBe('2026-05-23');
+    expect(result.repeatRule).toBeUndefined();
   });
 
   it('leaves the activity untouched when no AI actions are selected', () => {
@@ -203,7 +223,7 @@ describe('applyQuickAddAiEnrichment', () => {
 });
 
 describe('inferQuickAddTriggerDefaults', () => {
-  it('uses tomorrow at roughly the same time and weekly as the generic trigger default', () => {
+  it('uses tomorrow at roughly the same time without repeat as the generic trigger default', () => {
     const nowIso = new Date(2026, 4, 22, 18, 17).toISOString();
     const result = inferQuickAddTriggerDefaults(
       { title: 'Update the Orchard book writing system' },
@@ -215,6 +235,16 @@ describe('inferQuickAddTriggerDefaults', () => {
     expect(reminder.getHours()).toBe(18);
     expect(reminder.getMinutes()).toBe(15);
     expect(toLocalDateKey(reminder)).toBe(result.scheduledDate);
+    expect(result.repeatRule).toBeUndefined();
+  });
+
+  it('infers weekly repetition from routine language without explicit cadence', () => {
+    const result = inferQuickAddTriggerDefaults(
+      { title: 'Review weekly planning routine' },
+      {},
+      '2026-05-22T18:00:00.000Z',
+    );
+
     expect(result.repeatRule).toBe('weekly');
   });
 

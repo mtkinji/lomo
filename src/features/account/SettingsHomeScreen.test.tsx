@@ -37,6 +37,15 @@ jest.mock('../../services/proCodes', () => ({
   getAdminProCodesStatus: jest.fn().mockResolvedValue({ role: null, httpStatus: 200 }),
 }));
 
+jest.mock('../../services/pushTokenService', () => ({
+  unregisterPushToken: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../../services/backend/auth', () => ({
+  signOut: jest.fn().mockResolvedValue(undefined),
+  ensureSignedInWithPrompt: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../../services/entitlements', () => {
   const actual = jest.requireActual('../../services/entitlements');
   return {
@@ -68,6 +77,7 @@ describe('SettingsHomeScreen planning group', () => {
   beforeEach(() => {
     resetAllStores();
     navModule.__navMocks.navigate.mockReset();
+    jest.restoreAllMocks();
   });
 
   it('renders both Availability and Calendars rows in the Settings menu', () => {
@@ -92,5 +102,11 @@ describe('SettingsHomeScreen planning group', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Weekly Chapters'));
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsWeeklyChapters');
+  });
+
+  it('keeps account deletion off the root Settings menu', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    expect(getByText('Account settings')).toBeTruthy();
+    expect(() => getByText('Delete account')).toThrow();
   });
 });

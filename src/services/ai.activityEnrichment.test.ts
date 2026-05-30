@@ -11,7 +11,7 @@ describe('activity AI enrichment prompt', () => {
     expect(prompt).toContain('populate reminderAt, scheduledDate, and repeatRule');
     expect(prompt).toContain('gentle future reminder during waking hours within the next 1-7 days');
     expect(prompt).toContain('mapped goal has a target date');
-    expect(prompt).toContain('choose weekly as the default cadence');
+    expect(prompt).toContain('return repeatRule as null');
     expect(prompt).toContain('Do not invent hard deadlines');
     expect(prompt).toContain('steps is not requested: omit steps');
   });

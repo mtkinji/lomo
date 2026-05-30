@@ -241,11 +241,11 @@ export function SettingsHomeScreen() {
       disabled
         ? colors.textSecondary
         : row.variant === 'destructive'
-          ? colors.accentRoseStrong
+          ? colors.destructive
           : row.iconColor ?? colors.textPrimary;
     const titleColor =
       row.variant === 'destructive'
-        ? colors.accentRoseStrong
+        ? colors.destructive
         : disabled
           ? colors.textSecondary
           : colors.textPrimary;

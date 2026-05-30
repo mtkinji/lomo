@@ -535,7 +535,7 @@ export function inferQuickAddTriggerDefaults(
 ): {
   reminderAt: string;
   scheduledDate: string;
-  repeatRule: ActivityRepeatRule;
+  repeatRule?: ActivityRepeatRule;
 } {
   const now = coerceValidDate(nowIso) ?? new Date();
   const goalTargetDate = coerceValidDate(goalContext?.targetDate);
@@ -545,13 +545,12 @@ export function inferQuickAddTriggerDefaults(
   const scheduledDate =
     normalizeScheduledDate(enrichment?.scheduledDate) ??
     inferScheduledDate(inferredReminderAt, goalTargetDate, now);
-  const repeatRule =
-    normalizeRepeatRule(enrichment?.repeatRule) ?? inferRepeatRule(activity.title, goalTargetDate, now);
+  const repeatRule = inferTriggerRepeatRule(enrichment, activity.title, goalTargetDate, now);
 
   return {
     reminderAt: inferredReminderAt.toISOString(),
     scheduledDate,
-    repeatRule,
+    ...(repeatRule ? { repeatRule } : {}),
   };
 }
 
@@ -577,6 +576,18 @@ function normalizeScheduledDate(raw: unknown): string | null {
 
 function normalizeRepeatRule(raw: unknown): ActivityRepeatRule | null {
   return VALID_REPEAT_RULES.includes(raw as ActivityRepeatRule) ? (raw as ActivityRepeatRule) : null;
+}
+
+function inferTriggerRepeatRule(
+  enrichment: any,
+  title: string,
+  goalTargetDate?: Date | null,
+  now?: Date,
+): ActivityRepeatRule | undefined {
+  const normalized = normalizeRepeatRule(enrichment?.repeatRule);
+  if (normalized) return normalized;
+  if (enrichment && 'repeatRule' in enrichment && enrichment.repeatRule === null) return undefined;
+  return inferRepeatRule(title, goalTargetDate, now);
 }
 
 function inferReminderDate(title: string, now: Date, goalTargetDate?: Date | null): Date {
@@ -625,17 +636,26 @@ function nearestFiveMinutes(minute: number): number {
   return Math.max(0, Math.min(55, Math.round(minute / 5) * 5));
 }
 
-function inferRepeatRule(title: string, goalTargetDate?: Date | null, now?: Date): ActivityRepeatRule {
+function inferRepeatRule(title: string, goalTargetDate?: Date | null, now?: Date): ActivityRepeatRule | undefined {
   const lower = title.toLowerCase();
+  if (/\b(cancel|remove|delete|close|stop|unsubscribe|terminate|end)\b/.test(lower)) return undefined;
   if (/\b(weekdays|workdays|business days|every weekday|each weekday)\b/.test(lower)) return 'weekdays';
   if (/\b(daily|every day|each day|every morning|each morning|every night|each night)\b/.test(lower)) {
     return 'daily';
   }
+  if (/\b(weekly|every week|each week|routine|ritual)\b/.test(lower)) return 'weekly';
   if (/\b(monthly|every month|each month)\b/.test(lower)) return 'monthly';
-  if (/\b(yearly|annually|every year|each year)\b/.test(lower)) return 'yearly';
+  if (/\b(yearly|annually|every year|each year|annual)\b/.test(lower)) return 'yearly';
   const goalUrgency = getGoalUrgency(goalTargetDate, now);
   if (goalUrgency === 'soon' || goalUrgency === 'due_now') return 'daily';
-  return 'weekly';
+  if (
+    /\b(check|review|practice|train|work out|exercise|journal|meditate|stretch|read|study|water|take|walk|clean|tidy)\b/.test(
+      lower,
+    )
+  ) {
+    return 'weekly';
+  }
+  return undefined;
 }
 
 function inferScheduledDate(reminderAt: Date, goalTargetDate: Date | null, now: Date): string {
