@@ -90,6 +90,29 @@ async function mcpCall(baseUrl, token, method, params = undefined, id = method) 
   return response.result;
 }
 
+async function mcpNotify(baseUrl, token, method, params = undefined) {
+  const payload = {
+    jsonrpc: '2.0',
+    method,
+    ...(params === undefined ? {} : { params }),
+  };
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`MCP notification ${method} failed (${response.status}): ${text.slice(0, 200)}`);
+  }
+  if (text.trim()) {
+    throw new Error(`MCP notification ${method} returned a body (${response.status}): ${text.slice(0, 200)}`);
+  }
+}
+
 async function registerClient(baseUrl, redirectUri) {
   return requestJson(`${baseUrl}/register`, {
     method: 'POST',
@@ -289,6 +312,8 @@ async function run() {
 
   const init = await mcpCall(baseUrl, accessToken, 'initialize');
   console.log(`initialize ok: ${init.serverInfo?.name ?? 'unknown server'}`);
+  await mcpNotify(baseUrl, accessToken, 'notifications/initialized');
+  console.log('notifications/initialized ok');
 
   const tools = await mcpCall(baseUrl, accessToken, 'tools/list');
   const toolNames = tools.tools?.map((tool) => tool.name) ?? [];

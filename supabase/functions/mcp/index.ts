@@ -82,6 +82,16 @@ function json(status: number, body: JsonValue, headers?: Record<string, string>)
   });
 }
 
+function empty(status: number, headers?: Record<string, string>) {
+  return new Response(null, {
+    status,
+    headers: {
+      ...corsHeaders,
+      ...(headers ?? {}),
+    },
+  });
+}
+
 function oauthChallenge(req: Request) {
   const baseUrl = getBaseUrl(req);
   const metadataUrl = `${baseUrl}/.well-known/oauth-protected-resource`;
@@ -829,6 +839,10 @@ async function handleMcp(req: Request) {
       capabilities: { tools: {} },
       serverInfo: { name: 'Kwilt', version: '0.1.0' },
     } as JsonObject));
+  }
+
+  if (method === 'notifications/initialized') {
+    return empty(202);
   }
 
   if (method === 'tools/list') {

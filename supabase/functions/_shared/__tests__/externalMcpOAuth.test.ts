@@ -36,7 +36,20 @@ describe('externalMcpOAuth helpers', () => {
       }
     });
 
-    test('rejects http or unknown custom-scheme redirect URIs', () => {
+    test('accepts native-client loopback HTTP callbacks', () => {
+      const result = normalizeClientRegistration({
+        client_name: 'Codex',
+        redirect_uris: ['http://localhost:49152/oauth/callback'],
+        token_endpoint_auth_method: 'none',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.surface).toBe('custom');
+        expect(result.tokenEndpointAuthMethod).toBe('none');
+      }
+    });
+
+    test('rejects non-loopback http or unknown custom-scheme redirect URIs', () => {
       const http = normalizeClientRegistration({
         client_name: 'Bad',
         redirect_uris: ['http://example.com/cb'],
@@ -148,6 +161,7 @@ describe('externalMcpOAuth helpers', () => {
     test('protected resource metadata points back at the authorization server', () => {
       const meta = buildProtectedResourceMetadata(issuer);
       expect(meta.resource).toBe(issuer);
+      expect(meta.authorization_server).toBe(`${issuer}/.well-known/oauth-authorization-server`);
       expect(meta.authorization_servers).toEqual([issuer]);
       expect(meta.bearer_methods_supported).toEqual(['header']);
       expect(meta.scopes_supported).toEqual(['read', 'write']);

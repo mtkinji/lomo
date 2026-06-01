@@ -36,9 +36,18 @@ function isCursorMcpCallback(value: string): boolean {
   }
 }
 
+function isLoopbackHttpRedirect(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedRedirectUri(value: string): boolean {
   try {
-    return new URL(value).protocol === 'https:' || isCursorMcpCallback(value);
+    return new URL(value).protocol === 'https:' || isCursorMcpCallback(value) || isLoopbackHttpRedirect(value);
   } catch {
     return false;
   }
@@ -148,6 +157,7 @@ export function buildProtectedResourceMetadata(baseUrl: string): Record<string, 
   const resource = baseUrl.replace(/\/+$/, '');
   return {
     resource,
+    authorization_server: `${resource}/.well-known/oauth-authorization-server`,
     authorization_servers: [resource],
     scopes_supported: SUPPORTED_OAUTH_SCOPES_JSON,
     bearer_methods_supported: ['header'],
