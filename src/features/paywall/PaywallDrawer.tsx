@@ -17,6 +17,7 @@ import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, ge
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
+import { SubscriptionLegalLinks } from './SubscriptionLegalLinks';
 
 type PaywallBenefit = { title: string };
 
@@ -261,6 +262,7 @@ export function PaywallContent(props: {
               >
                 <Text style={styles.secondaryCtaLabel}>Not now</Text>
               </Pressable>
+              <SubscriptionLegalLinks tone="inverse" style={styles.legalLinks} />
             </>
           ) : (
             <Pressable
@@ -458,6 +460,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: paywallTheme.foreground,
     opacity: 0.92,
+  },
+  legalLinks: {
+    marginTop: spacing.md,
   },
   valueSection: {
     marginTop: spacing.lg,

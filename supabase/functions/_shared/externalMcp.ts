@@ -7,29 +7,41 @@ export type ExternalMcpToolDefinition = {
   scope?: 'read' | 'write';
   inputSchema: JsonObject;
   annotations: {
+    title: string;
     readOnlyHint: boolean;
     destructiveHint: boolean;
+    idempotentHint?: boolean;
     openWorldHint: boolean;
   };
 };
 
-const READ_ONLY_ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  openWorldHint: false,
-};
+function readOnlyAnnotations(title: string) {
+  return {
+    title,
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  };
+}
 
-const WRITE_ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  openWorldHint: false,
-};
+function writeAnnotations(title: string) {
+  return {
+    title,
+    readOnlyHint: false,
+    destructiveHint: false,
+    openWorldHint: false,
+  };
+}
 
-const DELETE_ANNOTATIONS = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  openWorldHint: false,
-};
+function deleteAnnotations(title: string) {
+  return {
+    title,
+    readOnlyHint: false,
+    destructiveHint: true,
+    openWorldHint: false,
+  };
+}
 
 export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
   {
@@ -42,7 +54,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
         limit: { type: 'integer', minimum: 1, maximum: 100 },
       },
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('List Arcs'),
     scope: 'read',
   },
   {
@@ -55,7 +67,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['arc_id'],
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('Get Arc'),
     scope: 'read',
   },
   {
@@ -69,7 +81,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
         limit: { type: 'integer', minimum: 1, maximum: 100 },
       },
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('List Goals'),
     scope: 'read',
   },
   {
@@ -82,7 +94,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['goal_id'],
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('Get Goal'),
     scope: 'read',
   },
   {
@@ -95,7 +107,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
         include_rich: { type: 'boolean' },
       },
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('List Recent To-dos'),
     scope: 'read',
   },
   {
@@ -105,7 +117,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       type: 'object',
       properties: {},
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('Get Current Chapter'),
     scope: 'read',
   },
   {
@@ -115,7 +127,7 @@ export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
       type: 'object',
       properties: {},
     },
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: readOnlyAnnotations('Get Show-up Status'),
     scope: 'read',
   },
 ];
@@ -141,7 +153,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['name'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Create Arc'),
   },
   {
     name: 'update_arc',
@@ -159,7 +171,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['arc_id'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Update Arc'),
   },
   {
     name: 'delete_arc',
@@ -173,7 +185,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['arc_id'],
     },
-    annotations: DELETE_ANNOTATIONS,
+    annotations: deleteAnnotations('Delete Arc'),
   },
   {
     name: 'create_goal',
@@ -192,7 +204,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['title'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Create Goal'),
   },
   {
     name: 'update_goal',
@@ -212,7 +224,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['goal_id'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Update Goal'),
   },
   {
     name: 'delete_goal',
@@ -226,7 +238,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['goal_id'],
     },
-    annotations: DELETE_ANNOTATIONS,
+    annotations: deleteAnnotations('Delete Goal'),
   },
   {
     name: 'add_goal_checkin',
@@ -242,7 +254,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['goal_id'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Add Goal Check-in'),
   },
   {
     name: 'capture_activity',
@@ -263,7 +275,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['title'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Capture To-do'),
   },
   {
     name: 'update_activity',
@@ -285,7 +297,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['activity_id'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Update To-do'),
   },
   {
     name: 'mark_activity_done',
@@ -300,7 +312,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['activity_id'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Mark To-do Done'),
   },
   {
     name: 'set_focus_today',
@@ -315,7 +327,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['activity_id'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Set Focus Today'),
   },
   {
     name: 'delete_activity',
@@ -329,7 +341,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['activity_id'],
     },
-    annotations: DELETE_ANNOTATIONS,
+    annotations: deleteAnnotations('Delete To-do'),
   },
   {
     name: 'update_chapter_user_note',
@@ -344,7 +356,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       },
       required: ['chapter_id', 'note'],
     },
-    annotations: WRITE_ANNOTATIONS,
+    annotations: writeAnnotations('Update Chapter Note'),
   },
 ];
 

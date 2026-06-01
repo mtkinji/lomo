@@ -3,6 +3,7 @@ import {
   buildProtectedResourceMetadata,
   normalizeClientRegistration,
   normalizeOAuthScope,
+  normalizeResourceIndicator,
   sha256Base64Url,
   verifyPkceChallenge,
 } from '../externalMcpOAuth';
@@ -85,6 +86,25 @@ describe('externalMcpOAuth helpers', () => {
     });
   });
 
+  describe('normalizeResourceIndicator', () => {
+    const expected = 'https://auth.kwilt.app/functions/v1/mcp';
+
+    test('defaults to the expected MCP resource for older clients', () => {
+      expect(normalizeResourceIndicator(null, expected)).toBe(expected);
+      expect(normalizeResourceIndicator('', expected)).toBe(expected);
+    });
+
+    test('accepts the canonical MCP resource with or without a trailing slash', () => {
+      expect(normalizeResourceIndicator(expected, expected)).toBe(expected);
+      expect(normalizeResourceIndicator(`${expected}/`, expected)).toBe(expected);
+    });
+
+    test('rejects mismatched or malformed resource indicators', () => {
+      expect(normalizeResourceIndicator('https://auth.kwilt.app/functions/v1/other', expected)).toBeNull();
+      expect(normalizeResourceIndicator('not a url', expected)).toBeNull();
+    });
+  });
+
   describe('verifyPkceChallenge', () => {
     test('verifies an S256 challenge against its verifier', async () => {
       const verifier = 'this-is-a-long-enough-pkce-verifier-string';
@@ -116,6 +136,7 @@ describe('externalMcpOAuth helpers', () => {
       expect(meta.registration_endpoint).toBe(`${issuer}/register`);
       expect(meta.revocation_endpoint).toBe(`${issuer}/revoke`);
       expect(meta.code_challenge_methods_supported).toEqual(['S256']);
+      expect(meta.resource_indicators_supported).toBe(true);
       expect(meta.scopes_supported).toEqual(['read', 'write']);
       expect(meta.token_endpoint_auth_methods_supported).toEqual([
         'client_secret_post',

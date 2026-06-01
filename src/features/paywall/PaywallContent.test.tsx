@@ -1,9 +1,11 @@
 import { fireEvent } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { resetAllStores, setProEntitlement } from '../../test/storeFixtures';
 import { PaywallContent } from './PaywallDrawer';
 import { useAppStore } from '../../store/useAppStore';
 import { getMonthKey } from '../../domain/generativeCredits';
+import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from './SubscriptionLegalLinks';
 
 jest.mock('../../services/paywall', () => {
   const actual = jest.requireActual('../../services/paywall');
@@ -16,6 +18,7 @@ jest.mock('../../services/paywall', () => {
 describe('PaywallContent', () => {
   beforeEach(() => {
     resetAllStores();
+    jest.restoreAllMocks();
   });
 
   it('renders quota copy for generative_quota_exceeded reason as a free user', () => {
@@ -113,5 +116,22 @@ describe('PaywallContent', () => {
     fireEvent.press(getByLabelText('Upgrade to Pro'));
     expect(onUpgrade).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('includes functional Terms and Privacy links for subscription review', () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as any);
+    const { getByText } = renderWithProviders(
+      <PaywallContent
+        reason="limit_arcs_total"
+        source="arcs_create"
+        onClose={() => undefined}
+      />,
+    );
+
+    fireEvent.press(getByText('Terms of Use (EULA)'));
+    fireEvent.press(getByText('Privacy Policy'));
+
+    expect(openURL).toHaveBeenCalledWith(KWILT_TERMS_URL);
+    expect(openURL).toHaveBeenCalledWith(KWILT_PRIVACY_URL);
   });
 });

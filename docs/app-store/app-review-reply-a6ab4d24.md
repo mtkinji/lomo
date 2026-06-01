@@ -1,5 +1,45 @@
 # App Review Reply - Submission a6ab4d24
 
+## Latest Rejection - June 01, 2026 - Build 66
+
+Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
+Review date: June 01, 2026
+Review device: iPad Air 11-inch (M3)
+Version reviewed: 1.0 (66)
+
+### Before Resubmitting
+
+- Ship a new binary with functional subscription legal links visible in the in-app purchase flow.
+- Verify `https://go.kwilt.app/terms` returns HTTP 200.
+- Verify `https://go.kwilt.app/privacy` returns HTTP 200.
+- Attach a screen recording in App Review Information > Notes that shows:
+  - Open Kwilt.
+  - Open Settings > Subscriptions.
+  - Tap Upgrade to Kwilt Pro.
+  - Confirm the plan picker shows plan title, duration, price, Terms of Use (EULA), and Privacy Policy.
+  - Tap Terms of Use (EULA) and show the terms page opens.
+  - Return to Kwilt, tap Privacy Policy, and show the privacy page opens.
+
+### Paste-Ready Reply
+
+Hello,
+
+Thank you for the review note. We have updated Kwilt's in-app subscription purchase flow to include functional links to both the Terms of Use (EULA) and Privacy Policy.
+
+In the updated build, these links are visible in the subscription flow:
+
+1. Open Kwilt.
+2. Open Settings.
+3. Tap Subscriptions.
+4. Tap Upgrade to Kwilt Pro.
+5. The plan picker shows the available Kwilt Pro plans with cadence and price, plus functional links to Terms of Use (EULA) and Privacy Policy.
+6. The Terms of Use (EULA) link opens `https://go.kwilt.app/terms`.
+7. The Privacy Policy link opens `https://go.kwilt.app/privacy`.
+
+The same legal links are also visible from the in-app Pro upgrade/paywall surface before the user enters the plan picker. We will include a screen recording of the flow in the App Review Information Notes field for the next submission.
+
+Thank you.
+
 ## Latest Rejection - May 29, 2026 - Build 64
 
 Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf

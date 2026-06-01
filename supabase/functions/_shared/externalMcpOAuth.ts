@@ -114,6 +114,19 @@ export function normalizeOAuthScope(raw: unknown): string | null {
   return SUPPORTED_OAUTH_SCOPES.filter((scope) => scopes.has(scope)).join(' ');
 }
 
+export function normalizeResourceIndicator(raw: unknown, expectedResource: string): string | null {
+  const expected = expectedResource.replace(/\/+$/, '');
+  const resource = asString(raw);
+  if (!resource) return expected;
+  try {
+    const url = new URL(resource);
+    const normalized = url.toString().replace(/\/+$/, '');
+    return normalized === expected ? normalized : null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildAuthorizationServerMetadata(baseUrl: string): Record<string, JsonValue> {
   const issuer = baseUrl.replace(/\/+$/, '');
   return {
@@ -126,6 +139,7 @@ export function buildAuthorizationServerMetadata(baseUrl: string): Record<string
     grant_types_supported: ['authorization_code', 'refresh_token'],
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic', 'none'],
     code_challenge_methods_supported: ['S256'],
+    resource_indicators_supported: true,
     scopes_supported: SUPPORTED_OAUTH_SCOPES_JSON,
   };
 }

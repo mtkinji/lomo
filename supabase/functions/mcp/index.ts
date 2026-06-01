@@ -40,6 +40,7 @@ import {
   buildProtectedResourceMetadata,
   normalizeClientRegistration,
   normalizeOAuthScope,
+  normalizeResourceIndicator,
   verifyPkceChallenge,
 } from '../_shared/externalMcpOAuth.ts';
 
@@ -612,15 +613,18 @@ async function handleAuthorize(req: Request) {
   const url = new URL(req.url);
   const admin = getSupabaseAdmin();
   if (!admin) return json(503, { error: 'service_unavailable' });
+  const responseType = url.searchParams.get('response_type') ?? '';
   const clientId = url.searchParams.get('client_id') ?? '';
   const redirectUri = url.searchParams.get('redirect_uri') ?? '';
+  const resource = normalizeResourceIndicator(url.searchParams.get('resource'), getBaseUrl(req));
+  if (responseType !== 'code' || !resource) return json(400, { error: 'invalid_request' });
   const client = await getClient(admin, clientId);
   if (!client || client.revoked_at || !redirectUriAllowed(client, redirectUri)) {
     return json(400, { error: 'invalid_request' });
   }
 
   const consent = new URL(`${getSiteUrl()}/oauth/consent`);
-  for (const key of ['client_id', 'redirect_uri', 'response_type', 'state', 'code_challenge', 'code_challenge_method', 'scope']) {
+  for (const key of ['client_id', 'redirect_uri', 'response_type', 'state', 'code_challenge', 'code_challenge_method', 'scope', 'resource']) {
     const value = url.searchParams.get(key);
     if (value) consent.searchParams.set(key, value);
   }
@@ -641,10 +645,20 @@ async function handleAuthorizeApprove(req: Request) {
   const redirectUri = asString(body.redirect_uri);
   const codeChallenge = asString(body.code_challenge);
   const codeChallengeMethod = asString(body.code_challenge_method);
-  if (!clientId || !redirectUri) return json(400, { error: 'invalid_request' });
+  const responseType = asString(body.response_type);
+  const resource = normalizeResourceIndicator(body.resource, getBaseUrl(req));
+  if (!clientId || !redirectUri || responseType !== 'code' || !resource) return json(400, { error: 'invalid_request' });
   const client = await getClient(admin, clientId);
   if (!client || client.revoked_at || !redirectUriAllowed(client, redirectUri)) return json(400, { error: 'invalid_request' });
   if (!codeChallenge || codeChallengeMethod !== 'S256') return json(400, { error: 'invalid_request', error_description: 'S256 PKCE is required' });
+
+  if (body.approved === false || body.approved === 'false') {
+    const destination = new URL(redirectUri);
+    destination.searchParams.set('error', 'access_denied');
+    const state = asString(body.state);
+    if (state) destination.searchParams.set('state', state);
+    return json(200, { redirect_to: destination.toString() });
+  }
 
   const scope = normalizeOAuthScope(body.scope);
   if (!scope) return json(400, { error: 'invalid_scope' });
@@ -679,6 +693,8 @@ async function handleToken(req: Request) {
   const basicCredentials = getBasicClientCredentials(req);
   const clientId = asString(body.client_id) ?? basicCredentials.clientId;
   if (!clientId) return json(400, { error: 'invalid_client' });
+  const resource = normalizeResourceIndicator(body.resource, getBaseUrl(req));
+  if (!resource) return json(400, { error: 'invalid_target' });
   const client = await getClient(admin, clientId);
   if (!client || client.revoked_at || !(await verifyClientSecret(client, body, req))) {
     return json(401, { error: 'invalid_client' });
@@ -686,6 +702,7 @@ async function handleToken(req: Request) {
 
   let userId: string | null = null;
   let scope = 'read';
+  let previousRefreshTokenRowId: string | null = null;
   if (grantType === 'authorization_code') {
     const code = asString(body.code);
     const redirectUri = asString(body.redirect_uri);
@@ -734,6 +751,7 @@ async function handleToken(req: Request) {
     const row = data as any;
     if (!row || row.client_id !== clientId || row.revoked_at) return json(400, { error: 'invalid_grant' });
     userId = String(row.user_id);
+    previousRefreshTokenRowId = String(row.id);
     const normalizedScope = normalizeOAuthScope(row.scope);
     if (!normalizedScope) return json(400, { error: 'invalid_grant' });
     scope = normalizedScope;
@@ -753,6 +771,12 @@ async function handleToken(req: Request) {
     expires_at: expiresAt.toISOString(),
   });
   if (error) return json(500, { error: 'token_issue_failed' });
+  if (previousRefreshTokenRowId) {
+    await admin
+      .from('kwilt_external_oauth_tokens')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', previousRefreshTokenRowId);
+  }
 
   if (grantType === 'authorization_code') {
     await capturePosthogEvent({

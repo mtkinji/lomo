@@ -122,6 +122,7 @@ async function approveAndExchange(baseUrl, client, redirectUri, userJwt, scope) 
       code_challenge: challenge,
       code_challenge_method: 'S256',
       scope,
+      resource: baseUrl,
     }),
   });
 
@@ -143,6 +144,7 @@ async function approveAndExchange(baseUrl, client, redirectUri, userJwt, scope) 
       code,
       redirect_uri: redirectUri,
       code_verifier: verifier,
+      resource: baseUrl,
     }),
   });
 }
@@ -260,6 +262,18 @@ async function run() {
   console.log(`MCP smoke base: ${baseUrl}`);
   const metadata = await requestJson(`${baseUrl}/.well-known/oauth-authorization-server`);
   console.log(`metadata ok: issuer=${metadata.issuer}`);
+  if (metadata.resource_indicators_supported !== true) {
+    throw new Error('metadata did not advertise resource_indicators_supported=true');
+  }
+  if (!Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('read') || !metadata.scopes_supported.includes('write')) {
+    throw new Error(`metadata scopes_supported must include read and write: ${JSON.stringify(metadata.scopes_supported)}`);
+  }
+
+  const protectedResource = await requestJson(`${baseUrl}/.well-known/oauth-protected-resource`);
+  if (protectedResource.resource !== baseUrl) {
+    throw new Error(`protected resource mismatch: expected ${baseUrl}, got ${protectedResource.resource}`);
+  }
+  console.log(`protected resource ok: resource=${protectedResource.resource}`);
 
   if (!accessToken) {
     if (!userJwt) {

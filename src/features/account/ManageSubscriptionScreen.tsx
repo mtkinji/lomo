@@ -30,6 +30,7 @@ import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { usePaywallStore } from '../../store/usePaywallStore';
+import { SubscriptionLegalLinks } from '../paywall/SubscriptionLegalLinks';
 
 type BillingCadence = 'annual' | 'monthly';
 type ProPlan = 'individual' | 'family';
@@ -370,7 +371,10 @@ export function ManageSubscriptionScreen() {
               </Button>
             </VStack>
 
-            <Text style={styles.footnote}>Subscriptions are managed by Apple.</Text>
+            <VStack space="xs">
+              <Text style={styles.footnote}>Subscriptions are managed by Apple.</Text>
+              <SubscriptionLegalLinks variant="footer" />
+            </VStack>
           </VStack>
         </ScrollView>
       </View>
@@ -516,6 +520,7 @@ export function ManageSubscriptionScreen() {
                     })()}
               </Text>
             </Button>
+            <SubscriptionLegalLinks />
           </VStack>
         </BottomDrawerScrollView>
       </BottomDrawer>
@@ -746,5 +751,3 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
-

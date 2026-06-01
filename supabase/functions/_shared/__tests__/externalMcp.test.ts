@@ -28,8 +28,10 @@ describe('externalMcp helpers', () => {
 
     test('every tool is annotated read-only and non-destructive', () => {
       for (const tool of EXTERNAL_MCP_READ_TOOLS) {
+        expect(tool.annotations.title).toEqual(expect.any(String));
         expect(tool.annotations.readOnlyHint).toBe(true);
         expect(tool.annotations.destructiveHint).toBe(false);
+        expect(tool.annotations.idempotentHint).toBe(true);
         expect(tool.annotations.openWorldHint).toBe(false);
       }
     });
@@ -58,6 +60,7 @@ describe('externalMcp helpers', () => {
       for (const tool of EXTERNAL_MCP_WRITE_TOOLS) {
         const schema = tool.inputSchema as any;
         expect(tool.scope).toBe('write');
+        expect(tool.annotations.title).toEqual(expect.any(String));
         expect(tool.annotations.readOnlyHint).toBe(false);
         expect(tool.annotations.openWorldHint).toBe(false);
         expect(schema.properties?.idempotency_key).toBeDefined();

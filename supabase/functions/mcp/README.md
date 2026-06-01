@@ -25,6 +25,18 @@ plugin) and is the auth path documented for users on the marketing site.
 PKCE `S256` is required for the consent step. The token endpoint accepts both
 `S256` and `plain` to support older clients that don't yet hash.
 
+The OAuth surface is submission-oriented:
+
+- Discovery advertises `read` and `write` scopes plus `resource_indicators_supported`.
+- `/authorize`, `/authorize/approve`, and `/token` accept the MCP `resource`
+  indicator and validate it against the canonical server URL.
+- Dynamic Client Registration supports confidential clients and public clients
+  (`token_endpoint_auth_method: "none"`) for Cursor-style OAuth.
+- Refresh-token grants rotate by issuing a new refresh token and revoking the
+  previous token row.
+- Declined consent redirects back with `error=access_denied` and does not issue
+  an authorization code.
+
 ## Tools
 
 The function dispatches owner-scoped read tools:
@@ -101,3 +113,28 @@ and is served at `https://go.kwilt.app/oauth/consent`. The function reads
 - `KWILT_SITE_URL` — where to redirect for consent
 - `KWILT_MCP_ISSUER` (optional) — override the discovery issuer; defaults to the request origin
 - `KWILT_POSTHOG_PROJECT_API_KEY`, `KWILT_POSTHOG_HOST` (optional) — for `ExternalConnectorInstalled` / `ExternalToolCalled` analytics
+
+## Submission checklist
+
+Use this before submitting to Claude, Cursor, Codex, or another remote MCP
+directory/reviewer:
+
+- Public server URL: `https://auth.kwilt.app/functions/v1/mcp`
+- Transport: Streamable HTTP
+- Authentication: OAuth 2.0 / OAuth 2.1-style authorization code with PKCE,
+  Dynamic Client Registration, form-encoded token exchange, refresh-token
+  rotation, and RFC 9728 protected-resource metadata.
+- Privacy policy: `https://go.kwilt.app/privacy`
+- Public docs: `https://go.kwilt.app/docs/connect-kwilt-to-ai-tools`
+- Tool annotations: every tool has `annotations.title`, `readOnlyHint`,
+  `destructiveHint`, and `openWorldHint`; read tools also set
+  `idempotentHint`.
+- Link openings: this MCP server does not use `ui/open-link`.
+- Reviewer smoke gate:
+
+```sh
+MCP_BASE_URL=https://auth.kwilt.app/functions/v1/mcp \
+SUPABASE_USER_JWT=<reviewer-user-jwt> \
+MCP_SMOKE_WRITE=1 \
+  npm run mcp:smoke
+```
