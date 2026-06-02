@@ -1,6 +1,6 @@
 {
   "name": "kwilt",
-  "version": "1.0.64",
+  "version": "1.0.65",
   "main": "index.ts",
   "workspaces": [
     "packages/*"

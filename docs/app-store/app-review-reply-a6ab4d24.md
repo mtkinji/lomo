@@ -24,19 +24,21 @@ Version reviewed: 1.0 (66)
 
 Hello,
 
-Thank you for the review note. We have updated Kwilt's in-app subscription purchase flow to include functional links to both the Terms of Use (EULA) and Privacy Policy.
+Thank you for the review note. We have updated Kwilt's in-app subscription purchase flow to include functional links to both the Terms of Use (EULA) and Privacy Policy before purchase.
 
-In the updated build, these links are visible in the subscription flow:
+In the updated build, the links are visible in the subscription purchase flow:
 
 1. Open Kwilt.
 2. Open Settings.
 3. Tap Subscriptions.
 4. Tap Upgrade to Kwilt Pro.
-5. The plan picker shows the available Kwilt Pro plans with cadence and price, plus functional links to Terms of Use (EULA) and Privacy Policy.
+5. The plan picker shows the available Kwilt Pro subscription options, including the plan name, billing cadence, price, Terms of Use (EULA), and Privacy Policy.
 6. The Terms of Use (EULA) link opens `https://go.kwilt.app/terms`.
 7. The Privacy Policy link opens `https://go.kwilt.app/privacy`.
 
-The same legal links are also visible from the in-app Pro upgrade/paywall surface before the user enters the plan picker. We will include a screen recording of the flow in the App Review Information Notes field for the next submission.
+The same functional legal links are also visible from the in-app Pro upgrade/paywall surface before the user enters the plan picker.
+
+We have attached a screen recording showing the full flow and both links opening successfully. We have also included this information in the App Review Information Notes field for this submission.
 
 Thank you.
 
