@@ -34,6 +34,7 @@ import {
 } from '../../services/notifications/defaultTimes';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { resolveFtuePermissionActions } from './ftuePermissionActions';
 
 type FtueStep = 'welcome' | 'notifications' | 'path';
 
@@ -444,28 +445,12 @@ export function FirstTimeUxFlow() {
     const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
     const locationNeedsAlways = locationStatus === 'foregroundOnly';
     const locationUnavailable = locationStatus === 'unavailable';
-    const locationNeedsPrompt =
-      !locationAuthorized && !locationUnavailable && !locationBlocked && !locationNeedsAlways;
-    const requiresSettingsAction = notificationsBlocked || locationBlocked || locationNeedsAlways;
-
-    type PrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
-    const primaryAction: PrimaryAction =
-      ftueStep !== 'notifications'
-        ? 'continue'
-        : !notificationsAuthorized && !notificationsBlocked
-            ? 'enableNotifications'
-            : locationNeedsPrompt
-              ? 'enableLocation'
-              : 'continue';
-
-    const primaryCtaLabel =
-      ftueStep !== 'notifications'
-        ? ctaLabel
-        : primaryAction === 'enableNotifications'
-            ? 'Enable notifications'
-            : primaryAction === 'enableLocation'
-              ? 'Enable location'
-              : ctaLabel;
+    const permissionActions = resolveFtuePermissionActions({
+      ftueStep,
+      ctaLabel,
+      notificationStatus,
+      locationStatus,
+    });
 
     return (
       <FullScreenInterstitial
@@ -577,11 +562,11 @@ export function FirstTimeUxFlow() {
                   ]}
                   onPress={() => {
                     if (ftueStep === 'notifications') {
-                      if (primaryAction === 'enableNotifications') {
+                      if (permissionActions.primaryAction === 'enableNotifications') {
                         void requestNotificationsFromFtue();
                         return;
                       }
-                      if (primaryAction === 'enableLocation') {
+                      if (permissionActions.primaryAction === 'enableLocation') {
                         void requestLocationFromFtue();
                         return;
                       }
@@ -593,8 +578,8 @@ export function FirstTimeUxFlow() {
                 >
                   <Text style={[styles.ftuePrimaryButtonLabel, { color: stepTheme.primaryButtonText }]}>
                     {ftueStep === 'notifications' && (isRequestingNotifications || isRequestingLocation)
-                      ? 'Enabling…'
-                      : primaryCtaLabel}
+                      ? 'Continuing…'
+                      : permissionActions.primaryCtaLabel}
                   </Text>
                 </Button>
               </View>
@@ -602,7 +587,7 @@ export function FirstTimeUxFlow() {
               <View style={styles.ftueSecondarySlot}>
                 {ftueStep === 'notifications' ? (
                   <>
-                    {requiresSettingsAction ? (
+                    {permissionActions.showSettingsAction ? (
                       <Button variant="ghost" fullWidth onPress={() => void Linking.openSettings()}>
                         <Text
                           style={[
@@ -615,19 +600,21 @@ export function FirstTimeUxFlow() {
                         </Text>
                       </Button>
                     ) : null}
-                    <Button
-                      variant="ghost"
-                      fullWidth
-                      onPress={() => {
-                        setIsRequestingNotifications(false);
-                        setIsRequestingLocation(false);
-                        handleAdvanceStep(nextStep);
-                      }}
-                    >
-                      <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
-                        Not now
-                      </Text>
-                    </Button>
+                    {permissionActions.showNotNowAction ? (
+                      <Button
+                        variant="ghost"
+                        fullWidth
+                        onPress={() => {
+                          setIsRequestingNotifications(false);
+                          setIsRequestingLocation(false);
+                          handleAdvanceStep(nextStep);
+                        }}
+                      >
+                        <Text style={[styles.ftueSecondaryButtonLabel, { color: stepTheme.secondaryText }]}>
+                          Not now
+                        </Text>
+                      </Button>
+                    ) : null}
                   </>
                 ) : (
                   <View style={styles.ftueSecondaryPlaceholder} />
@@ -971,4 +958,3 @@ const styles = StyleSheet.create({
     color: colors.destructive,
   },
 });
-

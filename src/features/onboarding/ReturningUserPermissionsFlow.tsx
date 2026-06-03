@@ -26,6 +26,7 @@ import {
 } from '../../services/notifications/defaultTimes';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { resolveFtuePermissionActions } from './ftuePermissionActions';
 
 interface ReturningUserPermissionsFlowProps {
   visible: boolean;
@@ -175,24 +176,12 @@ export function ReturningUserPermissionsFlow({
   const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
   const locationNeedsAlways = locationStatus === 'foregroundOnly';
   const locationUnavailable = locationStatus === 'unavailable';
-  const locationNeedsPrompt =
-    !locationAuthorized && !locationUnavailable && !locationBlocked && !locationNeedsAlways;
-  const requiresSettingsAction = notificationsBlocked || locationBlocked || locationNeedsAlways;
-
-  type PrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
-  const primaryAction: PrimaryAction =
-    !notificationsAuthorized && !notificationsBlocked
-        ? 'enableNotifications'
-        : locationNeedsPrompt
-          ? 'enableLocation'
-          : 'continue';
-
-  const primaryCtaLabel =
-    primaryAction === 'enableNotifications'
-        ? 'Enable notifications'
-        : primaryAction === 'enableLocation'
-          ? 'Enable location'
-          : 'Continue to Kwilt';
+  const permissionActions = resolveFtuePermissionActions({
+    ftueStep: 'notifications',
+    ctaLabel: 'Continue to Kwilt',
+    notificationStatus,
+    locationStatus,
+  });
 
   const translateX = introAnim.interpolate({
     inputRange: [0, 1],
@@ -227,8 +216,7 @@ export function ReturningUserPermissionsFlow({
               <Text style={styles.eyebrow}>Welcome back</Text>
               <Text style={styles.title}>Setup your device</Text>
               <Text style={styles.body}>
-                Enable notifications and location to get gentle reminders and location-based nudges
-                on this device.
+                Kwilt can send gentle reminders and location-based nudges on this device.
               </Text>
             </View>
 
@@ -274,11 +262,11 @@ export function ReturningUserPermissionsFlow({
                 disabled={isRequestingNotifications || isRequestingLocation}
                 style={styles.primaryButton}
                 onPress={() => {
-                  if (primaryAction === 'enableNotifications') {
+                  if (permissionActions.primaryAction === 'enableNotifications') {
                     void requestNotifications();
                     return;
                   }
-                  if (primaryAction === 'enableLocation') {
+                  if (permissionActions.primaryAction === 'enableLocation') {
                     void requestLocation();
                     return;
                   }
@@ -287,24 +275,26 @@ export function ReturningUserPermissionsFlow({
               >
                 <Text style={styles.primaryButtonLabel}>
                   {isRequestingNotifications || isRequestingLocation
-                    ? 'Enabling…'
-                    : primaryCtaLabel}
+                    ? 'Continuing…'
+                    : permissionActions.primaryCtaLabel}
                 </Text>
               </Button>
 
-              {requiresSettingsAction ? (
+              {permissionActions.showSettingsAction ? (
                 <Button variant="ghost" fullWidth onPress={() => void Linking.openSettings()}>
                   <Text style={[styles.secondaryButtonLabel, styles.settingsButtonLabel]}>Open settings</Text>
                 </Button>
               ) : null}
 
-              <Button
-                variant="ghost"
-                fullWidth
-                onPress={handleComplete}
-              >
-                <Text style={styles.secondaryButtonLabel}>Skip for now</Text>
-              </Button>
+              {permissionActions.showNotNowAction ? (
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  onPress={handleComplete}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Skip for now</Text>
+                </Button>
+              ) : null}
             </View>
           </View>
         </Animated.View>
@@ -396,4 +386,3 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
 });
-

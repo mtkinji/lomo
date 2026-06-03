@@ -1,5 +1,42 @@
 # App Review Reply - Submission a6ab4d24
 
+## Latest Rejection - June 03, 2026 - Build 67
+
+Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
+Review date: June 03, 2026
+Review device: iPad Air 11-inch (M3)
+Version reviewed: 1.0 (67)
+
+### Before Resubmitting
+
+- Ship a new binary with the updated location permission prompt flow.
+- Verify the first-time setup permission screen shows a neutral `Continue` button before the system location permission request.
+- Verify the first-time setup permission screen does not show `Not now` before a pending system location permission request.
+- Verify the returning-user setup permission screen uses the same neutral/no-deferral behavior.
+- Attach a screen recording in App Review Information > Notes that shows:
+  - Open Kwilt with a fresh install or cleared location permission state.
+  - Reach First-time setup > Setup regular prompts.
+  - Confirm the custom setup screen shows `Continue`, not `Enable location`.
+  - Confirm no `Not now` or skip action is shown while the location permission request is pending.
+  - Tap `Continue` and show the iOS location permission request appears.
+
+### Paste-Ready Reply
+
+Hello,
+
+Thank you for the review note. We have updated Kwilt's location permission request flow so the custom setup screen no longer uses an action label such as "Enable location" before the system permission request, and no longer provides a deferral button before a pending location permission request.
+
+In the updated build:
+
+1. The first-time setup permission screen uses the neutral `Continue` button before requesting location permission.
+2. The first-time setup permission screen does not show `Not now` while a location permission request is pending.
+3. The returning-user setup permission screen uses the same neutral `Continue` behavior and does not show a skip action before a pending location permission request.
+4. If location permission has already been denied or needs to be changed in iOS Settings, the app shows `Open settings` so the user can manage the permission from the Settings app.
+
+We will attach a screen recording showing the updated flow and include the same details in the App Review Information Notes field for the resubmission.
+
+Thank you.
+
 ## Latest Rejection - June 01, 2026 - Build 66
 
 Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
