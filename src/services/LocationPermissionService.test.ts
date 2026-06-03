@@ -53,10 +53,10 @@ describe('LocationPermissionService', () => {
     jest.useFakeTimers();
     setStoreState();
     moduleMock = {
-      getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'undetermined' })),
-      requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
-      getBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'undetermined' })),
-      requestBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' })),
+      getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'undetermined' as const })),
+      requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' as const })),
+      getBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'undetermined' as const })),
+      requestBackgroundPermissionsAsync: jest.fn(async () => ({ status: 'denied' as const })),
     };
     (requireOptionalNativeModule as jest.Mock).mockReturnValue(moduleMock);
   });

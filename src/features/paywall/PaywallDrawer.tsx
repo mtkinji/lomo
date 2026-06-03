@@ -185,7 +185,7 @@ export function PaywallContent(props: {
       ) : null}
 
       {/* Hero card = the full-color moment */}
-      <LinearGradient colors={[...paywallTheme.gradientColors]} style={styles.heroGradient}>
+      <LinearGradient colors={paywallTheme.gradientColors} style={styles.heroGradient}>
         <View style={styles.heroCard}>
           <VStack space="xs">
             <Heading style={styles.title}>{copy.title}</Heading>

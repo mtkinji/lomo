@@ -97,6 +97,16 @@ npm run jtbd:lint
 
 Validates JTBD front-matter, `parent` references, and `serves:` references in feature briefs and any "JTBDs served" trailer sections across `docs/`.
 
+### Agent completion ritual
+
+Before handing work back, run:
+
+```bash
+npm run verify:changed -- --run
+```
+
+This derives the right local verification gates from the current diff, including app typecheck, test typecheck, related Jest, product lint, architecture lint, Supabase function lint, and manual simulator/visual follow-ups when relevant. Use it as the default completion pass, then add broader checks like `npm test -- --runInBand` when shared config, shared stores/services, or test infrastructure changed.
+
 ## Cursor Cloud specific instructions
 
 ### Key commands
@@ -104,7 +114,11 @@ Validates JTBD front-matter, `parent` references, and `serves:` references in fe
 | Task | Command |
 |---|---|
 | Install deps | `npm install` |
+| Diff-aware local verification | `npm run verify:changed -- --run` |
 | Typecheck / lint | `npm run lint` (runs `tsc --noEmit`) |
+| Typecheck tests | `npm run lint:tests` |
+| Product taxonomy lint | `npm run product:lint` |
+| Architecture lint | `npm run architecture:lint` |
 | Run tests | `npm test` (Jest with `jest-expo` preset) |
 | Run tests with coverage | `npm run test:ci` |
 | Start Metro bundler | `npx expo start` (serves JS bundles to native devices on port 8081) |

@@ -147,6 +147,7 @@ import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
+import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -158,17 +159,6 @@ const FORCE_ORDER: Array<string> = [
 ];
 
 const FIRST_GOAL_ILLUSTRATION = require('../../../assets/illustrations/goal-set.png');
-
-function isGoalOwnerRole(role: string | null | undefined): boolean {
-  const value = (role ?? '').toLowerCase();
-  return value === 'owner' || value === 'co_owner';
-}
-
-function sharedMemberRoleLabel(member: SharedMember, currentUserIds: Set<string>): string {
-  if (member.role === 'owner') return 'Owner';
-  if ((member.role ?? '').toLowerCase() === 'co_owner' && currentUserIds.has(member.userId.trim())) return 'Owner';
-  return 'Partner';
-}
 
 export function GoalDetailScreen() {
   const route = useRoute<GoalDetailRouteProp>();

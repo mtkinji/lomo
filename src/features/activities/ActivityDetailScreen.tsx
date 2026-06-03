@@ -891,6 +891,16 @@ export function ActivityDetailScreen() {
     return scheduleTargetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }, [scheduleTargetDate]);
 
+  const selectedScheduleSlotLabel = useMemo(() => {
+    if (!selectedSlot) return null;
+    const start = new Date(selectedSlot.startDate);
+    const end = new Date(selectedSlot.endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    const formatTime = (date: Date) =>
+      date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return `${formatTime(start)}-${formatTime(end)}`;
+  }, [selectedSlot]);
+
   const kwiltBlocksForScheduleDay = useMemo(() => {
     const key = toLocalDateKey(scheduleTargetDate);
     const blocks =
@@ -5138,21 +5148,22 @@ export function ActivityDetailScreen() {
         scrimToken="pineSubtle"
       >
         <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
-          <BottomDrawerHeader
-            title="Schedule to-do"
-            variant="withClose"
-            onClose={() => setActiveSheet(null)}
-            containerStyle={styles.sheetHeader}
-            titleStyle={styles.sheetTitle}
-          />
-          <Text style={styles.sheetDescription}>Adds a block to your Plan calendar.</Text>
-          {calendarBindingHealth && calendarBindingHealth !== 'healthy' ? (
-            <Text style={[styles.sheetDescription, { color: colors.warning, marginTop: spacing.sm }]}>
-              Calendar binding is {calendarBindingHealth}. Kwilt may not be able to move or unschedule this block until calendar access is restored.
-            </Text>
-          ) : null}
+          <View style={{ flex: 1, minHeight: 0 }}>
+            <BottomDrawerHeader
+              title="Schedule to-do"
+              variant="withClose"
+              onClose={() => setActiveSheet(null)}
+              containerStyle={styles.sheetHeader}
+              titleStyle={styles.sheetTitle}
+            />
+            <Text style={styles.sheetDescription}>Adds a block to your Plan calendar.</Text>
+            {calendarBindingHealth && calendarBindingHealth !== 'healthy' ? (
+              <Text style={[styles.sheetDescription, { color: colors.warning, marginTop: spacing.sm }]}>
+                Calendar binding is {calendarBindingHealth}. Kwilt may not be able to move or unschedule this block until calendar access is restored.
+              </Text>
+            ) : null}
 
-          <VStack space="md">
+            <VStack space="md" style={{ flex: 1, minHeight: 0 }}>
             <VStack space="sm">
               <HStack justifyContent="space-between" alignItems="center">
                 <Text style={styles.sheetSectionLabel}>Duration</Text>
@@ -5261,16 +5272,15 @@ export function ActivityDetailScreen() {
                     })}
                   </HStack>
                 ) : null}
-                {/* Scheduling is committed via selecting a suggested time or tapping the calendar. */}
               </VStack>
             )}
 
             {scheduleWriteRef ? (
-              <View style={{ marginTop: spacing.sm }}>
+              <View style={{ flex: 1, minHeight: 0, marginTop: spacing.sm }}>
                 <View style={{ height: 72, marginBottom: spacing.xs }}>
                   <PlanDateStrip selectedDate={scheduleTargetDate} onSelectDate={handleSelectScheduleDate} />
                 </View>
-                <View style={{ height: scheduleLensHeightPx }}>
+                <View style={{ flex: 1, minHeight: Math.min(280, scheduleLensHeightPx) }}>
                 <PlanCalendarLensPage
                   contentPadding={0}
                   targetDayLabel={scheduleTargetDayLabel}
@@ -5303,7 +5313,39 @@ export function ActivityDetailScreen() {
               </View>
             ) : null}
 
-          </VStack>
+            </VStack>
+          </View>
+
+          {scheduleWriteRef ? (
+            <BottomDrawerFooter
+              showTopBorder
+              paddingHorizontal={0}
+              paddingTop={spacing.sm}
+              paddingBottom={spacing.sm}
+              backgroundColor={colors.canvas}
+            >
+              <Button
+                variant="primary"
+                fullWidth
+                disabled={!selectedSlot || isCreatingCalendarEvent}
+                accessibilityLabel="Schedule selected to-do time"
+                accessibilityState={{ disabled: !selectedSlot || isCreatingCalendarEvent }}
+                testID="e2e.activityDetail.schedule.confirm"
+                style={!selectedSlot || isCreatingCalendarEvent ? { opacity: 0.55 } : null}
+                onPress={() => {
+                  scheduleIntoWriteCalendar().catch(() => undefined);
+                }}
+              >
+                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
+                  {isCreatingCalendarEvent
+                    ? 'Scheduling...'
+                    : selectedScheduleSlotLabel
+                      ? `Schedule ${selectedScheduleSlotLabel}`
+                      : 'Schedule'}
+                </Text>
+              </Button>
+            </BottomDrawerFooter>
+          ) : null}
         </View>
       </BottomDrawer>
 
