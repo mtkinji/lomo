@@ -25,6 +25,15 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
+      - name: Test typecheck
+        run: npm run lint:tests
+
+      - name: Product taxonomy lint
+        run: npm run product:lint
+
+      - name: Architecture lint
+        run: npm run architecture:lint
+
       - name: Jest (CI + coverage)
         run: npm run test:ci
 
@@ -51,4 +60,3 @@ jobs:
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             '{text: ("CI failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
           curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-

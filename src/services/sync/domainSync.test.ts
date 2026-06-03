@@ -85,7 +85,7 @@ function activity(overrides: Partial<Activity> = {}): Activity {
   } as Activity;
 }
 
-function row<T extends { id: string }>(item: T) {
+function row<T extends { id: string; updatedAt?: string }>(item: T) {
   return {
     id: item.id,
     user_id: 'user-a',

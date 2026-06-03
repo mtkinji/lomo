@@ -1,7 +1,7 @@
 import { colors, spacing } from '../../theme';
 
 export const paywallTheme = {
-  gradientColors: [colors.aiGradientStart, colors.aiGradientMid, colors.aiGradientEnd],
+  gradientColors: [colors.aiGradientStart, colors.aiGradientMid, colors.aiGradientEnd] as [string, string, string],
   surfaceBorder: colors.aiBorder,
   foreground: colors.aiForeground,
   // High-contrast inverse CTA: light button on dark/colored surface.
@@ -11,5 +11,3 @@ export const paywallTheme = {
   cornerRadius: 18,
   padding: spacing.lg,
 };
-
-

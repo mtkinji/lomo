@@ -47,7 +47,7 @@ export type ArcBannerSheetProps = {
   loading: boolean;
   error: string;
   thumbnailUrl?: string;
-  heroGradientColors: string[];
+  heroGradientColors: [string, string, ...string[]];
   heroGradientDirection: ArcGradientDirection;
   heroTopoSizes: number[];
   showTopography: boolean;
@@ -925,4 +925,3 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
 });
-
