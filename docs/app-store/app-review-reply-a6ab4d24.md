@@ -1,6 +1,85 @@
 # App Review Reply - Submission a6ab4d24
 
-## Latest Rejection - June 03, 2026 - Build 67
+## Resubmission Packet - Build 69
+
+Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
+Target build: 1.0.69 (69)
+
+### Before Resubmitting
+
+- Build and upload a new binary for `1.0.69 (69)`.
+- Verify onboarding does not request Location Services for first-time or returning users.
+- Verify optional location triggers are only requested after an explicit user action for an already-created to-do/place flow.
+- Verify Settings > Legal & privacy opens:
+  - Privacy Policy: `https://go.kwilt.app/privacy`
+  - Terms of Use (EULA): `https://go.kwilt.app/terms`
+  - support email
+  - Apple subscription management
+  - Account settings for account deletion
+- Verify generated iOS config does not include `UIBackgroundModes=location`.
+- Verify generated iOS config includes specific purpose strings for Location, Calendar, Reminders, Apple Health, Camera, Photo Library, and Microphone.
+- Attach the screen recordings listed in `docs/app-store/approval-hardening-1.0.69.md`.
+
+### Paste-Ready Reply
+
+Hello,
+
+Thank you for the additional review notes. We have uploaded a new build with the Location Services flow revised and additional in-app privacy/legal access.
+
+In build 1.0.69 (69):
+
+1. First-time setup and returning-user setup no longer request Location Services.
+2. Users can complete onboarding and use Kwilt without enabling Location Services.
+3. Location-based nudges are optional and are requested only after the user explicitly chooses a location-based feature, such as accepting a location-trigger recommendation for an already-created to-do or enabling a place-based to-do flow.
+4. If Location Services are unavailable, disabled, or denied, the to-do remains usable as a regular to-do.
+5. Settings now includes Legal & privacy, with direct links to the Privacy Policy, Terms of Use (EULA), support contact, Apple subscription management, and Account settings for account deletion.
+6. Subscription purchase surfaces still include functional Terms of Use (EULA) and Privacy Policy links before purchase.
+7. Account deletion remains available in-app at Settings > Account settings > Delete account.
+
+We have attached screen recordings showing fresh-install onboarding without a Location Services request, the optional location-trigger path, subscription legal links, account deletion, and the new Legal & privacy settings surface.
+
+Thank you.
+
+## Previous Rejection - June 04, 2026 - Build 68
+
+Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
+Review date: June 04, 2026
+Review device: iPad Air 11-inch (M3)
+Version reviewed: 1.0 (68)
+
+### Before Resubmitting
+
+- Ship a new binary where onboarding does not request Location Services.
+- Verify first-time setup > Setup regular prompts only shows notification status.
+- Verify the returning-user setup screen only shows notification status.
+- Verify the app can proceed through onboarding and remain usable when Location Services are disabled.
+- Verify location-based completion offers are still optional and user-initiated from Settings, a to-do's place/location controls, or a concrete AI recommendation after a to-do has already been created.
+- Attach a screen recording in App Review Information > Notes that shows:
+  - Open Kwilt on a fresh install with Location Services disabled or not granted.
+  - Reach First-time setup > Setup regular prompts.
+  - Confirm the screen only references reminders/notifications and does not show a Location permission row.
+  - Tap Continue or Not now and continue into the app without enabling Location Services.
+  - Create a to-do and show that any location-trigger recommendation is presented as an optional choice. Choosing `Keep regular to-do` leaves the app fully usable without Location Services.
+
+### Paste-Ready Reply
+
+Hello,
+
+Thank you for the additional review notes. We have revised Kwilt so Location Services are no longer requested during first-time setup or returning-user setup.
+
+In the updated build:
+
+1. The onboarding permission screen only handles notification reminders.
+2. The onboarding permission screen no longer shows a Location permission row, no longer requests Location Services, and no longer includes a location-related deferral flow.
+3. Users can complete onboarding and use Kwilt without enabling Location Services.
+4. Location-based completion offers remain optional. Location permission is only requested after the user explicitly chooses a location-based feature, such as enabling location-based completion offers in Settings, attaching a place to a to-do, or accepting a concrete AI recommendation to use location triggers for a to-do that has already been created.
+5. If Location Services are disabled or denied, the rest of the app remains functional; only optional location-based nudges are unavailable.
+
+We will attach a screen recording showing the updated onboarding flow proceeding into the app with Location Services disabled, and a to-do remaining usable when the optional location-trigger recommendation is declined.
+
+Thank you.
+
+## Previous Rejection - June 03, 2026 - Build 67
 
 Submission ID: a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf
 Review date: June 03, 2026
@@ -90,7 +169,7 @@ Version reviewed: 1.0 (64)
 
 - Ship a new binary with in-app account deletion exposed from Settings.
 - Deploy the `account-delete` Supabase Edge Function.
-- Verify deletion on a physical iPhone with a newly-created or demo account.
+- Verify deletion on a physical iPhone with a newly-created account.
 - Attach a screen recording in App Review Information > Notes that shows:
   - sign-in or account creation,
   - Settings > Account settings > Delete account,

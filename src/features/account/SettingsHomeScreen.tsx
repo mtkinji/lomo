@@ -441,6 +441,15 @@ export function SettingsHomeScreen() {
       },
       showChevron: true,
     },
+    {
+      id: 'legalPrivacy',
+      title: 'Legal & privacy',
+      icon: 'shield',
+      onPress: () => {
+        navigation.navigate('SettingsLegalPrivacy');
+      },
+      showChevron: true,
+    },
     ...(!HIDDEN_SETTINGS_ITEM_IDS.has('inviteFriend')
       ? ([
           {

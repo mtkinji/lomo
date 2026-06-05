@@ -406,6 +406,9 @@ public struct KwiltFocusAttributes: ActivityAttributes {
     public var title: String
     public var startedAtMs: Int64
     public var endAtMs: Int64
+    public var sessionId: String? = nil
+    public var mode: String? = "running"
+    public var remainingMs: Int64? = nil
   }
 
   public var activityId: String
@@ -435,6 +438,71 @@ class KwiltLiveActivity: NSObject {
   private static var current: Activity<KwiltFocusAttributes>?
 #endif
 
+#if canImport(ActivityKit)
+  @available(iOS 16.2, *)
+  private func makeContent(
+    title: String,
+    sessionId: String,
+    mode: String,
+    startedAtMs: NSNumber,
+    endAtMs: NSNumber,
+    remainingMs: NSNumber
+  ) -> ActivityContent<KwiltFocusAttributes.ContentState> {
+    let normalizedMode = mode == "paused" ? "paused" : "running"
+    let state = KwiltFocusAttributes.ContentState(
+      title: title,
+      startedAtMs: startedAtMs.int64Value,
+      endAtMs: normalizedMode == "running" ? endAtMs.int64Value : 0,
+      sessionId: sessionId,
+      mode: normalizedMode,
+      remainingMs: normalizedMode == "paused" ? remainingMs.int64Value : nil
+    )
+    return ActivityContent(state: state, staleDate: nil)
+  }
+
+  @available(iOS 16.2, *)
+  private func isMatchingSession(
+    _ activity: Activity<KwiltFocusAttributes>,
+    activityId: String,
+    sessionId: String,
+    startedAtMs: NSNumber
+  ) -> Bool {
+    let state = activity.content.state
+    if state.sessionId == sessionId {
+      return true
+    }
+    return state.sessionId == nil &&
+      activity.attributes.activityId == activityId &&
+      state.startedAtMs == startedAtMs.int64Value
+  }
+
+  @available(iOS 16.2, *)
+  private func payload(for activity: Activity<KwiltFocusAttributes>) -> [String: Any] {
+    let state = activity.content.state
+    return [
+      "id": activity.id,
+      "activityId": activity.attributes.activityId,
+      "title": state.title,
+      "sessionId": state.sessionId ?? "",
+      "mode": state.mode ?? "running",
+      "startedAtMs": state.startedAtMs,
+      "endAtMs": state.endAtMs,
+      "remainingMs": state.remainingMs ?? 0,
+      "activityState": String(describing: activity.activityState),
+    ]
+  }
+
+  @available(iOS 16.2, *)
+  private func endActivities(_ activities: [Activity<KwiltFocusAttributes>]) async -> Int {
+    var count = 0
+    for activity in activities {
+      await activity.end(dismissalPolicy: .immediate)
+      count += 1
+    }
+    return count
+  }
+#endif
+
   @objc(start:title:startedAtMs:endAtMs:resolver:rejecter:)
   func start(
     _ activityId: String,
@@ -448,9 +516,13 @@ class KwiltLiveActivity: NSObject {
     if #available(iOS 16.1, *) {
       Task {
         do {
-          if let existing = KwiltLiveActivity.current {
-            await existing.end(dismissalPolicy: .immediate)
-            KwiltLiveActivity.current = nil
+          if #available(iOS 16.2, *) {
+            _ = await self.endActivities(Activity<KwiltFocusAttributes>.activities)
+          } else {
+            if let existing = KwiltLiveActivity.current {
+              await existing.end(dismissalPolicy: .immediate)
+              KwiltLiveActivity.current = nil
+            }
           }
 
           let attributes = KwiltFocusAttributes(activityId: activityId)
@@ -474,6 +546,86 @@ class KwiltLiveActivity: NSObject {
     }
 #endif
     resolve(false)
+  }
+
+  @objc(sync:title:sessionId:mode:startedAtMs:endAtMs:remainingMs:resolver:rejecter:)
+  func sync(
+    _ activityId: String,
+    title: String,
+    sessionId: String,
+    mode: String,
+    startedAtMs: NSNumber,
+    endAtMs: NSNumber,
+    remainingMs: NSNumber,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+#if canImport(ActivityKit)
+    if #available(iOS 16.2, *) {
+      Task {
+        do {
+          let activities = Activity<KwiltFocusAttributes>.activities
+          if mode == "ended" {
+            let ended = await self.endActivities(activities)
+            KwiltLiveActivity.current = nil
+            resolve([
+              "action": "ended",
+              "activeCount": 0,
+              "staleEndedCount": ended,
+              "sessionId": sessionId,
+            ])
+            return
+          }
+
+          let matching = activities.first {
+            self.isMatchingSession($0, activityId: activityId, sessionId: sessionId, startedAtMs: startedAtMs)
+          }
+          let stale = activities.filter { activity in
+            if let matching = matching {
+              return activity.id != matching.id
+            }
+            return true
+          }
+          let staleEndedCount = await self.endActivities(stale)
+          let content = self.makeContent(
+            title: title,
+            sessionId: sessionId,
+            mode: mode,
+            startedAtMs: startedAtMs,
+            endAtMs: endAtMs,
+            remainingMs: remainingMs
+          )
+
+          let action: String
+          if let matching = matching {
+            await matching.update(content)
+            KwiltLiveActivity.current = matching
+            action = "updated"
+          } else {
+            let attributes = KwiltFocusAttributes(activityId: activityId)
+            KwiltLiveActivity.current = try Activity.request(attributes: attributes, content: content, pushType: nil)
+            action = "started"
+          }
+
+          resolve([
+            "action": action,
+            "activeCount": Activity<KwiltFocusAttributes>.activities.count,
+            "staleEndedCount": staleEndedCount,
+            "sessionId": sessionId,
+          ])
+        } catch {
+          reject("E_LIVE_ACTIVITY_SYNC", "Failed to sync Live Activity", error)
+        }
+      }
+      return
+    }
+#endif
+    resolve([
+      "action": "unsupported",
+      "activeCount": 0,
+      "staleEndedCount": 0,
+      "sessionId": sessionId,
+    ])
   }
 
   @objc(update:title:startedAtMs:endAtMs:resolver:rejecter:)
@@ -527,16 +679,36 @@ class KwiltLiveActivity: NSObject {
 #if canImport(ActivityKit)
     if #available(iOS 16.1, *) {
       Task {
-        if let current = KwiltLiveActivity.current {
-          await current.end(dismissalPolicy: .immediate)
-          KwiltLiveActivity.current = nil
+        if #available(iOS 16.2, *) {
+          _ = await self.endActivities(Activity<KwiltFocusAttributes>.activities)
+        } else {
+          if let current = KwiltLiveActivity.current {
+            await current.end(dismissalPolicy: .immediate)
+            KwiltLiveActivity.current = nil
+          }
         }
+        KwiltLiveActivity.current = nil
         resolve(true)
       }
       return
     }
 #endif
     resolve(false)
+  }
+
+  @objc(getActiveFocusLiveActivities:rejecter:)
+  func getActiveFocusLiveActivities(
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+#if canImport(ActivityKit)
+    if #available(iOS 16.2, *) {
+      let payloads = Activity<KwiltFocusAttributes>.activities.map { payload(for: $0) }
+      resolve(payloads)
+      return
+    }
+#endif
+    resolve([])
   }
 }
 `;
@@ -564,7 +736,24 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+  sync:(NSString *)activityId
+  title:(NSString *)title
+  sessionId:(NSString *)sessionId
+  mode:(NSString *)mode
+  startedAtMs:(nonnull NSNumber *)startedAtMs
+  endAtMs:(nonnull NSNumber *)endAtMs
+  remainingMs:(nonnull NSNumber *)remainingMs
+  resolver:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
   end:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  getActiveFocusLiveActivities:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 
@@ -1016,6 +1205,7 @@ if userActivity.activityType == CSSearchableItemActionType,
       widgetSwiftAbs,
       `import WidgetKit
 import SwiftUI
+import Foundation
 #if canImport(AppIntents)
 import AppIntents
 #endif
@@ -1623,7 +1813,7 @@ struct KwiltStreakWidget: Widget {
 // ---------------------------------------------------------------------------
 
 @available(iOS 16.2, *)
-struct KwiltFocusLiveActivityView: View {
+struct KwiltFocusTimerLabel: View {
   let context: ActivityViewContext<KwiltFocusAttributes>
 
   var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
@@ -1631,24 +1821,77 @@ struct KwiltFocusLiveActivityView: View {
     let ms = context.state.endAtMs
     return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
   }
+  var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
+  var remainingMinutesText: String {
+    let remaining = max(0, context.state.remainingMs ?? 0)
+    let minutes = max(1, Int(ceil(Double(remaining) / 60000.0)))
+    return "\\(minutes) min left"
+  }
 
   var body: some View {
-    HStack(spacing: 12) {
-      VStack(alignment: .leading, spacing: 4) {
-        Text(context.state.title)
-          .font(.headline)
-          .lineLimit(1)
-      }
-      Spacer()
-      if let end = endAt {
-        Text(end, style: .timer)
-          .font(.title2.monospacedDigit().bold())
-          .foregroundStyle(KwiltPalette.pine)
-      } else {
-        Text(startedAt, style: .timer)
-          .font(.title2.monospacedDigit().bold())
+    if isPaused {
+      VStack(alignment: .trailing, spacing: 2) {
+        Text("Paused")
+          .font(.caption2.weight(.semibold))
+          .foregroundStyle(.secondary)
+        Text(remainingMinutesText)
+          .font(.headline.monospacedDigit().weight(.semibold))
           .foregroundStyle(KwiltPalette.pine)
       }
+    } else if let end = endAt {
+      Text(end, style: .timer)
+        .font(.title2.monospacedDigit().weight(.semibold))
+        .foregroundStyle(KwiltPalette.pine)
+    } else {
+      Text(startedAt, style: .timer)
+        .font(.title2.monospacedDigit().weight(.semibold))
+        .foregroundStyle(KwiltPalette.pine)
+    }
+  }
+}
+
+@available(iOS 16.2, *)
+struct KwiltFocusLiveActivityView: View {
+  let context: ActivityViewContext<KwiltFocusAttributes>
+
+  var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(spacing: 12) {
+        ZStack {
+          Circle()
+            .fill(KwiltPalette.pineSoft)
+          Image(systemName: isPaused ? "pause.fill" : "timer")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(KwiltPalette.pine)
+        }
+        .frame(width: 30, height: 30)
+
+        VStack(alignment: .leading, spacing: 2) {
+          Text(isPaused ? "Focus paused" : "Focus")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+          Text(context.state.title)
+            .font(.headline)
+            .lineLimit(1)
+        }
+
+        Spacer()
+        KwiltFocusTimerLabel(context: context)
+      }
+
+      GeometryReader { proxy in
+        Capsule()
+          .fill(KwiltPalette.pineSoft)
+          .overlay(alignment: .leading) {
+            Capsule()
+              .fill(KwiltPalette.pine)
+              .frame(width: max(18, proxy.size.width * 0.24))
+          }
+      }
+      .frame(height: 3)
+      .opacity(isPaused ? 0.45 : 0.7)
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 12)
@@ -1659,26 +1902,50 @@ struct KwiltFocusLiveActivityView: View {
 struct KwiltFocusDynamicIslandExpandedView: View {
   let context: ActivityViewContext<KwiltFocusAttributes>
 
-  var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
+  var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: isPaused ? "pause.fill" : "timer")
+        .foregroundStyle(KwiltPalette.pine)
+      VStack(alignment: .leading, spacing: 3) {
+        Text(context.state.title)
+          .font(.headline)
+          .lineLimit(1)
+        Text(isPaused ? "Paused" : "In focus")
+          .font(.caption2)
+          .foregroundStyle(.secondary)
+      }
+      Spacer()
+      KwiltFocusTimerLabel(context: context)
+    }
+    .padding(.vertical, 2)
+  }
+}
+
+@available(iOS 16.2, *)
+struct KwiltFocusCompactTrailingView: View {
+  let context: ActivityViewContext<KwiltFocusAttributes>
+
   var endAt: Date? {
     let ms = context.state.endAtMs
     return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
   }
+  var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
 
   var body: some View {
-    VStack(spacing: 8) {
-      Text(context.state.title)
-        .font(.headline)
-        .lineLimit(1)
-      if let end = endAt {
-        Text(end, style: .timer)
-          .font(.title.monospacedDigit().bold())
-          .foregroundStyle(KwiltPalette.pine)
-      } else {
-        Text(startedAt, style: .timer)
-          .font(.title.monospacedDigit().bold())
-          .foregroundStyle(KwiltPalette.pine)
-      }
+    if isPaused {
+      Image(systemName: "pause.fill")
+        .foregroundStyle(KwiltPalette.pine)
+        .font(.caption2)
+    } else if let end = endAt {
+      Text(end, style: .timer)
+        .monospacedDigit()
+        .font(.caption2)
+    } else {
+      Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
+        .monospacedDigit()
+        .font(.caption2)
     }
   }
 }
@@ -1688,27 +1955,20 @@ struct KwiltFocusLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: KwiltFocusAttributes.self) { context in
       KwiltFocusLiveActivityView(context: context)
+        .activityBackgroundTint(Color(.systemBackground))
+        .activitySystemActionForegroundColor(KwiltPalette.pine)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.center) {
           KwiltFocusDynamicIslandExpandedView(context: context)
         }
       } compactLeading: {
-        Image(systemName: "timer")
+        Image(systemName: (context.state.mode ?? "running") == "paused" ? "pause.fill" : "timer")
           .foregroundStyle(KwiltPalette.pine)
       } compactTrailing: {
-        let ms = context.state.endAtMs
-        if ms > 0 {
-          Text(Date(timeIntervalSince1970: Double(ms) / 1000.0), style: .timer)
-            .monospacedDigit()
-            .font(.caption2)
-        } else {
-          Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
-            .monospacedDigit()
-            .font(.caption2)
-        }
+        KwiltFocusCompactTrailingView(context: context)
       } minimal: {
-        Image(systemName: "timer")
+        Image(systemName: (context.state.mode ?? "running") == "paused" ? "pause.fill" : "timer")
           .foregroundStyle(KwiltPalette.pine)
       }
     }
@@ -1871,5 +2131,3 @@ struct ${targetName}Bundle: WidgetBundle {
 
   return config;
 };
-
-

@@ -53,6 +53,7 @@ Users describe what they want to see in natural language, and you translate that
 - "difficulty": Sort by difficulty
 - "estimateMinutes": Sort by time estimate
 - "createdAt": Sort by creation date
+- "updatedAt": Sort by last modified date
 
 ### Sort Directions
 - "asc": Ascending (A-Z, oldest first, lowest first)

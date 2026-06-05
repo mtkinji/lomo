@@ -19,6 +19,7 @@ import {
   saveSetupNextStepLedger,
 } from './NotificationDeliveryLedger';
 import { useAppStore } from '../../store/useAppStore';
+import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../nativeCrashBreadcrumbs';
 
 export const NOTIFICATION_RECONCILE_TASK = 'kwilt-notification-reconcile-v1';
 
@@ -55,6 +56,42 @@ function nextLocalOccurrence(timeLocal: string, now: Date): Date {
   return fireAt;
 }
 
+async function runNotificationNativeBoundary<T>(
+  operation: string,
+  source: string,
+  fn: () => Promise<T>,
+  context?: Record<string, unknown>,
+): Promise<T> {
+  await recordNotificationNativeBreadcrumb(operation, 'before', source, context);
+  try {
+    const result = await fn();
+    await recordNotificationNativeBreadcrumb(operation, 'after', source, context);
+    return result;
+  } catch (error) {
+    await recordNotificationNativeBreadcrumb(operation, 'error', source, context, error);
+    throw error;
+  }
+}
+
+async function recordNotificationNativeBreadcrumb(
+  operation: string,
+  phase: 'before' | 'after' | 'error',
+  source: string,
+  context?: Record<string, unknown>,
+  error?: unknown,
+): Promise<void> {
+  await recordNativeCrashBreadcrumb({
+    area: 'notifications.backgroundTask',
+    operation,
+    phase,
+    context: {
+      source,
+      ...context,
+    },
+    errorMessage: error === undefined ? undefined : nativeCrashErrorMessage(error),
+  });
+}
+
 export async function reconcileNotificationsFiredEstimated(
   source: 'background_fetch' | 'app_launch',
 ): Promise<void> {
@@ -62,7 +99,11 @@ export async function reconcileNotificationsFiredEstimated(
   const nowIso = now.toISOString();
 
   // 1) Activity reminders: one-shot notifications disappear from scheduled list after firing.
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const scheduled = await runNotificationNativeBoundary(
+    'Notifications.getAllScheduledNotificationsAsync',
+    source,
+    () => Notifications.getAllScheduledNotificationsAsync(),
+  );
   const scheduledIds = new Set(scheduled.map((req) => req.identifier));
 
   const activityLedger = await loadActivityReminderLedger();
@@ -137,7 +178,12 @@ export async function reconcileNotificationsFiredEstimated(
       // Ensure there is a future daily show-up scheduled (best-effort).
       if (scheduledMorningNudges.length === 0) {
         // Delegate to NotificationService so caps/suppression/backoff stay consistent.
-        await NotificationService.scheduleDailyShowUp(timeLocal);
+        await runNotificationNativeBoundary(
+          'NotificationService.scheduleDailyShowUp',
+          source,
+          () => NotificationService.scheduleDailyShowUp(timeLocal),
+          { timeLocal },
+        );
       }
     }
   }
@@ -226,7 +272,12 @@ export async function reconcileNotificationsFiredEstimated(
       // If focus is completed today, cancel any scheduled daily-focus nudges and schedule tomorrow.
       // Delegate to NotificationService so focus scheduling stays consistent (and avoids duplicates on cold start).
       if (completedToday || scheduledDailyFocus.length === 0) {
-        await NotificationService.scheduleDailyFocus(timeLocal);
+        await runNotificationNativeBoundary(
+          'NotificationService.scheduleDailyFocus',
+          source,
+          () => NotificationService.scheduleDailyFocus(timeLocal),
+          { timeLocal, completedToday, scheduledDailyFocusCount: scheduledDailyFocus.length },
+        );
       }
     }
   }
@@ -270,7 +321,12 @@ export async function reconcileNotificationsFiredEstimated(
     // Ensure there is a future goal nudge scheduled if eligible (best-effort).
     if (scheduledGoalNudges.length === 0) {
       // Delegate to NotificationService so caps/suppression/backoff/personalization stay consistent.
-      await NotificationService.scheduleGoalNudge();
+      await runNotificationNativeBoundary(
+        'NotificationService.scheduleGoalNudge',
+        source,
+        () => NotificationService.scheduleGoalNudge(),
+        { timeLocal },
+      );
     }
   }
 }
@@ -294,7 +350,11 @@ TaskManager.defineTask(NOTIFICATION_RECONCILE_TASK, async () => {
 export async function registerNotificationReconcileTask(): Promise<void> {
   // Lazy-load to avoid deprecation warning on app launch.
   const BackgroundFetch = await import('expo-background-fetch');
-  const status = await BackgroundFetch.getStatusAsync();
+  const status = await runNotificationNativeBoundary(
+    'BackgroundFetch.getStatusAsync',
+    'task_register',
+    () => BackgroundFetch.getStatusAsync(),
+  );
   if (
     status === BackgroundFetch.BackgroundFetchStatus.Restricted ||
     status === BackgroundFetch.BackgroundFetchStatus.Denied
@@ -302,14 +362,24 @@ export async function registerNotificationReconcileTask(): Promise<void> {
     return;
   }
 
-  const alreadyRegistered = await TaskManager.isTaskRegisteredAsync(NOTIFICATION_RECONCILE_TASK);
+  const alreadyRegistered = await runNotificationNativeBoundary(
+    'TaskManager.isTaskRegisteredAsync',
+    'task_register',
+    () => TaskManager.isTaskRegisteredAsync(NOTIFICATION_RECONCILE_TASK),
+    { taskName: NOTIFICATION_RECONCILE_TASK },
+  );
   if (alreadyRegistered) return;
 
-  await BackgroundFetch.registerTaskAsync(NOTIFICATION_RECONCILE_TASK, {
-    minimumInterval: 15 * 60, // iOS/Android clamp this; best-effort.
-    stopOnTerminate: false,
-    startOnBoot: true,
-  });
+  await runNotificationNativeBoundary(
+    'BackgroundFetch.registerTaskAsync',
+    'task_register',
+    () =>
+      BackgroundFetch.registerTaskAsync(NOTIFICATION_RECONCILE_TASK, {
+        minimumInterval: 15 * 60, // iOS/Android clamp this; best-effort.
+        stopOnTerminate: false,
+        startOnBoot: true,
+      }),
+    { taskName: NOTIFICATION_RECONCILE_TASK, minimumInterval: 15 * 60 },
+  );
 }
-
 

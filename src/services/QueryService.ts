@@ -372,7 +372,7 @@ export class QueryService {
     let valB = (b as any)[field];
 
     // Special handling for due dates
-    if (field === 'scheduledDate' || field === 'reminderAt') {
+    if (field === 'scheduledDate' || field === 'reminderAt' || field === 'createdAt' || field === 'updatedAt') {
       const timeA = valA ? new Date(valA).getTime() : Number.MAX_SAFE_INTEGER;
       const timeB = valB ? new Date(valB).getTime() : Number.MAX_SAFE_INTEGER;
       return (timeA - timeB) * factor;
@@ -397,4 +397,3 @@ export class QueryService {
     return (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
   }
 }
-

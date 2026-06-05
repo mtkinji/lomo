@@ -63,6 +63,7 @@ import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVa
 import { enrichActivityWithAI, generateArcBannerVibeQuery } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
+import { LocationPermissionService } from '../../services/LocationPermissionService';
 import {
   celebrateFirstActivity,
   celebrateAllActivitiesDone,
@@ -90,7 +91,11 @@ import { Coachmark } from '../../ui/Coachmark';
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { useKeyboardHeight } from '../../ui/hooks/useKeyboardHeight';
 import { AgentWorkspace } from '../ai/AgentWorkspace';
-import { useQuickAddDockController, type QuickAddAiAction } from './useQuickAddDockController';
+import {
+  useQuickAddDockController,
+  type QuickAddAiAction,
+  type QuickAddLocationTriggerRecommendation,
+} from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
@@ -236,6 +241,8 @@ export function ActivitiesScreen() {
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const quickAddAiActions = useAppStore((state) => state.quickAddAiActions);
   const setQuickAddAiActions = useAppStore((state) => state.setQuickAddAiActions);
+  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
+  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const removeActivity = useAppStore((state) => state.removeActivity);
@@ -1066,6 +1073,48 @@ export function ActivitiesScreen() {
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
+  const quickAddLocationTriggersEnabled =
+    Boolean(locationOfferPreferences.enabled) &&
+    locationOfferPreferences.osPermissionStatus === 'authorized';
+  const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
+    React.useState<QuickAddLocationTriggerRecommendation | null>(null);
+
+  const handleUseQuickAddLocationTrigger = React.useCallback(async () => {
+    const pending = pendingQuickAddLocationRecommendation;
+    if (!pending) return;
+
+    const granted = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
+    const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable' as const);
+    const enabled = granted && nextStatus === 'authorized';
+    setLocationOfferPreferences((current) => ({
+      ...current,
+      enabled,
+      osPermissionStatus: nextStatus,
+    }));
+
+    if (enabled) {
+      const nextUpdatedAt = new Date().toISOString();
+      updateActivity(pending.activityId, (activity) => ({
+        ...activity,
+        location: pending.location,
+        updatedAt: nextUpdatedAt,
+      }));
+      showToast({ message: 'Location trigger ready', variant: 'success', durationMs: 2200 });
+    } else {
+      showToast({
+        message: 'Location triggers are off. The to-do is still saved.',
+        variant: 'warning',
+        durationMs: 2600,
+      });
+    }
+
+    setPendingQuickAddLocationRecommendation(null);
+  }, [
+    pendingQuickAddLocationRecommendation,
+    setLocationOfferPreferences,
+    showToast,
+    updateActivity,
+  ]);
 
   const quickAddDefaultsFromFilters = React.useMemo<Partial<Activity>>(() => {
     // Users expect new activities created while filters are applied to "inherit" those filters.
@@ -1437,6 +1486,8 @@ export function ActivitiesScreen() {
     showToast: wrappedShowToast,
     initialReservedHeightPx: quickAddInitialReservedHeight,
     focusAfterSubmit: false,
+    locationTriggersEnabled: quickAddLocationTriggersEnabled,
+    onLocationTriggerRecommended: setPendingQuickAddLocationRecommendation,
     onCreated: (activity) => {
       lastCreatedActivityRef.current = activity;
       setSessionCreatedContextById((prev) => ({ ...prev, [activity.id]: ghostContextKey }));
@@ -3042,6 +3093,37 @@ export function ActivitiesScreen() {
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
         />
       )}
+      <BottomGuide
+        visible={Boolean(pendingQuickAddLocationRecommendation)}
+        onClose={() => setPendingQuickAddLocationRecommendation(null)}
+        scrim="light"
+        snapPoints={['34%']}
+      >
+        <Text style={styles.triggerGuideTitle}>Use location to make this automatic</Text>
+        <Text style={styles.triggerGuideBody}>
+          Kwilt can use this location to nudge you{' '}
+          {pendingQuickAddLocationRecommendation?.location.trigger === 'arrive'
+            ? 'when you arrive'
+            : 'when you leave'}
+          , so the to-do shows up at the moment it matters.
+        </Text>
+        <HStack space="sm" alignItems="center" style={styles.triggerGuideActions}>
+          <Button
+            variant="ghost"
+            onPress={() => setPendingQuickAddLocationRecommendation(null)}
+          >
+            <ButtonLabel size="md">Keep regular to-do</ButtonLabel>
+          </Button>
+          <Button
+            onPress={() => void handleUseQuickAddLocationTrigger()}
+            style={{ backgroundColor: colors.turmeric700, borderColor: colors.turmeric800 }}
+          >
+            <ButtonLabel size="md" tone="inverse">
+              Use location triggers
+            </ButtonLabel>
+          </Button>
+        </HStack>
+      </BottomGuide>
       <BottomGuide
         visible={ghostWarningVisible && Boolean(postCreateGhostId)}
         onClose={dismissGhostWarning}

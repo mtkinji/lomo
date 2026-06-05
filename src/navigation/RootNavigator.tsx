@@ -57,6 +57,7 @@ import { BuiltInDestinationDetailScreen } from '../features/account/BuiltInDesti
 import { SuperAdminToolsScreen } from '../features/account/SuperAdminToolsScreen';
 import { ManageSubscriptionScreen } from '../features/account/ManageSubscriptionScreen';
 import { ChangePlanScreen } from '../features/account/ChangePlanScreen';
+import { LegalPrivacyScreen } from '../features/account/LegalPrivacyScreen';
 import { PaywallInterstitialScreen } from '../features/paywall/PaywallInterstitialScreen';
 import { PaywallDrawerHost } from '../features/paywall/PaywallDrawer';
 import { CreditsInterstitialDrawerHost } from '../features/onboarding/CreditsInterstitialDrawer';
@@ -272,6 +273,7 @@ export type SettingsStackParamList = {
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
   SettingsSharing: undefined;
+  SettingsLegalPrivacy: undefined;
   SettingsHaptics: undefined;
   SettingsWidgets: undefined;
   SettingsExecutionTargets: undefined;
@@ -926,6 +928,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsSharing"
         component={SharingSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsLegalPrivacy"
+        component={LegalPrivacyScreen}
       />
       <SettingsStack.Screen
         name="SettingsHaptics"
