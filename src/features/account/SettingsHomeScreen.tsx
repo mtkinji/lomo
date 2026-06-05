@@ -59,6 +59,7 @@ type SettingsGroup = {
 // Production-ready settings IA: keep incomplete surfaces implemented but out of the
 // primary Settings menu until they form a complete, trustworthy value unit.
 const HIDDEN_SETTINGS_ITEM_IDS = new Set([
+  'phone_agent',
   'execution_targets',
   'widgets',
   'haptics',
