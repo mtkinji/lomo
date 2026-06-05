@@ -60,7 +60,7 @@ export function LegalPrivacyScreen() {
       {
         id: 'privacy',
         title: 'Privacy Policy',
-        description: 'How Kwilt handles app data, AI, subscriptions, Health, location, and SMS.',
+        description: 'How Kwilt handles app data, AI, subscriptions, Health, and location.',
         icon: 'shield',
         onPress: () => openUrl(KWILT_PRIVACY_URL),
       },

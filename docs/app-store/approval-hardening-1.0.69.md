@@ -1,4 +1,4 @@
-# App Store Approval Hardening - 1.0.69 (71)
+# App Store Approval Hardening - 72 (72)
 
 Use this packet before resubmitting submission `a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf`.
 
@@ -8,13 +8,15 @@ Paste this into App Review Information > Notes, then attach the screen recording
 
 Hello,
 
-This build addresses the latest Location Services review feedback and includes additional App Review readiness checks.
+Thank you for the additional review notes. We have uploaded a new build that addresses the Location Services feedback and includes additional App Review readiness checks.
 
 Reviewers can create a fresh account using the normal sign-in flow. No pre-seeded demo account is required; onboarding creates the initial Arc/Goal experience needed to review the core app.
 
 Location Services are no longer requested during first-time setup or returning-user setup. Users can complete onboarding and use Kwilt without enabling Location Services. Location-based nudges remain optional and are requested only after the user explicitly chooses a location-based feature, such as accepting a location-trigger recommendation for an already-created to-do or enabling location offers from a to-do/place flow.
 
 This build also improves subscription entitlement recovery for signed-in users. Kwilt now identifies the signed-in Kwilt account with RevenueCat and refreshes customer info automatically after sign-in/reinstall/device change, so Pro access follows the user account. Manual Restore Purchases remains available from Settings > Subscriptions for rare legacy receipt cases, but the app does not automatically call Restore Purchases on launch or sign-in.
+
+We also removed unfinished Phone Agent/SMS surfaces from the submitted app while that feature remains unavailable. The Settings row is hidden, the live in-app legal/privacy surface no longer references SMS, and the live Terms/Privacy pages describe only currently available data surfaces.
 
 Useful review paths:
 
@@ -31,7 +33,7 @@ Canonical legal URLs:
 - Terms/EULA: https://go.kwilt.app/terms
 - Privacy Policy: https://go.kwilt.app/privacy
 
-## Required attachments
+## Recommended attachments
 
 - Fresh-install onboarding recording showing no Location Services request and successful entry into the app.
 - Optional location-trigger recording showing `Keep regular to-do` leaves the to-do usable without Location Services.
@@ -54,6 +56,8 @@ Declare collection/use where applicable:
 - Usage Data: app interaction events such as onboarding, paywall, restore, notifications, invites, widgets, AI usage, and feature adoption.
 - Diagnostics: crash/error/performance style events if collected by SDKs or backend logs.
 
+Do not include Phone/SMS data for this submitted build unless Phone Agent is restored before submission.
+
 Third parties to disclose in policy/metadata as applicable:
 
 - Supabase: auth, database, storage, edge functions, AI proxy, account deletion, shared goals, attachments, and calendar gateway.
@@ -66,7 +70,7 @@ Third parties to disclose in policy/metadata as applicable:
 
 ## Binary/config checks
 
-- Build/version is `1.0.69 (71)`.
+- Build/version is `72 (72)`.
 - `npx expo config --type introspect` shows no `UIBackgroundModes` value of `location`.
 - Generated iOS config has specific purpose strings for Location, Calendar, Reminders, Apple Health, Camera, Photo Library, and Microphone.
 - `https://go.kwilt.app/terms` and `https://go.kwilt.app/privacy` return HTTP 200.
