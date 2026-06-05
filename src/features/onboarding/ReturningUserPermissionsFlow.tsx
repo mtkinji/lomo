@@ -185,7 +185,7 @@ export function ReturningUserPermissionsFlow({
           <View style={styles.layout}>
             <View style={[styles.headerBlock, { paddingTop: insets.top + spacing.xl }]}>
               <Text style={styles.eyebrow}>Welcome back</Text>
-              <Text style={styles.title}>Setup your device</Text>
+              <Text style={styles.title}>Set up your device</Text>
               <Text style={styles.body}>
                 Kwilt can send gentle reminders on this device. You can change these later in Settings.
               </Text>
@@ -220,7 +220,7 @@ export function ReturningUserPermissionsFlow({
                 style={styles.primaryButton}
                 onPress={() => {
                   if (permissionActions.primaryAction === 'enableNotifications') {
-                    void requestNotifications();
+                    void requestNotifications().then(handleComplete);
                     return;
                   }
                   handleComplete();

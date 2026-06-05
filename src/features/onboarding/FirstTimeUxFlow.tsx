@@ -371,7 +371,7 @@ export function FirstTimeUxFlow() {
         nextStep = totalSteps > 2 ? 'notifications' : 'path';
         break;
       case 'notifications':
-        title = 'Setup regular prompts';
+        title = 'Set up regular reminders';
         body =
           "Kwilt will help you along with gentle reminders so tiny steps don't slip through the cracks. You can change these later in Settings.";
         ctaLabel = 'Continue';
@@ -509,7 +509,7 @@ export function FirstTimeUxFlow() {
                   onPress={() => {
                     if (ftueStep === 'notifications') {
                       if (permissionActions.primaryAction === 'enableNotifications') {
-                        void requestNotificationsFromFtue();
+                        void requestNotificationsFromFtue().then(() => handleAdvanceStep(nextStep));
                         return;
                       }
                       handleAdvanceStep(nextStep);

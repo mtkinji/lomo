@@ -26,6 +26,12 @@
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
     },
+    "development-simulator": {
+      "extends": "development-widgets",
+      "ios": {
+        "simulator": true
+      }
+    },
     "preview": {
       "distribution": "internal",
       "env": {
@@ -90,5 +96,4 @@
     }
   }
 }
-
 
