@@ -116,7 +116,7 @@ export function LegalPrivacyScreen() {
             <Text style={styles.summaryTitle}>Your controls</Text>
             <Text style={styles.summaryBody}>
               Kwilt is local-first, with cloud services used for sign-in, sharing, AI,
-              subscriptions, attachments, Phone Agent, and connected tools you choose to use.
+              subscriptions, attachments, and connected tools you choose to use.
             </Text>
           </View>
 

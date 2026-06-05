@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BillingCadence, EntitlementsSnapshot, ProPlan } from '../services/entitlements';
-import { getEntitlements, purchaseProSku, restorePurchases } from '../services/entitlements';
+import { getEntitlements, identifyRevenueCatUser, purchaseProSku, restorePurchases } from '../services/entitlements';
 
 export type EntitlementsState = {
   isPro: boolean;
@@ -12,6 +12,9 @@ export type EntitlementsState = {
   lastError: string | null;
   isStale: boolean;
   isRefreshing: boolean;
+  isIdentifying: boolean;
+  identifiedAppUserID: string | null;
+  lastResolvedAppUserID: string | null;
   /**
    * Dev-only override for gating QA. When set, Pro status should not be overwritten
    * by any refresh calls (including "force").
@@ -19,6 +22,8 @@ export type EntitlementsState = {
   devOverrideIsPro: boolean | null;
 
   refreshEntitlements: (params?: { force?: boolean }) => Promise<EntitlementsSnapshot>;
+  identifyAndRefresh: (appUserID: string) => Promise<EntitlementsSnapshot>;
+  clearSignedInEntitlements: () => void;
   restore: () => Promise<EntitlementsSnapshot>;
   purchase: (params: { plan: ProPlan; cadence: BillingCadence }) => Promise<EntitlementsSnapshot>;
 
@@ -37,7 +42,10 @@ const applySnapshot = (snapshot: EntitlementsSnapshot) => ({
   lastSource: snapshot.source,
   lastError: snapshot.error ?? null,
   isStale: Boolean(snapshot.isStale),
+  lastResolvedAppUserID: snapshot.appUserID ?? null,
 });
+
+let identifyRequestSeq = 0;
 
 export const useEntitlementsStore = create<EntitlementsState>()(
   persist(
@@ -49,6 +57,9 @@ export const useEntitlementsStore = create<EntitlementsState>()(
       lastError: null,
       isStale: true,
       isRefreshing: false,
+      isIdentifying: false,
+      identifiedAppUserID: null,
+      lastResolvedAppUserID: null,
       devOverrideIsPro: null,
 
       refreshEntitlements: async (params) => {
@@ -61,6 +72,7 @@ export const useEntitlementsStore = create<EntitlementsState>()(
             isProToolsTrial: false,
             checkedAt,
             source: 'dev',
+            appUserID: get().identifiedAppUserID,
             isStale: true,
           };
           set({ ...applySnapshot(snapshot), isRefreshing: false });
@@ -80,7 +92,10 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         }
         set({ isRefreshing: true, lastError: null });
         try {
-          const snapshot = await getEntitlements({ forceRefresh: Boolean(params?.force) });
+          const snapshot = await getEntitlements({
+            forceRefresh: Boolean(params?.force),
+            appUserID: get().identifiedAppUserID,
+          });
           set({ ...applySnapshot(snapshot), isRefreshing: false });
           return snapshot;
         } catch (e: any) {
@@ -97,10 +112,116 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         }
       },
 
+      identifyAndRefresh: async (appUserID) => {
+        const normalizedAppUserID = appUserID.trim();
+        if (!normalizedAppUserID) {
+          get().clearSignedInEntitlements();
+          const checkedAt = new Date().toISOString();
+          return {
+            isPro: false,
+            isProToolsTrial: false,
+            checkedAt,
+            source: 'none',
+            appUserID: null,
+            isStale: true,
+          };
+        }
+
+        if (__DEV__ && get().devOverrideIsPro != null) {
+          const checkedAt = new Date().toISOString();
+          const snapshot: EntitlementsSnapshot = {
+            isPro: Boolean(get().devOverrideIsPro),
+            isProToolsTrial: false,
+            checkedAt,
+            source: 'dev',
+            appUserID: normalizedAppUserID,
+            isStale: true,
+          };
+          set({
+            ...applySnapshot(snapshot),
+            identifiedAppUserID: normalizedAppUserID,
+            lastResolvedAppUserID: normalizedAppUserID,
+            isIdentifying: false,
+            isRefreshing: false,
+          });
+          return snapshot;
+        }
+
+        const requestSeq = identifyRequestSeq + 1;
+        identifyRequestSeq = requestSeq;
+        set({
+          isIdentifying: true,
+          isRefreshing: true,
+          identifiedAppUserID: normalizedAppUserID,
+          lastError: null,
+        });
+        try {
+          const snapshot = await identifyRevenueCatUser(normalizedAppUserID);
+          if (requestSeq !== identifyRequestSeq || get().identifiedAppUserID !== normalizedAppUserID) {
+            return snapshot;
+          }
+          set({
+            ...applySnapshot(snapshot),
+            identifiedAppUserID: normalizedAppUserID,
+            lastResolvedAppUserID: normalizedAppUserID,
+            isIdentifying: false,
+            isRefreshing: false,
+          });
+          return snapshot;
+        } catch (e: any) {
+          const message = typeof e?.message === 'string' ? e.message : 'Failed to refresh entitlements';
+          const checkedAt = new Date().toISOString();
+          if (requestSeq !== identifyRequestSeq || get().identifiedAppUserID !== normalizedAppUserID) {
+            return {
+              isPro: false,
+              isProToolsTrial: false,
+              checkedAt,
+              source: 'none',
+              appUserID: normalizedAppUserID,
+              isStale: true,
+              error: message,
+            };
+          }
+          set({
+            isIdentifying: false,
+            isRefreshing: false,
+            identifiedAppUserID: normalizedAppUserID,
+            lastResolvedAppUserID: normalizedAppUserID,
+            lastError: message,
+            isStale: true,
+          });
+          return {
+            isPro: get().isPro,
+            isProToolsTrial: get().isProToolsTrial,
+            checkedAt,
+            source: get().lastSource ?? 'cache',
+            appUserID: normalizedAppUserID,
+            isStale: true,
+            error: message,
+          };
+        }
+      },
+
+      clearSignedInEntitlements: () => {
+        identifyRequestSeq += 1;
+        set({
+          isPro: false,
+          isProToolsTrial: false,
+          lastCheckedAt: null,
+          lastSource: null,
+          lastError: null,
+          isStale: true,
+          isRefreshing: false,
+          isIdentifying: false,
+          identifiedAppUserID: null,
+          lastResolvedAppUserID: null,
+        });
+      },
+
       restore: async () => {
         set({ isRefreshing: true, lastError: null });
         try {
-          const snapshot = await restorePurchases();
+          const snapshot = await restorePurchases(get().identifiedAppUserID);
           set({ ...applySnapshot(snapshot), isRefreshing: false });
           return snapshot;
         } catch (e: any) {
@@ -113,7 +234,10 @@ export const useEntitlementsStore = create<EntitlementsState>()(
       purchase: async (params) => {
         set({ isRefreshing: true, lastError: null });
         try {
-          const snapshot = await purchaseProSku(params);
+          const snapshot = await purchaseProSku({
+            ...params,
+            appUserID: get().identifiedAppUserID,
+          });
           set({ ...applySnapshot(snapshot), isRefreshing: false });
           return snapshot;
         } catch (e: any) {
@@ -168,10 +292,9 @@ export const useEntitlementsStore = create<EntitlementsState>()(
         lastSource: state.lastSource,
         lastError: state.lastError,
         isStale: state.isStale,
+        identifiedAppUserID: state.identifiedAppUserID,
         devOverrideIsPro: state.devOverrideIsPro,
       }),
     },
   ),
 );
-
-

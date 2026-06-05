@@ -25,6 +25,7 @@ export type EntitlementsSnapshot = {
   isProToolsTrial: boolean;
   checkedAt: string;
   source: 'revenuecat' | 'cache' | 'none' | 'dev' | 'code' | 'admin';
+  appUserID?: string | null;
   isStale?: boolean;
   error?: string;
 };
@@ -67,11 +68,22 @@ type RevenueCatCustomerInfo = {
   entitlements?: {
     active?: Record<string, unknown>;
   };
+  appUserID?: string;
+  originalAppUserId?: string;
+  original_app_user_id?: string;
+};
+
+type RevenueCatLogInResult = {
+  customerInfo?: RevenueCatCustomerInfo;
+  created?: boolean;
 };
 
 type RevenueCatPurchasesLike = {
   configure?: (params: { apiKey: string; appUserID?: string }) => void;
   getCustomerInfo?: () => Promise<RevenueCatCustomerInfo>;
+  getAppUserID?: () => Promise<string>;
+  logIn?: (appUserID: string) => Promise<RevenueCatLogInResult>;
+  logOut?: () => Promise<RevenueCatCustomerInfo>;
   restorePurchases?: () => Promise<RevenueCatCustomerInfo>;
   getOfferings?: () => Promise<any>;
   purchasePackage?: (pkg: any) => Promise<{ customerInfo?: RevenueCatCustomerInfo }>;
@@ -189,6 +201,13 @@ function getPurchasesModule(): RevenueCatPurchasesLike | null {
 }
 
 let hasConfiguredRevenueCat = false;
+let configuredRevenueCatAppUserID: string | null = null;
+
+export function __resetRevenueCatEntitlementsForTests(): void {
+  if (!__DEV__) return;
+  hasConfiguredRevenueCat = false;
+  configuredRevenueCatAppUserID = null;
+}
 
 function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
   const active = customerInfo?.entitlements?.active ?? {};
@@ -198,6 +217,19 @@ function extractIsPro(customerInfo: RevenueCatCustomerInfo | null | undefined): 
 function extractIsProToolsTrial(customerInfo: RevenueCatCustomerInfo | null | undefined): boolean {
   const active = customerInfo?.entitlements?.active ?? {};
   return Boolean((active as any).pro_tools_trial);
+}
+
+function normalizeAppUserID(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim();
+  return v.length > 0 ? v : null;
+}
+
+function getCustomerInfoAppUserID(customerInfo: RevenueCatCustomerInfo | null | undefined): string | null {
+  return (
+    normalizeAppUserID(customerInfo?.appUserID) ??
+    normalizeAppUserID(customerInfo?.originalAppUserId) ??
+    normalizeAppUserID(customerInfo?.original_app_user_id)
+  );
 }
 
 function buildOfferingDiagnostics(args: {
@@ -221,18 +253,56 @@ function buildOfferingDiagnostics(args: {
   };
 }
 
-async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): Promise<void> {
-  if (hasConfiguredRevenueCat) return;
+async function configureRevenueCatIfNeeded(
+  purchases: RevenueCatPurchasesLike,
+  appUserID?: string | null,
+): Promise<boolean> {
+  if (hasConfiguredRevenueCat) return false;
   const apiKey = getEnvVar<string>('revenueCatApiKey');
-  if (!apiKey || typeof purchases.configure !== 'function') return;
+  if (!apiKey || typeof purchases.configure !== 'function') return false;
 
   // Keep logs quiet by default; can be turned up later if needed.
   if (typeof purchases.setLogLevel === 'function' && purchases.LOG_LEVEL?.WARN) {
     purchases.setLogLevel(purchases.LOG_LEVEL.WARN);
   }
 
-  purchases.configure({ apiKey });
+  const normalizedAppUserID = normalizeAppUserID(appUserID);
+  purchases.configure({
+    apiKey,
+    ...(normalizedAppUserID ? { appUserID: normalizedAppUserID } : {}),
+  });
   hasConfiguredRevenueCat = true;
+  configuredRevenueCatAppUserID = normalizedAppUserID;
+  return true;
+}
+
+async function getCurrentRevenueCatAppUserID(purchases: RevenueCatPurchasesLike): Promise<string | null> {
+  if (typeof purchases.getAppUserID !== 'function') return configuredRevenueCatAppUserID;
+  try {
+    const current = normalizeAppUserID(await purchases.getAppUserID());
+    configuredRevenueCatAppUserID = current;
+    return current;
+  } catch {
+    return configuredRevenueCatAppUserID;
+  }
+}
+
+async function ensureRevenueCatAppUserID(
+  purchases: RevenueCatPurchasesLike,
+  appUserID: string | null | undefined,
+): Promise<RevenueCatCustomerInfo | null> {
+  const normalizedAppUserID = normalizeAppUserID(appUserID);
+  const configuredNow = await configureRevenueCatIfNeeded(purchases, normalizedAppUserID);
+  if (!normalizedAppUserID) return null;
+  if (configuredNow) return null;
+
+  const current = await getCurrentRevenueCatAppUserID(purchases);
+  if (current === normalizedAppUserID) return null;
+  if (typeof purchases.logIn !== 'function') return null;
+
+  const result = await purchases.logIn(normalizedAppUserID);
+  configuredRevenueCatAppUserID = normalizedAppUserID;
+  return result?.customerInfo ?? null;
 }
 
 /**
@@ -240,17 +310,19 @@ async function configureRevenueCatIfNeeded(purchases: RevenueCatPurchasesLike): 
  * Returns null if RevenueCat is unavailable, not configured, or if the call fails.
  * This is safe to call from anywhere without risking a native crash.
  */
-export async function getRevenueCatAppUserIdSafe(): Promise<string | null> {
+export async function getRevenueCatAppUserIdSafe(appUserID?: string | null): Promise<string | null> {
+  const normalizedAppUserID = normalizeAppUserID(appUserID);
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey) return null;
 
   try {
-    await configureRevenueCatIfNeeded(purchases);
+    const loginInfo = await ensureRevenueCatAppUserID(purchases, normalizedAppUserID);
     if (!hasConfiguredRevenueCat) return null;
+    if (normalizedAppUserID) return normalizedAppUserID;
     if (typeof purchases.getCustomerInfo !== 'function') return null;
 
-    const info = await purchases.getCustomerInfo();
+    const info = loginInfo ?? (await purchases.getCustomerInfo());
     const v =
       (typeof (info as any)?.originalAppUserId === 'string' && (info as any).originalAppUserId.trim()) ||
       (typeof (info as any)?.original_app_user_id === 'string' && (info as any).original_app_user_id.trim()) ||
@@ -262,9 +334,14 @@ export async function getRevenueCatAppUserIdSafe(): Promise<string | null> {
   }
 }
 
-export async function getEntitlements(params?: { forceRefresh?: boolean }): Promise<EntitlementsSnapshot> {
+export async function getEntitlements(params?: {
+  forceRefresh?: boolean;
+  appUserID?: string | null;
+}): Promise<EntitlementsSnapshot> {
+  const requestedAppUserID = normalizeAppUserID(params?.appUserID);
   const cached = await readCachedEntitlements();
   const proCodeOverride = await getProCodeOverrideEnabled().catch(() => false);
+  const cachedMatchesRequestedUser = !requestedAppUserID || cached?.appUserID === requestedAppUserID;
   const cachedAgeMs =
     cached?.checkedAt && Number.isFinite(Date.parse(cached.checkedAt))
       ? Date.now() - Date.parse(cached.checkedAt)
@@ -272,7 +349,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   const cachedIsFresh = cached != null && cachedAgeMs <= LAST_KNOWN_MAX_AGE_MS;
 
   // Fast path: use cached within bounded window if we weren't asked to refresh.
-  if (!params?.forceRefresh && cachedIsFresh) {
+  if (!params?.forceRefresh && cachedIsFresh && cachedMatchesRequestedUser) {
     // If a local pro-code override is present, validate it against server status so expiry is enforced.
     if (proCodeOverride) {
       try {
@@ -286,6 +363,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
             isProToolsTrial: false,
             checkedAt: nowIso(),
             source: 'cache',
+            appUserID: requestedAppUserID ?? cached.appUserID ?? null,
             isStale: false,
             error: undefined,
           };
@@ -298,6 +376,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
             ...cached,
             isPro: true,
             isProToolsTrial: false,
+            appUserID: requestedAppUserID ?? cached.appUserID ?? null,
             source: 'cache',
             isStale: false,
             error: undefined,
@@ -308,6 +387,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
           ...cached,
           isPro: true,
           isProToolsTrial: false,
+          appUserID: requestedAppUserID ?? cached.appUserID ?? null,
           source: 'cache',
           isStale: true,
           error: status?.errorMessage ?? 'Unable to verify Pro status',
@@ -318,6 +398,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
           ...cached,
           isPro: true,
           isProToolsTrial: false,
+          appUserID: requestedAppUserID ?? cached.appUserID ?? null,
           source: 'cache',
           isStale: true,
           error: typeof e?.message === 'string' ? e.message : 'Unable to verify Pro status',
@@ -331,7 +412,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey) {
     // RevenueCat not available yet — fall back to last known (if any).
-    if (cachedIsFresh) {
+    if (cachedIsFresh && cachedMatchesRequestedUser) {
       const base = { ...cached, source: 'cache', isStale: true, error: 'RevenueCat not configured' } as EntitlementsSnapshot;
       // Prefer server status for code/admin grants; this enforces expiry.
       try {
@@ -351,6 +432,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
           ...base,
           isPro,
           isProToolsTrial: false,
+          appUserID: requestedAppUserID ?? base.appUserID ?? null,
           source: authoritative && status.isPro ? 'code' : base.source,
           isStale: Boolean(!authoritative || shouldStickyKeepPro || base.isStale),
           error,
@@ -367,6 +449,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
       isProToolsTrial: false,
       checkedAt: nowIso(),
       source: 'none',
+      appUserID: requestedAppUserID ?? null,
       isStale: true,
       error: 'RevenueCat not configured',
     };
@@ -391,10 +474,12 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   }
 
   try {
-    await configureRevenueCatIfNeeded(purchases);
-    const info = await purchases.getCustomerInfo?.();
+    const loginInfo = await ensureRevenueCatAppUserID(purchases, requestedAppUserID);
+    const info = loginInfo ?? (await purchases.getCustomerInfo?.());
     const rcIsPro = extractIsPro(info);
     const rcIsTrial = extractIsProToolsTrial(info);
+    const resolvedAppUserID =
+      requestedAppUserID ?? getCustomerInfoAppUserID(info) ?? (await getCurrentRevenueCatAppUserID(purchases));
     let serverIsPro: boolean | null = false;
     let serverError: string | undefined;
     if (!rcIsPro) {
@@ -415,7 +500,10 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
       }
     }
     const shouldStickyKeepPro =
-      serverIsPro == null && Boolean(cachedIsFresh && cached?.isPro) && !rcIsPro && !proCodeOverride;
+      serverIsPro == null &&
+      Boolean(cachedIsFresh && cachedMatchesRequestedUser && cached?.isPro) &&
+      !rcIsPro &&
+      !proCodeOverride;
     const isPro =
       rcIsPro ||
       serverIsPro === true ||
@@ -427,6 +515,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
       isProToolsTrial,
       checkedAt: nowIso(),
       source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
+      appUserID: resolvedAppUserID ?? null,
       isStale: Boolean(serverIsPro == null || shouldStickyKeepPro),
       ...(serverIsPro == null || shouldStickyKeepPro
         ? { error: serverError ?? 'Pro status check unavailable; using last-known tier' }
@@ -436,7 +525,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
     return await applyAdminOverride(snapshot);
   } catch (e: any) {
     const message = typeof e?.message === 'string' ? e.message : 'Failed to refresh entitlements';
-    if (cachedIsFresh) {
+    if (cachedIsFresh && cachedMatchesRequestedUser) {
       const base = { ...cached, source: 'cache', isStale: true, error: message } as EntitlementsSnapshot;
       try {
         const status = await getProStatus();
@@ -444,7 +533,13 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
           await setProCodeOverrideEnabled(false);
         }
         const isPro = Boolean(isAuthoritativeProStatus(status) && status.isPro) || Boolean(proCodeOverride) || Boolean(cached.isPro);
-        return await applyAdminOverride({ ...base, isPro, isProToolsTrial: false, source: isPro ? 'code' : base.source });
+        return await applyAdminOverride({
+          ...base,
+          isPro,
+          isProToolsTrial: false,
+          appUserID: requestedAppUserID ?? base.appUserID ?? null,
+          source: isPro ? 'code' : base.source,
+        });
       } catch {
         if (proCodeOverride) {
           return await applyAdminOverride({ ...base, isPro: true, isProToolsTrial: false });
@@ -457,6 +552,7 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
       isProToolsTrial: false,
       checkedAt: nowIso(),
       source: 'none',
+      appUserID: requestedAppUserID ?? null,
       isStale: true,
       error: message,
     };
@@ -478,25 +574,35 @@ export async function getEntitlements(params?: { forceRefresh?: boolean }): Prom
   }
 }
 
-export async function restorePurchases(): Promise<EntitlementsSnapshot> {
+export async function identifyRevenueCatUser(appUserID: string): Promise<EntitlementsSnapshot> {
+  const normalizedAppUserID = normalizeAppUserID(appUserID);
+  if (!normalizedAppUserID) {
+    return getEntitlements({ forceRefresh: true });
+  }
+  return getEntitlements({ forceRefresh: true, appUserID: normalizedAppUserID });
+}
+
+export async function restorePurchases(appUserID?: string | null): Promise<EntitlementsSnapshot> {
+  const normalizedAppUserID = normalizeAppUserID(appUserID);
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey || typeof purchases.restorePurchases !== 'function') {
     // No RevenueCat on this build / device — do a normal refresh which already
     // consults the server (pro codes + admin grants).
-    return getEntitlements({ forceRefresh: true });
+    return getEntitlements({ forceRefresh: true, appUserID: normalizedAppUserID });
   }
 
   const cached = await readCachedEntitlements();
   const proCodeOverride = await getProCodeOverrideEnabled().catch(() => false);
 
-  await configureRevenueCatIfNeeded(purchases);
+  await ensureRevenueCatAppUserID(purchases, normalizedAppUserID);
 
   let rcIsPro = false;
   let rcIsTrial = false;
   let rcError: string | undefined;
+  let info: RevenueCatCustomerInfo | null = null;
   try {
-    const info = await purchases.restorePurchases();
+    info = await purchases.restorePurchases();
     rcIsPro = extractIsPro(info);
     rcIsTrial = extractIsProToolsTrial(info);
   } catch (e: any) {
@@ -544,6 +650,7 @@ export async function restorePurchases(): Promise<EntitlementsSnapshot> {
     isProToolsTrial,
     checkedAt: nowIso(),
     source: rcIsPro ? 'revenuecat' : isPro ? 'code' : 'revenuecat',
+    appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(info) ?? configuredRevenueCatAppUserID ?? null,
     isStale: Boolean(serverIsPro == null || shouldStickyKeepPro),
     ...(rcError || serverError || shouldStickyKeepPro
       ? { error: rcError ?? serverError ?? 'Pro status check unavailable; using last-known tier' }
@@ -553,14 +660,15 @@ export async function restorePurchases(): Promise<EntitlementsSnapshot> {
   return await applyAdminOverride(snapshot);
 }
 
-export async function purchasePro(): Promise<EntitlementsSnapshot> {
+export async function purchasePro(appUserID?: string | null): Promise<EntitlementsSnapshot> {
+  const normalizedAppUserID = normalizeAppUserID(appUserID);
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey) {
-    return getEntitlements({ forceRefresh: false });
+    return getEntitlements({ forceRefresh: false, appUserID: normalizedAppUserID });
   }
 
-  await configureRevenueCatIfNeeded(purchases);
+  await ensureRevenueCatAppUserID(purchases, normalizedAppUserID);
   const offerings = await purchases.getOfferings?.();
   const currentOffering = offerings?.current;
   const availablePackages: any[] = Array.isArray(currentOffering?.availablePackages)
@@ -590,6 +698,7 @@ export async function purchasePro(): Promise<EntitlementsSnapshot> {
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
+    appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(result?.customerInfo) ?? configuredRevenueCatAppUserID ?? null,
     isStale: false,
   };
   await writeCachedEntitlements(snapshot);
@@ -599,14 +708,16 @@ export async function purchasePro(): Promise<EntitlementsSnapshot> {
 export async function purchaseProSku(params: {
   plan: ProPlan;
   cadence: BillingCadence;
+  appUserID?: string | null;
 }): Promise<EntitlementsSnapshot> {
+  const normalizedAppUserID = normalizeAppUserID(params.appUserID);
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey) {
-    return getEntitlements({ forceRefresh: false });
+    return getEntitlements({ forceRefresh: false, appUserID: normalizedAppUserID });
   }
 
-  await configureRevenueCatIfNeeded(purchases);
+  await ensureRevenueCatAppUserID(purchases, normalizedAppUserID);
   const offerings = await purchases.getOfferings?.();
   const currentOffering = offerings?.current;
   const availablePackages: any[] = Array.isArray(currentOffering?.availablePackages)
@@ -636,6 +747,7 @@ export async function purchaseProSku(params: {
     isProToolsTrial: extractIsProToolsTrial(result?.customerInfo),
     checkedAt: nowIso(),
     source: 'revenuecat',
+    appUserID: normalizedAppUserID ?? getCustomerInfoAppUserID(result?.customerInfo) ?? configuredRevenueCatAppUserID ?? null,
     isStale: false,
   };
   await writeCachedEntitlements(snapshot);
@@ -655,13 +767,13 @@ export async function openManageSubscription(): Promise<void> {
  * Detect the active subscription's billing period by inspecting RevenueCat customer info.
  * Returns 'monthly', 'annual', or null if unable to determine.
  */
-export async function getActiveBillingCadence(): Promise<BillingCadence | null> {
+export async function getActiveBillingCadence(appUserID?: string | null): Promise<BillingCadence | null> {
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey) return null;
 
   try {
-    await configureRevenueCatIfNeeded(purchases);
+    await ensureRevenueCatAppUserID(purchases, appUserID);
     const info = await purchases.getCustomerInfo?.();
     const active = info?.entitlements?.active ?? {};
     const proEntitlement = (active as any).pro;
@@ -682,13 +794,13 @@ export async function getActiveBillingCadence(): Promise<BillingCadence | null> 
   }
 }
 
-export async function getProSkuPricing(): Promise<Record<string, ProSkuPricing>> {
+export async function getProSkuPricing(appUserID?: string | null): Promise<Record<string, ProSkuPricing>> {
   const purchases = getPurchasesModule();
   const apiKey = getEnvVar<string>('revenueCatApiKey');
   if (!purchases || !apiKey) return {};
 
   try {
-    await configureRevenueCatIfNeeded(purchases);
+    await ensureRevenueCatAppUserID(purchases, appUserID);
     const offerings = await purchases.getOfferings?.();
     const currentOffering = offerings?.current;
     const availablePackages: any[] = Array.isArray(currentOffering?.availablePackages)
@@ -738,4 +850,3 @@ export async function getProSkuPricing(): Promise<Record<string, ProSkuPricing>>
     return {};
   }
 }
-
