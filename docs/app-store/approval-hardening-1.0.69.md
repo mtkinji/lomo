@@ -1,4 +1,4 @@
-# App Store Approval Hardening - 1.0.69 (69)
+# App Store Approval Hardening - 1.0.69 (70)
 
 Use this packet before resubmitting submission `a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf`.
 
@@ -13,6 +13,8 @@ This build addresses the latest Location Services review feedback and includes a
 Reviewers can create a fresh account using the normal sign-in flow. No pre-seeded demo account is required; onboarding creates the initial Arc/Goal experience needed to review the core app.
 
 Location Services are no longer requested during first-time setup or returning-user setup. Users can complete onboarding and use Kwilt without enabling Location Services. Location-based nudges remain optional and are requested only after the user explicitly chooses a location-based feature, such as accepting a location-trigger recommendation for an already-created to-do or enabling location offers from a to-do/place flow.
+
+This build also improves subscription entitlement recovery for signed-in users. Kwilt now identifies the signed-in Kwilt account with RevenueCat and refreshes customer info automatically after sign-in/reinstall/device change, so Pro access follows the user account. Manual Restore Purchases remains available from Settings > Subscriptions for rare legacy receipt cases, but the app does not automatically call Restore Purchases on launch or sign-in.
 
 Useful review paths:
 
@@ -34,7 +36,7 @@ Canonical legal URLs:
 
 - Fresh-install onboarding recording showing no Location Services request and successful entry into the app.
 - Optional location-trigger recording showing `Keep regular to-do` leaves the to-do usable without Location Services.
-- Subscription recording showing Settings > Subscriptions > plan picker > Terms/EULA link > Privacy Policy link.
+- Subscription recording showing Settings > Subscriptions > plan picker > Terms/EULA link > Privacy Policy link, plus Restore purchases availability.
 - Account deletion recording showing Settings > Account settings > Delete account, subscription warning, and final confirmation.
 - Optional: Legal & privacy recording showing Settings > Legal & privacy and the live policy links opening.
 
@@ -66,7 +68,7 @@ Third parties to disclose in policy/metadata as applicable:
 
 ## Binary/config checks
 
-- Build/version is `1.0.69 (69)`.
+- Build/version is `1.0.69 (70)`.
 - `npx expo config --type introspect` shows no `UIBackgroundModes` value of `location`.
 - Generated iOS config has specific purpose strings for Location, Calendar, Reminders, Apple Health, Camera, Photo Library, and Microphone.
 - `https://go.kwilt.app/terms` and `https://go.kwilt.app/privacy` return HTTP 200.
