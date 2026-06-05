@@ -1,4 +1,4 @@
-# App Review Reply - Build 72
+# App Review Reply - Version 1.0.72 Build 73
 
 Submission ID: `a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf`
 
@@ -6,7 +6,7 @@ Submission ID: `a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf`
 
 Hello,
 
-Thank you for the additional review notes. We have uploaded build 72 with the Location Services flow revised.
+Thank you for the additional review notes. We have uploaded version 1.0.72 build 73 with the Location Services flow revised.
 
 In this build:
 

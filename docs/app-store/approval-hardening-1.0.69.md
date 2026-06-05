@@ -1,4 +1,4 @@
-# App Store Approval Hardening - 72 (72)
+# App Store Approval Hardening - 1.0.72 (73)
 
 Use this packet before resubmitting submission `a6ab4d24-38d3-48f4-b5f2-8d53f8bffcbf`.
 
@@ -70,7 +70,7 @@ Third parties to disclose in policy/metadata as applicable:
 
 ## Binary/config checks
 
-- Build/version is `72 (72)`.
+- Build/version is `1.0.72 (73)`.
 - `npx expo config --type introspect` shows no `UIBackgroundModes` value of `location`.
 - Generated iOS config has specific purpose strings for Location, Calendar, Reminders, Apple Health, Camera, Photo Library, and Microphone.
 - `https://go.kwilt.app/terms` and `https://go.kwilt.app/privacy` return HTTP 200.
