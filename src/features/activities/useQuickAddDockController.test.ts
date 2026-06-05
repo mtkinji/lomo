@@ -3,6 +3,7 @@ import {
   applyQuickAddAiEnrichment,
   consumeQuickAddAiActionCredits,
   inferQuickAddTriggerDefaults,
+  resolveQuickAddLocationTriggerEnrichment,
 } from './useQuickAddDockController';
 import { toLocalDateKey } from '../../services/plan/planDates';
 
@@ -219,6 +220,48 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.scheduledDate).toBe('2026-05-20');
     expect(result.repeatRule).toBe('daily');
     expect(result.aiPlanning).toBeUndefined();
+  });
+});
+
+describe('resolveQuickAddLocationTriggerEnrichment', () => {
+  const location = {
+    label: 'This location',
+    latitude: 40.7128,
+    longitude: -74.006,
+    trigger: 'leave' as const,
+    radiusM: 150,
+  };
+
+  it('keeps an AI location trigger pending when location triggers are not enabled', () => {
+    const result = resolveQuickAddLocationTriggerEnrichment({
+      enrichment: { location, reminderAt: '2026-05-14T16:00:00.000Z' },
+      locationTriggersEnabled: false,
+    });
+
+    expect(result.recommendation).toEqual(location);
+    expect(result.enrichment.location).toBeUndefined();
+    expect(result.enrichment.reminderAt).toBe('2026-05-14T16:00:00.000Z');
+  });
+
+  it('applies an AI location trigger when location triggers are already enabled', () => {
+    const result = resolveQuickAddLocationTriggerEnrichment({
+      enrichment: { location },
+      locationTriggersEnabled: true,
+    });
+
+    expect(result.recommendation).toBeNull();
+    expect(result.enrichment.location).toEqual(location);
+  });
+
+  it('does not invent a current-location trigger when location triggers are disabled', () => {
+    const result = resolveQuickAddLocationTriggerEnrichment({
+      enrichment: {},
+      currentLocation: { latitude: 40.7128, longitude: -74.006 },
+      locationTriggersEnabled: false,
+    });
+
+    expect(result.recommendation).toBeNull();
+    expect(result.enrichment.location).toBeUndefined();
   });
 });
 

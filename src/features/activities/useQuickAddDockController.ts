@@ -25,6 +25,42 @@ type QuickAddGoalContext = Pick<Goal, 'id' | 'targetDate' | 'priority'>;
 
 type QuickAddCoverImageSelection = Pick<Activity, 'thumbnailUrl' | 'heroImageMeta'>;
 
+export type QuickAddLocationTriggerRecommendation = {
+  activityId: string;
+  location: NonNullable<Activity['location']>;
+};
+
+export function resolveQuickAddLocationTriggerEnrichment(params: {
+  enrichment: any;
+  currentLocation?: { latitude: number; longitude: number } | null;
+  locationTriggersEnabled: boolean;
+}): {
+  enrichment: any;
+  recommendation: NonNullable<Activity['location']> | null;
+} {
+  const rawEnrichment = params.enrichment ?? {};
+  const candidateLocation =
+    normalizeTriggerLocation(rawEnrichment?.location) ??
+    (params.locationTriggersEnabled && params.currentLocation && !rawEnrichment?.location
+      ? {
+          label: 'Current location',
+          latitude: params.currentLocation.latitude,
+          longitude: params.currentLocation.longitude,
+          trigger: 'leave' as const,
+          radiusM: DEFAULT_LOCATION_TRIGGER_RADIUS_M,
+        }
+      : null);
+  const shouldApplyLocation = Boolean(params.locationTriggersEnabled && candidateLocation);
+
+  return {
+    enrichment: {
+      ...rawEnrichment,
+      ...(shouldApplyLocation ? { location: candidateLocation } : { location: undefined }),
+    },
+    recommendation: candidateLocation && !shouldApplyLocation ? candidateLocation : null,
+  };
+}
+
 type ConsumeGenerativeCredit = (params: {
   tier: 'free' | 'pro';
   amount?: number;
@@ -99,6 +135,8 @@ type Params = {
     existingTags?: string[];
   }) => Promise<QuickAddCoverImageSelection | null>;
   markActivityEnrichment?: (activityId: string, enriching: boolean) => void;
+  locationTriggersEnabled?: boolean;
+  onLocationTriggerRecommended?: (recommendation: QuickAddLocationTriggerRecommendation) => void;
   tryConsumeGenerativeCredit?: ConsumeGenerativeCredit;
   aiCreditTier?: 'free' | 'pro';
   onAiCreditsExhausted?: () => void;
@@ -126,6 +164,8 @@ export function useQuickAddDockController(params: Params) {
     enrichActivityWithAI,
     findCoverImageWithAI,
     markActivityEnrichment,
+    locationTriggersEnabled = false,
+    onLocationTriggerRecommended,
     tryConsumeGenerativeCredit,
     aiCreditTier = 'free',
     onAiCreditsExhausted,
@@ -311,21 +351,19 @@ export function useQuickAddDockController(params: Params) {
       markActivityEnrichment?.(activity.id, true);
       const applyEnrichment = (enrichment: any, currentLocation?: { latitude: number; longitude: number } | null) => {
         const ts = new Date().toISOString();
-        const enrichmentWithDefaults =
-          currentLocation && !enrichment?.location
-            ? {
-                ...(enrichment ?? {}),
-                location: {
-                  label: 'Current location',
-                  latitude: currentLocation.latitude,
-                  longitude: currentLocation.longitude,
-                  trigger: 'leave',
-                  radiusM: DEFAULT_LOCATION_TRIGGER_RADIUS_M,
-                },
-              }
-            : enrichment;
+        const resolvedEnrichment = resolveQuickAddLocationTriggerEnrichment({
+          enrichment,
+          currentLocation,
+          locationTriggersEnabled,
+        });
+        if (resolvedEnrichment.recommendation) {
+          onLocationTriggerRecommended?.({
+            activityId: activity.id,
+            location: resolvedEnrichment.recommendation,
+          });
+        }
         updateActivity(activity.id, (prev) => {
-          return applyQuickAddAiEnrichment(prev, enrichmentWithDefaults ?? {}, {
+          return applyQuickAddAiEnrichment(prev, resolvedEnrichment.enrichment, {
             activityId: activity.id,
             selectedActions: aiActions,
             timestamp: ts,
@@ -343,7 +381,7 @@ export function useQuickAddDockController(params: Params) {
           updatedAt: ts,
         }));
       };
-      const currentLocationPromise = enrichmentActions.includes('triggers')
+      const currentLocationPromise = enrichmentActions.includes('triggers') && locationTriggersEnabled
         ? getCurrentLocationBestEffort().catch(() => null)
         : Promise.resolve(null);
       const enrichmentPromise =
@@ -401,8 +439,10 @@ export function useQuickAddDockController(params: Params) {
     goals,
     enrichActivityWithAI,
     findCoverImageWithAI,
+    locationTriggersEnabled,
     markActivityEnrichment,
     markSharedActivityEnrichment,
+    onLocationTriggerRecommended,
     tryConsumeGenerativeCredit,
     aiCreditTier,
     onAiCreditsExhausted,

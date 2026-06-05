@@ -26,7 +26,6 @@ import { Text } from '../../ui/primitives';
 import { getWorkflowLaunchConfig } from '../ai/workflowRegistry';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { NotificationService } from '../../services/NotificationService';
-import { LocationPermissionService } from '../../services/LocationPermissionService';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
   DEFAULT_DAILY_SHOW_UP_TIME,
@@ -34,7 +33,7 @@ import {
 } from '../../services/notifications/defaultTimes';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
-import { resolveFtuePermissionActions } from './ftuePermissionActions';
+import { getNotificationPermissionStatusLabel, resolveFtuePermissionActions } from './ftuePermissionActions';
 
 type FtueStep = 'welcome' | 'notifications' | 'path';
 
@@ -61,15 +60,12 @@ export function FirstTimeUxFlow() {
   );
   const setLastKickoffShownDateKey = useAppStore((state) => state.setLastKickoffShownDateKey);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
-  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
-  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [showDevMenu, setShowDevMenu] = useState(false);
   const [ftueStep, setFtueStep] = useState<FtueStep>('welcome');
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
   const hasTrackedVisible = useRef(false);
 
@@ -118,7 +114,6 @@ export function FirstTimeUxFlow() {
     introAnim.setValue(1);
     workflowAnim.setValue(0);
     setIsRequestingNotifications(false);
-    setIsRequestingLocation(false);
   }, [
     isVisible,
     triggerCount,
@@ -175,45 +170,20 @@ export function FirstTimeUxFlow() {
   useEffect(() => {
     if (!isVisible) return;
     if (ftueStep !== 'notifications') return;
-    // Don't sync while actively requesting permissions to avoid flickering
-    if (isRequestingLocation || isRequestingNotifications) return;
-    // Best-effort: refresh OS permission status so the CTA can switch to "Open settings"
-    // when location was previously denied.
-    void LocationPermissionService.syncOsPermissionStatus();
-  }, [ftueStep, isVisible, isRequestingLocation, isRequestingNotifications]);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    if (ftueStep !== 'notifications') return;
+    if (isRequestingNotifications) return;
     void NotificationService.syncOsPermissionStatus();
-  }, [ftueStep, isVisible]);
+  }, [ftueStep, isRequestingNotifications, isVisible]);
 
   useEffect(() => {
     if (!isVisible) return;
     if (ftueStep !== 'notifications') return;
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active') return;
-      if (isRequestingLocation || isRequestingNotifications) return;
+      if (isRequestingNotifications) return;
       void NotificationService.syncOsPermissionStatus();
-      void LocationPermissionService.syncOsPermissionStatus();
     });
     return () => sub.remove();
-  }, [ftueStep, isRequestingLocation, isRequestingNotifications, isVisible]);
-
-  const requestLocationFromFtue = useCallback(async () => {
-    if (isRequestingLocation) return;
-    setIsRequestingLocation(true);
-    try {
-      await LocationPermissionService.ensurePermissionWithRationale('ftue');
-      const syncedStatus = await LocationPermissionService.syncOsPermissionStatus();
-      setLocationOfferPreferences((current) => ({
-        ...current,
-        enabled: syncedStatus === 'authorized',
-      }));
-    } finally {
-      setIsRequestingLocation(false);
-    }
-  }, [isRequestingLocation, setLocationOfferPreferences]);
+  }, [ftueStep, isRequestingNotifications, isVisible]);
 
   // Animate each interstitial screen in with a light slide-from-right +
   // fade so the sequence feels premium but not busy.
@@ -403,7 +373,7 @@ export function FirstTimeUxFlow() {
       case 'notifications':
         title = 'Setup regular prompts';
         body =
-          "Kwilt will help you along with gentle reminders so tiny steps don't slip through the cracks. If you attach a place to a to-do, Kwilt can also nudge you when you arrive or leave—so it's easy to mark it done.";
+          "Kwilt will help you along with gentle reminders so tiny steps don't slip through the cracks. You can change these later in Settings.";
         ctaLabel = 'Continue';
         nextStep = 'path';
         break;
@@ -438,18 +408,10 @@ export function FirstTimeUxFlow() {
     const opacity = introAnim;
 
     const notificationStatus = notificationPreferences.osPermissionStatus;
-    const locationStatus = locationOfferPreferences.osPermissionStatus;
-    const notificationsAuthorized = notificationStatus === 'authorized';
-    const notificationsBlocked = notificationStatus === 'denied' || notificationStatus === 'restricted';
-    const locationAuthorized = locationStatus === 'authorized';
-    const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
-    const locationNeedsAlways = locationStatus === 'foregroundOnly';
-    const locationUnavailable = locationStatus === 'unavailable';
     const permissionActions = resolveFtuePermissionActions({
       ftueStep,
       ctaLabel,
       notificationStatus,
-      locationStatus,
     });
 
     return (
@@ -525,23 +487,7 @@ export function FirstTimeUxFlow() {
                   <View style={styles.ftuePermissionRow}>
                     <Text style={[styles.ftuePermissionLabel, { color: stepTheme.ink }]}>Notifications</Text>
                     <Text style={[styles.ftuePermissionValue, { color: stepTheme.ink }]}>
-                      {notificationsAuthorized ? 'Enabled' : notificationsBlocked ? 'Blocked' : 'Not enabled'}
-                    </Text>
-                  </View>
-                  <View style={styles.ftuePermissionRow}>
-                    <Text style={[styles.ftuePermissionLabel, { color: stepTheme.ink }]}>
-                      Location (Always)
-                    </Text>
-                    <Text style={[styles.ftuePermissionValue, { color: stepTheme.ink }]}>
-                      {locationAuthorized
-                        ? 'Enabled'
-                        : locationUnavailable
-                          ? 'Unavailable'
-                          : locationNeedsAlways
-                            ? 'Allow Always'
-                          : locationBlocked
-                            ? 'Blocked'
-                            : 'Not enabled'}
+                      {getNotificationPermissionStatusLabel(notificationStatus)}
                     </Text>
                   </View>
                 </View>
@@ -553,7 +499,7 @@ export function FirstTimeUxFlow() {
                   fullWidth
                   disabled={
                     ftueStep === 'notifications'
-                      ? isRequestingNotifications || isRequestingLocation
+                      ? isRequestingNotifications
                       : false
                   }
                   style={[
@@ -566,10 +512,6 @@ export function FirstTimeUxFlow() {
                         void requestNotificationsFromFtue();
                         return;
                       }
-                      if (permissionActions.primaryAction === 'enableLocation') {
-                        void requestLocationFromFtue();
-                        return;
-                      }
                       handleAdvanceStep(nextStep);
                       return;
                     }
@@ -577,7 +519,7 @@ export function FirstTimeUxFlow() {
                   }}
                 >
                   <Text style={[styles.ftuePrimaryButtonLabel, { color: stepTheme.primaryButtonText }]}>
-                    {ftueStep === 'notifications' && (isRequestingNotifications || isRequestingLocation)
+                    {ftueStep === 'notifications' && isRequestingNotifications
                       ? 'Continuing…'
                       : permissionActions.primaryCtaLabel}
                   </Text>
@@ -606,7 +548,6 @@ export function FirstTimeUxFlow() {
                         fullWidth
                         onPress={() => {
                           setIsRequestingNotifications(false);
-                          setIsRequestingLocation(false);
                           handleAdvanceStep(nextStep);
                         }}
                       >

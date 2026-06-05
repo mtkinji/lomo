@@ -155,6 +155,7 @@ import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
+import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
 import MapView, { Circle, type Region } from 'react-native-maps';
 
 type FocusSessionState =
@@ -178,6 +179,37 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
   ActivitiesStackParamList,
   'ActivityDetail'
 >;
+
+async function runFocusNativeBoundary<T>(
+  operation: string,
+  fn: () => Promise<T>,
+  context?: Record<string, unknown>,
+): Promise<T> {
+  await recordFocusNativeBreadcrumb(operation, 'before', context);
+  try {
+    const result = await fn();
+    await recordFocusNativeBreadcrumb(operation, 'after', context);
+    return result;
+  } catch (error) {
+    await recordFocusNativeBreadcrumb(operation, 'error', context, error);
+    throw error;
+  }
+}
+
+async function recordFocusNativeBreadcrumb(
+  operation: string,
+  phase: 'before' | 'after' | 'error',
+  context?: Record<string, unknown>,
+  error?: unknown,
+): Promise<void> {
+  await recordNativeCrashBreadcrumb({
+    area: 'focus.session',
+    operation,
+    phase,
+    context,
+    errorMessage: error === undefined ? undefined : nativeCrashErrorMessage(error),
+  });
+}
 
 export function ActivityDetailScreen() {
   // Focus duration limits:
@@ -2020,7 +2052,11 @@ export function ActivityDetailScreen() {
     focusEndNotificationIdRef.current = null;
     if (!existing) return;
     try {
-      await Notifications.cancelScheduledNotificationAsync(existing);
+      await runFocusNativeBoundary(
+        'Notifications.cancelScheduledNotificationAsync.focusComplete',
+        () => Notifications.cancelScheduledNotificationAsync(existing),
+        { notificationId: existing },
+      );
     } catch {
       // best-effort
     }
@@ -2070,25 +2106,34 @@ export function ActivityDetailScreen() {
       // and the user hasn't disabled reminders in app settings.
       (async () => {
         try {
-          const permissions = await Notifications.getPermissionsAsync();
+          const permissions = await runFocusNativeBoundary(
+            'Notifications.getPermissionsAsync.focusComplete',
+            () => Notifications.getPermissionsAsync(),
+            { activityId: activity.id, minutes },
+          );
           const canNotify =
             permissions.status === 'granted' &&
             notificationPreferences.notificationsEnabled &&
             notificationPreferences.allowActivityReminders;
 
           if (canNotify) {
-            const identifier = await Notifications.scheduleNotificationAsync({
-              content: {
-                title: 'Focus session complete',
-                body: activity.title,
-                data: { type: 'focusSession', activityId: activity.id },
-              },
-              trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                seconds: minutes * 60,
-                repeats: false,
-              },
-            });
+            const identifier = await runFocusNativeBoundary(
+              'Notifications.scheduleNotificationAsync.focusComplete',
+              () =>
+                Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: 'Focus session complete',
+                    body: activity.title,
+                    data: { type: 'focusSession', activityId: activity.id },
+                  },
+                  trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                    seconds: minutes * 60,
+                    repeats: false,
+                  },
+                }),
+              { activityId: activity.id, minutes, seconds: minutes * 60 },
+            );
             focusEndNotificationIdRef.current = identifier;
           }
         } catch {
@@ -2195,6 +2240,7 @@ export function ActivityDetailScreen() {
         mode: 'running',
         activityId: activity.id,
         title: activity.title,
+        sessionId: common.id,
         startedAtMs: focusSession.startedAtMs,
         endAtMs: focusSession.endAtMs,
       });
@@ -2205,13 +2251,15 @@ export function ActivityDetailScreen() {
       ...common,
       remainingMs: focusSession.remainingMs,
     });
-    // For v1, end the Live Activity when paused (avoids stale timers).
+    // Keep the Live Activity alive while paused so ActivityKit has one stable session
+    // instead of ending/restarting the system counter on every pause/resume.
     void syncLiveActivity({
       mode: 'paused',
       activityId: activity.id,
       title: activity.title,
+      sessionId: common.id,
       startedAtMs: focusSession.startedAtMs,
-      endAtMs: Date.now() + focusSession.remainingMs,
+      remainingMs: focusSession.remainingMs,
     });
   }, [activity?.id, activity?.title, focusSession]);
 

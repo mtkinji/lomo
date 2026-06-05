@@ -60,6 +60,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { enrichActivityWithAI } from '../../services/ai';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
+import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { suggestTagsFromText } from '../../utils/tags';
 import { shareUrlWithPreview } from '../../utils/share';
 import { initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
@@ -114,7 +115,10 @@ import { parseTags } from '../../utils/tags';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
 import { QuickAddDock } from '../activities/QuickAddDock';
-import { useQuickAddDockController } from '../activities/useQuickAddDockController';
+import {
+  useQuickAddDockController,
+  type QuickAddLocationTriggerRecommendation,
+} from '../activities/useQuickAddDockController';
 import { DurationPicker } from '../activities/DurationPicker';
 import type { GoalProposalDraft } from '../ai/AiChatScreen';
 import { useScrollLinkedStatusBarStyle } from '../../ui/hooks/useScrollLinkedStatusBarStyle';
@@ -208,6 +212,8 @@ export function GoalDetailScreen() {
   const setPendingGoalCelebrationId = useAppStore((state) => state.setPendingGoalCelebrationId);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
+  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const removeGoal = useAppStore((state) => state.removeGoal);
   const removeActivity = useAppStore((state) => state.removeActivity);
@@ -387,6 +393,48 @@ export function GoalDetailScreen() {
   const [quickAddIsReminderDateTimePickerVisible, setQuickAddIsReminderDateTimePickerVisible] =
     useState(false);
   const [quickAddEstimateDraftMinutes, setQuickAddEstimateDraftMinutes] = useState<number>(30);
+  const quickAddLocationTriggersEnabled =
+    Boolean(locationOfferPreferences.enabled) &&
+    locationOfferPreferences.osPermissionStatus === 'authorized';
+  const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
+    useState<QuickAddLocationTriggerRecommendation | null>(null);
+
+  const handleUseQuickAddLocationTrigger = useCallback(async () => {
+    const pending = pendingQuickAddLocationRecommendation;
+    if (!pending) return;
+
+    const granted = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
+    const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable' as const);
+    const enabled = granted && nextStatus === 'authorized';
+    setLocationOfferPreferences((current) => ({
+      ...current,
+      enabled,
+      osPermissionStatus: nextStatus,
+    }));
+
+    if (enabled) {
+      const nextUpdatedAt = new Date().toISOString();
+      updateActivity(pending.activityId, (activity) => ({
+        ...activity,
+        location: pending.location,
+        updatedAt: nextUpdatedAt,
+      }));
+      showToast({ message: 'Location trigger ready', variant: 'success', durationMs: 2200 });
+    } else {
+      showToast({
+        message: 'Location triggers are off. The to-do is still saved.',
+        variant: 'warning',
+        durationMs: 2600,
+      });
+    }
+
+    setPendingQuickAddLocationRecommendation(null);
+  }, [
+    pendingQuickAddLocationRecommendation,
+    setLocationOfferPreferences,
+    showToast,
+    updateActivity,
+  ]);
 
   const {
     value: quickAddTitle,
@@ -430,6 +478,8 @@ export function GoalDetailScreen() {
     initialReservedHeightPx: quickAddInitialReservedHeightPx,
     toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
     focusAfterSubmit: false,
+    locationTriggersEnabled: quickAddLocationTriggersEnabled,
+    onLocationTriggerRecommended: setPendingQuickAddLocationRecommendation,
     onCreated: (activity) => {
       capture(AnalyticsEvent.ActivityCreated, {
         source: 'goal_detail_quick_add',
@@ -1218,7 +1268,8 @@ export function GoalDetailScreen() {
 
   const isAnyBottomGuideVisible =
     shouldShowPostGoalPlanGuide ||
-    shouldShowOnboardingPlanReadyGuide;
+    shouldShowOnboardingPlanReadyGuide ||
+    Boolean(pendingQuickAddLocationRecommendation);
 
   const handleOpenActivityCoach = useCallback(() => {
     if (goal?.id && goal.id === pendingPostGoalPlanGuideGoalId) {
@@ -1990,6 +2041,42 @@ export function GoalDetailScreen() {
     [goal, updateGoal]
   );
 
+  const handleDeleteActivity = useCallback(
+    (activity: Activity) => {
+      const source = 'goal_detail_swipe';
+      const undoSnapshot =
+        buildActivityDeleteUndoSnapshot(activities, activity.id) ?? {
+          activity,
+          relatedActivities: [],
+          originalIndex: goalActivities.findIndex((candidate) => candidate.id === activity.id),
+        };
+
+      void HapticsService.trigger('canvas.destructive.confirm');
+      removeActivity(activity.id);
+      capture(AnalyticsEvent.ActivityActionInvoked, {
+        activityId: activity.id,
+        action: 'delete',
+        source,
+      });
+      showToast({
+        message: 'To-do deleted',
+        variant: 'light',
+        durationMs: 5000,
+        actionLabel: 'Undo',
+        actionOnPress: () => {
+          restoreRemovedActivity(undoSnapshot);
+          void HapticsService.trigger('canvas.step.undo');
+          capture(AnalyticsEvent.ActivityActionInvoked, {
+            activityId: activity.id,
+            action: 'delete_undo',
+            source,
+          });
+        },
+      });
+    },
+    [activities, capture, goalActivities, removeActivity, restoreRemovedActivity, showToast],
+  );
+
   if (!goal) {
     if (!domainHydrated) {
       return (
@@ -2044,42 +2131,6 @@ export function GoalDetailScreen() {
     setPendingGoalCelebrationId(null);
     setShouldPromptAddActivity(true);
   };
-
-  const handleDeleteActivity = useCallback(
-    (activity: Activity) => {
-      const source = 'goal_detail_swipe';
-      const undoSnapshot =
-        buildActivityDeleteUndoSnapshot(activities, activity.id) ?? {
-          activity,
-          relatedActivities: [],
-          originalIndex: goalActivities.findIndex((candidate) => candidate.id === activity.id),
-        };
-
-      void HapticsService.trigger('canvas.destructive.confirm');
-      removeActivity(activity.id);
-      capture(AnalyticsEvent.ActivityActionInvoked, {
-        activityId: activity.id,
-        action: 'delete',
-        source,
-      });
-      showToast({
-        message: 'To-do deleted',
-        variant: 'light',
-        durationMs: 5000,
-        actionLabel: 'Undo',
-        actionOnPress: () => {
-          restoreRemovedActivity(undoSnapshot);
-          void HapticsService.trigger('canvas.step.undo');
-          capture(AnalyticsEvent.ActivityActionInvoked, {
-            activityId: activity.id,
-            action: 'delete_undo',
-            source,
-          });
-        },
-      });
-    },
-    [activities, capture, goalActivities, removeActivity, restoreRemovedActivity, showToast],
-  );
 
   const handleDeleteGoal = () => {
     Alert.alert(
@@ -2536,6 +2587,35 @@ export function GoalDetailScreen() {
             }}
           >
             <Text style={styles.onboardingGuidePrimaryLabel}>Open To-do</Text>
+          </Button>
+        </HStack>
+      </BottomGuide>
+      <BottomGuide
+        visible={Boolean(pendingQuickAddLocationRecommendation)}
+        onClose={() => setPendingQuickAddLocationRecommendation(null)}
+        scrim="light"
+        snapPoints={['34%']}
+      >
+        <Heading variant="sm">Use location to make this automatic</Heading>
+        <Text style={styles.onboardingGuideBody}>
+          Kwilt can use this location to nudge you{' '}
+          {pendingQuickAddLocationRecommendation?.location.trigger === 'arrive'
+            ? 'when you arrive'
+            : 'when you leave'}
+          , so the to-do shows up at the moment it matters.
+        </Text>
+        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
+          <Button
+            variant="outline"
+            onPress={() => setPendingQuickAddLocationRecommendation(null)}
+          >
+            <Text style={styles.onboardingGuideSecondaryLabel}>Keep regular to-do</Text>
+          </Button>
+          <Button
+            variant="turmeric"
+            onPress={() => void handleUseQuickAddLocationTrigger()}
+          >
+            <Text style={styles.onboardingGuidePrimaryLabel}>Use location triggers</Text>
           </Button>
         </HStack>
       </BottomGuide>

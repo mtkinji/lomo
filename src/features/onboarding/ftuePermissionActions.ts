@@ -8,13 +8,18 @@ type OsPermissionStatus =
   | 'foregroundOnly'
   | 'unavailable';
 
-export type FtuePermissionPrimaryAction = 'enableNotifications' | 'enableLocation' | 'continue';
+export type FtuePermissionPrimaryAction = 'enableNotifications' | 'continue';
+
+export function getNotificationPermissionStatusLabel(status: OsPermissionStatus): string {
+  if (status === 'authorized') return 'Allowed in iOS';
+  if (status === 'denied' || status === 'restricted') return 'Blocked in iOS';
+  return 'Not enabled';
+}
 
 export function resolveFtuePermissionActions(params: {
   ftueStep: FtueStep;
   ctaLabel: string;
   notificationStatus: OsPermissionStatus;
-  locationStatus: OsPermissionStatus;
 }): {
   primaryAction: FtuePermissionPrimaryAction;
   primaryCtaLabel: string;
@@ -33,27 +38,18 @@ export function resolveFtuePermissionActions(params: {
   const notificationsAuthorized = params.notificationStatus === 'authorized';
   const notificationsBlocked =
     params.notificationStatus === 'denied' || params.notificationStatus === 'restricted';
-  const locationAuthorized = params.locationStatus === 'authorized';
-  const locationBlocked = params.locationStatus === 'denied' || params.locationStatus === 'restricted';
-  const locationNeedsAlways = params.locationStatus === 'foregroundOnly';
-  const locationUnavailable = params.locationStatus === 'unavailable';
-  const locationNeedsPrompt =
-    !locationAuthorized && !locationUnavailable && !locationBlocked && !locationNeedsAlways;
 
   const primaryAction: FtuePermissionPrimaryAction =
     !notificationsAuthorized && !notificationsBlocked
       ? 'enableNotifications'
-      : locationNeedsPrompt
-        ? 'enableLocation'
-        : 'continue';
+      : 'continue';
 
-  const hasPendingPermissionPrompt =
-    primaryAction === 'enableNotifications' || primaryAction === 'enableLocation';
+  const hasPendingPermissionPrompt = primaryAction === 'enableNotifications';
 
   return {
     primaryAction,
     primaryCtaLabel: hasPendingPermissionPrompt ? 'Continue' : params.ctaLabel,
-    showSettingsAction: notificationsBlocked || locationBlocked || locationNeedsAlways,
-    showNotNowAction: !hasPendingPermissionPrompt,
+    showSettingsAction: notificationsBlocked,
+    showNotNowAction: !notificationsAuthorized,
   };
 }

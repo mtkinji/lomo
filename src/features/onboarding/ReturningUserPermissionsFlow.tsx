@@ -18,7 +18,6 @@ import { Button } from '../../ui/Button';
 import { Text } from '../../ui/primitives';
 import { FullScreenInterstitial } from '../../ui/FullScreenInterstitial';
 import { NotificationService } from '../../services/NotificationService';
-import { LocationPermissionService } from '../../services/LocationPermissionService';
 import {
   DEFAULT_DAILY_FOCUS_TIME,
   DEFAULT_DAILY_SHOW_UP_TIME,
@@ -26,7 +25,7 @@ import {
 } from '../../services/notifications/defaultTimes';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
-import { resolveFtuePermissionActions } from './ftuePermissionActions';
+import { getNotificationPermissionStatusLabel, resolveFtuePermissionActions } from './ftuePermissionActions';
 
 interface ReturningUserPermissionsFlowProps {
   visible: boolean;
@@ -44,8 +43,6 @@ export function ReturningUserPermissionsFlow({
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
-  const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
-  const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const setHasCompletedFirstTimeOnboarding = useAppStore(
     (state) => state.setHasCompletedFirstTimeOnboarding
   );
@@ -53,7 +50,6 @@ export function ReturningUserPermissionsFlow({
     (state) => state.setHasDismissedActivitiesListGuide
   );
   const [isRequestingNotifications, setIsRequestingNotifications] = useState(false);
-  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const { capture } = useAnalytics();
   const introAnim = useRef(new Animated.Value(0)).current;
 
@@ -77,19 +73,17 @@ export function ReturningUserPermissionsFlow({
   useEffect(() => {
     if (!visible) return;
     void NotificationService.syncOsPermissionStatus();
-    void LocationPermissionService.syncOsPermissionStatus();
   }, [visible]);
 
   useEffect(() => {
     if (!visible) return;
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active') return;
-      if (isRequestingNotifications || isRequestingLocation) return;
+      if (isRequestingNotifications) return;
       void NotificationService.syncOsPermissionStatus();
-      void LocationPermissionService.syncOsPermissionStatus();
     });
     return () => sub.remove();
-  }, [isRequestingLocation, isRequestingNotifications, visible]);
+  }, [isRequestingNotifications, visible]);
 
   const requestNotifications = useCallback(async () => {
     if (isRequestingNotifications) return;
@@ -129,21 +123,6 @@ export function ReturningUserPermissionsFlow({
     }
   }, [capture, isRequestingNotifications]);
 
-  const requestLocation = useCallback(async () => {
-    if (isRequestingLocation) return;
-    setIsRequestingLocation(true);
-    try {
-      await LocationPermissionService.ensurePermissionWithRationale('ftue');
-      const syncedStatus = await LocationPermissionService.syncOsPermissionStatus();
-      setLocationOfferPreferences((current) => ({
-        ...current,
-        enabled: syncedStatus === 'authorized',
-      }));
-    } finally {
-      setIsRequestingLocation(false);
-    }
-  }, [isRequestingLocation, setLocationOfferPreferences]);
-
   const handleComplete = useCallback(() => {
     setHasCompletedFirstTimeOnboarding(true);
     // Returning users on a fresh install don't need the first-run Activities explainer again.
@@ -169,18 +148,10 @@ export function ReturningUserPermissionsFlow({
   const illustrationHeight = Math.min(illustrationSlotHeight, Math.round(illustrationWidth * 0.78));
 
   const notificationStatus = notificationPreferences.osPermissionStatus;
-  const locationStatus = locationOfferPreferences.osPermissionStatus;
-  const notificationsAuthorized = notificationStatus === 'authorized';
-  const notificationsBlocked = notificationStatus === 'denied' || notificationStatus === 'restricted';
-  const locationAuthorized = locationStatus === 'authorized';
-  const locationBlocked = locationStatus === 'denied' || locationStatus === 'restricted';
-  const locationNeedsAlways = locationStatus === 'foregroundOnly';
-  const locationUnavailable = locationStatus === 'unavailable';
   const permissionActions = resolveFtuePermissionActions({
     ftueStep: 'notifications',
     ctaLabel: 'Continue to Kwilt',
     notificationStatus,
-    locationStatus,
   });
 
   const translateX = introAnim.interpolate({
@@ -216,7 +187,7 @@ export function ReturningUserPermissionsFlow({
               <Text style={styles.eyebrow}>Welcome back</Text>
               <Text style={styles.title}>Setup your device</Text>
               <Text style={styles.body}>
-                Kwilt can send gentle reminders and location-based nudges on this device.
+                Kwilt can send gentle reminders on this device. You can change these later in Settings.
               </Text>
             </View>
 
@@ -237,21 +208,7 @@ export function ReturningUserPermissionsFlow({
                 <View style={styles.permissionRow}>
                   <Text style={styles.permissionLabel}>Notifications</Text>
                   <Text style={styles.permissionValue}>
-                    {notificationsAuthorized ? 'Enabled' : notificationsBlocked ? 'Blocked' : 'Not enabled'}
-                  </Text>
-                </View>
-                <View style={styles.permissionRow}>
-                  <Text style={styles.permissionLabel}>Location (Always)</Text>
-                  <Text style={styles.permissionValue}>
-                    {locationAuthorized
-                      ? 'Enabled'
-                      : locationUnavailable
-                        ? 'Unavailable'
-                        : locationNeedsAlways
-                          ? 'Allow Always'
-                        : locationBlocked
-                          ? 'Blocked'
-                          : 'Not enabled'}
+                    {getNotificationPermissionStatusLabel(notificationStatus)}
                   </Text>
                 </View>
               </View>
@@ -259,22 +216,18 @@ export function ReturningUserPermissionsFlow({
               <Button
                 variant="accent"
                 fullWidth
-                disabled={isRequestingNotifications || isRequestingLocation}
+                disabled={isRequestingNotifications}
                 style={styles.primaryButton}
                 onPress={() => {
                   if (permissionActions.primaryAction === 'enableNotifications') {
                     void requestNotifications();
                     return;
                   }
-                  if (permissionActions.primaryAction === 'enableLocation') {
-                    void requestLocation();
-                    return;
-                  }
                   handleComplete();
                 }}
               >
                 <Text style={styles.primaryButtonLabel}>
-                  {isRequestingNotifications || isRequestingLocation
+                  {isRequestingNotifications
                     ? 'Continuing…'
                     : permissionActions.primaryCtaLabel}
                 </Text>

@@ -36,7 +36,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.68',
+  version: '1.0.69',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -64,7 +64,7 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '68',
+    buildNumber: '69',
     // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
     // This prevents non-widget production builds from requiring widget target credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -92,23 +92,33 @@ const config: ExpoConfig = {
       // Location offers (geofence enter/exit) permission strings.
       NSLocationWhenInUseUsageDescription:
         'Kwilt uses your location to set up to-do places and show maps.',
+      NSLocationAlwaysUsageDescription:
+        'Kwilt uses your location in the background only for optional arrive/leave nudges you turn on for a to-do.',
       NSLocationAlwaysAndWhenInUseUsageDescription:
         'Kwilt uses your location in the background to nudge you when you arrive or leave a place for a to-do.',
       // ExpoCalendar: required usage strings. Without these, iOS can crash at runtime
       // when the Calendar module initializes.
+      NSCalendarsFullAccessUsageDescription:
+        'Kwilt uses calendar access to show availability and schedule to-dos you choose to add.',
       NSCalendarsUsageDescription:
         'Kwilt uses your calendar to schedule to-dos you choose to add.',
+      NSRemindersFullAccessUsageDescription:
+        'Kwilt uses reminders only if you choose to add to-dos as reminders.',
       NSRemindersUsageDescription:
         'Kwilt uses reminders only if you choose to add to-dos as reminders.',
       NSHealthShareUsageDescription:
         'Kwilt reads Apple Health summaries for movement, workouts, sleep, and mindfulness to show them in your Weekly Chapters and help interpret your week.',
+      NSHealthUpdateUsageDescription:
+        'Kwilt does not write Apple Health data.',
+      NSMicrophoneUsageDescription:
+        'Kwilt uses the microphone so you can record an audio note and attach it to a to-do.',
     },
   },
   android: {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 68,
+    versionCode: 69,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -159,6 +169,8 @@ const config: ExpoConfig = {
       {
         NSHealthShareUsageDescription:
           'Kwilt reads Apple Health summaries for movement, workouts, sleep, and mindfulness to show them in your Weekly Chapters and help interpret your week.',
+        NSHealthUpdateUsageDescription:
+          'Kwilt does not write Apple Health data.',
       },
     ],
     './plugins/withAppleEcosystemIntegrations',

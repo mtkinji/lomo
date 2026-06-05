@@ -30,7 +30,7 @@ interface Props {
   onApply: (sorts: SortCondition[]) => void;
 }
 
-const SORTABLE_FIELDS: Array<{
+export const SORTABLE_FIELDS: Array<{
   value: ActivitySortableField;
   label: string;
   leftElement?: React.ReactNode;
@@ -42,6 +42,7 @@ const SORTABLE_FIELDS: Array<{
   { value: 'reminderAt', label: 'Reminder', leftElement: <Icon name="bell" size={14} color={colors.textSecondary} /> },
   { value: 'difficulty', label: 'Difficulty', leftElement: <Icon name="difficulty" size={14} color={colors.textSecondary} /> },
   { value: 'estimateMinutes', label: 'Estimate', leftElement: <Icon name="estimate" size={14} color={colors.textSecondary} /> },
+  { value: 'updatedAt', label: 'Last modified', leftElement: <Icon name="activities" size={14} color={colors.textSecondary} /> },
   { value: 'createdAt', label: 'Creation date', leftElement: <Icon name="activities" size={14} color={colors.textSecondary} /> },
 ];
 
@@ -59,6 +60,7 @@ const FIELD_TYPE_MAP: Record<ActivitySortableField, 'string' | 'number' | 'date'
   difficulty: 'number',
   estimateMinutes: 'number',
   createdAt: 'date',
+  updatedAt: 'date',
   orderIndex: 'number',
 };
 

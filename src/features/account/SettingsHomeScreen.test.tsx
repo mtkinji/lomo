@@ -104,6 +104,12 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsWeeklyChapters');
   });
 
+  it('navigates to Legal & privacy from the root Settings menu', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Legal & privacy'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsLegalPrivacy');
+  });
+
   it('keeps account deletion off the root Settings menu', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     expect(getByText('Account settings')).toBeTruthy();

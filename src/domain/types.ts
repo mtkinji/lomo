@@ -399,7 +399,7 @@ export type ActivityFilterableField =
 
 export type ActivitySortableField =
   | 'title' | 'status' | 'priority' | 'scheduledDate' | 'reminderAt'
-  | 'difficulty' | 'estimateMinutes' | 'createdAt' | 'orderIndex';
+  | 'difficulty' | 'estimateMinutes' | 'createdAt' | 'updatedAt' | 'orderIndex';
 
 export type ActivityRepeatRule =
   | 'daily'

@@ -422,4 +422,17 @@ describe('QueryService.applyActivitySorts', () => {
       QueryService.applyActivitySorts(list, sorts).map((a) => a.id),
     ).toEqual(['b', 'a']);
   });
+
+  it('sorts by last modified time', () => {
+    const list = [
+      activity({ id: 'old', updatedAt: '2026-01-01T12:00:00.000Z' }),
+      activity({ id: 'new', updatedAt: '2026-02-01T12:00:00.000Z' }),
+      activity({ id: 'middle', updatedAt: '2026-01-15T12:00:00.000Z' }),
+    ];
+    const sorts: SortCondition[] = [{ field: 'updatedAt', direction: 'desc' }];
+
+    expect(
+      QueryService.applyActivitySorts(list, sorts).map((a) => a.id),
+    ).toEqual(['new', 'middle', 'old']);
+  });
 });
