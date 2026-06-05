@@ -106,6 +106,7 @@ export function ManageSubscriptionScreen() {
   const purchase = useEntitlementsStore((state) => state.purchase);
   const restore = useEntitlementsStore((state) => state.restore);
   const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
+  const identifiedAppUserID = useEntitlementsStore((state) => state.identifiedAppUserID);
   const { capture } = useAnalytics();
   const currentShowUpStreak = useAppStore((state) => state.currentShowUpStreak);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
@@ -167,13 +168,13 @@ export function ManageSubscriptionScreen() {
 
   React.useEffect(() => {
     // Best-effort: fetch live pricing from RevenueCat offerings (fallback to hardcoded values).
-    getProSkuPricing()
+    getProSkuPricing(identifiedAppUserID)
       .then((next) => setSkuPricing(next))
       .catch(() => setSkuPricing(null));
-    getActiveBillingCadence()
+    getActiveBillingCadence(identifiedAppUserID)
       .then((cadence) => setActualBillingCadence(cadence))
       .catch(() => setActualBillingCadence(null));
-  }, []);
+  }, [identifiedAppUserID]);
 
   React.useEffect(() => {
     // Record intent to open; we’ll actually open when the screen is focused to avoid

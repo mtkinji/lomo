@@ -67,6 +67,9 @@ export function resetAllStores(): void {
     lastError: null,
     isStale: true,
     isRefreshing: false,
+    isIdentifying: false,
+    identifiedAppUserID: null,
+    lastResolvedAppUserID: null,
     devOverrideIsPro: null,
   });
   usePaywallStore.setState({

@@ -39,15 +39,16 @@ async function writeCache(next: PingCache): Promise<void> {
   await AsyncStorage.setItem(PING_CACHE_KEY, JSON.stringify(next));
 }
 
-async function getRevenuecatAppUserIdBestEffort(): Promise<string | null> {
+async function getRevenuecatAppUserIdBestEffort(appUserID?: string | null): Promise<string | null> {
   // Use the safe helper from entitlements.ts which ensures RevenueCat is configured
   // before calling getCustomerInfo. This prevents native crashes on fresh installs
   // where RevenueCat hasn't been configured yet.
-  return getRevenueCatAppUserIdSafe();
+  return getRevenueCatAppUserIdSafe(appUserID);
 }
 
 export async function pingInstall(args?: { userId?: string | null; revenuecatAppUserId?: string | null }): Promise<void> {
-  const revenuecatAppUserId = args?.revenuecatAppUserId ?? (await getRevenuecatAppUserIdBestEffort());
+  const revenuecatAppUserId =
+    args?.revenuecatAppUserId ?? (await getRevenuecatAppUserIdBestEffort(args?.userId));
 
   const cache = await readCache();
   if (!shouldPing(cache, { userId: args?.userId ?? null, revenuecatAppUserId })) {
@@ -82,5 +83,4 @@ export async function pingInstall(args?: { userId?: string | null; revenuecatApp
     });
   }
 }
-
 

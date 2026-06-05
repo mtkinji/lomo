@@ -57,6 +57,7 @@ import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
+import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
 import { resetUserSpecificState } from './src/store/useAppStore';
 import { Text } from './src/ui/primitives';
 import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
@@ -83,8 +84,9 @@ export default function App() {
   const isFirstTimeFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const startFirstTimeFlow = useFirstTimeUxStore((state) => state.startFlow);
   const dismissFirstTimeFlow = useFirstTimeUxStore((state) => state.dismissFlow);
-  const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const isPro = useEntitlementsStore((state) => state.isPro);
+  const isIdentifyingEntitlements = useEntitlementsStore((state) => state.isIdentifying);
+  const lastResolvedEntitlementsAppUserID = useEntitlementsStore((state) => state.lastResolvedAppUserID);
   const llmModel = useAppStore((state) => state.llmModel);
   const hasCustomizedLlmModel = useAppStore((state) => state.hasCustomizedLlmModel);
   const setLlmModelSystem = useAppStore((state) => state.setLlmModelSystem);
@@ -285,14 +287,6 @@ export default function App() {
   }, [authIdentity?.userId, authStartupState]);
 
   useEffect(() => {
-    // When the signed-in identity changes, force-refresh entitlements so:
-    // - server-side grants keyed by `user:<id>` become visible immediately
-    // - stale cached "Free" doesn't linger after sign-in
-    if (!authIdentity?.userId) return;
-    refreshEntitlements({ force: true }).catch(() => undefined);
-  }, [authIdentity?.userId, refreshEntitlements]);
-
-  useEffect(() => {
     // One-time app init. Guarded because some deps (like store selectors) can
     // legitimately change identity and we do NOT want to re-run side-effectful init.
     if (didRunAppInitRef.current) return;
@@ -360,14 +354,6 @@ export default function App() {
       }
     });
 
-    // Refresh subscription entitlements early so gating surfaces don’t feel stale.
-    // (Do not re-run this on unrelated state changes; it can cause tier flicker.)
-    refreshEntitlements({ force: false }).catch((error) => {
-      if (__DEV__) {
-        console.warn('[entitlements] refresh failed', error);
-      }
-    });
-
     // Keep iOS "glanceable state" in sync for widgets/Shortcuts/Live Activities.
     // Safe no-op on non-iOS and until native App Group plumbing is wired.
     startGlanceableStateSync();
@@ -379,9 +365,11 @@ export default function App() {
     startStreakSync();
     // Register/unregister push token based on auth state.
     startPushTokenSync();
+    // Bind RevenueCat to the signed-in Kwilt user and refresh account entitlements.
+    startEntitlementsAuthSync();
     // Partner progress alerts for shared goals (checks on foreground).
     startPartnerProgressService();
-  }, [refreshEntitlements]);
+  }, []);
 
   useEffect(() => {
     // Pro tier default model upgrade: move Pro users onto GPT‑5.2 without overriding
@@ -527,6 +515,11 @@ export default function App() {
     !hasCompletedFirstTimeOnboarding &&
     isReturningUser === null &&
     !showReturningUserFlow;
+  const isResolvingEntitlements =
+    authHydrated &&
+    authStartupState === 'signedIn' &&
+    Boolean(authIdentity?.userId) &&
+    (isIdentifyingEntitlements || lastResolvedEntitlementsAppUserID !== authIdentity?.userId);
 
   // Always render app surfaces under SafeAreaProvider so any top-level interstitials
   // (sign-in, returning-user flows, etc.) can safely call `useSafeAreaInsets()`.
@@ -539,6 +532,11 @@ export default function App() {
     <View style={styles.authHydrationScreen}>
       <Logo size={64} />
       <Text style={styles.authHydrationText}>Setting up your account…</Text>
+    </View>
+  ) : isResolvingEntitlements ? (
+    <View style={styles.authHydrationScreen}>
+      <Logo size={64} />
+      <Text style={styles.authHydrationText}>Restoring your subscription…</Text>
     </View>
   ) : authStartupState === 'signedOut' || !authIdentity ? (
     // Require sign-in for all users (including legacy users who onboarded before auth was required).
