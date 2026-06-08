@@ -101,6 +101,42 @@ PostHog is **not** the source of truth for this directory. We keep it separate f
 If needed later, we can store `posthog_distinct_id` on `kwilt_installs` as a correlation aid, but we avoid joining the
 directory against PostHog for correctness/performance and privacy reasons.
 
+## Founder activation and retention alerts
+
+Kwilt also has a lightweight internal alert ledger for launch monitoring:
+
+- Table: `public.kwilt_founder_alert_events`
+- First-open source: `POST /pro-codes/ping` when an `install_id` is first seen
+- Account-link source: `POST /pro-codes/ping` when an install first links to a Supabase user
+- Subscription source: `POST /pro-codes/webhook/revenuecat` for high-signal RevenueCat lifecycle events
+- Daily digest: `GET /functions/v1/founder-alerts-digest`, scheduled daily by `pg_cron`
+
+Canonical server-side event names:
+
+- `activation_first_opened`
+- `activation_account_linked`
+- `subscription_initial_purchase`
+- `subscription_trial_started`
+- `subscription_cancelled`
+- `subscription_expired`
+- `subscription_billing_issue`
+
+Required Supabase Edge Function secrets for Slack alerts:
+
+- `KWILT_FOUNDER_ALERTS_ENABLED=1`
+- `KWILT_FOUNDER_ALERTS_SLACK_WEBHOOK_URL`: Slack incoming webhook URL for the internal launch channel
+
+Optional secrets:
+
+- `KWILT_FOUNDER_ALERTS_INCLUDE_SANDBOX=1`: include RevenueCat sandbox events in alerts
+- `KWILT_FOUNDER_ALERTS_CRON_SECRET`: require bearer auth for manual/scheduled digest calls. If this is set, update the
+  scheduled `founder-alerts-digest` request headers to include `Authorization: Bearer <secret>`; otherwise the default
+  schedule uses `x-kwilt-cron: daily`.
+- `KWILT_POSTHOG_PROJECT_API_KEY` and `KWILT_POSTHOG_HOST`: mirror canonical alert events to PostHog
+
+Alert delivery is best-effort. If Slack or PostHog is unavailable, the user-facing app path and the RevenueCat webhook
+response should still succeed; delivery diagnostics are stored on the ledger row.
+
 ## Legacy note: email/SMS sending
 
 The `pro-codes` edge function still contains an `/admin/send` endpoint for email/SMS, but the current in-app “Kwilt Users”

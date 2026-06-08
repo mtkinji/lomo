@@ -13,6 +13,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { buildProCodeEmail, buildProGrantEmail, buildTrialExpiryEmail } from '../_shared/emailTemplates.ts';
 import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
 import { sendEmailViaResend, isEmailSendingEnabled } from '../_shared/emailSend.ts';
+import {
+  buildAccountLinkedAlert,
+  buildInstallFirstOpenAlert,
+  deriveFounderAlertFromRevenueCatEvent,
+  recordFounderAlertEvent,
+} from '../_shared/founderAlerts.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -32,6 +38,25 @@ function json(status: number, body: JsonValue, headers?: Record<string, string>)
       ...(headers ?? {}),
     },
   });
+}
+
+function envGet(key: string): string | undefined {
+  return Deno.env.get(key) ?? undefined;
+}
+
+function isFounderSandboxAlertEnabled(): boolean {
+  const v = (Deno.env.get('KWILT_FOUNDER_ALERTS_INCLUDE_SANDBOX') ?? '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+function runFounderAlert(task: Promise<unknown>, context: string): void {
+  const guarded = task.catch((error) => {
+    console.warn(`[founder-alerts] ${context} failed`, String(error));
+  });
+  const edgeRuntime = (globalThis as any)?.EdgeRuntime;
+  if (typeof edgeRuntime?.waitUntil === 'function') {
+    edgeRuntime.waitUntil(guarded);
+  }
 }
 
 function getSupabaseAdmin() {
@@ -516,6 +541,21 @@ serve(async (req) => {
       return json(503, { error: { message: 'Unable to persist webhook', code: 'provider_unavailable' } });
     }
 
+    const founderAlert = deriveFounderAlertFromRevenueCatEvent(event, {
+      includeSandbox: isFounderSandboxAlertEnabled(),
+      nowIso: () => nowIso,
+    });
+    if (founderAlert) {
+      runFounderAlert(
+        recordFounderAlertEvent({
+          admin,
+          event: founderAlert,
+          env: envGet,
+        }),
+        `revenuecat:${founderAlert.eventName}`,
+      );
+    }
+
     // Best-effort: send trial expiry email when a trial subscription expires.
     if (type === 'EXPIRATION') {
       try {
@@ -600,6 +640,33 @@ serve(async (req) => {
     const appVersion = typeof body?.appVersion === 'string' ? body.appVersion.trim() : '';
     const buildNumber = typeof body?.buildNumber === 'string' ? body.buildNumber.trim() : '';
     const posthogDistinctId = typeof body?.posthogDistinctId === 'string' ? body.posthogDistinctId.trim() : '';
+    let isFirstInstallSeen = false;
+    let isFirstAccountLinkSeen = false;
+
+    try {
+      const { data: existingInstall } = await admin
+        .from('kwilt_installs')
+        .select('install_id')
+        .eq('install_id', installId)
+        .maybeSingle();
+      isFirstInstallSeen = !existingInstall;
+    } catch {
+      isFirstInstallSeen = false;
+    }
+
+    if (maybeUser?.userId) {
+      try {
+        const { data: existingIdentity } = await admin
+          .from('kwilt_install_identities')
+          .select('install_id,identity_key')
+          .eq('install_id', installId)
+          .eq('identity_key', `user:${maybeUser.userId}`)
+          .maybeSingle();
+        isFirstAccountLinkSeen = !existingIdentity;
+      } catch {
+        isFirstAccountLinkSeen = false;
+      }
+    }
 
     const { error } = await admin.from('kwilt_installs').upsert(
       {
@@ -617,6 +684,48 @@ serve(async (req) => {
     );
     if (error) {
       return json(503, { error: { message: 'Unable to record install', code: 'provider_unavailable' } });
+    }
+
+    if (isFirstInstallSeen) {
+      const alert = buildInstallFirstOpenAlert({
+        installId,
+        occurredAt: now,
+        platform: platform || null,
+        appVersion: appVersion || null,
+        buildNumber: buildNumber || null,
+        revenuecatAppUserId: rcId || null,
+        userId: maybeUser?.userId ?? null,
+        userEmail: maybeUser?.email ?? null,
+      });
+      runFounderAlert(
+        recordFounderAlertEvent({
+          admin,
+          event: alert,
+          env: envGet,
+        }),
+        'install:first_open',
+      );
+    }
+
+    if (isFirstAccountLinkSeen && maybeUser?.userId) {
+      const alert = buildAccountLinkedAlert({
+        installId,
+        userId: maybeUser.userId,
+        userEmail: maybeUser.email ?? null,
+        occurredAt: now,
+        platform: platform || null,
+        appVersion: appVersion || null,
+        buildNumber: buildNumber || null,
+        revenuecatAppUserId: rcId || null,
+      });
+      runFounderAlert(
+        recordFounderAlertEvent({
+          admin,
+          event: alert,
+          env: envGet,
+        }),
+        'install:account_linked',
+      );
     }
 
     // Best-effort: persist install ↔ identity history (so Admin Tools can show shared devices / multiple accounts).
@@ -1770,6 +1879,3 @@ serve(async (req) => {
 
   return json(404, { error: { message: 'Not found', code: 'not_found' } });
 });
-
-
-
