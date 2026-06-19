@@ -536,7 +536,6 @@ export default function App() {
   ) : isResolvingEntitlements ? (
     <View style={styles.authHydrationScreen}>
       <Logo size={64} />
-      <Text style={styles.authHydrationText}>Restoring your subscription…</Text>
     </View>
   ) : authStartupState === 'signedOut' || !authIdentity ? (
     // Require sign-in for all users (including legacy users who onboarded before auth was required).

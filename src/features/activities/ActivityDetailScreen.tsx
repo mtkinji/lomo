@@ -150,9 +150,16 @@ import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle'
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
-import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
+import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
+import { ActivityNextActionInlineContent } from './ActivityNextActionDock';
+import {
+  ACTIVITY_NEXT_BEST_ACTION_MENU_ORDER,
+  ACTIVITY_NEXT_BEST_ACTIONS,
+  getNextBestActivityAction,
+  type ActivityNextBestActionId,
+} from './nextBestAction';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
 import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
@@ -328,20 +335,8 @@ export function ActivityDetailScreen() {
   );
   const heroTopoSizes = useMemo(() => getArcTopoSizes(heroSeed), [heroSeed]);
 
-  const defaultHeroUrl = useMemo(() => {
-    if (!activity) return undefined;
-    const source = getActivityHeaderArtworkSource(activity);
-    if (!source) return undefined;
-    try {
-      const resolved = Image.resolveAssetSource(source);
-      return resolved?.uri;
-    } catch {
-      return undefined;
-    }
-  }, [activity]);
-
   const resolvedHeroUrl = useHeroImageUrl(activity);
-  const displayThumbnailUrlForSheet = resolvedHeroUrl ?? defaultHeroUrl;
+  const displayThumbnailUrlForSheet = resolvedHeroUrl ?? undefined;
 
   const handleUploadActivityThumbnail = useCallback(async () => {
     if (!activity) return;
@@ -441,6 +436,40 @@ export function ActivityDetailScreen() {
     },
     [activity, updateActivity]
   );
+
+  const handleFindActivityHeroImage = useCallback(async () => {
+    if (!activity) return;
+    try {
+      setHeroImageLoading(true);
+      setHeroImageError('');
+      const selection = await findActivityCoverImageWithAI({
+        title: activity.title ?? '',
+        goalId: activity.goalId ?? null,
+        activityType: activity.type,
+        existingTags: activity.tags,
+        goals,
+        arcs,
+        canUseUnsplash,
+      });
+
+      if (!selection?.thumbnailUrl && !selection?.heroImageMeta) {
+        setHeroImageError('No image-library cover found for this to-do.');
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      updateActivity(activity.id, (prev: any) => ({
+        ...prev,
+        thumbnailUrl: selection.thumbnailUrl,
+        heroImageMeta: selection.heroImageMeta,
+        updatedAt: nowIso,
+      }));
+    } catch {
+      setHeroImageError('Unable to find a cover image right now.');
+    } finally {
+      setHeroImageLoading(false);
+    }
+  }, [activity, arcs, canUseUnsplash, goals, updateActivity]);
 
   const activitiesById = useMemo(() => {
     const map: Record<string, Activity> = {};
@@ -1598,9 +1627,7 @@ export function ActivityDetailScreen() {
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
-  const focusActionTargetRef = useRef<View | null>(null);
-  const actionDockLeftRef = useRef<View | null>(null);
-  const actionDockRightRef = useRef<View | null>(null);
+  const nextActionDockRef = useRef<View | null>(null);
   const focusModeCoachmarkWasVisibleRef = useRef(false);
   const finishMutationRef = useRef<{ completedAtStamp: string; stepIds: string[] } | null>(null);
   const [detailGuideStep, setDetailGuideStep] = useState(0);
@@ -1819,7 +1846,7 @@ export function ActivityDetailScreen() {
     activity && lastOnboardingGoalId && activity.goalId === lastOnboardingGoalId
   );
 
-  const detailGuideStepCount = 4;
+  const detailGuideStepCount = 3;
   const detailGuideStepReady = (() => {
     if (detailGuideStep === 0) return isTitleStepsBundleReady;
     if (detailGuideStep === 1) return isScheduleCardReady;
@@ -1855,10 +1882,18 @@ export function ActivityDetailScreen() {
   });
 
   const isCompleted = activity?.status === 'done';
+  const nextBestAction = useMemo(
+    () =>
+      activity
+        ? getNextBestActivityAction({ activity: { ...activity, steps: stepsDraft } })
+        : ACTIVITY_NEXT_BEST_ACTIONS.askKwilt,
+    [activity, stepsDraft],
+  );
   const shouldShowFocusModeCoachmark =
     isFocused &&
     Boolean(activity) &&
     !isCompleted &&
+    nextBestAction.id === 'startFocusSprint' &&
     hasCompletedFirstTimeOnboarding &&
     !hasSeenFocusModeCoachmark &&
     isActionDockReady &&
@@ -1901,28 +1936,23 @@ export function ActivityDetailScreen() {
   const detailGuideTargetRef = (() => {
     if (detailGuideStep === 0) return titleStepsBundleRef;
     if (detailGuideStep === 1) return scheduleAndPlanningCardRef;
-    if (detailGuideStep === 2) return actionDockLeftRef;
-    return actionDockRightRef;
+    return nextActionDockRef;
   })();
 
   const detailGuideTitle = (() => {
     if (detailGuideStep === 0) return 'Edit + complete here';
     if (detailGuideStep === 1) return 'Schedule + plan';
-    if (detailGuideStep === 2) return 'Quick actions';
-    return 'Finish fast';
+    return 'Next best action';
   })();
 
   const detailGuideBody = (() => {
     if (detailGuideStep === 0) {
-      return 'Check steps to make progress—when all steps are checked, the to-do is complete. Tap the bottom-right button to finish remaining steps fast; tap again to undo that finish.';
+      return 'Check steps to make progress. When all steps are checked, the to-do is ready to finish.';
     }
     if (detailGuideStep === 1) {
       return 'Add reminders, due dates, and repeats. Use time estimate + difficulty to keep your plan realistic (AI suggestions appear when available).';
     }
-    if (detailGuideStep === 2) {
-      return 'Use the left action dock for common shortcuts like Focus mode, Calendar, Send to… (when available), and AI help.';
-    }
-    return 'Use the bottom-right button to mark the to-do done (or undo). When your steps are complete, you’ll see the progress ring fill and the button celebrate.';
+    return 'Tap the bottom button for Kwilt’s recommended next move. Use the chevron to find the other actions.';
   })();
 
   const detailGuidePlacement = detailGuideStep >= 2 ? 'above' : 'below';
@@ -3672,7 +3702,6 @@ export function ActivityDetailScreen() {
 
   const actionDockRightProgress =
     totalStepsCount > 0 ? Math.max(0, Math.min(1, completedStepsCount / totalStepsCount)) : undefined;
-  const allStepsComplete = totalStepsCount > 0 && completedStepsCount >= totalStepsCount;
   const dockCompleteColor = colors.pine700;
   const actionDockCountLabel = totalStepsCount > 0 ? `${completedStepsCount}/${totalStepsCount}` : undefined;
   const isAiEnrichingActivity = useActivityEnrichmentStore((state) =>
@@ -3733,6 +3762,82 @@ export function ActivityDetailScreen() {
     }
     prevCompletedCountRef.current = completedStepsCount;
   }, [completedStepsCount, totalStepsCount]);
+
+  const nextActionMenuActions = useMemo(() => {
+    const orderedIds = [
+      nextBestAction.id,
+      ...ACTIVITY_NEXT_BEST_ACTION_MENU_ORDER.filter((id) => id !== nextBestAction.id),
+    ];
+    return orderedIds.map((id) => ACTIVITY_NEXT_BEST_ACTIONS[id]);
+  }, [nextBestAction.id]);
+
+  const disabledNextActionIds = useMemo<Partial<Record<ActivityNextBestActionId, boolean>>>(
+    () => ({
+      share: !activityExportText,
+    }),
+    [activityExportText],
+  );
+
+  const handleNextActionPress = useCallback(
+    (actionId: ActivityNextBestActionId, source: 'primary' | 'menu') => {
+      if (!activity) return;
+
+      const captureAction = (action: string, extra?: Record<string, unknown>) => {
+        capture(AnalyticsEvent.ActivityActionInvoked, {
+          activityId: activity.id,
+          action,
+          nextBestActionId: nextBestAction.id,
+          nextBestActionSource: source,
+          ...extra,
+        } as any);
+      };
+
+      if (actionId === 'startFocusSprint') {
+        markFocusModeCoachmarkSeen();
+        captureAction('focusMode');
+        openFocusSheet();
+        return;
+      }
+
+      if (actionId === 'scheduleTime') {
+        captureAction('addToCalendar');
+        openCalendarSheet();
+        return;
+      }
+
+      if (actionId === 'breakIntoSteps') {
+        captureAction('breakIntoSteps');
+        beginAddStepInline();
+        return;
+      }
+
+      if (actionId === 'askKwilt') {
+        captureAction('chatWithAi');
+        openAgentForActivity({ objectType: 'activity', objectId: activity.id });
+        return;
+      }
+
+      if (actionId === 'share') {
+        if (!activityExportText) return;
+        captureAction('sendToShare');
+        handleSendToShare().catch(() => undefined);
+        return;
+      }
+
+    },
+    [
+      activity,
+      activityExportText,
+      capture,
+      handleSendToShare,
+      beginAddStepInline,
+      markFocusModeCoachmarkSeen,
+      nextBestAction.id,
+      openCalendarSheet,
+      openAgentForActivity,
+      openFocusSheet,
+    ],
+  );
 
   const formatMinutes = (minutes: number) => {
     if (minutes < 60) return `${minutes} min`;
@@ -4109,66 +4214,15 @@ export function ActivityDetailScreen() {
                     if (typeof y === 'number' && Number.isFinite(y)) setActionDockLayoutY(y);
                     if (!isActionDockReady) setIsActionDockReady(true);
                   }}
-                  leftDockTargetRef={actionDockLeftRef}
-                  rightDockTargetRef={actionDockRightRef}
-                  leftItems={[
-                    {
-                      id: 'focus',
-                      icon: 'focus',
-                      accessibilityLabel: 'Open focus mode',
-                      targetRef: focusActionTargetRef,
-                      onPress: () => {
-                        markFocusModeCoachmarkSeen();
-                        capture(AnalyticsEvent.ActivityActionInvoked, {
-                          activityId: activity.id,
-                          action: 'focusMode',
-                        });
-                        openFocusSheet();
-                      },
-                      // Preserve existing e2e id
-                      testID: 'e2e.activityDetail.keyAction.focusMode',
-                    },
-                    {
-                      id: 'schedule',
-                      icon: 'sendToCalendar',
-                      accessibilityLabel: 'Send to calendar',
-                      onPress: () => {
-                        capture(AnalyticsEvent.ActivityActionInvoked, {
-                          activityId: activity.id,
-                          action: 'addToCalendar',
-                        });
-                        openCalendarSheet();
-                      },
-                      // Preserve existing e2e id
-                      testID: 'e2e.activityDetail.keyAction.addToCalendar',
-                    },
-                    {
-                      id: 'sendTo',
-                      icon: 'sendTo',
-                      accessibilityLabel: 'Send to…',
-                      onPress: () => {
-                        capture(AnalyticsEvent.ActivityActionInvoked, {
-                          activityId: activity.id,
-                          action: 'sendTo',
-                        });
-                        setActiveSheet('sendTo');
-                      },
-                      testID: 'e2e.activityDetail.dock.sendTo',
-                    },
-                    {
-                      id: 'ai',
-                      icon: 'sparkles',
-                      accessibilityLabel: 'Get help from AI',
-                      onPress: () => {
-                        capture(AnalyticsEvent.ActivityActionInvoked, {
-                          activityId: activity.id,
-                          action: 'chatWithAi',
-                        });
-                        openAgentForActivity({ objectType: 'activity', objectId: activity.id });
-                      },
-                      testID: 'e2e.activityDetail.dock.ai',
-                    },
-                  ]}
+                  leftDockTargetRef={nextActionDockRef}
+                  leftContent={
+                    <ActivityNextActionInlineContent
+                      recommendedAction={nextBestAction}
+                      menuActions={nextActionMenuActions}
+                      onActionPress={handleNextActionPress}
+                      disabledActionIds={disabledNextActionIds}
+                    />
+                  }
                   rightItem={{
                     id: 'done',
                     icon: 'check',
@@ -4258,7 +4312,7 @@ export function ActivityDetailScreen() {
 
       <Coachmark
         visible={shouldShowFocusModeCoachmark}
-        targetRef={focusActionTargetRef}
+        targetRef={nextActionDockRef}
         scrimToken="pineSubtle"
         spotlight="hole"
         spotlightPadding={spacing.xs}
@@ -5549,7 +5603,9 @@ export function ActivityDetailScreen() {
         heroTopoSizes={heroTopoSizes}
         showTopography={false}
         showGeoMosaic={false}
-        onGenerate={() => undefined}
+        onGenerate={() => {
+          void handleFindActivityHeroImage();
+        }}
         onUpload={() => {
           void handleUploadActivityThumbnail();
         }}

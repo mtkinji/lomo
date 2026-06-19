@@ -60,7 +60,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useFeatureFlagVariant } from '../../services/analytics/useFeatureFlagVariant';
-import { enrichActivityWithAI, generateArcBannerVibeQuery } from '../../services/ai';
+import { enrichActivityWithAI } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
@@ -125,7 +125,7 @@ import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
-import { searchUnsplashPhotos, trackUnsplashDownload, withUnsplashReferral } from '../../services/unsplash';
+import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
@@ -1384,57 +1384,15 @@ export function ActivitiesScreen() {
       activityType?: string;
       existingTags?: string[];
     }) => {
-      if (!canUseUnsplash) return null;
-
-      const goal = params.goalId
-        ? goals.find((candidate) => candidate.id === params.goalId) ?? null
-        : null;
-      const arc = goal?.arcId
-        ? arcs.find((candidate) => candidate.id === goal.arcId) ?? null
-        : null;
-      const fallbackQuery = [params.title, ...(params.existingTags ?? [])]
-        .join(' ')
-        .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .split(' ')
-        .slice(0, 5)
-        .join(' ');
-      const query =
-        (await generateArcBannerVibeQuery({
-          arcName: params.title,
-          arcNarrative: goal?.description ?? arc?.narrative,
-          goalTitles: [
-            goal?.title,
-            params.activityType ? `${params.activityType} to-do` : null,
-            ...(params.existingTags ?? []),
-          ].filter(Boolean) as string[],
-        }).catch(() => null)) ??
-        fallbackQuery;
-
-      if (!query) return null;
-
-      const photos = await searchUnsplashPhotos(query, {
-        perPage: 12,
-        page: 1,
-        orientation: 'landscape',
-      }).catch(() => []);
-      const photo = photos[0];
-      if (!photo) return null;
-
-      trackUnsplashDownload(photo.id).catch(() => undefined);
-      return {
-        thumbnailUrl: photo.urls.regular,
-        heroImageMeta: {
-          source: 'unsplash' as const,
-          prompt: query,
-          createdAt: new Date().toISOString(),
-          unsplashPhotoId: photo.id,
-          unsplashAuthorName: photo.user.name,
-          unsplashAuthorLink: withUnsplashReferral(photo.user.links.html),
-          unsplashLink: withUnsplashReferral(photo.links.html),
-        },
-      };
+      return findActivityCoverImageWithAI({
+        title: params.title,
+        goalId: params.goalId,
+        activityType: params.activityType,
+        existingTags: params.existingTags,
+        goals,
+        arcs,
+        canUseUnsplash,
+      });
     },
     [arcs, canUseUnsplash, goals]
   );

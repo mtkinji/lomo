@@ -109,14 +109,16 @@ import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { PaywallContent } from '../paywall/PaywallDrawer';
-import { openPaywallPurchaseEntry } from '../../services/paywall';
+import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { parseTags } from '../../utils/tags';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
+import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
 import {
   useQuickAddDockController,
+  type QuickAddAiAction,
   type QuickAddLocationTriggerRecommendation,
 } from '../activities/useQuickAddDockController';
 import { DurationPicker } from '../activities/DurationPicker';
@@ -210,8 +212,11 @@ export function GoalDetailScreen() {
   );
   const pendingGoalCelebrationId = useAppStore((state) => state.pendingGoalCelebrationId);
   const setPendingGoalCelebrationId = useAppStore((state) => state.setPendingGoalCelebrationId);
+  const quickAddAiActions = useAppStore((state) => state.quickAddAiActions);
+  const setQuickAddAiActions = useAppStore((state) => state.setQuickAddAiActions);
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const locationOfferPreferences = useAppStore((state) => state.locationOfferPreferences);
   const setLocationOfferPreferences = useAppStore((state) => state.setLocationOfferPreferences);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
@@ -398,6 +403,39 @@ export function GoalDetailScreen() {
     locationOfferPreferences.osPermissionStatus === 'authorized';
   const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
     useState<QuickAddLocationTriggerRecommendation | null>(null);
+  const effectiveQuickAddAiActions = useMemo(
+    () =>
+      isPro
+        ? quickAddAiActions
+        : quickAddAiActions.filter((action) => action !== 'cover_image'),
+    [isPro, quickAddAiActions]
+  );
+
+  const handleLockedQuickAddAiActionPress = useCallback((action: QuickAddAiAction) => {
+    if (action !== 'cover_image') return;
+    openPaywallInterstitial({ reason: 'pro_only_unsplash_banners', source: 'activity_banner_sheet' });
+  }, []);
+
+  const findQuickAddCoverImageWithAI = useCallback(
+    async (params: {
+      activityId: string;
+      title: string;
+      goalId: string | null;
+      activityType?: string;
+      existingTags?: string[];
+    }) => {
+      return findActivityCoverImageWithAI({
+        title: params.title,
+        goalId: params.goalId,
+        activityType: params.activityType,
+        existingTags: params.existingTags,
+        goals,
+        arcs,
+        canUseUnsplash: isPro,
+      });
+    },
+    [arcs, goals, isPro]
+  );
 
   const handleUseQuickAddLocationTrigger = useCallback(async () => {
     const pending = pendingQuickAddLocationRecommendation;
@@ -475,6 +513,7 @@ export function GoalDetailScreen() {
     recordShowUp,
     showToast,
     enrichActivityWithAI,
+    findCoverImageWithAI: findQuickAddCoverImageWithAI,
     initialReservedHeightPx: quickAddInitialReservedHeightPx,
     toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
     focusAfterSubmit: false,
@@ -505,6 +544,11 @@ export function GoalDetailScreen() {
           }
         });
       });
+    },
+    tryConsumeGenerativeCredit,
+    aiCreditTier: isPro ? 'pro' : 'free',
+    onAiCreditsExhausted: () => {
+      openPaywallInterstitial({ reason: 'generative_quota_exceeded', source: 'activity_quick_add_ai' });
     },
   });
 
@@ -3050,6 +3094,10 @@ export function GoalDetailScreen() {
                           setIsFocused={setQuickAddFocused}
                           onSubmit={handleQuickAddActivity}
                           onCollapse={collapseQuickAdd}
+                          selectedAiActions={effectiveQuickAddAiActions}
+                          onSelectedAiActionsChange={setQuickAddAiActions}
+                          lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
+                          onLockedAiActionPress={handleLockedQuickAddAiActionPress}
                         />
                       </View>
                     </>
@@ -3089,6 +3137,10 @@ export function GoalDetailScreen() {
                           setIsFocused={setQuickAddFocused}
                           onSubmit={handleQuickAddActivity}
                           onCollapse={collapseQuickAdd}
+                          selectedAiActions={effectiveQuickAddAiActions}
+                          onSelectedAiActionsChange={setQuickAddAiActions}
+                          lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
+                          onLockedAiActionPress={handleLockedQuickAddAiActionPress}
                         />
                       </View>
 
