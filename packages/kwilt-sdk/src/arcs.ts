@@ -10,6 +10,7 @@ export async function listArcSummaries(
   const { data, error } = await supabase
     .from('kwilt_arcs')
     .select(ARC_SELECT)
+    .eq('is_deleted', false)
     .order('updated_at', { ascending: false });
 
   if (error) throw error;

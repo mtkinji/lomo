@@ -9,6 +9,7 @@
       "distribution": "internal",
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
+        "KWILT_APP_ENV": "development",
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_WIDGETS": "1",
         "SUPABASE_URL": "https://auth.kwilt.app",
@@ -20,6 +21,7 @@
       "distribution": "internal",
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
+        "KWILT_APP_ENV": "development",
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_WIDGETS": "1",
         "SUPABASE_URL": "https://auth.kwilt.app",
@@ -36,6 +38,7 @@
       "distribution": "internal",
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
+        "KWILT_APP_ENV": "preview",
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_WIDGETS": "1",
         "SUPABASE_URL": "https://auth.kwilt.app",
@@ -46,6 +49,7 @@
       "distribution": "internal",
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
+        "KWILT_APP_ENV": "preview",
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_WIDGETS": "1",
         "SUPABASE_URL": "https://auth.kwilt.app",
@@ -59,6 +63,7 @@
       },
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
+        "KWILT_APP_ENV": "production",
         "KWILT_ENABLE_APP_GROUPS": "0",
         "KWILT_ENABLE_WIDGETS": "0",
         "AUTH_BRAND_ORIGIN": "https://auth.kwilt.app",
@@ -74,6 +79,7 @@
       },
       "env": {
         "RCT_NEW_ARCH_ENABLED": "1",
+        "KWILT_APP_ENV": "production",
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_WIDGETS": "1",
         "AUTH_BRAND_ORIGIN": "https://auth.kwilt.app",
@@ -96,4 +102,3 @@
     }
   }
 }
-
