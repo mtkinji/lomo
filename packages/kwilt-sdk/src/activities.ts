@@ -10,6 +10,7 @@ export async function listActivitySummaries(
   const { data, error } = await supabase
     .from('kwilt_activities')
     .select(ACTIVITY_SELECT)
+    .eq('is_deleted', false)
     .order('updated_at', { ascending: false });
 
   if (error) throw error;

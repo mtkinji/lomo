@@ -10,6 +10,7 @@ export async function listGoalSummaries(
   const { data, error } = await supabase
     .from('kwilt_goals')
     .select(GOAL_SELECT)
+    .eq('is_deleted', false)
     .order('updated_at', { ascending: false });
 
   if (error) throw error;

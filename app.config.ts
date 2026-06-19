@@ -2,8 +2,10 @@ import type { ExpoConfig } from 'expo/config';
 import { config as loadEnv } from 'dotenv';
 import { existsSync } from 'fs';
 import path from 'path';
+import { resolveAppEnvironment } from './src/config/appEnvironment';
 
-const NODE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
+const ENV_FILE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
+const APP_ENVIRONMENT = resolveAppEnvironment(process.env);
 const projectRoot = __dirname;
 const widgetsEnabled = (process.env.KWILT_ENABLE_WIDGETS ?? '').trim() === '1';
 
@@ -14,9 +16,9 @@ if (!process.env.DOTENV_CONFIG_QUIET) {
 
 const envFiles = [
   '.env',
-  `.env.${NODE_ENV}`,
+  `.env.${ENV_FILE_ENV}`,
   '.env.local',
-  `.env.${NODE_ENV}.local`,
+  `.env.${ENV_FILE_ENV}.local`,
 ];
 
 envFiles.forEach((file) => {
@@ -259,7 +261,7 @@ const config: ExpoConfig = {
       'https://go.kwilt.app',
     // Expose the resolved environment to the app runtime so we can distinguish
     // production installs from development/preview for things like demo data.
-    environment: NODE_ENV,
+    environment: APP_ENVIRONMENT,
   },
 };
 
