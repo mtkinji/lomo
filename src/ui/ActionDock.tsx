@@ -108,7 +108,12 @@ type Props = {
   /**
    * Left dock (multi-action pill).
    */
-  leftItems: ActionDockItem[];
+  leftItems?: ActionDockItem[];
+  /**
+   * Optional custom content for the left dock. Used when a screen wants the
+   * standard dock positioning paired with a bespoke primary action surface.
+   */
+  leftContent?: React.ReactNode;
   /**
    * Optional ref target for coachmarks/tutorials to spotlight the *entire* left dock pill.
    * Note: target wrapper should be `collapsable={false}` so `measureInWindow` works on Android.
@@ -248,7 +253,8 @@ function ThinkingDots({ color, thinkingT }: ThinkingDotsProps) {
 }
 
 export function ActionDock({
-  leftItems,
+  leftItems = [],
+  leftContent,
   leftDockTargetRef,
   rightItem,
   rightDockTargetRef,
@@ -329,6 +335,7 @@ export function ActionDock({
   const expanded = keyboardHeight > 0;
   const effectiveLeftItems =
     expanded && keyboardExpandedLeftItems?.length ? [...leftItems, ...keyboardExpandedLeftItems] : leftItems;
+  const hasLeftContent = leftContent != null;
 
   const clampedRightProgress =
     typeof rightItemProgress === 'number' && Number.isFinite(rightItemProgress)
@@ -620,46 +627,50 @@ export function ActionDock({
       ]}
     >
       <HStack alignItems="center" justifyContent="space-between">
-        <View style={styles.dockShadow}>
+        <View style={[styles.dockShadow, hasLeftContent ? styles.leftContentDockShadow : null]}>
           <View
             ref={leftDockTargetRef}
             collapsable={false}
-            style={styles.dock}
+            style={[styles.dock, hasLeftContent ? styles.leftContentDock : null]}
           >
             <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFillObject} />
             <View pointerEvents="none" style={styles.dockTint} />
-            <HStack alignItems="center" justifyContent="space-between" style={styles.row}>
-              {effectiveLeftItems.map((item) => {
-              const tint = item.color ?? colors.textPrimary;
-              return (
-                <Pressable
-                  ref={item.targetRef}
-                  key={item.id}
-                  testID={item.testID}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.accessibilityLabel}
-                  accessibilityState={item.disabled ? { disabled: true } : undefined}
-                  hitSlop={10}
-                  disabled={item.disabled}
-                  onPress={item.onPress}
-                  style={({ pressed }) => [
-                    styles.item,
-                    item.disabled ? { opacity: 0.45 } : null,
-                    pressed && !item.disabled ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
-                  ]}
-                >
-                  <VStack alignItems="center" space="xs">
-                    <Icon name={item.icon} size={DOCK_ICON_SIZE} color={tint} />
-                    {showLabels && item.label ? (
-                      <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
-                        {item.label}
-                      </Text>
-                    ) : null}
-                  </VStack>
-                </Pressable>
-              );
-            })}
-            </HStack>
+            {hasLeftContent ? (
+              leftContent
+            ) : (
+              <HStack alignItems="center" justifyContent="space-between" style={styles.row}>
+                {effectiveLeftItems.map((item) => {
+                  const tint = item.color ?? colors.textPrimary;
+                  return (
+                    <Pressable
+                      ref={item.targetRef}
+                      key={item.id}
+                      testID={item.testID}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.accessibilityLabel}
+                      accessibilityState={item.disabled ? { disabled: true } : undefined}
+                      hitSlop={10}
+                      disabled={item.disabled}
+                      onPress={item.onPress}
+                      style={({ pressed }) => [
+                        styles.item,
+                        item.disabled ? { opacity: 0.45 } : null,
+                        pressed && !item.disabled ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+                      ]}
+                    >
+                      <VStack alignItems="center" space="xs">
+                        <Icon name={item.icon} size={DOCK_ICON_SIZE} color={tint} />
+                        {showLabels && item.label ? (
+                          <Text style={[styles.label, { color: tint }]} numberOfLines={1}>
+                            {item.label}
+                          </Text>
+                        ) : null}
+                      </VStack>
+                    </Pressable>
+                  );
+                })}
+              </HStack>
+            )}
           </View>
         </View>
 
@@ -792,12 +803,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 10,
   },
+  leftContentDockShadow: {
+    maxWidth: 292,
+    minWidth: 156,
+    flexShrink: 1,
+    marginRight: spacing.md,
+  },
   dock: {
     borderRadius: DOCK_RADIUS,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  leftContentDock: {
+    minHeight: RIGHT_ITEM_SIZE,
   },
   dockTint: {
     ...StyleSheet.absoluteFillObject,

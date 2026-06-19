@@ -22,4 +22,17 @@ describe('GoalDetailScreen hook order', () => {
 
     expect(topLevelHookLines).toEqual([]);
   });
+
+  it('wires inline quick-add docks to persisted AI action preferences', () => {
+    const source = readFileSync(path.join(__dirname, 'GoalDetailScreen.tsx'), 'utf8');
+    const dockBlocks = source.match(/<QuickAddDock[\s\S]*?\/>/g) ?? [];
+
+    expect(dockBlocks).toHaveLength(2);
+    dockBlocks.forEach((block) => {
+      expect(block).toContain('selectedAiActions={effectiveQuickAddAiActions}');
+      expect(block).toContain('onSelectedAiActionsChange={setQuickAddAiActions}');
+      expect(block).toContain('lockedAiActions={isPro ? undefined : { cover_image: \'Pro\' }}');
+      expect(block).toContain('onLockedAiActionPress={handleLockedQuickAddAiActionPress}');
+    });
+  });
 });

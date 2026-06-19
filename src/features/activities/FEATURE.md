@@ -12,6 +12,7 @@ serves:
 briefs:
   - auto-schedule
   - calendar-export-ics
+  - dynamic-next-best-action
   - focus-mode-education
   - geolocation-activity-offers
   - keyboard-input-safety
