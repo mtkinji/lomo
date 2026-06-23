@@ -253,6 +253,23 @@ export const styles = StyleSheet.create({
     // so we don't accidentally double-space it.
     marginTop: 0,
   },
+  groupedListContent: {
+    gap: spacing.md,
+  },
+  groupedSection: {
+    marginBottom: 0,
+  },
+  groupedSectionHeader: {
+    paddingVertical: spacing.xs,
+  },
+  groupedSectionLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  groupedSectionCount: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   completedToggle: {
     paddingVertical: spacing.xs,
   },
@@ -636,6 +653,33 @@ export const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
   },
+  viewEditorToggleLabelDisabled: {
+    color: colors.textSecondary,
+  },
+  viewEditorToggleInfoButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewEditorToggleInfoButtonPressed: {
+    opacity: 0.65,
+  },
+  viewEditorToggleInfoPopover: {
+    width: 248,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  viewEditorToggleInfoTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  viewEditorToggleInfoBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   viewEditorToggleTrack: {
     width: 46,
     height: 28,
@@ -647,6 +691,9 @@ export const styles = StyleSheet.create({
   viewEditorToggleTrackOn: {
     backgroundColor: colors.accent,
   },
+  viewEditorToggleTrackDisabled: {
+    opacity: 0.42,
+  },
   viewEditorToggleThumb: {
     width: 22,
     height: 22,
@@ -656,6 +703,9 @@ export const styles = StyleSheet.create({
   },
   viewEditorToggleThumbOn: {
     alignSelf: 'flex-end',
+  },
+  viewEditorToggleThumbDisabled: {
+    opacity: 0.85,
   },
   viewEditorShortcutsSection: {
     marginTop: spacing.lg,

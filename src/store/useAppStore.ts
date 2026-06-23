@@ -215,7 +215,7 @@ export async function switchDomainUser(userId: string | null): Promise<boolean> 
   const gen = ++switchDomainGeneration;
 
   // 1. Flush outgoing user's domain to their scoped key.
-  if (activeDomainUserId) {
+  if (activeDomainUserId && activeDomainUserId !== userId) {
     flushPersistDomainState();
   }
 

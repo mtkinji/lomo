@@ -255,6 +255,12 @@ export default function App() {
   }, [setAuthIdentity, clearAuthIdentity, updateUserProfile]);
 
   useEffect(() => {
+    if (authStartupState === 'signedIn' && authIdentity?.userId) {
+      startDomainSync();
+    }
+  }, [authIdentity?.userId, authStartupState]);
+
+  useEffect(() => {
     // Safety: super-admin entitlements overrides should never persist across non-super-admin sessions.
     // Gate on auth hydration: authIdentity starts null before Supabase restores the session,
     // and eagerly clearing the override during that window causes Pro status to be lost.

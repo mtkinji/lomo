@@ -381,6 +381,13 @@ export type ActivityPriorityReasonCode =
  */
 export type ActivityViewLayout = 'list' | 'kanban';
 
+export type ActivityGroupingField = 'none' | 'goal' | 'schedule' | 'status';
+
+export interface ActivityViewGrouping {
+  field: ActivityGroupingField;
+  collapsedGroupKeys?: string[];
+}
+
 /**
  * Field to group activities by when using Kanban layout.
  */
@@ -726,6 +733,11 @@ export interface ActivityView {
    * New multi-level sort: ordered list, primary first.
    */
   sorts?: SortCondition[];
+  /**
+   * List-view grouping config. This is distinct from kanban grouping and
+   * sectioning only affects presentation; it does not mutate Activities.
+   */
+  grouping?: ActivityViewGrouping;
   /**
    * Whether this view includes the "Completed" section in the Activities list.
    * When false, completed activities are still stored but hidden in the UI.

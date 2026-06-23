@@ -23,6 +23,13 @@ export type InferredActivityPriorityMetadata = {
   priorityReasonCodes: ActivityPriorityReasonCode[];
 };
 
+export type RecommendedModuleEligibility = {
+  showRecommended: boolean;
+  isKanbanLayout: boolean;
+  hasFilters: boolean;
+  hasGrouping: boolean;
+};
+
 const REASON_LABELS: Partial<Record<ActivityPriorityReasonCode, string>> = {
   due_today: 'Due today',
   due_soon: 'Due soon',
@@ -66,6 +73,15 @@ export function getActivityPriorityState(activity: Activity): ActivityPrioritySt
 export function getActivityPriorityReasonLabel(reasonCodes: ActivityPriorityReasonCode[]): string | null {
   const reason = REASON_PRIORITY.find((code) => reasonCodes.includes(code));
   return reason ? REASON_LABELS[reason] ?? null : null;
+}
+
+export function canShowRecommendedModule(params: RecommendedModuleEligibility): boolean {
+  return (
+    params.showRecommended &&
+    !params.isKanbanLayout &&
+    !params.hasFilters &&
+    !params.hasGrouping
+  );
 }
 
 function toGoalById(goals: Goal[]): Map<string, Goal> {

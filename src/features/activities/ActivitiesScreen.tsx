@@ -178,16 +178,31 @@ const KANBAN_CARD_FIELDS: Array<{
 ];
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { QueryService } from '../../services/QueryService';
-import { getRecommendedPriorityActivities } from './activityPriority';
+import { canShowRecommendedModule, getRecommendedPriorityActivities } from './activityPriority';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { SortDrawer } from '../../ui/SortDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
 import { KanbanBoard } from './KanbanBoard';
+import { GroupingDrawer } from './GroupingDrawer';
+import { GroupedActivitySection } from './GroupedActivitySection';
 import type { KanbanCardField } from './KanbanCard';
 import { InlineViewCreator } from './InlineViewCreator';
 import { ViewCustomizationGuide, type ViewPreset } from './ViewCustomizationGuide';
 import { createViewFromPrompt } from '../../services/aiViewCreator';
-import type { FilterGroup, SortCondition, ActivityViewLayout, KanbanGroupBy } from '../../domain/types';
+import type {
+  ActivityGroupingField,
+  ActivityViewGrouping,
+  FilterGroup,
+  SortCondition,
+  ActivityViewLayout,
+  KanbanGroupBy,
+} from '../../domain/types';
+import {
+  getActivityGroupingLabel,
+  groupActivitiesForList,
+  isGroupingApplied,
+  setCollapsedGroupKey,
+} from './activityGrouping';
 
 const LAYOUT_OPTIONS: Array<{ value: ActivityViewLayout; label: string }> = [
   { value: 'list', label: 'List' },
@@ -324,6 +339,7 @@ export function ActivitiesScreen() {
   const sortButtonRef = React.useRef<View | null>(null);
 
   const [filterDrawerVisible, setFilterDrawerVisible] = React.useState(false);
+  const [groupingDrawerVisible, setGroupingDrawerVisible] = React.useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = React.useState(false);
 
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
@@ -568,6 +584,11 @@ export function ActivitiesScreen() {
     isPro || activeView?.isSystem ? (activeView?.showCompleted ?? true) : true;
   const showRecommended =
     isPro || activeView?.isSystem ? (activeView?.showRecommended ?? true) : true;
+  const activeGrouping = React.useMemo<ActivityViewGrouping>(
+    () => (isPro ? activeView?.grouping ?? { field: 'none' } : { field: 'none' }),
+    [activeView?.grouping, isPro],
+  );
+  const groupingApplied = isGroupingApplied(activeGrouping);
 
   const goalTitleById = React.useMemo(
     () =>
@@ -655,6 +676,7 @@ export function ActivitiesScreen() {
     if (structuredSorts.length > 0) return structuredSorts.length;
     return sortMode !== 'manual' ? 1 : 0;
   }, [structuredSorts.length, sortMode]);
+  const appliedGroupingCount = groupingApplied ? 1 : 0;
 
   const ghostContextKey = React.useMemo(() => {
     const groupLogic = activeView?.filterGroupLogic ?? 'or';
@@ -773,6 +795,33 @@ export function ActivitiesScreen() {
     [activeView, isPro, updateActivityView],
   );
 
+  const handleUpdateGrouping = React.useCallback(
+    (next: ActivityViewGrouping) => {
+      if (!isPro) {
+        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' });
+        return;
+      }
+      if (!activeView) return;
+      void HapticsService.trigger('canvas.selection');
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        grouping: next.field === 'none' ? { field: 'none', collapsedGroupKeys: [] } : next,
+      }));
+    },
+    [activeView, isPro, updateActivityView],
+  );
+
+  const handleToggleGroupCollapsed = React.useCallback(
+    (groupKey: string, collapsed: boolean) => {
+      if (!activeView) return;
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        grouping: setCollapsedGroupKey(view.grouping ?? activeGrouping, groupKey, collapsed),
+      }));
+    },
+    [activeGrouping, activeView, updateActivityView],
+  );
+
   const handleUpdateFilterMode = React.useCallback(
     (next: ActivityFilterMode) => {
       if (!isPro) {
@@ -827,10 +876,33 @@ export function ActivitiesScreen() {
   );
 
   const shouldShowRecommendedModule =
-    showRecommended &&
-    !isKanbanLayout &&
-    isManualOrderEffective &&
-    filterGroups.length === 0;
+    canShowRecommendedModule({
+      showRecommended,
+      isKanbanLayout,
+      hasFilters: filterGroups.length > 0,
+      hasGrouping: groupingApplied,
+    });
+  const recommendedDisabledReason = React.useMemo(() => {
+    if (isKanbanLayout) {
+      return {
+        title: 'Unavailable in Kanban',
+        body: 'Recommended appears in List layout.',
+      };
+    }
+    if (filterGroups.length > 0) {
+      return {
+        title: 'Hidden by filter',
+        body: 'Recommended appears when this view is not filtered.',
+      };
+    }
+    if (groupingApplied) {
+      return {
+        title: 'Hidden by grouping',
+        body: 'Recommended appears when this view is not grouped.',
+      };
+    }
+    return null;
+  }, [filterGroups.length, groupingApplied, isKanbanLayout]);
 
   const recommendedPriorityActivities = React.useMemo(() => {
     if (!shouldShowRecommendedModule) return [];
@@ -851,6 +923,22 @@ export function ActivitiesScreen() {
     if (recommendedPriorityActivityIds.size === 0) return activeActivities;
     return activeActivities.filter((activity) => !recommendedPriorityActivityIds.has(activity.id));
   }, [activeActivities, recommendedPriorityActivityIds]);
+
+  const groupedActiveSections = React.useMemo(
+    () =>
+      groupActivitiesForList({
+        activities: nonRecommendedActiveActivities,
+        goals,
+        grouping: activeGrouping,
+        now: new Date(),
+      }),
+    [nonRecommendedActiveActivities, activeGrouping, goals],
+  );
+
+  const collapsedGroupKeys = React.useMemo(
+    () => new Set(activeGrouping.collapsedGroupKeys ?? []),
+    [activeGrouping.collapsedGroupKeys],
+  );
 
   const completedActivities = React.useMemo(
     () =>
@@ -2344,6 +2432,7 @@ export function ActivitiesScreen() {
         sortMode: 'manual',
         layout: viewEditorLayout,
         kanbanGroupBy: viewEditorLayout === 'kanban' ? viewEditorKanbanGroupBy : undefined,
+        grouping: { field: 'none', collapsedGroupKeys: [] },
         showRecommended: true,
         isSystem: false,
       };
@@ -2380,6 +2469,7 @@ export function ActivitiesScreen() {
         sortMode: view.sortMode,
         layout: view.layout,
         kanbanGroupBy: view.kanbanGroupBy,
+        grouping: view.grouping,
         filters: view.filters,
         filterGroupLogic: view.filterGroupLogic,
         sorts: view.sorts,
@@ -2829,6 +2919,57 @@ export function ActivitiesScreen() {
 
                 <View style={styles.toolbarButtonWrapper}>
                   {isPro ? (
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onPress={() => setGroupingDrawerVisible(true)}
+                      testID="e2e.activities.toolbar.grouping"
+                      style={appliedGroupingCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                      accessibilityLabel={
+                        appliedGroupingCount > 0
+                          ? `Grouping: ${getActivityGroupingLabel(activeGrouping)}`
+                          : 'Group to-dos'
+                      }
+                    >
+                      <HStack alignItems="center" space="xs">
+                        <Icon
+                          name="layers"
+                          size={14}
+                          color={appliedGroupingCount > 0 ? colors.primaryForeground : colors.textPrimary}
+                        />
+                        {appliedGroupingCount > 0 ? (
+                          <Text style={styles.toolbarCountButtonActiveText}>1</Text>
+                        ) : null}
+                      </HStack>
+                    </Button>
+                  ) : (
+                    <Pressable
+                      testID="e2e.activities.toolbar.grouping"
+                      accessibilityRole="button"
+                      accessibilityLabel="Group to-dos (Pro)"
+                      onPress={() =>
+                        openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
+                      }
+                    >
+                      <View style={styles.proLockedButton}>
+                        <Button
+                          variant="outline"
+                          size="small"
+                          pointerEvents="none"
+                          accessible={false}
+                        >
+                          <Icon name="layers" size={14} color={colors.textPrimary} />
+                        </Button>
+                        <View style={styles.proLockedBadge}>
+                          <Icon name="lock" size={10} color={colors.textSecondary} />
+                        </View>
+                      </View>
+                    </Pressable>
+                  )}
+                </View>
+
+                <View style={styles.toolbarButtonWrapper}>
+                  {isPro ? (
                     <>
                         <Button
                           ref={sortButtonRef}
@@ -2924,6 +3065,69 @@ export function ActivitiesScreen() {
           extraBottomPadding={scrollExtraBottomPadding}
           isExpanded={isKanbanExpanded}
           onExpandedChange={setIsKanbanExpanded}
+        />
+      ) : groupingApplied ? (
+        <CanvasFlatListWithRef
+          style={styles.scroll}
+          onLayout={handleInventoryListLayout}
+          onContentSizeChange={handleInventoryContentSizeChange}
+          onScroll={handleInventoryScroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            styles.groupedListContent,
+            groupedActiveSections.length === 0 ? { flexGrow: 1 } : null,
+          ]}
+          extraBottomPadding={scrollExtraBottomPadding}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={activitiesGuideHost.scrollEnabled}
+          automaticallyAdjustKeyboardInsets={false}
+          keyboardShouldPersistTaps="handled"
+          data={groupedActiveSections}
+          keyExtractor={(group) => group.key}
+          renderItem={({ item: group }) => (
+            <GroupedActivitySection
+              groupKey={group.key}
+              label={group.label}
+              activities={group.activities}
+              collapsed={collapsedGroupKeys.has(group.key)}
+              goalTitleById={goalTitleById}
+              onToggleCollapsed={handleToggleGroupCollapsed}
+              onToggleComplete={handleToggleComplete}
+              onTogglePriority={handleTogglePriorityOne}
+              onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+              onDeleteActivity={(activity) => handleDeleteActivity(activity)}
+              isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+              sessionCreatedIds={sessionCreatedIdsForGhostContext}
+              filterGroups={filterGroups}
+              activeView={activeView}
+            />
+          )}
+          ListHeaderComponent={activityListHeader}
+          ListEmptyComponent={
+            recommendedPriorityActivities.length > 0 && groupedActiveSections.length === 0
+              ? null
+              : renderDomainEmptyState()
+          }
+          ListFooterComponent={
+            completedActivities.length > 0 ? (
+              <View style={{ marginTop: groupedActiveSections.length > 0 ? spacing.xl : 0 }}>
+                <CompletedActivitySection
+                  activities={completedActivities}
+                  goalTitleById={goalTitleById}
+                  onToggleComplete={handleToggleComplete}
+                  onTogglePriority={handleTogglePriorityOne}
+                  onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
+                  onDeleteActivity={(activity) => handleDeleteActivity(activity)}
+                  isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+                  sessionCreatedIds={sessionCreatedIdsForGhostContext}
+                  filterGroups={filterGroups}
+                  activeView={activeView}
+                />
+              </View>
+            ) : (
+              <View />
+            )
+          }
         />
       ) : isManualOrderEffective ? (
         <DraggableList
@@ -3290,6 +3494,12 @@ export function ActivitiesScreen() {
         groupLogic={activeView?.filterGroupLogic ?? 'or'}
         onApply={handleUpdateFilters}
       />
+      <GroupingDrawer
+        visible={groupingDrawerVisible}
+        onClose={() => setGroupingDrawerVisible(false)}
+        grouping={activeGrouping}
+        onApply={handleUpdateGrouping}
+      />
       <SortDrawer
         visible={sortDrawerVisible}
         onClose={() => setSortDrawerVisible(false)}
@@ -3463,21 +3673,66 @@ export function ActivitiesScreen() {
                 alignItems="center"
                 justifyContent="space-between"
               >
-                <Text style={styles.viewEditorToggleLabel}>Recommended</Text>
+                <HStack alignItems="center" space="xs">
+                  <Text
+                    style={[
+                      styles.viewEditorToggleLabel,
+                      recommendedDisabledReason ? styles.viewEditorToggleLabelDisabled : null,
+                    ]}
+                  >
+                    Recommended
+                  </Text>
+                  {recommendedDisabledReason ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={recommendedDisabledReason.title}
+                          hitSlop={8}
+                          style={({ pressed }) => [
+                            styles.viewEditorToggleInfoButton,
+                            pressed ? styles.viewEditorToggleInfoButtonPressed : null,
+                          ]}
+                        >
+                          <Icon name="info" size={13} color={colors.formLabel} />
+                        </Pressable>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        side="bottom"
+                        sideOffset={6}
+                        align="start"
+                        style={styles.viewEditorToggleInfoPopover}
+                      >
+                        <Text style={styles.viewEditorToggleInfoTitle}>
+                          {recommendedDisabledReason.title}
+                        </Text>
+                        <Text style={styles.viewEditorToggleInfoBody}>
+                          {recommendedDisabledReason.body}
+                        </Text>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                </HStack>
                 <Pressable
                   accessibilityRole="switch"
                   accessibilityLabel="Toggle Recommended section"
-                  accessibilityState={{ checked: showRecommended }}
+                  accessibilityState={{
+                    checked: showRecommended,
+                    disabled: Boolean(recommendedDisabledReason),
+                  }}
+                  disabled={Boolean(recommendedDisabledReason)}
                   onPress={() => handleUpdateShowRecommended(!showRecommended)}
                   style={[
                     styles.viewEditorToggleTrack,
                     showRecommended && styles.viewEditorToggleTrackOn,
+                    recommendedDisabledReason ? styles.viewEditorToggleTrackDisabled : null,
                   ]}
                 >
                   <View
                     style={[
                       styles.viewEditorToggleThumb,
                       showRecommended && styles.viewEditorToggleThumbOn,
+                      recommendedDisabledReason ? styles.viewEditorToggleThumbDisabled : null,
                     ]}
                   />
                 </Pressable>

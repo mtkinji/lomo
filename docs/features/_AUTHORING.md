@@ -33,7 +33,8 @@ Field meanings:
 - `audiences` references ids from `docs/personas/`.
 - `personas` references named representative personas from `docs/personas/_index.md`.
 - `hero_jtbd` is the main audience-level job for the folder.
-- `job_flow` references `docs/job-flows/` when a matching flow exists for the audience and hero JTBD.
+- `job_flow` references the primary `docs/job-flows/` flow when a matching flow exists for the audience and hero JTBD.
+- `job_flows` is optional. Use it when a feature folder truthfully serves multiple representative-persona flows under the same hero JTBD; include the primary `job_flow` id as well as the additional flow ids.
 - `serves` lists the supporting or feature-level JTBDs the folder realizes.
 - `briefs` lists `docs/feature-briefs/<slug>.md` files that explain how the folder got here.
 - `status` is one of `draft`, `shipping`, `shipped`, or `sunset`.
