@@ -51,7 +51,17 @@ describe('RecommendedActivitiesSection', () => {
           estimateMinutes: 90,
         }),
         score: 100,
+        scoreComponents: {
+          urgency: 100,
+          importance: 0,
+          readiness: 0,
+          effortShape: 0,
+          contextFit: 0,
+          confidence: 0,
+        },
         reasonCodes: ['due_today'],
+        contextConfidence: 'none',
+        contextLabel: null,
       },
     ];
 

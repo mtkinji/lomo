@@ -10,10 +10,25 @@ const DEFAULT_RECOMMENDED_LIMIT = 3;
 const RANK_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const RANK_BASE = RANK_ALPHABET.length;
 
+export type RecommendationSurface = 'mobile' | 'desktop';
+export type RecommendationContextConfidence = 'none' | 'low' | 'medium' | 'high';
+
+export type RecommendationScoreComponents = {
+  urgency: number;
+  importance: number;
+  readiness: number;
+  effortShape: number;
+  contextFit: number;
+  confidence: number;
+};
+
 export type RankedActivity = {
   activity: Activity;
   score: number;
+  scoreComponents: RecommendationScoreComponents;
   reasonCodes: ActivityPriorityReasonCode[];
+  contextConfidence: RecommendationContextConfidence;
+  contextLabel: string | null;
 };
 
 export type InferredActivityPriorityMetadata = {
@@ -38,6 +53,9 @@ const REASON_LABELS: Partial<Record<ActivityPriorityReasonCode, string>> = {
   goal_priority: 'Important goal',
   started: 'Already started',
   has_steps: 'Has steps',
+  context_errands: 'Errand-ready',
+  context_location: 'Place-based',
+  context_surface: 'Good for this device',
   recently_updated: 'Recently updated',
   scheduled_later: 'Scheduled later',
   later: 'Later',
@@ -54,6 +72,9 @@ const REASON_PRIORITY: ActivityPriorityReasonCode[] = [
   'goal_priority',
   'started',
   'has_steps',
+  'context_errands',
+  'context_location',
+  'context_surface',
   'recently_updated',
   'scheduled_later',
   'waiting',
@@ -138,91 +159,251 @@ function addReason(reasons: ActivityPriorityReasonCode[], reason: ActivityPriori
   if (!reasons.includes(reason)) reasons.push(reason);
 }
 
+function emptyScoreComponents(): RecommendationScoreComponents {
+  return {
+    urgency: 0,
+    importance: 0,
+    readiness: 0,
+    effortShape: 0,
+    contextFit: 0,
+    confidence: 0,
+  };
+}
+
+function sumScoreComponents(components: RecommendationScoreComponents): number {
+  return (
+    components.urgency +
+    components.importance +
+    components.readiness +
+    components.effortShape +
+    components.contextFit +
+    components.confidence
+  );
+}
+
+function normalizeSearchText(value: string | null | undefined): string {
+  return (value ?? '').toLowerCase();
+}
+
+function hasKeyword(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(text);
+  });
+}
+
+function getContextFit(params: {
+  activity: Activity;
+  surface: RecommendationSurface;
+  baseScore: number;
+}): {
+  score: number;
+  confidenceScore: number;
+  confidence: RecommendationContextConfidence;
+  label: string | null;
+  reasons: ActivityPriorityReasonCode[];
+} {
+  const { activity, surface, baseScore } = params;
+  if (baseScore <= 0) {
+    return { score: 0, confidenceScore: 0, confidence: 'none', label: null, reasons: [] };
+  }
+
+  const tags = (activity.tags ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean);
+  const searchable = normalizeSearchText(
+    [activity.title, activity.notes, activity.location?.label, ...tags].filter(Boolean).join(' '),
+  );
+  const reasons: ActivityPriorityReasonCode[] = [];
+  let score = 0;
+  let confidenceScore = 0;
+  let confidence: RecommendationContextConfidence = 'none';
+  let label: string | null = null;
+
+  const hasTag = (values: string[]) => tags.some((tag) => values.includes(tag));
+
+  if (
+    activity.type === 'shopping_list' ||
+    hasTag(['errand', 'errands', 'shopping', 'grocery', 'groceries', 'pickup', 'dropoff', 'pharmacy', 'store']) ||
+    hasTag(['pick up', 'drop off'])
+  ) {
+    score += 8;
+    confidenceScore += 1;
+    confidence = 'low';
+    addReason(reasons, 'context_errands');
+  }
+
+  if (activity.location) {
+    score += 6;
+    confidenceScore += 1;
+    confidence = confidence === 'none' ? 'low' : confidence;
+    addReason(reasons, 'context_location');
+  }
+
+  if (
+    surface === 'desktop' &&
+    (hasTag(['computer', 'desktop', 'laptop', 'online', 'admin', 'browser', 'spreadsheet', 'writing']) ||
+      hasKeyword(searchable, [
+        'computer',
+        'desktop',
+        'laptop',
+        'online',
+        'browser',
+        'spreadsheet',
+        'document',
+        'docs',
+        'email',
+        'write',
+        'draft',
+        'admin',
+        'portal',
+        'website',
+        'research',
+        'file',
+        'form',
+        'registration',
+      ]))
+  ) {
+    score += 18;
+    confidenceScore += 4;
+    confidence = 'high';
+    label = 'Good at your computer';
+    addReason(reasons, 'context_surface');
+  }
+
+  if (confidence !== 'high' && score >= 14 && (activity.scheduledDate || activity.reminderAt)) {
+    confidence = 'medium';
+  }
+
+  return {
+    score: Math.min(score, 24),
+    confidenceScore: Math.min(confidenceScore, 6),
+    confidence,
+    label: confidence === 'high' ? label : null,
+    reasons,
+  };
+}
+
 function scoreActivity(params: {
   activity: Activity;
   goal: Goal | undefined;
   now: Date;
+  surface: RecommendationSurface;
 }): RankedActivity {
-  const { activity, goal, now } = params;
+  const { activity, goal, now, surface } = params;
   const reasons: ActivityPriorityReasonCode[] = [];
-  let score = 0;
+  const scoreComponents = emptyScoreComponents();
   const state = getActivityPriorityState(activity);
 
   if (state !== 'active') {
     addReason(reasons, state);
-    return { activity, score: -1000, reasonCodes: reasons };
+    return {
+      activity,
+      score: -1000,
+      scoreComponents,
+      reasonCodes: reasons,
+      contextConfidence: 'none',
+      contextLabel: null,
+    };
   }
 
   if (CLOSED_STATUSES.has(activity.status)) {
-    return { activity, score: -1000, reasonCodes: reasons };
+    return {
+      activity,
+      score: -1000,
+      scoreComponents,
+      reasonCodes: reasons,
+      contextConfidence: 'none',
+      contextLabel: null,
+    };
   }
 
   if (activity.priority) {
-    score += activity.priority === 1 ? 100 : activity.priority === 2 ? 60 : 30;
+    scoreComponents.importance += activity.priority === 1 ? 100 : activity.priority === 2 ? 60 : 30;
     addReason(reasons, 'explicit_priority');
   }
 
   if (goal?.priority) {
-    score += goal.priority === 1 ? 80 : goal.priority === 2 ? 45 : 20;
+    scoreComponents.importance += goal.priority === 1 ? 80 : goal.priority === 2 ? 45 : 20;
     addReason(reasons, 'goal_priority');
   }
 
   const scheduledDays = daysUntil(activity.scheduledDate ?? activity.scheduledAt ?? null, now);
   if (scheduledDays !== null) {
     if (scheduledDays <= 0) {
-      score += 70;
+      scoreComponents.urgency += 70;
       addReason(reasons, 'due_today');
     } else if (scheduledDays <= 3) {
-      score += 45;
+      scoreComponents.urgency += 45;
       addReason(reasons, 'due_soon');
     } else if (scheduledDays > 3) {
-      score -= Math.min(20, scheduledDays);
+      scoreComponents.readiness -= Math.min(20, scheduledDays);
       addReason(reasons, 'scheduled_later');
     }
   }
 
   const reminderDays = daysUntil(activity.reminderAt ?? null, now);
   if (reminderDays !== null && reminderDays <= 3) {
-    score += reminderDays <= 0 ? 55 : 35;
+    scoreComponents.urgency += reminderDays <= 0 ? 55 : 35;
     addReason(reasons, 'reminder_soon');
   }
 
   if (activity.startedAt) {
-    score += 25;
+    scoreComponents.readiness += 25;
     addReason(reasons, 'started');
   }
 
   if ((activity.steps ?? []).length > 0) {
-    score += 10;
+    scoreComponents.effortShape += 10;
     addReason(reasons, 'has_steps');
   }
 
   if (!activity.goalId) {
-    score -= 8;
+    scoreComponents.readiness -= 8;
     addReason(reasons, 'unanchored');
   }
 
   const recent = recencyScore(activity, now);
   if (recent > 0) {
-    score += recent;
+    scoreComponents.effortShape += recent;
     addReason(reasons, 'recently_updated');
   }
 
-  return { activity, score, reasonCodes: reasons };
+  const baseScore =
+    scoreComponents.urgency +
+    scoreComponents.importance +
+    scoreComponents.readiness +
+    scoreComponents.effortShape;
+  const contextFit = getContextFit({ activity, surface, baseScore });
+  if (contextFit.score > 0) {
+    scoreComponents.contextFit += contextFit.score;
+    scoreComponents.confidence += contextFit.confidenceScore;
+    contextFit.reasons.forEach((reason) => addReason(reasons, reason));
+  }
+
+  return {
+    activity,
+    score: sumScoreComponents(scoreComponents),
+    scoreComponents,
+    reasonCodes: reasons,
+    contextConfidence: contextFit.confidence,
+    contextLabel: contextFit.label,
+  };
 }
 
 export function rankActivitiesBySmartOrder(params: {
   activities: Activity[];
   goals: Goal[];
   now: Date;
+  surface?: RecommendationSurface;
 }): RankedActivity[] {
   const goalById = toGoalById(params.goals);
+  const surface = params.surface ?? 'mobile';
   return params.activities
     .map((activity) =>
       scoreActivity({
         activity,
         goal: activity.goalId ? goalById.get(activity.goalId) : undefined,
         now: params.now,
+        surface,
       }),
     )
     .sort((a, b) => {
@@ -241,6 +422,7 @@ export function getRecommendedPriorityActivities(params: {
   goals: Goal[];
   now: Date;
   limit?: number;
+  surface?: RecommendationSurface;
 }): RankedActivity[] {
   const limit = params.limit ?? DEFAULT_RECOMMENDED_LIMIT;
   return rankActivitiesBySmartOrder(params)

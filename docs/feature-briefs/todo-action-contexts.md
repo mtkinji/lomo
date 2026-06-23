@@ -18,6 +18,20 @@ last_updated: 2026-06-23
 
 A customer responding to recent organization prototypes said she wants to know what tasks fit the mode she is in: away from home, leaving the house, or sitting at a computer. This feedback does not invalidate the grouping work on the current branch. Grouping remains a good presentation feature for scanning a visible list. The new signal is that Kwilt also needs a context-of-action layer that helps the user identify the next thing to do with the least friction, whether that happens inside the app or through another surface.
 
+## P1A implementation slice
+
+P1A is intentionally smaller than the full layered system described below. It does not add a new surface. It makes the existing Activities `Recommended` section smarter by extending the existing deterministic `getRecommendedPriorityActivities` scoring path into a richer next-action model.
+
+For P1A:
+
+- Preserve the existing `Recommended` show/hide rules: list layout only, no filters, no grouping, and manual/default sort behavior from the current Activities screen.
+- Use only existing evidence: priority/actionability state, schedule/reminder timing, recency, tags, Activity type, title/notes cues, current surface when available, and explicit existing location metadata when it is already attached to the Activity.
+- Separate scoring into urgency, importance, readiness, effort/shape, context fit, and confidence. Context fit can help rank already-actionable recommendations, but it must stay bounded and should not create recommendations from low-confidence evidence alone.
+- Keep context chips, context grouping, widgets, contextual notifications, saved places, and new geolocation persistence out of scope.
+- Leave Location Triggers and Location Offers for P1B audit/polish. P1A may respect existing Activity location metadata but must not request permission, infer saved places, or create a place-memory system.
+
+P1A succeeds if Recommended feels a little more aware of practical action contexts while preserving the predictable default Activities experience when confidence is low.
+
 ## Target audience
 
 Aspirational family organizers need Kwilt to help ordinary personal and household to-dos become doable without setup work. Context matters for this audience because real life is mode-based: errands, computer work, calls, home tasks, and waiting-on-others work become actionable at different times, and the best help may not require opening a list.
@@ -119,7 +133,7 @@ The current grouping branch should remain valid:
 
 V1 should not ship the whole system as visible UI. A reasonable sequence:
 
-1. Start with contextual Recommended for `Away/Errands` on mobile and computer-ready recommendations in Kwilt Desktop, powered by existing signals.
+1. Start with contextual Recommended for `Away/Errands` on mobile, using existing shopping-list, errand tag, and already-attached Activity location signals. Treat any Kwilt Desktop `At computer` expression as a separate implementation after the desktop surface has its own concrete signal.
 2. Add a lightweight "not now / not here" correction path.
 3. Add saved-place suggestions only after repeated evidence, for example grocery/shopping tasks at the same location, and require user confirmation.
 4. Add inspect-more context views after the next-action surface has credible recommendations.
