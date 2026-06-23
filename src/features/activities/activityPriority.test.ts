@@ -103,6 +103,125 @@ describe('activity priority model', () => {
     ]);
   });
 
+  it('keeps urgent due work ahead of vague contextual cues', () => {
+    const ranked = rankActivitiesBySmartOrder({
+      activities: [
+        activity({
+          id: 'vague-errand',
+          title: 'Buy oat milk sometime',
+          type: 'shopping_list',
+          tags: ['errands'],
+          priority: 3,
+          goalId: 'goal-1',
+        }),
+        activity({
+          id: 'due-today',
+          title: 'Send school form',
+          scheduledDate: '2026-06-22',
+          priority: 3,
+          goalId: 'goal-1',
+        }),
+      ],
+      goals: [goal()],
+      now: NOW,
+    });
+
+    expect(ranked.map((row) => row.activity.id)).toEqual(['due-today', 'vague-errand']);
+    expect(ranked[0]?.scoreComponents.urgency).toBeGreaterThan(ranked[1]?.scoreComponents.contextFit ?? 0);
+  });
+
+  it('does not let place metadata always beat stronger actionability', () => {
+    const ranked = rankActivitiesBySmartOrder({
+      activities: [
+        activity({
+          id: 'place-based',
+          title: 'Pick up library books',
+          priority: 3,
+          goalId: 'goal-1',
+          location: {
+            label: 'Library',
+            latitude: 45,
+            longitude: -122,
+            trigger: 'arrive',
+          },
+        }),
+        activity({
+          id: 'already-started',
+          title: 'Finish health form',
+          priority: 2,
+          goalId: 'goal-1',
+          startedAt: '2026-06-22T10:00:00.000Z',
+        }),
+      ],
+      goals: [goal()],
+      now: NOW,
+    });
+
+    expect(ranked.map((row) => row.activity.id)).toEqual(['already-started', 'place-based']);
+    expect(ranked[1]?.reasonCodes).toContain('context_location');
+  });
+
+  it('lets current surface evidence affect ranking when available', () => {
+    const ranked = rankActivitiesBySmartOrder({
+      activities: [
+        activity({
+          id: 'generic-priority',
+          title: 'Organize entryway',
+          priority: 3,
+          goalId: 'goal-1',
+        }),
+        activity({
+          id: 'desktop-fit',
+          title: 'Draft camp registration email',
+          priority: 3,
+          goalId: 'goal-1',
+        }),
+      ],
+      goals: [goal()],
+      now: NOW,
+      surface: 'desktop',
+    });
+
+    expect(ranked.map((row) => row.activity.id)).toEqual(['desktop-fit', 'generic-priority']);
+    expect(ranked[0]?.reasonCodes).toContain('context_surface');
+    expect(ranked[0]?.scoreComponents.contextFit).toBeGreaterThan(0);
+  });
+
+  it('does not recommend stale unanchored work from keyword cues alone', () => {
+    const recommendations = getRecommendedPriorityActivities({
+      activities: [
+        activity({
+          id: 'keyword-only',
+          title: 'Draft grocery reminder email',
+          type: 'shopping_list',
+          tags: ['errands'],
+          updatedAt: '2026-05-01T12:00:00.000Z',
+        }),
+      ],
+      goals: [],
+      now: NOW,
+    });
+
+    expect(recommendations).toEqual([]);
+  });
+
+  it('does not produce contextual framing for low-confidence recommendations', () => {
+    const recommendations = getRecommendedPriorityActivities({
+      activities: [
+        activity({
+          id: 'ordinary',
+          priority: 3,
+          goalId: 'goal-1',
+        }),
+      ],
+      goals: [goal()],
+      now: NOW,
+    });
+
+    expect(recommendations[0]?.contextConfidence).toBe('none');
+    expect(recommendations[0]?.contextLabel).toBeNull();
+  });
+
   it('caps recommendations at the requested limit', () => {
     const recommendations = getRecommendedPriorityActivities({
       activities: [1, 2, 3, 4, 5].map((n) =>
