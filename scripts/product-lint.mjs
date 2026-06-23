@@ -280,11 +280,23 @@ function validateFeatureManifest(file, folderName, frontMatter, jtbdById, audien
       validateJobFlowAgreement(file, frontMatter, flow.frontMatter);
     }
   }
+  for (const id of asArray(frontMatter.job_flows)) {
+    const flow = jobFlows.byId.get(id);
+    if (!flow) {
+      errors.push(`${relPath(file)}: job_flows \`${id}\` does not resolve to docs/job-flows/`);
+    } else {
+      validateJobFlowAgreement(file, frontMatter, flow.frontMatter);
+    }
+  }
   for (const brief of asArray(frontMatter.briefs)) {
     if (!featureBriefs.bySlug.has(brief)) {
       errors.push(`${relPath(file)}: brief \`${brief}\` does not resolve to docs/feature-briefs/${brief}.md`);
     }
   }
+}
+
+function manifestJobFlowIds(frontMatter) {
+  return new Set([frontMatter.job_flow, ...asArray(frontMatter.job_flows)].filter(Boolean));
 }
 
 function validateJobFlowAgreement(file, frontMatter, jobFlowFrontMatter) {
@@ -314,7 +326,14 @@ function validateDrift(featureBriefs, featureBriefRefs) {
         }
       }
       for (const field of ["hero_jtbd", "job_flow"]) {
-        if (record.frontMatter[field] && ref.frontMatter[field] && record.frontMatter[field] !== ref.frontMatter[field]) {
+        if (
+          field === "job_flow" &&
+          record.frontMatter.job_flow &&
+          manifestJobFlowIds(ref.frontMatter).size > 0 &&
+          !manifestJobFlowIds(ref.frontMatter).has(record.frontMatter.job_flow)
+        ) {
+          errors.push(`${relPath(ref.file)}: referenced brief \`${brief}\` has job_flow \`${record.frontMatter.job_flow}\`, but FEATURE.md has \`${ref.frontMatter.job_flow}\``);
+        } else if (field !== "job_flow" && record.frontMatter[field] && ref.frontMatter[field] && record.frontMatter[field] !== ref.frontMatter[field]) {
           errors.push(`${relPath(ref.file)}: referenced brief \`${brief}\` has ${field} \`${record.frontMatter[field]}\`, but FEATURE.md has \`${ref.frontMatter[field]}\``);
         }
       }

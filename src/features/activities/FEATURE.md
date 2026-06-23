@@ -4,6 +4,9 @@ audiences: [audience-burned-out-productivity-power-users, audience-aspirational-
 personas: [Marcus, Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-marcus-move-the-few-things-that-matter
+job_flows:
+  - job-flow-marcus-move-the-few-things-that-matter
+  - job-flow-maya-move-family-life-forward
 serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-carry-intentions-into-action
@@ -21,9 +24,12 @@ briefs:
   - kwilt-text-coach
   - meaningful-first-app-access
   - screen-time-controls-contextual-setup
+  - todo-action-contexts
+  - todo-dependencies
+  - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-05-12
+last_reviewed: 2026-06-23
 ---
 
 # activities
