@@ -1,17 +1,17 @@
-import type { KwiltSupabaseClient } from './client';
-import type { DomainSyncRow, Goal, GoalSummary } from './types';
-import { unwrapDomainData } from './types';
+import type { KwiltSupabaseClient } from "./client";
+import type { DomainSyncRow, Goal, GoalSummary } from "./types";
+import { unwrapDomainData } from "./types";
 
-const GOAL_SELECT = 'id,user_id,data,created_at,updated_at';
+const GOAL_SELECT = "id,user_id,data,created_at,updated_at";
 
 export async function listGoalSummaries(
   supabase: KwiltSupabaseClient,
 ): Promise<GoalSummary[]> {
   const { data, error } = await supabase
-    .from('kwilt_goals')
+    .from("kwilt_goals")
     .select(GOAL_SELECT)
-    .eq('is_deleted', false)
-    .order('updated_at', { ascending: false });
+    .eq("is_deleted", false)
+    .order("updated_at", { ascending: false });
 
   if (error) throw error;
   return ((data ?? []) as DomainSyncRow<Goal>[]).map((row) => {
@@ -21,6 +21,11 @@ export async function listGoalSummaries(
       title: goal.title,
       name: goal.name,
       arcId: goal.arcId ?? null,
+      description: goal.description,
+      targetDate: goal.targetDate ?? null,
+      thumbnailUrl: goal.thumbnailUrl,
+      thumbnailVariant: goal.thumbnailVariant,
+      heroImageMeta: goal.heroImageMeta,
       status: goal.status,
       createdAt: goal.createdAt,
       updatedAt: goal.updatedAt,
@@ -33,9 +38,9 @@ export async function getGoalDetail(
   id: string,
 ): Promise<Goal | null> {
   const { data, error } = await supabase
-    .from('kwilt_goals')
+    .from("kwilt_goals")
     .select(GOAL_SELECT)
-    .eq('id', id)
+    .eq("id", id)
     .maybeSingle();
 
   if (error) throw error;
@@ -49,9 +54,9 @@ export async function updateGoal(
   const updatedAt = new Date().toISOString();
   const next = { ...goal, updatedAt };
   const { error } = await supabase
-    .from('kwilt_goals')
+    .from("kwilt_goals")
     .update({ data: next, updated_at: updatedAt })
-    .eq('id', goal.id);
+    .eq("id", goal.id);
 
   if (error) throw error;
   return next;

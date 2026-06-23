@@ -52,10 +52,22 @@ V1 should support a small deterministic set of groupings:
 
 - `None`: render the current list as one continuous ordered list.
 - `Goal`: group by linked Goal, with a `None` section for Activities without a Goal.
-- `Schedule`: group by practical schedule buckets such as Overdue, Today, Upcoming, Someday/Unscheduled, and Completed when completed Activities are visible.
-- `Status`: group by user-facing states such as Ready, Waiting, Later, Needs review, and Scheduled when those concepts exist in the current model.
+- `Schedule`: group incomplete Activities by practical schedule buckets: Overdue, Today, Upcoming, and None.
+- `Status`: group incomplete Activities by the user-facing status display layer: Active, Needs review, Waiting, Later, and None.
 
 Do not expose grouping by hidden rank keys, internal reason codes, or `Recommended`. Those are infrastructure or computed surfaces, not stable grouping dimensions.
+
+Status grouping requires a small reconciliation layer before it ships. It should not expose the raw `Activity.status` values (`planned`, `in_progress`, `done`, `skipped`, `cancelled`) as section labels. For grouping, `Status` should map from the attention/action state that users can understand:
+
+| Source state | Status group |
+| --- | --- |
+| `priorityState: active` or missing priority state on an incomplete Activity | `Active` |
+| `priorityState: needs_review` | `Needs review` |
+| `priorityState: waiting` | `Waiting` |
+| `priorityState: later` | `Later` |
+| Unknown or corrupt status input | `None` |
+
+Closed Activity statuses (`done`, `skipped`, `cancelled`) do not participate in Status grouping. They remain in the existing completed/closed surface when that surface is visible.
 
 ### Relationship to Smart order, sorting, and Recommended
 
@@ -67,9 +79,9 @@ Grouping and sorting are separate controls:
 - Smart order is the default ordering intelligence, not a grouping.
 - Recommended is a computed surface, not a group.
 
-By default, All to-dos should remain ungrouped Smart order. If the user chooses a grouping while Smart order is active, Kwilt should keep Smart order inside each group. If the user chooses a strict field sort such as due date, last modified, or title, that field sort should order items inside each group.
+By default, All to-dos should remain ungrouped Smart order. If the user chooses a grouping while Smart order is active, Kwilt should keep Smart order inside each group. If the user chooses a strict field sort such as due date, last modified, or title, that field sort should order items inside each group. Sorting must never reorder the group headers themselves; group order is fixed by the selected grouping type.
 
-The Recommended module should hide when the user chooses a strict field sort because the user has asked for a field-ordered list. It may remain above a grouped Smart order list if the current view is still recommendation-led and the grouping does not make the recommendation feel like it is ignoring the user's command.
+The Recommended module should hide when any grouping is applied. It should also hide when filters are applied or when the user chooses a strict field sort, because those controls are explicit requests to reshape the visible list.
 
 ### View config and persistence
 
@@ -86,10 +98,11 @@ type ActivityGroupingField =
 
 type ActivityViewGrouping = {
   field: ActivityGroupingField;
+  collapsedGroupKeys?: string[];
 };
 ```
 
-If the existing view config already has a broader field/config pattern, prefer extending that pattern rather than introducing a parallel model.
+If the existing view config already has a broader field/config pattern, prefer extending that pattern rather than introducing a parallel model. Collapse state should be preserved across sessions at the saved-view level by storing collapsed group keys with the view's grouping config. Default to expanded groups when no collapsed state is stored.
 
 ### Section behavior
 
@@ -97,21 +110,44 @@ Group headers should be quiet and scan-friendly. Empty groups should be omitted.
 
 Any null value for the selected grouping criterion should render under `None`. This applies across groupings: no Goal, no schedule bucket, or no status value should all use the same `None` label. `None` is neutral, not corrective. Capture-first behavior means an Activity without a Goal, schedule, or status is still valid.
 
-Suggested section labels:
+Schedule grouping uses a single schedule date key. Prefer `scheduledAt` when present because it represents a committed start time; otherwise use `scheduledDate`. Do not use `reminderAt` for Schedule grouping in V1. Reminder-only Activities should appear under `None` and can still show reminder metadata on the row.
+
+Schedule buckets:
+
+| Bucket | Rule |
+| --- | --- |
+| `Overdue` | Incomplete Activity whose schedule date key is before today in the user's local timezone |
+| `Today` | Incomplete Activity whose schedule date key is today in the user's local timezone |
+| `Upcoming` | Incomplete Activity whose schedule date key is after today |
+| `None` | Incomplete Activity with no `scheduledAt` or `scheduledDate` |
+
+Do not create a separate `Someday` bucket in V1. It overlaps conceptually with `Upcoming` and `None`, and would ask users to infer too much from a grouping label.
+
+Group labels:
 
 | Grouping | Sections |
 | --- | --- |
 | Goal | Goal title sections, then `None` |
-| Schedule | `Overdue`, `Today`, `Upcoming`, `Someday`, `None`, `Completed` when visible |
-| Status | `Ready`, `Scheduled`, `Waiting`, `Later`, `Needs review`, `None` |
+| Schedule | `Overdue`, `Today`, `Upcoming`, `None` |
+| Status | `Active`, `Needs review`, `Waiting`, `Later`, `None` |
 
-Within each grouping, section ordering should be deterministic and unsurprising. For Goal grouping, use the current Goal display/order convention if one exists; otherwise sort sections by the first Activity position in the current ordered list, then place `None` last unless the current list order clearly surfaces Activities without Goals first.
+Group ordering is fixed by grouping type. V1 should not add a secondary "sort groups" affordance; that would make a simple scan lens feel like a view builder. If group ordering feels wrong in practice, revisit the fixed order before adding user-configurable group sorting.
+
+| Grouping | Group order |
+| --- | --- |
+| Goal | Goal priority ascending (`1`, `2`, `3`, no priority), then Goal title A-Z, then Goal id for stability, then `None` last |
+| Schedule | `Overdue`, `Today`, `Upcoming`, `None` |
+| Status | `Active`, `Needs review`, `Waiting`, `Later`, `None` |
+
+The strong opinion is that grouping should be a lens over the current ordered list, not a second ordering system. Sort choices affect rows inside each group only. Goal grouping uses Goal priority first because that is the clearest existing signal for which Goal deserves attention, then alphabetical order because it is predictable and easy to scan. Schedule and Status use fixed semantic orders.
+
+Completed and closed Activities stay outside grouping. If the view shows completed items, render them in the existing `Completed & closed` section as a flat list. Do not put completed rows into Schedule, Status, or Goal groups, and do not add a `Completed` group inside grouped results.
 
 ### Availability rules
 
 Not every grouping belongs everywhere. The control should hide or disable groupings that do not make sense in the current context.
 
-- Hide `Status` until Ready, Waiting, Later, and Needs review are real list semantics, or ship it with only the statuses that already exist.
+- Hide `Status` until Active, Needs review, Waiting, and Later are real list semantics, or ship it with only the statuses that already exist.
 - Hide completed-only groups unless the current view includes completed Activities.
 - Avoid grouping by Goal in a Goal-scoped detail list unless the product wants sub-grouping later.
 
@@ -121,18 +157,25 @@ If the UI explains unavailable options, the copy should be concrete, for example
 
 Use practical sectioning language: `Grouping`, `None`, `By Goal`, `By Schedule`, `By Status`. Avoid productivity-app or dashboard language such as "optimize," "health," "rank health," "inbox zero," or "clean up your backlog."
 
-Use `Status` rather than `Action state` in user-facing controls. There is no compelling user-facing reason to expose `Action state`: it is useful as an internal modeling distinction from schedule state, but `Status` is shorter, familiar, and appropriate for a grouping control. If the implementation still uses an internal `actionState` field, map it to `Status` in labels, analytics names intended for product review, and help text.
+Use `Status` rather than `Action state` in user-facing controls. There is no compelling user-facing reason to expose `Action state`: it is useful as an internal modeling distinction from schedule state, but `Status` is shorter, familiar, and appropriate for a grouping control. If the implementation uses an internal status-like source field, map it to `Status` in labels, analytics names intended for product review, and help text.
 
 ### Acceptance criteria
 
 - Given the user selects `Grouping: None`, the Activities list renders as one continuous ordered list with no group headers.
 - Given the user selects any other grouping, each visible group has a label, record count, and expand/collapse control.
 - Given an Activity has a null value for the selected grouping field, it appears in a group labeled `None`.
-- Given a group is collapsed or expanded, the transition is animated and does not reorder or mutate Activities.
+- Given a group is collapsed or expanded, the chevron/toggle rotates and the panel open/close transition is animated without reordering or mutating Activities.
 - Given a platform reduced-motion setting is available and enabled, the expand/collapse transition avoids unnecessary motion.
 - Given the user selects `Grouping: Status`, the UI labels the grouping as `Status`; no user-facing surface should say `Action state`.
-- Given the implementation uses an internal `actionState` field, it maps that field to the user-facing `Status` grouping label.
+- Given the implementation uses an internal status-like source field, it maps that field to the user-facing `Status` grouping label.
 - Given a group has zero records, that group is not rendered.
+- Given the user applies any grouping other than `None`, the Recommended module is hidden.
+- Given the user applies any filter, the Recommended module is hidden.
+- Given the current view shows completed items, completed/closed Activities render in the existing flat completed section rather than inside groups.
+- Given the user collapses groups in a saved view, the collapsed group keys are restored after app restart.
+- Given the user groups by Schedule, `scheduledAt`/`scheduledDate` determine the group and reminder-only Activities appear under `None`.
+- Given the user groups by Goal, group headers are ordered by Goal priority, then Goal title, then Goal id, with `None` last.
+- Given the user applies a sort while grouping is active, that sort orders Activities inside each group and does not change group header order.
 
 ### Non-goals
 
@@ -142,6 +185,7 @@ Use `Status` rather than `Action state` in user-facing controls. There is no com
 - Grouping does not make `Recommended` a persisted group.
 - Grouping does not introduce a dashboard or analytics-style summary.
 - Grouping does not require users to create a custom view before using it.
+- Grouping does not add created/updated recency as a group criterion; created and updated remain sort criteria only.
 
 ## Success signal
 
@@ -149,7 +193,5 @@ Qualitatively, users with crowded to-do lists say grouped lists are easier to sc
 
 ## Open questions
 
-- Which existing view config type should own `grouping`?
-- Do system views currently persist local sort/filter state, and should grouping follow that behavior?
-- What are the exact current user-facing names for Activity status and schedule buckets?
+- Which existing view config type should own `grouping` and `collapsedGroupKeys`?
 - Should grouped lists support drag-reorder inside groups, and if so only for Smart order/manual rank?

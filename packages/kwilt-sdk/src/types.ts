@@ -8,13 +8,20 @@ export type DomainSyncRow<TData extends JsonObject> = {
   updated_at: string;
 };
 
-export type ObjectStatus = 'active' | 'paused' | 'archived';
-export type ActivityStatus = 'planned' | 'in_progress' | 'completed' | 'blocked';
-export type ActivityType = 'task' | 'habit' | 'project' | 'checklist' | string;
+export type ObjectStatus = "active" | "paused" | "archived";
+export type ActivityStatus =
+  | "planned"
+  | "in_progress"
+  | "completed"
+  | "blocked";
+export type ActivityType = "task" | "habit" | "project" | "checklist" | string;
 
 export type Arc = JsonObject & {
   id: string;
   name: string;
+  thumbnailUrl?: string;
+  thumbnailVariant?: number | null;
+  heroImageMeta?: JsonObject;
   status?: ObjectStatus;
   createdAt?: string;
   updatedAt?: string;
@@ -25,6 +32,11 @@ export type Goal = JsonObject & {
   title?: string;
   name?: string;
   arcId?: string | null;
+  description?: string;
+  targetDate?: string | null;
+  thumbnailUrl?: string;
+  thumbnailVariant?: number | null;
+  heroImageMeta?: JsonObject;
   status?: ObjectStatus | string;
   createdAt?: string;
   updatedAt?: string;
@@ -56,7 +68,12 @@ export type CheckIn = JsonObject & {
   id: string;
   goalId: string;
   userId?: string;
-  preset?: 'made_progress' | 'struggled_today' | 'need_encouragement' | 'just_checking_in' | null;
+  preset?:
+    | "made_progress"
+    | "struggled_today"
+    | "need_encouragement"
+    | "just_checking_in"
+    | null;
   text?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -64,25 +81,43 @@ export type CheckIn = JsonObject & {
 
 export type ActivitySummary = Pick<
   Activity,
-  | 'id'
-  | 'title'
-  | 'goalId'
-  | 'type'
-  | 'status'
-  | 'scheduledDate'
-  | 'scheduledAt'
-  | 'createdAt'
-  | 'updatedAt'
+  | "id"
+  | "title"
+  | "goalId"
+  | "type"
+  | "status"
+  | "scheduledDate"
+  | "scheduledAt"
+  | "createdAt"
+  | "updatedAt"
 >;
 
 export type GoalSummary = Pick<
   Goal,
-  'id' | 'title' | 'name' | 'arcId' | 'status' | 'createdAt' | 'updatedAt'
+  | "id"
+  | "title"
+  | "name"
+  | "arcId"
+  | "description"
+  | "targetDate"
+  | "thumbnailUrl"
+  | "thumbnailVariant"
+  | "heroImageMeta"
+  | "status"
+  | "createdAt"
+  | "updatedAt"
 >;
 
 export type ArcSummary = Pick<
   Arc,
-  'id' | 'name' | 'status' | 'createdAt' | 'updatedAt'
+  | "id"
+  | "name"
+  | "thumbnailUrl"
+  | "thumbnailVariant"
+  | "heroImageMeta"
+  | "status"
+  | "createdAt"
+  | "updatedAt"
 >;
 
 export function unwrapDomainData<TData extends JsonObject>(

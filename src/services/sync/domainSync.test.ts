@@ -279,6 +279,37 @@ describe('domainSync account transitions', () => {
     expect(state.arcs.map((a) => a.id)).toEqual(['cached-arc']);
   });
 
+  it('startDomainSync rehydrates an already-started idle domain store', async () => {
+    const cachedArc = arc({ id: 'cached-arc' });
+    const cachedGoal = goal({ id: 'cached-goal', arcId: 'cached-arc' });
+    await seedDomainSnapshot(getDomainStorageKey('user-a'), [cachedArc], [cachedGoal], []);
+
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' } as any);
+    await waitForStore(() => useAppStore.getState().goals.length === 1);
+
+    useAppStore.setState({
+      arcs: [],
+      goals: [],
+      activities: [],
+      domainHydrated: false,
+      domainSyncStatus: 'idle',
+      domainSyncError: null,
+      domainSyncRemoteCounts: null,
+      domainSyncLastSuccessfulPullAt: null,
+    } as any);
+
+    startDomainSync();
+
+    await waitForStore(() => useAppStore.getState().goals.length === 1);
+
+    const state = useAppStore.getState();
+    expect(state.domainHydrated).toBe(true);
+    expect(state.domainSyncStatus).toBe('ready');
+    expect(state.arcs.map((a) => a.id)).toEqual(['cached-arc']);
+    expect(state.goals.map((g) => g.id)).toEqual(['cached-goal']);
+  });
+
   it('retry succeeds after transient first-pull failures', async () => {
     for (let i = 0; i < 4; i += 1) {
       queueRemote({ errors: { kwilt_activities: { message: 'temporary outage' } } });

@@ -4,7 +4,7 @@ Axis of variation: explicit vs. adaptive grouping; per-view persistence vs. sess
 
 ## Option A: Simple Grouping Control In The Sort Drawer
 
-Add a `Grouping` row to the existing sort/view controls. The user can choose `None`, `Goal`, `Schedule`, `Status`, or `Created/updated recency`, with only valid options shown for the current list. Smart order remains the default sort inside each group unless the user also selects a field sort.
+Add a `Grouping` row to the existing sort/view controls. The user can choose `None`, `Goal`, `Schedule`, or `Status`, with only valid options shown for the current list. Smart order remains the default sort inside each group unless the user also selects a field sort. Created/updated recency remains a sort option, not a grouping option.
 
 - Audience/persona fit: Strong for Maya if labels are simple and defaults remain calm.
 - Design-challenge answer: Gives her a visible sectioning lens without asking her to build a full custom view.

@@ -1,5 +1,6 @@
 import type { Activity, Goal } from '../../domain/types';
 import {
+  canShowRecommendedModule,
   createRankKeyBetween,
   getActivityPriorityReasonLabel,
   getActivityPriorityState,
@@ -120,6 +121,49 @@ describe('activity priority model', () => {
       'Due today',
     );
     expect(getActivityPriorityReasonLabel([])).toBeNull();
+  });
+
+  it('keeps Recommended eligibility tied to the view toggle and layout', () => {
+    expect(
+      canShowRecommendedModule({
+        showRecommended: true,
+        isKanbanLayout: false,
+        hasFilters: false,
+        hasGrouping: false,
+      }),
+    ).toBe(true);
+    expect(
+      canShowRecommendedModule({
+        showRecommended: false,
+        isKanbanLayout: false,
+        hasFilters: false,
+        hasGrouping: false,
+      }),
+    ).toBe(false);
+    expect(
+      canShowRecommendedModule({
+        showRecommended: true,
+        isKanbanLayout: true,
+        hasFilters: false,
+        hasGrouping: false,
+      }),
+    ).toBe(false);
+    expect(
+      canShowRecommendedModule({
+        showRecommended: true,
+        isKanbanLayout: false,
+        hasFilters: true,
+        hasGrouping: false,
+      }),
+    ).toBe(false);
+    expect(
+      canShowRecommendedModule({
+        showRecommended: true,
+        isKanbanLayout: false,
+        hasFilters: false,
+        hasGrouping: true,
+      }),
+    ).toBe(false);
   });
 
   it('creates sortable rank keys at the beginning, middle, and end', () => {

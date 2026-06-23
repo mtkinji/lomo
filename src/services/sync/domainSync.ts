@@ -479,8 +479,36 @@ function disable(): void {
   resetPrevIds();
 }
 
+function shouldEnableForCurrentStore(userId: string): boolean {
+  const state = useAppStore.getState();
+  if (activeUser?.userId !== userId) return true;
+  return (
+    state.domainHydrated !== true &&
+    (state.domainSyncStatus === 'idle' || state.domainSyncStatus === 'loading-local')
+  );
+}
+
+function ensureEnabledForCurrentAuth(): void {
+  const userId = useAppStore.getState().authIdentity?.userId?.trim() ?? '';
+  if (!userId || !shouldEnableForCurrentStore(userId)) return;
+
+  void (async () => {
+    try {
+      await enableForUser({ userId });
+    } catch (e) {
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn('[domainSync] enableForUser failed', e);
+      }
+    }
+  })();
+}
+
 export function startDomainSync(): void {
-  if (started) return;
+  if (started) {
+    ensureEnabledForCurrentAuth();
+    return;
+  }
   started = true;
 
   // Auth identity lives in the store (kept in sync by App.tsx).
@@ -507,6 +535,8 @@ export function startDomainSync(): void {
     },
     { fireImmediately: true } as any,
   );
+
+  ensureEnabledForCurrentAuth();
 }
 
 export function stopDomainSync(): void {
