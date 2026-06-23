@@ -41,6 +41,7 @@ The OAuth surface is submission-oriented:
 
 The function dispatches owner-scoped read tools:
 
+- `get_current_account`
 - `list_arcs`
 - `get_arc`
 - `list_goals`

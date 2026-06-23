@@ -152,6 +152,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
         tags: ['reminders', 'nudges', 'alerts'],
       },
       {
+        id: 'screen_time_protection',
+        title: 'Screen Time Controls',
+        description: 'Choose when selected apps are blocked.',
+        icon: 'shield',
+        route: 'SettingsScreenTimeProtection',
+        tags: ['focus', 'screen time', 'distractions'],
+      },
+      {
         id: 'weekly_chapters',
         title: 'Weekly Chapters',
         description: 'Control generation, email delivery, and Apple Health summaries.',

@@ -1,4 +1,29 @@
-import type { Activity, ActivityStep } from './types';
+import type {
+  Activity,
+  ActivityPriorityRankSource,
+  ActivityPriorityReasonCode,
+  ActivityPriorityState,
+  ActivityStep,
+} from './types';
+
+const PRIORITY_STATES = new Set<ActivityPriorityState>(['active', 'later', 'waiting', 'needs_review']);
+const PRIORITY_RANK_SOURCES = new Set<ActivityPriorityRankSource>(['inferred', 'auto', 'manual']);
+const PRIORITY_REASON_CODES = new Set<ActivityPriorityReasonCode>([
+  'explicit_priority',
+  'goal_priority',
+  'due_today',
+  'due_soon',
+  'reminder_soon',
+  'scheduled_later',
+  'recently_updated',
+  'started',
+  'has_steps',
+  'unanchored',
+  'later',
+  'waiting',
+  'needs_review',
+  'moved_by_user',
+]);
 
 function hashString(input: string): string {
   // Small deterministic hash (djb2-ish) to stabilize generated IDs across devices/sessions.
@@ -71,12 +96,37 @@ export function normalizeActivitySteps(params: {
 export function normalizeActivity(params: { activity: Activity; nowIso: string }): Activity {
   const { activity, nowIso } = params;
   const normalized = normalizeActivitySteps({ activityId: activity.id, steps: activity.steps, nowIso });
-  if (!normalized.changed) return activity;
+  const priorityState = PRIORITY_STATES.has((activity as any).priorityState)
+    ? activity.priorityState
+    : undefined;
+  const priorityRankSource = PRIORITY_RANK_SOURCES.has((activity as any).priorityRankSource)
+    ? activity.priorityRankSource
+    : undefined;
+  const priorityReasonCodes = Array.isArray(activity.priorityReasonCodes)
+    ? activity.priorityReasonCodes.filter((code) => PRIORITY_REASON_CODES.has(code))
+    : undefined;
+  const priorityReasonCodesChanged =
+    Array.isArray(activity.priorityReasonCodes) &&
+    (priorityReasonCodes?.length !== activity.priorityReasonCodes.length ||
+      priorityReasonCodes.some((code, index) => code !== activity.priorityReasonCodes?.[index]));
+  const priorityRankKey =
+    typeof activity.priorityRankKey === 'string' || activity.priorityRankKey === null
+      ? activity.priorityRankKey
+      : undefined;
+  const priorityChanged =
+    priorityState !== activity.priorityState ||
+    priorityRankSource !== activity.priorityRankSource ||
+    priorityRankKey !== activity.priorityRankKey ||
+    priorityReasonCodesChanged;
+
+  if (!normalized.changed && !priorityChanged) return activity;
   return {
     ...activity,
     steps: normalized.steps,
+    priorityState,
+    priorityRankKey,
+    priorityRankSource,
+    priorityReasonCodes,
     updatedAt: nowIso,
   };
 }
-
-

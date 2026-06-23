@@ -51,6 +51,7 @@ import { navigateWhenReady } from '../navigation/rootNavigationRef';
 import { loadSystemNudgeLedger } from './notifications/NotificationDeliveryLedger';
 import { NotificationService } from './NotificationService';
 import { getSuggestedNextStep } from './recommendations/nextStep';
+import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from './screenTimeProtection';
 
 function setStoreState(overrides: any = {}) {
   (useAppStore.getState as jest.Mock).mockReturnValue({
@@ -72,6 +73,9 @@ function setStoreState(overrides: any = {}) {
     arcs: [],
     goals: [],
     activities: [],
+    screenTimeProtection: DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+    markScreenTimeSetupNotificationScheduled: jest.fn(),
+    markScreenTimeSetupNotificationOpened: jest.fn(),
     ...overrides,
   });
 }
@@ -284,6 +288,86 @@ describe('NotificationService system-nudge policy', () => {
     expect(navigateWhenReady).toHaveBeenCalledWith('Settings', {
       screen: 'SettingsNotifications',
     });
+  });
+
+  it('schedules a Screen Time setup offer only after real progress on two days', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-06-19T12:00:00.000'));
+    const markScheduled = jest.fn();
+    setStoreState({
+      activities: [
+        {
+          id: 'a1',
+          title: 'First progress',
+          status: 'done',
+          completedAt: '2026-06-17T12:00:00.000Z',
+          steps: [],
+        },
+        {
+          id: 'a2',
+          title: 'Second progress',
+          status: 'planned',
+          steps: [{ id: 's1', title: 'Step', completedAt: '2026-06-18T12:00:00.000Z' }],
+        },
+        {
+          id: 'a3',
+          title: 'Active',
+          status: 'planned',
+          steps: [],
+        },
+      ],
+      markScreenTimeSetupNotificationScheduled: markScheduled,
+    });
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+
+    await NotificationService.scheduleScreenTimeSetupOffer();
+
+    expect(scheduleSpy).toHaveBeenCalled();
+    const arg = scheduleSpy.mock.calls[0]?.[0] as any;
+    expect(arg.content.title).toBe('Do what matters first');
+    expect(arg.content.data).toEqual({
+      type: 'screenTimeSetupOffer',
+      setupIntent: 'meaningful_first_self_control',
+    });
+    expect(markScheduled).toHaveBeenCalled();
+  });
+
+  it('does not schedule a Screen Time setup offer without existing notification authorization', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-06-19T12:00:00.000'));
+    setStoreState({
+      notificationPreferences: {
+        notificationsEnabled: true,
+        osPermissionStatus: 'denied',
+        allowDailyShowUp: true,
+        dailyShowUpTime: '09:00',
+        allowDailyFocus: true,
+        dailyFocusTime: '14:00',
+        allowGoalNudges: true,
+        goalNudgeTime: '16:00',
+        allowActivityReminders: false,
+        allowStreakAndReactivation: true,
+      },
+      activities: [
+        {
+          id: 'a1',
+          title: 'First progress',
+          status: 'done',
+          completedAt: '2026-06-17T12:00:00.000Z',
+          steps: [],
+        },
+        {
+          id: 'a2',
+          title: 'Second progress',
+          status: 'done',
+          completedAt: '2026-06-18T12:00:00.000Z',
+          steps: [],
+        },
+      ],
+    });
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+
+    await NotificationService.scheduleScreenTimeSetupOffer();
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -508,4 +592,3 @@ describe('NotificationService streak-aware copy', () => {
     expect(arg.content.body).toBeTruthy();
   });
 });
-

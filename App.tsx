@@ -55,6 +55,7 @@ import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlight
 import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
 import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
+import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
 import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
@@ -369,6 +370,8 @@ export default function App() {
     startEntitlementsAuthSync();
     // Partner progress alerts for shared goals (checks on foreground).
     startPartnerProgressService();
+    // Keep Meaningful First app shields applied across launches/foreground returns.
+    startScreenTimeProtectionForegroundSync();
   }, []);
 
   useEffect(() => {

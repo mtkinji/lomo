@@ -22,6 +22,7 @@ A small set of Goals (per Arc) feel alive — not stale, not abandoned. Progress
 ## Sub-jobs
 
 - jtbd-carry-intentions-into-action
+- jtbd-put-intention-before-impulse
 
 ## Notes
 

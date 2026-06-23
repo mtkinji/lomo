@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const ALL_TOOLS = [
+  'get_current_account',
   'list_arcs',
   'get_arc',
   'list_goals',
@@ -147,6 +148,10 @@ async function run() {
     const listedArcs = await tool(baseUrl, token, 'list_arcs', { status: 'active', limit: 20 });
     expectIncludes(listedArcs.arcs, (item) => item.id === created.arcId, 'list_arcs did not include created arc');
     console.log('list_arcs ok');
+
+    const currentAccount = await tool(baseUrl, token, 'get_current_account');
+    expect(currentAccount.account?.user_id, 'get_current_account did not return a user_id');
+    console.log('get_current_account ok');
 
     const goal = await tool(baseUrl, token, 'create_goal', {
       idempotency_key: `${stamp}:create_goal`,

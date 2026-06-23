@@ -12,6 +12,7 @@ import { AnalyticsEvent } from '../../../services/analytics/events';
 import { HapticsService } from '../../../services/HapticsService';
 import { playActivityDoneSound } from '../../../services/uiSounds';
 import { createProgressSignal } from '../../../services/progressSignals';
+import { reconcileScreenTimeRestrictions } from '../../../services/screenTimeProtectionRuntime';
 import type { Activity } from '../../../domain/types';
 
 export type UseActivityActionsReturn = {
@@ -75,6 +76,11 @@ export function useActivityActions(): UseActivityActionsReturn {
       if (wasFirstCompletion) {
         // Record the show-up (this also triggers daily streak celebration if milestone)
         recordShowUpWithCelebration();
+        useAppStore.getState().recordScreenTimeQualifyingAction({
+          action: 'activity_completed',
+          occurredAt: new Date(timestamp),
+        });
+        reconcileScreenTimeRestrictions({ focusSessionActive: false, now: new Date(timestamp) }).catch(() => undefined);
 
         // Check if this is the user's very first completed activity
         const { hasBeenShown } = useCelebrationStore.getState();
@@ -150,4 +156,3 @@ export function useActivityActions(): UseActivityActionsReturn {
     handleReorderActivities,
   };
 }
-

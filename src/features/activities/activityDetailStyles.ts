@@ -1034,6 +1034,44 @@ export const styles = StyleSheet.create({
   focusPresetChipTextSelected: {
     color: colors.primaryForeground,
   },
+  focusScreenTimeOfferCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  focusScreenTimeOfferIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+  },
+  focusScreenTimeOfferTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+  },
+  focusScreenTimeOfferBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
+  focusScreenTimeOfferActions: {
+    marginTop: spacing.xs,
+  },
+  focusScreenTimeOfferDismiss: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+  },
+  focusScreenTimeOfferDismissText: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+  },
   focusOverlay: {
     flex: 1,
     backgroundColor: colors.pine700,
@@ -1165,5 +1203,3 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(250,247,237,0.08)',
   },
 });
-
-

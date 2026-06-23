@@ -38,6 +38,7 @@ Use a 1-5 delivery score per job step:
 ## Current flows
 
 - [Marcus: move the few things that matter](marcus-move-the-few-things-that-matter.md)
+- [Maya: move family life forward](maya-move-family-life-forward.md)
 - [Sarah: see who I'm becoming](sarah-see-who-im-becoming.md)
 - [Elena: recover when I drift](elena-recover-when-i-drift.md)
 - [David: invite the right people in](david-invite-the-right-people-in.md)

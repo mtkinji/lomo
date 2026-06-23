@@ -8,6 +8,7 @@ import {
   summarizeActivity,
   summarizeArc,
   summarizeChapter,
+  summarizeCurrentAccount,
   summarizeGoal,
   summarizeShowUpStatus,
 } from '../externalMcp';
@@ -16,6 +17,7 @@ describe('externalMcp helpers', () => {
   describe('EXTERNAL_MCP_READ_TOOLS', () => {
     test('advertises the Sprint A read-only tool set', () => {
       expect(EXTERNAL_MCP_READ_TOOLS.map((tool) => tool.name)).toEqual([
+        'get_current_account',
         'list_arcs',
         'get_arc',
         'list_goals',
@@ -226,6 +228,28 @@ describe('externalMcp helpers', () => {
         repair_window_active: true,
       });
       expect(summarizeShowUpStatus({}).repair_window_active).toBe(false);
+    });
+
+    test('summarizeCurrentAccount exposes only account identity basics', () => {
+      expect(
+        summarizeCurrentAccount({
+          id: 'user-1',
+          email: 'andrew@example.com',
+          phone: '+15555550123',
+          user_metadata: { private_note: 'do not expose' },
+          identities: [
+            { provider: 'email', identity_data: { email: 'andrew@example.com' } },
+            { provider: 'email' },
+            { provider: 'google' },
+            { provider: null },
+          ],
+        }),
+      ).toEqual({
+        user_id: 'user-1',
+        email: 'andrew@example.com',
+        phone: '+15555550123',
+        providers: ['email', 'google'],
+      });
     });
   });
 });

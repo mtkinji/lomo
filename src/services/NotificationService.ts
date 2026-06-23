@@ -21,6 +21,10 @@ import {
 } from './notifications/NotificationDeliveryLedger';
 import { pickGoalNudgeCandidate, buildGoalNudgeContent } from './notifications/goalNudge';
 import { getSuggestedNextStep, hasAnyActivitiesScheduledForToday } from './recommendations/nextStep';
+import {
+  shouldScheduleScreenTimeSetupNotification,
+  type ScreenTimeSetupIntent,
+} from './screenTimeProtection';
 
 type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted';
 
@@ -30,6 +34,7 @@ type NotificationType =
   | 'dailyFocus'
   | 'goalNudge'
   | 'setupNextStep'
+  | 'screenTimeSetupOffer'
   | 'locationOffer'
   | 'streak'
   | 'reactivation';
@@ -45,6 +50,7 @@ type NotificationData =
   | { type: 'dailyFocus' }
   | { type: 'goalNudge'; goalId: string }
   | { type: 'setupNextStep'; reason: 'no_goals' | 'no_activities' }
+  | { type: 'screenTimeSetupOffer'; setupIntent: ScreenTimeSetupIntent }
   | { type: 'locationOffer'; activityId: string; event?: 'enter' | 'exit' }
   | { type: 'streak' }
   | { type: 'reactivation' };
@@ -55,6 +61,7 @@ let dailyShowUpNotificationId: string | null = null;
 let dailyFocusNotificationId: string | null = null;
 let goalNudgeNotificationId: string | null = null;
 let setupNextStepNotificationId: string | null = null;
+let screenTimeSetupOfferNotificationId: string | null = null;
 let streakAtRiskNotificationId: string | null = null;
 let reactivationNotificationId: string | null = null;
 
@@ -64,6 +71,7 @@ let hasAttachedStoreSubscription = false;
 const SYSTEM_NUDGE_TYPES: Array<NotificationData['type']> = [
   'dailyShowUp',
   'setupNextStep',
+  'screenTimeSetupOffer',
   'dailyFocus',
   'goalNudge',
   'streak',
@@ -284,6 +292,9 @@ async function hydrateScheduledNotifications() {
       if (data && data.type === 'setupNextStep') {
         setupNextStepNotificationId = request.identifier;
       }
+      if (data && data.type === 'screenTimeSetupOffer') {
+        screenTimeSetupOfferNotificationId = request.identifier;
+      }
       if (data && data.type === 'streak') {
         streakAtRiskNotificationId = request.identifier;
       }
@@ -341,6 +352,7 @@ async function cleanupDuplicateSystemSchedules(): Promise<void> {
 
     // Morning nudge: keep at most one between dailyShowUp + setupNextStep.
     await cancelAllButOne([...byType('dailyShowUp'), ...byType('setupNextStep')]);
+    await cancelAllButOne(byType('screenTimeSetupOffer'));
     // Other system nudges.
     await cancelAllButOne(byType('dailyFocus'));
     await cancelAllButOne(byType('goalNudge'));
@@ -362,6 +374,38 @@ function addLocalDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+function countActiveActivities(activities: Activity[]): number {
+  return activities.filter((activity) => activity.status !== 'done' && activity.status !== 'cancelled').length;
+}
+
+function countRealProgressLocalDays(activities: Activity[]): number {
+  const days = new Set<string>();
+  activities.forEach((activity) => {
+    if (activity.completedAt) {
+      const completedAt = new Date(activity.completedAt);
+      if (Number.isFinite(completedAt.getTime())) days.add(localDateKey(completedAt));
+    }
+    (activity.steps ?? []).forEach((step) => {
+      if (!step.completedAt) return;
+      const completedAt = new Date(step.completedAt);
+      if (Number.isFinite(completedAt.getTime())) days.add(localDateKey(completedAt));
+    });
+  });
+  return days.size;
+}
+
+function hasScheduledActivityDueSoon(activities: Activity[], now: Date): boolean {
+  const nowMs = now.getTime();
+  const soonMs = nowMs + 30 * 60 * 1000;
+  return activities.some((activity) => {
+    if (activity.status === 'done' || activity.status === 'cancelled') return false;
+    const raw = activity.scheduledAt ?? activity.scheduledDate;
+    if (!raw) return false;
+    const scheduledMs = new Date(raw).getTime();
+    return Number.isFinite(scheduledMs) && scheduledMs >= nowMs && scheduledMs <= soonMs;
+  });
 }
 
 function hasUpcomingExplicitActivityReminder(params: {
@@ -491,6 +535,40 @@ async function cancelAllScheduledSetupNextSteps(reason: 'reschedule' | 'explicit
     }
   } finally {
     setupNextStepNotificationId = null;
+  }
+}
+
+async function cancelAllScheduledScreenTimeSetupOffers(reason: 'reschedule' | 'explicit_cancel') {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((req) => {
+      const data = req.content.data as Partial<NotificationData> | undefined;
+      return Boolean(data && data.type === 'screenTimeSetupOffer');
+    });
+    if (matches.length === 0) {
+      screenTimeSetupOfferNotificationId = null;
+      return;
+    }
+
+    await Promise.all(
+      matches.map((req) =>
+        Notifications.cancelScheduledNotificationAsync(req.identifier).catch(() => undefined),
+      ),
+    );
+
+    matches.forEach((req) => {
+      track(posthogClient, AnalyticsEvent.NotificationCancelled, {
+        notification_type: 'screenTimeSetupOffer',
+        notification_id: req.identifier,
+        reason,
+      });
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to cancel Screen Time setup notification(s)', { error });
+    }
+  } finally {
+    screenTimeSetupOfferNotificationId = null;
   }
 }
 
@@ -1199,6 +1277,93 @@ async function cancelDailyShowUpInternal() {
   }).catch(() => undefined);
 }
 
+async function scheduleScreenTimeSetupOfferInternal(prefs: NotificationPreferences) {
+  if (!prefs.notificationsEnabled || prefs.osPermissionStatus !== 'authorized') return;
+
+  const state = useAppStore.getState();
+  const now = new Date();
+  const activities = state.activities ?? [];
+  const setupIntent: ScreenTimeSetupIntent = 'meaningful_first_self_control';
+  const activeActivityCount = countActiveActivities(activities);
+  const realMoveDayCount = countRealProgressLocalDays(activities);
+  const hasDueSoon = hasScheduledActivityDueSoon(activities, now);
+
+  if (
+    !shouldScheduleScreenTimeSetupNotification({
+      settings: state.screenTimeProtection,
+      setupIntent,
+      notificationsAuthorized: true,
+      realMoveDayCount,
+      activeActivityCount,
+      hasScheduledActivityDueSoon: hasDueSoon,
+      now,
+    })
+  ) {
+    return;
+  }
+
+  let fireAt = new Date(now);
+  fireAt.setHours(18, 0, 0, 0);
+  if (fireAt.getTime() <= now.getTime()) {
+    fireAt = addLocalDays(fireAt, 1);
+  }
+
+  const systemLedger = await loadSystemNudgeLedger();
+  const noOpenCount = systemLedger.consecutiveNoOpenByType?.screenTimeSetupOffer ?? 0;
+  if (noOpenCount >= 2) {
+    fireAt = addLocalDays(fireAt, 1);
+  }
+
+  fireAt = await applyGlobalSystemNudgeGuards({
+    fireAt,
+    type: 'screenTimeSetupOffer',
+    ledger: systemLedger,
+  });
+
+  await cancelAllScheduledScreenTimeSetupOffers('reschedule');
+
+  try {
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Do what matters first',
+        body: 'Block selected apps until you take a real step.',
+        data: {
+          type: 'screenTimeSetupOffer',
+          setupIntent,
+        } satisfies NotificationData,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireAt,
+      },
+    });
+
+    screenTimeSetupOfferNotificationId = identifier;
+    useAppStore.getState().markScreenTimeSetupNotificationScheduled(fireAt.toISOString());
+    track(posthogClient, AnalyticsEvent.NotificationScheduled, {
+      notification_type: 'screenTimeSetupOffer',
+      notification_id: identifier,
+      scheduled_for: fireAt.toISOString(),
+      platform_trigger_type: 'date',
+    });
+    track(posthogClient, AnalyticsEvent.ScreenTimeSetupNotificationScheduled, {
+      setup_intent: setupIntent,
+      notification_id: identifier,
+      scheduled_for: fireAt.toISOString(),
+    });
+    await recordSystemNudgeScheduled({
+      dateKey: localDateKey(fireAt),
+      type: 'screenTimeSetupOffer',
+      notificationId: identifier,
+      scheduledForIso: fireAt.toISOString(),
+    });
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] failed to schedule Screen Time setup notification', { error });
+    }
+  }
+}
+
 async function scheduleDailyFocusInternal(time: string, prefs: NotificationPreferences) {
   if (!prefs.notificationsEnabled || !prefs.allowDailyFocus) {
     return;
@@ -1696,6 +1861,14 @@ function attachStoreSubscription() {
       void runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(prefs));
     }, 600);
   };
+  let screenTimeSetupDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+  const scheduleScreenTimeSetupDebounced = (prefs: NotificationPreferences) => {
+    if (screenTimeSetupDebounceTimeout) clearTimeout(screenTimeSetupDebounceTimeout);
+    screenTimeSetupDebounceTimeout = setTimeout(() => {
+      screenTimeSetupDebounceTimeout = null;
+      void runExclusive('screenTimeSetupOffer', async () => scheduleScreenTimeSetupOfferInternal(prefs));
+    }, 600);
+  };
 
   let prevActivities: ActivitySnapshotExtended[] = useAppStore
     .getState()
@@ -1770,6 +1943,9 @@ function attachStoreSubscription() {
       prefs.osPermissionStatus === 'authorized'
     ) {
       scheduleGoalNudgeDebounced(prefs);
+    }
+    if (prefs.notificationsEnabled && prefs.osPermissionStatus === 'authorized') {
+      scheduleScreenTimeSetupDebounced(prefs);
     }
 
     // Streak-at-risk + reactivation: react to show-up changes and preference changes.
@@ -1876,7 +2052,8 @@ function attachNotificationResponseListener() {
       data.type === 'dailyShowUp' ||
       data.type === 'dailyFocus' ||
       data.type === 'goalNudge' ||
-      data.type === 'setupNextStep'
+      data.type === 'setupNextStep' ||
+      data.type === 'screenTimeSetupOffer'
     ) {
       void recordSystemNudgeOpened({
         dateKey,
@@ -1967,6 +2144,22 @@ function attachNotificationResponseListener() {
           screen: 'PlanTab',
           params: { openRecommendations: true },
         });
+        break;
+      }
+      case 'screenTimeSetupOffer': {
+        const setupIntent = (data as { setupIntent?: ScreenTimeSetupIntent }).setupIntent ?? 'meaningful_first_self_control';
+        useAppStore.getState().markScreenTimeSetupNotificationOpened(openedAtIso);
+        track(posthogClient, AnalyticsEvent.ScreenTimeSetupNotificationOpened, {
+          setup_intent: setupIntent,
+          notification_id: response.notification.request.identifier,
+        });
+        navigateWhenReady('Settings', {
+          screen: 'SettingsScreenTimeProtection',
+          params: {
+            setupIntent,
+            entrySurface: 'notification',
+          },
+        } as any);
         break;
       }
       case 'dailyFocus': {
@@ -2190,6 +2383,11 @@ export const NotificationService = {
     await runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(prefs));
   },
 
+  async scheduleScreenTimeSetupOffer() {
+    const prefs = getPreferences();
+    await runExclusive('screenTimeSetupOffer', async () => scheduleScreenTimeSetupOfferInternal(prefs));
+  },
+
   async scheduleStreakAtRisk() {
     const prefs = getPreferences();
     await runExclusive('streakAtRisk', async () => scheduleStreakAtRiskInternal(prefs));
@@ -2223,6 +2421,9 @@ export const NotificationService = {
       await runExclusive('morningNudge', async () => cancelDailyShowUpInternal());
       await runExclusive('dailyFocus', async () => cancelDailyFocusInternal());
       await runExclusive('goalNudge', async () => cancelGoalNudgeInternal());
+      await runExclusive('screenTimeSetupOffer', async () =>
+        cancelAllScheduledScreenTimeSetupOffers('explicit_cancel'),
+      );
       await runExclusive('streakAtRisk', async () => cancelAllScheduledStreakAtRisk('explicit_cancel'));
       await runExclusive('reactivation', async () => cancelAllScheduledReactivation('explicit_cancel'));
       return;
@@ -2268,6 +2469,8 @@ export const NotificationService = {
     } else {
       await runExclusive('goalNudge', async () => scheduleGoalNudgeInternal(next));
     }
+
+    await runExclusive('screenTimeSetupOffer', async () => scheduleScreenTimeSetupOfferInternal(next));
 
     // Streak-at-risk + reactivation
     if (!next.allowStreakAndReactivation) {

@@ -2,7 +2,8 @@ import type { ExpoConfig } from 'expo/config';
 import { config as loadEnv } from 'dotenv';
 import { existsSync } from 'fs';
 import path from 'path';
-import { resolveAppEnvironment } from './src/config/appEnvironment';
+
+const { resolveAppEnvironment } = require('./src/config/appEnvironment.ts') as typeof import('./src/config/appEnvironment');
 
 const ENV_FILE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
 const APP_ENVIRONMENT = resolveAppEnvironment(process.env);
