@@ -318,7 +318,17 @@ async function run() {
   const tools = await mcpCall(baseUrl, accessToken, 'tools/list');
   const toolNames = tools.tools?.map((tool) => tool.name) ?? [];
   console.log(`tools/list ok: ${toolNames.join(', ')}`);
+  if (!toolNames.includes('get_current_account')) throw new Error('tools/list did not include get_current_account');
   if (!toolNames.includes('list_arcs')) throw new Error('tools/list did not include list_arcs');
+
+  const currentAccount = await mcpCall(
+    baseUrl,
+    accessToken,
+    'tools/call',
+    { name: 'get_current_account', arguments: {} },
+    'get_current_account',
+  );
+  console.log(`get_current_account ok: ${JSON.stringify(currentAccount.structuredContent ?? currentAccount).slice(0, 500)}`);
 
   const listArcs = await mcpCall(
     baseUrl,

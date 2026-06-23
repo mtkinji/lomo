@@ -46,6 +46,11 @@ import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
 import { NotificationsSettingsScreen } from '../features/account/NotificationsSettingsScreen';
+import { ScreenTimeProtectionSettingsScreen } from '../features/account/ScreenTimeProtectionSettingsScreen';
+import type {
+  ScreenTimeSetupIntent,
+  ScreenTimeSetupOfferSurface,
+} from '../services/screenTimeProtection';
 import { PhoneAgentSettingsScreen } from '../features/account/PhoneAgentSettingsScreen';
 import { ConnectedToolsScreen } from '../features/account/ConnectedToolsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
@@ -269,6 +274,13 @@ export type SettingsStackParamList = {
   SettingsProfile: undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
+  SettingsScreenTimeProtection:
+    | {
+        setupIntent?: ScreenTimeSetupIntent;
+        entrySurface?: ScreenTimeSetupOfferSurface;
+        returnToActivityId?: string;
+      }
+    | undefined;
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
@@ -912,6 +924,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsNotifications"
         component={NotificationsSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsScreenTimeProtection"
+        component={ScreenTimeProtectionSettingsScreen}
       />
       <SettingsStack.Screen
         name="SettingsWeeklyChapters"

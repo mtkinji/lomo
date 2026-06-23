@@ -172,6 +172,13 @@ export const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  recommendedListRemainderLabel: {
+    ...typography.label,
+    color: colors.formLabel,
+    paddingHorizontal: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
   widgetModalBody: {
     ...typography.body,
     color: colors.textSecondary,

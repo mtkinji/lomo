@@ -155,6 +155,16 @@ export const AnalyticsEvent = {
   // Notification copy variant tracking
   NotificationCopyVariant: 'notification_copy_variant',
 
+  // Screen Time Controls setup funnel.
+  ScreenTimeSetupOfferShown: 'screen_time_setup_offer_shown',
+  ScreenTimeSetupOfferDismissed: 'screen_time_setup_offer_dismissed',
+  ScreenTimeSetupOfferCtaTapped: 'screen_time_setup_offer_cta_tapped',
+  ScreenTimeSetupStarted: 'screen_time_setup_started',
+  ScreenTimeSetupCompleted: 'screen_time_setup_completed',
+  ScreenTimeSetupAbandoned: 'screen_time_setup_abandoned',
+  ScreenTimeSetupNotificationScheduled: 'screen_time_setup_notification_scheduled',
+  ScreenTimeSetupNotificationOpened: 'screen_time_setup_notification_opened',
+
   // Chapters (see docs/chapters-plan.md Phase 1.1).
   //
   // Phase 2.1 dropped user-initiated chapter generation: Chapters land from a
@@ -205,5 +215,4 @@ export const AnalyticsEvent = {
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
-
 

@@ -31,6 +31,8 @@ export type ViewTemplate = {
   sorts?: SortCondition[];
   /** Whether to show completed activities */
   showCompleted?: boolean;
+  /** Whether to show the computed Recommended section when the view supports it */
+  showRecommended?: boolean;
   /** Category for grouping templates in the UI */
   category: 'list' | 'board';
 };
@@ -61,6 +63,7 @@ export function templateToView(
     filters: template.filters,
     sorts: template.sorts,
     showCompleted: template.showCompleted ?? true,
+    showRecommended: template.showRecommended ?? true,
     isSystem: false,
   };
 }
@@ -286,4 +289,3 @@ export const ALL_TEMPLATES: ViewTemplate[] = [
 export function getTemplateById(id: string): ViewTemplate | undefined {
   return ALL_TEMPLATES.find((t) => t.id === id);
 }
-

@@ -235,6 +235,314 @@ RCT_EXTERN_METHOD(
 @end
 `;
 
+const KWILT_SCREEN_TIME_PROTECTION_SWIFT = `import Foundation
+import React
+
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+import FamilyControls
+import ManagedSettings
+import SwiftUI
+#endif
+
+#if canImport(UIKit)
+import UIKit
+#endif
+
+@objc(KwiltScreenTimeProtection)
+class KwiltScreenTimeProtection: NSObject {
+  @objc static func requiresMainQueueSetup() -> Bool {
+    return true
+  }
+
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+  private let selectionKey = "kwilt_screen_time_selection_v1"
+
+  @available(iOS 16.0, *)
+  private var store: ManagedSettingsStore {
+    ManagedSettingsStore(named: ManagedSettingsStore.Name("kwilt.screenTimeProtection"))
+  }
+
+  @available(iOS 16.0, *)
+  private func statusString() -> String {
+    switch AuthorizationCenter.shared.authorizationStatus {
+    case .notDetermined:
+      return "notDetermined"
+    case .denied:
+      return "denied"
+    case .approved:
+      return "approved"
+    @unknown default:
+      return "unavailable"
+    }
+  }
+
+  @available(iOS 16.0, *)
+  private func loadSelection() -> FamilyActivitySelection {
+    guard let data = UserDefaults.standard.data(forKey: selectionKey),
+          let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else {
+      return FamilyActivitySelection(includeEntireCategory: true)
+    }
+    return selection
+  }
+
+  @available(iOS 16.0, *)
+  private func saveSelection(_ selection: FamilyActivitySelection) {
+    guard let data = try? JSONEncoder().encode(selection) else { return }
+    UserDefaults.standard.set(data, forKey: selectionKey)
+  }
+
+  @available(iOS 16.0, *)
+  private func selectionPayload(_ selection: FamilyActivitySelection) -> [String: Any] {
+    var apps: [[String: Any]] = []
+    if !selection.applicationTokens.isEmpty {
+      apps.append([
+        "token": "native:applications",
+        "label": "\\(selection.applicationTokens.count) app\\(selection.applicationTokens.count == 1 ? "" : "s")",
+      ])
+    }
+
+    var categories: [[String: Any]] = []
+    if !selection.categoryTokens.isEmpty {
+      categories.append([
+        "token": "native:categories",
+        "label": "\\(selection.categoryTokens.count) categor\\(selection.categoryTokens.count == 1 ? "y" : "ies")",
+      ])
+    }
+
+    return [
+      "selectedApps": apps,
+      "selectedCategories": categories,
+    ]
+  }
+
+  @available(iOS 16.0, *)
+  private func applySelection(_ selection: FamilyActivitySelection) {
+    let managedStore = store
+    managedStore.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+    managedStore.shield.applicationCategories = selection.categoryTokens.isEmpty
+      ? nil
+      : .specific(selection.categoryTokens, except: Set<ApplicationToken>())
+  }
+#endif
+
+  @objc(getAuthorizationStatus:rejecter:)
+  func getAuthorizationStatus(
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      resolve(statusString())
+      return
+    }
+#endif
+    resolve("unavailable")
+  }
+
+  @objc(requestAuthorization:rejecter:)
+  func requestAuthorization(
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      Task {
+        do {
+          try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+          DispatchQueue.main.async { resolve(self.statusString()) }
+        } catch {
+          DispatchQueue.main.async { resolve("unavailable") }
+        }
+      }
+      return
+    }
+#endif
+    resolve("unavailable")
+  }
+
+  @objc(presentActivityPicker:resolver:rejecter:)
+  func presentActivityPicker(
+    _ json: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      DispatchQueue.main.async {
+        guard AuthorizationCenter.shared.authorizationStatus == .approved else {
+          resolve(nil)
+          return
+        }
+        guard let presenter = RCTPresentedViewController() else {
+          resolve(nil)
+          return
+        }
+
+        let coordinator = KwiltScreenTimePickerCoordinator(
+          initialSelection: self.loadSelection(),
+          onDone: { [weak self] selection in
+            guard let self = self else {
+              resolve(nil)
+              return
+            }
+            self.saveSelection(selection)
+            resolve(self.selectionPayload(selection))
+          },
+          onCancel: {
+            resolve(nil)
+          }
+        )
+        coordinator.present(from: presenter)
+      }
+      return
+    }
+#endif
+    resolve(nil)
+  }
+
+  @objc(applyRestrictions:resolver:rejecter:)
+  func applyRestrictions(
+    _ json: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      guard AuthorizationCenter.shared.authorizationStatus == .approved else {
+        resolve(false)
+        return
+      }
+      let selection = loadSelection()
+      if selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty {
+        resolve(false)
+        return
+      }
+      applySelection(selection)
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
+
+  @objc(clearRestrictions:rejecter:)
+  func clearRestrictions(
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      store.clearAllSettings()
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
+}
+
+#if canImport(FamilyControls) && canImport(SwiftUI)
+@available(iOS 16.0, *)
+private final class KwiltScreenTimePickerCoordinator {
+  private var selection: FamilyActivitySelection
+  private let onDone: (FamilyActivitySelection) -> Void
+  private let onCancel: () -> Void
+  private weak var hostingController: UIViewController?
+
+  init(
+    initialSelection: FamilyActivitySelection,
+    onDone: @escaping (FamilyActivitySelection) -> Void,
+    onCancel: @escaping () -> Void
+  ) {
+    self.selection = initialSelection
+    self.onDone = onDone
+    self.onCancel = onCancel
+  }
+
+  func present(from presenter: UIViewController) {
+    let view = KwiltScreenTimePickerView(
+      selection: Binding(
+        get: { self.selection },
+        set: { self.selection = $0 }
+      ),
+      onCancel: { [weak self] in
+        guard let self = self else { return }
+        self.hostingController?.dismiss(animated: true)
+        self.onCancel()
+      },
+      onDone: { [weak self] in
+        guard let self = self else { return }
+        let selection = self.selection
+        self.hostingController?.dismiss(animated: true)
+        self.onDone(selection)
+      }
+    )
+    let controller = UIHostingController(rootView: view)
+    controller.modalPresentationStyle = .formSheet
+    hostingController = controller
+    presenter.present(controller, animated: true)
+  }
+}
+
+@available(iOS 16.0, *)
+private struct KwiltScreenTimePickerView: View {
+  @Binding var selection: FamilyActivitySelection
+  let onCancel: () -> Void
+  let onDone: () -> Void
+
+  var body: some View {
+    NavigationView {
+      FamilyActivityPicker(selection: $selection)
+        .navigationTitle("Choose Apps")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+          ToolbarItem(placement: .cancellationAction) {
+            Button("Cancel", action: onCancel)
+          }
+          ToolbarItem(placement: .confirmationAction) {
+            Button("Done", action: onDone)
+          }
+        }
+    }
+  }
+}
+#endif
+`;
+
+const KWILT_SCREEN_TIME_PROTECTION_EXTERN = `#import <React/RCTBridgeModule.h>
+
+@interface RCT_EXTERN_MODULE(KwiltScreenTimeProtection, NSObject)
+
+RCT_EXTERN_METHOD(
+  getAuthorizationStatus:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  requestAuthorization:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  presentActivityPicker:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  applyRestrictions:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  clearRestrictions:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+@end
+`;
+
 function buildAppIntentsSwift({ appGroupId }) {
   return `import Foundation
 
@@ -763,6 +1071,7 @@ RCT_EXTERN_METHOD(
 module.exports = function withAppleEcosystemIntegrations(config) {
   const enableAppGroups = String(process.env.KWILT_ENABLE_APP_GROUPS || '0') === '1';
   const enableWidgets = String(process.env.KWILT_ENABLE_WIDGETS || '0') === '1';
+  const enableScreenTime = String(process.env.KWILT_ENABLE_SCREEN_TIME || '0') === '1';
   // Widgets require App Groups to exchange data with the host app.
   // Make this implicit so local builds don't accidentally create a widget target
   // that can never read any state.
@@ -776,6 +1085,15 @@ module.exports = function withAppleEcosystemIntegrations(config) {
       const next = Array.isArray(existing) ? existing.slice() : [];
       if (!next.includes(appGroupId)) next.push(appGroupId);
       entitlements['com.apple.security.application-groups'] = next;
+      config.modResults = entitlements;
+      return config;
+    });
+  }
+
+  if (enableScreenTime) {
+    config = withEntitlementsPlist(config, (config) => {
+      const entitlements = config.modResults;
+      entitlements['com.apple.developer.family-controls'] = true;
       config.modResults = entitlements;
       return config;
     });
@@ -811,6 +1129,16 @@ module.exports = function withAppleEcosystemIntegrations(config) {
     filePath: 'KwiltWidgetCenter.m',
     contents: KWILT_WIDGET_CENTER_EXTERN,
     overwrite: false,
+  });
+  config = withBuildSourceFile(config, {
+    filePath: 'KwiltScreenTimeProtection.swift',
+    contents: KWILT_SCREEN_TIME_PROTECTION_SWIFT,
+    overwrite: true,
+  });
+  config = withBuildSourceFile(config, {
+    filePath: 'KwiltScreenTimeProtection.m',
+    contents: KWILT_SCREEN_TIME_PROTECTION_EXTERN,
+    overwrite: true,
   });
   config = withBuildSourceFile(config, {
     filePath: 'KwiltAppIntents.swift',

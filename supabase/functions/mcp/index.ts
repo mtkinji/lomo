@@ -16,6 +16,7 @@ import {
   summarizeActivity,
   summarizeArc,
   summarizeChapter,
+  summarizeCurrentAccount,
   summarizeGoal,
   summarizeShowUpStatus,
 } from '../_shared/externalMcp.ts';
@@ -359,6 +360,12 @@ function withRowUpdatedAt(row: any): unknown {
 }
 
 async function handleReadTool(admin: any, context: ExternalTokenContext, name: string, args: unknown): Promise<JsonValue> {
+  if (name === 'get_current_account') {
+    const { data, error } = await admin.auth.admin.getUserById(context.userId);
+    if (error || !data?.user) throw new Error('get_current_account_failed');
+    return { account: summarizeCurrentAccount(data.user) };
+  }
+
   if (name === 'list_arcs') {
     const limit = Math.max(1, Math.min(asInt(asRecord(args)?.limit) ?? 50, 100));
     const status = asString(asRecord(args)?.status);

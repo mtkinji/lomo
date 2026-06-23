@@ -1,12 +1,13 @@
 ---
 feature: activities
-audiences: [audience-burned-out-productivity-power-users]
-personas: [Marcus]
+audiences: [audience-burned-out-productivity-power-users, audience-aspirational-family-organizers]
+personas: [Marcus, Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves:
   - jtbd-move-the-few-things-that-matter
   - jtbd-carry-intentions-into-action
+  - jtbd-put-intention-before-impulse
   - jtbd-capture-and-find-meaning
   - jtbd-trust-this-app-with-my-life
 briefs:
@@ -14,16 +15,20 @@ briefs:
   - calendar-export-ics
   - dynamic-next-best-action
   - focus-mode-education
+  - focus-protection
   - geolocation-activity-offers
   - keyboard-input-safety
   - kwilt-text-coach
+  - meaningful-first-app-access
+  - screen-time-controls-contextual-setup
+  - todo-organization-triage
 status: shipped
 last_reviewed: 2026-05-12
 ---
 
 # activities
 
-Helps Marcus turn the few commitments that matter into concrete action and capture progress without maintaining another task system.
+Helps users like Marcus and Maya turn the few commitments that matter into concrete action and capture progress without maintaining another task system.
 
 ## Surfaces in this folder
 
@@ -35,4 +40,4 @@ Helps Marcus turn the few commitments that matter into concrete action and captu
 
 ## Notes
 
-Activities are the bridge between intention and evidence. Views and boards should help Marcus decide and capture, not create a second productivity system to maintain.
+Activities are the bridge between intention and evidence. Views, boards, and priority surfaces should help users decide and capture, not create a second productivity system to maintain.

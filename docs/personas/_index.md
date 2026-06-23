@@ -27,6 +27,7 @@ Target audience
 ## Current target audiences
 
 - **audience-burned-out-productivity-power-users** - [Burned-out productivity power users](burned-out-productivity-power-users.md), represented by **Marcus**. Hero JTBD: `jtbd-move-the-few-things-that-matter`.
+- **audience-aspirational-family-organizers** - [Aspirational family organizers](aspirational-family-organizers.md), represented by **Maya**. Hero JTBD: `jtbd-move-the-few-things-that-matter`.
 - **audience-faith-and-values-driven-builders** - [Faith- and values-driven builders](faith-and-values-driven-builders.md), represented by **Sarah**. Hero JTBD: `jtbd-see-who-im-becoming`.
 - **audience-life-transition-restarters** - [People restarting after a hard season](life-transition-restarters.md), represented by **Elena**. Hero JTBD: `jtbd-recover-when-i-drift-from-an-arc`.
 - **audience-private-accountability-seekers** - [Private accountability seekers](private-accountability-seekers.md), represented by **David**. Hero JTBD: `jtbd-invite-the-right-people-in`.

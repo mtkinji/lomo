@@ -12,7 +12,7 @@ import { LongTextField } from '../../ui/LongTextField';
 import { Badge } from '../../ui/Badge';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { menuItemTextProps } from '../../ui/menuStyles';
-import type { ActivityDifficulty, ActivityType } from '../../domain/types';
+import type { ActivityDifficulty, ActivityPriorityState, ActivityType } from '../../domain/types';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
@@ -26,6 +26,9 @@ import {
 } from '../../services/attachments/activityAttachments';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { isDateToday } from '../../utils/activityListMeta';
+import {
+  getActivityPriorityState,
+} from './activityPriority';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -37,6 +40,24 @@ function withAlpha(hex: string, alpha: number) {
   const a = Math.min(1, Math.max(0, alpha));
   return `rgba(${r},${g},${b},${a})`;
 }
+
+const PRIORITY_STATE_OPTIONS: Array<{
+  value: ActivityPriorityState;
+  label: string;
+  icon: 'activity' | 'pause' | 'clock' | 'eye';
+}> = [
+  { value: 'active', label: 'Active', icon: 'activity' },
+  { value: 'later', label: 'Later', icon: 'pause' },
+  { value: 'waiting', label: 'Waiting', icon: 'clock' },
+  { value: 'needs_review', label: 'Needs review', icon: 'eye' },
+];
+
+const PRIORITY_STATE_LABELS: Record<ActivityPriorityState, string> = {
+  active: 'Active',
+  later: 'Later',
+  waiting: 'Waiting',
+  needs_review: 'Needs review',
+};
 
 /**
  * Render-only extraction of the feature-flagged Activity detail refresh layout.
@@ -164,6 +185,7 @@ export function ActivityDetailRefresh(props: any) {
     recommendedGoalOption,
     activityTypeOptions,
     handleDeleteActivity,
+    setActivityPriorityState,
     onPressEditHeaderImage,
     // Fade geometry (provided by ActivityDetailScreen)
     appShellTopInsetPx,
@@ -208,6 +230,26 @@ export function ActivityDetailRefresh(props: any) {
 
   const showPlanCountBadge = !planExpanded && planConfiguredCount > 0;
   const showDetailsCountBadge = !detailsExpanded && detailsConfiguredCount > 0;
+  const activityPriorityState = getActivityPriorityState(activity);
+  const activityPriorityStateLabel = PRIORITY_STATE_LABELS[activityPriorityState];
+  const priorityStatusOptions = React.useMemo(
+    () =>
+      PRIORITY_STATE_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+        leftElement: <Icon name={option.icon} size={16} color={colors.textSecondary} />,
+      })),
+    [],
+  );
+  const handleToggleActivityImportance = React.useCallback(() => {
+    if (!activity?.id || typeof updateActivity !== 'function') return;
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev: any) => ({
+      ...prev,
+      priority: prev.priority === 1 ? undefined : 1,
+      updatedAt: timestamp,
+    }));
+  }, [activity?.id, updateActivity]);
 
 
   const planChevronAnim = React.useRef(new Animated.Value(planExpanded ? 1 : 0)).current;
@@ -345,7 +387,7 @@ export function ActivityDetailRefresh(props: any) {
           safeAreaTopInset={resolvedSafeAreaTopInsetPx}
           horizontalPadding={PAGE_GUTTER_X}
           blurBackground={false}
-          sideSlotWidth={isTitleEditing || isAnyInputFocused ? 72 : 56}
+          sideSlotWidth={isTitleEditing || isAnyInputFocused ? 72 : 96}
           left={
             <HeaderActionPill
               onPress={handleBackToActivities}
@@ -370,53 +412,67 @@ export function ActivityDetailRefresh(props: any) {
                   Done
                 </Button>
               ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="To-do actions">
-                    <View pointerEvents="none">
-                      <HeaderActionPill
-                        accessibilityLabel="To-do actions"
-                        materialOpacity={headerActionPillOpacity}
-                        materialVariant={headerPillMaterialVariant}
+                <>
+                  <HeaderActionPill
+                    onPress={handleToggleActivityImportance}
+                    accessibilityLabel={activity?.priority === 1 ? 'Remove star from to-do' : 'Star this to-do'}
+                    materialOpacity={headerActionPillOpacity}
+                    materialVariant={headerPillMaterialVariant}
+                  >
+                    <Icon
+                      name={activity?.priority === 1 ? 'starFilled' : 'star'}
+                      size={18}
+                      color={activity?.priority === 1 ? colors.turmeric700 : headerInk}
+                    />
+                  </HeaderActionPill>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger accessibilityLabel="To-do actions">
+                      <View pointerEvents="none">
+                        <HeaderActionPill
+                          accessibilityLabel="To-do actions"
+                          materialOpacity={headerActionPillOpacity}
+                          materialVariant={headerPillMaterialVariant}
+                        >
+                          <Icon name="more" size={18} color={headerInk} />
+                        </HeaderActionPill>
+                      </View>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                      <DropdownMenuItem
+                        onPress={() => {
+                          onPressEditHeaderImage?.();
+                        }}
                       >
-                        <Icon name="more" size={18} color={headerInk} />
-                      </HeaderActionPill>
-                    </View>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                    <DropdownMenuItem
-                      onPress={() => {
-                        onPressEditHeaderImage?.();
-                      }}
-                    >
-                      <View style={styles.menuItemRow}>
-                        <Icon name="image" size={16} color={headerInk} />
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Edit header image
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onPress={() => {
-                        handleSendToShare().catch(() => undefined);
-                      }}
-                    >
-                      <View style={styles.menuItemRow}>
-                        <Icon name="share" size={16} color={headerInk} />
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Share
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                      <View style={styles.menuItemRow}>
-                        <Icon name="trash" size={16} color={colors.destructive} />
-                        <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Delete to-do
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                        <View style={styles.menuItemRow}>
+                          <Icon name="image" size={16} color={headerInk} />
+                          <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                            Edit header image
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onPress={() => {
+                          handleSendToShare().catch(() => undefined);
+                        }}
+                      >
+                        <View style={styles.menuItemRow}>
+                          <Icon name="share" size={16} color={headerInk} />
+                          <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                            Share
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                        <View style={styles.menuItemRow}>
+                          <Icon name="trash" size={16} color={colors.destructive} />
+                          <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
+                            Delete to-do
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               )}
             </HStack>
           }
@@ -513,49 +569,62 @@ export function ActivityDetailRefresh(props: any) {
                 />
               </View>
               <View style={[styles.headerSideRight, styles.breadcrumbsRight]}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger accessibilityLabel="To-do actions">
-                    <View pointerEvents="none">
-                      <IconButton style={styles.optionsButton} accessible={false}>
-                        <Icon name="more" size={18} color={headerInk} />
-                      </IconButton>
-                    </View>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" sideOffset={6} align="end">
-                    <DropdownMenuItem
-                      onPress={() => {
-                        onPressEditHeaderImage?.();
-                      }}
-                    >
-                      <View style={styles.menuItemRow}>
-                        <Icon name="image" size={16} color={headerInk} />
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Edit header image
-                        </Text>
+                <HStack alignItems="center" space="sm">
+                  <IconButton
+                    style={styles.optionsButton}
+                    accessibilityLabel={activity?.priority === 1 ? 'Remove star from to-do' : 'Star this to-do'}
+                    onPress={handleToggleActivityImportance}
+                  >
+                    <Icon
+                      name={activity?.priority === 1 ? 'starFilled' : 'star'}
+                      size={18}
+                      color={activity?.priority === 1 ? colors.turmeric700 : headerInk}
+                    />
+                  </IconButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger accessibilityLabel="To-do actions">
+                      <View pointerEvents="none">
+                        <IconButton style={styles.optionsButton} accessible={false}>
+                          <Icon name="more" size={18} color={headerInk} />
+                        </IconButton>
                       </View>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onPress={() => {
-                        handleSendToShare().catch(() => undefined);
-                      }}
-                    >
-                      <View style={styles.menuItemRow}>
-                        <Icon name="share" size={16} color={headerInk} />
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Share
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
-                      <View style={styles.menuItemRow}>
-                        <Icon name="trash" size={16} color={colors.destructive} />
-                        <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          Delete to-do
-                        </Text>
-                      </View>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="bottom" sideOffset={6} align="end">
+                      <DropdownMenuItem
+                        onPress={() => {
+                          onPressEditHeaderImage?.();
+                        }}
+                      >
+                        <View style={styles.menuItemRow}>
+                          <Icon name="image" size={16} color={headerInk} />
+                          <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                            Edit header image
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onPress={() => {
+                          handleSendToShare().catch(() => undefined);
+                        }}
+                      >
+                        <View style={styles.menuItemRow}>
+                          <Icon name="share" size={16} color={headerInk} />
+                          <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                            Share
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
+                        <View style={styles.menuItemRow}>
+                          <Icon name="trash" size={16} color={colors.destructive} />
+                          <Text style={styles.destructiveMenuRowText} numberOfLines={1} ellipsizeMode="tail">
+                            Delete to-do
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </HStack>
               </View>
             </HStack>
           </View>
@@ -734,6 +803,7 @@ export function ActivityDetailRefresh(props: any) {
                 </Pressable>
               );
                   })() : null}
+
                 </>
               );
             })()}
@@ -1629,6 +1699,29 @@ export function ActivityDetailRefresh(props: any) {
               </View>
 
               <View style={{ marginTop: spacing.lg }}>
+                <Text style={styles.inputLabel}>Status</Text>
+                <ObjectPicker
+                  value={activityPriorityState}
+                  onValueChange={(nextState) => {
+                    if (typeof setActivityPriorityState === 'function') {
+                      setActivityPriorityState((nextState || 'active') as ActivityPriorityState);
+                    }
+                  }}
+                  options={priorityStatusOptions}
+                  placeholder="Select status…"
+                  searchPlaceholder="Search statuses…"
+                  emptyText="No statuses found."
+                  accessibilityLabel={`Change status, currently ${activityPriorityStateLabel}`}
+                  allowDeselect={false}
+                  presentation="drawer"
+                  size="compact"
+                  leadingIcon="layers"
+                  fieldVariant="filled"
+                  showSearch={false}
+                />
+              </View>
+
+              <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>Linked Goal</Text>
                 <ObjectPicker
                   value={activity.goalId ?? ''}
@@ -1765,4 +1858,3 @@ const localStyles = StyleSheet.create({
     backgroundColor: colors.border,
   },
 });
-

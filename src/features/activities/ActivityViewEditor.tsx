@@ -18,6 +18,8 @@ export type ActivityViewEditorProps = {
   onChangeViewName: (name: string) => void;
   showCompleted: boolean;
   onUpdateShowCompleted: (show: boolean) => void;
+  showRecommended: boolean;
+  onUpdateShowRecommended: (show: boolean) => void;
   layout: ActivityViewLayout;
   onChangeLayout: (layout: ActivityViewLayout) => void;
   kanbanGroupBy: KanbanGroupBy;
@@ -47,6 +49,8 @@ export function ActivityViewEditor({
   onChangeViewName,
   showCompleted,
   onUpdateShowCompleted,
+  showRecommended,
+  onUpdateShowRecommended,
   layout,
   onChangeLayout,
   kanbanGroupBy,
@@ -136,6 +140,31 @@ export function ActivityViewEditor({
               </Pressable>
             </HStack>
 
+            <HStack
+              style={styles.viewEditorToggleRow}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <Text style={styles.viewEditorToggleLabel}>Recommended</Text>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel="Toggle Recommended section"
+                accessibilityState={{ checked: showRecommended }}
+                onPress={() => onUpdateShowRecommended(!showRecommended)}
+                style={[
+                  styles.viewEditorToggleTrack,
+                  showRecommended && styles.viewEditorToggleTrackOn,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.viewEditorToggleThumb,
+                    showRecommended && styles.viewEditorToggleThumbOn,
+                  ]}
+                />
+              </Pressable>
+            </HStack>
+
             <VStack style={styles.viewEditorShortcutsSection} space="xs">
               <Text style={styles.viewEditorFieldLabel}>View actions</Text>
               <HStack style={styles.viewEditorSecondaryActions} space="sm" alignItems="center">
@@ -171,4 +200,3 @@ export function ActivityViewEditor({
     </Dialog>
   );
 }
-

@@ -71,6 +71,7 @@ import {
   recordShowUpWithCelebration,
 } from '../../store/useCelebrationStore';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
+import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import { ActivityListItem } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
@@ -101,6 +102,7 @@ import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
+import { RecommendedActivitiesSection } from './RecommendedActivitiesSection';
 import { ViewMenuItem } from './ViewMenuItem';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { useActivityListData } from './hooks/useActivityListData';
@@ -176,6 +178,7 @@ const KANBAN_CARD_FIELDS: Array<{
 ];
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { QueryService } from '../../services/QueryService';
+import { getRecommendedPriorityActivities } from './activityPriority';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { SortDrawer } from '../../ui/SortDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -563,6 +566,8 @@ export function ActivitiesScreen() {
   const sortMode = isPro ? (activeView?.sortMode ?? 'manual') : 'manual';
   const showCompleted =
     isPro || activeView?.isSystem ? (activeView?.showCompleted ?? true) : true;
+  const showRecommended =
+    isPro || activeView?.isSystem ? (activeView?.showRecommended ?? true) : true;
 
   const goalTitleById = React.useMemo(
     () =>
@@ -820,6 +825,32 @@ export function ActivitiesScreen() {
       ),
     [visibleActivities],
   );
+
+  const shouldShowRecommendedModule =
+    showRecommended &&
+    !isKanbanLayout &&
+    isManualOrderEffective &&
+    filterGroups.length === 0;
+
+  const recommendedPriorityActivities = React.useMemo(() => {
+    if (!shouldShowRecommendedModule) return [];
+    return getRecommendedPriorityActivities({
+      activities: filteredActivities,
+      goals,
+      now: new Date(),
+      limit: 3,
+    });
+  }, [filteredActivities, goals, shouldShowRecommendedModule]);
+
+  const recommendedPriorityActivityIds = React.useMemo(
+    () => new Set(recommendedPriorityActivities.map((row) => row.activity.id)),
+    [recommendedPriorityActivities],
+  );
+
+  const nonRecommendedActiveActivities = React.useMemo(() => {
+    if (recommendedPriorityActivityIds.size === 0) return activeActivities;
+    return activeActivities.filter((activity) => !recommendedPriorityActivityIds.has(activity.id));
+  }, [activeActivities, recommendedPriorityActivityIds]);
 
   const completedActivities = React.useMemo(
     () =>
@@ -1995,6 +2026,11 @@ export function ActivitiesScreen() {
       if (wasFirstCompletion) {
         // Record the show-up (this also triggers daily streak celebration if milestone)
         recordShowUpWithCelebration();
+        useAppStore.getState().recordScreenTimeQualifyingAction({
+          action: 'activity_completed',
+          occurredAt: new Date(timestamp),
+        });
+        reconcileScreenTimeRestrictions({ focusSessionActive: false, now: new Date(timestamp) }).catch(() => undefined);
 
         // Check if this is the user's very first completed activity
         const { hasBeenShown } = useCelebrationStore.getState();
@@ -2091,11 +2127,24 @@ export function ActivitiesScreen() {
   );
 
   // Handle reorder - called immediately when user drops an item
-  const handleReorderActivities = React.useCallback(
+  const handleReorderNonRecommendedActivities = React.useCallback(
     (orderedIds: string[]) => {
-      reorderActivities(orderedIds);
+      if (recommendedPriorityActivityIds.size === 0) {
+        reorderActivities(orderedIds);
+        return;
+      }
+
+      let nextNonRecommendedIndex = 0;
+      const mergedOrderedIds = activeActivities.map((activity) => {
+        if (recommendedPriorityActivityIds.has(activity.id)) return activity.id;
+        const nextId = orderedIds[nextNonRecommendedIndex];
+        nextNonRecommendedIndex += 1;
+        return nextId ?? activity.id;
+      });
+
+      reorderActivities(mergedOrderedIds);
     },
-    [reorderActivities],
+    [activeActivities, recommendedPriorityActivityIds, reorderActivities],
   );
 
   const goalIdSet = React.useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
@@ -2174,6 +2223,17 @@ export function ActivitiesScreen() {
       updateActivityView(activeView.id, (view) => ({
         ...view,
         showCompleted: next,
+      }));
+    },
+    [activeView, updateActivityView],
+  );
+
+  const handleUpdateShowRecommended = React.useCallback(
+    (next: boolean) => {
+      if (!activeView) return;
+      updateActivityView(activeView.id, (view) => ({
+        ...view,
+        showRecommended: next,
       }));
     },
     [activeView, updateActivityView],
@@ -2284,6 +2344,7 @@ export function ActivitiesScreen() {
         sortMode: 'manual',
         layout: viewEditorLayout,
         kanbanGroupBy: viewEditorLayout === 'kanban' ? viewEditorKanbanGroupBy : undefined,
+        showRecommended: true,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -2304,6 +2365,8 @@ export function ActivitiesScreen() {
     updateActivityView,
     viewEditorMode,
     viewEditorName,
+    viewEditorLayout,
+    viewEditorKanbanGroupBy,
     viewEditorTargetId,
   ]);
 
@@ -2315,6 +2378,13 @@ export function ActivitiesScreen() {
         name: `${view.name} copy`,
         filterMode: view.filterMode,
         sortMode: view.sortMode,
+        layout: view.layout,
+        kanbanGroupBy: view.kanbanGroupBy,
+        filters: view.filters,
+        filterGroupLogic: view.filterGroupLogic,
+        sorts: view.sorts,
+        showCompleted: view.showCompleted,
+        showRecommended: view.showRecommended,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -2375,6 +2445,53 @@ export function ActivitiesScreen() {
   );
 
   // (temporary) handleResetView removed
+
+  const activityListHeader = (
+    <>
+      <RecommendedActivitiesSection
+        recommendations={recommendedPriorityActivities}
+        goalTitleById={goalTitleById}
+        isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+        onToggleComplete={handleToggleComplete}
+        onTogglePriority={handleTogglePriorityOne}
+        onPressActivity={navigateToActivityDetail}
+        onDeleteActivity={handleDeleteActivity}
+      />
+      {recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length > 0 ? (
+        <Text style={styles.recommendedListRemainderLabel}>TO-DOS</Text>
+      ) : null}
+      {shouldShowWidgetNudgeInline && (
+        <Card style={styles.widgetNudgeCard}>
+          <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
+            <VStack flex={1} space="xs">
+              <HStack alignItems="center" space="xs">
+                <Icon name="home" size={16} color={colors.textPrimary} />
+                <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
+              </HStack>
+              <Text style={styles.widgetNudgeBody}>
+                {widgetCopyVariant === 'start_focus_faster'
+                  ? 'Start Focus with fewer taps.'
+                  : 'See Today at a glance and jump in faster.'}
+              </Text>
+            </VStack>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss widget prompt"
+              hitSlop={10}
+              onPress={() => handleDismissWidgetPrompt('inline')}
+            >
+              <Icon name="close" size={16} color={colors.textSecondary} />
+            </Pressable>
+          </HStack>
+          <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
+            <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
+              <ButtonLabel size="sm">Set up widget</ButtonLabel>
+            </Button>
+          </HStack>
+        </Card>
+      )}
+    </>
+  );
 
   const handleCoachAddActivity = React.useCallback(
     (activity: Activity) => {
@@ -2810,8 +2927,8 @@ export function ActivitiesScreen() {
         />
       ) : isManualOrderEffective ? (
         <DraggableList
-          items={activeActivities}
-          onOrderChange={handleReorderActivities}
+          items={nonRecommendedActiveActivities}
+          onOrderChange={handleReorderNonRecommendedActivities}
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
           onScrollOffsetChange={(offsetY) => {
@@ -2820,7 +2937,7 @@ export function ActivitiesScreen() {
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
-            activeActivities.length === 0 ? { flexGrow: 1 } : null,
+            nonRecommendedActiveActivities.length === 0 ? { flexGrow: 1 } : null,
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
           renderItem={(activity, isDragging) => {
@@ -2859,44 +2976,15 @@ export function ActivitiesScreen() {
               </View>
             );
           }}
-          ListHeaderComponent={
-            <>
-              {shouldShowWidgetNudgeInline && (
-                <Card style={styles.widgetNudgeCard}>
-                  <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
-                    <VStack flex={1} space="xs">
-                      <HStack alignItems="center" space="xs">
-                        <Icon name="home" size={16} color={colors.textPrimary} />
-                        <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
-                      </HStack>
-                      <Text style={styles.widgetNudgeBody}>
-                        {widgetCopyVariant === 'start_focus_faster'
-                          ? 'Start Focus with fewer taps.'
-                          : 'See Today at a glance and jump in faster.'}
-                      </Text>
-                    </VStack>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss widget prompt"
-                      hitSlop={10}
-                      onPress={() => handleDismissWidgetPrompt('inline')}
-                    >
-                      <Icon name="close" size={16} color={colors.textSecondary} />
-                    </Pressable>
-                  </HStack>
-                  <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
-                    <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
-                      <ButtonLabel size="sm">Set up widget</ButtonLabel>
-                    </Button>
-                  </HStack>
-                </Card>
-              )}
-            </>
+          ListHeaderComponent={activityListHeader}
+          ListEmptyComponent={
+            recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length === 0
+              ? null
+              : renderDomainEmptyState()
           }
-          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
+              <View style={{ marginTop: nonRecommendedActiveActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -2922,7 +3010,7 @@ export function ActivitiesScreen() {
           onScroll={handleInventoryScroll}
           contentContainerStyle={[
             styles.scrollContent,
-            activeActivities.length === 0 ? { flexGrow: 1 } : null,
+            nonRecommendedActiveActivities.length === 0 ? { flexGrow: 1 } : null,
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
           showsVerticalScrollIndicator={false}
@@ -2941,7 +3029,7 @@ export function ActivitiesScreen() {
               });
             }, 80);
           }}
-          data={activeActivities}
+          data={nonRecommendedActiveActivities}
           keyExtractor={(activity) => activity.id}
           ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
           renderItem={({ item: activity }) => {
@@ -2974,44 +3062,15 @@ export function ActivitiesScreen() {
               />
             );
           }}
-          ListHeaderComponent={
-            <>
-              {shouldShowWidgetNudgeInline && (
-                <Card style={styles.widgetNudgeCard}>
-                  <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
-                    <VStack flex={1} space="xs">
-                      <HStack alignItems="center" space="xs">
-                        <Icon name="home" size={16} color={colors.textPrimary} />
-                        <Text style={styles.widgetNudgeTitle}>Add a Kwilt widget</Text>
-                      </HStack>
-                      <Text style={styles.widgetNudgeBody}>
-                        {widgetCopyVariant === 'start_focus_faster'
-                          ? 'Start Focus with fewer taps.'
-                          : 'See Today at a glance and jump in faster.'}
-                      </Text>
-                    </VStack>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Dismiss widget prompt"
-                      hitSlop={10}
-                      onPress={() => handleDismissWidgetPrompt('inline')}
-                    >
-                      <Icon name="close" size={16} color={colors.textSecondary} />
-                    </Pressable>
-                  </HStack>
-                  <HStack justifyContent="flex-end" alignItems="center" space="sm" style={{ marginTop: spacing.sm }}>
-                    <Button variant="secondary" size="sm" onPress={() => openWidgetSetup('inline')}>
-                      <ButtonLabel size="sm">Set up widget</ButtonLabel>
-                    </Button>
-                  </HStack>
-                </Card>
-              )}
-            </>
+          ListHeaderComponent={activityListHeader}
+          ListEmptyComponent={
+            recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length === 0
+              ? null
+              : renderDomainEmptyState()
           }
-          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
+              <View style={{ marginTop: nonRecommendedActiveActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -3394,6 +3453,31 @@ export function ActivitiesScreen() {
                     style={[
                       styles.viewEditorToggleThumb,
                       showCompleted && styles.viewEditorToggleThumbOn,
+                    ]}
+                  />
+                </Pressable>
+              </HStack>
+
+              <HStack
+                style={styles.viewEditorToggleRow}
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Text style={styles.viewEditorToggleLabel}>Recommended</Text>
+                <Pressable
+                  accessibilityRole="switch"
+                  accessibilityLabel="Toggle Recommended section"
+                  accessibilityState={{ checked: showRecommended }}
+                  onPress={() => handleUpdateShowRecommended(!showRecommended)}
+                  style={[
+                    styles.viewEditorToggleTrack,
+                    showRecommended && styles.viewEditorToggleTrackOn,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.viewEditorToggleThumb,
+                      showRecommended && styles.viewEditorToggleThumbOn,
                     ]}
                   />
                 </Pressable>

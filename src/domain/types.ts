@@ -354,6 +354,26 @@ export type ActivitySortMode =
   | 'dueDateDesc'
   | 'priority';
 
+export type ActivityPriorityState = 'active' | 'later' | 'waiting' | 'needs_review';
+
+export type ActivityPriorityRankSource = 'inferred' | 'auto' | 'manual';
+
+export type ActivityPriorityReasonCode =
+  | 'explicit_priority'
+  | 'goal_priority'
+  | 'due_today'
+  | 'due_soon'
+  | 'reminder_soon'
+  | 'scheduled_later'
+  | 'recently_updated'
+  | 'started'
+  | 'has_steps'
+  | 'unanchored'
+  | 'later'
+  | 'waiting'
+  | 'needs_review'
+  | 'moved_by_user';
+
 /**
  * Layout modes for activity views.
  * - list: Traditional vertical scrolling list (default)
@@ -572,6 +592,24 @@ export interface Activity {
    * lower urgency. Unset/null means the activity is not explicitly ranked.
    */
   priority?: 1 | 2 | 3;
+  /**
+   * Kwilt-managed action state for priority organization. Missing values are
+   * treated as `active` for backward compatibility with older saved Activities.
+   */
+  priorityState?: ActivityPriorityState;
+  /**
+   * Hidden sortable key for exact ordering within a priority state or active
+   * candidate set. This is infrastructure, not user-facing copy.
+   */
+  priorityRankKey?: string | null;
+  /**
+   * Where the current priority/rank metadata came from.
+   */
+  priorityRankSource?: ActivityPriorityRankSource;
+  /**
+   * Inspectable explanation handles for why an Activity is ranked or recommended.
+   */
+  priorityReasonCodes?: ActivityPriorityReasonCode[];
   estimateMinutes?: number | null;
   /**
    * User-facing difficulty bucket for this activity. This is the
@@ -694,6 +732,11 @@ export interface ActivityView {
    * Defaults to true when omitted.
    */
   showCompleted?: boolean;
+  /**
+   * Whether this view can show the computed "Recommended" section when its
+   * current layout/sort/filter configuration supports it. Defaults to true.
+   */
+  showRecommended?: boolean;
   /**
    * System views (like "Default view" or "Starred focus") act as
    * guardrails and can't be deleted. They can still be edited and those

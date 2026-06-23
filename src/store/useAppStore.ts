@@ -11,6 +11,7 @@ import { roundDownToIntervalTimeHHmm } from '../services/notifications/timeRound
 import Constants from 'expo-constants';
 import {
   Activity,
+  ActivityPriorityState,
   ActivityType,
   ActivityView,
   Arc,
@@ -23,6 +24,7 @@ import {
 } from '../domain/types';
 import { getArcHeroUriById } from '../domain/curatedHeroLibrary';
 import { normalizeActivity } from '../domain/normalizeActivity';
+import { inferPriorityMetadataForActivity } from '../features/activities/activityPriority';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
   PRO_GENERATIVE_CREDITS_PER_MONTH,
@@ -35,6 +37,15 @@ import { useCreditsInterstitialStore } from './useCreditsInterstitialStore';
 import { useCheckinNudgeStore } from './useCheckinNudgeStore';
 import { useMilestoneSharePromptStore } from './useMilestoneSharePromptStore';
 import { useEntitlementsStore } from './useEntitlementsStore';
+import {
+  DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+  normalizeScreenTimeProtectionSettings,
+  recordMeaningfulFirstBypass,
+  recordMeaningfulFirstQualification,
+  type MeaningfulFirstQualification,
+  type ScreenTimeProtectionSettings,
+  type ScreenTimeSetupOfferSurface,
+} from '../services/screenTimeProtection';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type QuickAddAiActionPreference = 'steps' | 'triggers' | 'details' | 'cover_image';
@@ -679,6 +690,11 @@ interface AppState {
     promptDismissedAtIso: string | null;
   };
   /**
+   * Shared Screen Time configuration for Focus-session protection and
+   * Meaningful First app access.
+   */
+  screenTimeProtection: ScreenTimeProtectionSettings;
+  /**
    * Which "Send to…" destinations are enabled for the user.
    *
    * - Built-in retailers (Amazon/Home Depot/Instacart/DoorDash) can be toggled here.
@@ -878,6 +894,11 @@ interface AppState {
    * Used for auto-tuning daily focus reminder time-of-day.
    */
   lastCompletedFocusSessionAtIso: string | null;
+  /**
+   * Best-effort count of completed Focus sessions on this device.
+   * Used only for contextual setup offers.
+   */
+  completedFocusSessionCount: number;
   /**
    * Tracks completion of the three daily "hero actions":
    * 1) complete a task/step, 2) create something new, 3) complete focus session.
@@ -1153,6 +1174,19 @@ interface AppState {
       | ((current: AppState['healthPreferences']) => AppState['healthPreferences'])
       | AppState['healthPreferences'],
   ) => void;
+  setScreenTimeProtection: (
+    updater:
+      | ((current: ScreenTimeProtectionSettings) => ScreenTimeProtectionSettings)
+      | ScreenTimeProtectionSettings,
+  ) => void;
+  markScreenTimeProtectionPromptDismissed: (dismissedAtIso?: string) => void;
+  markScreenTimeSetupOfferShown: (surface: ScreenTimeSetupOfferSurface, shownAtIso?: string) => void;
+  markScreenTimeSetupOfferDismissed: (surface: ScreenTimeSetupOfferSurface, dismissedAtIso?: string) => void;
+  markScreenTimeSetupOfferCtaTapped: (surface: ScreenTimeSetupOfferSurface, tappedAtIso?: string) => void;
+  markScreenTimeSetupNotificationScheduled: (scheduledAtIso?: string) => void;
+  markScreenTimeSetupNotificationOpened: (openedAtIso?: string) => void;
+  recordScreenTimeQualifyingAction: (qualification: MeaningfulFirstQualification) => void;
+  recordScreenTimeBypass: (at?: Date) => void;
   setLastFocusMinutes: (minutes: number) => void;
   setFocusOverlayColorIndex: (index: number) => void;
   setSoundscapeEnabled: (enabled: boolean) => void;
@@ -1190,6 +1224,7 @@ interface AppState {
   removeGoal: (goalId: string) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
+  setActivityPriorityState: (activityId: string, priorityState: ActivityPriorityState) => void;
   /**
    * Bulk-update orderIndex for a list of activities in a single state update.
    * Accepts an array of activity IDs in the desired order; each activity's
@@ -1586,6 +1621,7 @@ export const useAppStore = create<AppState>()(
         lastSyncAtIso: null,
         promptDismissedAtIso: null,
       },
+      screenTimeProtection: DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
       lastFocusMinutes: null,
       focusOverlayColorIndex: 0,
       soundscapeEnabled: true,
@@ -1644,6 +1680,7 @@ export const useAppStore = create<AppState>()(
       },
       lastCompletedFocusSessionDate: null,
       lastCompletedFocusSessionAtIso: null,
+      completedFocusSessionCount: 0,
       dailyHeroActions: createDailyHeroActions(new Date()),
       lastHeroActionsCelebratedDateKey: null,
       activityViews: initialActivityViews,
@@ -1868,14 +1905,26 @@ export const useAppStore = create<AppState>()(
       addActivity: (activity) =>
         set((state) => {
           const atIso = now();
-          const nextActivities = [...state.activities, activity];
-          const nextTagHistory = recordTagUsageForActivity(state.activityTagHistory, activity, atIso);
+          const inferredPriority = inferPriorityMetadataForActivity({
+            activity,
+            goals: state.goals,
+            now: new Date(atIso),
+          });
+          const activityWithPriority: Activity = {
+            ...activity,
+            priorityState: activity.priorityState ?? inferredPriority.priorityState,
+            priorityRankKey: activity.priorityRankKey ?? inferredPriority.priorityRankKey,
+            priorityRankSource: activity.priorityRankSource ?? inferredPriority.priorityRankSource,
+            priorityReasonCodes: activity.priorityReasonCodes ?? inferredPriority.priorityReasonCodes,
+          };
+          const nextActivities = [...state.activities, activityWithPriority];
+          const nextTagHistory = recordTagUsageForActivity(state.activityTagHistory, activityWithPriority, atIso);
 
           let shouldGrantOnboardingCompletionReward = false;
           if (!state.hasReceivedOnboardingCompletionReward) {
             const onboardingArcId = state.lastOnboardingArcId;
             const onboardingGoalId = state.lastOnboardingGoalId;
-            const activityGoalId = activity.goalId ?? null;
+            const activityGoalId = activityWithPriority.goalId ?? null;
             if (
               onboardingArcId &&
               onboardingGoalId &&
@@ -1976,6 +2025,29 @@ export const useAppStore = create<AppState>()(
             dailyHeroActions: didCompleteTaskOrStep
               ? markDailyHeroAction(state.dailyHeroActions, 'complete_task_or_step', new Date())
               : state.dailyHeroActions,
+          };
+        }),
+      setActivityPriorityState: (activityId, priorityState) =>
+        set((state) => {
+          const atIso = now();
+          return {
+            activities: state.activities.map((activity) => {
+              if (activity.id !== activityId) return activity;
+              const priorityReasonCodes = [...(activity.priorityReasonCodes ?? [])];
+              if (priorityState !== 'active' && !priorityReasonCodes.includes(priorityState)) {
+                priorityReasonCodes.push(priorityState);
+              }
+              if (!priorityReasonCodes.includes('moved_by_user')) {
+                priorityReasonCodes.push('moved_by_user');
+              }
+              return {
+                ...activity,
+                priorityState,
+                priorityRankSource: 'manual',
+                priorityReasonCodes,
+                updatedAt: atIso,
+              };
+            }),
           };
         }),
       reorderActivities: (orderedIds) =>
@@ -2511,6 +2583,142 @@ export const useAppStore = create<AppState>()(
               : updater;
           return { healthPreferences: next };
         }),
+      setScreenTimeProtection: (updater) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const next =
+            typeof updater === 'function'
+              ? (updater as (current: ScreenTimeProtectionSettings) => ScreenTimeProtectionSettings)(current)
+              : updater;
+          return { screenTimeProtection: normalizeScreenTimeProtectionSettings(next) };
+        }),
+      markScreenTimeProtectionPromptDismissed: (dismissedAtIso) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const at = dismissedAtIso ?? new Date().toISOString();
+          return {
+            screenTimeProtection: normalizeScreenTimeProtectionSettings({
+              ...current,
+              meaningfulFirst: {
+                ...current.meaningfulFirst,
+                lastPromptDismissedAtIso: at,
+                lastUpdated: at,
+              },
+              lastUpdated: at,
+            }),
+          };
+        }),
+      markScreenTimeSetupOfferShown: (surface, shownAtIso) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const at = shownAtIso ?? new Date().toISOString();
+          return {
+            screenTimeProtection: normalizeScreenTimeProtectionSettings({
+              ...current,
+              setupOffer: {
+                ...current.setupOffer,
+                lastShownAtIso: at,
+                shownBySurface: {
+                  ...current.setupOffer.shownBySurface,
+                  [surface]: at,
+                },
+              },
+              lastUpdated: at,
+            }),
+          };
+        }),
+      markScreenTimeSetupOfferDismissed: (surface, dismissedAtIso) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const at = dismissedAtIso ?? new Date().toISOString();
+          return {
+            screenTimeProtection: normalizeScreenTimeProtectionSettings({
+              ...current,
+              meaningfulFirst: {
+                ...current.meaningfulFirst,
+                lastPromptDismissedAtIso: at,
+                lastUpdated: at,
+              },
+              setupOffer: {
+                ...current.setupOffer,
+                lastDismissedAtIso: at,
+                dismissedBySurface: {
+                  ...current.setupOffer.dismissedBySurface,
+                  [surface]: at,
+                },
+              },
+              lastUpdated: at,
+            }),
+          };
+        }),
+      markScreenTimeSetupOfferCtaTapped: (surface, tappedAtIso) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const at = tappedAtIso ?? new Date().toISOString();
+          return {
+            screenTimeProtection: normalizeScreenTimeProtectionSettings({
+              ...current,
+              setupOffer: {
+                ...current.setupOffer,
+                lastCtaTappedAtIso: at,
+                shownBySurface: {
+                  ...current.setupOffer.shownBySurface,
+                  [surface]: current.setupOffer.shownBySurface[surface] ?? at,
+                },
+              },
+              lastUpdated: at,
+            }),
+          };
+        }),
+      markScreenTimeSetupNotificationScheduled: (scheduledAtIso) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const at = scheduledAtIso ?? new Date().toISOString();
+          return {
+            screenTimeProtection: normalizeScreenTimeProtectionSettings({
+              ...current,
+              setupOffer: {
+                ...current.setupOffer,
+                lastNotificationScheduledAtIso: at,
+                shownBySurface: {
+                  ...current.setupOffer.shownBySurface,
+                  notification: at,
+                },
+              },
+              lastUpdated: at,
+            }),
+          };
+        }),
+      markScreenTimeSetupNotificationOpened: (openedAtIso) =>
+        set((state) => {
+          const current = normalizeScreenTimeProtectionSettings(state.screenTimeProtection);
+          const at = openedAtIso ?? new Date().toISOString();
+          return {
+            screenTimeProtection: normalizeScreenTimeProtectionSettings({
+              ...current,
+              setupOffer: {
+                ...current.setupOffer,
+                lastNotificationOpenedAtIso: at,
+                lastCtaTappedAtIso: at,
+              },
+              lastUpdated: at,
+            }),
+          };
+        }),
+      recordScreenTimeQualifyingAction: (qualification) =>
+        set((state) => ({
+          screenTimeProtection: recordMeaningfulFirstQualification(
+            normalizeScreenTimeProtectionSettings(state.screenTimeProtection),
+            qualification,
+          ),
+        })),
+      recordScreenTimeBypass: (at) =>
+        set((state) => ({
+          screenTimeProtection: recordMeaningfulFirstBypass(
+            normalizeScreenTimeProtectionSettings(state.screenTimeProtection),
+            at ?? new Date(),
+          ),
+        })),
       setLastFocusMinutes: (minutes) =>
         set(() => ({
           lastFocusMinutes: Number.isFinite(minutes) ? Math.max(1, Math.round(minutes)) : null,
@@ -2840,6 +3048,11 @@ export const useAppStore = create<AppState>()(
             ...state,
             lastCompletedFocusSessionDate: todayKey,
             lastCompletedFocusSessionAtIso: nowDate.toISOString(),
+            completedFocusSessionCount:
+              typeof state.completedFocusSessionCount === 'number' &&
+              Number.isFinite(state.completedFocusSessionCount)
+                ? state.completedFocusSessionCount + 1
+                : 1,
             notificationPreferences: nextNotificationPreferences,
             lastActiveDate: nowDate.toISOString(),
             dailyHeroActions: markDailyHeroAction(
@@ -2993,6 +3206,7 @@ export const useAppStore = create<AppState>()(
           },
           lastCompletedFocusSessionDate: null,
           lastCompletedFocusSessionAtIso: null,
+          completedFocusSessionCount: 0,
           dailyHeroActions: createDailyHeroActions(new Date()),
           lastHeroActionsCelebratedDateKey: null,
           locationOfferPreferences: {
@@ -3009,6 +3223,7 @@ export const useAppStore = create<AppState>()(
             lastSyncAtIso: null,
             promptDismissedAtIso: null,
           },
+          screenTimeProtection: DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
           enabledSendToDestinations: {
             amazon: false,
             home_depot: false,
@@ -3119,6 +3334,9 @@ export const useAppStore = create<AppState>()(
           if (typeof prefs.lastSyncAtIso !== 'string') prefs.lastSyncAtIso = null;
           if (typeof prefs.promptDismissedAtIso !== 'string') prefs.promptDismissedAtIso = null;
         }
+        anyState.screenTimeProtection = normalizeScreenTimeProtectionSettings(
+          anyState.screenTimeProtection,
+        );
         if (typeof anyState.currentShowUpStreak !== 'number' || !Number.isFinite(anyState.currentShowUpStreak)) {
           anyState.currentShowUpStreak = 0;
         }
@@ -3432,6 +3650,13 @@ export const useAppStore = create<AppState>()(
             typeof anyState.lastCompletedFocusSessionAtIso !== 'string')
         ) {
           (state as any).lastCompletedFocusSessionAtIso = null;
+        }
+        if (
+          typeof anyState.completedFocusSessionCount !== 'number' ||
+          !Number.isFinite(anyState.completedFocusSessionCount) ||
+          anyState.completedFocusSessionCount < 0
+        ) {
+          (state as any).completedFocusSessionCount = 0;
         }
         if (
           !('dailyHeroActions' in anyState) ||

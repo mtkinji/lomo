@@ -47,7 +47,19 @@ In Activity detail:
 - `.ics` includes:
   - Title: Activity title
   - Description: optionally include Goal title + a short note
+  - Deep link back to the Activity's Focus sheet (`kwilt://activity/<activityId>?openFocus=1`)
   - DTSTART / DTEND computed from `scheduledAt` and `estimateMinutes` if present
+
+### Focus handoff
+
+Calendar export should bridge the user back to Kwilt, not start a Focus Session by itself. The calendar event description can say:
+
+```text
+Open in Kwilt to start a Focus Session:
+kwilt://activity/<activityId>?openFocus=1
+```
+
+That link opens the to-do with the Focus sheet ready. It does not immediately activate Focus Protection or Screen Time restrictions. Protections activate only when the user starts the Focus Session from a Kwilt-owned surface, such as the Focus sheet, a Kwilt notification action, a widget, Shortcut, or App Intent that explicitly means "Start Focus."
 
 ---
 
@@ -65,5 +77,4 @@ In Activity detail:
 - Exported `.ics` imports into Apple Calendar successfully.
 - No OAuth required for MVP.
 - Scheduling data model avoids breaking migrations by using a new field.
-
 

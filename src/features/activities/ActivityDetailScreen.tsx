@@ -41,6 +41,7 @@ import { useFeatureFlag } from '../../services/analytics/useFeatureFlag';
 import { useToastStore } from '../../store/useToastStore';
 import type {
   ActivityDifficulty,
+  ActivityPriorityState,
   ActivityRepeatCustom,
   ActivityStatus,
   ActivityStep,
@@ -162,6 +163,11 @@ import {
 } from './nextBestAction';
 import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
+import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
+import {
+  normalizeScreenTimeProtectionSettings,
+  shouldShowScreenTimeSetupOffer,
+} from '../../services/screenTimeProtection';
 import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
 import MapView, { Circle, type Region } from 'react-native-maps';
 
@@ -286,9 +292,15 @@ export function ActivityDetailScreen() {
   // Activity detail uses the refresh layout only (legacy implementation removed).
   const addActivity = useAppStore((state) => state.addActivity);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const setActivityPriorityState = useAppStore((state) => state.setActivityPriorityState);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const notificationPreferences = useAppStore((state) => state.notificationPreferences);
+  const screenTimeProtection = useAppStore((state) => state.screenTimeProtection);
+  const completedFocusSessionCount = useAppStore((state) => state.completedFocusSessionCount);
+  const markScreenTimeSetupOfferShown = useAppStore((state) => state.markScreenTimeSetupOfferShown);
+  const markScreenTimeSetupOfferDismissed = useAppStore((state) => state.markScreenTimeSetupOfferDismissed);
+  const markScreenTimeSetupOfferCtaTapped = useAppStore((state) => state.markScreenTimeSetupOfferCtaTapped);
   const lastFocusMinutes = useAppStore((state) => state.lastFocusMinutes);
   const setLastFocusMinutes = useAppStore((state) => state.setLastFocusMinutes);
   const focusOverlayColorIndex = useAppStore((state) => state.focusOverlayColorIndex);
@@ -326,6 +338,24 @@ export function ActivityDetailScreen() {
   const activity = useMemo(
     () => activities.find((item) => item.id === activityId),
     [activities, activityId],
+  );
+  const normalizedScreenTimeProtection = useMemo(
+    () => normalizeScreenTimeProtectionSettings(screenTimeProtection),
+    [screenTimeProtection],
+  );
+  const shouldShowFocusScreenTimeOffer = useMemo(
+    () =>
+      Boolean(activity) &&
+      shouldShowScreenTimeSetupOffer({
+        settings: normalizedScreenTimeProtection,
+        setupIntent: 'focus_sessions',
+        surface: 'focus_drawer',
+        completedFocusSessions: completedFocusSessionCount,
+        realMoveDayCount: 0,
+        activeActivityCount: 1,
+        now: new Date(),
+      }),
+    [activity, completedFocusSessionCount, normalizedScreenTimeProtection],
   );
 
   const heroSeed = useMemo(() => activity?.id ?? 'activity', [activity?.id]);
@@ -729,6 +759,22 @@ export function ActivityDetailScreen() {
   const [estimateDraftMinutes, setEstimateDraftMinutes] = useState<number>(30);
 
   const focusSheetVisible = activeSheet === 'focus';
+  useEffect(() => {
+    if (!focusSheetVisible || !shouldShowFocusScreenTimeOffer) return;
+    markScreenTimeSetupOfferShown('focus_drawer');
+    capture(AnalyticsEvent.ScreenTimeSetupOfferShown, {
+      setup_intent: 'focus_sessions',
+      surface: 'focus_drawer',
+      activity_id: activity?.id,
+    });
+  }, [
+    activity?.id,
+    capture,
+    focusSheetVisible,
+    markScreenTimeSetupOfferShown,
+    shouldShowFocusScreenTimeOffer,
+  ]);
+
   const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
   const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
   const [focusSession, setFocusSession] = useState<FocusSessionState | null>(null);
@@ -2092,10 +2138,22 @@ export function ActivityDetailScreen() {
     }
   };
 
+  const recordScreenTimeProgress = (
+    action: 'activity_completed' | 'activity_progress_recorded',
+    occurredAt = new Date(),
+  ) => {
+    useAppStore.getState().recordScreenTimeQualifyingAction({ action, occurredAt });
+    reconcileScreenTimeRestrictions({
+      focusSessionActive: Boolean(focusSession),
+      now: occurredAt,
+    }).catch(() => undefined);
+  };
+
   const endFocusSession = async () => {
     await cancelFocusNotificationIfNeeded();
     await stopSoundscapeLoop({ unload: true }).catch(() => undefined);
     setFocusSession(null);
+    await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => []);
   };
 
   const startFocusSession = async (overrideMinutes?: number) => {
@@ -2131,6 +2189,10 @@ export function ActivityDetailScreen() {
       const endAtMs = startedAtMs + minutes * 60_000;
       setFocusSession({ mode: 'running', startedAtMs, endAtMs });
       setFocusTickMs(startedAtMs);
+      reconcileScreenTimeRestrictions({
+        focusSessionActive: true,
+        now: new Date(startedAtMs),
+      }).catch(() => undefined);
 
       // Best-effort: schedule a "time's up" local notification if permissions are already granted
       // and the user hasn't disabled reminders in app settings.
@@ -2301,16 +2363,23 @@ export function ActivityDetailScreen() {
     // Session completed
     void HapticsService.trigger('outcome.success');
     recordShowUpWithCelebration();
-    useAppStore.getState().recordCompletedFocusSession({ completedAtMs: Date.now() });
+    const completedAtMs = Date.now();
+    const completedFocusMinutes = Math.max(
+      1,
+      Math.round((focusSession.endAtMs - focusSession.startedAtMs) / 60_000),
+    );
+    const completedAt = new Date(completedAtMs);
+    useAppStore.getState().recordCompletedFocusSession({ completedAtMs });
+    useAppStore.getState().recordScreenTimeQualifyingAction({
+      action: 'focus_session_completed',
+      occurredAt: completedAt,
+      focusMinutes: completedFocusMinutes,
+    });
     endFocusSession().catch(() => undefined);
 
     // Check-in nudge for activities under shared goals
     const activityGoalId = activity?.goalId;
     if (activityGoalId) {
-      const durationMinutes = Math.max(
-        1,
-        Math.round((focusSession.endAtMs - focusSession.startedAtMs) / 60_000),
-      );
       void queueCheckinDraftFromProgress({
         goalId: activityGoalId,
         trigger: 'focus_complete',
@@ -2319,7 +2388,7 @@ export function ActivityDetailScreen() {
         sourceId: `${activity?.id ?? 'activity'}-${focusSession.startedAtMs}`,
         title: activity?.title ?? 'this goal',
         completedAt: new Date(focusSession.endAtMs).toISOString(),
-        durationMinutes,
+        durationMinutes: completedFocusMinutes,
         openPromptDelayMs: 1500,
         capture,
       });
@@ -2429,6 +2498,7 @@ export function ActivityDetailScreen() {
                 if (desired && !step.completedAt) {
                   // Completing a step counts as "showing up".
                   recordShowUpWithCelebration();
+                  recordScreenTimeProgress('activity_progress_recorded', new Date(timestamp));
                 }
                 updateActivity(activity.id, (prev) => {
                   const prevSteps = prev.steps ?? [];
@@ -3092,6 +3162,7 @@ export function ActivityDetailScreen() {
         }
         void playActivityDoneSound();
         recordShowUpWithCelebration();
+        recordScreenTimeProgress('activity_completed', new Date(timestamp));
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activity_detail',
           activity_id: activity.id,
@@ -3374,6 +3445,7 @@ export function ActivityDetailScreen() {
       if (!wasCompleted) {
         // Toggling from not-done to done counts as "showing up" for the day.
         recordShowUpWithCelebration();
+        recordScreenTimeProgress('activity_completed', new Date(timestamp));
       }
       return;
     }
@@ -3429,6 +3501,7 @@ export function ActivityDetailScreen() {
     });
     if (!wasCompleted) {
       recordShowUpWithCelebration();
+      recordScreenTimeProgress('activity_completed', new Date(timestamp));
     }
     capture(AnalyticsEvent.ActivityCompletionToggled, {
       source: 'activity_detail',
@@ -4173,6 +4246,9 @@ export function ActivityDetailScreen() {
               setDifficultyComboboxOpen={setDifficultyComboboxOpen}
               difficultyOptions={difficultyOptions}
               handleClearDifficulty={handleClearDifficulty}
+              setActivityPriorityState={(nextState: ActivityPriorityState) => {
+                setActivityPriorityState(activity.id, nextState);
+              }}
               totalStepsCount={totalStepsCount}
               completedStepsCount={completedStepsCount}
               tagsFieldContainerRef={tagsFieldContainerRef}
@@ -5223,7 +5299,62 @@ export function ActivityDetailScreen() {
             </VStack>
           </BottomDrawerScrollView>
 
-          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm }}>
+            {shouldShowFocusScreenTimeOffer ? (
+              <View style={styles.focusScreenTimeOfferCard}>
+                <HStack alignItems="flex-start" space="sm">
+                  <View style={styles.focusScreenTimeOfferIcon}>
+                    <Icon name="shield" size={16} color={colors.textPrimary} />
+                  </View>
+                  <VStack flex={1} space={2}>
+                    <Text style={styles.focusScreenTimeOfferTitle}>Fewer distractions during Focus.</Text>
+                    <Text style={styles.focusScreenTimeOfferBody}>Block selected apps while Focus runs.</Text>
+                    <HStack space="sm" alignItems="center" style={styles.focusScreenTimeOfferActions}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onPress={() => {
+                          markScreenTimeSetupOfferCtaTapped('focus_drawer');
+                          capture(AnalyticsEvent.ScreenTimeSetupOfferCtaTapped, {
+                            setup_intent: 'focus_sessions',
+                            surface: 'focus_drawer',
+                            activity_id: activity?.id,
+                          });
+                          rootNavigationRef.navigate('Settings', {
+                            screen: 'SettingsScreenTimeProtection',
+                            params: {
+                              setupIntent: 'focus_sessions',
+                              entrySurface: 'focus_drawer',
+                              returnToActivityId: activity?.id,
+                            },
+                          } as any);
+                        }}
+                      >
+                        Set Up
+                      </Button>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Dismiss Screen Time Controls setup"
+                        onPress={() => {
+                          markScreenTimeSetupOfferDismissed('focus_drawer');
+                          capture(AnalyticsEvent.ScreenTimeSetupOfferDismissed, {
+                            setup_intent: 'focus_sessions',
+                            surface: 'focus_drawer',
+                            activity_id: activity?.id,
+                          });
+                        }}
+                        style={({ pressed }) => [
+                          styles.focusScreenTimeOfferDismiss,
+                          pressed && styles.focusPresetChipPressed,
+                        ]}
+                      >
+                        <Text style={styles.focusScreenTimeOfferDismissText}>Not now</Text>
+                      </Pressable>
+                    </HStack>
+                  </VStack>
+                </HStack>
+              </View>
+            ) : null}
             <Button
               variant="primary"
               fullWidth

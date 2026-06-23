@@ -151,6 +151,55 @@ describe('useAppStore object lifecycles', () => {
     expect((state.activities[1] as any)?.origin?.parentActivityId).toBe('parent');
   });
 
+  it('infers priority metadata when adding an activity without priority metadata', () => {
+    useAppStore.getState().addActivity(
+      activity({
+        id: 'act-inferred',
+        goalId: null,
+        title: 'Call the school today',
+        scheduledDate: '2026-01-01',
+      }),
+    );
+
+    const added = useAppStore.getState().activities.find((a) => a.id === 'act-inferred');
+    expect(added?.priorityState).toBe('active');
+    expect(added?.priorityRankSource).toBe('inferred');
+    expect(added?.priorityReasonCodes).toEqual(expect.arrayContaining(['due_today']));
+  });
+
+  it('sets manual priority state without changing schedule, recurrence, explicit priority, goal, tags, or status', () => {
+    const original = activity({
+      id: 'act-manual',
+      goalId: 'goal-1',
+      priority: 1,
+      tags: ['family'],
+      status: 'planned',
+      scheduledDate: '2026-01-05',
+      scheduledAt: '2026-01-05T15:00:00.000Z',
+      reminderAt: '2026-01-05T14:00:00.000Z',
+      repeatRule: 'weekly',
+      repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [1] },
+    });
+    useAppStore.getState().addActivity(original);
+
+    useAppStore.getState().setActivityPriorityState('act-manual', 'later');
+
+    const updated = useAppStore.getState().activities.find((a) => a.id === 'act-manual');
+    expect(updated?.priorityState).toBe('later');
+    expect(updated?.priorityRankSource).toBe('manual');
+    expect(updated?.priorityReasonCodes).toEqual(expect.arrayContaining(['moved_by_user']));
+    expect(updated?.scheduledDate).toBe(original.scheduledDate);
+    expect(updated?.scheduledAt).toBe(original.scheduledAt);
+    expect(updated?.reminderAt).toBe(original.reminderAt);
+    expect(updated?.repeatRule).toBe(original.repeatRule);
+    expect(updated?.repeatCustom).toEqual(original.repeatCustom);
+    expect(updated?.priority).toBe(original.priority);
+    expect(updated?.goalId).toBe(original.goalId);
+    expect(updated?.tags).toEqual(original.tags);
+    expect(updated?.status).toBe(original.status);
+    expect(updated?.updatedAt).not.toBe(original.updatedAt);
+  });
+
   it('archive/restore is a status change (non-destructive) for arcs', () => {
     useAppStore.getState().addArc(arc({ id: 'arc-1', status: 'active' }));
 
@@ -843,5 +892,103 @@ describe('weekly recap dismiss', () => {
     useAppStore.getState().dismissWeeklyRecap('2026-W16');
 
     expect(useAppStore.getState().lastWeeklyRecapDismissedWeekKey).toBe('2026-W16');
+  });
+});
+
+describe('screen time protection settings', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('normalizes settings through the shared setter', () => {
+    useAppStore.getState().setScreenTimeProtection({
+      authorizationStatus: 'nonsense',
+      selectedApps: [{ token: '  youtube  ', label: ' YouTube ' }, { token: 'youtube' }],
+      selectedCategories: [{ token: '' }],
+      focusProtection: { enabled: true, setupCompleted: true },
+      meaningfulFirst: {
+        enabled: true,
+        qualifyingActions: ['activity_completed'],
+        minFocusMinutes: -10,
+        unlockPolicy: { type: 'duration', minutes: 45 },
+        currentUnlockUntilIso: 'not-a-date',
+        lastQualifiedAtIso: null,
+        setupCompleted: true,
+        allowBypass: true,
+        bypassMinutes: 0,
+        lastPromptDismissedAtIso: null,
+        lastUpdated: null,
+      },
+      lastUpdated: null,
+    } as any);
+
+    const settings = useAppStore.getState().screenTimeProtection;
+    expect(settings.authorizationStatus).toBe('notDetermined');
+    expect(settings.selectedApps).toEqual([{ token: 'youtube', label: 'YouTube' }]);
+    expect(settings.selectedCategories).toEqual([]);
+    expect(settings.focusProtection.enabled).toBe(true);
+    expect(settings.meaningfulFirst.currentUnlockUntilIso).toBeNull();
+    expect(settings.meaningfulFirst.minFocusMinutes).toBe(10);
+    expect(settings.meaningfulFirst.bypassMinutes).toBe(15);
+    expect(settings.setupOffer.lastShownAtIso).toBeNull();
+  });
+
+  it('records Meaningful First unlocks and prompt dismissals', () => {
+    const now = new Date(2026, 5, 19, 10, 0, 0);
+    useAppStore.getState().setScreenTimeProtection((current) => ({
+      ...current,
+      selectedApps: [{ token: 'instagram', label: 'Instagram' }],
+      meaningfulFirst: {
+        ...current.meaningfulFirst,
+        enabled: true,
+        setupCompleted: true,
+        minFocusMinutes: 10,
+      },
+    }));
+
+    useAppStore.getState().recordScreenTimeQualifyingAction({
+      action: 'focus_session_completed',
+      occurredAt: now,
+      focusMinutes: 5,
+    });
+    expect(useAppStore.getState().screenTimeProtection.meaningfulFirst.currentUnlockUntilIso).toBeNull();
+
+    useAppStore.getState().recordScreenTimeQualifyingAction({
+      action: 'focus_session_completed',
+      occurredAt: now,
+      focusMinutes: 25,
+    });
+    expect(useAppStore.getState().screenTimeProtection.meaningfulFirst.lastQualifiedAtIso).toBe(
+      now.toISOString(),
+    );
+
+    useAppStore.getState().markScreenTimeProtectionPromptDismissed('2026-06-19T18:00:00.000Z');
+    expect(
+      useAppStore.getState().screenTimeProtection.meaningfulFirst.lastPromptDismissedAtIso,
+    ).toBe('2026-06-19T18:00:00.000Z');
+  });
+
+  it('records setup offer lifecycle state by surface', () => {
+    useAppStore.getState().markScreenTimeSetupOfferShown('focus_drawer', '2026-06-19T18:00:00.000Z');
+    useAppStore.getState().markScreenTimeSetupOfferCtaTapped('focus_drawer', '2026-06-19T18:01:00.000Z');
+    useAppStore.getState().markScreenTimeSetupOfferDismissed('today', '2026-06-19T18:02:00.000Z');
+    useAppStore.getState().markScreenTimeSetupNotificationScheduled('2026-06-20T18:00:00.000Z');
+    useAppStore.getState().markScreenTimeSetupNotificationOpened('2026-06-20T18:10:00.000Z');
+
+    const state = useAppStore.getState().screenTimeProtection;
+    expect(state.setupOffer.shownBySurface.focus_drawer).toBe('2026-06-19T18:00:00.000Z');
+    expect(state.setupOffer.lastCtaTappedAtIso).toBe('2026-06-20T18:10:00.000Z');
+    expect(state.setupOffer.dismissedBySurface.today).toBe('2026-06-19T18:02:00.000Z');
+    expect(state.setupOffer.lastNotificationScheduledAtIso).toBe('2026-06-20T18:00:00.000Z');
+    expect(state.setupOffer.lastNotificationOpenedAtIso).toBe('2026-06-20T18:10:00.000Z');
+  });
+
+  it('counts completed Focus sessions for setup-offer fallback logic', () => {
+    expect(useAppStore.getState().completedFocusSessionCount).toBe(0);
+
+    useAppStore.getState().recordCompletedFocusSession({ completedAtMs: Date.parse('2026-06-19T18:00:00.000Z') });
+    useAppStore.getState().recordCompletedFocusSession({ completedAtMs: Date.parse('2026-06-20T18:00:00.000Z') });
+
+    expect(useAppStore.getState().completedFocusSessionCount).toBe(2);
   });
 });

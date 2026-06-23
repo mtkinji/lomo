@@ -45,6 +45,16 @@ function deleteAnnotations(title: string) {
 
 export const EXTERNAL_MCP_READ_TOOLS: ExternalMcpToolDefinition[] = [
   {
+    name: 'get_current_account',
+    description: 'Get the authenticated Kwilt account for this MCP connection.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    annotations: readOnlyAnnotations('Get Current Account'),
+    scope: 'read',
+  },
+  {
     name: 'list_arcs',
     description: 'List the user-owned Kwilt Arcs. Returns compact identity context only.',
     inputSchema: {
@@ -494,5 +504,21 @@ export function summarizeShowUpStatus(raw: unknown): JsonObject {
     current_show_up_streak: asInt(status.current_show_up_streak) ?? 0,
     current_covered_show_up_streak: asInt(status.current_covered_show_up_streak) ?? 0,
     repair_window_active: repairUntil != null && repairUntil > Date.now(),
+  };
+}
+
+export function summarizeCurrentAccount(raw: unknown): JsonObject {
+  const user = asRecord(raw) ?? {};
+  const identities = Array.isArray(user.identities)
+    ? user.identities
+      .map((identity) => asString(asRecord(identity)?.provider))
+      .filter((provider): provider is string => Boolean(provider))
+    : [];
+
+  return {
+    user_id: asString(user.id) ?? '',
+    email: asString(user.email),
+    phone: asString(user.phone),
+    providers: Array.from(new Set(identities)),
   };
 }
