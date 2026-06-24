@@ -115,6 +115,37 @@ describe('screenTimeProtection setup offers', () => {
     ).toBe(true);
   });
 
+  it('suppresses contextual offers after shared Screen Time setup is complete', () => {
+    const configured = base({
+      authorizationStatus: 'approved',
+      selectedApps: [{ token: 'youtube', label: 'YouTube' }],
+    });
+
+    expect(
+      shouldShowScreenTimeSetupOffer({
+        settings: configured,
+        setupIntent: 'focus_sessions',
+        surface: 'focus_drawer',
+        completedFocusSessions: 0,
+        realMoveDayCount: 0,
+        activeActivityCount: 1,
+        now: dayStart,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowScreenTimeSetupOffer({
+        settings: configured,
+        setupIntent: 'meaningful_first_self_control',
+        surface: 'today',
+        completedFocusSessions: 0,
+        realMoveDayCount: 2,
+        activeActivityCount: 1,
+        now: dayStart,
+      }),
+    ).toBe(false);
+  });
+
   it('shows Focus completion fallback after the drawer was dismissed or after multiple completions', () => {
     expect(
       shouldShowScreenTimeSetupOffer({

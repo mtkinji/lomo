@@ -1,8 +1,7 @@
 // Kwilt External AI Connector MCP server (OAuth + Streamable HTTP).
 //
-// This function is separate from `kwilt-mcp`, which remains the PAT-based
-// operator/Cursor MCP surface. This one is the hosted remote connector intended
-// for Claude/ChatGPT directory-style installs.
+// This is the canonical hosted remote connector intended for Claude, ChatGPT,
+// Cursor, Codex, and other OAuth-capable MCP clients.
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';

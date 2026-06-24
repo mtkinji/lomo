@@ -20,7 +20,7 @@ type OpportunityCardProps = {
   ctaLabel: ReactNode;
   onPressCta: () => void;
   ctaVariant?: React.ComponentProps<typeof Button>['variant'];
-  ctaLeadingIconName?: React.ComponentProps<typeof Icon>['name'];
+  ctaLeadingIconName?: React.ComponentProps<typeof Icon>['name'] | null;
   ctaAccessibilityLabel?: string;
   ctaSize?: React.ComponentProps<typeof Button>['size'];
   /**
@@ -34,7 +34,7 @@ type OpportunityCardProps = {
   secondaryCtaLabel?: ReactNode;
   onPressSecondaryCta?: () => void;
   secondaryCtaVariant?: React.ComponentProps<typeof Button>['variant'];
-  secondaryCtaLeadingIconName?: React.ComponentProps<typeof Icon>['name'];
+  secondaryCtaLeadingIconName?: React.ComponentProps<typeof Icon>['name'] | null;
   secondaryCtaAccessibilityLabel?: string;
   secondaryCtaSize?: React.ComponentProps<typeof Button>['size'];
 
@@ -305,5 +305,4 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
 });
-
 

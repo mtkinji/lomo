@@ -77,6 +77,10 @@ import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
 import { DurationPicker, formatDurationMinutes } from './DurationPicker';
+import {
+  isRunningFocusSessionExpired,
+  type FocusSessionLifecycleState,
+} from './focusSessionLifecycle';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Card } from '../../ui/Card';
@@ -154,6 +158,7 @@ import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
+import { OpportunityCard } from '../../ui/OpportunityCard';
 import { ActivityNextActionInlineContent } from './ActivityNextActionDock';
 import {
   ACTIVITY_NEXT_BEST_ACTION_MENU_ORDER,
@@ -171,17 +176,7 @@ import {
 import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
 import MapView, { Circle, type Region } from 'react-native-maps';
 
-type FocusSessionState =
-  | {
-      mode: 'running';
-      startedAtMs: number;
-      endAtMs: number;
-    }
-  | {
-      mode: 'paused';
-      startedAtMs: number;
-      remainingMs: number;
-    };
+type FocusSessionState = FocusSessionLifecycleState;
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
@@ -921,10 +916,55 @@ export function ActivityDetailScreen() {
     // Ensure the sheet can show the full preset row + optional custom wheel + soundscape + CTA buttons
     // without requiring scroll on typical phone sizes.
     if (Platform.OS === 'ios') {
-      return [focusCustomExpanded ? ('82%' as const) : ('72%' as const)];
+      if (focusCustomExpanded) return ['82%' as const];
+      return ['72%' as const];
     }
-    return [focusCustomExpanded ? ('74%' as const) : ('62%' as const)];
+    if (focusCustomExpanded) return ['74%' as const];
+    return ['62%' as const];
   }, [focusCustomExpanded]);
+
+  const focusScreenTimeOfferCard = shouldShowFocusScreenTimeOffer ? (
+    <OpportunityCard
+      title="Fewer distractions during Focus."
+      body="Block selected apps while Focus runs."
+      tone="brand"
+      shadow="layered"
+      padding="sm"
+      ctaAlign="right"
+      ctaLabel="Set Up"
+      ctaVariant="inverse"
+      ctaLeadingIconName={null}
+      ctaSize="sm"
+      onPressCta={() => {
+        markScreenTimeSetupOfferCtaTapped('focus_drawer');
+        capture(AnalyticsEvent.ScreenTimeSetupOfferCtaTapped, {
+          setup_intent: 'focus_sessions',
+          surface: 'focus_drawer',
+          activity_id: activity?.id,
+        });
+        rootNavigationRef.navigate('Settings', {
+          screen: 'SettingsScreenTimeProtection',
+          params: {
+            setupIntent: 'focus_sessions',
+            entrySurface: 'focus_drawer',
+            returnToActivityId: activity?.id,
+          },
+        } as any);
+      }}
+      secondaryCtaLabel="Not now"
+      secondaryCtaVariant="ghost"
+      secondaryCtaSize="sm"
+      onPressSecondaryCta={() => {
+        markScreenTimeSetupOfferDismissed('focus_drawer');
+        capture(AnalyticsEvent.ScreenTimeSetupOfferDismissed, {
+          setup_intent: 'focus_sessions',
+          surface: 'focus_drawer',
+          activity_id: activity?.id,
+        });
+      }}
+      secondaryCtaAccessibilityLabel="Dismiss Screen Time Controls setup"
+    />
+  ) : null;
 
   const calendarSheetVisible = activeSheet === 'calendar';
   const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
@@ -2270,26 +2310,32 @@ export function ActivityDetailScreen() {
     return () => clearInterval(id);
   }, [focusSession]);
 
+  const focusSoundscapeShouldPlay = focusSession?.mode === 'running' && soundscapeEnabled;
+
   useEffect(() => {
     // Keep soundscape aligned with Focus session state (handles toggling + pause/resume).
-    if (focusSession?.mode === 'running' && soundscapeEnabled) {
-      startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
-      if (!hasShownFocusSoundscapeVolumeHint) {
-        showToast({
-          message: "If you don't hear Focus audio, turn up your device volume.",
-          variant: 'default',
-          durationMs: 2600,
-          behaviorDuringSuppression: 'queue',
-        });
-        setHasShownFocusSoundscapeVolumeHint(true);
-      }
+    if (!focusSoundscapeShouldPlay) {
+      stopSoundscapeLoop().catch(() => undefined);
       return;
     }
-    stopSoundscapeLoop().catch(() => undefined);
+
+    startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
+    return () => {
+      stopSoundscapeLoop({ unload: true }).catch(() => undefined);
+    };
+  }, [focusSoundscapeShouldPlay, soundscapeTrackId]);
+
+  useEffect(() => {
+    if (!focusSoundscapeShouldPlay || hasShownFocusSoundscapeVolumeHint) return;
+    showToast({
+      message: "If you don't hear Focus audio, turn up your device volume.",
+      variant: 'default',
+      durationMs: 2600,
+      behaviorDuringSuppression: 'queue',
+    });
+    setHasShownFocusSoundscapeVolumeHint(true);
   }, [
-    focusSession?.mode,
-    soundscapeEnabled,
-    soundscapeTrackId,
+    focusSoundscapeShouldPlay,
     hasShownFocusSoundscapeVolumeHint,
     showToast,
     setHasShownFocusSoundscapeVolumeHint,
@@ -2299,12 +2345,18 @@ export function ActivityDetailScreen() {
     if (!isFocused) return;
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active') return;
-      if (focusSession?.mode === 'running' && soundscapeEnabled) {
+      const nowMs = Date.now();
+      if (isRunningFocusSessionExpired(focusSession, nowMs)) {
+        stopSoundscapeLoop({ unload: true }).catch(() => undefined);
+        setFocusTickMs(nowMs);
+        return;
+      }
+      if (focusSoundscapeShouldPlay) {
         startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
       }
     });
     return () => subscription.remove();
-  }, [isFocused, focusSession?.mode, soundscapeEnabled, soundscapeTrackId]);
+  }, [isFocused, focusSession, focusSoundscapeShouldPlay, soundscapeTrackId]);
 
   // Best-effort: expose Focus session state to iOS ecosystem surfaces via App Group.
   useEffect(() => {
@@ -5168,17 +5220,22 @@ export function ActivityDetailScreen() {
           >
             <VStack space="md">
               <View>
-                <BottomDrawerHeader
-                  title="Focus mode"
-                  variant="withClose"
-                  onClose={() => setActiveSheet(null)}
-                  containerStyle={styles.sheetHeader}
-                  titleStyle={styles.sheetTitle}
-                />
-                <Text style={styles.sheetDescription}>
-                  Pick a duration. Kwilt keeps the session tied to this to-do, so the
-                  work has a place to land.
-                </Text>
+                <VStack space="md">
+                  <BottomDrawerHeader
+                    title="Focus mode"
+                    variant="withClose"
+                    onClose={() => setActiveSheet(null)}
+                    containerStyle={styles.sheetHeader}
+                    titleStyle={styles.focusSheetTitle}
+                  />
+
+                  {focusScreenTimeOfferCard}
+
+                  <Text style={styles.sheetDescription}>
+                    Pick a duration. Kwilt keeps the session tied to this to-do, so the
+                    work has a place to land.
+                  </Text>
+                </VStack>
               </View>
 
               <View>
@@ -5299,62 +5356,7 @@ export function ActivityDetailScreen() {
             </VStack>
           </BottomDrawerScrollView>
 
-          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm }}>
-            {shouldShowFocusScreenTimeOffer ? (
-              <View style={styles.focusScreenTimeOfferCard}>
-                <HStack alignItems="flex-start" space="sm">
-                  <View style={styles.focusScreenTimeOfferIcon}>
-                    <Icon name="shield" size={16} color={colors.textPrimary} />
-                  </View>
-                  <VStack flex={1} space={2}>
-                    <Text style={styles.focusScreenTimeOfferTitle}>Fewer distractions during Focus.</Text>
-                    <Text style={styles.focusScreenTimeOfferBody}>Block selected apps while Focus runs.</Text>
-                    <HStack space="sm" alignItems="center" style={styles.focusScreenTimeOfferActions}>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onPress={() => {
-                          markScreenTimeSetupOfferCtaTapped('focus_drawer');
-                          capture(AnalyticsEvent.ScreenTimeSetupOfferCtaTapped, {
-                            setup_intent: 'focus_sessions',
-                            surface: 'focus_drawer',
-                            activity_id: activity?.id,
-                          });
-                          rootNavigationRef.navigate('Settings', {
-                            screen: 'SettingsScreenTimeProtection',
-                            params: {
-                              setupIntent: 'focus_sessions',
-                              entrySurface: 'focus_drawer',
-                              returnToActivityId: activity?.id,
-                            },
-                          } as any);
-                        }}
-                      >
-                        Set Up
-                      </Button>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Dismiss Screen Time Controls setup"
-                        onPress={() => {
-                          markScreenTimeSetupOfferDismissed('focus_drawer');
-                          capture(AnalyticsEvent.ScreenTimeSetupOfferDismissed, {
-                            setup_intent: 'focus_sessions',
-                            surface: 'focus_drawer',
-                            activity_id: activity?.id,
-                          });
-                        }}
-                        style={({ pressed }) => [
-                          styles.focusScreenTimeOfferDismiss,
-                          pressed && styles.focusPresetChipPressed,
-                        ]}
-                      >
-                        <Text style={styles.focusScreenTimeOfferDismissText}>Not now</Text>
-                      </Pressable>
-                    </HStack>
-                  </VStack>
-                </HStack>
-              </View>
-            ) : null}
+          <View style={styles.focusSheetFooter}>
             <Button
               variant="primary"
               fullWidth

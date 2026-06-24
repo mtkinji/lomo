@@ -129,12 +129,11 @@ export function DestinationDetailScreen() {
   const title = kind === 'cursor_repo' ? 'Cursor' : 'Destination';
 
   const handleCopyCursorSetup = async () => {
-    const url = mcpBaseUrl ?? '<your-supabase-functions-base>/functions/v1/kwilt-mcp';
+    const url = mcpBaseUrl ?? 'https://auth.kwilt.app/functions/v1/mcp';
     const instructions =
-      `Kwilt MCP (Streamable HTTP)\n` +
+      `Kwilt MCP (OAuth + Streamable HTTP)\n` +
       `- URL: ${url}\n` +
-      `- Auth: Authorization: Bearer <KWILT_PAT>\n` +
-      `- Scope: Choose this destination’s execution_target_id when listing tasks.\n`;
+      `- Auth: connect with OAuth in your MCP client.\n`;
     try {
       await Clipboard.setStringAsync(instructions);
       setHasCopied(true);
@@ -357,7 +356,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
 
 
 

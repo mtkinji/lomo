@@ -391,6 +391,10 @@ function isSetupIntentAlreadyEnabled(settings: ScreenTimeProtectionSettings, int
   return settings.meaningfulFirst.enabled;
 }
 
+function hasCompletedSharedScreenTimeSetup(settings: ScreenTimeProtectionSettings): boolean {
+  return settings.authorizationStatus === 'approved' && hasSelectedScreenTimeTargets(settings);
+}
+
 function isSnoozed(iso: string | null | undefined, now: Date, durationMs: number): boolean {
   const normalized = validIsoOrNull(iso);
   if (!normalized) return false;
@@ -415,6 +419,7 @@ export function shouldShowScreenTimeSetupOffer(params: {
     if (settings.authorizationStatus === 'unavailable') return false;
   }
   if (isSetupIntentAlreadyEnabled(settings, params.setupIntent)) return false;
+  if (params.surface !== 'settings' && hasCompletedSharedScreenTimeSetup(settings)) return false;
 
   const dismissedAt =
     params.dismissedAtIso ??

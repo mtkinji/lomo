@@ -107,7 +107,7 @@ if (matches(/^(src\/features\/|src\/ui\/|docs\/ui-architecture\.md|scripts\/arch
   add('npm run architecture:lint', 'check enforceable UI/feature architecture conventions');
 }
 
-if (matches(/^(supabase\/functions\/(mcp|kwilt-mcp)\/|scripts\/mcp-|packages\/kwilt-sdk\/)/)) {
+if (matches(/^(supabase\/functions\/mcp\/|scripts\/mcp-|packages\/kwilt-sdk\/)/)) {
   addManual('npm run mcp:smoke', 'requires MCP environment credentials; run when connector behavior changed');
 }
 

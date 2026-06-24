@@ -2,14 +2,14 @@
 
 ### Purpose
 
-Design a Mac-only Kwilt desktop app as the full-power workspace for Arcs, Goals, Activities, Views, AI planning/chat, and Focus. Mobile remains the lightweight daily companion; desktop is where users organize, plan, execute, and reshape their Kwilt system. Use Tauri v2 (TS/React + Rust) as the primary shell and a tiny Swift sidecar for the features that genuinely need AppKit (Focus Filter extension + wallpaper video layer). Share types and data access with the mobile app via a new `@kwilt/sdk` workspace package and reuse the existing Supabase auth + PAT infrastructure.
+Design a Mac-only Kwilt desktop app as the full-power workspace for Arcs, Goals, Activities, Views, AI planning/chat, and Focus. Mobile remains the lightweight daily companion; desktop is where users organize, plan, execute, and reshape their Kwilt system. Use Tauri v2 (TS/React + Rust) as the primary shell and a tiny Swift sidecar for the features that genuinely need AppKit (Focus Filter extension + wallpaper video layer). Share types and data access with the mobile app via a new `@kwilt/sdk` workspace package and reuse the existing Supabase auth infrastructure.
 
 ### References
 
 - Mobile app theme source: `src/theme/*`
 - Mobile AI client + quotas: `src/services/ai.ts`, `docs/feature-briefs/ai-proxy-and-quotas.md`
 - Mobile auth + Supabase storage adapter: `src/services/backend/auth.ts`, `src/services/backend/supabaseAuthStorage.ts`
-- Existing edge functions: `supabase/functions/ai-chat/index.ts`, `supabase/functions/pats-create/index.ts`
+- Existing edge functions: `supabase/functions/ai-chat/index.ts`
 - Entitlements: `src/services/entitlements.ts`
 - Web tokens target: `kwilt-site/`
 
@@ -130,7 +130,7 @@ Reuse the existing Supabase project, providers (Apple/Google), and custom domain
 **Key design choices:**
 
 - **Separate storage key per client.** Mobile uses `kwilt.supabase.auth`; desktop uses `kwilt.supabase.auth.desktop` in Keychain — prevents cross-device session confusion and lets a user sign out of desktop without killing mobile.
-- **No PAT for user-facing flows.** You already have `supabase/functions/pats-create` — keep that for MCP/external agents. Desktop uses the user's real JWT so RLS and audit logs work identically to mobile.
+- **No PAT for user-facing flows.** Desktop uses the user's real JWT so RLS and audit logs work identically to mobile. External AI tools use the hosted OAuth MCP server at `supabase/functions/mcp`.
 - **One-tap "Sign in with your iPhone" shortcut** *(optional v1.1)*: show a QR code that the mobile app can scan to vend a short-lived JWT via a new `desktop-pair` edge function. Nice, but not required for v1.
 
 **Supabase config changes needed:**

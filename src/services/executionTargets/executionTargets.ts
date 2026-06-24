@@ -41,11 +41,11 @@ export function getKwiltMcpBaseUrl(): string | null {
     // Custom domain: prefer same origin for Edge Functions.
     if (!host.endsWith(suffix)) {
       const normalized = supabaseUrl.replace(/\/+$/, '');
-      return `${normalized}/functions/v1/kwilt-mcp`;
+      return `${normalized}/functions/v1/mcp`;
     }
     const projectRef = host.slice(0, -suffix.length);
     if (!projectRef) return null;
-    return `https://${projectRef}.functions.supabase.co/functions/v1/kwilt-mcp`;
+    return `https://${projectRef}.functions.supabase.co/functions/v1/mcp`;
   } catch {
     return null;
   }
@@ -127,5 +127,4 @@ export async function deleteExecutionTarget(args: { id: string }): Promise<boole
   const { error } = await supabase.from('kwilt_execution_targets').delete().eq('id', args.id);
   return !error;
 }
-
 

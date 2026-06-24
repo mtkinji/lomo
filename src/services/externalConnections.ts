@@ -11,7 +11,7 @@ type EdgeFunctionErrorDetails = {
 export type ExternalConnection = {
   client_id: string;
   client_name: string;
-  connection_type?: 'oauth' | 'pat';
+  connection_type?: 'oauth';
   surface: string;
   scope: string;
   connected_at: string | null;
@@ -113,9 +113,7 @@ function connectedToolsMessage(details: EdgeFunctionErrorDetails, fallback: stri
 
   if (
     code === 'connections_read_failed' ||
-    code === 'actions_read_failed' ||
-    code === 'manual_connections_read_failed' ||
-    code === 'manual_actions_read_failed'
+    code === 'actions_read_failed'
   ) {
     return 'Connected tools could not read your connection audit trail. Please try again in a moment.';
   }

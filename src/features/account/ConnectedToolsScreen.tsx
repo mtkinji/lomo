@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { Button, HStack, Text, VStack } from '../../ui/primitives';
+import { HStack, Text, VStack } from '../../ui/primitives';
 import { colors, spacing, typography } from '../../theme';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
-import { createPat } from '../../services/executionTargets/pats';
-import { getKwiltMcpBaseUrl } from '../../services/executionTargets/executionTargets';
-import { useToastStore } from '../../store/useToastStore';
 import {
   fetchExternalConnections,
   revokeExternalConnection,
@@ -24,7 +20,6 @@ function formatSurface(surface: string): string {
   if (surface === 'chatgpt') return 'ChatGPT';
   if (surface === 'cursor') return 'Cursor';
   if (surface === 'claude_desktop') return 'Claude Desktop';
-  if (surface === 'manual') return 'Access key';
   return 'Connected tool';
 }
 
@@ -39,25 +34,7 @@ export function ConnectedToolsScreen() {
   const navigation = useNavigation<Nav>();
   const [connections, setConnections] = useState<ExternalConnection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creatingKey, setCreatingKey] = useState(false);
-  const [generatedKey, setGeneratedKey] = useState<string>('');
   const [revokingClientId, setRevokingClientId] = useState<string | null>(null);
-  const showToast = useToastStore((s) => s.showToast);
-
-  const mcpUrl = getKwiltMcpBaseUrl() ?? 'https://<your-project>.supabase.co/functions/v1/kwilt-mcp';
-
-  const buildConfigSnippet = useCallback((token: string) => JSON.stringify(
-    {
-      kwilt: {
-        url: mcpUrl,
-        headers: {
-          Authorization: `Bearer ${token || '<create an access key first>'}`,
-        },
-      },
-    },
-    null,
-    2,
-  ), [mcpUrl]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,29 +51,6 @@ export function ConnectedToolsScreen() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const copy = useCallback(async (text: string, message = 'Copied') => {
-    try {
-      await Clipboard.setStringAsync(text);
-      showToast({ message, variant: 'success', durationMs: 1800 });
-    } catch {
-      showToast({ message: 'Unable to copy', variant: 'danger', durationMs: 2000 });
-    }
-  }, [showToast]);
-
-  const createAccessKey = useCallback(async () => {
-    setCreatingKey(true);
-    try {
-      const result = await createPat({ label: 'Manual access key' });
-      setGeneratedKey(result.token);
-      await copy(result.token, 'Access key copied');
-      await load();
-    } catch (error: any) {
-      Alert.alert('Unable to create access key', typeof error?.message === 'string' ? error.message : 'Please try again.');
-    } finally {
-      setCreatingKey(false);
-    }
-  }, [copy, load]);
 
   const revoke = useCallback((connection: ExternalConnection) => {
     Alert.alert(
@@ -136,48 +90,6 @@ export function ConnectedToolsScreen() {
             Manage tools that can read or update Kwilt.
           </Text>
 
-          <VStack space="sm" style={styles.setupCard}>
-            <HStack alignItems="flex-start" justifyContent="space-between" space="md">
-              <VStack flex={1} space={4}>
-                <Text style={styles.setupTitle}>Add a tool</Text>
-                <Text style={styles.setupText}>
-                  Create a key for Cursor or another MCP client.
-                </Text>
-              </VStack>
-              <Button
-                variant="secondary"
-                size="sm"
-                onPress={createAccessKey}
-                disabled={creatingKey}
-                label={creatingKey ? 'Creating...' : 'Create key'}
-              />
-            </HStack>
-            {generatedKey ? (
-              <VStack space="sm" style={styles.generatedKeyBlock}>
-                <Text style={styles.metaText}>
-                  Copy this now. It will not be shown again.
-                </Text>
-                <View style={styles.codeBlock}>
-                  <Text selectable style={styles.codeText}>{buildConfigSnippet(generatedKey)}</Text>
-                </View>
-                <HStack justifyContent="flex-end" space="sm">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onPress={() => copy(`Authorization: Bearer ${generatedKey}`, 'Auth header copied')}
-                    label="Copy header"
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onPress={() => copy(buildConfigSnippet(generatedKey), 'Config copied')}
-                    label="Copy config"
-                  />
-                </HStack>
-              </VStack>
-            ) : null}
-          </VStack>
-
           <VStack space="sm">
             <Text style={styles.sectionTitle}>Connections</Text>
             {connections.length === 0 && !loading ? (
@@ -194,9 +106,7 @@ export function ConnectedToolsScreen() {
                         {formatSurface(connection.surface)} · Last used {formatDate(connection.last_used_at)}
                       </Text>
                       <Text style={styles.metaText}>
-                        {connection.connection_type === 'pat'
-                          ? 'Manual access key'
-                          : `${connection.write_count} recent write${connection.write_count === 1 ? '' : 's'}`}
+                        {`${connection.write_count} recent write${connection.write_count === 1 ? '' : 's'}`}
                       </Text>
                     </VStack>
                     <View style={[styles.statusPill, revoked ? styles.statusPillRevoked : null]}>
@@ -247,39 +157,6 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.body,
     color: colors.textSecondary,
-  },
-  setupCard: {
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  setupTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
-  setupText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  generatedKeyBlock: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: spacing.sm,
-  },
-  codeBlock: {
-    borderRadius: 14,
-    backgroundColor: colors.cardMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    padding: spacing.sm,
-  },
-  codeText: {
-    ...typography.mono,
-    color: colors.textPrimary,
-    fontSize: 12,
-    lineHeight: 18,
   },
   card: {
     borderRadius: 16,

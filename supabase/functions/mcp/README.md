@@ -4,10 +4,9 @@ The deployed public endpoint is:
 
 - `https://auth.kwilt.app/functions/v1/mcp`
 
-This is **separate** from `kwilt-mcp`, which is the PAT-based MCP surface used by
-internal Cursor/operator flows. This function is the hosted remote connector
-intended for directory-style installs (Claude, ChatGPT, Cursor plugin, Codex
-plugin) and is the auth path documented for users on the marketing site.
+This is Kwilt's canonical MCP server. It is the hosted remote connector intended
+for directory-style installs (Claude, ChatGPT, Cursor plugin, Codex plugin) and
+is the auth path documented for users on the marketing site.
 
 ## OAuth 2.1 + PKCE surface
 
