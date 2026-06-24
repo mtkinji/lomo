@@ -39,11 +39,14 @@ eas_logs_local/
 JWT Key Generator
 notes.ipynb
 
+# product docs / agent-only manifests
+docs/
+src/features/*/FEATURE.md
+
 # local env files
 .env
 .env*.local
 
 # typescript
 *.tsbuildinfo
-
 

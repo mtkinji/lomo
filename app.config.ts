@@ -1,14 +1,74 @@
-import type { ExpoConfig } from 'expo/config';
-import { config as loadEnv } from 'dotenv';
-import { existsSync } from 'fs';
-import path from 'path';
-
-const { resolveAppEnvironment } = require('./src/config/appEnvironment.ts') as typeof import('./src/config/appEnvironment');
+// @ts-nocheck
+const { config: loadEnv } = require('dotenv');
+const { existsSync } = require('fs');
+const path = require('path');
 
 const ENV_FILE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
-const APP_ENVIRONMENT = resolveAppEnvironment(process.env);
 const projectRoot = __dirname;
 const widgetsEnabled = (process.env.KWILT_ENABLE_WIDGETS ?? '').trim() === '1';
+
+/**
+ * @param {string | undefined} value
+ * @returns {string | undefined}
+ */
+function clean(value) {
+  const normalized = value?.trim().toLowerCase();
+  return normalized ? normalized : undefined;
+}
+
+/**
+ * @param {string} name
+ * @param {string} value
+ * @returns {'development' | 'preview' | 'production' | 'test'}
+ */
+function parseExplicitAppEnvironment(name, value) {
+  if (['development', 'preview', 'production', 'test'].includes(value)) {
+    return value;
+  }
+  throw new Error(
+    `Unsupported ${name}="${value}". Expected development, preview, production, or test.`,
+  );
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {'development' | 'preview' | 'production' | 'test'}
+ */
+function resolveAppEnvironment(env = process.env) {
+  const kwiltAppEnv = clean(env.KWILT_APP_ENV);
+  if (kwiltAppEnv) {
+    return parseExplicitAppEnvironment('KWILT_APP_ENV', kwiltAppEnv);
+  }
+
+  const publicKwiltAppEnv = clean(env.EXPO_PUBLIC_KWILT_APP_ENV);
+  if (publicKwiltAppEnv) {
+    return parseExplicitAppEnvironment('EXPO_PUBLIC_KWILT_APP_ENV', publicKwiltAppEnv);
+  }
+
+  const easBuildProfile = clean(env.EAS_BUILD_PROFILE);
+  if (easBuildProfile?.startsWith('production')) {
+    return 'production';
+  }
+  if (easBuildProfile?.startsWith('preview')) {
+    return 'preview';
+  }
+  if (easBuildProfile?.startsWith('development')) {
+    return 'development';
+  }
+
+  const appEnv = clean(env.APP_ENV);
+  if (appEnv) {
+    return parseExplicitAppEnvironment('APP_ENV', appEnv);
+  }
+
+  const nodeEnv = clean(env.NODE_ENV);
+  if (['development', 'preview', 'production', 'test'].includes(nodeEnv)) {
+    return nodeEnv;
+  }
+  return 'development';
+}
+
+const APP_ENVIRONMENT = resolveAppEnvironment(process.env);
 
 // Silence noisy dotenv tips when loading multiple files.
 if (!process.env.DOTENV_CONFIG_QUIET) {
@@ -29,7 +89,7 @@ envFiles.forEach((file) => {
   }
 });
 
-const config: ExpoConfig = {
+const config = {
   name: 'Kwilt',
   // Custom URL scheme for deep links like `kwilt://activity/<id>?openFocus=1`.
   scheme: 'kwilt',
@@ -39,7 +99,7 @@ const config: ExpoConfig = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.72',
+  version: '1.0.75',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -67,11 +127,10 @@ const config: ExpoConfig = {
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '73',
+    buildNumber: '75',
     // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
     // This prevents non-widget production builds from requiring widget target credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
-    // @ts-expect-error - `appExtensions` isn't typed in ExpoConfig yet, but is consumed by EAS tooling.
     appExtensions: widgetsEnabled
       ? [
           {
@@ -121,7 +180,7 @@ const config: ExpoConfig = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 73,
+    versionCode: 75,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -266,4 +325,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default config;
+module.exports = config;
