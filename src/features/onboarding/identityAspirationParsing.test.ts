@@ -3,6 +3,7 @@ import {
   isHarshOrClinicalInsightSet,
   parseAspirationFromReply,
   parseInsightsFromReply,
+  parseQualityScoreFromReply,
   sanitizeArcName,
   splitAspirationNarrative,
 } from './identityAspirationParsing';
@@ -96,5 +97,26 @@ describe('identity aspiration parsing', () => {
   it('detects banned Arc mush phrases', () => {
     expect(containsArcMushPhrases('A path rooted in your radiant essence.')).toBe(true);
     expect(containsArcMushPhrases('A practical direction for ordinary days.')).toBe(false);
+  });
+
+  it('parses quality judge scores from strict or wrapped JSON', () => {
+    expect(
+      parseQualityScoreFromReply(
+        'The score is {"total_score": 8.25, "reasoning": " Strong fit. "} today.',
+      ),
+    ).toEqual({
+      score: 8.25,
+      reasoning: 'Strong fit.',
+    });
+
+    expect(parseQualityScoreFromReply('{"totalScore": 7}')).toEqual({
+      score: 7,
+    });
+  });
+
+  it('rejects malformed quality judge scores', () => {
+    expect(parseQualityScoreFromReply('not json')).toBeNull();
+    expect(parseQualityScoreFromReply('{"reasoning":"missing score"}')).toBeNull();
+    expect(parseQualityScoreFromReply('{"total_score":"9"}')).toBeNull();
   });
 });

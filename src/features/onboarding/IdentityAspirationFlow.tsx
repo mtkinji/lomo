@@ -82,9 +82,11 @@ import {
   isHarshOrClinicalInsightSet,
   parseAspirationFromReply,
   parseInsightsFromReply,
+  parseQualityScoreFromReply,
   sanitizeArcName,
   splitAspirationNarrative,
   type ArcDevelopmentInsights,
+  type AspirationQualityResult,
   type AspirationPayload,
 } from './identityAspirationParsing';
 
@@ -1231,11 +1233,6 @@ export function IdentityAspirationFlow({
     );
   };
 
-  type AspirationQualityResult = {
-    score: number;
-    reasoning?: string;
-  };
-
   const scoreAspirationQuality = useCallback(
     async (candidate: AspirationPayload): Promise<AspirationQualityResult | null> => {
       // Ask the onboarding agent to act as a lightweight judge for the
@@ -1292,37 +1289,7 @@ export function IdentityAspirationFlow({
         ];
 
         const reply = await callOnboardingAgentStep('aspiration_quality_check', messages);
-        const startIdx = reply.indexOf('{');
-        const endIdx = reply.lastIndexOf('}');
-        const jsonText =
-          startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
-            ? reply.slice(startIdx, endIdx + 1)
-            : reply;
-
-        const parsed = JSON.parse(jsonText) as {
-          total_score?: number;
-          totalScore?: number;
-          reasoning?: string;
-        };
-
-        const total =
-          typeof parsed.total_score === 'number'
-            ? parsed.total_score
-            : typeof parsed.totalScore === 'number'
-            ? parsed.totalScore
-            : null;
-
-        if (total == null || Number.isNaN(total)) {
-          return null;
-        }
-
-        return {
-          score: total,
-          reasoning:
-            typeof parsed.reasoning === 'string' && parsed.reasoning.trim().length > 0
-              ? parsed.reasoning.trim()
-              : undefined,
-        };
+        return parseQualityScoreFromReply(reply);
       } catch (err) {
         console.warn('[onboarding] Failed to score identity Arc quality', err);
         return null;
@@ -1406,30 +1373,7 @@ export function IdentityAspirationFlow({
         ];
 
         const reply = await callOnboardingAgentStep('arc_insights_quality_check', messages);
-        const startIdx = reply.indexOf('{');
-        const endIdx = reply.lastIndexOf('}');
-        const jsonText =
-          startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
-            ? reply.slice(startIdx, endIdx + 1)
-            : reply;
-
-        const parsed = JSON.parse(jsonText) as {
-          total_score?: number;
-          totalScore?: number;
-        };
-
-        const total =
-          typeof parsed.total_score === 'number'
-            ? parsed.total_score
-            : typeof parsed.totalScore === 'number'
-            ? parsed.totalScore
-            : null;
-
-        if (total == null || Number.isNaN(total)) {
-          return null;
-        }
-
-        return total;
+        return parseQualityScoreFromReply(reply)?.score ?? null;
       } catch (err) {
         console.warn('[onboarding] Failed to score Arc Development Insights quality', err);
         return null;

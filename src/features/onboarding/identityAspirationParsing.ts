@@ -16,6 +16,11 @@ export type ArcDevelopmentInsights = {
   pitfalls: string[];
 };
 
+export type AspirationQualityResult = {
+  score: number;
+  reasoning?: string;
+};
+
 export type ParseAspirationFromReplyOptions = {
   fallbackNextSmallStep: string;
 };
@@ -285,4 +290,42 @@ export function isHarshOrClinicalInsightLine(value: string): boolean {
 export function isHarshOrClinicalInsightSet(insights: ArcDevelopmentInsights): boolean {
   const all = [...insights.strengths, ...insights.growthEdges, ...insights.pitfalls];
   return all.some(isHarshOrClinicalInsightLine);
+}
+
+export function parseQualityScoreFromReply(reply: string): AspirationQualityResult | null {
+  try {
+    const startIdx = reply.indexOf('{');
+    const endIdx = reply.lastIndexOf('}');
+    const jsonText =
+      startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
+        ? reply.slice(startIdx, endIdx + 1)
+        : reply;
+
+    const parsed = JSON.parse(jsonText) as {
+      total_score?: number;
+      totalScore?: number;
+      reasoning?: string;
+    };
+
+    const total =
+      typeof parsed.total_score === 'number'
+        ? parsed.total_score
+        : typeof parsed.totalScore === 'number'
+        ? parsed.totalScore
+        : null;
+
+    if (total == null || Number.isNaN(total)) {
+      return null;
+    }
+
+    return {
+      score: total,
+      reasoning:
+        typeof parsed.reasoning === 'string' && parsed.reasoning.trim().length > 0
+          ? parsed.reasoning.trim()
+          : undefined,
+    };
+  } catch {
+    return null;
+  }
 }
