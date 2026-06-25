@@ -67,10 +67,12 @@ Must be real:
 - A Settings-managed PlaceMemory representation for durable Places, even if the first UI is compact.
 - A compatibility mapping from existing `Activity.location` behavior into the model.
 - A confidence policy for soft-assigning clear place references from capture without interrupting the user.
+- A visibility policy that keeps raw text references internal and labels visible place behavior clearly as linked context, saved memory, or enabled trigger.
+- A visible-place contract so every surfaced place names the expected outcome: context, prioritization, alert, or memory.
 - Recommended consumes place evidence through the shared model rather than a flat coordinate boost.
 - Quick Add and Activity Detail use the same place proposal/edit semantics.
 - Activity-place assignment works without OS location permission or geofence registration.
-- Place resolution is lazy: brand/category candidates can exist without map search, while geofences or directions require a specific resolved place.
+- Place resolution is lazy: brand/category/context-scoped candidates can exist without map search, while geofences or directions require a specific resolved place unless an explicitly approved multi-place behavior is supported.
 - Location-trigger events remain offers/evidence, not completions.
 - Tests cover capture-first, disabled-location behavior, weak-vs-strong place signal, and permission sequencing.
 
@@ -81,6 +83,8 @@ Can be thin or temporary:
 - Evidence storage can start local or Activity-adjacent while the audit strategy is decided.
 - Place matching can begin with explicit text/AI references before any broader location intelligence.
 - Map search can be deferred until a behavior requires a specific place candidate.
+- Multi-place alerting for "any Walgreens" can be deferred unless provider capability and copy make the scope dependable.
+- Continuous background polling and continuous nearby-place search are excluded from the learning release.
 - Telemetry can begin with deterministic events rather than a full analytics funnel.
 
 Intentionally excluded:
@@ -102,9 +106,12 @@ The learning release needs real code because the core question is whether existi
 
 - Place behavior should appear at value moments, not in abstract onboarding.
 - Copy should be proactive and clear: "Use location triggers" / "When I leave" / "this location" when exact place naming is uncertain.
+- Do not show a bare `Place: Walgreens` row if nothing will happen at Walgreens; visible labels must distinguish linked context from alerts.
+- If Kwilt promises a location alert, the delivered notification can ask the user to mark the Activity done, but location alone should not complete it.
 - Never imply Kwilt knows the user's current place unless there is explicit evidence.
 - Do not request OS location permission until the user accepts a trigger behavior.
 - Do not require the user to create a named Place before Kwilt can use an obvious place reference from capture.
+- Do not promise generic venue detection such as "any pharmacy" until battery, cost, permission, and provider reliability have been proven.
 - Provide remove/edit affordances wherever durable place relationships are shown.
 
 ## Reversibility

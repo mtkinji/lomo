@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft for implementation planning.
+Implemented for the To-dos list layout. Keep this spec as the feature contract for scroll-triggered chrome, sticky local controls, and matched edge fades.
 
 ## Objective
 
@@ -75,13 +75,15 @@ Suggested motion:
 - Controls translateY: `0 -> -collapseDistance`, clamped so their final top aligns with the app shell safe-area top plus the existing canvas gutter.
 - Bottom nav translateY: `0 -> navHeight + safeAreaBottom + spacing`, with opacity optionally easing to `0`.
 - Quick Add dock translateY: `0 -> navReservedHeight`, so it remains visible but settles into the space vacated by the global nav.
+- Header, bottom nav, and Quick Add dock must use the same chrome transition duration and easing. They should feel like one coordinated shell response moving in opposite directions, not three independent animations.
+- Use a shared target-state/effect pattern for chrome visibility where possible, so header and footer animations begin from the same state propagation path.
 
 Suggested trigger behavior:
 
-- Hide chrome on the first meaningful downward scroll delta. Do not wait for a larger accumulated threshold; the user's first downward scroll is already intent to scan the list.
+- Hide chrome as soon as list drag/scroll intent begins. Do not wait for a larger accumulated threshold; the user's first downward scroll gesture is already intent to scan the list.
 - Reveal chrome after upward scroll delta crosses a small threshold, e.g. `8px`.
 - Ignore tiny jitter and inertial bounce near the top.
-- Once triggered, animate to the hidden or revealed state quickly but not abruptly, e.g. `240-280ms`.
+- Once triggered, animate to the hidden or revealed state quickly but not abruptly. Current target: `260ms` with cubic ease-out.
 
 Important distinction:
 
@@ -209,6 +211,7 @@ Implementation notes:
 - Use the toolbar row/control measurement for fade geometry. Use the full toolbar container height only for layout/overlap calculations where its margin and padding are intentional.
 - Measure or reuse the Quick Add dock and bottom-bar reserved geometry for the bottom fade.
 - Do not stack the Quick Add dock fade and the global bottom-bar fade on To-dos. The bottom should have one visible fade owner at a time.
+- Keep the scroll intent thresholds, fade geometry, and bottom-fade ownership rules in `src/features/activities/inventoryChrome.ts`; they are part of the feature contract and are covered by focused unit tests.
 - Keep fade constants named by intent, e.g. `EDGE_FADE_MAX_ALPHA`, `EDGE_FADE_CONTROL_GAP_PX`, and `EDGE_FADE_RAMP_DISTANCE_PX`, rather than tying them to only header or footer behavior.
 - If a top and bottom fade share values, prefer one shared local constant or a clearly duplicated value with a comment that they are intentionally matched.
 - The fades should animate with the relevant chrome when those surfaces move, so the visual edge stays attached to the floating control.
@@ -373,10 +376,10 @@ Use measured sizes first; constants only as fallbacks:
 - `COLLAPSE_DISTANCE_FALLBACK = 88`
 - `HEADER_FADE_END_RATIO = 0.7`
 - `STICKY_TOP_GAP = spacing.xs`
-- `SCROLL_EVENT_THROTTLE = 16`
+- `SCROLL_EVENT_THROTTLE = 16` so hide/reveal intent is detected on the first visible scroll movement instead of chunky native scroll intervals.
 - `CHROME_HIDE_DELTA = 0`
 - `CHROME_REVEAL_DELTA = 8`
-- `CHROME_ANIMATION_MS = 180`
+- `INVENTORY_CHROME_ANIMATION_MS = 260`
 - `EDGE_FADE_MAX_ALPHA = 0.92`
 - `EDGE_FADE_CONTROL_GAP_PX = 6`
 - `EDGE_FADE_RAMP_DISTANCE_PX = 6`
@@ -446,6 +449,8 @@ Prefer existing `spacing`, `colors`, and typography tokens.
 - No new global `PageHeader` behavior unless another top-level screen explicitly opts in.
 - No To-dos-specific imports inside the global navigation component.
 - Global nav soft auto-hide is modeled separately from hard route-level `tabBarStyle: { display: 'none' }` hiding.
+- Header, bottom nav, and Quick Add dock share one chrome animation duration and easing source.
+- Header and bottom nav hide/reveal from the same target-state pattern rather than one starting directly inside the scroll callback and the other waiting for context propagation.
 - List content has correct top inset so first rows are not hidden under the sticky controls.
 - List content has correct bottom inset whether footer chrome is shown or hidden.
 - Top and bottom edge fades use matched alpha/ramp constants unless a documented visual QA exception exists.
@@ -484,6 +489,13 @@ Manual QA:
 
 Automated checks:
 
+- `src/features/activities/inventoryChrome.test.ts` covers the contract-level behavior that should not regress:
+  - hide as soon as list drag/scroll intent begins when auto-hide is eligible
+  - do not auto-hide while Quick Add/tooling has chrome locked
+  - reveal only after `8px` of upward scroll intent, while always restoring at exact top
+  - derive the top fade from the sticky toolbar visual bottom, not padded container height
+  - keep top and bottom local-control fades on the same gap/ramp/alpha contract
+  - suppress the global bottom-bar fade on To-dos list layout while Quick Add owns the bottom fade
 - Existing lint/typecheck command.
 - E2E or Maestro smoke for:
   - opening To-dos

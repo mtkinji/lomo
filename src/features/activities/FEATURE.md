@@ -31,7 +31,7 @@ briefs:
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-06-23
+last_reviewed: 2026-06-25
 ---
 
 # activities
@@ -49,3 +49,5 @@ Helps users like Marcus and Maya turn the few commitments that matter into concr
 ## Notes
 
 Activities are the bridge between intention and evidence. Views, boards, and priority surfaces should help users decide and capture, not create a second productivity system to maintain.
+
+The To-dos list uses auto-hiding chrome while users scroll a populated list: the page header and global bottom nav hide together on scroll/drag intent, then reveal after a small upward scroll or at the top of the list. The view toolbar and Quick Add dock stay available as local working controls. Matching top and bottom fades protect those controls while still letting softened list content pass underneath them. Keep the behavior aligned with `docs/todos-inventory-scroll-header-spec.md` and the pure contract tests in `inventoryChrome.test.ts`.

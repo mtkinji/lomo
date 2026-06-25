@@ -14,6 +14,7 @@ import {
   KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX,
 } from './kwiltBottomBarMetrics';
 import { useChromeVisibility } from './ChromeVisibilityContext';
+import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeNativeEasing } from './chromeMotion';
 
 // Static coaching brief passed to the Chapters copilot. Defined module-level
 // so identity is stable and useAgentLauncher's memoized sheet doesn't churn.
@@ -24,8 +25,6 @@ const CHAPTER_COACH_SNAPSHOT = [
   '- Prefer concrete suggestions anchored in recently observed behavior, not generic motivation.',
   '- If evidence is thin, ask one clarifying question before proposing changes.',
 ].join('\n');
-
-const CHROME_ANIMATION_MS = 260;
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -241,8 +240,8 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   useEffect(() => {
     Animated.timing(chromeProgress, {
       toValue: bottomBarVisible ? 1 : 0,
-      duration: CHROME_ANIMATION_MS,
-      easing: Easing.out(Easing.cubic),
+      duration: INVENTORY_CHROME_ANIMATION_MS,
+      easing: inventoryChromeNativeEasing,
       useNativeDriver: true,
     }).start();
   }, [bottomBarVisible, chromeProgress]);

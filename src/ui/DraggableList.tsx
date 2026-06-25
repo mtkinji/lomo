@@ -316,6 +316,9 @@ export type DraggableListProps<T extends { id: string }> = {
   style?: StyleProp<ViewStyle>;
   onLayout?: (event: any) => void;
   onContentSizeChange?: (width: number, height: number) => void;
+  onScrollBeginDrag?: () => void;
+  onScrollEndDrag?: (event: any) => void;
+  onMomentumScrollEnd?: (event: any) => void;
   onScrollOffsetChange?: (offsetY: number) => void;
 };
 
@@ -331,6 +334,9 @@ export function DraggableList<T extends { id: string }>({
   style,
   onLayout,
   onContentSizeChange,
+  onScrollBeginDrag,
+  onScrollEndDrag,
+  onMomentumScrollEnd,
   onScrollOffsetChange,
 }: DraggableListProps<T>) {
   const triggerDragHaptic = React.useCallback(() => {
@@ -416,6 +422,9 @@ export function DraggableList<T extends { id: string }>({
     <Animated.ScrollView
       ref={scrollRef}
       onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      onMomentumScrollEnd={onMomentumScrollEnd}
       scrollEventThrottle={16}
       style={[{ flex: 1 }, style]}
       contentContainerStyle={contentContainerStyle}

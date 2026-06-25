@@ -106,14 +106,14 @@ The Places system should separate five concepts:
 
 | Concept | Meaning | Examples |
 | --- | --- | --- |
-| Place reference | A place mentioned or attached to an Activity or message. | "Trader Joe's", "school", "library", coordinates from geocoding. |
+| Place reference | An internal evidence item extracted from an Activity or message. It should not be presented as a user-visible promise by itself. | "Trader Joe's", "school", "library", coordinates from geocoding. |
 | Place assignment | A contextual link saying this Activity belongs with this Place, without necessarily creating a notification. | "Return library books" assigned to Library; "Buy snacks" assigned to Grocery. |
 | Place intent | Why the place matters. | Doable there, pick up there, return there, created there, completed there, remind on arrive, remind on leave. |
 | Place evidence | Observations that support a place relationship. | User attached location, AI suggested a location offer and user accepted, location trigger fired, task completed near a place. |
 | Place context | Whether a place is relevant now. | Recent arrive/leave trigger, current confirmed place, schedule/reminder plus explicit place, future learned place context. |
 | Place memory | Durable user-approved understanding of recurring places, managed from Settings. | Saved grocery place, school, church, gym, "not this place", rejected suggestion, edited label. |
 
-This split prevents the system from treating "has coordinates" as "important now." A place reference is only one piece of evidence. A place assignment means the Activity is contextually linked to the Place; it does not mean Kwilt should notify the user. Recommendation lift should come from place relevance, actionability, and current place confidence together.
+This split prevents the system from treating "has coordinates" as "important now." A place reference is only internal evidence until it supports a visible behavior. A place assignment means the Activity is contextually linked to the Place; it does not mean Kwilt should notify the user. Recommendation lift should come from place relevance, actionability, and current place confidence together.
 
 ```text
 place reference + optional place assignment + place intent + place evidence + actionability + current place context
@@ -133,6 +133,24 @@ Examples:
 - "Remind me when I get to the library" is the same contextual relationship plus an explicit arrive trigger.
 - "Buy snacks" can be assigned to Grocery, while only the urgent grocery errand gets a geofence reminder.
 
+### Visible Place Contract
+
+If Kwilt exposes a place relationship to the user, it should also expose the outcome the user can expect. A visible place is not just metadata; it is a promise that the place will help the Activity in at least one named way.
+
+Allowed visible contracts:
+
+- **Linked context**: "This is linked to Walgreens." Kwilt may use this for Activity Detail organization, search, context grouping, and better prioritization when the place becomes relevant. It does not mean a notification will fire.
+- **Place-aware recommendation**: "This may matter because you're near Walgreens / reviewing Walgreens-related errands." Kwilt may lift the Activity only when place evidence and actionability support it.
+- **Location alert**: "Notify me when I arrive / leave." Kwilt will request permission if needed and send an explicit reminder, such as prompting the user to mark the thing done. It should not automatically complete the Activity from location alone.
+- **Saved place memory**: "Remember this Walgreens." Kwilt may reuse the saved Place across future Activities, and the user can manage it from Settings.
+
+Disallowed visible contracts:
+
+- Showing a bare `Place: Walgreens` row with no behavior attached.
+- Implying arrival will trigger a notification when only a linked context exists.
+- Using a text mention as a recommendation boost without enough evidence that the Activity is more doable now.
+- Saving or merging a durable Place without approval.
+
 ### Place Assignment Vs Action Context
 
 A to-do can also be assigned to a non-place action context. That belongs to the related To-Do Action Contexts system, not the Places system.
@@ -150,7 +168,7 @@ Examples:
 
 ### Learning Model
 
-The Places system should learn from normal use, not from setup. The user should not have to create `Walgreens` in Settings or manually attach it to a to-do before Kwilt can be helpful.
+The Places system should learn from normal use, not from setup. The user should not have to create `Walgreens` in Settings or manually attach it to a to-do before Kwilt can be helpful. However, Kwilt should not expose a text-only reference as though it is a working location behavior.
 
 Kwilt can collect place evidence from:
 
@@ -163,9 +181,9 @@ Kwilt can collect place evidence from:
 
 Learning should use a ladder:
 
-1. **Extract** a candidate place reference from capture or AI enrichment.
+1. **Extract** a candidate place reference from capture or AI enrichment. This is internal evidence only.
 2. **Soft-assign** the to-do when confidence is high enough and the assignment is non-invasive. For example, "Pick up prescription at Walgreens" can carry a Walgreens assignment without interrupting capture.
-3. **Use lightly** in Recommended, search, Activity Detail, and Action Context reasoning. This does not require OS location permission.
+3. **Use lightly** in Recommended, search, Activity Detail, and Action Context reasoning. This does not require OS location permission, and the UI must not imply that arrival will trigger anything.
 4. **Ask only at the value moment** when the behavior becomes stronger: enabling a geofence trigger, saving durable Place memory, or merging repeated references into one Settings-managed Place.
 5. **Remember only with approval** before creating or updating durable PlaceMemory.
 6. **Learn from correction** so rejection, edits, and "not this place" reduce future suggestions.
@@ -177,17 +195,28 @@ This means Kwilt can handle Walgreens intelligently with minimal input:
 - If the user accepts a trigger or confirms "Remember Walgreens", Kwilt can create a Settings-managed Place.
 - If the user never confirms durable memory, Walgreens can remain a task-level place reference/assignment rather than a saved Place.
 
-The trust boundary is: **Kwilt may infer and use lightweight task-level place assignments when evidence is clear; Kwilt should ask before location tracking, notifications, or durable Place memory.**
+The trust boundary is: **Kwilt may infer and use lightweight task-level place assignments when evidence is clear; Kwilt should ask before location tracking, notifications, or durable Place memory.** Once a place is visible, the UI must make the contract legible: linked context, recommendation signal, enabled alert, or saved memory.
+
+User-visible rule: **do not show raw text references as Places.** If Kwilt shows Walgreens, it should be clear whether Walgreens is only a linked context, a saved Place, or an enabled location alert. For example, Activity Detail should avoid a bare `Place: Walgreens` row when no behavior is attached; it should use clearer framing such as `Linked place: Walgreens` plus no alert state, or keep the reference internal until there is a useful recommendation, edit affordance, or trigger proposal.
 
 ### Place Candidates And Resolution
 
 `Walgreens` is not automatically one precise map point. It can be a place reference with different resolution levels:
 
-- **Text reference**: the captured phrase, such as `Walgreens`.
+- **Text reference**: the captured phrase, such as `Walgreens`. This is internal evidence, not a user-facing feature.
 - **Brand or chain candidate**: any Walgreens, useful for errands and search, but not enough for a geofence.
 - **Category candidate**: pharmacy, grocery, library, school, office, useful when the specific place is unclear.
+- **Context-scoped candidate**: Walgreens near home, near work, near the user's hotel, in the current city, or along an errand route.
+- **Candidate set**: multiple possible Walgreens locations that all satisfy the task, such as "any Walgreens this week".
 - **Specific place candidate**: a particular Walgreens store, usually with a map provider id and coordinates.
 - **Settings-managed PlaceMemory**: a user-approved durable place, such as "My Walgreens" or "Walgreens near home".
+
+The matching scope should follow the contract:
+
+- **Linked context** can match a brand, category, context-scoped candidate, candidate set, or saved Place. It does not need latitude/longitude.
+- **Place-aware prioritization** can use broad matches when the user is in a compatible context, such as errands, near a relevant area, traveling near a scoped city, or reviewing related tasks.
+- **Location alert** needs a resolvable trigger boundary. Usually that means a specific place candidate with coordinates and a geofence. A broader "any Walgreens" alert should be treated as a separate advanced behavior that requires clear user approval and reliable provider support for matching multiple locations.
+- **Saved place memory** can be broad or specific, but the saved label should reveal the scope: "Any Walgreens", "Walgreens near home", or "Walgreens on Broadway".
 
 Kwilt should not run a map search just because a to-do mentions Walgreens. Map/place search should happen only when a behavior needs resolution:
 
@@ -203,8 +232,28 @@ This handles many-Walgreens cases:
 - "Do this at any Walgreens this week" keeps the assignment at the brand/chain level and can match whichever Walgreens is contextually relevant later.
 - "Find a Walgreens near my hotel next week" uses the travel location as the search scope and may resolve to one or more specific place candidates.
 - "Remind me when I get to Walgreens" needs a specific geofence region, so Kwilt should ask which Walgreens or use an explicit current/nearby context before enabling the trigger.
+- "Remind me when I am near any Walgreens" should be offered only if Kwilt can reliably monitor a candidate set and explain the scope; otherwise it should become a prompt to choose a specific Walgreens.
 
 Resolution should stay scoped and reversible. If Kwilt guesses the wrong Walgreens, the user should be able to change it, choose "any Walgreens", or mark "not this place".
+
+### Feasibility Posture
+
+Generic place context is workable for reasoning, but not as an always-on promise that Kwilt knows every matching real-world venue in the background.
+
+The system should treat each matching strategy differently:
+
+- **Text/category reasoning is cheap.** Kwilt can know that `Walgreens` implies pharmacy/errand context from the Activity text and use that while the app is active, in search, in Activity Detail, and in recommendation scoring.
+- **User-declared context is cheap.** If the user is reviewing `Errands`, traveling, or working from a known home/work/hotel context, Kwilt can use broad place matches without touching GPS.
+- **Specific geofences are OS-supported but limited.** A selected Walgreens, library, or hotel can become a monitored geofence after permission, but the app should keep the active set small.
+- **Broad real-world detection is expensive and unreliable as a default.** "Tell me when I am at any Walgreens / any pharmacy / any hotel" requires either monitoring many candidate locations, waking periodically to check location and search nearby places, or relying on provider-specific place signals. That should not be the default contract.
+- **Place search should be lazy.** Kwilt should call a place search API only at a value moment: when the user asks for a trigger, asks "near me", saves a Place, enters a travel scope, or opens a flow where resolving candidates is useful.
+
+Implementation posture:
+
+- Start with capture-time extraction, linked context, explicit single-place geofences, and lazy candidate resolution.
+- Avoid continuous background polling and continuous nearby-place search.
+- Do not promise "any pharmacy" alerts until the app has a bounded candidate-set strategy, clear permission copy, provider cost controls, and battery testing.
+- Prefer surfaced proposals over hidden detection: "Want me to remind you at the Walgreens near your hotel?" is safer than silently trying to monitor every Walgreens.
 
 ### Product Surfaces
 

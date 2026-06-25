@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
@@ -11,14 +11,16 @@ import { EditorSurface } from '../../ui/EditorSurface';
 import { UnderKeyboardDrawer } from '../../ui/UnderKeyboardDrawer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
+import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeNativeEasing } from '../../navigation/chromeMotion';
+import {
+  INVENTORY_CHROME_FADE_CONTROL_GAP_PX,
+  INVENTORY_CHROME_FADE_MAX_ALPHA,
+} from './inventoryChrome';
 import { DEFAULT_QUICK_ADD_AI_ACTIONS, type QuickAddAiAction } from './useQuickAddDockController';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 const QUICK_ADD_DOCK_SURFACE_RADIUS = 14;
-const QUICK_ADD_DOCK_CHROME_ANIMATION_MS = 260;
-const QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX = 6;
-const QUICK_ADD_DOCK_FADE_MAX_ALPHA = 0.92;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -138,8 +140,8 @@ export function QuickAddDock({
 
     Animated.timing(collapsedDockTranslateY, {
       toValue: nextTranslateY,
-      duration: QUICK_ADD_DOCK_CHROME_ANIMATION_MS,
-      easing: Easing.out(Easing.cubic),
+      duration: INVENTORY_CHROME_ANIMATION_MS,
+      easing: inventoryChromeNativeEasing,
       useNativeDriver: true,
     }).start();
 
@@ -215,10 +217,10 @@ export function QuickAddDock({
     selectedAiActionCount === 0 ? 'Off' : `${selectedAiActionCount} on`;
   const measuredCollapsedSurfaceHeight = measuredCollapsedSurfaceHeightRef.current || QUICK_ADD_BAR_HEIGHT;
   const footerFadeHeight =
-    measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX;
+    measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + INVENTORY_CHROME_FADE_CONTROL_GAP_PX;
   const footerFadeRampEnd = Math.min(
     0.16,
-    Math.max(0.04, QUICK_ADD_DOCK_FADE_EDGE_DISTANCE_PX / Math.max(1, footerFadeHeight)),
+    Math.max(0.04, INVENTORY_CHROME_FADE_CONTROL_GAP_PX / Math.max(1, footerFadeHeight)),
   );
 
   return (
@@ -240,8 +242,8 @@ export function QuickAddDock({
             <LinearGradient
               colors={[
                 'rgba(255,255,255,0)',
-                `rgba(255,255,255,${QUICK_ADD_DOCK_FADE_MAX_ALPHA})`,
-                `rgba(255,255,255,${QUICK_ADD_DOCK_FADE_MAX_ALPHA})`,
+                `rgba(255,255,255,${INVENTORY_CHROME_FADE_MAX_ALPHA})`,
+                `rgba(255,255,255,${INVENTORY_CHROME_FADE_MAX_ALPHA})`,
               ]}
               {...({ locations: [0, footerFadeRampEnd, 1] } as any)}
               start={{ x: 0.5, y: 0 }}

@@ -87,18 +87,27 @@ Places should learn from evidence the user already creates:
 - repeated similar Activities with the same explicit place relationship;
 - completion or trigger events when the user has already enabled place behavior.
 
-The system can make lightweight task-level inferences before asking for setup. "Pick up prescription at Walgreens" can become an Activity assigned to a Walgreens place candidate with no modal and no Settings setup. Kwilt should ask only when the behavior crosses a trust boundary: enabling a geofence trigger, saving durable PlaceMemory, merging repeated candidates, or using current location.
+The system can make lightweight task-level inferences before asking for setup. "Pick up prescription at Walgreens" can become an Activity assigned to a Walgreens place candidate with no modal and no Settings setup. Raw text references should remain internal evidence; the UI should not show a bare `Place: Walgreens` row unless it clearly communicates the behavior level. Kwilt should ask only when the behavior crosses a trust boundary: enabling a geofence trigger, saving durable PlaceMemory, merging repeated candidates, or using current location.
+
+Visible place contract:
+
+- If Kwilt shows a place, it should say what will happen: linked context, place-aware prioritization, enabled location alert, or saved place memory.
+- A linked context can help Activity Detail, search, grouping, and recommendation reasoning, but it should not imply arrival notification.
+- A location alert can promise a reminder when the user arrives or leaves, including a prompt to mark the Activity done, but it should not silently complete the Activity.
+- A saved Place can promise future reuse and Settings management.
 
 Learning ladder:
 
-1. Extract a candidate place reference.
+1. Extract a candidate place reference as internal evidence.
 2. Soft-assign it to the Activity when confidence is high.
-3. Use it lightly in Recommended, Activity Detail, search, and context reasoning.
+3. Use it lightly in Recommended, Activity Detail, search, and context reasoning without implying notification behavior.
 4. Ask at the value moment for stronger behavior.
 5. Save durable memory only after approval.
 6. Learn from corrections and rejection.
 
-Place resolution should be lazy. A text reference such as `Walgreens` can remain a brand/chain candidate until the user asks for behavior that needs a specific store, such as geofencing, directions, nearby search, or a travel-scoped recommendation. "Any Walgreens" and "the Walgreens near my hotel" are different resolutions of the same reference, not separate user setup chores.
+Place resolution should be lazy. A text reference such as `Walgreens` can remain a brand/chain candidate until the user asks for behavior that needs a specific store, such as geofencing, directions, nearby search, or a travel-scoped recommendation. "Any Walgreens", "Walgreens near my hotel", and "the Walgreens on Broadway" are different matching scopes of the same reference, not separate user setup chores.
+
+The matching scope should follow the promise. Linked context and place-aware prioritization can use broad brand/category/context matches when the evidence is clear. A location alert needs a resolved trigger boundary, usually one specific coordinate-backed place. "Any Walgreens" as an alert is a stronger multi-place behavior and should require explicit approval plus reliable matching support.
 
 ## Activation Path
 
