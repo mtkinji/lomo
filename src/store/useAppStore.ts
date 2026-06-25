@@ -29,7 +29,6 @@ import {
   normalizeActivityAreas,
 } from '../domain/activityAreas';
 import { getArcHeroUriById } from '../domain/curatedHeroLibrary';
-import { normalizeActivity } from '../domain/normalizeActivity';
 import { inferPriorityMetadataForActivity } from '../features/activities/activityPriority';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
@@ -52,6 +51,7 @@ import {
   type ScreenTimeProtectionSettings,
   type ScreenTimeSetupOfferSurface,
 } from '../services/screenTimeProtection';
+import { normalizeDomainSnapshot } from './domainPersistence';
 
 export type LlmModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-5.1' | 'gpt-5.2';
 export type QuickAddAiActionPreference = 'steps' | 'triggers' | 'details' | 'cover_image';
@@ -173,36 +173,6 @@ const flushPersistDomainState = () => {
     }
   });
 };
-
-/**
- * Normalize hero image URLs and activity fields on domain objects loaded from storage.
- * Extracted so both `switchDomainUser` and legacy hydration paths share the same logic.
- */
-function normalizeDomainSnapshot(raw: Partial<DomainState>): Partial<DomainState> {
-  const normalizeHero = <T extends { thumbnailUrl?: any; heroImageMeta?: any }>(obj: T): T => {
-    const rawUrl = typeof obj?.thumbnailUrl === 'string' ? obj.thumbnailUrl.trim() : '';
-    const normalizeHttp = (url: string) =>
-      url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url;
-    if (rawUrl && rawUrl !== normalizeHttp(rawUrl)) {
-      return { ...(obj as any), thumbnailUrl: normalizeHttp(rawUrl) } as T;
-    }
-    return obj;
-  };
-
-  const next: Partial<DomainState> = {};
-  if (Array.isArray(raw.arcs)) next.arcs = (raw.arcs as any[]).map(normalizeHero) as any;
-  if (Array.isArray(raw.goals)) next.goals = (raw.goals as any[]).map(normalizeHero) as any;
-  if (Array.isArray(raw.activities)) {
-    const nowIso = new Date().toISOString();
-    next.activities = (raw.activities as any[])
-      .map(normalizeHero)
-      .map((activity) => normalizeActivity({ activity: activity as any, nowIso })) as any;
-  }
-  if (raw.activityTagHistory && typeof raw.activityTagHistory === 'object') {
-    next.activityTagHistory = raw.activityTagHistory as any;
-  }
-  return next;
-}
 
 /**
  * Switch the active domain storage namespace to a different user.

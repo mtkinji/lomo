@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -22,11 +24,28 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Code health self-test
+        run: npm run test:code-health
+
+      - name: Code health ratchet
+        run: npm run code:health -- --fail-on-regression --base origin/main
+
       - name: Typecheck
         run: npm run lint
 
       - name: Test typecheck
         run: npm run lint:tests
+
+      - name: Supabase function typecheck
+        run: npm run lint:supabase-functions
+
+      - name: Supabase function tests
+        run: npm run test:supabase-functions
 
       - name: Product taxonomy lint
         run: npm run product:lint

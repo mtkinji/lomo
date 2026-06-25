@@ -1,6 +1,7 @@
 name: E2E (Maestro)
 
 on:
+  pull_request:
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *"
@@ -35,15 +36,26 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone (15|14|13)/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
-          if [ -z "$SIMULATOR_NAME" ]; then
+          SIMULATOR=$(xcrun simctl list devices available --json | jq -r '.devices | to_entries[] | select(.key | startswith("com.apple.CoreSimulator.SimRuntime.iOS-")) | .value[] | select(.isAvailable == true and (.name | startswith("iPhone"))) | "\(.name)|\(.udid)"' | head -n 1)
+          if [ -z "$SIMULATOR" ]; then
             echo "No iPhone simulator found."
             xcrun simctl list devices available
             exit 1
           fi
+          IFS='|' read -r SIMULATOR_NAME SIMULATOR_ID <<< "$SIMULATOR"
           echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
-          xcrun simctl boot "$SIMULATOR_NAME" || true
-          xcrun simctl bootstatus "$SIMULATOR_NAME" -b
+          echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
+          xcrun simctl boot "$SIMULATOR_ID" || true
+          for attempt in {1..30}; do
+            SIMULATOR_STATE=$(xcrun simctl list devices --json | jq -r --arg id "$SIMULATOR_ID" '.devices[][] | select(.udid == $id) | .state')
+            if [ "$SIMULATOR_STATE" = "Booted" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Simulator $SIMULATOR_NAME ($SIMULATOR_ID) did not boot."
+          xcrun simctl list devices available
+          exit 1
 
       - name: Build iOS debug
         run: |
@@ -52,7 +64,7 @@ jobs:
             -scheme Kwilt \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath ios/build \
             build
 
@@ -63,7 +75,7 @@ jobs:
             echo "App build not found."
             exit 1
           fi
-          xcrun simctl install "$SIMULATOR_NAME" "$APP_PATH"
+          xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 
       - name: Run Maestro smoke suite (iOS simulator)
         run: |
@@ -121,15 +133,26 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone (15|14|13)/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
-          if [ -z "$SIMULATOR_NAME" ]; then
+          SIMULATOR=$(xcrun simctl list devices available --json | jq -r '.devices | to_entries[] | select(.key | startswith("com.apple.CoreSimulator.SimRuntime.iOS-")) | .value[] | select(.isAvailable == true and (.name | startswith("iPhone"))) | "\(.name)|\(.udid)"' | head -n 1)
+          if [ -z "$SIMULATOR" ]; then
             echo "No iPhone simulator found."
             xcrun simctl list devices available
             exit 1
           fi
+          IFS='|' read -r SIMULATOR_NAME SIMULATOR_ID <<< "$SIMULATOR"
           echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
-          xcrun simctl boot "$SIMULATOR_NAME" || true
-          xcrun simctl bootstatus "$SIMULATOR_NAME" -b
+          echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
+          xcrun simctl boot "$SIMULATOR_ID" || true
+          for attempt in {1..30}; do
+            SIMULATOR_STATE=$(xcrun simctl list devices --json | jq -r --arg id "$SIMULATOR_ID" '.devices[][] | select(.udid == $id) | .state')
+            if [ "$SIMULATOR_STATE" = "Booted" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Simulator $SIMULATOR_NAME ($SIMULATOR_ID) did not boot."
+          xcrun simctl list devices available
+          exit 1
 
       - name: Build iOS debug
         run: |
@@ -138,7 +161,7 @@ jobs:
             -scheme Kwilt \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -derivedDataPath ios/build \
             build
 
@@ -149,7 +172,7 @@ jobs:
             echo "App build not found."
             exit 1
           fi
-          xcrun simctl install "$SIMULATOR_NAME" "$APP_PATH"
+          xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
 
       - name: Run Maestro full suite (iOS simulator)
         run: maestro test e2e/maestro
@@ -170,4 +193,3 @@ jobs:
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             '{text: ("Maestro full suite failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
           curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-

@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../backend/supabaseClient';
 import { useAppStore, switchDomainUser } from '../../store/useAppStore';
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { normalizeActivity } from '../../domain/normalizeActivity';
+import { createLogger } from '../logger';
 
 type DomainTable = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
 
@@ -41,6 +42,8 @@ let enableGeneration = 0;
 let prevArcIds = new Set<string>();
 let prevGoalIds = new Set<string>();
 let prevActivityIds = new Set<string>();
+
+const logger = createLogger('domainSync');
 
 export function resetPrevIds(): void {
   prevArcIds = new Set<string>();
@@ -243,15 +246,14 @@ async function pullAndMerge(user: SyncUser): Promise<DomainPullResult> {
     activities: alive(activities),
   };
 
-  if (__DEV__) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[domainSync] pullAndMerge for ${user.userId.slice(0, 8)}… — ` +
-      `arcs: ${counts.arcs} alive / ${dead(arcs)} tombstoned, ` +
-      `goals: ${counts.goals} alive / ${dead(goals)} tombstoned, ` +
-      `activities: ${counts.activities} alive / ${dead(activities)} tombstoned`,
-    );
-  }
+  logger.info(
+    `pullAndMerge for ${user.userId.slice(0, 8)}…`,
+    {
+      arcs: { alive: counts.arcs, tombstoned: dead(arcs) },
+      goals: { alive: counts.goals, tombstoned: dead(goals) },
+      activities: { alive: counts.activities, tombstoned: dead(activities) },
+    },
+  );
 
   applyRemoteMerge({ arcs, goals, activities });
   return { counts };

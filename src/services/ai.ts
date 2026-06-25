@@ -16,6 +16,9 @@ import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
 import { getActiveActivityAreas } from '../domain/activityAreas';
+import { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
+
+export { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
 
 const MAX_MESSAGE_CONTENT_LENGTH = 19000;
 
@@ -3548,71 +3551,12 @@ export async function enrichActivityWithAI(
     const content = data.choices?.[0]?.message?.content;
     if (!content) return null;
     const parsed = JSON.parse(content) as Partial<ActivityAiEnrichment> | null;
-    if (!parsed || typeof parsed !== 'object') return null;
-
-    const normalized: ActivityAiEnrichment = {};
-    if (typeof parsed.notes === 'string' && parsed.notes.trim().length > 0) {
-      normalized.notes = parsed.notes.trim();
-    }
-    if (Array.isArray(parsed.tags)) {
-      const tags = parsed.tags
-        .map((t) => String(t ?? '').trim())
-        .filter(Boolean)
-        .slice(0, 5);
-      if (tags.length > 0) normalized.tags = tags;
-    }
-    if (typeof parsed.goalId === 'string' && validGoalIds.has(parsed.goalId)) {
-      normalized.goalId = parsed.goalId;
-    } else if (parsed.goalId === null) {
-      normalized.goalId = null;
-    }
-    if (typeof parsed.areaId === 'string' && validAreaIds.has(parsed.areaId)) {
-      normalized.areaId = parsed.areaId;
-    } else if (parsed.areaId === null) {
-      normalized.areaId = null;
-    }
-    if (typeof parsed.type === 'string' && validActivityTypes.includes(parsed.type as ActivityType)) {
-      normalized.type = parsed.type as ActivityType;
-    }
-    if (typeof parsed.reminderAt === 'string' && Number.isFinite(Date.parse(parsed.reminderAt))) {
-      normalized.reminderAt = parsed.reminderAt.trim();
-    } else if (parsed.reminderAt === null) {
-      normalized.reminderAt = null;
-    }
-    if (typeof parsed.scheduledDate === 'string' && Number.isFinite(Date.parse(parsed.scheduledDate))) {
-      normalized.scheduledDate = parsed.scheduledDate.trim();
-    } else if (parsed.scheduledDate === null) {
-      normalized.scheduledDate = null;
-    }
-    if (typeof parsed.repeatRule === 'string' && validRepeatRules.includes(parsed.repeatRule as ActivityRepeatRule)) {
-      normalized.repeatRule = parsed.repeatRule as ActivityRepeatRule;
-    } else if (parsed.repeatRule === null) {
-      normalized.repeatRule = null;
-    }
-    if (Array.isArray(parsed.steps)) {
-      const steps = parsed.steps
-        .map((s) => ({ title: String((s as any)?.title ?? '').trim() }))
-        .filter((s) => s.title.length > 0)
-        .slice(0, 6);
-      if (steps.length > 0) normalized.steps = steps;
-    }
-    if (typeof (parsed as any).estimateMinutes === 'number' && Number.isFinite((parsed as any).estimateMinutes)) {
-      normalized.estimateMinutes = Math.max(5, Math.min(180, Math.round((parsed as any).estimateMinutes)));
-    }
-    if ((parsed as any).priority === 1 || (parsed as any).priority === 2 || (parsed as any).priority === 3) {
-      normalized.priority = (parsed as any).priority;
-    }
-    if (
-      (parsed as any).difficulty === 'very_easy' ||
-      (parsed as any).difficulty === 'easy' ||
-      (parsed as any).difficulty === 'medium' ||
-      (parsed as any).difficulty === 'hard' ||
-      (parsed as any).difficulty === 'very_hard'
-    ) {
-      normalized.difficulty = (parsed as any).difficulty;
-    }
-
-    return Object.keys(normalized).length > 0 ? normalized : null;
+    return normalizeActivityAiEnrichmentResponse(parsed, {
+      validGoalIds,
+      validAreaIds,
+      validActivityTypes,
+      validRepeatRules,
+    });
   } catch {
     return null;
   }

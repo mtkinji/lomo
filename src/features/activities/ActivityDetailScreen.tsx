@@ -116,10 +116,8 @@ import {
   type CalendarEvent,
   type CalendarRef,
 } from '../../services/plan/calendarApi';
-import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea } from '../../services/plan/planAvailability';
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
-import { clampToNextQuarterHour, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
-import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
+import { toLocalDateKey } from '../../services/plan/planDates';
 import { PlanCalendarLensPage } from '../plan/PlanCalendarLensPage';
 import { PlanDateStrip } from '../plan/PlanDateStrip';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
@@ -157,6 +155,7 @@ import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
+import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
@@ -2795,93 +2794,33 @@ export function ActivityDetailScreen() {
       if (Number.isNaN(start.getTime())) return;
       start.setSeconds(0, 0);
 
-      const durationMinutes = Math.max(10, scheduleDurationMinutes);
-      const end = new Date(start.getTime() + durationMinutes * 60_000);
-
-      const dayStart = new Date(start);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-
-      if (end > dayEnd) {
-        showToast({
-          message: 'Not enough time before the end of day.',
-          variant: 'default',
-          durationMs: 2200,
-        });
-        return;
-      }
-
-      const now = new Date();
-      const isToday = toLocalDateKey(now) === toLocalDateKey(start);
-      if (isToday) {
-        const cursor = clampToNextQuarterHour(now);
-        if (start < cursor) {
-          showToast({
-            message: 'Pick a time later today.',
-            variant: 'default',
-            durationMs: 2200,
-          });
-          return;
-        }
-      }
-
-      const dayAvailability = getAvailabilityForDate(userProfile, start);
-      if (!dayAvailability.enabled) {
-        showToast({
-          message: 'This day is disabled in your availability.',
-          variant: 'default',
-          durationMs: 2400,
-        });
-        return;
-      }
-
-      const mode = resolvePlanModeForArea(
+      const resolvedSlot = resolveManualScheduleSlot({
+        activity,
         activityAreas,
-        activity.areaId ?? null,
-        inferSchedulingDomain(activity, goals ?? []).toLowerCase().includes('work') ? 'work' : 'personal',
-      );
-      const windows = getWindowsForMode(dayAvailability, mode);
-      if (windows.length === 0) {
-        showToast({
-          message: 'No availability window for this to-do.',
-          variant: 'default',
-          durationMs: 2400,
-        });
-        return;
-      }
-
-      const insideWindow = windows.some((w) => {
-        const ws = setTimeOnDate(start, w.start);
-        const we = setTimeOnDate(start, w.end);
-        if (!ws || !we) return false;
-        return start >= ws && end <= we;
+        goals: goals ?? [],
+        userProfile,
+        date: start,
+        durationMinutes: scheduleDurationMinutes,
+        busyIntervals: scheduleBusyIntervals,
       });
-      if (!insideWindow) {
-        showToast({
-          message: 'That time is outside your availability.',
-          variant: 'default',
-          durationMs: 2400,
-        });
+      if (!resolvedSlot.ok) {
+        if (resolvedSlot.toast) {
+          showToast({
+            message: resolvedSlot.toast.message,
+            variant: 'default',
+            durationMs: resolvedSlot.toast.durationMs,
+          });
+        }
         return;
       }
 
-      const conflicts = scheduleBusyIntervals.some((b) => start < b.end && b.start < end);
-      if (conflicts) {
-        showToast({
-          message: 'That time is busy.',
-          variant: 'default',
-          durationMs: 2200,
-        });
-        return;
-      }
-
-      setManualScheduleSlot({ startDate: start.toISOString(), endDate: end.toISOString() });
+      setManualScheduleSlot(resolvedSlot.slot);
       setSelectedSlotIndex(-1);
       // Day view is always visible in this sheet.
     },
     [
       activity,
+      activityAreas,
       goals,
       scheduleBusyIntervals,
       scheduleDurationMinutes,

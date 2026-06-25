@@ -1,0 +1,15 @@
+{
+  "legacyRawReactNativeTextFeatureFiles": [
+    "src/features/account/ManageSubscriptionScreen.tsx",
+    "src/features/activities/ActivityDetailRefresh.tsx",
+    "src/features/activities/ActivityDetailScreen.tsx",
+    "src/features/activities/ActivityDraftDetailFields.tsx",
+    "src/features/activities/ActivityNextActionDock.tsx",
+    "src/features/activities/QuickAddDock.tsx",
+    "src/features/arcs/ArcBannerSheet.tsx",
+    "src/features/arcs/ArcDetailScreen.tsx",
+    "src/features/arcs/ArcsScreen.tsx",
+    "src/features/onboarding/ConfigErrorScreen.tsx",
+    "src/features/onboarding/CreditsInterstitialDrawer.tsx"
+  ]
+}

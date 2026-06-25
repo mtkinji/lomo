@@ -77,6 +77,18 @@ import {
   type PrimaryArenaKey,
   type WhyNowKey,
 } from '@kwilt/arc-survey';
+import {
+  containsArcMushPhrases,
+  isHarshOrClinicalInsightSet,
+  parseAspirationFromReply,
+  parseInsightsFromReply,
+  parseQualityScoreFromReply,
+  sanitizeArcName,
+  splitAspirationNarrative,
+  type ArcDevelopmentInsights,
+  type AspirationQualityResult,
+  type AspirationPayload,
+} from './identityAspirationParsing';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -396,76 +408,6 @@ type Phase =
 
 const FIRST_TIME_ONBOARDING_SURVEY_PHASES: Phase[] = ARC_CREATION_SURVEY_STEP_ORDER;
 
-type ArcIdentitySlices = {
-  identity: string;
-  why: string;
-  daily: string;
-};
-
-// Lightweight sentence splitter tailored for Arc narratives.
-// Assumes three declarative sentences but degrades gracefully:
-// - ignores decimal numbers like "2.0"
-// - ignores common short abbreviations ("e.g.", "i.e.", "Dr.", "Mr.", "Ms.")
-function splitAspirationNarrative(narrative?: string | null): ArcIdentitySlices | null {
-  if (!narrative) return null;
-  const text = narrative.trim();
-  if (!text) return null;
-
-  const abbreviations = new Set(['e.g.', 'i.e.', 'dr.', 'mr.', 'ms.']);
-  const sentences: string[] = [];
-  let start = 0;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    const isTerminalPunctuation = ch === '.' || ch === '!' || ch === '?';
-    if (!isTerminalPunctuation) continue;
-
-    const prevChar = i > 0 ? text[i - 1] : '';
-    const nextChar = i + 1 < text.length ? text[i + 1] : '';
-
-    // Skip decimal numbers like "2.0"
-    if (ch === '.' && /\d/.test(prevChar) && /\d/.test(nextChar)) {
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    const windowStart = Math.max(0, i - 4);
-    const candidate = text.slice(windowStart, i + 1).toLowerCase();
-    if (abbreviations.has(candidate)) {
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    // Treat as sentence boundary only when followed by whitespace or end of string.
-    if (nextChar && !/\s/.test(nextChar)) {
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-
-    const rawSentence = text.slice(start, i + 1).trim();
-    if (rawSentence.length > 0) {
-      sentences.push(rawSentence);
-    }
-    start = i + 1;
-    if (sentences.length === 3) break;
-  }
-
-  // Capture any trailing text after the last punctuation as part of the final sentence.
-  if (sentences.length < 3 && start < text.length) {
-    const tail = text.slice(start).trim();
-    if (tail) {
-      sentences.push(tail);
-    }
-  }
-
-  if (sentences.length !== 3) {
-    return null;
-  }
-
-  const [identity, why, daily] = sentences;
-  return { identity, why, daily };
-}
-
 function findSurveyOption<TKey extends string>(
   options: Array<ArcSurveyOption<TKey>>,
   key: TKey | null | undefined
@@ -477,35 +419,6 @@ function findSurveyOption<TKey extends string>(
 function selectedSurveyCustomTextRequired(options: ArcSurveyOption[], selectedKeys: string[]) {
   return selectedKeys.some((key) => options.find((option) => option.key === key)?.allowsCustomText);
 }
-
-type AspirationPayload = {
-  arcName: string;
-  aspirationSentence: string;
-  nextSmallStep: string;
-};
-
-type ArcDevelopmentInsights = {
-  strengths: string[];
-  growthEdges: string[];
-  pitfalls: string[];
-};
-
-const MIN_INSIGHTS_PER_SECTION = 2;
-
-const BANNED_ARC_MUSH_PHRASES = [
-  'in a grounded way',
-  'rooted in',
-  'powered by',
-  'radiant',
-  'tapestry',
-  'essence',
-  'unlock',
-] as const;
-
-const containsArcMushPhrases = (text: string): boolean => {
-  const normalized = text.toLowerCase();
-  return BANNED_ARC_MUSH_PHRASES.some((phrase) => normalized.includes(phrase));
-};
 
 /**
  * Workflow presenter for the identity/Arc FTUE (and reuseIdentityForNewArc).
@@ -1035,136 +948,6 @@ export function IdentityAspirationFlow({
     return nextSmallStep;
   };
 
-  // Sanitize Arc name while preserving compact person-in-formation names.
-  const sanitizeArcName = (name: string): string => {
-    if (!name) return 'The Steady Self';
-    
-    let cleaned = name.trim();
-    
-    // Remove common prefixes that violate the pattern
-    cleaned = cleaned.replace(
-      /^(toward|towards|becoming|i want to|i want|i['’]d love to|i['’]d like to|i would love to|i would like to|i['’]d|i can)\s+/i,
-      ''
-    );
-    
-    // Remove "I want" patterns that shouldn't be in the name
-    cleaned = cleaned.replace(/\bi want\b/gi, '');
-    cleaned = cleaned.replace(/\bi['’]d\b/gi, '');
-    
-    // Split into words and take the first few meaningful words for a compact name.
-    const words = cleaned.split(/\s+/).filter((word) => {
-      const lower = word.toLowerCase();
-      const hasLetter = /[\p{L}\p{N}]/u.test(lower);
-      // Filter out common filler words and standalone symbols like "&"
-      return (
-        word.length > 0 &&
-        hasLetter &&
-        ![
-          'to',
-          'a',
-          'an',
-          'and',
-          'or',
-          'but',
-          'in',
-          'on',
-          'at',
-          'for',
-          'of',
-          'with',
-          'love',
-          'like',
-          'want',
-          'would',
-        ].includes(lower) &&
-        !lower.match(/^(i|you|we|they|it)$/)
-      );
-    });
-    
-    // Take first 2-5 words, capitalize first letter of each.
-    const meaningfulWords = words.slice(0, 5);
-    if (meaningfulWords.length === 0) {
-      return 'The Steady Self';
-    }
-    
-    return meaningfulWords
-      .map((word) => {
-        // Preserve internal capitalization for proper nouns (e.g., Kwilt) and acronyms.
-        const hasInternalCaps = /[A-Z]/.test(word.slice(1));
-        if (hasInternalCaps) {
-          return word.charAt(0).toUpperCase() + word.slice(1);
-        }
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-      })
-      .join(' ');
-  };
-
-  const parseAspirationFromReply = (reply: string): AspirationPayload | null => {
-    // Primary path: strict JSON extraction.
-    try {
-      const startIdx = reply.indexOf('{');
-      const endIdx = reply.lastIndexOf('}');
-      const jsonText =
-        startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
-          ? reply.slice(startIdx, endIdx + 1)
-          : reply;
-
-      const parsed = JSON.parse(jsonText) as {
-        name?: string;
-        narrative?: string;
-        arcName?: string; // Support legacy format
-        aspirationSentence?: string; // Support legacy format
-        nextSmallStep?: string | null;
-      };
-
-      // Support both new format (name/narrative) and legacy format (arcName/aspirationSentence)
-      const arcName = parsed.name || parsed.arcName;
-      const aspirationSentence = parsed.narrative || parsed.aspirationSentence;
-
-      if (arcName && aspirationSentence) {
-        const nextSmallStep =
-          parsed.nextSmallStep && parsed.nextSmallStep.trim().length > 0
-            ? parsed.nextSmallStep
-            : buildNextSmallStep();
-
-        return {
-          arcName: sanitizeArcName(arcName),
-          aspirationSentence,
-          nextSmallStep,
-        };
-      }
-      // Fall through to markdown-style parsing below when JSON is missing fields.
-    } catch {
-      // Swallow and try markdown-style parsing next.
-    }
-
-    // Fallback path: handle markdown-y responses like:
-    // **Arc Name:** "The Empathetic Creator"
-    // <paragraphs of narrative...>
-    const nameMatch = reply.match(/\*\*Arc Name:\*\*\s*"?([^"\n]+)"?/i);
-    if (!nameMatch) {
-      return null;
-    }
-
-    const arcName = sanitizeArcName(nameMatch[1].trim());
-    if (!arcName) {
-      return null;
-    }
-
-    const afterTitle = reply.slice(nameMatch.index! + nameMatch[0].length).trim();
-    if (!afterTitle) {
-      return null;
-    }
-
-    const nextSmallStep = buildNextSmallStep();
-
-    return {
-      arcName,
-      aspirationSentence: afterTitle,
-      nextSmallStep,
-    };
-  };
-
   const buildLocalAspirationFallback = (): AspirationPayload | null => {
     if (
       !domain ||
@@ -1367,79 +1150,6 @@ export function IdentityAspirationFlow({
     };
   };
 
-  const parseInsightsFromReply = (reply: string): ArcDevelopmentInsights | null => {
-    try {
-      const startIdx = reply.indexOf('{');
-      const endIdx = reply.lastIndexOf('}');
-      const jsonText =
-        startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
-          ? reply.slice(startIdx, endIdx + 1)
-          : reply;
-
-      const parsed = JSON.parse(jsonText) as {
-        strengths?: string[];
-        growthEdges?: string[];
-        pitfalls?: string[];
-      };
-
-      if (!parsed.strengths || !parsed.growthEdges || !parsed.pitfalls) {
-        return null;
-      }
-
-      const normalizeInsightLine = (value: string): string => {
-        const trimmed = value.trim();
-        return trimmed
-          .replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-      };
-
-      const strengths = parsed.strengths
-        .filter((item) => typeof item === 'string' && item.trim())
-        .map((item) => normalizeInsightLine(item as string));
-      const growthEdges = parsed.growthEdges
-        .filter((item) => typeof item === 'string' && item.trim())
-        .map((item) => normalizeInsightLine(item as string));
-      const pitfalls = parsed.pitfalls
-        .filter((item) => typeof item === 'string' && item.trim())
-        .map((item) => normalizeInsightLine(item as string));
-
-      if (
-        strengths.length < MIN_INSIGHTS_PER_SECTION ||
-        growthEdges.length < MIN_INSIGHTS_PER_SECTION ||
-        pitfalls.length < MIN_INSIGHTS_PER_SECTION
-      ) {
-        return null;
-      }
-
-      return { strengths, growthEdges, pitfalls };
-    } catch {
-      return null;
-    }
-  };
-
-  const isHarshOrClinicalInsightLine = (value: string): boolean => {
-    const line = value.trim();
-    if (!line) return true;
-
-    if (/^\s*(individuals?|many individuals?)\b/i.test(line)) return true;
-
-    const bannedPhrases: RegExp[] = [
-      /\b(should|must|have to|need to)\b/i,
-      /\b(grapple|struggle|struggling|overextend|overextending|neglect|trap|pitfall|fault|flaw)\b/i,
-      /\b(challenge|challenges)\b/i,
-      /\b(fall into)\b/i,
-      /\b(perfectionism|perfectly)\b/i,
-      /\b(always|never)\b/i,
-    ];
-    return bannedPhrases.some((re) => re.test(line));
-  };
-
-  const isHarshOrClinicalInsightSet = (insights: ArcDevelopmentInsights): boolean => {
-    const all = [...insights.strengths, ...insights.growthEdges, ...insights.pitfalls];
-    return all.some(isHarshOrClinicalInsightLine);
-  };
-
   const buildLocalInsightsFallback = (): ArcDevelopmentInsights | null => {
     if (!aspiration) {
       return null;
@@ -1523,11 +1233,6 @@ export function IdentityAspirationFlow({
     );
   };
 
-  type AspirationQualityResult = {
-    score: number;
-    reasoning?: string;
-  };
-
   const scoreAspirationQuality = useCallback(
     async (candidate: AspirationPayload): Promise<AspirationQualityResult | null> => {
       // Ask the onboarding agent to act as a lightweight judge for the
@@ -1584,37 +1289,7 @@ export function IdentityAspirationFlow({
         ];
 
         const reply = await callOnboardingAgentStep('aspiration_quality_check', messages);
-        const startIdx = reply.indexOf('{');
-        const endIdx = reply.lastIndexOf('}');
-        const jsonText =
-          startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
-            ? reply.slice(startIdx, endIdx + 1)
-            : reply;
-
-        const parsed = JSON.parse(jsonText) as {
-          total_score?: number;
-          totalScore?: number;
-          reasoning?: string;
-        };
-
-        const total =
-          typeof parsed.total_score === 'number'
-            ? parsed.total_score
-            : typeof parsed.totalScore === 'number'
-            ? parsed.totalScore
-            : null;
-
-        if (total == null || Number.isNaN(total)) {
-          return null;
-        }
-
-        return {
-          score: total,
-          reasoning:
-            typeof parsed.reasoning === 'string' && parsed.reasoning.trim().length > 0
-              ? parsed.reasoning.trim()
-              : undefined,
-        };
+        return parseQualityScoreFromReply(reply);
       } catch (err) {
         console.warn('[onboarding] Failed to score identity Arc quality', err);
         return null;
@@ -1698,30 +1373,7 @@ export function IdentityAspirationFlow({
         ];
 
         const reply = await callOnboardingAgentStep('arc_insights_quality_check', messages);
-        const startIdx = reply.indexOf('{');
-        const endIdx = reply.lastIndexOf('}');
-        const jsonText =
-          startIdx !== -1 && endIdx !== -1 && endIdx > startIdx
-            ? reply.slice(startIdx, endIdx + 1)
-            : reply;
-
-        const parsed = JSON.parse(jsonText) as {
-          total_score?: number;
-          totalScore?: number;
-        };
-
-        const total =
-          typeof parsed.total_score === 'number'
-            ? parsed.total_score
-            : typeof parsed.totalScore === 'number'
-            ? parsed.totalScore
-            : null;
-
-        if (total == null || Number.isNaN(total)) {
-          return null;
-        }
-
-        return total;
+        return parseQualityScoreFromReply(reply)?.score ?? null;
       } catch (err) {
         console.warn('[onboarding] Failed to score Arc Development Insights quality', err);
         return null;
@@ -2142,7 +1794,9 @@ export function IdentityAspirationFlow({
           ];
 
           const reply = await callOnboardingAgentStep('aspiration_generate', messages);
-          const parsed = parseAspirationFromReply(reply);
+          const parsed = parseAspirationFromReply(reply, {
+            fallbackNextSmallStep: buildNextSmallStep(),
+          });
 
           if (!parsed) {
             // Try again if we couldn't parse JSON; let the loop handle fallback.
