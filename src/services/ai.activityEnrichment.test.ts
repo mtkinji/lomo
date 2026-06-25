@@ -1,5 +1,6 @@
 import {
   buildActivityEnrichmentSystemPrompt,
+  normalizeActivityAiEnrichmentResponse,
   normalizeActivityAiEnrichmentActions,
 } from './ai';
 
@@ -50,5 +51,105 @@ describe('normalizeActivityAiEnrichmentActions', () => {
       'triggers',
       'details',
     ]);
+  });
+});
+
+describe('normalizeActivityAiEnrichmentResponse', () => {
+  it('trims, validates, and bounds enrichment fields returned by the model', () => {
+    expect(
+      normalizeActivityAiEnrichmentResponse(
+        {
+          notes: '  Pick a time and make it concrete.  ',
+          tags: [' errands ', '', 'prep', 'home', 'health', 'calendar'],
+          goalId: 'goal-1',
+          areaId: 'area-1',
+          type: 'plan',
+          reminderAt: '2026-06-26T15:00:00.000Z',
+          scheduledDate: '2026-06-26',
+          repeatRule: 'weekly',
+          steps: [
+            { title: '  Choose a block  ' },
+            { title: '' },
+            { title: 'Send the note' },
+            { title: 'Confirm the time' },
+            { title: 'Add travel buffer' },
+            { title: 'Pack supplies' },
+            { title: 'Leave on time' },
+            { title: 'This one is over the limit' },
+          ],
+          estimateMinutes: 184.7,
+          priority: 2,
+          difficulty: 'hard',
+        },
+        {
+          validGoalIds: new Set(['goal-1']),
+          validAreaIds: new Set(['area-1']),
+        },
+      ),
+    ).toEqual({
+      notes: 'Pick a time and make it concrete.',
+      tags: ['errands', 'prep', 'home', 'health', 'calendar'],
+      goalId: 'goal-1',
+      areaId: 'area-1',
+      type: 'plan',
+      reminderAt: '2026-06-26T15:00:00.000Z',
+      scheduledDate: '2026-06-26',
+      repeatRule: 'weekly',
+      steps: [
+        { title: 'Choose a block' },
+        { title: 'Send the note' },
+        { title: 'Confirm the time' },
+        { title: 'Add travel buffer' },
+        { title: 'Pack supplies' },
+        { title: 'Leave on time' },
+      ],
+      estimateMinutes: 180,
+      priority: 2,
+      difficulty: 'hard',
+    });
+  });
+
+  it('ignores invalid values while preserving explicit null clears', () => {
+    expect(
+      normalizeActivityAiEnrichmentResponse(
+        {
+          notes: '   ',
+          tags: ['', null],
+          goalId: null,
+          areaId: null,
+          type: 'meeting',
+          reminderAt: null,
+          scheduledDate: null,
+          repeatRule: null,
+          steps: [{ title: '' }],
+          estimateMinutes: '45',
+          priority: 4,
+          difficulty: 'impossible',
+        },
+        {
+          validGoalIds: new Set(['goal-1']),
+          validAreaIds: new Set(['area-1']),
+        },
+      ),
+    ).toEqual({
+      goalId: null,
+      areaId: null,
+      reminderAt: null,
+      scheduledDate: null,
+      repeatRule: null,
+    });
+  });
+
+  it('returns null when the model response has no usable enrichment', () => {
+    expect(normalizeActivityAiEnrichmentResponse(null)).toBeNull();
+    expect(normalizeActivityAiEnrichmentResponse(['not an object'])).toBeNull();
+    expect(
+      normalizeActivityAiEnrichmentResponse({
+        goalId: 'unknown',
+        areaId: 'unknown',
+        reminderAt: 'not a date',
+        scheduledDate: 'not a date',
+      }),
+    ).toBeNull();
   });
 });
