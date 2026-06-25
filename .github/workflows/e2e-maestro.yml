@@ -46,7 +46,16 @@ jobs:
           echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
           echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
           xcrun simctl boot "$SIMULATOR_ID" || true
-          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          for attempt in {1..30}; do
+            SIMULATOR_STATE=$(xcrun simctl list devices --json | jq -r --arg id "$SIMULATOR_ID" '.devices[][] | select(.udid == $id) | .state')
+            if [ "$SIMULATOR_STATE" = "Booted" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Simulator $SIMULATOR_NAME ($SIMULATOR_ID) did not boot."
+          xcrun simctl list devices available
+          exit 1
 
       - name: Build iOS debug
         run: |
@@ -134,7 +143,16 @@ jobs:
           echo "SIMULATOR_NAME=$SIMULATOR_NAME" >> $GITHUB_ENV
           echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
           xcrun simctl boot "$SIMULATOR_ID" || true
-          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+          for attempt in {1..30}; do
+            SIMULATOR_STATE=$(xcrun simctl list devices --json | jq -r --arg id "$SIMULATOR_ID" '.devices[][] | select(.udid == $id) | .state')
+            if [ "$SIMULATOR_STATE" = "Booted" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Simulator $SIMULATOR_NAME ($SIMULATOR_ID) did not boot."
+          xcrun simctl list devices available
+          exit 1
 
       - name: Build iOS debug
         run: |
