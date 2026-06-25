@@ -9,13 +9,33 @@ import {
 } from './inventoryChrome';
 
 describe('inventory chrome behavior', () => {
-  it('hides immediately when list drag starts and chrome can auto-hide', () => {
+  it('does not hide on drag start before scroll direction is known', () => {
     expect(
       getInventoryChromeDragStartEffect({
         canAutoHide: true,
         locked: false,
       }),
-    ).toEqual({ direction: 'down', visible: false });
+    ).toBeNull();
+  });
+
+  it('does not hide when drag starts at the top of the list', () => {
+    expect(
+      getInventoryChromeDragStartEffect({
+        canAutoHide: true,
+        locked: false,
+        y: 0,
+      }),
+    ).toEqual({ direction: 'up', visible: true });
+  });
+
+  it('does not hide when drag starts away from the top before scroll direction is known', () => {
+    expect(
+      getInventoryChromeDragStartEffect({
+        canAutoHide: true,
+        locked: false,
+        y: 24,
+      }),
+    ).toBeNull();
   });
 
   it('does not hide on drag start when chrome is locked', () => {

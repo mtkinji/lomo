@@ -80,9 +80,12 @@ Suggested motion:
 
 Suggested trigger behavior:
 
-- Hide chrome as soon as list drag/scroll intent begins. Do not wait for a larger accumulated threshold; the user's first downward scroll gesture is already intent to scan the list.
-- Reveal chrome after upward scroll delta crosses a small threshold, e.g. `8px`.
-- Ignore tiny jitter and inertial bounce near the top.
+- Drag start is direction-neutral. Do not hide chrome just because the user touched the list; the first real scroll delta decides direction.
+- At/near the top of the list, pull-down / pull-to-refresh-style overscroll must keep or reveal chrome. The user is moving into header space, not away from it.
+- Hide chrome after downward scroll delta crosses `4px`. This keeps the response quick while filtering tap/press jitter.
+- Reveal chrome after upward scroll delta crosses `16px`. This avoids hide/reveal flutter from small rebounds while still restoring chrome on intentional upward scroll.
+- Clamp scroll offsets to the real scrollable range before deriving direction. Bottom overscroll bounce must not count as upward intent or reveal chrome.
+- Treat exact and sub-pixel top landings as top. Any final settle at/near `0` should restore header and global nav.
 - Once triggered, animate to the hidden or revealed state quickly but not abruptly. Current target: `260ms` with cubic ease-out.
 
 Important distinction:
@@ -117,9 +120,9 @@ Use a small state model so the implementation does not become a pile of scroll b
 
 State transitions:
 
-- `expanded -> compact`: downward scroll offset/delta crosses the hide threshold and content can meaningfully scroll.
+- `expanded -> compact`: downward scroll offset/delta crosses the `4px` hide threshold and content can meaningfully scroll.
 - `compact -> revealedMidList`: upward scroll delta crosses the reveal threshold before reaching top.
-- `revealedMidList -> compact`: downward scroll delta crosses the hide threshold again.
+- `revealedMidList -> compact`: downward scroll delta crosses the `4px` hide threshold again.
 - `revealedMidList -> expanded`: scroll offset returns near `0`.
 - Any state -> `quickAddFocused`: Quick Add receives focus or a Quick Add tool drawer opens.
 - `quickAddFocused -> prior state`: Quick Add submits, collapses, or all related drawers close.
@@ -377,8 +380,9 @@ Use measured sizes first; constants only as fallbacks:
 - `HEADER_FADE_END_RATIO = 0.7`
 - `STICKY_TOP_GAP = spacing.xs`
 - `SCROLL_EVENT_THROTTLE = 16` so hide/reveal intent is detected on the first visible scroll movement instead of chunky native scroll intervals.
-- `CHROME_HIDE_DELTA = 0`
-- `CHROME_REVEAL_DELTA = 8`
+- `INVENTORY_CHROME_HIDE_DELTA = 4`
+- `INVENTORY_CHROME_REVEAL_DELTA = 16`
+- `INVENTORY_CHROME_TOP_REVEAL_THRESHOLD_PX = 0.5`
 - `INVENTORY_CHROME_ANIMATION_MS = 260`
 - `EDGE_FADE_MAX_ALPHA = 0.92`
 - `EDGE_FADE_CONTROL_GAP_PX = 6`
@@ -436,6 +440,10 @@ Prefer existing `spacing`, `colors`, and typography tokens.
 - Quick Add focused state either freezes the header expanded or provides a visible sticky `Done` affordance.
 - Global bottom nav hides on downward scroll intent.
 - Global bottom nav reveals on upward scroll intent before reaching top.
+- Drag start alone does not hide chrome; direction is derived from scroll delta.
+- Pulling down while already at the top keeps or reveals header and global nav.
+- Bottom overscroll bounce does not reveal header/global nav unless the user actually scrolls upward within the real scroll range.
+- Upward scroll in the middle of the list does not hide before revealing.
 - Global bottom nav reveals before or during tab changes and overlay-driven navigation.
 - Quick Add dock stays present throughout downward and upward scroll behavior.
 - Quick Add dock lowers when global nav hides and returns above it when global nav reveals.
@@ -490,9 +498,12 @@ Manual QA:
 Automated checks:
 
 - `src/features/activities/inventoryChrome.test.ts` covers the contract-level behavior that should not regress:
-  - hide as soon as list drag/scroll intent begins when auto-hide is eligible
+  - keep drag start direction-neutral so upward drags do not hide before revealing
   - do not auto-hide while Quick Add/tooling has chrome locked
-  - reveal only after `8px` of upward scroll intent, while always restoring at exact top
+  - hide only after `4px` of downward scroll intent
+  - reveal only after `16px` of upward scroll intent, while always restoring at exact/sub-pixel top
+  - keep pull-down / pull-to-refresh-style top overscroll visible
+  - clamp bottom overscroll so bounce does not count as upward reveal intent
   - derive the top fade from the sticky toolbar visual bottom, not padded container height
   - keep top and bottom local-control fades on the same gap/ramp/alpha contract
   - suppress the global bottom-bar fade on To-dos list layout while Quick Add owns the bottom fade

@@ -9,6 +9,7 @@
 - Can users correctly predict what will happen after a place is visible: better prioritization, contextual grouping, an explicit notification, or reusable memory?
 - Can users understand the difference between a broad match such as "any Walgreens" and a specific geofence such as "Walgreens on Broadway"?
 - Can Kwilt deliver useful place context without continuous background polling or constant place-search API calls?
+- Can users understand that many Places can be linked or remembered, while only a smaller set can be actively watched for arrive/leave alerts?
 - Does evidence-gated place relevance improve the next doable action, or does it still feel like a category boost?
 - Do Quick Add, Activity Detail, Location Offers, Recommended, and Phone Agent share one mental model cleanly?
 - Do users feel protected from hidden tracking and silent AI mutation?
@@ -28,6 +29,7 @@ Evidence supporting the bet:
 - Users can describe the visible place contract in plain language: "this helps organize it", "this may make it show up here", "this will notify me", or "this is remembered".
 - Users can choose or accept the right matching scope for the job: any brand location, near a context, or one specific place.
 - The learning release produces value from linked context and explicit single-place triggers before any broad venue-detection system exists.
+- Users do not confuse stored Places or linked context with the active watched-place budget.
 - Phone Agent and Quick Add proposals can use the same language and confirmation model.
 
 Evidence disconfirming the bet:
@@ -40,6 +42,7 @@ Evidence disconfirming the bet:
 - Users cannot tell whether a visible place will affect prioritization, notifications, saved memory, or nothing.
 - Broad matches produce false confidence, such as expecting an "any Walgreens" reminder when only one store can be monitored.
 - The concept only feels valuable if Kwilt continuously polls location or repeatedly calls a place-search API in the background.
+- Users feel punished or confused by an active-watch limit, or believe Kwilt is failing because only some linked places can trigger notifications.
 - The model cannot be understood without a primary saved-place database or setup flow.
 - Quick Add, Activity Detail, Location Offers, and Phone Agent require separate place semantics.
 - Users repeatedly need correction controls to suppress place-aware recommendations.

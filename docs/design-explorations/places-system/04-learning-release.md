@@ -73,6 +73,7 @@ Must be real:
 - Quick Add and Activity Detail use the same place proposal/edit semantics.
 - Activity-place assignment works without OS location permission or geofence registration.
 - Place resolution is lazy: brand/category/context-scoped candidates can exist without map search, while geofences or directions require a specific resolved place unless an explicitly approved multi-place behavior is supported.
+- An active-watch budget distinguishes many stored/linked Places from the small set of coordinate-backed places that can currently trigger arrive/leave notifications.
 - Location-trigger events remain offers/evidence, not completions.
 - Tests cover capture-first, disabled-location behavior, weak-vs-strong place signal, and permission sequencing.
 
@@ -83,6 +84,7 @@ Can be thin or temporary:
 - Evidence storage can start local or Activity-adjacent while the audit strategy is decided.
 - Place matching can begin with explicit text/AI references before any broader location intelligence.
 - Map search can be deferred until a behavior requires a specific place candidate.
+- V1 can use a conservative user-facing active-watch limit, such as 10 watched places, even though platform limits may be higher.
 - Multi-place alerting for "any Walgreens" can be deferred unless provider capability and copy make the scope dependable.
 - Continuous background polling and continuous nearby-place search are excluded from the learning release.
 - Telemetry can begin with deterministic events rather than a full analytics funnel.
@@ -112,6 +114,7 @@ The learning release needs real code because the core question is whether existi
 - Do not request OS location permission until the user accepts a trigger behavior.
 - Do not require the user to create a named Place before Kwilt can use an obvious place reference from capture.
 - Do not promise generic venue detection such as "any pharmacy" until battery, cost, permission, and provider reliability have been proven.
+- Do not silently accept more active location alerts than Kwilt can reliably monitor.
 - Provide remove/edit affordances wherever durable place relationships are shown.
 
 ## Reversibility

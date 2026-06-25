@@ -255,6 +255,32 @@ Implementation posture:
 - Do not promise "any pharmacy" alerts until the app has a bounded candidate-set strategy, clear permission copy, provider cost controls, and battery testing.
 - Prefer surfaced proposals over hidden detection: "Want me to remind you at the Walgreens near your hotel?" is safer than silently trying to monitor every Walgreens.
 
+### Capacity Model
+
+Do not limit saved or named Places to the OS geofence limit. A named Place is app data; an active location alert is the scarce resource.
+
+The product should separate:
+
+- **Stored Places**: user-approved memory such as Home, School, Library, Grocery, Church, Office, Walgreens near home. These can be numerous because they do not require active location monitoring by default.
+- **Linked place assignments**: Activity-place relationships such as "return library books" linked to Library. These can be numerous and remain useful for Activity Detail, search, context grouping, and Recommended.
+- **Active watched places**: specific coordinate-backed places that currently have arrive/leave monitoring enabled. These should be deliberately limited, deduplicated, and inspectable.
+
+V1 should use an explicit watch budget, designed around iOS rather than Android:
+
+- One watched place can serve many Activities. Five to-dos at Library should consume one active region, not five.
+- The V1 user-facing limit should be lower than the platform maximum, such as 10 active watched places, so Kwilt keeps headroom for reliability, migration, and future system behavior.
+- If the user tries to enable an alert beyond the active budget, Kwilt should not silently queue a false promise. It should offer a choice: keep the Place linked without an alert, replace another watched place, or defer the alert until a future smarter scheduler exists.
+- If an Activity has a broad match such as "any Walgreens", the default should be linked context, not active monitoring. To create an alert, Kwilt should ask the user to choose a specific Walgreens unless a dependable multi-place watch strategy has been implemented.
+
+Suggested user-facing language:
+
+- `Linked to Walgreens` - helps Kwilt organize and recommend this task.
+- `Watching Walgreens on Broadway` - Kwilt can remind you when you arrive or leave.
+- `Alert not on` - this place is linked, but Kwilt is not watching your location for it.
+- `Choose a place to watch` - broad matches need a specific place before arrival/leave alerts.
+
+This design helps Maya without making her manage a technical quota. Most place value comes from capture, context, and recommendations. The scarce active-watch budget is reserved for the few reminders where a notification is genuinely worth the permission, battery, and trust cost.
+
 ### Product Surfaces
 
 Places should support several surfaces without becoming a top-level tab by default:

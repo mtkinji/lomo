@@ -14,12 +14,17 @@ export type InventoryChromeEffect = {
 export function getInventoryChromeDragStartEffect({
   canAutoHide,
   locked,
+  y = Number.POSITIVE_INFINITY,
+  topRevealThreshold = INVENTORY_CHROME_TOP_REVEAL_THRESHOLD_PX,
 }: {
   canAutoHide: boolean;
   locked: boolean;
+  y?: number;
+  topRevealThreshold?: number;
 }): InventoryChromeEffect | null {
   if (!canAutoHide || locked) return null;
-  return { direction: 'down', visible: false };
+  if (y <= topRevealThreshold) return { direction: 'up', visible: true };
+  return null;
 }
 
 export function getInventoryChromeScrollEffect({

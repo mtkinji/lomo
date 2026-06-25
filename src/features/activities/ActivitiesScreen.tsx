@@ -2018,6 +2018,7 @@ export function ActivitiesScreen() {
     const effect = getInventoryChromeDragStartEffect({
       canAutoHide: shouldAutoHideInventoryChrome,
       locked: quickAddChromeLocked,
+      y: lastInventoryScrollYRef.current,
     });
     if (!effect) return;
 
