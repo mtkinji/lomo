@@ -15,6 +15,7 @@ import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
+import { getActiveActivityAreas } from '../domain/activityAreas';
 
 const MAX_MESSAGE_CONTENT_LENGTH = 19000;
 
@@ -27,6 +28,7 @@ export type ActivityAiEnrichment = {
   notes?: string;
   tags?: string[];
   goalId?: string | null;
+  areaId?: string | null;
   type?: ActivityType;
   reminderAt?: string | null;
   scheduledDate?: string | null;
@@ -3318,19 +3320,21 @@ export function normalizeActivityAiEnrichmentActions(
 
 export function buildActivityEnrichmentSystemPrompt(
   selectedActions: ActivityAiEnrichmentAction[],
+  options: { areaCandidateCount?: number } = {},
 ): string {
   const selected = new Set(selectedActions);
   const includeDetails = selected.has('details');
   const includeSteps = selected.has('steps');
   const includeTriggers = selected.has('triggers');
+  const hasAreaCandidates = (options.areaCandidateCount ?? 0) > 0;
 
   return (
     'You enrich a single to-do with helpful supporting details.\n' +
     'Return JSON only, matching the schema.\n' +
     `Requested AI actions: ${selectedActions.length > 0 ? selectedActions.join(', ') : 'none'}.\n` +
     (includeDetails
-      ? '- details: add notes, tags, goalId, type, estimateMinutes, priority, or difficulty when useful.\n'
-      : '- details is not requested: omit notes, tags, goalId, type, estimateMinutes, priority, and difficulty unless needed to satisfy another requested action.\n') +
+      ? '- details: add notes, tags, goalId, areaId, type, estimateMinutes, priority, or difficulty when useful.\n'
+      : '- details is not requested: omit notes, tags, goalId, areaId, type, estimateMinutes, priority, and difficulty unless needed to satisfy another requested action.\n') +
     (includeSteps
       ? '- steps: add 0-6 short action steps when they make the to-do easier to start.\n'
       : '- steps is not requested: omit steps.\n') +
@@ -3345,6 +3349,9 @@ export function buildActivityEnrichmentSystemPrompt(
     '- notes: 1-3 short sentences, practical and specific.\n' +
     '- tags: 0-5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
     '- goalId: one id from Candidate goals if the to-do clearly belongs to an existing goal; otherwise omit or null.\n' +
+    (hasAreaCandidates
+      ? '- areaId: one id from Candidate areas if the to-do clearly belongs to one user-managed Area; otherwise omit or null.\n'
+      : '- areaId: omit unless Candidate areas are provided.\n') +
     '- type: one of task|checklist|shopping_list|instructions|plan when a non-default type would fit better.\n' +
     '- reminderAt: ISO datetime only, in the future relative to Current time.\n' +
     '- scheduledDate: YYYY-MM-DD only when a day-level cue is useful.\n' +
@@ -3390,6 +3397,7 @@ export async function enrichActivityWithAI(
     const existingNotesPlain = params.existingNotes ? richTextToPlainText(params.existingNotes).trim() : '';
     const validActivityTypes: ActivityType[] = ['task', 'checklist', 'shopping_list', 'instructions', 'plan'];
     const validRepeatRules: ActivityRepeatRule[] = ['daily', 'weekly', 'weekdays', 'monthly', 'yearly'];
+    const includeDetails = selectedActions.includes('details');
     const goalCandidates =
       state?.goals
         ?.filter((g) => typeof g?.id === 'string' && typeof g?.title === 'string' && g.title.trim().length > 0)
@@ -3403,6 +3411,14 @@ export async function enrichActivityWithAI(
           };
         }) ?? [];
     const validGoalIds = new Set(goalCandidates.map((g) => g.id));
+    const areaCandidates =
+      includeDetails && state?.activityAreas
+        ? getActiveActivityAreas(state.activityAreas)
+            .filter((area) => typeof area.id === 'string' && typeof area.label === 'string' && area.label.trim().length > 0)
+            .slice(0, 24)
+            .map((area) => ({ id: area.id, label: area.label.trim() }))
+        : [];
+    const validAreaIds = new Set(areaCandidates.map((area) => area.id));
 
     const arc =
       goal?.arcId && state?.arcs ? state.arcs.find((a) => a.id === goal.arcId) ?? null : null;
@@ -3418,7 +3434,9 @@ export async function enrichActivityWithAI(
             .slice(0, 14)
         : [];
 
-    const systemPrompt = buildActivityEnrichmentSystemPrompt(selectedActions);
+    const systemPrompt = buildActivityEnrichmentSystemPrompt(selectedActions, {
+      areaCandidateCount: areaCandidates.length,
+    });
 
     const userPrompt = [
       `To-do title: ${title}`,
@@ -3438,6 +3456,12 @@ export async function enrichActivityWithAI(
             }),
           ].join('\n')
         : 'Candidate goals for linking: (none)',
+      areaCandidates.length > 0
+        ? [
+            'Candidate areas for areaId (choose areaId only from this list):',
+            ...areaCandidates.map((area) => `- ${area.id}: ${area.label}`),
+          ].join('\n')
+        : 'Candidate areas for areaId: (none)',
       arc?.name ? `Arc: ${arc.name}` : 'Arc: (none)',
       arcNarrativePlain ? `Arc narrative: ${arcNarrativePlain}` : 'Arc narrative: (none)',
       existingNotesPlain
@@ -3468,6 +3492,7 @@ export async function enrichActivityWithAI(
               notes: { type: 'string' },
               tags: { type: 'array', items: { type: 'string' }, maxItems: 5 },
               goalId: { type: ['string', 'null'] },
+              areaId: { type: ['string', 'null'] },
               type: { type: 'string', enum: validActivityTypes },
               reminderAt: { type: ['string', 'null'] },
               scheduledDate: { type: ['string', 'null'] },
@@ -3540,6 +3565,11 @@ export async function enrichActivityWithAI(
       normalized.goalId = parsed.goalId;
     } else if (parsed.goalId === null) {
       normalized.goalId = null;
+    }
+    if (typeof parsed.areaId === 'string' && validAreaIds.has(parsed.areaId)) {
+      normalized.areaId = parsed.areaId;
+    } else if (parsed.areaId === null) {
+      normalized.areaId = null;
     }
     if (typeof parsed.type === 'string' && validActivityTypes.includes(parsed.type as ActivityType)) {
       normalized.type = parsed.type as ActivityType;

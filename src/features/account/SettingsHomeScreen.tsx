@@ -73,6 +73,14 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     description: 'Availability and calendar settings for Plan.',
     items: [
       {
+        id: 'activity_areas',
+        title: 'Areas',
+        description: 'Manage where different to-dos belong.',
+        icon: 'layers',
+        route: 'SettingsActivityAreas',
+        tags: ['areas', 'planning', 'availability'],
+      },
+      {
         id: 'plan_availability',
         title: 'Availability',
         description: 'When Kwilt helps with planning.',

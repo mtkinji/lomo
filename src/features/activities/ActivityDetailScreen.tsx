@@ -116,7 +116,7 @@ import {
   type CalendarEvent,
   type CalendarRef,
 } from '../../services/plan/calendarApi';
-import { getAvailabilityForDate, getWindowsForMode } from '../../services/plan/planAvailability';
+import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea } from '../../services/plan/planAvailability';
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
 import { clampToNextQuarterHour, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
 import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
@@ -279,6 +279,7 @@ export function ActivityDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const userProfile = useAppStore((state) => state.userProfile);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const activityAreas = useAppStore((state) => state.activityAreas);
   const domainHydrated = useAppStore((state) => state.domainHydrated);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
@@ -1018,6 +1019,7 @@ export function ActivityDetailScreen() {
       targetDate: scheduleTargetDate,
       busyIntervals: scheduleBusyIntervals,
       writeCalendarId: scheduleWriteRef?.calendarId ?? null,
+      activityAreas,
       limit: 6,
     });
   }, [
@@ -1027,6 +1029,7 @@ export function ActivityDetailScreen() {
     scheduleDurationMinutes,
     scheduleTargetDate,
     scheduleWriteRef?.calendarId,
+    activityAreas,
     userProfile,
   ]);
 
@@ -2680,6 +2683,7 @@ export function ActivityDetailScreen() {
             targetDate: day,
             busyIntervals: dayBusy,
             writeCalendarId: writeRef.calendarId ?? null,
+            activityAreas,
             limit: 6,
           });
           if (slots.length > 0) {
@@ -2836,8 +2840,11 @@ export function ActivityDetailScreen() {
         return;
       }
 
-      const inferredDomain = inferSchedulingDomain(activity, goals ?? []).toLowerCase();
-      const mode = inferredDomain.includes('work') ? 'work' : 'personal';
+      const mode = resolvePlanModeForArea(
+        activityAreas,
+        activity.areaId ?? null,
+        inferSchedulingDomain(activity, goals ?? []).toLowerCase().includes('work') ? 'work' : 'personal',
+      );
       const windows = getWindowsForMode(dayAvailability, mode);
       if (windows.length === 0) {
         showToast({
@@ -3333,6 +3340,7 @@ export function ActivityDetailScreen() {
       const nextActivity: Activity = {
         id,
         goalId: effectiveGoalId,
+        areaId: activity.areaId ?? null,
         title: trimmedTitle,
         type: 'task',
         tags: [],
@@ -3379,6 +3387,7 @@ export function ActivityDetailScreen() {
     },
     [
       activities.length,
+      activity?.areaId,
       activity?.id,
       addActivity,
       effectiveGoalId,
@@ -4341,6 +4350,7 @@ export function ActivityDetailScreen() {
               goalOptions={goalOptions}
               recommendedGoalOption={recommendedGoalOption}
               activityTypeOptions={activityTypeOptions}
+              activityAreas={activityAreas}
               handleDeleteActivity={handleDeleteActivity}
               setIsTagsAutofillThinking={setIsTagsAutofillThinking}
               // Full-bleed canvas: the refresh layout handles safe area itself.

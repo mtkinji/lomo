@@ -120,6 +120,7 @@ Assignment rules:
 - An Activity can have zero or one primary Area in V1.
 - `No area` remains valid.
 - AI may suggest, not silently apply, unless the user accepted a clear rule later.
+- The existing Quick Add AI action labeled `Fill details` should include Area enrichment. When that toggle is on, AI can return an `areaId` from the user's active Areas and Kwilt can apply it if the Activity does not already have an Area. AI must not invent new Areas.
 - If an Area is archived, old Activities should still display its label or a graceful archived state.
 
 ### Scheduling setup

@@ -1,4 +1,5 @@
-import type { UserProfile } from '../../domain/types';
+import type { ActivityArea, UserProfile } from '../../domain/types';
+import { resolveActivityAreaFallbackMode } from '../../domain/activityAreas';
 import { getWeekdayKey } from './planDates';
 
 export type PlanMode = 'work' | 'personal';
@@ -65,6 +66,15 @@ export function getWindowsForMode(day: PlanDayAvailability, mode: PlanMode): Pla
   return day.windows?.[mode] ?? [];
 }
 
+export function resolvePlanModeForArea(
+  activityAreas: ActivityArea[] | undefined,
+  areaId: string | null | undefined,
+  fallbackMode: PlanMode,
+): PlanMode {
+  const areaMode = resolveActivityAreaFallbackMode(activityAreas ?? [], areaId ?? null);
+  if (areaMode === 'work' || areaMode === 'personal') return areaMode;
+  return fallbackMode;
+}
 
 
 

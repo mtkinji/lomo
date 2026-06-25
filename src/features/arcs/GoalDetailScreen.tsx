@@ -4448,6 +4448,7 @@ function GoalActivityCoachDrawer({
   const isPro = useEntitlementsStore((state) => state.isPro);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const activityAreas = useAppStore((state) => state.activityAreas);
   const addActivity = useAppStore((state) => state.addActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const updateActivity = useAppStore((state) => state.updateActivity);
@@ -4463,6 +4464,7 @@ function GoalActivityCoachDrawer({
     repeatRule: undefined,
     estimateMinutes: null,
     difficulty: undefined,
+    areaId: null,
   });
 
   const activityCreationWorkflow = useMemo(
@@ -4528,6 +4530,7 @@ function GoalActivityCoachDrawer({
         repeatRule: undefined,
         estimateMinutes: null,
         difficulty: undefined,
+        areaId: null,
       });
     }
   }, [visible]);
@@ -4566,6 +4569,7 @@ function GoalActivityCoachDrawer({
       planGroupId: null,
       scheduledDate: manualDraft.scheduledDate ?? null,
       repeatRule: manualDraft.repeatRule,
+      areaId: manualDraft.areaId ?? null,
       orderIndex: (activities.length || 0) + 1,
       phase: null,
       status: 'planned',
@@ -4836,6 +4840,7 @@ function GoalActivityCoachDrawer({
                   onChange={(updater) => setManualDraft((prev) => updater(prev))}
                   goalLabel={focusGoal?.title ?? null}
                   lockGoalLabel
+                  areas={activityAreas}
                 />
                 <Button
                   style={{ marginTop: spacing.xs }}

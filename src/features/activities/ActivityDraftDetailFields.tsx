@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { ActivityDifficulty, ActivityRepeatRule, ActivityType } from '../../domain/types';
+import type { ActivityArea, ActivityDifficulty, ActivityRepeatRule, ActivityType } from '../../domain/types';
+import { getActiveActivityAreas } from '../../domain/activityAreas';
 import { colors, spacing, typography } from '../../theme';
 import { Badge } from '../../ui/Badge';
 import { Button, IconButton } from '../../ui/Button';
@@ -11,6 +12,7 @@ import { parseTags } from '../../utils/tags';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { DurationPicker } from './DurationPicker';
+import { getActivityAreaIcon, getActivityAreaIconById } from './activityAreaIcons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +32,7 @@ export type ActivityDraft = {
   repeatRule?: ActivityRepeatRule;
   estimateMinutes: number | null;
   difficulty?: ActivityDifficulty;
+  areaId?: string | null;
 };
 
 type Props = {
@@ -37,6 +40,7 @@ type Props = {
   onChange: (updater: (prev: ActivityDraft) => ActivityDraft) => void;
   goalLabel?: string | null;
   lockGoalLabel?: boolean;
+  areas?: ActivityArea[];
 };
 
 const difficultyOptions = [
@@ -88,7 +92,7 @@ function formatMinutes(minutes: number) {
   return `${hrs} hr${hrs === 1 ? '' : 's'} ${mins} min`;
 }
 
-export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoalLabel }: Props) {
+export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoalLabel, areas = [] }: Props) {
   const [tagsInputDraft, setTagsInputDraft] = React.useState('');
   const [reminderSheetVisible, setReminderSheetVisible] = React.useState(false);
   const [dueDateSheetVisible, setDueDateSheetVisible] = React.useState(false);
@@ -226,6 +230,26 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
     const match = difficultyOptions.find((o) => o.value === draft.difficulty);
     return match?.label ?? draft.difficulty;
   }, [draft.difficulty]);
+
+  const activeAreas = React.useMemo(() => getActiveActivityAreas(areas), [areas]);
+  const areaOptions = React.useMemo(
+    () => [
+      {
+        value: '__none__',
+        label: 'No area',
+        keywords: ['none', 'no area'],
+        leftElement: <Icon name="inbox" size={16} color={colors.textSecondary} />,
+      },
+      ...activeAreas.map((area) => ({
+        value: area.id,
+        label: area.label,
+        keywords: [area.label],
+        leftElement: <Icon name={getActivityAreaIcon(area)} size={16} color={colors.textSecondary} />,
+      })),
+    ],
+    [activeAreas],
+  );
+  const selectedAreaIcon = getActivityAreaIconById(activeAreas, draft.areaId);
 
   return (
     <View>
@@ -593,6 +617,31 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
           </View>
         </Pressable>
       </View>
+
+      {/* Area */}
+      {activeAreas.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.inputLabel}>Area</Text>
+          <ObjectPicker
+            value={draft.areaId ?? '__none__'}
+            onValueChange={(nextAreaId) =>
+              onChange((prev) => ({
+                ...prev,
+                areaId: nextAreaId && nextAreaId !== '__none__' ? nextAreaId : null,
+              }))
+            }
+            options={areaOptions}
+            placeholder="No area"
+            searchPlaceholder="Search areas..."
+            emptyText="No areas found."
+            accessibilityLabel="Change to-do area"
+            presentation="drawer"
+            size="compact"
+            leadingIcon={selectedAreaIcon}
+            fieldVariant="filled"
+          />
+        </View>
+      ) : null}
 
       {/* Linked goal (optional) */}
       {goalLabel ? (
@@ -1051,4 +1100,3 @@ const styles = StyleSheet.create({
     color: colors.destructive,
   },
 });
-

@@ -12,7 +12,8 @@ import { LongTextField } from '../../ui/LongTextField';
 import { Badge } from '../../ui/Badge';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { menuItemTextProps } from '../../ui/menuStyles';
-import type { ActivityDifficulty, ActivityPriorityState, ActivityType } from '../../domain/types';
+import type { ActivityArea, ActivityDifficulty, ActivityPriorityState, ActivityType } from '../../domain/types';
+import { getActiveActivityAreas } from '../../domain/activityAreas';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { HeaderActionPill, ObjectPageHeader, OBJECT_PAGE_HEADER_BAR_HEIGHT } from '../../ui/layout/ObjectPageHeader';
 import { getActivityHeaderArtworkSource } from './activityTypeHeaderArtwork';
@@ -29,6 +30,7 @@ import { isDateToday } from '../../utils/activityListMeta';
 import {
   getActivityPriorityState,
 } from './activityPriority';
+import { getActivityAreaIcon, getActivityAreaIconById } from './activityAreaIcons';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -184,6 +186,7 @@ export function ActivityDetailRefresh(props: any) {
     goalOptions,
     recommendedGoalOption,
     activityTypeOptions,
+    activityAreas,
     handleDeleteActivity,
     setActivityPriorityState,
     onPressEditHeaderImage,
@@ -232,6 +235,28 @@ export function ActivityDetailRefresh(props: any) {
   const showDetailsCountBadge = !detailsExpanded && detailsConfiguredCount > 0;
   const activityPriorityState = getActivityPriorityState(activity);
   const activityPriorityStateLabel = PRIORITY_STATE_LABELS[activityPriorityState];
+  const activeAreas = React.useMemo(
+    () => getActiveActivityAreas((activityAreas ?? []) as ActivityArea[]),
+    [activityAreas],
+  );
+  const areaOptions = React.useMemo(
+    () => [
+      {
+        value: '__none__',
+        label: 'No area',
+        keywords: ['none', 'no area'],
+        leftElement: <Icon name="inbox" size={16} color={colors.textSecondary} />,
+      },
+      ...activeAreas.map((area) => ({
+        value: area.id,
+        label: area.label,
+        keywords: [area.label],
+        leftElement: <Icon name={getActivityAreaIcon(area)} size={16} color={colors.textSecondary} />,
+      })),
+    ],
+    [activeAreas],
+  );
+  const selectedAreaIcon = getActivityAreaIconById(activeAreas, activity?.areaId);
   const priorityStatusOptions = React.useMemo(
     () =>
       PRIORITY_STATE_OPTIONS.map((option) => ({
@@ -1746,6 +1771,33 @@ export function ActivityDetailRefresh(props: any) {
                   fieldVariant="filled"
                 />
               </View>
+
+              {activeAreas.length > 0 ? (
+                <View style={{ marginTop: spacing.lg }}>
+                  <Text style={styles.inputLabel}>Area</Text>
+                  <ObjectPicker
+                    value={activity.areaId ?? '__none__'}
+                    onValueChange={(nextAreaId) => {
+                      const timestamp = new Date().toISOString();
+                      updateActivity(activity.id, (prev: any) => ({
+                        ...prev,
+                        areaId: nextAreaId && nextAreaId !== '__none__' ? nextAreaId : null,
+                        updatedAt: timestamp,
+                      }));
+                    }}
+                    options={areaOptions}
+                    placeholder="No area"
+                    searchPlaceholder="Search areas..."
+                    emptyText="No areas found."
+                    accessibilityLabel="Change to-do area"
+                    allowDeselect={false}
+                    presentation="drawer"
+                    size="compact"
+                    leadingIcon={selectedAreaIcon}
+                    fieldVariant="filled"
+                  />
+                </View>
+              ) : null}
 
               <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>Type</Text>

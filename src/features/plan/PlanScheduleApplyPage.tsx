@@ -4,6 +4,7 @@ import { colors, typography, spacing } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import { proposeSchedule, ProposedEvent } from '../../services/scheduling/schedulingEngine';
 import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
+import { resolvePlanModeForArea } from '../../services/plan/planAvailability';
 import { 
   getWritableCalendars, 
   getDefaultCalendarId, 
@@ -37,6 +38,7 @@ export function PlanScheduleApplyPage({
 }: PlanScheduleApplyPageProps) {
   const activities = useAppStore((s) => s.activities);
   const goals = useAppStore((s) => s.goals);
+  const activityAreas = useAppStore((s) => s.activityAreas);
   const userProfile = useAppStore((s) => s.userProfile);
   const updateActivity = useAppStore((s) => s.updateActivity);
   const updateUserProfile = useAppStore((s) => s.updateUserProfile);
@@ -124,15 +126,18 @@ export function PlanScheduleApplyPage({
   const activitiesWithInferredDomain = useMemo(() => {
     const base = activities
       .filter(a => a.status !== 'done' && !a.scheduledAt)
-      .map(a => ({
-        ...a,
-        schedulingDomain: a.schedulingDomain || inferSchedulingDomain(a, goals)
-      }));
+      .map(a => {
+        const inferredMode = inferSchedulingDomain(a, goals).toLowerCase().includes('work') ? 'work' : 'personal';
+        return {
+          ...a,
+          schedulingDomain: resolvePlanModeForArea(activityAreas, a.areaId ?? null, inferredMode),
+        };
+      });
     if (mode === 'all') return base;
     if (selectedActivityIds.length === 0) return [];
     const selected = new Set(selectedActivityIds);
     return base.filter((a) => selected.has(a.id));
-  }, [activities, goals, mode, selectedActivityIds]);
+  }, [activities, activityAreas, goals, mode, selectedActivityIds]);
 
   useEffect(() => {
     // Best-effort AI domain inference, persists onto the Activity so the app learns over time.

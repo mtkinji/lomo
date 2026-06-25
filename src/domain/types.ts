@@ -482,6 +482,27 @@ export type ActivityRepeatCustom =
       interval: number;
     };
 
+export type ActivityAreaFallbackMode = 'work' | 'personal' | 'flexible';
+
+export type ActivityAreaAvailabilityWindow = {
+  weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  start: string;
+  end: string;
+};
+
+export type ActivityArea = {
+  id: string;
+  label: string;
+  order: number;
+  archivedAt?: string | null;
+  isDefault?: boolean;
+  scheduling?: {
+    enabled?: boolean;
+    windows?: ActivityAreaAvailabilityWindow[];
+    fallbackMode?: ActivityAreaFallbackMode;
+  };
+};
+
 export interface ActivityForceActual {
   [forceId: string]: ForceLevel;
 }
@@ -665,6 +686,12 @@ export interface Activity {
    * selected days). Only used when repeatRule === 'custom'.
    */
   repeatCustom?: ActivityRepeatCustom;
+  /**
+   * Optional user-managed life area for this Activity, such as Work,
+   * Personal, Family, Home, or Health. Area is user-facing; schedulingDomain
+   * remains compatibility/inference plumbing.
+   */
+  areaId?: string | null;
   /**
    * AI-inferred domain (e.g. 'work', 'personal') used to suggest the destination
    * calendar for scheduling. This is advisory and can be overridden by the user.

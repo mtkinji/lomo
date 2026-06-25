@@ -868,6 +868,45 @@ describe('useAppStore quick-add AI action preferences', () => {
   });
 });
 
+describe('useAppStore activity areas', () => {
+  beforeEach(() => {
+    useAppStore.getState().resetStore();
+  });
+
+  it('defaults to intelligent activity areas', () => {
+    expect(useAppStore.getState().activityAreas.map((area) => area.label)).toEqual([
+      'Work',
+      'Personal',
+      'Family',
+      'Home',
+      'Health',
+    ]);
+  });
+
+  it('can add, rename, reorder, and archive activity areas', () => {
+    const store = useAppStore.getState();
+
+    store.addActivityArea('Church');
+    const church = useAppStore.getState().activityAreas.find((area) => area.label === 'Church');
+    expect(church).toBeTruthy();
+
+    useAppStore.getState().renameActivityArea(church!.id, 'Church / Service');
+    expect(useAppStore.getState().activityAreas.find((area) => area.id === church!.id)?.label).toBe(
+      'Church / Service',
+    );
+
+    useAppStore
+      .getState()
+      .reorderActivityAreas([church!.id, 'area-work', 'area-personal', 'area-family', 'area-home', 'area-health']);
+    expect(useAppStore.getState().activityAreas[0]?.id).toBe(church!.id);
+
+    useAppStore.getState().archiveActivityArea(church!.id, '2026-06-25T12:00:00.000Z');
+    expect(useAppStore.getState().activityAreas.find((area) => area.id === church!.id)?.archivedAt).toBe(
+      '2026-06-25T12:00:00.000Z',
+    );
+  });
+});
+
 describe('proPreview store actions', () => {
   beforeEach(() => {
     useAppStore.getState().resetStore();

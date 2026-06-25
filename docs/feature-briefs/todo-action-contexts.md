@@ -82,6 +82,18 @@ Context is not a grouping in V1. Context helps choose or recommend the next acti
 6. **Scan**: grouping inside the visible list by Goal, Schedule, or Status.
 7. **Correction**: "not now," "not here," remove a context, or add a lightweight signal.
 
+### Action context assignments
+
+An Activity can be linked to a non-place action context without being assigned to a specific Place. This is useful for to-dos that fit a situation rather than a location object:
+
+- `Errands` or `Away`: work that makes sense out of the home.
+- `At computer`: work that needs a desk, browser, writing, admin, or focused digital tools.
+- `Calls/messages`: follow-ups, texts, calls, emails, and replies.
+- `At office`: work that belongs at the user's workplace.
+- `Not at office`: work that should surface when the user is away from the workplace.
+
+Action context assignment is different from Place assignment in the Places system. A Place assignment says "this Activity belongs with Library / Trader Joe's / Office." An action context assignment says "this Activity belongs with errands / away / at computer / calls." A single Activity may have both, but neither one should imply a notification or geofence by default.
+
 Potential delivery surfaces:
 
 - in-app Recommended card
@@ -112,6 +124,8 @@ Do not require every Activity to have a context. Unclassified Activities remain 
 Kwilt may suggest a saved place when there is repeated task-place evidence. For example, if the user often completes or receives grocery/shopping-related Activities at the same location, Kwilt can ask: "You often do grocery tasks here. Remember this as a grocery place?" The user must confirm before the place becomes durable context.
 
 Do not query or classify every new address just because the user dwells there. Address/place lookup should be tied to a visible value moment: an explicit location trigger, a user-selected place, or repeated task evidence that makes a saved-place suggestion useful.
+
+The user should not need to create the saved place first. Places can begin as soft task-level assignments inferred from captured language or accepted suggestions, then become durable Settings-managed Places only when the evidence and value are clear enough to ask.
 
 ### Future place priors
 
