@@ -36,7 +36,7 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone (15|14|13)/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
+          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
           if [ -z "$SIMULATOR_NAME" ]; then
             echo "No iPhone simulator found."
             xcrun simctl list devices available
@@ -122,7 +122,7 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone (15|14|13)/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
+          SIMULATOR_NAME=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $1; exit}' | sed 's/^ *//;s/ *$//')
           if [ -z "$SIMULATOR_NAME" ]; then
             echo "No iPhone simulator found."
             xcrun simctl list devices available
