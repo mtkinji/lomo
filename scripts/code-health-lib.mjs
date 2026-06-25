@@ -52,12 +52,20 @@ export function analyzeText(text) {
   };
 }
 
+export function countCoveragePathIgnorePatterns(file, text) {
+  if (toPosix(file) !== 'jest.config.js') return 0;
+  const match = text.match(/coveragePathIgnorePatterns\s*:\s*\[([\s\S]*?)\]/m);
+  if (!match) return 0;
+  return countMatches(match[1] ?? '', /['"`][^'"`]+['"`]/g);
+}
+
 export function summarizeFiles(filesWithText, thresholds = DEFAULT_THRESHOLDS) {
   const rows = filesWithText
     .filter(({ file }) => isCodeFile(file) && !shouldIgnoreFile(file))
     .map(({ file, text }) => ({
       file: toPosix(file),
       ...analyzeText(text),
+      coveragePathIgnorePatterns: countCoveragePathIgnorePatterns(file, text),
     }))
     .sort((a, b) => a.file.localeCompare(b.file));
 
@@ -72,6 +80,7 @@ export function summarizeFiles(filesWithText, thresholds = DEFAULT_THRESHOLDS) {
     tsIgnore: 0,
     tsExpectError: 0,
     consoleLog: 0,
+    coveragePathIgnorePatterns: 0,
     directReusableImports: 0,
     rawReactNativeTextFeatureFiles: 0,
   };
@@ -83,6 +92,7 @@ export function summarizeFiles(filesWithText, thresholds = DEFAULT_THRESHOLDS) {
     totals.tsIgnore += row.tsIgnore;
     totals.tsExpectError += row.tsExpectError;
     totals.consoleLog += row.consoleLog;
+    totals.coveragePathIgnorePatterns += row.coveragePathIgnorePatterns;
     if (row.lines >= thresholds.largeFile) totals.largeFiles += 1;
     if (row.lines >= thresholds.veryLargeFile) totals.veryLargeFiles += 1;
     if (row.lines >= thresholds.hugeFile) totals.hugeFiles += 1;
@@ -140,6 +150,16 @@ export function compareSummaries(currentRows, baseRows, thresholds = DEFAULT_THR
         file: row.file,
         code: 'new-console-log',
         message: `added ${newConsoleLog} console.log call${newConsoleLog === 1 ? '' : 's'} in src`,
+      });
+    }
+
+    const newCoverageIgnores = row.coveragePathIgnorePatterns - (base?.coveragePathIgnorePatterns ?? 0);
+    if (row.file === 'jest.config.js' && newCoverageIgnores > 0) {
+      findings.push({
+        severity: 'error',
+        file: row.file,
+        code: 'coverage-ignore-growth',
+        message: `added ${newCoverageIgnores} coverage ignore pattern${newCoverageIgnores === 1 ? '' : 's'}`,
       });
     }
 
@@ -201,6 +221,7 @@ export function formatReport({ current, findings, baseLabel, topCount = 10 }) {
   lines.push(`explicit any matches: ${current.totals.explicitAny}`);
   lines.push(`@ts-ignore directives: ${current.totals.tsIgnore}`);
   lines.push(`console.log calls: ${current.totals.consoleLog}`);
+  lines.push(`coverage ignore patterns: ${current.totals.coveragePathIgnorePatterns}`);
   lines.push(`raw react-native Text feature files: ${current.totals.rawReactNativeTextFeatureFiles}`);
 
   const largest = [...current.rows].sort((a, b) => b.lines - a.lines).slice(0, topCount);

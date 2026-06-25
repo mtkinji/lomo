@@ -20,13 +20,18 @@ test('summarizeFiles counts large files and softness indicators', () => {
       file: 'node_modules/pkg/index.ts',
       text: 'const ignored = true;',
     },
+    {
+      file: 'jest.config.js',
+      text: "module.exports = { coveragePathIgnorePatterns: ['/node_modules/', '<rootDir>/src/ui/'] };",
+    },
   ]);
 
-  assert.equal(current.totals.files, 1);
+  assert.equal(current.totals.files, 2);
   assert.equal(current.totals.largeFiles, 1);
   assert.equal(current.totals.asAny, 1);
   assert.equal(current.totals.consoleLog, 1);
   assert.equal(current.totals.rawReactNativeTextFeatureFiles, 1);
+  assert.equal(current.totals.coveragePathIgnorePatterns, 2);
 });
 
 test('compareSummaries fails new high-risk regressions and warns on loose typing', () => {
@@ -38,6 +43,10 @@ test('compareSummaries fails new high-risk regressions and warns on loose typing
     {
       file: 'src/features/demo/Large.tsx',
       text: Array.from({ length: 1500 }, (_, index) => `const base${index} = ${index};`).join('\n'),
+    },
+    {
+      file: 'jest.config.js',
+      text: "module.exports = { coveragePathIgnorePatterns: ['/node_modules/'] };",
     },
   ]);
   const current = summarizeFiles([
@@ -58,6 +67,10 @@ test('compareSummaries fails new high-risk regressions and warns on loose typing
       file: 'src/features/demo/NewLarge.tsx',
       text: Array.from({ length: 800 }, (_, index) => `const line${index} = ${index};`).join('\n'),
     },
+    {
+      file: 'jest.config.js',
+      text: "module.exports = { coveragePathIgnorePatterns: ['/node_modules/', '<rootDir>/src/features/new/'] };",
+    },
   ]);
 
   const findings = compareSummaries(current.rows, base.rows);
@@ -68,5 +81,6 @@ test('compareSummaries fails new high-risk regressions and warns on loose typing
   assert.equal(byCode.get('new-ts-ignore')?.severity, 'error');
   assert.equal(byCode.get('large-file-growth')?.severity, 'error');
   assert.equal(byCode.get('new-large-file')?.severity, 'error');
+  assert.equal(byCode.get('coverage-ignore-growth')?.severity, 'error');
   assert.equal(byCode.get('new-as-any')?.severity, 'warning');
 });
