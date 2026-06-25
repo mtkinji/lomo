@@ -96,6 +96,43 @@ describe('externalMcpWrite helpers', () => {
     expect(calls.some((call) => call.table === 'kwilt_streak_events')).toBe(true);
   });
 
+  test('createActivityForUser normalizes provided steps into app-compatible activity steps', async () => {
+    const { admin, calls } = createMockAdmin();
+
+    await createActivityForUser(admin, 'user-1', {
+      title: 'Improve to-do organization',
+      steps: [
+        { title: 'Write the grouping brief', completed_at: '2026-06-23T12:00:00.000Z' },
+        { id: 'external-step-2', title: 'Ship the grouping controls', is_optional: true, order_index: 7 },
+        { title: 'Verify unchecked step', completed_at: null },
+        { title: '   ' },
+        'ignored',
+      ],
+    });
+
+    const activity = calls.find((call) => call.table === 'kwilt_activities');
+    expect(activity?.payload.data.steps).toEqual([
+      {
+        id: 'step-activity_00000000-0000-4000-8000-000000000001-0',
+        title: 'Write the grouping brief',
+        completedAt: '2026-06-23T12:00:00.000Z',
+        orderIndex: 0,
+      },
+      {
+        id: 'external-step-2',
+        title: 'Ship the grouping controls',
+        isOptional: true,
+        orderIndex: 7,
+      },
+      {
+        id: 'step-activity_00000000-0000-4000-8000-000000000001-2',
+        title: 'Verify unchecked step',
+        completedAt: null,
+        orderIndex: 2,
+      },
+    ]);
+  });
+
   test('softDeleteObjectForUser writes the same tombstone shape as domainSync', async () => {
     const calls: Array<{ table: string; operation: string; payload?: any }> = [];
     const admin = {
@@ -161,5 +198,56 @@ describe('externalMcpWrite helpers', () => {
       status: 'done',
       completedAt: '2026-05-13T12:00:00.000Z',
     });
+  });
+
+  test('updateActivityForUser replaces steps only when steps are provided', async () => {
+    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
+    const admin = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'activity-1',
+                  data: {
+                    id: 'activity-1',
+                    title: 'Improve to-do organization',
+                    status: 'planned',
+                    updatedAt: '2026-05-01T00:00:00.000Z',
+                    steps: [{ id: 'old-step', title: 'Old step', orderIndex: 0 }],
+                  },
+                  is_deleted: false,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        upsert: (payload: any) => {
+          calls.push({ table, operation: 'upsert', payload });
+          return { error: null };
+        },
+      }),
+    };
+
+    await updateActivityForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      title: 'Renamed',
+    });
+    await updateActivityForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      steps: [{ title: 'New step' }],
+    });
+    await updateActivityForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      steps: [],
+    });
+
+    expect(calls[0].payload.data.steps).toEqual([{ id: 'old-step', title: 'Old step', orderIndex: 0 }]);
+    expect(calls[1].payload.data.steps).toEqual([
+      { id: 'step-activity-1-0', title: 'New step', orderIndex: 0 },
+    ]);
+    expect(calls[2].payload.data.steps).toEqual([]);
   });
 });

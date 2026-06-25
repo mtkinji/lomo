@@ -6,11 +6,6 @@ import { Button } from '../../ui/Button';
 import { ButtonLabel } from '../../ui/Typography';
 import { Icon } from '../../ui/Icon';
 import { SegmentedControl } from '../../ui/SegmentedControl';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '../../ui/DropdownMenu';
 import { colors } from '../../theme/colors';
 import { styles } from './activitiesScreenStyles';
 import type { ActivityViewLayout, KanbanGroupBy } from '../../domain/types';
@@ -23,9 +18,6 @@ export type ActivityViewEditorProps = {
   onChangeViewName: (name: string) => void;
   showCompleted: boolean;
   onUpdateShowCompleted: (show: boolean) => void;
-  showRecommended: boolean;
-  onUpdateShowRecommended: (show: boolean) => void;
-  recommendedDisabledReason?: { title: string; body: string } | null;
   layout: ActivityViewLayout;
   onChangeLayout: (layout: ActivityViewLayout) => void;
   kanbanGroupBy: KanbanGroupBy;
@@ -55,9 +47,6 @@ export function ActivityViewEditor({
   onChangeViewName,
   showCompleted,
   onUpdateShowCompleted,
-  showRecommended,
-  onUpdateShowRecommended,
-  recommendedDisabledReason,
   layout,
   onChangeLayout,
   kanbanGroupBy,
@@ -142,76 +131,6 @@ export function ActivityViewEditor({
                   style={[
                     styles.viewEditorToggleThumb,
                     showCompleted && styles.viewEditorToggleThumbOn,
-                  ]}
-                />
-              </Pressable>
-            </HStack>
-
-            <HStack
-              style={styles.viewEditorToggleRow}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <HStack alignItems="center" space="xs">
-                <Text
-                  style={[
-                    styles.viewEditorToggleLabel,
-                    recommendedDisabledReason ? styles.viewEditorToggleLabelDisabled : null,
-                  ]}
-                >
-                  Recommended
-                </Text>
-                {recommendedDisabledReason ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={recommendedDisabledReason.title}
-                        hitSlop={8}
-                        style={({ pressed }) => [
-                          styles.viewEditorToggleInfoButton,
-                          pressed ? styles.viewEditorToggleInfoButtonPressed : null,
-                        ]}
-                      >
-                        <Icon name="info" size={13} color={colors.formLabel} />
-                      </Pressable>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      side="bottom"
-                      sideOffset={6}
-                      align="start"
-                      style={styles.viewEditorToggleInfoPopover}
-                    >
-                      <Text style={styles.viewEditorToggleInfoTitle}>
-                        {recommendedDisabledReason.title}
-                      </Text>
-                      <Text style={styles.viewEditorToggleInfoBody}>
-                        {recommendedDisabledReason.body}
-                      </Text>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null}
-              </HStack>
-              <Pressable
-                accessibilityRole="switch"
-                accessibilityLabel="Toggle Recommended section"
-                accessibilityState={{
-                  checked: showRecommended,
-                  disabled: Boolean(recommendedDisabledReason),
-                }}
-                disabled={Boolean(recommendedDisabledReason)}
-                onPress={() => onUpdateShowRecommended(!showRecommended)}
-                style={[
-                  styles.viewEditorToggleTrack,
-                  showRecommended && styles.viewEditorToggleTrackOn,
-                  recommendedDisabledReason ? styles.viewEditorToggleTrackDisabled : null,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.viewEditorToggleThumb,
-                    showRecommended && styles.viewEditorToggleThumbOn,
-                    recommendedDisabledReason ? styles.viewEditorToggleThumbDisabled : null,
                   ]}
                 />
               </Pressable>

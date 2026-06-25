@@ -39,7 +39,7 @@ type DraggableRowProps<T extends { id: string }> = {
   scrollY: SharedValue<number>;
   containerHeight: SharedValue<number>;
   containerTop: SharedValue<number>;
-  renderContent: (item: T, isDragging: boolean) => React.ReactNode;
+  renderContent: (item: T, isDragging: boolean, index: number) => React.ReactNode;
 };
 
 function DraggableRow<T extends { id: string }>({
@@ -298,7 +298,7 @@ function DraggableRow<T extends { id: string }>({
   return (
     <Animated.View style={animatedStyle} onLayout={handleLayout}>
       <GestureDetector gesture={gesture}>
-        <View>{renderContent(item, isDragging)}</View>
+        <View>{renderContent(item, isDragging, index)}</View>
       </GestureDetector>
     </Animated.View>
   );
@@ -307,7 +307,7 @@ function DraggableRow<T extends { id: string }>({
 export type DraggableListProps<T extends { id: string }> = {
   items: T[];
   onOrderChange: (orderedIds: string[]) => void;
-  renderItem: (item: T, isDragging: boolean) => React.ReactNode;
+  renderItem: (item: T, isDragging: boolean, index: number) => React.ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   extraBottomPadding?: number;
   ListHeaderComponent?: React.ReactNode;

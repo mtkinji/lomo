@@ -60,6 +60,21 @@ export const styles = StyleSheet.create({
     // XS/2 vertical gap between list items
     height: spacing.xs / 2,
   },
+  topPriorityBandRow: {
+    marginHorizontal: -spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.gray100,
+  },
+  topPriorityBandFirstRow: {
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.gray300,
+  },
+  topPriorityBandLastRow: {
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.gray300,
+  },
   toolbarRow: {
     marginBottom: spacing.sm,
   },
@@ -171,13 +186,6 @@ export const styles = StyleSheet.create({
   widgetNudgeBody: {
     ...typography.bodySm,
     color: colors.textSecondary,
-  },
-  recommendedListRemainderLabel: {
-    ...typography.label,
-    color: colors.formLabel,
-    paddingHorizontal: spacing.sm,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
   },
   widgetModalBody: {
     ...typography.body,

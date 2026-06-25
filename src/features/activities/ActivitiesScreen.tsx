@@ -102,7 +102,6 @@ import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
-import { RecommendedActivitiesSection } from './RecommendedActivitiesSection';
 import { ViewMenuItem } from './ViewMenuItem';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { useActivityListData } from './hooks/useActivityListData';
@@ -179,13 +178,12 @@ const KANBAN_CARD_FIELDS: Array<{
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { QueryService } from '../../services/QueryService';
 import {
-  canShowRecommendedModule,
   getActivityPriorityReasonLabels,
-  getRecommendedPriorityActivities,
   rankActivitiesBySmartOrder,
   sortActivitiesByPriorityRanking,
 } from './activityPriority';
 import { buildPriorityIndicator } from './activityPriorityIndicator';
+import { getActivityListRowGap, getActivityListRowOuterGap } from './activityListSpacing';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { SortDrawer } from '../../ui/SortDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -233,6 +231,24 @@ const HEADER_GHOST_FADE_MAX_ALPHA = 0.88;
 
 function isPrioritySort(sortConditions: SortCondition[]): boolean {
   return sortConditions[0]?.field === 'priority';
+}
+
+function isTopPriorityBandIndicator(indicator?: ActivityPriorityIndicator | null): boolean {
+  return (
+    indicator?.label === '#1' ||
+    indicator?.label === '#2' ||
+    indicator?.label === '#3'
+  );
+}
+
+function getTopPriorityBandRowStyle(indicator?: ActivityPriorityIndicator | null) {
+  if (!isTopPriorityBandIndicator(indicator)) return null;
+
+  return [
+    styles.topPriorityBandRow,
+    indicator?.label === '#1' ? styles.topPriorityBandFirstRow : null,
+    indicator?.label === '#3' ? styles.topPriorityBandLastRow : null,
+  ];
 }
 
 export function ActivitiesScreen() {
@@ -593,8 +609,6 @@ export function ActivitiesScreen() {
   const sortMode = isPro ? (activeView?.sortMode ?? 'manual') : 'manual';
   const showCompleted =
     isPro || activeView?.isSystem ? (activeView?.showCompleted ?? true) : true;
-  const showRecommended =
-    isPro || activeView?.isSystem ? (activeView?.showRecommended ?? true) : true;
   const activeGrouping = React.useMemo<ActivityViewGrouping>(
     () => (isPro ? activeView?.grouping ?? { field: 'none' } : { field: 'none' }),
     [activeView?.grouping, isPro],
@@ -894,16 +908,8 @@ export function ActivitiesScreen() {
     [visibleActivities],
   );
 
-  const shouldShowRecommendedModule =
-    canShowRecommendedModule({
-      showRecommended,
-      isKanbanLayout,
-      hasFilters: filterGroups.length > 0,
-      hasGrouping: groupingApplied,
-    });
-
   const priorityIndicatorByActivityId = React.useMemo(() => {
-    if (!isPrioritySort(sortConditions) && !shouldShowRecommendedModule) {
+    if (!isPrioritySort(sortConditions)) {
       return new Map<string, ActivityPriorityIndicator>();
     }
     const rankedActive = rankActivitiesBySmartOrder({
@@ -927,59 +933,17 @@ export function ActivitiesScreen() {
       if (indicator) indicators.set(row.activity.id, indicator);
     });
     return indicators;
-  }, [filteredActivities, goals, shouldShowRecommendedModule, sortConditions]);
-
-  const recommendedDisabledReason = React.useMemo(() => {
-    if (isKanbanLayout) {
-      return {
-        title: 'Unavailable in Kanban',
-        body: 'Recommended appears in List layout.',
-      };
-    }
-    if (filterGroups.length > 0) {
-      return {
-        title: 'Hidden by filter',
-        body: 'Recommended appears when this view is not filtered.',
-      };
-    }
-    if (groupingApplied) {
-      return {
-        title: 'Hidden by grouping',
-        body: 'Recommended appears when this view is not grouped.',
-      };
-    }
-    return null;
-  }, [filterGroups.length, groupingApplied, isKanbanLayout]);
-
-  const recommendedPriorityActivities = React.useMemo(() => {
-    if (!shouldShowRecommendedModule) return [];
-    return getRecommendedPriorityActivities({
-      activities: filteredActivities,
-      goals,
-      now: new Date(),
-      limit: 3,
-    });
-  }, [filteredActivities, goals, shouldShowRecommendedModule]);
-
-  const recommendedPriorityActivityIds = React.useMemo(
-    () => new Set(recommendedPriorityActivities.map((row) => row.activity.id)),
-    [recommendedPriorityActivities],
-  );
-
-  const nonRecommendedActiveActivities = React.useMemo(() => {
-    if (recommendedPriorityActivityIds.size === 0) return activeActivities;
-    return activeActivities.filter((activity) => !recommendedPriorityActivityIds.has(activity.id));
-  }, [activeActivities, recommendedPriorityActivityIds]);
+  }, [filteredActivities, goals, sortConditions]);
 
   const groupedActiveSections = React.useMemo(
     () =>
       groupActivitiesForList({
-        activities: nonRecommendedActiveActivities,
+        activities: activeActivities,
         goals,
         grouping: activeGrouping,
         now: new Date(),
       }),
-    [nonRecommendedActiveActivities, activeGrouping, goals],
+    [activeActivities, activeGrouping, goals],
   );
 
   const collapsedGroupKeys = React.useMemo(
@@ -2281,27 +2245,6 @@ export function ActivitiesScreen() {
     [activeActivityViewId, activityViews, isPro, setActiveActivityViewId],
   );
 
-  // Handle reorder - called immediately when user drops an item
-  const handleReorderNonRecommendedActivities = React.useCallback(
-    (orderedIds: string[]) => {
-      if (recommendedPriorityActivityIds.size === 0) {
-        reorderActivities(orderedIds);
-        return;
-      }
-
-      let nextNonRecommendedIndex = 0;
-      const mergedOrderedIds = activeActivities.map((activity) => {
-        if (recommendedPriorityActivityIds.has(activity.id)) return activity.id;
-        const nextId = orderedIds[nextNonRecommendedIndex];
-        nextNonRecommendedIndex += 1;
-        return nextId ?? activity.id;
-      });
-
-      reorderActivities(mergedOrderedIds);
-    },
-    [activeActivities, recommendedPriorityActivityIds, reorderActivities],
-  );
-
   const goalIdSet = React.useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
 
   const getKanbanColumnIdForActivity = React.useCallback((activity: Activity, groupBy: KanbanGroupBy): string => {
@@ -2378,17 +2321,6 @@ export function ActivitiesScreen() {
       updateActivityView(activeView.id, (view) => ({
         ...view,
         showCompleted: next,
-      }));
-    },
-    [activeView, updateActivityView],
-  );
-
-  const handleUpdateShowRecommended = React.useCallback(
-    (next: boolean) => {
-      if (!activeView) return;
-      updateActivityView(activeView.id, (view) => ({
-        ...view,
-        showRecommended: next,
       }));
     },
     [activeView, updateActivityView],
@@ -2500,7 +2432,6 @@ export function ActivitiesScreen() {
         layout: viewEditorLayout,
         kanbanGroupBy: viewEditorLayout === 'kanban' ? viewEditorKanbanGroupBy : undefined,
         grouping: { field: 'none', collapsedGroupKeys: [] },
-        showRecommended: true,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -2541,7 +2472,6 @@ export function ActivitiesScreen() {
         filterGroupLogic: view.filterGroupLogic,
         sorts: view.sorts,
         showCompleted: view.showCompleted,
-        showRecommended: view.showRecommended,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -2605,21 +2535,6 @@ export function ActivitiesScreen() {
 
   const activityListHeader = (
     <>
-      <RecommendedActivitiesSection
-        recommendations={recommendedPriorityActivities}
-        goalTitleById={goalTitleById}
-        isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
-        priorityIndicatorByActivityId={priorityIndicatorByActivityId}
-        onToggleComplete={handleToggleComplete}
-        onTogglePriority={handleTogglePriorityOne}
-        onStartFocus={openActivityFocus}
-        onSchedule={openActivitySchedule}
-        onPressActivity={navigateToActivityDetail}
-        onDeleteActivity={handleDeleteActivity}
-      />
-      {recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length > 0 ? (
-        <Text style={styles.recommendedListRemainderLabel}>TO-DOS</Text>
-      ) : null}
       {shouldShowWidgetNudgeInline && (
         <Card style={styles.widgetNudgeCard}>
           <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
@@ -3175,11 +3090,7 @@ export function ActivitiesScreen() {
             />
           )}
           ListHeaderComponent={activityListHeader}
-          ListEmptyComponent={
-            recommendedPriorityActivities.length > 0 && groupedActiveSections.length === 0
-              ? null
-              : renderDomainEmptyState()
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
               <View style={{ marginTop: groupedActiveSections.length > 0 ? spacing.xl : 0 }}>
@@ -3203,8 +3114,8 @@ export function ActivitiesScreen() {
         />
       ) : isManualOrderEffective ? (
         <DraggableList
-          items={nonRecommendedActiveActivities}
-          onOrderChange={handleReorderNonRecommendedActivities}
+          items={activeActivities}
+          onOrderChange={reorderActivities}
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
           onScrollOffsetChange={(offsetY) => {
@@ -3213,20 +3124,32 @@ export function ActivitiesScreen() {
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
-            nonRecommendedActiveActivities.length === 0 ? { flexGrow: 1 } : null,
+            activeActivities.length === 0 ? { flexGrow: 1 } : null,
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
-          renderItem={(activity, isDragging) => {
+          renderItem={(activity, isDragging, index) => {
             const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
             const priorityIndicator = isPrioritySort(sortConditions)
               ? priorityIndicatorByActivityId.get(activity.id)
               : undefined;
             const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+            const rowGap = getActivityListRowGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const rowOuterGap = getActivityListRowOuterGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
 
             return (
               <View style={[
-                // Match list density: XS/2 gap between items.
-                { paddingBottom: spacing.xs / 2 },
+                { paddingBottom: rowGap },
+                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
+                topPriorityBandRowStyle,
                 isDragging && { opacity: 0.9, shadowColor: colors.textPrimary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
               ]}>
                 <ActivityListItem
@@ -3258,14 +3181,10 @@ export function ActivitiesScreen() {
             );
           }}
           ListHeaderComponent={activityListHeader}
-          ListEmptyComponent={
-            recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length === 0
-              ? null
-              : renderDomainEmptyState()
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: nonRecommendedActiveActivities.length > 0 ? spacing.xl : 0 }}>
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -3291,7 +3210,7 @@ export function ActivitiesScreen() {
           onScroll={handleInventoryScroll}
           contentContainerStyle={[
             styles.scrollContent,
-            nonRecommendedActiveActivities.length === 0 ? { flexGrow: 1 } : null,
+            activeActivities.length === 0 ? { flexGrow: 1 } : null,
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
           showsVerticalScrollIndicator={false}
@@ -3310,53 +3229,65 @@ export function ActivitiesScreen() {
               });
             }, 80);
           }}
-          data={nonRecommendedActiveActivities}
+          data={activeActivities}
           keyExtractor={(activity) => activity.id}
-          ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
-          renderItem={({ item: activity }) => {
+          renderItem={({ item: activity, index }) => {
             const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
             const priorityIndicator = isPrioritySort(sortConditions)
               ? priorityIndicatorByActivityId.get(activity.id)
               : undefined;
             const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+            const rowGap = getActivityListRowGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const rowOuterGap = getActivityListRowOuterGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
 
             return (
-              <ActivityListItem
-                title={activity.title}
-                meta={meta}
-                estimateMeta={estimateMeta}
-                metaTone={metaTone}
-                priorityIndicator={priorityIndicator}
-                metaLoading={metaLoading}
-                isCompleted={activity.status === 'done'}
-                onToggleComplete={() => handleToggleComplete(activity.id)}
-                isPriorityOne={activity.priority === 1}
-                onTogglePriority={() => handleTogglePriorityOne(activity.id)}
-                onStartFocus={() => openActivityFocus(activity.id)}
-                onSchedule={() => openActivitySchedule(activity.id)}
-                onPress={() => navigateToActivityDetail(activity.id)}
-                onDelete={() => handleDeleteActivity(activity)}
-                isDueToday={isDueToday}
-                isGhost={
-                  sessionCreatedIdsForGhostContext.has(activity.id) &&
-                  QueryService.applyActivityFilters(
-                    [activity],
-                    filterGroups,
-                    activeView?.filterGroupLogic ?? 'or',
-                  ).length === 0
-                }
-              />
+              <View style={[
+                { paddingBottom: rowGap },
+                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
+                topPriorityBandRowStyle,
+              ]}>
+                <ActivityListItem
+                  title={activity.title}
+                  meta={meta}
+                  estimateMeta={estimateMeta}
+                  metaTone={metaTone}
+                  priorityIndicator={priorityIndicator}
+                  metaLoading={metaLoading}
+                  isCompleted={activity.status === 'done'}
+                  onToggleComplete={() => handleToggleComplete(activity.id)}
+                  isPriorityOne={activity.priority === 1}
+                  onTogglePriority={() => handleTogglePriorityOne(activity.id)}
+                  onStartFocus={() => openActivityFocus(activity.id)}
+                  onSchedule={() => openActivitySchedule(activity.id)}
+                  onPress={() => navigateToActivityDetail(activity.id)}
+                  onDelete={() => handleDeleteActivity(activity)}
+                  isDueToday={isDueToday}
+                  isGhost={
+                    sessionCreatedIdsForGhostContext.has(activity.id) &&
+                    QueryService.applyActivityFilters(
+                      [activity],
+                      filterGroups,
+                      activeView?.filterGroupLogic ?? 'or',
+                    ).length === 0
+                  }
+                />
+              </View>
             );
           }}
           ListHeaderComponent={activityListHeader}
-          ListEmptyComponent={
-            recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length === 0
-              ? null
-              : renderDomainEmptyState()
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: nonRecommendedActiveActivities.length > 0 ? spacing.xl : 0 }}>
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -3745,76 +3676,6 @@ export function ActivitiesScreen() {
                     style={[
                       styles.viewEditorToggleThumb,
                       showCompleted && styles.viewEditorToggleThumbOn,
-                    ]}
-                  />
-                </Pressable>
-              </HStack>
-
-              <HStack
-                style={styles.viewEditorToggleRow}
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <HStack alignItems="center" space="xs">
-                  <Text
-                    style={[
-                      styles.viewEditorToggleLabel,
-                      recommendedDisabledReason ? styles.viewEditorToggleLabelDisabled : null,
-                    ]}
-                  >
-                    Recommended
-                  </Text>
-                  {recommendedDisabledReason ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={recommendedDisabledReason.title}
-                          hitSlop={8}
-                          style={({ pressed }) => [
-                            styles.viewEditorToggleInfoButton,
-                            pressed ? styles.viewEditorToggleInfoButtonPressed : null,
-                          ]}
-                        >
-                          <Icon name="info" size={13} color={colors.formLabel} />
-                        </Pressable>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        side="bottom"
-                        sideOffset={6}
-                        align="start"
-                        style={styles.viewEditorToggleInfoPopover}
-                      >
-                        <Text style={styles.viewEditorToggleInfoTitle}>
-                          {recommendedDisabledReason.title}
-                        </Text>
-                        <Text style={styles.viewEditorToggleInfoBody}>
-                          {recommendedDisabledReason.body}
-                        </Text>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                </HStack>
-                <Pressable
-                  accessibilityRole="switch"
-                  accessibilityLabel="Toggle Recommended section"
-                  accessibilityState={{
-                    checked: showRecommended,
-                    disabled: Boolean(recommendedDisabledReason),
-                  }}
-                  disabled={Boolean(recommendedDisabledReason)}
-                  onPress={() => handleUpdateShowRecommended(!showRecommended)}
-                  style={[
-                    styles.viewEditorToggleTrack,
-                    showRecommended && styles.viewEditorToggleTrackOn,
-                    recommendedDisabledReason ? styles.viewEditorToggleTrackDisabled : null,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.viewEditorToggleThumb,
-                      showRecommended && styles.viewEditorToggleThumbOn,
-                      recommendedDisabledReason ? styles.viewEditorToggleThumbDisabled : null,
                     ]}
                   />
                 </Pressable>

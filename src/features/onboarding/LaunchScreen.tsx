@@ -6,12 +6,11 @@ import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
 
 interface LaunchScreenProps {
+  durationMs?: number;
   onAnimationComplete?: () => void;
 }
 
-export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
-  // Keep this aligned with the desired "launch screen" duration in App.
-  const TOTAL_DURATION_MS = 2500;
+export function LaunchScreen({ durationMs = 2500, onAnimationComplete }: LaunchScreenProps) {
   const INTRO_DURATION_MS = 420;
   const EXIT_DURATION_MS = 280;
 
@@ -29,9 +28,9 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
   }, [introAnim]);
 
   React.useEffect(() => {
-    // Start exit animation so it *finishes* at TOTAL_DURATION_MS.
+    // Start exit animation so it finishes at the selected launch duration.
     // Make it snappier and less linear: a strong ease-in (slow start → fast end).
-    const exitDelayMs = Math.max(0, TOTAL_DURATION_MS - EXIT_DURATION_MS);
+    const exitDelayMs = Math.max(0, durationMs - EXIT_DURATION_MS);
     const exitTimeout = setTimeout(() => {
       Animated.timing(exitAnim, {
         toValue: 0,
@@ -44,7 +43,7 @@ export function LaunchScreen({ onAnimationComplete }: LaunchScreenProps) {
     }, exitDelayMs);
 
     return () => clearTimeout(exitTimeout);
-  }, [EXIT_DURATION_MS, TOTAL_DURATION_MS, exitAnim, onAnimationComplete]);
+  }, [durationMs, EXIT_DURATION_MS, exitAnim, onAnimationComplete]);
 
   // Opacity combines both animations - fades in, then fades out
   const opacity = Animated.multiply(introAnim, exitAnim);
@@ -129,5 +128,3 @@ const styles = StyleSheet.create({
     textShadowRadius: 1,
   },
 });
-
-

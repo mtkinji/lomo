@@ -156,6 +156,7 @@ import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
+import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
@@ -583,23 +584,18 @@ export function ActivityDetailScreen() {
     return goal?.title;
   }, [activity?.goalId, goals]);
 
-  const goalOptions = useMemo(
-    () =>
-      goals
-        .slice()
-        .sort((a, b) => a.title.localeCompare(b.title))
-        .map((g) => ({ value: g.id, label: g.title })),
-    [goals],
-  );
+  const selectableLinkedGoals = useMemo(() => goals.filter(isSelectableLinkedGoal), [goals]);
+
+  const goalOptions = useMemo(() => buildLinkedGoalOptions(goals), [goals]);
 
   const recommendedGoalOption = useMemo(() => {
     // Only recommend when the activity is currently unlinked.
     if (activity?.goalId) return null;
-    if (!goals || goals.length === 0) return null;
+    if (selectableLinkedGoals.length === 0) return null;
     if (!activities || activities.length === 0) return null;
 
     const tagKeys = new Set((activity?.tags ?? []).map((t) => String(t).trim().toLowerCase()).filter(Boolean));
-    const candidates = goals.map((g) => {
+    const candidates = selectableLinkedGoals.map((g) => {
       const related = activities.filter((a) => a.goalId === g.id && a.id !== activity?.id);
       const overlapCount =
         tagKeys.size === 0
@@ -642,7 +638,7 @@ export function ActivityDetailScreen() {
     }
 
     return { value: best.goal.id, label: best.goal.title, recommendedLabel: 'Recommended' };
-  }, [activity?.goalId, activity?.id, activity?.tags, activities, goals]);
+  }, [activity?.goalId, activity?.id, activity?.tags, activities, selectableLinkedGoals]);
 
   const difficultyOptions = useMemo(
     () => [
