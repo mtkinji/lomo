@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { useCanUseProTools } from '../../../store/proToolsAccess';
 import { QueryService } from '../../../services/QueryService';
+import { sortActivitiesByPriorityRanking } from '../activityPriority';
 import { HapticsService } from '../../../services/HapticsService';
 import { openPaywallInterstitial } from '../../../services/paywall';
 import type {
@@ -273,8 +274,16 @@ export function useActivityListData({
   );
 
   const visibleActivities = React.useMemo(() => {
+    if (sortConditions[0]?.field === 'priority') {
+      const sorted = sortActivitiesByPriorityRanking({
+        activities: filteredActivities,
+        goals,
+        now: new Date(),
+      });
+      return sortConditions[0]?.direction === 'desc' ? [...sorted].reverse() : sorted;
+    }
     return QueryService.applyActivitySorts(filteredActivities, sortConditions);
-  }, [filteredActivities, sortConditions]);
+  }, [filteredActivities, goals, sortConditions]);
 
   const activeActivities = React.useMemo(
     () => visibleActivities.filter((activity) => activity.status !== 'done'),
@@ -309,4 +318,3 @@ export function useActivityListData({
     wrappedShowToast,
   };
 }
-

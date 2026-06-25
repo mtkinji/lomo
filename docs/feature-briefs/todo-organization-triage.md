@@ -5,10 +5,11 @@ status: draft
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
+job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [dynamic-next-best-action, background-agents-weekly-planning, desktop-app]
 owner: andrew
-last_updated: 2026-06-22
+last_updated: 2026-06-24
 ---
 
 # Inferred To-Do Priority Model And Views
@@ -106,6 +107,82 @@ The default Activities view should not become "group by priority state" by defau
 
 Existing sort controls should remain available, but smart order should be a first-class default mode rather than a Pro-only custom sort the user has to discover. Manual/user-selected sorts such as Due date, Priority, Last modified, or Title can temporarily override smart order for the current view. The sort drawer should explain the relationship plainly: Smart order is "Kwilt's recommended order"; custom sorts are "show this list by a field." Custom views can later filter or group by `priorityState`, but the main promise is that the default view feels organized before the user configures anything.
 
+### Recommended as the priority-management paradigm
+
+The Recommended paradigm should feed the priority model rather than sit beside it. Recommended is the user's calm, everyday encounter with prioritization: Kwilt proposes a few next actions, explains the strongest reason when useful, and lets the user correct the model in place. The user should not have to open a priority dashboard, choose a context mode, or maintain P1/P2/P3 labels before Kwilt can help.
+
+Recommended is not the whole priority system. It is a capped projection of a full-list priority calculation. The priority system should assign every incomplete to-do a current priority placement, even if only the top few are shown in the Recommended section. A user who sorts by priority should see the same underlying judgment that Recommended and Plan recommendations use, not a separate star/P1-only field that can disagree with the app's next-action logic.
+
+The full-list priority contract should produce:
+
+- `priorityScore`: a recomputed current score for each incomplete Activity in the current moment.
+- `priorityBand`: a soft display grouping such as `Do first`, `Do next`, `Can wait`, or `Not ready`, derived from the score/state rather than manually maintained.
+- `priorityState`: the existing action state (`active`, `later`, `waiting`, `needs_review`) that determines whether an item belongs in the active candidate pool.
+- `priorityRankKey`: the hidden stable tie-break/order key for user/manual ordering and deterministic insertion.
+- `priorityReasonCodes`: inspectable evidence handles explaining the placement.
+- `priorityContext`: optional current-moment context evidence, such as surface fit, due/reminder timing, calendar fit, availability, place evidence, or recent user behavior.
+
+Manual reorder is already part of the current priority system. When the user drags to-dos into a different order, Kwilt should treat that as explicit priority feedback for the relevant list context, not merely as cosmetic `orderIndex` maintenance. The stored manual order can remain the stable fallback/tie-breaker, while the priority engine records that the user intentionally moved something and uses that signal until a later explicit reprioritization changes it.
+
+Sorting by Priority should sort by this current priority placement first, then fall back to rank key/manual order. It should not mean "show starred/P1 items first" once the inferred model is available. Starred/manual priority remains one input to importance; it is not the whole answer. Manual order remains a separate sort mode for users who want their saved order exactly as arranged.
+
+Recommended has three jobs:
+
+1. **Select** - choose a small, currently actionable set from the active candidate pool.
+2. **Explain** - surface the clearest reason in plain language, such as "Due today," "Important goal," "Good at your computer," "Moved by you," or "Waiting."
+3. **Learn from correction** - let ordinary actions such as moving a card, marking it Later/Waiting/Needs review, dismissing it for now, starting Focus, or completing it feed the priority model.
+
+The recommended card itself should remain a normal to-do card. The management paradigm lives in section placement, reason text, and lightweight correction affordances, not in a special card design. If an item is in Recommended and the user drags it down, chooses Not now, moves it to Later, or marks it Waiting, that should update `priorityRankSource` / `priorityReasonCodes` or equivalent session feedback so the next recommendation set improves. If the user acts on a recommended item, that should reinforce the ranking path without adding a visible "trained by you" system.
+
+This makes Recommended the front door to priority management:
+
+- **Instead of** asking Maya to classify the entire list, Kwilt recommends the next few items and watches what she accepts or corrects.
+- **Instead of** making priority a visible taxonomy, Kwilt keeps rank/reason infrastructure inspectable underneath a plain list.
+- **Instead of** treating `Not now` as only a dismissal, Kwilt can interpret it as a temporary readiness/context signal.
+- **Instead of** adding more views whenever the list feels crowded, Kwilt should first improve the scorer, explanation layer, and override memory behind Recommended.
+
+V1 should keep this bounded. Recommended can use deterministic and current-surface evidence, manual priority/state, schedule/reminder timing, goal priority, and recent user corrections. It should not add a separate context selector, hidden broad category boosts, saved places, location permission, or a user-facing priority taxonomy. Low-confidence context should fall back to normal Recommended framing rather than pretending Kwilt knows why something is right for the moment.
+
+### One priority engine, multiple projections
+
+Kwilt should converge on a single priority engine that powers every priority-like surface:
+
+- **Recommended**: top 3 active, positive-score Activities from the same ranked list.
+- **Smart order**: the rest of the active list sorted by the same priority placement.
+- **Priority sort**: an explicit user-requested view of the same ordering, with broader visibility than the capped Recommended module.
+- **Plan recommendations**: scheduling candidates chosen from the same ranked list, then filtered by availability, existing commitments, duration, calendar write access, and whether the item is already scheduled.
+- **Widgets/search suggestions/next-step surfaces**: lightweight projections of the same score/reasons rather than separate scoring formulas.
+
+This keeps the mental model coherent: Recommended answers "what are the top few right now?", Priority sort answers "how does Kwilt currently rank the whole list?", and Plan answers "which high-priority items fit into actual time?" Those are different projections, not different priority systems.
+
+Context can change the order, but only through explicit score components and confidence policy. For example, "Good at your computer" can help a desktop-suitable task rise while the user is on desktop, but it should not overpower due-today work or explicit manual priority unless the confidence and product rule justify it. Low-confidence context should influence ordering gently or not at all.
+
+### Trust and transparency
+
+Users should be able to trust the top of the list without being asked to audit a model. Transparency should be layered:
+
+- List-level: when the list is in Smart order or Priority sort, make the ordering visible enough that users can tell priority exists. A subtle row reason, band label, or section-level explanation is better than relying only on the star icon.
+- Card-level: show one short reason when useful, such as `Due today`, `Important goal`, `Moved by you`, or `Good at your computer`.
+- Detail-level: a "Why this priority?" explanation can show the main components: urgency, importance, readiness, context fit, and manual/user correction.
+- Correction-level: the user can say or imply `not now`, move an item, mark it Waiting/Later/Needs review, star it, schedule it, start Focus, or complete it. Kwilt should treat those actions as priority feedback where appropriate.
+- System-level: view/sort controls should name the relationship plainly. `Recommended` is the top slice; `Priority` is the whole-list current order; `Manual` is the user's saved order; `Due date` is just the date field.
+
+The copy should avoid scores and productivity jargon. Users need to know why a thing is near the top, not whether it has 184 points. The system can keep numeric scores and confidence internally for tests, ranking, and debugging. The visible cue should be calm and sparse: not every row needs a badge, but a user should not have to infer the priority system solely from position in the list.
+
+### Buildable next slice
+
+The next implementation slice should enhance the existing Recommended/scoring path before adding another list-management surface:
+
+- Componentize the scorer into urgency, importance, readiness, effort/shape, bounded context fit, and confidence so priority behavior is inspectable in tests.
+- Preserve the current eligibility contract: Recommended appears only where it will not fight filtering, grouping, or Kanban layout.
+- Replace user-facing Priority sort semantics so it consumes the full-list priority ranking rather than only the explicit `priority` field.
+- Point Plan recommendations at the same ranked priority rows before applying scheduling feasibility.
+- Add or formalize correction inputs that matter for priority, especially `Not now`, manual status changes, manual reorder, Focus start, and completion.
+- Store durable user corrections only when they represent an intentional priority decision; keep transient moment/context feedback session-scoped where possible.
+- Render a subtle priority cue in Smart order / Priority sort so users can see why ordering changed without turning every card into a priority report.
+- Make reason labels clear enough that a user can understand why the item rose without reading a model explanation.
+- Verify that recommended cards remain normal to-do cards, with section placement and optional reason/correction behavior as the only prioritization surface.
+
 ### Review surface
 
 Manual triage should be a fallback for uncertainty, not the primary job. When Kwilt cannot confidently place an item, it can show a small "Needs review" surface. The user can set a state/rank, schedule it, mark it waiting, or move it to Later. Copy should stay concrete and non-therapeutic.
@@ -128,7 +205,10 @@ Qualitatively, users with crowded Activity lists say Kwilt already seems to know
 - Should V1 expose priority display styles at all, or keep the underlying rank hidden behind recommendations and ordering?
 - What list-time auto-prioritization criteria should be exposed by default?
 - Should exact rank be visible, hidden, or only visible inside a "why this next?" explanation?
-- What is the simplest manual re-prioritization gesture for V1: drag within a view, move to Later/Waiting/Needs review, star/pin, or all three?
+- Should `priorityScore` be persisted for debugging/sync, computed at read time, or cached with a timestamp and reason snapshot?
+- What label should the whole-list Priority sort use if "Priority" sounds too much like a static user-managed field?
+- What is the simplest manual re-prioritization gesture for V1: drag within a view, move to Later/Waiting/Needs review, `Not now`, star/pin, or some combination?
+- Which recommendation corrections should be durable Activity metadata versus session-scoped feedback?
 - Which availability constraints belong in V1: waiting-on, business hours, location, energy/context, calendar free time, or only schedule windows from Auto-Schedule Assist?
 - Does Waiting deserve a first-class Activity status, or is a tag enough for V1?
 - What signals should be allowed to outrank explicit user priority?

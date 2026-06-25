@@ -3106,14 +3106,14 @@ export function GoalDetailScreen() {
                       {activeGoalActivities.length > 0 && (
                         <VStack space={2}>
                           {activeGoalActivities.map((activity) => {
-                            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity });
+                            const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
                             return (
                               <ActivityListItem
                                 key={activity.id}
                                 title={activity.title}
                                 meta={meta}
-                                metaLeadingIconName={metaLeadingIconName}
-                                metaLeadingIconNames={metaLeadingIconNames}
+                                estimateMeta={estimateMeta}
+                                metaTone={metaTone}
                                 isCompleted={activity.status === 'done'}
                                 onToggleComplete={() => handleToggleActivityComplete(activity.id)}
                                 isPriorityOne={activity.priority === 1}
@@ -3173,14 +3173,14 @@ export function GoalDetailScreen() {
                           {completedActivitiesExpanded && (
                             <VStack space={2}>
                               {completedGoalActivities.map((activity) => {
-                                const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity });
+                                const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
                                 return (
                                   <ActivityListItem
                                     key={activity.id}
                                     title={activity.title}
                                     meta={meta}
-                                    metaLeadingIconName={metaLeadingIconName}
-                                    metaLeadingIconNames={metaLeadingIconNames}
+                                    estimateMeta={estimateMeta}
+                                    metaTone={metaTone}
                                     isCompleted={activity.status === 'done'}
                                     onToggleComplete={() => handleToggleActivityComplete(activity.id)}
                                     isPriorityOne={activity.priority === 1}

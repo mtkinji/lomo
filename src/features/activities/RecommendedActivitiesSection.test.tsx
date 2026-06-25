@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import type { Activity } from '../../domain/types';
+import { buildPriorityIndicator } from './activityPriorityIndicator';
 import { RecommendedActivitiesSection } from './RecommendedActivitiesSection';
 import type { RankedActivity } from './activityPriority';
 
@@ -65,7 +66,7 @@ describe('RecommendedActivitiesSection', () => {
       },
     ];
 
-    const { getByLabelText, getByText, getByTestId } = renderWithProviders(
+    const { getByLabelText, getByText, getByTestId, queryByText } = renderWithProviders(
       <RecommendedActivitiesSection
         recommendations={recommendations}
         {...handlers}
@@ -77,7 +78,70 @@ describe('RecommendedActivitiesSection', () => {
     expect(getByText('RECOMMENDED')).toBeTruthy();
     expect(getByLabelText('Why these to-dos are recommended')).toBeTruthy();
     expect(getByText('Call the school')).toBeTruthy();
-    expect(getByText(/1 hr 30 min/)).toBeTruthy();
-    expect(getByText(/Family logistics/)).toBeTruthy();
+    expect(getByText('~90 min')).toBeTruthy();
+    expect(queryByText(/Family logistics/)).toBeNull();
+  });
+
+  it('shows priority position while keeping reason details behind the indicator', () => {
+    const recommendations: RankedActivity[] = [
+      {
+        activity: activity({
+          id: 'act-1',
+          title: 'Call the school',
+        }),
+        score: 100,
+        scoreComponents: {
+          urgency: 0,
+          importance: 100,
+          readiness: 0,
+          effortShape: 0,
+          contextFit: 0,
+          confidence: 0,
+        },
+        reasonCodes: ['moved_by_user'],
+        contextConfidence: 'none',
+        contextLabel: null,
+      },
+    ];
+
+    const { getByLabelText, getByText, queryByText } = renderWithProviders(
+      <RecommendedActivitiesSection
+        recommendations={recommendations}
+        {...handlers}
+        priorityIndicatorByActivityId={
+          new Map([
+            [
+              'act-1',
+              {
+                label: '#3',
+                tone: 'top',
+                accessibilityLabel: 'Priority 3 of 42. Show priority reasons.',
+                reasons: ['Moved by you'],
+              },
+            ],
+          ])
+        }
+      />,
+    );
+
+    expect(getByText('#3')).toBeTruthy();
+    expect(getByLabelText('Priority 3 of 42. Show priority reasons.')).toBeTruthy();
+    expect(queryByText('Moved by you')).toBeNull();
+  });
+
+  it('tiers priority indicators for top 3, top 10, and the rest', () => {
+    expect(buildPriorityIndicator({ position: 3, total: 42, reasons: [] })).toMatchObject({
+      label: '#3',
+      tone: 'top',
+    });
+    expect(buildPriorityIndicator({ position: 4, total: 42, reasons: [] })).toMatchObject({
+      label: '#4',
+      tone: 'high',
+    });
+    expect(buildPriorityIndicator({ position: 10, total: 42, reasons: [] })).toMatchObject({
+      label: '#10',
+      tone: 'high',
+    });
+    expect(buildPriorityIndicator({ position: 11, total: 42, reasons: [] })).toBeNull();
   });
 });

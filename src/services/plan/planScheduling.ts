@@ -1,5 +1,5 @@
 import type { Activity, Arc, Goal, UserProfile } from '../../domain/types';
-import { getSuggestedActivitiesRanked } from '../recommendations/nextStep';
+import { getActivityPriorityState, sortActivitiesByPriorityRanking } from '../../features/activities/activityPriority';
 import type { BusyInterval, ProposedEvent } from '../scheduling/schedulingEngine';
 import { inferSchedulingDomain } from '../scheduling/inferSchedulingDomain';
 import { clampToNextQuarterHour, formatTimeLabel, setTimeOnDate, toLocalDateKey } from './planDates';
@@ -61,7 +61,6 @@ export function proposeDailyPlan(params: {
   const {
     activities,
     goals,
-    arcs,
     userProfile,
     targetDate,
     busyIntervals,
@@ -85,15 +84,13 @@ export function proposeDailyPlan(params: {
       ? dismissedActivityIds
       : new Set(Array.isArray(dismissedActivityIds) ? dismissedActivityIds : []);
 
-  const ranked = getSuggestedActivitiesRanked({
+  const ranked = sortActivitiesByPriorityRanking({
     activities,
     goals,
-    arcs,
     // For non-today days, anchor ranking to the target day (so "what's next" can vary by day).
     // Using midday avoids edge cases around midnight/timezone boundaries.
     now: isToday ? now : new Date(new Date(targetDate).setHours(12, 0, 0, 0)),
-    limit: Math.max(10, maxItems * 3),
-  });
+  }).slice(0, Math.max(10, maxItems * 3));
 
   const proposals: DailyPlanProposal[] = [];
   const busy = normalizeBusy(busyIntervals);
@@ -101,6 +98,7 @@ export function proposeDailyPlan(params: {
 
   function canConsiderActivity(activity: Activity): boolean {
     if (activity.status === 'done' || activity.status === 'cancelled') return false;
+    if (getActivityPriorityState(activity) !== 'active') return false;
     if (activity.scheduledAt) return false;
     if (dismissed.has(activity.id)) return false;
     return true;
@@ -253,5 +251,3 @@ export function proposeSlotsForActivity(params: {
 
   return proposals;
 }
-
-

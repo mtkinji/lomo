@@ -46,6 +46,10 @@ export type ActivityDetailRouteParams = {
    */
   openFocus?: boolean;
   /**
+   * When true, ActivityDetail should open the scheduling / Plan sheet immediately on mount.
+   */
+  openSchedule?: boolean;
+  /**
    * When true, ActivityDetail should immediately start a Focus session (best-effort).
    * This is primarily used by iOS ecosystem entrypoints (widgets/Shortcuts/Spotlight)
    * that want a single-tap "Start Focus" experience while still routing into the
@@ -120,4 +124,3 @@ export type ActivitiesWidgetRouteParams = {
 export type JoinSharedGoalRouteParams = {
   inviteCode: string;
 };
-

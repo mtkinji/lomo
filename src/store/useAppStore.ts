@@ -1469,8 +1469,9 @@ const initialActivityViews: ActivityView[] = [
     id: 'default',
     name: '🗂️ All to-dos',
     filterMode: 'all',
-    sortMode: 'manual',
+    sortMode: 'priority',
     showCompleted: true,
+    showRecommended: true,
     isSystem: true,
   },
   {
@@ -1557,6 +1558,17 @@ export function mergeActivityViewsWithSystemDefaults(
         ([key, value]) => key !== 'id' && key !== 'isSystem' && value !== undefined,
       ),
     );
+
+    const isUntouchedLegacyDefault =
+      seed.id === 'default' &&
+      persisted.sortMode === 'manual' &&
+      !Array.isArray(persisted.sorts) &&
+      !Array.isArray(persisted.filters) &&
+      (persisted.showCompleted === true || persisted.showCompleted === undefined);
+    if (isUntouchedLegacyDefault) {
+      delete overrides.sortMode;
+      delete overrides.showRecommended;
+    }
 
     return {
       ...seed,
@@ -2059,7 +2071,17 @@ export const useAppStore = create<AppState>()(
               const newIndex = orderMap.get(activity.id);
               if (newIndex === undefined) return activity;
               if (activity.orderIndex === newIndex) return activity;
-              return { ...activity, orderIndex: newIndex, updatedAt: atIso };
+              const priorityReasonCodes = [...(activity.priorityReasonCodes ?? [])];
+              if (!priorityReasonCodes.includes('moved_by_user')) {
+                priorityReasonCodes.push('moved_by_user');
+              }
+              return {
+                ...activity,
+                orderIndex: newIndex,
+                priorityRankSource: 'manual',
+                priorityReasonCodes,
+                updatedAt: atIso,
+              };
             }),
           };
         }),

@@ -25,6 +25,8 @@ export type GroupedActivitySectionProps = {
   onToggleCollapsed: (groupKey: string, collapsed: boolean) => void;
   onToggleComplete: (activityId: string) => void;
   onTogglePriority: (activityId: string) => void;
+  onStartFocus?: (activityId: string) => void;
+  onSchedule?: (activityId: string) => void;
   onPressActivity: (activityId: string) => void;
   onDeleteActivity?: (activity: Activity) => void;
   isMetaLoading?: (activityId: string) => boolean;
@@ -38,10 +40,11 @@ export function GroupedActivitySection({
   label,
   activities,
   collapsed,
-  goalTitleById,
   onToggleCollapsed,
   onToggleComplete,
   onTogglePriority,
+  onStartFocus,
+  onSchedule,
   onPressActivity,
   onDeleteActivity,
   isMetaLoading,
@@ -96,9 +99,8 @@ export function GroupedActivitySection({
       {!collapsed ? (
         <View>
           {activities.map((activity, idx) => {
-            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } =
-              buildActivityListMeta({ activity, goalTitle });
+            const { meta, metaTone, estimateMeta, isDueToday } =
+              buildActivityListMeta({ activity });
             const metaLoading = Boolean(isMetaLoading?.(activity.id)) && !meta;
 
             return (
@@ -106,13 +108,15 @@ export function GroupedActivitySection({
                 <ActivityListItem
                   title={activity.title}
                   meta={meta}
-                  metaLeadingIconName={metaLeadingIconName}
-                  metaLeadingIconNames={metaLeadingIconNames}
+                  estimateMeta={estimateMeta}
+                  metaTone={metaTone}
                   metaLoading={metaLoading}
                   isCompleted={activity.status === 'done'}
                   onToggleComplete={() => onToggleComplete(activity.id)}
                   isPriorityOne={activity.priority === 1}
                   onTogglePriority={() => onTogglePriority(activity.id)}
+                  onStartFocus={onStartFocus ? () => onStartFocus(activity.id) : undefined}
+                  onSchedule={onSchedule ? () => onSchedule(activity.id) : undefined}
                   onPress={() => onPressActivity(activity.id)}
                   onDelete={onDeleteActivity ? () => onDeleteActivity(activity) : undefined}
                   isDueToday={isDueToday}

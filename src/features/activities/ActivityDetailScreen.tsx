@@ -235,7 +235,7 @@ export function ActivityDetailScreen() {
   const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
-  const { activityId, openFocus, autoStartFocus, minutes: autoStartMinutes, endFocus } =
+  const { activityId, openFocus, openSchedule, autoStartFocus, minutes: autoStartMinutes, endFocus } =
     route.params as ActivityDetailRouteParams;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const planExpanded = useAppStore((s) => s.activityDetailPlanExpanded);
@@ -2475,6 +2475,20 @@ export function ActivityDetailScreen() {
     setScheduleFetchNonce((n) => n + 1);
     setActiveSheet('calendar');
   };
+
+  useEffect(() => {
+    if (!openSchedule) return;
+    if (!activity) return;
+    requestAnimationFrame(() => {
+      openCalendarSheet();
+      try {
+        navigation.setParams({ openSchedule: undefined } as any);
+      } catch {
+        // no-op
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSchedule, activity?.id]);
 
   useEffect(() => {
     if (!activity) return;

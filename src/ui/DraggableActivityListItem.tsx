@@ -7,6 +7,7 @@ import Animated, {
 import { ActivityListItem } from './ActivityListItem';
 import type { IconName } from './Icon';
 import { HapticsService } from '../services/HapticsService';
+import type { ActivityMetaTone } from '../utils/activityListMeta';
 
 type DraggableActivityListItemProps = {
   /**
@@ -15,6 +16,8 @@ type DraggableActivityListItemProps = {
   variant?: 'compact' | 'full';
   title: string;
   meta?: string;
+  estimateMeta?: string;
+  metaTone?: ActivityMetaTone;
   notes?: string;
   metaLeadingIconName?: IconName;
   metaLeadingIconNames?: Array<IconName>;
@@ -23,6 +26,8 @@ type DraggableActivityListItemProps = {
   onToggleComplete?: () => void;
   isPriorityOne?: boolean;
   onTogglePriority?: () => void;
+  onStartFocus?: () => void;
+  onSchedule?: () => void;
   showPriorityControl?: boolean;
   onPress?: () => void;
   /**
@@ -105,4 +110,3 @@ const styles = StyleSheet.create({
     // shadowOpacity is animated
   },
 });
-

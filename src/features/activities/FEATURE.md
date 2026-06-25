@@ -14,6 +14,7 @@ serves:
   - jtbd-capture-and-find-meaning
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - activity-areas
   - auto-schedule
   - calendar-export-ics
   - dynamic-next-best-action

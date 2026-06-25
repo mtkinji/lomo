@@ -5,10 +5,22 @@ import ReanimatedSwipeable, {
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Card } from './Card';
 import { HStack, VStack, Text } from './primitives';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from './DropdownMenu';
 import { Icon } from './Icon';
-import { Badge } from './Badge';
 import { cardSurfaceStyle, colors, spacing, typography } from '../theme';
 import { fonts } from '../theme/typography';
+import type { ActivityMetaTone } from '../utils/activityListMeta';
+
+export type ActivityPriorityIndicator = {
+  label: string;
+  tone: 'top' | 'high';
+  accessibilityLabel: string;
+  reasons?: string[];
+};
 
 type ActivityListItemProps = {
   /**
@@ -24,6 +36,14 @@ type ActivityListItemProps = {
    */
   meta?: string;
   /**
+   * Optional lower-emphasis time estimate shown as plain metadata after due timing.
+   */
+  estimateMeta?: string;
+  /**
+   * Optional tone for decision-row timing metadata. When present, metadata renders as a pill.
+   */
+  metaTone?: ActivityMetaTone;
+  /**
    * Optional notes/body preview shown only in `variant="full"`.
    */
   notes?: string;
@@ -36,6 +56,11 @@ type ActivityListItemProps = {
    * Preferred multi-icon support for the meta row (e.g. calendar/bell + paperclip).
    */
   metaLeadingIconNames?: Array<import('./Icon').IconName>;
+  /**
+   * Low-noise priority position indicator for Priority-ordered lists.
+   * Reasons stay inspectable behind an info affordance instead of being inline metadata.
+   */
+  priorityIndicator?: ActivityPriorityIndicator;
   /**
    * When true and `meta` is still empty, renders a lightweight animated skeleton
    * placeholder in the metadata row space. Useful while AI enrichment is running.
@@ -55,18 +80,26 @@ type ActivityListItemProps = {
    */
   isPriorityOne?: boolean;
   /**
-   * Optional handler for toggling the "Starred" flag.
+   * Optional handler for toggling the "Starred" flag. Exposed as a swipe action;
+   * starred rows also show a compact filled-star state marker.
    */
   onTogglePriority?: () => void;
+  /**
+   * Optional swipe-right action for opening Focus mode for this to-do.
+   */
+  onStartFocus?: () => void;
+  /**
+   * Optional swipe-right action for opening Plan / scheduling for this to-do.
+   */
+  onSchedule?: () => void;
   /**
    * Optional right-side accessory. When provided, this is rendered instead of the
    * priority/star control. Useful for contextual actions like “Add to schedule”.
    */
   rightAccessory?: React.ReactNode;
   /**
-   * Whether to show the priority/star affordance. Defaults to true.
-   * Useful for "preview" cards (e.g. suggestions) that should look like a list item
-   * but avoid extra controls.
+   * Whether to enable the priority/star swipe action and starred state marker.
+   * Defaults to true. Useful for preview cards that should avoid extra controls.
    */
   showPriorityControl?: boolean;
   /**
@@ -104,14 +137,17 @@ export function ActivityListItem({
   variant = 'compact',
   title,
   meta,
+  estimateMeta,
+  metaTone,
   notes,
-  metaLeadingIconName,
-  metaLeadingIconNames,
+  priorityIndicator,
   metaLoading = false,
   isCompleted = false,
   onToggleComplete,
   isPriorityOne = false,
   onTogglePriority,
+  onStartFocus,
+  onSchedule,
   rightAccessory,
   showPriorityControl = true,
   showCheckbox = true,
@@ -197,12 +233,10 @@ export function ActivityListItem({
   });
 
   const showNotes = variant === 'full' && Boolean(notes && notes.trim().length > 0);
-  const resolvedMetaLeadingIcons =
-    Array.isArray(metaLeadingIconNames) && metaLeadingIconNames.length > 0
-      ? metaLeadingIconNames
-      : metaLeadingIconName
-        ? [metaLeadingIconName]
-        : [];
+  const priorityReasons = priorityIndicator?.reasons?.filter(Boolean) ?? [];
+  const hasPriorityReasons = priorityReasons.length > 0;
+  const showStarredMeta = Boolean(showPriorityControl && onTogglePriority && isPriorityOne);
+  const showMetaRow = Boolean(meta || estimateMeta || priorityIndicator || showStarredMeta);
 
   // Determine the meta color: due today shows in red (destructive), completed is muted, otherwise secondary
   const metaColor = isCompleted
@@ -230,6 +264,79 @@ export function ActivityListItem({
       </Pressable>
     ),
     [onDelete, title],
+  );
+
+  const renderPrimaryActions: NonNullable<SwipeableProps['renderLeftActions']> = React.useCallback(
+    (_progress, _dragX, swipeable) => {
+      const actions: Array<{
+        key: string;
+        label: string;
+        accessibilityLabel: string;
+        iconName: import('./Icon').IconName;
+        onPress: () => void;
+        style: any;
+      }> = [];
+
+      if (onStartFocus) {
+        actions.push({
+          key: 'focus',
+          label: 'Focus',
+          accessibilityLabel: `Start Focus for ${title}`,
+          iconName: 'focus',
+          onPress: onStartFocus,
+          style: styles.swipeFocusAction,
+        });
+      }
+
+      if (onSchedule) {
+        actions.push({
+          key: 'plan',
+          label: 'Plan',
+          accessibilityLabel: `Plan ${title}`,
+          iconName: 'plan',
+          onPress: onSchedule,
+          style: styles.swipePlanAction,
+        });
+      }
+
+      if (showPriorityControl && onTogglePriority) {
+        actions.push({
+          key: 'star',
+          label: isPriorityOne ? 'Unstar' : 'Star',
+          accessibilityLabel: isPriorityOne ? `Unstar ${title}` : `Star ${title}`,
+          iconName: isPriorityOne ? 'star' : 'starFilled',
+          onPress: onTogglePriority,
+          style: styles.swipeFavoriteAction,
+        });
+      }
+
+      if (actions.length === 0) return null;
+
+      return (
+        <View style={styles.swipePrimaryRail}>
+          {actions.map((action) => (
+            <Pressable
+              key={action.key}
+              accessibilityRole="button"
+              accessibilityLabel={action.accessibilityLabel}
+              onPress={() => {
+                swipeable.close();
+                action.onPress();
+              }}
+              style={({ pressed }) => [
+                styles.swipePrimaryAction,
+                action.style,
+                pressed && styles.swipePrimaryActionPressed,
+              ]}
+            >
+              <Icon name={action.iconName} size={18} color={colors.primaryForeground} />
+              <Text style={styles.swipePrimaryLabel}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      );
+    },
+    [isPriorityOne, onSchedule, onStartFocus, onTogglePriority, showPriorityControl, title],
   );
 
   const content = (
@@ -312,34 +419,80 @@ export function ActivityListItem({
             >
               {title}
             </Text>
-            {meta ? (
-              <HStack space={4} alignItems="center">
-                {resolvedMetaLeadingIcons.length > 0
-                  ? resolvedMetaLeadingIcons.map((iconName) => (
-                      <Icon
-                        key={iconName}
-                        name={iconName}
-                        size={10}
-                        color={metaColor}
-                      />
-                    ))
-                  : null}
-                <Text numberOfLines={1} style={[styles.meta, { color: metaColor }]}>
-                  {meta}
-                </Text>
+            {showMetaRow ? (
+              <HStack space={8} alignItems="center" style={styles.metaRow}>
+                {priorityIndicator ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={priorityIndicator.accessibilityLabel}
+                        hitSlop={8}
+                        style={({ pressed }) => [
+                          styles.priorityIndicator,
+                          priorityIndicator.tone === 'top'
+                            ? styles.priorityIndicatorTop
+                            : styles.priorityIndicatorHigh,
+                          pressed ? styles.priorityIndicatorPressed : null,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.priorityIndicatorText,
+                            priorityIndicator.tone === 'top'
+                              ? styles.priorityIndicatorTextTop
+                              : styles.priorityIndicatorTextHigh,
+                          ]}
+                        >
+                          {priorityIndicator.label}
+                        </Text>
+                      </Pressable>
+                    </DropdownMenuTrigger>
+                    {hasPriorityReasons ? (
+                      <DropdownMenuContent side="bottom" sideOffset={6} align="start" style={styles.priorityPopover}>
+                        <Text style={styles.priorityPopoverTitle}>Why this priority?</Text>
+                        <VStack space="xs">
+                          {priorityReasons.map((reason) => (
+                            <Text key={reason} style={styles.priorityPopoverReason}>
+                              {reason}
+                            </Text>
+                          ))}
+                        </VStack>
+                      </DropdownMenuContent>
+                    ) : null}
+                  </DropdownMenu>
+                ) : null}
+                {meta ? (
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.meta,
+                      metaTone ? styles.metaPill : null,
+                      metaTone === 'urgent' ? styles.metaPillUrgent : null,
+                      metaTone === 'today' ? styles.metaPillToday : null,
+                      metaTone === 'tomorrow' ? styles.metaPillTomorrow : null,
+                      metaTone === 'future' ? styles.metaPillFuture : null,
+                      !metaTone ? { color: metaColor } : null,
+                    ]}
+                  >
+                    {meta}
+                  </Text>
+                ) : null}
+                {estimateMeta ? (
+                  <Text numberOfLines={1} style={styles.estimateMeta}>
+                    {estimateMeta}
+                  </Text>
+                ) : null}
+                {showStarredMeta ? (
+                  <Icon
+                    name="starFilled"
+                    size={12}
+                    color={colors.turmeric}
+                  />
+                ) : null}
               </HStack>
             ) : metaLoading ? (
               <HStack space={4} alignItems="center">
-                {resolvedMetaLeadingIcons.length > 0
-                  ? resolvedMetaLeadingIcons.map((iconName) => (
-                      <Icon
-                        key={iconName}
-                        name={iconName}
-                        size={10}
-                        color={metaColor}
-                      />
-                    ))
-                  : null}
                 <Animated.View
                   style={[
                     styles.metaSkeleton,
@@ -361,25 +514,7 @@ export function ActivityListItem({
           </VStack>
         </HStack>
 
-        {/* Right-side accessory (custom) OR importance / priority affordance */}
-        {rightAccessory
-          ? rightAccessory
-          : showPriorityControl && onTogglePriority
-            ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={isPriorityOne ? 'Remove star from to-do' : 'Star this to-do'}
-                  hitSlop={8}
-                  onPress={onTogglePriority}
-                >
-                  <Icon
-                    name={isPriorityOne ? 'starFilled' : 'star'}
-                    size={18}
-                    color={isPriorityOne ? colors.turmeric : colors.textSecondary}
-                  />
-                </Pressable>
-              )
-            : null}
+        {rightAccessory ? rightAccessory : null}
       </HStack>
     </Card>
   );
@@ -397,17 +532,21 @@ export function ActivityListItem({
     </Pressable>
   );
 
-  if (!onDelete) {
+  const canSwipePrimaryActions = Boolean(onStartFocus || onSchedule || (showPriorityControl && onTogglePriority));
+
+  if (!onDelete && !canSwipePrimaryActions) {
     return rowContent;
   }
 
   return (
     <ReanimatedSwipeable
       friction={1.5}
+      leftThreshold={36}
       rightThreshold={36}
       overshootLeft={false}
       overshootRight={false}
-      renderRightActions={renderDeleteAction}
+      renderLeftActions={canSwipePrimaryActions ? renderPrimaryActions : undefined}
+      renderRightActions={onDelete ? renderDeleteAction : undefined}
       containerStyle={styles.swipeContainer}
     >
       {rowContent}
@@ -440,6 +579,42 @@ const styles = StyleSheet.create({
   },
   swipeDeleteLabel: {
     ...typography.bodySm,
+    fontFamily: fonts.semibold,
+    color: colors.primaryForeground,
+  },
+  swipePrimaryRail: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginRight: spacing.sm,
+    gap: spacing.xs,
+  },
+  swipePrimaryAction: {
+    width: 72,
+    borderRadius: cardSurfaceStyle.borderRadius,
+    borderWidth: cardSurfaceStyle.borderWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeFocusAction: {
+    borderColor: colors.gray800,
+    backgroundColor: colors.gray800,
+  },
+  swipePlanAction: {
+    borderColor: colors.gray700,
+    backgroundColor: colors.gray700,
+  },
+  swipeFavoriteAction: {
+    borderColor: colors.turmeric,
+    backgroundColor: colors.turmeric,
+  },
+  swipePrimaryActionPressed: {
+    opacity: 0.85,
+  },
+  swipePrimaryLabel: {
+    ...typography.bodySm,
+    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 14,
     fontFamily: fonts.semibold,
     color: colors.primaryForeground,
   },
@@ -508,6 +683,7 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     flex: 1,
+    minWidth: 0,
   },
   title: {
     ...typography.body,
@@ -526,6 +702,96 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     fontSize: 12,
     lineHeight: 16,
+    color: colors.textSecondary,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  metaPill: {
+    minHeight: 18,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    paddingHorizontal: spacing.xs,
+    lineHeight: 16,
+    fontFamily: fonts.regular,
+    flexShrink: 0,
+    overflow: 'hidden',
+  },
+  metaPillUrgent: {
+    backgroundColor: colors.destructiveForeground,
+    borderColor: colors.destructiveForeground,
+    color: colors.destructive,
+  },
+  metaPillToday: {
+    backgroundColor: colors.gray100,
+    borderColor: colors.gray200,
+    color: colors.gray800,
+  },
+  metaPillTomorrow: {
+    backgroundColor: colors.gray50,
+    borderColor: colors.gray100,
+    color: colors.gray600,
+  },
+  metaPillFuture: {
+    backgroundColor: colors.canvas,
+    borderColor: colors.gray200,
+    color: colors.gray600,
+  },
+  metaRow: {
+    maxWidth: '100%',
+    minWidth: 0,
+  },
+  estimateMeta: {
+    ...typography.bodySm,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textSecondary,
+    flexShrink: 0,
+  },
+  priorityIndicator: {
+    minHeight: 18,
+    borderRadius: 4,
+    paddingHorizontal: spacing.xs,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  priorityIndicatorTop: {
+    backgroundColor: colors.gray800,
+  },
+  priorityIndicatorHigh: {
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+  },
+  priorityIndicatorPressed: {
+    opacity: 0.72,
+  },
+  priorityIndicatorText: {
+    ...typography.bodySm,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: fonts.semibold,
+  },
+  priorityIndicatorTextTop: {
+    color: colors.gray50,
+  },
+  priorityIndicatorTextHigh: {
+    color: colors.gray700,
+  },
+  priorityPopover: {
+    width: 220,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  priorityPopoverTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.xs,
+  },
+  priorityPopoverReason: {
+    ...typography.bodySm,
     color: colors.textSecondary,
   },
   metaCompleted: {

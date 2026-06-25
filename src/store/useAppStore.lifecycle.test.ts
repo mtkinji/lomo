@@ -200,6 +200,40 @@ describe('useAppStore object lifecycles', () => {
     expect(updated?.updatedAt).not.toBe(original.updatedAt);
   });
 
+  it('treats manual reorder as priority feedback without changing other activity fields', () => {
+    const first = activity({
+      id: 'act-first',
+      title: 'First',
+      orderIndex: 0,
+      priorityRankSource: 'inferred',
+      priorityReasonCodes: ['recently_updated'],
+    });
+    const second = activity({
+      id: 'act-second',
+      title: 'Second',
+      orderIndex: 1,
+      priorityRankSource: 'inferred',
+      priorityReasonCodes: [],
+    });
+    useAppStore.getState().addActivity(first);
+    useAppStore.getState().addActivity(second);
+
+    useAppStore.getState().reorderActivities(['act-second', 'act-first']);
+
+    const state = useAppStore.getState();
+    const updatedFirst = state.activities.find((a) => a.id === 'act-first');
+    const updatedSecond = state.activities.find((a) => a.id === 'act-second');
+    expect(updatedSecond?.orderIndex).toBe(0);
+    expect(updatedSecond?.priorityRankSource).toBe('manual');
+    expect(updatedSecond?.priorityReasonCodes).toEqual(expect.arrayContaining(['moved_by_user']));
+    expect(updatedFirst?.orderIndex).toBe(1);
+    expect(updatedFirst?.priorityRankSource).toBe('manual');
+    expect(updatedFirst?.priorityReasonCodes).toEqual(expect.arrayContaining(['recently_updated', 'moved_by_user']));
+    expect(updatedSecond?.title).toBe(second.title);
+    expect(updatedSecond?.goalId).toBe(second.goalId);
+    expect(updatedSecond?.status).toBe(second.status);
+  });
+
   it('archive/restore is a status change (non-destructive) for arcs', () => {
     useAppStore.getState().addArc(arc({ id: 'arc-1', status: 'active' }));
 
@@ -324,6 +358,32 @@ describe('activity view migrations', () => {
     expect(defaultView?.sorts).toEqual([{ field: 'createdAt', direction: 'desc' }]);
     expect(defaultView?.showCompleted).toBe(false);
     expect(defaultView?.isSystem).toBe(true);
+  });
+
+  it('uses priority order for the default all to-dos system view', () => {
+    const migrated = mergeActivityViewsWithSystemDefaults([]);
+    const defaultView = migrated.find((view) => view.id === 'default');
+
+    expect(defaultView?.sortMode).toBe('priority');
+    expect(defaultView?.sorts).toBeUndefined();
+    expect(defaultView?.showRecommended).toBe(true);
+  });
+
+  it('upgrades an untouched legacy default view to priority order', () => {
+    const legacyDefault: ActivityView = {
+      id: 'default',
+      name: '🗂️ All to-dos',
+      filterMode: 'all',
+      sortMode: 'manual',
+      showCompleted: true,
+      isSystem: true,
+    };
+
+    const migrated = mergeActivityViewsWithSystemDefaults([legacyDefault]);
+    const defaultView = migrated.find((view) => view.id === 'default');
+
+    expect(defaultView?.sortMode).toBe('priority');
+    expect(defaultView?.showRecommended).toBe(true);
   });
 
   it('adds missing system views while preserving custom views', () => {

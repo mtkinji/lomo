@@ -73,7 +73,7 @@ import {
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
-import { ActivityListItem } from '../../ui/ActivityListItem';
+import { ActivityListItem, type ActivityPriorityIndicator } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import { colors } from '../../theme/colors';
@@ -178,7 +178,14 @@ const KANBAN_CARD_FIELDS: Array<{
 ];
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { QueryService } from '../../services/QueryService';
-import { canShowRecommendedModule, getRecommendedPriorityActivities } from './activityPriority';
+import {
+  canShowRecommendedModule,
+  getActivityPriorityReasonLabels,
+  getRecommendedPriorityActivities,
+  rankActivitiesBySmartOrder,
+  sortActivitiesByPriorityRanking,
+} from './activityPriority';
+import { buildPriorityIndicator } from './activityPriorityIndicator';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { SortDrawer } from '../../ui/SortDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -223,6 +230,10 @@ const CHROME_REVEAL_DELTA = 12;
 const CHROME_ANIMATION_MS = 260;
 const HEADER_GHOST_FADE_EDGE_DISTANCE_PX = 8;
 const HEADER_GHOST_FADE_MAX_ALPHA = 0.88;
+
+function isPrioritySort(sortConditions: SortCondition[]): boolean {
+  return sortConditions[0]?.field === 'priority';
+}
 
 export function ActivitiesScreen() {
   useDrawerMenuEnabled();
@@ -861,8 +872,16 @@ export function ActivitiesScreen() {
   );
 
   const visibleActivities = React.useMemo(() => {
+    if (isPrioritySort(sortConditions)) {
+      const sorted = sortActivitiesByPriorityRanking({
+        activities: filteredActivities,
+        goals,
+        now: new Date(),
+      });
+      return sortConditions[0]?.direction === 'desc' ? [...sorted].reverse() : sorted;
+    }
     return QueryService.applyActivitySorts(filteredActivities, sortConditions);
-  }, [filteredActivities, sortConditions]);
+  }, [filteredActivities, goals, sortConditions]);
 
   const activeActivities = React.useMemo(
     () =>
@@ -882,6 +901,34 @@ export function ActivitiesScreen() {
       hasFilters: filterGroups.length > 0,
       hasGrouping: groupingApplied,
     });
+
+  const priorityIndicatorByActivityId = React.useMemo(() => {
+    if (!isPrioritySort(sortConditions) && !shouldShowRecommendedModule) {
+      return new Map<string, ActivityPriorityIndicator>();
+    }
+    const rankedActive = rankActivitiesBySmartOrder({
+      activities: filteredActivities,
+      goals,
+      now: new Date(),
+    }).filter(
+      (row) =>
+        row.activity.status !== 'done' &&
+        row.activity.status !== 'skipped' &&
+        row.activity.status !== 'cancelled',
+    );
+    const total = rankedActive.length;
+    const indicators = new Map<string, ActivityPriorityIndicator>();
+    rankedActive.forEach((row, index) => {
+      const indicator = buildPriorityIndicator({
+        position: index + 1,
+        total,
+        reasons: getActivityPriorityReasonLabels(row.reasonCodes),
+      });
+      if (indicator) indicators.set(row.activity.id, indicator);
+    });
+    return indicators;
+  }, [filteredActivities, goals, shouldShowRecommendedModule, sortConditions]);
+
   const recommendedDisabledReason = React.useMemo(() => {
     if (isKanbanLayout) {
       return {
@@ -1746,8 +1793,8 @@ export function ActivitiesScreen() {
     return {
       title: isPro ? 'Sort' : 'Sort (Pro)',
       body: isPro
-        ? 'Order by due date, starred first, or keep your manual order.'
-        : 'Order by title, due date, or starred first.',
+        ? 'Use Priority for Kwilt’s current order, due date for schedule order, or Manual for your own arrangement.'
+        : 'Order by title, due date, or Kwilt priority.',
     };
   }, [activitiesGuideStep, guideVariant, isKanbanLayout, isPro]);
 
@@ -1764,6 +1811,26 @@ export function ActivitiesScreen() {
         return;
       }
       navigation.push('ActivityDetail', { activityId });
+    },
+    [canOpenActivityDetail, navigation],
+  );
+
+  const openActivityFocus = React.useCallback(
+    (activityId: string) => {
+      if (!canOpenActivityDetail()) {
+        return;
+      }
+      navigation.push('ActivityDetail', { activityId, openFocus: true });
+    },
+    [canOpenActivityDetail, navigation],
+  );
+
+  const openActivitySchedule = React.useCallback(
+    (activityId: string) => {
+      if (!canOpenActivityDetail()) {
+        return;
+      }
+      navigation.push('ActivityDetail', { activityId, openSchedule: true });
     },
     [canOpenActivityDetail, navigation],
   );
@@ -2542,8 +2609,11 @@ export function ActivitiesScreen() {
         recommendations={recommendedPriorityActivities}
         goalTitleById={goalTitleById}
         isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
+        priorityIndicatorByActivityId={priorityIndicatorByActivityId}
         onToggleComplete={handleToggleComplete}
         onTogglePriority={handleTogglePriorityOne}
+        onStartFocus={openActivityFocus}
+        onSchedule={openActivitySchedule}
         onPressActivity={navigateToActivityDetail}
         onDeleteActivity={handleDeleteActivity}
       />
@@ -3094,6 +3164,8 @@ export function ActivitiesScreen() {
               onToggleCollapsed={handleToggleGroupCollapsed}
               onToggleComplete={handleToggleComplete}
               onTogglePriority={handleTogglePriorityOne}
+              onStartFocus={openActivityFocus}
+              onSchedule={openActivitySchedule}
               onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
               onDeleteActivity={(activity) => handleDeleteActivity(activity)}
               isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
@@ -3145,8 +3217,10 @@ export function ActivitiesScreen() {
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
           renderItem={(activity, isDragging) => {
-            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+            const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
+            const priorityIndicator = isPrioritySort(sortConditions)
+              ? priorityIndicatorByActivityId.get(activity.id)
+              : undefined;
             const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
 
             return (
@@ -3158,13 +3232,16 @@ export function ActivitiesScreen() {
                 <ActivityListItem
                   title={activity.title}
                   meta={meta}
-                  metaLeadingIconName={metaLeadingIconName}
-                  metaLeadingIconNames={metaLeadingIconNames}
+                  estimateMeta={estimateMeta}
+                  metaTone={metaTone}
+                  priorityIndicator={priorityIndicator}
                   metaLoading={metaLoading}
                   isCompleted={activity.status === 'done'}
                   onToggleComplete={isDragging ? undefined : () => handleToggleComplete(activity.id)}
                   isPriorityOne={activity.priority === 1}
                   onTogglePriority={isDragging ? undefined : () => handleTogglePriorityOne(activity.id)}
+                  onStartFocus={isDragging ? undefined : () => openActivityFocus(activity.id)}
+                  onSchedule={isDragging ? undefined : () => openActivitySchedule(activity.id)}
                   onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
                   onDelete={isDragging ? undefined : () => handleDeleteActivity(activity)}
                   isDueToday={isDueToday}
@@ -3237,21 +3314,26 @@ export function ActivitiesScreen() {
           keyExtractor={(activity) => activity.id}
           ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
           renderItem={({ item: activity }) => {
-            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+            const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
+            const priorityIndicator = isPrioritySort(sortConditions)
+              ? priorityIndicatorByActivityId.get(activity.id)
+              : undefined;
             const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
 
             return (
               <ActivityListItem
                 title={activity.title}
                 meta={meta}
-                metaLeadingIconName={metaLeadingIconName}
-                metaLeadingIconNames={metaLeadingIconNames}
+                estimateMeta={estimateMeta}
+                metaTone={metaTone}
+                priorityIndicator={priorityIndicator}
                 metaLoading={metaLoading}
                 isCompleted={activity.status === 'done'}
                 onToggleComplete={() => handleToggleComplete(activity.id)}
                 isPriorityOne={activity.priority === 1}
                 onTogglePriority={() => handleTogglePriorityOne(activity.id)}
+                onStartFocus={() => openActivityFocus(activity.id)}
+                onSchedule={() => openActivitySchedule(activity.id)}
                 onPress={() => navigateToActivityDetail(activity.id)}
                 onDelete={() => handleDeleteActivity(activity)}
                 isDueToday={isDueToday}

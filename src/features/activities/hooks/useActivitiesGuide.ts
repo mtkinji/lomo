@@ -99,15 +99,15 @@ export function useActivitiesGuide({
       return {
         title: isPro ? 'Filter the list' : 'Pro Tools: Filters',
         body: isPro
-          ? 'Switch between All, Active, Completed, or Starred. Tap the ★ on a to-do to star it.'
+          ? 'Switch between All, Active, Completed, or Starred. Swipe right on a to-do to star it.'
           : 'Upgrade to Pro to filter your to-dos list (All, Active, Completed, Starred).',
       };
     }
     return {
       title: isPro ? 'Sort changes the order' : 'Pro Tools: Sort',
       body: isPro
-        ? 'Try due date or "Starred first" when the list grows. Manual keeps your custom ordering.'
-        : 'Upgrade to Pro to sort by title, due date, or starred first when the list grows.',
+        ? 'Try Priority when the list grows. Manual keeps your custom ordering.'
+        : 'Upgrade to Pro to sort by title, due date, or Kwilt priority when the list grows.',
     };
   }, [activitiesGuideStep, guideVariant, isPro]);
 

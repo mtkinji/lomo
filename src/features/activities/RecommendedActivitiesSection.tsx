@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { Activity } from '../../domain/types';
-import { ActivityListItem } from '../../ui/ActivityListItem';
+import { ActivityListItem, type ActivityPriorityIndicator } from '../../ui/ActivityListItem';
 import { HStack, Text } from '../../ui/primitives';
 import {
   DropdownMenu,
@@ -22,17 +22,22 @@ type Props = {
   onPressActivity: (activityId: string) => void;
   onToggleComplete: (activityId: string) => void;
   onTogglePriority: (activityId: string) => void;
+  onStartFocus?: (activityId: string) => void;
+  onSchedule?: (activityId: string) => void;
   onDeleteActivity?: (activity: Activity) => void;
+  priorityIndicatorByActivityId?: Map<string, ActivityPriorityIndicator>;
 };
 
 export function RecommendedActivitiesSection({
   recommendations,
-  goalTitleById,
   isMetaLoading,
   onPressActivity,
   onToggleComplete,
   onTogglePriority,
+  onStartFocus,
+  onSchedule,
   onDeleteActivity,
+  priorityIndicatorByActivityId,
 }: Props) {
   if (recommendations.length === 0) return null;
 
@@ -62,10 +67,8 @@ export function RecommendedActivitiesSection({
       </HStack>
       <View>
         {recommendations.map(({ activity }) => {
-          const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-          const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({
+          const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({
             activity,
-            goalTitle,
           });
 
           return (
@@ -73,13 +76,16 @@ export function RecommendedActivitiesSection({
               <ActivityListItem
                 title={activity.title}
                 meta={meta}
-                metaLeadingIconName={metaLeadingIconName}
-                metaLeadingIconNames={metaLeadingIconNames}
+                estimateMeta={estimateMeta}
+                metaTone={metaTone}
+                priorityIndicator={priorityIndicatorByActivityId?.get(activity.id)}
                 metaLoading={isMetaLoading(activity.id)}
                 isCompleted={activity.status === 'done'}
                 onToggleComplete={() => onToggleComplete(activity.id)}
                 isPriorityOne={activity.priority === 1}
                 onTogglePriority={() => onTogglePriority(activity.id)}
+                onStartFocus={onStartFocus ? () => onStartFocus(activity.id) : undefined}
+                onSchedule={onSchedule ? () => onSchedule(activity.id) : undefined}
                 onPress={() => onPressActivity(activity.id)}
                 onDelete={onDeleteActivity ? () => onDeleteActivity(activity) : undefined}
                 isDueToday={isDueToday}

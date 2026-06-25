@@ -1,4 +1,4 @@
-import { SORTABLE_FIELDS } from './SortDrawer';
+import { getDefaultSortCondition, SORTABLE_FIELDS } from './SortDrawer';
 
 describe('SortDrawer sortable fields', () => {
   it('offers last modified as a to-do sort field', () => {
@@ -10,5 +10,15 @@ describe('SortDrawer sortable fields', () => {
         }),
       ]),
     );
+  });
+
+  it('uses Priority as the editable default sort condition', () => {
+    expect(getDefaultSortCondition('priority')).toEqual({ field: 'priority', direction: 'asc' });
+  });
+
+  it('maps legacy view defaults into single editable sort rows', () => {
+    expect(getDefaultSortCondition('titleDesc')).toEqual({ field: 'title', direction: 'desc' });
+    expect(getDefaultSortCondition('dueDateAsc')).toEqual({ field: 'scheduledDate', direction: 'asc' });
+    expect(getDefaultSortCondition('manual')).toEqual({ field: 'orderIndex', direction: 'asc' });
   });
 });
