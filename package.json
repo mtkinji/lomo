@@ -18,6 +18,8 @@
     "lint": "tsc --noEmit",
     "lint:tests": "tsc --noEmit --project tsconfig.test.json",
     "verify:changed": "node scripts/verify-changed.mjs",
+    "code:health": "node scripts/code-health.mjs",
+    "test:code-health": "node --test scripts/code-health-lib.test.mjs",
     "architecture:lint": "node scripts/architecture-lint.mjs",
     "agent:map": "node scripts/generate-agent-code-map.mjs",
     "lint:supabase-functions": "find supabase/functions -path 'supabase/functions/node_modules' -prune -o -name '*.ts' ! -path '*/__tests__/*' -print0 | xargs -0 deno check --no-lock --config supabase/functions/tsconfig.json",

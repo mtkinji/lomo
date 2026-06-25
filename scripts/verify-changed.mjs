@@ -77,6 +77,20 @@ if (appCodeFiles.length > 0) {
   add('npm run lint', 'typecheck app, workspace packages, and shared TypeScript contracts');
 }
 
+if (
+  matches(/^(src|packages|supabase\/functions|scripts|plugins)\//) ||
+  matches(/^(package(-lock)?\.json|\.github\/workflows\/)/)
+) {
+  add(
+    `npm run code:health -- --fail-on-regression --base ${JSON.stringify(base)}`,
+    'enforce code-health ratchets against newly introduced complexity',
+  );
+}
+
+if (matches(/^scripts\/code-health(-lib)?(\.test)?\.mjs$/)) {
+  add('npm run test:code-health', 'unit-test the code-health ratchet rules');
+}
+
 if (matches(/(^|\/)([^/]+\.)?(test|spec)\.(ts|tsx)$/) || matches(/^(jest\.setup\.ts|jest\.config\.js|src\/test\/|tsconfig\.test\.json)/)) {
   add('npm run lint:tests', 'typecheck Jest files and shared test harness code that app lint excludes');
 }

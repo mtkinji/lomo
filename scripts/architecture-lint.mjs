@@ -7,6 +7,12 @@ const repoRoot = path.resolve(new URL('..', import.meta.url).pathname);
 const errors = [];
 const warnings = [];
 
+const baselinePath = path.join(repoRoot, 'scripts', 'architecture-lint-baseline.json');
+const baseline = fs.existsSync(baselinePath)
+  ? JSON.parse(fs.readFileSync(baselinePath, 'utf8'))
+  : {};
+const legacyRawTextFeatureFiles = new Set(baseline.legacyRawReactNativeTextFeatureFiles ?? []);
+
 function walk(dir, predicate = () => true) {
   if (!fs.existsSync(dir)) return [];
   const out = [];
@@ -55,15 +61,24 @@ const rawTextAliasImport = /import\s+\{[^}]*\bText\s+as\s+\w+[^}]*\}\s+from\s+['
 
 for (const file of sourceFiles) {
   const text = fs.readFileSync(file, 'utf8');
+  const relativeFile = rel(file);
   if (directReusableImport.test(text)) {
     pushImportFinding(errors, file, 'feature/app code must import through src/ui adapters, not components/ui directly');
   }
 
-  if (rel(file).startsWith('src/features/') && (rawTextImport.test(text) || rawTextAliasImport.test(text))) {
+  if (relativeFile.startsWith('src/features/') && (rawTextImport.test(text) || rawTextAliasImport.test(text))) {
+    if (!legacyRawTextFeatureFiles.has(relativeFile)) {
+      pushImportFinding(
+        errors,
+        file,
+        'new raw react-native Text import in a feature file; use src/ui Typography for on-canvas copy',
+      );
+      continue;
+    }
     pushImportFinding(
       warnings,
       file,
-      'raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file',
+      'legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file',
     );
   }
 }
@@ -80,4 +95,3 @@ if (errors.length > 0) {
 }
 
 console.log(`Architecture lint passed with ${warnings.length} warning${warnings.length === 1 ? '' : 's'}.`);
-

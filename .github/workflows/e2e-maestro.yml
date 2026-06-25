@@ -1,6 +1,7 @@
 name: E2E (Maestro)
 
 on:
+  pull_request:
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *"
@@ -170,4 +171,3 @@ jobs:
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             '{text: ("Maestro full suite failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
           curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-
