@@ -6,16 +6,21 @@ type ChromeDirection = 'up' | 'down';
 
 type ChromeVisibilityContextValue = {
   bottomBarVisible: boolean;
+  bottomBarFadeVisible: boolean;
   setChromeAutoHideEnabled: (surface: ChromeSurface, enabled: boolean) => void;
   setChromeVisibility: (surface: ChromeSurface, visibility: ChromeVisibility) => void;
   notifyChromeScrollIntent: (surface: ChromeSurface, direction: ChromeDirection, delta: number) => void;
   setChromeInteractionLock: (surface: ChromeSurface, locked: boolean) => void;
+  setChromeBottomFadeSuppressed: (surface: ChromeSurface, suppressed: boolean) => void;
 };
 
 const ChromeVisibilityContext = React.createContext<ChromeVisibilityContextValue | null>(null);
 
 export function ChromeVisibilityProvider({ children }: { children: React.ReactNode }) {
   const [bottomBarVisible, setBottomBarVisible] = React.useState(true);
+  const [bottomFadeSuppressedSurfaces, setBottomFadeSuppressedSurfaces] = React.useState<Set<ChromeSurface>>(
+    () => new Set(),
+  );
   const autoHideSurfacesRef = React.useRef(new Set<ChromeSurface>());
   const lockedSurfacesRef = React.useRef(new Set<ChromeSurface>());
 
@@ -63,18 +68,34 @@ export function ChromeVisibilityProvider({ children }: { children: React.ReactNo
     lockedSurfacesRef.current.delete(surface);
   }, []);
 
+  const setChromeBottomFadeSuppressed = React.useCallback((surface: ChromeSurface, suppressed: boolean) => {
+    setBottomFadeSuppressedSurfaces((current) => {
+      const next = new Set(current);
+      if (suppressed) {
+        next.add(surface);
+      } else {
+        next.delete(surface);
+      }
+      return next;
+    });
+  }, []);
+
   const value = React.useMemo<ChromeVisibilityContextValue>(
     () => ({
       bottomBarVisible,
+      bottomBarFadeVisible: bottomFadeSuppressedSurfaces.size === 0,
       setChromeAutoHideEnabled,
       setChromeVisibility,
       notifyChromeScrollIntent,
       setChromeInteractionLock,
+      setChromeBottomFadeSuppressed,
     }),
     [
+      bottomFadeSuppressedSurfaces.size,
       bottomBarVisible,
       notifyChromeScrollIntent,
       setChromeAutoHideEnabled,
+      setChromeBottomFadeSuppressed,
       setChromeInteractionLock,
       setChromeVisibility,
     ],

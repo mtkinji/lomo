@@ -40,7 +40,7 @@ function withAlpha(hex: string, alpha: number) {
 
 export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { bottomBarVisible } = useChromeVisibility();
+  const { bottomBarVisible, bottomBarFadeVisible } = useChromeVisibility();
   const planRecommendationsCount = useAppStore((s) => s.planRecommendationsCount);
   // Chapters copilot: launch AgentWorkspace in a drawer so users can dismiss
   // back to their Chapter context without losing the page they came from.
@@ -273,15 +273,17 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
 
   return (
     <>
-      <Animated.View pointerEvents="none" style={[styles.bottomFade, { height: bottomFadeHeightPx }, chromeAnimatedStyle]}>
-        <LinearGradient
-          colors={[scrimClear, scrimStrong, scrimStrong]}
-          {...({ locations: [0, FADE_RAMP_FRACTION, 1] } as any)}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </Animated.View>
+      {bottomBarFadeVisible ? (
+        <Animated.View pointerEvents="none" style={[styles.bottomFade, { height: bottomFadeHeightPx }, chromeAnimatedStyle]}>
+          <LinearGradient
+            colors={[scrimClear, scrimStrong, scrimStrong]}
+            {...({ locations: [0, FADE_RAMP_FRACTION, 1] } as any)}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+      ) : null}
       <Animated.View
         pointerEvents={bottomBarVisible ? 'box-none' : 'none'}
         style={[styles.container, { bottom: KWILT_BOTTOM_BAR_BOTTOM_OFFSET_PX }, chromeAnimatedStyle]}

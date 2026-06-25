@@ -8,6 +8,8 @@ Draft for implementation planning.
 
 Make the To-dos inventory feel more focused as the user scrolls. When the user scrolls down, assume they are trying to find or inspect a to-do. Non-essential chrome should quickly get out of the way: the page title, streak capsule, avatar, and global nav controls should hide. The view controls should occupy the freed header space and remain sticky so users can keep changing views, filters, sorts, and layout controls while working through a long list.
 
+The floating view toolbar and floating Quick Add dock are exceptions: they remain local To-dos tools, so the list should be allowed to scroll underneath them. The content underneath should not be totally hidden. Instead, matching top and bottom linear fades should make the floating controls read clearly while still allowing a softened sense of the list continuing behind them.
+
 This is the common "hide-on-scroll" / "auto-hiding chrome" pattern: downward scroll hides navigation chrome, upward scroll reveals it again even if the user is still deep in the list.
 
 This should feel like the app chrome is yielding to the user's working surface, not like the whole screen is jumping between two unrelated modes.
@@ -76,8 +78,8 @@ Suggested motion:
 
 Suggested trigger behavior:
 
-- Hide chrome after downward scroll delta crosses a small threshold, e.g. `12-20px`.
-- Reveal chrome after upward scroll delta crosses a small threshold, e.g. `8-16px`.
+- Hide chrome on the first meaningful downward scroll delta. Do not wait for a larger accumulated threshold; the user's first downward scroll is already intent to scan the list.
+- Reveal chrome after upward scroll delta crosses a small threshold, e.g. `8px`.
 - Ignore tiny jitter and inertial bounce near the top.
 - Once triggered, animate to the hidden or revealed state quickly but not abruptly, e.g. `240-280ms`.
 
@@ -85,6 +87,7 @@ Important distinction:
 
 - Header title/streak/avatar and footer/global-nav visibility are both intent-triggered. Once scroll direction crosses the hide/reveal threshold, animate them to the next state together.
 - Quick Add follows footer state for vertical position only, not visibility. It remains present while moving between its "above global nav" and "global nav hidden" anchors.
+- Edge fades do not communicate navigation state. They are constant local readability affordances for the floating toolbar and Quick Add dock while content scrolls behind those surfaces.
 
 ### Scrolling Up
 
@@ -156,6 +159,59 @@ The toolbar should not:
 - Cover the first list item without matching top content inset.
 - Jump when filter/sort badges appear or disappear.
 - Become inaccessible to screen readers while visually sticky.
+
+## Edge Fade Contract
+
+When the user is scrolling the To-dos list, the list content may pass underneath two floating local controls:
+
+- The top view toolbar: Views, Filter, Grouping, Sort, and related view controls.
+- The bottom Quick Add dock: collapsed local capture/action surface.
+
+The job of the fades is not to erase list content. The job is to make those floating controls unmistakably legible and physically present while preserving the sense that the list continues behind them.
+
+Top and bottom fades should match:
+
+- Both use a vertical `LinearGradient`.
+- Both use the same canvas/shell color source and maximum scrim strength.
+- Both use the same ramp fraction unless later visual QA proves the geometry requires a small adjustment.
+- Both allow some softened content to remain visible underneath the floating surface.
+- Neither should create a hard white card or a fully opaque wall that makes the list feel clipped.
+
+Top fade geometry:
+
+- Start at the top edge of the phone viewport, including the safe-area/status/notch region.
+- Continue through the floating view toolbar.
+- Once the header has hidden and the toolbar is in its compact/sticky position, keep content at the strongest scrim through the toolbar and for `6px` below the visual bottom of the toolbar.
+- Begin the fade-out transition `6px` below the visual bottom of the toolbar.
+- Calculate the visual bottom from the toolbar row/control height after the page header has hidden, not from the toolbar container's total layout height. The container may include bottom margin or padding that would push the fade too low.
+- Do not include the full collapsed `PageHeader` height unless the toolbar actually occupies that space. The header's collapse transform already reclaims that region; double-counting it makes the fade extend too far down the list.
+- The toolbar remains above the fade in z-order and stays fully tappable.
+
+Bottom fade geometry:
+
+- Begin the fade-in transition `6px` above the floating Quick Add dock.
+- Continue through the Quick Add dock's visual region and bottom safe-area clearance.
+- End at the bottom edge of the phone viewport.
+- The Quick Add dock remains above the fade in z-order and stays fully tappable.
+- On the To-dos list, the Quick Add dock fade owns the bottom local-control fade. Suppress the global bottom-bar fade while the Quick Add dock is present so the user does not see two competing bottom fades.
+- Keep the global bottom-bar fade available for screens that do not have a local floating dock. It is a global navigation readability affordance, not the To-dos bottom edge treatment.
+
+Visual strength:
+
+- Use the bottom fade as the reference. It currently feels closer to the desired effect than the top fade.
+- The top fade should be darker/stronger than a barely visible wash; list text behind the toolbar should be subdued enough that the toolbar is the obvious foreground.
+- The strongest part of the fade should still permit a hint of the list underneath. A target maximum scrim around `0.92` canvas alpha is a useful starting point.
+- Avoid fully opaque `colors.canvas` for the plateau unless visual QA proves partial translucency cannot protect toolbar readability on real devices.
+
+Implementation notes:
+
+- Measure the top toolbar height and derive the top fade from `safeAreaTop + toolbarHeight + 6px + rampDistance`.
+- Use the toolbar row/control measurement for fade geometry. Use the full toolbar container height only for layout/overlap calculations where its margin and padding are intentional.
+- Measure or reuse the Quick Add dock and bottom-bar reserved geometry for the bottom fade.
+- Do not stack the Quick Add dock fade and the global bottom-bar fade on To-dos. The bottom should have one visible fade owner at a time.
+- Keep fade constants named by intent, e.g. `EDGE_FADE_MAX_ALPHA`, `EDGE_FADE_CONTROL_GAP_PX`, and `EDGE_FADE_RAMP_DISTANCE_PX`, rather than tying them to only header or footer behavior.
+- If a top and bottom fade share values, prefer one shared local constant or a clearly duplicated value with a comment that they are intentionally matched.
+- The fades should animate with the relevant chrome when those surfaces move, so the visual edge stays attached to the floating control.
 
 ## Header Content Contract
 
@@ -288,7 +344,7 @@ Implementation note:
 
 - The global bar can keep rendering in place and animate `translateY`/opacity; avoid unmounting it on scroll because unmounting disrupts focus, layout measurement, and active tab indicator state.
 - Existing `tabBarStyle: { display: 'none' }` behavior should remain the hard hide for routes that truly remove the tab bar. Auto-hide is a soft animated state and should not reuse `display: 'none'`.
-- The bottom fade/scrim in `KwiltBottomBar` should animate with the bar or be disabled while hidden so it does not leave a ghost fade behind Quick Add.
+- The bottom fade/scrim in `KwiltBottomBar` should animate with the bar on screens where the global nav owns the bottom edge. On To-dos list layout, suppress it while Quick Add owns the bottom fade.
 
 ### Scroll Sources
 
@@ -318,9 +374,12 @@ Use measured sizes first; constants only as fallbacks:
 - `HEADER_FADE_END_RATIO = 0.7`
 - `STICKY_TOP_GAP = spacing.xs`
 - `SCROLL_EVENT_THROTTLE = 16`
-- `CHROME_HIDE_DELTA = 16`
-- `CHROME_REVEAL_DELTA = 12`
+- `CHROME_HIDE_DELTA = 0`
+- `CHROME_REVEAL_DELTA = 8`
 - `CHROME_ANIMATION_MS = 180`
+- `EDGE_FADE_MAX_ALPHA = 0.92`
+- `EDGE_FADE_CONTROL_GAP_PX = 6`
+- `EDGE_FADE_RAMP_DISTANCE_PX = 6`
 - `SHORT_LIST_MIN_SCROLLABLE_OVERFLOW = HEADER_COLLAPSE_DISTANCE + spacing.xl`
 - `QUICK_ADD_COMPACT_BOTTOM = max(insets.bottom + spacing.sm, spacing.md)`
 
@@ -361,6 +420,8 @@ Prefer existing `spacing`, `colors`, and typography tokens.
 - The transition feels smooth and intentional, not like content reflow.
 - Quick Add remains visible and usable while the global nav is hidden.
 - Hidden global nav gives the inventory more usable vertical space because Quick Add lowers into the vacated nav area.
+- Top and bottom edge fades make the floating toolbar and Quick Add dock clearer without fully obscuring the scrolling list behind them.
+- The top fade feels slightly stronger than the current too-light wash and visually matches the bottom fade.
 
 ### Functional
 
@@ -387,7 +448,12 @@ Prefer existing `spacing`, `colors`, and typography tokens.
 - Global nav soft auto-hide is modeled separately from hard route-level `tabBarStyle: { display: 'none' }` hiding.
 - List content has correct top inset so first rows are not hidden under the sticky controls.
 - List content has correct bottom inset whether footer chrome is shown or hidden.
-- The bottom fade/scrim does not remain visible after global nav hides.
+- Top and bottom edge fades use matched alpha/ramp constants unless a documented visual QA exception exists.
+- After the header has hidden, the top fade starts fading out `6px` below the sticky view toolbar.
+- The top fade position is derived from the sticky toolbar's visual row/control bottom, not from extra toolbar container margin or padding.
+- The bottom fade starts fading in `6px` above the Quick Add dock in all collapsed-dock states.
+- On To-dos list layout, only the Quick Add dock fade is visible at the bottom; the global bottom-bar fade is suppressed.
+- The bottom fade remains attached to the floating surface it supports and does not become an unrelated ghost wash.
 - Sticky toolbar dropdowns are not clipped by animated header containers.
 - Scroll-linked animation runs on the UI thread where possible.
 - Existing toolbar test IDs remain stable.
@@ -433,9 +499,15 @@ Visual QA:
 
 - Capture top-of-list, mid-scroll sticky, and restored-top states.
 - Confirm no overlap with status bar, bottom bar, Quick Add dock, or first list rows.
+- Confirm the top fade begins at the phone top, including safe area, and begins fading out `6px` below the view toolbar after the header has hidden.
+- Confirm the top fade is not pushed down by toolbar container margin/padding; it should align to the controls' visual bottom.
+- Confirm the bottom fade begins fading in `6px` above the Quick Add dock.
+- Confirm the top fade is strong enough to make the toolbar legible but still lets softened list content show beneath it.
+- Confirm the top and bottom fade strengths feel matched, using the bottom fade as the reference.
+- Confirm To-dos shows one bottom fade, not a stacked Quick Add fade plus global bottom-bar fade.
 - Confirm hidden global-nav state gives visibly more list space while Quick Add remains anchored and intentional.
 - Confirm text does not truncate awkwardly in the sticky controls on small screens.
-- Confirm no ghost bottom fade remains when global nav is hidden.
+- Confirm no unrelated ghost bottom fade remains after the floating surface it supports moves.
 
 ## Rollout Notes
 
@@ -453,3 +525,4 @@ This is safe to ship behind no backend changes. If implementation risk grows, st
 - Should the streak/avatar be duplicated as tiny icons in the sticky toolbar after collapse, or is hiding them acceptable for v1?
 - Should upward scroll reveal the full header immediately, or should it first reveal footer chrome and only restore the full title region near top?
 - Should tab reselect scroll To-dos to top and expand the header as a paired behavior?
+- Should the edge fade values eventually become shared tokens for other scroll-under-floating-control surfaces, or stay local to To-dos until the pattern appears elsewhere?

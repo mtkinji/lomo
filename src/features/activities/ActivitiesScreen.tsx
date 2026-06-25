@@ -223,11 +223,13 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
 
 const INVENTORY_CHROME_SURFACE = 'activities-inventory';
 const HEADER_COLLAPSE_DISTANCE_FALLBACK = 88;
-const CHROME_HIDE_DELTA = 16;
-const CHROME_REVEAL_DELTA = 12;
+const CHROME_HIDE_DELTA = 0;
+const CHROME_REVEAL_DELTA = 8;
 const CHROME_ANIMATION_MS = 260;
-const HEADER_GHOST_FADE_EDGE_DISTANCE_PX = 8;
-const HEADER_GHOST_FADE_MAX_ALPHA = 0.88;
+const HEADER_GHOST_FADE_CONTROL_GAP_PX = 6;
+const HEADER_GHOST_FADE_RAMP_DISTANCE_PX = 6;
+const HEADER_GHOST_FADE_MAX_ALPHA = 0.92;
+const HEADER_GHOST_FADE_TOOLBAR_VISUAL_FALLBACK_PX = 44;
 
 function isPrioritySort(sortConditions: SortCondition[]): boolean {
   return sortConditions[0]?.field === 'priority';
@@ -266,6 +268,7 @@ export function ActivitiesScreen() {
     setChromeVisibility,
     notifyChromeScrollIntent,
     setChromeInteractionLock,
+    setChromeBottomFadeSuppressed,
   } = useChromeVisibility();
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
@@ -532,11 +535,13 @@ export function ActivitiesScreen() {
   const shouldShowFixedToolbar = activities.length > 0 && (!isKanbanLayout || !isKanbanExpanded);
   const fixedToolbarProgress = useSharedValue(shouldShowFixedToolbar ? 1 : 0);
   const [fixedToolbarMeasuredHeight, setFixedToolbarMeasuredHeight] = React.useState(0);
+  const [fixedToolbarVisualHeight, setFixedToolbarVisualHeight] = React.useState(0);
   React.useEffect(() => {
     // When returning to the collapsed state, reset the cached measurement so we don't
     // get stuck with a clipped height from a previous animation frame.
     if (shouldShowFixedToolbar) {
       setFixedToolbarMeasuredHeight(0);
+      setFixedToolbarVisualHeight(0);
     }
   }, [shouldShowFixedToolbar]);
   React.useEffect(() => {
@@ -1085,10 +1090,23 @@ export function ActivitiesScreen() {
     inventoryCanMeaningfullyScroll;
 
   const headerSlotHeight = collapsibleHeaderHeight || HEADER_COLLAPSE_DISTANCE_FALLBACK;
-  const headerGhostFadeHeight = Math.max(fixedToolbarMeasuredHeight || 64, 1);
+  const fixedToolbarHeight = fixedToolbarMeasuredHeight || 64;
+  const fixedToolbarVisualBottom = fixedToolbarVisualHeight || HEADER_GHOST_FADE_TOOLBAR_VISUAL_FALLBACK_PX;
+  const headerGhostFadeStrongHeight = Math.max(
+    insets.top + fixedToolbarVisualBottom + HEADER_GHOST_FADE_CONTROL_GAP_PX,
+    1,
+  );
+  const headerGhostFadeListOverlapHeight = Math.max(
+    fixedToolbarHeight + HEADER_GHOST_FADE_CONTROL_GAP_PX + HEADER_GHOST_FADE_RAMP_DISTANCE_PX,
+    1,
+  );
+  const headerGhostFadeHeight = Math.max(
+    headerGhostFadeStrongHeight + HEADER_GHOST_FADE_RAMP_DISTANCE_PX,
+    1,
+  );
   const headerGhostFadeRampStart = Math.max(
     0,
-    Math.min(0.92, 1 - (HEADER_GHOST_FADE_EDGE_DISTANCE_PX / headerGhostFadeHeight)),
+    Math.min(0.92, headerGhostFadeStrongHeight / headerGhostFadeHeight),
   );
 
   const collapsibleHeaderSlotAnimatedStyle = useAnimatedStyle(() => {
@@ -1119,16 +1137,17 @@ export function ActivitiesScreen() {
     const progress = headerCollapseProgress.value;
 
     return {
-      marginTop: -headerGhostFadeHeight * progress,
+      marginTop: -headerGhostFadeListOverlapHeight * progress,
     };
-  }, [headerCollapseProgress, headerGhostFadeHeight]);
+  }, [headerCollapseProgress, headerGhostFadeListOverlapHeight]);
 
   const headerGhostFadeAnimatedStyle = useAnimatedStyle(() => {
     return {
+      top: -insets.top,
       height: headerGhostFadeHeight,
       opacity: headerCollapseProgress.value,
     };
-  }, [headerCollapseProgress, headerGhostFadeHeight]);
+  }, [headerCollapseProgress, headerGhostFadeHeight, insets.top]);
 
   const setHeaderCollapsedForA11yIfNeeded = React.useCallback((next: boolean) => {
     setHeaderCollapsedForA11y((current) => (current === next ? current : next));
@@ -1664,6 +1683,13 @@ export function ActivitiesScreen() {
     setChromeVisibility,
     shouldAutoHideInventoryChrome,
   ]);
+
+  React.useEffect(() => {
+    const quickAddOwnsBottomFade = !isKanbanLayout;
+    setChromeBottomFadeSuppressed(INVENTORY_CHROME_SURFACE, quickAddOwnsBottomFade);
+    return () => setChromeBottomFadeSuppressed(INVENTORY_CHROME_SURFACE, false);
+  }, [isKanbanLayout, setChromeBottomFadeSuppressed]);
+
   const canvasScrollRef = React.useRef<FlatList<Activity> | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const { keyboardHeight, lastKnownKeyboardHeight } = useKeyboardHeight();
@@ -2743,6 +2769,12 @@ export function ActivitiesScreen() {
               style={styles.toolbarRow}
               alignItems="center"
               justifyContent="space-between"
+              onLayout={(e) => {
+                const h = e.nativeEvent.layout.height;
+                if (h >= 32) {
+                  setFixedToolbarVisualHeight((prev) => (prev === 0 || Math.abs(prev - h) > 1 ? h : prev));
+                }
+              }}
             >
               <View style={styles.toolbarButtonWrapper}>
                 {isPro ? (
