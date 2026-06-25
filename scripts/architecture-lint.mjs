@@ -33,6 +33,11 @@ function pushImportFinding(collection, file, message) {
   collection.push(`${rel(file)}: ${message}`);
 }
 
+function featureNameFor(relativeFile) {
+  const parts = relativeFile.split('/');
+  return parts[0] === 'src' && parts[1] === 'features' && parts[2] ? parts[2] : null;
+}
+
 const featureRoot = path.join(repoRoot, 'src', 'features');
 const featureDirs = fs.existsSync(featureRoot)
   ? fs.readdirSync(featureRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory())
@@ -58,6 +63,7 @@ const sourceFiles = walk(path.join(repoRoot, 'src'), (file) => /\.(ts|tsx)$/.tes
 const directReusableImport = /from\s+['"][^'"]*components\/ui\/[^'"]*['"]/;
 const rawTextImport = /import\s+\{[^}]*\bText\b[^}]*\}\s+from\s+['"]react-native['"]/;
 const rawTextAliasImport = /import\s+\{[^}]*\bText\s+as\s+\w+[^}]*\}\s+from\s+['"]react-native['"]/;
+const rawTextWarningsByFeature = new Map();
 
 for (const file of sourceFiles) {
   const text = fs.readFileSync(file, 'utf8');
@@ -80,12 +86,25 @@ for (const file of sourceFiles) {
       file,
       'legacy raw react-native Text import in a feature file; prefer src/ui Typography for on-canvas copy when editing this file',
     );
+    const featureName = featureNameFor(relativeFile);
+    if (featureName) {
+      rawTextWarningsByFeature.set(featureName, (rawTextWarningsByFeature.get(featureName) ?? 0) + 1);
+    }
   }
 }
 
 if (warnings.length > 0) {
   console.log('Architecture warnings:');
   for (const warning of warnings) console.log(`- ${warning}`);
+  if (rawTextWarningsByFeature.size > 0) {
+    console.log('Raw Text warnings by feature:');
+    for (const [featureName, count] of [...rawTextWarningsByFeature.entries()].sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    })) {
+      console.log(`- ${featureName}: ${count}`);
+    }
+  }
 }
 
 if (errors.length > 0) {
