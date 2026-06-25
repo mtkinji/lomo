@@ -43,6 +43,7 @@ Helps users like Marcus and Maya turn the few commitments that matter into concr
 - `ActivitiesScreen.tsx` - primary activity inventory and view surface.
 - `ActivityCoachDrawer.tsx`, `QuickAddDock.tsx`, and `QuickAddSheets.tsx` - low-friction capture and creation.
 - `ActivityDetailScreen.tsx` and related detail fields - inspect and refine a concrete action.
+- `activityScheduleSlots.ts` - pure manual schedule-slot validation for the Activity detail schedule sheet.
 - `KanbanBoard.tsx`, `InlineViewCreator.tsx`, and view templates - alternate ways to organize activity without changing the underlying job.
 - `activitySearchAlgorithm.ts` - local findability for captured work.
 
