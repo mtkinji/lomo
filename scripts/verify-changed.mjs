@@ -107,6 +107,7 @@ if (relatedTestCandidates.length > 0 && relatedTestCandidates.length <= 20) {
 
 if (matches(/^supabase\/functions\/.*\.ts$/)) {
   add('npm run lint:supabase-functions', 'typecheck Supabase Edge Functions with the Deno gate');
+  add('npm run test:supabase-functions', 'run Deno unit tests for extracted Supabase function helpers');
 }
 
 if (matches(/^(docs\/jtbd\/|docs\/personas\/|docs\/job-flows\/|docs\/feature-briefs\/|src\/features\/[^/]+\/FEATURE\.md)/)) {

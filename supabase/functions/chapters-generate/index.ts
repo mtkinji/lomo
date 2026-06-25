@@ -18,6 +18,15 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { DateTime } from 'npm:luxon@3.5.0';
 import { getSupabaseAdmin, json, requireUserId } from '../_shared/calendarUtils.ts';
+import {
+  isWeeklyChapterDeliveryDay,
+  lastCompletePeriod,
+  nthCompletePeriod,
+  parseManualRange,
+  validZoneOrUtc,
+  type ChapterCadence as Cadence,
+  type ChapterPeriod as Period,
+} from './chapterPeriods.ts';
 import { buildChapterDigestEmail } from '../_shared/emailTemplates.ts';
 import { buildUnsubscribeHeaders } from '../_shared/emailUnsubscribe.ts';
 import { sendEmailViaResend } from '../_shared/emailSend.ts';
@@ -40,7 +49,6 @@ import type {
   HealthDailyRow,
 } from '../_shared/chapterHealth.ts';
 
-type Cadence = 'weekly' | 'monthly' | 'yearly' | 'manual';
 type TemplateKind = 'reflection' | 'report';
 
 type FilterOperator = 'eq' | 'neq' | 'contains' | 'gt' | 'lt' | 'gte' | 'lte' | 'exists' | 'nexists' | 'in';
@@ -123,28 +131,6 @@ type TemplateRow = {
   enabled: boolean;
 };
 
-type Period = { start: DateTime; end: DateTime; key: string };
-
-function weeklyChapterDeliveryWeekday(filterJson: unknown): number {
-  const source =
-    filterJson && typeof filterJson === 'object' && !Array.isArray(filterJson)
-      ? (filterJson as Record<string, unknown>)
-      : {};
-  const weeklyChapter =
-    source.weeklyChapter && typeof source.weeklyChapter === 'object'
-      ? (source.weeklyChapter as Record<string, unknown>)
-      : {};
-  const raw = weeklyChapter.deliveryWeekday;
-  const value = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
-  return Number.isInteger(value) && value >= 1 && value <= 7 ? value : 1;
-}
-
-function isWeeklyChapterDeliveryDay(template: TemplateRow, now = DateTime.now()): boolean {
-  if (template.cadence !== 'weekly') return true;
-  const tz = validZoneOrUtc(template.timezone);
-  return now.setZone(tz).weekday === weeklyChapterDeliveryWeekday(template.filter_json);
-}
-
 function safeJson<T>(v: unknown, fallback: T): T {
   try {
     if (v === null || v === undefined) return fallback;
@@ -173,116 +159,6 @@ function clampInt(v: unknown, fallback: number, min: number, max: number): numbe
 function clampText(raw: unknown, maxLen: number): string {
   const s = typeof raw === 'string' ? raw : raw == null ? '' : String(raw);
   return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
-}
-
-function validZoneOrUtc(zoneRaw: unknown): string {
-  const z = typeof zoneRaw === 'string' ? zoneRaw.trim() : '';
-  if (!z) return 'UTC';
-  const dt = DateTime.now().setZone(z);
-  return dt.isValid ? z : 'UTC';
-}
-
-function lastCompletePeriod(params: { cadence: Cadence; timezone: string; now?: DateTime }): Period | null {
-  const tz = validZoneOrUtc(params.timezone);
-  const now = (params.now ?? DateTime.now()).setZone(tz);
-
-  if (params.cadence === 'manual') {
-    return null;
-  }
-
-  if (params.cadence === 'weekly') {
-    // ISO week: Monday (1) .. Sunday (7)
-    const currentWeekStart = DateTime.fromObject(
-      { weekYear: now.weekYear, weekNumber: now.weekNumber, weekday: 1, hour: 0, minute: 0, second: 0, millisecond: 0 },
-      { zone: tz }
-    );
-    const start = currentWeekStart.minus({ weeks: 1 });
-    const end = currentWeekStart;
-    const key = `${start.weekYear}-W${String(start.weekNumber).padStart(2, '0')}`;
-    return { start, end, key };
-  }
-
-  if (params.cadence === 'monthly') {
-    const currentMonthStart = now.startOf('month');
-    const start = currentMonthStart.minus({ months: 1 });
-    const end = currentMonthStart;
-    const key = `${start.year}-${String(start.month).padStart(2, '0')}`;
-    return { start, end, key };
-  }
-
-  if (params.cadence === 'yearly') {
-    const currentYearStart = now.startOf('year');
-    const start = currentYearStart.minus({ years: 1 });
-    const end = currentYearStart;
-    const key = `${start.year}`;
-    return { start, end, key };
-  }
-
-  return null;
-}
-
-function nthCompletePeriod(params: { cadence: Cadence; timezone: string; offset: number; now?: DateTime }): Period | null {
-  const off = Math.max(0, Math.floor(params.offset ?? 0));
-  const tz = validZoneOrUtc(params.timezone);
-  const now = (params.now ?? DateTime.now()).setZone(tz);
-
-  if (params.cadence === 'manual') {
-    return null;
-  }
-
-  if (params.cadence === 'weekly') {
-    const currentWeekStart = DateTime.fromObject(
-      { weekYear: now.weekYear, weekNumber: now.weekNumber, weekday: 1, hour: 0, minute: 0, second: 0, millisecond: 0 },
-      { zone: tz }
-    );
-    const end = currentWeekStart.minus({ weeks: off });
-    const start = currentWeekStart.minus({ weeks: off + 1 });
-    const key = `${start.weekYear}-W${String(start.weekNumber).padStart(2, '0')}`;
-    return { start, end, key };
-  }
-
-  if (params.cadence === 'monthly') {
-    const currentMonthStart = now.startOf('month');
-    const end = currentMonthStart.minus({ months: off });
-    const start = currentMonthStart.minus({ months: off + 1 });
-    const key = `${start.year}-${String(start.month).padStart(2, '0')}`;
-    return { start, end, key };
-  }
-
-  if (params.cadence === 'yearly') {
-    const currentYearStart = now.startOf('year');
-    const end = currentYearStart.minus({ years: off });
-    const start = currentYearStart.minus({ years: off + 1 });
-    const key = `${start.year}`;
-    return { start, end, key };
-  }
-
-  return null;
-}
-
-function parseManualRange(params: {
-  timezone: string;
-  startDate: string; // YYYY-MM-DD (or any ISO date)
-  endDate: string; // YYYY-MM-DD (exclusive end)
-}): Period | null {
-  const tz = validZoneOrUtc(params.timezone);
-  const startRaw = DateTime.fromISO(params.startDate, { zone: tz });
-  const endRaw = DateTime.fromISO(params.endDate, { zone: tz });
-  if (!startRaw.isValid || !endRaw.isValid) return null;
-  const start = startRaw.startOf('day');
-  const end = endRaw.startOf('day');
-  if (end <= start) return null;
-
-  // Allow selecting "through today" by using end=tomorrow (exclusive).
-  const now = DateTime.now().setZone(tz);
-  const latestAllowedEnd = now.startOf('day').plus({ days: 1 });
-  if (end > latestAllowedEnd.plus({ minutes: 5 })) return null;
-
-  const days = Math.ceil(end.diff(start, 'days').days);
-  if (!Number.isFinite(days) || days <= 0 || days > 365) return null;
-
-  const key = `${start.toFormat('yyyyLLdd')}_${end.toFormat('yyyyLLdd')}`;
-  return { start, end, key };
 }
 
 function pickActivityTimeIso(a: Activity): string | null {

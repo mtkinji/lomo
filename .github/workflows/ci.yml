@@ -44,6 +44,9 @@ jobs:
       - name: Supabase function typecheck
         run: npm run lint:supabase-functions
 
+      - name: Supabase function tests
+        run: npm run test:supabase-functions
+
       - name: Product taxonomy lint
         run: npm run product:lint
 
