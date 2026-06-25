@@ -39,7 +39,7 @@ type DraggableRowProps<T extends { id: string }> = {
   scrollY: SharedValue<number>;
   containerHeight: SharedValue<number>;
   containerTop: SharedValue<number>;
-  renderContent: (item: T, isDragging: boolean) => React.ReactNode;
+  renderContent: (item: T, isDragging: boolean, index: number) => React.ReactNode;
 };
 
 function DraggableRow<T extends { id: string }>({
@@ -298,7 +298,7 @@ function DraggableRow<T extends { id: string }>({
   return (
     <Animated.View style={animatedStyle} onLayout={handleLayout}>
       <GestureDetector gesture={gesture}>
-        <View>{renderContent(item, isDragging)}</View>
+        <View>{renderContent(item, isDragging, index)}</View>
       </GestureDetector>
     </Animated.View>
   );
@@ -307,7 +307,7 @@ function DraggableRow<T extends { id: string }>({
 export type DraggableListProps<T extends { id: string }> = {
   items: T[];
   onOrderChange: (orderedIds: string[]) => void;
-  renderItem: (item: T, isDragging: boolean) => React.ReactNode;
+  renderItem: (item: T, isDragging: boolean, index: number) => React.ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   extraBottomPadding?: number;
   ListHeaderComponent?: React.ReactNode;
@@ -316,6 +316,9 @@ export type DraggableListProps<T extends { id: string }> = {
   style?: StyleProp<ViewStyle>;
   onLayout?: (event: any) => void;
   onContentSizeChange?: (width: number, height: number) => void;
+  onScrollBeginDrag?: () => void;
+  onScrollEndDrag?: (event: any) => void;
+  onMomentumScrollEnd?: (event: any) => void;
   onScrollOffsetChange?: (offsetY: number) => void;
 };
 
@@ -331,6 +334,9 @@ export function DraggableList<T extends { id: string }>({
   style,
   onLayout,
   onContentSizeChange,
+  onScrollBeginDrag,
+  onScrollEndDrag,
+  onMomentumScrollEnd,
   onScrollOffsetChange,
 }: DraggableListProps<T>) {
   const triggerDragHaptic = React.useCallback(() => {
@@ -416,6 +422,9 @@ export function DraggableList<T extends { id: string }>({
     <Animated.ScrollView
       ref={scrollRef}
       onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      onMomentumScrollEnd={onMomentumScrollEnd}
       scrollEventThrottle={16}
       style={[{ flex: 1 }, style]}
       contentContainerStyle={contentContainerStyle}

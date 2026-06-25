@@ -55,6 +55,7 @@ export function ActivityCoachDrawer({
   const { capture } = useAnalytics();
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const updateActivity = useAppStore((state) => state.updateActivity);
+  const activityAreas = useAppStore((state) => state.activityAreas);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = React.useState(false);
@@ -70,6 +71,7 @@ export function ActivityCoachDrawer({
     repeatRule: undefined,
     estimateMinutes: null,
     difficulty: undefined,
+    areaId: null,
   });
 
   const workspaceSnapshot = React.useMemo(
@@ -120,6 +122,7 @@ export function ActivityCoachDrawer({
         repeatRule: undefined,
         estimateMinutes: null,
         difficulty: undefined,
+        areaId: null,
       });
     }
   }, [visible]);
@@ -158,6 +161,7 @@ export function ActivityCoachDrawer({
       planGroupId: null,
       scheduledDate: manualDraft.scheduledDate ?? null,
       repeatRule: manualDraft.repeatRule,
+      areaId: manualDraft.areaId ?? null,
       orderIndex: (activities.length || 0) + 1,
       phase: null,
       status: 'planned',
@@ -186,6 +190,7 @@ export function ActivityCoachDrawer({
     addActivity,
     capture,
     manualDraft.difficulty,
+    manualDraft.areaId,
     manualDraft.estimateMinutes,
     manualDraft.notes,
     manualDraft.reminderAt,
@@ -455,6 +460,7 @@ export function ActivityCoachDrawer({
               <ActivityDraftDetailFields
                 draft={manualDraft}
                 onChange={(updater) => setManualDraft((prev) => updater(prev))}
+                areas={activityAreas}
               />
               <Button
                 style={{ marginTop: spacing.xs }}

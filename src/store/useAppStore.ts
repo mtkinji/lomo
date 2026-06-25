@@ -11,6 +11,7 @@ import { roundDownToIntervalTimeHHmm } from '../services/notifications/timeRound
 import Constants from 'expo-constants';
 import {
   Activity,
+  ActivityArea,
   ActivityPriorityState,
   ActivityType,
   ActivityView,
@@ -22,6 +23,11 @@ import {
   GoalDraft,
   UserProfile,
 } from '../domain/types';
+import {
+  createActivityAreaId,
+  DEFAULT_ACTIVITY_AREAS,
+  normalizeActivityAreas,
+} from '../domain/activityAreas';
 import { getArcHeroUriById } from '../domain/curatedHeroLibrary';
 import { normalizeActivity } from '../domain/normalizeActivity';
 import { inferPriorityMetadataForActivity } from '../features/activities/activityPriority';
@@ -679,6 +685,16 @@ interface AppState {
     globalMinSpacingMs: number;
     defaultCooldownMs: number;
   };
+  /**
+   * User-managed life areas for Activities, such as Work, Personal, Family,
+   * Home, or Health. Areas are optional on Activities and help scheduling.
+   */
+  activityAreas: ActivityArea[];
+  setActivityAreas: (updater: ActivityArea[] | ((current: ActivityArea[]) => ActivityArea[])) => void;
+  addActivityArea: (label: string) => void;
+  renameActivityArea: (areaId: string, label: string) => void;
+  reorderActivityAreas: (orderedAreaIds: string[]) => void;
+  archiveActivityArea: (areaId: string, archivedAtIso?: string) => void;
   /**
    * Apple Health integration settings for Chapter evidence (Phase 4-native).
    */
@@ -1469,8 +1485,9 @@ const initialActivityViews: ActivityView[] = [
     id: 'default',
     name: '🗂️ All to-dos',
     filterMode: 'all',
-    sortMode: 'manual',
+    sortMode: 'priority',
     showCompleted: true,
+    showRecommended: true,
     isSystem: true,
   },
   {
@@ -1558,6 +1575,17 @@ export function mergeActivityViewsWithSystemDefaults(
       ),
     );
 
+    const isUntouchedLegacyDefault =
+      seed.id === 'default' &&
+      persisted.sortMode === 'manual' &&
+      !Array.isArray(persisted.sorts) &&
+      !Array.isArray(persisted.filters) &&
+      (persisted.showCompleted === true || persisted.showCompleted === undefined);
+    if (isUntouchedLegacyDefault) {
+      delete overrides.sortMode;
+      delete overrides.showRecommended;
+    }
+
     return {
       ...seed,
       ...overrides,
@@ -1614,6 +1642,7 @@ export const useAppStore = create<AppState>()(
         globalMinSpacingMs: 6 * 60 * 60 * 1000,
         defaultCooldownMs: 2 * 60 * 60 * 1000,
       },
+      activityAreas: DEFAULT_ACTIVITY_AREAS,
       healthPreferences: {
         enabled: false,
         osPermissionStatus: 'notRequested',
@@ -2059,7 +2088,17 @@ export const useAppStore = create<AppState>()(
               const newIndex = orderMap.get(activity.id);
               if (newIndex === undefined) return activity;
               if (activity.orderIndex === newIndex) return activity;
-              return { ...activity, orderIndex: newIndex, updatedAt: atIso };
+              const priorityReasonCodes = [...(activity.priorityReasonCodes ?? [])];
+              if (!priorityReasonCodes.includes('moved_by_user')) {
+                priorityReasonCodes.push('moved_by_user');
+              }
+              return {
+                ...activity,
+                orderIndex: newIndex,
+                priorityRankSource: 'manual',
+                priorityReasonCodes,
+                updatedAt: atIso,
+              };
             }),
           };
         }),
@@ -2573,6 +2612,63 @@ export const useAppStore = create<AppState>()(
               : updater;
           return { locationOfferPreferences: next };
         }),
+      setActivityAreas: (updater) =>
+        set((state) => {
+          const current = normalizeActivityAreas(state.activityAreas);
+          const next = typeof updater === 'function' ? updater(current) : updater;
+          return { activityAreas: normalizeActivityAreas(next) };
+        }),
+      addActivityArea: (label) =>
+        set((state) => {
+          const current = normalizeActivityAreas(state.activityAreas);
+          const cleanLabel = label.trim();
+          if (!cleanLabel) return { activityAreas: current };
+          const exists = current.some((area) => area.label.toLowerCase() === cleanLabel.toLowerCase());
+          if (exists) return { activityAreas: current };
+          return {
+            activityAreas: normalizeActivityAreas([
+              ...current,
+              {
+                id: createActivityAreaId(cleanLabel, current),
+                label: cleanLabel,
+                order: current.length,
+                scheduling: { enabled: true, fallbackMode: 'personal' },
+              },
+            ]),
+          };
+        }),
+      renameActivityArea: (areaId, label) =>
+        set((state) => {
+          const cleanLabel = label.trim();
+          if (!cleanLabel) return { activityAreas: normalizeActivityAreas(state.activityAreas) };
+          return {
+            activityAreas: normalizeActivityAreas(
+              state.activityAreas.map((area) => (area.id === areaId ? { ...area, label: cleanLabel } : area)),
+            ),
+          };
+        }),
+      reorderActivityAreas: (orderedAreaIds) =>
+        set((state) => {
+          const orderById = new Map(orderedAreaIds.map((id, index) => [id, index]));
+          return {
+            activityAreas: normalizeActivityAreas(
+              state.activityAreas.map((area) => ({
+                ...area,
+                order: orderById.get(area.id) ?? area.order,
+              })),
+            ),
+          };
+        }),
+      archiveActivityArea: (areaId, archivedAtIso) =>
+        set((state) => ({
+          activityAreas: normalizeActivityAreas(
+            state.activityAreas.map((area) =>
+              area.id === areaId
+                ? { ...area, archivedAt: archivedAtIso ?? new Date().toISOString() }
+                : area,
+            ),
+          ),
+        })),
       setHealthPreferences: (updater) =>
         set((state) => {
           const next =
@@ -3642,6 +3738,8 @@ export const useAppStore = create<AppState>()(
           }
           (state as any).locationOfferPreferences = locationPrefs;
         }
+
+        state.activityAreas = normalizeActivityAreas((state as any).activityAreas);
 
         // Backward-compatible: older persisted stores won't have focus completion timestamp.
         if (

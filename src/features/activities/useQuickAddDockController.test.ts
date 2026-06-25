@@ -11,6 +11,7 @@ const baseActivity = (overrides: Partial<Activity> = {}): Activity =>
   ({
     id: 'activity-1',
     goalId: null,
+    areaId: null,
     title: 'Draft the launch email',
     type: 'task',
     tags: [],
@@ -41,6 +42,7 @@ const enrichment = {
   notes: 'Clarify the promise and send a concise draft.',
   tags: ['launch', 'email'],
   goalId: 'goal-2',
+  areaId: 'area-work',
   type: 'checklist',
   reminderAt: '2026-05-14T16:00:00.000Z',
   scheduledDate: '2026-05-15',
@@ -76,6 +78,7 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.notes).toBeUndefined();
     expect(result.tags).toEqual([]);
     expect(result.goalId).toBeNull();
+    expect(result.areaId).toBeNull();
     expect(result.type).toBe('task');
     expect(result.estimateMinutes).toBeNull();
     expect(result.priority).toBeUndefined();
@@ -92,6 +95,7 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.notes).toBe('Clarify the promise and send a concise draft.');
     expect(result.tags).toEqual(['launch', 'email']);
     expect(result.goalId).toBe('goal-2');
+    expect(result.areaId).toBe('area-work');
     expect(result.type).toBe('checklist');
     expect(result.estimateMinutes).toBe(30);
     expect(result.difficulty).toBe('medium');
@@ -117,6 +121,7 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.aiPlanning).toBeUndefined();
     expect(result.notes).toBeUndefined();
     expect(result.tags).toEqual([]);
+    expect(result.areaId).toBeNull();
     expect(result.steps).toEqual([]);
   });
 
@@ -190,6 +195,7 @@ describe('applyQuickAddAiEnrichment', () => {
         tags: ['existing'],
         steps: [{ id: 'manual-step', title: 'Manual step', orderIndex: 0, completedAt: null }],
         goalId: 'goal-existing',
+        areaId: 'area-personal',
         type: 'instructions',
         estimateMinutes: 45,
         priority: 1,
@@ -212,6 +218,7 @@ describe('applyQuickAddAiEnrichment', () => {
       { id: 'manual-step', title: 'Manual step', orderIndex: 0, completedAt: null },
     ]);
     expect(result.goalId).toBe('goal-existing');
+    expect(result.areaId).toBe('area-personal');
     expect(result.type).toBe('instructions');
     expect(result.estimateMinutes).toBe(45);
     expect(result.priority).toBe(1);

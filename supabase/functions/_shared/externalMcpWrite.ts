@@ -35,6 +35,16 @@ function asStringArray(value: unknown): string[] | undefined {
   return Array.from(new Set(value.map(asString).filter((item): item is string => !!item)));
 }
 
+function asOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  return undefined;
+}
+
+function asOptionalNumber(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return value;
+}
+
 function asPriority(value: unknown): 1 | 2 | 3 | undefined {
   const numberValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
   return numberValue === 1 || numberValue === 2 || numberValue === 3 ? numberValue : undefined;
@@ -63,6 +73,45 @@ function mergeDefined(base: Record<string, JsonValue>, patch: Record<string, Jso
 
 function dataFromRow(row: unknown): Record<string, JsonValue> {
   return asRecord(asRecord(row).data) as Record<string, JsonValue>;
+}
+
+function normalizeActivityStepsForExternalWrite(value: unknown, activityId: string): JsonObject[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const steps: JsonObject[] = [];
+  const seenIds = new Set<string>();
+
+  value.forEach((raw, index) => {
+    const step = asRecord(raw);
+    const title = asString(step.title);
+    if (!title) return;
+
+    const providedId = asString(step.id);
+    const fallbackId = `step-${activityId}-${index}`;
+    const id = providedId && !seenIds.has(providedId) ? providedId : fallbackId;
+    seenIds.add(id);
+    const completedAt =
+      'completed_at' in step
+        ? asNullableString(step.completed_at)
+        : 'completedAt' in step
+          ? asNullableString(step.completedAt)
+          : undefined;
+
+    const normalized = mergeDefined(
+      {
+        id,
+        title,
+        orderIndex: index,
+      },
+      {
+        completedAt,
+        isOptional: asOptionalBoolean(step.is_optional) ?? asOptionalBoolean(step.isOptional),
+        orderIndex: asOptionalNumber(step.order_index) ?? asOptionalNumber(step.orderIndex),
+      },
+    );
+    steps.push(normalized);
+  });
+
+  return steps;
 }
 
 async function getDomainRow(admin: any, table: DomainTable, userId: string, id: string): Promise<any | null> {
@@ -280,6 +329,7 @@ export async function createActivityForUser(admin: any, userId: string, raw: unk
       priority: asPriority(args.priority),
       scheduledDate: asNullableString(args.scheduled_date),
       completedAt: status === 'done' ? timestamp : undefined,
+      steps: normalizeActivityStepsForExternalWrite(args.steps, id),
     },
   );
   await upsertDomainObject(admin, 'kwilt_activities', userId, id, data);
@@ -313,6 +363,7 @@ export async function updateActivityForUser(admin: any, userId: string, raw: unk
     priority: asPriority(args.priority),
     scheduledDate: asNullableString(args.scheduled_date),
     completedAt: status === 'done' ? (asString(args.completed_at) ?? timestamp) : status && status !== 'done' ? null : undefined,
+    steps: normalizeActivityStepsForExternalWrite(args.steps, id) as JsonValue | undefined,
     updatedAt: timestamp,
   });
   await upsertDomainObject(admin, 'kwilt_activities', userId, id, data);

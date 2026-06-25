@@ -62,6 +62,12 @@ Origin is recorded in `kwilt_external_capture_log`, not stamped onto the object.
 Schemas live in `_shared/externalMcp.ts` and write helpers live in
 `_shared/externalMcpWrite.ts`.
 
+`capture_activity` and `update_activity` support Activity steps via a `steps`
+array. Each step accepts `title` plus optional `id`, `completed_at`,
+`is_optional`, and `order_index`. On update, `steps` replaces the full checklist
+only when provided; omitting `steps` preserves the existing checklist, and
+passing `steps: []` clears it.
+
 ## Storage
 
 State lives in tables created by

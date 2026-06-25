@@ -1,20 +1,14 @@
 import type { Activity } from '../domain/types';
-import { formatMinutes } from './formatMinutes';
 
 export type ActivityMetaLeadingIconName = 'today' | 'bell' | 'paperclip';
-
-function formatActivityRepeatRule(rule: Activity['repeatRule'] | undefined): string | null {
-  if (!rule) return null;
-  return rule === 'weekdays' ? 'Weekdays' : rule.charAt(0).toUpperCase() + rule.slice(1);
-}
+export type ActivityMetaTone = 'urgent' | 'today' | 'tomorrow' | 'future';
 
 /**
  * Checks if the given ISO date string is today (local timezone).
  */
-export function isDateToday(iso: string | null | undefined): boolean {
+export function isDateToday(iso: string | null | undefined, now = new Date()): boolean {
   if (!iso) return false;
-  const date = new Date(iso);
-  const now = new Date();
+  const date = parseActivityCalendarDate(iso);
   return (
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
@@ -22,34 +16,83 @@ export function isDateToday(iso: string | null | undefined): boolean {
   );
 }
 
-function formatActivityDueDateLabel(iso: string): string {
-  const date = new Date(iso);
+function parseActivityCalendarDate(value: string): Date {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+  return new Date(value);
+}
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function daysBetweenLocalDates(date: Date, now: Date): number {
+  const targetStart = startOfLocalDay(date).getTime();
+  const nowStart = startOfLocalDay(now).getTime();
+  return Math.round((targetStart - nowStart) / 86_400_000);
+}
+
+function formatShortDate(date: Date): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function formatActivityReminderLabel(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
+function getDecisionDay(date: Date, now: Date): { label: string; tone: ActivityMetaTone } {
+  const days = daysBetweenLocalDates(date, now);
+  if (days < 0) return { label: 'Past due', tone: 'urgent' };
+  if (days === 0) return { label: 'Today', tone: 'today' };
+  if (days === 1) return { label: 'Tomorrow', tone: 'tomorrow' };
+  return { label: formatShortDate(date), tone: 'future' };
+}
 
-  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  if (sameDay) return time;
+function formatActivityTimingLabel(activity: Activity, now: Date): { labels: string[]; tone?: ActivityMetaTone } {
+  const scheduledDate = activity.scheduledDate ? parseActivityCalendarDate(activity.scheduledDate) : null;
+  const reminderDate = activity.reminderAt ? new Date(activity.reminderAt) : null;
+  const timingParts: string[] = [];
+  let tone: ActivityMetaTone | undefined;
 
-  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  return `${day} ${time}`;
+  if (scheduledDate) {
+    const due = getDecisionDay(scheduledDate, now);
+    tone = due.tone;
+    timingParts.push(due.label);
+  }
+
+  if (reminderDate && !scheduledDate) {
+    const reminder = getDecisionDay(reminderDate, now);
+    tone = tone ?? reminder.tone;
+    timingParts.push(reminder.label);
+  }
+
+  return { labels: timingParts, tone };
+}
+
+function formatCompactEstimate(minutes: number): string {
+  const roundedMinutes = Math.round(minutes);
+  if (roundedMinutes < 60) return `~${roundedMinutes} min`;
+  if (roundedMinutes <= 120 && roundedMinutes !== 60) return `~${roundedMinutes} min`;
+
+  const hours = roundedMinutes / 60;
+  const compactHours = Number.isInteger(hours) ? String(hours) : Number(hours.toFixed(2)).toString();
+  return `~${compactHours} hr`;
 }
 
 export function buildActivityListMeta(args: {
   activity: Activity;
   /**
+   * Current time for relative timing labels. Defaults to now; injectable for tests.
+   */
+  now?: Date;
+  /**
    * Optional contextual label (e.g. parent goal title) to match the Activities list metadata row.
+   * Ignored by the decision-row metadata; kept for call-site compatibility.
    */
   goalTitle?: string;
 }): {
   meta?: string;
+  metaTone?: ActivityMetaTone;
+  estimateMeta?: string;
   /**
    * Legacy single-leading-icon support (kept for backward compatibility).
    */
@@ -64,58 +107,25 @@ export function buildActivityListMeta(args: {
    */
   isDueToday?: boolean;
 } {
-  const { activity, goalTitle } = args;
+  const { activity, now = new Date() } = args;
 
-  const parts: string[] = [];
-
-  // Scheduling / effort metadata (these are what quick-add sets today).
-  if (activity.scheduledDate) {
-    parts.push(formatActivityDueDateLabel(activity.scheduledDate));
-  }
-  if (activity.reminderAt) {
-    parts.push(formatActivityReminderLabel(activity.reminderAt));
-  }
-  if (activity.estimateMinutes != null) {
-    parts.push(formatMinutes(activity.estimateMinutes));
-  }
-  const repeatLabel = formatActivityRepeatRule(activity.repeatRule);
-  if (repeatLabel) {
-    parts.push(repeatLabel);
-  }
-
-  // Contextual metadata.
-  if (activity.phase) {
-    parts.push(activity.phase);
-  }
-  if (goalTitle) {
-    parts.push(goalTitle);
-  }
-
-  const meta = parts.length > 0 ? parts.join(' · ') : undefined;
-  const metaLeadingIconNames: ActivityMetaLeadingIconName[] = [];
-  const scheduleIcon: ActivityMetaLeadingIconName | null = activity.scheduledDate
-    ? 'today'
-    : activity.reminderAt
-      ? 'bell'
-      : null;
-  if (scheduleIcon) metaLeadingIconNames.push(scheduleIcon);
-
-  const attachments = (activity as any).attachments;
-  const hasAttachments = Array.isArray(attachments) && attachments.length > 0;
-  if (hasAttachments) metaLeadingIconNames.push('paperclip');
-
-  const metaLeadingIconName: ActivityMetaLeadingIconName | undefined =
-    metaLeadingIconNames.length > 0 ? metaLeadingIconNames[0] : undefined;
+  const timing = formatActivityTimingLabel(activity, now);
+  const meta = timing.labels.length > 0 ? timing.labels.join(' · ') : undefined;
+  const estimateMeta =
+    typeof activity.estimateMinutes === 'number' && Number.isFinite(activity.estimateMinutes) && activity.estimateMinutes > 0
+      ? formatCompactEstimate(activity.estimateMinutes)
+      : undefined;
 
   // Check if the scheduled due date is today
-  const isDueToday = isDateToday(activity.scheduledDate);
+  const scheduledDate = activity.scheduledDate ? parseActivityCalendarDate(activity.scheduledDate) : null;
+  const isDueToday = scheduledDate ? daysBetweenLocalDates(scheduledDate, now) <= 0 : false;
 
   return {
     meta,
-    metaLeadingIconName,
-    metaLeadingIconNames: metaLeadingIconNames.length > 0 ? metaLeadingIconNames : undefined,
+    metaTone: meta ? timing.tone : undefined,
+    estimateMeta,
+    metaLeadingIconName: undefined,
+    metaLeadingIconNames: undefined,
     isDueToday: isDueToday || undefined,
   };
 }
-
-

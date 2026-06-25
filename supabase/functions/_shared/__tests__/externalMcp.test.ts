@@ -69,6 +69,18 @@ describe('externalMcp helpers', () => {
         expect(tool.annotations.destructiveHint).toBe(tool.name.startsWith('delete_'));
       }
     });
+
+    test('advertises steps on activity create and update tools', () => {
+      const capture = EXTERNAL_MCP_WRITE_TOOLS.find((tool) => tool.name === 'capture_activity');
+      const update = EXTERNAL_MCP_WRITE_TOOLS.find((tool) => tool.name === 'update_activity');
+
+      expect((capture?.inputSchema as any).properties.steps).toMatchObject({
+        type: 'array',
+      });
+      expect((update?.inputSchema as any).properties.steps).toMatchObject({
+        type: 'array',
+      });
+    });
   });
 
   describe('normalizeListRecentActivitiesArgs', () => {
@@ -189,6 +201,36 @@ describe('externalMcp helpers', () => {
       expect(rich.notes).toBe('private');
       expect(rich.tags).toEqual(['private']);
       expect(rich.force_actual).toEqual({ focus: 'low' });
+    });
+
+    test('summarizeActivity includes steps only in rich mode', () => {
+      const activity = {
+        id: 'activity-1',
+        title: 'Improve to-do organization',
+        steps: [
+          {
+            id: 'step-1',
+            title: 'Write the brief',
+            completedAt: '2026-06-23T12:00:00.000Z',
+            isOptional: true,
+            orderIndex: 2,
+          },
+          { id: 'step-empty', title: '   ' },
+        ],
+      };
+
+      expect(summarizeActivity(activity, { includeRich: false })).not.toHaveProperty('steps');
+      expect(summarizeActivity(activity, { includeRich: true })).toMatchObject({
+        steps: [
+          {
+            id: 'step-1',
+            title: 'Write the brief',
+            completed_at: '2026-06-23T12:00:00.000Z',
+            is_optional: true,
+            order_index: 2,
+          },
+        ],
+      });
     });
 
     test('summarizeChapter exposes only narrative/title metadata', () => {

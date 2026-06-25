@@ -6,6 +6,7 @@ import {
   getActivityPriorityState,
   getRecommendedPriorityActivities,
   rankActivitiesBySmartOrder,
+  sortActivitiesByPriorityRanking,
 } from './activityPriority';
 
 const NOW = new Date('2026-06-22T12:00:00.000Z');
@@ -161,6 +162,40 @@ describe('activity priority model', () => {
     expect(ranked[1]?.reasonCodes).toContain('context_location');
   });
 
+  it('lets manual reorder beat ordinary model inference while preserving hard urgency', () => {
+    const ranked = rankActivitiesBySmartOrder({
+      activities: [
+        activity({
+          id: 'moved-by-user',
+          title: 'Maya knows this is the next action',
+          priorityRankSource: 'manual',
+          priorityReasonCodes: ['moved_by_user'],
+          priorityRankKey: 'a',
+          orderIndex: 0,
+        }),
+        activity({
+          id: 'goal-priority',
+          title: 'Important but not what Maya can do now',
+          goalId: 'goal-important',
+          priorityRankKey: 'b',
+          orderIndex: 1,
+        }),
+        activity({
+          id: 'due-today',
+          title: 'Send school form',
+          scheduledDate: '2026-06-22',
+          priorityRankKey: 'z',
+          orderIndex: 2,
+        }),
+      ],
+      goals: [goal({ id: 'goal-important', priority: 1 })],
+      now: NOW,
+    });
+
+    expect(ranked.map((row) => row.activity.id)).toEqual(['due-today', 'moved-by-user', 'goal-priority']);
+    expect(ranked[1]?.reasonCodes).toContain('moved_by_user');
+  });
+
   it('lets current surface evidence affect ranking when available', () => {
     const ranked = rankActivitiesBySmartOrder({
       activities: [
@@ -233,6 +268,29 @@ describe('activity priority model', () => {
     });
 
     expect(recommendations).toHaveLength(3);
+  });
+
+  it('can sort the full active list by the same priority ranking used by Recommended', () => {
+    const activities = [
+      activity({ id: 'manual-low', priorityRankKey: 'a', orderIndex: 0 }),
+      activity({ id: 'due-today', scheduledDate: '2026-06-22', priority: 3, priorityRankKey: 'z', orderIndex: 1 }),
+      activity({ id: 'goal-priority', goalId: 'goal-important', priorityRankKey: 'b', orderIndex: 2 }),
+      activity({ id: 'later', priority: 1, priorityState: 'later', priorityRankKey: '0', orderIndex: 3 }),
+    ];
+
+    const sorted = sortActivitiesByPriorityRanking({
+      activities,
+      goals: [goal({ id: 'goal-important', priority: 1 })],
+      now: NOW,
+    });
+    const recommended = getRecommendedPriorityActivities({
+      activities,
+      goals: [goal({ id: 'goal-important', priority: 1 })],
+      now: NOW,
+    });
+
+    expect(sorted.map((row) => row.id)).toEqual(['due-today', 'goal-priority', 'manual-low', 'later']);
+    expect(recommended.map((row) => row.activity.id)).toEqual(['due-today', 'goal-priority']);
   });
 
   it('returns the highest priority visible reason label', () => {

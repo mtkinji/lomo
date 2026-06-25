@@ -28,7 +28,6 @@ export type CompletedActivitySectionProps = {
 
 export function CompletedActivitySection({
   activities,
-  goalTitleById,
   onToggleComplete,
   onTogglePriority,
   onPressActivity,
@@ -68,8 +67,7 @@ export function CompletedActivitySection({
       {expanded && (
         <VStack space="xs">
           {activities.map((activity, idx) => {
-            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+            const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
             const metaLoading = Boolean(isMetaLoading?.(activity.id)) && !meta;
 
             return (
@@ -80,8 +78,8 @@ export function CompletedActivitySection({
                 <ActivityListItem
                   title={activity.title}
                   meta={meta}
-                  metaLeadingIconName={metaLeadingIconName}
-                  metaLeadingIconNames={metaLeadingIconNames}
+                  estimateMeta={estimateMeta}
+                  metaTone={metaTone}
                   metaLoading={metaLoading}
                   isCompleted={activity.status === 'done'}
                   onToggleComplete={() => onToggleComplete(activity.id)}

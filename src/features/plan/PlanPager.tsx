@@ -30,7 +30,7 @@ import {
   type CalendarProvider,
 } from '../../services/plan/calendarApi';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { getAvailabilityForDate, getWindowsForMode } from '../../services/plan/planAvailability';
+import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea } from '../../services/plan/planAvailability';
 import { proposeDailyPlan, type DailyPlanProposal } from '../../services/plan/planScheduling';
 import { formatDayLabel, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
 import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
@@ -131,6 +131,7 @@ export function PlanPager({
   const goals = useAppStore((s) => s.goals);
   const arcs = useAppStore((s) => s.arcs);
   const userProfile = useAppStore((s) => s.userProfile);
+  const activityAreas = useAppStore((s) => s.activityAreas);
   const updateActivity = useAppStore((s) => s.updateActivity);
   const dailyPlanHistory = useAppStore((s) => s.dailyPlanHistory);
   const addDailyPlanCommitment = useAppStore((s) => s.addDailyPlanCommitment);
@@ -140,6 +141,16 @@ export function PlanPager({
   const dismissActivityForDay = useAppStore((s) => s.dismissActivityForDay);
   const setPlanRecommendationsCount = useAppStore((s) => s.setPlanRecommendationsCount);
   const showToast = useToastStore((s) => s.showToast);
+
+  const getPlanModeForActivity = useCallback(
+    (activity: (typeof activities)[number]) =>
+      resolvePlanModeForArea(
+        activityAreas,
+        activity.areaId ?? null,
+        inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal',
+      ),
+    [activityAreas, goals],
+  );
 
   const dateKey = useMemo(() => toLocalDateKey(targetDate), [targetDate]);
   const dayAvailability = useMemo(() => getAvailabilityForDate(userProfile, targetDate), [userProfile, targetDate]);
@@ -535,6 +546,7 @@ export function PlanPager({
       writeCalendarId: writeRef?.calendarId ?? null,
       maxItems: 4,
       dismissedActivityIds: dismissedForDay,
+      activityAreas,
     });
     setProposals(next.proposals);
     setUnplacedDueActivityIds(next.unplacedDueActivityIds);
@@ -547,6 +559,7 @@ export function PlanPager({
     targetDate,
     busyIntervals,
     writeRef,
+    activityAreas,
     busyIntervalsStatus,
     dateKey,
     dailyActivityResolutions,
@@ -927,7 +940,7 @@ export function PlanPager({
           ? proposalDurationMinutes
           : Math.max(10, activity.estimateMinutes ?? 30);
 
-      const mode = inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal';
+      const mode = getPlanModeForActivity(activity);
       if (!dayAvailability.enabled) return [];
 
       const otherProposalIntervals = proposals
@@ -979,7 +992,7 @@ export function PlanPager({
 
       return finalCandidates.map((d) => d.toISOString());
     },
-    [activities, busyIntervals, dayAvailability, goals, proposals, targetDate],
+    [activities, busyIntervals, dayAvailability, getPlanModeForActivity, proposals, targetDate],
   );
 
   const handleMoveRecommendation = (activityId: string, newStart: Date) => {
@@ -988,7 +1001,7 @@ export function PlanPager({
     if (!proposal || !activity) return;
     const duration = Math.max(10, activity.estimateMinutes ?? 30);
     const newEnd = new Date(newStart.getTime() + duration * 60000);
-    const mode = inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal';
+    const mode = getPlanModeForActivity(activity);
     if (!isWithinWindows(mode, newStart, newEnd)) {
       Alert.alert('Outside availability', 'Pick a time within your availability windows.');
       return;
@@ -1018,7 +1031,7 @@ export function PlanPager({
     const activity = block.activity;
     const duration = Math.max(10, activity.estimateMinutes ?? 30);
     const newEnd = new Date(newStart.getTime() + duration * 60000);
-    const mode = inferSchedulingDomain(activity, goals).toLowerCase().includes('work') ? 'work' : 'personal';
+    const mode = getPlanModeForActivity(activity);
     if (!isWithinWindows(mode, newStart, newEnd)) {
       Alert.alert('Outside availability', 'Pick a time within your availability windows.');
       return;
@@ -1590,4 +1603,3 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-

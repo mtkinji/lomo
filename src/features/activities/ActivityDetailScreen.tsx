@@ -116,7 +116,7 @@ import {
   type CalendarEvent,
   type CalendarRef,
 } from '../../services/plan/calendarApi';
-import { getAvailabilityForDate, getWindowsForMode } from '../../services/plan/planAvailability';
+import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea } from '../../services/plan/planAvailability';
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
 import { clampToNextQuarterHour, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
 import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
@@ -156,6 +156,7 @@ import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
+import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
@@ -235,7 +236,7 @@ export function ActivityDetailScreen() {
   const headerInk = colors.sumi;
   const route = useRoute<ActivityDetailRouteProp>();
   const navigation = useNavigation<ActivityDetailNavigationProp>();
-  const { activityId, openFocus, autoStartFocus, minutes: autoStartMinutes, endFocus } =
+  const { activityId, openFocus, openSchedule, autoStartFocus, minutes: autoStartMinutes, endFocus } =
     route.params as ActivityDetailRouteParams;
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const planExpanded = useAppStore((s) => s.activityDetailPlanExpanded);
@@ -279,6 +280,7 @@ export function ActivityDetailScreen() {
   const arcs = useAppStore((state) => state.arcs);
   const userProfile = useAppStore((state) => state.userProfile);
   const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const activityAreas = useAppStore((state) => state.activityAreas);
   const domainHydrated = useAppStore((state) => state.domainHydrated);
   const breadcrumbsEnabled = __DEV__ && useAppStore((state) => state.devBreadcrumbsEnabled);
   const devHeaderV2Enabled = __DEV__ && useAppStore((state) => state.devObjectDetailHeaderV2Enabled);
@@ -582,23 +584,18 @@ export function ActivityDetailScreen() {
     return goal?.title;
   }, [activity?.goalId, goals]);
 
-  const goalOptions = useMemo(
-    () =>
-      goals
-        .slice()
-        .sort((a, b) => a.title.localeCompare(b.title))
-        .map((g) => ({ value: g.id, label: g.title })),
-    [goals],
-  );
+  const selectableLinkedGoals = useMemo(() => goals.filter(isSelectableLinkedGoal), [goals]);
+
+  const goalOptions = useMemo(() => buildLinkedGoalOptions(goals), [goals]);
 
   const recommendedGoalOption = useMemo(() => {
     // Only recommend when the activity is currently unlinked.
     if (activity?.goalId) return null;
-    if (!goals || goals.length === 0) return null;
+    if (selectableLinkedGoals.length === 0) return null;
     if (!activities || activities.length === 0) return null;
 
     const tagKeys = new Set((activity?.tags ?? []).map((t) => String(t).trim().toLowerCase()).filter(Boolean));
-    const candidates = goals.map((g) => {
+    const candidates = selectableLinkedGoals.map((g) => {
       const related = activities.filter((a) => a.goalId === g.id && a.id !== activity?.id);
       const overlapCount =
         tagKeys.size === 0
@@ -641,7 +638,7 @@ export function ActivityDetailScreen() {
     }
 
     return { value: best.goal.id, label: best.goal.title, recommendedLabel: 'Recommended' };
-  }, [activity?.goalId, activity?.id, activity?.tags, activities, goals]);
+  }, [activity?.goalId, activity?.id, activity?.tags, activities, selectableLinkedGoals]);
 
   const difficultyOptions = useMemo(
     () => [
@@ -1018,6 +1015,7 @@ export function ActivityDetailScreen() {
       targetDate: scheduleTargetDate,
       busyIntervals: scheduleBusyIntervals,
       writeCalendarId: scheduleWriteRef?.calendarId ?? null,
+      activityAreas,
       limit: 6,
     });
   }, [
@@ -1027,6 +1025,7 @@ export function ActivityDetailScreen() {
     scheduleDurationMinutes,
     scheduleTargetDate,
     scheduleWriteRef?.calendarId,
+    activityAreas,
     userProfile,
   ]);
 
@@ -2477,6 +2476,20 @@ export function ActivityDetailScreen() {
   };
 
   useEffect(() => {
+    if (!openSchedule) return;
+    if (!activity) return;
+    requestAnimationFrame(() => {
+      openCalendarSheet();
+      try {
+        navigation.setParams({ openSchedule: undefined } as any);
+      } catch {
+        // no-op
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSchedule, activity?.id]);
+
+  useEffect(() => {
     if (!activity) return;
     const pending = agentHostActions?.some(
       (a) => a.objectType === 'activity' && a.objectId === activity.id
@@ -2666,6 +2679,7 @@ export function ActivityDetailScreen() {
             targetDate: day,
             busyIntervals: dayBusy,
             writeCalendarId: writeRef.calendarId ?? null,
+            activityAreas,
             limit: 6,
           });
           if (slots.length > 0) {
@@ -2822,8 +2836,11 @@ export function ActivityDetailScreen() {
         return;
       }
 
-      const inferredDomain = inferSchedulingDomain(activity, goals ?? []).toLowerCase();
-      const mode = inferredDomain.includes('work') ? 'work' : 'personal';
+      const mode = resolvePlanModeForArea(
+        activityAreas,
+        activity.areaId ?? null,
+        inferSchedulingDomain(activity, goals ?? []).toLowerCase().includes('work') ? 'work' : 'personal',
+      );
       const windows = getWindowsForMode(dayAvailability, mode);
       if (windows.length === 0) {
         showToast({
@@ -3319,6 +3336,7 @@ export function ActivityDetailScreen() {
       const nextActivity: Activity = {
         id,
         goalId: effectiveGoalId,
+        areaId: activity.areaId ?? null,
         title: trimmedTitle,
         type: 'task',
         tags: [],
@@ -3365,6 +3383,7 @@ export function ActivityDetailScreen() {
     },
     [
       activities.length,
+      activity?.areaId,
       activity?.id,
       addActivity,
       effectiveGoalId,
@@ -4327,6 +4346,7 @@ export function ActivityDetailScreen() {
               goalOptions={goalOptions}
               recommendedGoalOption={recommendedGoalOption}
               activityTypeOptions={activityTypeOptions}
+              activityAreas={activityAreas}
               handleDeleteActivity={handleDeleteActivity}
               setIsTagsAutofillThinking={setIsTagsAutofillThinking}
               // Full-bleed canvas: the refresh layout handles safe area itself.

@@ -5,9 +5,13 @@ import {
 
 describe('activity AI enrichment prompt', () => {
   it('asks for practical trigger inference when triggers are selected', () => {
-    const prompt = buildActivityEnrichmentSystemPrompt(['triggers', 'details']);
+    const prompt = buildActivityEnrichmentSystemPrompt(['triggers', 'details'], {
+      areaCandidateCount: 3,
+    });
 
     expect(prompt).toContain('Requested AI actions: triggers, details');
+    expect(prompt).toContain('details: add notes, tags, goalId, areaId');
+    expect(prompt).toContain('areaId: one id from Candidate areas');
     expect(prompt).toContain('populate reminderAt, scheduledDate, and repeatRule');
     expect(prompt).toContain('gentle future reminder during waking hours within the next 1-7 days');
     expect(prompt).toContain('mapped goal has a target date');
@@ -21,6 +25,14 @@ describe('activity AI enrichment prompt', () => {
 
     expect(prompt).toContain('triggers is not requested: omit reminderAt, scheduledDate, and repeatRule');
     expect(prompt).not.toContain('populate reminderAt, scheduledDate, and repeatRule');
+  });
+
+  it('explicitly omits Area when details are not selected', () => {
+    const prompt = buildActivityEnrichmentSystemPrompt(['steps'], {
+      areaCandidateCount: 3,
+    });
+
+    expect(prompt).toContain('details is not requested: omit notes, tags, goalId, areaId');
   });
 });
 

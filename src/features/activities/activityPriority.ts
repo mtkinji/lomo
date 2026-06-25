@@ -96,6 +96,13 @@ export function getActivityPriorityReasonLabel(reasonCodes: ActivityPriorityReas
   return reason ? REASON_LABELS[reason] ?? null : null;
 }
 
+export function getActivityPriorityReasonLabels(reasonCodes: ActivityPriorityReasonCode[]): string[] {
+  return REASON_PRIORITY
+    .filter((code) => reasonCodes.includes(code))
+    .map((code) => REASON_LABELS[code])
+    .filter((label): label is string => Boolean(label));
+}
+
 export function canShowRecommendedModule(params: RecommendedModuleEligibility): boolean {
   return (
     params.showRecommended &&
@@ -179,6 +186,23 @@ function sumScoreComponents(components: RecommendationScoreComponents): number {
     components.contextFit +
     components.confidence
   );
+}
+
+function isManualPriorityOverride(row: RankedActivity): boolean {
+  return (
+    row.activity.priorityRankSource === 'manual' &&
+    (row.activity.priorityReasonCodes ?? []).includes('moved_by_user')
+  );
+}
+
+function hasHardUrgency(row: RankedActivity): boolean {
+  return row.reasonCodes.includes('due_today') || row.reasonCodes.includes('reminder_soon');
+}
+
+function getPriorityClass(row: RankedActivity): number {
+  if (hasHardUrgency(row)) return 0;
+  if (isManualPriorityOverride(row)) return 1;
+  return 2;
 }
 
 function normalizeSearchText(value: string | null | undefined): string {
@@ -305,6 +329,10 @@ function scoreActivity(params: {
     };
   }
 
+  if (activity.priorityRankSource === 'manual' && (activity.priorityReasonCodes ?? []).includes('moved_by_user')) {
+    addReason(reasons, 'moved_by_user');
+  }
+
   if (CLOSED_STATUSES.has(activity.status)) {
     return {
       activity,
@@ -407,6 +435,9 @@ export function rankActivitiesBySmartOrder(params: {
       }),
     )
     .sort((a, b) => {
+      const classA = getPriorityClass(a);
+      const classB = getPriorityClass(b);
+      if (classA !== classB) return classA - classB;
       if (b.score !== a.score) return b.score - a.score;
       const rankA = a.activity.priorityRankKey;
       const rankB = b.activity.priorityRankKey;
@@ -415,6 +446,15 @@ export function rankActivitiesBySmartOrder(params: {
       if (!rankA && rankB) return 1;
       return (a.activity.orderIndex ?? Number.MAX_SAFE_INTEGER) - (b.activity.orderIndex ?? Number.MAX_SAFE_INTEGER);
     });
+}
+
+export function sortActivitiesByPriorityRanking(params: {
+  activities: Activity[];
+  goals: Goal[];
+  now: Date;
+  surface?: RecommendationSurface;
+}): Activity[] {
+  return rankActivitiesBySmartOrder(params).map((row) => row.activity);
 }
 
 export function getRecommendedPriorityActivities(params: {

@@ -121,11 +121,12 @@ describe('linkingConfig', () => {
     });
 
     test('kwilt://activity/:activityId -> ActivityDetail with param + parsed booleans', () => {
-      const leaf = parse('activity/act_42?openFocus=1&autoStartFocus=true');
+      const leaf = parse('activity/act_42?openFocus=1&openSchedule=true&autoStartFocus=true');
       expect(leaf?.name).toBe('ActivityDetail');
       expect(leaf?.params).toMatchObject({
         activityId: 'act_42',
         openFocus: true,
+        openSchedule: true,
         autoStartFocus: true,
       });
     });

@@ -44,6 +44,10 @@ import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
 import { PartnerProgressGuideHost } from './src/ui/PartnerProgressGuide';
 import { GlobalSearchDrawer } from './src/features/search/GlobalSearchDrawer';
 import { LaunchScreen } from './src/features/onboarding/LaunchScreen';
+import {
+  FULL_LAUNCH_SCREEN_DURATION_MS,
+  resolveLaunchScreenDurationForToday,
+} from './src/features/onboarding/launchCadence';
 import { isPosthogDebugEnabled, isPosthogEnabled } from './src/services/analytics/posthog';
 import { posthogClient } from './src/services/analytics/posthogClient';
 import { identify as identifyPosthog } from './src/services/analytics/analytics';
@@ -101,6 +105,7 @@ export default function App() {
   // Lightweight bootstrapping flag so we can show an in-app launch screen
   // between the native splash and the main navigation shell.
   const [isBootstrapped, setIsBootstrapped] = useState(false);
+  const [launchScreenDurationMs, setLaunchScreenDurationMs] = useState(FULL_LAUNCH_SCREEN_DURATION_MS);
   const [bootError, setBootError] = useState<Error | null>(null);
   const [authStartupState, setAuthStartupState] = useState<AuthStartupState>('boot');
   const authHydrationGenerationRef = useRef(0);
@@ -111,6 +116,12 @@ export default function App() {
   const [isReturningUser, setIsReturningUser] = useState<boolean | null>(null);
   const [showReturningUserFlow, setShowReturningUserFlow] = useState(false);
   const returningUserProbeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    resolveLaunchScreenDurationForToday()
+      .then(setLaunchScreenDurationMs)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     let supabase: ReturnType<typeof getSupabaseClient> | null = null;
@@ -508,7 +519,10 @@ export default function App() {
             {/* Preload the Kwilt logo asset without impacting layout to avoid
                 a visible "hairline" at the top of launch surfaces. */}
             <Logo size={1} style={styles.logoPreload} />
-            <LaunchScreen onAnimationComplete={handleLaunchScreenComplete} />
+            <LaunchScreen
+              durationMs={launchScreenDurationMs}
+              onAnimationComplete={handleLaunchScreenComplete}
+            />
             <PortalHost />
           </BottomSheetModalProvider>
         </SafeAreaProvider>

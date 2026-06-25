@@ -1,9 +1,9 @@
-import type { Activity, Arc, Goal, UserProfile } from '../../domain/types';
-import { getSuggestedActivitiesRanked } from '../recommendations/nextStep';
+import type { Activity, ActivityArea, Arc, Goal, UserProfile } from '../../domain/types';
+import { getActivityPriorityState, sortActivitiesByPriorityRanking } from '../../features/activities/activityPriority';
 import type { BusyInterval, ProposedEvent } from '../scheduling/schedulingEngine';
 import { inferSchedulingDomain } from '../scheduling/inferSchedulingDomain';
 import { clampToNextQuarterHour, formatTimeLabel, setTimeOnDate, toLocalDateKey } from './planDates';
-import { getAvailabilityForDate, getWindowsForMode, type PlanMode } from './planAvailability';
+import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea, type PlanMode } from './planAvailability';
 
 function overlaps(a: BusyInterval, b: BusyInterval): boolean {
   return a.start < b.end && b.start < a.end;
@@ -27,10 +27,14 @@ function normalizeBusy(intervals: BusyInterval[]): BusyInterval[] {
   return merged;
 }
 
-function resolveModeForActivity(activity: Activity, goals: Goal[]): PlanMode {
+function resolveFallbackModeForActivity(activity: Activity, goals: Goal[]): PlanMode {
   const domain = inferSchedulingDomain(activity, goals).toLowerCase();
   if (domain.includes('work')) return 'work';
   return 'personal';
+}
+
+function resolveModeForActivity(activity: Activity, goals: Goal[], activityAreas?: ActivityArea[]): PlanMode {
+  return resolvePlanModeForArea(activityAreas, activity.areaId ?? null, resolveFallbackModeForActivity(activity, goals));
 }
 
 export type DailyPlanProposal = ProposedEvent & {
@@ -57,17 +61,18 @@ export function proposeDailyPlan(params: {
   writeCalendarId: string | null;
   maxItems?: number;
   dismissedActivityIds?: string[] | Set<string>;
+  activityAreas?: ActivityArea[];
 }): DailyPlanProposeResult {
   const {
     activities,
     goals,
-    arcs,
     userProfile,
     targetDate,
     busyIntervals,
     writeCalendarId,
     maxItems = 4,
     dismissedActivityIds,
+    activityAreas,
   } = params;
 
   const dayAvailability = getAvailabilityForDate(userProfile, targetDate);
@@ -85,15 +90,13 @@ export function proposeDailyPlan(params: {
       ? dismissedActivityIds
       : new Set(Array.isArray(dismissedActivityIds) ? dismissedActivityIds : []);
 
-  const ranked = getSuggestedActivitiesRanked({
+  const ranked = sortActivitiesByPriorityRanking({
     activities,
     goals,
-    arcs,
     // For non-today days, anchor ranking to the target day (so "what's next" can vary by day).
     // Using midday avoids edge cases around midnight/timezone boundaries.
     now: isToday ? now : new Date(new Date(targetDate).setHours(12, 0, 0, 0)),
-    limit: Math.max(10, maxItems * 3),
-  });
+  }).slice(0, Math.max(10, maxItems * 3));
 
   const proposals: DailyPlanProposal[] = [];
   const busy = normalizeBusy(busyIntervals);
@@ -101,6 +104,7 @@ export function proposeDailyPlan(params: {
 
   function canConsiderActivity(activity: Activity): boolean {
     if (activity.status === 'done' || activity.status === 'cancelled') return false;
+    if (getActivityPriorityState(activity) !== 'active') return false;
     if (activity.scheduledAt) return false;
     if (dismissed.has(activity.id)) return false;
     return true;
@@ -117,7 +121,7 @@ export function proposeDailyPlan(params: {
   function tryPlace(activity: Activity): boolean {
     if (!writeCalendarId) return false;
 
-    const mode = resolveModeForActivity(activity, goals);
+    const mode = resolveModeForActivity(activity, goals, activityAreas);
     const windows = getWindowsForMode(dayAvailability, mode);
     if (windows.length === 0) return false;
 
@@ -145,7 +149,7 @@ export function proposeDailyPlan(params: {
             startDate: candidate.start.toISOString(),
             endDate: candidate.end.toISOString(),
             calendarId: writeCalendarId,
-            domain: activity.schedulingDomain ?? 'personal',
+            domain: mode,
             goalId: activity.goalId ?? null,
           });
           busy.push(candidate);
@@ -195,8 +199,9 @@ export function proposeSlotsForActivity(params: {
   busyIntervals: BusyInterval[];
   writeCalendarId: string | null;
   limit?: number;
+  activityAreas?: ActivityArea[];
 }): DailyPlanProposal[] {
-  const { activity, goals, userProfile, targetDate, busyIntervals, writeCalendarId, limit = 6 } = params;
+  const { activity, goals, userProfile, targetDate, busyIntervals, writeCalendarId, limit = 6, activityAreas } = params;
   if (!writeCalendarId) return [];
 
   const dayAvailability = getAvailabilityForDate(userProfile, targetDate);
@@ -211,7 +216,7 @@ export function proposeSlotsForActivity(params: {
   const busy = normalizeBusy(busyIntervals);
   const startCursor = clampToNextQuarterHour(now);
 
-  const mode = resolveModeForActivity(activity, goals);
+  const mode = resolveModeForActivity(activity, goals, activityAreas);
   const windows = getWindowsForMode(dayAvailability, mode);
   if (windows.length === 0) return [];
 
@@ -242,7 +247,7 @@ export function proposeSlotsForActivity(params: {
           startDate: candidate.start.toISOString(),
           endDate: candidate.end.toISOString(),
           calendarId: writeCalendarId,
-          domain: activity.schedulingDomain ?? 'personal',
+          domain: mode,
           goalId: activity.goalId ?? null,
         });
         busy.push(candidate);
@@ -253,5 +258,3 @@ export function proposeSlotsForActivity(params: {
 
   return proposals;
 }
-
-

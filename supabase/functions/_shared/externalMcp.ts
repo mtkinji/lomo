@@ -15,6 +15,21 @@ export type ExternalMcpToolDefinition = {
   };
 };
 
+const ACTIVITY_STEP_SCHEMA: JsonObject = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      title: { type: 'string' },
+      completed_at: { type: ['string', 'null'] },
+      is_optional: { type: 'boolean' },
+      order_index: { type: 'integer' },
+    },
+    required: ['title'],
+  },
+};
+
 function readOnlyAnnotations(title: string) {
   return {
     title,
@@ -280,6 +295,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
         type: { type: 'string' },
         status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
         tags: { type: 'array', items: { type: 'string' } },
+        steps: ACTIVITY_STEP_SCHEMA,
         priority: { type: 'integer', enum: [1, 2, 3] },
         scheduled_date: { type: ['string', 'null'] },
       },
@@ -302,6 +318,7 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
         type: { type: 'string' },
         status: { type: 'string', enum: ['planned', 'in_progress', 'done', 'skipped', 'cancelled'] },
         tags: { type: 'array', items: { type: 'string' } },
+        steps: ACTIVITY_STEP_SCHEMA,
         priority: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
         scheduled_date: { type: ['string', 'null'] },
       },
@@ -397,6 +414,28 @@ function toJsonObject(value: unknown): JsonObject {
   return asRecord(value) ? (value as JsonObject) : {};
 }
 
+function summarizeActivitySteps(value: unknown): JsonObject[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((raw) => {
+      const step = asRecord(raw);
+      const id = asString(step?.id);
+      const title = asString(step?.title);
+      if (!id || !title) return null;
+      const summary: JsonObject = {
+        id,
+        title,
+      };
+      const completedAt = asString(step?.completedAt);
+      if (completedAt) summary.completed_at = completedAt;
+      if (typeof step?.isOptional === 'boolean') summary.is_optional = step.isOptional;
+      const orderIndex = asInt(step?.orderIndex);
+      if (orderIndex !== null) summary.order_index = orderIndex;
+      return summary;
+    })
+    .filter((step): step is JsonObject => !!step);
+}
+
 export function normalizeListRecentActivitiesArgs(raw: unknown): { days: number; includeRich: boolean } {
   const args = asRecord(raw) ?? {};
   return {
@@ -477,6 +516,7 @@ export function summarizeActivity(raw: unknown, options: { includeRich: boolean 
     summary.notes = asString(activity.notes);
     summary.tags = Array.isArray(activity.tags) ? activity.tags.map(asString).filter((tag): tag is string => !!tag) : [];
     summary.force_actual = toJsonObject(activity.forceActual);
+    summary.steps = summarizeActivitySteps(activity.steps);
   }
 
   return summary;

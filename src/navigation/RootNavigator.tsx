@@ -42,6 +42,7 @@ import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilit
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
 import { ProfileSettingsScreen } from '../features/account/ProfileSettingsScreen';
@@ -290,6 +291,7 @@ export type SettingsStackParamList = {
   SettingsWidgets: undefined;
   SettingsExecutionTargets: undefined;
   SettingsDestinationsLibrary: undefined;
+  SettingsActivityAreas: undefined;
   SettingsPlanAvailability: undefined;
   SettingsPlanCalendars: undefined;
   SettingsDestinationDetail:
@@ -961,6 +963,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsDestinationsLibrary"
         component={DestinationsLibraryScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsActivityAreas"
+        component={ActivityAreasSettingsScreen}
       />
       <SettingsStack.Screen
         name="SettingsPlanAvailability"

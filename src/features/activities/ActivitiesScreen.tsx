@@ -73,7 +73,7 @@ import {
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
-import { ActivityListItem } from '../../ui/ActivityListItem';
+import { ActivityListItem, type ActivityPriorityIndicator } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
 import { colors } from '../../theme/colors';
@@ -102,7 +102,6 @@ import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
-import { RecommendedActivitiesSection } from './RecommendedActivitiesSection';
 import { ViewMenuItem } from './ViewMenuItem';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { useActivityListData } from './hooks/useActivityListData';
@@ -119,6 +118,7 @@ import type {
 import { styles, QUICK_ADD_BAR_HEIGHT } from './activitiesScreenStyles';
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 import { useChromeVisibility } from '../../navigation/ChromeVisibilityContext';
+import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeReanimatedEasing } from '../../navigation/chromeMotion';
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
@@ -178,7 +178,13 @@ const KANBAN_CARD_FIELDS: Array<{
 ];
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { QueryService } from '../../services/QueryService';
-import { canShowRecommendedModule, getRecommendedPriorityActivities } from './activityPriority';
+import {
+  getActivityPriorityReasonLabels,
+  rankActivitiesBySmartOrder,
+  sortActivitiesByPriorityRanking,
+} from './activityPriority';
+import { buildPriorityIndicator } from './activityPriorityIndicator';
+import { getActivityListRowGap, getActivityListRowOuterGap } from './activityListSpacing';
 import { FilterDrawer } from '../../ui/FilterDrawer';
 import { SortDrawer } from '../../ui/SortDrawer';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -203,6 +209,14 @@ import {
   isGroupingApplied,
   setCollapsedGroupKey,
 } from './activityGrouping';
+import {
+  INVENTORY_CHROME_FADE_MAX_ALPHA,
+  INVENTORY_CHROME_TOOLBAR_VISUAL_FALLBACK_PX,
+  doesQuickAddOwnInventoryBottomFade,
+  getInventoryChromeDragStartEffect,
+  getInventoryChromeScrollEffect,
+  getTopInventoryFadeGeometry,
+} from './inventoryChrome';
 
 const LAYOUT_OPTIONS: Array<{ value: ActivityViewLayout; label: string }> = [
   { value: 'list', label: 'List' },
@@ -218,11 +232,28 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
 
 const INVENTORY_CHROME_SURFACE = 'activities-inventory';
 const HEADER_COLLAPSE_DISTANCE_FALLBACK = 88;
-const CHROME_HIDE_DELTA = 16;
-const CHROME_REVEAL_DELTA = 12;
-const CHROME_ANIMATION_MS = 260;
-const HEADER_GHOST_FADE_EDGE_DISTANCE_PX = 8;
-const HEADER_GHOST_FADE_MAX_ALPHA = 0.88;
+
+function isPrioritySort(sortConditions: SortCondition[]): boolean {
+  return sortConditions[0]?.field === 'priority';
+}
+
+function isTopPriorityBandIndicator(indicator?: ActivityPriorityIndicator | null): boolean {
+  return (
+    indicator?.label === '#1' ||
+    indicator?.label === '#2' ||
+    indicator?.label === '#3'
+  );
+}
+
+function getTopPriorityBandRowStyle(indicator?: ActivityPriorityIndicator | null) {
+  if (!isTopPriorityBandIndicator(indicator)) return null;
+
+  return [
+    styles.topPriorityBandRow,
+    indicator?.label === '#1' ? styles.topPriorityBandFirstRow : null,
+    indicator?.label === '#3' ? styles.topPriorityBandLastRow : null,
+  ];
+}
 
 export function ActivitiesScreen() {
   useDrawerMenuEnabled();
@@ -239,6 +270,7 @@ export function ActivitiesScreen() {
     setChromeVisibility,
     notifyChromeScrollIntent,
     setChromeInteractionLock,
+    setChromeBottomFadeSuppressed,
   } = useChromeVisibility();
   const { capture } = useAnalytics();
   const showToast = useToastStore((state) => state.showToast);
@@ -505,11 +537,13 @@ export function ActivitiesScreen() {
   const shouldShowFixedToolbar = activities.length > 0 && (!isKanbanLayout || !isKanbanExpanded);
   const fixedToolbarProgress = useSharedValue(shouldShowFixedToolbar ? 1 : 0);
   const [fixedToolbarMeasuredHeight, setFixedToolbarMeasuredHeight] = React.useState(0);
+  const [fixedToolbarVisualHeight, setFixedToolbarVisualHeight] = React.useState(0);
   React.useEffect(() => {
     // When returning to the collapsed state, reset the cached measurement so we don't
     // get stuck with a clipped height from a previous animation frame.
     if (shouldShowFixedToolbar) {
       setFixedToolbarMeasuredHeight(0);
+      setFixedToolbarVisualHeight(0);
     }
   }, [shouldShowFixedToolbar]);
   React.useEffect(() => {
@@ -582,8 +616,6 @@ export function ActivitiesScreen() {
   const sortMode = isPro ? (activeView?.sortMode ?? 'manual') : 'manual';
   const showCompleted =
     isPro || activeView?.isSystem ? (activeView?.showCompleted ?? true) : true;
-  const showRecommended =
-    isPro || activeView?.isSystem ? (activeView?.showRecommended ?? true) : true;
   const activeGrouping = React.useMemo<ActivityViewGrouping>(
     () => (isPro ? activeView?.grouping ?? { field: 'none' } : { field: 'none' }),
     [activeView?.grouping, isPro],
@@ -861,8 +893,16 @@ export function ActivitiesScreen() {
   );
 
   const visibleActivities = React.useMemo(() => {
+    if (isPrioritySort(sortConditions)) {
+      const sorted = sortActivitiesByPriorityRanking({
+        activities: filteredActivities,
+        goals,
+        now: new Date(),
+      });
+      return sortConditions[0]?.direction === 'desc' ? [...sorted].reverse() : sorted;
+    }
     return QueryService.applyActivitySorts(filteredActivities, sortConditions);
-  }, [filteredActivities, sortConditions]);
+  }, [filteredActivities, goals, sortConditions]);
 
   const activeActivities = React.useMemo(
     () =>
@@ -875,64 +915,42 @@ export function ActivitiesScreen() {
     [visibleActivities],
   );
 
-  const shouldShowRecommendedModule =
-    canShowRecommendedModule({
-      showRecommended,
-      isKanbanLayout,
-      hasFilters: filterGroups.length > 0,
-      hasGrouping: groupingApplied,
-    });
-  const recommendedDisabledReason = React.useMemo(() => {
-    if (isKanbanLayout) {
-      return {
-        title: 'Unavailable in Kanban',
-        body: 'Recommended appears in List layout.',
-      };
+  const priorityIndicatorByActivityId = React.useMemo(() => {
+    if (!isPrioritySort(sortConditions)) {
+      return new Map<string, ActivityPriorityIndicator>();
     }
-    if (filterGroups.length > 0) {
-      return {
-        title: 'Hidden by filter',
-        body: 'Recommended appears when this view is not filtered.',
-      };
-    }
-    if (groupingApplied) {
-      return {
-        title: 'Hidden by grouping',
-        body: 'Recommended appears when this view is not grouped.',
-      };
-    }
-    return null;
-  }, [filterGroups.length, groupingApplied, isKanbanLayout]);
-
-  const recommendedPriorityActivities = React.useMemo(() => {
-    if (!shouldShowRecommendedModule) return [];
-    return getRecommendedPriorityActivities({
+    const rankedActive = rankActivitiesBySmartOrder({
       activities: filteredActivities,
       goals,
       now: new Date(),
-      limit: 3,
+    }).filter(
+      (row) =>
+        row.activity.status !== 'done' &&
+        row.activity.status !== 'skipped' &&
+        row.activity.status !== 'cancelled',
+    );
+    const total = rankedActive.length;
+    const indicators = new Map<string, ActivityPriorityIndicator>();
+    rankedActive.forEach((row, index) => {
+      const indicator = buildPriorityIndicator({
+        position: index + 1,
+        total,
+        reasons: getActivityPriorityReasonLabels(row.reasonCodes),
+      });
+      if (indicator) indicators.set(row.activity.id, indicator);
     });
-  }, [filteredActivities, goals, shouldShowRecommendedModule]);
-
-  const recommendedPriorityActivityIds = React.useMemo(
-    () => new Set(recommendedPriorityActivities.map((row) => row.activity.id)),
-    [recommendedPriorityActivities],
-  );
-
-  const nonRecommendedActiveActivities = React.useMemo(() => {
-    if (recommendedPriorityActivityIds.size === 0) return activeActivities;
-    return activeActivities.filter((activity) => !recommendedPriorityActivityIds.has(activity.id));
-  }, [activeActivities, recommendedPriorityActivityIds]);
+    return indicators;
+  }, [filteredActivities, goals, sortConditions]);
 
   const groupedActiveSections = React.useMemo(
     () =>
       groupActivitiesForList({
-        activities: nonRecommendedActiveActivities,
+        activities: activeActivities,
         goals,
         grouping: activeGrouping,
         now: new Date(),
       }),
-    [nonRecommendedActiveActivities, activeGrouping, goals],
+    [activeActivities, activeGrouping, goals],
   );
 
   const collapsedGroupKeys = React.useMemo(
@@ -1054,10 +1072,10 @@ export function ActivitiesScreen() {
   const headerCollapseProgress = useSharedValue(0);
   const [collapsibleHeaderHeight, setCollapsibleHeaderHeight] = React.useState(0);
   const [headerCollapsedForA11y, setHeaderCollapsedForA11y] = React.useState(false);
+  const [inventoryHeaderVisible, setInventoryHeaderVisibleTarget] = React.useState(true);
   const [inventoryViewportHeight, setInventoryViewportHeight] = React.useState(0);
   const [inventoryContentHeight, setInventoryContentHeight] = React.useState(0);
   const lastInventoryScrollYRef = React.useRef(0);
-  const downwardScrollIntentRef = React.useRef(0);
   const upwardScrollIntentRef = React.useRef(0);
   const headerVisibleRef = React.useRef(true);
 
@@ -1074,11 +1092,15 @@ export function ActivitiesScreen() {
     inventoryCanMeaningfullyScroll;
 
   const headerSlotHeight = collapsibleHeaderHeight || HEADER_COLLAPSE_DISTANCE_FALLBACK;
-  const headerGhostFadeHeight = Math.max(fixedToolbarMeasuredHeight || 64, 1);
-  const headerGhostFadeRampStart = Math.max(
-    0,
-    Math.min(0.92, 1 - (HEADER_GHOST_FADE_EDGE_DISTANCE_PX / headerGhostFadeHeight)),
-  );
+  const fixedToolbarHeight = fixedToolbarMeasuredHeight || 64;
+  const headerGhostFadeGeometry = getTopInventoryFadeGeometry({
+    safeAreaTop: insets.top,
+    toolbarVisualHeight: fixedToolbarVisualHeight || INVENTORY_CHROME_TOOLBAR_VISUAL_FALLBACK_PX,
+    toolbarContainerHeight: fixedToolbarHeight,
+  });
+  const headerGhostFadeListOverlapHeight = headerGhostFadeGeometry.listOverlapHeight;
+  const headerGhostFadeHeight = headerGhostFadeGeometry.height;
+  const headerGhostFadeRampStart = headerGhostFadeGeometry.rampStart;
 
   const collapsibleHeaderSlotAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -1108,55 +1130,57 @@ export function ActivitiesScreen() {
     const progress = headerCollapseProgress.value;
 
     return {
-      marginTop: -headerGhostFadeHeight * progress,
+      marginTop: -headerGhostFadeListOverlapHeight * progress,
     };
-  }, [headerCollapseProgress, headerGhostFadeHeight]);
+  }, [headerCollapseProgress, headerGhostFadeListOverlapHeight]);
 
   const headerGhostFadeAnimatedStyle = useAnimatedStyle(() => {
     return {
+      top: -insets.top,
       height: headerGhostFadeHeight,
       opacity: headerCollapseProgress.value,
     };
-  }, [headerCollapseProgress, headerGhostFadeHeight]);
+  }, [headerCollapseProgress, headerGhostFadeHeight, insets.top]);
 
   const setHeaderCollapsedForA11yIfNeeded = React.useCallback((next: boolean) => {
     setHeaderCollapsedForA11y((current) => (current === next ? current : next));
   }, []);
 
+  const setInventoryHeaderVisible = React.useCallback((visible: boolean) => {
+    setInventoryHeaderVisibleTarget((current) => (current === visible ? current : visible));
+  }, []);
+
+  React.useEffect(() => {
+    headerVisibleRef.current = inventoryHeaderVisible;
+    if (inventoryHeaderVisible) {
+      setHeaderCollapsedForA11yIfNeeded(false);
+    }
+    headerCollapseProgress.value = withTiming(
+      inventoryHeaderVisible ? 0 : 1,
+      {
+        duration: INVENTORY_CHROME_ANIMATION_MS,
+        easing: inventoryChromeReanimatedEasing,
+      },
+      (finished) => {
+        if (finished && !inventoryHeaderVisible) {
+          runOnJS(setHeaderCollapsedForA11yIfNeeded)(true);
+        }
+      },
+    );
+  }, [
+    headerCollapseProgress,
+    inventoryHeaderVisible,
+    setHeaderCollapsedForA11yIfNeeded,
+  ]);
+
   const resetInventoryChrome = React.useCallback(() => {
-    headerCollapseProgress.value = withTiming(0, {
-      duration: CHROME_ANIMATION_MS,
-      easing: Easing.out(Easing.cubic),
-    });
+    setInventoryHeaderVisibleTarget(true);
     setHeaderCollapsedForA11y(false);
     headerVisibleRef.current = true;
     lastInventoryScrollYRef.current = 0;
-    downwardScrollIntentRef.current = 0;
     upwardScrollIntentRef.current = 0;
     setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
-  }, [headerCollapseProgress, setChromeVisibility]);
-
-  const setInventoryHeaderVisible = React.useCallback(
-    (visible: boolean) => {
-      headerVisibleRef.current = visible;
-      if (visible) {
-        setHeaderCollapsedForA11yIfNeeded(false);
-      }
-      headerCollapseProgress.value = withTiming(
-        visible ? 0 : 1,
-        {
-          duration: CHROME_ANIMATION_MS,
-          easing: Easing.out(Easing.cubic),
-        },
-        (finished) => {
-          if (finished && !visible) {
-            runOnJS(setHeaderCollapsedForA11yIfNeeded)(true);
-          }
-        },
-      );
-    },
-    [headerCollapseProgress, setHeaderCollapsedForA11yIfNeeded],
-  );
+  }, [setChromeVisibility]);
 
   // (removed) Suggested/AI-pick card logic (Plan now owns primary scheduling flow)
 
@@ -1653,6 +1677,13 @@ export function ActivitiesScreen() {
     setChromeVisibility,
     shouldAutoHideInventoryChrome,
   ]);
+
+  React.useEffect(() => {
+    const quickAddOwnsBottomFade = doesQuickAddOwnInventoryBottomFade({ isKanbanLayout });
+    setChromeBottomFadeSuppressed(INVENTORY_CHROME_SURFACE, quickAddOwnsBottomFade);
+    return () => setChromeBottomFadeSuppressed(INVENTORY_CHROME_SURFACE, false);
+  }, [isKanbanLayout, setChromeBottomFadeSuppressed]);
+
   const canvasScrollRef = React.useRef<FlatList<Activity> | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const { keyboardHeight, lastKnownKeyboardHeight } = useKeyboardHeight();
@@ -1746,8 +1777,8 @@ export function ActivitiesScreen() {
     return {
       title: isPro ? 'Sort' : 'Sort (Pro)',
       body: isPro
-        ? 'Order by due date, starred first, or keep your manual order.'
-        : 'Order by title, due date, or starred first.',
+        ? 'Use Priority for Kwilt’s current order, due date for schedule order, or Manual for your own arrangement.'
+        : 'Order by title, due date, or Kwilt priority.',
     };
   }, [activitiesGuideStep, guideVariant, isKanbanLayout, isPro]);
 
@@ -1764,6 +1795,26 @@ export function ActivitiesScreen() {
         return;
       }
       navigation.push('ActivityDetail', { activityId });
+    },
+    [canOpenActivityDetail, navigation],
+  );
+
+  const openActivityFocus = React.useCallback(
+    (activityId: string) => {
+      if (!canOpenActivityDetail()) {
+        return;
+      }
+      navigation.push('ActivityDetail', { activityId, openFocus: true });
+    },
+    [canOpenActivityDetail, navigation],
+  );
+
+  const openActivitySchedule = React.useCallback(
+    (activityId: string) => {
+      if (!canOpenActivityDetail()) {
+        return;
+      }
+      navigation.push('ActivityDetail', { activityId, openSchedule: true });
     },
     [canOpenActivityDetail, navigation],
   );
@@ -1959,54 +2010,65 @@ export function ActivitiesScreen() {
     setInventoryContentHeight(height);
   }, []);
 
+  const getInventoryMaxScrollY = React.useCallback(() => (
+    Math.max(0, inventoryContentHeight - inventoryViewportHeight)
+  ), [inventoryContentHeight, inventoryViewportHeight]);
+
+  const handleInventoryScrollBeginDrag = React.useCallback(() => {
+    const effect = getInventoryChromeDragStartEffect({
+      canAutoHide: shouldAutoHideInventoryChrome,
+      locked: quickAddChromeLocked,
+      y: lastInventoryScrollYRef.current,
+    });
+    if (!effect) return;
+
+    upwardScrollIntentRef.current = 0;
+    notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, effect.direction, 0);
+    setInventoryHeaderVisible(effect.visible);
+  }, [
+    notifyChromeScrollIntent,
+    quickAddChromeLocked,
+    setInventoryHeaderVisible,
+    shouldAutoHideInventoryChrome,
+  ]);
+
   const handleInventoryScroll = React.useCallback(
     (event: any) => {
-      const y = Math.max(0, event.nativeEvent.contentOffset.y ?? 0);
+      const result = getInventoryChromeScrollEffect({
+        y: event.nativeEvent.contentOffset.y ?? 0,
+        lastY: lastInventoryScrollYRef.current,
+        canAutoHide: shouldAutoHideInventoryChrome,
+        locked: quickAddChromeLocked,
+        upwardIntent: upwardScrollIntentRef.current,
+        maxScrollY: getInventoryMaxScrollY(),
+      });
 
-      if (!shouldAutoHideInventoryChrome || quickAddChromeLocked) {
-        lastInventoryScrollYRef.current = y;
-        return;
-      }
+      lastInventoryScrollYRef.current = result.lastY;
+      upwardScrollIntentRef.current = result.upwardIntent;
 
-      if (y <= 2) {
-        downwardScrollIntentRef.current = 0;
-        upwardScrollIntentRef.current = 0;
-        notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'up', 0);
-        setInventoryHeaderVisible(true);
-        lastInventoryScrollYRef.current = y;
-        return;
-      }
-
-      const delta = y - lastInventoryScrollYRef.current;
-      lastInventoryScrollYRef.current = y;
-      if (Math.abs(delta) < 1) return;
-
-      if (delta > 0) {
-        downwardScrollIntentRef.current += delta;
-        upwardScrollIntentRef.current = 0;
-        if (downwardScrollIntentRef.current >= CHROME_HIDE_DELTA) {
-          notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'down', downwardScrollIntentRef.current);
-          setInventoryHeaderVisible(false);
-          downwardScrollIntentRef.current = 0;
-        }
-        return;
-      }
-
-      upwardScrollIntentRef.current += Math.abs(delta);
-      downwardScrollIntentRef.current = 0;
-      if (upwardScrollIntentRef.current >= CHROME_REVEAL_DELTA) {
-        notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'up', upwardScrollIntentRef.current);
-        setInventoryHeaderVisible(true);
-        upwardScrollIntentRef.current = 0;
+      if (result.effect) {
+        notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, result.effect.direction, 0);
+        setInventoryHeaderVisible(result.effect.visible);
       }
     },
     [
+      getInventoryMaxScrollY,
       notifyChromeScrollIntent,
       quickAddChromeLocked,
       setInventoryHeaderVisible,
       shouldAutoHideInventoryChrome,
     ],
   );
+
+  const handleInventoryScrollSettle = React.useCallback((event: any) => {
+    const rawY = event?.nativeEvent?.contentOffset?.y ?? lastInventoryScrollYRef.current;
+    if (rawY > 1) return;
+
+    lastInventoryScrollYRef.current = 0;
+    upwardScrollIntentRef.current = 0;
+    notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'up', 0);
+    setInventoryHeaderVisible(true);
+  }, [notifyChromeScrollIntent, setInventoryHeaderVisible]);
 
   const setQuickAddDueDateByOffsetDays = React.useCallback((offsetDays: number) => {
     const date = new Date();
@@ -2214,27 +2276,6 @@ export function ActivitiesScreen() {
     [activeActivityViewId, activityViews, isPro, setActiveActivityViewId],
   );
 
-  // Handle reorder - called immediately when user drops an item
-  const handleReorderNonRecommendedActivities = React.useCallback(
-    (orderedIds: string[]) => {
-      if (recommendedPriorityActivityIds.size === 0) {
-        reorderActivities(orderedIds);
-        return;
-      }
-
-      let nextNonRecommendedIndex = 0;
-      const mergedOrderedIds = activeActivities.map((activity) => {
-        if (recommendedPriorityActivityIds.has(activity.id)) return activity.id;
-        const nextId = orderedIds[nextNonRecommendedIndex];
-        nextNonRecommendedIndex += 1;
-        return nextId ?? activity.id;
-      });
-
-      reorderActivities(mergedOrderedIds);
-    },
-    [activeActivities, recommendedPriorityActivityIds, reorderActivities],
-  );
-
   const goalIdSet = React.useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
 
   const getKanbanColumnIdForActivity = React.useCallback((activity: Activity, groupBy: KanbanGroupBy): string => {
@@ -2311,17 +2352,6 @@ export function ActivitiesScreen() {
       updateActivityView(activeView.id, (view) => ({
         ...view,
         showCompleted: next,
-      }));
-    },
-    [activeView, updateActivityView],
-  );
-
-  const handleUpdateShowRecommended = React.useCallback(
-    (next: boolean) => {
-      if (!activeView) return;
-      updateActivityView(activeView.id, (view) => ({
-        ...view,
-        showRecommended: next,
       }));
     },
     [activeView, updateActivityView],
@@ -2433,7 +2463,6 @@ export function ActivitiesScreen() {
         layout: viewEditorLayout,
         kanbanGroupBy: viewEditorLayout === 'kanban' ? viewEditorKanbanGroupBy : undefined,
         grouping: { field: 'none', collapsedGroupKeys: [] },
-        showRecommended: true,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -2474,7 +2503,6 @@ export function ActivitiesScreen() {
         filterGroupLogic: view.filterGroupLogic,
         sorts: view.sorts,
         showCompleted: view.showCompleted,
-        showRecommended: view.showRecommended,
         isSystem: false,
       };
       addActivityView(nextView);
@@ -2538,18 +2566,6 @@ export function ActivitiesScreen() {
 
   const activityListHeader = (
     <>
-      <RecommendedActivitiesSection
-        recommendations={recommendedPriorityActivities}
-        goalTitleById={goalTitleById}
-        isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
-        onToggleComplete={handleToggleComplete}
-        onTogglePriority={handleTogglePriorityOne}
-        onPressActivity={navigateToActivityDetail}
-        onDeleteActivity={handleDeleteActivity}
-      />
-      {recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length > 0 ? (
-        <Text style={styles.recommendedListRemainderLabel}>TO-DOS</Text>
-      ) : null}
       {shouldShowWidgetNudgeInline && (
         <Card style={styles.widgetNudgeCard}>
           <HStack justifyContent="space-between" alignItems="flex-start" space="sm">
@@ -2758,6 +2774,12 @@ export function ActivitiesScreen() {
               style={styles.toolbarRow}
               alignItems="center"
               justifyContent="space-between"
+              onLayout={(e) => {
+                const h = e.nativeEvent.layout.height;
+                if (h >= 32) {
+                  setFixedToolbarVisualHeight((prev) => (prev === 0 || Math.abs(prev - h) > 1 ? h : prev));
+                }
+              }}
             >
               <View style={styles.toolbarButtonWrapper}>
                 {isPro ? (
@@ -3036,8 +3058,8 @@ export function ActivitiesScreen() {
       >
         <LinearGradient
           colors={[
-            `rgba(255,255,255,${HEADER_GHOST_FADE_MAX_ALPHA})`,
-            `rgba(255,255,255,${HEADER_GHOST_FADE_MAX_ALPHA})`,
+            `rgba(255,255,255,${INVENTORY_CHROME_FADE_MAX_ALPHA})`,
+            `rgba(255,255,255,${INVENTORY_CHROME_FADE_MAX_ALPHA})`,
             'rgba(255,255,255,0)',
           ]}
           {...({ locations: [0, headerGhostFadeRampStart, 1] } as any)}
@@ -3072,6 +3094,9 @@ export function ActivitiesScreen() {
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
           onScroll={handleInventoryScroll}
+          onScrollBeginDrag={handleInventoryScrollBeginDrag}
+          onScrollEndDrag={handleInventoryScrollSettle}
+          onMomentumScrollEnd={handleInventoryScrollSettle}
           contentContainerStyle={[
             styles.scrollContent,
             styles.groupedListContent,
@@ -3079,6 +3104,7 @@ export function ActivitiesScreen() {
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
           scrollEnabled={activitiesGuideHost.scrollEnabled}
           automaticallyAdjustKeyboardInsets={false}
           keyboardShouldPersistTaps="handled"
@@ -3094,6 +3120,8 @@ export function ActivitiesScreen() {
               onToggleCollapsed={handleToggleGroupCollapsed}
               onToggleComplete={handleToggleComplete}
               onTogglePriority={handleTogglePriorityOne}
+              onStartFocus={openActivityFocus}
+              onSchedule={openActivitySchedule}
               onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
               onDeleteActivity={(activity) => handleDeleteActivity(activity)}
               isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
@@ -3103,11 +3131,7 @@ export function ActivitiesScreen() {
             />
           )}
           ListHeaderComponent={activityListHeader}
-          ListEmptyComponent={
-            recommendedPriorityActivities.length > 0 && groupedActiveSections.length === 0
-              ? null
-              : renderDomainEmptyState()
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
               <View style={{ marginTop: groupedActiveSections.length > 0 ? spacing.xl : 0 }}>
@@ -3131,40 +3155,60 @@ export function ActivitiesScreen() {
         />
       ) : isManualOrderEffective ? (
         <DraggableList
-          items={nonRecommendedActiveActivities}
-          onOrderChange={handleReorderNonRecommendedActivities}
+          items={activeActivities}
+          onOrderChange={reorderActivities}
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
+          onScrollBeginDrag={handleInventoryScrollBeginDrag}
+          onScrollEndDrag={handleInventoryScrollSettle}
+          onMomentumScrollEnd={handleInventoryScrollSettle}
           onScrollOffsetChange={(offsetY) => {
             handleInventoryScroll({ nativeEvent: { contentOffset: { y: offsetY } } });
           }}
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
-            nonRecommendedActiveActivities.length === 0 ? { flexGrow: 1 } : null,
+            activeActivities.length === 0 ? { flexGrow: 1 } : null,
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
-          renderItem={(activity, isDragging) => {
-            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+          renderItem={(activity, isDragging, index) => {
+            const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
+            const priorityIndicator = isPrioritySort(sortConditions)
+              ? priorityIndicatorByActivityId.get(activity.id)
+              : undefined;
             const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+            const rowGap = getActivityListRowGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const rowOuterGap = getActivityListRowOuterGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
 
             return (
               <View style={[
-                // Match list density: XS/2 gap between items.
-                { paddingBottom: spacing.xs / 2 },
+                { paddingBottom: rowGap },
+                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
+                topPriorityBandRowStyle,
                 isDragging && { opacity: 0.9, shadowColor: colors.textPrimary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
               ]}>
                 <ActivityListItem
                   title={activity.title}
                   meta={meta}
-                  metaLeadingIconName={metaLeadingIconName}
-                  metaLeadingIconNames={metaLeadingIconNames}
+                  estimateMeta={estimateMeta}
+                  metaTone={metaTone}
+                  priorityIndicator={priorityIndicator}
                   metaLoading={metaLoading}
                   isCompleted={activity.status === 'done'}
                   onToggleComplete={isDragging ? undefined : () => handleToggleComplete(activity.id)}
                   isPriorityOne={activity.priority === 1}
                   onTogglePriority={isDragging ? undefined : () => handleTogglePriorityOne(activity.id)}
+                  onStartFocus={isDragging ? undefined : () => openActivityFocus(activity.id)}
+                  onSchedule={isDragging ? undefined : () => openActivitySchedule(activity.id)}
                   onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
                   onDelete={isDragging ? undefined : () => handleDeleteActivity(activity)}
                   isDueToday={isDueToday}
@@ -3181,14 +3225,10 @@ export function ActivitiesScreen() {
             );
           }}
           ListHeaderComponent={activityListHeader}
-          ListEmptyComponent={
-            recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length === 0
-              ? null
-              : renderDomainEmptyState()
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: nonRecommendedActiveActivities.length > 0 ? spacing.xl : 0 }}>
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -3212,12 +3252,16 @@ export function ActivitiesScreen() {
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
           onScroll={handleInventoryScroll}
+          onScrollBeginDrag={handleInventoryScrollBeginDrag}
+          onScrollEndDrag={handleInventoryScrollSettle}
+          onMomentumScrollEnd={handleInventoryScrollSettle}
           contentContainerStyle={[
             styles.scrollContent,
-            nonRecommendedActiveActivities.length === 0 ? { flexGrow: 1 } : null,
+            activeActivities.length === 0 ? { flexGrow: 1 } : null,
           ]}
           extraBottomPadding={scrollExtraBottomPadding}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
           scrollEnabled={activitiesGuideHost.scrollEnabled}
           automaticallyAdjustKeyboardInsets={false}
           keyboardShouldPersistTaps="handled"
@@ -3233,48 +3277,65 @@ export function ActivitiesScreen() {
               });
             }, 80);
           }}
-          data={nonRecommendedActiveActivities}
+          data={activeActivities}
           keyExtractor={(activity) => activity.id}
-          ItemSeparatorComponent={() => <View style={styles.activityItemSeparator} />}
-          renderItem={({ item: activity }) => {
-            const goalTitle = activity.goalId ? goalTitleById[activity.goalId] : undefined;
-            const { meta, metaLeadingIconName, metaLeadingIconNames, isDueToday } = buildActivityListMeta({ activity, goalTitle });
+          renderItem={({ item: activity, index }) => {
+            const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
+            const priorityIndicator = isPrioritySort(sortConditions)
+              ? priorityIndicatorByActivityId.get(activity.id)
+              : undefined;
             const metaLoading = enrichingActivityIds.has(activity.id) && !meta;
+            const rowGap = getActivityListRowGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const rowOuterGap = getActivityListRowOuterGap({
+              isPrioritySort: isPrioritySort(sortConditions),
+              priorityIndicator,
+              hasNextItem: index < activeActivities.length - 1,
+            });
+            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
 
             return (
-              <ActivityListItem
-                title={activity.title}
-                meta={meta}
-                metaLeadingIconName={metaLeadingIconName}
-                metaLeadingIconNames={metaLeadingIconNames}
-                metaLoading={metaLoading}
-                isCompleted={activity.status === 'done'}
-                onToggleComplete={() => handleToggleComplete(activity.id)}
-                isPriorityOne={activity.priority === 1}
-                onTogglePriority={() => handleTogglePriorityOne(activity.id)}
-                onPress={() => navigateToActivityDetail(activity.id)}
-                onDelete={() => handleDeleteActivity(activity)}
-                isDueToday={isDueToday}
-                isGhost={
-                  sessionCreatedIdsForGhostContext.has(activity.id) &&
-                  QueryService.applyActivityFilters(
-                    [activity],
-                    filterGroups,
-                    activeView?.filterGroupLogic ?? 'or',
-                  ).length === 0
-                }
-              />
+              <View style={[
+                { paddingBottom: rowGap },
+                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
+                topPriorityBandRowStyle,
+              ]}>
+                <ActivityListItem
+                  title={activity.title}
+                  meta={meta}
+                  estimateMeta={estimateMeta}
+                  metaTone={metaTone}
+                  priorityIndicator={priorityIndicator}
+                  metaLoading={metaLoading}
+                  isCompleted={activity.status === 'done'}
+                  onToggleComplete={() => handleToggleComplete(activity.id)}
+                  isPriorityOne={activity.priority === 1}
+                  onTogglePriority={() => handleTogglePriorityOne(activity.id)}
+                  onStartFocus={() => openActivityFocus(activity.id)}
+                  onSchedule={() => openActivitySchedule(activity.id)}
+                  onPress={() => navigateToActivityDetail(activity.id)}
+                  onDelete={() => handleDeleteActivity(activity)}
+                  isDueToday={isDueToday}
+                  isGhost={
+                    sessionCreatedIdsForGhostContext.has(activity.id) &&
+                    QueryService.applyActivityFilters(
+                      [activity],
+                      filterGroups,
+                      activeView?.filterGroupLogic ?? 'or',
+                    ).length === 0
+                  }
+                />
+              </View>
             );
           }}
           ListHeaderComponent={activityListHeader}
-          ListEmptyComponent={
-            recommendedPriorityActivities.length > 0 && nonRecommendedActiveActivities.length === 0
-              ? null
-              : renderDomainEmptyState()
-          }
+          ListEmptyComponent={renderDomainEmptyState()}
           ListFooterComponent={
             completedActivities.length > 0 ? (
-              <View style={{ marginTop: nonRecommendedActiveActivities.length > 0 ? spacing.xl : 0 }}>
+              <View style={{ marginTop: activeActivities.length > 0 ? spacing.xl : 0 }}>
                 <CompletedActivitySection
                   activities={completedActivities}
                   goalTitleById={goalTitleById}
@@ -3663,76 +3724,6 @@ export function ActivitiesScreen() {
                     style={[
                       styles.viewEditorToggleThumb,
                       showCompleted && styles.viewEditorToggleThumbOn,
-                    ]}
-                  />
-                </Pressable>
-              </HStack>
-
-              <HStack
-                style={styles.viewEditorToggleRow}
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <HStack alignItems="center" space="xs">
-                  <Text
-                    style={[
-                      styles.viewEditorToggleLabel,
-                      recommendedDisabledReason ? styles.viewEditorToggleLabelDisabled : null,
-                    ]}
-                  >
-                    Recommended
-                  </Text>
-                  {recommendedDisabledReason ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={recommendedDisabledReason.title}
-                          hitSlop={8}
-                          style={({ pressed }) => [
-                            styles.viewEditorToggleInfoButton,
-                            pressed ? styles.viewEditorToggleInfoButtonPressed : null,
-                          ]}
-                        >
-                          <Icon name="info" size={13} color={colors.formLabel} />
-                        </Pressable>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        side="bottom"
-                        sideOffset={6}
-                        align="start"
-                        style={styles.viewEditorToggleInfoPopover}
-                      >
-                        <Text style={styles.viewEditorToggleInfoTitle}>
-                          {recommendedDisabledReason.title}
-                        </Text>
-                        <Text style={styles.viewEditorToggleInfoBody}>
-                          {recommendedDisabledReason.body}
-                        </Text>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                </HStack>
-                <Pressable
-                  accessibilityRole="switch"
-                  accessibilityLabel="Toggle Recommended section"
-                  accessibilityState={{
-                    checked: showRecommended,
-                    disabled: Boolean(recommendedDisabledReason),
-                  }}
-                  disabled={Boolean(recommendedDisabledReason)}
-                  onPress={() => handleUpdateShowRecommended(!showRecommended)}
-                  style={[
-                    styles.viewEditorToggleTrack,
-                    showRecommended && styles.viewEditorToggleTrackOn,
-                    recommendedDisabledReason ? styles.viewEditorToggleTrackDisabled : null,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.viewEditorToggleThumb,
-                      showRecommended && styles.viewEditorToggleThumbOn,
-                      recommendedDisabledReason ? styles.viewEditorToggleThumbDisabled : null,
                     ]}
                   />
                 </Pressable>

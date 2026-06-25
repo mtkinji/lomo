@@ -1,4 +1,5 @@
 import type { Activity, Arc, Goal } from '../../domain/types';
+import { getActivityPriorityState, rankActivitiesBySmartOrder } from '../../features/activities/activityPriority';
 
 export type SuggestedNextStep =
   | {
@@ -26,14 +27,6 @@ function isScheduledForLocalDay(activity: Activity, dateKey: string): boolean {
   return localDateKey(when) === dateKey;
 }
 
-function isDueForLocalDay(activity: Activity, dateKey: string): boolean {
-  const raw = activity.scheduledDate ?? null;
-  if (!raw) return false;
-  const when = new Date(raw);
-  if (Number.isNaN(when.getTime())) return false;
-  return localDateKey(when) === dateKey;
-}
-
 function isActionable(activity: Activity): boolean {
   return activity.status !== 'done' && activity.status !== 'cancelled';
 }
@@ -41,44 +34,14 @@ function isActionable(activity: Activity): boolean {
 type ScoredActivity = { activity: Activity; score: number };
 
 function scoreActivities(params: { activities: Activity[]; goals: Goal[]; now: Date }): ScoredActivity[] {
-  const todayKey = localDateKey(params.now);
-  const actionable = params.activities.filter(isActionable);
-
-  // Build a lookup map from goalId to goal for efficient priority lookups.
-  const goalById = new Map<string, Goal>();
-  for (const goal of params.goals) {
-    goalById.set(goal.id, goal);
-  }
-
-  return actionable
-    .map((activity) => {
-      const scheduledToday = isScheduledForLocalDay(activity, todayKey) ? 1 : 0;
-      const dueToday = isDueForLocalDay(activity, todayKey) ? 1 : 0;
-      const activityPriority = activity.priority === 1 ? 1 : activity.priority === 2 ? 0.5 : 0;
-
-      // Look up the parent goal's priority and factor it into the score.
-      const parentGoal = activity.goalId ? goalById.get(activity.goalId) : null;
-      const goalPriority = parentGoal?.priority === 1 ? 1 : parentGoal?.priority === 2 ? 0.5 : 0;
-
-      const estimate = typeof activity.estimateMinutes === 'number' ? activity.estimateMinutes : null;
-      // Prefer smaller estimates; cap to avoid overfitting.
-      const estimateScore =
-        estimate === null ? 0 : estimate <= 15 ? 1 : estimate <= 30 ? 0.6 : estimate <= 60 ? 0.2 : 0;
-      const updatedAt = new Date(activity.updatedAt).getTime();
-      const updatedScore = Number.isNaN(updatedAt)
-        ? 0
-        : Math.min(1, (Date.now() - updatedAt) / (7 * 24 * 60 * 60 * 1000));
-      // Higher is better. Goal priority sits between scheduledToday and activity priority.
-      const score =
-        scheduledToday * 3 +
-        dueToday * 3.25 +
-        goalPriority * 2.5 +
-        activityPriority * 2 +
-        estimateScore * 1 +
-        updatedScore * 0.2;
-      return { activity, score };
-    })
-    .sort((a, b) => b.score - a.score);
+  return rankActivitiesBySmartOrder({
+    activities: params.activities,
+    goals: params.goals,
+    now: params.now,
+  })
+    .filter((row) => isActionable(row.activity))
+    .filter((row) => getActivityPriorityState(row.activity) === 'active')
+    .map((row) => ({ activity: row.activity, score: row.score }));
 }
 
 /**
@@ -133,5 +96,3 @@ export function hasAnyActivitiesScheduledForToday(params: { activities: Activity
   const todayKey = localDateKey(params.now);
   return params.activities.some((a) => isActionable(a) && isScheduledForLocalDay(a, todayKey));
 }
-
-

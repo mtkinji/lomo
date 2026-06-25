@@ -71,6 +71,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
               path: 'activity/:activityId',
               parse: {
                 openFocus: (v: string) => v === '1' || v === 'true',
+                openSchedule: (v: string) => v === '1' || v === 'true',
                 autoStartFocus: (v: string) => v === '1' || v === 'true',
                 endFocus: (v: string) => v === '1' || v === 'true',
                 minutes: (v: string) => {

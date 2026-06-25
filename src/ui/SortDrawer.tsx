@@ -4,15 +4,13 @@ import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flat
 import { BottomDrawer } from './BottomDrawer';
 import { Card } from './Card';
 import { VStack, HStack } from './Stack';
-import { Text, ButtonLabel } from './Typography';
+import { ButtonLabel } from './Typography';
 import { Button, IconButton } from './Button';
 import { Icon } from './Icon';
 import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
 import { ObjectPicker, ObjectPickerOption } from './ObjectPicker';
-import { SegmentedControl } from './SegmentedControl';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { typography } from '../theme/typography';
 import { ActivitySortMode, ActivitySortableField, SortCondition } from '../domain/types';
 import type { IconName } from './Icon';
 
@@ -78,45 +76,62 @@ function getSortIcon(field: ActivitySortableField, direction: 'asc' | 'desc'): I
   }
 }
 
-type SortMode = 'default' | 'custom';
-
 type LocalSortCondition = SortCondition & { id: string };
 
 function newId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-function getDefaultSortLabel(mode: ActivitySortMode): string {
+export function getDefaultSortCondition(mode: ActivitySortMode): SortCondition {
   switch (mode) {
     case 'titleAsc':
-      return 'Title (A→Z)';
+      return { field: 'title', direction: 'asc' };
     case 'titleDesc':
-      return 'Title (Z→A)';
+      return { field: 'title', direction: 'desc' };
     case 'dueDateAsc':
-      return 'Due date (Soonest)';
+      return { field: 'scheduledDate', direction: 'asc' };
     case 'dueDateDesc':
-      return 'Due date (Latest)';
+      return { field: 'scheduledDate', direction: 'desc' };
     case 'priority':
-      return 'Priority';
+      return { field: 'priority', direction: 'asc' };
     case 'manual':
     default:
-      return 'Manual order';
+      return { field: 'orderIndex', direction: 'asc' };
   }
 }
 
+function addLocalId(sort: SortCondition): LocalSortCondition {
+  return { ...sort, id: newId() };
+}
+
+function toLocalSorts(sorts: SortCondition[], defaultSortMode: ActivitySortMode): LocalSortCondition[] {
+  const source = sorts.length > 0 ? sorts : [getDefaultSortCondition(defaultSortMode)];
+  return source.map(addLocalId);
+}
+
+function stripLocalIds(sorts: LocalSortCondition[]): SortCondition[] {
+  return sorts.map(({ id: _id, ...rest }) => rest);
+}
+
+function isSameSort(a: SortCondition, b: SortCondition): boolean {
+  return a.field === b.field && a.direction === b.direction;
+}
+
+function isDefaultSortOnly(sorts: SortCondition[], defaultSortMode: ActivitySortMode): boolean {
+  return sorts.length === 1 && isSameSort(sorts[0], getDefaultSortCondition(defaultSortMode));
+}
+
 export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, defaultSortMode, onApply }: Props) {
-  const [mode, setMode] = useState<SortMode>(initialStructuredSorts.length > 0 ? 'custom' : 'default');
   const [localSorts, setLocalSorts] = useState<LocalSortCondition[]>(
-    initialStructuredSorts.map((s) => ({ ...s, id: newId() })),
+    toLocalSorts(initialStructuredSorts, defaultSortMode),
   );
 
   // Sync local state with props when drawer opens
   React.useEffect(() => {
     if (visible) {
-      setMode(initialStructuredSorts.length > 0 ? 'custom' : 'default');
-      setLocalSorts(initialStructuredSorts.map((s) => ({ ...s, id: newId() })));
+      setLocalSorts(toLocalSorts(initialStructuredSorts, defaultSortMode));
     }
-  }, [visible, initialStructuredSorts]);
+  }, [visible, initialStructuredSorts, defaultSortMode]);
 
   const handleAddSort = () => {
     const usedFields = new Set(localSorts.map((s) => s.field));
@@ -126,15 +141,11 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
     }
   };
 
-  const handleChangeMode = (next: SortMode) => {
-    setMode(next);
-    if (next === 'custom' && localSorts.length === 0) {
-      setLocalSorts([{ id: newId(), field: SORTABLE_FIELDS[0].value, direction: 'asc' }]);
-    }
-  };
-
   const handleRemoveSort = (index: number) => {
-    setLocalSorts((prev) => prev.filter((_, i) => i !== index));
+    setLocalSorts((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleUpdateSort = (index: number, updates: Partial<SortCondition>) => {
@@ -144,21 +155,21 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
   };
 
   const handleApply = () => {
-    if (mode === 'default') {
+    const nextSorts = stripLocalIds(localSorts);
+    if (isDefaultSortOnly(nextSorts, defaultSortMode)) {
       onApply([]);
       onClose();
       return;
     }
-    onApply(localSorts.map(({ id: _id, ...rest }) => rest));
+    onApply(nextSorts);
     onClose();
   };
 
   const handleClearAll = () => {
-    setMode('default');
-    setLocalSorts([]);
+    setLocalSorts([addLocalId(getDefaultSortCondition(defaultSortMode))]);
   };
 
-  const hasAnyCustomSorts = localSorts.length > 0 || mode === 'custom';
+  const hasAnyCustomSorts = !isDefaultSortOnly(stripLocalIds(localSorts), defaultSortMode);
 
   const usedFields = new Set(localSorts.map((s) => s.field));
   const allFieldsUsed = usedFields.size >= SORTABLE_FIELDS.length;
@@ -175,73 +186,51 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
         />
 
         <VStack style={styles.content} space="md" flex={1}>
-          <SegmentedControl
-            size="compact"
-            value={mode}
-            onChange={(val) => handleChangeMode(val as SortMode)}
-            options={[
-              { value: 'default', label: defaultSortMode === 'manual' ? 'Manual' : 'Default' },
-              { value: 'custom', label: 'Custom' },
-            ]}
-          />
+          <VStack space={0}>
+            <DraggableFlatList
+              data={localSorts}
+              keyExtractor={(item) => item.id}
+              onDragEnd={({ data }) => setLocalSorts(data)}
+              activationDistance={10}
+              scrollEnabled={false}
+              renderItem={({ item, drag, isActive, getIndex }: RenderItemParams<LocalSortCondition>) => {
+                const index = getIndex?.() ?? 0;
+                const filteredOptions = SORTABLE_FIELDS.filter(
+                  (f) => !usedFields.has(f.value) || f.value === item.field,
+                );
 
-          {mode === 'default' ? (
-            <Card padding="md" elevation="none" style={styles.modeCard}>
-              <VStack space="xs">
-                <Text style={styles.modeTitle}>Default: {getDefaultSortLabel(defaultSortMode)}</Text>
-                <Text style={styles.modeBody}>
-                  {defaultSortMode === 'manual'
-                    ? 'Drag to-dos in the list to reorder them.'
-                    : 'Switch to Custom to add multi-level sorts.'}
-                </Text>
-              </VStack>
-            </Card>
-          ) : (
-            <VStack space={0}>
-              <DraggableFlatList
-                data={localSorts}
-                keyExtractor={(item) => item.id}
-                onDragEnd={({ data }) => setLocalSorts(data)}
-                activationDistance={10}
-                scrollEnabled={false}
-                renderItem={({ item, drag, isActive, getIndex }: RenderItemParams<LocalSortCondition>) => {
-                  const index = getIndex?.() ?? 0;
-                  const filteredOptions = SORTABLE_FIELDS.filter(
-                    (f) => !usedFields.has(f.value) || f.value === item.field,
-                  );
+                return (
+                  <Card
+                    padding="none"
+                    elevation={isActive ? 'lift' : 'none'}
+                    style={[styles.sortCard, isActive && styles.sortCardActive]}
+                    marginVertical={spacing.xs / 2}
+                  >
+                    <HStack space="xs" alignItems="center" style={styles.sortRow}>
+                      <Pressable
+                        onLongPress={drag}
+                        delayLongPress={100}
+                        accessibilityRole="button"
+                        accessibilityLabel="Reorder sort level"
+                        hitSlop={10}
+                        style={styles.dragHandle}
+                      >
+                        <Icon name="menu" size={18} color={colors.textSecondary} />
+                      </Pressable>
 
-                  return (
-                    <Card
-                      padding="none"
-                      elevation={isActive ? 'lift' : 'none'}
-                      style={[styles.sortCard, isActive && styles.sortCardActive]}
-                      marginVertical={spacing.xs / 2}
-                    >
-                      <HStack space="xs" alignItems="center" style={styles.sortRow}>
-                        <Pressable
-                          onLongPress={drag}
-                          delayLongPress={100}
-                          accessibilityRole="button"
-                          accessibilityLabel="Reorder sort level"
-                          hitSlop={10}
-                          style={styles.dragHandle}
-                        >
-                          <Icon name="menu" size={18} color={colors.textSecondary} />
-                        </Pressable>
-
-                        <View style={{ flex: 1 }}>
-                          <ObjectPicker
-                            size="compact"
-                            options={filteredOptions as unknown as ObjectPickerOption[]}
-                            value={item.field}
-                            onValueChange={(val) => handleUpdateSort(index, { field: val as ActivitySortableField })}
-                            accessibilityLabel="Select field to sort by"
-                            placeholder="Sort by..."
-                            presentation="popover"
-                            showSearch={false}
-                            allowDeselect={false}
-                          />
-                        </View>
+                      <View style={{ flex: 1 }}>
+                        <ObjectPicker
+                          size="compact"
+                          options={filteredOptions as unknown as ObjectPickerOption[]}
+                          value={item.field}
+                          onValueChange={(val) => handleUpdateSort(index, { field: val as ActivitySortableField })}
+                          accessibilityLabel="Select field to sort by"
+                          placeholder="Sort by..."
+                          presentation="popover"
+                          showSearch={false}
+                          allowDeselect={false}
+                        />
+                      </View>
 
                       <IconButton
                         variant="ghost"
@@ -262,35 +251,34 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                         />
                       </IconButton>
 
-                        <IconButton
-                          variant="ghost"
-                          onPress={() => handleRemoveSort(index)}
-                          accessibilityLabel="Remove sort level"
-                          disabled={localSorts.length <= 1}
-                          style={styles.compactIconButton}
-                        >
-                          <Icon name="close" size={18} color={colors.textSecondary} />
-                        </IconButton>
-                      </HStack>
-                    </Card>
-                  );
-                }}
-              />
+                      <IconButton
+                        variant="ghost"
+                        onPress={() => handleRemoveSort(index)}
+                        accessibilityLabel="Remove sort level"
+                        disabled={localSorts.length <= 1}
+                        style={styles.compactIconButton}
+                      >
+                        <Icon name="close" size={18} color={colors.textSecondary} />
+                      </IconButton>
+                    </HStack>
+                  </Card>
+                );
+              }}
+            />
 
-              {!allFieldsUsed && (
-                <Button
-                  variant="secondary"
-                  onPress={handleAddSort}
-                  style={styles.addBtn}
-                >
-                  <HStack space="xs" alignItems="center">
-                    <Icon name="plus" size={18} color={colors.textPrimary} />
-                    <ButtonLabel>Add sort level</ButtonLabel>
-                  </HStack>
-                </Button>
-              )}
-            </VStack>
-          )}
+            {!allFieldsUsed && (
+              <Button
+                variant="secondary"
+                onPress={handleAddSort}
+                style={styles.addBtn}
+              >
+                <HStack space="xs" alignItems="center">
+                  <Icon name="plus" size={18} color={colors.textPrimary} />
+                  <ButtonLabel>Add sort level</ButtonLabel>
+                </HStack>
+              </Button>
+            )}
+          </VStack>
         </VStack>
 
         {/* Footer anchored to bottom */}
@@ -335,19 +323,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.md,
     flex: 1,
-  },
-  modeCard: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.shell,
-  },
-  modeTitle: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  modeBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
   },
   sortCard: {
     borderRadius: 12,

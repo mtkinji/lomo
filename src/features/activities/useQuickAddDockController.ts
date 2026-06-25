@@ -520,6 +520,9 @@ export function applyQuickAddAiEnrichment(
     if (enrichment.goalId && !activity.goalId) {
       updates.goalId = enrichment.goalId;
     }
+    if (enrichment.areaId && !activity.areaId) {
+      updates.areaId = enrichment.areaId;
+    }
     if (enrichment.type && activity.type === 'task' && enrichment.type !== 'task') {
       updates.type = enrichment.type;
     }
