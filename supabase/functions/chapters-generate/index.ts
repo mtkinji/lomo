@@ -38,11 +38,14 @@ import {
 } from '../_shared/chapterHealth.ts';
 import {
   allowedUnanchoredStoryParagraphs,
+  countQuotedTitles,
   countQuoteableActivityTitles,
   findMismatchedCompletionCount,
+  paragraphHasAnchor,
   resolveCitedExampleRequirement,
   resolveQuotedTitleRequirement,
   shouldRequireVerbatimUserNote,
+  splitParagraphs,
 } from '../_shared/chapterOutputValidation.ts';
 import type {
   ChapterHealthBlock,
@@ -1604,49 +1607,6 @@ async function callOpenAiForChapter(params: {
     return { ok: false as const, error: 'OpenAI returned invalid JSON output' };
   }
   return { ok: true as const, outputJson: out };
-}
-
-function splitParagraphs(body: string): string[] {
-  return body
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-}
-
-function paragraphHasAnchor(params: {
-  paragraph: string;
-  arcTitles: string[];
-  goalTitles: string[];
-  activityTitles: string[];
-}): boolean {
-  const { paragraph, arcTitles, goalTitles, activityTitles } = params;
-  // Skip markdown subheads; they aren't paragraphs of prose.
-  if (paragraph.startsWith('## ') || paragraph.startsWith('# ')) return true;
-  if (/\d/.test(paragraph)) return true;
-  if (/[\u201C"][^\u201D"]{3,}[\u201D"]/.test(paragraph)) return true;
-  const lc = paragraph.toLowerCase();
-  for (const t of arcTitles) {
-    if (t && lc.includes(t.toLowerCase())) return true;
-  }
-  for (const t of goalTitles) {
-    if (t && lc.includes(t.toLowerCase())) return true;
-  }
-  for (const t of activityTitles) {
-    if (t && lc.includes(t.toLowerCase())) return true;
-  }
-  return false;
-}
-
-function countQuotedTitles(body: string, activityTitles: string[]): number {
-  let count = 0;
-  for (const t of activityTitles) {
-    const trimmed = t.trim();
-    if (!trimmed || trimmed.length < 3) continue;
-    const quoted = `"${trimmed}"`;
-    const smartQuoted = `\u201C${trimmed}\u201D`;
-    if (body.includes(quoted) || body.includes(smartQuoted)) count += 1;
-  }
-  return count;
 }
 
 function validateChapterOutput(params: {

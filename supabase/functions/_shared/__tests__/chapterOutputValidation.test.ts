@@ -1,9 +1,12 @@
 import {
   allowedUnanchoredStoryParagraphs,
+  countQuotedTitles,
   findMismatchedCompletionCount,
+  paragraphHasAnchor,
   resolveCitedExampleRequirement,
   resolveQuotedTitleRequirement,
   shouldRequireVerbatimUserNote,
+  splitParagraphs,
 } from '../chapterOutputValidation';
 
 describe('resolveQuotedTitleRequirement', () => {
@@ -86,5 +89,34 @@ describe('findMismatchedCompletionCount', () => {
         11,
       ),
     ).toBeNull();
+  });
+});
+
+describe('chapter output text helpers', () => {
+  it('splits story bodies into non-empty paragraphs', () => {
+    expect(splitParagraphs('One.\n\n\nTwo.\n\nThree.')).toEqual(['One.', 'Two.', 'Three.']);
+  });
+
+  it('detects paragraph anchors from numbers, quoted activities, arcs, and goals', () => {
+    const params = {
+      arcTitles: ['Family Arc'],
+      goalTitles: ['Kitchen Reset'],
+      activityTitles: ['Book plumber'],
+    };
+
+    expect(paragraphHasAnchor({ paragraph: 'You closed 4 things.', ...params })).toBe(true);
+    expect(paragraphHasAnchor({ paragraph: 'The Family Arc carried the week.', ...params })).toBe(true);
+    expect(paragraphHasAnchor({ paragraph: 'Kitchen Reset finally moved.', ...params })).toBe(true);
+    expect(paragraphHasAnchor({ paragraph: 'You finished "Book plumber" on Friday.', ...params })).toBe(true);
+    expect(paragraphHasAnchor({ paragraph: 'The week had a quieter shape.', ...params })).toBe(false);
+  });
+
+  it('counts straight and smart quoted activity titles verbatim', () => {
+    expect(
+      countQuotedTitles(
+        'You finished "Book plumber" and then \u201COrder filters\u201D.',
+        ['Book plumber', 'Order filters', 'Unquoted title'],
+      ),
+    ).toBe(2);
   });
 });

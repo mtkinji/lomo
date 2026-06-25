@@ -62,3 +62,47 @@ export function findMismatchedCompletionCount(
 
   return null;
 }
+
+export function splitParagraphs(body: string): string[] {
+  return body
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+export function paragraphHasAnchor(params: {
+  paragraph: string;
+  arcTitles: string[];
+  goalTitles: string[];
+  activityTitles: string[];
+}): boolean {
+  const { paragraph, arcTitles, goalTitles, activityTitles } = params;
+  if (paragraph.startsWith('## ') || paragraph.startsWith('# ')) return true;
+  if (/\d/.test(paragraph)) return true;
+  if (/[\u201C"][^\u201D"]{3,}[\u201D"]/.test(paragraph)) return true;
+
+  const lower = paragraph.toLowerCase();
+  const titleAppears = (title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return false;
+    return lower.includes(trimmed.toLowerCase());
+  };
+
+  if (arcTitles.some(titleAppears)) return true;
+  if (goalTitles.some(titleAppears)) return true;
+  if (activityTitles.some(titleAppears)) return true;
+
+  return false;
+}
+
+export function countQuotedTitles(body: string, activityTitles: string[]): number {
+  let count = 0;
+  for (const title of activityTitles) {
+    const trimmed = title.trim();
+    if (!trimmed || trimmed.length < 3) continue;
+    if (body.includes(`"${trimmed}"`) || body.includes(`\u201C${trimmed}\u201D`)) {
+      count += 1;
+    }
+  }
+  return count;
+}
