@@ -31,7 +31,6 @@ import {
   View,
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -88,10 +87,13 @@ import {
   type AgentOffer,
   type GoalProposalDraft,
 } from './agentHandoffParsers';
+import {
+  loadArcCreationDraft,
+  saveArcCreationDraft,
+  type ChatMessage,
+} from './chatDraftStorage';
 
 export type { ActivitySuggestion, GoalProposalDraft } from './agentHandoffParsers';
-
-type ChatMessageRole = 'assistant' | 'user' | 'system';
 
 type AgentRouteParams = {
   mode?: ChatMode;
@@ -102,20 +104,6 @@ type AgentRouteParams = {
   hidePromptSuggestions?: boolean;
 };
 
-type ChatMessage = {
-  id: string;
-  role: ChatMessageRole;
-  content: string;
-};
-
-type ChatDraft = {
-  messages: ChatMessage[];
-  input: string;
-  updatedAt: string;
-};
-
-const ARC_CREATION_DRAFT_STORAGE_KEY = 'kwilt-coach-draft:arcCreation:v1';
-
 const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[] = [
   { value: 'too_generic', label: 'Too generic or vague' },
   { value: 'project_not_identity', label: 'Feels like a project, not an identity' },
@@ -123,33 +111,6 @@ const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[
   { value: 'tone_off', label: 'Tone feels off for where I am right now' },
   { value: 'does_not_feel_like_me', label: 'Does not feel like me' },
 ];
-
-async function loadArcCreationDraft(): Promise<ChatDraft | null> {
-  try {
-    const raw = await AsyncStorage.getItem(ARC_CREATION_DRAFT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as ChatDraft;
-    if (!parsed || !Array.isArray(parsed.messages)) {
-      return null;
-    }
-    return parsed;
-  } catch (err) {
-    console.warn('Failed to load Kwilt Coach arc draft', err);
-    return null;
-  }
-}
-
-async function saveArcCreationDraft(draft: ChatDraft | null): Promise<void> {
-  try {
-    if (!draft || draft.messages.length === 0) {
-      await AsyncStorage.removeItem(ARC_CREATION_DRAFT_STORAGE_KEY);
-      return;
-    }
-    await AsyncStorage.setItem(ARC_CREATION_DRAFT_STORAGE_KEY, JSON.stringify(draft));
-  } catch (err) {
-    console.warn('Failed to save Kwilt Coach arc draft', err);
-  }
-}
 
 type GoalProposalTimelineItem = {
   id: string;
