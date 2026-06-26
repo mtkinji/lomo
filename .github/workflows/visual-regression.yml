@@ -71,8 +71,7 @@ jobs:
         run: |
           maestro test \
             e2e/maestro/smoke-devtools.yaml \
-            e2e/maestro/bottomdrawer-touch-regression.yaml \
-            e2e/maestro/keyboard-harness.yaml \
+            e2e/maestro/arc-banner-touch-regression.yaml \
             e2e/maestro/activity-detail-key-actions.yaml
 
       - name: Collect screenshots
