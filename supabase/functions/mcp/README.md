@@ -54,6 +54,7 @@ When the token has `write` scope, `tools/list` also advertises write tools:
 - `create_arc`, `update_arc`, `delete_arc`
 - `create_goal`, `update_goal`, `delete_goal`, `add_goal_checkin`
 - `capture_activity`, `update_activity`, `mark_activity_done`, `set_focus_today`, `delete_activity`
+- `create_activity_step`, `update_activity_step`, `mark_activity_step_done`, `delete_activity_step`, `reorder_activity_steps`
 - `update_chapter_user_note`
 
 Write tools create the same domain rows as the Kwilt app. Delete tools use the

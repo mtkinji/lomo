@@ -26,6 +26,8 @@ briefs:
   - meaningful-first-app-access
   - places-system
   - screen-time-controls-contextual-setup
+  - tag-groups
+  - tag-vocabulary-system
   - todo-action-contexts
   - todo-dependencies
   - todo-list-grouping-config

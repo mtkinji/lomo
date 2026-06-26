@@ -2391,12 +2391,12 @@ export const AiChatPane = forwardRef(function AiChatPane(
             'Format:\n' +
             'ACTIVITY_SUGGESTIONS_JSON: {"suggestions":[{...}]}\n' +
             'Each suggestion MUST include: id (string), title (string), why (string), timeEstimateMinutes (number), type ("task"|"checklist"|"shopping_list"|"instructions"|"plan").\n' +
-            'Each suggestion MAY include: tags (array of 0–5 strings like "errands", no "#"), steps (array of {title,isOptional}), energyLevel ("light"|"focused"), kind ("setup"|"progress"|"maintenance"|"stretch").\n' +
+            'Each suggestion MAY include: tags (array of 0–3 strings like "groceries", "school", "errands", no "#"), steps (array of {title,isOptional}), energyLevel ("light"|"focused"), kind ("setup"|"progress"|"maintenance"|"stretch").\n' +
             'If the user request implies a checklist-style output (for example, a shopping list, a packing list, or a meal-prep plan), express it via `steps` and set type appropriately ("shopping_list", "checklist", or "instructions").\n' +
             'Choose the most appropriate `type` for each suggestion based on content, and diversify types when it improves clarity.\n' +
             'Rules:\n' +
             '- Every suggestion MUST include a `type` field.\n' +
-            '- Tags should be short and reusable; prefer reusing tags that appear in the workspace snapshot/tag history when possible.\n' +
+            '- Tags should be short and reusable; prefer one clear grouping tag when the user is trying to retrieve a set later. Reuse tags from the workspace snapshot/tag history when possible, and preserve specific group labels like "groceries" instead of broadening them to "errands".\n' +
             '- For "shopping_list" and "checklist", express the content as steps (each step is one item).\n' +
             '- For "instructions", include steps that read like a short recipe / how-to.\n' +
             '- For "plan", include steps that read like a simple timeline or sequence.\n' +
@@ -3949,6 +3949,10 @@ export function AiChatScreen() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const activities = useAppStore((s: any) => s.activities) as any[];
   // eslint-disable-next-line react-hooks/rules-of-hooks
+  const activityTagHistory = useAppStore(
+    (s: { activityTagHistory?: Record<string, { tag?: string }> }) => s.activityTagHistory,
+  );
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const addArc = useAppStore((s: any) => s.addArc) as (arc: any) => void;
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const addActivity = useAppStore((s: any) => s.addActivity) as (activity: any) => void;
@@ -3994,6 +3998,13 @@ export function AiChatScreen() {
     if (!base) return shareContextText;
     return `${shareContextText}\n\n${base}`;
   }, [activities, arcs, buildActivityCoachLaunchContext, goals, shareContextText]);
+  const existingTagLabels = React.useMemo(
+    () =>
+      Object.values(activityTagHistory ?? {})
+        .map((entry) => entry.tag)
+        .filter((tag): tag is string => Boolean(tag && tag.trim())),
+    [activityTagHistory],
+  );
 
   const shareIntakeWorkflow = React.useMemo(() => getWorkflowLaunchConfig('shareIntake'), [getWorkflowLaunchConfig]);
   const arcWorkflow = React.useMemo(() => getWorkflowLaunchConfig('arcCreation'), [getWorkflowLaunchConfig]);
@@ -4024,7 +4035,7 @@ export function AiChatScreen() {
         tags:
           Array.isArray(suggestion.tags) && suggestion.tags.length > 0
             ? suggestion.tags
-            : suggestTagsFromText(title, suggestion.why ?? null),
+            : suggestTagsFromText(title, suggestion.why ?? null, { existingTags: existingTagLabels }),
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -4105,6 +4116,7 @@ export function AiChatScreen() {
       addActivity,
       capture,
       defaultForceLevels,
+      existingTagLabels,
       geocodePlaceBestEffort,
       suggestTagsFromText,
       updateActivity,

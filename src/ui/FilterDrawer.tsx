@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { BottomDrawer } from './BottomDrawer';
 import { Card } from './Card';
 import { VStack, HStack } from './Stack';
@@ -17,7 +17,6 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import {
-  Activity,
   FilterGroup,
   FilterGroupLogic,
   FilterCondition,
@@ -25,8 +24,10 @@ import {
   ActivityFilterableField,
 } from '../domain/types';
 import { useAppStore } from '../store/useAppStore';
+import { buildActivityTagVocabularyOptions } from '../utils/activityTagVocabulary';
 
 type UiFilterOperator = FilterOperator | 'past_due';
+type FilterValue = FilterCondition['value'];
 
 function isPastDueCondition(condition: Pick<FilterCondition, 'field' | 'operator' | 'value'>): boolean {
   return (
@@ -169,8 +170,8 @@ const OPERATORS_BY_TYPE: Record<string, Array<{ value: FilterOperator; label: st
     { value: 'in', label: 'Is one of' },
   ],
   tag: [
-    { value: 'contains', label: 'Contains' },
     { value: 'in', label: 'Has any of' },
+    { value: 'contains', label: 'Contains text' },
     { value: 'exists', label: 'Has tags' },
     { value: 'nexists', label: 'No tags' },
   ],
@@ -539,8 +540,8 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
 function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOptions }: {
   field: ActivityFilterableField;
   operator: FilterOperator;
-  value: any;
-  onChange: (val: any) => void;
+  value: FilterValue;
+  onChange: (val: FilterValue) => void;
   onChangeOperator?: (op: FilterOperator) => void;
   goalOptions: ObjectPickerOption[];
 }) {
@@ -621,8 +622,21 @@ function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOp
           onChangeOperator={onChangeOperator}
         />
       );
-    case 'string':
     case 'tag':
+      if (operator === 'in') {
+        return <TagValueInput value={value} onChange={onChange} />;
+      }
+      return (
+        <Input
+          size="sm"
+          returnKeyType="done"
+          value={String(value || '')}
+          onChangeText={onChange}
+          placeholder="Search tag text..."
+          helperText={operator === 'contains' ? 'Use this only for partial text matches.' : undefined}
+        />
+      );
+    case 'string':
     default:
       return (
         <Input
@@ -635,6 +649,134 @@ function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOp
         />
       );
   }
+}
+
+function TagValueInput({ value, onChange }: { value: FilterValue; onChange: (val: FilterValue) => void }) {
+  const [query, setQuery] = useState('');
+  const activities = useAppStore((state) => state.activities);
+  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
+  const selectedTags = useMemo(() => normalizeSelectedTags(value), [value]);
+  const selectedKeys = useMemo(
+    () => new Set(selectedTags.map((tag) => tag.trim().toLowerCase())),
+    [selectedTags],
+  );
+  const options = useMemo(() => {
+    return buildActivityTagVocabularyOptions({
+      activities,
+      activityTagHistory,
+      query,
+      excludeTags: selectedTags,
+      limit: query.trim() ? 12 : 8,
+    });
+  }, [activities, activityTagHistory, query, selectedTags]);
+
+  const commit = (next: string[]) => {
+    onChange(next.length > 0 ? next : undefined);
+  };
+
+  const toggleTag = (tag: string) => {
+    const key = tag.trim().toLowerCase();
+    if (!key) return;
+    if (selectedKeys.has(key)) {
+      commit(selectedTags.filter((item) => item.trim().toLowerCase() !== key));
+      return;
+    }
+    commit([...selectedTags, tag.trim()]);
+  };
+
+  const addQueryAsTag = () => {
+    const clean = query.trim();
+    if (!clean) return;
+    toggleTag(clean);
+    setQuery('');
+  };
+
+  return (
+    <VStack space="xs">
+      {selectedTags.length > 0 ? (
+        <View style={styles.selectedTagWrap}>
+          {selectedTags.map((tag) => (
+            <Pressable
+              key={tag}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${tag} tag filter`}
+              onPress={() => toggleTag(tag)}
+              style={styles.selectedTagChip}
+            >
+              <Text style={styles.selectedTagChipText}>{tag}</Text>
+              <Icon name="close" size={12} color={colors.textSecondary} />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      <Input
+        size="sm"
+        returnKeyType="done"
+        value={query}
+        onChangeText={setQuery}
+        onSubmitEditing={addQueryAsTag}
+        placeholder="Search tags..."
+        leadingIcon="search"
+      />
+      <VStack space="xs">
+        {options.map((option) => {
+          const selected = selectedKeys.has(option.key);
+          return (
+            <Pressable
+              key={option.key}
+              accessibilityRole="checkbox"
+              accessibilityLabel={`${selected ? 'Remove' : 'Add'} ${option.label} tag filter`}
+              accessibilityState={{ checked: selected }}
+              onPress={() => toggleTag(option.label)}
+              style={[styles.tagOptionRow, selected && styles.tagOptionRowSelected]}
+            >
+              <HStack alignItems="center" justifyContent="space-between" space="sm">
+                <HStack alignItems="center" space="xs" style={styles.tagOptionLabel}>
+                  <Icon
+                    name={selected ? 'check' : 'tag'}
+                    size={14}
+                    color={selected ? colors.accent : colors.textSecondary}
+                  />
+                  <Text style={styles.tagOptionText}>{option.label}</Text>
+                </HStack>
+                <Text style={styles.tagOptionCount}>{option.activeCount || option.totalUses}</Text>
+              </HStack>
+            </Pressable>
+          );
+        })}
+        {query.trim() &&
+        !selectedKeys.has(query.trim().toLowerCase()) &&
+        !options.some((option) => option.label.toLowerCase() === query.trim().toLowerCase()) ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Use ${query.trim()} as tag filter`}
+            onPress={addQueryAsTag}
+            style={styles.tagOptionRow}
+          >
+            <HStack alignItems="center" space="xs">
+              <Icon name="plus" size={14} color={colors.textSecondary} />
+              <Text style={styles.tagOptionText}>Use "{query.trim()}"</Text>
+            </HStack>
+          </Pressable>
+        ) : null}
+      </VStack>
+    </VStack>
+  );
+}
+
+function normalizeSelectedTags(value: FilterValue): string[] {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' && value.trim() ? [value] : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  raw.forEach((item) => {
+    if (typeof item !== 'string') return;
+    const clean = item.trim();
+    const key = clean.toLowerCase();
+    if (!clean || seen.has(key)) return;
+    seen.add(key);
+    out.push(clean);
+  });
+  return out;
 }
 
 function parseLocalDateKey(key: string): Date | null {
@@ -870,6 +1012,49 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginVertical: spacing.xl,
+  },
+  selectedTagWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  selectedTagChip: {
+    minHeight: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.shellAlt,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  selectedTagChipText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  tagOptionRow: {
+    minHeight: 36,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    justifyContent: 'center',
+  },
+  tagOptionRowSelected: {
+    backgroundColor: colors.shellAlt,
+  },
+  tagOptionLabel: {
+    flex: 1,
+  },
+  tagOptionText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  tagOptionCount: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontSize: 12,
   },
   footer: {
     marginHorizontal: -spacing.lg,

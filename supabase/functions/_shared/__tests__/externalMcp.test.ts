@@ -51,6 +51,11 @@ describe('externalMcp helpers', () => {
         'add_goal_checkin',
         'capture_activity',
         'update_activity',
+        'create_activity_step',
+        'update_activity_step',
+        'mark_activity_step_done',
+        'delete_activity_step',
+        'reorder_activity_steps',
         'mark_activity_done',
         'set_focus_today',
         'delete_activity',
@@ -79,6 +84,31 @@ describe('externalMcp helpers', () => {
       });
       expect((update?.inputSchema as any).properties.steps).toMatchObject({
         type: 'array',
+      });
+    });
+
+    test('advertises first-class activity step tools', () => {
+      const tools = Object.fromEntries(EXTERNAL_MCP_WRITE_TOOLS.map((tool) => [tool.name, tool.inputSchema as any]));
+
+      expect(tools.create_activity_step.properties).toMatchObject({
+        activity_id: { type: 'string' },
+        title: { type: 'string' },
+      });
+      expect(tools.update_activity_step.properties).toMatchObject({
+        activity_id: { type: 'string' },
+        step_id: { type: 'string' },
+      });
+      expect(tools.mark_activity_step_done.properties).toMatchObject({
+        activity_id: { type: 'string' },
+        step_id: { type: 'string' },
+      });
+      expect(tools.delete_activity_step.properties).toMatchObject({
+        activity_id: { type: 'string' },
+        step_id: { type: 'string' },
+      });
+      expect(tools.reorder_activity_steps.properties).toMatchObject({
+        activity_id: { type: 'string' },
+        step_ids: { type: 'array', items: { type: 'string' } },
       });
     });
   });

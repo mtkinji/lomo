@@ -114,6 +114,58 @@ function normalizeActivityStepsForExternalWrite(value: unknown, activityId: stri
   return steps;
 }
 
+function normalizeExistingActivitySteps(value: unknown, activityId: string): JsonObject[] {
+  return normalizeActivityStepsForExternalWrite(Array.isArray(value) ? value : [], activityId) ?? [];
+}
+
+function nextStepOrderIndex(steps: JsonObject[]): number {
+  const max = steps.reduce((highest, step, index) => {
+    const value = asOptionalNumber(step.orderIndex) ?? index;
+    return Math.max(highest, value);
+  }, -1);
+  return max + 1;
+}
+
+function makeActivityStepFromArgs(args: Record<string, unknown>, activityId: string, fallbackOrderIndex: number): JsonObject {
+  const title = asString(args.title);
+  if (!title) throw new Error('missing_step_title');
+  const id = asString(args.id) ?? asString(args.step_id) ?? `step-${activityId}-${crypto.randomUUID()}`;
+  return mergeDefined(
+    {
+      id,
+      title,
+      orderIndex: fallbackOrderIndex,
+    },
+    {
+      completedAt: 'completed_at' in args
+        ? asNullableString(args.completed_at)
+        : 'completedAt' in args
+          ? asNullableString(args.completedAt)
+          : undefined,
+      isOptional: asOptionalBoolean(args.is_optional) ?? asOptionalBoolean(args.isOptional),
+      orderIndex: asOptionalNumber(args.order_index) ?? asOptionalNumber(args.orderIndex) ?? fallbackOrderIndex,
+    },
+  );
+}
+
+function renumberActivitySteps(steps: JsonObject[]): JsonObject[] {
+  return steps.map((step, index) => ({ ...step, orderIndex: index }));
+}
+
+async function writeActivityStepsForUser(
+  admin: any,
+  userId: string,
+  activityId: string,
+  current: Record<string, JsonValue>,
+  steps: JsonObject[],
+): Promise<void> {
+  await upsertDomainObject(admin, 'kwilt_activities', userId, activityId, {
+    ...current,
+    steps,
+    updatedAt: nowIso(),
+  });
+}
+
 async function getDomainRow(admin: any, table: DomainTable, userId: string, id: string): Promise<any | null> {
   const { data, error } = await admin
     .from(table)
@@ -369,6 +421,116 @@ export async function updateActivityForUser(admin: any, userId: string, raw: unk
   await upsertDomainObject(admin, 'kwilt_activities', userId, id, data);
   if (status === 'done') await recordExternalShowUpEvent(admin, userId, id);
   return { object_type: 'activity', object_id: id, result_summary: `Updated To-do "${asString(data.title) ?? id}".`, structured: { activity_id: id } };
+}
+
+export async function createActivityStepForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
+  const args = asRecord(raw);
+  const activityId = asString(args.activity_id);
+  if (!activityId) throw new Error('missing_activity_id');
+  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
+  if (!existing) throw new Error('activity_not_found');
+  const current = dataFromRow(existing);
+  const steps = normalizeExistingActivitySteps(current.steps, activityId);
+  const step = makeActivityStepFromArgs(args, activityId, nextStepOrderIndex(steps));
+  if (steps.some((existingStep) => existingStep.id === step.id)) throw new Error('step_id_conflict');
+  const nextSteps = [...steps, step];
+  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
+  const stepId = asString(step.id) ?? '';
+  return {
+    object_type: 'activity',
+    object_id: activityId,
+    result_summary: `Added step "${asString(step.title) ?? stepId}".`,
+    structured: { activity_id: activityId, step_id: stepId, steps: nextSteps },
+  };
+}
+
+export async function updateActivityStepForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
+  const args = asRecord(raw);
+  const activityId = asString(args.activity_id);
+  const stepId = asString(args.step_id);
+  if (!activityId) throw new Error('missing_activity_id');
+  if (!stepId) throw new Error('missing_step_id');
+  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
+  if (!existing) throw new Error('activity_not_found');
+  const current = dataFromRow(existing);
+  const steps = normalizeExistingActivitySteps(current.steps, activityId);
+  let found = false;
+  const nextSteps = steps.map((step) => {
+    if (step.id !== stepId) return step;
+    found = true;
+    return mergeDefined(step, {
+      title: asString(args.title) ?? undefined,
+      completedAt: 'completed_at' in args
+        ? asNullableString(args.completed_at)
+        : 'completedAt' in args
+          ? asNullableString(args.completedAt)
+          : undefined,
+      isOptional: asOptionalBoolean(args.is_optional) ?? asOptionalBoolean(args.isOptional),
+      orderIndex: asOptionalNumber(args.order_index) ?? asOptionalNumber(args.orderIndex),
+    });
+  });
+  if (!found) throw new Error('step_not_found');
+  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
+  return {
+    object_type: 'activity',
+    object_id: activityId,
+    result_summary: 'Updated To-do step.',
+    structured: { activity_id: activityId, step_id: stepId, steps: nextSteps },
+  };
+}
+
+export async function markActivityStepDoneForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
+  const args = asRecord(raw);
+  return updateActivityStepForUser(admin, userId, {
+    ...args,
+    completed_at: asString(args.completed_at) ?? nowIso(),
+  });
+}
+
+export async function deleteActivityStepForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
+  const args = asRecord(raw);
+  const activityId = asString(args.activity_id);
+  const stepId = asString(args.step_id);
+  if (!activityId) throw new Error('missing_activity_id');
+  if (!stepId) throw new Error('missing_step_id');
+  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
+  if (!existing) throw new Error('activity_not_found');
+  const current = dataFromRow(existing);
+  const steps = normalizeExistingActivitySteps(current.steps, activityId);
+  if (!steps.some((step) => step.id === stepId)) throw new Error('step_not_found');
+  const nextSteps = renumberActivitySteps(steps.filter((step) => step.id !== stepId));
+  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
+  return {
+    object_type: 'activity',
+    object_id: activityId,
+    result_summary: 'Deleted To-do step.',
+    structured: { activity_id: activityId, step_id: stepId, deleted: true, steps: nextSteps },
+  };
+}
+
+export async function reorderActivityStepsForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {
+  const args = asRecord(raw);
+  const activityId = asString(args.activity_id);
+  if (!activityId) throw new Error('missing_activity_id');
+  const requestedIds = asStringArray(args.step_ids) ?? [];
+  if (requestedIds.length === 0) throw new Error('missing_step_ids');
+  const existing = await getDomainRow(admin, 'kwilt_activities', userId, activityId);
+  if (!existing) throw new Error('activity_not_found');
+  const current = dataFromRow(existing);
+  const steps = normalizeExistingActivitySteps(current.steps, activityId);
+  const byId = new Map(steps.map((step) => [asString(step.id) ?? '', step]));
+  const missingId = requestedIds.find((id) => !byId.has(id));
+  if (missingId) throw new Error('step_not_found');
+  const requested = requestedIds.map((id) => byId.get(id)).filter((step): step is JsonObject => !!step);
+  const remaining = steps.filter((step) => !requestedIds.includes(asString(step.id) ?? ''));
+  const nextSteps = renumberActivitySteps([...requested, ...remaining]);
+  await writeActivityStepsForUser(admin, userId, activityId, current, nextSteps);
+  return {
+    object_type: 'activity',
+    object_id: activityId,
+    result_summary: 'Reordered To-do steps.',
+    structured: { activity_id: activityId, steps: nextSteps },
+  };
 }
 
 export async function markActivityDoneForUser(admin: any, userId: string, raw: unknown): Promise<ExternalWriteResult> {

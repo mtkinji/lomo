@@ -87,6 +87,10 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  tagsFieldInnerEmpty: {
+    flexWrap: 'nowrap',
+    minHeight: 28,
+  },
   tagChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -111,8 +115,46 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 0,
     ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : {}),
   },
+  tagsTextInputEmpty: {
+    flex: 1,
+    flexBasis: 'auto',
+    alignSelf: 'center',
+    height: 28,
+    lineHeight: 20,
+    minWidth: 0,
+    width: '100%',
+  },
   tagsAutofillBadge: {
     position: 'absolute',
+  },
+  tagPickerContainer: {
+    marginTop: spacing.xs,
+    borderRadius: 12,
+    backgroundColor: colors.fieldFill,
+    overflow: 'hidden',
+  },
+  tagPickerRow: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  tagPickerRowPressed: {
+    backgroundColor: colors.shellAlt,
+  },
+  tagPickerLabel: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tagPickerText: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  tagPickerCount: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontSize: 12,
   },
   attachmentsFieldContainer: {
     width: '100%',

@@ -21,14 +21,19 @@ import {
 } from '../_shared/externalMcp.ts';
 import {
   addGoalCheckinForUser,
+  createActivityStepForUser,
   createActivityForUser,
   createArcForUser,
   createGoalForUser,
   deleteActivityForUser,
+  deleteActivityStepForUser,
   deleteArcForUser,
   deleteGoalForUser,
+  markActivityStepDoneForUser,
   markActivityDoneForUser,
+  reorderActivityStepsForUser,
   setFocusTodayForUser,
+  updateActivityStepForUser,
   updateActivityForUser,
   updateArcForUser,
   updateChapterUserNoteForUser,
@@ -543,6 +548,16 @@ async function handleWriteTool(admin: any, context: ExternalTokenContext, name: 
       return createActivityForUser(admin, context.userId, args);
     case 'update_activity':
       return updateActivityForUser(admin, context.userId, args);
+    case 'create_activity_step':
+      return createActivityStepForUser(admin, context.userId, args);
+    case 'update_activity_step':
+      return updateActivityStepForUser(admin, context.userId, args);
+    case 'mark_activity_step_done':
+      return markActivityStepDoneForUser(admin, context.userId, args);
+    case 'delete_activity_step':
+      return deleteActivityStepForUser(admin, context.userId, args);
+    case 'reorder_activity_steps':
+      return reorderActivityStepsForUser(admin, context.userId, args);
     case 'mark_activity_done':
       return markActivityDoneForUser(admin, context.userId, args);
     case 'set_focus_today':

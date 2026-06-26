@@ -26,13 +26,30 @@ export const parseTags = (raw: string) => {
   return out;
 };
 
+type SuggestTagsOptions = {
+  existingTags?: string[];
+};
+
 /**
  * Ultra-lightweight, deterministic tag suggestion.
  * No network calls; intended for "AI autofill" affordances on empty tag inputs.
  */
-export const suggestTagsFromText = (...texts: Array<string | null | undefined>) => {
+export const suggestTagsFromText = (...inputs: Array<string | null | undefined | SuggestTagsOptions>) => {
+  const maybeOptions = inputs[inputs.length - 1];
+  const options = maybeOptions && typeof maybeOptions === 'object' && !Array.isArray(maybeOptions)
+    ? maybeOptions as SuggestTagsOptions
+    : undefined;
+  const texts = options ? inputs.slice(0, -1) : inputs;
+  const existingTagByKey = new Map<string, string>();
+  (options?.existingTags ?? []).forEach((tag) => {
+    if (typeof tag !== 'string') return;
+    const clean = tag.trim();
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (!existingTagByKey.has(key)) existingTagByKey.set(key, clean);
+  });
   const raw = texts
-    .filter((t): t is string => Boolean(t && t.trim().length > 0))
+    .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
     .join(' ')
     .toLowerCase();
 
@@ -54,8 +71,8 @@ export const suggestTagsFromText = (...texts: Array<string | null | undefined>) 
     inbox: 'admin',
     budget: 'finance',
     bills: 'finance',
-    groceries: 'errands',
-    grocery: 'errands',
+    groceries: 'groceries',
+    grocery: 'groceries',
     errands: 'errands',
     outdoors: 'outdoors',
   };
@@ -108,7 +125,8 @@ export const suggestTagsFromText = (...texts: Array<string | null | undefined>) 
   const seen = new Set<string>();
 
   for (const w of words) {
-    const tag = keywordToTag[w] ?? w;
+    const suggested = keywordToTag[w] ?? w;
+    const tag = existingTagByKey.get(suggested.toLowerCase()) ?? suggested;
     const key = tag.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -118,5 +136,3 @@ export const suggestTagsFromText = (...texts: Array<string | null | undefined>) 
 
   return out.length > 0 ? out : ['general'];
 };
-
-

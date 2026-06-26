@@ -423,7 +423,7 @@ When the host is ready for concrete recommendations, respond with:
    }
 – \`energyLevel\` may be "light" or "focused".
 – \`kind\` may be "setup", "progress", "maintenance", or "stretch".
-– \`tags\` should be 0–5 short, reusable strings (no "#"), like "errands", "outdoors". Prefer reusing the user's existing tags from the workspace snapshot when possible.
+– \`tags\` should be 0–3 short, reusable strings (no "#"), like "groceries", "school", "errands". Prefer one clear grouping tag when the user is trying to retrieve a set later. Prefer reusing the user's existing tags from the workspace snapshot when possible; preserve specific group labels like "groceries" instead of broadening them to "errands".
 - \`locationOffer\` is optional. Only include it when a location-triggered prompt makes sense (errands, appointments, pickup/dropoff, gym, store, commute-related to-dos). Use a plain-text \`placeQuery\` the app can geocode.
 – Include between 3 and 5 suggestions in the array; each should be concrete and non-duplicative.
 – Do not include any other text after the JSON line.
@@ -530,4 +530,3 @@ ARC NARRATIVE RULES (when asked to generate an Arc):
 - Sentence 3 must name 1-3 concrete ordinary-life behaviors that would make progress visible.
 - Do NOT parrot the user’s raw phrases; translate inputs into natural identity language.
 `.trim();
-

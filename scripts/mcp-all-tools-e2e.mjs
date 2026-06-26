@@ -18,6 +18,11 @@ const ALL_TOOLS = [
   'add_goal_checkin',
   'capture_activity',
   'update_activity',
+  'create_activity_step',
+  'update_activity_step',
+  'mark_activity_step_done',
+  'delete_activity_step',
+  'reorder_activity_steps',
   'mark_activity_done',
   'set_focus_today',
   'delete_activity',
@@ -214,6 +219,45 @@ async function run() {
       priority: 1,
     });
     console.log('update_activity ok');
+
+    const step = await tool(baseUrl, token, 'create_activity_step', {
+      idempotency_key: `${stamp}:create_activity_step`,
+      activity_id: created.activityId,
+      title: `MCP E2E Step ${stamp}`,
+    });
+    created.stepId = step.step_id;
+    expect(created.stepId, 'create_activity_step missing step_id');
+    console.log('create_activity_step ok');
+
+    await tool(baseUrl, token, 'update_activity_step', {
+      idempotency_key: `${stamp}:update_activity_step`,
+      activity_id: created.activityId,
+      step_id: created.stepId,
+      title: `MCP E2E Step Updated ${stamp}`,
+    });
+    console.log('update_activity_step ok');
+
+    await tool(baseUrl, token, 'mark_activity_step_done', {
+      idempotency_key: `${stamp}:mark_activity_step_done`,
+      activity_id: created.activityId,
+      step_id: created.stepId,
+      completed_at: new Date().toISOString(),
+    });
+    console.log('mark_activity_step_done ok');
+
+    await tool(baseUrl, token, 'reorder_activity_steps', {
+      idempotency_key: `${stamp}:reorder_activity_steps`,
+      activity_id: created.activityId,
+      step_ids: [created.stepId],
+    });
+    console.log('reorder_activity_steps ok');
+
+    await tool(baseUrl, token, 'delete_activity_step', {
+      idempotency_key: `${stamp}:delete_activity_step`,
+      activity_id: created.activityId,
+      step_id: created.stepId,
+    });
+    console.log('delete_activity_step ok');
 
     await tool(baseUrl, token, 'set_focus_today', {
       idempotency_key: `${stamp}:set_focus_today`,

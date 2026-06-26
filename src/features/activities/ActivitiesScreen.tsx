@@ -103,6 +103,8 @@ import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDe
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
 import { ViewMenuItem } from './ViewMenuItem';
+import { TagGroupMenuItems } from './TagGroupMenuItems';
+import { TagGroupsDrawer } from './TagGroupsDrawer';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { useActivityListData } from './hooks/useActivityListData';
 import type {
@@ -209,6 +211,10 @@ import {
   isGroupingApplied,
   setCollapsedGroupKey,
 } from './activityGrouping';
+import {
+  buildActivityTagGroupFilter,
+  buildActivityTagGroups,
+} from './tagGroups';
 import {
   INVENTORY_CHROME_FADE_MAX_ALPHA,
   INVENTORY_CHROME_TOOLBAR_VISUAL_FALLBACK_PX,
@@ -373,6 +379,8 @@ export function ActivitiesScreen() {
   const [filterDrawerVisible, setFilterDrawerVisible] = React.useState(false);
   const [groupingDrawerVisible, setGroupingDrawerVisible] = React.useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = React.useState(false);
+  const [activeTagGroupTag, setActiveTagGroupTag] = React.useState<string | null>(null);
+  const [tagGroupsDrawerVisible, setTagGroupsDrawerVisible] = React.useState(false);
 
   const [activitiesGuideStep, setActivitiesGuideStep] = React.useState(0);
   const quickAddFocusedRef = React.useRef(false);
@@ -521,6 +529,15 @@ export function ActivitiesScreen() {
   }, [activityViews, effectiveActiveViewId]);
 
   const isKanbanLayout = activeView?.layout === 'kanban';
+  const tagGroups = React.useMemo(
+    () => buildActivityTagGroups({ activities, activityTagHistory }),
+    [activities, activityTagHistory],
+  );
+  const activeTagGroupLabel = activeTagGroupTag?.trim() || null;
+  const activeTagGroupFilterGroups = React.useMemo(
+    () => (activeTagGroupLabel ? buildActivityTagGroupFilter(activeTagGroupLabel) : []),
+    [activeTagGroupLabel],
+  );
 
   // Local UI state for the Kanban expand/collapse control. Used to hide the fixed toolbar
   // and let the board claim that vertical space when expanded.
@@ -631,7 +648,7 @@ export function ActivitiesScreen() {
     [goals],
   );
 
-  const filterGroups = React.useMemo<FilterGroup[]>(() => {
+  const baseFilterGroups = React.useMemo<FilterGroup[]>(() => {
     if (activeView?.filters && activeView.filters.length > 0) return activeView.filters;
     // Map legacy filterMode
     switch (filterMode) {
@@ -665,6 +682,14 @@ export function ActivitiesScreen() {
         return [];
     }
   }, [activeView, filterMode]);
+
+  const filterGroups = React.useMemo<FilterGroup[]>(
+    () => [...baseFilterGroups, ...activeTagGroupFilterGroups],
+    [activeTagGroupFilterGroups, baseFilterGroups],
+  );
+  const effectiveFilterGroupLogic = activeTagGroupFilterGroups.length > 0
+    ? 'and'
+    : activeView?.filterGroupLogic ?? 'or';
 
   const filterCount = React.useMemo(() => {
     return filterGroups.reduce((acc, g) => acc + g.conditions.length, 0);
@@ -711,7 +736,6 @@ export function ActivitiesScreen() {
   const appliedGroupingCount = groupingApplied ? 1 : 0;
 
   const ghostContextKey = React.useMemo(() => {
-    const groupLogic = activeView?.filterGroupLogic ?? 'or';
     // IMPORTANT: keep this stable across renders and insensitive to transient IDs.
     // We only include the semantic parts of filters (field/operator/value).
     const normalizedFilters = (filterGroups ?? []).map((g) => ({
@@ -725,10 +749,10 @@ export function ActivitiesScreen() {
     return JSON.stringify({
       viewId: effectiveActiveViewId ?? 'default',
       focusContextGoalId: focusContextGoalId ?? null,
-      groupLogic,
+      groupLogic: effectiveFilterGroupLogic,
       filterGroups: normalizedFilters,
     });
-  }, [activeView?.filterGroupLogic, effectiveActiveViewId, filterGroups, focusContextGoalId]);
+  }, [effectiveActiveViewId, effectiveFilterGroupLogic, filterGroups, focusContextGoalId]);
 
   const sessionCreatedIdsForGhostContext = React.useMemo(() => {
     const ids = new Set<string>();
@@ -750,7 +774,7 @@ export function ActivitiesScreen() {
     const filtered = QueryService.applyActivityFilters(
       base,
       filterGroups,
-      activeView?.filterGroupLogic ?? 'or',
+      effectiveFilterGroupLogic,
     );
 
     if (sessionCreatedIdsForGhostContext.size === 0) return filtered;
@@ -763,7 +787,7 @@ export function ActivitiesScreen() {
     activities,
     filterGroups,
     focusContextGoalId,
-    activeView?.filterGroupLogic,
+    effectiveFilterGroupLogic,
     sessionCreatedIdsForGhostContext,
   ]);
 
@@ -792,7 +816,7 @@ export function ActivitiesScreen() {
           QueryService.applyActivityFilters(
             [activity],
             filterGroups,
-            activeView?.filterGroupLogic ?? 'or',
+            effectiveFilterGroupLogic,
           ).length > 0;
 
         if (!matches && filterGroups.length > 0) {
@@ -801,6 +825,7 @@ export function ActivitiesScreen() {
             actionLabel: 'Clear filters',
             onPressAction: () => {
               handleUpdateFilters([], 'or');
+              setActiveTagGroupTag(null);
             },
           });
           return;
@@ -808,7 +833,7 @@ export function ActivitiesScreen() {
       }
       showToast(payload);
     },
-    [showToast, filterGroups, activeView?.filterGroupLogic, handleUpdateFilters],
+    [showToast, filterGroups, effectiveFilterGroupLogic, handleUpdateFilters],
   );
 
   const handleUpdateSorts = React.useCallback(
@@ -1262,7 +1287,9 @@ export function ActivitiesScreen() {
   const quickAddDefaultsFromFilters = React.useMemo<Partial<Activity>>(() => {
     // Users expect new activities created while filters are applied to "inherit" those filters.
     // We keep this conservative and only apply unambiguous equality-based constraints.
-    if (!filterGroups || filterGroups.length !== 1) return {};
+    if (!filterGroups || filterGroups.length !== 1) {
+      return activeTagGroupLabel ? { tags: [activeTagGroupLabel] } : {};
+    }
     const group = filterGroups[0];
     if (!group || (group.logic !== 'and' && group.logic !== 'or')) return {};
 
@@ -1502,9 +1529,10 @@ export function ActivitiesScreen() {
       }
     }
 
+    if (activeTagGroupLabel) tagDefaults.push(activeTagGroupLabel);
     if (tagDefaults.length > 0) defaults.tags = Array.from(new Set(tagDefaults));
     return defaults;
-  }, [filterGroups]);
+  }, [activeTagGroupLabel, filterGroups]);
 
   const effectiveQuickAddAiActions = React.useMemo(
     () =>
@@ -1599,7 +1627,7 @@ export function ActivitiesScreen() {
         QueryService.applyActivityFilters(
           [activity],
           filterGroups,
-          activeView?.filterGroupLogic ?? 'or',
+          effectiveFilterGroupLogic,
         ).length > 0;
 
       if (!matches && filterGroups.length > 0) {
@@ -1934,7 +1962,7 @@ export function ActivitiesScreen() {
         QueryService.applyActivityFilters(
           [activity],
           filterGroups,
-          activeView?.filterGroupLogic ?? 'or',
+          effectiveFilterGroupLogic,
         ).length > 0;
       return !matches;
     });
@@ -1959,7 +1987,7 @@ export function ActivitiesScreen() {
   }, [
     activities,
     filterGroups,
-    activeView?.filterGroupLogic,
+    effectiveFilterGroupLogic,
     ghostContextKey,
     sessionCreatedIdsForGhostContext,
     showToast,
@@ -2271,10 +2299,33 @@ export function ActivitiesScreen() {
       if (viewId !== activeActivityViewId) {
         void HapticsService.trigger('canvas.selection');
       }
+      setActiveTagGroupTag(null);
       setActiveActivityViewId(viewId);
     },
     [activeActivityViewId, activityViews, isPro, setActiveActivityViewId],
   );
+
+  const applyTagGroup = React.useCallback(
+    (tag: string) => {
+      const cleanTag = tag.trim();
+      if (!cleanTag) return;
+      if (activeTagGroupLabel !== cleanTag || effectiveActiveViewId !== 'default') {
+        void HapticsService.trigger('canvas.selection');
+      }
+      setActiveActivityViewId('default');
+      setActiveTagGroupTag(cleanTag);
+      setTagGroupsDrawerVisible(false);
+    },
+    [activeTagGroupLabel, effectiveActiveViewId, setActiveActivityViewId],
+  );
+
+  const clearTagGroup = React.useCallback(() => {
+    if (activeTagGroupLabel) {
+      void HapticsService.trigger('canvas.selection');
+    }
+    setActiveTagGroupTag(null);
+    setTagGroupsDrawerVisible(false);
+  }, [activeTagGroupLabel]);
 
   const goalIdSet = React.useMemo(() => new Set(goals.map((g) => g.id)), [goals]);
 
@@ -2608,7 +2659,7 @@ export function ActivitiesScreen() {
         QueryService.applyActivityFilters(
           [activity],
           filterGroups,
-          activeView?.filterGroupLogic ?? 'or',
+          effectiveFilterGroupLogic,
         ).length > 0;
 
       if (!matches && filterGroups.length > 0) {
@@ -2617,7 +2668,7 @@ export function ActivitiesScreen() {
 
       addActivity(activity);
     },
-    [addActivity, filterGroups, activeView?.filterGroupLogic, ghostContextKey],
+    [addActivity, filterGroups, effectiveFilterGroupLogic, ghostContextKey],
   );
 
   return (
@@ -2800,7 +2851,7 @@ export function ActivitiesScreen() {
                         <HStack alignItems="center" space="xs">
                           <Icon name="panelLeft" size={14} color={colors.textPrimary} />
                           <Text style={styles.toolbarButtonLabel}>
-                            {activeView?.name ?? '🗂️ All to-dos'}
+                            {activeTagGroupLabel ?? activeView?.name ?? 'All to-dos'}
                           </Text>
                         </HStack>
                       </Button>
@@ -2826,6 +2877,13 @@ export function ActivitiesScreen() {
                             </Text>
                           </HStack>
                         </DropdownMenuItem>
+                        <TagGroupMenuItems
+                          tagGroups={tagGroups}
+                          activeTagGroupLabel={activeTagGroupLabel}
+                          onApplyTagGroup={applyTagGroup}
+                          onClearTagGroup={clearTagGroup}
+                          onViewAllTags={() => setTagGroupsDrawerVisible(true)}
+                        />
                       </DropdownMenuContent>
                     )}
                   </DropdownMenu>
@@ -2847,7 +2905,7 @@ export function ActivitiesScreen() {
                         <HStack alignItems="center" space="xs">
                           <Icon name="panelLeft" size={14} color={colors.textPrimary} />
                           <Text style={styles.toolbarButtonLabel}>
-                            {activeView?.name ?? '🗂️ All to-dos'}
+                            {activeTagGroupLabel ?? activeView?.name ?? 'All to-dos'}
                           </Text>
                         </HStack>
                       </Button>
@@ -2863,6 +2921,13 @@ export function ActivitiesScreen() {
                             </HStack>
                           </DropdownMenuItem>
                         ))}
+                        <TagGroupMenuItems
+                          tagGroups={tagGroups}
+                          activeTagGroupLabel={activeTagGroupLabel}
+                          onApplyTagGroup={applyTagGroup}
+                          onClearTagGroup={clearTagGroup}
+                          onViewAllTags={() => setTagGroupsDrawerVisible(true)}
+                        />
                       </DropdownMenuContent>
                     )}
                   </DropdownMenu>
@@ -3217,7 +3282,7 @@ export function ActivitiesScreen() {
                     QueryService.applyActivityFilters(
                       [activity],
                       filterGroups,
-                      activeView?.filterGroupLogic ?? 'or',
+                      effectiveFilterGroupLogic,
                     ).length === 0
                   }
                 />
@@ -3324,7 +3389,7 @@ export function ActivitiesScreen() {
                     QueryService.applyActivityFilters(
                       [activity],
                       filterGroups,
-                      activeView?.filterGroupLogic ?? 'or',
+                      effectiveFilterGroupLogic,
                     ).length === 0
                   }
                 />
@@ -3551,9 +3616,17 @@ export function ActivitiesScreen() {
       <FilterDrawer
         visible={filterDrawerVisible}
         onClose={() => setFilterDrawerVisible(false)}
-        filters={filterGroups}
+        filters={baseFilterGroups}
         groupLogic={activeView?.filterGroupLogic ?? 'or'}
         onApply={handleUpdateFilters}
+      />
+      <TagGroupsDrawer
+        visible={tagGroupsDrawerVisible}
+        onClose={() => setTagGroupsDrawerVisible(false)}
+        tagGroups={tagGroups}
+        activeTagGroupLabel={activeTagGroupLabel}
+        onApplyTagGroup={applyTagGroup}
+        onClearTagGroup={clearTagGroup}
       />
       <GroupingDrawer
         visible={groupingDrawerVisible}

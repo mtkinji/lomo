@@ -65,6 +65,7 @@ const iconMap: Record<string, IconEntry> = {
   dot: { library: 'feather', name: 'circle' },
   arrowLeft: { library: 'feather', name: 'arrow-left' },
   plus: { library: 'feather', name: 'plus' },
+  tag: { library: 'feather', name: 'tag' },
   more: { library: 'feather', name: 'more-horizontal' },
   settings: { library: 'feather', name: 'settings' },
   goals: { library: 'feather', name: 'target' },

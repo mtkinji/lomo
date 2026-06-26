@@ -1,8 +1,13 @@
 import {
+  createActivityStepForUser,
   createActivityForUser,
   createGoalForUser,
+  deleteActivityStepForUser,
+  markActivityStepDoneForUser,
+  reorderActivityStepsForUser,
   softDeleteObjectForUser,
   updateActivityForUser,
+  updateActivityStepForUser,
 } from '../externalMcpWrite';
 
 function createMockAdmin() {
@@ -249,5 +254,223 @@ describe('externalMcpWrite helpers', () => {
       { id: 'step-activity-1-0', title: 'New step', orderIndex: 0 },
     ]);
     expect(calls[2].payload.data.steps).toEqual([]);
+  });
+
+  test('createActivityStepForUser appends one step without replacing existing steps', async () => {
+    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
+    const admin = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'activity-1',
+                  data: {
+                    id: 'activity-1',
+                    title: 'Launch prep',
+                    steps: [{ id: 'step-1', title: 'Draft', orderIndex: 0 }],
+                  },
+                  is_deleted: false,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        upsert: (payload: any) => {
+          calls.push({ table, operation: 'upsert', payload });
+          return { error: null };
+        },
+      }),
+    };
+
+    const result = await createActivityStepForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      title: 'Review',
+      is_optional: true,
+    });
+
+    expect(result.structured.step_id).toEqual('step-activity-1-00000000-0000-4000-8000-000000000001');
+    expect(calls[0].payload.data.steps).toEqual([
+      { id: 'step-1', title: 'Draft', orderIndex: 0 },
+      {
+        id: 'step-activity-1-00000000-0000-4000-8000-000000000001',
+        title: 'Review',
+        isOptional: true,
+        orderIndex: 1,
+      },
+    ]);
+  });
+
+  test('updateActivityStepForUser patches one step and preserves the others', async () => {
+    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
+    const admin = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'activity-1',
+                  data: {
+                    id: 'activity-1',
+                    steps: [
+                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
+                      { id: 'step-2', title: 'Review', orderIndex: 1 },
+                    ],
+                  },
+                  is_deleted: false,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        upsert: (payload: any) => {
+          calls.push({ table, operation: 'upsert', payload });
+          return { error: null };
+        },
+      }),
+    };
+
+    await updateActivityStepForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      step_id: 'step-2',
+      title: 'Review with Sam',
+      completed_at: null,
+      order_index: 4,
+    });
+
+    expect(calls[0].payload.data.steps).toEqual([
+      { id: 'step-1', title: 'Draft', orderIndex: 0 },
+      { id: 'step-2', title: 'Review with Sam', completedAt: null, orderIndex: 4 },
+    ]);
+  });
+
+  test('markActivityStepDoneForUser completes only the requested step', async () => {
+    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
+    const admin = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'activity-1',
+                  data: {
+                    id: 'activity-1',
+                    steps: [
+                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
+                      { id: 'step-2', title: 'Review', orderIndex: 1 },
+                    ],
+                  },
+                  is_deleted: false,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        upsert: (payload: any) => {
+          calls.push({ table, operation: 'upsert', payload });
+          return { error: null };
+        },
+      }),
+    };
+
+    await markActivityStepDoneForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      step_id: 'step-1',
+      completed_at: '2026-06-25T12:00:00.000Z',
+    });
+
+    expect(calls[0].payload.data.steps).toEqual([
+      { id: 'step-1', title: 'Draft', completedAt: '2026-06-25T12:00:00.000Z', orderIndex: 0 },
+      { id: 'step-2', title: 'Review', orderIndex: 1 },
+    ]);
+  });
+
+  test('deleteActivityStepForUser removes only the requested step', async () => {
+    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
+    const admin = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'activity-1',
+                  data: {
+                    id: 'activity-1',
+                    steps: [
+                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
+                      { id: 'step-2', title: 'Review', orderIndex: 1 },
+                    ],
+                  },
+                  is_deleted: false,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        upsert: (payload: any) => {
+          calls.push({ table, operation: 'upsert', payload });
+          return { error: null };
+        },
+      }),
+    };
+
+    await deleteActivityStepForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      step_id: 'step-1',
+    });
+
+    expect(calls[0].payload.data.steps).toEqual([{ id: 'step-2', title: 'Review', orderIndex: 0 }]);
+  });
+
+  test('reorderActivityStepsForUser reorders listed steps and appends omitted steps', async () => {
+    const calls: Array<{ table: string; operation: string; payload?: any }> = [];
+    const admin = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: 'activity-1',
+                  data: {
+                    id: 'activity-1',
+                    steps: [
+                      { id: 'step-1', title: 'Draft', orderIndex: 0 },
+                      { id: 'step-2', title: 'Review', orderIndex: 1 },
+                      { id: 'step-3', title: 'Ship', orderIndex: 2 },
+                    ],
+                  },
+                  is_deleted: false,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        upsert: (payload: any) => {
+          calls.push({ table, operation: 'upsert', payload });
+          return { error: null };
+        },
+      }),
+    };
+
+    await reorderActivityStepsForUser(admin, 'user-1', {
+      activity_id: 'activity-1',
+      step_ids: ['step-3', 'step-1'],
+    });
+
+    expect(calls[0].payload.data.steps).toEqual([
+      { id: 'step-3', title: 'Ship', orderIndex: 0 },
+      { id: 'step-1', title: 'Draft', orderIndex: 1 },
+      { id: 'step-2', title: 'Review', orderIndex: 2 },
+    ]);
   });
 });

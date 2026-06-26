@@ -4476,6 +4476,13 @@ function GoalActivityCoachDrawer({
     () => buildActivityCoachLaunchContext(goals, activities, focusGoalId, arcs, undefined, activityTagHistory),
     [goals, activities, focusGoalId, arcs, activityTagHistory]
   );
+  const existingTagLabels = useMemo(
+    () =>
+      Object.values(activityTagHistory ?? {})
+        .map((entry) => entry.tag)
+        .filter((tag) => tag.trim().length > 0),
+    [activityTagHistory],
+  );
 
   const focusGoal = useMemo(
     () => goals.find((candidate) => candidate.id === focusGoalId) ?? null,
@@ -4631,7 +4638,7 @@ function GoalActivityCoachDrawer({
           goalId: focusGoalId,
           title: trimmedTitle,
           type: 'task',
-          tags: suggestTagsFromText(trimmedTitle, focusGoal?.title ?? null),
+          tags: suggestTagsFromText(trimmedTitle, focusGoal?.title ?? null, { existingTags: existingTagLabels }),
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -4661,7 +4668,7 @@ function GoalActivityCoachDrawer({
         });
       });
     },
-    [activities, addActivity, capture, focusGoalId]
+    [activities, addActivity, capture, existingTagLabels, focusGoal?.title, focusGoalId]
   );
 
   const handleAdoptActivitySuggestion = useCallback(
@@ -4687,7 +4694,9 @@ function GoalActivityCoachDrawer({
         tags:
           Array.isArray(suggestion.tags) && suggestion.tags.length > 0
             ? suggestion.tags
-            : suggestTagsFromText(suggestion.title, suggestion.why ?? null, focusGoal?.title ?? null),
+            : suggestTagsFromText(suggestion.title, suggestion.why ?? null, focusGoal?.title ?? null, {
+                existingTags: existingTagLabels,
+              }),
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -4763,7 +4772,7 @@ function GoalActivityCoachDrawer({
         has_estimate: Boolean(nextActivity.estimateMinutes),
       });
     },
-    [activities.length, addActivity, capture, focusGoal?.title, focusGoalId, recordShowUp, updateActivity]
+    [activities.length, addActivity, capture, existingTagLabels, focusGoal?.title, focusGoalId, recordShowUp, updateActivity]
   );
 
   return (

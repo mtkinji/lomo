@@ -31,6 +31,7 @@ import {
   getActivityPriorityState,
 } from './activityPriority';
 import { getActivityAreaIcon, getActivityAreaIconById } from './activityAreaIcons';
+import { ActivityDetailTagPicker } from './ActivityDetailTagPicker';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -70,6 +71,9 @@ export function ActivityDetailRefresh(props: any) {
   // NOTE: ActivityDetailScreen is wrapped by AppShell, which already applies safe-area top padding
   // to the canvas. Do NOT double-count insets here, or the header will be pushed down.
   const scrollY = React.useRef(new Animated.Value(0)).current;
+  const tagSuggestionPressRef = React.useRef(false);
+  const tagTouchStartedInsideRef = React.useRef(false);
+  const [isTagsInputFocused, setIsTagsInputFocused] = React.useState(false);
   // IMPORTANT: hooks must be called unconditionally at the top level.
   // Do not call Zustand hooks inside conditional render branches / IIFEs.
   const isProToolsTrial = useEntitlementsStore((s) => s.isProToolsTrial);
@@ -275,6 +279,40 @@ export function ActivityDetailRefresh(props: any) {
       updatedAt: timestamp,
     }));
   }, [activity?.id, updateActivity]);
+  const existingTagLabels = React.useMemo(
+    () =>
+      Object.values((activityTagHistory ?? {}) as Record<string, { tag?: unknown }>)
+        .map((entry) => (entry && typeof entry.tag === 'string' ? entry.tag : null))
+        .filter((tag): tag is string => Boolean(tag && tag.trim())),
+    [activityTagHistory],
+  );
+
+  const addTagFromPicker = React.useCallback(
+    (tag: string) => {
+      const clean = tag.trim();
+      if (!clean) return;
+      addTags(clean);
+      setTagsInputDraft('');
+      requestAnimationFrame(() => {
+        tagSuggestionPressRef.current = false;
+        tagsInputRef.current?.focus?.();
+      });
+    },
+    [addTags, setTagsInputDraft, tagsInputRef],
+  );
+  const revealTagsAboveKeyboard = React.useCallback(() => {
+    const handle = prepareRevealTagsField();
+    if (!handle || !isKeyboardVisible) return;
+    const totalOffset = KEYBOARD_CLEARANCE + spacing.lg + TAGS_REVEAL_EXTRA_OFFSET;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToNodeHandle(handle, totalOffset);
+    });
+  }, [KEYBOARD_CLEARANCE, TAGS_REVEAL_EXTRA_OFFSET, isKeyboardVisible, prepareRevealTagsField, scrollRef]);
+
+  React.useEffect(() => {
+    if (!isTagsInputFocused) return;
+    revealTagsAboveKeyboard();
+  }, [activity?.tags, isTagsInputFocused, revealTagsAboveKeyboard, tagsInputDraft]);
 
 
   const planChevronAnim = React.useRef(new Animated.Value(planExpanded ? 1 : 0)).current;
@@ -674,6 +712,12 @@ export function ActivityDetailRefresh(props: any) {
         onScroll={(e) => {
           const y = e?.nativeEvent?.contentOffset?.y ?? 0;
           scrollY.setValue(y);
+        }}
+        onTouchEnd={() => {
+          if (isTagsInputFocused && !tagTouchStartedInsideRef.current) {
+            tagsInputRef.current?.blur?.();
+          }
+          tagTouchStartedInsideRef.current = false;
         }}
       >
         {/* Hero artwork (Goals-like): full-bleed, subtle parallax, fades as it scrolls away. */}
@@ -1387,7 +1431,13 @@ export function ActivityDetailRefresh(props: any) {
 
               <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>TAGS</Text>
-                <View ref={tagsFieldContainerRef} collapsable={false}>
+                <View
+                  ref={tagsFieldContainerRef}
+                  collapsable={false}
+                  onTouchStart={() => {
+                    tagTouchStartedInsideRef.current = true;
+                  }}
+                >
                   <Pressable
                     testID="e2e.activityDetail.tags.open"
                     accessibilityRole="button"
@@ -1403,7 +1453,14 @@ export function ActivityDetailRefresh(props: any) {
                         : null,
                     ]}
                   >
-                    <View style={styles.tagsFieldInner}>
+                    <View
+                      style={[
+                        styles.tagsFieldInner,
+                        (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0
+                          ? styles.tagsFieldInnerEmpty
+                          : null,
+                      ]}
+                    >
                       {(activity.tags ?? []).map((tag: string) => (
                         <Pressable
                           key={tag}
@@ -1438,26 +1495,25 @@ export function ActivityDetailRefresh(props: any) {
                           setTagsInputDraft(next);
                         }}
                         onFocus={() => {
+                          setIsTagsInputFocused(true);
                           handleAnyInputFocus();
-                          const handle = prepareRevealTagsField();
-                          if (handle && isKeyboardVisible) {
-                            const totalOffset =
-                              KEYBOARD_CLEARANCE +
-                              spacing.lg +
-                              TAGS_REVEAL_EXTRA_OFFSET;
-                            requestAnimationFrame(() => {
-                              scrollRef.current?.scrollToNodeHandle(handle, totalOffset);
-                            });
-                          }
+                          revealTagsAboveKeyboard();
                         }}
                         onBlur={() => {
+                          setIsTagsInputFocused(false);
                           handleAnyInputBlur();
+                          if (tagSuggestionPressRef.current) return;
                           commitTagsInputDraft();
                         }}
                         onSubmitEditing={commitTagsInputDraft}
-                        placeholder={(activity.tags ?? []).length === 0 ? 'e.g., errands, outdoors' : ''}
+                        placeholder={(activity.tags ?? []).length === 0 ? 'Add tags...' : ''}
                         placeholderTextColor={colors.muted}
-                        style={styles.tagsTextInput}
+                        style={[
+                          styles.tagsTextInput,
+                          (activity.tags ?? []).length === 0 && tagsInputDraft.trim().length === 0
+                            ? styles.tagsTextInputEmpty
+                            : null,
+                        ]}
                         returnKeyType="done"
                         blurOnSubmit
                         autoCapitalize="none"
@@ -1512,7 +1568,9 @@ export function ActivityDetailRefresh(props: any) {
                                 }
                                 // AI was unavailable for a non-credit reason (network, provider hiccup, etc).
                                 // Best-effort fallback keeps the UX responsive.
-                                addTags(suggestTagsFromText(activity.title, activity.notes, goalTitle));
+                                addTags(suggestTagsFromText(activity.title, activity.notes, goalTitle, {
+                                  existingTags: existingTagLabels,
+                                }));
                               } catch (err) {
                                 // Hard-stop when the server says we're out of credits (avoid "fallback tags" that
                                 // make it feel like AI is still unlocked without credits).
@@ -1523,7 +1581,9 @@ export function ActivityDetailRefresh(props: any) {
                                   });
                                   return;
                                 }
-                                addTags(suggestTagsFromText(activity.title, activity.notes, goalTitle));
+                                addTags(suggestTagsFromText(activity.title, activity.notes, goalTitle, {
+                                  existingTags: existingTagLabels,
+                                }));
                               }
                             })()
                               .finally(() => {
@@ -1535,6 +1595,17 @@ export function ActivityDetailRefresh(props: any) {
                       </View>
                     ) : null}
                   </Pressable>
+                  <ActivityDetailTagPicker
+                    visible={isTagsInputFocused}
+                    query={tagsInputDraft}
+                    currentTags={activity.tags}
+                    activityTagHistory={activityTagHistory}
+                    styles={styles}
+                    onAddTag={addTagFromPicker}
+                    onPressInOption={() => {
+                      tagSuggestionPressRef.current = true;
+                    }}
+                  />
                 </View>
               </View>
 

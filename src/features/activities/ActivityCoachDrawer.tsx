@@ -56,6 +56,7 @@ export function ActivityCoachDrawer({
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const updateActivity = useAppStore((state) => state.updateActivity);
   const activityAreas = useAppStore((state) => state.activityAreas);
+  const activityTagHistory = useAppStore((state) => state.activityTagHistory);
   const isPro = useEntitlementsStore((state) => state.isPro);
   const generativeCredits = useAppStore((state) => state.generativeCredits);
   const [isActivityAiInfoVisible, setIsActivityAiInfoVisible] = React.useState(false);
@@ -77,6 +78,13 @@ export function ActivityCoachDrawer({
   const workspaceSnapshot = React.useMemo(
     () => buildActivityCoachLaunchContext(goals, activities, undefined, undefined, undefined, undefined),
     [goals, activities],
+  );
+  const existingTagLabels = React.useMemo(
+    () =>
+      Object.values(activityTagHistory ?? {})
+        .map((entry) => entry.tag)
+        .filter((tag) => tag.trim().length > 0),
+    [activityTagHistory],
   );
 
   const launchContext = React.useMemo(
@@ -245,7 +253,7 @@ export function ActivityCoachDrawer({
           goalId: null,
           title: trimmedTitle,
           type: 'task',
-          tags: suggestTagsFromText(trimmedTitle),
+          tags: suggestTagsFromText(trimmedTitle, { existingTags: existingTagLabels }),
           notes: undefined,
           steps: [],
           reminderAt: null,
@@ -278,7 +286,7 @@ export function ActivityCoachDrawer({
         void HapticsService.trigger('outcome.success');
       }
     },
-    [activities, addActivity, capture],
+    [activities, addActivity, capture, existingTagLabels],
   );
 
   const handleAdoptActivitySuggestion = React.useCallback(
@@ -304,7 +312,7 @@ export function ActivityCoachDrawer({
         tags:
           Array.isArray(suggestion.tags) && suggestion.tags.length > 0
             ? suggestion.tags
-            : suggestTagsFromText(suggestion.title, suggestion.why ?? null),
+            : suggestTagsFromText(suggestion.title, suggestion.why ?? null, { existingTags: existingTagLabels }),
         notes: suggestion.why,
         steps,
         reminderAt: null,
@@ -381,7 +389,7 @@ export function ActivityCoachDrawer({
         has_estimate: Boolean(activity.estimateMinutes),
       });
     },
-    [activities.length, addActivity, capture, updateActivity],
+    [activities.length, addActivity, capture, existingTagLabels, updateActivity],
   );
 
   return (

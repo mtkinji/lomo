@@ -30,6 +30,13 @@ const ACTIVITY_STEP_SCHEMA: JsonObject = {
   },
 };
 
+const ACTIVITY_STEP_PATCH_PROPERTIES: JsonObject = {
+  title: { type: 'string' },
+  completed_at: { type: ['string', 'null'] },
+  is_optional: { type: 'boolean' },
+  order_index: { type: 'integer' },
+};
+
 function readOnlyAnnotations(title: string) {
   return {
     title,
@@ -325,6 +332,87 @@ export const EXTERNAL_MCP_WRITE_TOOLS: ExternalMcpToolDefinition[] = [
       required: ['activity_id'],
     },
     annotations: writeAnnotations('Update To-do'),
+  },
+  {
+    name: 'create_activity_step',
+    description: 'Add one step to a user-owned Kwilt To-do without replacing the existing step list.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        id: { type: 'string' },
+        title: { type: 'string' },
+        completed_at: { type: ['string', 'null'] },
+        is_optional: { type: 'boolean' },
+        order_index: { type: 'integer' },
+      },
+      required: ['activity_id', 'title'],
+    },
+    annotations: writeAnnotations('Create To-do Step'),
+  },
+  {
+    name: 'update_activity_step',
+    description: 'Update one step on a user-owned Kwilt To-do without replacing the existing step list.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        step_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        ...ACTIVITY_STEP_PATCH_PROPERTIES,
+      },
+      required: ['activity_id', 'step_id'],
+    },
+    annotations: writeAnnotations('Update To-do Step'),
+  },
+  {
+    name: 'mark_activity_step_done',
+    description: 'Mark one step done on a user-owned Kwilt To-do.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        step_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        completed_at: { type: 'string' },
+      },
+      required: ['activity_id', 'step_id'],
+    },
+    annotations: writeAnnotations('Mark To-do Step Done'),
+  },
+  {
+    name: 'delete_activity_step',
+    description: 'Delete one step from a user-owned Kwilt To-do.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        step_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+      },
+      required: ['activity_id', 'step_id'],
+    },
+    annotations: deleteAnnotations('Delete To-do Step'),
+  },
+  {
+    name: 'reorder_activity_steps',
+    description: 'Reorder steps on a user-owned Kwilt To-do. Listed step ids are placed first; omitted existing steps are appended in their previous order.',
+    scope: 'write',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        activity_id: { type: 'string' },
+        idempotency_key: IDEMPOTENCY_PROPERTY,
+        step_ids: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['activity_id', 'step_ids'],
+    },
+    annotations: writeAnnotations('Reorder To-do Steps'),
   },
   {
     name: 'mark_activity_done',
