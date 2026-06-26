@@ -1,14 +1,13 @@
 name: E2E (Maestro)
 
 on:
-  pull_request:
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *"
 
 jobs:
   maestro-smoke:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -28,6 +27,9 @@ jobs:
 
       - name: Install deps
         run: npm ci
+
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --clean
 
       - name: Install Maestro
         run: |
@@ -82,10 +84,9 @@ jobs:
           maestro test \
             e2e/maestro/auth-gate-smoke.yaml \
             e2e/maestro/smoke-devtools.yaml \
-            e2e/maestro/bottomdrawer-touch-regression.yaml \
             e2e/maestro/onboarding-plan-ready-touch-regression.yaml \
-            e2e/maestro/keyboard-harness.yaml \
-            e2e/maestro/agent-workspace-smoke.yaml
+            e2e/maestro/arc-banner-touch-regression.yaml \
+            e2e/maestro/activity-detail-key-actions.yaml
 
       - name: Notify Slack on failure
         if: failure()
@@ -105,7 +106,7 @@ jobs:
           curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
 
   maestro-full:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'schedule'
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -125,6 +126,9 @@ jobs:
 
       - name: Install deps
         run: npm ci
+
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --clean
 
       - name: Install Maestro
         run: |

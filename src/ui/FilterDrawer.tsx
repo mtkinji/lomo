@@ -687,7 +687,12 @@ function TagValueInput({ value, onChange }: { value: FilterValue; onChange: (val
   const addQueryAsTag = () => {
     const clean = query.trim();
     if (!clean) return;
-    toggleTag(clean);
+    if (selectedKeys.has(clean.toLowerCase())) {
+      setQuery('');
+      return;
+    }
+    const next = addTagFilterValue(selectedTags, clean);
+    onChange(next);
     setQuery('');
   };
 
@@ -777,6 +782,16 @@ function normalizeSelectedTags(value: FilterValue): string[] {
     out.push(clean);
   });
   return out;
+}
+
+export function addTagFilterValue(value: FilterValue, tag: string): FilterValue {
+  const selectedTags = normalizeSelectedTags(value);
+  const clean = tag.trim();
+  const key = clean.toLowerCase();
+  if (!clean || selectedTags.some((item) => item.trim().toLowerCase() === key)) {
+    return selectedTags.length > 0 ? selectedTags : undefined;
+  }
+  return [...selectedTags, clean];
 }
 
 function parseLocalDateKey(key: string): Date | null {

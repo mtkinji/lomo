@@ -37,7 +37,7 @@ export function TagGroupsDrawer({
   }, [visible]);
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['70%']} keyboardAvoidanceEnabled={false}>
+    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['70%']}>
       <View style={styles.container}>
         <BottomDrawerHeader
           title="Tags"

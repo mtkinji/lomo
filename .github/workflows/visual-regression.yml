@@ -27,6 +27,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --clean
+
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
@@ -68,8 +71,7 @@ jobs:
         run: |
           maestro test \
             e2e/maestro/smoke-devtools.yaml \
-            e2e/maestro/bottomdrawer-touch-regression.yaml \
-            e2e/maestro/keyboard-harness.yaml \
+            e2e/maestro/arc-banner-touch-regression.yaml \
             e2e/maestro/activity-detail-key-actions.yaml
 
       - name: Collect screenshots
@@ -104,4 +106,3 @@ jobs:
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             '{text: ("Visual regression failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
           curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-

@@ -715,6 +715,7 @@ export function ActivityDetailRefresh(props: any) {
         }}
         onTouchEnd={() => {
           if (isTagsInputFocused && !tagTouchStartedInsideRef.current) {
+            tagSuggestionPressRef.current = false;
             tagsInputRef.current?.blur?.();
           }
           tagTouchStartedInsideRef.current = false;
@@ -1604,6 +1605,11 @@ export function ActivityDetailRefresh(props: any) {
                     onAddTag={addTagFromPicker}
                     onPressInOption={() => {
                       tagSuggestionPressRef.current = true;
+                    }}
+                    onPressOutOption={() => {
+                      requestAnimationFrame(() => {
+                        tagSuggestionPressRef.current = false;
+                      });
                     }}
                   />
                 </View>

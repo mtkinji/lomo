@@ -25,6 +25,7 @@ type Props = {
   styles: TagPickerStyles;
   onAddTag: (tag: string) => void;
   onPressInOption: () => void;
+  onPressOutOption: () => void;
 };
 
 export function ActivityDetailTagPicker({
@@ -35,6 +36,7 @@ export function ActivityDetailTagPicker({
   styles,
   onAddTag,
   onPressInOption,
+  onPressOutOption,
 }: Props) {
   const options = React.useMemo(
     () =>
@@ -66,6 +68,7 @@ export function ActivityDetailTagPicker({
           accessibilityRole="button"
           accessibilityLabel={`Add existing tag ${option.label}`}
           onPressIn={onPressInOption}
+          onPressOut={onPressOutOption}
           onPress={() => onAddTag(option.label)}
           style={({ pressed }) => [styles.tagPickerRow, pressed ? styles.tagPickerRowPressed : null]}
         >
@@ -85,6 +88,7 @@ export function ActivityDetailTagPicker({
           accessibilityRole="button"
           accessibilityLabel={`Create tag ${trimmedQuery}`}
           onPressIn={onPressInOption}
+          onPressOut={onPressOutOption}
           onPress={() => onAddTag(trimmedQuery)}
           style={({ pressed }) => [styles.tagPickerRow, pressed ? styles.tagPickerRowPressed : null]}
         >
