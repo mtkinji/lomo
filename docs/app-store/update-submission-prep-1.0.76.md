@@ -22,16 +22,17 @@ Local config checks before upload confirmed:
 
 ## Paste-ready What's New
 
-This update adds Screen Time Controls to help you put meaningful action before distracting apps.
+This update adds Screen Time Controls and improves how Kwilt organizes to-dos.
 
-- Choose apps or categories that tend to pull you away.
-- Block selected apps until you take a real step in Kwilt, or while a Focus session is running.
-- Set up controls from Settings or from Focus when you are ready to reduce distractions.
-- Also includes improvements to to-do organization, tags, Activity Areas, planning, onboarding, and sync reliability.
+- Screen Time Controls: choose apps or categories that tend to pull you away, then block them until you take a real step in Kwilt or while a Focus session is running.
+- Better to-do organization: improved priority cues, sorting, filtering, and list polish make the next useful action easier to spot.
+- Tags and tag groups: add tags while editing a to-do, then use tag groups to review related work together.
+- Activity Areas: group work by the parts of life it belongs to.
+- Reliability improvements across planning, onboarding, and sync.
 
 ## Shorter What's New
 
-Adds Screen Time Controls for real-step-first and Focus-session app blocking, plus improvements to to-do organization, tags, Activity Areas, and reliability.
+Adds Screen Time Controls, better to-do prioritization, tag groups, Activity Areas, and reliability improvements across planning, onboarding, and sync.
 
 ## Reviewer notes
 
@@ -43,7 +44,13 @@ This submission is Kwilt version 1.0.76 build 76.
 
 Reviewers can create a fresh account using the normal sign-in flow. No pre-seeded demo account is required; onboarding creates the initial Arc/Goal experience needed to review the core app.
 
-This update focuses on Screen Time Controls. Users can choose apps or categories to block, then enable rules that keep those selected apps blocked until they take a real step in Kwilt or while a Focus session is running. The release also includes improvements to the to-do workspace: prioritization and list polish, tag groups and tag vocabulary, Activity Areas, smoother tag editing, and reliability improvements.
+This update includes several user-facing improvements:
+
+- Screen Time Controls. Users can choose apps or categories to block, then enable rules that keep those selected apps blocked until they take a real step in Kwilt or while a Focus session is running.
+- To-do organization. Priority cues, sorting, filtering, and list polish make the next useful action easier to spot.
+- Tags and tag groups. Users can add tags while editing a to-do, then use tag groups to review related work together.
+- Activity Areas. Users can group work by the parts of life it belongs to from Settings > Activity Areas.
+- Reliability improvements across planning, onboarding, and sync.
 
 Useful review paths:
 
