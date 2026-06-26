@@ -42,6 +42,7 @@ import {
 } from '../_shared/externalMcpWrite.ts';
 import {
   buildAuthorizationServerMetadata,
+  buildClientRegistrationResponse,
   buildProtectedResourceMetadata,
   normalizeClientRegistration,
   normalizeOAuthScope,
@@ -593,16 +594,15 @@ async function handleRegister(req: Request) {
   });
   if (error) return json(500, { error: 'client_registration_failed' });
 
-  return json(201, {
-    client_id: clientId,
-    client_secret: clientSecret,
-    client_name: normalized.clientName,
-    redirect_uris: normalized.redirectUris,
-    grant_types: normalized.grantTypes,
-    response_types: normalized.responseTypes,
-    token_endpoint_auth_method: normalized.tokenEndpointAuthMethod,
-    client_id_issued_at: Math.floor(Date.now() / 1000),
-  });
+  return json(
+    201,
+    buildClientRegistrationResponse({
+      clientId,
+      clientSecret,
+      normalized,
+      issuedAt: Math.floor(Date.now() / 1000),
+    }),
+  );
 }
 
 async function getClient(admin: any, clientId: string) {

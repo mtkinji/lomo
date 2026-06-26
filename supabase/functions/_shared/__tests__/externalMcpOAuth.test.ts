@@ -1,5 +1,6 @@
 import {
   buildAuthorizationServerMetadata,
+  buildClientRegistrationResponse,
   buildProtectedResourceMetadata,
   normalizeClientRegistration,
   normalizeOAuthScope,
@@ -78,6 +79,57 @@ describe('externalMcpOAuth helpers', () => {
       });
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.surface).toBe('chatgpt');
+    });
+  });
+
+  describe('buildClientRegistrationResponse', () => {
+    test('omits client_secret for public clients using token_endpoint_auth_method=none', () => {
+      const normalized = normalizeClientRegistration({
+        client_name: 'ChatGPT',
+        redirect_uris: ['https://chatgpt.com/api/mcp/callback'],
+        token_endpoint_auth_method: 'none',
+      });
+      expect(normalized.ok).toBe(true);
+      if (!normalized.ok) return;
+
+      expect(
+        buildClientRegistrationResponse({
+          clientId: 'kwilt_client_public',
+          clientSecret: null,
+          normalized,
+          issuedAt: 123,
+        }),
+      ).toEqual({
+        client_id: 'kwilt_client_public',
+        client_name: 'ChatGPT',
+        redirect_uris: ['https://chatgpt.com/api/mcp/callback'],
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+        client_id_issued_at: 123,
+      });
+    });
+
+    test('includes client_secret for confidential clients', () => {
+      const normalized = normalizeClientRegistration({
+        client_name: 'Claude Desktop',
+        redirect_uris: ['https://claude.ai/api/mcp/auth_callback'],
+      });
+      expect(normalized.ok).toBe(true);
+      if (!normalized.ok) return;
+
+      expect(
+        buildClientRegistrationResponse({
+          clientId: 'kwilt_client_confidential',
+          clientSecret: 'kwilt_secret_value',
+          normalized,
+          issuedAt: 123,
+        }),
+      ).toMatchObject({
+        client_id: 'kwilt_client_confidential',
+        client_secret: 'kwilt_secret_value',
+        token_endpoint_auth_method: 'client_secret_post',
+      });
     });
   });
 

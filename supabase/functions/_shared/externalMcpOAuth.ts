@@ -14,6 +14,24 @@ export type NormalizedClientRegistration =
     }
   | { ok: false; error: 'invalid_client_metadata' | 'invalid_redirect_uris' };
 
+export function buildClientRegistrationResponse(params: {
+  clientId: string;
+  clientSecret: string | null;
+  normalized: Extract<NormalizedClientRegistration, { ok: true }>;
+  issuedAt: number;
+}): Record<string, JsonValue> {
+  return {
+    client_id: params.clientId,
+    ...(params.clientSecret ? { client_secret: params.clientSecret } : {}),
+    client_name: params.normalized.clientName,
+    redirect_uris: params.normalized.redirectUris,
+    grant_types: params.normalized.grantTypes,
+    response_types: params.normalized.responseTypes,
+    token_endpoint_auth_method: params.normalized.tokenEndpointAuthMethod,
+    client_id_issued_at: params.issuedAt,
+  };
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
