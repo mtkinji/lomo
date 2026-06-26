@@ -27,6 +27,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --clean
+
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
@@ -104,4 +107,3 @@ jobs:
             --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             '{text: ("Visual regression failed for " + $repo + " on " + $ref + " (" + $sha + "). " + $url)}')
           curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-

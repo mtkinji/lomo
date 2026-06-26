@@ -29,6 +29,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --clean
+
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
@@ -125,6 +128,9 @@ jobs:
 
       - name: Install deps
         run: npm ci
+
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --clean
 
       - name: Install Maestro
         run: |
