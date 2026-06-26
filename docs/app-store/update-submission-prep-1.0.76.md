@@ -22,16 +22,16 @@ Local config checks before upload confirmed:
 
 ## Paste-ready What's New
 
-This update makes Kwilt's to-do workspace calmer and easier to organize.
+This update adds Screen Time Controls to help you put meaningful action before distracting apps.
 
-- Improved to-do prioritization, sorting, and list polish so the next useful action is easier to spot.
-- Added richer tag organization, including tag groups and smoother tag picking while editing a to-do.
-- Added Activity Areas so work can be grouped by the parts of life it belongs to.
-- Polished Kwilt's character artwork and fixed several reliability issues across planning, onboarding, and sync.
+- Choose apps or categories that tend to pull you away.
+- Block selected apps until you take a real step in Kwilt, or while a Focus session is running.
+- Set up controls from Settings or from Focus when you are ready to reduce distractions.
+- Also includes improvements to to-do organization, tags, Activity Areas, planning, onboarding, and sync reliability.
 
 ## Shorter What's New
 
-Improves to-do organization with better prioritization, tag groups, Activity Areas, smoother editing, refreshed artwork, and reliability fixes.
+Adds Screen Time Controls for real-step-first and Focus-session app blocking, plus improvements to to-do organization, tags, Activity Areas, and reliability.
 
 ## Reviewer notes
 
@@ -43,20 +43,24 @@ This submission is Kwilt version 1.0.76 build 76.
 
 Reviewers can create a fresh account using the normal sign-in flow. No pre-seeded demo account is required; onboarding creates the initial Arc/Goal experience needed to review the core app.
 
-This update focuses on the to-do workspace and organization flows: improved prioritization and list polish, tag groups and tag vocabulary, Activity Areas, smoother tag editing, refreshed Kwilt artwork, and reliability improvements.
+This update focuses on Screen Time Controls. Users can choose apps or categories to block, then enable rules that keep those selected apps blocked until they take a real step in Kwilt or while a Focus session is running. The release also includes improvements to the to-do workspace: prioritization and list polish, tag groups and tag vocabulary, Activity Areas, smoother tag editing, and reliability improvements.
 
 Useful review paths:
 
 1. Fresh install onboarding: Open Kwilt, proceed through setup, and reach the app without enabling Location Services.
-2. To-do organization: Create several to-dos, open the to-do list, use sorting/filtering, and inspect the priority and grouping behavior.
-3. Tags: Edit a to-do, add tags, and use tag filtering/grouping from the to-do list.
-4. Activity Areas: Open Settings > Activity Areas to review or manage life-area organization.
-5. Optional location trigger: Create a to-do with a place-style prompt. If Kwilt recommends a location trigger, choose `Keep regular to-do` to confirm the to-do remains usable without Location Services. Choose `Use location triggers` only if you want to test the optional permission path.
-6. Subscriptions: Settings > Subscriptions > Upgrade to Kwilt Pro. The plan picker includes price, billing period, Terms of Use (EULA), and Privacy Policy links before purchase. Restore purchases is also available from Settings > Subscriptions.
-7. Legal and privacy: Settings > Legal & privacy includes Privacy Policy, Terms/EULA, support contact, Apple subscription management, and Account deletion guidance.
-8. Account deletion: Sign in, then open Settings > Account settings > Delete account. Deletion happens in-app and does not require contacting support. The app explains that deleting a Kwilt account does not cancel Apple-managed subscriptions.
-9. Apple Health: Settings > Weekly Chapters > Use Apple Health summaries. Kwilt requests read-only Apple Health summaries for movement, workouts, sleep, and mindfulness.
-10. Calendar: Settings > Calendars connects Google or Outlook calendars for planning context and to-dos the user chooses to schedule.
+2. Screen Time Controls: Open Settings > Screen Time Controls. Allow Screen Time, choose apps or categories to block, then choose whether selected apps should wait until the user takes a real step, while Focus is running, or both. Screen Time access is requested only from this explicit setup flow.
+3. Focus setup path: Open a to-do, start or open Focus, and use the Screen Time Controls setup offer if shown. This path configures the same optional controls for distraction blocking during Focus.
+4. To-do organization: Create several to-dos, open the to-do list, use sorting/filtering, and inspect the priority and grouping behavior.
+5. Tags: Edit a to-do, add tags, and use tag filtering/grouping from the to-do list.
+6. Activity Areas: Open Settings > Activity Areas to review or manage life-area organization.
+7. Optional location trigger: Create a to-do with a place-style prompt. If Kwilt recommends a location trigger, choose `Keep regular to-do` to confirm the to-do remains usable without Location Services. Choose `Use location triggers` only if you want to test the optional permission path.
+8. Subscriptions: Settings > Subscriptions > Upgrade to Kwilt Pro. The plan picker includes price, billing period, Terms of Use (EULA), and Privacy Policy links before purchase. Restore purchases is also available from Settings > Subscriptions.
+9. Legal and privacy: Settings > Legal & privacy includes Privacy Policy, Terms/EULA, support contact, Apple subscription management, and Account deletion guidance.
+10. Account deletion: Sign in, then open Settings > Account settings > Delete account. Deletion happens in-app and does not require contacting support. The app explains that deleting a Kwilt account does not cancel Apple-managed subscriptions.
+11. Apple Health: Settings > Weekly Chapters > Use Apple Health summaries. Kwilt requests read-only Apple Health summaries for movement, workouts, sleep, and mindfulness.
+12. Calendar: Settings > Calendars connects Google or Outlook calendars for planning context and to-dos the user chooses to schedule.
+
+Screen Time Controls are optional and user-configured. Kwilt only blocks apps or categories selected by the user, and the setup copy explains that selections stay on the device.
 
 Location Services are not required during first-time setup or returning-user setup. Users can complete onboarding and use Kwilt without enabling Location Services. Location-based nudges remain optional and are requested only after the user explicitly chooses a location-based feature for an existing to-do/place flow.
 
@@ -101,6 +105,8 @@ Do not include Phone/SMS data unless Phone Agent/SMS surfaces are restored befor
 ## Optional attachment checklist
 
 - Fresh-install onboarding recording showing no Location Services request and successful entry into the app.
+- Screen Time Controls recording showing Settings > Screen Time Controls, Screen Time permission, app/category selection, and blocking rules.
+- Focus recording showing the optional Screen Time Controls setup offer from the Focus path, if available.
 - To-do list recording showing priority, sorting/filtering, and tag grouping.
 - Activity Areas recording showing Settings > Activity Areas.
 - Subscription recording showing Settings > Subscriptions > plan picker > Terms/EULA link > Privacy Policy link, plus Restore purchases availability.
