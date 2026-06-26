@@ -2,7 +2,6 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
-  AppState,
   Image,
   InteractionManager,
   LayoutAnimation,
@@ -60,7 +59,7 @@ import { getCurrentLocationBestEffort } from '../../services/location/currentLoc
 import { applePlaceSearchBestEffort, cancelApplePlaceSearchBestEffort } from '../../services/locationOffers/applePlaceSearch';
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { Picker } from '@react-native-picker/picker';
-import { SOUND_SCAPES, preloadSoundscape, startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
+import { SOUND_SCAPES, preloadSoundscape } from '../../services/soundscape';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
@@ -77,10 +76,8 @@ import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
 import { DurationPicker, formatDurationMinutes } from './DurationPicker';
-import {
-  isRunningFocusSessionExpired,
-  type FocusSessionLifecycleState,
-} from './focusSessionLifecycle';
+import type { ActiveFocusSession } from './focusSessionLifecycle';
+import { useFocusSessionStore } from './focusSessionStore';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Card } from '../../ui/Card';
@@ -166,8 +163,6 @@ import {
   getNextBestActivityAction,
   type ActivityNextBestActionId,
 } from './nextBestAction';
-import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
-import { syncLiveActivity, endLiveActivity } from '../../services/appleEcosystem/liveActivity';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import {
   normalizeScreenTimeProtectionSettings,
@@ -176,7 +171,7 @@ import {
 import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
 import MapView, { Circle, type Region } from 'react-native-maps';
 
-type FocusSessionState = FocusSessionLifecycleState;
+type FocusSessionState = ActiveFocusSession;
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
@@ -291,7 +286,6 @@ export function ActivityDetailScreen() {
   const setActivityPriorityState = useAppStore((state) => state.setActivityPriorityState);
   const removeActivity = useAppStore((state) => state.removeActivity);
   const recordShowUp = useAppStore((state) => state.recordShowUp);
-  const notificationPreferences = useAppStore((state) => state.notificationPreferences);
   const screenTimeProtection = useAppStore((state) => state.screenTimeProtection);
   const completedFocusSessionCount = useAppStore((state) => state.completedFocusSessionCount);
   const markScreenTimeSetupOfferShown = useAppStore((state) => state.markScreenTimeSetupOfferShown);
@@ -768,7 +762,9 @@ export function ActivityDetailScreen() {
 
   const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
   const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
-  const [focusSession, setFocusSession] = useState<FocusSessionState | null>(null);
+  const activeFocusSession = useFocusSessionStore((state) => state.activeSession);
+  const focusSession: FocusSessionState | null =
+    activeFocusSession?.activityId === activityId ? activeFocusSession : null;
   const [focusTickMs, setFocusTickMs] = useState(() => Date.now());
   const [focusSoundscapeMenuOpen, setFocusSoundscapeMenuOpen] = useState(false);
   const [focusSoundscapeMenuVisible, setFocusSoundscapeMenuVisible] = useState(false);
@@ -794,7 +790,6 @@ export function ActivityDetailScreen() {
   const focusOverlayColorStep = useRef(new Animated.Value(normalizedFocusOverlayColorIndex)).current;
   const focusOverlayColorStepRef = useRef(normalizedFocusOverlayColorIndex);
   const focusOverlayAnimatingRef = useRef(false);
-  const focusEndNotificationIdRef = useRef<string | null>(null);
   const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const focusPresetValues = useMemo<number[]>(() => [10, 25, 45, 60], []);
@@ -1987,7 +1982,7 @@ export function ActivityDetailScreen() {
     !goalComboboxOpen &&
     !difficultyComboboxOpen &&
     activeSheet == null &&
-    focusSession == null &&
+    activeFocusSession == null &&
     !isPlanKickoffVisible;
 
   useEffect(() => {
@@ -2161,16 +2156,30 @@ export function ActivityDetailScreen() {
     setPendingCalendarToast(null);
   }, [isFocused, pendingCalendarToast, showToast]);
 
+  const clearPendingFocusLaunch = () => {
+    if (focusLaunchTimeoutRef.current) {
+      clearTimeout(focusLaunchTimeoutRef.current);
+      focusLaunchTimeoutRef.current = null;
+    }
+  };
+
+  const cancelScheduledFocusNotification = async (
+    notificationId: string,
+    context?: Record<string, unknown>,
+  ) => {
+    await runFocusNativeBoundary(
+      'Notifications.cancelScheduledNotificationAsync.focusComplete',
+      () => Notifications.cancelScheduledNotificationAsync(notificationId),
+      { notificationId, ...context },
+    );
+  };
+
   const cancelFocusNotificationIfNeeded = async () => {
-    const existing = focusEndNotificationIdRef.current;
-    focusEndNotificationIdRef.current = null;
+    const existing = focusSession?.notificationId ?? null;
     if (!existing) return;
     try {
-      await runFocusNativeBoundary(
-        'Notifications.cancelScheduledNotificationAsync.focusComplete',
-        () => Notifications.cancelScheduledNotificationAsync(existing),
-        { notificationId: existing },
-      );
+      await cancelScheduledFocusNotification(existing);
+      useFocusSessionStore.getState().clearNotificationId(focusSession?.sessionId ?? '');
     } catch {
       // best-effort
     }
@@ -2188,10 +2197,11 @@ export function ActivityDetailScreen() {
   };
 
   const endFocusSession = async () => {
-    await cancelFocusNotificationIfNeeded();
-    await stopSoundscapeLoop({ unload: true }).catch(() => undefined);
-    setFocusSession(null);
-    await reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => []);
+    clearPendingFocusLaunch();
+    const ended = useFocusSessionStore.getState().endSession(focusSession?.sessionId);
+    if (ended?.notificationId) {
+      await cancelScheduledFocusNotification(ended.notificationId, { reason: 'ended_by_user' }).catch(() => undefined);
+    }
   };
 
   const startFocusSession = async (overrideMinutes?: number) => {
@@ -2213,63 +2223,34 @@ export function ActivityDetailScreen() {
     void HapticsService.trigger('canvas.primary.confirm');
     setLastFocusMinutes(minutes);
 
+    const replacedSession = useFocusSessionStore.getState().endSession();
+    if (replacedSession?.notificationId) {
+      await cancelScheduledFocusNotification(replacedSession.notificationId, { reason: 'replaced_by_new_session' }).catch(
+        () => undefined,
+      );
+    }
     setActiveSheet(null);
     // Start preloading immediately so sound can come up quickly once the focus overlay appears.
     preloadSoundscape({ soundscapeId: soundscapeTrackId }).catch(() => undefined);
     // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
     // while it is animating out; otherwise iOS can show the scrim but hide the next modal.
-    if (focusLaunchTimeoutRef.current) {
-      clearTimeout(focusLaunchTimeoutRef.current);
-    }
+    clearPendingFocusLaunch();
 
     focusLaunchTimeoutRef.current = setTimeout(() => {
       const startedAtMs = Date.now();
-      const endAtMs = startedAtMs + minutes * 60_000;
-      setFocusSession({ mode: 'running', startedAtMs, endAtMs });
+      useFocusSessionStore.getState().startSession({
+        activityId: activity.id,
+        goalId: activity.goalId ?? null,
+        title: activity.title,
+        minutes,
+        startedAtMs,
+      });
+      focusLaunchTimeoutRef.current = null;
       setFocusTickMs(startedAtMs);
       reconcileScreenTimeRestrictions({
         focusSessionActive: true,
         now: new Date(startedAtMs),
       }).catch(() => undefined);
-
-      // Best-effort: schedule a "time's up" local notification if permissions are already granted
-      // and the user hasn't disabled reminders in app settings.
-      (async () => {
-        try {
-          const permissions = await runFocusNativeBoundary(
-            'Notifications.getPermissionsAsync.focusComplete',
-            () => Notifications.getPermissionsAsync(),
-            { activityId: activity.id, minutes },
-          );
-          const canNotify =
-            permissions.status === 'granted' &&
-            notificationPreferences.notificationsEnabled &&
-            notificationPreferences.allowActivityReminders;
-
-          if (canNotify) {
-            const identifier = await runFocusNativeBoundary(
-              'Notifications.scheduleNotificationAsync.focusComplete',
-              () =>
-                Notifications.scheduleNotificationAsync({
-                  content: {
-                    title: 'Focus session complete',
-                    body: activity.title,
-                    data: { type: 'focusSession', activityId: activity.id },
-                  },
-                  trigger: {
-                    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-                    seconds: minutes * 60,
-                    repeats: false,
-                  },
-                }),
-              { activityId: activity.id, minutes, seconds: minutes * 60 },
-            );
-            focusEndNotificationIdRef.current = identifier;
-          }
-        } catch {
-          // best-effort
-        }
-      })().catch(() => undefined);
     }, 320);
   };
 
@@ -2283,19 +2264,19 @@ export function ActivityDetailScreen() {
     if (!focusSession) return;
     if (focusSession.mode === 'paused') {
       void HapticsService.trigger('canvas.toggle.on');
-      const endAtMs = Date.now() + focusSession.remainingMs;
-      setFocusSession({ mode: 'running', startedAtMs: focusSession.startedAtMs, endAtMs });
-      setFocusTickMs(Date.now());
+      if (!activity) return;
+      await cancelFocusNotificationIfNeeded();
+      const resumedAtMs = Date.now();
+      useFocusSessionStore.getState().resumeSession(focusSession.sessionId, resumedAtMs);
+      setFocusTickMs(resumedAtMs);
       return;
     }
 
     void HapticsService.trigger('canvas.toggle.off');
-    await cancelFocusNotificationIfNeeded();
-    setFocusSession({
-      mode: 'paused',
-      startedAtMs: focusSession.startedAtMs,
-      remainingMs: remainingFocusMs,
-    });
+    const paused = useFocusSessionStore.getState().pauseSession(focusSession.sessionId);
+    if (paused?.notificationId) {
+      await cancelScheduledFocusNotification(paused.notificationId, { reason: 'paused' }).catch(() => undefined);
+    }
   };
 
   useEffect(() => {
@@ -2309,19 +2290,6 @@ export function ActivityDetailScreen() {
   }, [focusSession]);
 
   const focusSoundscapeShouldPlay = focusSession?.mode === 'running' && soundscapeEnabled;
-
-  useEffect(() => {
-    // Keep soundscape aligned with Focus session state (handles toggling + pause/resume).
-    if (!focusSoundscapeShouldPlay) {
-      stopSoundscapeLoop().catch(() => undefined);
-      return;
-    }
-
-    startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
-    return () => {
-      stopSoundscapeLoop({ unload: true }).catch(() => undefined);
-    };
-  }, [focusSoundscapeShouldPlay, soundscapeTrackId]);
 
   useEffect(() => {
     if (!focusSoundscapeShouldPlay || hasShownFocusSoundscapeVolumeHint) return;
@@ -2339,112 +2307,6 @@ export function ActivityDetailScreen() {
     setHasShownFocusSoundscapeVolumeHint,
   ]);
 
-  useEffect(() => {
-    if (!isFocused) return;
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') return;
-      const nowMs = Date.now();
-      if (isRunningFocusSessionExpired(focusSession, nowMs)) {
-        stopSoundscapeLoop({ unload: true }).catch(() => undefined);
-        setFocusTickMs(nowMs);
-        return;
-      }
-      if (focusSoundscapeShouldPlay) {
-        startSoundscapeLoop({ fadeInMs: 250, soundscapeId: soundscapeTrackId }).catch(() => undefined);
-      }
-    });
-    return () => subscription.remove();
-  }, [isFocused, focusSession, focusSoundscapeShouldPlay, soundscapeTrackId]);
-
-  // Best-effort: expose Focus session state to iOS ecosystem surfaces via App Group.
-  useEffect(() => {
-    if (!activity) return;
-    if (!focusSession) {
-      void setGlanceableFocusSession(null);
-      void endLiveActivity();
-      return;
-    }
-
-    const common = {
-      id: `${activity.id}-${focusSession.startedAtMs}`,
-      mode: focusSession.mode,
-      startedAtMs: focusSession.startedAtMs,
-      activityId: activity.id,
-      title: activity.title,
-    } as const;
-
-    if (focusSession.mode === 'running') {
-      void setGlanceableFocusSession({
-        ...common,
-        endAtMs: focusSession.endAtMs,
-      });
-      void syncLiveActivity({
-        mode: 'running',
-        activityId: activity.id,
-        title: activity.title,
-        sessionId: common.id,
-        startedAtMs: focusSession.startedAtMs,
-        endAtMs: focusSession.endAtMs,
-      });
-      return;
-    }
-
-    void setGlanceableFocusSession({
-      ...common,
-      remainingMs: focusSession.remainingMs,
-    });
-    // Keep the Live Activity alive while paused so ActivityKit has one stable session
-    // instead of ending/restarting the system counter on every pause/resume.
-    void syncLiveActivity({
-      mode: 'paused',
-      activityId: activity.id,
-      title: activity.title,
-      sessionId: common.id,
-      startedAtMs: focusSession.startedAtMs,
-      remainingMs: focusSession.remainingMs,
-    });
-  }, [activity?.id, activity?.title, focusSession]);
-
-  useEffect(() => {
-    if (!focusSession) return;
-    if (focusSession.mode !== 'running') return;
-    if (remainingFocusMs > 0) return;
-
-    // Session completed
-    void HapticsService.trigger('outcome.success');
-    recordShowUpWithCelebration();
-    const completedAtMs = Date.now();
-    const completedFocusMinutes = Math.max(
-      1,
-      Math.round((focusSession.endAtMs - focusSession.startedAtMs) / 60_000),
-    );
-    const completedAt = new Date(completedAtMs);
-    useAppStore.getState().recordCompletedFocusSession({ completedAtMs });
-    useAppStore.getState().recordScreenTimeQualifyingAction({
-      action: 'focus_session_completed',
-      occurredAt: completedAt,
-      focusMinutes: completedFocusMinutes,
-    });
-    endFocusSession().catch(() => undefined);
-
-    // Check-in nudge for activities under shared goals
-    const activityGoalId = activity?.goalId;
-    if (activityGoalId) {
-      void queueCheckinDraftFromProgress({
-        goalId: activityGoalId,
-        trigger: 'focus_complete',
-        source: 'activity_detail_focus',
-        sourceType: 'focus_session',
-        sourceId: `${activity?.id ?? 'activity'}-${focusSession.startedAtMs}`,
-        title: activity?.title ?? 'this goal',
-        completedAt: new Date(focusSession.endAtMs).toISOString(),
-        durationMinutes: completedFocusMinutes,
-        openPromptDelayMs: 1500,
-        capture,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingFocusMs, focusSession?.mode]);
 
   const openCalendarSheet = () => {
     if (!activity) return;
@@ -3057,9 +2919,7 @@ export function ActivityDetailScreen() {
 
   useEffect(() => {
     return () => {
-      if (focusLaunchTimeoutRef.current) {
-        clearTimeout(focusLaunchTimeoutRef.current);
-      }
+      clearPendingFocusLaunch();
     };
   }, []);
 

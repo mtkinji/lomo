@@ -6,24 +6,23 @@ import {
   ViewStyle,
   Pressable,
   Platform,
-  Switch,
   TextInput,
   Image,
   ActivityIndicator,
   InteractionManager,
   Alert,
   Linking,
+  Switch,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
-import { PageHeader } from '../../ui/layout/PageHeader';
 import { CanvasScrollView } from '../../ui/layout/CanvasScrollView';
+import { PageHeader } from '../../ui/layout/PageHeader';
 import { GoalListCard } from '../../ui/GoalListCard';
 import { Card } from '../../ui/Card';
 import { colors, spacing, typography } from '../../theme';
-import { menuItemTextProps } from '../../ui/menuStyles';
 import type { GoalsStackParamList } from '../../navigation/RootNavigator';
 import { useAppStore, defaultForceLevels } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
@@ -35,6 +34,12 @@ import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView, ObjectPicker } from '../../ui/primitives';
+import { menuItemTextProps } from '../../ui/menuStyles';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
 import { richTextToPlainText } from '../../ui/richText';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -86,11 +91,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import { MasonryTwoColumn } from '../../ui/layout/MasonryTwoColumn';
 import { estimateGoalMasonryTileHeight, GoalMasonryTile } from '../../ui/GoalMasonryTile';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '../../ui/DropdownMenu';
+import { GoalsInventorySearchBar } from './GoalsInventorySearchBar';
+import { useGoalsInventorySearchAndSort } from './useGoalsInventorySearchAndSort';
 
 type GoalDraftEntry = {
   arcId: string;
@@ -364,6 +366,32 @@ export function GoalsScreen() {
     [archivedGoals, arcById, deriveNextScheduledLabel, goalActivityStatsByGoal, stableBucketFromId],
   );
 
+  const getGoalNextScheduledMs = React.useCallback(
+    (item: GoalMasonryItem) => goalActivityStatsByGoal[item.goal.id]?.nextScheduledMs ?? null,
+    [goalActivityStatsByGoal],
+  );
+
+  const {
+    displayedVisibleItems: displayedVisibleGoalMasonryItems,
+    displayedArchivedItems: displayedArchivedGoalMasonryItems,
+    goalSearchQuery,
+    setGoalSearchQuery,
+    goalSortMode,
+    setGoalSortMode,
+    isSearchingGoals,
+    shouldShowSearch: shouldShowGoalSearch,
+    shouldShowEmptyState: shouldShowGoalEmptyState,
+    hasVisibleResults: hasVisibleGoalResults,
+    hasArchivedResults: hasArchivedGoalResults,
+    handleScroll: handleGoalsInventoryScroll,
+    handleClearSearch: handleClearGoalSearch,
+  } = useGoalsInventorySearchAndSort({
+    visibleItems: visibleGoalMasonryItems,
+    archivedItems: archivedGoalMasonryItems,
+    showArchived,
+    getNextScheduledMs: getGoalNextScheduledMs,
+  });
+
   const handlePressNewGoal = () => {
     setGoalCoachVisible(true);
   };
@@ -392,11 +420,7 @@ export function GoalsScreen() {
           <DropdownMenu>
             <DropdownMenuTrigger accessibilityLabel="Goal list options">
               <View pointerEvents="none">
-                <IconButton
-                  accessibilityRole="button"
-                  accessibilityLabel="Goal list options"
-                  variant="ghost"
-                >
+                <IconButton accessibilityRole="button" accessibilityLabel="Goal list options" variant="ghost">
                   <Icon name="more" size={18} color={colors.textPrimary} />
                 </IconButton>
               </View>
@@ -437,8 +461,24 @@ export function GoalsScreen() {
           !hasGoals && archivedGoals.length === 0 ? styles.scrollEmptyContent : null,
         ]}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        keyboardShouldPersistTaps="handled"
+        onScroll={handleGoalsInventoryScroll}
       >
-      {hasGoals ? (
+        {shouldShowGoalSearch ? (
+          <View style={styles.searchRevealSlot}>
+            <GoalsInventorySearchBar
+              value={goalSearchQuery}
+              onChangeText={setGoalSearchQuery}
+              isSearching={isSearchingGoals}
+              onClear={handleClearGoalSearch}
+              sortMode={goalSortMode}
+              onSortModeChange={setGoalSortMode}
+            />
+          </View>
+        ) : null}
+
+      {hasVisibleGoalResults ? (
         <View
           style={styles.masonryOuter}
           onLayout={(event) => {
@@ -449,7 +489,7 @@ export function GoalsScreen() {
           }}
         >
           <MasonryTwoColumn
-            items={visibleGoalMasonryItems}
+            items={displayedVisibleGoalMasonryItems}
             containerWidth={goalsMasonryWidth}
             keyExtractor={(item) => item.goal.id}
             columnGap={spacing.sm}
@@ -482,12 +522,20 @@ export function GoalsScreen() {
             )}
           />
         </View>
-      ) : (
+      ) : shouldShowGoalEmptyState ? (
         <EmptyState
-          title={archivedGoals.length > 0 ? 'No active goals' : 'No goals yet'}
+          title={
+            isSearchingGoals
+              ? 'No matching goals'
+              : archivedGoals.length > 0
+                ? 'No active goals'
+                : 'No goals yet'
+          }
           iconName="emptyBox"
           instructions={
-            archivedGoals.length > 0
+            isSearchingGoals
+              ? 'Try a goal name, note, Arc, or timing clue.'
+              : archivedGoals.length > 0
               ? 'Your archived goals are below. Create a new goal when something deserves attention.'
               : 'Start with one goal you want to make room for, then connect it to an Arc anytime.'
           }
@@ -499,9 +547,9 @@ export function GoalsScreen() {
           }}
           style={styles.emptyState}
         />
-      )}
+      ) : null}
 
-        {showArchived && archivedGoals.length > 0 && (
+        {showArchived && hasArchivedGoalResults && (
           <VStack space="xs" style={styles.archivedSection}>
             <Pressable
               onPress={() => setArchivedExpanded((current) => !current)}
@@ -518,11 +566,11 @@ export function GoalsScreen() {
                   size={14}
                   color={colors.textSecondary}
                 />
-                <Text style={styles.archivedCountLabel}>({archivedGoals.length})</Text>
+                <Text style={styles.archivedCountLabel}>({displayedArchivedGoalMasonryItems.length})</Text>
               </HStack>
             </Pressable>
 
-            {archivedExpanded && (
+            {(archivedExpanded || isSearchingGoals) && (
               <View
                 style={[styles.masonryOuter, { marginTop: spacing.sm }]}
                 onLayout={(event) => {
@@ -533,7 +581,7 @@ export function GoalsScreen() {
                 }}
               >
                 <MasonryTwoColumn
-                  items={archivedGoalMasonryItems}
+                  items={displayedArchivedGoalMasonryItems}
                   containerWidth={goalsMasonryWidth}
                   keyExtractor={(item) => item.goal.id}
                   columnGap={spacing.sm}
@@ -1583,27 +1631,8 @@ const styles = StyleSheet.create({
   scrollEmptyContent: {
     flexGrow: 1,
   },
-  masonryOuter: {
-    width: '100%',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    marginTop: 0,
-  },
-  archivedSection: {
-    marginTop: spacing.xl,
-  },
-  archivedToggle: {
-    paddingVertical: spacing.xs,
-  },
-  archivedToggleLabel: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  archivedCountLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+  searchRevealSlot: {
+    marginBottom: spacing.md,
   },
   menuItem: {
     flexDirection: 'row',
@@ -1627,6 +1656,28 @@ const styles = StyleSheet.create({
   menuSwitch: {
     marginLeft: 'auto',
     transform: [{ scale: 0.85 }],
+  },
+  masonryOuter: {
+    width: '100%',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    marginTop: 0,
+  },
+  archivedSection: {
+    marginTop: spacing.xl,
+  },
+  archivedToggle: {
+    paddingVertical: spacing.xs,
+  },
+  archivedToggleLabel: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  archivedCountLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
   },
   emptyTitle: {
     ...typography.titleSm,
@@ -2240,4 +2291,3 @@ const styles = StyleSheet.create({
     color: colors.canvas,
   },
 });
-
