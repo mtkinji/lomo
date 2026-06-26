@@ -111,7 +111,7 @@ export function KwiltCharacter({
   const characterStyle = useMemo(
     () => ({
       width: size,
-      height: size * 1.08,
+      height: size * 1.18,
     }),
     [size]
   );
@@ -146,73 +146,89 @@ export function KwiltCharacter({
           },
         ]}
       >
-        <Svg width="100%" height="100%" viewBox="0 0 96 96">
+        <Svg width="100%" height="100%" viewBox="0 0 96 104">
           <Defs>
             <ClipPath id="kwilt-character-body">
-              <Rect x={9} y={7} width={78} height={78} rx={20} />
+              <Rect x={13} y={7} width={70} height={78} rx={19} />
             </ClipPath>
           </Defs>
 
-          <Rect x={9} y={7} width={78} height={78} rx={20} fill={colors.pine700} />
+          <Path
+            d="M22 83C30 88 65 89 75 83"
+            stroke={colors.pine900}
+            strokeWidth={5}
+            strokeLinecap="round"
+            fill="none"
+            opacity={0.18}
+          />
+          <Rect x={13} y={7} width={70} height={78} rx={19} fill={colors.pine700} />
           <G clipPath="url(#kwilt-character-body)">
             <Path
-              d="M-2 34C16 20 35 20 49 35C63 50 78 52 99 37"
+              d="M4 24C20 17 38 17 51 29C65 42 73 43 91 35"
               stroke={colors.parchment}
-              strokeWidth={8.5}
+              strokeWidth={8.8}
               strokeLinecap="round"
               fill="none"
             />
             <Path
-              d="M-1 61C17 43 35 39 52 55C67 69 79 73 99 61"
+              d="M5 52C24 41 39 42 53 55C65 67 75 70 93 64"
               stroke={colors.parchment}
-              strokeWidth={8.5}
+              strokeWidth={8.8}
               strokeLinecap="round"
               fill="none"
             />
             <Path
-              d="M24 3C18 24 18 47 28 65"
+              d="M27 1C21 20 20 46 28 67"
               stroke={colors.parchment}
-              strokeWidth={7.5}
+              strokeWidth={8.4}
               strokeLinecap="round"
               fill="none"
             />
             <Path
-              d="M72 2C55 14 43 29 37 46"
+              d="M68 3C53 14 43 27 37 43"
               stroke={colors.parchment}
-              strokeWidth={7.5}
+              strokeWidth={8.4}
               strokeLinecap="round"
               fill="none"
             />
             <Path
-              d="M63 93C60 73 51 58 35 46"
+              d="M63 96C61 76 52 61 36 49"
               stroke={colors.parchment}
-              strokeWidth={7.5}
+              strokeWidth={8.4}
               strokeLinecap="round"
               fill="none"
             />
             <Path
-              d="M88 20C71 22 59 30 47 43"
+              d="M88 18C71 20 58 29 47 42"
               stroke={colors.pine500}
-              strokeWidth={4}
+              strokeWidth={4.2}
               strokeLinecap="round"
               fill="none"
               opacity={0.5}
             />
             <Path
-              d="M8 74C26 82 42 81 57 70"
+              d="M11 73C27 80 43 80 57 69"
               stroke={colors.pine500}
-              strokeWidth={4}
+              strokeWidth={4.2}
               strokeLinecap="round"
               fill="none"
               opacity={0.46}
             />
+            <Path
+              d="M83 50C72 50 62 55 53 65"
+              stroke={colors.pine500}
+              strokeWidth={4.2}
+              strokeLinecap="round"
+              fill="none"
+              opacity={0.42}
+            />
           </G>
           <Rect
-            x={9}
+            x={13}
             y={7}
-            width={78}
+            width={70}
             height={78}
-            rx={20}
+            rx={19}
             fill="none"
             stroke={colors.pine800}
             strokeWidth={2.4}
@@ -248,7 +264,7 @@ export function KwiltCharacter({
           styles.footLeft,
           {
             width: size * 0.18,
-            height: size * 0.08,
+            height: size * 0.075,
             borderRadius: size * 0.04,
             transform: [{ scaleY: footScaleY }],
           },
@@ -260,7 +276,7 @@ export function KwiltCharacter({
           styles.footRight,
           {
             width: size * 0.18,
-            height: size * 0.08,
+            height: size * 0.075,
             borderRadius: size * 0.04,
             transform: [{ scaleY: footScaleY }],
           },
@@ -278,50 +294,50 @@ const styles = StyleSheet.create({
   body: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
-    aspectRatio: 1,
+    left: '2%',
+    right: '2%',
+    aspectRatio: 96 / 104,
   },
   face: {
     ...StyleSheet.absoluteFillObject,
   },
   eye: {
     position: 'absolute',
-    top: '48%',
+    top: '51%',
     backgroundColor: colors.sumi900,
     borderColor: colors.sumi900,
   },
   eyeLeft: {
-    left: '34%',
+    left: '43%',
   },
   eyeRight: {
     right: '34%',
   },
   cheek: {
     position: 'absolute',
-    top: '56%',
-    width: 9,
-    height: 4,
+    top: '58%',
+    width: 7,
+    height: 3,
     borderRadius: 999,
     backgroundColor: colors.madder300,
     opacity: 0.72,
   },
   cheekLeft: {
-    left: '25%',
+    left: '36%',
   },
   cheekRight: {
-    right: '25%',
+    right: '27%',
   },
   foot: {
     position: 'absolute',
-    bottom: 1,
+    bottom: 3,
     backgroundColor: colors.pine900,
     opacity: 0.86,
   },
   footLeft: {
-    left: '28%',
+    left: '31%',
   },
   footRight: {
-    right: '28%',
+    right: '31%',
   },
 });
