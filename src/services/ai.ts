@@ -17,6 +17,12 @@ import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
 import { getActiveActivityAreas } from '../domain/activityAreas';
 import { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
+import {
+  isOpenAiQuotaExceeded,
+  isOpenAiRateLimited,
+  parseKwiltProxyError,
+  parseOpenAiError,
+} from './aiErrorParsing';
 
 export { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
 
@@ -367,37 +373,6 @@ const isProductionEnvironment = (): boolean => {
   return appEnvironment === 'production';
 };
 
-type OpenAiErrorDetails = {
-  message: string;
-  type?: string;
-  code?: string;
-  param?: string | null;
-  raw: string;
-};
-
-type KwiltProxyErrorDetails = {
-  code?: string;
-  retryAt?: string;
-};
-
-const parseKwiltProxyError = (errorText: string): KwiltProxyErrorDetails | null => {
-  try {
-    const parsed = JSON.parse(errorText);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const topCode = typeof (parsed as any).code === 'string' ? String((parsed as any).code) : undefined;
-    const topRetryAt = typeof (parsed as any).retryAt === 'string' ? String((parsed as any).retryAt) : undefined;
-    const err = (parsed as any).error;
-    const errCode = err && typeof err.code === 'string' ? String(err.code) : undefined;
-    const errRetryAt = err && typeof err.retryAt === 'string' ? String(err.retryAt) : undefined;
-    const code = topCode ?? errCode;
-    const retryAt = topRetryAt ?? errRetryAt;
-    if (!code && !retryAt) return null;
-    return { code, retryAt };
-  } catch {
-    return null;
-  }
-};
-
 export class KwiltAiQuotaExceededError extends Error {
   code: 'quota_exceeded' = 'quota_exceeded';
   retryAt?: string;
@@ -407,64 +382,6 @@ export class KwiltAiQuotaExceededError extends Error {
     this.retryAt = params?.retryAt;
   }
 }
-
-const parseOpenAiError = (errorText: string): OpenAiErrorDetails => {
-  try {
-    const parsed = JSON.parse(errorText);
-    const error = parsed?.error;
-    if (error && typeof error === 'object') {
-      return {
-        message: error.message ?? 'Unknown error',
-        type: error.type,
-        code: error.code,
-        param: error.param ?? null,
-        raw: errorText,
-      };
-    }
-  } catch {
-    // Not JSON, return as-is
-  }
-  return {
-    message: errorText || 'Unknown error',
-    raw: errorText,
-  };
-};
-
-const isOpenAiQuotaExceeded = (status: number, errorText: string): boolean => {
-  const proxy = parseKwiltProxyError(errorText);
-  if (proxy?.code === 'quota_exceeded') {
-    return true;
-  }
-  // 429 can be either rate limit OR quota exceeded - need to check the error details
-  if (status === 429) {
-    const error = parseOpenAiError(errorText);
-    const lowerMessage = error.message.toLowerCase();
-    const lowerCode = (error.code ?? '').toLowerCase();
-    // Quota exceeded has specific indicators
-    return (
-      lowerCode === 'insufficient_quota' ||
-      lowerMessage.includes('insufficient_quota') ||
-      lowerMessage.includes('exceeded your current quota') ||
-      lowerMessage.includes('quota')
-    );
-  }
-  // Non-429 errors can also indicate quota issues
-  const lower = (errorText ?? '').toLowerCase();
-  return lower.includes('insufficient_quota') || lower.includes('exceeded your current quota');
-};
-
-const isOpenAiRateLimited = (status: number, errorText: string): boolean => {
-  if (status !== 429) return false;
-  const error = parseOpenAiError(errorText);
-  const lowerMessage = error.message.toLowerCase();
-  const lowerCode = (error.code ?? '').toLowerCase();
-  // Rate limit (not quota) - temporary, can retry
-  return (
-    lowerCode === 'rate_limit_exceeded' ||
-    lowerMessage.includes('rate limit') ||
-    (status === 429 && !isOpenAiQuotaExceeded(status, errorText))
-  );
-};
 
 const markOpenAiQuotaExceeded = (
   context: string,
