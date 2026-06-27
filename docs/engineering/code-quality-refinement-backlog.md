@@ -17,11 +17,10 @@ Prioritize by compounding leverage per unit of risk:
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
   - Result: `src/services/aiErrorParsing.ts` with focused tests.
 
-- [ ] Extract Activity detail location-trigger editor rules
+- [x] Extract Activity detail location-trigger editor rules
   - Area: `src/features/activities/ActivityDetailScreen.tsx`
   - Why: P1 high-change screen; location-trigger behavior should be testable outside JSX.
-  - Ideal test: `src/features/activities/activityLocationTriggers.test.ts`
-  - Risk: medium
+  - Result: `src/features/activities/activityLocationTriggers.ts` with focused draft-rule tests.
 
 - [ ] Extract AI chat suggestion request/adoption flow helpers
   - Area: `src/features/ai/AiChatScreen.tsx`

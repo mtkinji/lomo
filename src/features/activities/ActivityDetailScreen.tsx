@@ -152,6 +152,18 @@ import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
+import {
+  DEFAULT_LOCATION_RADIUS_FT,
+  LOCATION_RADIUS_FT_OPTIONS,
+  buildActivityLocationDraft,
+  clampLocationRadiusMeters,
+  formatLocationRadiusLabel,
+  isActivityLocationDraftDirty,
+  normalizeActivityLocation,
+  resolveActivityLocationDraft,
+  type ActivityLocationPreview,
+  type ActivityLocationTrigger,
+} from './activityLocationTriggers';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
@@ -1129,11 +1141,7 @@ export function ActivityDetailScreen() {
   }, [attachmentDetailsSheetVisible, selectedAttachment]);
   const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
   const FOCUS_SHEET_PORTAL_HOST = 'activity-detail-focus-sheet';
-  const DEFAULT_RADIUS_FT = 150;
-  const LOCATION_RADIUS_FT_OPTIONS = [50, 100, 150, 300, 500] as const;
   const LOCATION_MAP_ZOOM = 15;
-  const MIN_LOCATION_RADIUS_FT = 50;
-  const MAX_LOCATION_RADIUS_FT = 2000;
 
   // Location picker (Plan → Location)
   const [locationQuery, setLocationQuery] = useState('');
@@ -1143,27 +1151,12 @@ export function ActivityDetailScreen() {
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
   const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [previewLocation, setPreviewLocation] = useState<{ label: string; latitude: number; longitude: number } | null>(
-    null,
-  );
+  const [previewLocation, setPreviewLocation] = useState<ActivityLocationPreview | null>(null);
   const [isLocationSearchOpen, setIsLocationSearchOpen] = useState(false);
   const [locationSelectedValue, setLocationSelectedValue] = useState('');
-  const [locationTriggerDraft, setLocationTriggerDraft] = useState<'arrive' | 'leave'>('leave');
+  const [locationTriggerDraft, setLocationTriggerDraft] = useState<ActivityLocationTrigger>('leave');
   // MVP (US-only): feet-only radius UI. We still store meters canonically.
-  const [locationRadiusMetersDraft, setLocationRadiusMetersDraft] = useState<number>(DEFAULT_RADIUS_FT * 0.3048);
-
-  const formatRadiusLabel = useCallback(
-    (meters: number) => {
-      const metersClamped = Math.max(
-        MIN_LOCATION_RADIUS_FT * 0.3048,
-        Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, meters),
-      );
-      // Convert meters -> feet without rounding meters first (avoids 150 -> 151).
-      const ft = Math.round(metersClamped / 0.3048);
-      return `${ft} feet`;
-    },
-    [MAX_LOCATION_RADIUS_FT, MIN_LOCATION_RADIUS_FT],
-  );
+  const [locationRadiusMetersDraft, setLocationRadiusMetersDraft] = useState<number>(DEFAULT_LOCATION_RADIUS_FT * 0.3048);
 
   const [locationStatusHint, setLocationStatusHint] = useState<string | null>(null);
   const [mapCenterOverride, setMapCenterOverride] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -1184,15 +1177,12 @@ export function ActivityDetailScreen() {
   }, [windowHeight]);
 
   const resolvedLocationMapCenter = useMemo(() => {
+    const savedLocation = normalizeActivityLocation(activity?.location ?? null);
     return (
       mapCenterOverride ??
       (previewLocation ? { latitude: previewLocation.latitude, longitude: previewLocation.longitude } : null) ??
       currentCoords ??
-      (activity?.location &&
-      typeof (activity as any).location?.latitude === 'number' &&
-      typeof (activity as any).location?.longitude === 'number'
-        ? { latitude: (activity as any).location.latitude, longitude: (activity as any).location.longitude }
-        : null)
+      (savedLocation ? { latitude: savedLocation.latitude, longitude: savedLocation.longitude } : null)
     );
   }, [activity, currentCoords, mapCenterOverride, previewLocation]);
 
@@ -1274,36 +1264,24 @@ export function ActivityDetailScreen() {
     return withoutCounty.join(', ');
   }, []);
 
-  const getSafeLocationRadiusM = useCallback(() => {
-    return Math.max(
-      MIN_LOCATION_RADIUS_FT * 0.3048,
-      Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
-    );
-  }, [
-    DEFAULT_RADIUS_FT,
-    MAX_LOCATION_RADIUS_FT,
-    MIN_LOCATION_RADIUS_FT,
-    locationRadiusMetersDraft,
-  ]);
+  const getSafeLocationRadiusM = useCallback(
+    () => clampLocationRadiusMeters(locationRadiusMetersDraft),
+    [locationRadiusMetersDraft],
+  );
 
   const applyLocationDraft = useCallback(() => {
       if (!activity?.id) return;
       const timestamp = new Date().toISOString();
-    const safeRadiusM = getSafeLocationRadiusM();
       updateActivity(activity.id, (prev) => ({
         ...prev,
-      location: previewLocation
-        ? {
-            label: previewLocation.label,
-            latitude: previewLocation.latitude,
-            longitude: previewLocation.longitude,
-          trigger: locationTriggerDraft,
-          radiusM: safeRadiusM,
-          }
-        : null,
+      location: buildActivityLocationDraft({
+        previewLocation,
+        trigger: locationTriggerDraft,
+        radiusM: locationRadiusMetersDraft,
+      }),
         updatedAt: timestamp,
       }));
-  }, [activity?.id, getSafeLocationRadiusM, locationTriggerDraft, previewLocation, updateActivity]);
+  }, [activity?.id, locationRadiusMetersDraft, locationTriggerDraft, previewLocation, updateActivity]);
   const computeRegionForRadius = useCallback((center: { latitude: number; longitude: number }, radiusM: number): Region => {
     // Roughly fit ~3 radii to each edge of the viewport.
     const safeRadius = Math.max(10, Math.min(5000, radiusM));
@@ -1421,38 +1399,13 @@ export function ActivityDetailScreen() {
   }, []);
 
   const isLocationDraftDirty = useMemo(() => {
-    const loc = (activity as any)?.location as any;
-    const hasSaved = Boolean(loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number');
-    const hasDraft = Boolean(previewLocation);
-    if (hasSaved !== hasDraft) return true;
-    if (!hasSaved && !hasDraft) return false;
-
-    const eqNum = (a: number, b: number) => Math.abs(a - b) <= 1e-6;
-    const savedLabel = String(loc?.label ?? '');
-    const draftLabel = String(previewLocation?.label ?? '');
-    if (savedLabel !== draftLabel) return true;
-    if (!eqNum(Number(loc.latitude), Number(previewLocation!.latitude))) return true;
-    if (!eqNum(Number(loc.longitude), Number(previewLocation!.longitude))) return true;
-
-    const safeRadiusM = getSafeLocationRadiusM();
-    const savedTrigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
-    const savedRadiusM =
-      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
-        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
-        : DEFAULT_RADIUS_FT * 0.3048;
-
-    if (savedTrigger !== locationTriggerDraft) return true;
-    if (!eqNum(Number(savedRadiusM), Number(safeRadiusM))) return true;
-    return false;
-  }, [
-    activity,
-    DEFAULT_RADIUS_FT,
-    MAX_LOCATION_RADIUS_FT,
-    MIN_LOCATION_RADIUS_FT,
-    getSafeLocationRadiusM,
-    locationTriggerDraft,
-    previewLocation,
-  ]);
+    return isActivityLocationDraftDirty({
+      savedLocation: activity?.location ?? null,
+      draftLocation: previewLocation,
+      draftTrigger: locationTriggerDraft,
+      draftRadiusM: locationRadiusMetersDraft,
+    });
+  }, [activity?.location, locationRadiusMetersDraft, locationTriggerDraft, previewLocation]);
 
   useEffect(() => {
     if (!locationSheetVisible) return;
@@ -1460,26 +1413,11 @@ export function ActivityDetailScreen() {
     setMapCenterOverride(null);
     mapCenterOverrideRef.current = null;
     setLocationSelectedValue('');
-    // Initialize trigger/radius from current activity (or defaults).
-    const loc = (activity as any)?.location as any;
-    const hasSavedLocation =
-      Boolean(loc) && typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number';
-    const trigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
-    const radiusM =
-      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
-        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
-        : DEFAULT_RADIUS_FT * 0.3048;
-    setLocationTriggerDraft(trigger);
-    setLocationRadiusMetersDraft(radiusM);
-    if (hasSavedLocation) {
-      setPreviewLocation({
-        label: String(loc.label ?? 'Selected location'),
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-      });
-    } else {
-      setPreviewLocation(null);
-    }
+    const locationDraft = resolveActivityLocationDraft(activity?.location ?? null);
+    const hasSavedLocation = Boolean(locationDraft.previewLocation);
+    setLocationTriggerDraft(locationDraft.trigger);
+    setLocationRadiusMetersDraft(locationDraft.radiusM);
+    setPreviewLocation(locationDraft.previewLocation);
     // Best-effort: if we haven't asked yet, request so we can center on "current location".
     void (async () => {
       const prefs = useAppStore.getState().locationOfferPreferences;
@@ -4465,7 +4403,7 @@ export function ActivityDetailScreen() {
 
           <View style={{ marginTop: spacing.md }}>
             {(() => {
-              const radiusM = locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048;
+              const radiusM = clampLocationRadiusMeters(locationRadiusMetersDraft);
               const center = resolvedLocationMapCenter;
               const showNativeMap = Platform.OS === 'ios';
 
@@ -4639,7 +4577,7 @@ export function ActivityDetailScreen() {
                     >
                       <HStack space="xs" alignItems="center">
                         <Text style={styles.locationFormulaTriggerText}>
-                          {formatRadiusLabel(locationRadiusMetersDraft)}
+                          {formatLocationRadiusLabel(locationRadiusMetersDraft)}
                         </Text>
                         <Icon name="chevronDown" size={16} color={colors.textSecondary} />
                       </HStack>
