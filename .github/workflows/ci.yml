@@ -29,34 +29,48 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Diff-aware PR verification
+        if: github.event_name == 'pull_request'
+        run: npm run verify:changed -- --run --base origin/main
+
       - name: Code health self-test
+        if: github.event_name != 'pull_request'
         run: npm run test:code-health
 
       - name: Code health ratchet
+        if: github.event_name != 'pull_request'
         run: npm run code:health -- --fail-on-regression --base origin/main
 
       - name: Typecheck
+        if: github.event_name != 'pull_request'
         run: npm run lint
 
       - name: Test typecheck
+        if: github.event_name != 'pull_request'
         run: npm run lint:tests
 
       - name: Supabase function typecheck
+        if: github.event_name != 'pull_request'
         run: npm run lint:supabase-functions
 
       - name: Supabase function tests
+        if: github.event_name != 'pull_request'
         run: npm run test:supabase-functions
 
       - name: Product taxonomy lint
+        if: github.event_name != 'pull_request'
         run: npm run product:lint
 
       - name: Architecture lint
+        if: github.event_name != 'pull_request'
         run: npm run architecture:lint
 
       - name: Jest (CI + coverage)
+        if: github.event_name != 'pull_request'
         run: npm run test:ci
 
       - name: Upload coverage artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: coverage

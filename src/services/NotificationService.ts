@@ -52,6 +52,7 @@ type NotificationData =
   | { type: 'setupNextStep'; reason: 'no_goals' | 'no_activities' }
   | { type: 'screenTimeSetupOffer'; setupIntent: ScreenTimeSetupIntent }
   | { type: 'locationOffer'; activityId: string; event?: 'enter' | 'exit' }
+  | { type: 'focusSession'; activityId: string; sessionId?: string }
   | { type: 'streak' }
   | { type: 'reactivation' };
 
@@ -305,6 +306,25 @@ async function hydrateScheduledNotifications() {
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to hydrate scheduled notifications', error);
+    }
+  }
+}
+
+async function cleanupOrphanedFocusSessionNotifications(): Promise<void> {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const focusSessionNotifications = scheduled.filter(
+      (request) => (request.content.data as Partial<NotificationData> | undefined)?.type === 'focusSession',
+    );
+
+    await Promise.all(
+      focusSessionNotifications.map((request) =>
+        Notifications.cancelScheduledNotificationAsync(request.identifier).catch(() => undefined),
+      ),
+    );
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[notifications] orphaned focus session cleanup failed', error);
     }
   }
 }
@@ -2285,6 +2305,7 @@ export const NotificationService = {
     isInitialized = true;
     await registerNotificationCategories();
     await syncOsPermissionStatus();
+    await cleanupOrphanedFocusSessionNotifications();
     await cleanupDuplicateSystemSchedules();
     await hydrateScheduledNotifications();
     // Ensure daily focus is scheduled (one-shot) on launch as a fallback in case

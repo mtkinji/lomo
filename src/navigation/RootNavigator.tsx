@@ -98,6 +98,7 @@ import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
 import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
+import { shouldRestoreNavigationState } from './navigationPersistence';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -405,21 +406,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           // Defensive guard: if the persisted root routes don't match the
           // current drawer structure, ignore the saved state so navigation
           // can re-initialize cleanly.
-          const allowedRootRoutes: Array<keyof RootDrawerParamList> = [
-            'MainTabs',
-            'ArcsStack',
-            'Settings',
-            ...(showDevTools ? (['DevTools'] as const) : []),
-          ];
-
-          const rootHasUnexpectedRoute =
-            !state?.routes ||
-            state.routes.some(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (route: any) => !allowedRootRoutes.includes(route.name as keyof RootDrawerParamList),
-            );
-
-          if (!rootHasUnexpectedRoute && isMounted) {
+          if (shouldRestoreNavigationState(state, { showDevTools }) && isMounted) {
             setInitialState(state);
           }
         }

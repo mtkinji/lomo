@@ -74,6 +74,7 @@ function setStoreState(overrides: any = {}) {
     goals: [],
     activities: [],
     screenTimeProtection: DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS,
+    setNotificationPreferences: jest.fn(),
     markScreenTimeSetupNotificationScheduled: jest.fn(),
     markScreenTimeSetupNotificationOpened: jest.fn(),
     ...overrides,
@@ -590,5 +591,43 @@ describe('NotificationService streak-aware copy', () => {
     const arg = scheduleSpy.mock.calls[0]?.[0] as any;
     expect(arg.content.title).toBeTruthy();
     expect(arg.content.body).toBeTruthy();
+  });
+});
+
+describe('NotificationService focus-session cleanup', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setStoreState({
+      notificationPreferences: {
+        notificationsEnabled: false,
+        osPermissionStatus: 'authorized',
+        allowDailyShowUp: false,
+        dailyShowUpTime: '09:00',
+        allowDailyFocus: false,
+        dailyFocusTime: '14:00',
+        allowGoalNudges: false,
+        goalNudgeTime: '16:00',
+        allowActivityReminders: false,
+        allowStreakAndReactivation: false,
+      },
+    });
+  });
+
+  it('cancels orphaned focus completion notifications on init', async () => {
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          identifier: 'focus-stale-1',
+          content: {
+            data: { type: 'focusSession', activityId: 'activity-1', sessionId: 'activity-1-1000' },
+          },
+          trigger: {},
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await NotificationService.init();
+
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('focus-stale-1');
   });
 });
