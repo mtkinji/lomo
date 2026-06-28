@@ -23,11 +23,10 @@ Prioritize by compounding leverage per unit of risk:
   - Ideal test: `src/features/activities/activityLocationTriggers.test.ts`
   - Risk: medium
 
-- [ ] Extract AI chat suggestion request/adoption flow helpers
+- [x] Extract AI chat suggestion request/adoption flow helpers
   - Area: `src/features/ai/AiChatScreen.tsx`
   - Why: AI-native high-change surface; remaining suggestion orchestration still increases context radius.
-  - Ideal test: focused helper tests around request state and adoption decisions.
-  - Risk: medium
+  - Result: `src/features/ai/activitySuggestionRail.ts` with focused suggestion filtering/merge tests.
 
 - [ ] Extract onboarding Arc generation prompt assembly
   - Area: `src/features/onboarding/IdentityAspirationFlow.tsx`
