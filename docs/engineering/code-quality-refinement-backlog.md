@@ -29,10 +29,11 @@ Prioritize by compounding leverage per unit of risk:
   - Ideal test: focused helper tests around request state and adoption decisions.
   - Risk: medium
 
-- [ ] Extract onboarding Arc generation prompt assembly
+- [x] Extract onboarding Arc generation prompt assembly
   - Area: `src/features/onboarding/IdentityAspirationFlow.tsx`
   - Why: prompt construction is a high-risk AI contract and the screen remains one of the largest files.
   - Ideal test: prompt-builder tests for required rules and identity-signal inclusion.
+  - Result: `src/features/onboarding/identityArcPrompt.ts` with focused prompt-builder tests.
   - Risk: medium
 
 - [ ] Extract Chapter generation prompt/data assembly
