@@ -27,10 +27,11 @@ Prioritize by compounding leverage per unit of risk:
   - Why: AI-native high-change surface; remaining suggestion orchestration still increases context radius.
   - Result: `src/features/ai/activitySuggestionRail.ts` with focused suggestion filtering/merge tests.
 
-- [ ] Extract onboarding Arc generation prompt assembly
+- [x] Extract onboarding Arc generation prompt assembly
   - Area: `src/features/onboarding/IdentityAspirationFlow.tsx`
   - Why: prompt construction is a high-risk AI contract and the screen remains one of the largest files.
   - Ideal test: prompt-builder tests for required rules and identity-signal inclusion.
+  - Result: `src/features/onboarding/identityArcPrompt.ts` with focused prompt-builder tests.
   - Risk: medium
 
 - [ ] Extract Chapter generation prompt/data assembly
