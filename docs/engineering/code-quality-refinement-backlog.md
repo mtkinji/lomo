@@ -35,10 +35,11 @@ Prioritize by compounding leverage per unit of risk:
   - Ideal test: prompt-builder tests for required rules and identity-signal inclusion.
   - Risk: medium
 
-- [ ] Extract Chapter generation prompt/data assembly
+- [x] Extract Chapter generation prompt/data assembly
   - Area: `supabase/functions/chapters-generate/index.ts`
   - Why: prompt and data assembly are still coupled to request orchestration in a dense Edge Function.
   - Ideal test: Deno tests around prompt/data helper outputs.
+  - Result: `supabase/functions/chapters-generate/chapterOpenAiRequest.ts` with Deno tests for request-body policy.
   - Risk: medium
 
 - [ ] Extract store UI preference slice helpers

@@ -51,6 +51,7 @@ import type {
   ChapterHealthBlock,
   HealthDailyRow,
 } from '../_shared/chapterHealth.ts';
+import { buildChapterOpenAiRequestBody } from './chapterOpenAiRequest.ts';
 
 type TemplateKind = 'reflection' | 'report';
 
@@ -1168,23 +1169,6 @@ const BANNED_CONTINUITY_PRAISE_PHRASES = [
 const BANNED_TITLE_PREFIX_RE =
   /^\s*(reflections?\s+on|this\s+(week|month|year)|your\s+(week|month|year)|progress\s+report|weekly\s+recap|weekly\s+report|weekly\s+reflection|monthly\s+reflection)\b/i;
 
-function resolveMaxOutputTokens(params: { detailLevel: string | null; kind: TemplateKind }): number {
-  const dl = (params.detailLevel ?? '').trim().toLowerCase();
-  const base = params.kind === 'report' ? 900 : 1100;
-  if (dl === 'short') return Math.min(800, base);
-  if (dl === 'deep') return Math.max(1600, base + 500);
-  // medium/default
-  return base;
-}
-
-function resolveTemperature(kind: TemplateKind, tone: string | null): number {
-  if (kind === 'report') return 0.25;
-  const t = (tone ?? '').trim().toLowerCase();
-  if (t === 'direct') return 0.45;
-  if (t === 'playful') return 0.8;
-  return 0.65; // gentle/neutral/default
-}
-
 type PriorChapterArc = {
   arc_id: string | null;
   arc_title: string | null;
@@ -1557,11 +1541,6 @@ async function callOpenAiForChapter(params: {
   if (!key) return { ok: false as const, error: 'OPENAI_API_KEY not set' };
 
   const model = resolveChaptersModel();
-  let maxTokens = resolveMaxOutputTokens({ detailLevel: params.template.detail_level, kind: params.template.kind });
-  maxTokens = Math.max(maxTokens, params.metrics.period_days >= 180 ? 1900 : 1200);
-  // Slightly cooler on stricter retries to trade creativity for rule-adherence.
-  const baseTemperature = resolveTemperature(params.template.kind, params.template.tone);
-  const temperature = params.stricter ? Math.max(0.2, baseTemperature - 0.2) : baseTemperature;
   const prompt = buildChapterPrompt({
     template: params.template,
     period: params.period,
@@ -1573,13 +1552,17 @@ async function callOpenAiForChapter(params: {
     stricter: params.stricter,
   });
 
-  const body = {
+  const body = buildChapterOpenAiRequestBody({
     model,
     messages: prompt.messages,
-    temperature,
-    max_tokens: maxTokens,
-    response_format: { type: 'json_object' },
-  };
+    template: {
+      kind: params.template.kind,
+      detailLevel: params.template.detail_level,
+      tone: params.template.tone,
+    },
+    periodDays: params.metrics.period_days,
+    stricter: params.stricter,
+  });
 
   const startedAt = Date.now();
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
