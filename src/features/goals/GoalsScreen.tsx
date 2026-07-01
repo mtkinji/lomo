@@ -33,7 +33,15 @@ import { canCreateGoalInArc } from '../../domain/limits';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
-import { VStack, Heading, Text, HStack, EmptyState, KeyboardAwareScrollView, ObjectPicker } from '../../ui/primitives';
+import {
+  VStack,
+  Heading,
+  Text,
+  HStack,
+  EmptyState,
+  KeyboardAwareScrollView,
+  RelationPickerField,
+} from '../../ui/primitives';
 import { menuItemTextProps } from '../../ui/menuStyles';
 import {
   DropdownMenu,
@@ -60,7 +68,7 @@ import { openPaywallInterstitial } from '../../services/paywall';
 import { openPaywallPurchaseEntry } from '../../services/paywall';
 import { getHeroImageSignedUrl, initHeroImageUpload, uploadHeroImageToSignedUrl } from '../../services/heroImages';
 import { PaywallContent } from '../paywall/PaywallDrawer';
-import type { ObjectPickerOption } from '../../ui/ObjectPicker';
+import type { PickerFieldOption } from '../../ui/primitives';
 import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
@@ -843,7 +851,7 @@ export function GoalCoachDrawer({
     [arcs, launchFromArcId]
   );
   const [isGoalAiInfoVisible, setIsGoalAiInfoVisible] = React.useState(false);
-  const arcPickerOptions = React.useMemo<ObjectPickerOption[]>(() => {
+  const arcPickerOptions = React.useMemo<PickerFieldOption[]>(() => {
     const list = [...arcs];
     list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
     return list.map((a) => ({
@@ -1502,7 +1510,7 @@ export function GoalCoachDrawer({
 
                 <View style={{ marginTop: spacing.md }}>
                   <Text style={styles.arcConnectionLabel}>Linked Arc (optional)</Text>
-                  <ObjectPicker
+                  <RelationPickerField
                     value={draft.arcId ?? ''}
                     onValueChange={(nextArcId) =>
                       setDraft((current) => ({
@@ -1511,6 +1519,7 @@ export function GoalCoachDrawer({
                       }))
                     }
                     options={arcPickerOptions}
+                    title="Choose Arc"
                     placeholder={arcs.length === 0 ? 'No Arcs yet' : 'Select Arc…'}
                     searchPlaceholder="Search arcs…"
                     emptyText="No arcs found."

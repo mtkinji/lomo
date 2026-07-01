@@ -7,7 +7,7 @@ import { Text, ButtonLabel } from './Typography';
 import { Button, IconButton } from './Button';
 import { Icon } from './Icon';
 import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
-import { ObjectPicker, ObjectPickerOption } from './ObjectPicker';
+import { EnumPickerField, RelationPickerField, type PickerFieldOption } from './PickerFields';
 import { Input } from './Input';
 import { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 import { SegmentedControl } from './SegmentedControl';
@@ -82,7 +82,7 @@ interface Props {
 }
 
 // Field options with icons
-const FILTERABLE_FIELDS: ObjectPickerOption[] = [
+const FILTERABLE_FIELDS: PickerFieldOption[] = [
   { value: 'title', label: 'Title', leftElement: <Icon name="edit" size={14} color={colors.textSecondary} /> },
   { value: 'status', label: 'Status', leftElement: <Icon name="checkCircle" size={14} color={colors.textSecondary} /> },
   { value: 'priority', label: 'Priority', leftElement: <Icon name="star" size={14} color={colors.textSecondary} /> },
@@ -194,8 +194,8 @@ const OPERATORS_BY_TYPE: Record<string, Array<{ value: FilterOperator; label: st
   ],
 };
 
-// Build options with symbols for ObjectPicker
-function getOperatorOptions(fieldType: string): ObjectPickerOption[] {
+// Build options with symbols for picker rows.
+function getOperatorOptions(fieldType: string): PickerFieldOption[] {
   const ops = OPERATORS_BY_TYPE[fieldType] || OPERATORS_BY_TYPE.string;
   return ops.map((op) => ({
     value: op.value,
@@ -204,12 +204,12 @@ function getOperatorOptions(fieldType: string): ObjectPickerOption[] {
   }));
 }
 
-function getOperatorOptionsForCondition(condition: Pick<FilterCondition, 'field' | 'operator' | 'value'>): ObjectPickerOption[] {
+function getOperatorOptionsForCondition(condition: Pick<FilterCondition, 'field' | 'operator' | 'value'>): PickerFieldOption[] {
   const fieldType = FIELD_TYPE_MAP[condition.field] || 'string';
   const base = getOperatorOptions(fieldType);
   if (fieldType === 'date') {
     // Special UI sugar: pickable relative dates that avoid needing a third "value" row.
-    const relative: ObjectPickerOption[] = [
+    const relative: PickerFieldOption[] = [
       { value: 'rel_today', label: 'Today', leftElement: getOperatorSymbol('eq') },
       { value: 'rel_tomorrow', label: 'Tomorrow', leftElement: getOperatorSymbol('eq') },
       { value: 'rel_yesterday', label: 'Yesterday', leftElement: getOperatorSymbol('eq') },
@@ -218,7 +218,7 @@ function getOperatorOptionsForCondition(condition: Pick<FilterCondition, 'field'
     ];
 
     // Extra scheduledDate-only preset: Past due (= before today).
-    const pastDue: ObjectPickerOption[] =
+    const pastDue: PickerFieldOption[] =
       condition.field === 'scheduledDate'
         ? [
             {
@@ -234,7 +234,7 @@ function getOperatorOptionsForCondition(condition: Pick<FilterCondition, 'field'
   return base;
 }
 
-const STATUS_OPTIONS: ObjectPickerOption[] = [
+const STATUS_OPTIONS: PickerFieldOption[] = [
   { value: 'planned', label: 'Planned' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'done', label: 'Completed' },
@@ -242,7 +242,7 @@ const STATUS_OPTIONS: ObjectPickerOption[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-const DIFFICULTY_OPTIONS: ObjectPickerOption[] = [
+const DIFFICULTY_OPTIONS: PickerFieldOption[] = [
   { value: 'very_easy', label: '1 · Very easy' },
   { value: 'easy', label: '2 · Easy' },
   { value: 'medium', label: '3 · Medium' },
@@ -250,7 +250,7 @@ const DIFFICULTY_OPTIONS: ObjectPickerOption[] = [
   { value: 'very_hard', label: '8 · Very hard' },
 ];
 
-const TYPE_OPTIONS: ObjectPickerOption[] = [
+const TYPE_OPTIONS: PickerFieldOption[] = [
   { value: 'task', label: 'To-do' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'shopping_list', label: 'Shopping List' },
@@ -271,7 +271,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
     }
   }, [visible, initialFilters, initialGroupLogic]);
 
-  const goalOptions = useMemo<ObjectPickerOption[]>(() => {
+  const goalOptions = useMemo<PickerFieldOption[]>(() => {
     return goals.map((g) => ({ value: g.id, label: g.title }));
   }, [goals]);
 
@@ -401,15 +401,14 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
                           {/* Field row with remove button */}
                           <HStack space="xs" alignItems="center">
                             <View style={{ flex: 1 }}>
-                              <ObjectPicker
+                              <EnumPickerField
                                 size="compact"
                                 options={FILTERABLE_FIELDS}
                                 value={condition.field}
                                 onValueChange={(val) => handleUpdateCondition(groupIndex, condIndex, { field: val as ActivityFilterableField })}
                                 accessibilityLabel="Select field"
                                 placeholder="Field"
-                                presentation="popover"
-                                showSearch={false}
+                                allowDeselect={false}
                               />
                             </View>
                             <IconButton
@@ -421,7 +420,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
                             </IconButton>
                           </HStack>
                           {/* Operator row */}
-                          <ObjectPicker
+                          <EnumPickerField
                             size="compact"
                             options={getOperatorOptionsForCondition(condition)}
                             value={(
@@ -459,8 +458,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
                             }}
                             accessibilityLabel="Select operator"
                             placeholder="Operator"
-                            presentation="popover"
-                            showSearch={false}
+                            allowDeselect={false}
                           />
                           {/* Value row */}
                           {condition.operator !== 'exists' &&
@@ -543,61 +541,60 @@ function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOp
   value: FilterValue;
   onChange: (val: FilterValue) => void;
   onChangeOperator?: (op: FilterOperator) => void;
-  goalOptions: ObjectPickerOption[];
+  goalOptions: PickerFieldOption[];
 }) {
   const fieldType = FIELD_TYPE_MAP[field] || 'string';
 
   switch (fieldType) {
     case 'status':
       return (
-        <ObjectPicker
+        <EnumPickerField
           size="compact"
           options={STATUS_OPTIONS}
           value={String(value)}
           onValueChange={onChange}
           accessibilityLabel="Select status"
           placeholder="Select status..."
-          presentation="popover"
-          showSearch={false}
+          allowDeselect={false}
         />
       );
     case 'difficulty':
       return (
-        <ObjectPicker
+        <EnumPickerField
           size="compact"
           options={DIFFICULTY_OPTIONS}
           value={String(value)}
           onValueChange={onChange}
           accessibilityLabel="Select difficulty"
           placeholder="Select difficulty..."
-          presentation="popover"
-          showSearch={false}
+          allowDeselect={false}
         />
       );
     case 'type':
       return (
-        <ObjectPicker
+        <EnumPickerField
           size="compact"
           options={TYPE_OPTIONS}
           value={String(value)}
           onValueChange={onChange}
           accessibilityLabel="Select type"
           placeholder="Select type..."
-          presentation="popover"
-          showSearch={false}
+          allowDeselect={false}
         />
       );
     case 'goal':
       // Goals list may be long, keep search enabled
       return (
-        <ObjectPicker
+        <RelationPickerField
           size="compact"
           options={goalOptions}
           value={String(value)}
           onValueChange={onChange}
+          title="Choose goal"
           accessibilityLabel="Select goal"
           placeholder="Select goal..."
-          presentation="popover"
+          searchPlaceholder="Search goals..."
+          emptyText="No goals found."
         />
       );
     case 'priority':

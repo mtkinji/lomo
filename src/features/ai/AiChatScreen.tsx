@@ -40,7 +40,7 @@ import { Input } from '../../ui/Input';
 import { Icon } from '../../ui/Icon';
 import { BrandLockup } from '../../ui/BrandLockup';
 import { EditorHeader, EditorSurface } from '../../ui/EditorSurface';
-import { ObjectPicker, type ObjectPickerOption } from '../../ui/ObjectPicker';
+import { RelationPickerField, type PickerFieldOption } from '../../ui/primitives';
 import {
   CoachChatTurn,
   GeneratedArc,
@@ -850,7 +850,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // We may still default to a focused or suggested Arc when available.
   const shouldRequireGoalArcPick = false;
 
-  const arcPickerOptions: ObjectPickerOption[] = useMemo(() => {
+  const arcPickerOptions: PickerFieldOption[] = useMemo(() => {
     return (arcs ?? [])
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -1448,16 +1448,16 @@ export const AiChatPane = forwardRef(function AiChatPane(
                 <View style={styles.goalDraftArcRow}>
                   <Text style={styles.goalDraftArcLabel}>Arc</Text>
                   <View style={styles.goalDraftArcPicker}>
-                    <ObjectPicker
+                    <RelationPickerField
                       options={arcPickerOptions}
                       value={selectedGoalArcId ?? ''}
                       onValueChange={(next) => setSelectedGoalArcId(next || null)}
+                      title="Choose Arc"
                       placeholder="Choose an Arc…"
                       searchPlaceholder="Search Arcs…"
                       emptyText="No matching Arcs."
                       accessibilityLabel="Choose an Arc for this goal"
                       allowDeselect
-                      presentation="popover"
                     />
                   </View>
                 </View>

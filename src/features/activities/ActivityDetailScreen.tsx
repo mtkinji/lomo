@@ -60,7 +60,7 @@ import { applePlaceSearchBestEffort, cancelApplePlaceSearchBestEffort } from '..
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { Picker } from '@react-native-picker/picker';
 import { SOUND_SCAPES, preloadSoundscape } from '../../services/soundscape';
-import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
+import { VStack, HStack, Input, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';

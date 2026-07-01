@@ -121,7 +121,7 @@ function DropdownMenuContent({
           >
             <DropdownMenuPrimitive.Content
               // Default cap so menus can expand for longer labels, but never become awkwardly wide.
-              // Note: `style` prop can override maxWidth (Combobox/ObjectPicker already do).
+              // Note: picker triggers can override maxWidth through `style`.
               style={[styles.content, { maxWidth: resolvedMaxWidthPx }, style] as any}
               side={side}
               align={align}

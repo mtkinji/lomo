@@ -42,7 +42,8 @@ import {
   KeyboardAwareScrollView,
   Input,
   Textarea,
-  ObjectPicker,
+  EnumPickerField,
+  RelationPickerField,
 } from '../../ui/primitives';
 import { LongTextField } from '../../ui/LongTextField';
 import { richTextToPlainText } from '../../ui/richText';
@@ -83,7 +84,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import type { ObjectPickerOption } from '../../ui/ObjectPicker';
+import type { PickerFieldOption } from '../../ui/primitives';
 import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import * as ImagePicker from 'expo-image-picker';
@@ -1267,7 +1268,7 @@ export function GoalDetailScreen() {
     setHasTransitionedFromPostGoalPlanGuide(false);
   }, [goalId]);
 
-  const arcOptions = useMemo<ObjectPickerOption[]>(() => {
+  const arcOptions = useMemo<PickerFieldOption[]>(() => {
     const list = [...arcs];
     list.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
     return list.map((a) => ({
@@ -3285,12 +3286,13 @@ export function GoalDetailScreen() {
 
                   <View style={styles.detailFieldBlock}>
                     <Text style={styles.arcConnectionLabel}>Linked Arc</Text>
-                    <ObjectPicker
+                    <RelationPickerField
                       value={goal.arcId ?? ''}
                       onValueChange={(nextArcId) => {
                         handleUpdateArc(nextArcId ? nextArcId : null);
                       }}
                       options={arcOptions}
+                      title="Choose Arc"
                       placeholder="Select Arc…"
                       searchPlaceholder="Search arcs…"
                       emptyText="No arcs found."
@@ -3301,7 +3303,7 @@ export function GoalDetailScreen() {
 
                   <View style={styles.detailFieldBlock}>
                     <Text style={styles.arcConnectionLabel}>Priority</Text>
-                    <ObjectPicker
+                    <EnumPickerField
                       value={goal.priority != null ? String(goal.priority) : ''}
                       onValueChange={(nextPriority) => {
                         const timestamp = new Date().toISOString();
@@ -3318,8 +3320,6 @@ export function GoalDetailScreen() {
                         { value: '3', label: 'P3 (Low)' },
                       ]}
                       placeholder="No priority"
-                      searchPlaceholder="Search priority…"
-                      emptyText="No priority options."
                       accessibilityLabel="Set goal priority"
                       allowDeselect
                     />

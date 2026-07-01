@@ -6,8 +6,7 @@ import { PageHeader } from '../../ui/layout/PageHeader';
 import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { ObjectPicker } from '../../ui/ObjectPicker';
-import { ButtonLabel, HStack, Text, VStack } from '../../ui/primitives';
+import { ButtonLabel, HStack, RelationPickerField, Text, VStack } from '../../ui/primitives';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import {
   disconnectCalendarAccount,
@@ -525,7 +524,7 @@ export function PlanCalendarSettingsScreen() {
                   <Text style={styles.cardSubtitle}>
                     Kwilt will create and update commitment blocks in this calendar.
                   </Text>
-                  <ObjectPicker
+                  <RelationPickerField
                     options={writeCalendarOptions}
                     value={writePickerValue}
                     onValueChange={async (nextValue) => {
@@ -537,13 +536,12 @@ export function PlanCalendarSettingsScreen() {
                       if (!ref) return;
                       await selectWriteCalendar(ref);
                     }}
+                    title="Choose calendar"
                     placeholder="Choose a calendar…"
                     searchPlaceholder="Search calendars…"
                     emptyText="No calendars found."
                     accessibilityLabel="Choose a default write calendar"
                     allowDeselect={true}
-                    presentation="drawer"
-                    drawerSnapPoints={['90%']}
                   />
                   <Text style={styles.cardSubtitle}>Tip: Create a dedicated calendar like “Kwilt” to keep things tidy.</Text>
                 </>
@@ -617,5 +615,3 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
 });
-
-
