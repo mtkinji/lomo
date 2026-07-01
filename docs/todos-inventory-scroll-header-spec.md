@@ -86,6 +86,8 @@ Suggested trigger behavior:
 - Reveal chrome after upward scroll delta crosses `16px`. This avoids hide/reveal flutter from small rebounds while still restoring chrome on intentional upward scroll.
 - Clamp scroll offsets to the real scrollable range before deriving direction. Bottom overscroll bounce must not count as upward intent or reveal chrome.
 - Treat exact and sub-pixel top landings as top. Any final settle at/near `0` should restore header and global nav.
+- Treat scroll-end / momentum-end events as confirmation only. A settle event should not reveal chrome from a missing or stray near-top offset unless the scroll stream had already reached the top.
+- During momentum after a downward fling, small upward offset jitter near the stopping point must not count as reveal intent. Upward momentum may reveal only when the user first dragged upward.
 - Once triggered, animate to the hidden or revealed state quickly but not abruptly. Current target: `260ms` with cubic ease-out.
 
 Important distinction:
@@ -443,6 +445,8 @@ Prefer existing `spacing`, `colors`, and typography tokens.
 - Drag start alone does not hide chrome; direction is derived from scroll delta.
 - Pulling down while already at the top keeps or reveals header and global nav.
 - Bottom overscroll bounce does not reveal header/global nav unless the user actually scrolls upward within the real scroll range.
+- Momentum ending after a downward fling does not briefly reveal header/global nav before the list stays compact.
+- Upward jitter during the tail of downward momentum does not briefly reveal header/global nav before the list stays compact.
 - Upward scroll in the middle of the list does not hide before revealing.
 - Global bottom nav reveals before or during tab changes and overlay-driven navigation.
 - Quick Add dock stays present throughout downward and upward scroll behavior.
@@ -504,6 +508,8 @@ Automated checks:
   - reveal only after `16px` of upward scroll intent, while always restoring at exact/sub-pixel top
   - keep pull-down / pull-to-refresh-style top overscroll visible
   - clamp bottom overscroll so bounce does not count as upward reveal intent
+  - keep momentum settle from revealing chrome unless the scroll stream had already reached the top
+  - suppress reveal from upward jitter during downward momentum while preserving reveal for upward momentum
   - derive the top fade from the sticky toolbar visual bottom, not padded container height
   - keep top and bottom local-control fades on the same gap/ramp/alpha contract
   - suppress the global bottom-bar fade on To-dos list layout while Quick Add owns the bottom fade

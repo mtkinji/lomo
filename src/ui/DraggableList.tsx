@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   runOnJS,
   scrollTo,
@@ -41,6 +47,8 @@ type DraggableRowProps<T extends { id: string }> = {
   containerTop: SharedValue<number>;
   renderContent: (item: T, isDragging: boolean, index: number) => React.ReactNode;
 };
+
+type DraggableScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
 
 function DraggableRow<T extends { id: string }>({
   item,
@@ -317,8 +325,9 @@ export type DraggableListProps<T extends { id: string }> = {
   onLayout?: (event: any) => void;
   onContentSizeChange?: (width: number, height: number) => void;
   onScrollBeginDrag?: () => void;
-  onScrollEndDrag?: (event: any) => void;
-  onMomentumScrollEnd?: (event: any) => void;
+  onScrollEndDrag?: (event: DraggableScrollEvent) => void;
+  onMomentumScrollBegin?: (event: DraggableScrollEvent) => void;
+  onMomentumScrollEnd?: (event: DraggableScrollEvent) => void;
   onScrollOffsetChange?: (offsetY: number) => void;
 };
 
@@ -336,6 +345,7 @@ export function DraggableList<T extends { id: string }>({
   onContentSizeChange,
   onScrollBeginDrag,
   onScrollEndDrag,
+  onMomentumScrollBegin,
   onMomentumScrollEnd,
   onScrollOffsetChange,
 }: DraggableListProps<T>) {
@@ -424,6 +434,7 @@ export function DraggableList<T extends { id: string }>({
       onScroll={onScroll}
       onScrollBeginDrag={onScrollBeginDrag}
       onScrollEndDrag={onScrollEndDrag}
+      onMomentumScrollBegin={onMomentumScrollBegin}
       onMomentumScrollEnd={onMomentumScrollEnd}
       scrollEventThrottle={16}
       style={[{ flex: 1 }, style]}

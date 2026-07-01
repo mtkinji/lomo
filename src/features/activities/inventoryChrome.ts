@@ -32,6 +32,7 @@ export function getInventoryChromeScrollEffect({
   lastY,
   canAutoHide,
   locked,
+  allowReveal = true,
   upwardIntent = 0,
   revealDelta = INVENTORY_CHROME_REVEAL_DELTA,
   maxScrollY = Number.POSITIVE_INFINITY,
@@ -41,6 +42,7 @@ export function getInventoryChromeScrollEffect({
   lastY: number;
   canAutoHide: boolean;
   locked: boolean;
+  allowReveal?: boolean;
   upwardIntent?: number;
   revealDelta?: number;
   maxScrollY?: number;
@@ -49,6 +51,7 @@ export function getInventoryChromeScrollEffect({
   lastY: number;
   downwardIntent: number;
   upwardIntent: number;
+  scrollDirection: 'up' | 'down' | null;
   effect: InventoryChromeEffect | null;
 } {
   const scrollMax = Number.isFinite(maxScrollY) ? Math.max(0, maxScrollY) : Number.POSITIVE_INFINITY;
@@ -60,6 +63,7 @@ export function getInventoryChromeScrollEffect({
       lastY: nextY,
       downwardIntent: 0,
       upwardIntent,
+      scrollDirection: null,
       effect: null,
     };
   }
@@ -69,6 +73,7 @@ export function getInventoryChromeScrollEffect({
       lastY: 0,
       downwardIntent: 0,
       upwardIntent,
+      scrollDirection: null,
       effect: null,
     };
   }
@@ -78,6 +83,7 @@ export function getInventoryChromeScrollEffect({
       lastY: 0,
       downwardIntent: 0,
       upwardIntent: 0,
+      scrollDirection: 'up',
       effect: { direction: 'up', visible: true },
     };
   }
@@ -89,6 +95,7 @@ export function getInventoryChromeScrollEffect({
       lastY: nextY,
       downwardIntent: 0,
       upwardIntent: 0,
+      scrollDirection: 'down',
       effect: { direction: 'down', visible: false },
     };
   }
@@ -98,6 +105,27 @@ export function getInventoryChromeScrollEffect({
       lastY: nextY,
       downwardIntent: 0,
       upwardIntent,
+      scrollDirection: null,
+      effect: null,
+    };
+  }
+
+  if (delta > 0) {
+    return {
+      lastY: nextY,
+      downwardIntent: 0,
+      upwardIntent: 0,
+      scrollDirection: 'down',
+      effect: null,
+    };
+  }
+
+  if (delta < 0 && !allowReveal) {
+    return {
+      lastY: nextY,
+      downwardIntent: 0,
+      upwardIntent: 0,
+      scrollDirection: 'up',
       effect: null,
     };
   }
@@ -109,7 +137,43 @@ export function getInventoryChromeScrollEffect({
     lastY: nextY,
     downwardIntent: 0,
     upwardIntent: shouldReveal ? 0 : nextUpwardIntent,
+    scrollDirection: delta < 0 ? 'up' : null,
     effect: shouldReveal ? { direction: 'up', visible: true } : null,
+  };
+}
+
+export function getInventoryChromeSettleEffect({
+  y,
+  lastY,
+  canAutoHide,
+  locked,
+  topRevealThreshold = INVENTORY_CHROME_TOP_REVEAL_THRESHOLD_PX,
+}: {
+  y?: number;
+  lastY: number;
+  canAutoHide: boolean;
+  locked: boolean;
+  topRevealThreshold?: number;
+}): {
+  lastY: number;
+  upwardIntent: number;
+  effect: InventoryChromeEffect | null;
+} {
+  if (!canAutoHide || locked || typeof y !== 'number' || !Number.isFinite(y)) {
+    return {
+      lastY,
+      upwardIntent: 0,
+      effect: null,
+    };
+  }
+
+  const nextY = Math.max(0, y);
+  const settledAtTop = nextY <= topRevealThreshold && lastY <= topRevealThreshold;
+
+  return {
+    lastY: settledAtTop ? 0 : nextY,
+    upwardIntent: 0,
+    effect: settledAtTop ? { direction: 'up', visible: true } : null,
   };
 }
 

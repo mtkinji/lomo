@@ -15,6 +15,8 @@ import {
   UIManager,
   View,
   TextInput,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -219,9 +221,11 @@ import {
 import {
   INVENTORY_CHROME_FADE_MAX_ALPHA,
   INVENTORY_CHROME_TOOLBAR_VISUAL_FALLBACK_PX,
+  INVENTORY_CHROME_TOP_REVEAL_THRESHOLD_PX,
   doesQuickAddOwnInventoryBottomFade,
   getInventoryChromeDragStartEffect,
   getInventoryChromeScrollEffect,
+  getInventoryChromeSettleEffect,
   getTopInventoryFadeGeometry,
 } from './inventoryChrome';
 
@@ -239,6 +243,7 @@ const KANBAN_GROUP_OPTIONS: Array<{ value: KanbanGroupBy; label: string }> = [
 
 const INVENTORY_CHROME_SURFACE = 'activities-inventory';
 const HEADER_COLLAPSE_DISTANCE_FALLBACK = 88;
+type InventoryScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
 
 function isPrioritySort(sortConditions: SortCondition[]): boolean {
   return sortConditions[0]?.field === 'priority';
@@ -1114,7 +1119,12 @@ export function ActivitiesScreen() {
   const [inventoryViewportHeight, setInventoryViewportHeight] = React.useState(0);
   const [inventoryContentHeight, setInventoryContentHeight] = React.useState(0);
   const lastInventoryScrollYRef = React.useRef(0);
+  const lastRawInventoryScrollYRef = React.useRef(0);
   const upwardScrollIntentRef = React.useRef(0);
+  const inventoryScrollPhaseRef = React.useRef<'idle' | 'dragging' | 'momentum'>('idle');
+  const lastInventoryScrollDirectionRef = React.useRef<'up' | 'down' | null>(null);
+  const momentumRevealAllowedRef = React.useRef(false);
+  const suppressRevealUntilNextDragRef = React.useRef(false);
   const headerVisibleRef = React.useRef(true);
 
   const headerCollapseDistance = Math.max(
@@ -1123,10 +1133,12 @@ export function ActivitiesScreen() {
   );
   const inventoryCanMeaningfullyScroll =
     inventoryContentHeight - inventoryViewportHeight > headerCollapseDistance + spacing.xl;
-  const shouldAutoHideInventoryChrome =
+  const shouldRegisterInventoryChrome =
     isFocused &&
     hasAnyActivities &&
-    !isKanbanLayout &&
+    !isKanbanLayout;
+  const shouldAutoHideInventoryChrome =
+    shouldRegisterInventoryChrome &&
     inventoryCanMeaningfullyScroll;
 
   const headerSlotHeight = collapsibleHeaderHeight || HEADER_COLLAPSE_DISTANCE_FALLBACK;
@@ -1216,7 +1228,12 @@ export function ActivitiesScreen() {
     setHeaderCollapsedForA11y(false);
     headerVisibleRef.current = true;
     lastInventoryScrollYRef.current = 0;
+    lastRawInventoryScrollYRef.current = 0;
     upwardScrollIntentRef.current = 0;
+    inventoryScrollPhaseRef.current = 'idle';
+    lastInventoryScrollDirectionRef.current = null;
+    momentumRevealAllowedRef.current = false;
+    suppressRevealUntilNextDragRef.current = false;
     setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
   }, [setChromeVisibility]);
 
@@ -1703,21 +1720,25 @@ export function ActivitiesScreen() {
   }, [quickAddChromeLocked, resetInventoryChrome, setChromeInteractionLock]);
 
   React.useEffect(() => {
-    setChromeAutoHideEnabled(INVENTORY_CHROME_SURFACE, shouldAutoHideInventoryChrome);
-    if (!shouldAutoHideInventoryChrome) {
+    setChromeAutoHideEnabled(INVENTORY_CHROME_SURFACE, shouldRegisterInventoryChrome);
+    const isAtTop = lastInventoryScrollYRef.current <= INVENTORY_CHROME_TOP_REVEAL_THRESHOLD_PX;
+    if (!shouldRegisterInventoryChrome || (!shouldAutoHideInventoryChrome && isAtTop)) {
       resetInventoryChrome();
     }
-
-    return () => {
-      setChromeAutoHideEnabled(INVENTORY_CHROME_SURFACE, false);
-      setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
-    };
   }, [
     resetInventoryChrome,
     setChromeAutoHideEnabled,
     setChromeVisibility,
     shouldAutoHideInventoryChrome,
+    shouldRegisterInventoryChrome,
   ]);
+
+  React.useEffect(() => {
+    return () => {
+      setChromeAutoHideEnabled(INVENTORY_CHROME_SURFACE, false);
+      setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
+    };
+  }, [setChromeAutoHideEnabled, setChromeVisibility]);
 
   React.useEffect(() => {
     const quickAddOwnsBottomFade = doesQuickAddOwnInventoryBottomFade({ isKanbanLayout });
@@ -2056,6 +2077,11 @@ export function ActivitiesScreen() {
   ), [inventoryContentHeight, inventoryViewportHeight]);
 
   const handleInventoryScrollBeginDrag = React.useCallback(() => {
+    inventoryScrollPhaseRef.current = 'dragging';
+    lastInventoryScrollDirectionRef.current = null;
+    momentumRevealAllowedRef.current = false;
+    suppressRevealUntilNextDragRef.current = false;
+
     const effect = getInventoryChromeDragStartEffect({
       canAutoHide: shouldAutoHideInventoryChrome,
       locked: quickAddChromeLocked,
@@ -2073,19 +2099,32 @@ export function ActivitiesScreen() {
     shouldAutoHideInventoryChrome,
   ]);
 
-  const handleInventoryScroll = React.useCallback(
-    (event: any) => {
+  const handleInventoryScrollOffset = React.useCallback(
+    (rawY: number) => {
+      const rawStillMovingDown = rawY >= lastRawInventoryScrollYRef.current - 0.5;
       const result = getInventoryChromeScrollEffect({
-        y: event.nativeEvent.contentOffset.y ?? 0,
+        y: rawY,
         lastY: lastInventoryScrollYRef.current,
         canAutoHide: shouldAutoHideInventoryChrome,
         locked: quickAddChromeLocked,
+        allowReveal:
+          !(inventoryScrollPhaseRef.current === 'momentum' && lastInventoryScrollDirectionRef.current === 'down') &&
+          !rawStillMovingDown &&
+          !suppressRevealUntilNextDragRef.current &&
+          (inventoryScrollPhaseRef.current !== 'momentum' || momentumRevealAllowedRef.current),
         upwardIntent: upwardScrollIntentRef.current,
         maxScrollY: getInventoryMaxScrollY(),
       });
 
       lastInventoryScrollYRef.current = result.lastY;
+      lastRawInventoryScrollYRef.current = Math.max(0, rawY);
       upwardScrollIntentRef.current = result.upwardIntent;
+      if (result.scrollDirection) {
+        lastInventoryScrollDirectionRef.current = result.scrollDirection;
+      }
+      if (result.effect?.visible) {
+        suppressRevealUntilNextDragRef.current = false;
+      }
 
       if (result.effect) {
         notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, result.effect.direction, 0);
@@ -2101,15 +2140,57 @@ export function ActivitiesScreen() {
     ],
   );
 
-  const handleInventoryScrollSettle = React.useCallback((event: any) => {
-    const rawY = event?.nativeEvent?.contentOffset?.y ?? lastInventoryScrollYRef.current;
-    if (rawY > 1) return;
+  const handleInventoryScroll = React.useCallback((event: InventoryScrollEvent) => {
+    handleInventoryScrollOffset(event.nativeEvent.contentOffset.y ?? 0);
+  }, [handleInventoryScrollOffset]);
 
-    lastInventoryScrollYRef.current = 0;
-    upwardScrollIntentRef.current = 0;
-    notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, 'up', 0);
-    setInventoryHeaderVisible(true);
-  }, [notifyChromeScrollIntent, setInventoryHeaderVisible]);
+  const handleInventoryMomentumScrollBegin = React.useCallback(() => {
+    inventoryScrollPhaseRef.current = 'momentum';
+    momentumRevealAllowedRef.current = lastInventoryScrollDirectionRef.current === 'up';
+    suppressRevealUntilNextDragRef.current = lastInventoryScrollDirectionRef.current === 'down';
+  }, []);
+
+  const applyInventoryScrollSettle = React.useCallback((event: InventoryScrollEvent, final: boolean) => {
+    const result = getInventoryChromeSettleEffect({
+      y: event?.nativeEvent?.contentOffset?.y,
+      lastY: lastInventoryScrollYRef.current,
+      canAutoHide: shouldAutoHideInventoryChrome,
+      locked: quickAddChromeLocked,
+    });
+
+    lastInventoryScrollYRef.current = result.lastY;
+    if (typeof event?.nativeEvent?.contentOffset?.y === 'number') {
+      lastRawInventoryScrollYRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
+    }
+    upwardScrollIntentRef.current = result.upwardIntent;
+
+    if (final) {
+      inventoryScrollPhaseRef.current = 'idle';
+      lastInventoryScrollDirectionRef.current = null;
+      momentumRevealAllowedRef.current = false;
+      suppressRevealUntilNextDragRef.current = false;
+    }
+
+    if (!result.effect) return;
+
+    notifyChromeScrollIntent(INVENTORY_CHROME_SURFACE, result.effect.direction, 0);
+    setInventoryHeaderVisible(result.effect.visible);
+  }, [
+    notifyChromeScrollIntent,
+    quickAddChromeLocked,
+    setInventoryHeaderVisible,
+    shouldAutoHideInventoryChrome,
+  ]);
+
+  const handleInventoryScrollEndDrag = React.useCallback((event: InventoryScrollEvent) => {
+    inventoryScrollPhaseRef.current = 'idle';
+    suppressRevealUntilNextDragRef.current = lastInventoryScrollDirectionRef.current === 'down';
+    applyInventoryScrollSettle(event, false);
+  }, [applyInventoryScrollSettle]);
+
+  const handleInventoryMomentumScrollEnd = React.useCallback((event: InventoryScrollEvent) => {
+    applyInventoryScrollSettle(event, true);
+  }, [applyInventoryScrollSettle]);
 
   const setQuickAddDueDateByOffsetDays = React.useCallback((offsetDays: number) => {
     const date = new Date();
@@ -3173,8 +3254,9 @@ export function ActivitiesScreen() {
           onContentSizeChange={handleInventoryContentSizeChange}
           onScroll={handleInventoryScroll}
           onScrollBeginDrag={handleInventoryScrollBeginDrag}
-          onScrollEndDrag={handleInventoryScrollSettle}
-          onMomentumScrollEnd={handleInventoryScrollSettle}
+          onScrollEndDrag={handleInventoryScrollEndDrag}
+          onMomentumScrollBegin={handleInventoryMomentumScrollBegin}
+          onMomentumScrollEnd={handleInventoryMomentumScrollEnd}
           contentContainerStyle={[
             styles.scrollContent,
             styles.groupedListContent,
@@ -3238,11 +3320,10 @@ export function ActivitiesScreen() {
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
           onScrollBeginDrag={handleInventoryScrollBeginDrag}
-          onScrollEndDrag={handleInventoryScrollSettle}
-          onMomentumScrollEnd={handleInventoryScrollSettle}
-          onScrollOffsetChange={(offsetY) => {
-            handleInventoryScroll({ nativeEvent: { contentOffset: { y: offsetY } } });
-          }}
+          onScrollEndDrag={handleInventoryScrollEndDrag}
+          onMomentumScrollBegin={handleInventoryMomentumScrollBegin}
+          onMomentumScrollEnd={handleInventoryMomentumScrollEnd}
+          onScrollOffsetChange={handleInventoryScrollOffset}
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
@@ -3331,8 +3412,9 @@ export function ActivitiesScreen() {
           onContentSizeChange={handleInventoryContentSizeChange}
           onScroll={handleInventoryScroll}
           onScrollBeginDrag={handleInventoryScrollBeginDrag}
-          onScrollEndDrag={handleInventoryScrollSettle}
-          onMomentumScrollEnd={handleInventoryScrollSettle}
+          onScrollEndDrag={handleInventoryScrollEndDrag}
+          onMomentumScrollBegin={handleInventoryMomentumScrollBegin}
+          onMomentumScrollEnd={handleInventoryMomentumScrollEnd}
           contentContainerStyle={[
             styles.scrollContent,
             activeActivities.length === 0 ? { flexGrow: 1 } : null,

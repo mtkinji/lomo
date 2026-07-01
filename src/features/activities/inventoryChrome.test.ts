@@ -5,6 +5,7 @@ import {
   doesQuickAddOwnInventoryBottomFade,
   getInventoryChromeDragStartEffect,
   getInventoryChromeScrollEffect,
+  getInventoryChromeSettleEffect,
   getTopInventoryFadeGeometry,
 } from './inventoryChrome';
 
@@ -71,6 +72,31 @@ describe('inventory chrome behavior', () => {
     ).toEqual({ direction: 'down', visible: false });
   });
 
+  it('does not accumulate small positive momentum deltas as upward reveal intent', () => {
+    let state = {
+      lastY: 100,
+      upwardIntent: 0,
+    };
+
+    for (const y of [102, 104, 106, 108, 110, 112, 114, 116, 118]) {
+      const result = getInventoryChromeScrollEffect({
+        y,
+        lastY: state.lastY,
+        canAutoHide: true,
+        locked: false,
+        upwardIntent: state.upwardIntent,
+      });
+
+      expect(result.scrollDirection).toBe('down');
+      expect(result.effect).toBeNull();
+      expect(result.upwardIntent).toBe(0);
+      state = {
+        lastY: result.lastY,
+        upwardIntent: result.upwardIntent,
+      };
+    }
+  });
+
   it('does not undo drag-start hide on the initial zero-offset scroll event', () => {
     expect(
       getInventoryChromeScrollEffect({
@@ -103,6 +129,35 @@ describe('inventory chrome behavior', () => {
     });
     expect(reveal.effect).toEqual({ direction: 'up', visible: true });
     expect(reveal.upwardIntent).toBe(0);
+  });
+
+  it('does not reveal from upward jitter while downward momentum is settling', () => {
+    const result = getInventoryChromeScrollEffect({
+      y: 224,
+      lastY: 241,
+      canAutoHide: true,
+      locked: false,
+      allowReveal: false,
+      upwardIntent: 0,
+    });
+
+    expect(result.scrollDirection).toBe('up');
+    expect(result.effect).toBeNull();
+    expect(result.upwardIntent).toBe(0);
+  });
+
+  it('still reveals from upward momentum when the user dragged upward first', () => {
+    const result = getInventoryChromeScrollEffect({
+      y: 224,
+      lastY: 241,
+      canAutoHide: true,
+      locked: false,
+      allowReveal: true,
+      upwardIntent: 0,
+    });
+
+    expect(result.scrollDirection).toBe('up');
+    expect(result.effect).toEqual({ direction: 'up', visible: true });
   });
 
   it('resets to visible at the exact top of the list', () => {
@@ -151,6 +206,61 @@ describe('inventory chrome behavior', () => {
     });
     expect(settle.effect).toBeNull();
     expect(settle.upwardIntent).toBe(0);
+  });
+
+  it('does not reveal from a missing momentum settle offset after scrolling down', () => {
+    expect(
+      getInventoryChromeSettleEffect({
+        lastY: 240,
+        canAutoHide: true,
+        locked: false,
+      }),
+    ).toEqual({
+      lastY: 240,
+      upwardIntent: 0,
+      effect: null,
+    });
+  });
+
+  it('does not reveal from a stray near-top settle offset when the scroll stream is still mid-list', () => {
+    expect(
+      getInventoryChromeSettleEffect({
+        y: 0,
+        lastY: 240,
+        canAutoHide: true,
+        locked: false,
+      }),
+    ).toEqual({
+      lastY: 0,
+      upwardIntent: 0,
+      effect: null,
+    });
+  });
+
+  it('confirms chrome visible when momentum settles after the scroll stream reached the top', () => {
+    expect(
+      getInventoryChromeSettleEffect({
+        y: 0.5,
+        lastY: 0.5,
+        canAutoHide: true,
+        locked: false,
+      }),
+    ).toEqual({
+      lastY: 0,
+      upwardIntent: 0,
+      effect: { direction: 'up', visible: true },
+    });
+  });
+
+  it('does not change chrome when momentum settles while chrome is locked', () => {
+    expect(
+      getInventoryChromeSettleEffect({
+        y: 0,
+        lastY: 0,
+        canAutoHide: true,
+        locked: true,
+      }).effect,
+    ).toBeNull();
   });
 
   it('uses toolbar visual height, not padded container height, for the top fade boundary', () => {
