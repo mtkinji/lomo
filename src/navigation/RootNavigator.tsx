@@ -999,9 +999,9 @@ function SettingsStackNavigator() {
 function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
   switch (routeName) {
     case 'MainTabs':
-      return 'home';
+      return 'navHome';
     case 'ArcsStack':
-      return 'arcs';
+      return 'navArcs';
     case 'Settings':
       return 'dot';
     case 'DevTools':

@@ -713,9 +713,8 @@ function describeRow(
       if (goalTitle) parts.push(goalTitle);
       if (rel) parts.push(rel);
       return {
-        // Match the object-kind glyph used elsewhere in the app (bottom tab,
-        // nav). Feather's `activity` pulse line looks like a status indicator
-        // rather than an object type, which reads wrong here.
+        // Match the object-kind glyph used elsewhere in the app. The pulse
+        // line variant reads like a status indicator rather than an object type.
         icon: 'activities',
         title: row.activity.title || 'Untitled to-do',
         meta: parts.length > 0 ? parts.join(' • ') : undefined,

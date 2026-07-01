@@ -154,10 +154,14 @@ export function GoalsScreen() {
   const shieldCount = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
   const repairWindowActive = useRepairWindowActive(streakBreakState);
 
-  const arcLookup = arcs.reduce<Record<string, string>>((acc, arc) => {
-    acc[arc.id] = arc.name;
-    return acc;
-  }, {});
+  const arcLookup = React.useMemo(
+    () =>
+      arcs.reduce<Record<string, string>>((acc, arc) => {
+        acc[arc.id] = arc.name;
+        return acc;
+      }, {}),
+    [arcs],
+  );
 
   const visibleGoals = React.useMemo(
     () => goals.filter((goal) => goal.status !== 'archived' && goal.status !== 'completed'),
@@ -392,16 +396,19 @@ export function GoalsScreen() {
     getNextScheduledMs: getGoalNextScheduledMs,
   });
 
-  const handlePressNewGoal = () => {
+  const handlePressNewGoal = React.useCallback(() => {
     setGoalCoachVisible(true);
-  };
+  }, []);
 
   React.useEffect(() => {
     if (route.params?.openCreateGoal) {
-      handlePressNewGoal();
-      (navigation as any).setParams?.({ openCreateGoal: undefined });
+      const interactionTask = InteractionManager.runAfterInteractions(() => {
+        handlePressNewGoal();
+        (navigation as any).setParams?.({ openCreateGoal: undefined });
+      });
+      return () => interactionTask.cancel();
     }
-  }, [navigation, route.params?.openCreateGoal]);
+  }, [handlePressNewGoal, navigation, route.params?.openCreateGoal]);
 
   const fabClearancePx = insets.bottom + spacing.xl + 56;
 

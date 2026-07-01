@@ -103,7 +103,10 @@ export function splitAspirationNarrative(narrative?: string | null): ArcIdentity
 export function sanitizeArcName(name: string): string {
   if (!name) return 'The Steady Self';
 
-  let cleaned = name.trim();
+  let cleaned = name
+    .replace(/\\([.,!?;:])/g, '$1')
+    .replace(/\\/g, '')
+    .trim();
 
   cleaned = cleaned.replace(
     /^(toward|towards|becoming|i want to|i want|i['\u2019]d love to|i['\u2019]d like to|i would love to|i would like to|i['\u2019]d|i can)\s+/i,
@@ -157,6 +160,14 @@ export function sanitizeArcName(name: string): string {
     .join(' ');
 }
 
+function sanitizeNarrative(narrative: string): string {
+  return narrative
+    .replace(/\\([.,!?;:])/g, '$1')
+    .replace(/\\/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function parseAspirationFromReply(
   reply: string,
   options: ParseAspirationFromReplyOptions,
@@ -188,7 +199,7 @@ export function parseAspirationFromReply(
 
       return {
         arcName: sanitizeArcName(arcName),
-        aspirationSentence,
+        aspirationSentence: sanitizeNarrative(aspirationSentence),
         nextSmallStep,
       };
     }
@@ -214,7 +225,7 @@ export function parseAspirationFromReply(
 
   return {
     arcName,
-    aspirationSentence: afterTitle,
+    aspirationSentence: sanitizeNarrative(afterTitle),
     nextSmallStep: options.fallbackNextSmallStep,
   };
 }

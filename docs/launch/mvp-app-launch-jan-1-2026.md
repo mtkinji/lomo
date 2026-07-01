@@ -133,11 +133,13 @@ Owner doc: `docs/feature-briefs/keyboard-input-safety.md`
 - Growth flywheel rollout (evangelism → lightweight accountability → shared goals) — see:
   - `docs/feature-briefs/growth-evangelism-shared-goals.md`
   - `docs/shared-goals-feature-spec.md`
+- Creation UX system (FTUX Goal+Arc → direct Goal creation → direct Arc creation) — see:
+  - `docs/feature-briefs/object-creation-ux-system.md`
+  - `docs/feature-briefs/ftux-goal-arc-onboarding.md`
 - Apple ecosystem integrations (retention + “glanceable state” + Focus timer reliability):
   - `docs/apple-ecosystem-opportunities.md`
   - Target: Live Activities (Focus countdown), Lock Screen widget, App Intents (Shortcuts), Spotlight indexing
 - Server push notifications (only if needed; keep local-first as default)
 - Cross-device sync (requires identity)
 - Deeper engagement loops (streak save/reactivation) under strict caps
-
 

@@ -796,7 +796,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
   // When hosted inside BottomDrawer, we want the composer gutter to match the
   // keyboard gap, not "sheet padding + gutter". We use the existing
   // `hostBottomInsetAlreadyApplied` as a reliable signal that we're inside BottomDrawer.
-  const hostHorizontalPadding = hostBottomInsetAlreadyApplied ? spacing.lg : spacing.sm;
+  const hostHorizontalPadding = hostBottomInsetAlreadyApplied
+    ? spacing.lg
+    : isOnboardingMode
+      ? spacing.lg
+      : spacing.sm;
   const composerHorizontalInsetCompensation = Math.max(0, hostHorizontalPadding - composerKeyboardGap);
   // iOS ScrollView clips its children to its own bounds. When AiChatPane is hosted inside
   // BottomDrawer, the sheet applies horizontal padding, which shrinks the ScrollView bounds
@@ -806,9 +810,10 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const scrollBleedStyle = shouldBleedScrollToHostEdges
     ? { marginHorizontal: -hostHorizontalPadding }
     : null;
-  const scrollContentGutterStyle = shouldBleedScrollToHostEdges
-    ? { paddingHorizontal: hostHorizontalPadding }
-    : null;
+  const scrollContentGutterStyle =
+    shouldBleedScrollToHostEdges || isOnboardingMode
+      ? { paddingHorizontal: hostHorizontalPadding }
+      : null;
   const composerBottom =
     keyboardHeight > 0 ? keyboardHeight + composerKeyboardGap : composerRestingBottom;
   const resolvedPaddingBottom = useMemo(() => {
@@ -3551,9 +3556,11 @@ export const AiChatPane = forwardRef(function AiChatPane(
                     // Hard rule: step cards should not be visible until after any assistant
                     // typing animation finishes. Important: keep them mounted so their
                     // internal state/effects don't restart (which can cause streaming loops).
-                    isAssistantTyping ? styles.stepCardHostHiddenWhileTyping : null,
+                    isAssistantTyping && !isOnboardingMode
+                      ? styles.stepCardHostHiddenWhileTyping
+                      : null,
                   ]}
-                  pointerEvents={isAssistantTyping ? 'none' : 'auto'}
+                  pointerEvents={isAssistantTyping && !isOnboardingMode ? 'none' : 'auto'}
                 >
                   {stepCard}
                 </View>

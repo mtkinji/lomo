@@ -1,4 +1,4 @@
-Kwilt FTUE – Arc-Led Identity Aspiration
+Kwilt FTUE – Concrete-to-Identity Goal+Arc Onboarding
 
 Source of truth note:
 The deeper philosophy and behavior-change research behind Arcs now lives in [docs/research/arcs_identity_trajectory_research.md](/Users/andrewwatanabe/Kwilt/docs/research/arcs_identity_trajectory_research.md:1).
@@ -6,11 +6,12 @@ This document remains the canonical FTUE and product-direction reference for how
 
 ## Purpose
 
-This document captures the updated philosophy and product direction for how Kwilt guides new users into the product, with a specific focus on identity aspiration and Arcs. It also defines our **gold-standard model for Arc creation** that should be used consistently across FTUE, coach-led Arc creation, and future identity flows.
+This document captures the updated philosophy and product direction for how Kwilt guides new users into the product, with a specific focus on creating a concrete first Goal and the identity Arc it belongs to. It also defines the **gold-standard FTUX model** for turning concrete progress into an Arc-shaped identity trajectory.
 
 - **Arcs = Aspirations**: In this model, an `Arc` is the concrete container for a user’s current identity aspiration. We may eventually rename Arcs to “Aspirations” in the UI, but we are **not** introducing a new data type or new fields on `Arc` for “aspiration.” The existing `Arc.name` and `Arc.narrative` remain the primary fields where the aspiration is expressed.
-- **FTUE goal**: In the first 40–55 seconds of the app, help the user articulate a felt, emotionally resonant identity aspiration and turn it into a single onboarding Arc—using as few taps and as little typing as possible.
-- **Replacement of goal-first onboarding**: This identity-first, Arc-led FTUE **replaces** the current first-goal–oriented onboarding workflow. The “first object” we create is an Arc (aspiration), not a goal.
+- **FTUX goal**: In the first run, help the user start from one concrete thing they want to move, then synthesize both a first Goal and the identity Arc underneath it using deterministic questions and a strong generation template.
+- **Goal+Arc creation**: FTUX creates two linked objects together: a concrete first `Goal` and an identity-shaped `Arc`. The Goal gives traction; the Arc gives meaning. The user should not leave first-run object creation with a context-free Goal or with an abstract Arc that has no first expression.
+- **Direct Arc creation remains available later**: Coach-led or later manual Arc creation can still use identity-first Arc ingredients when the user already knows the direction. FTUX should not require that level of abstraction up front.
 
 ## Conceptual model
 
@@ -26,15 +27,142 @@ This document captures the updated philosophy and product direction for how Kwil
   - We treat “aspiration” as the semantic meaning of an Arc, not a new schema primitive.
   - Future language choices (e.g., renaming Arcs → Aspirations in the UI) are product/UX decisions layered on top of the existing Arc model.
 
-### Shift from goals → Arcs in FTUE
+### Shift from Arc-only FTUE → Goal+Arc FTUX
 
-- Previous v2 onboarding:
+- Earlier goal-first onboarding:
   - Collected: name, birthday/age, a free-text desire, and produced a first **Goal** with an optional Arc context.
   - Center of gravity: outcome-focused (“what do you want to accomplish?”).
-- New FTUE:
-  - Collects a light, tap-first set of **identity signals** and uses AI to synthesize an **Arc that embodies who they’re becoming.**
-  - Center of gravity: identity- and aspiration-focused (“who is future-you becoming?”).
-  - Goals and activities can be layered on later, once the user has a felt identity context inside Kwilt.
+- Earlier Arc-only FTUE:
+  - Collected a light, tap-first set of identity signals and used AI to synthesize a single onboarding Arc.
+  - Center of gravity: identity-first, but it asked many users to produce Arc-shaped input before they had concrete material.
+- Current FTUX direction:
+  - Starts from category recognition, then one short typed seed.
+  - Uses deterministic, universal questions to collect progress intent, meaning, and identity bridge.
+  - Synthesizes and saves both an Arc and a linked first Goal.
+  - Lands on the Arc detail screen so the user sees the Goal as the first expression of the bigger becoming.
+
+## Current FTUX design – Concrete → Identity → Linked Objects
+
+The current FTUX flow should create both a first Goal and the Arc it belongs to. It should teach the object model by showing it, not by explaining it.
+
+This FTUX model is the first implementation slice of the broader [Object Creation UX System](feature-briefs/object-creation-ux-system.md). Later direct Goal creation and direct Arc creation should reuse the same grammar in shorter forms.
+
+### Phase 1 – Soft start
+
+- **Surface**: short setup copy in the existing onboarding canvas.
+- **Copy direction**: task-first before noun-first. For example: “Start with one thing you want to move. Kwilt will help name the bigger direction underneath it.”
+- **Purpose**: Make the user understand the task before introducing Arc terminology.
+
+### Phase 2 – Category recognition
+
+- **Prompt**: “What kind of thing is it?”
+- **Interaction**: deterministic category options.
+- **Purpose**: Avoid a cold-start blank page and help the user recognize where their focus fits.
+
+### Phase 3 – Concrete starting point
+
+- **Prompt**: “Name it in a few words.”
+- **Interaction**: short free text.
+- **Examples**: Tennis, prayer, school assignments, stop scrolling at night, repair friendship, organize finances.
+- **Purpose**: Gather concrete raw material without requiring identity language.
+
+### Phase 4 – Progress intent
+
+- **Prompt**: “What do you want to do with it?”
+- **Interaction**: deterministic options:
+  - Get better at it
+  - Do it more often
+  - Get ready for something
+  - Feel more confident
+  - Make more time for it
+  - Get organized
+  - Work through something hard
+  - Finish something
+  - Something else
+- **Purpose**: Shape the first Goal.
+
+### Phase 5 – Meaning
+
+- **Prompt**: “What matters most about it?”
+- **Interaction**: deterministic options:
+  - I enjoy it
+  - I want to get better
+  - It gives me energy
+  - It would make life better
+  - It helps me care for or serve others
+  - It connects to who I am
+  - I do not want to lose it
+  - Something else
+- **Purpose**: Capture the main meaning signal without asking the user to repeat a reason they may already have typed.
+
+### Phase 6 – Identity bridge
+
+- **Prompt**: “Who is this helping you become?”
+- **Interaction**: deterministic options:
+  - Someone who keeps showing up
+  - Someone who practices and improves
+  - Someone steady when it is hard
+  - Someone who bounces back
+  - Someone others can count on
+  - Someone more present with people
+  - Someone who lives what matters
+  - Something else
+- **Purpose**: Turn concrete progress into an Arc-worthy identity trajectory.
+
+### Deferred – Resistance
+
+- **Prompt**: “Where does this usually get hard?”
+- **Interaction**: deterministic options:
+  - Starting
+  - Sticking with it
+  - Getting distracted
+  - Feeling discouraged
+  - Comparing myself
+  - Not knowing the next step
+  - Being tired or overloaded
+  - Something else
+- **Purpose**: Give the Arc a difficulty scene so the identity can activate under friction.
+
+### Deferred – Support style
+
+- **Prompt**: “What kind of support would help most?”
+- **Interaction**: deterministic support options from the shared Arc survey.
+- **Purpose**: Shape the Goal and optional first Activity suggestion.
+
+### Deferred – Optional personal detail
+
+- **Prompt**: “Want to add anything personal?”
+- **Interaction**: optional text, skippable.
+- **Purpose**: Preserve user nuance without blocking completion.
+
+### Phase 9 – AI synthesizes paired output
+
+- **Inputs**:
+  - concrete starting point,
+  - Goal shape,
+  - motivation,
+  - identity bridge,
+  - resistance,
+  - support style,
+  - optional personal detail.
+- **Output**:
+  - `Arc.name`
+  - `Arc.narrative`
+  - `Goal.title`
+  - `Goal.description`
+  - optional first Activity suggestion
+- **Hard rule**: the Arc cannot simply be the concrete input. “Tennis,” “Play More Tennis,” and “Tennis Practice” are not acceptable Arc names unless the user explicitly edits toward that language.
+
+### Phase 10 – Reveal, confirm, and land
+
+- **Reveal**: show the Arc as “Your direction” and the Goal as “Your first goal.”
+- **Confirm/tweak**: preserve one lightweight correction path.
+- **Save**: create the Arc, create the Goal with `arcId`, set onboarding Arc/Goal ids.
+- **Landing**: navigate to Arc detail, with the first Goal visible as the first expression of the Arc.
+
+## Earlier Arc-only design reference
+
+The remaining sections below describe the earlier Arc-only FTUE model. They are retained as historical input for direct Arc creation and identity-first generation quality, but they are no longer the preferred FTUX onboarding sequence.
 
 ## FTUE design – Fast → Felt → Framed → Reflected
 
@@ -257,13 +385,15 @@ The core design principle:
 
 ## Implementation notes (high level)
 
-- This FTUE is implemented as an updated first-time onboarding workflow that:
-  - **Replaces** the current goal-first v2 workflow.
-  - Produces a single **Arc** with a name and narrative that embody the user’s identity aspiration.
+- This FTUX should be implemented as an updated first-time onboarding workflow that:
+  - Starts from concrete progress rather than abstract Arc language.
+  - Produces a first **Arc** with a name and narrative that embody the user's identity trajectory.
+  - Produces a first **Goal** linked to that Arc.
+  - Lands the user on the Arc detail screen with the first Goal visible.
 - The host UI:
   - Continues to use the shared `AgentWorkspace` and onboarding presenter within the existing app shell.
   - Renders the phased cards (chips, optional text input, reveal, confirm/tweak) on the main app canvas.
 - Data and architecture:
   - No new core types are introduced; Arcs remain the primary aspirational object.
   - The onboarding Arc can be tagged or recognized in the store as the “identity aspiration” Arc for this season, but this is a semantic convention rather than a new schema field.
-
+  - The onboarding Goal should be linked to the onboarding Arc through the existing `Goal.arcId` relationship.

@@ -86,7 +86,7 @@
         "RCT_NEW_ARCH_ENABLED": "1",
         "KWILT_APP_ENV": "production",
         "KWILT_ENABLE_APP_GROUPS": "1",
-        "KWILT_ENABLE_SCREEN_TIME": "1",
+        "KWILT_ENABLE_SCREEN_TIME": "0",
         "KWILT_ENABLE_WIDGETS": "1",
         "AUTH_BRAND_ORIGIN": "https://auth.kwilt.app",
         "SUPABASE_URL": "https://auth.kwilt.app",

@@ -1296,6 +1296,7 @@ export function GoalDetailScreen() {
   const shouldShowPostGoalPlanGuide =
     goal?.id != null &&
     goal.id === pendingPostGoalPlanGuideGoalId &&
+    goal.id !== lastOnboardingGoalId &&
     !(dismissedPostGoalPlanGuideGoalIds ?? {})[goal.id] &&
     isPlanEmpty &&
     !showFirstGoalCelebration &&
@@ -1304,11 +1305,12 @@ export function GoalDetailScreen() {
 
   useEffect(() => {
     if (!goal?.id) return;
+    if (goal.id === lastOnboardingGoalId) return;
     if (goal.id !== pendingPostGoalPlanGuideGoalId) return;
     if (hasAutoSwitchedToPlanRef.current) return;
     hasAutoSwitchedToPlanRef.current = true;
     setShouldPromptAddActivity(true);
-  }, [goal?.id, pendingPostGoalPlanGuideGoalId]);
+  }, [goal?.id, lastOnboardingGoalId, pendingPostGoalPlanGuideGoalId]);
 
   const isAnyBottomGuideVisible =
     shouldShowPostGoalPlanGuide ||
@@ -1827,13 +1829,22 @@ export function GoalDetailScreen() {
 
   useEffect(() => {
     if (!goal) return;
+    const hasStarterPlanFromOnboarding =
+      lastOnboardingGoalId && goal.id === lastOnboardingGoalId && goalActivities.length > 0;
+    if (hasStarterPlanFromOnboarding) return;
     const isOnboardingGoal =
       lastOnboardingGoalId && goal.id === lastOnboardingGoalId && !hasSeenFirstGoalCelebration;
     const isPendingCelebration = pendingGoalCelebrationId && goal.id === pendingGoalCelebrationId;
     if (isOnboardingGoal || isPendingCelebration) {
       setShowFirstGoalCelebration(true);
     }
-  }, [goal, lastOnboardingGoalId, hasSeenFirstGoalCelebration, pendingGoalCelebrationId]);
+  }, [
+    goal,
+    goalActivities.length,
+    lastOnboardingGoalId,
+    hasSeenFirstGoalCelebration,
+    pendingGoalCelebrationId,
+  ]);
 
   const startDateLabel = goal?.startDate
     ? new Date(goal.startDate).toLocaleDateString(undefined, {
@@ -2612,7 +2623,8 @@ export function GoalDetailScreen() {
       >
         <Heading variant="sm">Your first plan is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          Great — you've got to-dos to start with. Open one and schedule it so it actually happens.
+          Kwilt added a starter To-do so this Goal already has a next move. Open it to make the
+          step real.
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button

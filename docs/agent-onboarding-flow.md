@@ -4,7 +4,7 @@
 - Capture how the chat-based Agent surface orchestrates declarative components while keeping LOMO’s app shell + canvas hierarchy intact.
 - Provide a reference FTUE that engineering, design, and prompt authors can point to when wiring the onboarding experience.
 - Describe the **system design** for the shared Agent surface in a way that matches the current implementation (`AgentWorkspace`, workflows, and the agent component catalog).
-- Point to the **gold-standard identity Arc FTUE spec** in `docs/arc-aspiration-ftue.md` for what the onboarding flow should ultimately produce (a single, high-quality identity Arc).
+- Point to the **gold-standard FTUX spec** in `docs/arc-aspiration-ftue.md` and `docs/feature-briefs/ftux-goal-arc-onboarding.md` for what onboarding should ultimately produce: a high-quality identity Arc plus a linked first Goal.
 
 ### Agent Window as a Component-Orchestrated Surface
 - **Placement**: lives inside the canvas, under the persistent app shell (nav + contextual chrome). Never replaces the shell; instead, it occupies the canvas area that the user lands on after the splash.
@@ -46,7 +46,7 @@ The **component catalog** is represented in code by `AGENT_COMPONENT_CATALOG` in
 
 ### FTUE Flow (First-Time User Experience)
 
-> **Note:** This section describes an earlier, profile-heavy FTUE sketch. For the **current identity-first FTUE that creates a single onboarding Arc from five tap-only identity questions**, see `docs/arc-aspiration-ftue.md`. When these conflict, treat `arc-aspiration-ftue.md` as the source of truth for FTUE content and use this doc for Agent window architecture only.
+> **Note:** This section describes an earlier, profile-heavy FTUE sketch. For the **current FTUX Goal+Arc onboarding direction**, see `docs/arc-aspiration-ftue.md` and `docs/feature-briefs/ftux-goal-arc-onboarding.md`. When these conflict, treat those docs as the source of truth for FTUX content and use this doc for Agent window architecture only.
 
 In **v1 implementation**, the FTUE is driven by a workflow (`first_time_onboarding_v2`) authored in `src/domain/workflowSpecs/firstTimeOnboardingV2Spec.ts` and compiled into a `WorkflowDefinition`. `AgentWorkspace` hosts this workflow and surfaces a shared `OnboardingGuidedFlow` presenter as a **step card** beneath `AiChatPane`.
 
@@ -125,5 +125,4 @@ The JSON-based component system described below is the **future evolution** of t
 - **Analytics**: log both component render events and endpoint completion events to reconstruct drop-off.
 - **Accessibility**: ensure FormField + ActionButton components respect system fonts/colors since they sit within the canvas under the app shell.
 - **Extensibility**: when adding new onboarding fields, define the endpoint first, then extend the component registry so prompts stay stable.
-
 

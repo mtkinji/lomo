@@ -24,7 +24,7 @@ AI should appear as inline helpers (“Ask LOMO”, suggestions, rewrites), not 
 
 ### 1. First-Run Experience
 
-> **Note:** The detailed, identity-first FTUE that creates a single onboarding Arc from five tap-only identity questions is specified in `docs/arc-aspiration-ftue.md`. Treat that document as the source of truth for the current FTUE question set and Arc synthesis model; this section remains a higher-level, earlier sketch of the overall flow.
+> **Note:** The detailed FTUX direction is now Goal+Arc onboarding: start from concrete progress, synthesize the identity Arc underneath it, create both objects, and land on the Arc. Treat `docs/arc-aspiration-ftue.md` and `docs/feature-briefs/ftux-goal-arc-onboarding.md` as the source of truth for the current FTUX question set and synthesis model; this section remains a higher-level, earlier sketch of the overall flow.
 
 #### 1.1 Welcome & Lightweight Profile
 
@@ -289,5 +289,4 @@ Result: The system accumulates timestamped Activities with actual time and force
 - **Local-first, sync-ready**
   - All flows should function with purely local data.
   - Sync and AI are additive: the experience remains coherent even offline.
-
 

@@ -17,6 +17,7 @@ interface SvgFromAssetProps {
   width?: SvgXmlProps['width'];
   height?: SvgXmlProps['height'];
   style?: StyleProp<ViewStyle>;
+  color?: string;
   accessibilityLabel?: string;
 }
 
@@ -25,6 +26,7 @@ export function SvgFromAsset({
   width,
   height,
   style,
+  color,
   accessibilityLabel,
 }: SvgFromAssetProps) {
   const asset = useMemo(() => Asset.fromModule(source), [source]);
@@ -82,11 +84,14 @@ export function SvgFromAsset({
     return <View style={style} accessibilityLabel={accessibilityLabel} />;
   }
 
+  const renderedXml = color
+    ? xml.replace(/<path(?![^>]*\sfill=)/g, `<path fill="${color}"`)
+    : xml;
+
   return (
     <View style={style} accessibilityLabel={accessibilityLabel}>
-      <SvgXml xml={xml} width={width} height={height} />
+      <SvgXml xml={renderedXml} width={width} height={height} />
     </View>
   );
 }
-
 

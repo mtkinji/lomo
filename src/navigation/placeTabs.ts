@@ -14,10 +14,9 @@ export type PlaceTabConfig = {
  * These should appear in the bottom bar Place zone.
  */
 export const PLACE_TABS: PlaceTabConfig[] = [
-  { name: 'GoalsTab', label: 'Goals', icon: 'goals' },
-  { name: 'ActivitiesTab', label: 'To-dos', icon: 'activities' },
-  { name: 'PlanTab', label: 'Plan', icon: 'plan' },
-  { name: 'MoreTab', label: 'More', icon: 'more' },
+  { name: 'GoalsTab', label: 'Goals', icon: 'navGoals' },
+  { name: 'ActivitiesTab', label: 'To-dos', icon: 'navActivities' },
+  { name: 'PlanTab', label: 'Plan', icon: 'navPlan' },
+  { name: 'MoreTab', label: 'More', icon: 'navMore' },
 ];
-
 

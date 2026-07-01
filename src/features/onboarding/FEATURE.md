@@ -11,6 +11,7 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - ai-proxy-and-quotas
+  - ftux-goal-arc-onboarding
   - growth-evangelism-shared-goals
 status: shipped
 last_reviewed: 2026-05-09
