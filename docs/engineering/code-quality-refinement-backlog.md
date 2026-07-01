@@ -41,8 +41,9 @@ Prioritize by compounding leverage per unit of risk:
   - Result: `supabase/functions/chapters-generate/chapterOpenAiRequest.ts` with Deno tests for request-body policy.
   - Risk: medium
 
-- [ ] Extract store UI preference slice helpers
+- [x] Extract store UI preference slice helpers
   - Area: `src/store/useAppStore.ts`
   - Why: central store remains high-blast-radius; UI preferences are lower-risk than domain mutations.
   - Ideal test: existing store lifecycle/export tests plus focused helper tests if logic emerges.
+  - Result: `src/store/uiPreferences.ts` with focused tests for Quick Add AI action preference normalization.
   - Risk: low to medium
