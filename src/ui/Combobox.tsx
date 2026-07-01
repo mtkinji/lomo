@@ -24,6 +24,8 @@ import { UnderKeyboardDrawer } from './UnderKeyboardDrawer';
 
 const MAX_MENU_HEIGHT = 1000; // Large enough to fill any screen up to the 90% cap.
 const MIN_MENU_HEIGHT = 480; // Generous minimum to ensure the drawer always feels "high enough".
+const MIN_POPOVER_LIST_HEIGHT = 120;
+const SEARCH_CHROME_HEIGHT = 56;
 // When the keyboard is about to open due to the combobox search autofocus,
 // we used to scroll the trigger field up. However, with a 90% height drawer,
 // the trigger is always covered, so we skip the background scrolling to
@@ -233,8 +235,10 @@ export function Combobox({
       const preferBottom = spaceBelow >= minComfortSpace || spaceBelow >= spaceAbove;
       const available = preferBottom ? spaceBelow : spaceAbove;
 
-      // Clamp overall menu height so it never tucks behind the keyboard.
-      const maxHeight = Math.max(MIN_MENU_HEIGHT, Math.min(available, MAX_MENU_HEIGHT));
+      // Clamp popover height to the available viewport. Drawers use their own
+      // generous minimum; popovers must stay small enough that the internal list
+      // can scroll instead of pushing rows off-screen.
+      const maxHeight = Math.max(MIN_POPOVER_LIST_HEIGHT, Math.min(available, MAX_MENU_HEIGHT));
 
       // Even after clamping, the anchor-based positioning can still land the menu
       // partially behind the keyboard on some platforms (portal positioning +
@@ -324,9 +328,10 @@ export function Combobox({
     return [recommendedResolved, ...rest];
   }, [filtered, recommendedResolved]);
 
-  // Keep the list scrollable while respecting the overall maxHeight.
-  // (Search row + divider consume some vertical space.)
-  const listMaxHeight = Math.max(120, placement.maxHeight - 56);
+  // Keep the list scrollable while respecting the overall maxHeight. Only
+  // subtract search chrome when it is actually rendered.
+  const listChromeHeight = showSearch ? SEARCH_CHROME_HEIGHT : 0;
+  const listMaxHeight = Math.max(MIN_POPOVER_LIST_HEIGHT, placement.maxHeight - listChromeHeight);
   const shouldAutoFocusSearch = resolvedPresentation === 'drawer'; // Re-enable autofocus for better UX in the tall drawer.
   const minPopoverWidth = 240;
   const maxPopoverWidth = 320;
@@ -692,13 +697,12 @@ const styles = StyleSheet.create({
     // Note: avoid overflow:'hidden' here as it can clip the menu shadow on some platforms
   },
   drawerCommand: {
-    // BottomDrawer already provides its own rounded shell + padding.
-    // We keep this flexible so UnderKeyboardDrawer can measure the content.
-    minHeight: MIN_MENU_HEIGHT,
+    flex: 1,
+    minHeight: 0,
   },
   drawerList: {
-    // We let the list grow naturally so UnderKeyboardDrawer can measure it.
-    // The capping is handled by UnderKeyboardDrawer's snapPoints and maxVisibleContentHeightPx.
+    flex: 1,
+    minHeight: 0,
   },
   command: {
     padding: 0,
@@ -788,5 +792,3 @@ const styles = StyleSheet.create({
     borderColor: colors.aiBorder,
   },
 });
-
-
