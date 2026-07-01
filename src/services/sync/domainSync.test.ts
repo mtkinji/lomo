@@ -15,6 +15,13 @@ const mockSelectQueues: Record<TableName, QueuedSelectResult[]> = {
   kwilt_activities: [],
 };
 
+const mockRealtimeHandlers: Array<{
+  event: string;
+  config: Record<string, unknown>;
+  callback: (payload: any) => void;
+}> = [];
+const mockRemoveChannel = jest.fn();
+
 const defaultEmptyResult = (): SelectResult => ({ data: [], error: null });
 
 const mockNextSelectResult = (table: TableName): Promise<SelectResult> => {
@@ -25,6 +32,16 @@ const mockNextSelectResult = (table: TableName): Promise<SelectResult> => {
 
 jest.mock('../backend/supabaseClient', () => ({
   getSupabaseClient: jest.fn(() => ({
+    channel: jest.fn(() => ({
+      on: jest.fn(function on(event: string, config: Record<string, unknown>, callback: (payload: any) => void) {
+        mockRealtimeHandlers.push({ event, config, callback });
+        return this;
+      }),
+      subscribe: jest.fn(function subscribe() {
+        return this;
+      }),
+    })),
+    removeChannel: mockRemoveChannel,
     from: jest.fn((table: TableName) => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => mockNextSelectResult(table)),
@@ -145,6 +162,8 @@ describe('domainSync account transitions', () => {
     mockSelectQueues.kwilt_arcs = [];
     mockSelectQueues.kwilt_goals = [];
     mockSelectQueues.kwilt_activities = [];
+    mockRealtimeHandlers.length = 0;
+    mockRemoveChannel.mockClear();
   });
 
   afterEach(() => {
@@ -329,6 +348,40 @@ describe('domainSync account transitions', () => {
     expect(state.domainSyncError).toBeNull();
     expect(state.domainSyncRemoteCounts).toEqual({ arcs: 0, goals: 0, activities: 1 });
     expect(state.activities.map((a) => a.id)).toEqual(['recovered-act']);
+  });
+
+  it('pulls and merges when realtime reports a remote activity change', async () => {
+    const initialActivity = activity({ id: 'initial-act' });
+    queueRemote({ activities: [initialActivity] });
+
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' } as any);
+
+    await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
+
+    const realtimeActivity = activity({
+      id: 'mcp-act',
+      title: 'Created from MCP',
+      updatedAt: new Date('2026-01-15T12:01:00.000Z').toISOString(),
+    });
+    queueRemote({ activities: [initialActivity, realtimeActivity] });
+
+    const activityHandler = mockRealtimeHandlers.find((handler) => handler.config.table === 'kwilt_activities');
+    expect(activityHandler).toBeTruthy();
+    expect(activityHandler?.config).toMatchObject({
+      event: '*',
+      schema: 'public',
+      table: 'kwilt_activities',
+      filter: 'user_id=eq.user-a',
+    });
+
+    activityHandler?.callback({ eventType: 'INSERT', new: row(realtimeActivity), old: null });
+
+    await waitForStore(() => useAppStore.getState().activities.some((item) => item.id === 'mcp-act'));
+
+    const state = useAppStore.getState();
+    expect(state.domainSyncStatus).toBe('ready');
+    expect(state.activities.map((item) => item.id).sort()).toEqual(['initial-act', 'mcp-act']);
   });
 
   it('resetPrevIds clears all tracked ID sets', () => {

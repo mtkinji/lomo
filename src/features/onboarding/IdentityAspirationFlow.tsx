@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   View,
-  Alert,
   Keyboard,
   TextInput,
 } from 'react-native';
@@ -25,9 +24,9 @@ import { sendCoachChat, type CoachChatOptions, type CoachChatTurn } from '../../
 import { generateArcBannerVibeQuery } from '../../services/ai';
 import { HapticsService } from '../../services/HapticsService';
 import { searchUnsplashPhotos, trackUnsplashDownload, UnsplashError, withUnsplashReferral } from '../../services/unsplash';
-import { useAppStore } from '../../store/useAppStore';
+import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import type { Arc } from '../../domain/types';
+import type { Activity, Arc, Goal } from '../../domain/types';
 import { canCreateArc } from '../../domain/limits';
 import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
 import type {
@@ -57,11 +56,17 @@ import {
   WHY_NOW_OPTIONS,
 } from '@kwilt/arc-survey';
 import {
-  ARC_CREATION_SURVEY_COPY,
-  ARC_CREATION_SURVEY_STEP_ORDER,
+  FTUX_GOAL_ARC_SURVEY_COPY,
+  FTUX_GOAL_ARC_SURVEY_STEP_ORDER,
   buildArcGenerationInputFromSurveyV2,
+  buildFtuxGoalArcGenerationInput,
+  buildFtuxGoalDraftFromSurvey,
   driftPatternOptions,
+  ftuxCategoryOptions,
+  ftuxMotivationOptions,
   getHowThisShowsUpOptions,
+  goalShapeOptions,
+  identityBridgeOptions,
   identityDirectionOptions,
   personalTextureToneOptions,
   practiceStyleOptions,
@@ -70,7 +75,12 @@ import {
   type ArcSurveyOption,
   type ArcSurveyV2Response,
   type DriftPatternKey,
+  type FtuxCategoryKey,
+  type FtuxGoalArcSurveyResponse,
+  type FtuxMotivationKey,
+  type GoalShapeKey,
   type HowThisShowsUpOption,
+  type IdentityBridgeKey,
   type IdentityDirectionKey,
   type PersonalTextureTonePreference,
   type PracticeStyleKey,
@@ -374,6 +384,11 @@ const TWEAK_OPTIONS: ChoiceOption[] = [
 ];
 
 type Phase =
+  | 'category'
+  | 'concreteFocus'
+  | 'goalShape'
+  | 'identityBridge'
+  | 'resistance'
   | 'identityDirection'
   | 'primaryArena'
   | 'howThisShowsUpSeeds'
@@ -406,7 +421,7 @@ type Phase =
   | 'reveal'
   | 'tweak';
 
-const FIRST_TIME_ONBOARDING_SURVEY_PHASES: Phase[] = ARC_CREATION_SURVEY_STEP_ORDER;
+const FTUX_GOAL_ARC_SURVEY_PHASES: Phase[] = FTUX_GOAL_ARC_SURVEY_STEP_ORDER;
 
 function findSurveyOption<TKey extends string>(
   options: Array<ArcSurveyOption<TKey>>,
@@ -418,6 +433,37 @@ function findSurveyOption<TKey extends string>(
 
 function selectedSurveyCustomTextRequired(options: ArcSurveyOption[], selectedKeys: string[]) {
   return selectedKeys.some((key) => options.find((option) => option.key === key)?.allowsCustomText);
+}
+
+function normalizeFtuxGeneratedText(text: string): string {
+  return text
+    .replace(/\\([.,!?;:])/g, '$1')
+    .replace(/\\/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeFtuxFocus(input: string): string {
+  const cleaned = normalizeFtuxGeneratedText(input).replace(/[.!?]+$/g, '').trim();
+  const patterns = [
+    /^i\s+(?:want|wanna|would like|would love)\s+to\s+(?:get better at|improve at|improve in|improve|learn|practice|make progress on|work on)\s+(.+)$/i,
+    /^i\s+(?:want|wanna|would like|would love)\s+to\s+be\s+better\s+at\s+(.+)$/i,
+    /^to\s+(?:get better at|improve at|improve in|improve|learn|practice|make progress on|work on)\s+(.+)$/i,
+    /^(?:get better at|improve at|improve in|learn|practice|make progress on|work on)\s+(.+)$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    const candidate = normalizeFtuxGeneratedText(match?.[1] ?? '').replace(/[.!?]+$/g, '').trim();
+    if (candidate) return candidate;
+  }
+
+  return cleaned;
+}
+
+function lowerFirst(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toLowerCase() + value.slice(1);
 }
 
 /**
@@ -435,15 +481,18 @@ export function IdentityAspirationFlow({
 }: IdentityAspirationFlowProps) {
   const workflowRuntime = useWorkflowRuntime();
   const addArc = useAppStore((state) => state.addArc);
+  const addGoal = useAppStore((state) => state.addGoal);
+  const addActivity = useAppStore((state) => state.addActivity);
   const setLastOnboardingArcId = useAppStore((state) => state.setLastOnboardingArcId);
+  const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
+  const dismissPostGoalPlanGuideForGoal = useAppStore((state) => state.dismissPostGoalPlanGuideForGoal);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
   const userProfile = useAppStore((state) => state.userProfile);
 
   const [phase, setPhase] = useState<Phase>(
-    mode === 'reuseIdentityForNewArc' ? 'identityDirection' : 'identityDirection',
+    mode === 'reuseIdentityForNewArc' ? 'identityDirection' : 'concreteFocus',
   );
   const [surveyStepIndex, setSurveyStepIndex] = useState(0);
-  const [hasSubmittedFirstTimeSurvey, setHasSubmittedFirstTimeSurvey] = useState(false);
   const [introPlayed, setIntroPlayed] = useState(false);
   const [introIndex, setIntroIndex] = useState(0);
   const [lastIntroStreamedIndex, setLastIntroStreamedIndex] = useState<number | null>(null);
@@ -454,6 +503,9 @@ export function IdentityAspirationFlow({
   // Track which intro index (if any) is currently streaming so we don't start
   // multiple overlapping streams of the same message when this effect re-runs.
   const introStreamingIndexRef = useRef<number | null>(null);
+  const introStartedIndexesRef = useRef<Set<number>>(new Set());
+  const introFallbackTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+  const hasBegunFtuxSurveyRef = useRef(false);
   const [hasStreamedDreamsIntroCopy, setHasStreamedDreamsIntroCopy] = useState(false);
 
   const [domainIds, setDomainIds] = useState<string[]>([]);
@@ -486,6 +538,15 @@ export function IdentityAspirationFlow({
   const [practiceStyleKey, setPracticeStyleKey] = useState<PracticeStyleKey | null>(null);
   const [personalTextureText, setPersonalTextureText] = useState('');
   const [tonePreferences, setTonePreferences] = useState<PersonalTextureTonePreference[]>([]);
+  const [ftuxCategoryKey, setFtuxCategoryKey] = useState<FtuxCategoryKey | null>(null);
+  const [ftuxCategoryCustomText, setFtuxCategoryCustomText] = useState('');
+  const [concreteFocusText, setConcreteFocusText] = useState('');
+  const [goalShapeKey, setGoalShapeKey] = useState<GoalShapeKey | null>(null);
+  const [goalShapeCustomText, setGoalShapeCustomText] = useState('');
+  const [ftuxMotivationKey, setFtuxMotivationKey] = useState<FtuxMotivationKey | null>(null);
+  const [ftuxMotivationCustomText, setFtuxMotivationCustomText] = useState('');
+  const [identityBridgeKey, setIdentityBridgeKey] = useState<IdentityBridgeKey | null>(null);
+  const [identityBridgeCustomText, setIdentityBridgeCustomText] = useState('');
   // Use a stable, per-session id for the draft Arc so that the preview card
   // and the eventually-created Arc share the same visual seed (gradient,
   // thumbnail variants, etc.).
@@ -493,6 +554,11 @@ export function IdentityAspirationFlow({
   const [nickname, setNickname] = useState('');
 
   const [aspiration, setAspiration] = useState<AspirationPayload | null>(null);
+  const [onboardingGoalDraft, setOnboardingGoalDraft] = useState<{
+    title: string;
+    description: string;
+    firstActivitySuggestion: string;
+  } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [arcInsights, setArcInsights] = useState<ArcDevelopmentInsights | null>(null);
@@ -503,76 +569,17 @@ export function IdentityAspirationFlow({
   } | null>(null);
   const arcGenerationRunIdRef = useRef(0);
   const arcHeroPrefetchRunIdRef = useRef(0);
-  const [isSurveySummaryExpanded, setIsSurveySummaryExpanded] = useState(false);
-  const surveyAnswersAnim = useRef(new Animated.Value(0)).current;
-  const [surveyAnswersContentHeight, setSurveyAnswersContentHeight] = useState(0);
+  const hasAutoCompletedFtuxArcRef = useRef(false);
+  const surveySelectionAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    Animated.timing(surveyAnswersAnim, {
-      toValue: isSurveySummaryExpanded ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: false,
-    }).start();
-  }, [isSurveySummaryExpanded, surveyAnswersAnim]);
-
-  const ReviewAnswersPanel = useCallback(
-    (props: {
-      expanded: boolean;
-      onToggle: () => void;
-      lines: Array<{ label: string; value: string }>;
-    }) => {
-      const { expanded, onToggle, lines } = props;
-      const height = surveyAnswersAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, surveyAnswersContentHeight],
-      });
-      const opacity = surveyAnswersAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 1],
-      });
-
-      return (
-        <View style={styles.reviewPanel}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={expanded ? 'Hide answers' : 'Review answers'}
-            onPress={() => {
-              void HapticsService.trigger('canvas.selection');
-              onToggle();
-            }}
-            style={styles.reviewPanelHeader}
-          >
-            <Text style={styles.reviewPanelTitle}>Review answers</Text>
-            <Icon
-              name={expanded ? 'chevronUp' : 'chevronDown'}
-              size={18}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-
-          <Animated.View style={[styles.reviewPanelBody, { height, opacity }]}>
-            <View
-              onLayout={(e) => {
-                const next = Math.ceil(e.nativeEvent.layout.height);
-                if (next > 0 && next !== surveyAnswersContentHeight) {
-                  setSurveyAnswersContentHeight(next);
-                }
-              }}
-              style={styles.reviewPanelBodyInner}
-            >
-              {lines.map((row) => (
-                <View key={row.label} style={styles.reviewRow}>
-                  <Text style={styles.summaryLabel}>{row.label}</Text>
-                  <Text style={styles.summaryValue}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        </View>
-      );
+  useEffect(
+    () => () => {
+      if (surveySelectionAdvanceTimeoutRef.current) {
+        clearTimeout(surveySelectionAdvanceTimeoutRef.current);
+        surveySelectionAdvanceTimeoutRef.current = null;
+      }
     },
-    [surveyAnswersAnim, surveyAnswersContentHeight]
+    []
   );
 
   const [identitySignature, setIdentitySignature] = useState<Record<IdentityTag, number>>(
@@ -678,21 +685,87 @@ export function IdentityAspirationFlow({
     whyNowKey,
   ]);
 
+  const buildFtuxGoalArcSurveyResponse = useCallback((): FtuxGoalArcSurveyResponse | null => {
+    const focus = concreteFocusText.trim();
+    const category = findSurveyOption(ftuxCategoryOptions, ftuxCategoryKey);
+    const goalShape = findSurveyOption(goalShapeOptions, goalShapeKey);
+    const ftuxMotivation = findSurveyOption(ftuxMotivationOptions, ftuxMotivationKey);
+    const identityBridge = findSurveyOption(identityBridgeOptions, identityBridgeKey);
+
+    if (!focus || !category || !goalShape || !ftuxMotivation || !identityBridge) {
+      return null;
+    }
+    if (category.allowsCustomText && !ftuxCategoryCustomText.trim()) return null;
+    if (goalShape.allowsCustomText && !goalShapeCustomText.trim()) return null;
+    if (ftuxMotivation.allowsCustomText && !ftuxMotivationCustomText.trim()) return null;
+    if (identityBridge.allowsCustomText && !identityBridgeCustomText.trim()) return null;
+
+    const personalTexture =
+      personalTextureText.trim().length > 0 || tonePreferences.length > 0
+        ? {
+            ...(personalTextureText.trim() ? { freeText: personalTextureText.trim() } : {}),
+            ...(tonePreferences.length > 0 ? { tonePreferences } : {}),
+          }
+        : undefined;
+
+    return {
+      version: 3,
+      category: {
+        key: category.key,
+        label: category.label,
+        generationMeaning: category.generationMeaning,
+        ...(category.allowsCustomText ? { customText: ftuxCategoryCustomText.trim() } : {}),
+      },
+      concreteFocus: focus,
+      goalShape: {
+        key: goalShape.key,
+        label: goalShape.label,
+        generationMeaning: goalShape.generationMeaning,
+        ...(goalShape.allowsCustomText ? { customText: goalShapeCustomText.trim() } : {}),
+      },
+      motivation: {
+        key: ftuxMotivation.key,
+        label: ftuxMotivation.label,
+        generationMeaning: ftuxMotivation.generationMeaning,
+        ...(ftuxMotivation.allowsCustomText ? { customText: ftuxMotivationCustomText.trim() } : {}),
+      },
+      identityBridge: {
+        key: identityBridge.key,
+        label: identityBridge.label,
+        generationMeaning: identityBridge.generationMeaning,
+        ...(identityBridge.allowsCustomText ? { customText: identityBridgeCustomText.trim() } : {}),
+      },
+      ...(personalTexture ? { personalTexture } : {}),
+    };
+  }, [
+    concreteFocusText,
+    ftuxCategoryCustomText,
+    ftuxCategoryKey,
+    ftuxMotivationCustomText,
+    ftuxMotivationKey,
+    goalShapeCustomText,
+    goalShapeKey,
+    identityBridgeCustomText,
+    identityBridgeKey,
+    personalTextureText,
+    tonePreferences,
+  ]);
+
   const setSurveyPhaseByIndex = useCallback(
     (index: number) => {
       const bounded = Math.max(
         0,
-        Math.min(index, FIRST_TIME_ONBOARDING_SURVEY_PHASES.length - 1)
+        Math.min(index, FTUX_GOAL_ARC_SURVEY_PHASES.length - 1)
       );
       setSurveyStepIndex(bounded);
-      setPhase(FIRST_TIME_ONBOARDING_SURVEY_PHASES[bounded] ?? 'identityDirection');
+      setPhase(FTUX_GOAL_ARC_SURVEY_PHASES[bounded] ?? 'category');
     },
     []
   );
 
   useEffect(() => {
     if (!isFirstTimeOnboarding) return;
-    const idx = FIRST_TIME_ONBOARDING_SURVEY_PHASES.indexOf(phase);
+    const idx = FTUX_GOAL_ARC_SURVEY_PHASES.indexOf(phase);
     if (idx === -1) return;
     if (idx === surveyStepIndex) return;
     setSurveyStepIndex(idx);
@@ -815,26 +888,6 @@ export function IdentityAspirationFlow({
   const vocation = formatSelectionLabels(vocationIds, VOCATION_OPTIONS);
   const bigDreams =
     dreamInput.trim().length > 0 ? [dreamInput.trim()] : [];
-
-  const surveySummaryLines = useMemo(() => {
-    const safe = (value: string) => value.trim();
-    const roleModelTypeLabel = labelForArchetype(ARCHETYPE_ROLE_MODEL_TYPES, roleModelTypeId) ?? '';
-    const admiredLabels = admiredQualityIds
-      .map((id) => labelForArchetype(ARCHETYPE_ADMIRED_QUALITIES, id))
-      .filter((l): l is string => Boolean(l))
-      .join(', ');
-
-    const rows: Array<{ label: string; value: string }> = [
-      { label: 'Big dream', value: safe(dreamInput) },
-      { label: 'Growth lane', value: safe(domain) },
-      { label: 'Quietly proud moment', value: safe(proudMoment) },
-      { label: 'Motivation', value: safe(motivation) },
-      { label: 'Role models', value: safe(roleModelTypeLabel) },
-      { label: 'Admired qualities', value: safe(admiredLabels) },
-    ];
-
-    return rows.filter((r) => r.value.length > 0);
-  }, [admiredQualityIds, domain, dreamInput, motivation, proudMoment, roleModelTypeId]);
 
   const canGenerate =
     domainIds.length > 0 &&
@@ -1149,6 +1202,64 @@ export function IdentityAspirationFlow({
       nextSmallStep,
     };
   };
+
+  const buildLocalFtuxAspirationFallback = useCallback((): AspirationPayload | null => {
+    const response = buildFtuxGoalArcSurveyResponse();
+    if (!response) return null;
+
+    const focus = normalizeFtuxFocus(response.concreteFocus);
+    const identityLabel = normalizeFtuxGeneratedText(
+      response.identityBridge.customText?.trim() || response.identityBridge.label
+    );
+    const motivationLabel = normalizeFtuxGeneratedText(
+      response.motivation.customText?.trim() || response.motivation.label
+    );
+    const goalDraft = buildFtuxGoalDraftFromSurvey(response);
+    const signalText = `${focus} ${identityLabel}`.toLowerCase();
+    const identityClause = identityLabel.replace(/^someone\s+who\s+/i, 'someone who ');
+    const lowerFocus = lowerFirst(focus);
+    const lowerMotivation = lowerFirst(motivationLabel);
+
+    const arcName =
+      /\b(tennis|basketball|soccer|football|baseball|sport|athlete|training|practice|court|field)\b/.test(
+        signalText
+      )
+        ? 'Steady Competitor'
+        : response.identityBridge.key === 'practice_growth'
+          ? 'Practice Builder'
+          : response.identityBridge.key === 'steady_when_hard'
+            ? 'Steady Under Pressure'
+            : response.identityBridge.key === 'recover_setbacks'
+              ? 'Resilient Return'
+              : response.identityBridge.key === 'responsibility'
+                ? 'Responsible Steward'
+                : response.identityBridge.key === 'present_with_people'
+                  ? 'Present With People'
+                  : response.identityBridge.key === 'live_values'
+                    ? 'Values In Motion'
+            : 'Steady Show-Up';
+
+    const aspirationSentence =
+      /\b(tennis|basketball|soccer|football|baseball|sport|athlete|training|practice|court|field)\b/.test(
+        signalText
+      )
+        ? [
+            `You are becoming a player who treats ${lowerFocus} as a place to practice focus, patience, and belief.`,
+            `What matters is not only getting better, but learning how you improve when the game asks more of you.`,
+            `Progress looks like practicing one part of your game, noticing what changed, and carrying yourself like someone who is learning to compete.`,
+          ].join(' ')
+        : [
+            `You are becoming ${lowerFirst(identityClause)} through ${lowerFocus}.`,
+            `This matters because ${lowerMotivation}, and the work gives that part of you somewhere real to grow.`,
+            `Progress looks like choosing one honest rep, noticing what changed, and returning as the kind of person you are trying to become.`,
+          ].join(' ');
+
+    return {
+      arcName,
+      aspirationSentence,
+      nextSmallStep: goalDraft.firstActivitySuggestion,
+    };
+  }, [buildFtuxGoalArcSurveyResponse]);
 
   const buildLocalInsightsFallback = (): ArcDevelopmentInsights | null => {
     if (!aspiration) {
@@ -1554,15 +1665,26 @@ export function IdentityAspirationFlow({
       const runId = (arcGenerationRunIdRef.current += 1);
       setIsGenerating(true);
       setError(null);
+      hasAutoCompletedFtuxArcRef.current = false;
       // New draft => new banner vibe.
       setPrefetchedArcHero(null);
       arcHeroPrefetchRunIdRef.current += 1;
 
-      const surveyV2Response = buildFirstTimeSurveyV2Response();
+      const ftuxResponse = isFirstTimeOnboarding ? buildFtuxGoalArcSurveyResponse() : null;
+      const ftuxInput = ftuxResponse ? buildFtuxGoalArcGenerationInput(ftuxResponse) : null;
+      if (ftuxInput) {
+        setOnboardingGoalDraft(ftuxInput.goalDraft);
+      }
+      const surveyV2Response = ftuxInput ? null : buildFirstTimeSurveyV2Response();
       const surveyV2Input = surveyV2Response ? buildArcGenerationInputFromSurveyV2(surveyV2Response) : null;
       // Survey v2 is the preferred source. Keep the legacy summary as fallback
       // for old payloads and partially completed sessions.
-      const inputsSummaryLines = surveyV2Input
+      const inputsSummaryLines = ftuxInput
+        ? [
+            'FTUX Goal+Arc Survey v3 structured response:',
+            ftuxInput.additionalContext,
+          ]
+        : surveyV2Input
         ? [
             'Arc Survey v2 structured response:',
             surveyV2Input.additionalContext,
@@ -1601,7 +1723,7 @@ export function IdentityAspirationFlow({
         }
       }
       // Optional: nickname still supported, but not part of the minimal required set.
-      if (!surveyV2Input && nickname.trim()) {
+      if (!ftuxInput && !surveyV2Input && nickname.trim()) {
         inputsSummaryLines.push(`optional nickname: ${nickname.trim()}`);
       }
       if (tweakHint) {
@@ -1632,9 +1754,19 @@ export function IdentityAspirationFlow({
           '',
           'Your job is to generate:',
           '1. Arc.name — a short, stable identity direction label (1–3 words, emoji optional)',
-          '2. Arc.narrative — a 3-sentence, first-person description of what they want to grow toward in this Arc.',
+          '2. Arc.narrative — a 3-sentence, second-person description of what they want to grow toward in this Arc.',
           '',
           'Your outputs must be readable and useful to both a 14-year-old and a 41-year-old.',
+          '',
+          ftuxInput
+            ? [
+                'For this FTUX Goal+Arc flow:',
+                '- The user may have typed a plain goal sentence like "I want to get better at Tennis." Do not paste that sentence into the Arc.',
+                '- Use the interpreted focus and choices to infer the target identity.',
+                '- The Arc should feel like a named aspiration the user can recognize, not a recap of survey answers.',
+                '- The Goal can be practical and near-term; the Arc should be more durable, memorable, and identity-based.',
+              ].join('\n')
+            : null,
           '',
           // Hybrid paradigm: align FTUE generation with our rubric targets.
           // Even though FTUE collects more than the "minimal essentials", we still optimize for:
@@ -1751,7 +1883,7 @@ export function IdentityAspirationFlow({
           '',
           'Inputs:',
           `- ${inputsSummary}`,
-        ];
+        ].filter((line): line is string => Boolean(line));
 
         if (conversationSnapshot && conversationSnapshot.trim().length > 0) {
           lines.push(
@@ -1895,7 +2027,9 @@ export function IdentityAspirationFlow({
           console.warn(
             '[onboarding] Aspiration JSON parse failed across attempts, falling back to local synthesis'
           );
-          const fallback = buildLocalAspirationFallback();
+          const fallback = ftuxInput
+            ? buildLocalFtuxAspirationFallback()
+            : buildLocalAspirationFallback();
           if (!fallback) {
             throw new Error('Unable to build local aspiration fallback.');
           }
@@ -1915,7 +2049,9 @@ export function IdentityAspirationFlow({
 
         // If we have a best candidate but never reached the quality threshold,
         // prefer a local fallback when available so users don't see very weak drafts.
-        const fallback = buildLocalAspirationFallback();
+        const fallback = ftuxInput
+          ? buildLocalFtuxAspirationFallback()
+          : buildLocalAspirationFallback();
         if (fallback) {
           console.warn(
             '[onboarding] Identity Arc best candidate below quality threshold, using local fallback instead',
@@ -1967,7 +2103,9 @@ export function IdentityAspirationFlow({
     },
     [
       buildConversationSnapshotFromTimeline,
+      buildFtuxGoalArcSurveyResponse,
       buildFirstTimeSurveyV2Response,
+      buildLocalFtuxAspirationFallback,
       canGenerate,
       draftArcId,
       domain,
@@ -1985,6 +2123,7 @@ export function IdentityAspirationFlow({
       workflowRuntime,
       scoreAspirationQuality,
       buildLocalAspirationFallback,
+      isFirstTimeOnboarding,
     ]
   );
 
@@ -2044,6 +2183,71 @@ export function IdentityAspirationFlow({
   }));
 
     addArc(arc);
+    if (isFirstTimeOnboarding && onboardingGoalDraft) {
+      const goalId = `goal-onboarding-${Date.now()}`;
+      const goal: Goal = {
+        id: goalId,
+        arcId: arc.id,
+        title: onboardingGoalDraft.title,
+        description: onboardingGoalDraft.description,
+        status: 'in_progress',
+        qualityState: 'draft',
+        startDate: nowIso,
+        targetDate: undefined,
+        forceIntent: {},
+        metrics: [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      addGoal(goal);
+      setLastOnboardingGoalId(goal.id);
+      dismissPostGoalPlanGuideForGoal(goal.id);
+
+      const starterTodoTitle =
+        onboardingGoalDraft.firstActivitySuggestion.trim() || `Take one small step for ${goal.title}`;
+      const activity: Activity = {
+        id: `activity-onboarding-${Date.now()}`,
+        goalId: goal.id,
+        title: starterTodoTitle,
+        type: 'task',
+        tags: [],
+        notes: `Starter To-do for ${goal.title}.`,
+        steps: [],
+        attachments: [],
+        reminderAt: null,
+        priority: 1,
+        priorityState: 'active',
+        priorityRankKey: null,
+        priorityRankSource: 'auto',
+        priorityReasonCodes: ['explicit_priority', 'goal_priority'],
+        estimateMinutes: 10,
+        difficulty: 'easy',
+        creationSource: 'ai',
+        planGroupId: null,
+        scheduledDate: null,
+        scheduledAt: null,
+        calendarBinding: null,
+        repeatRule: undefined,
+        repeatCustom: undefined,
+        areaId: null,
+        schedulingDomain: null,
+        calendarId: null,
+        scheduledProvider: null,
+        scheduledProviderAccountId: null,
+        scheduledProviderCalendarId: null,
+        scheduledProviderEventId: null,
+        orderIndex: 1,
+        phase: null,
+        status: 'planned',
+        actualMinutes: null,
+        startedAt: null,
+        completedAt: null,
+        forceActual: defaultForceLevels(0),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      addActivity(activity);
+    }
     // Keep toast messaging consistent with other Arc creation surfaces.
     // Do not compete with onboarding overlays/coachmarks if they are visible.
     useToastStore.getState().showToast({
@@ -2094,6 +2298,17 @@ export function IdentityAspirationFlow({
     }
     onComplete?.();
   };
+
+  useEffect(() => {
+    if (!isFirstTimeOnboarding) return;
+    if (phase !== 'reveal') return;
+    if (!aspiration) return;
+    if (isGenerating || error) return;
+    if (hasAutoCompletedFtuxArcRef.current) return;
+
+    hasAutoCompletedFtuxArcRef.current = true;
+    handleConfirmAspiration();
+  }, [aspiration, error, isFirstTimeOnboarding, isGenerating, phase]);
 
   useEffect(() => {
     // Prefetch a real hero image as soon as we have a draft Arc (aspiration),
@@ -2173,21 +2388,31 @@ export function IdentityAspirationFlow({
     };
   }, [aspiration, draftArcId, prefetchedArcHero, userProfile?.focusAreas]);
 
-  const INTRO_MESSAGES: string[] = [
-    // Message 1 (handoff from FTUE)
-    'An Arc is one direction you want to grow — not your whole life plan. You can add more later.',
-    // Message 2 (connect Arc → Goals → Activities)
-    "Then we’ll turn it into clear **Goals** and small daily **To-dos**. I’ll use AI and behavior-change best practices to draft high-quality options, and then you’ll be able to review and tweak them anytime. (Tap “Learn more” below.)",
-    // Message 3 (lead-in to the minimal + archetype flow)
-    'Next, a few quick questions to focus on one aspiration and build your first Arc.',
-  ];
+  const INTRO_MESSAGES = useMemo(
+    () =>
+      isFirstTimeOnboarding
+        ? [
+            "We'll turn one real thing you want to make progress on into your first Goal, then connect it to an identity Arc: who you're becoming through the work. First, pick the closest fit.",
+          ]
+        : [
+            'Start with one real thing you want to make progress on. Kwilt will turn it into a first **Goal** and the longer **Arc** it belongs inside.',
+          ],
+    [isFirstTimeOnboarding]
+  );
 
   // Number of scripted intro messages we stream during the soft-start phase.
   const INTRO_MESSAGE_COUNT = INTRO_MESSAGES.length;
 
-  // Orchestrate the soft-start message as a typed assistant bubble rather than
-  // a card. When the workflow lands on `soft_start`, we stream a short
-  // sequence of intro messages and then advance to the first tap-centric card.
+  const beginFtuxSurveyFromIntro = useCallback(() => {
+    if (hasBegunFtuxSurveyRef.current) return;
+    hasBegunFtuxSurveyRef.current = true;
+    setIntroPlayed(true);
+    // Skip the next typed "dreams intro" message and show the SurveyCard immediately.
+    setHasStreamedDreamsIntroCopy(true);
+    setSurveyPhaseByIndex(0);
+    workflowRuntime?.completeStep('soft_start');
+  }, [setSurveyPhaseByIndex, workflowRuntime]);
+
   useEffect(() => {
     if (!workflowRuntime?.instance || !workflowRuntime.definition) return;
     if (workflowRuntime.instance.currentStepId !== 'soft_start') return;
@@ -2206,42 +2431,11 @@ export function IdentityAspirationFlow({
       return;
     }
 
-    // If we're already streaming this specific intro index, or we've already
-    // finished streaming it, don't start another overlapping stream. This
-    // prevents the same paragraph from appearing multiple times when React
-    // re-renders while the typing animation is in flight.
-    if (introStreamingIndexRef.current === introIndex || lastIntroStreamedIndex === introIndex) {
-      return;
-    }
-
-    if (!controller) {
-      // If we can’t stream into chat, fall back to immediately completing the
-      // step so the cards remain usable, unless the user is currently viewing
-      // the research explainer.
-      if (!showResearchExplainer) {
-        workflowRuntime.completeStep('soft_start');
-        advancePhase('domain');
-        setIntroPlayed(true);
-      }
-      return;
-    }
-
-    let cancelled = false;
-
-    // Mark this intro index as actively streaming so we avoid duplicate
-    // streams until the current one has finished (or been skipped).
-    introStreamingIndexRef.current = introIndex;
-
     if (lastIntroStreamedIndex === introIndex) {
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
-    // Reliability: ensure intro actions are eventually revealed even if the typing
-    // animation's `onDone` callback is delayed or dropped (rare, but can happen in dev).
     const approxTypingMs = (() => {
-      // AiChatScreen "types" ~2 chars / 40ms (~50 chars/sec), plus paragraph pauses.
       const base = 900;
       const perChar = 22;
       const pauseCount = (current.match(/(?:\r?\n)\s*(?:\r?\n)/g) ?? []).length;
@@ -2249,47 +2443,79 @@ export function IdentityAspirationFlow({
       return Math.max(1400, Math.min(9000, base + current.length * perChar + pauseMs));
     })();
 
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     let revealTimer: ReturnType<typeof setTimeout> | null = null;
 
     const markStreamDoneAndRevealActions = () => {
       introStreamingIndexRef.current = null;
+      const fallbackTimer = introFallbackTimersRef.current.get(introIndex);
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+        introFallbackTimersRef.current.delete(introIndex);
+      }
       setLastIntroStreamedIndex(introIndex);
-      // Set `introActionsVisibleIndex` directly (instead of relying solely on the
-      // "post-stream beat" effect above) so the buttons don't get stuck invisible
-      // (opacity=0) in dev client builds where timers/callbacks can be flaky.
+      if (isFirstTimeOnboarding) {
+        beginFtuxSurveyFromIntro();
+        return;
+      }
+      // Set `introActionsVisibleIndex` directly so the action card does not get
+      // stranded if a dev client drops or delays the typing completion callback.
       if (revealTimer) clearTimeout(revealTimer);
-      revealTimer = setTimeout(() => {
-        setIntroActionsVisibleIndex(introIndex);
-      }, 900);
+      setIntroActionsVisibleIndex(introIndex);
     };
 
-    fallbackTimer = setTimeout(() => {
-      if (cancelled) return;
-      // Force progress so the UI can proceed even if the typing animation never finishes.
-      markStreamDoneAndRevealActions();
-    }, approxTypingMs);
+    const ensureFallbackTimer = () => {
+      if (introFallbackTimersRef.current.has(introIndex)) return;
+      const timer = setTimeout(() => {
+        introFallbackTimersRef.current.delete(introIndex);
+        markStreamDoneAndRevealActions();
+      }, approxTypingMs);
+      introFallbackTimersRef.current.set(introIndex, timer);
+    };
+
+    if (!controller) {
+      if (!showResearchExplainer) {
+        if (isFirstTimeOnboarding) {
+          beginFtuxSurveyFromIntro();
+        } else {
+          workflowRuntime.completeStep('soft_start');
+          advancePhase('domain');
+          setIntroPlayed(true);
+        }
+      }
+      return;
+    }
+
+    if (introStartedIndexesRef.current.has(introIndex)) {
+      ensureFallbackTimer();
+      return;
+    }
+
+    introStartedIndexesRef.current.add(introIndex);
+    introStreamingIndexRef.current = introIndex;
+    ensureFallbackTimer();
 
     controller.streamAssistantReplyFromWorkflow(current, `assistant-soft-start-${introIndex}`, {
       onDone: () => {
-        if (cancelled) return;
-        if (fallbackTimer) {
-          clearTimeout(fallbackTimer);
-          fallbackTimer = null;
-        }
         markStreamDoneAndRevealActions();
       },
     });
 
     return () => {
-      cancelled = true;
-      if (fallbackTimer) clearTimeout(fallbackTimer);
       if (revealTimer) clearTimeout(revealTimer);
     };
-  }, [workflowRuntime, chatControllerRef, introPlayed, introIndex, lastIntroStreamedIndex]);
+  }, [
+    INTRO_MESSAGES,
+    advancePhase,
+    beginFtuxSurveyFromIntro,
+    chatControllerRef,
+    introIndex,
+    introPlayed,
+    isFirstTimeOnboarding,
+    lastIntroStreamedIndex,
+    showResearchExplainer,
+    workflowRuntime,
+  ]);
 
-  // After a message has fully streamed, wait a short beat before revealing the
-  // response actions so it feels like the agent has "finished talking".
   useEffect(() => {
     if (workflowRuntime?.instance?.currentStepId !== 'soft_start') return;
     if (lastIntroStreamedIndex === null) return;
@@ -2303,15 +2529,12 @@ export function IdentityAspirationFlow({
   }, [workflowRuntime?.instance?.currentStepId, lastIntroStreamedIndex, introActionsVisibleIndex]);
 
   const handleBeginSurvey = () => {
-    appendChatUserMessage('💪 Lets do it!');
+    appendChatUserMessage(isFirstTimeOnboarding ? FTUX_GOAL_ARC_SURVEY_COPY.introCta : "Let's do it");
     workflowRuntime?.completeStep('soft_start');
-      setIntroPlayed(true);
+    setIntroPlayed(true);
     if (isFirstTimeOnboarding) {
-      setHasSubmittedFirstTimeSurvey(false);
       // Skip the next typed "dreams intro" message and show the SurveyCard immediately.
       setHasStreamedDreamsIntroCopy(true);
-      // One-shot: autofocus the first free-response field when the survey card mounts.
-      shouldAutofocusDreamsRef.current = true;
       setSurveyPhaseByIndex(0);
     } else {
       advancePhase('domain');
@@ -2392,16 +2615,16 @@ export function IdentityAspirationFlow({
     proudMomentIds.length,
   ]);
 
-  // After the user taps "Let's do it!", autofocus the big-dream textarea (once).
+  // After the user taps "Let's do it!", autofocus the concrete focus textarea (once).
   // This avoids an extra tap and ensures the keyboard + scroll alignment lands correctly.
   useEffect(() => {
     if (!isFirstTimeOnboarding) return;
     if (!shouldAutofocusDreamsRef.current) return;
-    if (phase !== 'dreams') return;
+    if (phase !== 'concreteFocus') return;
     if (!hasStreamedDreamsIntroCopy) return;
 
-    const currentSurveyPhase = FIRST_TIME_ONBOARDING_SURVEY_PHASES[surveyStepIndex] ?? phase;
-    if (currentSurveyPhase !== 'dreams') return;
+    const currentSurveyPhase = FTUX_GOAL_ARC_SURVEY_PHASES[surveyStepIndex] ?? phase;
+    if (currentSurveyPhase !== 'concreteFocus') return;
 
     let cancelled = false;
     let attempts = 0;
@@ -2430,11 +2653,6 @@ export function IdentityAspirationFlow({
   }, [isFirstTimeOnboarding, phase, surveyStepIndex, hasStreamedDreamsIntroCopy]);
 
   const introResponseOptions: ChoiceOption[][] = [
-    [{ id: 'sounds_good', label: ARC_CREATION_SURVEY_COPY.introCta }],
-    [
-      { id: 'makes_sense', label: '✅ Got it' },
-      { id: 'learn_more', label: 'Learn more' },
-    ],
     [],
   ];
 
@@ -3640,7 +3858,6 @@ export function IdentityAspirationFlow({
 
     return (
       <>
-        {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
         <ArcListCard
           arc={skeletonArc}
           narrativeTone="strong"
@@ -3788,9 +4005,12 @@ export function IdentityAspirationFlow({
   const renderReveal = () => {
     if (!aspiration) return null;
 
+    if (isFirstTimeOnboarding) {
+      return renderGenerating();
+    }
+
     return (
       <>
-        {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
         <View style={styles.revealIntroText}>
           <Text style={styles.bodyText}>
             Here’s a draft Arc based on what you picked. You can rename
@@ -3798,6 +4018,16 @@ export function IdentityAspirationFlow({
           </Text>
         </View>
         <View style={styles.arcPreviewContainer}>{renderArcPreview()}</View>
+        {isFirstTimeOnboarding && onboardingGoalDraft ? (
+          <Card style={[styles.stepCard, styles.revealStepCard]}>
+            <View style={styles.stepBody}>
+              <Text style={styles.summaryLabel}>First Goal</Text>
+              <Heading variant="sm">{onboardingGoalDraft.title}</Heading>
+              <Text style={styles.bodyText}>{onboardingGoalDraft.description}</Text>
+              <Text style={styles.summaryValue}>{onboardingGoalDraft.firstActivitySuggestion}</Text>
+            </View>
+          </Card>
+        ) : null}
         <Card style={[styles.stepCard, styles.revealStepCard]}>
           <View style={styles.stepBody}>
             <View style={[styles.inlineActions, styles.revealInlineActions]}>
@@ -3827,7 +4057,6 @@ export function IdentityAspirationFlow({
 
   const renderTweak = () => (
     <>
-      {isFirstTimeOnboarding && hasSubmittedFirstTimeSurvey ? renderFirstTimeSurveyCompleted() : null}
       <View style={styles.arcPreviewContainer}>{renderArcPreview()}</View>
       <Card style={styles.stepCard}>
         <View style={styles.stepBody}>
@@ -3918,10 +4147,11 @@ export function IdentityAspirationFlow({
     }
 
     const responses =
-      !showResearchExplainer && introActionsVisibleIndex === introIndex
+      !isFirstTimeOnboarding && !showResearchExplainer && introActionsVisibleIndex === introIndex
         ? introResponseOptions[introIndex] ?? []
         : [];
     const shouldShowFinalGate =
+      !isFirstTimeOnboarding &&
       !showResearchExplainer &&
       introActionsVisibleIndex === introIndex &&
       introIndex === INTRO_MESSAGE_COUNT - 1;
@@ -3970,7 +4200,7 @@ export function IdentityAspirationFlow({
               onPress={handleBeginSurvey}
             >
               <ButtonLabel size="md">
-                💪 Let's do it!
+                {isFirstTimeOnboarding ? FTUX_GOAL_ARC_SURVEY_COPY.introCta : "Let's do it"}
               </ButtonLabel>
             </Button>
           </Animated.View>
@@ -3981,17 +4211,16 @@ export function IdentityAspirationFlow({
   }
 
   const renderFirstTimeSurvey = () => {
-    const total = FIRST_TIME_ONBOARDING_SURVEY_PHASES.length;
-    const stepLabel = `${surveyStepIndex + 1} of ${total}`;
-    const selectedIdentityDirection = findSurveyOption(identityDirectionOptions, identityDirectionKey);
-    const selectedPrimaryArena = findSurveyOption(primaryArenaOptions, primaryArenaKey);
-    const selectedHowCustom = howThisShowsUpKeys.includes('custom');
-    const selectedDriftCustom = driftPatternKeys.includes('custom');
+    const selectedFtuxCategory = findSurveyOption(ftuxCategoryOptions, ftuxCategoryKey);
+    const selectedGoalShape = findSurveyOption(goalShapeOptions, goalShapeKey);
+    const selectedFtuxMotivation = findSurveyOption(ftuxMotivationOptions, ftuxMotivationKey);
+    const selectedIdentityBridge = findSurveyOption(identityBridgeOptions, identityBridgeKey);
 
     const renderCustomInput = (
       value: string,
       onChangeText: (value: string) => void,
-      placeholder: string
+      placeholder: string,
+      onSubmit?: () => void
     ) => (
       <Input
         value={value}
@@ -4001,9 +4230,15 @@ export function IdentityAspirationFlow({
         multilineMaxHeight={120}
         placeholder={placeholder}
         autoCapitalize="sentences"
-        returnKeyType="done"
+        returnKeyType={onSubmit ? 'next' : 'done'}
         blurOnSubmit
-        onSubmitEditing={() => Keyboard.dismiss()}
+        onSubmitEditing={() => {
+          if (onSubmit) {
+            onSubmit();
+            return;
+          }
+          Keyboard.dismiss();
+        }}
         style={styles.surveyCustomInput}
       />
     );
@@ -4029,7 +4264,13 @@ export function IdentityAspirationFlow({
                 onAfterSelect?.(option);
                 if (!option.allowsCustomText) {
                   setError(null);
-                  setSurveyPhaseByIndex(surveyStepIndex + 1);
+                  if (surveySelectionAdvanceTimeoutRef.current) {
+                    clearTimeout(surveySelectionAdvanceTimeoutRef.current);
+                  }
+                  surveySelectionAdvanceTimeoutRef.current = setTimeout(() => {
+                    surveySelectionAdvanceTimeoutRef.current = null;
+                    setSurveyPhaseByIndex(surveyStepIndex + 1);
+                  }, 320);
                 }
               }}
             >
@@ -4045,401 +4286,149 @@ export function IdentityAspirationFlow({
       </View>
     );
 
-    const renderChipSelect = <TKey extends string>(
-      options: Array<ArcSurveyOption<TKey>>,
-      selectedKey: TKey | null,
-      onSelect: (key: TKey) => void
-    ) => (
-      <View style={styles.optionChipGrid}>
-        {options.map((option) => {
-          const selected = selectedKey === option.key;
-          return (
-            <Pressable
-              key={option.key}
-              style={[styles.optionChip, selected && styles.optionChipSelected]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              onPress={() => {
-                void HapticsService.trigger('canvas.selection');
-                onSelect(option.key);
-                if (!option.allowsCustomText) {
-                  setError(null);
-                  setSurveyPhaseByIndex(surveyStepIndex + 1);
-                }
-              }}
-            >
-              <Text style={[styles.optionChipLabel, selected && styles.optionChipLabelSelected]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-
-    const renderMultiSelect = <TKey extends string>(
-      options: Array<ArcSurveyOption<TKey>>,
-      selectedKeys: string[],
-      maxSelections: number,
-      onToggle: (key: TKey) => void
-    ) => (
-      <View style={styles.fullWidthList}>
-        {options.map((option) => {
-          const selected = selectedKeys.includes(option.key);
-          return (
-            <Pressable
-              key={option.key}
-              style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: selected }}
-              onPress={() => {
-                void HapticsService.trigger('canvas.selection');
-                onToggle(option.key);
-              }}
-            >
-              <View style={styles.fullWidthOptionContent}>
-                {renderCheckboxIndicator(selected)}
-                <Text style={[styles.fullWidthOptionLabel, selected && styles.fullWidthOptionLabelSelected]}>
-                  {option.label}
-                </Text>
-                {!selected && selectedKeys.length >= maxSelections ? (
-                  <Text style={styles.surveyMaxLabel}>Max {maxSelections}</Text>
-                ) : null}
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-
-    const renderMultiChipSelect = <TKey extends string>(
-      options: Array<ArcSurveyOption<TKey>>,
-      selectedKeys: string[],
-      onToggle: (key: TKey) => void
-    ) => (
-      <View style={styles.optionChipGrid}>
-        {options.map((option) => {
-          const selected = selectedKeys.includes(option.key);
-          return (
-            <Pressable
-              key={option.key}
-              style={[styles.optionChip, selected && styles.optionChipSelected]}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: selected }}
-              onPress={() => {
-                void HapticsService.trigger('canvas.selection');
-                onToggle(option.key);
-              }}
-            >
-              <Text style={[styles.optionChipLabel, selected && styles.optionChipLabelSelected]}>
-                {option.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-
-    const toggleHowSeed = (key: string) => {
-      setHowThisShowsUpKeys((current) => {
-        if (current.includes(key)) return current.filter((item) => item !== key);
-        if (current.length >= 3) return current;
-        return [...current, key];
-      });
-    };
-
-    const toggleDrift = (key: DriftPatternKey) => {
-      setDriftPatternKeys((current) => {
-        if (current.includes(key)) return current.filter((item) => item !== key);
-        if (current.length >= 2) return current;
-        return [...current, key];
-      });
-    };
-
     const handleSubmit = () => {
-      const response = buildFirstTimeSurveyV2Response();
+      const response = buildFtuxGoalArcSurveyResponse();
       if (!response) return;
-      const input = buildArcGenerationInputFromSurveyV2(response);
+      const input = buildFtuxGoalArcGenerationInput(response);
+      setOnboardingGoalDraft(input.goalDraft);
       workflowRuntime?.completeStep('big_dream', {
         bigDream: input.prompt,
-        arcSurveyResponse: response,
-        arcSurveyAdditionalContext: input.additionalContext,
+        ftuxGoalArcSurveyResponse: response,
+        ftuxGoalArcSurveyAdditionalContext: input.additionalContext,
+        ftuxGoalDraft: input.goalDraft,
       });
-      appendChatUserMessage(input.prompt);
-      setHasSubmittedFirstTimeSurvey(true);
       setPhase('generating');
       void generateArc();
     };
 
+    const advanceIfText = (value: string) => {
+      if (value.trim().length > 0) setSurveyPhaseByIndex(surveyStepIndex + 1);
+    };
+
     return (
       <SurveyCard
-        variant="panel"
+        variant="flat"
+        style={styles.ftuxSurveyCardFullWidth}
         steps={[
           {
-            id: 'identityDirection',
-            title: ARC_CREATION_SURVEY_COPY.identityDirectionTitle,
+            id: 'category',
+            title: FTUX_GOAL_ARC_SURVEY_COPY.categoryTitle,
             canProceed:
-              Boolean(identityDirectionKey) &&
-              (!selectedIdentityDirection?.allowsCustomText || identityDirectionCustomText.trim().length > 0),
+              Boolean(ftuxCategoryKey) &&
+              (!selectedFtuxCategory?.allowsCustomText || ftuxCategoryCustomText.trim().length > 0),
             render: () => (
               <>
-                {renderSingleSelect(
-                  identityDirectionOptions,
-                  identityDirectionKey,
-                  setIdentityDirectionKey,
-                  () => {
-                    setHowThisShowsUpKeys([]);
-                    setHowThisShowsUpCustomText('');
+                {renderSingleSelect(ftuxCategoryOptions, ftuxCategoryKey, setFtuxCategoryKey)}
+                {selectedFtuxCategory?.allowsCustomText
+                  ? renderCustomInput(
+                      ftuxCategoryCustomText,
+                      setFtuxCategoryCustomText,
+                      FTUX_GOAL_ARC_SURVEY_COPY.categoryCustomPlaceholder,
+                      () => advanceIfText(ftuxCategoryCustomText)
+                    )
+                  : null}
+              </>
+            ),
+          },
+          {
+            id: 'concreteFocus',
+            title: FTUX_GOAL_ARC_SURVEY_COPY.concreteFocusTitle,
+            canProceed: concreteFocusText.trim().length >= 2,
+            render: () => (
+              <Input
+                ref={dreamInputRef}
+                value={concreteFocusText}
+                onChangeText={setConcreteFocusText}
+                multiline
+                multilineMinHeight={96}
+                multilineMaxHeight={150}
+                placeholder={FTUX_GOAL_ARC_SURVEY_COPY.concreteFocusPlaceholder}
+                autoCapitalize="sentences"
+                returnKeyType="done"
+                blurOnSubmit
+                onSubmitEditing={() => {
+                  if (concreteFocusText.trim().length >= 2) {
+                    setSurveyPhaseByIndex(2);
+                    return;
                   }
-                )}
-                {selectedIdentityDirection?.allowsCustomText
-                  ? renderCustomInput(
-                      identityDirectionCustomText,
-                      setIdentityDirectionCustomText,
-                      ARC_CREATION_SURVEY_COPY.identityDirectionCustomPlaceholder
-                    )
-                  : null}
-              </>
+                  Keyboard.dismiss();
+                }}
+                style={styles.surveyCustomInput}
+              />
             ),
           },
           {
-            id: 'primaryArena',
-            title: ARC_CREATION_SURVEY_COPY.primaryArenaTitle,
+            id: 'goalShape',
+            title: FTUX_GOAL_ARC_SURVEY_COPY.goalShapeTitle,
             canProceed:
-              Boolean(primaryArenaKey) &&
-              (!selectedPrimaryArena?.allowsCustomText || primaryArenaCustomText.trim().length > 0),
+              Boolean(goalShapeKey) &&
+              (!selectedGoalShape?.allowsCustomText || goalShapeCustomText.trim().length > 0),
             render: () => (
               <>
-                {renderChipSelect(primaryArenaOptions, primaryArenaKey, setPrimaryArenaKey)}
-                {selectedPrimaryArena?.allowsCustomText
+                {renderSingleSelect(goalShapeOptions, goalShapeKey, setGoalShapeKey)}
+                {selectedGoalShape?.allowsCustomText
                   ? renderCustomInput(
-                      primaryArenaCustomText,
-                      setPrimaryArenaCustomText,
-                      ARC_CREATION_SURVEY_COPY.primaryArenaCustomPlaceholder
+                      goalShapeCustomText,
+                      setGoalShapeCustomText,
+                      FTUX_GOAL_ARC_SURVEY_COPY.goalShapeCustomPlaceholder,
+                      () => advanceIfText(goalShapeCustomText)
                     )
                   : null}
               </>
             ),
           },
           {
-            id: 'whyNow',
-            title: ARC_CREATION_SURVEY_COPY.whyNowTitle,
-            canProceed: Boolean(whyNowKey),
-            render: () => renderSingleSelect(whyNowOptions, whyNowKey, setWhyNowKey),
-          },
-          {
-            id: 'howThisShowsUpSeeds',
-            title: ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsTitle,
+            id: 'motivation',
+            title: FTUX_GOAL_ARC_SURVEY_COPY.motivationTitle,
             canProceed:
-              howThisShowsUpKeys.length >= 1 &&
-              howThisShowsUpKeys.length <= 3 &&
-              (!selectedHowCustom || howThisShowsUpCustomText.trim().length > 0),
+              Boolean(ftuxMotivationKey) &&
+              (!selectedFtuxMotivation?.allowsCustomText || ftuxMotivationCustomText.trim().length > 0),
             render: () => (
               <>
-                <Text style={styles.selectOnlyOneLabel}>PICK UP TO 3</Text>
-                {renderMultiSelect(howThisShowsUpOptions, howThisShowsUpKeys, 3, toggleHowSeed)}
-                {selectedHowCustom
+                {renderSingleSelect(ftuxMotivationOptions, ftuxMotivationKey, setFtuxMotivationKey)}
+                {selectedFtuxMotivation?.allowsCustomText
                   ? renderCustomInput(
-                      howThisShowsUpCustomText,
-                      setHowThisShowsUpCustomText,
-                      ARC_CREATION_SURVEY_COPY.howThisShowsUpSeedsCustomPlaceholder
+                      ftuxMotivationCustomText,
+                      setFtuxMotivationCustomText,
+                      FTUX_GOAL_ARC_SURVEY_COPY.motivationCustomPlaceholder,
+                      () => advanceIfText(ftuxMotivationCustomText)
                     )
                   : null}
               </>
             ),
           },
           {
-            id: 'driftPatterns',
-            title: ARC_CREATION_SURVEY_COPY.driftPatternsTitle,
+            id: 'identityBridge',
+            title: FTUX_GOAL_ARC_SURVEY_COPY.identityBridgeTitle,
             canProceed:
-              driftPatternKeys.length >= 1 &&
-              driftPatternKeys.length <= 2 &&
-              (!selectedDriftCustom || driftPatternCustomText.trim().length > 0),
+              Boolean(identityBridgeKey) &&
+              (!selectedIdentityBridge?.allowsCustomText || identityBridgeCustomText.trim().length > 0),
             render: () => (
               <>
-                <Text style={styles.selectOnlyOneLabel}>PICK UP TO 2</Text>
-                {renderMultiChipSelect(driftPatternOptions, driftPatternKeys, toggleDrift)}
-                {selectedDriftCustom
+                {renderSingleSelect(identityBridgeOptions, identityBridgeKey, setIdentityBridgeKey)}
+                {selectedIdentityBridge?.allowsCustomText
                   ? renderCustomInput(
-                      driftPatternCustomText,
-                      setDriftPatternCustomText,
-                      ARC_CREATION_SURVEY_COPY.driftPatternsCustomPlaceholder
+                      identityBridgeCustomText,
+                      setIdentityBridgeCustomText,
+                      FTUX_GOAL_ARC_SURVEY_COPY.identityBridgeCustomPlaceholder,
+                      () => advanceIfText(identityBridgeCustomText)
                     )
                   : null}
-              </>
-            ),
-          },
-          {
-            id: 'practiceStyle',
-            title: ARC_CREATION_SURVEY_COPY.practiceStyleTitle,
-            canProceed: Boolean(practiceStyleKey),
-            render: () => renderSingleSelect(practiceStyleOptions, practiceStyleKey, setPracticeStyleKey),
-          },
-          {
-            id: 'personalTexture',
-            title: ARC_CREATION_SURVEY_COPY.personalTextureTitle,
-            canProceed: true,
-            render: () => (
-              <>
-                <Text style={styles.bodyText} tone="secondary">
-                  {ARC_CREATION_SURVEY_COPY.personalTextureHelper}
-                </Text>
-                {renderCustomInput(
-                  personalTextureText,
-                  setPersonalTextureText,
-                  ARC_CREATION_SURVEY_COPY.personalTexturePlaceholder
-                )}
-                <View style={styles.textureChipWrap}>
-                  {personalTextureToneOptions.map((option) => {
-                    const selected = tonePreferences.includes(option.key);
-                    return (
-                      <Pressable
-                        key={option.key}
-                        style={[styles.textureChip, selected && styles.textureChipSelected]}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: selected }}
-                        onPress={() => {
-                          void HapticsService.trigger('canvas.selection');
-                          setTonePreferences((current) =>
-                            current.includes(option.key)
-                              ? current.filter((item) => item !== option.key)
-                              : [...current, option.key]
-                          );
-                        }}
-                      >
-                        <Text style={[styles.textureChipLabel, selected && styles.fullWidthOptionLabelSelected]}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
               </>
             ),
           },
         ]}
         currentStepIndex={surveyStepIndex}
-        stepLabel={stepLabel}
+        footerLeft={<View />}
+        footerRight={surveyStepIndex <= 1 ? <View /> : undefined}
         nextLabel="Next"
-        submitLabel="Create Arc"
+        submitLabel="Create Arc and Goal"
         onBack={() => setSurveyPhaseByIndex(surveyStepIndex - 1)}
         onNext={() => setSurveyPhaseByIndex(surveyStepIndex + 1)}
         onSubmit={handleSubmit}
       />
     );
   };
-
-  function renderFirstTimeSurveyCompleted() {
-    const handleStartOver = () => {
-      Alert.alert(
-        'Start over?',
-        'This will clear your answers and restart the survey.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Start over',
-            style: 'destructive',
-            onPress: () => {
-              // Invalidate any in-flight generation so late responses don't override the reset.
-              arcGenerationRunIdRef.current += 1;
-              arcHeroPrefetchRunIdRef.current += 1;
-              setPrefetchedArcHero(null);
-              setAspiration(null);
-              setArcInsights(null);
-              setError(null);
-              setIsGenerating(false);
-              setHasSubmittedFirstTimeSurvey(false);
-              setIsSurveySummaryExpanded(false);
-
-              // Clear answers.
-              setDreamInput('');
-              setDomainIds([]);
-              setMotivationIds([]);
-              setProudMomentIds([]);
-              setRoleModelTypeId(null);
-              setSpecificRoleModelId(null);
-              setRoleModelWhyId(null);
-              setAdmiredQualityIds([]);
-              setIdentityDirectionKey(null);
-              setIdentityDirectionCustomText('');
-              setPrimaryArenaKey(null);
-              setPrimaryArenaCustomText('');
-              setWhyNowKey(null);
-              setHowThisShowsUpKeys([]);
-              setHowThisShowsUpCustomText('');
-              setDriftPatternKeys([]);
-              setDriftPatternCustomText('');
-              setPracticeStyleKey(null);
-              setPersonalTextureText('');
-              setTonePreferences([]);
-              setIdentitySignature({} as Record<IdentityTag, number>);
-              setExpandedOptionSets({});
-
-              // Back to step 1 and autofocus the dream textarea.
-              setHasStreamedDreamsIntroCopy(true);
-              shouldAutofocusDreamsRef.current = true;
-              setSurveyPhaseByIndex(0);
-            },
-          },
-        ]
-      );
-    };
-
-    return (
-      <SurveyCard
-        mode="completed"
-        variant="panel"
-        style={styles.surveyCompleteCard}
-        footerLeft={
-          <Button
-            variant="ghost"
-            size="small"
-            onPress={handleStartOver}
-            accessibilityLabel="Start over"
-            style={styles.surveyCompleteFooterButton}
-          >
-            <View style={styles.surveyCompleteFooterButtonInner}>
-              <Icon name="refresh" size={16} color={colors.textSecondary} />
-              <ButtonLabel size="sm" tone="secondary">
-                Start over
-              </ButtonLabel>
-            </View>
-          </Button>
-        }
-        footerRight={
-          <Button
-            variant="primary"
-            size="small"
-            disabled
-            accessibilityLabel="Done"
-            style={styles.surveyCompleteDoneButton}
-          >
-            <ButtonLabel size="sm" tone="inverse">
-              Done
-            </ButtonLabel>
-          </Button>
-        }
-        steps={[
-          {
-            id: 'completed',
-            title: 'Survey complete',
-            render: () => (
-              <View style={styles.surveyCompleteBody}>
-                <ReviewAnswersPanel
-                  expanded={isSurveySummaryExpanded}
-                  onToggle={() => setIsSurveySummaryExpanded((v) => !v)}
-                  lines={surveySummaryLines}
-                />
-              </View>
-            ),
-          },
-        ]}
-        currentStepIndex={0}
-        stepLabel={undefined}
-        completedLabel=""
-      />
-    );
-  }
 
   // Generating/reveal phases should take precedence regardless of the survey
   // phase list so we never accidentally treat them as unreachable.
@@ -4455,7 +4444,7 @@ export function IdentityAspirationFlow({
     return renderGenerating();
   }
 
-  if (FIRST_TIME_ONBOARDING_SURVEY_PHASES.includes(phase)) {
+  if (FTUX_GOAL_ARC_SURVEY_PHASES.includes(phase)) {
     return renderFirstTimeSurvey();
   }
 
@@ -4576,65 +4565,8 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textPrimary,
   },
-  surveyCompleteBody: {
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-  },
-  surveyCompleteCard: {
-    // Match the SurveyCard's built-in top separation with bottom separation so
-    // the next Arc card doesn't visually collide with the completed state.
-    marginBottom: spacing.lg,
-  },
-  surveyCompleteActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  surveyCompleteAnswers: {
-    gap: spacing.xs,
-    paddingTop: spacing.xs,
-  },
-  surveyCompleteFooterButton: {
+  ftuxSurveyCardFullWidth: {
     paddingHorizontal: 0,
-  },
-  surveyCompleteFooterButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  surveyCompleteDoneButton: {
-    opacity: 0.55,
-  },
-  reviewPanel: {
-    width: '100%',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    overflow: 'hidden',
-  },
-  reviewPanelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  reviewPanelTitle: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  reviewPanelBody: {
-    overflow: 'hidden',
-  },
-  reviewPanelBodyInner: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  reviewRow: {
-    gap: 2,
   },
   questionMeta: {
     ...typography.bodySm,

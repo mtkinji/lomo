@@ -381,7 +381,7 @@ export function FirstTimeUxFlow() {
       default:
         title = 'Build your path forward';
         body =
-          'We’ll start by turning an aspiration you have into an identity Arc (a clear picture of who you want to become), then shape Goals and small daily To-dos. Next, you’ll answer a few quick questions in chat to build your first Arc.';
+          'We’ll start with one real thing you want to make progress on. Kwilt will shape it into your first Goal, then place that Goal inside an identity Arc: a clear picture of who you are becoming through the work.';
         ctaLabel = 'Let’s begin';
         nextStep = 'workflow';
         break;
@@ -390,11 +390,10 @@ export function FirstTimeUxFlow() {
     const bodyContent: ReactNode =
       ftueStep === 'path' ? (
         <>
-          We’ll start by turning one aspiration into your first identity{' '}
-          <Text style={styles.ftueBodyEmphasis}>Arc</Text> (a clear picture of who you’re becoming), then
-          shape <Text style={styles.ftueBodyEmphasis}>Goals</Text> and small daily{' '}
-          <Text style={styles.ftueBodyEmphasis}>To-dos</Text>. Next, you’ll answer a few quick questions
-          in chat to build your first Arc.
+          We’ll start with one real thing you want to make progress on. Kwilt will shape it into your
+          first <Text style={styles.ftueBodyEmphasis}>Goal</Text>, then place that Goal inside an identity{' '}
+          <Text style={styles.ftueBodyEmphasis}>Arc</Text>: a clear picture of who you’re becoming
+          through the work.
         </>
       ) : (
         body
@@ -583,7 +582,7 @@ export function FirstTimeUxFlow() {
       onRequestClose={() => {}}
     >
       <View style={styles.overlay}>
-        {__DEV__ && false && (
+        {__DEV__ && (
           <>
             <View style={[styles.devExitRow, { top: insets.top + 8 }]}>
               <Button
@@ -695,6 +694,7 @@ export function FirstTimeUxFlow() {
                 }}
                 workflowDefinitionId={onboardingWorkflow.workflowDefinitionId}
                 workflowInstanceId={workspaceKey}
+                stepCardKeyboardBehavior="overlay"
                 onComplete={handleWorkflowComplete}
               />
             </AppShell>
@@ -820,7 +820,10 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
   ftuePrimarySlot: {},
-  ftueSecondarySlot: {},
+  ftueSecondarySlot: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   ftueSecondaryPlaceholder: {
     minHeight: 44,
   },

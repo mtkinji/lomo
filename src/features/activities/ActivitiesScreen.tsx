@@ -5,6 +5,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   FlatList,
+  InteractionManager,
   LayoutAnimation,
   Platform,
   Pressable,
@@ -444,11 +445,14 @@ export function ActivitiesScreen() {
     }
     if (hasTrackedWidgetInlineThisFocusRef.current) return;
     hasTrackedWidgetInlineThisFocusRef.current = true;
-    markWidgetPromptShown('inline');
-    capture(AnalyticsEvent.WidgetPromptExposed, {
-      surface: 'inline',
-      app_open_count: appOpenCount ?? 0,
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      markWidgetPromptShown('inline');
+      capture(AnalyticsEvent.WidgetPromptExposed, {
+        surface: 'inline',
+        app_open_count: appOpenCount ?? 0,
+      });
     });
+    return () => interactionTask.cancel();
   }, [appOpenCount, capture, markWidgetPromptShown, shouldShowWidgetNudgeInline]);
 
   React.useEffect(() => {
@@ -458,20 +462,29 @@ export function ActivitiesScreen() {
     }
     if (hasOpenedWidgetModalThisFocusRef.current) return;
     hasOpenedWidgetModalThisFocusRef.current = true;
-    // Defer to next tick so we don't stack on top of other startup UI.
-    const t = setTimeout(() => {
-      setWidgetModalVisible(true);
-      markWidgetPromptShown('modal');
-      capture(AnalyticsEvent.WidgetPromptExposed, {
-        surface: 'modal',
-        app_open_count: appOpenCount ?? 0,
-      });
-    }, 400);
-    return () => clearTimeout(t);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      // Keep the existing delay so we don't stack on top of other startup UI.
+      timeoutId = setTimeout(() => {
+        setWidgetModalVisible(true);
+        markWidgetPromptShown('modal');
+        capture(AnalyticsEvent.WidgetPromptExposed, {
+          surface: 'modal',
+          app_open_count: appOpenCount ?? 0,
+        });
+      }, 400);
+    });
+    return () => {
+      interactionTask.cancel();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [appOpenCount, capture, markWidgetPromptShown, shouldAutoShowWidgetModal]);
 
   React.useEffect(() => {
-    if (isFocused) incrementActivitiesScreenVisitCount();
+    if (!isFocused) return;
+    InteractionManager.runAfterInteractions(() => {
+      incrementActivitiesScreenVisitCount();
+    });
   }, [isFocused, incrementActivitiesScreenVisitCount]);
 
   React.useEffect(() => {

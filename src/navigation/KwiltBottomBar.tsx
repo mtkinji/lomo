@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, InteractionManager, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +15,10 @@ import {
 } from './kwiltBottomBarMetrics';
 import { useChromeVisibility } from './ChromeVisibilityContext';
 import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeNativeEasing } from './chromeMotion';
+import { useAnalytics } from '../services/analytics/useAnalytics';
+import { startTabSwitchTelemetry, type TabSwitchTelemetryProbe } from './tabSwitchTelemetry';
+import { TabTransitionGhost, shouldShowTabTransitionGhost } from './TabTransitionGhost';
+import type { MainTabsParamList } from './RootNavigator';
 
 // Static coaching brief passed to the Chapters copilot. Defined module-level
 // so identity is stable and useAgentLauncher's memoized sheet doesn't churn.
@@ -25,6 +29,11 @@ const CHAPTER_COACH_SNAPSHOT = [
   '- Prefer concrete suggestions anchored in recently observed behavior, not generic motivation.',
   '- If evidence is thin, ask one clarifying question before proposing changes.',
 ].join('\n');
+
+type TabTransitionGhostState = {
+  routeName: keyof MainTabsParamList;
+  visible: boolean;
+};
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -39,6 +48,7 @@ function withAlpha(hex: string, alpha: number) {
 
 export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { capture } = useAnalytics();
   const { bottomBarVisible, bottomBarFadeVisible } = useChromeVisibility();
   const planRecommendationsCount = useAppStore((s) => s.planRecommendationsCount);
   // Chapters copilot: launch AgentWorkspace in a drawer so users can dismiss
@@ -57,14 +67,19 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   );
   const indicatorX = useRef(new Animated.Value(0)).current;
   const indicatorY = useRef(new Animated.Value(0)).current;
-  const indicatorWidth = useRef(new Animated.Value(0)).current;
-  const indicatorHeight = useRef(new Animated.Value(0)).current;
   const indicatorReady = useRef(false);
+  const [isIndicatorReady, setIsIndicatorReady] = useState(false);
+  const tabSwitchTelemetryProbe = useRef<TabSwitchTelemetryProbe | null>(null);
+  const transitionGhostShownAt = useRef<number>(0);
+  const transitionGhostHideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionGhostInteraction = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
+  const [transitionGhost, setTransitionGhost] = useState<TabTransitionGhostState | null>(null);
   const badgeScale = useRef(new Animated.Value(0)).current;
   const chromeProgress = useRef(new Animated.Value(1)).current;
   const wasShowingBadge = useRef(false);
   const activeKey = state.routes[state.index]?.key;
   const activeLayout = activeKey ? tabLayouts[activeKey] : null;
+  const activeRouteName = state.routes[state.index]?.name;
   const activeOptions = descriptors[state.routes[state.index]?.key ?? '']?.options ?? {};
   const shouldHideTabBar =
     !!activeOptions.tabBarStyle &&
@@ -73,6 +88,57 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     'display' in activeOptions.tabBarStyle &&
     activeOptions.tabBarStyle.display === 'none';
 
+  useEffect(() => {
+    return () => {
+      tabSwitchTelemetryProbe.current?.cancel();
+      transitionGhostInteraction.current?.cancel();
+      if (transitionGhostHideTimeout.current) {
+        clearTimeout(transitionGhostHideTimeout.current);
+      }
+    };
+  }, []);
+
+  const clearTransitionGhostTimers = useCallback(() => {
+    transitionGhostInteraction.current?.cancel();
+    transitionGhostInteraction.current = null;
+    if (transitionGhostHideTimeout.current) {
+      clearTimeout(transitionGhostHideTimeout.current);
+      transitionGhostHideTimeout.current = null;
+    }
+  }, []);
+
+  const beginTransitionGhost = useCallback(
+    (routeName: string) => {
+      clearTransitionGhostTimers();
+      if (!shouldShowTabTransitionGhost(routeName)) {
+        setTransitionGhost((current) => (current ? { ...current, visible: false } : current));
+        return;
+      }
+      transitionGhostShownAt.current = Date.now();
+      setTransitionGhost({ routeName, visible: true });
+    },
+    [clearTransitionGhostTimers],
+  );
+
+  const dismissTransitionGhost = useCallback((routeName: string) => {
+    clearTransitionGhostTimers();
+    transitionGhostInteraction.current = InteractionManager.runAfterInteractions(() => {
+      const elapsedMs = Date.now() - transitionGhostShownAt.current;
+      const remainingMs = Math.max(0, 220 - elapsedMs);
+      transitionGhostHideTimeout.current = setTimeout(() => {
+        setTransitionGhost((current) =>
+          current?.routeName === routeName ? { ...current, visible: false } : current,
+        );
+      }, remainingMs);
+    });
+  }, [clearTransitionGhostTimers]);
+
+  useEffect(() => {
+    if (!transitionGhost?.visible) return;
+    if (transitionGhost.routeName !== activeRouteName) return;
+    dismissTransitionGhost(activeRouteName);
+  }, [activeRouteName, dismissTransitionGhost, transitionGhost]);
+
   const placeConfigByName = PLACE_TABS.reduce<Record<string, { label: string; icon: IconName }>>(
     (acc, tab) => {
       acc[tab.name] = { label: tab.label, icon: tab.icon };
@@ -80,7 +146,6 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     },
     {},
   );
-  const activeRouteName = state.routes[state.index]?.name;
   const activeTabRoute = state.routes[state.index];
   const activeMoreLeafRoute = activeRouteName === 'MoreTab' ? getDeepestRoute(activeTabRoute) : null;
   const activeMoreLeafRouteName = activeMoreLeafRoute?.name as string | undefined;
@@ -95,16 +160,16 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     activeMoreLeafRouteName === 'ArcsList';
   const actionIcon: IconName =
     activeRouteName === 'PlanTab'
-      ? 'checklist'
+      ? 'navChecklist'
       : activeRouteName === 'ActivitiesTab'
-        ? 'search'
+        ? 'navSearch'
         : activeRouteName === 'MoreTab'
           ? isChaptersSurface
-            ? 'aiGuide'
+            ? 'navAiGuide'
             : isArcsSurface
-              ? 'plus'
-              : 'search'
-          : 'plus';
+              ? 'navPlus'
+              : 'navSearch'
+          : 'navPlus';
   const showActionBadge = activeRouteName === 'PlanTab' && planRecommendationsCount > 0;
   const handlePlaceItemLayout = useCallback(
     (routeKey: string) => (event: LayoutChangeEvent) => {
@@ -191,29 +256,30 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     if (shouldHideTabBar) {
       // Reset indicator when tab bar is hidden so it reinitializes cleanly when shown again
       indicatorReady.current = false;
+      setIsIndicatorReady(false);
       return;
     }
     if (!activeLayout) return;
     if (!indicatorReady.current) {
       indicatorX.setValue(activeLayout.x);
       indicatorY.setValue(activeLayout.y);
-      indicatorWidth.setValue(activeLayout.width);
-      indicatorHeight.setValue(activeLayout.height);
       indicatorReady.current = true;
+      setIsIndicatorReady(true);
       return;
     }
     const timingConfig = {
       duration: 160,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
+      useNativeDriver: true,
     } as const;
+    tabSwitchTelemetryProbe.current?.markIndicatorScheduled();
     Animated.parallel([
       Animated.timing(indicatorX, { ...timingConfig, toValue: activeLayout.x }),
       Animated.timing(indicatorY, { ...timingConfig, toValue: activeLayout.y }),
-      Animated.timing(indicatorWidth, { ...timingConfig, toValue: activeLayout.width }),
-      Animated.timing(indicatorHeight, { ...timingConfig, toValue: activeLayout.height }),
-    ]).start();
-  }, [activeLayout, indicatorHeight, indicatorWidth, indicatorX, indicatorY, shouldHideTabBar]);
+    ]).start(({ finished }) => {
+      tabSwitchTelemetryProbe.current?.markIndicatorFinished(finished);
+    });
+  }, [activeLayout, indicatorX, indicatorY, shouldHideTabBar]);
 
   useEffect(() => {
     if (shouldHideTabBar) {
@@ -289,14 +355,15 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
       >
         <View style={styles.barRow}>
           <View style={styles.placeZone}>
-            {indicatorReady.current ? (
+            {isIndicatorReady ? (
               <Animated.View
+                testID="kwilt-bottom-bar-active-indicator"
                 pointerEvents="none"
                 style={[
                   styles.placeIndicator,
                   {
-                    width: indicatorWidth,
-                    height: indicatorHeight,
+                    width: activeLayout?.width ?? 0,
+                    height: activeLayout?.height ?? 0,
                     transform: [{ translateX: indicatorX }, { translateY: indicatorY }],
                   },
                 ]}
@@ -326,6 +393,18 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
                     navigation.navigate(route.name, { screen: 'ActivitiesList' });
                     return;
                   }
+                }
+
+                if (!isFocused) {
+                  beginTransitionGhost(route.name);
+                  tabSwitchTelemetryProbe.current?.cancel();
+                  tabSwitchTelemetryProbe.current = startTabSwitchTelemetry({
+                    capture,
+                    fromRouteName: activeRouteName ?? 'unknown',
+                    toRouteName: route.name,
+                    fromIndex: state.index,
+                    toIndex: index,
+                  });
                 }
 
                 if (route.name === 'MoreTab') {
@@ -397,6 +476,15 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
           </Pressable>
         </View>
       </Animated.View>
+      {transitionGhost ? (
+        <TabTransitionGhost
+          routeName={transitionGhost.routeName}
+          visible={transitionGhost.visible}
+          onExited={() => {
+            setTransitionGhost((current) => (current === transitionGhost ? null : current));
+          }}
+        />
+      ) : null}
       {ChapterAgentSheet}
     </>
   );

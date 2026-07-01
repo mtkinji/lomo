@@ -11,6 +11,7 @@ serves:
   - jtbd-see-my-arcs-in-everyday-moments
   - jtbd-recover-when-i-drift-from-an-arc
 briefs:
+  - activity-led-arc-creation
   - arc-goal-lifecycle-and-limits
   - desktop-app
 status: shipped

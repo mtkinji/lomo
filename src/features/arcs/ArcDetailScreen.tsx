@@ -119,6 +119,7 @@ export function ArcDetailScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const createGoalCtaRef = useRef<View>(null);
+  const onboardingGoalCardRef = useRef<View>(null);
   const goalsHeaderRef = useRef<View>(null);
   const heroBannerRef = useRef<View>(null);
   const heroSpotlightRef = useRef<View>(null);
@@ -138,8 +139,10 @@ export function ArcDetailScreen() {
   const showToast = useToastStore((state) => state.showToast);
   const addGoal = useAppStore((state) => state.addGoal);
   const lastOnboardingArcId = useAppStore((state) => state.lastOnboardingArcId);
+  const lastOnboardingGoalId = useAppStore((state) => state.lastOnboardingGoalId);
   const setLastOnboardingGoalId = useAppStore((state) => state.setLastOnboardingGoalId);
   const setPendingGoalCelebrationId = useAppStore((state) => state.setPendingGoalCelebrationId);
+  const setHasSeenFirstGoalCelebration = useAppStore((state) => state.setHasSeenFirstGoalCelebration);
   const hasSeenFirstArcCelebration = useAppStore(
     (state) => state.hasSeenFirstArcCelebration
   );
@@ -208,14 +211,8 @@ export function ArcDetailScreen() {
   const [showOnboardingArcHandoff, setShowOnboardingArcHandoff] = useState(
     Boolean(showCelebrationFromRoute && !hasSeenFirstArcCelebration),
   );
-  // When the user chooses "Explore first" we should still *suggest* the next step,
-  // but we must not trap them (lock scroll / remove dismissal affordances).
-  const [onboardingGoalCoachmarkMode, setOnboardingGoalCoachmarkMode] = useState<
-    'guided' | 'explore'
-  >('guided');
   const onboardingArcHandoffHapticPlayedRef = useRef(false);
   const hasConsumedRouteCelebrationRef = useRef(false);
-  const [goalsSectionOffset, setGoalsSectionOffset] = useState<number | null>(null);
   const [, setInsightsSectionOffset] = useState<number | null>(null);
 
   const { openForScreenContext, AgentWorkspaceSheet } = useAgentLauncher();
@@ -368,11 +365,9 @@ export function ArcDetailScreen() {
     }
   }, [navigation, setHasSeenFirstArcCelebration, showCelebrationFromRoute]);
 
-  const handleExploreFirst = useCallback(() => {
-    setOnboardingGoalCoachmarkMode('explore');
-    setHasDismissedOnboardingGoalGuide(true);
+  const handleConfirmOnboardingArcHandoff = useCallback(() => {
     handleDismissOnboardingArcHandoff();
-  }, [handleDismissOnboardingArcHandoff, setHasDismissedOnboardingGoalGuide]);
+  }, [handleDismissOnboardingArcHandoff]);
 
   useEffect(() => {
     // If the navigation explicitly requested the celebration (for example,
@@ -410,11 +405,17 @@ export function ArcDetailScreen() {
     Boolean(arc) &&
     arc?.id === lastOnboardingArcId &&
     hasSeenFirstArcCelebration &&
-    arcGoals.length === 0 &&
+    !showOnboardingArcHandoff &&
     !hasDismissedOnboardingGoalGuide;
+  const onboardingGoalForGuide =
+    (lastOnboardingGoalId
+      ? arcGoals.find((goal) => goal.id === lastOnboardingGoalId)
+      : null) ?? arcGoals[0] ?? null;
+  const onboardingGoalGuideTargetRef =
+    onboardingGoalForGuide ? onboardingGoalCardRef : createGoalCtaRef;
 
   const onboardingGoalCoachmarkHost = useCoachmarkHost({
-    active: Boolean(shouldShowOnboardingGoalGuide && arcGoals.length === 0 && createGoalCtaRef.current),
+    active: Boolean(shouldShowOnboardingGoalGuide),
     stepKey: 'onboardingGoal',
   });
 
@@ -424,9 +425,11 @@ export function ArcDetailScreen() {
       arcId: arc?.id ?? null,
       routeArcId: arcId,
       lastOnboardingArcId,
+      lastOnboardingGoalId,
       hasSeenFirstArcCelebration,
       hasDismissedOnboardingGoalGuide,
       arcGoalsCount: arcGoals.length,
+      onboardingGoalForGuideId: onboardingGoalForGuide?.id ?? null,
       showCelebrationFromRoute: Boolean(showCelebrationFromRoute),
       showOnboardingArcHandoff,
       shouldShowOnboardingGoalGuide,
@@ -438,6 +441,8 @@ export function ArcDetailScreen() {
     hasDismissedOnboardingGoalGuide,
     hasSeenFirstArcCelebration,
     lastOnboardingArcId,
+    lastOnboardingGoalId,
+    onboardingGoalForGuide?.id,
     showCelebrationFromRoute,
     showOnboardingArcHandoff,
     shouldShowOnboardingGoalGuide,
@@ -953,57 +958,27 @@ export function ArcDetailScreen() {
 
   // Keep a little extra visual gutter so the last card shadow doesn't clip at the bottom.
   const scrollBottomGutter = spacing.xl;
+  const hasAttachedGoals = arcGoals.length > 0;
 
   return (
     <AppShell fullBleedCanvas>
       <BottomGuide
         visible={showOnboardingArcHandoff}
-        onClose={handleExploreFirst}
+        onClose={handleConfirmOnboardingArcHandoff}
         scrim="light"
       >
-        <Heading variant="sm">🚀 Your first Arc is ready</Heading>
+        <Heading variant="sm">Your first identity Arc is ready</Heading>
         <Text style={styles.onboardingGuideBody}>
-          This Arc is saved to your Arcs list. Next we’ll turn it into a Goal (and then small To-dos) so you
-          have a clear next step. Tap “Go to Goals” to continue.
+          {hasAttachedGoals
+            ? 'This is the bigger direction you are growing into. Your first Goal is already attached below, so you can see how this Arc turns into something you can actually practice.'
+            : 'This is the bigger direction you are growing into. Next, add a first Goal underneath it so this Arc has one clear way to become real.'}
         </Text>
         <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
           <Button
-            variant="outline"
-            onPress={handleExploreFirst}
-          >
-            <Text style={styles.onboardingGuideSecondaryLabel}>Explore first</Text>
-          </Button>
-          <Button
             variant="turmeric"
-            onPress={() => {
-              // Dismiss the celebration guide
-              setShowOnboardingArcHandoff(false);
-              setHasSeenFirstArcCelebration(true);
-              setOnboardingGoalCoachmarkMode('guided');
-              if (showCelebrationFromRoute && !hasConsumedRouteCelebrationRef.current) {
-                hasConsumedRouteCelebrationRef.current = true;
-                navigation.setParams({ showFirstArcCelebration: false });
-              }
-              
-              // If we navigated here with `openGoalCreation: true`, open the goal
-              // creation drawer now that the celebration is dismissed.
-              if (openGoalCreation && !hasOpenedGoalCreationFromParam) {
-                setIsGoalCoachVisible(true);
-                setHasOpenedGoalCreationFromParam(true);
-              } else {
-                // Otherwise, just scroll to the Goals section so the user can see
-                // the "Create goal" button with the coachmark.
-                requestAnimationFrame(() => {
-                  if (goalsSectionOffset == null) {
-                    return;
-                  }
-                  const targetY = Math.max(0, goalsSectionOffset - HEADER_BOTTOM_Y - spacing.md);
-                  scrollRef.current?.scrollTo({ y: targetY, animated: true });
-                });
-              }
-            }}
+            onPress={handleConfirmOnboardingArcHandoff}
           >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Go to Goals</Text>
+            <Text style={styles.onboardingGuidePrimaryLabel}>Got it</Text>
           </Button>
         </HStack>
       </BottomGuide>
@@ -1094,11 +1069,7 @@ export function ArcDetailScreen() {
               },
             ]}
             showsVerticalScrollIndicator={false}
-            scrollEnabled={
-              onboardingGoalCoachmarkHost.coachmarkVisible && onboardingGoalCoachmarkMode === 'explore'
-                ? true
-                : onboardingGoalCoachmarkHost.scrollEnabled
-            }
+            scrollEnabled={onboardingGoalCoachmarkHost.scrollEnabled}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'interactive'}
             keyboardShouldPersistTaps="handled"
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
@@ -1241,12 +1212,7 @@ export function ArcDetailScreen() {
 
                   {renderIdentitySection()}
 
-                  <View
-                    style={styles.goalsSection}
-                    onLayout={(event) => {
-                      setGoalsSectionOffset(event.nativeEvent.layout.y);
-                    }}
-                  >
+                  <View style={styles.goalsSection}>
                     <View style={styles.goalsDrawerInner}>
                       <View
                         ref={goalsHeaderRef}
@@ -1280,25 +1246,40 @@ export function ArcDetailScreen() {
                       ) : (
                         <View style={styles.goalsScrollContent}>
                           <View style={{ gap: 0 }}>
-                            {arcGoals.map((goal) => (
-                              <GoalListCard
-                                key={goal.id}
-                                goal={goal}
-                                parentArc={arc}
-                                activityCount={activityCountByGoal[goal.id] ?? 0}
-                                thumbnailStyles={thumbnailStyles}
-                                density="dense"
-                                variant="flat"
-                                showActivityMeta={false}
-                                titleEmphasis="subtle"
-                                onPress={() =>
-                                  navigation.navigate('GoalDetail', {
-                                    goalId: goal.id,
-                                    entryPoint: 'arcsStack',
-                                  })
-                                }
-                              />
-                            ))}
+                            {arcGoals.map((goal) => {
+                              const card = (
+                                <GoalListCard
+                                  goal={goal}
+                                  parentArc={arc}
+                                  activityCount={activityCountByGoal[goal.id] ?? 0}
+                                  thumbnailStyles={thumbnailStyles}
+                                  density="dense"
+                                  variant="flat"
+                                  showActivityMeta={false}
+                                  titleEmphasis="subtle"
+                                  onPress={() =>
+                                    navigation.navigate('GoalDetail', {
+                                      goalId: goal.id,
+                                      entryPoint: 'arcsStack',
+                                    })
+                                  }
+                                />
+                              );
+
+                              if (goal.id !== onboardingGoalForGuide?.id) {
+                                return <View key={goal.id}>{card}</View>;
+                              }
+
+                              return (
+                                <View
+                                  key={goal.id}
+                                  ref={onboardingGoalCardRef}
+                                  collapsable={false}
+                                >
+                                  {card}
+                                </View>
+                              );
+                            })}
                           </View>
                         </View>
                       )}
@@ -1451,7 +1432,7 @@ export function ArcDetailScreen() {
       {AgentWorkspaceSheet}
       <Coachmark
         visible={onboardingGoalCoachmarkHost.coachmarkVisible}
-        targetRef={createGoalCtaRef}
+        targetRef={onboardingGoalGuideTargetRef}
         remeasureKey={onboardingGoalCoachmarkHost.remeasureKey}
         scrimToken="pineSubtle"
         spotlight="hole"
@@ -1463,15 +1444,36 @@ export function ArcDetailScreen() {
         attentionPulse
         attentionPulseDelayMs={3000}
         attentionPulseDurationMs={15000}
-        title={<Text style={styles.goalCoachmarkTitle}>Next step</Text>}
-        body={
-          <Text style={styles.goalCoachmarkBody}>
-            Tap “Create goal" to add your first goal.
+        title={
+          <Text style={styles.goalCoachmarkTitle}>
+            {onboardingGoalForGuide ? 'Your first Goal is ready' : 'Next step'}
           </Text>
         }
-        // "Explore first" should not trap the user: allow dismissal affordance.
-        // "Go to Goals" keeps the stricter "tap the target" guidance.
-        actions={onboardingGoalCoachmarkMode === 'explore' ? undefined : []}
+        body={
+          <Text style={styles.goalCoachmarkBody}>
+            {onboardingGoalForGuide
+              ? 'Open it to see the starter To-do Kwilt created for you. That is where this Arc starts turning into action.'
+              : 'Tap “Create goal" to add your first goal.'}
+          </Text>
+        }
+        actions={
+          onboardingGoalForGuide
+            ? [
+                { id: 'dismiss', label: 'Not now', variant: 'outline' },
+                { id: 'openGoal', label: 'Open Goal', variant: 'accent' },
+              ]
+            : []
+        }
+        onAction={(actionId) => {
+          setHasDismissedOnboardingGoalGuide(true);
+          if (actionId === 'openGoal' && onboardingGoalForGuide) {
+            setHasSeenFirstGoalCelebration(true);
+            navigation.navigate('GoalDetail', {
+              goalId: onboardingGoalForGuide.id,
+              entryPoint: 'arcsStack',
+            });
+          }
+        }}
         onDismiss={() => setHasDismissedOnboardingGoalGuide(true)}
         placement="above"
       />
@@ -2784,11 +2786,6 @@ const styles = StyleSheet.create({
   onboardingGuidePrimaryLabel: {
     ...typography.bodySm,
     color: colors.canvas,
-    fontFamily: fonts.medium,
-  },
-  onboardingGuideSecondaryLabel: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
     fontFamily: fonts.medium,
   },
 });

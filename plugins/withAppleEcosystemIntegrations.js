@@ -15,6 +15,7 @@ const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode
 
 const fs = require('fs');
 const path = require('path');
+const { withScreenTimeShieldExtensions } = require('./appleEcosystem/screenTimeShieldExtensions');
 
 const KWILT_APP_GROUP_FALLBACK = 'group.com.andrewwatanabe.kwilt';
 
@@ -256,6 +257,9 @@ class KwiltScreenTimeProtection: NSObject {
 
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
   private let selectionKey = "kwilt_screen_time_selection_v1"
+  private let appGroupIdentifier = "__KWILT_APP_GROUP_ID__"
+  private let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
+  private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
 
   @available(iOS 16.0, *)
   private var store: ManagedSettingsStore {
@@ -289,6 +293,23 @@ class KwiltScreenTimeProtection: NSObject {
   private func saveSelection(_ selection: FamilyActivitySelection) {
     guard let data = try? JSONEncoder().encode(selection) else { return }
     UserDefaults.standard.set(data, forKey: selectionKey)
+  }
+
+  @available(iOS 16.0, *)
+  private func saveShieldReason(from json: String) {
+    guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+    let data = json.data(using: .utf8)
+    let payload = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: []) as? [String: Any] }
+    let reason = (payload?["reason"] as? String) ?? (payload?["mode"] as? String) ?? "default"
+    defaults.set(reason, forKey: shieldReasonKey)
+    defaults.set(Date().timeIntervalSince1970 * 1000.0, forKey: shieldUpdatedAtKey)
+  }
+
+  @available(iOS 16.0, *)
+  private func clearShieldReason() {
+    guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
+    defaults.removeObject(forKey: shieldReasonKey)
+    defaults.removeObject(forKey: shieldUpdatedAtKey)
   }
 
   @available(iOS 16.0, *)
@@ -418,6 +439,7 @@ class KwiltScreenTimeProtection: NSObject {
         return
       }
       applySelection(selection)
+      saveShieldReason(from: json)
       resolve(true)
       return
     }
@@ -433,6 +455,7 @@ class KwiltScreenTimeProtection: NSObject {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
       store.clearAllSettings()
+      clearShieldReason()
       resolve(true)
       return
     }
@@ -1075,7 +1098,7 @@ module.exports = function withAppleEcosystemIntegrations(config) {
   // Widgets require App Groups to exchange data with the host app.
   // Make this implicit so local builds don't accidentally create a widget target
   // that can never read any state.
-  const enableAppGroupsEffective = enableAppGroups || enableWidgets;
+  const enableAppGroupsEffective = enableAppGroups || enableWidgets || enableScreenTime;
   const appGroupId = getAppGroupId(config);
   // 1) App Group entitlement (shared state for widgets/live activities later)
   if (enableAppGroupsEffective) {
@@ -1132,7 +1155,7 @@ module.exports = function withAppleEcosystemIntegrations(config) {
   });
   config = withBuildSourceFile(config, {
     filePath: 'KwiltScreenTimeProtection.swift',
-    contents: KWILT_SCREEN_TIME_PROTECTION_SWIFT,
+    contents: KWILT_SCREEN_TIME_PROTECTION_SWIFT.replace('__KWILT_APP_GROUP_ID__', appGroupId),
     overwrite: true,
   });
   config = withBuildSourceFile(config, {
@@ -1213,7 +1236,7 @@ if userActivity.activityType == CSSearchableItemActionType,
   // 2.5) Podfile signing fix for EAS / Xcode 14+:
   // Resource bundle targets may be signed by default, which can fail in CI unless a team is set
   // (or signing is disabled). Since `/ios` is gitignored, we patch the GENERATED Podfile at prebuild.
-  if (enableAppGroups || enableWidgets) {
+  if (enableAppGroups || enableWidgets || enableScreenTime) {
     config = withDangerousMod(config, [
       'ios',
       async (config) => {
@@ -1281,6 +1304,10 @@ if userActivity.activityType == CSSearchableItemActionType,
       },
     ]);
   }
+
+  // 3) Screen Time shield extensions (custom "blocked by Kwilt" system screen).
+  // These are separate app-extension targets because iOS renders shields outside the host app.
+  if (enableScreenTime) config = withScreenTimeShieldExtensions(config);
 
   // 3) WidgetKit extension target (Lock Screen widget + Live Activity UI shell).
   // NOTE: this repo ignores `/ios`, so we create the target and files during prebuild.

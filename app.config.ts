@@ -6,6 +6,37 @@ const path = require('path');
 const ENV_FILE_ENV = process.env.APP_ENV ?? process.env.NODE_ENV ?? 'development';
 const projectRoot = __dirname;
 const widgetsEnabled = (process.env.KWILT_ENABLE_WIDGETS ?? '').trim() === '1';
+const screenTimeEnabled = (process.env.KWILT_ENABLE_SCREEN_TIME ?? '').trim() === '1';
+const appGroupId = 'group.com.andrewwatanabe.kwilt';
+const screenTimeEntitlements = {
+  'com.apple.developer.family-controls': true,
+  'com.apple.security.application-groups': [appGroupId],
+};
+
+const iosAppExtensions = [
+  ...(widgetsEnabled
+    ? [
+        {
+          targetName: 'KwiltWidgets',
+          bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
+        },
+      ]
+    : []),
+  ...(screenTimeEnabled
+    ? [
+        {
+          targetName: 'KwiltShieldConfiguration',
+          bundleIdentifier: 'com.andrewwatanabe.kwilt.shield-configuration',
+          entitlements: screenTimeEntitlements,
+        },
+        {
+          targetName: 'KwiltShieldAction',
+          bundleIdentifier: 'com.andrewwatanabe.kwilt.shield-action',
+          entitlements: screenTimeEntitlements,
+        },
+      ]
+    : []),
+];
 
 /**
  * @param {string | undefined} value
@@ -99,7 +130,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.76',
+  version: '1.0.77',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -126,19 +157,21 @@ const config = {
     bundleIdentifier: 'com.andrewwatanabe.kwilt',
     // Required for signing additional targets created at prebuild time (e.g. widgets).
     appleTeamId: 'BK3N7YXHN7',
+    // Preserve the existing Apple Developer capability so EAS does not try to remove it.
+    usesAppleSignIn: true,
+    entitlements:
+      screenTimeEnabled || widgetsEnabled
+        ? {
+            ...(screenTimeEnabled ? { 'com.apple.developer.family-controls': true } : {}),
+            'com.apple.security.application-groups': [appGroupId],
+          }
+        : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '76',
-    // iOS app extensions (WidgetKit) are only declared for widget-enabled profiles.
-    // This prevents non-widget production builds from requiring widget target credentials.
+    buildNumber: '77',
+    // iOS app extensions are only declared for profiles that enable them.
+    // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
-    appExtensions: widgetsEnabled
-      ? [
-          {
-            targetName: 'KwiltWidgets',
-            bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
-          },
-        ]
-      : undefined,
+    appExtensions: iosAppExtensions.length > 0 ? iosAppExtensions : undefined,
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
     associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
@@ -180,7 +213,7 @@ const config = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 76,
+    versionCode: 77,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -246,14 +279,7 @@ const config = {
       build: {
         experimental: {
           ios: {
-            appExtensions: widgetsEnabled
-              ? [
-                  {
-                    targetName: 'KwiltWidgets',
-                    bundleIdentifier: 'com.andrewwatanabe.kwilt.widgets',
-                  },
-                ]
-              : undefined,
+            appExtensions: iosAppExtensions.length > 0 ? iosAppExtensions : undefined,
           },
         },
       },

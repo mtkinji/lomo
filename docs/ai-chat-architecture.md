@@ -26,7 +26,7 @@ Today we have:
 
 - `arcCreation`: an **Arc Coach** that helps the user draft new Arcs.
 
-All Arc-creation modes (including FTUE identity onboarding) should treat `docs/arc-aspiration-ftue.md` as the **gold-standard spec** for what a good Arc looks like (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment) and how `Arc.name` and `Arc.narrative` are synthesized from minimal input.
+All Arc-creation modes should treat `docs/arc-aspiration-ftue.md` as the **gold-standard spec** for what a good Arc looks like and how `Arc.name` and `Arc.narrative` are synthesized from minimal input. FTUX onboarding specifically should also follow `docs/feature-briefs/ftux-goal-arc-onboarding.md`: create a first Goal and the identity Arc it belongs to in one deterministic concrete-to-identity flow.
 
 Future examples:
 
@@ -292,5 +292,4 @@ For now, all workflow definitions live in `src/domain/workflows.ts` behind a sma
      - Show user confirmations as chat bubbles and advance `currentStepId`.
 
 As workflows grow, we can split definitions into separate files (e.g. `workflows/firstTimeOnboarding.ts`) and re-export them from `src/domain/workflows.ts`, but the registry remains the single entry point for the app and AgentWorkspace.
-
 

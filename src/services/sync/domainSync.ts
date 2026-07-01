@@ -1,4 +1,5 @@
 import { InteractionManager } from 'react-native';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../backend/supabaseClient';
 import { useAppStore, switchDomainUser } from '../../store/useAppStore';
 import type { Activity, Arc, Goal } from '../../domain/types';
@@ -23,6 +24,13 @@ type DomainRemoteCounts = {
   activities: number;
 };
 
+type DomainRealtimeConfig = {
+  event: '*';
+  schema: 'public';
+  table: DomainTable;
+  filter: string;
+};
+
 type DomainPullResult = {
   counts: DomainRemoteCounts;
 };
@@ -30,6 +38,10 @@ type DomainPullResult = {
 let started = false;
 let stopAuthSub: (() => void) | null = null;
 let stopDomainSub: (() => void) | null = null;
+let realtimeChannel: RealtimeChannel | null = null;
+let realtimePullTimeout: ReturnType<typeof setTimeout> | null = null;
+let realtimePullInFlight = false;
+let realtimePullQueued = false;
 
 let activeUser: SyncUser | null = null;
 let pushTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -53,6 +65,7 @@ export function resetPrevIds(): void {
 
 const PUSH_DEBOUNCE_MS = 1200;
 const IS_JEST = typeof process !== 'undefined' && Boolean((process as any).env?.JEST_WORKER_ID);
+const REALTIME_PULL_DEBOUNCE_MS = IS_JEST ? 1 : 500;
 const FIRST_PULL_RETRY_DELAYS_MS = IS_JEST ? [1, 1, 1] : [500, 1000, 2000];
 const REMOTE_TABLE_FETCH_TIMEOUT_MS = IS_JEST ? 50 : 12000;
 
@@ -296,6 +309,13 @@ function markDomainPullError(e: unknown, opts: { keepHydrated: boolean }): void 
   } as any);
 }
 
+function seedPrevIdsFromStore(): void {
+  const s = useAppStore.getState();
+  prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
+  prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
+  prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
+}
+
 function buildUpsertRows<T extends { id: string }>(user: SyncUser, items: T[], extra?: Record<string, any>) {
   const nowIso = new Date().toISOString();
   return items.map((item) => ({
@@ -378,6 +398,95 @@ async function pushNow(): Promise<void> {
   }
 }
 
+async function runRealtimePull(user: SyncUser, gen: number): Promise<void> {
+  if (gen !== enableGeneration) return;
+  if (activeUser?.userId !== user.userId) return;
+  if (disabledReason) return;
+
+  if (realtimePullInFlight) {
+    realtimePullQueued = true;
+    return;
+  }
+
+  realtimePullInFlight = true;
+  try {
+    const result = await pullAndMerge(user);
+    if (gen !== enableGeneration) return;
+    if (activeUser?.userId !== user.userId) return;
+    seedPrevIdsFromStore();
+    markDomainPullReady(result);
+  } catch (e) {
+    if (gen !== enableGeneration) return;
+    if (activeUser?.userId !== user.userId) return;
+    if (__DEV__) {
+      if (maybeDisableIfSchemaCacheMissingTable(e)) return;
+      // eslint-disable-next-line no-console
+      console.warn('[domainSync] realtime pull failed', e);
+    }
+    markDomainPullError(e, { keepHydrated: true });
+  } finally {
+    realtimePullInFlight = false;
+    if (realtimePullQueued) {
+      realtimePullQueued = false;
+      scheduleRealtimePull(user, gen);
+    }
+  }
+}
+
+function scheduleRealtimePull(user: SyncUser, gen: number): void {
+  if (gen !== enableGeneration) return;
+  if (activeUser?.userId !== user.userId) return;
+  if (disabledReason) return;
+
+  if (realtimePullTimeout) clearTimeout(realtimePullTimeout);
+  realtimePullTimeout = setTimeout(() => {
+    realtimePullTimeout = null;
+    void runRealtimePull(user, gen);
+  }, REALTIME_PULL_DEBOUNCE_MS);
+}
+
+function stopRealtimeSubscription(): void {
+  if (realtimePullTimeout) {
+    clearTimeout(realtimePullTimeout);
+    realtimePullTimeout = null;
+  }
+  realtimePullQueued = false;
+  const channel = realtimeChannel;
+  realtimeChannel = null;
+  if (channel) {
+    try {
+      void getSupabaseClient().removeChannel(channel);
+    } catch {
+      // best-effort cleanup
+    }
+  }
+}
+
+function subscribeToDomainRealtime(user: SyncUser, gen: number): void {
+  stopRealtimeSubscription();
+  if (disabledReason) return;
+
+  const supabase = getSupabaseClient();
+  const channel = supabase.channel(`domain_sync:${user.userId}`);
+  const configBase = {
+    event: '*',
+    schema: 'public',
+    filter: `user_id=eq.${user.userId}`,
+  } as const;
+  const onChange = () => scheduleRealtimePull(user, gen);
+  const onPostgresChange = channel.on.bind(channel) as unknown as (
+    event: 'postgres_changes',
+    config: DomainRealtimeConfig,
+    callback: () => void,
+  ) => RealtimeChannel;
+
+  onPostgresChange('postgres_changes', { ...configBase, table: 'kwilt_arcs' }, onChange);
+  onPostgresChange('postgres_changes', { ...configBase, table: 'kwilt_goals' }, onChange);
+  onPostgresChange('postgres_changes', { ...configBase, table: 'kwilt_activities' }, onChange);
+
+  realtimeChannel = channel.subscribe();
+}
+
 function schedulePush(): void {
   if (!activeUser) return;
   if (disabledReason) return;
@@ -405,13 +514,7 @@ async function enableForUser(user: SyncUser): Promise<void> {
   activeUser = user;
 
   // Initialize previous sets from the now-loaded state so first diff doesn't tombstone everything.
-  const seedPrevIds = () => {
-    const s = useAppStore.getState();
-    prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
-    prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
-    prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
-  };
-  seedPrevIds();
+  seedPrevIdsFromStore();
 
   if (hadLocalCache) {
     // User has cached data -- show it immediately and refresh from backend in the background.
@@ -443,8 +546,10 @@ async function enableForUser(user: SyncUser): Promise<void> {
       if (gen !== enableGeneration) return;
       markDomainPullError(e, { keepHydrated: false });
     }
-    seedPrevIds();
+    seedPrevIdsFromStore();
   }
+
+  subscribeToDomainRealtime(user, gen);
 
   // Subscribe to domain slice changes and push debounced.
   stopDomainSub?.();
@@ -472,6 +577,7 @@ async function enableForUser(user: SyncUser): Promise<void> {
 
 function disable(): void {
   activeUser = null;
+  stopRealtimeSubscription();
   stopDomainSub?.();
   stopDomainSub = null;
   if (pushTimeout) {
@@ -562,10 +668,7 @@ export async function retryDomainPull(): Promise<void> {
   try {
     const result = await pullAndMergeWithRetry(user);
     if (gen !== enableGeneration) return;
-    const s = useAppStore.getState();
-    prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
-    prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
-    prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
+    seedPrevIdsFromStore();
     markDomainPullReady(result);
   } catch (e) {
     if (gen !== enableGeneration) return;

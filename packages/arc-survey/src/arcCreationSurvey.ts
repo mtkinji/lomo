@@ -18,6 +18,13 @@ export type ArcCreationSurveyStepId =
   | 'practiceStyle'
   | 'personalTexture';
 
+export type FtuxGoalArcSurveyStepId =
+  | 'category'
+  | 'concreteFocus'
+  | 'goalShape'
+  | 'motivation'
+  | 'identityBridge';
+
 export type IdentityDirectionKey =
   | 'steadiness'
   | 'follow_through'
@@ -30,6 +37,7 @@ export type IdentityDirectionKey =
 export type PrimaryArenaKey =
   | 'family'
   | 'health'
+  | 'sports_movement'
   | 'work'
   | 'creative_work'
   | 'faith_meaning'
@@ -42,6 +50,7 @@ export type PrimaryArenaKey =
 
 export type WhyNowKey =
   | 'drifting'
+  | 'enjoyment'
   | 'new_season'
   | 'old_pattern'
   | 'responsibility'
@@ -87,6 +96,58 @@ export type PersonalTexture = {
   freeText?: string;
   tonePreferences?: PersonalTextureTonePreference[];
 };
+
+export type GoalShapeKey =
+  | 'show_up_consistently'
+  | 'improve_one_part'
+  | 'prepare_for_something'
+  | 'make_time'
+  | 'finish_complete'
+  | 'get_organized'
+  | 'confidence'
+  | 'change_pattern'
+  | 'custom';
+
+export type FtuxCategoryKey =
+  | 'skill_hobby'
+  | 'project_creative'
+  | 'health_energy'
+  | 'school_work'
+  | 'money_home'
+  | 'relationships'
+  | 'faith_values'
+  | 'habit_change'
+  | 'custom';
+
+export type FtuxMotivationKey =
+  | 'enjoyment'
+  | 'improve'
+  | 'energy'
+  | 'life_works_better'
+  | 'people_i_care_about'
+  | 'part_of_me'
+  | 'dont_want_to_lose'
+  | 'custom';
+
+export type IdentityBridgeKey =
+  | 'showing_up'
+  | 'steady_when_hard'
+  | 'practice_growth'
+  | 'recover_setbacks'
+  | 'responsibility'
+  | 'present_with_people'
+  | 'live_values'
+  | 'custom';
+
+export type ResistanceKey =
+  | 'starting'
+  | 'sticking_with_it'
+  | 'distraction'
+  | 'discouragement'
+  | 'comparison'
+  | 'unclear_next_step'
+  | 'tired_overloaded'
+  | 'custom';
 
 export type ArcSurveyOption<TKey extends string = string> = {
   id: TKey;
@@ -155,6 +216,36 @@ export type ArcSurveyV2Response = {
   personalTexture?: PersonalTexture;
 };
 
+export type FtuxGoalArcSurveyResponse = {
+  version: 3;
+  category: {
+    key: FtuxCategoryKey;
+    label: string;
+    generationMeaning?: string;
+    customText?: string;
+  };
+  concreteFocus: string;
+  goalShape: {
+    key: GoalShapeKey;
+    label: string;
+    generationMeaning?: string;
+    customText?: string;
+  };
+  motivation: {
+    key: FtuxMotivationKey;
+    label: string;
+    generationMeaning?: string;
+    customText?: string;
+  };
+  identityBridge: {
+    key: IdentityBridgeKey;
+    label: string;
+    generationMeaning?: string;
+    customText?: string;
+  };
+  personalTexture?: PersonalTexture;
+};
+
 export type ArcSurveyResponse = ArcSurveyV1Response | ArcSurveyV2Response;
 
 export type ArcGenerationInput = {
@@ -162,6 +253,20 @@ export type ArcGenerationInput = {
   prompt: string;
   additionalContext: string;
   surveyResponse: ArcSurveyResponse;
+};
+
+export type FtuxGoalDraft = {
+  title: string;
+  description: string;
+  firstActivitySuggestion: string;
+};
+
+export type FtuxGoalArcGenerationInput = {
+  surveyVersion: 3;
+  prompt: string;
+  additionalContext: string;
+  surveyResponse: FtuxGoalArcSurveyResponse;
+  goalDraft: FtuxGoalDraft;
 };
 
 export const ARC_CREATION_SURVEY_V1_STEP_ORDER: ArcCreationSurveyV1StepId[] = [
@@ -192,6 +297,14 @@ export const ARC_CREATION_SURVEY_STEP_ORDER: ArcCreationSurveyStepId[] = [
   'personalTexture',
 ];
 
+export const FTUX_GOAL_ARC_SURVEY_STEP_ORDER: FtuxGoalArcSurveyStepId[] = [
+  'category',
+  'concreteFocus',
+  'goalShape',
+  'motivation',
+  'identityBridge',
+];
+
 export const ARC_CREATION_SURVEY_COPY = {
   introTitleFirstArc: 'Create your first Arc',
   introTitleRegular: 'Create an Arc',
@@ -217,6 +330,32 @@ export const ARC_CREATION_SURVEY_COPY = {
   skipWhyNowLabel: 'Skip',
   skipPersonalTextureLabel: 'Skip',
 };
+
+export const FTUX_GOAL_ARC_SURVEY_COPY = {
+  introTitleFirstArc: 'Create your first Goal and Arc',
+  introBodyFirstArc:
+    'Start with one real thing you care about. Kwilt will turn it into a first Goal and the longer Arc it belongs inside.',
+  introCta: 'Start with one thing',
+  categoryTitle: 'What kind of thing is it?',
+  categoryCustomPlaceholder: 'Describe the kind of thing.',
+  concreteFocusTitle: 'Name it in a few words.',
+  concreteFocusPlaceholder: 'Tennis, sleep, school, prayer...',
+  goalShapeTitle: 'What do you want to do with it?',
+  goalShapeCustomPlaceholder: 'Describe what you want to do with it.',
+  motivationTitle: 'What matters most about it?',
+  motivationCustomPlaceholder: 'Describe what matters most about it.',
+  identityBridgeTitle: 'What kind of person do you want this to help you become?',
+  identityBridgeCustomPlaceholder: 'Describe the kind of person this helps you become.',
+};
+
+export const FTUX_GOAL_ARC_SURVEY_VALIDATION = {
+  category: { required: true, maxSelections: 1 },
+  concreteFocus: { required: true, minLength: 2 },
+  goalShape: { required: true, maxSelections: 1 },
+  motivation: { required: true, maxSelections: 1 },
+  identityBridge: { required: true, maxSelections: 1 },
+  personalTexture: { required: false },
+} as const;
 
 export const ARC_CREATION_SURVEY_VALIDATION = {
   identityDirection: { required: true, maxSelections: 1 },
@@ -290,6 +429,7 @@ export const identityDirectionOptions: Array<ArcSurveyOption<IdentityDirectionKe
 export const primaryArenaOptions: Array<ArcSurveyOption<PrimaryArenaKey>> = [
   { id: 'family', key: 'family', label: 'Family' },
   { id: 'health', key: 'health', label: 'Health' },
+  { id: 'sports_movement', key: 'sports_movement', label: 'Sports / movement' },
   { id: 'work', key: 'work', label: 'Work' },
   { id: 'creative_work', key: 'creative_work', label: 'Creative work' },
   { id: 'faith_meaning', key: 'faith_meaning', label: 'Faith / meaning' },
@@ -302,6 +442,13 @@ export const primaryArenaOptions: Array<ArcSurveyOption<PrimaryArenaKey>> = [
 ];
 
 export const whyNowOptions: Array<ArcSurveyOption<WhyNowKey>> = [
+  {
+    id: 'enjoyment',
+    key: 'enjoyment',
+    label: 'I enjoy this',
+    generationMeaning:
+      'The user wants to give more time, attention, and structure to something they genuinely enjoy.',
+  },
   {
     id: 'drifting',
     key: 'drifting',
@@ -356,6 +503,315 @@ export const whyNowOptions: Array<ArcSurveyOption<WhyNowKey>> = [
     label: 'I’m not sure yet',
     generationMeaning:
       'The user feels the importance of change but cannot fully name why yet.',
+  },
+];
+
+export const ftuxCategoryOptions: Array<ArcSurveyOption<FtuxCategoryKey>> = [
+  {
+    id: 'skill_hobby',
+    key: 'skill_hobby',
+    label: 'A skill or hobby',
+    generationMeaning:
+      'The user is starting from a skill, sport, hobby, craft, or personal interest.',
+  },
+  {
+    id: 'project_creative',
+    key: 'project_creative',
+    label: 'A project or creative thing',
+    generationMeaning:
+      'The user is starting from a project, creative effort, build, launch, or tangible body of work.',
+  },
+  {
+    id: 'health_energy',
+    key: 'health_energy',
+    label: 'Health or energy',
+    generationMeaning:
+      'The user is starting from health, energy, movement, sleep, recovery, or physical wellbeing.',
+  },
+  {
+    id: 'school_work',
+    key: 'school_work',
+    label: 'School or work',
+    generationMeaning:
+      'The user is starting from school, work, career, responsibility, or performance expectations.',
+  },
+  {
+    id: 'money_home',
+    key: 'money_home',
+    label: 'Money or home',
+    generationMeaning:
+      'The user is starting from finances, home life, organization, chores, or practical life administration.',
+  },
+  {
+    id: 'relationships',
+    key: 'relationships',
+    label: 'Relationships',
+    generationMeaning:
+      'The user is starting from friendship, family, community, repair, connection, or care for others.',
+  },
+  {
+    id: 'faith_values',
+    key: 'faith_values',
+    label: 'Faith or values',
+    generationMeaning:
+      'The user is starting from faith, meaning, values, service, integrity, or spiritual practice.',
+  },
+  {
+    id: 'habit_change',
+    key: 'habit_change',
+    label: 'A habit I want to change',
+    generationMeaning:
+      'The user is starting from a pattern they want to interrupt, replace, or relate to differently.',
+  },
+  {
+    id: 'custom',
+    key: 'custom',
+    label: 'Something else',
+    generationMeaning: 'The user wants to describe their own category of focus.',
+    allowsCustomText: true,
+  },
+];
+
+export const goalShapeOptions: Array<ArcSurveyOption<GoalShapeKey>> = [
+  {
+    id: 'show_up_consistently',
+    key: 'show_up_consistently',
+    label: 'Do it more often',
+    generationMeaning:
+      'The first Goal should help the user repeat a meaningful practice over the next few weeks.',
+  },
+  {
+    id: 'improve_one_part',
+    key: 'improve_one_part',
+    label: 'Get better at it',
+    generationMeaning:
+      'The first Goal should help the user improve at the focus; Kwilt can choose a small specific next step after the user gives the broad intent.',
+  },
+  {
+    id: 'prepare_for_something',
+    key: 'prepare_for_something',
+    label: 'Get ready for something',
+    generationMeaning:
+      'The first Goal should help the user get ready for a known event, season, milestone, or opportunity.',
+  },
+  {
+    id: 'confidence',
+    key: 'confidence',
+    label: 'Feel more confident',
+    generationMeaning:
+      'The first Goal should create evidence that the user can do this and keep going.',
+  },
+  {
+    id: 'make_time',
+    key: 'make_time',
+    label: 'Make more time for it',
+    generationMeaning:
+      "The first Goal should create room in the user's real schedule for this focus.",
+  },
+  {
+    id: 'get_organized',
+    key: 'get_organized',
+    label: 'Get organized',
+    generationMeaning:
+      'The first Goal should help the user bring order, clarity, or a simple system to this focus.',
+  },
+  {
+    id: 'change_pattern',
+    key: 'change_pattern',
+    label: 'Work through something hard',
+    generationMeaning:
+      'The first Goal should help the user work through friction, repair, resistance, or a pattern that gets in the way.',
+  },
+  {
+    id: 'finish_complete',
+    key: 'finish_complete',
+    label: 'Finish something',
+    generationMeaning:
+      'The first Goal should have a visible completion point, deliverable, shipped piece, or finished milestone.',
+  },
+  {
+    id: 'custom',
+    key: 'custom',
+    label: 'Something else',
+    generationMeaning: 'The user wants to describe their own concrete goal shape.',
+    allowsCustomText: true,
+  },
+];
+
+export const ftuxMotivationOptions: Array<ArcSurveyOption<FtuxMotivationKey>> = [
+  {
+    id: 'enjoyment',
+    key: 'enjoyment',
+    label: 'I enjoy it',
+    generationMeaning:
+      'This matters because the user genuinely enjoys it and wants to give it more structure.',
+  },
+  {
+    id: 'improve',
+    key: 'improve',
+    label: 'I want to get better',
+    generationMeaning:
+      'This matters because the user wants improvement, skill, and a clearer path of practice.',
+  },
+  {
+    id: 'energy',
+    key: 'energy',
+    label: 'It gives me energy',
+    generationMeaning:
+      'This matters because the focus gives the user vitality, momentum, or a stronger sense of aliveness.',
+  },
+  {
+    id: 'life_works_better',
+    key: 'life_works_better',
+    label: 'It would make life better',
+    generationMeaning:
+      "This matters because the focus improves the user's daily life, stability, relationships, or sense of order.",
+  },
+  {
+    id: 'people_i_care_about',
+    key: 'people_i_care_about',
+    label: 'It helps me care for or serve others',
+    generationMeaning:
+      'This matters because the focus connects to responsibility, care, or contribution to other people.',
+  },
+  {
+    id: 'part_of_me',
+    key: 'part_of_me',
+    label: 'It connects to who I am',
+    generationMeaning:
+      'This matters because the focus expresses identity, values, belonging, or a long-running interest.',
+  },
+  {
+    id: 'dont_want_to_lose',
+    key: 'dont_want_to_lose',
+    label: 'I do not want to lose it',
+    generationMeaning:
+      'This matters because the user wants to protect something meaningful from fading, drifting, or being crowded out.',
+  },
+  {
+    id: 'custom',
+    key: 'custom',
+    label: 'Something else',
+    generationMeaning: 'The user wants to describe their own motivation.',
+    allowsCustomText: true,
+  },
+];
+
+export const identityBridgeOptions: Array<ArcSurveyOption<IdentityBridgeKey>> = [
+  {
+    id: 'showing_up',
+    key: 'showing_up',
+    label: 'Someone who keeps showing up',
+    generationMeaning:
+      'The Arc should frame the user as becoming someone who shows up with consistency and care.',
+  },
+  {
+    id: 'steady_when_hard',
+    key: 'steady_when_hard',
+    label: "Someone who stays steady when it's hard",
+    generationMeaning:
+      'The Arc should frame the user as becoming steadier under pressure, discomfort, or difficulty.',
+  },
+  {
+    id: 'practice_growth',
+    key: 'practice_growth',
+    label: 'Someone who practices and improves',
+    generationMeaning:
+      'The Arc should frame the user as becoming someone who improves through repeated practice.',
+  },
+  {
+    id: 'recover_setbacks',
+    key: 'recover_setbacks',
+    label: 'Someone who bounces back',
+    generationMeaning:
+      'The Arc should frame the user as becoming more resilient and able to return after mistakes or missed days.',
+  },
+  {
+    id: 'responsibility',
+    key: 'responsibility',
+    label: 'Someone others can count on',
+    generationMeaning:
+      'The Arc should frame the user as becoming more responsible, dependable, and able to carry what matters.',
+  },
+  {
+    id: 'present_with_people',
+    key: 'present_with_people',
+    label: 'Someone more present with people',
+    generationMeaning:
+      'The Arc should frame the user as becoming more present, attentive, and relationally available.',
+  },
+  {
+    id: 'live_values',
+    key: 'live_values',
+    label: 'Someone who lives what matters',
+    generationMeaning:
+      'The Arc should frame the user as becoming someone whose actions match what they believe matters.',
+  },
+  {
+    id: 'custom',
+    key: 'custom',
+    label: 'Something else',
+    generationMeaning: 'The user wants to describe their own identity bridge.',
+    allowsCustomText: true,
+  },
+];
+
+export const resistanceOptions: Array<ArcSurveyOption<ResistanceKey>> = [
+  {
+    id: 'starting',
+    key: 'starting',
+    label: 'Starting',
+    generationMeaning:
+      'The first Goal should reduce startup friction and make the next action obvious.',
+  },
+  {
+    id: 'sticking_with_it',
+    key: 'sticking_with_it',
+    label: 'Sticking with it',
+    generationMeaning:
+      'The first Goal should support consistency after the initial motivation fades.',
+  },
+  {
+    id: 'distraction',
+    key: 'distraction',
+    label: 'Distraction',
+    generationMeaning:
+      'The first Goal should protect attention from devices, interruptions, or competing inputs.',
+  },
+  {
+    id: 'discouragement',
+    key: 'discouragement',
+    label: 'Discouragement',
+    generationMeaning:
+      'The first Goal should make setbacks survivable and help the user keep going.',
+  },
+  {
+    id: 'comparison',
+    key: 'comparison',
+    label: 'Comparing myself to others',
+    generationMeaning:
+      'The first Goal should focus the user on their own evidence of progress instead of comparison.',
+  },
+  {
+    id: 'unclear_next_step',
+    key: 'unclear_next_step',
+    label: 'Not knowing the next step',
+    generationMeaning:
+      'The first Goal should define a clear next action and remove ambiguity.',
+  },
+  {
+    id: 'tired_overloaded',
+    key: 'tired_overloaded',
+    label: 'Being tired or overloaded',
+    generationMeaning:
+      'The first Goal should fit the user’s available energy and avoid making the focus feel too heavy.',
+  },
+  {
+    id: 'custom',
+    key: 'custom',
+    label: 'Something else',
+    generationMeaning: 'The user wants to describe their own point of resistance.',
+    allowsCustomText: true,
   },
 ];
 
@@ -571,6 +1027,170 @@ export function buildArcGenerationInputFromSurvey(response: ArcSurveyResponse): 
     : buildArcGenerationInputFromSurveyV1(response);
 }
 
+const cleanGeneratedText = (text: string): string =>
+  text
+    .replace(/\\([.,!?;:])/g, '$1')
+    .replace(/\\/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const cleanTerminalPunctuation = (text: string): string =>
+  cleanGeneratedText(text).replace(/[.!?]+$/g, '').trim();
+
+const cleanLabel = (label: string, customText?: string): string => {
+  const custom = cleanGeneratedText(customText ?? '');
+  return custom && custom.length > 0 ? custom : cleanGeneratedText(label);
+};
+
+function focusFromConcreteInput(input: string): string {
+  const cleaned = cleanTerminalPunctuation(input);
+  if (!cleaned) return cleaned;
+
+  const patterns = [
+    /^i\s+(?:want|wanna|would like|would love)\s+to\s+(?:get better at|improve at|improve in|improve|learn|practice|make progress on|work on)\s+(.+)$/i,
+    /^i\s+(?:want|wanna|would like|would love)\s+to\s+be\s+better\s+at\s+(.+)$/i,
+    /^to\s+(?:get better at|improve at|improve in|improve|learn|practice|make progress on|work on)\s+(.+)$/i,
+    /^(?:get better at|improve at|improve in|learn|practice|make progress on|work on)\s+(.+)$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    const candidate = cleanTerminalPunctuation(match?.[1] ?? '');
+    if (candidate) return candidate;
+  }
+
+  return cleaned;
+};
+
+function titleCaseFocus(focus: string): string {
+  return cleanTerminalPunctuation(focus)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function goalVerbForShape(key: GoalShapeKey): string {
+  switch (key) {
+    case 'show_up_consistently':
+      return 'Show up for';
+    case 'improve_one_part':
+      return 'Get better at';
+    case 'prepare_for_something':
+      return 'Prepare for';
+    case 'make_time':
+      return 'Make time for';
+    case 'get_organized':
+      return 'Get organized around';
+    case 'finish_complete':
+      return 'Finish something in';
+    case 'confidence':
+      return 'Build confidence in';
+    case 'change_pattern':
+      return 'Work through something hard in';
+    case 'custom':
+    default:
+      return 'Make progress on';
+  }
+}
+
+function firstActivityForShape(response: FtuxGoalArcSurveyResponse): string {
+  const focus = focusFromConcreteInput(response.concreteFocus);
+  switch (response.goalShape.key) {
+    case 'show_up_consistently':
+      return `Schedule one small ${focus} practice this week.`;
+    case 'improve_one_part':
+      return `Pick one part of ${focus} to practice for 10 minutes.`;
+    case 'prepare_for_something':
+      return `Name the next thing you are preparing for in ${focus}.`;
+    case 'make_time':
+      return `Choose one realistic time slot for ${focus}.`;
+    case 'get_organized':
+      return `Make one small list or setup step for ${focus}.`;
+    case 'finish_complete':
+      return `Define the smallest finish line for ${focus}.`;
+    case 'confidence':
+      return `Do one small rep of ${focus} and record what improved.`;
+    case 'change_pattern':
+      return `Name the hard part of ${focus} and one next move through it.`;
+    case 'custom':
+    default:
+      return `Choose one small next step for ${focus}.`;
+  }
+}
+
+export function buildFtuxGoalDraftFromSurvey(
+  response: FtuxGoalArcSurveyResponse
+): FtuxGoalDraft {
+  const focus = focusFromConcreteInput(response.concreteFocus);
+  const titleFocus = titleCaseFocus(focus);
+  const category = cleanLabel(response.category.label, response.category.customText);
+  const goalShape = cleanLabel(response.goalShape.label, response.goalShape.customText);
+  const motivation = cleanLabel(response.motivation.label, response.motivation.customText);
+  const identityBridge = cleanLabel(
+    response.identityBridge.label,
+    response.identityBridge.customText
+  );
+
+  return {
+    title: `${goalVerbForShape(response.goalShape.key)} ${titleFocus}`,
+    description: [
+      `Make near-term progress on ${focus}.`,
+      `Kind: ${category}.`,
+      `Shape: ${goalShape}.`,
+      `Why it matters: ${motivation}.`,
+      `Longer Arc: ${identityBridge}.`,
+    ].join(' '),
+    firstActivitySuggestion: firstActivityForShape(response),
+  };
+}
+
+export function buildFtuxGoalArcGenerationInput(
+  response: FtuxGoalArcSurveyResponse
+): FtuxGoalArcGenerationInput {
+  const goalDraft = buildFtuxGoalDraftFromSurvey(response);
+  const concreteFocus = focusFromConcreteInput(response.concreteFocus);
+  const rawConcreteFocus = cleanGeneratedText(response.concreteFocus);
+  const generationResponse: FtuxGoalArcSurveyResponse = {
+    ...response,
+    concreteFocus,
+  };
+  const identityBridge = cleanLabel(
+    response.identityBridge.label,
+    response.identityBridge.customText
+  );
+  const prompt = `${concreteFocus} toward ${identityBridge}`;
+  const lines = [
+    'FTUX Goal+Arc Survey v3 response (visible labels + hidden generation meanings):',
+    JSON.stringify(generationResponse, null, 2),
+    '',
+    'Output contract:',
+    '- Create one concrete first Goal and one identity-based Arc in the same onboarding outcome.',
+    '- The Goal should be near-term, actionable, and directly based on concreteFocus + goalShape.',
+    '- The Arc should name who the user is becoming through this focus, not merely repeat the activity.',
+    '- The Arc can hold future Goals beyond this first one.',
+    '- Use category, motivation, identityBridge, and personalTexture to tune language and support.',
+    '- Do not require resistance or support-style detail before first value; those can be discovered later.',
+    '- Keep language readable for teens and adults.',
+    '- Treat interpretedFocus as the object being practiced. Use rawConcreteFocus only as extra user wording, not as a phrase to paste into names or sentences.',
+    '',
+    `Interpreted focus: ${concreteFocus}`,
+    rawConcreteFocus !== concreteFocus ? `Raw user wording: ${rawConcreteFocus}` : null,
+    '',
+    'Deterministic Goal draft for persistence fallback:',
+    JSON.stringify(goalDraft, null, 2),
+  ].filter((line): line is string => Boolean(line));
+
+  return {
+    surveyVersion: 3,
+    prompt,
+    additionalContext: lines.join('\n'),
+    surveyResponse: response,
+    goalDraft,
+  };
+}
+
 export function summarizeArcSurveyResponseForChat(response: ArcSurveyResponse): string {
   if (!isArcSurveyV2Response(response)) {
     const input = buildArcGenerationInputFromSurveyV1(response);
@@ -592,3 +1212,19 @@ export function summarizeArcSurveyResponseForChat(response: ArcSurveyResponse): 
     .join('\n');
 }
 
+export function summarizeFtuxGoalArcSurveyResponseForChat(
+  response: FtuxGoalArcSurveyResponse
+): string {
+  const texture = response.personalTexture;
+  return [
+    `Focus: ${response.concreteFocus}`,
+    `Kind: ${cleanLabel(response.category.label, response.category.customText)}`,
+    `Goal shape: ${cleanLabel(response.goalShape.label, response.goalShape.customText)}`,
+    `Meaning: ${cleanLabel(response.motivation.label, response.motivation.customText)}`,
+    `Becoming: ${cleanLabel(response.identityBridge.label, response.identityBridge.customText)}`,
+    texture?.freeText ? `Personal detail: ${texture.freeText}` : null,
+    texture?.tonePreferences?.length ? `Tone preferences: ${texture.tonePreferences.join(', ')}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join('\n');
+}

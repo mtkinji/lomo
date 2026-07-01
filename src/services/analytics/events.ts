@@ -23,6 +23,10 @@ export const AnalyticsEvent = {
   ActivityCompletionToggled: 'activity_completion_toggled',
   ActivityActionInvoked: 'activity_action_invoked',
 
+  // Navigation performance. Safe metadata only: route names, timings, counts,
+  // and frame-gap summaries. No user-authored object titles or notes.
+  NavigationTabSwitchPerf: 'navigation_tab_switch_perf',
+
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.
   PhoneAgentLinkCodeRequested: 'phone_agent_link_code_requested',
@@ -215,4 +219,3 @@ export const AnalyticsEvent = {
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];
-

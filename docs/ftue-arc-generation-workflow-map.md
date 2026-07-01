@@ -1,27 +1,106 @@
-# FTUE Arc Generation Workflow Map
+# FTUX Goal+Arc Generation Workflow Map
 
 Source of truth note:
 For the underlying philosophy of Arcs and the research for how they support lasting change, see [docs/research/arcs_identity_trajectory_research.md](/Users/andrewwatanabe/Kwilt/docs/research/arcs_identity_trajectory_research.md:1).
 This document is a workflow/debugging map for the FTUE implementation, not the canonical philosophy document.
 
-This document maps the complete end-to-end flow for generating Arcs during First Time User Experience (FTUE), including all prompts, steps, and decision points. Use this to identify simplification opportunities.
+This document maps the complete end-to-end flow for generating the first Arc and first Goal during First Time User Experience (FTUX), including all prompts, steps, and decision points. Use this to identify simplification opportunities.
 
-**Decision**: We are keeping the **10-question variant** (IdentityAspirationFlow) as the primary flow. Simplification efforts focus on streamlining prompts and generation logic while preserving the rich data collection.
+**Current decision**: FTUX should move from Arc-only onboarding to one deterministic Goal+Arc flow. The first-run user starts from concrete progress, answers universal deterministic questions, receives both an identity-shaped Arc and a linked concrete Goal, and lands on Arc detail. The older 10-question identity-only variant remains useful historical context for direct Arc creation and prompt quality, but it is no longer the target FTUX sequence.
 
----
-
-## Quick Summary: Key Simplification Priorities
-
-1. **Reduce prompt size**: From ~2,000 words to ~400-500 words
-2. **Fix contradictions**: Remove "don't use first person" rule (examples use "I want")
-3. **Fix example format**: Replace multi-paragraph examples with exact 3-sentence format
-4. **Simplify quality scoring**: Reduce from 3 attempts/threshold 9 to simpler approach
-5. **Centralize prompts**: Move from inline code to dedicated file
-6. **Condense input summary**: Group related fields, skip empty ones
+**System context**: FTUX Goal+Arc is the first implementation slice of the broader creation UX system documented in [docs/feature-briefs/object-creation-ux-system.md](/Users/andrewwatanabe/Kwilt/docs/feature-briefs/object-creation-ux-system.md:1). The FTUX questions should expose the full guided grammar; direct Goal and direct Arc creation can later use shorter variants.
 
 ---
 
-## Overview: Two Parallel Flows
+## Quick Summary: Key Implementation Priorities
+
+1. **Replace Arc-only FTUX input sequence** with deterministic Goal+Arc questions.
+2. **Generate paired output**: `Arc.name`, `Arc.narrative`, `Goal.title`, `Goal.description`, optional first Activity suggestion.
+3. **Persist both objects together**: create Goal with `arcId`, set onboarding Arc/Goal ids.
+4. **Land on Arc detail** with the first Goal visible.
+5. **Keep survey choices deterministic**; AI synthesizes output only after structured collection.
+6. **Keep prompt constraints explicit**: Arc names must be identity-shaped, Goal titles must be concrete.
+
+---
+
+## Target FTUX Flow: Goal+Arc
+
+### Entry Point
+
+- **File**: `src/features/onboarding/IdentityAspirationFlow.tsx`
+- **Triggered from**: `AgentWorkspace.tsx` when `mode === 'firstTimeOnboarding'`
+- **Product brief**: `docs/feature-briefs/ftux-goal-arc-onboarding.md`
+
+### Data Collection Phases
+
+1. **Category recognition**
+   - Question: "What kind of thing is it?"
+   - Options: A skill or hobby, A project or creative thing, Health or energy, School or work, Money or home, Relationships, Faith or values, A habit I want to change, Something else
+   - Collects: `category`
+
+2. **Concrete starting point**
+   - Question: "Name it in a few words."
+   - Input: short free text
+   - Collects: `concreteFocus`
+
+3. **Goal shape**
+   - Question: "What do you want to do with it?"
+   - Options: Get better at it, Do it more often, Get ready for something, Feel more confident, Make more time for it, Get organized, Work through something hard, Finish something, Something else
+   - Collects: `goalShape`
+
+4. **Meaning**
+   - Question: "What matters most about it?"
+   - Options: I enjoy it, I want to get better, It gives me energy, It would make life better, It helps me care for or serve others, It connects to who I am, I do not want to lose it, Something else
+   - Collects: `motivation`
+
+5. **Identity bridge**
+   - Question: "Who is this helping you become?"
+   - Options: Someone who keeps showing up, Someone who practices and improves, Someone steady when it is hard, Someone who bounces back, Someone others can count on, Someone more present with people, Someone who lives what matters, Something else
+   - Collects: `identityBridge`
+
+Resistance and support-style questions are intentionally deferred until after first payoff.
+
+### Generation Phase
+
+The generation step should produce JSON with:
+
+```json
+{
+  "arcName": "The Practice Builder",
+  "arcNarrative": "Identity-shaped narrative...",
+  "goalTitle": "Practice tennis consistently for the next 4 weeks",
+  "goalDescription": "Concrete goal description...",
+  "firstActivitySuggestion": "Plan the first tennis practice"
+}
+```
+
+Hard rules:
+
+- Arc name is identity-shaped, not the concrete input.
+- Goal title is concrete and actionable.
+- Goal is linked to Arc on save.
+- First Activity suggestion is optional and must not block completion.
+
+### Reveal and Save
+
+1. Reveal paired output:
+   - "Your direction" = Arc
+   - "Your first goal" = Goal
+2. Confirm or lightweight tweak.
+3. Save Arc.
+4. Save Goal with `arcId`.
+5. Set `lastOnboardingArcId` and `lastOnboardingGoalId`.
+6. Navigate to Arc detail.
+
+### Landing
+
+Land on Arc detail because the FTUX payoff is context: the first Goal belongs to a bigger direction of becoming.
+
+---
+
+## Historical Reference: Two Parallel Arc-Only Flows
+
+The sections below describe older Arc-only FTUE flow variants in the codebase. Treat them as implementation history and prompt-quality reference, not the target FTUX product direction.
 
 There are currently **two different FTUE flows** in the codebase:
 

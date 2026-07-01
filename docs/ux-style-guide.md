@@ -103,7 +103,7 @@ Icons are line-based with rounded ends, single-color strokes using `#567658`. Wh
 
 ### Arcs List
 - Each arc card becomes a rounded surface with icon “chips” for status and north star text. Use the metrics grid style (icon bubble + text).
-- Arc names and narratives displayed here should follow the identity-first Arc model defined in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, everyday proud moment), so even a single onboarding Arc feels like a specific, personal storyline.
+- Arc names and narratives displayed here should follow the identity trajectory model defined in `docs/arc-aspiration-ftue.md`, so onboarding-created Arcs feel like specific, personal storylines rather than categories or task buckets.
 - The “New Arc” button should follow the primary CTA card style—full-width, icon circle on the left, large label on the right.
 
 ### Arc Detail
@@ -128,4 +128,3 @@ Icons are line-based with rounded ends, single-color strokes using `#567658`. Wh
 ---
 
 Use this document whenever introducing new components or adjusting existing screens to ensure LOMO retains a cohesive, pastel-forward, gentle productivity aesthetic. Update the guide if the palette or typography choices evolve. 
-

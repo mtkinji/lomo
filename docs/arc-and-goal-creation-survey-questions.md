@@ -4,14 +4,45 @@ This file lists the current user-facing questions we ask during Arc creation and
 
 It is meant to be a simple reference, not a product spec.
 
+For the broader product direction, see [Object Creation UX System](feature-briefs/object-creation-ux-system.md). The current decision is that FTUX, direct Goal creation, and direct Arc creation should share a creation grammar even when they expose different numbers of questions.
+
+## Shared creation grammar
+
+1. Focus - what the user can name right now.
+2. Goal shape - what near-term progress should look like.
+3. Meaning - what matters most about the focus.
+4. Identity bridge - who this helps the user become.
+5. Resistance - where it usually gets hard.
+6. Support style - what kind of help should fit the user.
+
+FTUX uses an activation-first subset because it creates both the first Goal and the first Arc without blocking first value. Later direct Goal creation should probably use an even shorter guided subset. Direct Arc creation may need identity-first and activity-to-identity starts.
+
+## FTUX Goal+Arc creation
+
+Source of truth:
+- [packages/arc-survey/src/arcCreationSurvey.ts](/Users/andrewwatanabe/Kwilt/packages/arc-survey/src/arcCreationSurvey.ts:1)
+
+These questions are used during first-time onboarding to create both a concrete first Goal and the identity Arc it belongs inside.
+
+1. `What kind of thing is it?`
+
+2. `Name it in a few words.`
+   Placeholder: `Tennis, sleep, school, prayer...`
+
+3. `What do you want to do with it?`
+
+4. `What matters most about it?`
+
+5. `Who is this helping you become?`
+
+Deferred until after first payoff: `What usually gets in the way?` and `What would help you keep going?`
+
 ## Arc creation
 
 Source of truth:
 - [packages/arc-survey/src/arcCreationSurvey.ts](/Users/andrewwatanabe/Kwilt/packages/arc-survey/src/arcCreationSurvey.ts:1)
 
-These questions are used in both:
-- first-time onboarding Arc creation
-- regular Arc creation
+These questions are historical/direct Arc creation reference. First-time onboarding now uses the FTUX Goal+Arc creation sequence above.
 
 ### Current Arc survey questions
 

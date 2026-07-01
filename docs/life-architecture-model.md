@@ -102,7 +102,7 @@ An Arc is **not** a project, task category, or bucket of action — it is a **st
 - When generating Goals, always **anchor them clearly** in the Arc’s identity intention.
 - Use the Arc description to **set the tone and gravity** of the Goal.
 
-When creating or reshaping Arcs through onboarding or coach-led flows, follow the **gold-standard Arc creation model** defined in `docs/arc-aspiration-ftue.md` (domain of becoming, motivational style, signature trait, growth edge, and everyday proud moment). That document specifies the tap-only FTUE question set and how `Arc.name` and `Arc.narrative` should be synthesized from those identity ingredients.
+When creating or reshaping Arcs through onboarding or coach-led flows, follow the **gold-standard Arc creation model** defined in `docs/arc-aspiration-ftue.md`. For FTUX onboarding, also follow `docs/feature-briefs/ftux-goal-arc-onboarding.md`: the first-run flow starts from concrete progress, creates a linked first Goal, and synthesizes the identity Arc underneath it. Later direct Arc creation can still use identity-first Arc ingredients when the user already knows the direction.
 
 ---
 
@@ -345,4 +345,3 @@ AI assists in generating options, **not dictating behavior**.
   - Are **retrospective only**, summarizing lived experience into a narrative, not a backlog.
 
 As the product evolves, any new UX labels or iconography for these objects should stay **consistent** with the identity-first philosophy and the intent/actual Force distinction captured here.
-
