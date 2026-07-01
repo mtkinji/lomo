@@ -5,7 +5,17 @@ import { colors, spacing, typography } from '../../theme';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
-import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
+import {
+  VStack,
+  HStack,
+  Input,
+  ThreeColumnRow,
+  Combobox,
+  EnumPickerField,
+  SmallSetPickerField,
+  RelationPickerField,
+  KeyboardAwareScrollView,
+} from '../../ui/primitives';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { NarrativeEditableTitle, type NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { LongTextField } from '../../ui/LongTextField';
@@ -1802,7 +1812,7 @@ export function ActivityDetailRefresh(props: any) {
 
               <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>Status</Text>
-                <ObjectPicker
+                <EnumPickerField
                   value={activityPriorityState}
                   onValueChange={(nextState) => {
                     if (typeof setActivityPriorityState === 'function') {
@@ -1811,21 +1821,17 @@ export function ActivityDetailRefresh(props: any) {
                   }}
                   options={priorityStatusOptions}
                   placeholder="Select status…"
-                  searchPlaceholder="Search statuses…"
-                  emptyText="No statuses found."
                   accessibilityLabel={`Change status, currently ${activityPriorityStateLabel}`}
                   allowDeselect={false}
-                  presentation="drawer"
                   size="compact"
                   leadingIcon="layers"
                   fieldVariant="filled"
-                  showSearch={false}
                 />
               </View>
 
               <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>Linked Goal</Text>
-                <ObjectPicker
+                <RelationPickerField
                   value={activity.goalId ?? ''}
                   onValueChange={(nextGoalId) => {
                     const timestamp = new Date().toISOString();
@@ -1837,12 +1843,12 @@ export function ActivityDetailRefresh(props: any) {
                   }}
                   options={goalOptions}
                   recommendedOption={recommendedGoalOption ?? undefined}
+                  title="Choose goal"
                   placeholder="Select goal…"
                   searchPlaceholder="Search goals…"
                   emptyText="No goals found."
                   accessibilityLabel="Change linked goal"
                   allowDeselect
-                  presentation="drawer"
                   size="compact"
                   leadingIcon="goals"
                   fieldVariant="filled"
@@ -1852,7 +1858,7 @@ export function ActivityDetailRefresh(props: any) {
               {activeAreas.length > 0 ? (
                 <View style={{ marginTop: spacing.lg }}>
                   <Text style={styles.inputLabel}>Area</Text>
-                  <ObjectPicker
+                  <SmallSetPickerField
                     value={activity.areaId ?? '__none__'}
                     onValueChange={(nextAreaId) => {
                       const timestamp = new Date().toISOString();
@@ -1864,11 +1870,8 @@ export function ActivityDetailRefresh(props: any) {
                     }}
                     options={areaOptions}
                     placeholder="No area"
-                    searchPlaceholder="Search areas..."
-                    emptyText="No areas found."
                     accessibilityLabel="Change to-do area"
                     allowDeselect={false}
-                    presentation="drawer"
                     size="compact"
                     leadingIcon={selectedAreaIcon}
                     fieldVariant="filled"
@@ -1878,7 +1881,7 @@ export function ActivityDetailRefresh(props: any) {
 
               <View style={{ marginTop: spacing.lg }}>
                 <Text style={styles.inputLabel}>Type</Text>
-                <ObjectPicker
+                <EnumPickerField
                   value={activity.type}
                   onValueChange={(nextType) => {
                     const timestamp = new Date().toISOString();
@@ -1891,11 +1894,8 @@ export function ActivityDetailRefresh(props: any) {
                   }}
                   options={activityTypeOptions}
                   placeholder="Select type…"
-                  searchPlaceholder="Search types…"
-                  emptyText="No type options found."
                   accessibilityLabel="Change to-do type"
                   allowDeselect={false}
-                  presentation="drawer"
                   size="compact"
                   leadingIcon="listBulleted"
                   fieldVariant="filled"
