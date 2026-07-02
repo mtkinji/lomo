@@ -27,12 +27,10 @@ const iosAppExtensions = [
         {
           targetName: 'KwiltShieldConfiguration',
           bundleIdentifier: 'com.andrewwatanabe.kwilt.shield-configuration',
-          entitlements: screenTimeEntitlements,
         },
         {
           targetName: 'KwiltShieldAction',
           bundleIdentifier: 'com.andrewwatanabe.kwilt.shield-action',
-          entitlements: screenTimeEntitlements,
         },
       ]
     : []),

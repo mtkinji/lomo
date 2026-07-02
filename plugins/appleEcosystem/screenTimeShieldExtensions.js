@@ -149,15 +149,11 @@ function infoPlist({ displayName, extensionPointIdentifier, principalClass }) {
 `;
 }
 
-function entitlements(appGroupId) {
+function entitlements() {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-  <key>com.apple.developer.family-controls</key><true/>
-  <key>com.apple.security.application-groups</key>
-  <array><string>${appGroupId}</string></array>
-</dict>
+<dict/>
 </plist>
 `;
 }
@@ -209,7 +205,7 @@ function ensureTarget(project, config, target) {
 
   fs.writeFileSync(path.join(iosRoot, swiftRel), target.swift(appGroupId), 'utf8');
   fs.writeFileSync(path.join(iosRoot, infoRel), infoPlist(target), 'utf8');
-  fs.writeFileSync(path.join(iosRoot, entitlementsRel), entitlements(appGroupId), 'utf8');
+  fs.writeFileSync(path.join(iosRoot, entitlementsRel), entitlements(), 'utf8');
 
   project = addResourceFileToGroup({ filepath: infoRel, groupName: target.name, isBuildFile: false, project, targetUuid });
   project = addResourceFileToGroup({ filepath: entitlementsRel, groupName: target.name, isBuildFile: false, project, targetUuid });
