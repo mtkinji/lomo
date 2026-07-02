@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activities quick-add defaults from filter state
+  - Area: `src/features/activities/ActivitiesScreen.tsx`
+  - Why: creating an Activity while a view/filter is active depends on branchy inheritance rules that were buried inside a large screen.
+  - Result: `src/features/activities/activityQuickAddDefaults.ts` with focused tests for AND filters, OR filters, relative date normalization, and tag defaults.
+  - Risk: low to medium
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
