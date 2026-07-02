@@ -1,5 +1,6 @@
 import { fireEvent } from '@testing-library/react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { NavigationState, PartialState } from '@react-navigation/native';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { KwiltBottomBar } from './KwiltBottomBar';
 
@@ -23,6 +24,8 @@ jest.mock('./ChromeVisibilityContext', () => ({
   }),
 }));
 
+type NestedRouteState = NavigationState | PartialState<NavigationState>;
+
 describe('KwiltBottomBar', () => {
   it('renders the active tab indicator after the initial active item layout', () => {
     const props = createBottomBarProps({ activeIndex: 0 });
@@ -38,9 +41,31 @@ describe('KwiltBottomBar', () => {
 
     expect(queryByTestId('kwilt-bottom-bar-active-indicator')).toBeTruthy();
   });
+
+  it('opens the to-do inventory when switching to To-dos from another tab', () => {
+    const props = createBottomBarProps({
+      activeIndex: 0,
+      routeStates: {
+        ActivitiesTab: nestedStackState('ActivityDetail', { activityId: 'deleted-activity' }),
+      },
+    });
+    const { getByLabelText } = renderWithProviders(<KwiltBottomBar {...props} />);
+
+    fireEvent.press(getByLabelText('To-dos'));
+
+    expect(props.navigation.navigate).toHaveBeenLastCalledWith('ActivitiesTab', {
+      screen: 'ActivitiesList',
+    });
+  });
 });
 
-function createBottomBarProps({ activeIndex }: { activeIndex: number }): BottomTabBarProps {
+function createBottomBarProps({
+  activeIndex,
+  routeStates = {},
+}: {
+  activeIndex: number;
+  routeStates?: Record<string, NestedRouteState>;
+}): BottomTabBarProps {
   const routes = [
     { key: 'goals-key', name: 'GoalsTab' },
     { key: 'activities-key', name: 'ActivitiesTab' },
@@ -53,7 +78,10 @@ function createBottomBarProps({ activeIndex }: { activeIndex: number }): BottomT
     key: 'main-tabs',
     index: activeIndex,
     routeNames: routes.map((route) => route.name),
-    routes,
+    routes: routes.map((route) => ({
+      ...route,
+      state: routeStates[route.name],
+    })),
     history: [],
     preloadedRouteKeys: [],
   };
@@ -75,6 +103,17 @@ function createBottomBarProps({ activeIndex }: { activeIndex: number }): BottomT
     navigation,
     insets: { top: 0, right: 0, bottom: 0, left: 0 },
   } as BottomTabBarProps;
+}
+
+function nestedStackState(routeName: string, params?: Record<string, unknown>): NavigationState {
+  return {
+    stale: false,
+    type: 'stack',
+    key: `${routeName}-stack`,
+    index: 0,
+    routeNames: ['ActivitiesList', 'ActivityDetail'],
+    routes: [{ key: `${routeName}-key`, name: routeName, params }],
+  };
 }
 
 function createNavigationMock(state: BottomTabBarProps['state']) {

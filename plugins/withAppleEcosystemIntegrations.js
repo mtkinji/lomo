@@ -300,7 +300,15 @@ class KwiltScreenTimeProtection: NSObject {
     guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return }
     let data = json.data(using: .utf8)
     let payload = data.flatMap { try? JSONSerialization.jsonObject(with: $0, options: []) as? [String: Any] }
-    let reason = (payload?["reason"] as? String) ?? (payload?["mode"] as? String) ?? "default"
+    let reasons = payload?["reasons"] as? [String] ?? []
+    let reason: String
+    if reasons.contains("focus_session_active") {
+      reason = "focus_session_active"
+    } else if reasons.contains("meaningful_first_locked") {
+      reason = "meaningful_first_locked"
+    } else {
+      reason = (payload?["reason"] as? String) ?? (payload?["mode"] as? String) ?? "default"
+    }
     defaults.set(reason, forKey: shieldReasonKey)
     defaults.set(Date().timeIntervalSince1970 * 1000.0, forKey: shieldUpdatedAtKey)
   }

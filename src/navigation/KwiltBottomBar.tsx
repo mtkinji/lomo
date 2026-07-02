@@ -389,10 +389,11 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
                     navigation.navigate(route.name, { screen: 'GoalsList' });
                     return;
                   }
-                  if (route.name === 'ActivitiesTab') {
-                    navigation.navigate(route.name, { screen: 'ActivitiesList' });
-                    return;
-                  }
+                }
+
+                if (route.name === 'ActivitiesTab') {
+                  navigation.navigate(route.name, { screen: 'ActivitiesList' });
+                  return;
                 }
 
                 if (!isFocused) {

@@ -31,23 +31,27 @@ private enum KwiltShieldCopy {
 
   static func title(for reason: String) -> String {
     switch reason {
-    case "focus":
-      return "Stay with your Focus session"
+    case "focus_session_active", "focus":
+      return "Focus session is protecting this"
+    case "meaningful_first_locked":
+      return "Open Kwilt to unlock"
     case "meaningful_first_bypass":
-      return "This app is waiting"
+      return "Kwilt pause is active"
     default:
-      return "Do what matters first"
+      return "Open Kwilt to unlock"
     }
   }
 
   static func subtitle(for reason: String, appName: String) -> String {
     switch reason {
-    case "focus":
-      return "\\(appName) is blocked while Focus is running."
+    case "focus_session_active", "focus":
+      return "Kwilt is keeping \\(appName) closed until your Focus session ends."
+    case "meaningful_first_locked":
+      return "Mark a to-do done, record progress, or finish a Focus session in Kwilt to unblock \\(appName) for today."
     case "meaningful_first_bypass":
-      return "\\(appName) will open again when your Kwilt pause ends."
+      return "\\(appName) opens again when your short pause ends. Open Kwilt to change it."
     default:
-      return "Take one real step in Kwilt to access \\(appName)."
+      return "Mark a to-do done, record progress, or finish a Focus session in Kwilt to unblock \\(appName) for today."
     }
   }
 }
@@ -61,11 +65,12 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
     let reason = KwiltShieldCopy.reason()
     return ShieldConfiguration(
       backgroundColor: backgroundColor,
-      icon: UIImage(systemName: "checkmark.shield.fill")?.withTintColor(foregroundColor, renderingMode: .alwaysOriginal),
+      icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: "app.badge.clock")?.withTintColor(foregroundColor, renderingMode: .alwaysOriginal),
       title: ShieldConfiguration.Label(text: KwiltShieldCopy.title(for: reason), color: foregroundColor),
       subtitle: ShieldConfiguration.Label(text: KwiltShieldCopy.subtitle(for: reason, appName: appName), color: detailColor),
-      primaryButtonLabel: ShieldConfiguration.Label(text: "Close \\(appName)", color: UIColor.white),
-      primaryButtonBackgroundColor: foregroundColor
+      primaryButtonLabel: ShieldConfiguration.Label(text: "Open Kwilt", color: UIColor.white),
+      primaryButtonBackgroundColor: foregroundColor,
+      secondaryButtonLabel: ShieldConfiguration.Label(text: "Close \\(appName)", color: detailColor)
     )
   }
 
@@ -92,15 +97,30 @@ const actionSwift = `import ManagedSettings
 
 final class KwiltShieldActionExtension: ShieldActionDelegate {
   override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    completionHandler(action == .primaryButtonPressed ? .close : .none)
+    handle(action: action, completionHandler: completionHandler)
   }
 
   override func handle(action: ShieldAction, for category: ActivityCategoryToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    completionHandler(action == .primaryButtonPressed ? .close : .none)
+    handle(action: action, completionHandler: completionHandler)
   }
 
   override func handle(action: ShieldAction, for webDomain: WebDomainToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
-    completionHandler(action == .primaryButtonPressed ? .close : .none)
+    handle(action: action, completionHandler: completionHandler)
+  }
+
+  private func handle(action: ShieldAction, completionHandler: @escaping (ShieldActionResponse) -> Void) {
+    switch action {
+    case .primaryButtonPressed:
+      if #available(iOS 26.5, *), let openKwilt = ShieldActionResponse(rawValue: 3) {
+        completionHandler(openKwilt)
+      } else {
+        completionHandler(.close)
+      }
+    case .secondaryButtonPressed:
+      completionHandler(.close)
+    default:
+      completionHandler(.none)
+    }
   }
 }
 `;
@@ -167,6 +187,7 @@ function ensureTarget(project, config, target) {
   if (!bundleId) throw new Error('KWILT_ENABLE_SCREEN_TIME=1 requires ios.bundleIdentifier.');
 
   const iosRoot = config.modRequest.platformProjectRoot;
+  const projectRoot = config.modRequest.projectRoot;
   const appGroupId = appGroupIdFor(config);
   const targetBundleId = `${bundleId}.${target.suffix}`;
   const nativeTargets = project.pbxNativeTargetSection?.() || {};
@@ -192,6 +213,12 @@ function ensureTarget(project, config, target) {
 
   project = addResourceFileToGroup({ filepath: infoRel, groupName: target.name, isBuildFile: false, project, targetUuid });
   project = addResourceFileToGroup({ filepath: entitlementsRel, groupName: target.name, isBuildFile: false, project, targetUuid });
+  (target.resources || []).forEach((resource) => {
+    const source = path.join(projectRoot, resource.source);
+    const resourceRel = `${target.name}/${resource.file}`;
+    fs.copyFileSync(source, path.join(iosRoot, resourceRel));
+    project = addResourceFileToGroup({ filepath: resourceRel, groupName: target.name, isBuildFile: true, project, targetUuid });
+  });
   project = addBuildSourceFileToGroup({ filepath: swiftRel, groupName: target.name, project, targetUuid });
   setBuildSettings(project, targetBundleId, entitlementsRel, config);
   return project;
@@ -206,6 +233,7 @@ function withScreenTimeShieldExtensions(config) {
         suffix: 'shield-configuration',
         file: 'KwiltShieldConfiguration.swift',
         swift: buildConfigurationSwift,
+        resources: [{ source: 'assets/icon.png', file: 'KwiltShieldAppIcon.png' }],
         displayName: 'KwiltShieldConfiguration',
         extensionPointIdentifier: 'com.apple.ManagedSettingsUI.shield-configuration-service',
         principalClass: '$(PRODUCT_MODULE_NAME).KwiltShieldConfigurationExtension',
