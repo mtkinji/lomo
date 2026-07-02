@@ -20,9 +20,15 @@ export { EmptyState } from './EmptyState';
 export { ThreeColumnRow } from './layout/ThreeColumnRow';
 export { Combobox } from './Combobox';
 export { ObjectPicker } from './ObjectPicker';
+export {
+  EnumPickerField,
+  SmallSetPickerField,
+  RelationPickerField,
+  type PickerFieldOption,
+  type PickerFieldRecommendedOption,
+} from './PickerFields';
 export { KeyboardAwareScrollView } from './KeyboardAwareScrollView';
 
 // Aliases for clarity in forms: Textarea is just Input with multiline enabled.
 export { Input as Textarea } from './Input';
-
 

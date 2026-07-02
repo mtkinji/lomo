@@ -67,10 +67,8 @@ type Props = {
 };
 
 /**
- * Canonical "object picker" field for linking entities (Arc, Goal, etc.).
- *
- * This wraps `Combobox` with a standard trigger UI so features don’t have to
- * re-implement the same Pressable + Input + chevron wiring.
+ * @deprecated Use EnumPickerField, SmallSetPickerField, or RelationPickerField
+ * based on the picker job. This wrapper remains for compatibility only.
  */
 export function ObjectPicker({
   options,
@@ -230,5 +228,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-
 

@@ -60,7 +60,7 @@ import { applePlaceSearchBestEffort, cancelApplePlaceSearchBestEffort } from '..
 import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
 import { Picker } from '@react-native-picker/picker';
 import { SOUND_SCAPES, preloadSoundscape } from '../../services/soundscape';
-import { VStack, HStack, Input, ThreeColumnRow, Combobox, ObjectPicker, KeyboardAwareScrollView } from '../../ui/primitives';
+import { VStack, HStack, Input, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
@@ -738,7 +738,6 @@ export function ActivityDetailScreen() {
   const newStepInputRef = useRef<TextInput | null>(null);
   const inputFocusCountRef = useRef(0);
   const [isAnyInputFocused, setIsAnyInputFocused] = useState(false);
-  const [goalComboboxOpen, setGoalComboboxOpen] = useState(false);
   const [difficultyComboboxOpen, setDifficultyComboboxOpen] = useState(false);
   const estimateSheetVisible = activeSheet === 'estimate';
   const [estimateDraftMinutes, setEstimateDraftMinutes] = useState<number>(30);
@@ -1937,7 +1936,6 @@ export function ActivityDetailScreen() {
     isOnboardingActivity &&
     !hasDismissedActivityDetailGuide &&
     !editingUiActive &&
-    !goalComboboxOpen &&
     !difficultyComboboxOpen &&
     !reminderSheetVisible &&
     !dueDateSheetVisible &&
@@ -1979,7 +1977,6 @@ export function ActivityDetailScreen() {
     !shouldShowDetailGuide &&
     !detailGuideHost.coachmarkVisible &&
     !editingUiActive &&
-    !goalComboboxOpen &&
     !difficultyComboboxOpen &&
     activeSheet == null &&
     activeFocusSession == null &&

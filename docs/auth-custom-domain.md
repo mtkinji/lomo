@@ -37,14 +37,18 @@ Wait for propagation + Supabase verification to complete.
 Kwilt uses an in-app browser session and a deep-link callback:
 - Dev build / prod: `kwilt://auth/callback`
 - Expo Go: `exp://<LAN-IP>:<port>/--/auth/callback` (this varies by network)
+- External AI connector: `https://go.kwilt.app/oauth/consent`
 
 In Supabase dashboard:
 - Go to **Auth → URL Configuration**
+- Set **Site URL** to `https://go.kwilt.app`
 - Add the relevant redirect URLs to **Redirect URLs**
   - Always include: `kwilt://auth/callback`
+  - Always include: `https://go.kwilt.app/oauth/consent`
   - For Expo Go testing, run the app once and copy the `exp://.../--/auth/callback` value it prints/shows, then add that too.
 
 Notes:
+- The connector consent page passes `redirectTo=https://go.kwilt.app/oauth/consent` when the user signs in with Apple or Google. If this URL is missing from Supabase's Redirect URLs, Supabase ignores the provided `redirectTo` and falls back to **Site URL**, which can send browser-based connector login to a stale mobile/Expo callback.
 - Expo Go redirects are not stable across network changes (LAN IP/port can change). Prefer a dev build for reliable OAuth testing.
 
 ---
@@ -84,5 +88,4 @@ Important: in this app, the Supabase URL is a **single base URL** used by `@supa
 - DNS/TLS: visit `https://auth.kwilt.app` in a browser and confirm it serves with a valid certificate.
 - OAuth prompt: in a **dev build/prod** on iOS, start “Continue with Apple/Google” and confirm the system prompt references `auth.kwilt.app`.
 - Redirect allowlist: if you see “redirect URL not allowed”, add the exact `redirectTo` URL printed/shown by the app to Supabase **Redirect URLs**.
-
 

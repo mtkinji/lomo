@@ -220,24 +220,12 @@ export function UnderKeyboardDrawer({
   const radiusPx = resolveTopRadius(topRadius);
   const shadowStyle = resolveDrawerShadow({ token: elevationToken, direction: shadowDirection });
 
-  const unclampedVisibleHeight = measuredVisibleHeight ?? visibleContentHeightFallbackPx;
-  const visibleHeight = (() => {
-    const min = typeof minVisibleContentHeightPx === 'number' ? minVisibleContentHeightPx : 0;
-    const max = typeof maxVisibleContentHeightPx === 'number' ? maxVisibleContentHeightPx : undefined;
-    const lowerBounded = Math.max(0, Math.max(unclampedVisibleHeight, min));
-    return typeof max === 'number' ? Math.min(lowerBounded, max) : lowerBounded;
-  })();
-  const dynamicSnapPoints = React.useMemo<BottomDrawerSnapPoint[]>(() => {
-    // If we're not using dynamic height under keyboard, we shouldn't be overriding snapPoints.
-    if (!dynamicHeightUnderKeyboard) return snapPoints ?? [];
+  const maxDynamicSnapHeight = React.useMemo(() => {
+    const keyboardReservedHeight = shouldIncludeKeyboardSpacer ? effectiveSpacerHeight : 0;
 
-    const calculatedHeight = Math.max(0, Math.round(effectiveSpacerHeight + visibleHeight));
-
-    // If caller provided snap points (e.g. ['90%']), treat the largest as a hard cap
-    // for the dynamic calculation.
     if (snapPoints && snapPoints.length > 0) {
       const windowH = Dimensions.get('window').height;
-      const insetsTop = insets.top; // use the hook value
+      const insetsTop = insets.top;
       const availableH = windowH - insetsTop;
 
       const parsedPoints = snapPoints.map(p => {
@@ -247,11 +235,41 @@ export function UnderKeyboardDrawer({
       });
       const maxSnapH = Math.max(...parsedPoints);
 
-      return [Math.min(calculatedHeight, maxSnapH)];
+      return Math.max(0, maxSnapH - keyboardReservedHeight);
     }
 
+    return Number.POSITIVE_INFINITY;
+  }, [
+    effectiveSpacerHeight,
+    insets.top,
+    shouldIncludeKeyboardSpacer,
+    snapPoints,
+  ]);
+
+  const unclampedVisibleHeight = measuredVisibleHeight ?? visibleContentHeightFallbackPx;
+  const visibleHeight = (() => {
+    const min = typeof minVisibleContentHeightPx === 'number' ? minVisibleContentHeightPx : 0;
+    const configuredMax =
+      typeof maxVisibleContentHeightPx === 'number' ? maxVisibleContentHeightPx : Number.POSITIVE_INFINITY;
+    const max = Math.max(0, Math.min(configuredMax, maxDynamicSnapHeight));
+    const boundedMin = Math.min(min, max);
+    return Math.min(Math.max(unclampedVisibleHeight, boundedMin), max);
+  })();
+  const dynamicSnapPoints = React.useMemo<BottomDrawerSnapPoint[]>(() => {
+    // If we're not using dynamic height under keyboard, we shouldn't be overriding snapPoints.
+    if (!dynamicHeightUnderKeyboard) return snapPoints ?? [];
+
+    const keyboardReservedHeight = shouldIncludeKeyboardSpacer ? effectiveSpacerHeight : 0;
+    const calculatedHeight = Math.max(0, Math.round(keyboardReservedHeight + visibleHeight));
+
     return [calculatedHeight];
-  }, [dynamicHeightUnderKeyboard, snapPoints, effectiveSpacerHeight, visibleHeight, insets.top]);
+  }, [
+    dynamicHeightUnderKeyboard,
+    effectiveSpacerHeight,
+    shouldIncludeKeyboardSpacer,
+    snapPoints,
+    visibleHeight,
+  ]);
 
   return (
     <BottomDrawer
@@ -294,9 +312,11 @@ export function UnderKeyboardDrawer({
       >
         {dynamicHeightUnderKeyboard ? (
           <View
-            style={{ 
-              maxHeight: maxVisibleContentHeightPx,
-              minHeight: minVisibleContentHeightPx,
+            testID="under-keyboard-drawer-visible-content"
+            style={{
+              height: visibleHeight,
+              maxHeight: visibleHeight,
+              minHeight: visibleHeight,
             }}
             onLayout={(event) => {
               const next = Math.round(event.nativeEvent.layout.height);
@@ -338,5 +358,3 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
 });
-
-

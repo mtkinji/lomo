@@ -14,9 +14,8 @@ import {
   DeviceCalendar,
 } from '../../services/calendar/deviceCalendar';
 import { Button } from '../../ui/Button';
-import { Heading, VStack, Text, EmptyState, HStack } from '../../ui/primitives';
+import { Heading, VStack, Text, EmptyState, HStack, RelationPickerField, type PickerFieldOption } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
-import { Combobox } from '../../ui/Combobox';
 import { inferActivitySchedulingDomainWithAI } from '../../services/ai';
 
 type PlanScheduleApplyPageProps = {
@@ -49,7 +48,7 @@ export function PlanScheduleApplyPage({
   const [defaultCalId, setDefaultCalId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
-  const [openComboboxId, setOpenComboboxId] = useState<string | null>(null);
+  const [openCalendarPickerId, setOpenCalendarPickerId] = useState<string | null>(null);
   const [busyByCalendarId, setBusyByCalendarId] = useState<Record<string, Array<{ start: Date; end: Date }>>>({});
   const [pendingDomainMapping, setPendingDomainMapping] = useState<Record<string, string>>({});
   const [isUndoing, setIsUndoing] = useState(false);
@@ -184,7 +183,7 @@ export function PlanScheduleApplyPage({
     setProposals(suggested);
   }, [activitiesWithInferredDomain, userProfile, defaultCalId, busyByCalendarId, isLoading]);
 
-  const calendarOptions = useMemo(() => {
+  const calendarOptions = useMemo<PickerFieldOption[]>(() => {
     return calendars.map(c => ({
       value: c.id,
       label: c.title,
@@ -201,7 +200,7 @@ export function PlanScheduleApplyPage({
     if (nextProposal?.domain) {
       setPendingDomainMapping((prev) => ({ ...(prev ?? {}), [nextProposal.domain]: calendarId }));
     }
-    setOpenComboboxId(null);
+    setOpenCalendarPickerId(null);
   };
 
   const handleApply = async () => {
@@ -425,15 +424,25 @@ export function PlanScheduleApplyPage({
                     <Icon name="daily" size={14} color={colors.textSecondary} />
                     <Text style={styles.proposalMetaText}>{dateStr} at {timeStr}</Text>
                   </HStack>
-                  <Combobox
-                    open={openComboboxId === p.activityId}
-                    onOpenChange={(open) => setOpenComboboxId(open ? p.activityId : null)}
+                  <RelationPickerField
+                    open={openCalendarPickerId === p.activityId}
+                    onOpenChange={(open) => setOpenCalendarPickerId(open ? p.activityId : null)}
                     value={p.calendarId}
                     onValueChange={(val) => handleCalendarChange(p.activityId, val)}
+                    title="Calendar"
                     options={calendarOptions}
                     searchPlaceholder="Search calendars…"
-                    trigger={
-                      <Pressable style={styles.calPickerTrigger}>
+                    emptyText="No calendars found."
+                    placeholder="Choose a calendar…"
+                    accessibilityLabel={`Choose calendar for ${p.title}`}
+                    allowDeselect={false}
+                    renderTrigger={({ onPress }) => (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Choose calendar for ${p.title}`}
+                        onPress={onPress}
+                        style={styles.calPickerTrigger}
+                      >
                         <HStack space={spacing.sm} style={styles.proposalMeta}>
                           <Icon name="dot" size={14} color={colors.textSecondary} />
                           <Text style={styles.proposalMetaText} numberOfLines={1}>
@@ -442,7 +451,7 @@ export function PlanScheduleApplyPage({
                           <Icon name="chevronDown" size={12} color={colors.textSecondary} />
                         </HStack>
                       </Pressable>
-                    }
+                    )}
                   />
                 </VStack>
               </View>

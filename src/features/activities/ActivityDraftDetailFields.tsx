@@ -7,7 +7,7 @@ import { Badge } from '../../ui/Badge';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { LongTextField } from '../../ui/LongTextField';
-import { Combobox, HStack, Input, ObjectPicker, ThreeColumnRow, VStack } from '../../ui/primitives';
+import { EnumPickerField, HStack, Input, SmallSetPickerField, ThreeColumnRow, VStack } from '../../ui/primitives';
 import { parseTags } from '../../utils/tags';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -528,18 +528,16 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                 </ThreeColumnRow>
               </Pressable>
 
-              <ObjectPicker
+              <EnumPickerField
                 value={draft.difficulty ?? ''}
                 onValueChange={(next) =>
                   onChange((prev) => ({ ...prev, difficulty: (next || undefined) as ActivityDifficulty | undefined }))
                 }
                 options={difficultyOptions.map((o) => ({ value: o.value, label: o.label }))}
+                title="Difficulty"
                 placeholder="Optional: how heavy does this feel?"
-                searchPlaceholder="Search difficulty…"
-                emptyText="No difficulty options found."
                 allowDeselect
                 accessibilityLabel="Edit difficulty"
-                presentation="drawer"
                 size="compact"
                 leadingIcon="difficulty"
                 fieldVariant="filled"
@@ -622,7 +620,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
       {activeAreas.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.inputLabel}>Area</Text>
-          <ObjectPicker
+          <SmallSetPickerField
             value={draft.areaId ?? '__none__'}
             onValueChange={(nextAreaId) =>
               onChange((prev) => ({
@@ -631,11 +629,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
               }))
             }
             options={areaOptions}
+            title="Area"
             placeholder="No area"
-            searchPlaceholder="Search areas..."
-            emptyText="No areas found."
             accessibilityLabel="Change to-do area"
-            presentation="drawer"
+            allowDeselect={false}
             size="compact"
             leadingIcon={selectedAreaIcon}
             fieldVariant="filled"
@@ -663,7 +660,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
       {/* Type */}
       <View style={styles.section}>
         <Text style={styles.inputLabel}>Type</Text>
-        <ObjectPicker
+        <EnumPickerField
           value={draft.type}
           onValueChange={(nextType) =>
             onChange((prev) => ({ ...prev, type: (nextType || 'task') as ActivityType }))
@@ -674,11 +671,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
             keywords: o.keywords as unknown as string[],
             leftElement: o.leftElement,
           }))}
+          title="Type"
           placeholder="Select type…"
-          searchPlaceholder="Search types…"
-          emptyText="No type options found."
           accessibilityLabel="Change to-do type"
-          presentation="drawer"
+          allowDeselect={false}
           size="compact"
           leadingIcon="activity"
           fieldVariant="filled"

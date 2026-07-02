@@ -8,7 +8,7 @@ import { ButtonLabel } from './Typography';
 import { Button, IconButton } from './Button';
 import { Icon } from './Icon';
 import { BottomDrawerHeader } from './layout/BottomDrawerHeader';
-import { ObjectPicker, ObjectPickerOption } from './ObjectPicker';
+import { EnumPickerField, type PickerFieldOption } from './PickerFields';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { ActivitySortMode, ActivitySortableField, SortCondition } from '../domain/types';
@@ -219,15 +219,14 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                       </Pressable>
 
                       <View style={{ flex: 1 }}>
-                        <ObjectPicker
+                        <EnumPickerField
                           size="compact"
-                          options={filteredOptions as unknown as ObjectPickerOption[]}
+                          options={filteredOptions as unknown as PickerFieldOption[]}
                           value={item.field}
                           onValueChange={(val) => handleUpdateSort(index, { field: val as ActivitySortableField })}
+                          title="Sort field"
                           accessibilityLabel="Select field to sort by"
                           placeholder="Sort by..."
-                          presentation="popover"
-                          showSearch={false}
                           allowDeselect={false}
                         />
                       </View>
