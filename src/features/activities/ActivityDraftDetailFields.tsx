@@ -7,7 +7,7 @@ import { Badge } from '../../ui/Badge';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { LongTextField } from '../../ui/LongTextField';
-import { Combobox, EnumPickerField, HStack, Input, SmallSetPickerField, ThreeColumnRow, VStack } from '../../ui/primitives';
+import { EnumPickerField, HStack, Input, SmallSetPickerField, ThreeColumnRow, VStack } from '../../ui/primitives';
 import { parseTags } from '../../utils/tags';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';

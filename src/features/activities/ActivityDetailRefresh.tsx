@@ -10,7 +10,6 @@ import {
   HStack,
   Input,
   ThreeColumnRow,
-  Combobox,
   EnumPickerField,
   SmallSetPickerField,
   RelationPickerField,
@@ -1393,7 +1392,7 @@ export function ActivityDetailRefresh(props: any) {
                     </ThreeColumnRow>
                   </Pressable>
 
-                  <Combobox
+                  <EnumPickerField
                     open={difficultyComboboxOpen}
                     onOpenChange={setDifficultyComboboxOpen}
                     value={activity.difficulty ?? ''}
@@ -1406,14 +1405,15 @@ export function ActivityDetailRefresh(props: any) {
                       }));
                     }}
                     options={difficultyOptions}
-                    emptyText="No difficulty options found."
+                    title="Difficulty"
+                    placeholder="Optional: how heavy does this feel?"
+                    accessibilityLabel="Edit difficulty"
                     allowDeselect
-                    presentation="popover"
-                    showSearch={false}
-                    trigger={
+                    renderTrigger={({ onPress }) => (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Edit difficulty"
+                        onPress={onPress}
                         style={({ pressed }) => [
                           styles.planListRow,
                           pressed ? styles.planListRowPressed : null,
@@ -1435,7 +1435,7 @@ export function ActivityDetailRefresh(props: any) {
                           </Text>
                         </ThreeColumnRow>
                       </Pressable>
-                    }
+                    )}
                   />
                 </VStack>
               </View>

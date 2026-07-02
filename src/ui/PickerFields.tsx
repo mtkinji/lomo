@@ -35,6 +35,13 @@ export type PickerFieldRecommendedOption = PickerFieldOption & {
 type PickerFieldSize = 'default' | 'compact';
 type PickerFieldVariant = 'outline' | 'filled';
 
+type PickerFieldTriggerRenderArgs = {
+  selectedLabel: string;
+  open: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+};
+
 type PickerFieldTriggerProps = {
   value: string;
   options: PickerFieldOption[];
@@ -61,6 +68,9 @@ type SinglePickerProps = {
   size?: PickerFieldSize;
   leadingIcon?: IconName;
   fieldVariant?: PickerFieldVariant;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  renderTrigger?: (args: PickerFieldTriggerRenderArgs) => React.ReactNode;
 };
 
 type RelationPickerProps = SinglePickerProps & {
@@ -295,25 +305,45 @@ function FixedSetPickerField(props: SinglePickerProps) {
     onValueChange,
     allowDeselect = true,
     disabled,
+    open: controlledOpen,
+    onOpenChange,
+    renderTrigger,
   } = props;
-  const [open, setOpen] = React.useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = React.useCallback(
+    (nextOpen: boolean) => {
+      if (controlledOpen === undefined) {
+        setUncontrolledOpen(nextOpen);
+      }
+      onOpenChange?.(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
+  const selectedLabel = React.useMemo(() => getSelectedLabel(options, value), [options, value]);
 
   const handleClear = React.useCallback(() => {
     setOpen(false);
     onValueChange('');
-  }, [onValueChange]);
+  }, [onValueChange, setOpen]);
+
+  const handlePress = React.useCallback(() => {
+    if (!disabled) setOpen(true);
+  }, [disabled, setOpen]);
 
   return (
     <>
-      <PickerFieldTrigger
-        {...props}
-        allowDeselect={allowDeselect}
-        disabled={disabled}
-        onPress={() => {
-          if (!disabled) setOpen(true);
-        }}
-        onClear={allowDeselect ? handleClear : undefined}
-      />
+      {renderTrigger ? (
+        renderTrigger({ selectedLabel, open, disabled, onPress: handlePress })
+      ) : (
+        <PickerFieldTrigger
+          {...props}
+          allowDeselect={allowDeselect}
+          disabled={disabled}
+          onPress={handlePress}
+          onClear={allowDeselect ? handleClear : undefined}
+        />
+      )}
       <FixedOptionsSheet
         open={open}
         options={options}
@@ -350,10 +380,24 @@ export function RelationPickerField({
   searchPlaceholder = 'Search...',
   emptyText = 'No results found.',
   recommendedOption,
+  open: controlledOpen,
+  onOpenChange,
+  renderTrigger,
 }: RelationPickerProps) {
-  const [open, setOpen] = React.useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = React.useCallback(
+    (nextOpen: boolean) => {
+      if (controlledOpen === undefined) {
+        setUncontrolledOpen(nextOpen);
+      }
+      onOpenChange?.(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
   const [query, setQuery] = React.useState('');
   const insets = useSafeAreaInsets();
+  const selectedLabel = React.useMemo(() => getSelectedLabel(options, value), [options, value]);
 
   React.useEffect(() => {
     if (!open) setQuery('');
@@ -375,7 +419,7 @@ export function RelationPickerField({
   const handleClear = React.useCallback(() => {
     setOpen(false);
     onValueChange('');
-  }, [onValueChange]);
+  }, [onValueChange, setOpen]);
 
   const handleSelect = React.useCallback(
     (nextValue: string) => {
@@ -384,26 +428,32 @@ export function RelationPickerField({
       onValueChange(allowDeselect && nextValue === value ? '' : nextValue);
       setOpen(false);
     },
-    [allowDeselect, displayOptions, onValueChange, value],
+    [allowDeselect, displayOptions, onValueChange, setOpen, value],
   );
+
+  const handlePress = React.useCallback(() => {
+    if (!disabled) setOpen(true);
+  }, [disabled, setOpen]);
 
   return (
     <>
-      <PickerFieldTrigger
-        value={value}
-        options={options}
-        placeholder={placeholder}
-        accessibilityLabel={accessibilityLabel}
-        allowDeselect={allowDeselect}
-        disabled={disabled}
-        size={size}
-        leadingIcon={leadingIcon}
-        fieldVariant={fieldVariant}
-        onPress={() => {
-          if (!disabled) setOpen(true);
-        }}
-        onClear={allowDeselect ? handleClear : undefined}
-      />
+      {renderTrigger ? (
+        renderTrigger({ selectedLabel, open, disabled, onPress: handlePress })
+      ) : (
+        <PickerFieldTrigger
+          value={value}
+          options={options}
+          placeholder={placeholder}
+          accessibilityLabel={accessibilityLabel}
+          allowDeselect={allowDeselect}
+          disabled={disabled}
+          size={size}
+          leadingIcon={leadingIcon}
+          fieldVariant={fieldVariant}
+          onPress={handlePress}
+          onClear={allowDeselect ? handleClear : undefined}
+        />
+      )}
       <Modal visible={open} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setOpen(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}

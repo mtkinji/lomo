@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { fireEvent, screen } from '@testing-library/react-native';
-import { View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { EnumPickerField, RelationPickerField } from './PickerFields';
 
@@ -39,6 +39,34 @@ describe('PickerFields', () => {
     expect(screen.getByText('Status')).toBeTruthy();
     expect(screen.getByText('Active')).toBeTruthy();
     expect(screen.queryByPlaceholderText(/search/i)).toBeNull();
+  });
+
+  it('supports custom triggers for row-style fixed fields', () => {
+    renderWithProviders(
+      <EnumPickerField
+        value="medium"
+        onValueChange={jest.fn()}
+        options={[
+          { value: 'easy', label: 'Easy' },
+          { value: 'medium', label: 'Medium' },
+        ]}
+        title="Difficulty"
+        placeholder="Select difficulty..."
+        accessibilityLabel="Edit difficulty"
+        renderTrigger={({ selectedLabel, onPress }) => (
+          <Pressable accessibilityRole="button" accessibilityLabel="Edit difficulty row" onPress={onPress}>
+            <Text>{`Difficulty: ${selectedLabel}`}</Text>
+          </Pressable>
+        )}
+      />,
+    );
+
+    expect(screen.getByText('Difficulty: Medium')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Edit difficulty row'));
+
+    expect(screen.getByText('Difficulty')).toBeTruthy();
+    expect(screen.getByText('Easy')).toBeTruthy();
   });
 
   it('opens relation pickers with a pinned search field', () => {
