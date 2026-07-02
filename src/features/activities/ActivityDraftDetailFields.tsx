@@ -534,6 +534,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                   onChange((prev) => ({ ...prev, difficulty: (next || undefined) as ActivityDifficulty | undefined }))
                 }
                 options={difficultyOptions.map((o) => ({ value: o.value, label: o.label }))}
+                title="Difficulty"
                 placeholder="Optional: how heavy does this feel?"
                 allowDeselect
                 accessibilityLabel="Edit difficulty"
@@ -628,6 +629,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
               }))
             }
             options={areaOptions}
+            title="Area"
             placeholder="No area"
             accessibilityLabel="Change to-do area"
             allowDeselect={false}
@@ -669,6 +671,7 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
             keywords: o.keywords as unknown as string[],
             leftElement: o.leftElement,
           }))}
+          title="Type"
           placeholder="Select type…"
           accessibilityLabel="Change to-do type"
           allowDeselect={false}

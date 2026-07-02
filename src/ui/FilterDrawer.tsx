@@ -406,6 +406,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
                                 options={FILTERABLE_FIELDS}
                                 value={condition.field}
                                 onValueChange={(val) => handleUpdateCondition(groupIndex, condIndex, { field: val as ActivityFilterableField })}
+                                title="Field"
                                 accessibilityLabel="Select field"
                                 placeholder="Field"
                                 allowDeselect={false}
@@ -456,6 +457,7 @@ export function FilterDrawer({ visible, onClose, filters: initialFilters, groupL
                               }
                               handleUpdateCondition(groupIndex, condIndex, { operator: val as FilterOperator });
                             }}
+                            title="Operator"
                             accessibilityLabel="Select operator"
                             placeholder="Operator"
                             allowDeselect={false}
@@ -553,6 +555,7 @@ function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOp
           options={STATUS_OPTIONS}
           value={String(value)}
           onValueChange={onChange}
+          title="Status"
           accessibilityLabel="Select status"
           placeholder="Select status..."
           allowDeselect={false}
@@ -565,6 +568,7 @@ function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOp
           options={DIFFICULTY_OPTIONS}
           value={String(value)}
           onValueChange={onChange}
+          title="Difficulty"
           accessibilityLabel="Select difficulty"
           placeholder="Select difficulty..."
           allowDeselect={false}
@@ -577,6 +581,7 @@ function ValueInput({ field, operator, value, onChange, onChangeOperator, goalOp
           options={TYPE_OPTIONS}
           value={String(value)}
           onValueChange={onChange}
+          title="Type"
           accessibilityLabel="Select type"
           placeholder="Select type..."
           allowDeselect={false}

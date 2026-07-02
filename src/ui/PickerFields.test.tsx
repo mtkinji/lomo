@@ -11,6 +11,8 @@ jest.mock('./BottomDrawer', () => {
   return {
     BottomDrawer: (props: { visible?: boolean; children?: React.ReactNode }) =>
       props.visible ? React.createElement(View, { testID: 'fixed-options-sheet' }, props.children) : null,
+    BottomDrawerScrollView: (props: { children?: React.ReactNode }) =>
+      React.createElement(View, { testID: 'fixed-options-sheet-scroll' }, props.children),
   };
 });
 
@@ -24,6 +26,7 @@ describe('PickerFields', () => {
           { value: 'active', label: 'Active' },
           { value: 'later', label: 'Later' },
         ]}
+        title="Status"
         placeholder="Select status..."
         accessibilityLabel="Change status"
         allowDeselect={false}
@@ -33,6 +36,7 @@ describe('PickerFields', () => {
     fireEvent.press(screen.getByLabelText('Change status'));
 
     expect(screen.getByTestId('fixed-options-sheet')).toBeTruthy();
+    expect(screen.getByText('Status')).toBeTruthy();
     expect(screen.getByText('Active')).toBeTruthy();
     expect(screen.queryByPlaceholderText(/search/i)).toBeNull();
   });

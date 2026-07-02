@@ -224,6 +224,7 @@ export function SortDrawer({ visible, onClose, sorts: initialStructuredSorts, de
                           options={filteredOptions as unknown as PickerFieldOption[]}
                           value={item.field}
                           onValueChange={(val) => handleUpdateSort(index, { field: val as ActivitySortableField })}
+                          title="Sort field"
                           accessibilityLabel="Select field to sort by"
                           placeholder="Sort by..."
                           allowDeselect={false}

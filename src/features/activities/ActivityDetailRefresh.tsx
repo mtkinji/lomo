@@ -1820,6 +1820,7 @@ export function ActivityDetailRefresh(props: any) {
                     }
                   }}
                   options={priorityStatusOptions}
+                  title="Status"
                   placeholder="Select status…"
                   accessibilityLabel={`Change status, currently ${activityPriorityStateLabel}`}
                   allowDeselect={false}
@@ -1869,6 +1870,7 @@ export function ActivityDetailRefresh(props: any) {
                       }));
                     }}
                     options={areaOptions}
+                    title="Area"
                     placeholder="No area"
                     accessibilityLabel="Change to-do area"
                     allowDeselect={false}
@@ -1893,6 +1895,7 @@ export function ActivityDetailRefresh(props: any) {
                     }));
                   }}
                   options={activityTypeOptions}
+                  title="Type"
                   placeholder="Select type…"
                   accessibilityLabel="Change to-do type"
                   allowDeselect={false}

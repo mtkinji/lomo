@@ -7,11 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
-import { BottomDrawer } from './BottomDrawer';
+import { BottomDrawer, BottomDrawerScrollView } from './BottomDrawer';
 import { Icon, type IconName } from './Icon';
 import { Input } from './Input';
 import { HStack, VStack } from './Stack';
@@ -52,6 +53,7 @@ type SinglePickerProps = {
   options: PickerFieldOption[];
   value: string;
   onValueChange: (nextValue: string) => void;
+  title?: string;
   placeholder: string;
   accessibilityLabel: string;
   allowDeselect?: boolean;
@@ -69,9 +71,11 @@ type RelationPickerProps = SinglePickerProps & {
 };
 
 const OPTION_ROW_HEIGHT = 56;
-const SHEET_VERTICAL_CHROME = 72;
+const SHEET_HANDLE_HEIGHT = 24;
+const SHEET_TITLE_HEIGHT = 48;
+const SHEET_VERTICAL_PADDING = spacing.sm + spacing.md;
 const MIN_SHEET_HEIGHT = 180;
-const MAX_SHEET_HEIGHT = 520;
+const MAX_FIXED_SHEET_HEIGHT_RATIO = 0.68;
 
 function getSelectedLabel(options: PickerFieldOption[], value: string) {
   if (!value) return '';
@@ -211,6 +215,7 @@ function FixedOptionsSheet({
   open,
   options,
   value,
+  title,
   allowDeselect = true,
   onOpenChange,
   onValueChange,
@@ -218,13 +223,25 @@ function FixedOptionsSheet({
   open: boolean;
   options: PickerFieldOption[];
   value: string;
+  title?: string;
   allowDeselect?: boolean;
   onOpenChange: (open: boolean) => void;
   onValueChange: (nextValue: string) => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const maxSheetHeight = Math.max(
+    MIN_SHEET_HEIGHT,
+    Math.floor((windowHeight - insets.top) * MAX_FIXED_SHEET_HEIGHT_RATIO),
+  );
+  const titleHeight = title ? SHEET_TITLE_HEIGHT : 0;
+  const bottomPadding = Math.max(insets.bottom, spacing.md);
   const snapHeight = Math.min(
-    MAX_SHEET_HEIGHT,
-    Math.max(MIN_SHEET_HEIGHT, SHEET_VERTICAL_CHROME + options.length * OPTION_ROW_HEIGHT),
+    maxSheetHeight,
+    Math.max(
+      MIN_SHEET_HEIGHT,
+      SHEET_HANDLE_HEIGHT + titleHeight + SHEET_VERTICAL_PADDING + bottomPadding + options.length * OPTION_ROW_HEIGHT,
+    ),
   );
 
   const handleSelect = React.useCallback(
@@ -245,12 +262,19 @@ function FixedOptionsSheet({
       dismissOnBackdropPress
       dynamicSizing={false}
     >
-      <ScrollView
+      <BottomDrawerScrollView
         style={styles.fixedSheetList}
-        contentContainerStyle={styles.fixedSheetContent}
+        contentContainerStyle={[styles.fixedSheetContent, { paddingBottom: bottomPadding + spacing.sm }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {title ? (
+          <View style={styles.fixedSheetHeader}>
+            <Text style={styles.fixedSheetTitle} numberOfLines={1}>
+              {title}
+            </Text>
+          </View>
+        ) : null}
         {options.map((option) => (
           <PickerOptionRow
             key={option.value}
@@ -259,7 +283,7 @@ function FixedOptionsSheet({
             onPress={() => handleSelect(option.value)}
           />
         ))}
-      </ScrollView>
+      </BottomDrawerScrollView>
     </BottomDrawer>
   );
 }
@@ -294,6 +318,7 @@ function FixedSetPickerField(props: SinglePickerProps) {
         open={open}
         options={options}
         value={value}
+        title={props.title}
         allowDeselect={allowDeselect}
         onOpenChange={setOpen}
         onValueChange={onValueChange}
@@ -497,12 +522,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fixedSheetList: {
-    maxHeight: MAX_SHEET_HEIGHT,
+    flex: 1,
   },
   fixedSheetContent: {
     paddingHorizontal: spacing.sm,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  fixedSheetHeader: {
+    height: SHEET_TITLE_HEIGHT,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+  },
+  fixedSheetTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   optionRow: {
     minHeight: OPTION_ROW_HEIGHT,

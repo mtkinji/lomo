@@ -3319,6 +3319,7 @@ export function GoalDetailScreen() {
                         { value: '2', label: 'P2 (Medium)' },
                         { value: '3', label: 'P3 (Low)' },
                       ]}
+                      title="Priority"
                       placeholder="No priority"
                       accessibilityLabel="Set goal priority"
                       allowDeselect
