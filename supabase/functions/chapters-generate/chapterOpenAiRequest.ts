@@ -52,7 +52,7 @@ export function buildChapterOpenAiRequestBody({
     detailLevel: template.detailLevel,
     kind: template.kind,
   });
-  const maxTokens = Math.max(baseMaxTokens, periodDays >= 180 ? 1900 : 1200);
+  const maxTokens = Math.max(baseMaxTokens, periodDays >= 180 ? 2200 : 1800);
   const baseTemperature = resolveTemperature(template.kind, template.tone);
   const temperature = stricter ? Math.max(0.2, baseTemperature - 0.2) : baseTemperature;
 
