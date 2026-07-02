@@ -112,6 +112,10 @@ and is served at `https://go.kwilt.app/oauth/consent`. The function reads
 `KWILT_SITE_URL` (default `https://kwilt.app`) and redirects users to
 `${KWILT_SITE_URL}/oauth/consent` with the OAuth params. Production sets
 `KWILT_SITE_URL=https://go.kwilt.app` so the consent UI runs on the go subdomain.
+Supabase Auth URL Configuration must also use `https://go.kwilt.app` as the
+Site URL and include `https://go.kwilt.app/oauth/consent` in Redirect URLs;
+otherwise the Apple/Google sign-in step can ignore the consent page
+`redirectTo` value and fall back to a stale mobile callback.
 
 ## Required edge function env vars
 
