@@ -130,7 +130,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.78',
+  version: '1.0.79',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -167,7 +167,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '78',
+    buildNumber: '79',
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
