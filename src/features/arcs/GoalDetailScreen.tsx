@@ -155,6 +155,7 @@ import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
 import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
+import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1447,118 +1448,25 @@ export function GoalDetailScreen() {
     setCompletedActivitiesExpanded((current) => !current);
   }, []);
 
-  const goalProgressSignals = useMemo<GoalProgressSignal[]>(() => {
-    const nowMs = Date.now();
-    const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
-    const targetDateLabelLocal = goal?.targetDate
-      ? new Date(goal.targetDate).toLocaleDateString(undefined, {
-          month: 'numeric',
-          day: 'numeric',
-          year: '2-digit',
-        })
-      : undefined;
-
-    const doneWithTimestamps = completedGoalActivities
-      .map((activity) => {
-        const completedAt = activity.completedAt ?? activity.updatedAt ?? activity.createdAt ?? null;
-        const completedAtMs = completedAt ? Date.parse(completedAt) : NaN;
-        return { activity, completedAtMs };
-      })
-      .filter((entry) => Number.isFinite(entry.completedAtMs));
-
-    const doneLast7Days = doneWithTimestamps.filter((entry) => entry.completedAtMs >= weekAgoMs).length;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayStartMs = todayStart.getTime();
-
-    const nextScheduled = goalActivities
-      .map((activity) => {
-        const scheduledAt = activity.scheduledDate ?? null;
-        const scheduledAtMs = scheduledAt ? Date.parse(scheduledAt) : NaN;
-        return { scheduledAt, scheduledAtMs };
-      })
-      .filter((entry) => Number.isFinite(entry.scheduledAtMs) && entry.scheduledAtMs >= todayStartMs)
-      .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs)[0]?.scheduledAt;
-
-    const nextScheduledLabel = nextScheduled
-      ? (() => {
-          const d = new Date(nextScheduled);
-          const diffDays = Math.round((d.getTime() - todayStartMs) / (24 * 60 * 60 * 1000));
-          if (diffDays === 0) return 'Today';
-          if (diffDays === 1) return 'Tomorrow';
-          return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
-        })()
-      : null;
-
-    const targetValue = (() => {
-      if (!goal?.targetDate) return 'No date';
-      const targetMs = Date.parse(goal.targetDate);
-      if (!Number.isFinite(targetMs)) return targetDateLabelLocal ?? 'No date';
-      const diffDays = Math.ceil((targetMs - nowMs) / (24 * 60 * 60 * 1000));
-      const absDiff = Math.abs(diffDays);
-      // When it's close, show a countdown; otherwise show the date label.
-      if (absDiff <= 21) {
-        if (diffDays === 0) return 'Due today';
-        if (diffDays > 0) return `${diffDays}d left`;
-        return `${absDiff}d overdue`;
-      }
-      return (
-        targetDateLabelLocal ??
-        new Date(goal.targetDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })
-      );
-    })();
-    const targetValueColor =
-      typeof targetValue === 'string' && targetValue.includes('overdue')
-        ? colors.destructive
-        : targetValue === 'No date'
-          ? colors.gray600
-          : typeof targetValue === 'string' && (targetValue.includes('left') || targetValue.includes('Due today'))
-            ? colors.indigo600
-            : colors.textPrimary;
-    const momentumValueColor = doneLast7Days > 0 ? colors.indigo600 : colors.gray600;
-
-    const signals: GoalProgressSignal[] = [
-      {
-        id: 'goal-signal-plan',
-        value: `${completedGoalActivities.length}/${goalActivities.length}`,
-        label: 'Done',
-        accessibilityLabel: `Plan: ${completedGoalActivities.length} of ${goalActivities.length} done`,
-        valueColor:
-          goalActivities.length > 0 && completedGoalActivities.length === goalActivities.length
-            ? colors.indigo600
-            : colors.textPrimary,
-      },
-      {
-        id: 'goal-signal-momentum',
-        value: `${doneLast7Days}`,
-        label: 'This week',
-        accessibilityLabel: `${doneLast7Days} activities done in the last 7 days`,
-        valueColor: momentumValueColor,
-      },
-      {
-        id: 'goal-signal-target',
-        value: targetValue,
-        label: 'Finish by',
-        onPress: () => {
-          setGoalTargetDateSheetStep('menu');
-          setGoalTargetDateSheetVisible(true);
-        },
-        accessibilityLabel: `Finish by: ${targetValue}. Tap to set a finish date.`,
-        valueColor: targetValueColor,
-      },
-    ];
-
-    if (nextScheduledLabel) {
-      signals.push({
-        id: 'goal-signal-next',
-        value: nextScheduledLabel,
-        label: 'Next',
-      });
-    }
-
-    return signals;
-  }, [completedGoalActivities, goal, goalActivities]);
+  const goalProgressSignals = useMemo<GoalProgressSignal[]>(
+    () =>
+      buildGoalProgressSignalSummaries({
+        goal,
+        goalActivities,
+        completedGoalActivities,
+      }).map((signal) =>
+        signal.id === 'goal-signal-target'
+          ? {
+              ...signal,
+              onPress: () => {
+                setGoalTargetDateSheetStep('menu');
+                setGoalTargetDateSheetVisible(true);
+              },
+            }
+          : signal
+      ),
+    [completedGoalActivities, goal, goalActivities]
+  );
   const firstPlanActivityId = useMemo(() => {
     const list = [...activeGoalActivities];
     if (list.length === 0) return goalActivities[0]?.id ?? null;

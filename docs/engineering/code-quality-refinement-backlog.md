@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Goal detail progress signal summaries
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: the largest screen owned branchy date/count/color rules for progress chips that should be testable outside JSX.
+  - Result: `src/features/arcs/goalProgressSignals.ts` with focused tests for completion counts, weekly momentum, target dates, and next scheduled labels.
+  - Risk: low to medium
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
