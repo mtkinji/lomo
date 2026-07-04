@@ -181,6 +181,7 @@ import {
   type ActivityLocationPreview,
   type ActivityLocationTrigger,
 } from './activityLocationTriggers';
+import { formatActivityRepeatLabel } from './activityRepeatLabels';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
@@ -3666,43 +3667,10 @@ export function ActivityDetailScreen() {
     });
   }, [activity?.scheduledDate]);
 
-  const repeatLabel = (() => {
-    const rule = activity?.repeatRule ?? null;
-    if (!rule) return 'Off';
-    if (rule === 'weekdays') return 'Weekdays';
-    if (rule === 'custom') {
-      const cfg = activity?.repeatCustom;
-      if (cfg && cfg.cadence === 'weeks') {
-        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-        const names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-        const days: number[] = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
-        const picked =
-          days.length > 0
-            ? Array.from(new Set(days))
-                .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-                .sort((a, b) => a - b)
-            : [];
-        const dayLabel = picked.length > 0 ? picked.map((d) => names[d] ?? '').filter(Boolean).join(' ') : '';
-        return interval === 1
-          ? (dayLabel ? `Weekly (${dayLabel})` : 'Weekly')
-          : (dayLabel ? `Every ${interval} weeks (${dayLabel})` : `Every ${interval} weeks`);
-      }
-      if (cfg) {
-        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-        const unit =
-          cfg.cadence === 'days'
-            ? 'day'
-            : cfg.cadence === 'months'
-              ? 'month'
-              : cfg.cadence === 'years'
-                ? 'year'
-                : 'week';
-        return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
-      }
-      return 'Custom';
-    }
-    return rule.charAt(0).toUpperCase() + rule.slice(1);
-  })();
+  const repeatLabel = formatActivityRepeatLabel({
+    repeatRule: activity?.repeatRule,
+    repeatCustom: activity?.repeatCustom,
+  });
 
   const handleClearRepeatRule = () => {
     if (!activity) return;
