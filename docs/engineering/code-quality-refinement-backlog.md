@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activity detail repeat label formatting
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: custom repeat labels encode branchy scheduling semantics that should be testable outside a large detail screen.
+  - Result: `src/features/activities/activityRepeatLabels.ts` with focused tests for built-in rules, custom weekly weekdays, empty custom config, and pluralized intervals.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
