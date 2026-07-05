@@ -167,6 +167,10 @@ import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle'
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
+import {
+  resolveInitialDueDateForPicker,
+  resolveInitialReminderDateTimeForPicker,
+} from './activityDatePickerDefaults';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
 import {
@@ -3484,12 +3488,9 @@ export function ActivityDetailScreen() {
   };
 
   const getInitialReminderDateTimeForPicker = () => {
-    if (!activity) return new Date();
-    if (activity.reminderAt) return new Date(activity.reminderAt);
-    const base = new Date();
-    base.setMinutes(0, 0, 0);
-    base.setHours(base.getHours() + 1);
-    return base;
+    return resolveInitialReminderDateTimeForPicker({
+      reminderAt: activity?.reminderAt,
+    });
   };
 
   const handleSelectDueDate = (offsetDays: number) => {
@@ -3528,14 +3529,9 @@ export function ActivityDetailScreen() {
   };
 
   const getInitialDueDateForPicker = () => {
-    if (!activity) return new Date();
-    if (activity.scheduledDate) {
-      const parsed = parseLocalCalendarDate(activity.scheduledDate);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    return new Date();
+    return resolveInitialDueDateForPicker({
+      scheduledDate: activity?.scheduledDate,
+    });
   };
 
   const handleDueDateChange = (event: DateTimePickerEvent, date?: Date) => {
