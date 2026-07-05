@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activity detail date picker defaults
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: reminder/due-date picker initialization is scheduling behavior that should be testable outside the large detail screen.
+  - Result: `src/features/activities/activityDatePickerDefaults.ts` with focused tests for existing timestamps, next-hour reminder defaults, valid due dates, and invalid due-date fallback.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
