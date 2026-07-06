@@ -87,6 +87,83 @@ describe('NotificationService system-nudge policy', () => {
     setStoreState();
   });
 
+  it('schedules recurring Activity reminders as one-shot reminders for the current occurrence', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000Z'));
+
+    setStoreState({
+      notificationPreferences: {
+        notificationsEnabled: true,
+        osPermissionStatus: 'authorized',
+        allowDailyShowUp: false,
+        dailyShowUpTime: '09:00',
+        allowDailyFocus: false,
+        dailyFocusTime: '14:00',
+        allowGoalNudges: false,
+        goalNudgeTime: '16:00',
+        allowActivityReminders: true,
+        allowStreakAndReactivation: false,
+      },
+      activities: [
+        {
+          id: 'a-recurring',
+          title: 'Weekly reaction',
+          goalId: 'goal-1',
+          status: 'planned',
+          reminderAt: '2026-01-02T15:00:00.000Z',
+          repeatRule: 'weekly',
+          repeatCustom: null,
+        },
+      ],
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+
+    await NotificationService.scheduleActivityReminder('a-recurring');
+
+    expect(scheduleSpy).toHaveBeenCalledTimes(1);
+    const arg = scheduleSpy.mock.calls[0]?.[0];
+    expect(arg.trigger).toEqual({
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: new Date('2026-01-02T15:00:00.000Z'),
+    });
+  });
+
+  it('does not schedule Activity reminders for skipped recurring occurrences', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000Z'));
+
+    setStoreState({
+      notificationPreferences: {
+        notificationsEnabled: true,
+        osPermissionStatus: 'authorized',
+        allowDailyShowUp: false,
+        dailyShowUpTime: '09:00',
+        allowDailyFocus: false,
+        dailyFocusTime: '14:00',
+        allowGoalNudges: false,
+        goalNudgeTime: '16:00',
+        allowActivityReminders: true,
+        allowStreakAndReactivation: false,
+      },
+      activities: [
+        {
+          id: 'a-skipped',
+          title: 'Skipped copy',
+          goalId: 'goal-1',
+          status: 'skipped',
+          reminderAt: '2026-01-02T15:00:00.000Z',
+          repeatRule: 'weekly',
+          repeatCustom: null,
+        },
+      ],
+    });
+
+    const scheduleSpy = jest.spyOn(Notifications, 'scheduleNotificationAsync');
+
+    await NotificationService.scheduleActivityReminder('a-skipped');
+
+    expect(scheduleSpy).not.toHaveBeenCalled();
+  });
+
   it('enforces global cap: if already 2 nudges fired today, daily show-up schedules for tomorrow', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T07:00:00.000'));
 

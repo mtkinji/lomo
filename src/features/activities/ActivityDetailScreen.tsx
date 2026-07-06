@@ -146,6 +146,7 @@ import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSound
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
+import { RepeatInfoMenu } from './RepeatInfoMenu';
 import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
@@ -2073,6 +2074,25 @@ export function ActivityDetailScreen() {
         },
       ],
     );
+  };
+
+  const handleSkipRecurringActivity = () => {
+    if (!activity?.repeatRule || activity.status === 'done' || activity.status === 'skipped' || activity.status === 'cancelled') {
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    void HapticsService.trigger('canvas.primary.confirm');
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      status: 'skipped',
+      completedAt: null,
+      updatedAt: timestamp,
+    }));
+    showToast({
+      message: 'Skipped this copy',
+      variant: 'light',
+      durationMs: 2200,
+    });
   };
 
   const openFocusSheet = () => {
@@ -4144,6 +4164,7 @@ export function ActivityDetailScreen() {
               activityTypeOptions={activityTypeOptions}
               activityAreas={activityAreas}
               handleDeleteActivity={handleDeleteActivity}
+              handleSkipRecurringActivity={handleSkipRecurringActivity}
               setIsTagsAutofillThinking={setIsTagsAutofillThinking}
               // Full-bleed canvas: the refresh layout handles safe area itself.
               appShellTopInsetPx={0}
@@ -4413,7 +4434,7 @@ export function ActivityDetailScreen() {
         <View style={styles.sheetContent}>
           <BottomDrawerHeader
             title="Repeat"
-            variant="minimal"
+            rightAction={<RepeatInfoMenu />}
             containerStyle={styles.sheetHeader}
             titleStyle={styles.sheetTitle}
           />

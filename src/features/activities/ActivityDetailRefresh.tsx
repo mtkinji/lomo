@@ -201,6 +201,7 @@ export function ActivityDetailRefresh(props: any) {
     activityTypeOptions,
     activityAreas,
     handleDeleteActivity,
+    handleSkipRecurringActivity,
     setActivityPriorityState,
     onPressEditHeaderImage,
     // Fade geometry (provided by ActivityDetailScreen)
@@ -212,6 +213,11 @@ export function ActivityDetailRefresh(props: any) {
 
   // Check if the activity's due date is today (for visual emphasis)
   const isDueToday = isDateToday(activity?.scheduledDate);
+  const canSkipRecurringActivity =
+    Boolean(activity?.repeatRule) &&
+    activity?.status !== 'done' &&
+    activity?.status !== 'skipped' &&
+    activity?.status !== 'cancelled';
 
   const planConfiguredCount = React.useMemo(() => {
     const hasReminder = Boolean(activity?.reminderAt);
@@ -534,6 +540,16 @@ export function ActivityDetailRefresh(props: any) {
                           </Text>
                         </View>
                       </DropdownMenuItem>
+                      {canSkipRecurringActivity ? (
+                        <DropdownMenuItem onPress={handleSkipRecurringActivity}>
+                          <View style={styles.menuItemRow}>
+                            <Icon name="refresh" size={16} color={headerInk} />
+                            <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                              Skip this one
+                            </Text>
+                          </View>
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
                         <View style={styles.menuItemRow}>
                           <Icon name="trash" size={16} color={colors.destructive} />
@@ -686,6 +702,16 @@ export function ActivityDetailRefresh(props: any) {
                           </Text>
                         </View>
                       </DropdownMenuItem>
+                      {canSkipRecurringActivity ? (
+                        <DropdownMenuItem onPress={handleSkipRecurringActivity}>
+                          <View style={styles.menuItemRow}>
+                            <Icon name="refresh" size={16} color={headerInk} />
+                            <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                              Skip this one
+                            </Text>
+                          </View>
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem onPress={handleDeleteActivity} variant="destructive">
                         <View style={styles.menuItemRow}>
                           <Icon name="trash" size={16} color={colors.destructive} />

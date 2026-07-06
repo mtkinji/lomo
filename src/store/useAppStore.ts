@@ -28,6 +28,10 @@ import {
   DEFAULT_ACTIVITY_AREAS,
   normalizeActivityAreas,
 } from '../domain/activityAreas';
+import {
+  buildNextRecurringActivity,
+  shouldAdvanceRecurringActivity,
+} from '../domain/activityRecurrence';
 import { getArcHeroUriById } from '../domain/curatedHeroLibrary';
 import { inferPriorityMetadataForActivity } from '../features/activities/activityPriority';
 import {
@@ -1969,10 +1973,36 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           const atIso = now();
           const prev = state.activities.find((item) => item.id === activityId) ?? null;
-          const next = prev ? updater(prev) : null;
+          const rawNext = prev ? updater(prev) : null;
+          const shouldAdvance =
+            prev && rawNext ? shouldAdvanceRecurringActivity({ prev, next: rawNext }) : false;
+          const next =
+            prev && rawNext && shouldAdvance
+              ? {
+                  ...rawNext,
+                  repeatSeriesId: rawNext.repeatSeriesId ?? prev.repeatSeriesId ?? prev.id,
+                  repeatBasis: rawNext.repeatBasis ?? prev.repeatBasis ?? 'scheduled',
+                }
+              : rawNext;
+          const nextRecurringActivity =
+            prev && next && shouldAdvance
+              ? buildNextRecurringActivity({
+                  activity: next,
+                  closedAtIso: next.completedAt ?? next.updatedAt ?? atIso,
+                })
+              : null;
           const nextActivities =
             prev && next
-              ? state.activities.map((item) => (item.id === activityId ? next : item))
+              ? (() => {
+                  const replaced = state.activities.map((item) => (item.id === activityId ? next : item));
+                  if (!nextRecurringActivity) return replaced;
+                  const alreadyCreated = replaced.some(
+                    (item) =>
+                      item.id === nextRecurringActivity.id ||
+                      item.repeatCreatedFromActivityId === nextRecurringActivity.repeatCreatedFromActivityId,
+                  );
+                  return alreadyCreated ? replaced : [...replaced, nextRecurringActivity];
+                })()
               : state.activities;
           const shouldBumpGoalStatus = (() => {
             if (!prev || !next) return false;

@@ -133,6 +133,7 @@ import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
+import { RepeatInfoMenu } from './RepeatInfoMenu';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
@@ -3669,7 +3670,7 @@ export function ActivitiesScreen() {
         <View style={styles.sheetContent}>
           <BottomDrawerHeader
             title="Repeat"
-            variant="minimal"
+            rightAction={<RepeatInfoMenu />}
             containerStyle={styles.sheetHeader}
             titleStyle={styles.sheetTitle}
           />

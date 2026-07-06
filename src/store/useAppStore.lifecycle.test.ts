@@ -200,6 +200,107 @@ describe('useAppStore object lifecycles', () => {
     expect(updated?.updatedAt).not.toBe(original.updatedAt);
   });
 
+  it('creates the next recurring activity when a recurring activity is completed', () => {
+    useAppStore.getState().addActivity(
+      activity({
+        id: 'act-weekly',
+        title: 'Weekly reaction',
+        scheduledDate: '2026-06-08',
+        reminderAt: '2026-06-08T15:00:00.000Z',
+        repeatRule: 'weekly',
+        steps: [{ id: 's1', title: 'React', completedAt: null }],
+      }),
+    );
+
+    useAppStore.getState().updateActivity('act-weekly', (prev) => ({
+      ...prev,
+      status: 'done',
+      completedAt: '2026-07-06T18:00:00.000Z',
+      steps: prev.steps?.map((step) => ({ ...step, completedAt: '2026-07-06T18:00:00.000Z' })),
+      updatedAt: '2026-07-06T18:00:00.000Z',
+    }));
+
+    const state = useAppStore.getState();
+    const completed = state.activities.find((a) => a.id === 'act-weekly');
+    const next = state.activities.find((a) => a.id === 'activity-repeat-act-weekly-2026-07-13');
+
+    expect(completed).toMatchObject({
+      status: 'done',
+      repeatSeriesId: 'act-weekly',
+      repeatBasis: 'scheduled',
+    });
+    expect(next).toMatchObject({
+      title: 'Weekly reaction',
+      status: 'planned',
+      scheduledDate: '2026-07-13',
+      reminderAt: '2026-07-13T15:00:00.000Z',
+      repeatRule: 'weekly',
+      repeatSeriesId: 'act-weekly',
+      repeatCreatedFromActivityId: 'act-weekly',
+    });
+    expect(next?.steps?.[0]?.completedAt).toBeNull();
+  });
+
+  it('does not create duplicate next occurrences if a recurring completion is replayed', () => {
+    useAppStore.getState().addActivity(
+      activity({
+        id: 'act-repeat',
+        scheduledDate: '2026-06-08',
+        reminderAt: '2026-06-08T15:00:00.000Z',
+        repeatRule: 'weekly',
+      }),
+    );
+
+    const complete = () =>
+      useAppStore.getState().updateActivity('act-repeat', (prev) => ({
+        ...prev,
+        status: 'done',
+        completedAt: '2026-07-06T18:00:00.000Z',
+        updatedAt: '2026-07-06T18:00:00.000Z',
+      }));
+
+    complete();
+    useAppStore.getState().updateActivity('act-repeat', (prev) => ({
+      ...prev,
+      status: 'planned',
+      completedAt: null,
+      updatedAt: '2026-07-06T18:01:00.000Z',
+    }));
+    complete();
+
+    const nextOccurrences = useAppStore
+      .getState()
+      .activities.filter((a) => a.repeatCreatedFromActivityId === 'act-repeat');
+    expect(nextOccurrences).toHaveLength(1);
+  });
+
+  it('advances a skipped recurring activity without marking it completed', () => {
+    useAppStore.getState().addActivity(
+      activity({
+        id: 'act-skip',
+        scheduledDate: '2026-07-03',
+        reminderAt: '2026-07-03T14:00:00.000Z',
+        repeatRule: 'weekdays',
+      }),
+    );
+
+    useAppStore.getState().updateActivity('act-skip', (prev) => ({
+      ...prev,
+      status: 'skipped',
+      completedAt: null,
+      updatedAt: '2026-07-03T16:00:00.000Z',
+    }));
+
+    const skipped = useAppStore.getState().activities.find((a) => a.id === 'act-skip');
+    const next = useAppStore.getState().activities.find((a) => a.repeatCreatedFromActivityId === 'act-skip');
+    expect(skipped?.completedAt).toBeNull();
+    expect(next).toMatchObject({
+      status: 'planned',
+      scheduledDate: '2026-07-06',
+      reminderAt: '2026-07-06T14:00:00.000Z',
+    });
+  });
+
   it('treats manual reorder as priority feedback without changing other activity fields', () => {
     const first = activity({
       id: 'act-first',

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { isDateToday } from '../../utils/activityListMeta';
+import { RepeatInfoMenu } from './RepeatInfoMenu';
 
 export type ActivityDraft = {
   title: string;
@@ -848,7 +849,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
         hideBackdrop
       >
         <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Repeat</Text>
+          <HStack alignItems="center" justifyContent="space-between" style={styles.sheetTitleRow}>
+            <Text style={styles.sheetTitle}>Repeat</Text>
+            <RepeatInfoMenu />
+          </HStack>
           <VStack space="sm">
             <SheetOption label="Daily" onPress={() => (setRepeatRule('daily'), setRepeatSheetVisible(false))} />
             <SheetOption label="Weekly" onPress={() => (setRepeatRule('weekly'), setRepeatSheetVisible(false))} />
@@ -1079,6 +1083,8 @@ const styles = StyleSheet.create({
   sheetTitle: {
     ...typography.titleSm,
     color: colors.textPrimary,
+  },
+  sheetTitleRow: {
     marginBottom: spacing.md,
   },
   sheetRow: {

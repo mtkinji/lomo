@@ -439,6 +439,8 @@ export type ActivityRepeatRule =
   | 'yearly'
   | 'custom';
 
+export type ActivityRepeatBasis = 'scheduled' | 'after_completion';
+
 /**
  * Custom recurrence config for Activities.
  * Kept intentionally small: start with "custom weekly" (interval + weekday selection).
@@ -686,6 +688,22 @@ export interface Activity {
    * selected days). Only used when repeatRule === 'custom'.
    */
   repeatCustom?: ActivityRepeatCustom;
+  /**
+   * Stable id shared by generated occurrences of the same recurring Activity.
+   * Older recurring Activities may not have one until their first completion.
+   */
+  repeatSeriesId?: string | null;
+  /**
+   * Scheduled repeats advance from the calendar cadence and skip missed
+   * historical copies. After-completion repeats schedule the next occurrence
+   * relative to when the user closes the current one.
+   */
+  repeatBasis?: ActivityRepeatBasis;
+  /**
+   * Id of the completed/skipped occurrence that produced this occurrence.
+   * Used to make recurrence advancement idempotent across toggles/replays.
+   */
+  repeatCreatedFromActivityId?: string | null;
   /**
    * Optional user-managed life area for this Activity, such as Work,
    * Personal, Family, Home, or Health. Area is user-facing; schedulingDomain

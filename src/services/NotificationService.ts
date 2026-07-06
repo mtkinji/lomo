@@ -639,169 +639,20 @@ function shouldScheduleNotificationsForActivity(
   if (!activity.reminderAt) {
     return false;
   }
-  // Skip completed activities.
-  if (activity.status === 'done') {
+  // Closed activities should not keep reminder notifications alive.
+  if (activity.status === 'done' || activity.status === 'skipped' || activity.status === 'cancelled') {
     return false;
   }
   const when = new Date(activity.reminderAt);
   if (Number.isNaN(when.getTime())) {
     return false;
   }
-  // For one-shot reminders, only schedule future times.
-  // For repeating reminders, we schedule based on the local time-of-day/cadence.
-  const isRepeating =
-    Boolean(activity.repeatRule) &&
-    (activity.repeatRule === 'custom' ? Boolean(activity.repeatCustom) : true);
-  if (!isRepeating && when.getTime() <= Date.now()) {
+  // Activity recurrence is modeled as one visible occurrence at a time. The
+  // current occurrence gets one reminder; the next occurrence schedules its own.
+  if (when.getTime() <= Date.now()) {
     return false;
   }
   return true;
-}
-
-function startOfWeekLocal(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // 0..6 (Sun..Sat)
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - day);
-  return d;
-}
-
-function buildUpcomingCustomWeeklyDates(params: {
-  anchor: Date;
-  hour: number;
-  minute: number;
-  intervalWeeks: number;
-  weekdays: number[];
-  maxOccurrences: number;
-}): Date[] {
-  const { anchor, hour, minute, intervalWeeks, weekdays, maxOccurrences } = params;
-
-  const pickedDays =
-    weekdays.length > 0
-      ? Array.from(new Set(weekdays))
-          .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-          .sort((a, b) => a - b)
-      : [anchor.getDay()];
-
-  const now = new Date();
-  const results: Date[] = [];
-  const baseWeekStart = startOfWeekLocal(anchor);
-  const stepWeeks = Math.max(1, Math.round(intervalWeeks));
-
-  for (let w = 0; results.length < maxOccurrences && w < 52; w += stepWeeks) {
-    const weekStart = new Date(baseWeekStart);
-    weekStart.setDate(weekStart.getDate() + w * 7);
-    pickedDays.forEach((day) => {
-      if (results.length >= maxOccurrences) return;
-      const dt = new Date(weekStart);
-      dt.setDate(dt.getDate() + day);
-      dt.setHours(hour, minute, 0, 0);
-      if (dt.getTime() > now.getTime() + 60_000) {
-        results.push(dt);
-      }
-    });
-  }
-
-  results.sort((a, b) => a.getTime() - b.getTime());
-  return results.slice(0, maxOccurrences);
-}
-
-function buildUpcomingEveryNDays(params: {
-  anchor: Date;
-  hour: number;
-  minute: number;
-  intervalDays: number;
-  maxOccurrences: number;
-}): Date[] {
-  const { anchor, hour, minute, intervalDays, maxOccurrences } = params;
-  const step = Math.max(1, Math.round(intervalDays));
-  const now = new Date();
-  const out: Date[] = [];
-  let next = new Date(anchor);
-  next.setHours(hour, minute, 0, 0);
-  while (next.getTime() <= now.getTime() + 60_000) {
-    next.setDate(next.getDate() + step);
-  }
-  for (let i = 0; i < maxOccurrences; i += 1) {
-    out.push(new Date(next));
-    next.setDate(next.getDate() + step);
-  }
-  return out;
-}
-
-function daysInMonth(year: number, monthIndex: number): number {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
-
-function addMonthsClamped(date: Date, months: number, desiredDay: number): Date {
-  const d = new Date(date);
-  const y = d.getFullYear();
-  const m = d.getMonth();
-  const targetMonthIndex = m + months;
-  const target = new Date(y, targetMonthIndex, 1, d.getHours(), d.getMinutes(), 0, 0);
-  const dim = daysInMonth(target.getFullYear(), target.getMonth());
-  target.setDate(Math.min(Math.max(1, desiredDay), dim));
-  return target;
-}
-
-function buildUpcomingEveryNMonths(params: {
-  anchor: Date;
-  hour: number;
-  minute: number;
-  intervalMonths: number;
-  maxOccurrences: number;
-}): Date[] {
-  const { anchor, hour, minute, intervalMonths, maxOccurrences } = params;
-  const step = Math.max(1, Math.round(intervalMonths));
-  const now = new Date();
-  const out: Date[] = [];
-  const desiredDay = anchor.getDate();
-  let next = new Date(anchor);
-  next.setHours(hour, minute, 0, 0);
-  while (next.getTime() <= now.getTime() + 60_000) {
-    next = addMonthsClamped(next, step, desiredDay);
-  }
-  for (let i = 0; i < maxOccurrences; i += 1) {
-    out.push(new Date(next));
-    next = addMonthsClamped(next, step, desiredDay);
-  }
-  return out;
-}
-
-function buildUpcomingEveryNYears(params: {
-  anchor: Date;
-  hour: number;
-  minute: number;
-  intervalYears: number;
-  maxOccurrences: number;
-}): Date[] {
-  const { anchor, hour, minute, intervalYears, maxOccurrences } = params;
-  const step = Math.max(1, Math.round(intervalYears));
-  const now = new Date();
-  const out: Date[] = [];
-  const desiredDay = anchor.getDate();
-  const desiredMonth = anchor.getMonth(); // 0..11
-  let year = anchor.getFullYear();
-  let next = new Date(year, desiredMonth, 1, hour, minute, 0, 0);
-  next.setDate(Math.min(desiredDay, daysInMonth(next.getFullYear(), next.getMonth())));
-  while (next.getTime() <= now.getTime() + 60_000) {
-    year += step;
-    next = new Date(year, desiredMonth, 1, hour, minute, 0, 0);
-    next.setDate(Math.min(desiredDay, daysInMonth(next.getFullYear(), next.getMonth())));
-  }
-  for (let i = 0; i < maxOccurrences; i += 1) {
-    out.push(new Date(next));
-    year += step;
-    next = new Date(year, desiredMonth, 1, hour, minute, 0, 0);
-    next.setDate(Math.min(desiredDay, daysInMonth(next.getFullYear(), next.getMonth())));
-  }
-  return out;
-}
-
-function jsDayToExpoWeekday(jsDay: number): number {
-  // JS: 0=Sun..6=Sat. Expo calendar trigger: 1=Sun..7=Sat.
-  if (!Number.isFinite(jsDay)) return 1;
-  return jsDay === 0 ? 1 : jsDay + 1;
 }
 
 async function cancelAllScheduledActivityReminders(activityId: string, reason: 'reschedule' | 'explicit_cancel') {
@@ -861,10 +712,6 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
   await cancelAllScheduledActivityReminders(activity.id, 'reschedule');
 
   try {
-    const repeatRule = activity.repeatRule ?? null;
-    const customCadence = repeatRule === 'custom' && activity.repeatCustom ? activity.repeatCustom.cadence : null;
-    const isRepeating = Boolean(repeatRule) && repeatRule !== 'custom';
-
     const state = useAppStore.getState();
     const goal = activity.goalId ? state.goals.find((g) => g.id === activity.goalId) : null;
     const arc = goal?.arcId ? state.arcs.find((a) => a.id === goal.arcId) : null;
@@ -896,141 +743,7 @@ async function scheduleActivityReminderInternal(activity: ActivitySnapshotExtend
       } satisfies NotificationData,
     };
 
-    if (customCadence) {
-      const cfg = activity.repeatCustom!;
-      const hour = when.getHours();
-      const minute = when.getMinutes();
-      const dates =
-        cfg.cadence === 'weeks'
-          ? buildUpcomingCustomWeeklyDates({
-              anchor: when,
-              hour,
-              minute,
-              intervalWeeks: cfg.interval ?? 1,
-              weekdays: Array.isArray(cfg.weekdays) ? cfg.weekdays : [],
-              maxOccurrences: 24,
-            })
-          : cfg.cadence === 'days'
-            ? buildUpcomingEveryNDays({
-                anchor: when,
-                hour,
-                minute,
-                intervalDays: cfg.interval ?? 1,
-                maxOccurrences: 24,
-              })
-            : cfg.cadence === 'months'
-              ? buildUpcomingEveryNMonths({
-                  anchor: when,
-                  hour,
-                  minute,
-                  intervalMonths: cfg.interval ?? 1,
-                  maxOccurrences: 24,
-                })
-              : buildUpcomingEveryNYears({
-                  anchor: when,
-                  hour,
-                  minute,
-                  intervalYears: cfg.interval ?? 1,
-                  maxOccurrences: 24,
-                });
-      const identifiers: string[] = [];
-      for (const date of dates) {
-        const identifier = await Notifications.scheduleNotificationAsync({
-          content,
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
-        });
-        identifiers.push(identifier);
-        track(posthogClient, AnalyticsEvent.NotificationScheduled, {
-          notification_type: 'activityReminder',
-          notification_id: identifier,
-          activity_id: activity.id,
-          scheduled_for: date.toISOString(),
-        });
-      }
-      if (identifiers.length > 0) {
-        activityNotificationIds.set(activity.id, identifiers[0]!);
-      }
-      return;
-    }
-
-    // For repeating triggers, schedule based on the reminder's local time-of-day.
-    if (isRepeating) {
-      const hour = when.getHours();
-      const minute = when.getMinutes();
-
-      const scheduleOne = async (trigger: Notifications.NotificationTriggerInput) => {
-        const identifier = await Notifications.scheduleNotificationAsync({
-          content,
-          trigger,
-        });
-        track(posthogClient, AnalyticsEvent.NotificationScheduled, {
-          notification_type: 'activityReminder',
-          notification_id: identifier,
-          activity_id: activity.id,
-          scheduled_for: activity.reminderAt ?? null,
-        });
-        return identifier;
-      };
-
-      const weekday = jsDayToExpoWeekday(when.getDay());
-      const dayOfMonth = when.getDate();
-      const month = when.getMonth() + 1;
-
-      const baseCalendar = {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        hour,
-        minute,
-        repeats: true,
-      } as const;
-
-      const identifiers: string[] = [];
-      switch (repeatRule) {
-        case 'daily': {
-          identifiers.push(await scheduleOne(baseCalendar));
-          break;
-        }
-        case 'weekly': {
-          identifiers.push(await scheduleOne({ ...baseCalendar, weekday } as const));
-          break;
-        }
-        case 'weekdays': {
-          // Schedule Monday–Friday (Expo weekday: 2=Mon ... 6=Fri).
-          for (const wd of [2, 3, 4, 5, 6]) {
-            identifiers.push(await scheduleOne({ ...baseCalendar, weekday: wd } as const));
-          }
-          break;
-        }
-        case 'monthly': {
-          identifiers.push(await scheduleOne({ ...baseCalendar, day: dayOfMonth } as const));
-          break;
-        }
-        case 'yearly': {
-          identifiers.push(
-            await scheduleOne({ ...baseCalendar, month, day: dayOfMonth } as const),
-          );
-          break;
-        }
-        default: {
-          // Unknown cadence: fall back to one-shot scheduling.
-          const identifier = await Notifications.scheduleNotificationAsync({
-            content,
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
-          });
-          identifiers.push(identifier);
-        }
-      }
-
-      // Keep one identifier in-memory for quick cancellation, but cancellation is robust even
-      // when multiple notifications exist (we scan scheduled notifications by activityId).
-      if (identifiers.length > 0) {
-        activityNotificationIds.set(activity.id, identifiers[0]!);
-      }
-      // NOTE: We intentionally do not write repeating schedules into the delivery ledger,
-      // which is currently designed for one-shot notifications.
-      return;
-    }
-
-    // One-shot reminder.
+    // One-shot reminder for the current visible occurrence.
     const identifier = await Notifications.scheduleNotificationAsync({
       content,
       trigger: {
@@ -2035,7 +1748,12 @@ function attachStoreSubscription() {
 
     // Handle adds/updates.
     changed.addedOrUpdated.forEach((snapshot) => {
-      if (!snapshot.reminderAt || snapshot.status === 'done') {
+      if (
+        !snapshot.reminderAt ||
+        snapshot.status === 'done' ||
+        snapshot.status === 'skipped' ||
+        snapshot.status === 'cancelled'
+      ) {
         void runExclusive(`activity:${snapshot.id}`, async () => cancelActivityReminderInternal(snapshot.id));
       } else {
         void runExclusive(`activity:${snapshot.id}`, async () => scheduleActivityReminderInternal(snapshot, prefs));
@@ -2371,6 +2089,8 @@ export const NotificationService = {
       goalId: activity.goalId,
       reminderAt: activity.reminderAt ?? null,
       status: activity.status,
+      repeatRule: activity.repeatRule ?? undefined,
+      repeatCustom: activity.repeatCustom ?? undefined,
     };
     await runExclusive(`activity:${activityId}`, async () =>
       scheduleActivityReminderInternal(snapshot, state.notificationPreferences),
@@ -2462,6 +2182,8 @@ export const NotificationService = {
         goalId: activity.goalId,
         reminderAt: activity.reminderAt ?? null,
         status: activity.status,
+        repeatRule: activity.repeatRule ?? undefined,
+        repeatCustom: activity.repeatCustom ?? undefined,
       }));
       await Promise.all(
         snapshots.map((snapshot) =>

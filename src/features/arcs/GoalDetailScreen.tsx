@@ -117,6 +117,7 @@ import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUnd
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
 import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
+import { RepeatInfoMenu } from '../activities/RepeatInfoMenu';
 import {
   useQuickAddDockController,
   type QuickAddAiAction,
@@ -4034,7 +4035,7 @@ export function GoalDetailScreen() {
         <View style={styles.quickAddSheetContent}>
           <BottomDrawerHeader
             title="Repeat"
-            variant="minimal"
+            rightAction={<RepeatInfoMenu />}
             containerStyle={styles.quickAddSheetHeader}
             titleStyle={styles.quickAddSheetTitle}
           />
