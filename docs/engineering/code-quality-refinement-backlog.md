@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activity custom repeat normalization
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: Custom repeat draft hydration and payload commit rules are branchy scheduling semantics inside a large screen.
+  - Result: `src/features/activities/activityCustomRepeat.ts` with focused tests for interval normalization, weekday normalization, payload building, and draft hydration.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
