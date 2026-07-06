@@ -17,6 +17,7 @@ briefs:
   - activity-areas
   - auto-schedule
   - calendar-export-ics
+  - due-date-reminders
   - dynamic-next-best-action
   - focus-mode-education
   - focus-protection

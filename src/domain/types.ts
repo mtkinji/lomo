@@ -441,6 +441,8 @@ export type ActivityRepeatRule =
 
 export type ActivityRepeatBasis = 'scheduled' | 'after_completion';
 
+export type ActivityReminderSource = 'manual' | 'due_date_default' | 'ai';
+
 /**
  * Custom recurrence config for Activities.
  * Kept intentionally small: start with "custom weekly" (interval + weekday selection).
@@ -619,6 +621,12 @@ export interface Activity {
    * scheduling logic in a future notifications layer.
    */
   reminderAt?: string | null;
+  /**
+   * Provenance for the current reminder timestamp. Missing values are treated
+   * as user/manual for backward compatibility so existing reminders are not
+   * moved by due-date automation.
+   */
+  reminderSource?: ActivityReminderSource;
   /**
    * Optional priority bucket for Activities. When set, 1 represents the
    * highest priority (e.g., "Priority 1"), with larger numbers indicating

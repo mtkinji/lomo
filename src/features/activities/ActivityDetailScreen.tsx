@@ -120,6 +120,10 @@ import { PlanDateStrip } from '../plan/PlanDateStrip';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
+import {
+  applyDueDateReminderPolicy,
+  REMINDER_SOURCE_MANUAL,
+} from './dueDateReminderPolicy';
 import { openPaywallInterstitial } from '../../services/paywall';
 import {
   recordShowUpWithCelebration,
@@ -3409,6 +3413,7 @@ export function ActivityDetailScreen() {
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: date.toISOString(),
+      reminderSource: REMINDER_SOURCE_MANUAL,
       updatedAt: timestamp,
     }));
     setActiveSheet(null);
@@ -3427,6 +3432,7 @@ export function ActivityDetailScreen() {
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: next.toISOString(),
+      reminderSource: REMINDER_SOURCE_MANUAL,
       updatedAt: timestamp,
     }));
     setActiveSheet(null);
@@ -3451,7 +3457,11 @@ export function ActivityDetailScreen() {
     // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
-      scheduledDate: date.toISOString(),
+      ...applyDueDateReminderPolicy({
+        activity: prev,
+        nextScheduledDate: date.toISOString(),
+        now: new Date(timestamp),
+      }),
       updatedAt: timestamp,
     }));
     setActiveSheet(null);
@@ -3462,7 +3472,11 @@ export function ActivityDetailScreen() {
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
-      scheduledDate: null,
+      ...applyDueDateReminderPolicy({
+        activity: prev,
+        nextScheduledDate: null,
+        now: new Date(timestamp),
+      }),
       updatedAt: timestamp,
     }));
     setActiveSheet(null);
@@ -3498,7 +3512,11 @@ export function ActivityDetailScreen() {
     // Note: Planning no longer counts as "showing up" for streaks.
     updateActivity(activity.id, (prev) => ({
       ...prev,
-      scheduledDate: next.toISOString(),
+      ...applyDueDateReminderPolicy({
+        activity: prev,
+        nextScheduledDate: next.toISOString(),
+        now: new Date(timestamp),
+      }),
       updatedAt: timestamp,
     }));
 
@@ -3577,6 +3595,7 @@ export function ActivityDetailScreen() {
     updateActivity(activity.id, (prev) => ({
       ...prev,
       reminderAt: null,
+      reminderSource: prev.scheduledDate ? REMINDER_SOURCE_MANUAL : undefined,
       updatedAt: timestamp,
     }));
     setActiveSheet(null);

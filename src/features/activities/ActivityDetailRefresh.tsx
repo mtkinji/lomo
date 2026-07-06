@@ -41,6 +41,7 @@ import {
 } from './activityPriority';
 import { getActivityAreaIcon, getActivityAreaIconById } from './activityAreaIcons';
 import { ActivityDetailTagPicker } from './ActivityDetailTagPicker';
+import { REMINDER_SOURCE_DUE_DATE_DEFAULT } from './dueDateReminderPolicy';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -254,6 +255,10 @@ export function ActivityDetailRefresh(props: any) {
   const showDetailsCountBadge = !detailsExpanded && detailsConfiguredCount > 0;
   const activityPriorityState = getActivityPriorityState(activity);
   const activityPriorityStateLabel = PRIORITY_STATE_LABELS[activityPriorityState];
+  const reminderRowLabel =
+    activity?.reminderSource === REMINDER_SOURCE_DUE_DATE_DEFAULT && activity.scheduledDate
+      ? 'Reminder · Morning of due date'
+      : `Reminder · ${reminderLabel === 'None' ? 'Off' : reminderLabel}`;
   const activeAreas = React.useMemo(
     () => getActiveActivityAreas((activityAreas ?? []) as ActivityArea[]),
     [activityAreas],
@@ -1245,7 +1250,7 @@ export function ActivityDetailRefresh(props: any) {
                   style={styles.planListRowInner}
                 >
                   <Text style={styles.rowLabel} numberOfLines={1}>
-                    {`Reminder · ${reminderLabel === 'None' ? 'Off' : reminderLabel}`}
+                    {reminderRowLabel}
                   </Text>
                 </ThreeColumnRow>
               </Pressable>
