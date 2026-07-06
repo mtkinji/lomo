@@ -172,6 +172,7 @@ import {
   resolveInitialReminderDateTimeForPicker,
 } from './activityDatePickerDefaults';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
+import { buildActivityCustomRepeatPayload, resolveActivityCustomRepeatDraft } from './activityCustomRepeat';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
 import {
   DEFAULT_LOCATION_RADIUS_FT,
@@ -3579,23 +3580,14 @@ export function ActivityDetailScreen() {
 
   const openCustomRepeat = () => {
     if (!activity) return;
-    // Hydrate from existing custom config if present.
-    if (activity.repeatRule === 'custom' && activity.repeatCustom) {
-      const cfg = activity.repeatCustom;
-      setCustomRepeatCadence(cfg.cadence);
-      const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-      setCustomRepeatInterval(interval);
-      if (cfg.cadence === 'weeks') {
-        const list = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
-        setCustomRepeatWeekdays(list.length > 0 ? list : [new Date().getDay()]);
-      } else {
-        setCustomRepeatWeekdays([new Date().getDay()]);
-      }
-    } else {
-      setCustomRepeatCadence('weeks');
-      setCustomRepeatInterval(1);
-      setCustomRepeatWeekdays([new Date().getDay()]);
-    }
+    const draft = resolveActivityCustomRepeatDraft({
+      repeatRule: activity.repeatRule,
+      repeatCustom: activity.repeatCustom,
+      fallbackWeekday: new Date().getDay(),
+    });
+    setCustomRepeatCadence(draft.cadence);
+    setCustomRepeatInterval(draft.interval);
+    setCustomRepeatWeekdays(draft.weekdays);
     setActiveSheet(null);
     if (repeatDrawerTransitionTimeoutRef.current) {
       clearTimeout(repeatDrawerTransitionTimeoutRef.current);
@@ -3607,18 +3599,12 @@ export function ActivityDetailScreen() {
 
   const commitCustomRepeat = () => {
     if (!activity) return;
-    const interval = Math.max(1, Math.round(customRepeatInterval));
-    const weekdays =
-      customRepeatWeekdays.length > 0
-        ? Array.from(new Set(customRepeatWeekdays))
-            .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-            .sort((a, b) => a - b)
-        : [new Date().getDay()];
-
-    const payload: ActivityRepeatCustom =
-      customRepeatCadence === 'weeks'
-        ? { cadence: 'weeks', interval, weekdays }
-        : { cadence: customRepeatCadence, interval };
+    const payload = buildActivityCustomRepeatPayload({
+      cadence: customRepeatCadence,
+      interval: customRepeatInterval,
+      weekdays: customRepeatWeekdays,
+      fallbackWeekday: new Date().getDay(),
+    });
     const timestamp = new Date().toISOString();
     updateActivity(activity.id, (prev) => ({
       ...prev,
