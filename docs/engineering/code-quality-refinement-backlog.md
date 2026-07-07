@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activity schedule display rules
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: Schedule duration snapping and slot time labels are pure scheduling display contracts inside a large screen.
+  - Result: `src/features/activities/activityScheduleDisplay.ts` with focused tests for duration options, duration normalization, and slot label formatting.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.

@@ -157,6 +157,7 @@ import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
+import { formatScheduleSlotTimeRange, getScheduleDurationOptions, resolveScheduleDurationMinutes } from './activityScheduleDisplay';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
@@ -991,16 +992,14 @@ export function ActivityDetailScreen() {
   }, [activity?.calendarBinding]);
 
   const scheduleDurationOptions = useMemo(
-    () => Array.from({ length: 16 }, (_, idx) => (idx + 1) * 15),
+    () => getScheduleDurationOptions(),
     [],
   );
   const scheduleDurationMinutes = useMemo(() => {
-    const fallback = Math.round(activity?.estimateMinutes ?? 30);
-    const raw = Math.round(Number(calendarDurationDraft));
-    let minutes = Number.isFinite(raw) && raw > 0 ? raw : fallback;
-    minutes = Math.min(240, Math.max(15, minutes));
-    const snapped = Math.round(minutes / 15) * 15;
-    return Math.min(240, Math.max(15, snapped));
+    return resolveScheduleDurationMinutes({
+      draft: calendarDurationDraft,
+      fallbackEstimateMinutes: activity?.estimateMinutes,
+    });
   }, [activity?.estimateMinutes, calendarDurationDraft]);
 
   const scheduleSlots = useMemo(() => {
@@ -1037,12 +1036,7 @@ export function ActivityDetailScreen() {
 
   const selectedScheduleSlotLabel = useMemo(() => {
     if (!selectedSlot) return null;
-    const start = new Date(selectedSlot.startDate);
-    const end = new Date(selectedSlot.endDate);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-    const formatTime = (date: Date) =>
-      date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    return `${formatTime(start)}-${formatTime(end)}`;
+    return formatScheduleSlotTimeRange(selectedSlot);
   }, [selectedSlot]);
 
   const kwiltBlocksForScheduleDay = useMemo(() => {
@@ -5344,9 +5338,7 @@ export function ActivityDetailScreen() {
                 {scheduleSlots.length > 0 ? (
                   <HStack style={{ flexWrap: 'wrap', gap: spacing.sm }}>
                     {scheduleSlots.map((slot, idx) => {
-                      const start = new Date(slot.startDate);
-                      const end = new Date(slot.endDate);
-                      const label = `${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}–${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+                      const label = formatScheduleSlotTimeRange(slot, { separator: '–' }) ?? '';
                       return (
                         <Button
                           key={`${slot.startDate}:${idx}`}
