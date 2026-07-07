@@ -177,6 +177,7 @@ export function useQuickAddDockController(params: Params) {
   const [isFocused, setIsFocused] = React.useState(false);
 
   const [reminderAt, setReminderAt] = React.useState<string | null>(null);
+  const [reminderSource, setReminderSource] = React.useState<Activity['reminderSource']>(undefined);
   const [scheduledDate, setScheduledDate] = React.useState<string | null>(null);
   const [repeatRule, setRepeatRule] = React.useState<ActivityRepeatRule | undefined>(undefined);
   const [estimateMinutes, setEstimateMinutes] = React.useState<number | null>(null);
@@ -289,6 +290,13 @@ export function useQuickAddDockController(params: Params) {
       : [];
     const resolvedDifficulty = typeof (defaults as any)?.difficulty === 'string' ? ((defaults as any).difficulty as any) : undefined;
 
+    const resolvedReminderAt =
+      reminderAt ?? (typeof defaults.reminderAt === 'string' ? defaults.reminderAt : null) ?? null;
+    const resolvedReminderSource =
+      reminderSource ??
+      (reminderAt ? 'manual' : undefined) ??
+      defaults.reminderSource;
+
     const activity: Activity = {
       id,
       goalId: resolvedGoalId,
@@ -297,7 +305,8 @@ export function useQuickAddDockController(params: Params) {
       tags: resolvedTags,
       notes: undefined,
       steps: [],
-      reminderAt: reminderAt ?? (typeof defaults.reminderAt === 'string' ? defaults.reminderAt : null) ?? null,
+      reminderAt: resolvedReminderAt,
+      reminderSource: resolvedReminderSource,
       priority: resolvedPriority,
       estimateMinutes:
         estimateMinutes ??
@@ -335,6 +344,7 @@ export function useQuickAddDockController(params: Params) {
 
     setValue('');
     setReminderAt(null);
+    setReminderSource(undefined);
     setScheduledDate(null);
     setRepeatRule(undefined);
     setEstimateMinutes(null);
@@ -449,6 +459,7 @@ export function useQuickAddDockController(params: Params) {
     onCreated,
     recordShowUp,
     reminderAt,
+    reminderSource,
     repeatRule,
     scheduledDate,
     showToast,
@@ -467,7 +478,9 @@ export function useQuickAddDockController(params: Params) {
     reservedHeight,
     setReservedHeight,
     reminderAt,
+    reminderSource,
     setReminderAt,
+    setReminderSource,
     scheduledDate,
     setScheduledDate,
     repeatRule,

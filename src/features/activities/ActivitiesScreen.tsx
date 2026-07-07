@@ -76,6 +76,10 @@ import {
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
+import {
+  applyDueDateReminderPolicy,
+  REMINDER_SOURCE_MANUAL,
+} from './dueDateReminderPolicy';
 import { ActivityListItem, type ActivityPriorityIndicator } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
@@ -1609,6 +1613,8 @@ export function ActivitiesScreen() {
     setReservedHeight: setQuickAddReservedHeight,
     reminderAt: quickAddReminderAt,
     setReminderAt: setQuickAddReminderAt,
+    reminderSource: quickAddReminderSource,
+    setReminderSource: setQuickAddReminderSource,
     scheduledDate: quickAddScheduledDate,
     setScheduledDate: setQuickAddScheduledDate,
     repeatRule: quickAddRepeatRule,
@@ -2197,32 +2203,66 @@ export function ActivitiesScreen() {
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
     date.setHours(9, 0, 0, 0);
-    setQuickAddScheduledDate(date.toISOString());
+    const patch = applyDueDateReminderPolicy({
+      activity: {
+        reminderAt: quickAddReminderAt,
+        reminderSource: quickAddReminderSource,
+      },
+      nextScheduledDate: date.toISOString(),
+    });
+    setQuickAddScheduledDate(patch.scheduledDate ?? null);
+    if ('reminderAt' in patch) setQuickAddReminderAt(patch.reminderAt ?? null);
+    if ('reminderSource' in patch) setQuickAddReminderSource(patch.reminderSource);
     closeQuickAddToolDrawer(() => {
       setQuickAddDueDateSheetVisible(false);
       setQuickAddIsDueDatePickerVisible(false);
     });
-  }, [closeQuickAddToolDrawer]);
+  }, [
+    closeQuickAddToolDrawer,
+    quickAddReminderAt,
+    quickAddReminderSource,
+    setQuickAddReminderAt,
+    setQuickAddReminderSource,
+    setQuickAddScheduledDate,
+  ]);
 
   const clearQuickAddDueDate = React.useCallback(() => {
-    setQuickAddScheduledDate(null);
+    const patch = applyDueDateReminderPolicy({
+      activity: {
+        reminderAt: quickAddReminderAt,
+        reminderSource: quickAddReminderSource,
+      },
+      nextScheduledDate: null,
+    });
+    setQuickAddScheduledDate(patch.scheduledDate ?? null);
+    if ('reminderAt' in patch) setQuickAddReminderAt(patch.reminderAt ?? null);
+    if ('reminderSource' in patch) setQuickAddReminderSource(patch.reminderSource);
     closeQuickAddToolDrawer(() => {
       setQuickAddDueDateSheetVisible(false);
       setQuickAddIsDueDatePickerVisible(false);
     });
-  }, [closeQuickAddToolDrawer]);
+  }, [
+    closeQuickAddToolDrawer,
+    quickAddReminderAt,
+    quickAddReminderSource,
+    setQuickAddReminderAt,
+    setQuickAddReminderSource,
+    setQuickAddScheduledDate,
+  ]);
 
   const setQuickAddReminderByOffsetMinutes = React.useCallback((offsetMinutes: number) => {
     const date = new Date();
     date.setMinutes(date.getMinutes() + offsetMinutes);
     setQuickAddReminderAt(date.toISOString());
+    setQuickAddReminderSource(REMINDER_SOURCE_MANUAL);
     closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
-  }, [closeQuickAddToolDrawer]);
+  }, [closeQuickAddToolDrawer, setQuickAddReminderAt, setQuickAddReminderSource]);
 
   const clearQuickAddReminder = React.useCallback(() => {
     setQuickAddReminderAt(null);
+    setQuickAddReminderSource(quickAddScheduledDate ? REMINDER_SOURCE_MANUAL : undefined);
     closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false));
-  }, [closeQuickAddToolDrawer]);
+  }, [closeQuickAddToolDrawer, quickAddScheduledDate, setQuickAddReminderAt, setQuickAddReminderSource]);
 
   const handleQuickAddSelectRepeat = React.useCallback((rule: Activity['repeatRule']) => {
     setQuickAddRepeatRule(rule);
@@ -2249,13 +2289,29 @@ export function ActivitiesScreen() {
       if (!selected) return;
       const next = new Date(selected);
       next.setHours(9, 0, 0, 0);
-      setQuickAddScheduledDate(next.toISOString());
+      const patch = applyDueDateReminderPolicy({
+        activity: {
+          reminderAt: quickAddReminderAt,
+          reminderSource: quickAddReminderSource,
+        },
+        nextScheduledDate: next.toISOString(),
+      });
+      setQuickAddScheduledDate(patch.scheduledDate ?? null);
+      if ('reminderAt' in patch) setQuickAddReminderAt(patch.reminderAt ?? null);
+      if ('reminderSource' in patch) setQuickAddReminderSource(patch.reminderSource);
       closeQuickAddToolDrawer(() => {
         setQuickAddIsDueDatePickerVisible(false);
         setQuickAddDueDateSheetVisible(false);
       });
     },
-    [closeQuickAddToolDrawer],
+    [
+      closeQuickAddToolDrawer,
+      quickAddReminderAt,
+      quickAddReminderSource,
+      setQuickAddReminderAt,
+      setQuickAddReminderSource,
+      setQuickAddScheduledDate,
+    ],
   );
 
   const handleToggleComplete = React.useCallback(
