@@ -1,15 +1,14 @@
 import React from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AppShell } from '../../ui/layout/AppShell';
-import { PageHeader } from '../../ui/layout/PageHeader';
 import { Icon, type IconName } from '../../ui/Icon';
 import { HStack, Text, VStack } from '../../ui/primitives';
-import { colors, fonts, spacing, typography } from '../../theme';
+import { colors, spacing, typography } from '../../theme';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { openManageSubscription } from '../../services/entitlements';
 import { KWILT_PRIVACY_URL, KWILT_TERMS_URL } from '../paywall/SubscriptionLegalLinks';
+import { SettingsDivider, SettingsGroup, SettingsPage } from '../../ui/SettingsSurface';
 
 const SUPPORT_EMAIL = 'support@kwilt.app';
 
@@ -104,120 +103,66 @@ export function LegalPrivacyScreen() {
   );
 
   return (
-    <AppShell>
-      <View style={styles.screen}>
-        <PageHeader title="Legal & privacy" onPressBack={() => navigation.goBack()} />
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Your controls</Text>
-            <Text style={styles.summaryBody}>
-              Kwilt is local-first, with cloud services used for sign-in, sharing, AI,
-              subscriptions, attachments, and connected tools you choose to use.
+    <SettingsPage title="Legal & privacy" onBack={() => navigation.goBack()}>
+      <SettingsGroup
+        footer="Kwilt is local-first, with cloud services used for sign-in, sharing, AI, subscriptions, attachments, and connected tools you choose to use."
+      >
+        {rows.map((row, index) => (
+          <React.Fragment key={row.id}>
+            <LegalPrivacyRow row={row} />
+            {index < rows.length - 1 ? <SettingsDivider /> : null}
+          </React.Fragment>
+        ))}
+      </SettingsGroup>
+
+      <SettingsGroup>
+        <View style={styles.noteRow}>
+          <HStack space="sm" alignItems="flex-start">
+            <Icon name="info" size={17} color={colors.textSecondary} />
+            <Text style={styles.noteText}>
+              Deleting your Kwilt account does not cancel Apple-managed subscriptions. Use Manage subscription before or
+              after deletion to change billing.
             </Text>
-          </View>
-
-          <View style={styles.rowsCard}>
-            {rows.map((row, index) => (
-              <React.Fragment key={row.id}>
-                <LegalPrivacyRow row={row} />
-                {index < rows.length - 1 ? <View style={styles.divider} /> : null}
-              </React.Fragment>
-            ))}
-          </View>
-
-          <View style={styles.noteCard}>
-            <HStack space="sm" alignItems="flex-start">
-              <Icon name="info" size={18} color={colors.textSecondary} />
-              <Text style={styles.noteText}>
-                Deleting your Kwilt account does not cancel Apple-managed subscriptions. Use
-                Manage subscription before or after deletion to change billing.
-              </Text>
-            </HStack>
-          </View>
-        </ScrollView>
-      </View>
-    </AppShell>
+          </HStack>
+        </View>
+      </SettingsGroup>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingBottom: spacing['2xl'],
-    gap: spacing.lg,
-  },
-  summaryCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    padding: spacing.lg,
-    gap: spacing.xs,
-  },
-  summaryTitle: {
-    ...typography.titleSm,
-    color: colors.textPrimary,
-  },
-  summaryBody: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  rowsCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    overflow: 'hidden',
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+    minHeight: 58,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   rowPressed: {
-    backgroundColor: colors.shell,
+    opacity: 0.72,
   },
   rowIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.shell,
+    backgroundColor: colors.shellAlt,
   },
   rowTitle: {
-    ...typography.body,
+    ...typography.bodySm,
     color: colors.textPrimary,
-    fontFamily: fonts.medium,
   },
   rowDescription: {
-    ...typography.bodySm,
+    ...typography.bodyXs,
     color: colors.textSecondary,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: spacing.md + 34 + spacing.md,
-    backgroundColor: colors.border,
-  },
-  noteCard: {
-    borderRadius: 14,
-    backgroundColor: colors.shell,
+  noteRow: {
     padding: spacing.md,
   },
   noteText: {
-    ...typography.bodySm,
+    ...typography.bodyXs,
     flex: 1,
     color: colors.textSecondary,
   },
