@@ -52,6 +52,7 @@ import { Button } from '../../ui/Button';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { reconcilePlanCalendarEvents } from '../../services/plan/planCalendarReconcile';
 import { getBlockingPlanBusyIntervals, getPlanConflictActivityIds } from '../../services/plan/planConflictDetection';
+import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import { deleteManagedEvent } from '../../services/calendar/managedEvents';
 import { moveManagedEvent } from '../../services/calendar/managedEvents';
 import {
@@ -378,24 +379,8 @@ export function PlanPager({
   }, [refreshPreferences, refreshCalendarColors]);
 
   const kwiltBlocks = useMemo(() => {
-    return activities
-      .filter((a) => {
-        if (!a.scheduledAt) return false;
-        const d = new Date(a.scheduledAt);
-        if (Number.isNaN(d.getTime())) return false;
-        return toLocalDateKey(d) === dateKey;
-      })
-      .map((a) => {
-        const start = new Date(a.scheduledAt as string);
-        const duration = Math.max(10, a.estimateMinutes ?? 30);
-        const end = new Date(start.getTime() + duration * 60000);
-        return {
-          activity: a,
-          start,
-          end,
-        };
-      });
-  }, [activities, dateKey]);
+    return getKwiltCalendarBlocksForDay(activities, targetDate);
+  }, [activities, targetDate]);
 
   function startOfLocalDay(d: Date): Date {
     const x = new Date(d);
