@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import React, { useCallback, useEffect, useState, type RefObject } from 'react';
+import { ActivityIndicator, Alert, LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View, type TextInput } from 'react-native';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
 import { Icon } from '../../ui/Icon';
+import { QuickAddDock } from '../activities/QuickAddDock';
+import type { QuickAddAiAction } from '../activities/useQuickAddDockController';
 import { formatTimeRange } from '../../services/plan/planDates';
 import { formatMinutes } from '../../utils/formatMinutes';
 import { useCanUseProTools } from '../../store/proToolsAccess';
@@ -24,6 +26,24 @@ type PlanRecommendation = {
 
 type PlanRecsPageProps = {
   targetDayLabel: string;
+  quickAdd?: {
+    value: string;
+    onChangeText: (text: string) => void;
+    inputRef: RefObject<TextInput | null>;
+    isFocused: boolean;
+    setIsFocused: (next: boolean) => void;
+    onSubmit: (options?: { aiActions?: QuickAddAiAction[] }) => void;
+    onCollapse: () => void;
+    selectedAiActions: QuickAddAiAction[];
+    onSelectedAiActionsChange: (actions: QuickAddAiAction[]) => void;
+    lockedAiActions?: Partial<Record<QuickAddAiAction, string>>;
+    onLockedAiActionPress?: (action: QuickAddAiAction) => void;
+  };
+  unscheduledCreated?: Array<{
+    activityId: string;
+    title: string;
+    estimateMinutes?: number | null;
+  }>;
   dueUnplaced?: Array<{
     activityId: string;
     title: string;
@@ -55,6 +75,8 @@ type PlanRecsPageProps = {
   onOpenCalendarSettings: () => void;
   onOpenAvailabilitySettings?: () => void;
   onFindActivities?: () => void;
+  onPickTimeForCreated?: (activityId: string) => void;
+  onSaveCreatedWithoutScheduling?: (activityId: string) => void;
   onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
   onRerun: () => void;
@@ -71,6 +93,8 @@ type PlanRecsPageProps = {
 
 export function PlanRecsPage({
   targetDayLabel,
+  quickAdd,
+  unscheduledCreated = [],
   dueUnplaced = [],
   recommendations,
   emptyState,
@@ -84,6 +108,8 @@ export function PlanRecsPage({
   onOpenCalendarSettings,
   onOpenAvailabilitySettings,
   onFindActivities,
+  onPickTimeForCreated,
+  onSaveCreatedWithoutScheduling,
   onDismissForToday,
   onReviewPlan,
   onRerun,
@@ -196,7 +222,7 @@ export function PlanRecsPage({
     );
   }
 
-  if (recommendations.length === 0 && emptyState) {
+  if (recommendations.length === 0 && unscheduledCreated.length === 0 && !quickAdd && emptyState) {
     if (emptyState.kind === 'calendar_access_expired') {
       const providerLabel = calendarAccessProviderLabel ?? 'your calendar';
       const isRefreshingAccess = calendarAccessStatus === 'refreshing';
@@ -360,6 +386,76 @@ export function PlanRecsPage({
         <Text style={styles.subtitle}>Commit a few for {targetDayLabel}.</Text>
 
         <VStack space={spacing.sm}>
+          {quickAdd ? (
+            <View style={styles.quickAddWrap}>
+              <QuickAddDock
+                placement="inline"
+                value={quickAdd.value}
+                onChangeText={quickAdd.onChangeText}
+                inputRef={quickAdd.inputRef}
+                isFocused={quickAdd.isFocused}
+                setIsFocused={quickAdd.setIsFocused}
+                onSubmit={quickAdd.onSubmit}
+                onCollapse={quickAdd.onCollapse}
+                selectedAiActions={quickAdd.selectedAiActions}
+                onSelectedAiActionsChange={quickAdd.onSelectedAiActionsChange}
+                lockedAiActions={quickAdd.lockedAiActions}
+                onLockedAiActionPress={quickAdd.onLockedAiActionPress}
+              />
+            </View>
+          ) : null}
+
+          {unscheduledCreated.map((item) => {
+            const metaParts = ['Saved to To-dos'];
+            if (item.estimateMinutes && item.estimateMinutes > 0) metaParts.push(formatMinutes(item.estimateMinutes));
+            return (
+              <View key={item.activityId} style={styles.createdCard}>
+                <VStack space={spacing.xs}>
+                  <Text style={styles.createdKicker}>New to-do</Text>
+                  <Text style={styles.recTitle}>{item.title}</Text>
+                  <Text style={styles.recMetaText}>{metaParts.join(' · ')}</Text>
+                  <Text style={styles.createdBody}>
+                    No clear opening in your availability for {targetDayLabel}.
+                  </Text>
+                  <HStack space={spacing.sm} style={styles.createdActions}>
+                    {onPickTimeForCreated ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onPress={() => onPickTimeForCreated(item.activityId)}
+                      >
+                        Pick a time
+                      </Button>
+                    ) : null}
+                    {onOpenAvailabilitySettings ? (
+                      <Button variant="ghost" size="sm" onPress={onOpenAvailabilitySettings}>
+                        Adjust availability
+                      </Button>
+                    ) : null}
+                    {onSaveCreatedWithoutScheduling ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onPress={() => onSaveCreatedWithoutScheduling(item.activityId)}
+                      >
+                        Save without scheduling
+                      </Button>
+                    ) : null}
+                  </HStack>
+                </VStack>
+              </View>
+            );
+          })}
+
+          {recommendations.length === 0 && emptyState ? (
+            <View style={styles.createdCard}>
+              <VStack space={spacing.xs}>
+                <Text style={styles.recTitle}>{emptyState.title}</Text>
+                <Text style={styles.createdBody}>{emptyState.description}</Text>
+              </VStack>
+            </View>
+          ) : null}
+
           {recommendations.map((rec) => {
             const start = parseDateSafe(rec.proposal.startDate);
             const end = parseDateSafe(rec.proposal.endDate);
@@ -521,6 +617,36 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.bodySm,
     color: colors.textSecondary,
+  },
+  quickAddWrap: {
+    overflow: 'visible',
+  },
+  createdCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  createdKicker: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '700',
+  },
+  createdBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  createdActions: {
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    paddingTop: spacing.sm,
   },
   warningCard: {
     backgroundColor: colors.shellAlt,

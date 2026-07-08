@@ -91,6 +91,7 @@ export function LaunchScreen({ durationMs = 2500, onAnimationComplete }: LaunchS
         >
           <Logo size={72} variant="parchment" />
           <Text style={styles.wordmark}>Kwilt</Text>
+          <Text style={styles.appName}>Goals</Text>
         </Animated.View>
       </View>
     </View>
@@ -125,6 +126,16 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
     textShadowColor: 'rgba(0,0,0,0.18)',
     textShadowOffset: { width: 0.4, height: 0.4 },
+    textShadowRadius: 1,
+  },
+  appName: {
+    ...typography.titleMd,
+    color: colors.parchment,
+    fontSize: 24,
+    lineHeight: 30,
+    opacity: 0.9,
+    textShadowColor: 'rgba(0,0,0,0.14)',
+    textShadowOffset: { width: 0.3, height: 0.3 },
     textShadowRadius: 1,
   },
 });

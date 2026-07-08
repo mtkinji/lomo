@@ -35,4 +35,11 @@ describe('GoalDetailScreen hook order', () => {
       expect(block).toContain('onLockedAiActionPress={handleLockedQuickAddAiActionPress}');
     });
   });
+
+  it('uses the current Goals nav icon in the Goal type pill', () => {
+    const source = readFileSync(path.join(__dirname, 'GoalDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('<Icon name="navGoals" size={12} color={colors.textSecondary} />');
+    expect(source).not.toContain('<Icon name="goals" size={12} color={colors.textSecondary} />');
+  });
 });

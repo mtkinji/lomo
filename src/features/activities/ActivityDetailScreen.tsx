@@ -111,8 +111,14 @@ import {
   listBusyIntervals as listProviderBusyIntervals,
   listCalendarEvents as listProviderCalendarEvents,
   type CalendarEvent,
+  type CalendarEventRef,
   type CalendarRef,
 } from '../../services/plan/calendarApi';
+import {
+  getCalendarCommitAlertForError,
+  resolveCalendarEventRefBeforeCreate,
+  resolveCalendarEventRefAfterCreate,
+} from '../../services/plan/calendarEventCommit';
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
 import { toLocalDateKey } from '../../services/plan/planDates';
 import { PlanCalendarLensPage } from '../plan/PlanCalendarLensPage';
@@ -2732,20 +2738,7 @@ export function ActivityDetailScreen() {
     const endAt = new Date(slot.endDate);
     if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) return;
 
-    setIsCreatingCalendarEvent(true);
-    try {
-      // Provider-backed: this is the Plan write calendar.
-      const res = await createProviderCalendarEvent({
-        title: activity.title,
-        start: slot.startDate,
-        end: slot.endDate,
-        writeCalendarRef: writeRef,
-      });
-      const eventRef = (res as any)?.eventRef ?? null;
-      if (!eventRef?.provider || !eventRef?.accountId || !eventRef?.calendarId || !eventRef?.eventId) {
-        Alert.alert('Check your calendar', 'We couldn’t safely link this event for future moves/unschedule. Please check your calendar.');
-        return;
-      }
+    const applyScheduledCalendarBinding = (eventRef: CalendarEventRef) => {
       const stamp = new Date().toISOString();
       updateActivity(activity.id, (prev) => ({
         ...prev,
@@ -2767,8 +2760,59 @@ export function ActivityDetailScreen() {
       }));
       setActiveSheet(null);
       setPendingCalendarToast('Scheduled on your calendar.');
-    } catch {
-      Alert.alert('Could not schedule', 'Something went wrong scheduling this block. Check calendar permissions and try again.');
+    };
+
+    setIsCreatingCalendarEvent(true);
+    try {
+      const existing = await resolveCalendarEventRefBeforeCreate({
+        block: slot,
+        writeRef,
+      });
+      if (existing?.status === 'linked') {
+        applyScheduledCalendarBinding(existing.eventRef);
+        return;
+      }
+
+      // Provider-backed: this is the Plan write calendar.
+      const res = await createProviderCalendarEvent({
+        title: activity.title,
+        start: slot.startDate,
+        end: slot.endDate,
+        writeCalendarRef: writeRef,
+      });
+      const resolved = await resolveCalendarEventRefAfterCreate({
+        createResult: res,
+        block: slot,
+        writeRef,
+      });
+      if (resolved.status === 'unconfirmed') {
+        Alert.alert('Check your calendar', 'We may have added this block, but we couldn’t confirm it. Please check your calendar.');
+        return;
+      }
+      if (resolved.status === 'unlinked') {
+        Alert.alert('Check your calendar', 'We couldn’t safely link this event for future moves/unschedule. Please check your calendar.');
+        return;
+      }
+      applyScheduledCalendarBinding(resolved.eventRef);
+    } catch (err) {
+      const recovered = await resolveCalendarEventRefAfterCreate({
+        createResult: null,
+        block: slot,
+        writeRef,
+      });
+      if (recovered.status === 'linked') {
+        applyScheduledCalendarBinding(recovered.eventRef);
+        return;
+      }
+      if (recovered.status === 'unlinked') {
+        Alert.alert('Check your calendar', 'We may have added this block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.');
+        return;
+      }
+      const alert = getCalendarCommitAlertForError(err);
+      if (alert) {
+        Alert.alert(alert.title, alert.message);
+        return;
+      }
     } finally {
       setIsCreatingCalendarEvent(false);
     }

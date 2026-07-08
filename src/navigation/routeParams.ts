@@ -17,7 +17,8 @@ export type GoalDetailRouteParams = {
    * Optional hint about where the user navigated from. When set to
    * "goalsTab", the Goal detail back affordance should return to the Goals
    * canvas rather than stepping back through any existing Arcs stack
-   * history.
+   * history. "activitiesStack" is used when a To-do detail opens its linked
+   * Goal in-place so stack back returns to the To-do.
    */
   entryPoint?: 'goalsTab' | 'arcsStack' | 'activitiesStack';
   /**

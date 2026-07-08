@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, fonts, spacing, typography } from '../theme';
 import { Icon } from './Icon';
+import { KwiltSwitch, type KwiltSwitchProps } from './KwiltSwitch';
 import { AppShell } from './layout/AppShell';
 
 export function SettingsPage({
@@ -128,28 +129,18 @@ export function SettingsToggleRow({
       <Text selectable={false} numberOfLines={1} style={styles.rowTitle}>
         {title}
       </Text>
-      <SettingsToggle disabled={disabled} value={enabled} onPress={onPress} />
+      <SettingsToggle accessibilityLabel={title} disabled={disabled} value={enabled} onPress={onPress} />
     </Pressable>
   );
 }
 
-export function SettingsToggle({ disabled = false, onPress, value }: { disabled?: boolean; onPress: () => void; value: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.toggleTrack,
-        value ? styles.toggleTrackOn : null,
-        disabled ? styles.disabled : null,
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <View style={[styles.toggleThumb, value ? styles.toggleThumbOn : null]} />
-    </Pressable>
-  );
+export function SettingsToggle({
+  accessibilityLabel,
+  disabled = false,
+  onPress,
+  value,
+}: Omit<KwiltSwitchProps, 'style'>) {
+  return <KwiltSwitch accessibilityLabel={accessibilityLabel} disabled={disabled} value={value} onPress={onPress} />;
 }
 
 export function SettingsDivider() {
@@ -255,25 +246,6 @@ const styles = StyleSheet.create({
   divider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.cardBorder,
-  },
-  toggleTrack: {
-    width: 38,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: colors.shellAlt,
-    padding: 2,
-  },
-  toggleTrackOn: {
-    backgroundColor: colors.pine700,
-  },
-  toggleThumb: {
-    width: 18,
-    height: 18,
-    borderRadius: 999,
-    backgroundColor: colors.canvas,
-  },
-  toggleThumbOn: {
-    transform: [{ translateX: 16 }],
   },
   disabled: {
     opacity: 0.55,

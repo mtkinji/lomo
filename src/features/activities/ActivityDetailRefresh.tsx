@@ -628,16 +628,9 @@ export function ActivityDetailRefresh(props: any) {
                             id: 'goal',
                             label: goal?.title ?? 'Goal',
                             onPress: () => {
-                              if (navigation.canGoBack()) {
-                                navigation.goBack();
-                                return;
-                              }
-                              rootNavigationRef.navigate('MainTabs', {
-                                screen: 'GoalsTab',
-                                params: {
-                                  screen: 'GoalDetail',
-                                  params: { goalId: goal.id, entryPoint: 'goalsTab' },
-                                },
+                              navigation.push('GoalDetail', {
+                                goalId: goal.id,
+                                entryPoint: 'activitiesStack',
                               });
                             },
                           },
@@ -888,31 +881,75 @@ export function ActivityDetailRefresh(props: any) {
                     </Pressable>
                   ) : null}
 
-                  {!hasParentActivityLink && activity?.goalId && goal?.id === activity.goalId ? (() => {
-              const label = goal.title ?? 'Goal';
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open goal: ${label}`}
-                  onPress={() => {
-                    rootNavigationRef.navigate('MainTabs', {
-                      screen: 'GoalsTab',
-                      params: {
-                        screen: 'GoalDetail',
-                        params: { goalId: goal.id, entryPoint: 'goalsTab' },
-                      },
-                    });
-                  }}
-                  style={({ pressed }) => [styles.originLinkRow, pressed ? { opacity: 0.7 } : null]}
-                  hitSlop={8}
-                >
-                  <Icon name="link" size={12} color={colors.textSecondary} />
-                  <Text style={styles.originLinkText} numberOfLines={1} ellipsizeMode="tail">
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-                  })() : null}
+                  {!hasParentActivityLink ? (
+                    <RelationPickerField
+                      value={activity.goalId ?? ''}
+                      onValueChange={(nextGoalId) => {
+                        const timestamp = new Date().toISOString();
+                        updateActivity(activity.id, (prev: any) => ({
+                          ...prev,
+                          goalId: nextGoalId ? nextGoalId : null,
+                          updatedAt: timestamp,
+                        }));
+                      }}
+                      options={goalOptions}
+                      recommendedOption={recommendedGoalOption ?? undefined}
+                      title="Choose goal"
+                      placeholder="Select goal…"
+                      searchPlaceholder="Search goals…"
+                      emptyText="No goals found."
+                      accessibilityLabel="Change linked goal"
+                      allowDeselect
+                      renderTrigger={({ selectedLabel, onPress }) => {
+                        const label =
+                          selectedLabel ||
+                          (activity.goalId && goal?.id === activity.goalId ? goal.title ?? 'Goal' : '') ||
+                          'Link a Goal';
+                        const canOpenGoal = Boolean(activity.goalId && goal?.id === activity.goalId);
+                        const handlePressGoal = () => {
+                          if (!canOpenGoal) {
+                            onPress();
+                            return;
+                          }
+                          navigation.push('GoalDetail', {
+                            goalId: goal.id,
+                            entryPoint: 'activitiesStack',
+                          });
+                        };
+                        return (
+                          <View style={styles.goalRelationRow}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={canOpenGoal ? `Open goal: ${label}` : 'Choose linked goal'}
+                              onPress={handlePressGoal}
+                              style={({ pressed }) => [
+                                styles.goalRelationPrimary,
+                                pressed ? { opacity: 0.7 } : null,
+                              ]}
+                              hitSlop={8}
+                            >
+                              <Icon name="navGoals" size={14} color={colors.textSecondary} />
+                              <Text style={styles.originLinkText} numberOfLines={1} ellipsizeMode="tail">
+                                {label}
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={activity.goalId ? 'Change linked goal' : 'Choose linked goal'}
+                              onPress={onPress}
+                              style={({ pressed }) => [
+                                styles.goalRelationPickerButton,
+                                pressed ? { opacity: 0.7 } : null,
+                              ]}
+                              hitSlop={8}
+                            >
+                              <Icon name="chevronsUpDown" size={12} color={colors.textSecondary} />
+                            </Pressable>
+                          </View>
+                        );
+                      }}
+                    />
+                  ) : null}
 
                 </>
               );
@@ -1857,32 +1894,6 @@ export function ActivityDetailRefresh(props: any) {
                   allowDeselect={false}
                   size="compact"
                   leadingIcon="layers"
-                  fieldVariant="filled"
-                />
-              </View>
-
-              <View style={{ marginTop: spacing.lg }}>
-                <Text style={styles.inputLabel}>Linked Goal</Text>
-                <RelationPickerField
-                  value={activity.goalId ?? ''}
-                  onValueChange={(nextGoalId) => {
-                    const timestamp = new Date().toISOString();
-                    updateActivity(activity.id, (prev: any) => ({
-                      ...prev,
-                      goalId: nextGoalId ? nextGoalId : null,
-                      updatedAt: timestamp,
-                    }));
-                  }}
-                  options={goalOptions}
-                  recommendedOption={recommendedGoalOption ?? undefined}
-                  title="Choose goal"
-                  placeholder="Select goal…"
-                  searchPlaceholder="Search goals…"
-                  emptyText="No goals found."
-                  accessibilityLabel="Change linked goal"
-                  allowDeselect
-                  size="compact"
-                  leadingIcon="goals"
                   fieldVariant="filled"
                 />
               </View>

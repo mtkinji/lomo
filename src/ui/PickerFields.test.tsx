@@ -94,4 +94,35 @@ describe('PickerFields', () => {
     expect(screen.getByPlaceholderText('Search goals...')).toBeTruthy();
     expect(screen.getByText('Create a family burn-rate plan')).toBeTruthy();
   });
+
+  it('supports custom triggers for relation fields', () => {
+    renderWithProviders(
+      <View>
+        <RelationPickerField
+          value="goal-1"
+          onValueChange={jest.fn()}
+          options={[
+            { value: 'goal-1', label: 'Elevate scheduling to a first-class capability' },
+            { value: 'goal-2', label: 'Build a steady desk strength routine' },
+          ]}
+          title="Choose goal"
+          placeholder="Select goal..."
+          searchPlaceholder="Search goals..."
+          accessibilityLabel="Change linked goal"
+          renderTrigger={({ selectedLabel, onPress }) => (
+            <Pressable accessibilityRole="button" accessibilityLabel="Change goal chip" onPress={onPress}>
+              <Text>{selectedLabel}</Text>
+            </Pressable>
+          )}
+        />
+      </View>,
+    );
+
+    expect(screen.getByText('Elevate scheduling to a first-class capability')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Change goal chip'));
+
+    expect(screen.getByText('Choose goal')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search goals...')).toBeTruthy();
+  });
 });

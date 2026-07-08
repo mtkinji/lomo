@@ -14,6 +14,7 @@ serves:
   - jtbd-capture-and-find-meaning
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - activity-session-substrate
   - activity-areas
   - auto-schedule
   - calendar-export-ics
@@ -29,6 +30,7 @@ briefs:
   - screen-time-controls-contextual-setup
   - tag-groups
   - tag-vocabulary-system
+  - todo-schedule-sessions
   - todo-action-contexts
   - todo-dependencies
   - todo-list-grouping-config

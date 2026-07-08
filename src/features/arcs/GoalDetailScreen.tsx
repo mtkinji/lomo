@@ -659,6 +659,11 @@ export function GoalDetailScreen() {
             screen: 'MoreTab',
             params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
           });
+        } else if (entryPoint === 'activitiesStack') {
+          parent.navigate('MainTabs', {
+            screen: 'ActivitiesTab',
+            params: { screen: 'ActivitiesList' },
+          });
         } else {
           parent.navigate('MainTabs', {
             screen: 'GoalsTab',
@@ -673,6 +678,11 @@ export function GoalDetailScreen() {
         nav.navigate('MainTabs', {
           screen: 'MoreTab',
           params: { screen: 'MoreArcs', params: { screen: 'ArcsList' } },
+        });
+      } else if (entryPoint === 'activitiesStack') {
+        nav.navigate('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: { screen: 'ActivitiesList' },
         });
       } else {
         nav.navigate('MainTabs', {
@@ -2975,7 +2985,7 @@ export function GoalDetailScreen() {
                 <View style={styles.goalTitleBlock}>
                   <View style={styles.goalTypePillRow}>
                     <HStack style={styles.goalTypePill} alignItems="center" space="xs">
-                      <Icon name="goals" size={12} color={colors.textSecondary} />
+                      <Icon name="navGoals" size={12} color={colors.textSecondary} />
                       <Text style={styles.goalTypePillLabel}>Goal</Text>
                     </HStack>
                   </View>

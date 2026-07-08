@@ -57,6 +57,19 @@ describe('KwiltBottomBar', () => {
       screen: 'ActivitiesList',
     });
   });
+
+  it('visually treats GoalDetail inside the To-dos stack as the Goals surface', () => {
+    const props = createBottomBarProps({
+      activeIndex: 1,
+      routeStates: {
+        ActivitiesTab: nestedStackState('GoalDetail', { goalId: 'goal-1', entryPoint: 'activitiesStack' }),
+      },
+    });
+    const { getByLabelText } = renderWithProviders(<KwiltBottomBar {...props} />);
+
+    expect(getByLabelText('Goals').props.accessibilityState).toEqual({ selected: true });
+    expect(getByLabelText('To-dos').props.accessibilityState).toEqual({});
+  });
 });
 
 function createBottomBarProps({
@@ -111,7 +124,7 @@ function nestedStackState(routeName: string, params?: Record<string, unknown>): 
     type: 'stack',
     key: `${routeName}-stack`,
     index: 0,
-    routeNames: ['ActivitiesList', 'ActivityDetail'],
+    routeNames: ['ActivitiesList', 'ActivityDetail', 'GoalDetail'],
     routes: [{ key: `${routeName}-key`, name: routeName, params }],
   };
 }

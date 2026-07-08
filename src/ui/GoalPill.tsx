@@ -21,7 +21,7 @@ export function GoalPill({ title, style, textStyle }: GoalPillProps) {
   return (
     <View style={[styles.container, style]}>
       <HStack alignItems="center" space="xs" style={styles.row}>
-        <Icon name="goals" size={11} color={colors.textSecondary} />
+        <Icon name="navGoals" size={11} color={colors.textSecondary} />
         <Text style={[styles.text, textStyle]} numberOfLines={1} ellipsizeMode="tail">
           {title}
         </Text>
@@ -52,5 +52,4 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
 });
-
 

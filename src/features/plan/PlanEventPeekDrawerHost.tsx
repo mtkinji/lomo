@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type TextInput } from 'react-native';
 import { BottomDrawer, type BottomDrawerSnapPoint } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
@@ -7,12 +7,31 @@ import { PlanRecsPage } from './PlanRecsPage';
 import { ActivityEventPeek, type ActivityEventPeekModel } from './ActivityEventPeek';
 import { ExternalEventPeek, type ExternalEventPeekModel } from './ExternalEventPeek';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
+import type { QuickAddAiAction } from '../activities/useQuickAddDockController';
 
 export type PlanDrawerMode = 'recs' | 'activity' | 'external';
 
 type PlanRecommendationsModel = {
   recommendationCount: number;
   targetDayLabel: string;
+  quickAdd?: {
+    value: string;
+    onChangeText: (text: string) => void;
+    inputRef: React.RefObject<TextInput | null>;
+    isFocused: boolean;
+    setIsFocused: (next: boolean) => void;
+    onSubmit: (options?: { aiActions?: QuickAddAiAction[] }) => void;
+    onCollapse: () => void;
+    selectedAiActions: QuickAddAiAction[];
+    onSelectedAiActionsChange: (actions: QuickAddAiAction[]) => void;
+    lockedAiActions?: Partial<Record<QuickAddAiAction, string>>;
+    onLockedAiActionPress?: (action: QuickAddAiAction) => void;
+  };
+  unscheduledCreated?: Array<{
+    activityId: string;
+    title: string;
+    estimateMinutes?: number | null;
+  }>;
   dueUnplaced?: Array<{
     activityId: string;
     title: string;
@@ -25,6 +44,7 @@ type PlanRecommendationsModel = {
     goalTitle?: string | null;
     arcTitle?: string | null;
     proposal: { startDate: string; endDate: string };
+    candidateStartDates?: string[] | null;
   }>;
   emptyState:
     | {
@@ -50,6 +70,8 @@ type PlanRecommendationsModel = {
   onOpenCalendarSettings: () => void;
   onOpenAvailabilitySettings?: () => void;
   onFindActivities?: () => void;
+  onPickTimeForCreated?: (activityId: string) => void;
+  onSaveCreatedWithoutScheduling?: (activityId: string) => void;
   onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
   onRerun: () => void;
@@ -108,6 +130,8 @@ export function PlanEventPeekDrawerHost({
             // BottomDrawer already provides the canonical gutter.
             contentPadding={0}
             targetDayLabel={recommendations.targetDayLabel}
+            quickAdd={recommendations.quickAdd}
+            unscheduledCreated={recommendations.unscheduledCreated ?? []}
             dueUnplaced={recommendations.dueUnplaced ?? []}
             recommendations={recommendations.recommendations}
             emptyState={recommendations.recommendations.length === 0 ? recommendations.emptyState : null}
@@ -121,6 +145,8 @@ export function PlanEventPeekDrawerHost({
             onOpenCalendarSettings={recommendations.onOpenCalendarSettings}
             onOpenAvailabilitySettings={recommendations.onOpenAvailabilitySettings}
             onFindActivities={recommendations.onFindActivities}
+            onPickTimeForCreated={recommendations.onPickTimeForCreated}
+            onSaveCreatedWithoutScheduling={recommendations.onSaveCreatedWithoutScheduling}
             onDismissForToday={recommendations.onDismissForToday}
             onReviewPlan={recommendations.onReviewPlan}
             onRerun={recommendations.onRerun}
@@ -159,5 +185,3 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 });
-
-

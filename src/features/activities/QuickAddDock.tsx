@@ -28,6 +28,13 @@ const KEYBOARD_DEFAULT_GUESS_HEIGHT = 320;
 const QUICK_ADD_INPUT_MIN_HEIGHT = 22;
 const QUICK_ADD_INPUT_MAX_HEIGHT = 96;
 const QUICK_ADD_INPUT_APPROX_CHARS_PER_LINE = 44;
+const AI_MENU_SWITCH_TRACK_WIDTH = 38;
+const AI_MENU_SWITCH_TRACK_HEIGHT = 22;
+const AI_MENU_SWITCH_PADDING = 2;
+const AI_MENU_SWITCH_THUMB_SIZE = 18;
+const AI_MENU_SWITCH_THUMB_TRAVEL =
+  AI_MENU_SWITCH_TRACK_WIDTH - AI_MENU_SWITCH_THUMB_SIZE - AI_MENU_SWITCH_PADDING * 2;
+const AI_MENU_SWITCH_ANIMATION_MS = 180;
 
 const AI_ACTION_OPTIONS: Array<{
   id: QuickAddAiAction;
@@ -299,6 +306,7 @@ export function QuickAddDock({
         dismissOnBackdropPress
         dynamicHeightUnderKeyboard
         visibleContentHeightFallbackPx={composerHeight}
+        maxVisibleContentHeightPx={composerHeight}
         defaultKeyboardHeightGuessPx={KEYBOARD_DEFAULT_GUESS_HEIGHT}
         includeKeyboardSpacer
         elevationToken="overlay"
@@ -475,19 +483,7 @@ export function QuickAddDock({
                               <Text style={styles.aiMenuItemLabel}>
                                 {lockedLabel ? `${chip.label} · ${lockedLabel}` : chip.label}
                               </Text>
-                              <View
-                                style={[
-                                  styles.aiMenuSwitchTrack,
-                                  selected ? styles.aiMenuSwitchTrackOn : null,
-                                ]}
-                              >
-                                <View
-                                  style={[
-                                    styles.aiMenuSwitchThumb,
-                                    selected ? styles.aiMenuSwitchThumbOn : null,
-                                  ]}
-                                />
-                              </View>
+                              <AiActionSwitch selected={selected} action={chip.id} />
                             </Pressable>
                           );
                         })}
@@ -548,6 +544,62 @@ function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
         <View style={styles.collapsedRightSpacer} />
       </HStack>
     </Pressable>
+  );
+}
+
+function AiActionSwitch({
+  selected,
+  action,
+}: {
+  selected: boolean;
+  action: QuickAddAiAction;
+}) {
+  const progress = React.useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const previousSelectedRef = React.useRef(selected);
+
+  React.useEffect(() => {
+    if (previousSelectedRef.current === selected) return;
+    previousSelectedRef.current = selected;
+
+    Animated.timing(progress, {
+      toValue: selected ? 1 : 0,
+      duration: AI_MENU_SWITCH_ANIMATION_MS,
+      easing: inventoryChromeNativeEasing,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, selected]);
+
+  const trackStyle = {
+    backgroundColor: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [colors.secondary, colors.textPrimary],
+    }),
+    borderColor: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [colors.border, colors.textPrimary],
+    }),
+  };
+  const thumbStyle = {
+    transform: [
+      {
+        translateX: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, AI_MENU_SWITCH_THUMB_TRAVEL],
+        }),
+      },
+    ],
+  };
+
+  return (
+    <Animated.View
+      testID={`e2e.activities.quickAdd.aiAction.${action}.track`}
+      style={[styles.aiMenuSwitchTrack, trackStyle]}
+    >
+      <Animated.View
+        testID={`e2e.activities.quickAdd.aiAction.${action}.thumb`}
+        style={[styles.aiMenuSwitchThumb, thumbStyle]}
+      />
+    </Animated.View>
   );
 }
 
@@ -793,22 +845,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   aiMenuSwitchTrack: {
-    width: 38,
-    height: 22,
+    width: AI_MENU_SWITCH_TRACK_WIDTH,
+    height: AI_MENU_SWITCH_TRACK_HEIGHT,
     borderRadius: 999,
-    padding: 2,
+    padding: AI_MENU_SWITCH_PADDING,
     justifyContent: 'center',
     backgroundColor: colors.secondary,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  aiMenuSwitchTrackOn: {
-    backgroundColor: colors.textPrimary,
-    borderColor: colors.textPrimary,
-  },
   aiMenuSwitchThumb: {
-    width: 18,
-    height: 18,
+    width: AI_MENU_SWITCH_THUMB_SIZE,
+    height: AI_MENU_SWITCH_THUMB_SIZE,
     borderRadius: 999,
     backgroundColor: colors.canvas,
     shadowColor: '#000',
@@ -816,9 +864,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
-  },
-  aiMenuSwitchThumbOn: {
-    alignSelf: 'flex-end',
   },
   sendButton: {
     width: 38,

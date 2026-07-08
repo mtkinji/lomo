@@ -104,8 +104,8 @@ export const colors = {
   // Borderless input fill surfaces (used by `Input` variant="filled", `LongTextField` surfaceVariant="filled", etc).
   // Keep extremely subtle; rely on focus ring / pressed state for affordance.
   // Use the official neutral/brand gray scale (no pine tint).
-  fieldFill: '#F5F5F4', // gray100 / sumi100 (lighter, still separates from white canvas)
-  fieldFillPressed: '#E7E5E4', // gray200
+  fieldFill: '#FAFAFA', // gray50 (barely lifted from white canvas)
+  fieldFillPressed: '#F5F5F4', // gray100
 
   // Primary brand accent: kwilt green.
   accent: '#315545',

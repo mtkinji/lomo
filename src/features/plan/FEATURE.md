@@ -12,9 +12,12 @@ serves:
   - jtbd-make-sense-of-the-season
   - jtbd-recover-when-i-drift-from-an-arc
 briefs:
+  - activity-session-substrate
   - auto-schedule
   - background-agents-weekly-planning
   - calendar-export-ics
+  - plan-capture-and-place
+  - todo-schedule-sessions
   - desktop-app
   - notifications-v1-5
 status: shipped

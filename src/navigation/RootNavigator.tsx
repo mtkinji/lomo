@@ -267,6 +267,7 @@ export type GoalsStackParamList = {
 export type ActivitiesStackParamList = {
   ActivitiesList: ActivitiesListRouteParams | undefined;
   ActivitiesListFromWidget: ActivitiesWidgetRouteParams | undefined;
+  GoalDetail: GoalDetailRouteParams;
   ActivityDetail: ActivityDetailRouteParams;
 };
 
@@ -801,6 +802,7 @@ function ActivitiesStackNavigator() {
     <ActivitiesStack.Navigator screenOptions={STACK_SCREEN_OPTIONS}>
       <ActivitiesStack.Screen name="ActivitiesList" component={ActivitiesScreen} />
       <ActivitiesStack.Screen name="ActivitiesListFromWidget" component={ActivitiesScreen} />
+      <ActivitiesStack.Screen name="GoalDetail" component={GoalDetailScreen} />
       <ActivitiesStack.Screen
         name="ActivityDetail"
         component={ActivityDetailScreen}

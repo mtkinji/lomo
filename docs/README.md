@@ -48,9 +48,9 @@ Target audiences, named representative personas, and JTBDs are peer demand-side 
 - Engagement: `docs/engagement-and-motivation-system.md`
 - Notifications foundation: `docs/notifications-paradigm-prd.md`
 - UX: `docs/ux-style-guide.md`, `docs/ux-flow.md`
+- Brand family architecture: `docs/brand-family-architecture.md`
 - Chapters build plan: `docs/chapters-build-plan.md`
 - UI architecture: `docs/ui-architecture.md`
 - Apple ecosystem opportunities (widgets/live activities/shortcuts/spotlight): `docs/apple-ecosystem-opportunities.md`
 - Roadmap (primary): `docs/value-realization-roadmap.md`
-
 

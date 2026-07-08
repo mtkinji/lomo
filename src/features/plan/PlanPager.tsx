@@ -42,6 +42,13 @@ import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { reconcilePlanCalendarEvents } from '../../services/plan/planCalendarReconcile';
 import { deleteManagedEvent } from '../../services/calendar/managedEvents';
 import { moveManagedEvent } from '../../services/calendar/managedEvents';
+import {
+  getCalendarCommitAlertForError,
+  hasBindableCalendarEventRef,
+  resolveCalendarEventRefBeforeCreate,
+  resolveCalendarEventRefAfterCreate,
+} from '../../services/plan/calendarEventCommit';
+import { usePlanRecommendationsQuickAdd } from './usePlanRecommendationsQuickAdd';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -114,6 +121,8 @@ export function PlanPager({
   } | null>(null);
   const [proposals, setProposals] = useState<DailyPlanProposal[]>([]);
   const [unplacedDueActivityIds, setUnplacedDueActivityIds] = useState<string[]>([]);
+  const [sheetCreatedProposals, setSheetCreatedProposals] = useState<DailyPlanProposal[]>([]);
+  const [sheetCreatedUnscheduledIds, setSheetCreatedUnscheduledIds] = useState<string[]>([]);
   const [hasLoadedProposalsOnce, setHasLoadedProposalsOnce] = useState(false);
   const prevDateKeyRef = useRef<string | null>(null);
   const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
@@ -132,7 +141,12 @@ export function PlanPager({
   const arcs = useAppStore((s) => s.arcs);
   const userProfile = useAppStore((s) => s.userProfile);
   const activityAreas = useAppStore((s) => s.activityAreas);
+  const quickAddAiActions = useAppStore((s) => s.quickAddAiActions);
+  const setQuickAddAiActions = useAppStore((s) => s.setQuickAddAiActions);
+  const addActivity = useAppStore((s) => s.addActivity);
   const updateActivity = useAppStore((s) => s.updateActivity);
+  const recordShowUp = useAppStore((s) => s.recordShowUp);
+  const tryConsumeGenerativeCredit = useAppStore((s) => s.tryConsumeGenerativeCredit);
   const dailyPlanHistory = useAppStore((s) => s.dailyPlanHistory);
   const addDailyPlanCommitment = useAppStore((s) => s.addDailyPlanCommitment);
   const removeDailyPlanCommitment = useAppStore((s) => s.removeDailyPlanCommitment);
@@ -251,6 +265,8 @@ export function PlanPager({
   useEffect(() => {
     setAllowRerun(false);
     setSkippedIds(new Set());
+    setSheetCreatedProposals([]);
+    setSheetCreatedUnscheduledIds([]);
   }, [dateKey]);
 
   const refreshCalendarColors = useCallback(async () => {
@@ -574,11 +590,23 @@ export function PlanPager({
     [dateKey, dismissActivityForDay, showToast],
   );
 
+  const scheduleProposals = useMemo(() => {
+    const activityById = new Map(activities.map((a) => [a.id, a]));
+    const byActivityId = new Map<string, DailyPlanProposal>();
+    for (const p of [...sheetCreatedProposals, ...proposals]) {
+      const activity = activityById.get(p.activityId);
+      if (!activity) continue;
+      if (activity.status === 'done' || activity.status === 'cancelled' || activity.scheduledAt) continue;
+      if (skippedIds.has(p.activityId)) continue;
+      if (!byActivityId.has(p.activityId)) byActivityId.set(p.activityId, p);
+    }
+    return Array.from(byActivityId.values());
+  }, [activities, proposals, sheetCreatedProposals, skippedIds]);
+
   const recommendations = useMemo<PlanRecommendation[]>(() => {
     const goalById = new Map(goals.map((g) => [g.id, g]));
     const arcById = new Map(arcs.map((a) => [a.id, a]));
-    return proposals
-      .filter((p) => !skippedIds.has(p.activityId))
+    return scheduleProposals
       .map((p) => {
         const activity = activities.find((a) => a.id === p.activityId);
         const goal = activity?.goalId ? goalById.get(activity.goalId) : null;
@@ -591,7 +619,52 @@ export function PlanPager({
           proposal: p,
         };
       });
-  }, [proposals, skippedIds, activities, goals, arcs]);
+  }, [scheduleProposals, activities, goals, arcs]);
+
+  useEffect(() => {
+    setSheetCreatedProposals((prev) => {
+      let changed = false;
+      const next: DailyPlanProposal[] = [];
+      for (const p of prev) {
+        const activity = activities.find((a) => a.id === p.activityId) ?? null;
+        if (!activity || activity.status === 'done' || activity.status === 'cancelled' || activity.scheduledAt) {
+          changed = true;
+          continue;
+        }
+        const start = new Date(p.startDate);
+        if (Number.isNaN(start.getTime())) {
+          next.push(p);
+          continue;
+        }
+        const durationMinutes = Math.max(10, activity.estimateMinutes ?? 30);
+        const endDate = new Date(start.getTime() + durationMinutes * 60000).toISOString();
+        if (endDate !== p.endDate || p.title !== activity.title) {
+          changed = true;
+          next.push({ ...p, title: activity.title, endDate });
+        } else {
+          next.push(p);
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activities]);
+
+  const sheetCreatedUnscheduled = useMemo(() => {
+    const proposalIds = new Set(scheduleProposals.map((p) => p.activityId));
+    return sheetCreatedUnscheduledIds
+      .filter((activityId) => !proposalIds.has(activityId) && !skippedIds.has(activityId))
+      .map((activityId) => {
+        const activity = activities.find((a) => a.id === activityId) ?? null;
+        if (!activity) return null;
+        if (activity.status === 'done' || activity.status === 'cancelled' || activity.scheduledAt) return null;
+        return {
+          activityId,
+          title: activity.title,
+          estimateMinutes: activity.estimateMinutes ?? null,
+        };
+      })
+      .filter(Boolean) as Array<{ activityId: string; title: string; estimateMinutes?: number | null }>;
+  }, [activities, scheduleProposals, sheetCreatedUnscheduledIds, skippedIds]);
 
   const dueUnplaced = useMemo(() => {
     if (unplacedDueActivityIds.length === 0) return [];
@@ -670,115 +743,6 @@ export function PlanPager({
       .map((block) => block.activity.id);
   }, [externalBusyIntervals, externalEventsForTimeline, kwiltBlocks]);
 
-  function getCommitAlertForError(err: unknown): { title: string; message: string } | null {
-    const raw =
-      err instanceof Error
-        ? err.message
-        : typeof (err as any)?.message === 'string'
-          ? String((err as any).message)
-          : '';
-    const msg = (raw ?? '').trim();
-    const lower = msg.toLowerCase();
-
-    // If the user actively cancels sign-in, don't show an "error" alert.
-    if (lower.includes('sign-in cancelled') || lower.includes('signin cancelled') || lower.includes('cancelled')) {
-      return null;
-    }
-
-    // Auth missing/expired.
-    if (lower.includes('missing access token') || lower.includes('unauthorized') || lower.includes('access token')) {
-      return {
-        title: 'Sign in required',
-        message: 'Please sign in again to connect calendars and commit your plan.',
-      };
-    }
-
-    // Provider permission / write access denied.
-    if (
-      lower.includes('forbidden') ||
-      lower.includes('insufficient') ||
-      lower.includes('permission') ||
-      lower.includes('(403)') ||
-      lower.includes('request failed (403)')
-    ) {
-      return {
-        title: 'Calendar access denied',
-        message: 'Kwilt can’t write to that calendar. Try picking a different write calendar or reconnecting your calendar account in Settings.',
-      };
-    }
-
-    // Generic fallback.
-    return { title: 'Unable to commit', message: 'Please check your calendar connection and try again.' };
-  }
-
-  async function verifyCommitLikelySucceeded(args: {
-    proposal: DailyPlanProposal;
-    writeRef: CalendarRef;
-  }): Promise<boolean> {
-    try {
-      const start = new Date(args.proposal.startDate);
-      const end = new Date(args.proposal.endDate);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-      const padMs = 5 * 60 * 1000;
-      const paddedStart = new Date(start.getTime() - padMs);
-      const paddedEnd = new Date(end.getTime() + padMs);
-      const { intervals = [] } = await listBusyIntervals({
-        start: paddedStart.toISOString(),
-        end: paddedEnd.toISOString(),
-        // Force-check the write calendar even if the user didn't add it to "read" calendars.
-        readCalendarRefs: [args.writeRef],
-      });
-      return intervals.some((i) => {
-        const s = new Date(i.start);
-        const e = new Date(i.end);
-        if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
-        return s < end && start < e;
-      });
-    } catch {
-      return false;
-    }
-  }
-
-  async function findEventRefForProposal(args: {
-    proposal: DailyPlanProposal;
-    writeRef: CalendarRef;
-  }): Promise<CalendarEventRef | null> {
-    try {
-      const start = new Date(args.proposal.startDate);
-      const end = new Date(args.proposal.endDate);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-      const padMs = 10 * 60 * 1000;
-      const windowStart = new Date(start.getTime() - padMs).toISOString();
-      const windowEnd = new Date(end.getTime() + padMs).toISOString();
-      const { events } = await listCalendarEvents({
-        start: windowStart,
-        end: windowEnd,
-        readCalendarRefs: [args.writeRef],
-      });
-      const candidates = Array.isArray(events) ? events : [];
-      const match = candidates.find((e) => {
-        if (e.provider !== args.writeRef.provider) return false;
-        if (e.accountId !== args.writeRef.accountId) return false;
-        if (e.calendarId !== args.writeRef.calendarId) return false;
-        const s = new Date(e.start);
-        const en = new Date(e.end);
-        if (Number.isNaN(s.getTime()) || Number.isNaN(en.getTime())) return false;
-        const startDiff = Math.abs(s.getTime() - start.getTime());
-        const endDiff = Math.abs(en.getTime() - end.getTime());
-        return startDiff < 90_000 && endDiff < 90_000;
-      });
-      if (!match) return null;
-      return {
-        provider: match.provider,
-        accountId: match.accountId,
-        calendarId: match.calendarId,
-        eventId: match.eventId,
-      };
-    } catch {
-      return null;
-    }
-  }
-
   function applyLocalCommit(args: {
     activityId: string;
     proposal: DailyPlanProposal;
@@ -786,12 +750,7 @@ export function PlanPager({
   }) {
     const timestamp = new Date().toISOString();
     try {
-      const hasBindableEventRef = Boolean(
-        args.eventRef?.provider &&
-          args.eventRef?.accountId &&
-          args.eventRef?.calendarId &&
-          args.eventRef?.eventId
-      );
+      const hasBindableEventRef = hasBindableCalendarEventRef(args.eventRef);
       updateActivity(args.activityId, (prev) => ({
         ...prev,
         // Credibility invariant: only set scheduledAt when we have a durable binding.
@@ -813,6 +772,8 @@ export function PlanPager({
         updatedAt: timestamp,
       }));
       addDailyPlanCommitment(dateKey, args.activityId);
+      setSheetCreatedProposals((prev) => prev.filter((p) => p.activityId !== args.activityId));
+      setSheetCreatedUnscheduledIds((prev) => prev.filter((id) => id !== args.activityId));
     } catch (e) {
       // Never show a hard error if the calendar side-effect likely succeeded.
       // If local state update fails, the next sync/reload will reconcile.
@@ -837,7 +798,7 @@ export function PlanPager({
   }
 
   const handleCommit = async (activityId: string) => {
-    const proposal = proposals.find((p) => p.activityId === activityId);
+    const proposal = scheduleProposals.find((p) => p.activityId === activityId);
     const activity = activities.find((a) => a.id === activityId);
     if (!proposal || !activity) return;
     if (!writeRef) {
@@ -849,34 +810,45 @@ export function PlanPager({
     try {
       setCommittingActivityId(activityId);
       await ensureSignedInWithPrompt('plan');
-      let eventRef: CalendarEventRef | null = null;
+      const existing = await resolveCalendarEventRefBeforeCreate({
+        block: proposal,
+        writeRef,
+      });
+      if (existing?.status === 'linked') {
+        applyLocalCommit({ activityId, proposal, eventRef: existing.eventRef });
+        showCommitSuccessFeedback();
+        return;
+      }
+
+      let createResult: unknown = null;
       try {
-        const res = await createCalendarEvent({
+        createResult = await createCalendarEvent({
           title: proposal.title,
           start: proposal.startDate,
           end: proposal.endDate,
           writeCalendarRef: writeRef,
         });
-        eventRef = (res as any)?.eventRef ?? null;
       } catch (err) {
         // Sometimes the calendar side-effect succeeds but the network response fails
         // (timeouts, HTML error bodies, etc.). Best-effort verify via busy intervals.
-        const likelySucceeded = await verifyCommitLikelySucceeded({ proposal, writeRef });
-        if (likelySucceeded) {
-          // Best-effort: try to recover a durable event id so we can keep the Scheduled promise.
-          const recovered = await findEventRefForProposal({ proposal, writeRef });
-          if (recovered) {
-            applyLocalCommit({ activityId, proposal, eventRef: recovered });
-            showCommitSuccessFeedback();
-            return;
-          }
+        const recovered = await resolveCalendarEventRefAfterCreate({
+          createResult: null,
+          block: proposal,
+          writeRef,
+        });
+        if (recovered.status === 'linked') {
+          applyLocalCommit({ activityId, proposal, eventRef: recovered.eventRef });
+          showCommitSuccessFeedback();
+          return;
+        }
+        if (recovered.status === 'unlinked') {
           Alert.alert(
             'Check your calendar',
             'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
           );
           return;
         }
-        const alert = getCommitAlertForError(err);
+        const alert = getCalendarCommitAlertForError(err);
         if (alert) Alert.alert(alert.title, alert.message);
         return;
       }
@@ -884,28 +856,26 @@ export function PlanPager({
       // Even if we didn't get an eventRef payload (e.g. non-JSON body), we still treat
       // this as a successful commit only if we can recover an eventRef; otherwise we avoid
       // setting `scheduledAt` without a binding (Scheduled = manageable).
-      if (!eventRef) {
-        const likelySucceeded = await verifyCommitLikelySucceeded({ proposal, writeRef });
-        if (!likelySucceeded) {
-          // If we can't verify, still show a softer message (no false “Unable to commit”).
-          Alert.alert('Check your calendar', 'We may have added this time block, but we couldn’t confirm it. Please check your calendar.');
-          return;
-        }
-        const recovered = await findEventRefForProposal({ proposal, writeRef });
-        if (!recovered) {
-          Alert.alert(
-            'Check your calendar',
-            'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
-          );
-          return;
-        }
-        eventRef = recovered;
+      const resolved = await resolveCalendarEventRefAfterCreate({
+        createResult,
+        block: proposal,
+        writeRef,
+      });
+      if (resolved.status === 'unconfirmed') {
+        Alert.alert('Check your calendar', 'We may have added this time block, but we couldn’t confirm it. Please check your calendar.');
+        return;
       }
-
-      applyLocalCommit({ activityId, proposal, eventRef });
+      if (resolved.status === 'unlinked') {
+        Alert.alert(
+          'Check your calendar',
+          'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
+        );
+        return;
+      }
+      applyLocalCommit({ activityId, proposal, eventRef: resolved.eventRef });
       showCommitSuccessFeedback();
     } catch (err) {
-      const alert = getCommitAlertForError(err);
+      const alert = getCalendarCommitAlertForError(err);
       if (alert) Alert.alert(alert.title, alert.message);
     } finally {
       setCommittingActivityId(null);
@@ -928,7 +898,7 @@ export function PlanPager({
 
   const getCandidateStartSlotsForRecommendation = useCallback(
     (activityId: string): string[] => {
-      const proposal = proposals.find((p) => p.activityId === activityId);
+      const proposal = scheduleProposals.find((p) => p.activityId === activityId);
       const activity = activities.find((a) => a.id === activityId);
       if (!proposal || !activity) return [];
 
@@ -943,7 +913,7 @@ export function PlanPager({
       const mode = getPlanModeForActivity(activity);
       if (!dayAvailability.enabled) return [];
 
-      const otherProposalIntervals = proposals
+      const otherProposalIntervals = scheduleProposals
         .filter((p) => p.activityId !== activityId)
         .map((p) => ({ start: new Date(p.startDate), end: new Date(p.endDate) }));
 
@@ -992,11 +962,11 @@ export function PlanPager({
 
       return finalCandidates.map((d) => d.toISOString());
     },
-    [activities, busyIntervals, dayAvailability, getPlanModeForActivity, proposals, targetDate],
+    [activities, busyIntervals, dayAvailability, getPlanModeForActivity, scheduleProposals, targetDate],
   );
 
   const handleMoveRecommendation = (activityId: string, newStart: Date) => {
-    const proposal = proposals.find((p) => p.activityId === activityId);
+    const proposal = scheduleProposals.find((p) => p.activityId === activityId);
     const activity = activities.find((a) => a.id === activityId);
     if (!proposal || !activity) return;
     const duration = Math.max(10, activity.estimateMinutes ?? 30);
@@ -1006,7 +976,7 @@ export function PlanPager({
       Alert.alert('Outside availability', 'Pick a time within your availability windows.');
       return;
     }
-    const otherProposalIntervals = proposals
+    const otherProposalIntervals = scheduleProposals
       .filter((p) => p.activityId !== activityId)
       .map((p) => ({ start: new Date(p.startDate), end: new Date(p.endDate) }));
     const conflicts =
@@ -1017,6 +987,13 @@ export function PlanPager({
       return;
     }
     setProposals((prev) =>
+      prev.map((p) =>
+        p.activityId === activityId
+          ? { ...p, startDate: newStart.toISOString(), endDate: newEnd.toISOString() }
+          : p,
+      ),
+    );
+    setSheetCreatedProposals((prev) =>
       prev.map((p) =>
         p.activityId === activityId
           ? { ...p, startDate: newStart.toISOString(), endDate: newEnd.toISOString() }
@@ -1185,6 +1162,8 @@ export function PlanPager({
 
   const handleSkip = (activityId: string) => {
     setSkippedIds((prev) => new Set(prev).add(activityId));
+    setSheetCreatedProposals((prev) => prev.filter((proposal) => proposal.activityId !== activityId));
+    setSheetCreatedUnscheduledIds((prev) => prev.filter((id) => id !== activityId));
   };
 
   const handleRequestAuth = async () => {
@@ -1200,6 +1179,34 @@ export function PlanPager({
     setDailyPlanRecord(dateKey, null);
     setAllowRerun(true);
   };
+
+  const {
+    quickAdd: planQuickAdd,
+    handlePickTimeForCreated,
+    handleSaveCreatedWithoutScheduling,
+  } = usePlanRecommendationsQuickAdd({
+    activities,
+    goals,
+    arcs,
+    userProfile,
+    targetDate,
+    dateKey,
+    busyIntervals,
+    scheduleProposals,
+    writeCalendarId: writeRef?.calendarId ?? null,
+    activityAreas,
+    quickAddAiActions,
+    setQuickAddAiActions,
+    addActivity,
+    updateActivity,
+    recordShowUp,
+    tryConsumeGenerativeCredit,
+    showToast,
+    setSkippedIds,
+    setSheetCreatedProposals,
+    setSheetCreatedUnscheduledIds,
+    setSheetSnapIndex,
+  });
 
   const handleReconnectCalendarAccess = useCallback(async () => {
     if (!calendarAccessProvider) return;
@@ -1305,7 +1312,12 @@ export function PlanPager({
   // A day should only be considered "already set" when the user has committed at least one
   // block AND there are no remaining recommendations to show. Committing a single item
   // should not hide the rest of the recommended blocks.
-  const showAlreadyPlanned = hasAnyCommitment && !allowRerun && !isLoadingRecommendations && proposals.length === 0;
+  const showAlreadyPlanned =
+    hasAnyCommitment &&
+    !allowRerun &&
+    !isLoadingRecommendations &&
+    scheduleProposals.length === 0 &&
+    sheetCreatedUnscheduled.length === 0;
 
   const canvasAnimatedStyle = useAnimatedStyle(() => {
     // Small opacity dip during the off-screen transition reduces the “hard cut” feel.
@@ -1454,7 +1466,7 @@ export function PlanPager({
             // Otherwise they read like real scheduled blocks and visually "repeat" on every day.
             proposedBlocks={
               recommendationsDrawerVisible
-                ? proposals.map((p) => ({
+                ? scheduleProposals.map((p) => ({
                     title: p.title,
                     start: new Date(p.startDate),
                     end: new Date(p.endDate),
@@ -1492,6 +1504,8 @@ export function PlanPager({
               ? {
                   recommendationCount: recommendations.length,
                   targetDayLabel: formatDayLabel(targetDate),
+                  quickAdd: planQuickAdd,
+                  unscheduledCreated: sheetCreatedUnscheduled,
                   dueUnplaced,
                   recommendations: recommendations.map((r) => ({
                     activityId: r.activityId,
@@ -1537,6 +1551,8 @@ export function PlanPager({
                       .getState()
                       .openGlobalSearch({ initialScope: 'activities' });
                   },
+                  onPickTimeForCreated: handlePickTimeForCreated,
+                  onSaveCreatedWithoutScheduling: handleSaveCreatedWithoutScheduling,
                   onDismissForToday: handleDismissForToday,
                   onReviewPlan: () => setSheetSnapIndex(0),
                   onRerun: handleRerun,

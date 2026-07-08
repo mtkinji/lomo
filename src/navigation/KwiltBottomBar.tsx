@@ -78,8 +78,14 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
   const chromeProgress = useRef(new Animated.Value(1)).current;
   const wasShowingBadge = useRef(false);
   const activeKey = state.routes[state.index]?.key;
-  const activeLayout = activeKey ? tabLayouts[activeKey] : null;
   const activeRouteName = state.routes[state.index]?.name;
+  const activeTabRoute = state.routes[state.index];
+  const activeLeafRoute = getDeepestRoute(activeTabRoute);
+  const activeLeafRouteName = activeLeafRoute?.name as string | undefined;
+  const visualActiveRouteName = activeLeafRouteName === 'GoalDetail' ? 'GoalsTab' : activeRouteName;
+  const visualActiveRoute = state.routes.find((route) => route.name === visualActiveRouteName) ?? activeTabRoute;
+  const visualActiveKey = visualActiveRoute?.key ?? activeKey;
+  const activeLayout = visualActiveKey ? tabLayouts[visualActiveKey] : null;
   const activeOptions = descriptors[state.routes[state.index]?.key ?? '']?.options ?? {};
   const shouldHideTabBar =
     !!activeOptions.tabBarStyle &&
@@ -146,7 +152,6 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     },
     {},
   );
-  const activeTabRoute = state.routes[state.index];
   const activeMoreLeafRoute = activeRouteName === 'MoreTab' ? getDeepestRoute(activeTabRoute) : null;
   const activeMoreLeafRouteName = activeMoreLeafRoute?.name as string | undefined;
   const activeMoreLeafParams = activeMoreLeafRoute?.params as { chapterId?: string } | undefined;
@@ -159,18 +164,18 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     activeMoreLeafRouteName === 'MoreArcs' ||
     activeMoreLeafRouteName === 'ArcsList';
   const actionIcon: IconName =
-    activeRouteName === 'PlanTab'
+    visualActiveRouteName === 'PlanTab'
       ? 'navChecklist'
-      : activeRouteName === 'ActivitiesTab'
+      : visualActiveRouteName === 'ActivitiesTab'
         ? 'navSearch'
-        : activeRouteName === 'MoreTab'
+        : visualActiveRouteName === 'MoreTab'
           ? isChaptersSurface
             ? 'navAiGuide'
             : isArcsSurface
               ? 'navPlus'
               : 'navSearch'
           : 'navPlus';
-  const showActionBadge = activeRouteName === 'PlanTab' && planRecommendationsCount > 0;
+  const showActionBadge = visualActiveRouteName === 'PlanTab' && planRecommendationsCount > 0;
   const handlePlaceItemLayout = useCallback(
     (routeKey: string) => (event: LayoutChangeEvent) => {
       const { x, y, width, height } = event.nativeEvent.layout;
@@ -191,25 +196,25 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     [],
   );
   const handleActionPress = () => {
-    if (activeRouteName === 'ActivitiesTab') {
+    if (visualActiveRouteName === 'ActivitiesTab') {
       // Open the global search drawer pre-scoped to Activities so the user
       // stays on the Activities canvas instead of getting bounced to a
       // dedicated search route.
       useAppStore.getState().openGlobalSearch({ initialScope: 'activities' });
       return;
     }
-    if (activeRouteName === 'GoalsTab') {
+    if (visualActiveRouteName === 'GoalsTab') {
       navigation.navigate('GoalsTab', {
         screen: 'GoalsList',
         params: { openCreateGoal: true },
       });
       return;
     }
-    if (activeRouteName === 'PlanTab') {
+    if (visualActiveRouteName === 'PlanTab') {
       navigation.navigate('PlanTab', { openRecommendations: true });
       return;
     }
-    if (activeRouteName === 'MoreTab') {
+    if (visualActiveRouteName === 'MoreTab') {
       if (isChaptersSurface) {
         // Chapter-specific copilot surface: launch AgentWorkspace in a
         // bottom drawer so the user can swipe/tap-backdrop to return to
@@ -238,17 +243,17 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
     }
   };
   const actionA11yLabel =
-    activeRouteName === 'PlanTab'
+    visualActiveRouteName === 'PlanTab'
       ? 'Open plan recommendations'
-      : activeRouteName === 'ActivitiesTab'
+      : visualActiveRouteName === 'ActivitiesTab'
         ? 'Search to-dos'
-        : activeRouteName === 'MoreTab'
+        : visualActiveRouteName === 'MoreTab'
           ? isChaptersSurface
             ? 'Open chapter coach workspace'
             : isArcsSurface
               ? 'Create an Arc'
               : 'Search Kwilt'
-          : activeRouteName === 'GoalsTab'
+          : visualActiveRouteName === 'GoalsTab'
             ? 'Create a goal'
             : 'Primary action';
 
@@ -370,7 +375,7 @@ export function KwiltBottomBar({ state, descriptors, navigation }: BottomTabBarP
               />
             ) : null}
             {state.routes.map((route, index) => {
-              const isFocused = state.index === index;
+              const isFocused = visualActiveRouteName === route.name;
               const options = descriptors[route.key]?.options ?? {};
               const iconName = placeConfigByName[route.name]?.icon ?? 'dot';
               const tintColor = isFocused ? colors.pine700 : colors.textSecondary;
