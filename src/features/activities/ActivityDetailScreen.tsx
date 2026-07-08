@@ -113,8 +113,8 @@ import {
   type CalendarEvent,
   type CalendarRef,
 } from '../../services/plan/calendarApi';
+import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
-import { toLocalDateKey } from '../../services/plan/planDates';
 import { PlanCalendarLensPage } from '../plan/PlanCalendarLensPage';
 import { PlanDateStrip } from '../plan/PlanDateStrip';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
@@ -1046,22 +1046,7 @@ export function ActivityDetailScreen() {
   }, [selectedSlot]);
 
   const kwiltBlocksForScheduleDay = useMemo(() => {
-    const key = toLocalDateKey(scheduleTargetDate);
-    const blocks =
-      (activities ?? [])
-        .filter((a) => {
-          if (!a?.scheduledAt) return false;
-          const d = new Date(a.scheduledAt);
-          if (Number.isNaN(d.getTime())) return false;
-          return toLocalDateKey(d) === key;
-        })
-        .map((a) => {
-          const start = new Date(a.scheduledAt as string);
-          const dur = Math.max(10, a.estimateMinutes ?? 30);
-          const end = new Date(start.getTime() + dur * 60000);
-          return { activity: a, start, end };
-        }) ?? [];
-    return blocks;
+    return getKwiltCalendarBlocksForDay(activities, scheduleTargetDate);
   }, [activities, scheduleTargetDate]);
 
   const calendarColorByRefKeyForSchedule = useMemo(() => {

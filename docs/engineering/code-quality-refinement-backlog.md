@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Kwilt calendar block normalization
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`, `src/features/plan/PlanPager.tsx`
+  - Why: Activity schedule sheet and Plan pager duplicated scheduled-activity-to-calendar-block rules.
+  - Result: `src/services/plan/kwiltCalendarBlocks.ts` with focused tests for local-day filtering and duration normalization.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
