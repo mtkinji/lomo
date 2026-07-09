@@ -92,7 +92,6 @@ let deferredRetryTimer: ReturnType<typeof setTimeout> | null = null;
 // Celebration auto-dismiss defaults.
 // These moments are intentionally skippable (tap anywhere) so we can afford a
 // slightly longer dwell time to let the user actually register the GIF.
-const DAILY_STREAK_AUTO_DISMISS_MS = 4000;
 const ACTIVITY_COMPLETED_AUTO_DISMISS_MS = 4500;
 const ALL_ACTIVITIES_DONE_AUTO_DISMISS_MS = 5000;
 
@@ -534,7 +533,7 @@ function getStreakMessage(days: number): {
 
 /**
  * Trigger a daily streak celebration.
- * - Regular days: Quick auto-dismiss celebration (low priority)
+ * - Regular days: Smaller manual-dismiss celebration (normal priority)
  * - Special milestones: Bigger celebration with manual dismiss (high priority)
  */
 export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
@@ -562,7 +561,6 @@ export function celebrateDailyStreak(days: number, onDismiss?: () => void) {
     // Regular days: normal priority so they defer/queue during conflicts
     // instead of being dropped.
     priority: isSpecial ? 'high' : 'normal',
-    autoDismissMs: isSpecial ? undefined : DAILY_STREAK_AUTO_DISMISS_MS,
     onDismiss,
   });
 }

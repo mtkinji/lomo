@@ -17,6 +17,9 @@ export const AnalyticsEvent = {
   WorkflowAbandoned: 'workflow_abandoned',
 
   ArcCreated: 'arc_created',
+  ArcBannerImageSearchPerformed: 'arc_banner_image_search_performed',
+  ArcBannerImageSearchFailed: 'arc_banner_image_search_failed',
+  ArcBannerImageSelected: 'arc_banner_image_selected',
   GoalCreated: 'goal_created',
 
   ActivityCreated: 'activity_created',

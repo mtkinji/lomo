@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent } from 'react-native';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import type { Activity } from '../../domain/types';
 import { formatTimeRange } from '../../services/plan/planDates';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
 import type { CalendarEvent } from '../../services/plan/calendarApi';
+import { clampSlotDraft, dateForTimelineY, type PlanSlotDraft } from './planSlotDraft';
 
 type KwiltBlock = {
   activity: Activity;
@@ -21,6 +24,7 @@ type PlanCalendarLensPageProps = {
   externalEvents: CalendarEvent[];
   calendarColorByRefKey: Record<string, string>;
   proposedBlocks: Array<{ title: string; start: Date; end: Date }>;
+  slotDraft?: PlanSlotDraft | null;
   kwiltBlocks: KwiltBlock[];
   conflictActivityIds: string[];
   calendarStatus: 'unknown' | 'connected' | 'missing';
@@ -37,10 +41,12 @@ type PlanCalendarLensPageProps = {
     color?: string | null;
   }) => void;
   /**
-   * Optional: called when the user taps empty space on the timeline (not an event block).
-   * This enables "tap-to-place" scheduling flows.
+   * Legacy tap-to-place callback used by ActivityDetail's schedule picker.
+   * PlanPager intentionally omits this so empty calendar taps do nothing there.
    */
   onPressEmptyTime?: (params: { date: Date }) => void;
+  onSlotDraftChange?: (slot: PlanSlotDraft | null) => void;
+  onSlotDraftComplete?: (slot: PlanSlotDraft) => void;
   /**
    * Extra padding applied by the page itself. When hosted inside `BottomDrawer`,
    * the drawer already supplies a horizontal gutter, so this should be 0.
@@ -54,6 +60,7 @@ export function PlanCalendarLensPage({
   externalEvents,
   calendarColorByRefKey,
   proposedBlocks,
+  slotDraft,
   kwiltBlocks,
   conflictActivityIds,
   calendarStatus,
@@ -63,6 +70,8 @@ export function PlanCalendarLensPage({
   onPressKwiltBlock,
   onPressExternalEvent,
   onPressEmptyTime,
+  onSlotDraftChange,
+  onSlotDraftComplete,
   contentPadding = spacing.xl,
 }: PlanCalendarLensPageProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -71,6 +80,7 @@ export function PlanCalendarLensPage({
   const scrollRef = useRef<ScrollView | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
   const [eventsColumnWidth, setEventsColumnWidth] = useState(0);
+  const slotDraftStartY = useSharedValue(0);
 
   const dayStart = useMemo(() => {
     const d = new Date(targetDate);
@@ -373,16 +383,96 @@ export function PlanCalendarLensPage({
     );
   }
 
+  const buildSlotDraftFromY = (startY: number, currentY: number): PlanSlotDraft => {
+    const start = dateForTimelineY({
+      y: startY,
+      hourHeight: HOUR_HEIGHT,
+      dayStart,
+      stepMinutes: SLOT_STEP_MINUTES,
+    });
+    const end = dateForTimelineY({
+      y: currentY,
+      hourHeight: HOUR_HEIGHT,
+      dayStart,
+      stepMinutes: SLOT_STEP_MINUTES,
+    });
+    return clampSlotDraft({
+      start,
+      end,
+      dayStart,
+      minDurationMinutes: SLOT_MIN_DURATION_MINUTES,
+      maxDurationMinutes: SLOT_MAX_DURATION_MINUTES,
+    });
+  };
+
+  const updateSlotDraftFromGesture = (startY: number, currentY: number) => {
+    if (!onSlotDraftChange) return;
+    onSlotDraftChange(buildSlotDraftFromY(startY, currentY));
+  };
+
+  const completeSlotDraftFromGesture = (startY: number, currentY: number) => {
+    const slot = buildSlotDraftFromY(startY, currentY);
+    onSlotDraftChange?.(slot);
+    onSlotDraftComplete?.(slot);
+  };
+
+  const cancelSlotDraftFromGesture = () => {
+    onSlotDraftChange?.(null);
+  };
+
   const handlePressEmptyTime = (e: GestureResponderEvent) => {
     if (!onPressEmptyTime) return;
     const rawY = typeof e?.nativeEvent?.locationY === 'number' ? e.nativeEvent.locationY : 0;
-    const clampedY = Math.max(0, rawY);
-    const minutesRaw = (clampedY / HOUR_HEIGHT) * 60;
-    const minutesClamped = Math.max(0, Math.min(24 * 60, minutesRaw));
-    const snappedMinutes = Math.max(0, Math.min(24 * 60, Math.round(minutesClamped / 15) * 15));
-    const date = new Date(dayStart.getTime() + snappedMinutes * 60_000);
+    const date = dateForTimelineY({
+      y: rawY,
+      hourHeight: HOUR_HEIGHT,
+      dayStart,
+      stepMinutes: SLOT_STEP_MINUTES,
+    });
     onPressEmptyTime({ date });
   };
+
+  const handleLongPressEmptyTime = (e: GestureResponderEvent) => {
+    if (!onSlotDraftChange || !onSlotDraftComplete) return;
+    const rawY = typeof e?.nativeEvent?.locationY === 'number' ? e.nativeEvent.locationY : 0;
+    const slot = buildSlotDraftFromY(rawY, rawY + SLOT_DEFAULT_DURATION_PX);
+    onSlotDraftChange(slot);
+    onSlotDraftComplete(slot);
+  };
+
+  const emptySlotGesture = useMemo(() => {
+    if (!onSlotDraftChange || !onSlotDraftComplete) {
+      return Gesture.Pan().enabled(false);
+    }
+    return Gesture.Pan()
+      .activateAfterLongPress(SLOT_LONG_PRESS_MS)
+      .onBegin((event) => {
+        slotDraftStartY.value = event.y;
+        runOnJS(updateSlotDraftFromGesture)(event.y, event.y + SLOT_MIN_DURATION_PX);
+      })
+      .onUpdate((event) => {
+        runOnJS(updateSlotDraftFromGesture)(slotDraftStartY.value, event.y);
+      })
+      .onEnd((event) => {
+        runOnJS(completeSlotDraftFromGesture)(slotDraftStartY.value, event.y);
+      })
+      .onFinalize((_, success) => {
+        if (success) return;
+        runOnJS(cancelSlotDraftFromGesture)();
+      });
+  }, [onSlotDraftChange, onSlotDraftComplete, slotDraftStartY]);
+
+  const positionedSlotDraft = useMemo(() => {
+    if (!slotDraft) return null;
+    const clamped = clampToDay(slotDraft.start, slotDraft.end);
+    const startMin = Math.max(0, Math.min(24 * 60, minutesFromDayStart(clamped.start)));
+    const endMin = Math.max(startMin + SLOT_MIN_DURATION_MINUTES, Math.min(24 * 60, minutesFromDayStart(clamped.end)));
+    return {
+      top: (startMin / 60) * HOUR_HEIGHT,
+      height: Math.max(MIN_EVENT_HEIGHT, ((endMin - startMin) / 60) * HOUR_HEIGHT),
+      label: formatTimeRange(clamped.start, clamped.end),
+    };
+  }, [slotDraft, dayStart]);
 
   return (
     <View style={styles.root}>
@@ -403,24 +493,31 @@ export function PlanCalendarLensPage({
             <View style={styles.allDayRow}>
               <Text style={styles.allDayLabel}>All day</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.allDayChips}>
-                {allDayEvents.slice(0, 8).map((e) => (
-                  <View
-                    // Include start time to avoid duplicate keys if provider returns duplicates.
-                    key={`${e.provider}:${e.accountId}:${e.calendarId}:${e.eventId}:${e._start.toISOString()}`}
-                    style={[
-                      styles.allDayChip,
-                      (() => {
-                        const key = `${e.provider}:${e.accountId}:${e.calendarId}`;
-                        const c = calendarColorByRefKey?.[key];
-                        return typeof c === 'string' && c.trim().length > 0
-                          ? { borderLeftWidth: 4, borderLeftColor: c.trim() }
-                          : null;
-                      })(),
-                    ]}
-                  >
-                    <Text style={styles.allDayChipText}>{(e.title ?? 'All-day').trim() || 'All-day'}</Text>
-                  </View>
-                ))}
+                {allDayEvents.slice(0, 8).map((e) => {
+                  const blocksTime = e.availability === 'busy' || e.availability === 'out_of_office';
+                  return (
+                    <View
+                      // Include start time to avoid duplicate keys if provider returns duplicates.
+                      key={`${e.provider}:${e.accountId}:${e.calendarId}:${e.eventId}:${e._start.toISOString()}`}
+                      style={[
+                        styles.allDayChip,
+                        blocksTime ? styles.allDayChipBusy : null,
+                        (() => {
+                          const key = `${e.provider}:${e.accountId}:${e.calendarId}`;
+                          const c = calendarColorByRefKey?.[key];
+                          return typeof c === 'string' && c.trim().length > 0
+                            ? { borderLeftWidth: 4, borderLeftColor: c.trim() }
+                            : null;
+                        })(),
+                      ]}
+                    >
+                      <Text style={[styles.allDayChipText, blocksTime ? styles.allDayChipBusyText : null]}>
+                        {(e.title ?? 'All-day').trim() || 'All-day'}
+                        {blocksTime ? ' · Busy' : ''}
+                      </Text>
+                    </View>
+                  );
+                })}
               </ScrollView>
             </View>
           ) : null}
@@ -444,7 +541,16 @@ export function PlanCalendarLensPage({
             ))}
           </View>
 
-          <Pressable style={styles.eventsColumn} onPress={handlePressEmptyTime}>
+          <GestureDetector gesture={emptySlotGesture}>
+            <Pressable
+              testID="plan-empty-slot-column"
+              accessibilityRole={onSlotDraftComplete || onPressEmptyTime ? 'button' : undefined}
+              accessibilityLabel="Plan empty time slots"
+              delayLongPress={SLOT_LONG_PRESS_MS}
+              style={styles.eventsColumn}
+              onPress={handlePressEmptyTime}
+              onLongPress={handleLongPressEmptyTime}
+            >
             <View
               style={styles.eventsColumnMeasure}
               onLayout={(e) => {
@@ -461,6 +567,23 @@ export function PlanCalendarLensPage({
               <View pointerEvents="none" style={[styles.nowIndicator, { top: nowTop }]}>
                 <View style={styles.nowDot} />
                 <View style={styles.nowLine} />
+              </View>
+            ) : null}
+
+            {positionedSlotDraft ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.slotDraftBlock,
+                  {
+                    top: positionedSlotDraft.top,
+                    height: positionedSlotDraft.height,
+                  },
+                ]}
+              >
+                <Text numberOfLines={1} style={styles.slotDraftTime}>
+                  {positionedSlotDraft.label}
+                </Text>
               </View>
             ) : null}
 
@@ -564,7 +687,8 @@ export function PlanCalendarLensPage({
                 />
               </>
             ) : null}
-          </Pressable>
+            </Pressable>
+          </GestureDetector>
         </View>
 
         {pickerVisible && pendingMoveDate ? (
@@ -597,6 +721,13 @@ const MIN_EVENT_HEIGHT = 28;
 const HOURS = Array.from({ length: 24 }).map((_, i) => i);
 const EVENTS_INSET = spacing.xs;
 const COLUMN_GUTTER = 6;
+const SLOT_LONG_PRESS_MS = 320;
+const SLOT_DEFAULT_DURATION_MINUTES = 15;
+const SLOT_MIN_DURATION_MINUTES = 15;
+const SLOT_MAX_DURATION_MINUTES = 240;
+const SLOT_STEP_MINUTES = 15;
+const SLOT_MIN_DURATION_PX = HOUR_HEIGHT * (SLOT_MIN_DURATION_MINUTES / 60);
+const SLOT_DEFAULT_DURATION_PX = HOUR_HEIGHT * (SLOT_DEFAULT_DURATION_MINUTES / 60);
 
 function formatHourLabel(h: number): string {
   const hour = ((h + 11) % 12) + 1;
@@ -666,10 +797,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  allDayChipBusy: {
+    backgroundColor: colors.turmeric50,
+    borderColor: colors.turmeric700,
+  },
   allDayChipText: {
     ...typography.bodySm,
     color: colors.textPrimary,
     fontWeight: '600',
+  },
+  allDayChipBusyText: {
+    color: colors.turmeric900,
   },
   timelineScrollContent: {
     paddingTop: spacing.sm,
@@ -753,6 +891,25 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
+  slotDraftBlock: {
+    position: 'absolute',
+    left: EVENTS_INSET,
+    right: EVENTS_INSET,
+    zIndex: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.pine500,
+    backgroundColor: colors.pine100,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    justifyContent: 'center',
+  },
+  slotDraftTime: {
+    ...typography.bodySm,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
   eventBlockTitle: {
     ...typography.bodySm,
     color: colors.textPrimary,
@@ -777,5 +934,3 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
 });
-
-

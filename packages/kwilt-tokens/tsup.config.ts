@@ -5,6 +5,7 @@ export default defineConfig({
     'src/index.ts',
     'src/colors.ts',
     'src/spacing.ts',
+    'src/radii.ts',
     'src/typography.ts',
     'src/motion.ts',
     'src/surfaces.ts',

@@ -1,8 +1,8 @@
 # @kwilt/tokens
 
-Shared design tokens (color, spacing, typography, motion, surfaces, overlays) for every Kwilt client.
+Shared design tokens (color, spacing, radii, typography, motion, surfaces, overlays) for every Kwilt client.
 
-This package is the single source of truth. Every surface — mobile (React Native), web (`kwilt-site`), and the future desktop app — consumes tokens from here so the three clients cannot drift on brand fundamentals.
+This package is the single source of truth for Kwilt product surfaces. Kwilt Goals and Kwilt Money consume the React Native token bridge; desktop can consume the Tailwind preset. The marketing site may opt into selected brand primitives later, but it is allowed more expressive leeway.
 
 ## Layout
 
@@ -10,6 +10,7 @@ This package is the single source of truth. Every surface — mobile (React Nati
 src/
   colors.ts            Raw color palette + semantic role tokens
   spacing.ts           Spacing scale
+  radii.ts             Semantic corner radius roles shared by RN and Tailwind
   typography.ts        Font families, typographic scale; CSS-friendly mono stack
   motion.ts            Web/desktop-friendly motion primitives: durations + easings
   surfaces.ts          Card elevations + card surface style (React-Native shadow shape)
@@ -32,7 +33,7 @@ import { colors, spacing } from '@kwilt/tokens';
 
 The `react-native` export condition points at the TypeScript source, so Metro bundles the tokens directly — no build step required for mobile iteration.
 
-### Web (kwilt-site) / Desktop
+### Web / Desktop
 
 Tailwind preset:
 
@@ -45,6 +46,8 @@ export default {
   content: [...],
 };
 ```
+
+The preset maps colors, spacing, radii, typography, shadows, and motion into Tailwind theme extension keys. Radius roles become kebab-case utilities such as `rounded-card`, `rounded-compact-card`, and `rounded-sheet`.
 
 Raw token imports work too (e.g. in CSS-in-JS or inline styles):
 

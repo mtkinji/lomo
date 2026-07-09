@@ -32,45 +32,45 @@ private enum KwiltShieldCopy {
   static func title(for reason: String) -> String {
     switch reason {
     case "focus_session_active", "focus":
-      return "Focus session is protecting this"
+      return "Stay with your focus."
     case "meaningful_first_locked":
-      return "Open Kwilt to unlock"
+      return "Do one thing first."
     case "meaningful_first_bypass":
-      return "Kwilt pause is active"
+      return "Your Kwilt pause is active."
     default:
-      return "Open Kwilt to unlock"
+      return "Do one thing first."
     }
   }
 
   static func subtitle(for reason: String, appName: String) -> String {
     switch reason {
     case "focus_session_active", "focus":
-      return "Kwilt is keeping \\(appName) closed until your Focus session ends."
+      return "End Focus in Kwilt to open \\(appName)."
     case "meaningful_first_locked":
-      return "Mark a to-do done, record progress, or finish a Focus session in Kwilt to unblock \\(appName) for today."
+      return "Complete a to-do, record progress, or finish Focus in Kwilt to open \\(appName) today."
     case "meaningful_first_bypass":
-      return "\\(appName) opens again when your short pause ends. Open Kwilt to change it."
+      return "Wait for this short pause to end, or open Kwilt to change it."
     default:
-      return "Mark a to-do done, record progress, or finish a Focus session in Kwilt to unblock \\(appName) for today."
+      return "Complete a to-do, record progress, or finish Focus in Kwilt to open \\(appName) today."
     }
   }
 }
 
 final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
-  private let backgroundColor = UIColor(red: 0.953, green: 0.972, blue: 0.953, alpha: 1.0)
+  private let backgroundColor = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
   private let foregroundColor = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
-  private let detailColor = UIColor(red: 0.361, green: 0.435, blue: 0.396, alpha: 1.0)
+  private let detailColor = UIColor(white: 1.0, alpha: 0.84)
 
   private func configuration(appName: String) -> ShieldConfiguration {
     let reason = KwiltShieldCopy.reason()
     return ShieldConfiguration(
       backgroundColor: backgroundColor,
-      icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: "app.badge.clock")?.withTintColor(foregroundColor, renderingMode: .alwaysOriginal),
-      title: ShieldConfiguration.Label(text: KwiltShieldCopy.title(for: reason), color: foregroundColor),
+      icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: "app.badge.clock")?.withTintColor(UIColor.white, renderingMode: .alwaysOriginal),
+      title: ShieldConfiguration.Label(text: KwiltShieldCopy.title(for: reason), color: UIColor.white),
       subtitle: ShieldConfiguration.Label(text: KwiltShieldCopy.subtitle(for: reason, appName: appName), color: detailColor),
-      primaryButtonLabel: ShieldConfiguration.Label(text: "Open Kwilt", color: UIColor.white),
-      primaryButtonBackgroundColor: foregroundColor,
-      secondaryButtonLabel: ShieldConfiguration.Label(text: "Close \\(appName)", color: detailColor)
+      primaryButtonLabel: ShieldConfiguration.Label(text: "Open Kwilt", color: foregroundColor),
+      primaryButtonBackgroundColor: UIColor.white,
+      secondaryButtonLabel: nil
     )
   }
 
@@ -229,7 +229,7 @@ function withScreenTimeShieldExtensions(config) {
         suffix: 'shield-configuration',
         file: 'KwiltShieldConfiguration.swift',
         swift: buildConfigurationSwift,
-        resources: [{ source: 'assets/icon.png', file: 'KwiltShieldAppIcon.png' }],
+        resources: [{ source: 'assets/logo-white.png', file: 'KwiltShieldAppIcon.png' }],
         displayName: 'KwiltShieldConfiguration',
         extensionPointIdentifier: 'com.apple.ManagedSettingsUI.shield-configuration-service',
         principalClass: '$(PRODUCT_MODULE_NAME).KwiltShieldConfigurationExtension',

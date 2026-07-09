@@ -14,6 +14,16 @@ import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
 import { ActivityPeekNotes, ActivityPeekSteps, ActivityPeekTags } from '../activities/ActivityPeekFields';
 import { deriveStatusFromSteps } from '../activities/activityStepStatus';
+import { HapticsService } from '../../services/HapticsService';
+import { playActivityDoneSound } from '../../services/uiSounds';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
+import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
+import {
+  applyPlanActivityCompletionAction,
+  getPlanActivityCompletionAction,
+} from './planActivityCompletion';
 
 export type ActivityEventPeekModel = {
   activityId: string;
@@ -46,11 +56,17 @@ export function ActivityEventPeek({
   });
   const updateActivity = useAppStore((s) => s.updateActivity);
   const activities = useAppStore((s) => s.activities);
+  const recordScreenTimeQualifyingAction = useAppStore((s) => s.recordScreenTimeQualifyingAction);
+  const { capture } = useAnalytics();
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pendingMoveDate, setPendingMoveDate] = useState<Date | null>(null);
 
   const timeText = useMemo(() => formatTimeRange(start, end), [start, end]);
+  const completionAction = useMemo(
+    () => (activity ? getPlanActivityCompletionAction(activity) : null),
+    [activity],
+  );
 
   const linkedActivityById = useMemo(() => {
     const byId: Record<string, (typeof activities)[number] | null> = {};
@@ -137,6 +153,38 @@ export function ActivityEventPeek({
     [activityId, updateActivity],
   );
 
+  const handlePlanCompletePress = useCallback(() => {
+    if (!activity) return;
+    const timestamp = new Date().toISOString();
+    const wasDone = activity.status === 'done';
+    let nextStatus = activity.status;
+    updateActivity(activityId, (prev) => {
+      const next = applyPlanActivityCompletionAction(prev, timestamp);
+      nextStatus = next.status;
+      return next;
+    });
+
+    const didCompleteNow = !wasDone && nextStatus === 'done';
+    void HapticsService.trigger(didCompleteNow ? 'outcome.bigSuccess' : 'canvas.primary.confirm');
+    if (didCompleteNow) {
+      void playActivityDoneSound();
+      recordShowUpWithCelebration();
+      recordScreenTimeQualifyingAction({
+        action: 'activity_completed',
+        occurredAt: new Date(timestamp),
+      });
+      reconcileScreenTimeRestrictions({ focusSessionActive: false, now: new Date(timestamp) }).catch(() => undefined);
+    }
+
+    capture(AnalyticsEvent.ActivityCompletionToggled, {
+      source: 'plan_event_peek',
+      activity_id: activityId,
+      goal_id: activity.goalId ?? null,
+      next_status: nextStatus,
+      had_steps: Boolean(activity.steps && activity.steps.length > 0),
+    });
+  }, [activity, activityId, capture, recordScreenTimeQualifyingAction, updateActivity]);
+
   if (!activity) {
     return (
       <View style={styles.container}>
@@ -192,6 +240,34 @@ export function ActivityEventPeek({
         >
           Start Focus
         </Button>
+
+        {completionAction ? (
+          <View style={styles.completionRow}>
+            <HStack space={spacing.sm} alignItems="center" style={styles.completionTextWrap}>
+              <View style={[styles.completionIcon, completionAction.isDone ? styles.completionIconDone : null]}>
+                <Icon
+                  name={completionAction.isDone ? 'checkCircle' : 'check'}
+                  size={18}
+                  color={completionAction.isDone ? colors.pine500 : colors.textPrimary}
+                />
+              </View>
+              <VStack space={2} style={styles.completionTextColumn}>
+                <Text style={styles.completionTitle}>
+                  {completionAction.isDone ? 'Completed' : 'Close this block'}
+                </Text>
+                <Text style={styles.completionMeta}>{completionAction.meta}</Text>
+              </VStack>
+            </HStack>
+            <Button
+              variant={completionAction.isDone ? 'secondary' : 'outline'}
+              size="sm"
+              onPress={handlePlanCompletePress}
+              accessibilityLabel={completionAction.label}
+            >
+              {completionAction.label}
+            </Button>
+          </View>
+        ) : null}
 
         <KeyActionsRow
           size="md"
@@ -347,6 +423,46 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
   },
+  completionRow: {
+    ...cardSurfaceStyle,
+    borderRadius: 18,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  completionTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  completionTextColumn: {
+    flex: 1,
+    minWidth: 0,
+  },
+  completionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  completionIconDone: {
+    backgroundColor: colors.pine100,
+    borderColor: colors.pine500,
+  },
+  completionTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  completionMeta: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+  },
   pickerContainer: {
     ...cardSurfaceStyle,
     padding: spacing.md,
@@ -369,5 +485,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
 });
-
-

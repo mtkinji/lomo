@@ -190,12 +190,16 @@ export function PlanRecsPage({
 
   if (showAlreadyPlanned) {
     return (
-      <View style={[styles.emptyContainer, { padding: contentPadding }]}>
-        <View style={styles.emptyContent}>
-          <EmptyState
-            title="All set"
-            instructions="No recommendations remain for this day. Review or adjust your blocks on the calendar."
-          />
+      <View style={[styles.emptyContainer, styles.alreadyPlannedContainer, { padding: contentPadding }]}>
+        <View style={styles.alreadyPlannedContent}>
+          <View style={styles.alreadyPlannedIconWrap} accessibilityElementsHidden accessibilityRole="none">
+            <Icon name="checkCircle" size={30} color={colors.textPrimary} />
+          </View>
+          <Text style={styles.alreadyPlannedTitle}>Your plan is set</Text>
+          <Text style={styles.alreadyPlannedBody}>
+            The recommendations for {targetDayLabel} are on your calendar. Review the day view if you want to adjust a
+            block.
+          </Text>
           <VStack space={spacing.sm} style={styles.emptyActions}>
             <Button variant="primary" fullWidth onPress={onReviewPlan}>
               Review plan
@@ -613,6 +617,39 @@ const styles = StyleSheet.create({
     maxWidth: 520,
     alignSelf: 'center',
     alignItems: 'center',
+  },
+  alreadyPlannedContainer: {
+    justifyContent: 'flex-start',
+    paddingTop: spacing['2xl'],
+  },
+  alreadyPlannedContent: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  alreadyPlannedIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.shellAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  alreadyPlannedTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  alreadyPlannedBody: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    maxWidth: 340,
+    marginTop: spacing.xs,
   },
   subtitle: {
     ...typography.bodySm,

@@ -1,4 +1,5 @@
 import { colors } from './colors';
+import { radii } from './radii';
 
 export const cardElevation = {
   /**
@@ -76,7 +77,7 @@ export const cardElevation = {
 export const cardSurfaceStyle = {
   backgroundColor: colors.card,
   // ShadCN-style card radius – a bit larger than buttons so cards feel like containers
-  borderRadius: 18,
+  borderRadius: radii.card,
   borderWidth: 1,
   borderColor: colors.cardBorder,
   // Compose in the default soft elevation so existing callers keep the same look.
@@ -117,5 +118,4 @@ export const opportunityElevation = {
     elevation: 5,
   },
 } as const;
-
 

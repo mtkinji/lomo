@@ -11,6 +11,12 @@ Source reference: the “Timezy” mockups provided on 2025‑11‑17 (three-scr
 3. **Playful but mature** – illustration, rounded typography, and pill buttons keep things approachable, yet copy and hierarchy stay professional.
 4. **Guided focus** – each screen has a single primary action above-the-fold (e.g., “Create New Task”). Secondary information stacks underneath in summarized cards.
 
+### Product Copy
+
+- Use active voice for requirements and outcomes.
+- Name the real action required. Do not hide a specific requirement behind broad phrases like "make progress."
+- Keep Screen Time, Focus, and unlock copy especially concrete: say what the user can do now and what changes after they do it.
+
 ---
 
 ## 2. Visual Language
