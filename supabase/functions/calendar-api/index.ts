@@ -35,6 +35,43 @@ type CalendarRef = {
   calendarId: string;
 };
 
+type CalendarEventAvailability = 'free' | 'busy' | 'tentative' | 'out_of_office' | 'unknown';
+
+type ProviderCalendarEvent = {
+  eventId: string;
+  title: string | null;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  availability: CalendarEventAvailability;
+  providerAvailability: string | null;
+  eventType: string | null;
+};
+
+function normalizeGoogleAvailability(eventType: string | null, transparency: string | null): CalendarEventAvailability {
+  if (transparency === 'transparent') return 'free';
+  if (transparency === 'opaque') return 'busy';
+  // Google birthday/special-date calendars are displayed as all-day context, not as work-blocking commitments.
+  if (eventType === 'birthday') return 'free';
+  return 'busy';
+}
+
+function normalizeMicrosoftAvailability(showAs: string | null): CalendarEventAvailability {
+  switch ((showAs ?? '').toLowerCase()) {
+    case 'free':
+      return 'free';
+    case 'tentative':
+      return 'tentative';
+    case 'oof':
+      return 'out_of_office';
+    case 'busy':
+    case 'workingelsewhere':
+      return 'busy';
+    default:
+      return 'unknown';
+  }
+}
+
 function inferGoogleOwnerHint(calendarId: string): string | null {
   const raw = (calendarId ?? '').trim();
   if (!raw) return null;
@@ -254,14 +291,14 @@ async function listGoogleEvents(params: {
   calendarId: string;
   start: string;
   end: string;
-}): Promise<Array<{ eventId: string; title: string | null; start: string; end: string; isAllDay: boolean }>> {
+}): Promise<ProviderCalendarEvent[]> {
   const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(params.calendarId)}/events`;
   let pageToken: string | null = null;
-  const out: Array<{ eventId: string; title: string | null; start: string; end: string; isAllDay: boolean }> = [];
+  const out: ProviderCalendarEvent[] = [];
 
   // Pagination matters for some large/very busy calendars; also protects us from partial results.
-  // Keep response light-ish; we only need `summary`, `start`, `end`.
-  const fields = 'items(id,summary,start,end),nextPageToken';
+  // Keep response light-ish; Plan needs display shape plus availability semantics.
+  const fields = 'items(id,summary,start,end,eventType,transparency),nextPageToken';
 
   for (let i = 0; i < 6; i++) {
     const url = new URL(baseUrl);
@@ -287,6 +324,8 @@ async function listGoogleEvents(params: {
       const end = e?.end?.dateTime ?? e?.end?.date ?? null;
       const isAllDay = Boolean(e?.start?.date && !e?.start?.dateTime);
       const eventId = typeof e?.id === 'string' ? e.id : '';
+      const eventType = typeof e?.eventType === 'string' ? e.eventType : null;
+      const providerAvailability = typeof e?.transparency === 'string' ? e.transparency : null;
       if (!eventId || typeof start !== 'string' || typeof end !== 'string' || !start || !end) continue;
       out.push({
         eventId,
@@ -294,6 +333,9 @@ async function listGoogleEvents(params: {
         start,
         end,
         isAllDay,
+        availability: normalizeGoogleAvailability(eventType, providerAvailability),
+        providerAvailability,
+        eventType,
       });
     }
 
@@ -309,14 +351,14 @@ async function listMicrosoftEvents(params: {
   calendarId: string;
   start: string;
   end: string;
-}): Promise<Array<{ eventId: string; title: string | null; start: string; end: string; isAllDay: boolean }>> {
+}): Promise<ProviderCalendarEvent[]> {
   const viewUrl = new URL(
     `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(params.calendarId)}/calendarView`,
   );
   viewUrl.searchParams.set('startDateTime', params.start);
   viewUrl.searchParams.set('endDateTime', params.end);
-  // Limit payload; we only need these fields.
-  viewUrl.searchParams.set('$select', 'id,subject,start,end,isAllDay');
+  // Limit payload; Plan needs display shape plus free/busy semantics.
+  viewUrl.searchParams.set('$select', 'id,subject,start,end,isAllDay,showAs');
 
   const res = await fetch(viewUrl.toString(), { headers: { Authorization: `Bearer ${params.accessToken}` } });
   const json = await res.json().catch(() => null);
@@ -329,12 +371,16 @@ async function listMicrosoftEvents(params: {
     .map((e: any) => {
       const startAt = e?.start?.dateTime ?? null;
       const endAt = e?.end?.dateTime ?? null;
+      const providerAvailability = typeof e?.showAs === 'string' ? e.showAs : null;
       return {
         eventId: typeof e?.id === 'string' ? e.id : '',
         title: typeof e?.subject === 'string' ? e.subject : null,
         start: typeof startAt === 'string' ? startAt : '',
         end: typeof endAt === 'string' ? endAt : '',
         isAllDay: Boolean(e?.isAllDay),
+        availability: normalizeMicrosoftAvailability(providerAvailability),
+        providerAvailability,
+        eventType: null,
       };
     })
     .filter((e: { eventId: string; start: string; end: string }) => Boolean(e.eventId && e.start && e.end));
@@ -620,6 +666,9 @@ serve(async (req) => {
       start: string;
       end: string;
       isAllDay: boolean;
+      availability: CalendarEventAvailability;
+      providerAvailability: string | null;
+      eventType: string | null;
     }> = [];
     const errors: string[] = [];
 
@@ -646,6 +695,9 @@ serve(async (req) => {
                 start: e.start,
                 end: e.end,
                 isAllDay: e.isAllDay,
+                availability: e.availability,
+                providerAvailability: e.providerAvailability,
+                eventType: e.eventType,
               });
             }
           } catch (err: any) {
@@ -668,6 +720,9 @@ serve(async (req) => {
                 start: e.start,
                 end: e.end,
                 isAllDay: e.isAllDay,
+                availability: e.availability,
+                providerAvailability: e.providerAvailability,
+                eventType: e.eventType,
               });
             }
           } catch (err: any) {
@@ -864,4 +919,3 @@ serve(async (req) => {
 
   return json(400, { error: { message: 'Unknown action', code: 'bad_request' } });
 });
-

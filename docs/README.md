@@ -43,14 +43,17 @@ Target audiences, named representative personas, and JTBDs are peer demand-side 
 - **Backend services strategy (Supabase-first)**: `docs/backend-services-supabase-strategy.md`
 - **AI proxy + quotas setup (Supabase Edge Function)**: `docs/ai-proxy-setup.md`
 
+### Design system
+
+- Brand family architecture: `docs/design-system/brand-family-architecture.md`
+- Foundation propagation: `docs/design-system/foundation-propagation.md`
+
 ### Core background docs
 
 - Engagement: `docs/engagement-and-motivation-system.md`
 - Notifications foundation: `docs/notifications-paradigm-prd.md`
 - UX: `docs/ux-style-guide.md`, `docs/ux-flow.md`
-- Brand family architecture: `docs/brand-family-architecture.md`
 - Chapters build plan: `docs/chapters-build-plan.md`
 - UI architecture: `docs/ui-architecture.md`
 - Apple ecosystem opportunities (widgets/live activities/shortcuts/spotlight): `docs/apple-ecosystem-opportunities.md`
 - Roadmap (primary): `docs/value-realization-roadmap.md`
-

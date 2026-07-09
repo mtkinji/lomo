@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -19,6 +19,7 @@ import { useToastStore } from '../store/useToastStore';
 import { HapticsService } from '../services/HapticsService';
 
 const CONFETTI_COUNT = 24;
+const TAP_TO_DISMISS_PROTECTED_DWELL_MS = 1800;
 
 /**
  * A single confetti piece that falls and rotates
@@ -181,9 +182,15 @@ function CelebrationInterstitialContent({
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const hapticFired = useRef(false);
+  const dismissingRef = useRef(false);
+  const [tapDismissEnabled, setTapDismissEnabled] = useState(false);
   const suppressionKeyRef = useRef(
     `celebrationInterstitial-${Math.random().toString(36).slice(2)}-${Date.now()}`,
   );
+  const canAutoDismiss =
+    celebration.priority !== 'high' &&
+    typeof celebration.autoDismissMs === 'number' &&
+    celebration.autoDismissMs > 0;
 
   // Suppress toasts while the celebration is visible
   useEffect(() => {
@@ -228,7 +235,7 @@ function CelebrationInterstitialContent({
 
   // Auto-dismiss timer
   useEffect(() => {
-    if (!celebration.autoDismissMs || celebration.autoDismissMs <= 0) {
+    if (!canAutoDismiss) {
       return;
     }
 
@@ -238,9 +245,28 @@ function CelebrationInterstitialContent({
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [celebration.autoDismissMs]);
+  }, [canAutoDismiss, celebration.autoDismissMs, celebration.id]);
+
+  // Give the emotional beat time to land before tap-anywhere dismissal works.
+  useEffect(() => {
+    setTapDismissEnabled(false);
+    dismissingRef.current = false;
+
+    if (!canAutoDismiss) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTapDismissEnabled(true);
+    }, TAP_TO_DISMISS_PROTECTED_DWELL_MS);
+
+    return () => clearTimeout(timer);
+  }, [canAutoDismiss, celebration.id]);
 
   const handleDismiss = () => {
+    if (dismissingRef.current) return;
+    dismissingRef.current = true;
+
     // Exit animation
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -257,6 +283,11 @@ function CelebrationInterstitialContent({
     ]).start(() => {
       onDismiss();
     });
+  };
+
+  const handleTapToDismiss = () => {
+    if (!canAutoDismiss || !tapDismissEnabled) return;
+    handleDismiss();
   };
 
   const ageRange = useAppStore((s) => s.userProfile?.ageRange);
@@ -278,11 +309,11 @@ function CelebrationInterstitialContent({
         {/* Confetti layer */}
         <ConfettiBurst />
 
-        {/* Content - use Pressable as full-screen tap target for auto-dismiss */}
+        {/* Content - use Pressable as full-screen tap target after the protected first beat */}
         <Pressable
           style={styles.contentOuter}
-          onPress={celebration.autoDismissMs ? handleDismiss : undefined}
-          disabled={!celebration.autoDismissMs}
+          onPress={canAutoDismiss ? handleTapToDismiss : undefined}
+          disabled={!canAutoDismiss}
         >
           {/* Safe area spacer - pushes content to true visual center */}
           <View style={{ height: insets.top }} />
@@ -323,10 +354,12 @@ function CelebrationInterstitialContent({
 
             {/* CTA Section */}
             <View style={styles.ctaContainer}>
-              {celebration.autoDismissMs ? (
-                // Auto-dismiss mode: show a subtle tap-anywhere affordance
+              {canAutoDismiss ? (
+                // Auto-dismiss mode: show tap-anywhere only after the protected dwell
                 <View style={styles.tapToDismiss}>
-                  <Text style={styles.tapToDismissText}>Tap anywhere to continue</Text>
+                  <Text style={styles.tapToDismissText}>
+                    {tapDismissEnabled ? 'Tap anywhere to continue' : 'Continuing shortly'}
+                  </Text>
                 </View>
               ) : (
                 // Manual dismiss mode: show a button
@@ -418,4 +451,3 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 });
-

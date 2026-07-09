@@ -36,6 +36,13 @@
       "require": "./dist/spacing.cjs",
       "default": "./dist/spacing.js"
     },
+    "./radii": {
+      "react-native": "./src/radii.ts",
+      "types": "./dist/radii.d.ts",
+      "import": "./dist/radii.js",
+      "require": "./dist/radii.cjs",
+      "default": "./dist/radii.js"
+    },
     "./typography": {
       "react-native": "./src/typography.ts",
       "types": "./dist/typography.d.ts",

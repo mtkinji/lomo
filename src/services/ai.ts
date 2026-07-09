@@ -15,6 +15,10 @@ import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
+import {
+  buildArcBannerFallbackSearchTerm,
+  buildArcBannerImageSearchTerm,
+} from './arcBannerImageSearchTerms';
 import { getActiveActivityAreas } from '../domain/activityAreas';
 import { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
 import {
@@ -2070,15 +2074,7 @@ export async function generateArcBannerVibeQuery(
   const goalTitles = (input.goalTitles ?? []).map((g) => g.trim()).filter(Boolean).slice(0, 8);
 
   const buildLocalFallbackQuery = (): string | null => {
-    // Keep it short and "search friendly". If we don't have usable text, return null so callers
-    // can fall back to curated imagery.
-    const base = arcName || (goalTitles[0] ?? '');
-    const cleaned = String(base)
-      .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!cleaned) return null;
-    return cleaned.split(' ').slice(0, 5).join(' ');
+    return buildArcBannerFallbackSearchTerm({ arcName, arcNarrative: narrative, goalTitles });
   };
 
   devLog('bannerVibe:init', {
@@ -2101,11 +2097,12 @@ export async function generateArcBannerVibeQuery(
   const model: LlmModel = 'gpt-4o-mini';
   const systemPrompt =
     'You generate short search queries for a photo library. ' +
-    'Return a single line containing ONLY a compact search phrase (2–5 words). ' +
+    'Return a single line containing ONLY the concrete subject or visual metaphor (2–4 words). ' +
     'No quotes. No hashtags. No punctuation. No emojis. ' +
-    'Favor high-energy visuals: dramatic landscapes, bold architecture, vibrant city life, aerial views, dynamic textures. ' +
+    'Favor concrete subjects over abstract self-improvement words. ' +
+    'Good subjects: trail runner, mountain sunrise, creative studio, modern architecture, family table, open road. ' +
     'AVOID generic office scenes, people at desks, corporate imagery, or stock-photo workplace settings. ' +
-    'Think epic and aspirational, not literal interpretation.';
+    'Avoid words like growth, journey, progress, identity, business, work, productivity, and mindset unless paired with a visible subject.';
 
   const userPrompt = `
 Arc name: ${arcName || '(missing)'}
@@ -2177,8 +2174,7 @@ Return one photo-library search phrase that matches the Arc's vibe.
     return null;
   }
 
-  // Keep it reasonably short for image search.
-  return cleaned.split(' ').slice(0, 5).join(' ');
+  return buildArcBannerImageSearchTerm({ arcName, arcNarrative: narrative, goalTitles }, cleaned);
 }
 
 async function requestOpenAiArcs(

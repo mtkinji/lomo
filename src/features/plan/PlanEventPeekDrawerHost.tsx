@@ -4,12 +4,13 @@ import { BottomDrawer, type BottomDrawerSnapPoint } from '../../ui/BottomDrawer'
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
 import { PlanRecsPage } from './PlanRecsPage';
+import { PlanSlotCapturePage, type PlanSlotCaptureModel } from './PlanSlotCapturePage';
 import { ActivityEventPeek, type ActivityEventPeekModel } from './ActivityEventPeek';
 import { ExternalEventPeek, type ExternalEventPeekModel } from './ExternalEventPeek';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import type { QuickAddAiAction } from '../activities/useQuickAddDockController';
 
-export type PlanDrawerMode = 'recs' | 'activity' | 'external';
+export type PlanDrawerMode = 'recs' | 'activity' | 'external' | 'slotCapture';
 
 type PlanRecommendationsModel = {
   recommendationCount: number;
@@ -86,6 +87,7 @@ export function PlanEventPeekDrawerHost({
   mode,
   onClose,
   recommendations,
+  slotCapture,
   activityPeek,
   externalPeek,
 }: {
@@ -93,11 +95,13 @@ export function PlanEventPeekDrawerHost({
   mode: PlanDrawerMode;
   onClose: () => void;
   recommendations?: PlanRecommendationsModel;
+  slotCapture?: PlanSlotCaptureModel;
   activityPeek?: ActivityEventPeekModel;
   externalPeek?: ExternalEventPeekModel;
 }) {
   const snapPoints = useMemo<BottomDrawerSnapPoint[]>(() => {
     if (mode === 'recs') return ['85%'];
+    if (mode === 'slotCapture') return ['58%', '85%'];
     return ['42%', '85%'];
   }, [mode]);
 
@@ -118,9 +122,7 @@ export function PlanEventPeekDrawerHost({
         <View>
           <BottomDrawerHeader
             title={
-              <Text style={styles.sheetTitle}>
-                Recommendations
-              </Text>
+              <Text style={styles.sheetTitle}>Recommendations</Text>
             }
             variant="withClose"
             onClose={onClose}
@@ -155,6 +157,17 @@ export function PlanEventPeekDrawerHost({
             onSkip={recommendations.onSkip}
             committingActivityId={recommendations.committingActivityId}
           />
+        </View>
+      ) : null}
+
+      {mode === 'slotCapture' && slotCapture ? (
+        <View>
+          <BottomDrawerHeader
+            title={<Text style={styles.sheetTitle}>Add to plan</Text>}
+            variant="withClose"
+            onClose={onClose}
+          />
+          <PlanSlotCapturePage {...slotCapture} />
         </View>
       ) : null}
 

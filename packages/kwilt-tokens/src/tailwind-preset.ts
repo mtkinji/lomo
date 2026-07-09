@@ -1,5 +1,6 @@
 import { colors } from './colors';
 import { spacing } from './spacing';
+import { radii } from './radii';
 import { fonts, typography } from './typography';
 import { cardElevation } from './surfaces';
 import { durations, easings } from './motion';
@@ -8,6 +9,16 @@ import { hexToRgba } from './colorUtils';
 function pxify(record: Record<string, number>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(record)) out[k] = `${v}px`;
+  return out;
+}
+
+function kebabify(value: string): string {
+  return value.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+}
+
+function pxifySemantic(record: Record<string, number>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record)) out[kebabify(k)] = `${v}px`;
   return out;
 }
 
@@ -46,6 +57,7 @@ function buildBoxShadow(): Record<string, string> {
  *
  *   colors              <- @kwilt/tokens/colors
  *   spacing             <- @kwilt/tokens/spacing
+ *   borderRadius        <- @kwilt/tokens/radii
  *   fontFamily          <- @kwilt/tokens/typography (fonts)
  *   fontSize            <- @kwilt/tokens/typography (typography.*)
  *   boxShadow           <- @kwilt/tokens/surfaces (cardElevation)
@@ -60,6 +72,7 @@ export const kwiltTailwindPreset = {
     extend: {
       colors: { ...colors },
       spacing: pxify(spacing as unknown as Record<string, number>),
+      borderRadius: pxifySemantic(radii as unknown as Record<string, number>),
       fontFamily: {
         sans: [fonts.regular, 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         brand: [fonts.logo, 'ui-sans-serif', 'system-ui', 'sans-serif'],

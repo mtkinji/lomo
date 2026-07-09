@@ -13,7 +13,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { BottomDrawer } from '../../ui/BottomDrawer';
 import { Button } from '../../ui/Button';
-import { BottomDrawerFooter } from '../../ui/layout/BottomDrawerFooter';
 import { Icon } from '../../ui/Icon';
 import { Heading, Input, KeyboardAwareScrollView } from '../../ui/primitives';
 import { SegmentedControl } from '../../ui/SegmentedControl';
@@ -28,6 +27,8 @@ import {
 } from './thumbnailVisuals';
 import { searchUnsplashPhotos, UnsplashError, type UnsplashPhoto } from '../../services/unsplash';
 import { generateArcBannerVibeQuery } from '../../services/ai';
+import { useAnalytics } from '../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../services/analytics/events';
 
 export type ArcBannerSheetProps = {
   visible: boolean;
@@ -67,6 +68,14 @@ export type ArcBannerSheetProps = {
 
 type HeroImageSourceTab = 'curated' | 'unsplash' | 'upload';
 const DEFAULT_SOURCE_TAB: HeroImageSourceTab = 'unsplash';
+
+function hashSearchQuery(value: string): string {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
 
 export function ArcBannerSheet({
   visible,
@@ -108,9 +117,11 @@ export function ArcBannerSheet({
   const [unsplashResults, setUnsplashResults] = useState<UnsplashPhoto[]>([]);
   const [gridWidth, setGridWidth] = useState(0);
   const hasAutoSearchedRef = useRef(false);
+  const latestSearchRef = useRef<{ queryHash: string; source: 'auto' | 'manual' | 'fallback' } | null>(null);
+  const { capture } = useAnalytics();
 
   const performUnsplashSearch = useCallback(
-    async (explicitQuery?: string) => {
+    async (explicitQuery?: string, source: 'auto' | 'manual' | 'fallback' = explicitQuery ? 'auto' : 'manual') => {
       if (!canUseUnsplash) {
         setUnsplashError('Image library search is a Pro feature.');
         return;
@@ -119,6 +130,8 @@ export function ArcBannerSheet({
       if (!query) {
         return;
       }
+      const queryHash = hashSearchQuery(query.toLowerCase());
+      latestSearchRef.current = { queryHash, source };
       try {
         setUnsplashLoading(true);
         setUnsplashError(null);
@@ -128,8 +141,25 @@ export function ArcBannerSheet({
           setUnsplashError('No results found for that query.');
         }
         setUnsplashResults(results ?? []);
+        capture(AnalyticsEvent.ArcBannerImageSearchPerformed, {
+          objectLabel,
+          queryHash,
+          queryLength: query.length,
+          resultCount: results?.length ?? 0,
+          source,
+        });
       } catch (err) {
+        let didCaptureFailure = false;
         if (err instanceof UnsplashError) {
+          capture(AnalyticsEvent.ArcBannerImageSearchFailed, {
+            objectLabel,
+            queryHash,
+            queryLength: query.length,
+            source,
+            errorCode: err.code,
+            status: err.status ?? null,
+          });
+          didCaptureFailure = true;
           if (err.code === 'missing_access_key') {
             setUnsplashError(
               __DEV__
@@ -147,12 +177,21 @@ export function ArcBannerSheet({
             return;
           }
         }
+        if (!didCaptureFailure) {
+          capture(AnalyticsEvent.ArcBannerImageSearchFailed, {
+            objectLabel,
+            queryHash,
+            queryLength: query.length,
+            source,
+            errorCode: 'unknown',
+          });
+        }
         setUnsplashError('Unable to load image library results right now.');
       } finally {
         setUnsplashLoading(false);
       }
     },
-    [arcName, canUseUnsplash, unsplashQuery]
+    [arcName, canUseUnsplash, capture, objectLabel, unsplashQuery]
   );
 
   useEffect(() => {
@@ -188,7 +227,7 @@ export function ArcBannerSheet({
         const initialQuery = (vibeQuery || arcName).trim();
         if (!initialQuery) return;
         setUnsplashQuery(initialQuery);
-        void performUnsplashSearch(initialQuery);
+        void performUnsplashSearch(initialQuery, vibeQuery ? 'auto' : 'fallback');
       })();
 
       return () => {
@@ -272,8 +311,22 @@ export function ArcBannerSheet({
   }, [gridWidth]);
 
   const handleSearchUnsplash = useCallback(() => {
-    void performUnsplashSearch();
+    void performUnsplashSearch(undefined, 'manual');
   }, [performUnsplashSearch]);
+
+  const handleSelectUnsplash = useCallback(
+    (photo: UnsplashPhoto) => {
+      const index = unsplashResults.findIndex((candidate) => candidate.id === photo.id);
+      capture(AnalyticsEvent.ArcBannerImageSelected, {
+        objectLabel,
+        source: latestSearchRef.current?.source ?? 'unknown',
+        queryHash: latestSearchRef.current?.queryHash ?? 'unknown',
+        resultIndex: index >= 0 ? index : null,
+      });
+      onSelectUnsplash(photo);
+    },
+    [capture, objectLabel, onSelectUnsplash, unsplashResults]
+  );
 
   const handleRemove = useCallback(() => {
     if (!hasHero || loading) return;
@@ -428,81 +481,85 @@ export function ArcBannerSheet({
                   </View>
                 </View>
 
-                <View style={styles.heroModalControls}>
-                  <View style={styles.heroModalActionRow}>
-                    <View style={styles.heroModalAction}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={!showRefreshAction || loading}
-                        onPress={onGenerate}
-                        style={styles.heroModalActionButton}
-                        accessibilityLabel="Generate banner image"
-                      >
-                        {loading ? (
-                          <ActivityIndicator color={colors.textPrimary} />
-                        ) : (
-                          <Icon
-                            name="refresh"
-                            size={20}
-                            color={showRefreshAction ? colors.textPrimary : colors.textSecondary}
-                          />
-                        )}
-                      </Button>
-                      <Text
-                        style={[
-                          styles.heroModalActionLabel,
-                          !showRefreshAction && { color: colors.textSecondary },
-                        ]}
-                      >
-                        Generate
-                      </Text>
-                    </View>
-                    <View style={styles.heroModalAction}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={!hasHero || loading}
-                        onPress={handleRemove}
-                        style={styles.heroModalActionButton}
-                        accessibilityLabel="Remove image"
-                      >
-                        <Icon
-                          name="trash"
-                          size={20}
-                          color={hasHero ? colors.destructive : colors.textSecondary}
-                          style={{ opacity: hasHero ? 1 : 0.4 }}
-                        />
-                      </Button>
-                      <Text
-                        style={[
-                          styles.heroModalActionLabel,
-                          !hasHero && { color: colors.textSecondary, opacity: 0.5 },
-                          hasHero && { color: colors.destructive },
-                        ]}
-                      >
-                        Remove
-                      </Text>
-                    </View>
-                  </View>
-                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                  {sourceTab === 'upload' && (
-                    <View style={styles.heroModalUploadContainer}>
-                      <Button
-                        variant="outline"
-                        disabled={loading}
-                        onPress={onUpload}
-                        style={styles.heroModalUpload}
-                      >
-                        <View style={styles.heroModalUploadButtonContent}>
-                          <Icon name="image" size={18} color={colors.textPrimary} />
-                          <Text style={styles.buttonTextAlt}>Upload</Text>
+                {(sourceTab === 'upload' || error) && (
+                  <View style={styles.heroModalControls}>
+                    {sourceTab === 'upload' && (
+                      <>
+                        <View style={styles.heroModalActionRow}>
+                          <View style={styles.heroModalAction}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={!showRefreshAction || loading}
+                              onPress={onGenerate}
+                              style={styles.heroModalActionButton}
+                              accessibilityLabel="Generate banner image"
+                            >
+                              {loading ? (
+                                <ActivityIndicator color={colors.textPrimary} />
+                              ) : (
+                                <Icon
+                                  name="refresh"
+                                  size={20}
+                                  color={showRefreshAction ? colors.textPrimary : colors.textSecondary}
+                                />
+                              )}
+                            </Button>
+                            <Text
+                              style={[
+                                styles.heroModalActionLabel,
+                                !showRefreshAction && { color: colors.textSecondary },
+                              ]}
+                            >
+                              Generate
+                            </Text>
+                          </View>
+                          <View style={styles.heroModalAction}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={!hasHero || loading}
+                              onPress={handleRemove}
+                              style={styles.heroModalActionButton}
+                              accessibilityLabel="Remove image"
+                            >
+                              <Icon
+                                name="trash"
+                                size={20}
+                                color={hasHero ? colors.destructive : colors.textSecondary}
+                                style={{ opacity: hasHero ? 1 : 0.4 }}
+                              />
+                            </Button>
+                            <Text
+                              style={[
+                                styles.heroModalActionLabel,
+                                !hasHero && { color: colors.textSecondary, opacity: 0.5 },
+                                hasHero && { color: colors.destructive },
+                              ]}
+                            >
+                              Remove
+                            </Text>
+                          </View>
                         </View>
-                      </Button>
-                    </View>
-                  )}
-                </View>
+
+                        <View style={styles.heroModalUploadContainer}>
+                          <Button
+                            variant="outline"
+                            disabled={loading}
+                            onPress={onUpload}
+                            style={styles.heroModalUpload}
+                          >
+                            <View style={styles.heroModalUploadButtonContent}>
+                              <Icon name="image" size={18} color={colors.textPrimary} />
+                              <Text style={styles.buttonTextAlt}>Upload</Text>
+                            </View>
+                          </Button>
+                        </View>
+                      </>
+                    )}
+                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                  </View>
+                )}
               </View>
 
               {sourceTab === 'curated' && (
@@ -631,7 +688,7 @@ export function ArcBannerSheet({
                                 accessibilityRole="button"
                                 accessibilityState={{ selected: isSelected }}
                                 onPress={() => {
-                                  onSelectUnsplash(photo);
+                                  handleSelectUnsplash(photo);
                                 }}
                               >
                                 <Image
@@ -659,7 +716,7 @@ export function ArcBannerSheet({
                                 accessibilityRole="button"
                                 accessibilityState={{ selected: isSelected }}
                                 onPress={() => {
-                                  onSelectUnsplash(photo);
+                                  handleSelectUnsplash(photo);
                                 }}
                               >
                                 <Image
@@ -679,11 +736,11 @@ export function ArcBannerSheet({
             </KeyboardAwareScrollView>
           </View>
 
-          <BottomDrawerFooter paddingTop={spacing.sm} paddingBottom={spacing.lg} backgroundColor={colors.canvas}>
-            <Button variant="primary" onPress={onClose} style={styles.saveButton}>
-              <Text style={styles.saveButtonLabel}>Save</Text>
+          <View pointerEvents="box-none" style={styles.floatingDoneContainer}>
+            <Button variant="primary" onPress={onClose} style={styles.floatingDoneButton}>
+              <Text style={styles.saveButtonLabel}>Done</Text>
             </Button>
-          </BottomDrawerFooter>
+          </View>
         </View>
       </View>
     </BottomDrawer>
@@ -696,6 +753,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     flex: 1,
+    position: 'relative',
   },
   modalTitle: {
     ...typography.titleSm,
@@ -718,7 +776,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroModalScrollContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing['3xl'] + spacing.xl,
   },
   heroModalPreviewSection: {
     marginTop: 0,
@@ -816,8 +874,24 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textPrimary,
   },
-  saveButton: {
-    alignSelf: 'stretch',
+  floatingDoneContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.lg,
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  floatingDoneButton: {
+    minWidth: 160,
+    maxWidth: 280,
+    alignSelf: 'center',
+    paddingHorizontal: spacing['2xl'],
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   saveButtonLabel: {
     ...typography.bodySm,

@@ -15,6 +15,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { PlanCalendarLensPage } from './PlanCalendarLensPage';
 import { PlanEventPeekDrawerHost, type PlanDrawerMode } from './PlanEventPeekDrawerHost';
 import type { BusyInterval } from '../../services/scheduling/schedulingEngine';
+import type { PlanSlotDraft } from './planSlotDraft';
 import {
   createCalendarEvent,
   getOrInitCalendarPreferences,
@@ -40,6 +41,7 @@ import { BottomGuide } from '../../ui/BottomGuide';
 import { Button } from '../../ui/Button';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { reconcilePlanCalendarEvents } from '../../services/plan/planCalendarReconcile';
+import { getBlockingPlanBusyIntervals, getPlanConflictActivityIds } from '../../services/plan/planConflictDetection';
 import { deleteManagedEvent } from '../../services/calendar/managedEvents';
 import { moveManagedEvent } from '../../services/calendar/managedEvents';
 import {
@@ -49,6 +51,7 @@ import {
   resolveCalendarEventRefAfterCreate,
 } from '../../services/plan/calendarEventCommit';
 import { usePlanRecommendationsQuickAdd } from './usePlanRecommendationsQuickAdd';
+import { usePlanSlotCapture } from './usePlanSlotCapture';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -123,6 +126,7 @@ export function PlanPager({
   const [unplacedDueActivityIds, setUnplacedDueActivityIds] = useState<string[]>([]);
   const [sheetCreatedProposals, setSheetCreatedProposals] = useState<DailyPlanProposal[]>([]);
   const [sheetCreatedUnscheduledIds, setSheetCreatedUnscheduledIds] = useState<string[]>([]);
+  const [slotDraft, setSlotDraft] = useState<PlanSlotDraft | null>(null);
   const [hasLoadedProposalsOnce, setHasLoadedProposalsOnce] = useState(false);
   const prevDateKeyRef = useRef<string | null>(null);
   const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
@@ -267,6 +271,7 @@ export function PlanPager({
     setSkippedIds(new Set());
     setSheetCreatedProposals([]);
     setSheetCreatedUnscheduledIds([]);
+    setSlotDraft(null);
   }, [dateKey]);
 
   const refreshCalendarColors = useCallback(async () => {
@@ -426,11 +431,17 @@ export function PlanPager({
         ]);
         if (!mounted) return;
 
-        const externalIntervals = (intervals ?? []).map((i) => ({ start: new Date(i.start), end: new Date(i.end) }));
+        const fallbackIntervals = (intervals ?? []).map((i) => ({ start: new Date(i.start), end: new Date(i.end) }));
+        const prefetchedEvents = Array.isArray(events) ? events : [];
+        const externalIntervals = getBlockingPlanBusyIntervals({
+          externalEvents: prefetchedEvents,
+          fallbackBusyIntervals: fallbackIntervals,
+          includeAllDay: true,
+        });
         setPrefetched({
           startISO,
           endISO,
-          events: Array.isArray(events) ? events : [],
+          events: prefetchedEvents,
           intervals: externalIntervals,
           fetchedAtMs: Date.now(),
         });
@@ -499,12 +510,18 @@ export function PlanPager({
           readCalendarRefs: readRefs,
         });
         if (!mounted) return;
-        const external = (intervals ?? []).map((i) => ({
+        const fallbackIntervals = (intervals ?? []).map((i) => ({
           start: new Date(i.start),
           end: new Date(i.end),
         }));
+        const externalEventsForDay = Array.isArray(events) ? events : [];
+        const external = getBlockingPlanBusyIntervals({
+          externalEvents: externalEventsForDay,
+          fallbackBusyIntervals: fallbackIntervals,
+          includeAllDay: true,
+        });
         setExternalBusyIntervals(external);
-        setExternalEvents(Array.isArray(events) ? events : []);
+        setExternalEvents(externalEventsForDay);
         if (Array.isArray(errors) && errors.length > 0) {
           const msg = 'Some calendars failed to load. Try reconnecting in Settings → Calendars.';
           // We still show any events we did load; this is a non-fatal warning.
@@ -720,27 +737,11 @@ export function PlanPager({
   const externalEventsForTimeline = reconciledExternal.externalEvents;
 
   const conflicts = useMemo(() => {
-    if (kwiltBlocks.length === 0) return [];
-
-    // Prefer event-level overlap checks so we can ignore external duplicates of Kwilt blocks.
-    // Fallback to busy intervals only when no events were loaded.
-    const conflictIntervals =
-      externalEventsForTimeline.length > 0
-        ? externalEventsForTimeline
-            .map((e) => {
-              const start = new Date(e.start);
-              const end = new Date(e.end);
-              if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-              return { start, end };
-            })
-            .filter(Boolean) as Array<{ start: Date; end: Date }>
-        : externalBusyIntervals;
-
-    if (conflictIntervals.length === 0) return [];
-
-    return kwiltBlocks
-      .filter((block) => conflictIntervals.some((busy) => busy.start < block.end && block.start < busy.end))
-      .map((block) => block.activity.id);
+    return getPlanConflictActivityIds({
+      kwiltBlocks,
+      externalEvents: externalEventsForTimeline,
+      fallbackBusyIntervals: externalBusyIntervals,
+    });
   }, [externalBusyIntervals, externalEventsForTimeline, kwiltBlocks]);
 
   function applyLocalCommit(args: {
@@ -797,15 +798,14 @@ export function PlanPager({
     }
   }
 
-  const handleCommit = async (activityId: string) => {
-    const proposal = scheduleProposals.find((p) => p.activityId === activityId);
+  const commitProposal = useCallback(async (activityId: string, proposal: DailyPlanProposal): Promise<boolean> => {
     const activity = activities.find((a) => a.id === activityId);
-    if (!proposal || !activity) return;
+    if (!activity) return false;
     if (!writeRef) {
       Alert.alert('Choose a calendar', 'Select a write calendar in Settings before committing.');
-      return;
+      return false;
     }
-    if (committingActivityId) return;
+    if (committingActivityId) return false;
 
     try {
       setCommittingActivityId(activityId);
@@ -817,7 +817,7 @@ export function PlanPager({
       if (existing?.status === 'linked') {
         applyLocalCommit({ activityId, proposal, eventRef: existing.eventRef });
         showCommitSuccessFeedback();
-        return;
+        return true;
       }
 
       let createResult: unknown = null;
@@ -839,18 +839,18 @@ export function PlanPager({
         if (recovered.status === 'linked') {
           applyLocalCommit({ activityId, proposal, eventRef: recovered.eventRef });
           showCommitSuccessFeedback();
-          return;
+          return true;
         }
         if (recovered.status === 'unlinked') {
           Alert.alert(
             'Check your calendar',
             'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
           );
-          return;
+          return false;
         }
         const alert = getCalendarCommitAlertForError(err);
         if (alert) Alert.alert(alert.title, alert.message);
-        return;
+        return false;
       }
 
       // Even if we didn't get an eventRef payload (e.g. non-JSON body), we still treat
@@ -863,23 +863,31 @@ export function PlanPager({
       });
       if (resolved.status === 'unconfirmed') {
         Alert.alert('Check your calendar', 'We may have added this time block, but we couldn’t confirm it. Please check your calendar.');
-        return;
+        return false;
       }
       if (resolved.status === 'unlinked') {
         Alert.alert(
           'Check your calendar',
           'We may have added this time block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.',
         );
-        return;
+        return false;
       }
       applyLocalCommit({ activityId, proposal, eventRef: resolved.eventRef });
       showCommitSuccessFeedback();
+      return true;
     } catch (err) {
       const alert = getCalendarCommitAlertForError(err);
       if (alert) Alert.alert(alert.title, alert.message);
+      return false;
     } finally {
       setCommittingActivityId(null);
     }
+  }, [activities, committingActivityId, writeRef, dateKey]);
+
+  const handleCommit = async (activityId: string) => {
+    const proposal = scheduleProposals.find((p) => p.activityId === activityId);
+    if (!proposal) return;
+    await commitProposal(activityId, proposal);
   };
 
   const isWithinWindows = useCallback(
@@ -1208,6 +1216,28 @@ export function PlanPager({
     setSheetSnapIndex,
   });
 
+  const slotCaptureModel = usePlanSlotCapture({
+    slotDraft,
+    activities,
+    goals,
+    arcs,
+    dateKey,
+    busyIntervals,
+    scheduleProposals,
+    writeCalendarId: writeRef?.calendarId ?? null,
+    getPlanModeForActivity,
+    isWithinWindows,
+    quickAddAiActions,
+    setQuickAddAiActions,
+    addActivity,
+    updateActivity,
+    recordShowUp,
+    tryConsumeGenerativeCredit,
+    showToast,
+    commitProposal,
+    clearSlotDraft: () => setSlotDraft(null),
+  });
+
   const handleReconnectCalendarAccess = useCallback(async () => {
     if (!calendarAccessProvider) return;
     try {
@@ -1331,7 +1361,7 @@ export function PlanPager({
   });
 
   const swipeGesture = useMemo(() => {
-    const enabled = typeof onNavigateDay === 'function' && !recommendationsDrawerVisible && !peekSelection;
+    const enabled = typeof onNavigateDay === 'function' && !recommendationsDrawerVisible && !peekSelection && !slotDraft;
     if (!enabled) {
       return Gesture.Pan().enabled(false);
     }
@@ -1375,7 +1405,7 @@ export function PlanPager({
           );
         })
     );
-  }, [onNavigateDay, recommendationsDrawerVisible, peekSelection, canvasTranslateX, canvasWidth, isDayTransitionAnimating]);
+  }, [onNavigateDay, recommendationsDrawerVisible, peekSelection, slotDraft, canvasTranslateX, canvasWidth, isDayTransitionAnimating]);
 
   const handleOpenFocus = useCallback((activityId: string) => {
     if (!rootNavigationRef.isReady()) return;
@@ -1403,6 +1433,8 @@ export function PlanPager({
       : 'external'
     : recommendationsDrawerVisible
       ? 'recs'
+      : slotCaptureModel
+        ? 'slotCapture'
       : null;
 
   const handleDrawerClose = useCallback(() => {
@@ -1410,8 +1442,12 @@ export function PlanPager({
       setPeekSelection(null);
       return;
     }
+    if (slotDraft) {
+      setSlotDraft(null);
+      return;
+    }
     setSheetSnapIndex(0);
-  }, [peekSelection, setSheetSnapIndex]);
+  }, [peekSelection, setSheetSnapIndex, slotDraft]);
 
   const activityPeekModel = useMemo(() => {
     if (!peekSelection || peekSelection.kind !== 'activity') return null;
@@ -1465,7 +1501,7 @@ export function PlanPager({
             // Don't paint recommendations onto the calendar canvas when the drawer is closed.
             // Otherwise they read like real scheduled blocks and visually "repeat" on every day.
             proposedBlocks={
-              recommendationsDrawerVisible
+              recommendationsDrawerVisible || Boolean(slotDraft)
                 ? scheduleProposals.map((p) => ({
                     title: p.title,
                     start: new Date(p.startDate),
@@ -1473,6 +1509,7 @@ export function PlanPager({
                   }))
                 : []
             }
+            slotDraft={slotDraft}
             kwiltBlocks={kwiltBlocks}
             conflictActivityIds={conflicts}
             calendarStatus={calendarStatus}
@@ -1484,11 +1521,19 @@ export function PlanPager({
             onMoveCommitment={handleMoveCommitment}
             onPressKwiltBlock={(activityId) => {
               if (recommendationsDrawerVisible) setSheetSnapIndex(0);
+              if (slotDraft) setSlotDraft(null);
               setPeekSelection({ kind: 'activity', activityId });
             }}
             onPressExternalEvent={(event) => {
               if (recommendationsDrawerVisible) setSheetSnapIndex(0);
+              if (slotDraft) setSlotDraft(null);
               setPeekSelection({ kind: 'external', event });
+            }}
+            onSlotDraftChange={setSlotDraft}
+            onSlotDraftComplete={(slot) => {
+              setSlotDraft(slot);
+              setPeekSelection(null);
+              setSheetSnapIndex(0);
             }}
           />
         </Animated.View>
@@ -1499,6 +1544,7 @@ export function PlanPager({
           visible
           mode={drawerMode}
           onClose={handleDrawerClose}
+          slotCapture={drawerMode === 'slotCapture' ? (slotCaptureModel ?? undefined) : undefined}
           recommendations={
             drawerMode === 'recs'
               ? {

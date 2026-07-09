@@ -62,11 +62,16 @@ export type CalendarEventRef = CalendarRef & {
   eventId: string;
 };
 
+export type CalendarEventAvailability = 'free' | 'busy' | 'tentative' | 'out_of_office' | 'unknown';
+
 export type CalendarEvent = CalendarEventRef & {
   title: string | null;
   start: string;
   end: string;
   isAllDay?: boolean;
+  availability?: CalendarEventAvailability;
+  providerAvailability?: string | null;
+  eventType?: string | null;
 };
 
 async function buildHeaders(requireAuth: boolean): Promise<Headers> {
@@ -343,5 +348,4 @@ export async function updateCalendarEvent(params: {
 export async function deleteCalendarEvent(params: { eventRef: CalendarEventRef }): Promise<{ ok: boolean }> {
   return await postJson('calendar-api', { action: 'delete_event', ...params }, true);
 }
-
 

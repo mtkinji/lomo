@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make shared Kwilt design radii propagate from `@kwilt/tokens` into mobile, desktop, and site consumers, using card radius as the first proof case for a broader Kwilt foundation system.
+**Goal:** Make shared Kwilt design radii propagate from `@kwilt/tokens` into Kwilt Goals, Kwilt Money, and desktop consumers, using card radius as the first proof case for a broader Kwilt foundation system.
 
 **Architecture:** Add semantic radius tokens to `@kwilt/tokens`, expose them through the existing Tailwind preset, and replace representative local radius values with token imports/classes. Treat tokens as the shared contract; platform UI packages can come later after the propagation path is proven.
 
@@ -19,7 +19,7 @@ This plan intentionally ships one durable foundation slice:
 - Mobile theme bridge.
 - One mobile surface proof.
 - One desktop surface proof.
-- One site configuration proof.
+- One Kwilt Money native-token proof.
 - Documentation for the propagation contract.
 
 It does not create `@kwilt/ui-rn`, `@kwilt/ui-web`, `@kwilt/voice`, or `@kwilt/product-system` yet. Those should follow after token propagation is boring and verified.
@@ -48,10 +48,12 @@ It does not create `@kwilt/ui-rn`, `@kwilt/ui-web`, `@kwilt/voice`, or `@kwilt/p
   - Leaves existing `cardSurfaceStyle` usage in place as the mobile proof that card radius changes propagate through surfaces.
 - Modify `/Users/andrewwatanabe/kwilt-desktop/src/components/kwilt/workspace.tsx`
   - Replaces local card radius class with the shared Tailwind class.
-- Modify `/Users/andrewwatanabe/kwilt-site/package.json`
-  - Adds `@kwilt/tokens` file dependency.
-- Modify `/Users/andrewwatanabe/kwilt-site/tailwind.config.ts`
-  - Consumes the shared preset and keeps site-specific CSS variable aliases.
+- Modify `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/*`
+  - Mirrors the shared radius token contract into Kwilt Money's local token package.
+- Create `/Users/andrewwatanabe/Documents/Kwilt Budget/src/theme/radii.ts`
+  - Preserves the mobile theme bridge pattern in Kwilt Money.
+- Modify `/Users/andrewwatanabe/Documents/Kwilt Budget/src/theme/index.ts`
+  - Exports the Kwilt Money radius bridge.
 - Create `docs/design-system/foundation-propagation.md`
   - Documents the rule: apps only auto-update when they consume shared tokens or shared components.
 
@@ -339,67 +341,31 @@ Expected: `tsc && vite build` exits successfully.
 
 ---
 
-### Task 5: Make Site Consume The Shared Tailwind Preset
+### Task 5: Mirror Radius Tokens Into Kwilt Money
 
 **Files:**
-- Modify: `/Users/andrewwatanabe/kwilt-site/package.json`
-- Modify: `/Users/andrewwatanabe/kwilt-site/tailwind.config.ts`
+- Create: `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/src/radii.ts`
+- Modify: `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/src/index.ts`
+- Modify: `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/src/surfaces.ts`
+- Modify: `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/src/tailwind-preset.ts`
+- Modify: `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/package.json`
+- Modify: `/Users/andrewwatanabe/Documents/Kwilt Budget/packages/kwilt-tokens/README.md`
+- Create: `/Users/andrewwatanabe/Documents/Kwilt Budget/src/theme/radii.ts`
+- Modify: `/Users/andrewwatanabe/Documents/Kwilt Budget/src/theme/index.ts`
 
-- [ ] **Step 1: Add the token package dependency**
+- [ ] **Step 1: Apply the same radius token contract**
 
-In `/Users/andrewwatanabe/kwilt-site/package.json`, add this dependency:
+Mirror the same `radii` source file, `./radii` export, `cardSurfaceStyle` usage, Tailwind preset mapping, README wording, and `src/theme/radii.ts` bridge from Kwilt Goals into Kwilt Money.
 
-```json
-"@kwilt/tokens": "file:../Kwilt/packages/kwilt-tokens",
-```
-
-Place it in `dependencies`, before the Radix dependencies.
-
-- [ ] **Step 2: Install site dependencies**
-
-Run:
-
-```bash
-cd /Users/andrewwatanabe/kwilt-site && npm install
-```
-
-Expected: `package-lock.json` updates and `node_modules/@kwilt/tokens` resolves to the local file dependency.
-
-- [ ] **Step 3: Import and apply the preset**
-
-In `/Users/andrewwatanabe/kwilt-site/tailwind.config.ts`, add:
-
-```ts
-import kwiltTailwindPreset from "@kwilt/tokens/tailwind-preset";
-```
-
-Then add the preset key before `content`:
-
-```ts
-presets: [kwiltTailwindPreset],
-```
-
-Keep the existing `theme.extend.colors.kw` aliases and `borderRadius` aliases:
-
-```ts
-borderRadius: {
-  control: "6px",
-  card: "9px",
-  pill: "999px"
-},
-```
-
-This is intentional for the first site pass because `rounded-card` is already used as a site-specific public/share surface token. A later design pass should decide whether site `rounded-card` should become the shared `18px` value or remain a public-site override.
-
-- [ ] **Step 4: Build the site**
+- [ ] **Step 2: Typecheck Kwilt Money**
 
 Run:
 
 ```bash
-cd /Users/andrewwatanabe/kwilt-site && npm run build
+cd /Users/andrewwatanabe/Documents/Kwilt\ Budget && npm run lint
 ```
 
-Expected: Next.js production build exits successfully.
+Expected: `tsc --noEmit` exits successfully.
 
 ---
 
@@ -474,11 +440,11 @@ export const radii = {
 } as const;
 ```
 
-Mobile card surfaces consume `cardSurfaceStyle.borderRadius`, and `cardSurfaceStyle` consumes `radii.card`.
+Kwilt Goals and Kwilt Money card surfaces consume `cardSurfaceStyle.borderRadius`, and `cardSurfaceStyle` consumes `radii.card`.
 
 Desktop consumes the Tailwind preset, so `rounded-compact-card` resolves from `radii.compactCard`.
 
-Site consumes the Tailwind preset, but keeps site-specific aliases until public-site surfaces are reviewed.
+The marketing site is intentionally outside this first propagation path. It can opt into shared brand primitives later while keeping campaign and landing-page leeway.
 ```
 
 - [ ] **Step 3: Update `@kwilt/tokens` README**
@@ -542,15 +508,15 @@ cd /Users/andrewwatanabe/kwilt-desktop && npm run build
 
 Expected: desktop build passes.
 
-- [ ] **Step 4: Verify site**
+- [ ] **Step 4: Verify Kwilt Money**
 
 Run:
 
 ```bash
-cd /Users/andrewwatanabe/kwilt-site && npm run build
+cd /Users/andrewwatanabe/Documents/Kwilt\ Budget && npm run lint
 ```
 
-Expected: site build passes.
+Expected: Kwilt Money typecheck passes.
 
 - [ ] **Step 5: Inspect git diffs**
 
@@ -559,7 +525,7 @@ Run:
 ```bash
 cd /Users/andrewwatanabe/Kwilt && git diff --stat
 cd /Users/andrewwatanabe/kwilt-desktop && git diff --stat
-cd /Users/andrewwatanabe/kwilt-site && git diff --stat
+cd /Users/andrewwatanabe/Documents/Kwilt\ Budget && git diff --stat -- packages/kwilt-tokens src/theme
 ```
 
 Expected: diffs are limited to token propagation, docs, and the first representative consumers.

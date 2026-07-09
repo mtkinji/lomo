@@ -317,7 +317,7 @@ End Focus in Kwilt to open this app.
 
 Meaningful First locked:
 Do one thing first.
-Make real progress in Kwilt. Then this app opens for the day.
+Complete a to-do, record progress, or finish Focus in Kwilt to open this app today.
 ```
 
 ### Qualifying actions
@@ -366,8 +366,8 @@ The shield should frame the restriction as the user's agreement with themself:
 ```text
 Do one thing first.
 
-Make real progress in Kwilt.
-Then this app opens for the day.
+Complete a to-do, record progress, or finish Focus in Kwilt
+to open this app today.
 ```
 
 The shield should avoid:

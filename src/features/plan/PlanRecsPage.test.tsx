@@ -45,6 +45,30 @@ const defaultProps = {
 };
 
 describe('PlanRecsPage', () => {
+  it('renders a compact completed state after all recommendations are placed', () => {
+    const onReviewPlan = jest.fn();
+    const onRerun = jest.fn();
+    const { getByText, queryByText } = renderWithProviders(
+      <PlanRecsPage
+        {...defaultProps}
+        showAlreadyPlanned
+        targetDayLabel="Thu, Jul 9"
+        onReviewPlan={onReviewPlan}
+        onRerun={onRerun}
+      />,
+    );
+
+    expect(getByText('Your plan is set')).toBeTruthy();
+    expect(getByText(/The recommendations for Thu, Jul 9 are on your calendar/)).toBeTruthy();
+    expect(queryByText('No recommendations remain for this day. Review or adjust your blocks on the calendar.')).toBeNull();
+
+    fireEvent.press(getByText('Review plan'));
+    fireEvent.press(getByText('Re-run recommendations'));
+
+    expect(onReviewPlan).toHaveBeenCalledTimes(1);
+    expect(onRerun).toHaveBeenCalledTimes(1);
+  });
+
   it('renders the inline quick-add offer in the recommendations sheet', () => {
     const setIsFocused = jest.fn();
     const { getByLabelText } = renderWithProviders(
