@@ -1361,6 +1361,7 @@ export function ArcDetailScreen() {
       <ArcBannerSheet
         visible={isHeroModalVisible}
         onClose={() => setIsHeroModalVisible(false)}
+        objectKind="arc"
         arcName={arc.name}
         arcNarrative={arc.narrative}
         arcGoalTitles={arcGoals.map((goal) => goal.title)}

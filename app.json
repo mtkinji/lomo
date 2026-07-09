@@ -14,7 +14,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.andrewwatanabe.kwilt",
       "appleTeamId": "BK3N7YXHN7",
-      "buildNumber": "82",
+      "buildNumber": "83",
       "appExtensions": [
         {
           "targetName": "KwiltWidgets",

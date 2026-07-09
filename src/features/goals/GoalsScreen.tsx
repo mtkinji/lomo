@@ -1599,6 +1599,7 @@ export function GoalCoachDrawer({
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         objectLabel="Goal"
+        objectKind="goal"
         arcName={draft.title || 'New goal'}
         arcNarrative={draft.description}
         arcGoalTitles={undefined}

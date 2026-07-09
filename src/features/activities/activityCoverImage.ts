@@ -1,5 +1,6 @@
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { generateArcBannerVibeQuery } from '../../services/ai';
+import { buildVisualSearchFallbackQuery } from '../../services/arcBannerImageSearchTerms';
 import {
   searchUnsplashPhotos,
   trackUnsplashDownload,
@@ -39,7 +40,11 @@ export function buildActivityCoverFallbackQuery(params: {
   title: string;
   existingTags?: string[];
 }): string {
-  return compactQuery([params.title, ...(params.existingTags ?? [])].join(' '));
+  return buildVisualSearchFallbackQuery({
+    objectKind: 'activity',
+    name: params.title,
+    relatedTitles: params.existingTags,
+  }) ?? compactQuery([params.title, ...(params.existingTags ?? [])].join(' '));
 }
 
 function toActivityCoverImageSelection(
@@ -82,6 +87,7 @@ export async function findActivityCoverImageWithAI(
 
   const vibeQuery =
     (await generateQuery({
+      objectKind: 'activity',
       arcName: params.title,
       arcNarrative: targetGoal?.description ?? targetArc?.narrative,
       goalTitles: [

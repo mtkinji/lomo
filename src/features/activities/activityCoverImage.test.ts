@@ -32,7 +32,7 @@ describe('activity cover image lookup', () => {
         title: 'Update the Orchard book writing system!!!',
         existingTags: ['writing', 'essays'],
       }),
-    ).toBe('Update the Orchard book writing');
+    ).toBe('orchard book editorial detail soft window light');
   });
 
   it('tries the literal activity fallback when the generated query returns no photos', async () => {
@@ -66,7 +66,7 @@ describe('activity cover image lookup', () => {
     );
     expect(searchPhotos).toHaveBeenNthCalledWith(
       2,
-      'Update the Orchard book writing',
+      'orchard book editorial detail soft window light',
       expect.objectContaining({ orientation: 'landscape' }),
     );
     expect(result?.thumbnailUrl).toBe('https://images.unsplash.com/orchard-essay-cover?regular');

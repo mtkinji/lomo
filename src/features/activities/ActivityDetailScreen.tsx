@@ -5616,6 +5616,7 @@ export function ActivityDetailScreen() {
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         objectLabel="To-do"
+        objectKind="activity"
         arcName={activity?.title ?? 'To-do'}
         arcNarrative={activity?.notes}
         canUseUnsplash={canUseUnsplash}

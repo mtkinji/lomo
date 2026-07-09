@@ -16,8 +16,9 @@ import { buildCoachChatContext } from '../features/ai/agentRuntime';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
 import {
-  buildArcBannerFallbackSearchTerm,
-  buildArcBannerImageSearchTerm,
+  buildVisualSearchFallbackQuery,
+  buildVisualSearchQuery,
+  type VisualSearchObjectKind,
 } from './arcBannerImageSearchTerms';
 import { getActiveActivityAreas } from '../domain/activityAreas';
 import { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
@@ -2056,6 +2057,7 @@ export async function generateArcHeroImage(
 }
 
 export type ArcBannerVibeQueryInput = {
+  objectKind?: VisualSearchObjectKind;
   arcName: string;
   arcNarrative?: string;
   goalTitles?: string[];
@@ -2069,16 +2071,23 @@ export async function generateArcBannerVibeQuery(
   input: ArcBannerVibeQueryInput
 ): Promise<string | null> {
   const apiKey = resolveOpenAiApiKey();
+  const objectKind = input.objectKind ?? 'arc';
   const arcName = input.arcName?.trim() ?? '';
   const narrative = input.arcNarrative ? richTextToPlainText(input.arcNarrative).trim() : '';
   const goalTitles = (input.goalTitles ?? []).map((g) => g.trim()).filter(Boolean).slice(0, 8);
 
   const buildLocalFallbackQuery = (): string | null => {
-    return buildArcBannerFallbackSearchTerm({ arcName, arcNarrative: narrative, goalTitles });
+    return buildVisualSearchFallbackQuery({
+      objectKind,
+      name: arcName,
+      description: narrative,
+      relatedTitles: goalTitles,
+    });
   };
 
   devLog('bannerVibe:init', {
     arcName,
+    objectKind,
     narrativePreview: previewText(narrative),
     goalCount: goalTitles.length,
     apiKey: describeKey(apiKey),
@@ -2100,16 +2109,20 @@ export async function generateArcBannerVibeQuery(
     'Return a single line containing ONLY the concrete subject or visual metaphor (2–4 words). ' +
     'No quotes. No hashtags. No punctuation. No emojis. ' +
     'Favor concrete subjects over abstract self-improvement words. ' +
-    'Good subjects: trail runner, mountain sunrise, creative studio, modern architecture, family table, open road. ' +
+    'For Arcs, choose metaphorical identity-level subjects. ' +
+    'For Goals, choose outcome-context subjects. ' +
+    'For To-dos, choose concrete nouns: places, tools, materials, documents, food, or objects. ' +
+    'Good subjects: trail runner, mountain sunrise, creative studio, modern architecture, family table, workbench tools, tax documents. ' +
     'AVOID generic office scenes, people at desks, corporate imagery, or stock-photo workplace settings. ' +
     'Avoid words like growth, journey, progress, identity, business, work, productivity, and mindset unless paired with a visible subject.';
 
   const userPrompt = `
-Arc name: ${arcName || '(missing)'}
-Arc narrative: ${narrative || '(none)'}
-Goal titles: ${goalTitles.length > 0 ? goalTitles.join(' | ') : '(none)'}
+Object kind: ${objectKind}
+Name: ${arcName || '(missing)'}
+Description/context: ${narrative || '(none)'}
+Related titles/tags: ${goalTitles.length > 0 ? goalTitles.join(' | ') : '(none)'}
 
-Return one photo-library search phrase that matches the Arc's vibe.
+Return one photo-library subject phrase that matches the visual role of this ${objectKind}.
 `;
 
   const body = {
@@ -2174,7 +2187,15 @@ Return one photo-library search phrase that matches the Arc's vibe.
     return null;
   }
 
-  return buildArcBannerImageSearchTerm({ arcName, arcNarrative: narrative, goalTitles }, cleaned);
+  return buildVisualSearchQuery(
+    {
+      objectKind,
+      name: arcName,
+      description: narrative,
+      relatedTitles: goalTitles,
+    },
+    cleaned
+  );
 }
 
 async function requestOpenAiArcs(

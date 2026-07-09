@@ -4151,6 +4151,7 @@ export function GoalDetailScreen() {
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
         objectLabel="Goal"
+        objectKind="goal"
         arcName={goal.title}
         arcNarrative={goal.description}
         arcGoalTitles={goalActivities.map((activity) => activity.title)}

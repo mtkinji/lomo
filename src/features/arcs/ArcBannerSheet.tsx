@@ -29,6 +29,7 @@ import { searchUnsplashPhotos, UnsplashError, type UnsplashPhoto } from '../../s
 import { generateArcBannerVibeQuery } from '../../services/ai';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import type { VisualSearchObjectKind } from '../../services/arcBannerImageSearchTerms';
 
 export type ArcBannerSheetProps = {
   visible: boolean;
@@ -38,6 +39,7 @@ export type ArcBannerSheetProps = {
    * Defaults to "Arc" (historical behavior).
    */
   objectLabel?: string;
+  objectKind?: VisualSearchObjectKind;
   arcName: string;
   arcNarrative?: string;
   arcGoalTitles?: string[];
@@ -81,6 +83,7 @@ export function ArcBannerSheet({
   visible,
   onClose,
   objectLabel = 'Arc',
+  objectKind,
   arcName,
   arcNarrative,
   arcGoalTitles,
@@ -108,6 +111,7 @@ export function ArcBannerSheet({
   const shouldShowTopography = showTopography && !thumbnailUrl;
   const shouldShowGeoMosaic = showGeoMosaic && !thumbnailUrl;
   const showRefreshAction = !thumbnailUrl;
+  const imageSearchObjectKind = objectKind ?? 'arc';
 
   const defaultTab: HeroImageSourceTab = canUseUnsplash ? DEFAULT_SOURCE_TAB : 'curated';
   const [sourceTab, setSourceTab] = useState<HeroImageSourceTab>(defaultTab);
@@ -219,6 +223,7 @@ export function ArcBannerSheet({
       (async () => {
         const vibeQuery =
           (await generateArcBannerVibeQuery({
+            objectKind: imageSearchObjectKind,
             arcName,
             arcNarrative,
             goalTitles: arcGoalTitles,
@@ -234,7 +239,7 @@ export function ArcBannerSheet({
         cancelled = true;
       };
     }
-  }, [arcGoalTitles, arcName, arcNarrative, canUseUnsplash, defaultTab, performUnsplashSearch, visible]);
+  }, [arcGoalTitles, arcName, arcNarrative, canUseUnsplash, defaultTab, imageSearchObjectKind, performUnsplashSearch, visible]);
 
   const masonryColumnWidth = useMemo(() => {
     if (gridWidth <= 0) return 0;
