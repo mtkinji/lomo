@@ -163,6 +163,7 @@ import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
+import { resolveActivityScheduleSheetDraft } from './activityScheduleSheetDraft';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
@@ -2337,25 +2338,17 @@ export function ActivityDetailScreen() {
 
   const openCalendarSheet = () => {
     if (!activity) return;
-    const existingStart = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-    const existingIsValid = Boolean(existingStart && !Number.isNaN(existingStart.getTime()));
-    const existingIsReasonablyFuture =
-      existingIsValid && (existingStart as Date).getTime() > Date.now() - 60_000 /* 1 min grace */;
+    const draft = resolveActivityScheduleSheetDraft({
+      scheduledAt: activity.scheduledAt,
+      estimateMinutes: activity.estimateMinutes,
+    });
 
-    const base = existingIsReasonablyFuture ? (existingStart as Date) : new Date();
-    const draftStart = (() => {
-      if (existingIsReasonablyFuture) return base;
-      // Round up to the next 15-minute boundary so the default feels intentional.
-      const intervalMs = 15 * 60_000;
-      return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
-    })();
-
-    setCalendarStartDraft(draftStart);
-    setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
+    setCalendarStartDraft(draft.draftStart);
+    setCalendarDurationDraft(draft.durationDraft);
     setScheduleDurationExpanded(false);
-    scheduleInitialTargetDateRef.current = new Date(draftStart);
+    scheduleInitialTargetDateRef.current = new Date(draft.draftStart);
     scheduleHorizonCacheRef.current = null;
-    setScheduleTargetDate(new Date(draftStart));
+    setScheduleTargetDate(draft.targetDate);
     setSelectedSlotIndex(0);
     setManualScheduleSlot(null);
     setScheduleHorizonExhausted(false);

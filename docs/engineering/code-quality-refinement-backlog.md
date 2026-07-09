@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activity schedule sheet draft initialization
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: Calendar sheet open-state rules combine scheduled-time reuse, grace-window handling, 15-minute rounding, and duration defaults inside a large screen.
+  - Result: `src/features/activities/activityScheduleSheetDraft.ts` with focused tests for reuse, rounding, stale/invalid starts, and duration text.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
