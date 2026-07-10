@@ -163,6 +163,7 @@ import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
+import { formatScheduleSlotTimeRange, resolveSelectedScheduleSlot } from './activityScheduleSelection';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
@@ -1033,9 +1034,11 @@ export function ActivityDetailScreen() {
     userProfile,
   ]);
 
-  const selectedSlot = manualScheduleSlot
-    ? { startDate: manualScheduleSlot.startDate, endDate: manualScheduleSlot.endDate }
-    : scheduleSlots[selectedSlotIndex] ?? null;
+  const selectedSlot = resolveSelectedScheduleSlot({
+    manualScheduleSlot,
+    scheduleSlots,
+    selectedSlotIndex,
+  });
 
   const scheduleTargetDayLabel = useMemo(() => {
     return scheduleTargetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
@@ -1043,12 +1046,7 @@ export function ActivityDetailScreen() {
 
   const selectedScheduleSlotLabel = useMemo(() => {
     if (!selectedSlot) return null;
-    const start = new Date(selectedSlot.startDate);
-    const end = new Date(selectedSlot.endDate);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-    const formatTime = (date: Date) =>
-      date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    return `${formatTime(start)}-${formatTime(end)}`;
+    return formatScheduleSlotTimeRange(selectedSlot);
   }, [selectedSlot]);
 
   const kwiltBlocksForScheduleDay = useMemo(() => {
@@ -5388,9 +5386,7 @@ export function ActivityDetailScreen() {
                 {scheduleSlots.length > 0 ? (
                   <HStack style={{ flexWrap: 'wrap', gap: spacing.sm }}>
                     {scheduleSlots.map((slot, idx) => {
-                      const start = new Date(slot.startDate);
-                      const end = new Date(slot.endDate);
-                      const label = `${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}–${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+                      const label = formatScheduleSlotTimeRange(slot, { separator: '–' }) ?? '';
                       return (
                         <Button
                           key={`${slot.startDate}:${idx}`}

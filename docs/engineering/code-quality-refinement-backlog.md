@@ -12,6 +12,12 @@ Prioritize by compounding leverage per unit of risk:
 
 ## Queue
 
+- [x] Extract Activity schedule selection rules
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: Manual slot precedence, suggested-slot fallback, and slot time labels were inline in the schedule sheet.
+  - Result: `src/features/activities/activityScheduleSelection.ts` with focused tests for selection precedence and label formatting.
+  - Risk: low
+
 - [x] Extract AI service error parsing
   - Area: `src/services/ai.ts`
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
