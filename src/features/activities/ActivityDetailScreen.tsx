@@ -2,7 +2,6 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
-  Image,
   InteractionManager,
   LayoutAnimation,
   View,
@@ -107,15 +106,6 @@ import {
 } from '../../store/useCelebrationStore';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
-import {
-  cancelAudioRecording,
-  deleteAttachment,
-  getAttachmentDownloadUrl,
-  openAttachment,
-  startAudioRecording,
-  setAttachmentSharedWithGoalMembers,
-  stopAudioRecordingAndAttachToActivity,
-} from '../../services/attachments/activityAttachments';
 import { deriveStatusFromSteps } from './activityStepStatus';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
@@ -129,6 +119,8 @@ import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
 import { ActivityRepeatSheets } from './ActivityRepeatSheets';
 import { useActivityRepeatEditor } from './useActivityRepeatEditor';
+import { ActivityAttachmentSheets } from './ActivityAttachmentSheets';
+import { useActivityAttachmentsController } from './useActivityAttachmentsController';
 import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
@@ -953,63 +945,13 @@ export function ActivityDetailScreen() {
   const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
   const recordAudioSheetVisible = activeSheet === 'recordAudio';
   const attachmentDetailsSheetVisible = activeSheet === 'attachmentDetails';
-  const [selectedAttachment, setSelectedAttachment] = useState<any | null>(null);
-  const [attachmentDownloadUrl, setAttachmentDownloadUrl] = useState<string | null>(null);
-  const [isLoadingAttachmentDownloadUrl, setIsLoadingAttachmentDownloadUrl] = useState(false);
-  const [attachmentPhotoAspectRatio, setAttachmentPhotoAspectRatio] = useState<number>(4 / 3);
-  const openAttachmentDetails = useCallback((att: any) => {
-    setSelectedAttachment(att ?? null);
-    setActiveSheet('attachmentDetails');
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const att = selectedAttachment;
-    const visible = attachmentDetailsSheetVisible;
-    const kind = (att?.kind ?? '').toString();
-
-    setAttachmentDownloadUrl(null);
-    setIsLoadingAttachmentDownloadUrl(false);
-    setAttachmentPhotoAspectRatio(4 / 3);
-
-    // Fetch a signed URL for downloading (and photo preview rendering).
-    if (!visible || !att?.id) return;
-
-    setIsLoadingAttachmentDownloadUrl(true);
-    getAttachmentDownloadUrl(String(att.id))
-      .then((url) => {
-        if (cancelled) return;
-        setAttachmentDownloadUrl(url);
-        if (kind === 'photo') {
-          try {
-            Image.getSize(
-              url,
-              (w, h) => {
-                if (cancelled) return;
-                if (typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0) {
-                  setAttachmentPhotoAspectRatio(w / h);
-                }
-              },
-              () => undefined,
-            );
-          } catch {
-            // ignore
-          }
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAttachmentDownloadUrl(null);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setIsLoadingAttachmentDownloadUrl(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [attachmentDetailsSheetVisible, selectedAttachment]);
+  const attachmentsController = useActivityAttachmentsController({
+    activity,
+    detailsVisible: attachmentDetailsSheetVisible,
+    onOpenDetails: () => setActiveSheet('attachmentDetails'),
+    onCloseDetails: () => setActiveSheet(null),
+    onCloseRecording: () => setActiveSheet(null),
+  });
   const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
   const FOCUS_SHEET_PORTAL_HOST = 'activity-detail-focus-sheet';
   const DEFAULT_RADIUS_FT = 150;
@@ -1583,7 +1525,6 @@ export function ActivityDetailScreen() {
       cancelApplePlaceSearchBestEffort();
     };
   }, [locationQuery, locationSheetVisible, normalizePlaceLabel]);
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
@@ -3351,7 +3292,7 @@ export function ActivityDetailScreen() {
               openCalendarSheet={openCalendarSheet}
               openAgentForActivity={openAgentForActivity}
               setActiveSheet={setActiveSheet}
-              openAttachmentDetails={openAttachmentDetails}
+              openAttachmentDetails={attachmentsController.openDetails}
               scrollRef={scrollRef}
               KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
               detailGuideHost={detailGuideHost}
@@ -4486,294 +4427,12 @@ export function ActivityDetailScreen() {
 
       {AgentWorkspaceSheet}
 
-      <BottomDrawer
-        visible={attachmentDetailsSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
-          setSelectedAttachment(null);
-          setAttachmentDownloadUrl(null);
-          setIsLoadingAttachmentDownloadUrl(false);
-          setAttachmentPhotoAspectRatio(4 / 3);
-        }}
-        // Allow the sheet to grow near full-height when the preview is tall,
-        // while still supporting a more compact resting state.
-        snapPoints={Platform.OS === 'ios' ? (['70%', '96%'] as const) : (['66%', '94%'] as const)}
-        scrimToken="pineSubtle"
-        enableContentPanningGesture
-        // Let the sheet surface extend all the way to the bottom of the screen.
-        // We'll handle safe-area padding inside the scroll content so buttons never clip.
-        sheetStyle={{ paddingBottom: 0, paddingTop: 0, paddingHorizontal: 0 }}
-      >
-        <BottomDrawerScrollView
-          // Important: keep the scroll view itself flexed to fill the sheet height.
-          style={{ flex: 1 }}
-          // Avoid `flex: 1` on the content container; it can prevent scroll when content is taller.
-          contentContainerStyle={{
-            paddingTop: spacing.lg,
-            paddingHorizontal: spacing.lg,
-            paddingBottom: spacing['2xl'] + insets.bottom,
-          }}
-        >
-          {(() => {
-            const att = selectedAttachment;
-            if (!att) {
-              return (
-                <>
-                  <BottomDrawerHeader
-                    title="Attachment"
-                    variant="minimal"
-                    containerStyle={styles.sheetHeader}
-                    titleStyle={styles.sheetTitle}
-                  />
-                  <Text style={styles.sheetBody}>No attachment selected.</Text>
-                </>
-              );
-            }
-
-            const kind = (att?.kind ?? '').toString();
-            const kindLabel =
-              kind === 'photo'
-                ? 'Photo'
-                : kind === 'video'
-                  ? 'Video'
-                  : kind === 'audio'
-                    ? 'Audio'
-                    : kind === 'document'
-                      ? 'Document'
-                      : 'Attachment';
-            const rawName = typeof att?.fileName === 'string' ? att.fileName : '';
-            const name = rawName.trim() ? rawName.trim() : 'Attachment';
-            const status = (att?.uploadStatus ?? 'uploaded').toString();
-            const isOpenable = status === 'uploaded';
-            const isFailed = status === 'failed';
-
-            const formatBytes = (bytes: number) => {
-              if (!Number.isFinite(bytes) || bytes <= 0) return '';
-              const kb = bytes / 1024;
-              if (kb < 1024) return `${Math.round(kb)} KB`;
-              const mb = kb / 1024;
-              if (mb < 1024) return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
-              const gb = mb / 1024;
-              return `${gb.toFixed(gb < 10 ? 1 : 0)} GB`;
-            };
-
-            const formatDuration = (secs: number) => {
-              if (!Number.isFinite(secs) || secs <= 0) return '';
-              const s = Math.round(secs);
-              const m = Math.floor(s / 60);
-              const r = s % 60;
-              return m > 0 ? `${m}:${String(r).padStart(2, '0')}` : `${r}s`;
-            };
-
-            const sizeBytes = typeof att?.sizeBytes === 'number' ? att.sizeBytes : null;
-            const durationSeconds = typeof att?.durationSeconds === 'number' ? att.durationSeconds : null;
-            const createdAt = typeof att?.createdAt === 'string' ? att.createdAt : null;
-            const uploadError = typeof att?.uploadError === 'string' ? att.uploadError.trim() : '';
-
-            return (
-              <>
-                <View
-                  style={[
-                    styles.attachmentPreviewFrame,
-                    // Photos should render at natural aspect ratio (can push content and enable scroll).
-                    kind === 'photo' ? { aspectRatio: attachmentPhotoAspectRatio } : { height: 164 },
-                  ]}
-                >
-                  {isLoadingAttachmentDownloadUrl ? (
-                    <View style={styles.attachmentPreviewPlaceholder}>
-                      <ActivityIndicator size="small" color={colors.textSecondary} />
-                      <Text style={styles.attachmentPreviewPlaceholderText}>Loading…</Text>
-                    </View>
-                  ) : kind === 'photo' && attachmentDownloadUrl ? (
-                    <Image source={{ uri: attachmentDownloadUrl }} style={styles.attachmentPreviewImage} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.attachmentPreviewPlaceholder}>
-                      <Icon
-                        name={kind === 'video' ? 'image' : kind === 'audio' ? 'mic' : 'paperclip'}
-                        size={22}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={styles.attachmentPreviewPlaceholderText}>
-                        {kind === 'photo' ? 'Preview unavailable' : 'Preview available for photos'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <BottomDrawerHeader
-                  title={name}
-                  variant="minimal"
-                  containerStyle={styles.sheetHeader}
-                  titleStyle={styles.sheetTitle}
-                />
-                <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
-                  {kindLabel}
-                  {sizeBytes ? ` · ${formatBytes(sizeBytes)}` : ''}
-                  {durationSeconds ? ` · ${formatDuration(durationSeconds)}` : ''}
-                </Text>
-
-                <View style={styles.rowsCard}>
-                  <View style={[styles.row, styles.rowContent]}>
-                    <Text style={styles.rowLabel}>Status</Text>
-                    <Text style={[styles.rowValue, isFailed ? { color: colors.destructive } : null]}>
-                      {status === 'uploading' ? 'Uploading' : status === 'failed' ? 'Failed' : 'Uploaded'}
-                    </Text>
-                  </View>
-                  {createdAt ? (
-                    <>
-                      <View style={styles.cardSectionDivider} />
-                      <View style={[styles.row, styles.rowContent]}>
-                        <Text style={styles.rowLabel}>Added</Text>
-                        <Text style={styles.rowValue}>{new Date(createdAt).toLocaleString()}</Text>
-                      </View>
-                    </>
-                  ) : null}
-                  {uploadError ? (
-                    <>
-                      <View style={styles.cardSectionDivider} />
-                      <View style={[styles.row, styles.rowContent]}>
-                        <Text style={styles.rowLabel}>Error</Text>
-                        <Text style={[styles.rowValue, { color: colors.destructive }]} numberOfLines={2}>
-                          {uploadError}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
-                </View>
-
-                <View style={{ marginTop: spacing.md }}>
-                  <VStack space="sm">
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      disabled={!isOpenable || !attachmentDownloadUrl}
-                      accessibilityLabel="Download attachment"
-                      onPress={() => {
-                        if (!isOpenable || !attachmentDownloadUrl) return;
-                        // iOS: share sheet includes "Save Image" for photos.
-                        Share.share({ url: attachmentDownloadUrl, message: attachmentDownloadUrl }).catch(() => {
-                          Linking.openURL(attachmentDownloadUrl).catch(() => undefined);
-                        });
-                      }}
-                    >
-                      <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Download</Text>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      accessibilityLabel="Delete attachment"
-                      onPress={() => {
-                        Alert.alert('Delete attachment?', 'This will remove it from this to-do.', [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Delete',
-                            style: 'destructive',
-                            onPress: () => {
-                              void deleteAttachment({
-                                activityId: activity.id,
-                                attachmentId: String(att.id),
-                              }).catch(() => undefined);
-                              setActiveSheet(null);
-                              setSelectedAttachment(null);
-                            },
-                          },
-                        ]);
-                      }}
-                    >
-                      <Text style={[styles.sheetRowLabel, { color: colors.destructive }]}>Delete</Text>
-                    </Button>
-                  </VStack>
-                </View>
-              </>
-            );
-          })()}
-        </BottomDrawerScrollView>
-      </BottomDrawer>
-
-      <BottomDrawer
-        visible={recordAudioSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
-          if (isRecordingAudio) {
-            setIsRecordingAudio(false);
-            cancelAudioRecording().catch(() => undefined);
-          }
-        }}
-        snapPoints={Platform.OS === 'ios' ? ['52%'] : ['48%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={styles.sheetContent}>
-          <BottomDrawerHeader
-            title="Record audio"
-            variant="minimal"
-            containerStyle={styles.sheetHeader}
-            titleStyle={styles.sheetTitle}
-          />
-          <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
-            Record a quick voice note and attach it to this to-do.
-          </Text>
-
-          <VStack space="sm">
-            <Button
-              variant={isRecordingAudio ? 'outline' : 'primary'}
-              fullWidth
-              accessibilityLabel={isRecordingAudio ? 'Recording in progress' : 'Start recording'}
-              testID="e2e.activityDetail.attachments.record.start"
-              onPress={() => {
-                if (isRecordingAudio) return;
-                startAudioRecording()
-                  .then(() => setIsRecordingAudio(true))
-                  .catch(() => undefined);
-              }}
-            >
-              <Text style={[styles.sheetRowLabel, !isRecordingAudio ? { color: colors.primaryForeground } : null]}>
-                {isRecordingAudio ? 'Recording…' : 'Start recording'}
-              </Text>
-            </Button>
-
-            <Button
-              variant={isRecordingAudio ? 'primary' : 'outline'}
-              fullWidth
-              accessibilityLabel="Stop recording and attach"
-              testID="e2e.activityDetail.attachments.record.stopAttach"
-              onPress={() => {
-                if (!isRecordingAudio) return;
-                setIsRecordingAudio(false);
-                stopAudioRecordingAndAttachToActivity(activity)
-                  .catch(() => undefined)
-                  .finally(() => {
-                    setActiveSheet(null);
-                  });
-              }}
-            >
-              <Text
-                style={[
-                  styles.sheetRowLabel,
-                  isRecordingAudio ? { color: colors.primaryForeground } : null,
-                ]}
-              >
-                Stop & save
-              </Text>
-            </Button>
-
-            <Button
-              variant="outline"
-              fullWidth
-              accessibilityLabel="Cancel recording"
-              testID="e2e.activityDetail.attachments.record.cancel"
-              onPress={() => {
-                setIsRecordingAudio(false);
-                cancelAudioRecording().catch(() => undefined);
-                setActiveSheet(null);
-              }}
-            >
-              <Text style={styles.sheetRowLabel}>Cancel</Text>
-            </Button>
-          </VStack>
-        </View>
-      </BottomDrawer>
-
+      <ActivityAttachmentSheets
+        detailsVisible={attachmentDetailsSheetVisible}
+        recordingVisible={recordAudioSheetVisible}
+        bottomInset={insets.bottom}
+        controller={attachmentsController}
+      />
       <BottomDrawer
         visible={sendToSheetVisible}
         onClose={() => setActiveSheet(null)}
