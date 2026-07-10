@@ -54,6 +54,22 @@ let enableGeneration = 0;
 let prevArcIds = new Set<string>();
 let prevGoalIds = new Set<string>();
 let prevActivityIds = new Set<string>();
+let prevArcSignatures = new Map<string, string>();
+let prevGoalSignatures = new Map<string, string>();
+let prevActivitySignatures = new Map<string, string>();
+
+function getDomainItemSignature(item: { id: string }): string {
+  return JSON.stringify(item);
+}
+
+export function getChangedDomainItems<T extends { id: string }>(
+  items: T[],
+  previousSignatures: ReadonlyMap<string, string>,
+): T[] {
+  return items.filter(
+    (item) => previousSignatures.get(item.id) !== getDomainItemSignature(item),
+  );
+}
 
 const logger = createLogger('domainSync');
 
@@ -61,6 +77,9 @@ export function resetPrevIds(): void {
   prevArcIds = new Set<string>();
   prevGoalIds = new Set<string>();
   prevActivityIds = new Set<string>();
+  prevArcSignatures = new Map<string, string>();
+  prevGoalSignatures = new Map<string, string>();
+  prevActivitySignatures = new Map<string, string>();
 }
 
 const PUSH_DEBOUNCE_MS = 1200;
@@ -314,6 +333,11 @@ function seedPrevIdsFromStore(): void {
   prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
   prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
   prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
+  prevArcSignatures = new Map((s.arcs ?? []).map((item) => [item.id, getDomainItemSignature(item)]));
+  prevGoalSignatures = new Map((s.goals ?? []).map((item) => [item.id, getDomainItemSignature(item)]));
+  prevActivitySignatures = new Map(
+    (s.activities ?? []).map((item) => [item.id, getDomainItemSignature(item)]),
+  );
 }
 
 function buildUpsertRows<T extends { id: string }>(user: SyncUser, items: T[], extra?: Record<string, any>) {
@@ -367,13 +391,12 @@ async function pushNow(): Promise<void> {
     const removedGoalIds = Array.from(prevGoalIds).filter((id) => !nextGoalIds.has(id));
     const removedActivityIds = Array.from(prevActivityIds).filter((id) => !nextActivityIds.has(id));
 
-    prevArcIds = nextArcIds;
-    prevGoalIds = nextGoalIds;
-    prevActivityIds = nextActivityIds;
-
-    const arcRows = buildUpsertRows(user, arcs);
-    const goalRows = buildUpsertRows(user, goals);
-    const activityRows = buildUpsertRows(user, activities);
+    const arcRows = buildUpsertRows(user, getChangedDomainItems(arcs, prevArcSignatures));
+    const goalRows = buildUpsertRows(user, getChangedDomainItems(goals, prevGoalSignatures));
+    const activityRows = buildUpsertRows(
+      user,
+      getChangedDomainItems(activities, prevActivitySignatures),
+    );
 
     const arcTombstones = buildTombstones(user, removedArcIds);
     const goalTombstones = buildTombstones(user, removedGoalIds);
@@ -387,6 +410,7 @@ async function pushNow(): Promise<void> {
     await doUpsert('kwilt_arcs', [...arcRows, ...arcTombstones]);
     await doUpsert('kwilt_goals', [...goalRows, ...goalTombstones]);
     await doUpsert('kwilt_activities', [...activityRows, ...activityTombstones]);
+    seedPrevIdsFromStore();
   } catch (e) {
     if (__DEV__) {
       if (maybeDisableIfSchemaCacheMissingTable(e)) return;
@@ -523,6 +547,7 @@ async function enableForUser(user: SyncUser): Promise<void> {
       void pullAndMerge(user)
         .then((result) => {
           if (gen !== enableGeneration) return;
+          seedPrevIdsFromStore();
           markDomainPullReady(result);
         })
         .catch((e) => {
