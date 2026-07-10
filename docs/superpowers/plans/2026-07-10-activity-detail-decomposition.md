@@ -10,6 +10,18 @@
 
 ---
 
+## Implementation Outcome
+
+Completed on `codex/activity-detail-decomposition-plan` in five independently verified commits:
+
+- `4c1f1e1` - schedule controller and sheet
+- `f93cd21` - repeat editor
+- `c691847` - attachment details and audio recording
+- `e5ee3db` - location-trigger editor
+- `f685e4e` - Focus launcher and overlay
+
+`ActivityDetailScreen.tsx` fell from 6,119 lines to 3,044 lines and from 110 to 93 import statements. The line-count goal was exceeded; the aspirational 25-import reduction landed at 17 because the screen now imports five explicit experience owners instead of hiding them behind a barrel. The full Jest suite passes with 148 suites and 1,067 tests; `npm run verify:changed -- --base main --run` also passes. Native drawer stacking, map gestures, recording, calendar permissions, and Focus overlay interactions still require the device/simulator checklist at the end of this plan.
+
 ## Starting Point And Guardrails
 
 - Start execution from current `main`, not from one of the date-stamped refinement branches.
