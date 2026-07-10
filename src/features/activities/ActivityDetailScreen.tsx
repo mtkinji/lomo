@@ -11,12 +11,9 @@ import {
   TextInput,
   Platform,
   Keyboard,
-  Modal,
   Share,
   Linking,
   useWindowDimensions,
-  Animated,
-  Easing,
   findNodeHandle,
   UIManager,
 } from 'react-native';
@@ -50,13 +47,10 @@ import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { parseLocalCalendarDate } from '../../services/plan/planDates';
 import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
-import { SOUND_SCAPES, preloadSoundscape } from '../../services/soundscape';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
-import { BrandLockup } from '../../ui/BrandLockup';
-import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
@@ -67,8 +61,6 @@ import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
 import { DurationPicker, formatDurationMinutes } from './DurationPicker';
-import type { ActiveFocusSession } from './focusSessionLifecycle';
-import { useFocusSessionStore } from './focusSessionStore';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Card } from '../../ui/Card';
@@ -86,33 +78,6 @@ import { suggestActivityTagsWithAi } from '../../services/ai';
 import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import * as Clipboard from 'expo-clipboard';
-import * as Notifications from 'expo-notifications';
-import {
-  // Device calendar helpers remain used elsewhere in ActivityDetail (e.g. permission checks / legacy flows).
-  // This Schedule sheet no longer creates device events directly (it writes to Plan's write calendar).
-  getCalendarPermissions,
-} from '../../services/calendar/deviceCalendar';
-import { buildIcsEvent } from '../../utils/ics';
-import { buildOutlookEventLinks } from '../../utils/outlookEventLinks';
-import { inferCalendarBindingHealth } from '../../services/calendar/calendarBinding';
-import {
-  createCalendarEvent as createProviderCalendarEvent,
-  getOrInitCalendarPreferences,
-  listBusyIntervals as listProviderBusyIntervals,
-  listCalendarEvents as listProviderCalendarEvents,
-  type CalendarEvent,
-  type CalendarEventRef,
-  type CalendarRef,
-} from '../../services/plan/calendarApi';
-import {
-  getCalendarCommitAlertForError,
-  resolveCalendarEventRefBeforeCreate,
-  resolveCalendarEventRefAfterCreate,
-} from '../../services/plan/calendarEventCommit';
-import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
-import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
-import { PlanCalendarLensPage } from '../plan/PlanCalendarLensPage';
-import { PlanDateStrip } from '../plan/PlanDateStrip';
 import { toLocalDateKey } from '../../services/plan/planDates';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
@@ -149,6 +114,8 @@ import { ActivityAttachmentSheets } from './ActivityAttachmentSheets';
 import { useActivityAttachmentsController } from './useActivityAttachmentsController';
 import { ActivityLocationSheet } from './ActivityLocationSheet';
 import { useActivityLocationEditor } from './useActivityLocationEditor';
+import { ActivityFocusExperience } from './ActivityFocusExperience';
+import { useActivityFocusController } from './useActivityFocusController';
 import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
@@ -194,9 +161,6 @@ import {
   normalizeScreenTimeProtectionSettings,
   shouldShowScreenTimeSetupOffer,
 } from '../../services/screenTimeProtection';
-import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
-
-type FocusSessionState = ActiveFocusSession;
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
@@ -207,37 +171,6 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
   ActivitiesStackParamList,
   'ActivityDetail'
 >;
-
-async function runFocusNativeBoundary<T>(
-  operation: string,
-  fn: () => Promise<T>,
-  context?: Record<string, unknown>,
-): Promise<T> {
-  await recordFocusNativeBreadcrumb(operation, 'before', context);
-  try {
-    const result = await fn();
-    await recordFocusNativeBreadcrumb(operation, 'after', context);
-    return result;
-  } catch (error) {
-    await recordFocusNativeBreadcrumb(operation, 'error', context, error);
-    throw error;
-  }
-}
-
-async function recordFocusNativeBreadcrumb(
-  operation: string,
-  phase: 'before' | 'after' | 'error',
-  context?: Record<string, unknown>,
-  error?: unknown,
-): Promise<void> {
-  await recordNativeCrashBreadcrumb({
-    area: 'focus.session',
-    operation,
-    phase,
-    context,
-    errorMessage: error === undefined ? undefined : nativeCrashErrorMessage(error),
-  });
-}
 
 export function ActivityDetailScreen() {
   // Focus duration limits:
@@ -777,160 +710,17 @@ export function ActivityDetailScreen() {
     shouldShowFocusScreenTimeOffer,
   ]);
 
-  const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
-  const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
-  const activeFocusSession = useFocusSessionStore((state) => state.activeSession);
-  const focusSession: FocusSessionState | null =
-    activeFocusSession?.activityId === activityId ? activeFocusSession : null;
-  const [focusTickMs, setFocusTickMs] = useState(() => Date.now());
-  const [focusSoundscapeMenuOpen, setFocusSoundscapeMenuOpen] = useState(false);
-  const [focusSoundscapeMenuVisible, setFocusSoundscapeMenuVisible] = useState(false);
-  const suppressNextFocusAudioTapRef = useRef(false);
-  const focusSoundscapeMenuAnim = useRef(new Animated.Value(0)).current;
-  const focusOverlayColors = useMemo(
-    () => [
-      colors.pine700,        // Default: G
-      colors.madder700,      // R
-      colors.orange700,      // O
-      colors.turmeric700,    // Y
-      colors.quiltBlue600,   // B
-      colors.indigo900,      // I (deepest premium indigo)
-      colors.violet700,      // V
-    ],
-    [],
-  );
-  const normalizedFocusOverlayColorIndex = useMemo(() => {
-    if (!Number.isFinite(focusOverlayColorIndex) || focusOverlayColorIndex < 0) return 0;
-    if (focusOverlayColors.length <= 0) return 0;
-    return Math.floor(focusOverlayColorIndex) % focusOverlayColors.length;
-  }, [focusOverlayColorIndex, focusOverlayColors.length]);
-  const focusOverlayColorStep = useRef(new Animated.Value(normalizedFocusOverlayColorIndex)).current;
-  const focusOverlayColorStepRef = useRef(normalizedFocusOverlayColorIndex);
-  const focusOverlayAnimatingRef = useRef(false);
-  const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const focusPresetValues = useMemo<number[]>(() => [10, 25, 45, 60], []);
-  const focusCustomOptionsMinutes = useMemo<number[]>(() => {
-    // Keep the list reference stable so the custom picker doesn't churn/rebuild items on every tap.
-    return Array.from(
-      { length: Math.max(1, Math.floor(focusMaxMinutes / 5)) },
-      (_, idx) => (idx + 1) * 5,
-    );
-  }, [focusMaxMinutes]);
-  const handleChangeFocusMinutes = useCallback((next: number) => {
-    setFocusMinutesDraft(String(next));
-  }, []);
-  const focusDraftMinutes = Math.min(
-    focusMaxMinutes,
-    Math.max(1, Math.floor(Number(focusMinutesDraft) || 1)),
-  );
-  const focusIsCustomValue = !focusPresetValues.includes(focusDraftMinutes);
-  const focusOverlayBackgroundColor = focusOverlayColorStep.interpolate({
-    inputRange: Array.from({ length: focusOverlayColors.length + 1 }, (_, idx) => idx),
-    outputRange: [...focusOverlayColors, focusOverlayColors[0] ?? colors.pine700],
+  const focusController = useActivityFocusController({
+    activity,
+    activityId,
+    maxMinutes: focusMaxMinutes,
+    lastFocusMinutes,
+    soundscapeTrackId,
+    setLastFocusMinutes,
+    onOpen: () => setActiveSheet('focus'),
+    onClose: () => setActiveSheet(null),
   });
-
-  const handleFocusOverlayTap = useCallback(() => {
-    if (focusSoundscapeMenuOpen) {
-      setFocusSoundscapeMenuOpen(false);
-      return;
-    }
-    if (focusOverlayAnimatingRef.current) return;
-    const paletteSize = focusOverlayColors.length;
-    let currentStep = focusOverlayColorStepRef.current;
-    if (currentStep >= paletteSize) {
-      currentStep = currentStep % paletteSize;
-      focusOverlayColorStepRef.current = currentStep;
-      focusOverlayColorStep.stopAnimation();
-      focusOverlayColorStep.setValue(currentStep);
-    }
-    const toStep = currentStep + 1;
-    focusOverlayAnimatingRef.current = true;
-    Animated.timing(focusOverlayColorStep, {
-      toValue: toStep,
-      duration: 520,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      focusOverlayAnimatingRef.current = false;
-      if (!finished) return;
-      if (toStep >= paletteSize) {
-        focusOverlayColorStepRef.current = 0;
-        setFocusOverlayColorIndex(0);
-        focusOverlayColorStep.setValue(0);
-        return;
-      }
-      focusOverlayColorStepRef.current = toStep;
-      setFocusOverlayColorIndex(toStep);
-    });
-  }, [focusOverlayColorStep, focusOverlayColors, setFocusOverlayColorIndex, focusSoundscapeMenuOpen]);
-
-  const handlePressFocusAudio = useCallback(() => {
-    if (suppressNextFocusAudioTapRef.current) {
-      suppressNextFocusAudioTapRef.current = false;
-      return;
-    }
-    setFocusSoundscapeMenuOpen(false);
-    setSoundscapeEnabled(!soundscapeEnabled);
-  }, [setSoundscapeEnabled, soundscapeEnabled]);
-
-  const handleLongPressFocusAudio = useCallback(() => {
-    suppressNextFocusAudioTapRef.current = true;
-    setFocusSoundscapeMenuOpen(true);
-  }, []);
-
-  useEffect(() => {
-    if (focusOverlayAnimatingRef.current) return;
-    focusOverlayColorStepRef.current = normalizedFocusOverlayColorIndex;
-    focusOverlayColorStep.stopAnimation();
-    focusOverlayColorStep.setValue(normalizedFocusOverlayColorIndex);
-  }, [normalizedFocusOverlayColorIndex, focusOverlayColorStep]);
-
-  useEffect(() => {
-    if (!focusSession) return;
-    focusOverlayAnimatingRef.current = false;
-    focusOverlayColorStepRef.current = normalizedFocusOverlayColorIndex;
-    focusOverlayColorStep.stopAnimation();
-    focusOverlayColorStep.setValue(normalizedFocusOverlayColorIndex);
-  }, [focusSession?.startedAtMs, focusOverlayColorStep, normalizedFocusOverlayColorIndex]);
-
-  useEffect(() => {
-    if (focusSession) return;
-    setFocusSoundscapeMenuOpen(false);
-  }, [focusSession]);
-
-  useEffect(() => {
-    if (focusSoundscapeMenuOpen) {
-      setFocusSoundscapeMenuVisible(true);
-      Animated.timing(focusSoundscapeMenuAnim, {
-        toValue: 1,
-        duration: 180,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-      return;
-    }
-    Animated.timing(focusSoundscapeMenuAnim, {
-      toValue: 0,
-      duration: 130,
-      easing: Easing.in(Easing.quad),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setFocusSoundscapeMenuVisible(false);
-    });
-  }, [focusSoundscapeMenuOpen, focusSoundscapeMenuAnim]);
-
-  const focusSheetSnapPoints = useMemo(() => {
-    // Ensure the sheet can show the full preset row + optional custom wheel + soundscape + CTA buttons
-    // without requiring scroll on typical phone sizes.
-    if (Platform.OS === 'ios') {
-      if (focusCustomExpanded) return ['82%' as const];
-      return ['72%' as const];
-    }
-    if (focusCustomExpanded) return ['74%' as const];
-    return ['62%' as const];
-  }, [focusCustomExpanded]);
-
+  const focusSession = focusController.session;
   const focusScreenTimeOfferCard = shouldShowFocusScreenTimeOffer ? (
     <OpportunityCard
       title="Fewer distractions during Focus."
@@ -1293,7 +1083,7 @@ export function ActivityDetailScreen() {
     !editingUiActive &&
     !difficultyComboboxOpen &&
     activeSheet == null &&
-    activeFocusSession == null &&
+    focusSession == null &&
     !isPlanKickoffVisible;
 
   useEffect(() => {
@@ -1408,19 +1198,7 @@ export function ActivityDetailScreen() {
     });
   };
 
-  const openFocusSheet = () => {
-    if (!activity) return;
-    const fallback = Math.min(
-      focusMaxMinutes,
-      Math.max(
-      1,
-      Math.round(typeof lastFocusMinutes === 'number' ? lastFocusMinutes : (activity.estimateMinutes ?? 25)),
-      ),
-    );
-    setFocusMinutesDraft(String(fallback));
-    setFocusCustomExpanded(false);
-    setActiveSheet('focus');
-  };
+  const openFocusSheet = focusController.open;
 
   // Allow deep links (e.g. from calendar event descriptions) to land directly in Focus mode UI.
   useEffect(() => {
@@ -1448,7 +1226,7 @@ export function ActivityDetailScreen() {
         typeof autoStartMinutes === 'number' && Number.isFinite(autoStartMinutes)
           ? autoStartMinutes
           : undefined;
-      startFocusSession(minutes).catch(() => undefined);
+      focusController.start(minutes).catch(() => undefined);
       // Best-effort: clear params so returning to this screen doesn't re-trigger.
       try {
         navigation.setParams({ autoStartFocus: undefined, minutes: undefined } as any);
@@ -1464,7 +1242,7 @@ export function ActivityDetailScreen() {
     if (!endFocus) return;
     if (!activity) return;
     requestAnimationFrame(() => {
-      endFocusSession().catch(() => undefined);
+      focusController.end().catch(() => undefined);
       try {
         navigation.setParams({ endFocus: undefined } as any);
       } catch {
@@ -1486,35 +1264,6 @@ export function ActivityDetailScreen() {
     setPendingCalendarToast(null);
   }, [isFocused, pendingCalendarToast, showToast]);
 
-  const clearPendingFocusLaunch = () => {
-    if (focusLaunchTimeoutRef.current) {
-      clearTimeout(focusLaunchTimeoutRef.current);
-      focusLaunchTimeoutRef.current = null;
-    }
-  };
-
-  const cancelScheduledFocusNotification = async (
-    notificationId: string,
-    context?: Record<string, unknown>,
-  ) => {
-    await runFocusNativeBoundary(
-      'Notifications.cancelScheduledNotificationAsync.focusComplete',
-      () => Notifications.cancelScheduledNotificationAsync(notificationId),
-      { notificationId, ...context },
-    );
-  };
-
-  const cancelFocusNotificationIfNeeded = async () => {
-    const existing = focusSession?.notificationId ?? null;
-    if (!existing) return;
-    try {
-      await cancelScheduledFocusNotification(existing);
-      useFocusSessionStore.getState().clearNotificationId(focusSession?.sessionId ?? '');
-    } catch {
-      // best-effort
-    }
-  };
-
   const recordScreenTimeProgress = (
     action: 'activity_completed' | 'activity_progress_recorded',
     occurredAt = new Date(),
@@ -1525,99 +1274,6 @@ export function ActivityDetailScreen() {
       now: occurredAt,
     }).catch(() => undefined);
   };
-
-  const endFocusSession = async () => {
-    clearPendingFocusLaunch();
-    const ended = useFocusSessionStore.getState().endSession(focusSession?.sessionId);
-    if (ended?.notificationId) {
-      await cancelScheduledFocusNotification(ended.notificationId, { reason: 'ended_by_user' }).catch(() => undefined);
-    }
-  };
-
-  const startFocusSession = async (overrideMinutes?: number) => {
-    if (!activity) return;
-    const draftOrOverride =
-      typeof overrideMinutes === 'number' && Number.isFinite(overrideMinutes)
-        ? overrideMinutes
-        : Number(focusMinutesDraft);
-    const minutes = Math.max(1, Math.floor(draftOrOverride));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Choose a duration', 'Enter a number of minutes greater than 0.');
-      return;
-    }
-    if (minutes > focusMaxMinutes) {
-      void HapticsService.trigger('outcome.warning');
-      openPaywallInterstitial({ reason: 'pro_only_focus_mode', source: 'activity_focus_mode' });
-      return;
-    }
-    void HapticsService.trigger('canvas.primary.confirm');
-    setLastFocusMinutes(minutes);
-
-    const replacedSession = useFocusSessionStore.getState().endSession();
-    if (replacedSession?.notificationId) {
-      await cancelScheduledFocusNotification(replacedSession.notificationId, { reason: 'replaced_by_new_session' }).catch(
-        () => undefined,
-      );
-    }
-    setActiveSheet(null);
-    // Start preloading immediately so sound can come up quickly once the focus overlay appears.
-    preloadSoundscape({ soundscapeId: soundscapeTrackId }).catch(() => undefined);
-    // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
-    // while it is animating out; otherwise iOS can show the scrim but hide the next modal.
-    clearPendingFocusLaunch();
-
-    focusLaunchTimeoutRef.current = setTimeout(() => {
-      const startedAtMs = Date.now();
-      useFocusSessionStore.getState().startSession({
-        activityId: activity.id,
-        goalId: activity.goalId ?? null,
-        title: activity.title,
-        minutes,
-        startedAtMs,
-      });
-      focusLaunchTimeoutRef.current = null;
-      setFocusTickMs(startedAtMs);
-      reconcileScreenTimeRestrictions({
-        focusSessionActive: true,
-        now: new Date(startedAtMs),
-      }).catch(() => undefined);
-    }, 320);
-  };
-
-  const remainingFocusMs = (() => {
-    if (!focusSession) return 0;
-    if (focusSession.mode === 'paused') return Math.max(0, focusSession.remainingMs);
-    return Math.max(0, focusSession.endAtMs - focusTickMs);
-  })();
-
-  const togglePauseFocusSession = async () => {
-    if (!focusSession) return;
-    if (focusSession.mode === 'paused') {
-      void HapticsService.trigger('canvas.toggle.on');
-      if (!activity) return;
-      await cancelFocusNotificationIfNeeded();
-      const resumedAtMs = Date.now();
-      useFocusSessionStore.getState().resumeSession(focusSession.sessionId, resumedAtMs);
-      setFocusTickMs(resumedAtMs);
-      return;
-    }
-
-    void HapticsService.trigger('canvas.toggle.off');
-    const paused = useFocusSessionStore.getState().pauseSession(focusSession.sessionId);
-    if (paused?.notificationId) {
-      await cancelScheduledFocusNotification(paused.notificationId, { reason: 'paused' }).catch(() => undefined);
-    }
-  };
-
-  useEffect(() => {
-    if (!focusSession) return;
-    if (focusSession.mode !== 'running') return;
-
-    const id = setInterval(() => {
-      setFocusTickMs(Date.now());
-    }, 1000);
-    return () => clearInterval(id);
-  }, [focusSession]);
 
   const focusSoundscapeShouldPlay = focusSession?.mode === 'running' && soundscapeEnabled;
 
@@ -1670,8 +1326,8 @@ export function ActivityDetailScreen() {
           typeof action.minutes === 'number' && Number.isFinite(action.minutes)
             ? Math.max(1, Math.round(action.minutes))
             : Math.max(1, Math.round(activity.estimateMinutes ?? 25));
-        setFocusMinutesDraft(String(minutes));
-        setFocusCustomExpanded(false);
+        focusController.setMinutes(minutes);
+        focusController.setCustomExpanded(false);
         setActiveSheet('focus');
         return;
       }
@@ -1735,12 +1391,6 @@ export function ActivityDetailScreen() {
       }
     });
   }, [activity, agentHostActions, consumeAgentHostActions]);
-
-  useEffect(() => {
-    return () => {
-      clearPendingFocusLaunch();
-    };
-  }, []);
 
   const commitTitle = () => {
     if (!activity) return;
@@ -3211,182 +2861,21 @@ export function ActivityDetailScreen() {
         </View>
       </BottomDrawer>
 
-      <BottomDrawer
-        visible={focusSheetVisible}
-        onClose={() => setActiveSheet(null)}
-        snapPoints={focusSheetSnapPoints}
-        scrimToken="pineSubtle"
-      >
-        <View style={{ flex: 1 }}>
-          {/* Ensure dropdown menus can render above the BottomDrawer modal layer. */}
-          {Platform.OS === 'ios' ? (
-            <FullWindowOverlay>
-              <PortalHost name={FOCUS_SHEET_PORTAL_HOST} />
-            </FullWindowOverlay>
-          ) : (
-            <PortalHost name={FOCUS_SHEET_PORTAL_HOST} />
-          )}
-
-          <BottomDrawerScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.sheetContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <VStack space="md">
-              <View>
-                <VStack space="md">
-                  <BottomDrawerHeader
-                    title="Focus mode"
-                    variant="withClose"
-                    onClose={() => setActiveSheet(null)}
-                    containerStyle={styles.sheetHeader}
-                    titleStyle={styles.focusSheetTitle}
-                  />
-
-                  {focusScreenTimeOfferCard}
-
-                  <Text style={styles.sheetDescription}>
-                    Pick a duration. Kwilt keeps the session tied to this to-do, so the
-                    work has a place to land.
-                  </Text>
-                </VStack>
-              </View>
-
-              <View>
-                <Text style={styles.estimateFieldLabel}>Minutes</Text>
-                <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
-                  {focusPresetValues.map((m) => {
-                    const selected = !focusCustomExpanded && focusDraftMinutes === m;
-                    return (
-                      <Pressable
-                        key={String(m)}
-                        style={({ pressed }) => [
-                          styles.focusPresetChip,
-                          selected && styles.focusPresetChipSelected,
-                          pressed && styles.focusPresetChipPressed,
-                        ]}
-                        onPress={() => {
-                          setFocusMinutesDraft(String(m));
-                          setFocusCustomExpanded(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.focusPresetChipText,
-                            selected && styles.focusPresetChipTextSelected,
-                          ]}
-                        >
-                          {m}m
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-
-                  <Pressable
-                    style={({ pressed }) => {
-                      const selected = focusCustomExpanded || focusIsCustomValue;
-                      return [
-                        styles.focusPresetChip,
-                        selected && styles.focusPresetChipSelected,
-                        pressed && styles.focusPresetChipPressed,
-                      ];
-                    }}
-                    onPress={() => setFocusCustomExpanded((v) => !v)}
-                  >
-                    <Text
-                      style={[
-                        styles.focusPresetChipText,
-                        (focusCustomExpanded || focusIsCustomValue) &&
-                          styles.focusPresetChipTextSelected,
-                      ]}
-                    >
-                      {(() => {
-                        if (focusCustomExpanded) return `${focusDraftMinutes}m`;
-                        if (focusIsCustomValue) return `${focusDraftMinutes}m`;
-                        return 'Custom';
-                      })()}
-                    </Text>
-                  </Pressable>
-                </HStack>
-
-                {focusCustomExpanded ? (
-                  <View style={{ marginTop: spacing.md }}>
-                    <DurationPicker
-                      valueMinutes={focusDraftMinutes}
-                      onChangeMinutes={handleChangeFocusMinutes}
-                      optionsMinutes={focusCustomOptionsMinutes}
-                      accessibilityLabel="Select custom focus duration"
-                      iosWheelHeight={160}
-                      showHelperText={false}
-                      iosUseEdgeFades={false}
-                    />
-                  </View>
-                ) : null}
-              </View>
-
-              <View>
-                <Text style={styles.estimateFieldLabel}>Soundscape</Text>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    {...({ asChild: true } as any)}
-                    accessibilityLabel="Select soundscape"
-                  >
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.focusSoundscapeTrigger,
-                        pressed && styles.focusPresetChipPressed,
-                      ]}
-                    >
-                      <HStack space="xs" alignItems="center">
-                        <Text style={styles.focusSoundscapeTriggerText}>
-                          {SOUND_SCAPES.find((s) => s.id === soundscapeTrackId)?.title ??
-                            'Soundscape'}
-                        </Text>
-                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                      </HStack>
-                    </Pressable>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    portalHost={FOCUS_SHEET_PORTAL_HOST}
-                    side="bottom"
-                    sideOffset={6}
-                    align="start"
-                  >
-                    {SOUND_SCAPES.map((s) => (
-                      <DropdownMenuItem
-                        key={s.id}
-                        onPress={() => {
-                          setSoundscapeTrackId(s.id);
-                        }}
-                      >
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          {s.title}
-                        </Text>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </View>
-            </VStack>
-          </BottomDrawerScrollView>
-
-          <View style={styles.focusSheetFooter}>
-            <Button
-              variant="primary"
-              fullWidth
-              testID="e2e.activityDetail.focus.start"
-              onPress={() => {
-                startFocusSession().catch(() => undefined);
-              }}
-            >
-              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                Start
-              </Text>
-            </Button>
-          </View>
-        </View>
-      </BottomDrawer>
-
+      <ActivityFocusExperience
+        setupVisible={focusSheetVisible}
+        activityTitle={activity?.title ?? 'To-do'}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+        portalHostName={FOCUS_SHEET_PORTAL_HOST}
+        controller={focusController}
+        screenTimeOffer={focusScreenTimeOfferCard}
+        soundscapeEnabled={soundscapeEnabled}
+        soundscapeTrackId={soundscapeTrackId}
+        overlayColorIndex={focusOverlayColorIndex}
+        setSoundscapeEnabled={setSoundscapeEnabled}
+        setSoundscapeTrackId={setSoundscapeTrackId}
+        setOverlayColorIndex={setFocusOverlayColorIndex}
+      />
       <ActivityScheduleSheet
         visible={calendarSheetVisible}
         activityTitle={activity?.title ?? 'To-do'}
@@ -3399,134 +2888,6 @@ export function ActivityDetailScreen() {
           rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
         }}
       />
-      {focusSession ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            endFocusSession().catch(() => undefined);
-          }}
-        >
-          <Pressable
-            onPress={handleFocusOverlayTap}
-            accessibilityRole="button"
-            accessibilityLabel="Focus color"
-            accessibilityHint="Double tap to shift focus background color"
-            style={{ flex: 1 }}
-          >
-          <Animated.View
-            style={[
-              styles.focusOverlay,
-              { backgroundColor: focusOverlayBackgroundColor },
-              { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
-            ]}
-          >
-            <View style={styles.focusTopBar}>
-              <BrandLockup
-                logoSize={28}
-                wordmarkSize="sm"
-                logoVariant="parchment"
-                color={colors.parchment}
-              />
-            </View>
-
-            <View style={styles.focusCenter}>
-              <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
-              <Text style={styles.focusActivityTitle} numberOfLines={2}>
-                {activity.title}
-              </Text>
-            </View>
-
-            <HStack space="sm" style={styles.focusBottomBar}>
-              <HeaderActionPill
-                size={56}
-                accessibilityLabel="End focus session"
-                style={styles.focusActionIconButton}
-                onPress={() => endFocusSession().catch(() => undefined)}
-              >
-                <Icon name="stop" size={22} color={colors.parchment} />
-              </HeaderActionPill>
-              <HeaderActionPill
-                size={56}
-                accessibilityLabel={
-                  focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'
-                }
-                style={styles.focusActionIconButton}
-                onPress={() => togglePauseFocusSession().catch(() => undefined)}
-              >
-                <Icon
-                  name={focusSession?.mode === 'paused' ? 'play' : 'pause'}
-                  size={22}
-                  color={colors.parchment}
-                />
-              </HeaderActionPill>
-              <View style={styles.focusAudioControlWrap}>
-                {focusSoundscapeMenuVisible ? (
-                  <Animated.View
-                    style={[
-                      styles.focusSoundscapeQuickMenu,
-                      {
-                        opacity: focusSoundscapeMenuAnim,
-                        transform: [
-                          {
-                            translateY: focusSoundscapeMenuAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [8, 0],
-                            }),
-                          },
-                          {
-                            scale: focusSoundscapeMenuAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0.98, 1],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  >
-                    {SOUND_SCAPES.map((s) => {
-                      const selected = s.id === soundscapeTrackId;
-                      return (
-                        <Pressable
-                          key={s.id}
-                          onPress={() => {
-                            setSoundscapeTrackId(s.id);
-                            setFocusSoundscapeMenuOpen(false);
-                          }}
-                          style={({ pressed }) => [
-                            styles.focusSoundscapeQuickMenuItem,
-                            selected && styles.focusSoundscapeQuickMenuItemActive,
-                            pressed && styles.focusSoundscapeQuickMenuItemPressed,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Select ${s.title} soundscape`}
-                        >
-                          <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>
-                            {s.title}
-                          </Text>
-                          {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
-                        </Pressable>
-                      );
-                    })}
-                  </Animated.View>
-                ) : null}
-                <HeaderActionPill
-                  size={56}
-                  accessibilityLabel="Focus soundscape"
-                  style={styles.focusActionIconButton}
-                  onPress={handlePressFocusAudio}
-                  onLongPress={handleLongPressFocusAudio}
-                >
-                  <Icon name={soundscapeEnabled ? 'sound' : 'soundOff'} size={22} color={colors.parchment} />
-                </HeaderActionPill>
-              </View>
-            </HStack>
-          </Animated.View>
-          </Pressable>
-        </Modal>
-      ) : null}
-
       <ArcBannerSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
@@ -3700,13 +3061,6 @@ export function ActivityDetailScreen() {
       </BottomDrawer>
     </AppShell>
   );
-}
-
-function formatMsAsTimer(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 type SheetOptionProps = {
