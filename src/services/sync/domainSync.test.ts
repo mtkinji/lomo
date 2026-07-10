@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore, getDomainStorageKey, switchDomainUser } from '../../store/useAppStore';
 import type { Arc, Goal, Activity } from '../../domain/types';
-import { resetPrevIds, retryDomainPull, startDomainSync, stopDomainSync } from './domainSync';
+import {
+  getChangedDomainItems,
+  resetPrevIds,
+  retryDomainPull,
+  startDomainSync,
+  stopDomainSync,
+} from './domainSync';
 
 const NOW_ISO = new Date('2026-01-15T12:00:00.000Z').toISOString();
 
@@ -152,6 +158,23 @@ async function waitForStore(predicate: () => boolean) {
 }
 
 describe('domainSync account transitions', () => {
+  it('selects only records whose synced representation changed', () => {
+    const unchanged = activity({ id: 'unchanged-act' });
+    const changedBefore = activity({ id: 'changed-act', title: 'Before' });
+    const changedAfter = { ...changedBefore, title: 'After' };
+    const added = activity({ id: 'added-act' });
+    const previousSignatures = new Map([
+      [unchanged.id, JSON.stringify(unchanged)],
+      [changedBefore.id, JSON.stringify(changedBefore)],
+    ]);
+
+    expect(
+      getChangedDomainItems([unchanged, changedAfter, added], previousSignatures).map(
+        (item) => item.id,
+      ),
+    ).toEqual(['changed-act', 'added-act']);
+  });
+
   beforeEach(async () => {
     stopDomainSync();
     await switchDomainUser(null);
