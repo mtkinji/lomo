@@ -39,8 +39,8 @@ const baseQuickAdd = {
 };
 
 const defaultProps = {
-  start: new Date('2026-07-08T11:15:00.000-06:00'),
-  end: new Date('2026-07-08T12:00:00.000-06:00'),
+  start: new Date(2026, 6, 8, 11, 15),
+  end: new Date(2026, 6, 8, 12, 0),
   quickAdd: baseQuickAdd,
   existingActivities: [
     { activityId: 'activity-1', title: 'Buy lumber', estimateMinutes: 45 },
