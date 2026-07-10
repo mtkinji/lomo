@@ -41,7 +41,6 @@ import { useToastStore } from '../../store/useToastStore';
 import type {
   ActivityDifficulty,
   ActivityPriorityState,
-  ActivityRepeatCustom,
   ActivityStatus,
   ActivityStep,
   ActivityType,
@@ -57,8 +56,6 @@ import { StaticMapImage } from '../../ui/maps/StaticMapImage';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
 import { applePlaceSearchBestEffort, cancelApplePlaceSearchBestEffort } from '../../services/locationOffers/applePlaceSearch';
-import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
-import { Picker } from '@react-native-picker/picker';
 import { SOUND_SCAPES, preloadSoundscape } from '../../services/soundscape';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
@@ -130,7 +127,8 @@ import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSound
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
-import { RepeatInfoMenu } from './RepeatInfoMenu';
+import { ActivityRepeatSheets } from './ActivityRepeatSheets';
+import { useActivityRepeatEditor } from './useActivityRepeatEditor';
 import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
@@ -687,22 +685,15 @@ export function ActivityDetailScreen() {
   const locationSheetVisible = activeSheet === 'location';
   const repeatSheetVisible = activeSheet === 'repeat';
   const customRepeatSheetVisible = activeSheet === 'customRepeat';
-  const [customRepeatInterval, setCustomRepeatInterval] = useState<number>(1);
-  const [customRepeatCadence, setCustomRepeatCadence] = useState<ActivityRepeatCustom['cadence']>('weeks');
-  const [customRepeatWeekdays, setCustomRepeatWeekdays] = useState<number[]>(() => [new Date().getDay()]);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = useState(false);
   const [isReminderDateTimePickerVisible, setIsReminderDateTimePickerVisible] = useState(false);
-
-  // Avoid stacking modal BottomDrawers during transitions (can leave an invisible backdrop).
-  const repeatDrawerTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (repeatDrawerTransitionTimeoutRef.current) {
-        clearTimeout(repeatDrawerTransitionTimeoutRef.current);
-        repeatDrawerTransitionTimeoutRef.current = null;
-      }
-    };
-  }, []);
+  const repeatController = useActivityRepeatEditor({
+    activity,
+    updateActivity,
+    onClose: () => setActiveSheet(null),
+    onOpenCustom: () => setActiveSheet('customRepeat'),
+    onReturnToPresets: () => setActiveSheet('repeat'),
+  });
 
   // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
 
@@ -2899,71 +2890,6 @@ export function ActivityDetailScreen() {
     setActiveSheet(null);
   };
 
-  const handleSelectRepeat = (rule: NonNullable<Activity['repeatRule']>) => {
-    if (!activity) return;
-    const timestamp = new Date().toISOString();
-    // Note: Planning no longer counts as "showing up" for streaks.
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      repeatRule: rule,
-      repeatCustom: rule === 'custom' ? prev.repeatCustom : undefined,
-      updatedAt: timestamp,
-    }));
-    setActiveSheet(null);
-  };
-
-  const openCustomRepeat = () => {
-    if (!activity) return;
-    // Hydrate from existing custom config if present.
-    if (activity.repeatRule === 'custom' && activity.repeatCustom) {
-      const cfg = activity.repeatCustom;
-      setCustomRepeatCadence(cfg.cadence);
-      const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-      setCustomRepeatInterval(interval);
-      if (cfg.cadence === 'weeks') {
-        const list = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
-        setCustomRepeatWeekdays(list.length > 0 ? list : [new Date().getDay()]);
-      } else {
-        setCustomRepeatWeekdays([new Date().getDay()]);
-      }
-    } else {
-      setCustomRepeatCadence('weeks');
-      setCustomRepeatInterval(1);
-      setCustomRepeatWeekdays([new Date().getDay()]);
-    }
-    setActiveSheet(null);
-    if (repeatDrawerTransitionTimeoutRef.current) {
-      clearTimeout(repeatDrawerTransitionTimeoutRef.current);
-    }
-    repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
-      setActiveSheet('customRepeat');
-    }, 260);
-  };
-
-  const commitCustomRepeat = () => {
-    if (!activity) return;
-    const interval = Math.max(1, Math.round(customRepeatInterval));
-    const weekdays =
-      customRepeatWeekdays.length > 0
-        ? Array.from(new Set(customRepeatWeekdays))
-            .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-            .sort((a, b) => a - b)
-        : [new Date().getDay()];
-
-    const payload: ActivityRepeatCustom =
-      customRepeatCadence === 'weeks'
-        ? { cadence: 'weeks', interval, weekdays }
-        : { cadence: customRepeatCadence, interval };
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      repeatRule: 'custom',
-      repeatCustom: payload,
-      updatedAt: timestamp,
-    }));
-    setActiveSheet(null);
-  };
-
   const handleClearReminder = () => {
     if (!activity) return;
     const timestamp = new Date().toISOString();
@@ -2998,55 +2924,7 @@ export function ActivityDetailScreen() {
     });
   }, [activity?.scheduledDate]);
 
-  const repeatLabel = (() => {
-    const rule = activity?.repeatRule ?? null;
-    if (!rule) return 'Off';
-    if (rule === 'weekdays') return 'Weekdays';
-    if (rule === 'custom') {
-      const cfg = activity?.repeatCustom;
-      if (cfg && cfg.cadence === 'weeks') {
-        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-        const names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-        const days: number[] = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
-        const picked =
-          days.length > 0
-            ? Array.from(new Set(days))
-                .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-                .sort((a, b) => a - b)
-            : [];
-        const dayLabel = picked.length > 0 ? picked.map((d) => names[d] ?? '').filter(Boolean).join(' ') : '';
-        return interval === 1
-          ? (dayLabel ? `Weekly (${dayLabel})` : 'Weekly')
-          : (dayLabel ? `Every ${interval} weeks (${dayLabel})` : `Every ${interval} weeks`);
-      }
-      if (cfg) {
-        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-        const unit =
-          cfg.cadence === 'days'
-            ? 'day'
-            : cfg.cadence === 'months'
-              ? 'month'
-              : cfg.cadence === 'years'
-                ? 'year'
-                : 'week';
-        return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
-      }
-      return 'Custom';
-    }
-    return rule.charAt(0).toUpperCase() + rule.slice(1);
-  })();
-
-  const handleClearRepeatRule = () => {
-    if (!activity) return;
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      repeatRule: undefined,
-      repeatCustom: undefined,
-      updatedAt: timestamp,
-    }));
-    setActiveSheet(null);
-  };
+  const repeatLabel = repeatController.repeatLabel;
 
   const completedStepsCount = useMemo(
     () => (stepsDraft ?? []).filter((step) => !!step.completedAt).length,
@@ -3520,7 +3398,7 @@ export function ActivityDetailScreen() {
               hasDifficulty={hasDifficulty}
               handleClearReminder={handleClearReminder}
               handleClearDueDate={handleClearDueDate}
-              handleClearRepeatRule={handleClearRepeatRule}
+              handleClearRepeatRule={repeatController.clear}
               openEstimateSheet={openEstimateSheet}
               handleClearTimeEstimate={handleClearTimeEstimate}
               difficultyComboboxOpen={difficultyComboboxOpen}
@@ -3819,31 +3697,11 @@ export function ActivityDetailScreen() {
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer
-        visible={repeatSheetVisible}
-        onClose={() => setActiveSheet(null)}
-        snapPoints={['60%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={styles.sheetContent}>
-          <BottomDrawerHeader
-            title="Repeat"
-            rightAction={<RepeatInfoMenu />}
-            containerStyle={styles.sheetHeader}
-            titleStyle={styles.sheetTitle}
-          />
-          <VStack space="sm">
-            <SheetOption testID="e2e.activityDetail.repeat.daily" label="Daily" onPress={() => handleSelectRepeat('daily')} />
-            <SheetOption testID="e2e.activityDetail.repeat.weekly" label="Weekly" onPress={() => handleSelectRepeat('weekly')} />
-            <SheetOption testID="e2e.activityDetail.repeat.weekdays" label="Weekdays" onPress={() => handleSelectRepeat('weekdays')} />
-            <SheetOption testID="e2e.activityDetail.repeat.monthly" label="Monthly" onPress={() => handleSelectRepeat('monthly')} />
-            <SheetOption testID="e2e.activityDetail.repeat.yearly" label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
-            <SheetOption testID="e2e.activityDetail.repeat.custom" label="Custom…" onPress={openCustomRepeat} />
-            <SheetOption testID="e2e.activityDetail.repeat.clear" label="Off" onPress={handleClearRepeatRule} />
-          </VStack>
-        </View>
-      </BottomDrawer>
-
+      <ActivityRepeatSheets
+        presetVisible={repeatSheetVisible}
+        customVisible={customRepeatSheetVisible}
+        controller={repeatController}
+      />
       <BottomDrawer
         visible={locationSheetVisible}
         onClose={closeLocationSheet}
@@ -4230,160 +4088,6 @@ export function ActivityDetailScreen() {
           </BottomDrawerFooter>
         </View>
       </BottomDrawer>
-
-      <BottomDrawer
-        visible={customRepeatSheetVisible}
-        onClose={() => setActiveSheet(null)}
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['60%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={styles.sheetContent}>
-          <HStack alignItems="center" justifyContent="space-between" style={styles.customRepeatHeaderRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Back to repeat options"
-              testID="e2e.activityDetail.customRepeat.back"
-              onPress={() => {
-                setActiveSheet(null);
-                if (repeatDrawerTransitionTimeoutRef.current) {
-                  clearTimeout(repeatDrawerTransitionTimeoutRef.current);
-                }
-                repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
-                  setActiveSheet('repeat');
-                }, 260);
-              }}
-              hitSlop={8}
-            >
-              <Icon name="arrowLeft" size={18} color={colors.textSecondary} />
-            </Pressable>
-            <Text style={styles.customRepeatHeaderTitle}>Repeat every…</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Set custom repeat rule"
-              testID="e2e.activityDetail.customRepeat.set"
-              onPress={commitCustomRepeat}
-              hitSlop={8}
-            >
-              <Text style={styles.customRepeatSetLabel}>Set</Text>
-            </Pressable>
-          </HStack>
-
-          <View style={styles.customRepeatPickerBlock}>
-            <HStack space="md" alignItems="center" justifyContent="center">
-              {Platform.OS === 'ios' ? (
-                <>
-                  <View style={styles.iosWheelFrame}>
-                    <Picker
-                      selectedValue={customRepeatInterval}
-                      onValueChange={(value) => setCustomRepeatInterval(Number(value))}
-                      itemStyle={styles.iosWheelItem}
-                    >
-                      {Array.from(
-                        {
-                          length:
-                            customRepeatCadence === 'days'
-                              ? 30
-                              : customRepeatCadence === 'weeks'
-                                ? 12
-                                : customRepeatCadence === 'months'
-                                  ? 24
-                                  : 10,
-                        },
-                        (_, idx) => idx + 1,
-                      ).map((n) => (
-                        <Picker.Item key={String(n)} label={String(n)} value={n} />
-                      ))}
-                    </Picker>
-                  </View>
-                  <View style={styles.iosWheelFrame}>
-                    <Picker
-                      selectedValue={customRepeatCadence}
-                      onValueChange={(value) => setCustomRepeatCadence(value)}
-                      itemStyle={styles.iosWheelItem}
-                    >
-                      <Picker.Item label="Days" value="days" />
-                      <Picker.Item label="Weeks" value="weeks" />
-                      <Picker.Item label="Months" value="months" />
-                      <Picker.Item label="Years" value="years" />
-                    </Picker>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <NumberWheelPicker
-                    value={customRepeatInterval}
-                    onChange={setCustomRepeatInterval}
-                    min={1}
-                    max={
-                      customRepeatCadence === 'days'
-                        ? 30
-                        : customRepeatCadence === 'weeks'
-                          ? 12
-                          : customRepeatCadence === 'months'
-                            ? 24
-                            : 10
-                    }
-                  />
-                  <NumberWheelPicker
-                    value={['days', 'weeks', 'months', 'years'].indexOf(customRepeatCadence)}
-                    onChange={(idx) => {
-                      const next = (['days', 'weeks', 'months', 'years'] as const)[idx] ?? 'weeks';
-                      setCustomRepeatCadence(next);
-                    }}
-                    min={0}
-                    max={3}
-                    formatLabel={(idx) => {
-                      const v = (['Days', 'Weeks', 'Months', 'Years'] as const)[idx] ?? 'Weeks';
-                      return v;
-                    }}
-                  />
-                </>
-              )}
-            </HStack>
-          </View>
-
-          {customRepeatCadence === 'weeks' ? (
-            <>
-              <Text style={styles.customRepeatSectionLabel}>Repeat on</Text>
-              <HStack space="sm" alignItems="center" style={styles.customRepeatWeekdayRow}>
-                {(['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const).map((label, idx) => {
-                  const selected = customRepeatWeekdays.includes(idx);
-                  return (
-                    <Pressable
-                      key={label}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Toggle ${label}`}
-                      onPress={() => {
-                        setCustomRepeatWeekdays((prev) => {
-                          if (prev.includes(idx)) {
-                            const next = prev.filter((d) => d !== idx);
-                            return next.length > 0 ? next : prev; // keep at least one selected
-                          }
-                          return [...prev, idx];
-                        });
-                      }}
-                      style={[
-                        styles.customRepeatWeekdayChip,
-                        selected && styles.customRepeatWeekdayChipSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.customRepeatWeekdayChipText,
-                          selected && styles.customRepeatWeekdayChipTextSelected,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </HStack>
-            </>
-          ) : null}
-        </View>
-      </BottomDrawer>
-
 
       <BottomDrawer
         visible={estimateSheetVisible}
