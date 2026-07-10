@@ -18,10 +18,11 @@ briefs:
   - calendar-export-ics
   - plan-capture-and-place
   - todo-schedule-sessions
+  - todo-completion-undo-toast
   - desktop-app
   - notifications-v1-5
 status: shipped
-last_reviewed: 2026-05-09
+last_reviewed: 2026-07-10
 ---
 
 # plan

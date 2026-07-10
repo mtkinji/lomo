@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { FlatListProps, ScrollViewProps, StyleProp, ViewProps, ViewStyle } from 'react-native';
+import type {
+  FlatListProps,
+  GestureResponderEvent,
+  ScrollViewProps,
+  StyleProp,
+  ViewProps,
+  ViewStyle,
+} from 'react-native';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -242,6 +249,8 @@ export function BottomDrawer({
   const translateY = useSharedValue(0);
   const isAnimating = useSharedValue(false);
   const hasRunOpenAnimationRef = useRef(false);
+  const webDragStartYRef = useRef<number | null>(null);
+  const [webDragOffset, setWebDragOffset] = useState(0);
 
   const requestCloseAnimated = () => {
     if (!dismissable) return;
@@ -388,6 +397,13 @@ export function BottomDrawer({
       transform: [{ translateY: translateY.value }],
     };
   });
+  const webSheetStaticStyle = useMemo<ViewStyle | null>(() => {
+    if (Platform.OS !== 'web') return null;
+    return {
+      height: snapHeights[openToIndex] ?? maxSnapHeight,
+      transform: [{ translateY: webDragOffset }],
+    };
+  }, [maxSnapHeight, openToIndex, snapHeights, webDragOffset]);
 
   const closeIfAllowed = () => {
     if (!dismissable) return;
@@ -399,7 +415,7 @@ export function BottomDrawer({
   const makePanGesture = useMemo(() => {
     return (opts: { ignoreScrollLock: boolean }) => {
       const { ignoreScrollLock } = opts;
-      const base = Gesture.Pan()
+      const base = (Platform.OS === 'web' ? Gesture.Pan().runOnJS(true) : Gesture.Pan())
       .onBegin(() => {
         panStartY.value = translateY.value;
         panStartHeight.value = sheetHeight.value;
@@ -500,6 +516,52 @@ export function BottomDrawer({
     return makePanGesture({ ignoreScrollLock: true });
   }, [makePanGesture]);
 
+  const webHandleResponderProps = useMemo<Partial<Pick<
+    ViewProps,
+    | 'onMoveShouldSetResponder'
+    | 'onResponderGrant'
+    | 'onResponderMove'
+    | 'onResponderRelease'
+    | 'onResponderTerminate'
+    | 'onStartShouldSetResponder'
+  >>>(() => {
+    if (Platform.OS !== 'web') return {};
+
+    const getPageY = (event: GestureResponderEvent) => event.nativeEvent.pageY;
+    const resetDrag = () => {
+      webDragStartYRef.current = null;
+      setWebDragOffset(0);
+    };
+
+    return {
+      onStartShouldSetResponder: () => dismissable,
+      onMoveShouldSetResponder: () => dismissable,
+      onResponderGrant: (event) => {
+        webDragStartYRef.current = getPageY(event);
+        setWebDragOffset(0);
+      },
+      onResponderMove: (event) => {
+        const startY = webDragStartYRef.current;
+        if (startY === null) return;
+        const nextOffset = clamp(getPageY(event) - startY, 0, closedOffset);
+        setWebDragOffset(nextOffset);
+      },
+      onResponderRelease: (event) => {
+        const startY = webDragStartYRef.current;
+        if (startY === null) return;
+        const nextOffset = clamp(getPageY(event) - startY, 0, closedOffset);
+        const shouldDismiss =
+          dismissable && nextOffset > minSnapHeight * dismissDragThresholdRatio;
+
+        resetDrag();
+        if (shouldDismiss) {
+          requestCloseAnimated();
+        }
+      },
+      onResponderTerminate: resetDrag,
+    };
+  }, [closedOffset, dismissDragThresholdRatio, dismissable, minSnapHeight, requestCloseAnimated]);
+
   const contentPanGesture = useMemo(() => {
     return enableContentPanningGesture
       ? makePanGesture({ ignoreScrollLock: false })
@@ -548,11 +610,15 @@ export function BottomDrawer({
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
+                webSheetStaticStyle,
                 sheetStyle,
               ]}
             >
               <GestureDetector gesture={handlePanGesture}>
-                <View style={[styles.handleGrabRegion, handleContainerStyle]}>
+                <View
+                  {...webHandleResponderProps}
+                  style={[styles.handleGrabRegion, handleContainerStyle]}
+                >
                   <View style={[styles.handle, handleStyle]} />
                 </View>
               </GestureDetector>
@@ -601,11 +667,15 @@ export function BottomDrawer({
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
+                webSheetStaticStyle,
                 sheetStyle,
               ]}
             >
               <GestureDetector gesture={handlePanGesture}>
-                <View style={[styles.handleGrabRegion, handleContainerStyle]}>
+                <View
+                  {...webHandleResponderProps}
+                  style={[styles.handleGrabRegion, handleContainerStyle]}
+                >
                   <View style={[styles.handle, handleStyle]} />
                 </View>
               </GestureDetector>
@@ -759,4 +829,3 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
-

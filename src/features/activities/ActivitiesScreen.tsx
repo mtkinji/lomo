@@ -83,6 +83,11 @@ import {
 import { ActivityListItem, type ActivityPriorityIndicator } from '../../ui/ActivityListItem';
 import { useNavigationTapGuard } from '../../ui/hooks/useNavigationTapGuard';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
+import {
+  buildActivityCompletionUndoSnapshot,
+  restoreActivityCompletionFromSnapshot,
+  type ActivityCompletionUndoSnapshot,
+} from './activityCompletionUndo';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -2319,6 +2324,8 @@ export function ActivitiesScreen() {
       const timestamp = new Date().toISOString();
       let didFireHaptic = false;
       let wasFirstCompletion = false;
+      let completionUndoSnapshot: ActivityCompletionUndoSnapshot | null = null;
+      let completedActivity: Activity | null = null;
       LayoutAnimation.configureNext(
         LayoutAnimation.create(
           220,
@@ -2335,6 +2342,8 @@ export function ActivitiesScreen() {
         if (nextIsDone) {
           void playActivityDoneSound();
           wasFirstCompletion = true;
+          completionUndoSnapshot = buildActivityCompletionUndoSnapshot(activity);
+          completedActivity = activity;
         }
         capture(AnalyticsEvent.ActivityCompletionToggled, {
           source: 'activities_list',
@@ -2353,6 +2362,47 @@ export function ActivitiesScreen() {
 
       // Celebration checks (run after state update settles)
       if (wasFirstCompletion) {
+        const undoSnapshot = completionUndoSnapshot as ActivityCompletionUndoSnapshot | null;
+        const activityAtCompletion = completedActivity as Activity | null;
+        if (undoSnapshot && activityAtCompletion) {
+          showToast({
+            message: 'To-do complete',
+            variant: 'light',
+            durationMs: 5000,
+            actionLabel: 'Undo',
+            actionOnPress: () => {
+              const restoredAt = new Date().toISOString();
+              let didRestore = false;
+              LayoutAnimation.configureNext(
+                LayoutAnimation.create(
+                  220,
+                  LayoutAnimation.Types.easeInEaseOut,
+                  LayoutAnimation.Properties.opacity,
+                ),
+              );
+              updateActivity(activityId, (current) => {
+                const result = restoreActivityCompletionFromSnapshot({
+                  activity: current,
+                  snapshot: undoSnapshot,
+                  representedCompletedAt: timestamp,
+                  restoredAt,
+                });
+                didRestore = result.didRestore;
+                return result.activity;
+              });
+              if (!didRestore) return;
+              void HapticsService.trigger('canvas.step.undo');
+              capture(AnalyticsEvent.ActivityCompletionToggled, {
+                source: 'activities_list',
+                activity_id: activityId,
+                goal_id: activityAtCompletion.goalId ?? null,
+                next_status: undoSnapshot.status,
+                had_steps: Boolean(activityAtCompletion.steps && activityAtCompletion.steps.length > 0),
+              });
+            },
+          });
+        }
+
         // Record the show-up (this also triggers daily streak celebration if milestone)
         recordShowUpWithCelebration();
         useAppStore.getState().recordScreenTimeQualifyingAction({
@@ -2398,8 +2448,7 @@ export function ActivitiesScreen() {
         }
 
         // Check-in nudge for activities under shared goals
-        const completedActivity = activities.find((a) => a.id === activityId);
-        const activityGoalId = completedActivity?.goalId;
+        const activityGoalId = activityAtCompletion?.goalId;
         if (activityGoalId) {
           void queueCheckinDraftFromProgress({
             goalId: activityGoalId,
@@ -2407,7 +2456,7 @@ export function ActivitiesScreen() {
             source: 'activities_list',
             sourceType: 'activity',
             sourceId: activityId,
-            title: completedActivity?.title ?? '',
+            title: activityAtCompletion?.title ?? '',
             completedAt: timestamp,
             openPromptDelayMs: 1200,
             capture,
@@ -2415,7 +2464,7 @@ export function ActivitiesScreen() {
         }
       }
     },
-    [activities, capture, updateActivity],
+    [activities, capture, showToast, updateActivity],
   );
 
   const handleTogglePriorityOne = React.useCallback(

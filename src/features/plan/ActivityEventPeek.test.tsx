@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { fireEvent } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import {
   activityFixture,
@@ -8,6 +8,7 @@ import {
   seedDomain,
 } from '../../test/storeFixtures';
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import { ActivityEventPeek } from './ActivityEventPeek';
 
 const mockCapture = jest.fn();
@@ -83,6 +84,19 @@ describe('ActivityEventPeek completion action', () => {
     const activity = useAppStore.getState().activities.find((candidate) => candidate.id === 'act-1');
     expect(activity?.status).toBe('done');
     expect(activity?.completedAt).toBeTruthy();
+    expect(useToastStore.getState()).toMatchObject({
+      message: 'To-do complete',
+      actionLabel: 'Undo',
+      durationMs: 5000,
+    });
+
+    act(() => {
+      useToastStore.getState().actionOnPress?.();
+    });
+
+    const restored = useAppStore.getState().activities.find((candidate) => candidate.id === 'act-1');
+    expect(restored?.status).toBe('planned');
+    expect(restored?.completedAt).toBeNull();
     expect(baseProps.onOpenFullActivity).not.toHaveBeenCalled();
   });
 
@@ -110,5 +124,14 @@ describe('ActivityEventPeek completion action', () => {
     const activity = useAppStore.getState().activities.find((candidate) => candidate.id === 'act-1');
     expect(activity?.status).toBe('done');
     expect(activity?.steps?.every((step) => Boolean(step.completedAt))).toBe(true);
+
+    act(() => {
+      useToastStore.getState().actionOnPress?.();
+    });
+
+    const restored = useAppStore.getState().activities.find((candidate) => candidate.id === 'act-1');
+    expect(restored?.status).toBe('in_progress');
+    expect(restored?.steps?.[0]?.completedAt).toBe('2026-07-09T11:00:00.000Z');
+    expect(restored?.steps?.[1]?.completedAt).toBeNull();
   });
 });

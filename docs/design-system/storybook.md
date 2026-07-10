@@ -18,9 +18,18 @@ http://localhost:6006
 
 ## Current Stories
 
+Default viewport: `Large mobile` (`414 x 896`). Component stories should be reviewed in that mobile context first because these primitives render inside Kwilt's phone UI. Use wider viewports only when reviewing responsive behavior or desktop-specific surfaces.
+
 - `Foundation/Tokens`: palette, radii, typography, spacing.
+- `Illustration/Goals Styles`: Goals illustration catalog, surface scale, and style rules.
 - `Primitives/Candidates`: Card, Button, KwiltSwitch, SegmentedControl, Input, Badge.
+- `Forms/Editing`: Input, EditableField, AI field affordance, and toolbar references.
+- `Forms/Pickers`: Goals picker trigger, Money category-field reference, generated variant guardrails, and extraction guidance.
+- `Feedback/States`: EmptyState, Toast, and feedback maturity questions.
+- `Objects/Cards And Identity`: identity atoms, object badges, GoalPill, ArcListCard, and GoalCard references.
 - `Settings/Patterns`: SettingsGroup, SettingsRow, SettingsToggleRow.
+- `Overlays/Drawers`: drawer taxonomy, Money-style choice picker, Goals-style task drawer, and extraction guidance.
+- `Navigation/Actions`: KeyActionsRow, StreakCapsule, ActionDock, and ObjectPageHeader references.
 
 ## Why Storybook
 

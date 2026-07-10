@@ -31,9 +31,20 @@ Use this with [Storybook](storybook.md) as the component review surface.
 | `Card` | Kwilt Goals `src/ui/Card.tsx` | Promote | Mature padding, elevation, tokenized margins, already built around shared surfaces. |
 | `Button` | Kwilt Goals `src/ui/Button.tsx` | Promote | More complete variant and size system than Money. |
 | `Input` | Kwilt Goals `src/ui/Input.tsx` | Promote | Handles variants, icons, multiline behavior, focus/error states. |
+| `PickerFieldTrigger` | Kwilt Goals `src/ui/PickerFields.tsx` | Promote | Goals has the stronger reusable closed-field grammar. Money category fields should converge on this trigger before category pickers become shared. |
+| `EnumPickerField` / `SmallSetPickerField` | Kwilt Goals `src/ui/PickerFields.tsx` | Promote | Good default for small fixed-set choices with compact drawer rows and selected checks. |
+| `RelationPickerField` | Kwilt Goals `src/ui/PickerFields.tsx` | Candidate | Strong searchable picker for larger object lists; may need drawer-vs-fullscreen adaptation for Money and desktop. |
 | `KwiltSwitch` | Kwilt Money `src/ui/kwilt-switch.tsx` | Promote | Clear compact animated toggle; already mirrored in Goals but Money drove the setting pattern. |
 | `SegmentedControl` | Kwilt Goals `src/ui/SegmentedControl.tsx` | Promote | Animated thumb and compact/default sizes. |
 | `Badge` | Kwilt Goals `src/ui/Badge.tsx` | Candidate | Good primitive, but may need softer Money variants. |
+
+## Illustration Styles
+
+| Asset family | Source | Status | Notes |
+| --- | --- | --- | --- |
+| Goals illustration catalog | Kwilt Goals `assets/illustrations/*.png` | Candidate | Use as the canonical reference for onboarding, celebration, permission, and empty-state art. Keep local until multiple apps need shared illustration roles. |
+| Moment hero scale | Kwilt Goals `goal-set.png` in `GoalDetailScreen` | Candidate | Full-screen emotional moments can carry larger art, but copy and the primary action must remain the clearest hierarchy. |
+| Utility spot scale | Kwilt Goals `EmptyState` | Candidate | Empty states should use smaller art and remain quiet. Promote only after role, sizing, and asset-loading rules are stable. |
 
 ## Settings Surfaces
 
@@ -48,7 +59,9 @@ Use this with [Storybook](storybook.md) as the component review surface.
 
 | Component | Strongest Source | Status | Why |
 | --- | --- | --- | --- |
-| `BottomDrawer` / sheets | Kwilt Goals | Candidate | Mature but app behavior needs careful extraction. |
+| `BottomDrawer` mechanics | Kwilt Goals | Promote | Goals has the stronger implementation for snap points, gesture coordination, keyboard avoidance, safe areas, scroll helpers, and modal/inline presentation. |
+| `DrawerChoicePicker` anatomy | Hybrid, leaning Kwilt Money | Candidate | Money's category picker is a strong pattern for fast classification drawers: compact title, search, dense selectable rows, selected check. Build as a shared variant with app-provided rows. |
+| Drawer task/edit surfaces | Kwilt Goals | Candidate | Goals has stronger task drawers for filters, sort, creation, AI, and multi-field edits. These should not collapse into the compact Money picker pattern. |
 | `Toast` | Kwilt Goals | Candidate | Good cross-app feedback candidate. |
 | `EmptyState` | Kwilt Goals | Candidate | Needs Money tone variants. |
 | `ObjectPageHeader` | Hybrid | Candidate | Shared anatomy, but object semantics differ. |

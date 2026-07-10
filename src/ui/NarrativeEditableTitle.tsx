@@ -66,9 +66,15 @@ export const NarrativeEditableTitle = React.forwardRef<NarrativeEditableTitleRef
     }
   }, [isEditing, value]);
 
-  const commit = React.useCallback(() => {
+  const commit = React.useCallback((options?: { restoreOnEmpty?: boolean }) => {
     const nextTrimmed = draft.trim();
     if (!nextTrimmed) {
+      if (options?.restoreOnEmpty) {
+        setDraft(value);
+        setIsEditing(false);
+        setError(null);
+        return;
+      }
       setError('Title cannot be empty');
       return;
     }
@@ -122,7 +128,7 @@ export const NarrativeEditableTitle = React.forwardRef<NarrativeEditableTitleRef
             commit();
           }}
           onBlur={() => {
-            commit();
+            commit({ restoreOnEmpty: true });
           }}
         />
       ) : (
@@ -168,5 +174,4 @@ const styles = StyleSheet.create({
     color: colors.destructive,
   },
 });
-
 
