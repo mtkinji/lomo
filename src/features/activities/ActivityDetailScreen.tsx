@@ -189,6 +189,7 @@ import {
 import { formatActivityRepeatLabel } from './activityRepeatLabels';
 import { formatScheduleSlotTimeRange, getScheduleDurationOptions, resolveScheduleDurationMinutes } from './activityScheduleDisplay';
 import { resolveActivityScheduleSheetDraft } from './activityScheduleSheetDraft';
+import { resolveSelectedScheduleSlot } from './activityScheduleSelection';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
@@ -1057,9 +1058,11 @@ export function ActivityDetailScreen() {
     userProfile,
   ]);
 
-  const selectedSlot = manualScheduleSlot
-    ? { startDate: manualScheduleSlot.startDate, endDate: manualScheduleSlot.endDate }
-    : scheduleSlots[selectedSlotIndex] ?? null;
+  const selectedSlot = resolveSelectedScheduleSlot({
+    manualScheduleSlot,
+    scheduleSlots,
+    selectedSlotIndex,
+  });
 
   const scheduleTargetDayLabel = useMemo(() => {
     return scheduleTargetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
