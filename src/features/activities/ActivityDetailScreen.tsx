@@ -146,6 +146,11 @@ import {
   stopAudioRecordingAndAttachToActivity,
 } from '../../services/attachments/activityAttachments';
 import { deriveStatusFromSteps } from './activityStepStatus';
+import {
+  buildActivityCompletionUndoSnapshot,
+  restoreActivityCompletionFromSnapshot,
+  type ActivityCompletionUndoSnapshot,
+} from './activityCompletionUndo';
 import { Toast } from '../../ui/Toast';
 import { buildAffiliateRetailerSearchUrl } from '../../services/affiliateLinks';
 import { listExecutionTargets, type ExecutionTargetRow } from '../../services/executionTargets/executionTargets';
@@ -3151,11 +3156,12 @@ export function ActivityDetailScreen() {
     if (willComplete) {
       void playStepDoneSound();
     }
+    const completedAt = new Date().toISOString();
     // Marking a step complete is meaningful progress; count it as "showing up".
     if (existing && !existing.completedAt) {
       recordShowUpWithCelebration();
+      recordScreenTimeProgress('activity_progress_recorded', new Date(completedAt));
     }
-    const completedAt = new Date().toISOString();
     applyStepUpdate((steps) =>
       steps.map((step) =>
         step.id === stepId ? { ...step, completedAt: step.completedAt ? null : completedAt } : step
@@ -3358,6 +3364,35 @@ export function ActivityDetailScreen() {
     });
   };
 
+  const showDirectCompletionUndoToast = (
+    snapshot: ActivityCompletionUndoSnapshot,
+    representedCompletedAt: string,
+  ) => {
+    showToast({
+      message: 'To-do complete',
+      variant: 'light',
+      durationMs: 5000,
+      actionLabel: 'Undo',
+      actionOnPress: () => {
+        const restoredAt = new Date().toISOString();
+        let didRestore = false;
+        updateActivity(activityId, (current) => {
+          const result = restoreActivityCompletionFromSnapshot({
+            activity: current,
+            snapshot,
+            representedCompletedAt,
+            restoredAt,
+          });
+          didRestore = result.didRestore;
+          return result.activity;
+        });
+        if (didRestore) {
+          void HapticsService.trigger('canvas.step.undo');
+        }
+      },
+    });
+  };
+
   const handleToggleComplete = () => {
     if (!activity) return;
     const timestamp = new Date().toISOString();
@@ -3367,6 +3402,7 @@ export function ActivityDetailScreen() {
     if (!hasSteps) {
       finishMutationRef.current = null;
       const wasCompleted = isCompleted;
+      const undoSnapshot = wasCompleted ? null : buildActivityCompletionUndoSnapshot(activity);
       void HapticsService.trigger(wasCompleted ? 'canvas.primary.confirm' : 'outcome.bigSuccess');
       updateActivity(activity.id, (prev) => {
         const nextIsDone = prev.status !== 'done';
@@ -3381,6 +3417,9 @@ export function ActivityDetailScreen() {
         // Toggling from not-done to done counts as "showing up" for the day.
         recordShowUpWithCelebration();
         recordScreenTimeProgress('activity_completed', new Date(timestamp));
+        if (undoSnapshot) {
+          showDirectCompletionUndoToast(undoSnapshot, timestamp);
+        }
       }
       return;
     }
@@ -3424,6 +3463,7 @@ export function ActivityDetailScreen() {
     // Manual completion toggle (keep steps as-is).
     finishMutationRef.current = null;
     const wasCompleted = isCompleted;
+    const undoSnapshot = wasCompleted ? null : buildActivityCompletionUndoSnapshot(activity);
     void HapticsService.trigger(wasCompleted ? 'canvas.primary.confirm' : 'outcome.bigSuccess');
     updateActivity(activity.id, (prev) => {
       const nextIsDone = prev.status !== 'done';
@@ -3437,6 +3477,9 @@ export function ActivityDetailScreen() {
     if (!wasCompleted) {
       recordShowUpWithCelebration();
       recordScreenTimeProgress('activity_completed', new Date(timestamp));
+      if (undoSnapshot) {
+        showDirectCompletionUndoToast(undoSnapshot, timestamp);
+      }
     }
     capture(AnalyticsEvent.ActivityCompletionToggled, {
       source: 'activity_detail',
@@ -3736,10 +3779,6 @@ export function ActivityDetailScreen() {
   const hasInitializedProgressRef = useRef(false);
   const [rightItemCenterLabelPulseKey, setRightItemCenterLabelPulseKey] = useState(0);
   const prevCompletedCountRef = useRef<number>(completedStepsCount);
-  const activityTypeLabel = useMemo(() => {
-    const match = (activityTypeOptions ?? []).find((opt: any) => opt?.value === activity?.type);
-    return (match?.label ?? 'To-do') as string;
-  }, [activity?.type, activityTypeOptions]);
 
   useEffect(() => {
     if (!activity) return;
@@ -3772,7 +3811,7 @@ export function ActivityDetailScreen() {
       setRightItemCelebrateKey((k) => k + 1);
     }
     prevProgressRef.current = next;
-  }, [actionDockRightProgress, activityTypeLabel, isFocused, showToast]);
+  }, [actionDockRightProgress, isFocused]);
 
   useEffect(() => {
     // Pulse the center count only on single-step toggles while in partial completion.
@@ -4275,9 +4314,11 @@ export function ActivityDetailScreen() {
                   onRightItemCelebrateComplete={() => {
                     if (!isFocusedRef.current) return;
                     showToast({
-                      message: `${activityTypeLabel} complete`,
+                      message: 'To-do complete',
                       variant: 'light',
-                      durationMs: 2200,
+                      durationMs: 5000,
+                      actionLabel: 'Undo',
+                      actionOnPress: handleToggleComplete,
                     });
                   }}
                   rightItemCenterLabel={actionDockCountLabel}

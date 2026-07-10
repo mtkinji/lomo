@@ -7,6 +7,7 @@ import { Button, IconButton } from '../../ui/Button';
 import { GoalPill } from '../../ui/GoalPill';
 import { formatTimeRange } from '../../services/plan/planDates';
 import { useAppStore } from '../../store/useAppStore';
+import { useToastStore } from '../../store/useToastStore';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Icon } from '../../ui/Icon';
 import { Badge } from '../../ui/Badge';
@@ -14,6 +15,11 @@ import { BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { BottomDrawerHeader, BottomDrawerHeaderClose } from '../../ui/layout/BottomDrawerHeader';
 import { ActivityPeekNotes, ActivityPeekSteps, ActivityPeekTags } from '../activities/ActivityPeekFields';
 import { deriveStatusFromSteps } from '../activities/activityStepStatus';
+import {
+  buildActivityCompletionUndoSnapshot,
+  restoreActivityCompletionFromSnapshot,
+  type ActivityCompletionUndoSnapshot,
+} from '../activities/activityCompletionUndo';
 import { HapticsService } from '../../services/HapticsService';
 import { playActivityDoneSound } from '../../services/uiSounds';
 import { AnalyticsEvent } from '../../services/analytics/events';
@@ -57,6 +63,7 @@ export function ActivityEventPeek({
   const updateActivity = useAppStore((s) => s.updateActivity);
   const activities = useAppStore((s) => s.activities);
   const recordScreenTimeQualifyingAction = useAppStore((s) => s.recordScreenTimeQualifyingAction);
+  const showToast = useToastStore((s) => s.showToast);
   const { capture } = useAnalytics();
 
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -83,6 +90,47 @@ export function ActivityEventPeek({
     });
     return byId;
   }, [activity?.steps, activities]);
+
+  const showCompletionUndoToast = useCallback(
+    (snapshot: ActivityCompletionUndoSnapshot, representedCompletedAt: string) => {
+      showToast({
+        message: 'To-do complete',
+        variant: 'light',
+        durationMs: 5000,
+        actionLabel: 'Undo',
+        actionOnPress: () => {
+          const restoredAt = new Date().toISOString();
+          let didRestore = false;
+          let restoredGoalId: string | null = null;
+          let hadSteps = false;
+          updateActivity(activityId, (current) => {
+            const result = restoreActivityCompletionFromSnapshot({
+              activity: current,
+              snapshot,
+              representedCompletedAt,
+              restoredAt,
+            });
+            didRestore = result.didRestore;
+            if (didRestore) {
+              restoredGoalId = current.goalId ?? null;
+              hadSteps = Boolean(current.steps && current.steps.length > 0);
+            }
+            return result.activity;
+          });
+          if (!didRestore) return;
+          void HapticsService.trigger('canvas.step.undo');
+          capture(AnalyticsEvent.ActivityCompletionToggled, {
+            source: 'plan_event_peek',
+            activity_id: activityId,
+            goal_id: restoredGoalId,
+            next_status: snapshot.status,
+            had_steps: hadSteps,
+          });
+        },
+      });
+    },
+    [activityId, capture, showToast, updateActivity],
+  );
 
   const handleMovePress = () => {
     // Toggle behavior: if the move picker is already open, tapping Move again closes it.
@@ -124,6 +172,7 @@ export function ActivityEventPeek({
   const handleToggleStepComplete = useCallback(
     (stepId: string) => {
       const timestamp = new Date().toISOString();
+      let completionUndoSnapshot: ActivityCompletionUndoSnapshot | null = null;
       updateActivity(activityId, (prev) => {
         const currentSteps = prev.steps ?? [];
         const existing: any = currentSteps.find((s: any) => s.id === stepId) ?? null;
@@ -141,6 +190,10 @@ export function ActivityEventPeek({
           prevCompletedAt: prev.completedAt,
         });
 
+        if (prev.status !== 'done' && nextStatus === 'done') {
+          completionUndoSnapshot = buildActivityCompletionUndoSnapshot(prev);
+        }
+
         return {
           ...prev,
           steps: nextSteps as any,
@@ -149,8 +202,12 @@ export function ActivityEventPeek({
           updatedAt: timestamp,
         };
       });
+
+      if (completionUndoSnapshot) {
+        showCompletionUndoToast(completionUndoSnapshot, timestamp);
+      }
     },
-    [activityId, updateActivity],
+    [activityId, showCompletionUndoToast, updateActivity],
   );
 
   const handlePlanCompletePress = useCallback(() => {
@@ -158,9 +215,13 @@ export function ActivityEventPeek({
     const timestamp = new Date().toISOString();
     const wasDone = activity.status === 'done';
     let nextStatus = activity.status;
+    let completionUndoSnapshot: ActivityCompletionUndoSnapshot | null = null;
     updateActivity(activityId, (prev) => {
       const next = applyPlanActivityCompletionAction(prev, timestamp);
       nextStatus = next.status;
+      if (prev.status !== 'done' && next.status === 'done') {
+        completionUndoSnapshot = buildActivityCompletionUndoSnapshot(prev);
+      }
       return next;
     });
 
@@ -174,6 +235,9 @@ export function ActivityEventPeek({
         occurredAt: new Date(timestamp),
       });
       reconcileScreenTimeRestrictions({ focusSessionActive: false, now: new Date(timestamp) }).catch(() => undefined);
+      if (completionUndoSnapshot) {
+        showCompletionUndoToast(completionUndoSnapshot, timestamp);
+      }
     }
 
     capture(AnalyticsEvent.ActivityCompletionToggled, {
@@ -183,7 +247,7 @@ export function ActivityEventPeek({
       next_status: nextStatus,
       had_steps: Boolean(activity.steps && activity.steps.length > 0),
     });
-  }, [activity, activityId, capture, recordScreenTimeQualifyingAction, updateActivity]);
+  }, [activity, activityId, capture, recordScreenTimeQualifyingAction, showCompletionUndoToast, updateActivity]);
 
   if (!activity) {
     return (

@@ -114,6 +114,11 @@ import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../service
 import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH, getMonthKey } from '../../domain/generativeCredits';
 import { parseTags } from '../../utils/tags';
 import { buildActivityDeleteUndoSnapshot } from '../../utils/activityDeletionUndo';
+import {
+  buildActivityCompletionUndoSnapshot,
+  restoreActivityCompletionFromSnapshot,
+  type ActivityCompletionUndoSnapshot,
+} from '../activities/activityCompletionUndo';
 import { ActivityDraftDetailFields, type ActivityDraft } from '../activities/ActivityDraftDetailFields';
 import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
@@ -1590,6 +1595,7 @@ export function GoalDetailScreen() {
       let didFireHaptic = false;
       let wasCompleted = false;
       let completedTitle = '';
+      let completionUndoSnapshot: ActivityCompletionUndoSnapshot | null = null;
       updateActivity(activityId, (activity) => {
         const nextIsDone = activity.status !== 'done';
         if (!didFireHaptic) {
@@ -1598,6 +1604,9 @@ export function GoalDetailScreen() {
         }
         wasCompleted = nextIsDone;
         completedTitle = activity.title ?? '';
+        if (nextIsDone) {
+          completionUndoSnapshot = buildActivityCompletionUndoSnapshot(activity);
+        }
         return {
           ...activity,
           status: nextIsDone ? 'done' : 'planned',
@@ -1605,6 +1614,39 @@ export function GoalDetailScreen() {
           updatedAt: timestamp,
         };
       });
+
+      const undoSnapshot = completionUndoSnapshot;
+      if (wasCompleted && undoSnapshot) {
+        showToast({
+          message: 'To-do complete',
+          variant: 'light',
+          durationMs: 5000,
+          actionLabel: 'Undo',
+          actionOnPress: () => {
+            const restoredAt = new Date().toISOString();
+            let didRestore = false;
+            updateActivity(activityId, (current) => {
+              const result = restoreActivityCompletionFromSnapshot({
+                activity: current,
+                snapshot: undoSnapshot,
+                representedCompletedAt: timestamp,
+                restoredAt,
+              });
+              didRestore = result.didRestore;
+              return result.activity;
+            });
+            if (!didRestore) return;
+            void HapticsService.trigger('canvas.step.undo');
+            if (goalId) {
+              useCheckinDraftStore.getState().removeItemBySource({
+                goalId,
+                sourceType: 'activity',
+                sourceId: activityId,
+              });
+            }
+          },
+        });
+      }
 
       if (goalId) {
         if (wasCompleted) {
@@ -1664,7 +1706,7 @@ export function GoalDetailScreen() {
         }
       }
     },
-    [updateActivity, goalId, isSharedGoal, partnerCircleKey, capture]
+    [updateActivity, goalId, isSharedGoal, partnerCircleKey, capture, showToast]
   );
 
   const handleOpenActivityDetail = useCallback(
