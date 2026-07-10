@@ -93,7 +93,6 @@ import { normalizeActivitySteps } from '../../domain/normalizeActivity';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { parseTags, suggestTagsFromText } from '../../utils/tags';
 import { suggestActivityTagsWithAi } from '../../services/ai';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import * as Clipboard from 'expo-clipboard';
@@ -124,6 +123,7 @@ import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarB
 import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
 import { PlanCalendarLensPage } from '../plan/PlanCalendarLensPage';
 import { PlanDateStrip } from '../plan/PlanDateStrip';
+import { toLocalDateKey } from '../../services/plan/planDates';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
@@ -191,6 +191,8 @@ import { formatScheduleSlotTimeRange, getScheduleDurationOptions, resolveSchedul
 import { resolveActivityScheduleSheetDraft } from './activityScheduleSheetDraft';
 import { resolveSelectedScheduleSlot } from './activityScheduleSelection';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
+import { ActivityScheduleSheet } from './ActivityScheduleSheet';
+import { useActivityScheduleSheetController } from './useActivityScheduleSheetController';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
@@ -995,93 +997,20 @@ export function ActivityDetailScreen() {
   ) : null;
 
   const calendarSheetVisible = activeSheet === 'calendar';
-  const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
-  const [calendarDurationDraft, setCalendarDurationDraft] = useState('30');
-  const [scheduleDurationExpanded, setScheduleDurationExpanded] = useState(false);
-  const [scheduleTargetDate, setScheduleTargetDate] = useState<Date>(new Date());
-  const scheduleInitialTargetDateRef = useRef<Date>(new Date());
-  const scheduleHorizonCacheRef = useRef<{
-    start: Date;
-    end: Date;
-    busyAll: Array<{ start: Date; end: Date }>;
-    eventsAll: CalendarEvent[];
-  } | null>(null);
-  const [scheduleFetchNonce, setScheduleFetchNonce] = useState(0);
-  const [scheduleBusyIntervals, setScheduleBusyIntervals] = useState<Array<{ start: Date; end: Date }>>([]);
-  const [scheduleExternalEvents, setScheduleExternalEvents] = useState<CalendarEvent[]>([]);
-  const [scheduleWriteRef, setScheduleWriteRef] = useState<CalendarRef | null>(null);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleHorizonExhausted, setScheduleHorizonExhausted] = useState(false);
-  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number>(0);
-  const [manualScheduleSlot, setManualScheduleSlot] = useState<{ startDate: string; endDate: string } | null>(null);
-
-  const calendarBindingHealth = useMemo(() => {
-    return inferCalendarBindingHealth({
-      binding: activity?.calendarBinding ?? null,
-      deviceCalendarPermission: 'unknown',
-      providerConnection: 'unknown',
-    });
-  }, [activity?.calendarBinding]);
-
-  const scheduleDurationOptions = useMemo(
-    () => getScheduleDurationOptions(),
-    [],
-  );
-  const scheduleDurationMinutes = useMemo(() => {
-    return resolveScheduleDurationMinutes({
-      draft: calendarDurationDraft,
-      fallbackEstimateMinutes: activity?.estimateMinutes,
-    });
-  }, [activity?.estimateMinutes, calendarDurationDraft]);
-
-  const scheduleSlots = useMemo(() => {
-    if (!activity) return [];
-    const scheduleActivity = { ...activity, estimateMinutes: scheduleDurationMinutes };
-    return proposeSlotsForActivity({
-      activity: scheduleActivity,
-      goals: goals ?? [],
-      userProfile,
-      targetDate: scheduleTargetDate,
-      busyIntervals: scheduleBusyIntervals,
-      writeCalendarId: scheduleWriteRef?.calendarId ?? null,
-      activityAreas,
-      limit: 6,
-    });
-  }, [
+  const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
+  const scheduleController = useActivityScheduleSheetController({
+    visible: calendarSheetVisible,
     activity,
+    activities,
     goals,
-    scheduleBusyIntervals,
-    scheduleDurationMinutes,
-    scheduleTargetDate,
-    scheduleWriteRef?.calendarId,
     activityAreas,
     userProfile,
-  ]);
-
-  const selectedSlot = resolveSelectedScheduleSlot({
-    manualScheduleSlot,
-    scheduleSlots,
-    selectedSlotIndex,
+    updateActivity,
+    showToast,
+    onOpen: () => setActiveSheet('calendar'),
+    onClose: () => setActiveSheet(null),
+    onScheduled: setPendingCalendarToast,
   });
-
-  const scheduleTargetDayLabel = useMemo(() => {
-    return scheduleTargetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  }, [scheduleTargetDate]);
-
-  const selectedScheduleSlotLabel = useMemo(() => {
-    if (!selectedSlot) return null;
-    return formatScheduleSlotTimeRange(selectedSlot);
-  }, [selectedSlot]);
-
-  const kwiltBlocksForScheduleDay = useMemo(() => {
-    return getKwiltCalendarBlocksForDay(activities, scheduleTargetDate);
-  }, [activities, scheduleTargetDate]);
-
-  const calendarColorByRefKeyForSchedule = useMemo(() => {
-    // Keep simple for now; Plan pager decorates provider colors more richly.
-    return {};
-  }, []);
-  const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
   const sendToSheetVisible = activeSheet === 'sendTo';
   const [installedDestinations, setInstalledDestinations] = useState<ExecutionTargetRow[]>([]);
   const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
@@ -1656,8 +1585,6 @@ export function ActivityDetailScreen() {
     };
   }, [locationQuery, locationSheetVisible, normalizePlaceLabel]);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
-  const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
 
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
@@ -2285,25 +2212,7 @@ export function ActivityDetailScreen() {
   ]);
 
 
-  const openCalendarSheet = () => {
-    if (!activity) return;
-    const draft = resolveActivityScheduleSheetDraft({
-      scheduledAt: activity.scheduledAt,
-      estimateMinutes: activity.estimateMinutes,
-    });
-
-    setCalendarStartDraft(draft.draftStart);
-    setCalendarDurationDraft(draft.durationDraft);
-    setScheduleDurationExpanded(false);
-    scheduleInitialTargetDateRef.current = new Date(draft.draftStart);
-    scheduleHorizonCacheRef.current = null;
-    setScheduleTargetDate(draft.targetDate);
-    setSelectedSlotIndex(0);
-    setManualScheduleSlot(null);
-    setScheduleHorizonExhausted(false);
-    setScheduleFetchNonce((n) => n + 1);
-    setActiveSheet('calendar');
-  };
+  const openCalendarSheet = scheduleController.open;
 
   useEffect(() => {
     if (!openSchedule) return;
@@ -2343,34 +2252,14 @@ export function ActivityDetailScreen() {
 
       if (action.type === 'openCalendar') {
         const fromAction = action.startAtISO ? new Date(action.startAtISO) : null;
-        const fromExisting = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-        const draftStart =
-          fromAction && !Number.isNaN(fromAction.getTime())
-            ? fromAction
-            : fromExisting && !Number.isNaN(fromExisting.getTime())
-              ? fromExisting
-              : (() => {
-                  const base = new Date();
-                  const intervalMs = 15 * 60_000;
-                  return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
-                })();
-
         const duration =
           typeof action.durationMinutes === 'number' && Number.isFinite(action.durationMinutes)
             ? Math.max(5, Math.round(action.durationMinutes))
             : Math.max(5, Math.round(activity.estimateMinutes ?? 30));
-
-        setCalendarStartDraft(draftStart);
-        setCalendarDurationDraft(String(duration));
-        setScheduleDurationExpanded(false);
-        scheduleInitialTargetDateRef.current = new Date(draftStart);
-        scheduleHorizonCacheRef.current = null;
-        setScheduleTargetDate(new Date(draftStart));
-        setSelectedSlotIndex(0);
-        setManualScheduleSlot(null);
-        setScheduleHorizonExhausted(false);
-        setScheduleFetchNonce((n) => n + 1);
-        setActiveSheet('calendar');
+        scheduleController.open({
+          startAt: fromAction && !Number.isNaN(fromAction.getTime()) ? fromAction : null,
+          durationMinutes: duration,
+        });
       }
 
       if (action.type === 'confirmStepCompletion') {
@@ -2420,509 +2309,6 @@ export function ActivityDetailScreen() {
       }
     });
   }, [activity, agentHostActions, consumeAgentHostActions]);
-
-  // NOTE: Schedule uses the Plan write calendar; no device calendar preloading needed.
-
-  useEffect(() => {
-    if (!calendarSheetVisible) return;
-    let cancelled = false;
-    (async () => {
-      if (!activity) return;
-      try {
-        setScheduleLoading(true);
-        setScheduleHorizonExhausted(false);
-        setManualScheduleSlot(null);
-
-        const prefs = await getOrInitCalendarPreferences();
-        if (cancelled) return;
-        const writeRef = prefs.writeCalendarRef ?? null;
-        const readRefs = prefs.readCalendarRefs ?? [];
-        setScheduleWriteRef(writeRef);
-
-        if (!writeRef) {
-          setScheduleBusyIntervals([]);
-          setScheduleExternalEvents([]);
-          return;
-        }
-
-        const HORIZON_DAYS = 14;
-        const initialTargetDate = scheduleInitialTargetDateRef.current ?? new Date();
-        const horizonStart = new Date(initialTargetDate);
-        horizonStart.setHours(0, 0, 0, 0);
-        const horizonEnd = new Date(horizonStart);
-        horizonEnd.setDate(horizonEnd.getDate() + HORIZON_DAYS + 1);
-
-        const [busyRes, eventsRes] = await Promise.all([
-          listProviderBusyIntervals({
-            start: horizonStart.toISOString(),
-            end: horizonEnd.toISOString(),
-            readCalendarRefs: [...readRefs, writeRef],
-          }),
-          listProviderCalendarEvents({
-            start: horizonStart.toISOString(),
-            end: horizonEnd.toISOString(),
-            readCalendarRefs: [...readRefs, writeRef],
-          }),
-        ]);
-        if (cancelled) return;
-
-        const busyAll = (busyRes?.intervals ?? [])
-          .map((i) => ({ start: new Date(i.start), end: new Date(i.end) }))
-          .filter((i) => !Number.isNaN(i.start.getTime()) && !Number.isNaN(i.end.getTime()));
-        const eventsAll = Array.isArray(eventsRes?.events) ? eventsRes.events : [];
-        scheduleHorizonCacheRef.current = { start: horizonStart, end: horizonEnd, busyAll, eventsAll };
-
-        const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => aStart < bEnd && bStart < aEnd;
-        const sliceBusyForDay = (day: Date) => {
-          const dayStart = new Date(day);
-          dayStart.setHours(0, 0, 0, 0);
-          const dayEnd = new Date(dayStart);
-          dayEnd.setDate(dayEnd.getDate() + 1);
-          return busyAll.filter((b) => overlaps(b.start, b.end, dayStart, dayEnd));
-        };
-        const sliceEventsForDay = (day: Date) => {
-          const dayStart = new Date(day);
-          dayStart.setHours(0, 0, 0, 0);
-          const dayEnd = new Date(dayStart);
-          dayEnd.setDate(dayEnd.getDate() + 1);
-          return eventsAll.filter((e) => {
-            const start = new Date((e as any)?.start);
-            const end = new Date((e as any)?.end);
-            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-            return overlaps(start, end, dayStart, dayEnd);
-          });
-        };
-
-        let resolvedDate: Date | null = null;
-        let resolvedBusy: Array<{ start: Date; end: Date }> = [];
-        let resolvedEvents: CalendarEvent[] = [];
-
-        const scheduleActivity = { ...activity, estimateMinutes: scheduleDurationMinutes };
-        for (let offset = 0; offset <= HORIZON_DAYS; offset++) {
-          const day = new Date(horizonStart);
-          day.setDate(day.getDate() + offset);
-          const dayBusy = sliceBusyForDay(day);
-          const slots = proposeSlotsForActivity({
-            activity: scheduleActivity,
-            goals: goals ?? [],
-            userProfile,
-            targetDate: day,
-            busyIntervals: dayBusy,
-            writeCalendarId: writeRef.calendarId ?? null,
-            activityAreas,
-            limit: 6,
-          });
-          if (slots.length > 0) {
-            resolvedDate = day;
-            resolvedBusy = dayBusy;
-            resolvedEvents = sliceEventsForDay(day);
-            break;
-          }
-        }
-
-        if (!resolvedDate) {
-          const fallbackDay = new Date(horizonStart);
-          const dayBusy = sliceBusyForDay(fallbackDay);
-          setScheduleTargetDate(fallbackDay);
-          setScheduleBusyIntervals(dayBusy);
-          setScheduleExternalEvents(sliceEventsForDay(fallbackDay));
-          setSelectedSlotIndex(0);
-          setScheduleHorizonExhausted(true);
-          return;
-        }
-
-        setScheduleTargetDate(resolvedDate);
-        setScheduleBusyIntervals(resolvedBusy);
-        setScheduleExternalEvents(resolvedEvents);
-        setSelectedSlotIndex(0);
-      } catch {
-        if (cancelled) return;
-        setScheduleBusyIntervals([]);
-        setScheduleExternalEvents([]);
-        setScheduleWriteRef(null);
-      } finally {
-        if (!cancelled) setScheduleLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally do not depend on `scheduleTargetDate` to avoid re-fetching after auto-advancing days.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calendarSheetVisible, activity, scheduleFetchNonce]);
-
-  const handleSelectScheduleDate = useCallback(
-    (date: Date) => {
-      const d = new Date(date);
-      if (Number.isNaN(d.getTime())) return;
-      d.setHours(12, 0, 0, 0);
-
-      setManualScheduleSlot(null);
-      setSelectedSlotIndex(0);
-      setScheduleHorizonExhausted(false);
-
-      const cache = scheduleHorizonCacheRef.current;
-      if (cache && d >= cache.start && d < cache.end) {
-        const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => aStart < bEnd && bStart < aEnd;
-        const dayStart = new Date(d);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayEnd.getDate() + 1);
-        const busy = cache.busyAll.filter((b) => overlaps(b.start, b.end, dayStart, dayEnd));
-        const events = cache.eventsAll.filter((e) => {
-          const start = new Date((e as any)?.start);
-          const end = new Date((e as any)?.end);
-          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-          return overlaps(start, end, dayStart, dayEnd);
-        });
-        setScheduleTargetDate(new Date(d));
-        setScheduleBusyIntervals(busy);
-        setScheduleExternalEvents(events);
-        return;
-      }
-
-      // Outside the cached horizon: refetch a fresh horizon anchored at this day.
-      scheduleInitialTargetDateRef.current = new Date(d);
-      scheduleHorizonCacheRef.current = null;
-      setScheduleTargetDate(new Date(d));
-      setScheduleFetchNonce((n) => n + 1);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!calendarSheetVisible) return;
-    setManualScheduleSlot(null);
-    setSelectedSlotIndex(0);
-  }, [calendarSheetVisible, scheduleDurationMinutes]);
-
-  useEffect(() => {
-    if (!calendarSheetVisible) return;
-    if (Platform.OS !== 'ios') {
-      setIsOutlookInstalled(false);
-      return;
-    }
-    // No prompt; iOS only answers this if the scheme is whitelisted in Info.plist.
-    Linking.canOpenURL('ms-outlook://')
-      .then((ok) => setIsOutlookInstalled(Boolean(ok)))
-      .catch(() => setIsOutlookInstalled(false));
-  }, [calendarSheetVisible]);
-
-  const handlePressScheduleEmptyTime = useCallback(
-    (params: { date: Date }) => {
-      const { date } = params;
-      if (!activity) return;
-      if (!scheduleWriteRef?.calendarId) {
-        showToast({
-          message: 'Set a Plan write calendar to schedule.',
-          variant: 'default',
-          durationMs: 2200,
-        });
-        return;
-      }
-      const start = new Date(date);
-      if (Number.isNaN(start.getTime())) return;
-      start.setSeconds(0, 0);
-
-      const resolvedSlot = resolveManualScheduleSlot({
-        activity,
-        activityAreas,
-        goals: goals ?? [],
-        userProfile,
-        date: start,
-        durationMinutes: scheduleDurationMinutes,
-        busyIntervals: scheduleBusyIntervals,
-      });
-      if (!resolvedSlot.ok) {
-        if (resolvedSlot.toast) {
-          showToast({
-            message: resolvedSlot.toast.message,
-            variant: 'default',
-            durationMs: resolvedSlot.toast.durationMs,
-          });
-        }
-        return;
-      }
-
-      setManualScheduleSlot(resolvedSlot.slot);
-      setSelectedSlotIndex(-1);
-      // Day view is always visible in this sheet.
-    },
-    [
-      activity,
-      activityAreas,
-      goals,
-      scheduleBusyIntervals,
-      scheduleDurationMinutes,
-      scheduleWriteRef?.calendarId,
-      showToast,
-      userProfile,
-    ],
-  );
-
-  const scheduleIntoWriteCalendar = async (slotIndex?: number) => {
-    if (!activity) return;
-    const writeRef = scheduleWriteRef;
-    if (!writeRef) {
-      Alert.alert('Choose a write calendar', 'Set a write calendar in Settings → Plan Calendars to schedule.');
-      return;
-    }
-    const slot =
-      typeof slotIndex === 'number'
-        ? scheduleSlots[slotIndex] ?? null
-        : manualScheduleSlot ?? scheduleSlots[selectedSlotIndex ?? 0] ?? null;
-    if (!slot) {
-      Alert.alert('No available slots', 'Kwilt couldn’t find a free slot for this day.');
-      return;
-    }
-    const startAt = new Date(slot.startDate);
-    const endAt = new Date(slot.endDate);
-    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) return;
-
-    const applyScheduledCalendarBinding = (eventRef: CalendarEventRef) => {
-      const stamp = new Date().toISOString();
-      updateActivity(activity.id, (prev) => ({
-        ...prev,
-        scheduledAt: slot.startDate,
-        calendarBinding: {
-          kind: 'provider',
-          provider: eventRef.provider,
-          accountId: eventRef.accountId,
-          calendarId: eventRef.calendarId,
-          eventId: eventRef.eventId,
-          createdBy: 'activity_detail',
-        },
-        // Keep legacy provider fields in sync (until removed).
-        scheduledProvider: eventRef.provider,
-        scheduledProviderAccountId: eventRef.accountId,
-        scheduledProviderCalendarId: eventRef.calendarId,
-        scheduledProviderEventId: eventRef.eventId,
-        updatedAt: stamp,
-      }));
-      setActiveSheet(null);
-      setPendingCalendarToast('Scheduled on your calendar.');
-    };
-
-    setIsCreatingCalendarEvent(true);
-    try {
-      const existing = await resolveCalendarEventRefBeforeCreate({
-        block: slot,
-        writeRef,
-      });
-      if (existing?.status === 'linked') {
-        applyScheduledCalendarBinding(existing.eventRef);
-        return;
-      }
-
-      // Provider-backed: this is the Plan write calendar.
-      const res = await createProviderCalendarEvent({
-        title: activity.title,
-        start: slot.startDate,
-        end: slot.endDate,
-        writeCalendarRef: writeRef,
-      });
-      const resolved = await resolveCalendarEventRefAfterCreate({
-        createResult: res,
-        block: slot,
-        writeRef,
-      });
-      if (resolved.status === 'unconfirmed') {
-        Alert.alert('Check your calendar', 'We may have added this block, but we couldn’t confirm it. Please check your calendar.');
-        return;
-      }
-      if (resolved.status === 'unlinked') {
-        Alert.alert('Check your calendar', 'We couldn’t safely link this event for future moves/unschedule. Please check your calendar.');
-        return;
-      }
-      applyScheduledCalendarBinding(resolved.eventRef);
-    } catch (err) {
-      const recovered = await resolveCalendarEventRefAfterCreate({
-        createResult: null,
-        block: slot,
-        writeRef,
-      });
-      if (recovered.status === 'linked') {
-        applyScheduledCalendarBinding(recovered.eventRef);
-        return;
-      }
-      if (recovered.status === 'unlinked') {
-        Alert.alert('Check your calendar', 'We may have added this block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.');
-        return;
-      }
-      const alert = getCalendarCommitAlertForError(err);
-      if (alert) {
-        Alert.alert(alert.title, alert.message);
-        return;
-      }
-    } finally {
-      setIsCreatingCalendarEvent(false);
-    }
-  };
-
-  const shareActivityAsIcs = async () => {
-    if (!activity) return;
-    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
-      return;
-    }
-
-    const startAt = calendarStartDraft;
-    if (!startAt || Number.isNaN(startAt.getTime())) {
-      Alert.alert('Start time needed', 'Pick a start date/time.');
-      return;
-    }
-
-    const endAt = new Date(startAt.getTime() + minutes * 60_000);
-    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
-    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
-    const focusPart = `Focus mode: ${focusLink}`;
-    const description = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-    const ics = buildIcsEvent({
-      uid: `kwilt-activity-${activity.id}`,
-      title: activity.title,
-      description,
-      startAt,
-      endAt,
-    });
-
-    try {
-      const filename = `kwilt-${activity.title.trim().slice(0, 48).replace(/[^a-z0-9-_]+/gi, '-') || 'activity'}.ics`;
-      const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
-      const fileUri = `${baseDir}${filename}`;
-      await FileSystem.writeAsStringAsync(fileUri, ics, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
-
-      if (Platform.OS === 'web') {
-        await Clipboard.setStringAsync(ics);
-        setActiveSheet(null);
-        Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
-        return;
-      }
-
-      const result = await Share.share({
-        title: 'Send to calendar',
-        message: activity.title,
-        url: fileUri,
-      });
-
-      if ((result as any)?.action === (Share as any).dismissedAction) {
-        // User cancelled share; don't mutate the Activity.
-        return;
-      }
-
-      setActiveSheet(null);
-    } catch (error) {
-      // Last-ditch fallback: copy the ICS text.
-      try {
-        await Clipboard.setStringAsync(ics);
-        setActiveSheet(null);
-        Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
-      } catch {
-        Alert.alert('Could not share', 'Something went wrong while exporting to calendar.');
-        if (__DEV__) {
-          console.warn('ICS share failed', error);
-        }
-      }
-    }
-  };
-
-  // NOTE: iOS does not offer a reliable deep link to open Apple Calendar’s "new event"
-  // composer with prefilled data. We create the event in the system calendar store and
-  // then open Calendar so the user can refine it there.
-
-  const openOutlookEventComposer = async () => {
-    if (!activity) return;
-    if (Platform.OS !== 'ios') {
-      Alert.alert('Not available', 'This shortcut is only available on iOS.');
-      return;
-    }
-
-    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
-      return;
-    }
-
-    const startAt = calendarStartDraft;
-    if (!startAt || Number.isNaN(startAt.getTime())) {
-      Alert.alert('Start time needed', 'Pick a start date/time.');
-      return;
-    }
-
-    const endAt = new Date(startAt.getTime() + minutes * 60_000);
-    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
-    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
-    const focusPart = `Focus mode: ${focusLink}`;
-    const body = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-    const { nativeUrl, webUrl } = buildOutlookEventLinks({
-      subject: activity.title,
-      body,
-      startAt,
-      endAt,
-    });
-
-    try {
-      if (isOutlookInstalled) {
-        await Linking.openURL(nativeUrl);
-      } else {
-        await Linking.openURL(webUrl);
-      }
-
-      setActiveSheet(null);
-    } catch {
-      Alert.alert('Could not open Outlook', 'Use “.ics file” instead.');
-    }
-  };
-
-  const openGoogleCalendarComposer = async () => {
-    if (!activity) return;
-    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
-      return;
-    }
-
-    const startAt = calendarStartDraft;
-    if (!startAt || Number.isNaN(startAt.getTime())) {
-      Alert.alert('Start time needed', 'Pick a start date/time.');
-      return;
-    }
-
-    const endAt = new Date(startAt.getTime() + minutes * 60_000);
-
-    const toGCalDate = (d: Date) =>
-      d
-        .toISOString()
-        .replace(/[-:]/g, '')
-        .replace(/\.\d{3}Z$/, 'Z');
-
-    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
-    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
-    const focusPart = `Focus mode: ${focusLink}`;
-    const details = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-
-    const url =
-      `https://www.google.com/calendar/render?action=TEMPLATE` +
-      `&text=${encodeURIComponent(activity.title)}` +
-      `&dates=${encodeURIComponent(`${toGCalDate(startAt)}/${toGCalDate(endAt)}`)}` +
-      (details ? `&details=${encodeURIComponent(details)}` : '');
-
-    try {
-      await Linking.openURL(url);
-      setActiveSheet(null);
-    } catch {
-      Alert.alert('Could not open Google Calendar', 'Use “Share calendar file (.ics)” instead.');
-    }
-  };
 
   useEffect(() => {
     return () => {
@@ -5196,215 +4582,18 @@ export function ActivityDetailScreen() {
         </View>
       </BottomDrawer>
 
-      <BottomDrawer
+      <ActivityScheduleSheet
         visible={calendarSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
+        activityTitle={activity?.title ?? 'To-do'}
+        lensHeight={scheduleLensHeightPx}
+        controller={scheduleController}
+        onOpenCalendarSettings={() => {
+          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
         }}
-        // Day-first schedule sheet should be tall enough to actually use the timeline.
-        snapPoints={['95%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
-          <View style={{ flex: 1, minHeight: 0 }}>
-            <BottomDrawerHeader
-              title="Schedule to-do"
-              variant="withClose"
-              onClose={() => setActiveSheet(null)}
-              containerStyle={styles.sheetHeader}
-              titleStyle={styles.sheetTitle}
-            />
-            <Text style={styles.sheetDescription}>Adds a block to your Plan calendar.</Text>
-            {calendarBindingHealth && calendarBindingHealth !== 'healthy' ? (
-              <Text style={[styles.sheetDescription, { color: colors.warning, marginTop: spacing.sm }]}>
-                Calendar binding is {calendarBindingHealth}. Kwilt may not be able to move or unschedule this block until calendar access is restored.
-              </Text>
-            ) : null}
-
-            <VStack space="md" style={{ flex: 1, minHeight: 0 }}>
-            <VStack space="sm">
-              <HStack justifyContent="space-between" alignItems="center">
-                <Text style={styles.sheetSectionLabel}>Duration</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit scheduling duration"
-                  onPress={() => setScheduleDurationExpanded((prev) => !prev)}
-                  style={({ pressed }) => [
-                    styles.scheduleDurationChip,
-                    pressed ? styles.scheduleDurationChipPressed : null,
-                  ]}
-                >
-                  <Text style={styles.scheduleDurationChipText}>{formatDurationMinutes(scheduleDurationMinutes)}</Text>
-                </Pressable>
-              </HStack>
-              {scheduleDurationExpanded ? (
-                <View style={styles.scheduleDurationPicker}>
-                  <View style={styles.scheduleDurationCard}>
-                    <DurationPicker
-                      valueMinutes={scheduleDurationMinutes}
-                      onChangeMinutes={(next) => {
-                        setCalendarDurationDraft(String(next));
-                      }}
-                      optionsMinutes={scheduleDurationOptions}
-                      accessibilityLabel="Select scheduling duration"
-                      iosWheelHeight={180}
-                      showHelperText={false}
-                      iosUseEdgeFades={false}
-                    />
-                  </View>
-                </View>
-              ) : null}
-            </VStack>
-
-            {scheduleLoading ? (
-              <HStack alignItems="center" space="sm">
-                <ActivityIndicator color={colors.textSecondary} />
-                <Text style={styles.sheetDescription}>Finding slots…</Text>
-              </HStack>
-            ) : !scheduleWriteRef ? (
-              <VStack space="sm">
-                <Text style={styles.sheetDescription}>Set a Plan write calendar to schedule.</Text>
-                <Button
-                  variant="primary"
-                  fullWidth
-                  onPress={() => {
-                    setActiveSheet(null);
-                    rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
-                  }}
-                >
-                  Open Plan Calendars
-                </Button>
-              </VStack>
-            ) : scheduleSlots.length === 0 && !manualScheduleSlot ? (
-              <View style={styles.scheduleEmptyStateCard}>
-                <HStack space="sm" alignItems="flex-start">
-                  <View style={styles.scheduleEmptyStateIconWrap}>
-                    <Icon name="calendar" size={16} color={colors.textSecondary} />
-                  </View>
-                  <VStack space="xs" style={{ flex: 1 }}>
-                    <Text style={styles.scheduleEmptyStateTitle}>
-                      {scheduleHorizonExhausted
-                        ? 'No available time in the next 2 weeks'
-                        : 'No suggested times for this day'}
-                    </Text>
-                    <Text style={styles.scheduleEmptyStateBody}>
-                      Tap the calendar below to pick a time or adjust availability.
-                    </Text>
-                    <View style={styles.scheduleEmptyStateActionRow}>
-                      <Button
-                        variant="secondary"
-                        fullWidth
-                        onPress={() => {
-                          setActiveSheet(null);
-                          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
-                        }}
-                      >
-                        Adjust availability
-                      </Button>
-                    </View>
-                  </VStack>
-                </HStack>
-              </View>
-            ) : (
-              <VStack space="sm">
-                <Text style={styles.sheetSectionLabel}>{scheduleSlots.length > 0 ? 'Suggested times' : 'Pick a time'}</Text>
-                {scheduleSlots.length > 0 ? (
-                  <HStack style={{ flexWrap: 'wrap', gap: spacing.sm }}>
-                    {scheduleSlots.map((slot, idx) => {
-                      const label = formatScheduleSlotTimeRange(slot, { separator: '–' }) ?? '';
-                      return (
-                        <Button
-                          key={`${slot.startDate}:${idx}`}
-                          variant={idx === selectedSlotIndex ? 'primary' : 'secondary'}
-                          size="sm"
-                          onPress={() => {
-                            setManualScheduleSlot(null);
-                            setSelectedSlotIndex(idx);
-                          }}
-                        >
-                          {label}
-                        </Button>
-                      );
-                    })}
-                  </HStack>
-                ) : null}
-              </VStack>
-            )}
-
-            {scheduleWriteRef ? (
-              <View style={{ flex: 1, minHeight: 0, marginTop: spacing.sm }}>
-                <View style={{ height: 72, marginBottom: spacing.xs }}>
-                  <PlanDateStrip selectedDate={scheduleTargetDate} onSelectDate={handleSelectScheduleDate} />
-                </View>
-                <View style={{ flex: 1, minHeight: Math.min(280, scheduleLensHeightPx) }}>
-                <PlanCalendarLensPage
-                  contentPadding={0}
-                  targetDayLabel={scheduleTargetDayLabel}
-                  targetDate={scheduleTargetDate}
-                  externalEvents={scheduleExternalEvents}
-                  calendarColorByRefKey={calendarColorByRefKeyForSchedule}
-                  proposedBlocks={
-                    selectedSlot
-                      ? [
-                          {
-                            title: activity?.title ?? 'To-do',
-                            start: new Date(selectedSlot.startDate),
-                            end: new Date(selectedSlot.endDate),
-                          },
-                        ]
-                      : []
-                  }
-                  kwiltBlocks={kwiltBlocksForScheduleDay as any}
-                  conflictActivityIds={[]}
-                  calendarStatus="connected"
-                  isLoadingExternal={scheduleLoading}
-                  onOpenCalendarSettings={() => {
-                    setActiveSheet(null);
-                    rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
-                  }}
-                  onMoveCommitment={() => undefined}
-                  onPressEmptyTime={handlePressScheduleEmptyTime}
-                />
-                </View>
-              </View>
-            ) : null}
-
-            </VStack>
-          </View>
-
-          {scheduleWriteRef ? (
-            <BottomDrawerFooter
-              showTopBorder
-              paddingHorizontal={0}
-              paddingTop={spacing.sm}
-              paddingBottom={spacing.sm}
-              backgroundColor={colors.canvas}
-            >
-              <Button
-                variant="primary"
-                fullWidth
-                disabled={!selectedSlot || isCreatingCalendarEvent}
-                accessibilityLabel="Schedule selected to-do time"
-                accessibilityState={{ disabled: !selectedSlot || isCreatingCalendarEvent }}
-                testID="e2e.activityDetail.schedule.confirm"
-                style={!selectedSlot || isCreatingCalendarEvent ? { opacity: 0.55 } : null}
-                onPress={() => {
-                  scheduleIntoWriteCalendar().catch(() => undefined);
-                }}
-              >
-                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                  {isCreatingCalendarEvent
-                    ? 'Scheduling...'
-                    : selectedScheduleSlotLabel
-                      ? `Schedule ${selectedScheduleSlotLabel}`
-                      : 'Schedule'}
-                </Text>
-              </Button>
-            </BottomDrawerFooter>
-          ) : null}
-        </View>
-      </BottomDrawer>
-
+        onOpenAvailabilitySettings={() => {
+          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
+        }}
+      />
       {focusSession ? (
         <Modal
           visible
