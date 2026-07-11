@@ -17,16 +17,20 @@ Prioritize by compounding leverage per unit of risk:
   - Why: OpenAI/proxy error classification is a high-risk contract inside a large service.
   - Result: `src/services/aiErrorParsing.ts` with focused tests.
 
-- [ ] Extract Activity detail location-trigger editor rules
+- [x] Extract Activity detail location-trigger editor rules
   - Area: `src/features/activities/ActivityDetailScreen.tsx`
   - Why: P1 high-change screen; location-trigger behavior should be testable outside JSX.
-  - Ideal test: `src/features/activities/activityLocationTriggers.test.ts`
-  - Risk: medium
+  - Result: `activityLocationTriggers.ts`, `useActivityLocationEditor.ts`, and focused tests now own the location contract outside the screen.
 
-- [ ] Extract AI chat suggestion request/adoption flow helpers
+- [x] Extract AI chat suggestion selection rules
   - Area: `src/features/ai/AiChatScreen.tsx`
-  - Why: AI-native high-change surface; remaining suggestion orchestration still increases context radius.
-  - Ideal test: focused helper tests around request state and adoption decisions.
+  - Why: AI-native high-change surface; model-output filtering and identity repair should not be buried in request orchestration.
+  - Result: `activitySuggestionSelection.ts` owns rejected-title filtering, response deduplication, collision-safe IDs, and bounded regeneration merges with focused tests.
+
+- [ ] Extract AI chat suggestion request state transitions
+  - Area: `src/features/ai/AiChatScreen.tsx`
+  - Why: suggestion request success, quota, and transport-error transitions remain coupled inside the screen.
+  - Ideal test: pure transition tests for bootstrap and regeneration outcomes.
   - Risk: medium
 
 - [ ] Extract onboarding Arc generation prompt assembly

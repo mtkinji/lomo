@@ -88,6 +88,11 @@ import {
   type GoalProposalDraft,
 } from './agentHandoffParsers';
 import {
+  mergeActivitySuggestions,
+  normalizeActivitySuggestionTitle,
+  prepareActivitySuggestions,
+} from './activitySuggestionSelection';
+import {
   loadArcCreationDraft,
   saveArcCreationDraft,
   type ChatMessage,
@@ -2330,8 +2335,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
   );
   const activitySuggestionInputRefs = useRef<Record<string, TextInput | null>>({});
 
-  const normalizeActivitySuggestionTitle = useCallback((value: string) => value.trim().toLowerCase(), []);
-
   const isGenerativeQuotaError = useCallback((err: unknown): boolean => {
     const message =
       (err instanceof Error ? err.message : typeof err === 'string' ? err : String(err ?? '')).trim();
@@ -2383,8 +2386,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
           .map((t) => t.trim())
           .filter((t) => t.length > 0)
           .slice(-40); // Only keep the last 40 to avoid hitting message size limits
-        const rejectedTitleSet = new Set(rejectedTitles.map(normalizeActivitySuggestionTitle));
-
         const history: CoachChatTurn[] = messagesRef.current.map((m) => ({
           role: m.role,
           content: m.content,
@@ -2423,51 +2424,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
           ? [proposalParsed.suggestion]
           : activityParsed.suggestions;
 
-        const nextSuggestionsRaw = suggestions && suggestions.length > 0 ? suggestions : null;
-        const nextSuggestions = nextSuggestionsRaw
-          ? nextSuggestionsRaw
-              .filter((suggestion) => {
-                const normalized = normalizeActivitySuggestionTitle(suggestion.title ?? '');
-                return normalized.length > 0 && !rejectedTitleSet.has(normalized);
-              })
-              // De-dupe within a single response, best-effort by title.
-              .filter((suggestion, index, array) => {
-                const normalized = normalizeActivitySuggestionTitle(suggestion.title ?? '');
-                const firstIndex = array.findIndex(
-                  (candidate) =>
-                    normalizeActivitySuggestionTitle(candidate.title ?? '') === normalized,
-                );
-                return firstIndex === index;
-              })
-          : null;
-        const nextSuggestionsWithUniqueIds = nextSuggestions
-          ? (() => {
-              const used = new Set<string>(existingIdSet);
-              const collisionCounterByBase = new Map<string, number>();
-              return nextSuggestions.map((suggestion) => {
-                const rawId = (suggestion.id ?? '').trim();
-                const rawTitle = (suggestion.title ?? '').trim();
-                const titleSeed = normalizeActivitySuggestionTitle(rawTitle).slice(0, 32) || 'idea';
-                const baseSeed = (rawId || 'suggestion').replace(/[^a-zA-Z0-9_-]+/g, '_');
-
-                let nextId = rawId || baseSeed;
-                if (!nextId) nextId = 'suggestion';
-
-                if (used.has(nextId)) {
-                  const base = `${baseSeed}_${titleSeed}`.replace(/[^a-zA-Z0-9_-]+/g, '_');
-                  const start = collisionCounterByBase.get(base) ?? 0;
-                  let n = start;
-                  do {
-                    n += 1;
-                    nextId = `${base}_${n}`;
-                  } while (used.has(nextId));
-                  collisionCounterByBase.set(base, n);
-                }
-
-                used.add(nextId);
-                return nextId === suggestion.id ? suggestion : { ...suggestion, id: nextId };
-              });
-            })()
+        const preparedSuggestions = prepareActivitySuggestions({
+          suggestions,
+          rejectedTitles,
+          existingIds: existingIdSet,
+        });
+        const nextSuggestionsWithUniqueIds = preparedSuggestions.length > 0
+          ? preparedSuggestions
           : null;
 
         setActivitySuggestions((current) => {
@@ -2477,17 +2440,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
           if (!nextSuggestionsWithUniqueIds || nextSuggestionsWithUniqueIds.length === 0) {
             return current;
           }
-          const base = current ?? [];
-          const seen = new Set(base.map((s) => normalizeActivitySuggestionTitle(s.title ?? '')));
-          const merged: ActivitySuggestion[] = [...base];
-          nextSuggestionsWithUniqueIds.forEach((s) => {
-            const normalized = normalizeActivitySuggestionTitle(s.title ?? '');
-            if (!normalized || seen.has(normalized)) return;
-            seen.add(normalized);
-            merged.push(s);
-          });
-          // Keep the rail bounded so it stays manageable.
-          return merged.slice(0, 12);
+          return mergeActivitySuggestions(current, nextSuggestionsWithUniqueIds);
         });
         setEditingActivitySuggestionId(null);
         setActivitySuggestionEdits({});
@@ -2526,7 +2479,6 @@ export const AiChatPane = forwardRef(function AiChatPane(
       buildCoachOptions,
       dismissedActivitySuggestionTitles,
       isGenerativeQuotaError,
-      normalizeActivitySuggestionTitle,
       onTransportError,
       workflowRuntime,
     ],
