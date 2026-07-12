@@ -98,7 +98,7 @@ import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
 import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
-import { shouldRestoreNavigationState } from './navigationPersistence';
+import { resolvePersistedNavigationState } from './navigationPersistence';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -338,6 +338,7 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // screens (like Arcs or Goals) from being reachable or animating correctly.
 // Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
 const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v4';
+const NAV_RESTORE_TIMEOUT_MS = 2000;
 
 const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
   headerShown: false,
@@ -400,16 +401,15 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           return;
         }
 
-        const savedStateString = await AsyncStorage.getItem(NAV_PERSISTENCE_KEY);
-        if (savedStateString) {
-          const state = JSON.parse(savedStateString) as NavigationState;
+        const state = await resolvePersistedNavigationState(
+          AsyncStorage.getItem(NAV_PERSISTENCE_KEY),
+          { showDevTools, timeoutMs: NAV_RESTORE_TIMEOUT_MS },
+        );
 
-          // Defensive guard: if the persisted root routes don't match the
-          // current drawer structure, ignore the saved state so navigation
-          // can re-initialize cleanly.
-          if (shouldRestoreNavigationState(state, { showDevTools }) && isMounted) {
-            setInitialState(state);
-          }
+        // Defensive guard: if storage stalls or the persisted root routes don't
+        // match the current drawer structure, start from the default route.
+        if (state && isMounted) {
+          setInitialState(state);
         }
       } catch (e) {
         console.warn('Failed to load navigation state', e);

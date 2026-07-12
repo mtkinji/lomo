@@ -1,6 +1,10 @@
 import type { NavigationState } from '@react-navigation/native';
 
-import { getAllowedPersistedRootRoutes, shouldRestoreNavigationState } from './navigationPersistence';
+import {
+  getAllowedPersistedRootRoutes,
+  resolvePersistedNavigationState,
+  shouldRestoreNavigationState,
+} from './navigationPersistence';
 
 function rootState(routeNames: string[]): NavigationState {
   return {
@@ -14,6 +18,10 @@ function rootState(routeNames: string[]): NavigationState {
 }
 
 describe('navigationPersistence', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('allows every registered production drawer route, including hidden Agent', () => {
     expect(getAllowedPersistedRootRoutes(false)).toEqual([
       'MainTabs',
@@ -42,5 +50,19 @@ describe('navigationPersistence', () => {
         showDevTools: true,
       }),
     ).toBe(true);
+  });
+
+  test('fails open when persisted navigation storage does not respond', async () => {
+    jest.useFakeTimers();
+    const neverResponds = new Promise<string | null>(() => undefined);
+
+    const resultPromise = resolvePersistedNavigationState(neverResponds, {
+      showDevTools: false,
+      timeoutMs: 100,
+    });
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    await expect(resultPromise).resolves.toBeUndefined();
   });
 });

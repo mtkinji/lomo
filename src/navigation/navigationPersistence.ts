@@ -23,3 +23,23 @@ export function shouldRestoreNavigationState(
       state.routes.every((route) => allowedRootRoutes.includes(route.name as RootRouteName)),
   );
 }
+
+export async function resolvePersistedNavigationState(
+  savedStatePromise: Promise<string | null>,
+  options: { showDevTools: boolean; timeoutMs: number },
+): Promise<NavigationState | undefined> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timeoutId = setTimeout(() => resolve(null), options.timeoutMs);
+  });
+
+  try {
+    const savedStateString = await Promise.race([savedStatePromise, timeout]);
+    if (!savedStateString) return undefined;
+
+    const state = JSON.parse(savedStateString) as NavigationState;
+    return shouldRestoreNavigationState(state, options) ? state : undefined;
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+}

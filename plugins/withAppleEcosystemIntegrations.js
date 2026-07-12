@@ -2195,16 +2195,29 @@ struct KwiltFocusTimerLabel: View {
     if isPaused {
       VStack(alignment: .trailing, spacing: 2) {
         Text("Paused")
-          .font(.caption2.weight(.semibold))
+          .font(.caption2.weight(.medium))
           .foregroundStyle(.secondary)
         Text(remainingMinutesText)
-          .font(.headline.monospacedDigit().weight(.semibold))
+          .font(.system(.headline, design: .rounded, weight: .semibold).monospacedDigit())
           .foregroundStyle(KwiltPalette.pine)
       }
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .background(KwiltPalette.pineSoft)
+      .clipShape(Capsule())
     } else if let end = endAt {
-      Text(end, style: .timer)
-        .font(.title2.monospacedDigit().weight(.semibold))
-        .foregroundStyle(KwiltPalette.pine)
+      VStack(alignment: .trailing, spacing: 1) {
+        Text("Remaining")
+          .font(.caption2.weight(.medium))
+          .foregroundStyle(.secondary)
+        Text(timerInterval: startedAt...end, countsDown: true)
+          .font(.system(.title3, design: .rounded, weight: .semibold).monospacedDigit())
+          .foregroundStyle(KwiltPalette.pine)
+      }
+      .padding(.horizontal, 10)
+      .padding(.vertical, 6)
+      .background(KwiltPalette.pineSoft)
+      .clipShape(Capsule())
     } else {
       Text(startedAt, style: .timer)
         .font(.title2.monospacedDigit().weight(.semibold))
@@ -2217,6 +2230,11 @@ struct KwiltFocusTimerLabel: View {
 struct KwiltFocusLiveActivityView: View {
   let context: ActivityViewContext<KwiltFocusAttributes>
 
+  var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
+  var endAt: Date? {
+    let ms = context.state.endAtMs
+    return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
+  }
   var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
 
   var body: some View {
@@ -2244,17 +2262,19 @@ struct KwiltFocusLiveActivityView: View {
         KwiltFocusTimerLabel(context: context)
       }
 
-      GeometryReader { proxy in
-        Capsule()
-          .fill(KwiltPalette.pineSoft)
-          .overlay(alignment: .leading) {
-            Capsule()
-              .fill(KwiltPalette.pine)
-              .frame(width: max(18, proxy.size.width * 0.24))
-          }
+      Group {
+        if !isPaused, let end = endAt {
+          ProgressView(timerInterval: startedAt...end, countsDown: true)
+            .progressViewStyle(.linear)
+            .tint(KwiltPalette.pine)
+            .background(KwiltPalette.pineSoft)
+            .clipShape(Capsule())
+        } else {
+          Capsule()
+            .fill(KwiltPalette.pineSoft)
+        }
       }
-      .frame(height: 3)
-      .opacity(isPaused ? 0.45 : 0.7)
+      .frame(height: 4)
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 12)
@@ -2290,6 +2310,7 @@ struct KwiltFocusDynamicIslandExpandedView: View {
 struct KwiltFocusCompactTrailingView: View {
   let context: ActivityViewContext<KwiltFocusAttributes>
 
+  var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
   var endAt: Date? {
     let ms = context.state.endAtMs
     return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
@@ -2302,7 +2323,7 @@ struct KwiltFocusCompactTrailingView: View {
         .foregroundStyle(KwiltPalette.pine)
         .font(.caption2)
     } else if let end = endAt {
-      Text(end, style: .timer)
+      Text(timerInterval: startedAt...end, countsDown: true)
         .monospacedDigit()
         .font(.caption2)
     } else {
