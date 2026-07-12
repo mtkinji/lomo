@@ -87,6 +87,7 @@ import {
   type AgentOffer,
   type GoalProposalDraft,
 } from './agentHandoffParsers';
+import { resolveActivitySuggestionRequestState } from './activitySuggestionRequestState';
 import {
   loadArcCreationDraft,
   saveArcCreationDraft,
@@ -94,7 +95,6 @@ import {
 } from './chatDraftStorage';
 import {
   buildRejectedActivitySuggestionTitles,
-  mergeActivitySuggestionRail,
   normalizeActivitySuggestionTitle,
   prepareIncomingActivitySuggestions,
 } from './activitySuggestionRail';
@@ -2424,17 +2424,19 @@ export const AiChatPane = forwardRef(function AiChatPane(
           rejectedTitles,
         });
 
-        setActivitySuggestions((current) => {
-          return mergeActivitySuggestionRail({
-            reason,
-            currentSuggestions: current,
-            incomingSuggestions: nextSuggestionsWithUniqueIds,
-          });
+        const requestState = resolveActivitySuggestionRequestState({
+          outcome: 'success',
+          reason,
+          currentSuggestions: activitySuggestionsRef.current,
+          incomingSuggestions: nextSuggestionsWithUniqueIds,
         });
+        setActivitySuggestions(requestState.suggestions);
+        setHasGenerativeQuotaExceeded(requestState.hasGenerativeQuotaExceeded);
+        setHasTransportError(requestState.hasTransportError);
         setEditingActivitySuggestionId(null);
         setActivitySuggestionEdits({});
 
-        if (nextSuggestionsWithUniqueIds && reason !== 'regenerate') {
+        if (requestState.shouldResetAdoptionSummary) {
           setAdoptedActivityCount(0);
           setShowActivitySummary(false);
         }
@@ -2451,13 +2453,26 @@ export const AiChatPane = forwardRef(function AiChatPane(
           // Expected state (user hit their AI credit/quota gate). Avoid surfacing as an "error"
           // to dev overlays / logging that might show scary banners in the UI.
           console.warn('Kwilt To-do AI quota reached (suggestions suppressed).');
-          setHasGenerativeQuotaExceeded(true);
-          setHasTransportError(false);
-          setActivitySuggestions(null);
+          const requestState = resolveActivitySuggestionRequestState({
+            outcome: 'quota',
+            reason,
+            currentSuggestions: activitySuggestionsRef.current,
+            incomingSuggestions: null,
+          });
+          setHasGenerativeQuotaExceeded(requestState.hasGenerativeQuotaExceeded);
+          setHasTransportError(requestState.hasTransportError);
+          setActivitySuggestions(requestState.suggestions);
         } else {
           console.error('Kwilt To-do AI suggestions-only fetch failed', err);
-          setHasTransportError(true);
-          setActivitySuggestions(null);
+          const requestState = resolveActivitySuggestionRequestState({
+            outcome: 'transport-error',
+            reason,
+            currentSuggestions: activitySuggestionsRef.current,
+            incomingSuggestions: null,
+          });
+          setHasGenerativeQuotaExceeded(requestState.hasGenerativeQuotaExceeded);
+          setHasTransportError(requestState.hasTransportError);
+          setActivitySuggestions(requestState.suggestions);
           onTransportError?.();
         }
       } finally {
