@@ -28,4 +28,14 @@ describe('Supabase Auth URL configuration', () => {
     expect(siteUrl).not.toMatch(/^exp:\/\//);
     expect(siteUrl).not.toMatch(/127\.0\.0\.1|localhost/);
   });
+
+  it('allows every shipped Kwilt app to complete OAuth', () => {
+    const redirectUrls = readQuotedArray('additional_redirect_urls');
+
+    expect(redirectUrls).toEqual(expect.arrayContaining([
+      'kwilt://auth/callback',
+      'kwiltbudget://auth/callback',
+      'kwiltgames://auth/callback',
+    ]));
+  });
 });

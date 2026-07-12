@@ -33,7 +33,7 @@ Still intentionally not possible:
 Smallest elegant version:
 - Wire open-time long press to a provisional block preview.
 - Drag adjusts the selected duration in 15-minute increments; release opens one drawer.
-- The drawer has one selected slot, one title input for new Activity, one "Choose existing" action, and one commit action.
+- The drawer has one selected slot, the familiar Quick Add dock, a visible short list of existing Activities, and one commit action.
 - New Activity defaults estimate duration from the slot and keeps Arc/Goal optional.
 
 Enhance existing feature:
@@ -67,6 +67,8 @@ Most ready moment: the user long-presses open space in the Plan calendar, drags 
 Education stance: single tap on empty calendar space should do nothing or stay reserved for inspection. Long press is the creation gesture. Add a small plus affordance only if gesture discovery fails in dogfooding.
 
 Natural adoption signal: Andrew creates or places real todos from the Plan calendar during dogfooding, without detouring through Activities.
+
+Dogfooding refinement: new and existing are not separate modes. The drawer keeps Quick Add and eligible existing Activities in one combined surface, removing the segmented switcher and preserving one dominant commit action.
 
 ## Recommendations Sheet Interaction
 

@@ -32,7 +32,7 @@ Brand-goodwill evidence:
 ## Instrumentation
 
 Useful events or logs:
-- `plan_empty_slot_tapped`
+- `plan_empty_slot_long_pressed`
 - `plan_slot_new_activity_started`
 - `plan_slot_existing_activity_started`
 - `plan_slot_activity_committed`

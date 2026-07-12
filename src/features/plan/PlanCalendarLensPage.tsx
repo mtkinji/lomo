@@ -432,14 +432,6 @@ export function PlanCalendarLensPage({
     onPressEmptyTime({ date });
   };
 
-  const handleLongPressEmptyTime = (e: GestureResponderEvent) => {
-    if (!onSlotDraftChange || !onSlotDraftComplete) return;
-    const rawY = typeof e?.nativeEvent?.locationY === 'number' ? e.nativeEvent.locationY : 0;
-    const slot = buildSlotDraftFromY(rawY, rawY + SLOT_DEFAULT_DURATION_PX);
-    onSlotDraftChange(slot);
-    onSlotDraftComplete(slot);
-  };
-
   const emptySlotGesture = useMemo(() => {
     if (!onSlotDraftChange || !onSlotDraftComplete) {
       return Gesture.Pan().enabled(false);
@@ -544,12 +536,10 @@ export function PlanCalendarLensPage({
           <GestureDetector gesture={emptySlotGesture}>
             <Pressable
               testID="plan-empty-slot-column"
-              accessibilityRole={onSlotDraftComplete || onPressEmptyTime ? 'button' : undefined}
+              accessibilityRole={onPressEmptyTime ? 'button' : undefined}
               accessibilityLabel="Plan empty time slots"
-              delayLongPress={SLOT_LONG_PRESS_MS}
               style={styles.eventsColumn}
               onPress={handlePressEmptyTime}
-              onLongPress={handleLongPressEmptyTime}
             >
             <View
               style={styles.eventsColumnMeasure}
@@ -722,12 +712,10 @@ const HOURS = Array.from({ length: 24 }).map((_, i) => i);
 const EVENTS_INSET = spacing.xs;
 const COLUMN_GUTTER = 6;
 const SLOT_LONG_PRESS_MS = 320;
-const SLOT_DEFAULT_DURATION_MINUTES = 15;
 const SLOT_MIN_DURATION_MINUTES = 15;
 const SLOT_MAX_DURATION_MINUTES = 240;
 const SLOT_STEP_MINUTES = 15;
 const SLOT_MIN_DURATION_PX = HOUR_HEIGHT * (SLOT_MIN_DURATION_MINUTES / 60);
-const SLOT_DEFAULT_DURATION_PX = HOUR_HEIGHT * (SLOT_DEFAULT_DURATION_MINUTES / 60);
 
 function formatHourLabel(h: number): string {
   const hour = ((h + 11) % 12) + 1;

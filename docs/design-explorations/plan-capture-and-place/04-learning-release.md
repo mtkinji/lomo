@@ -30,13 +30,12 @@ Still intentionally not supported:
 The user is on Plan, looking at a day. A single tap on empty calendar space does not create anything. The user long-presses open space. A temporary block appears at the press location. As the user drags, the block grows or shrinks in 15-minute increments. On release, a bottom drawer opens with the selected start/end time.
 
 Happy path:
-- The drawer shows the time range and "New to-do here."
-- The user types a title and taps "Add to calendar."
+- The drawer shows the time range, Quick Add, and a short list of eligible existing to-dos together.
+- The user creates the to-do through Quick Add, then taps "Commit to calendar."
 - Kwilt creates an Activity, writes the calendar event, stores `scheduledAt` and `calendarBinding`, closes the drawer, and shows the new block on the Plan calendar.
 
 Existing-Activity path:
-- The drawer has "Choose existing."
-- The user searches/selects an unscheduled Activity.
+- The user directly selects an unscheduled Activity from the same combined drawer.
 - Kwilt writes the calendar event for the selected slot and updates the Activity scheduling state.
 
 ## Existing Product Relationship

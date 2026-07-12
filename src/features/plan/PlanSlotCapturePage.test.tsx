@@ -60,21 +60,19 @@ describe('PlanSlotCapturePage', () => {
     jest.clearAllMocks();
   });
 
-  it('renders new and existing slot placement modes', () => {
-    const { getByText, getByLabelText } = renderWithProviders(
+  it('combines quick add and existing to-dos without a mode switcher', () => {
+    const { getByText, getAllByText, getByLabelText } = renderWithProviders(
       <PlanSlotCapturePage {...defaultProps} />,
     );
 
     expect(getByText('11:15 AM - 12:00 PM')).toBeTruthy();
-    expect(getByText('45 min')).toBeTruthy();
-    expect(getByText('New to-do')).toBeTruthy();
-    expect(getByText('Existing')).toBeTruthy();
+    expect(getAllByText('45 min')).toHaveLength(2);
     expect(getByLabelText('Add a to-do')).toBeTruthy();
-
-    fireEvent.press(getByText('Existing'));
-
+    expect(getByText('Or choose an existing to-do')).toBeTruthy();
     expect(getByText('Buy lumber')).toBeTruthy();
     expect(getByText('Send cabinet dimensions')).toBeTruthy();
+    expect(() => getByText('New to-do')).toThrow();
+    expect(() => getByText('Existing')).toThrow();
   });
 
   it('selects an existing to-do and commits it', () => {
@@ -88,7 +86,6 @@ describe('PlanSlotCapturePage', () => {
       />,
     );
 
-    fireEvent.press(getByText('Existing'));
     fireEvent.press(getByText('Buy lumber'));
 
     expect(onSelectActivity).toHaveBeenCalledWith('activity-1');
@@ -102,10 +99,25 @@ describe('PlanSlotCapturePage', () => {
       />,
     );
 
-    fireEvent.press(getByText('Existing'));
     fireEvent.press(getByText('Commit to calendar'));
 
     expect(onCommitExisting).toHaveBeenCalledTimes(1);
+  });
+
+  it('commits a newly created to-do through the same primary action', () => {
+    const onCommitNew = jest.fn();
+    const { getByText } = renderWithProviders(
+      <PlanSlotCapturePage
+        {...defaultProps}
+        createdActivityId="activity-new"
+        selectedActivityId="activity-new"
+        onCommitNew={onCommitNew}
+      />,
+    );
+
+    fireEvent.press(getByText('Commit to calendar'));
+
+    expect(onCommitNew).toHaveBeenCalledTimes(1);
   });
 
   it('passes the slot-specific quick add model into the composer', () => {

@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [auto-schedule, calendar-export-ics, due-date-reminders]
 owner: andrew
-last_updated: 2026-07-08
+last_updated: 2026-07-10
 ---
 
 # Plan Capture And Place
@@ -48,9 +48,10 @@ When I am looking at my day in Plan, I want to turn an open time into a real Kwi
 
 When the user long-presses empty time in the Plan calendar, Kwilt shows a provisional block. Dragging adjusts the duration. On release, Kwilt opens a bottom drawer for that selected slot.
 
-The drawer supports two paths:
-- New to-do here: create a lightweight Activity and commit it to the selected calendar time.
-- Choose existing: select an unscheduled Activity and commit it to the selected calendar time.
+The drawer uses one combined surface rather than separate new/existing modes:
+- The familiar Quick Add dock creates a lightweight Activity for the selected calendar time.
+- Eligible unscheduled Activities remain visible below it for direct selection.
+- One primary commit action schedules whichever Activity is selected or was just created.
 
 Calendar writes stay explicit. Nothing is created on the external calendar until the user taps the commit action.
 
@@ -91,11 +92,12 @@ Initial AI stance:
 
 ### Existing Activity path
 
-V1 can use a simple filtered picker:
+V1 uses a short filtered list in the same drawer as Quick Add:
 - show open, unscheduled Activities first
-- include search
 - exclude done/cancelled Activities
 - show estimate/Goal when available
+
+Do not add a segmented new/existing switcher. Creating and choosing are two inputs to the same placement decision, so both should remain available without changing modes.
 
 After selection, Kwilt checks availability/conflicts and writes the event through the same managed-calendar path as recommendation commits.
 
@@ -159,6 +161,9 @@ Acceptance criteria:
 - Long-pressing empty time in Plan shows a provisional block.
 - Dragging during long press adjusts the provisional block duration.
 - Releasing opens a slot-aware drawer.
+- The touch long press is owned by the drag gesture; no competing press handler opens the drawer before drag can begin.
+- The drawer shows Quick Add and eligible existing to-dos together without a new/existing segmented control.
+- One commit action schedules the selected or newly created Activity.
 - Creating a new Activity from the drawer adds a real calendar event and a scheduled Kwilt block.
 - Choosing an existing Activity from the drawer adds a real calendar event and updates that Activity.
 - The Recommendations sheet, if it exposes add-one-more, starts with a collapsed `+ Add a to-do` row.

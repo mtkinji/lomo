@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View, type TextInput } from 'react-native';
-import { BottomDrawer, type BottomDrawerSnapPoint } from '../../ui/BottomDrawer';
+import {
+  BottomDrawer,
+  BottomDrawerScrollView,
+  type BottomDrawerSnapPoint,
+} from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
 import { PlanRecsPage } from './PlanRecsPage';
@@ -161,14 +165,14 @@ export function PlanEventPeekDrawerHost({
       ) : null}
 
       {mode === 'slotCapture' && slotCapture ? (
-        <View>
+        <BottomDrawerScrollView>
           <BottomDrawerHeader
             title={<Text style={styles.sheetTitle}>Add to plan</Text>}
             variant="withClose"
             onClose={onClose}
           />
           <PlanSlotCapturePage {...slotCapture} />
-        </View>
+        </BottomDrawerScrollView>
       ) : null}
 
       {mode === 'activity' && activityPeek ? <ActivityEventPeek {...activityPeek} /> : null}
