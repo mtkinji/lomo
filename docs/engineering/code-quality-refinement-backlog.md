@@ -27,16 +27,15 @@ Prioritize by compounding leverage per unit of risk:
   - Why: AI-native high-change surface; model-output filtering and identity repair should not be buried in request orchestration.
   - Result: `activitySuggestionSelection.ts` owns rejected-title filtering, response deduplication, collision-safe IDs, and bounded regeneration merges with focused tests.
 
-- [ ] Extract AI chat suggestion request state transitions
+- [x] Extract AI chat suggestion request state transitions
   - Area: `src/features/ai/AiChatScreen.tsx`
   - Why: suggestion request success, quota, and transport-error transitions remain coupled inside the screen.
-  - Ideal test: pure transition tests for bootstrap and regeneration outcomes.
-  - Risk: medium
+  - Result: `activitySuggestionRequestState.ts` now owns bootstrap, regeneration, quota, and transport-error outcomes with focused tests.
 
-- [ ] Extract onboarding Arc generation prompt assembly
+- [ ] Integrate the existing onboarding Arc prompt extraction
   - Area: `src/features/onboarding/IdentityAspirationFlow.tsx`
-  - Why: prompt construction is a high-risk AI contract and the screen remains one of the largest files.
-  - Ideal test: prompt-builder tests for required rules and identity-signal inclusion.
+  - Why: `codex/code-quality-refinement-2026-06-29` already contains the tested `identityArcPrompt.ts` extraction; reuse and reconcile that work instead of reimplementing it.
+  - Ideal test: preserve its prompt-builder coverage for required rules and identity-signal inclusion.
   - Risk: medium
 
 - [ ] Extract Chapter generation prompt/data assembly
