@@ -103,6 +103,7 @@ export const useFocusSessionStore = create<FocusSessionState>()(
         const activeSession = get().activeSession;
         if (!matchesActiveSession(activeSession, sessionId)) return null;
         const notificationId = activeSession.notificationId;
+        if (notificationId == null) return null;
         set({
           activeSession: {
             ...activeSession,

@@ -70,6 +70,27 @@ describe('useFocusSessionStore', () => {
     expect(useFocusSessionStore.getState().activeSession?.notificationId).toBeNull();
   });
 
+  it('does not replace a paused session when its notification id is already clear', () => {
+    const store = useFocusSessionStore.getState();
+    store.startSession({
+      activityId: 'activity-1',
+      title: 'Write budget plan',
+      minutes: 25,
+      startedAtMs: 10_000,
+    });
+    store.pauseSession('activity-1-10000', 70_000);
+
+    const pausedSession = useFocusSessionStore.getState().activeSession;
+    const listener = jest.fn();
+    const unsubscribe = useFocusSessionStore.subscribe(listener);
+
+    expect(store.clearNotificationId('activity-1-10000')).toBeNull();
+    expect(useFocusSessionStore.getState().activeSession).toBe(pausedSession);
+    expect(listener).not.toHaveBeenCalled();
+
+    unsubscribe();
+  });
+
   it('completes an expired running session exactly once', () => {
     const store = useFocusSessionStore.getState();
     store.startSession({

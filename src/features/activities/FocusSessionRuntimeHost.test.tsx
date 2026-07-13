@@ -2,6 +2,7 @@ import { act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { renderWithProviders } from '../../test/renderWithProviders';
+import { setGlanceableFocusSession } from '../../services/appleEcosystem/glanceableState';
 import { syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { startSoundscapeLoop } from '../../services/soundscape';
@@ -41,6 +42,7 @@ jest.mock('../../store/useCelebrationStore', () => ({
 
 const scheduleNotificationAsync = Notifications.scheduleNotificationAsync as jest.Mock;
 const cancelScheduledNotificationAsync = Notifications.cancelScheduledNotificationAsync as jest.Mock;
+const setGlanceableFocusSessionMock = setGlanceableFocusSession as jest.Mock;
 const syncLiveActivityMock = syncLiveActivity as jest.Mock;
 const reconcileScreenTimeRestrictionsMock = reconcileScreenTimeRestrictions as jest.Mock;
 const startSoundscapeLoopMock = startSoundscapeLoop as jest.Mock;
@@ -138,5 +140,33 @@ describe('FocusSessionRuntimeHost', () => {
     expect(reconcileScreenTimeRestrictionsMock).not.toHaveBeenCalled();
     expect(syncLiveActivityMock).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'running' }));
     expect(startSoundscapeLoopMock).not.toHaveBeenCalled();
+  });
+
+  it('settles after restoring a paused session whose notification id is already clear', async () => {
+    useFocusSessionStore.getState().startSession({
+      activityId: 'activity-1',
+      title: 'Budget remaining app MVP',
+      minutes: 25,
+      startedAtMs: 10_000,
+    });
+    useFocusSessionStore.getState().pauseSession('activity-1-10000', 70_000);
+
+    renderWithProviders(<FocusSessionRuntimeHost />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+    expect(setGlanceableFocusSessionMock).toHaveBeenCalledTimes(1);
+    expect(setGlanceableFocusSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'activity-1-10000',
+        mode: 'paused',
+      }),
+    );
+    expect(reconcileScreenTimeRestrictionsMock).toHaveBeenCalledTimes(1);
   });
 });
