@@ -32,7 +32,9 @@ Brand-goodwill evidence:
 ## Instrumentation
 
 Useful events or logs:
-- `plan_empty_slot_long_pressed`
+- `plan_empty_slot_tapped`
+- `plan_slot_moved`
+- `plan_slot_resized`
 - `plan_slot_new_activity_started`
 - `plan_slot_existing_activity_started`
 - `plan_slot_activity_committed`
@@ -60,3 +62,9 @@ Retire or hide if calendar write uncertainty makes the surface feel unsafe or if
 ## Expected Next Action
 
 Build the local learning release behind the existing Plan surface, verify with focused tests plus `npm run verify:changed -- --run`, then dogfood on-device with real calendar writes before TestFlight.
+
+## 2026-07-13 dogfooding update
+
+The long-press-and-drag learning release failed the discovery question: the gesture existed in the latest build, but Andrew was still unable to use Plan the way he expected. Outlook mobile and Google Calendar supplied the stronger interaction contract: a single tap creates a visible default block, handles make resizing explicit, the block body moves the selection, and a compact editor remains secondary to the calendar.
+
+Decision: replace long press as the primary contract with tap-to-select and visible direct-manipulation affordances. Keep explicit calendar commit and the Activity-first drawer model unchanged.

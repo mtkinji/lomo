@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, type TextInput } from 'react-native';
 import {
   BottomDrawer,
-  BottomDrawerScrollView,
   type BottomDrawerSnapPoint,
 } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
@@ -15,6 +14,10 @@ import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import type { QuickAddAiAction } from '../activities/useQuickAddDockController';
 
 export type PlanDrawerMode = 'recs' | 'activity' | 'external' | 'slotCapture';
+
+const PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT: BottomDrawerSnapPoint = '56%';
+export const PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO =
+  Number.parseFloat(PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT) / 100;
 
 type PlanRecommendationsModel = {
   recommendationCount: number;
@@ -105,9 +108,39 @@ export function PlanEventPeekDrawerHost({
 }) {
   const snapPoints = useMemo<BottomDrawerSnapPoint[]>(() => {
     if (mode === 'recs') return ['85%'];
-    if (mode === 'slotCapture') return ['58%', '85%'];
     return ['42%', '85%'];
   }, [mode]);
+
+  if (mode === 'slotCapture' && slotCapture) {
+    return (
+      <BottomDrawer
+        visible={visible}
+        onClose={onClose}
+        snapPoints={[PLAN_SLOT_DRAWER_COMPACT_SNAP_POINT, '82%']}
+        initialSnapIndex={0}
+        presentation="inline"
+        hideBackdrop
+        dismissable
+        dismissOnBackdropPress={false}
+        enableContentPanningGesture
+        contentExtendsIntoBottomSafeArea
+        sheetStyle={[styles.sheet, styles.slotSheet]}
+        handleContainerStyle={styles.slotHandleContainer}
+        handleStyle={styles.handle}
+      >
+        <View style={styles.slotContent}>
+          <BottomDrawerHeader
+            title={<Text style={styles.sheetTitle}>Add to plan</Text>}
+            variant="withClose"
+            onClose={onClose}
+            closeAccessibilityLabel="Cancel adding to plan"
+            containerStyle={styles.slotHeader}
+          />
+          <PlanSlotCapturePage {...slotCapture} />
+        </View>
+      </BottomDrawer>
+    );
+  }
 
   return (
     <BottomDrawer
@@ -164,17 +197,6 @@ export function PlanEventPeekDrawerHost({
         </View>
       ) : null}
 
-      {mode === 'slotCapture' && slotCapture ? (
-        <BottomDrawerScrollView>
-          <BottomDrawerHeader
-            title={<Text style={styles.sheetTitle}>Add to plan</Text>}
-            variant="withClose"
-            onClose={onClose}
-          />
-          <PlanSlotCapturePage {...slotCapture} />
-        </BottomDrawerScrollView>
-      ) : null}
-
       {mode === 'activity' && activityPeek ? <ActivityEventPeek {...activityPeek} /> : null}
       {mode === 'external' && externalPeek ? <ExternalEventPeek {...externalPeek} /> : null}
     </BottomDrawer>
@@ -184,6 +206,24 @@ export function PlanEventPeekDrawerHost({
 const styles = StyleSheet.create({
   sheet: {
     backgroundColor: colors.canvas,
+  },
+  slotSheet: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 0,
+  },
+  slotHeader: {
+    paddingBottom: spacing.xs,
+  },
+  slotContent: {
+    flex: 1,
+    minHeight: 0,
+  },
+  slotHandleContainer: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   handleContainer: {
     paddingTop: spacing.sm,

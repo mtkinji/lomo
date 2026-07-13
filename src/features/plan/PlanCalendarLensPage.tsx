@@ -1,16 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GestureResponderEvent } from 'react-native';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import type { Activity } from '../../domain/types';
 import { formatTimeRange } from '../../services/plan/planDates';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { EmptyState, HStack, Text, VStack } from '../../ui/primitives';
 import type { CalendarEvent } from '../../services/plan/calendarApi';
-import { clampSlotDraft, dateForTimelineY, type PlanSlotDraft } from './planSlotDraft';
+import {
+  adjustSlotDraft,
+  dateForTimelineY,
+  getTimelineScrollOffsetForSlot,
+  minutesForTimelineTranslation,
+  type PlanSlotDraft,
+} from './planSlotDraft';
 
 type KwiltBlock = {
   activity: Activity;
@@ -40,13 +45,14 @@ type PlanCalendarLensPageProps = {
     calendarLabel?: string | null;
     color?: string | null;
   }) => void;
-  /**
-   * Legacy tap-to-place callback used by ActivityDetail's schedule picker.
-   * PlanPager intentionally omits this so empty calendar taps do nothing there.
-   */
+  /** Direct tap-to-place callback used by Plan and ActivityDetail's schedule picker. */
   onPressEmptyTime?: (params: { date: Date }) => void;
   onSlotDraftChange?: (slot: PlanSlotDraft | null) => void;
   onSlotDraftComplete?: (slot: PlanSlotDraft) => void;
+  /** Keeps a selected slot visible above a nonblocking overlay such as the compact slot editor. */
+  bottomOverlayInset?: number;
+  /** Changes when a fresh slot selection should be reframed near the top of the timeline. */
+  slotFocusRequestId?: number;
   /**
    * Extra padding applied by the page itself. When hosted inside `BottomDrawer`,
    * the drawer already supplies a horizontal gutter, so this should be 0.
@@ -72,6 +78,8 @@ export function PlanCalendarLensPage({
   onPressEmptyTime,
   onSlotDraftChange,
   onSlotDraftComplete,
+  bottomOverlayInset = 0,
+  slotFocusRequestId = 0,
   contentPadding = spacing.xl,
 }: PlanCalendarLensPageProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -80,7 +88,13 @@ export function PlanCalendarLensPage({
   const scrollRef = useRef<ScrollView | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
   const [eventsColumnWidth, setEventsColumnWidth] = useState(0);
-  const slotDraftStartY = useSharedValue(0);
+  const [timelineViewportHeight, setTimelineViewportHeight] = useState(0);
+  const timelineScrollOffsetRef = useRef(0);
+  const lastFocusedSlotRequestIdRef = useRef<number | null>(null);
+  const slotAdjustmentActiveRef = useRef(false);
+  const slotDraftRef = useRef<PlanSlotDraft | null>(slotDraft ?? null);
+  const slotGestureBaseRef = useRef<PlanSlotDraft | null>(null);
+  slotDraftRef.current = slotDraft ?? null;
 
   const dayStart = useMemo(() => {
     const d = new Date(targetDate);
@@ -367,6 +381,164 @@ export function PlanCalendarLensPage({
 
   const showNowIndicator = isToday && now >= dayStart && now < dayEnd;
 
+  const handlePressEmptyTime = (e: GestureResponderEvent) => {
+    if (!onPressEmptyTime) return;
+    const rawY = typeof e?.nativeEvent?.locationY === 'number' ? e.nativeEvent.locationY : 0;
+    const date = dateForTimelineY({
+      y: rawY,
+      hourHeight: HOUR_HEIGHT,
+      dayStart,
+      stepMinutes: SLOT_STEP_MINUTES,
+    });
+    onPressEmptyTime({ date });
+  };
+
+  const beginSlotAdjustment = useCallback(() => {
+    slotAdjustmentActiveRef.current = true;
+    const current = slotDraftRef.current;
+    slotGestureBaseRef.current = current
+      ? { start: new Date(current.start), end: new Date(current.end) }
+      : null;
+  }, []);
+
+  const resolveSlotAdjustment = useCallback(
+    (edge: 'move' | 'start' | 'end', translationY: number): PlanSlotDraft | null => {
+      const base = slotGestureBaseRef.current ?? slotDraftRef.current;
+      if (!base) return null;
+      return adjustSlotDraft({
+        slot: base,
+        edge,
+        deltaMinutes: minutesForTimelineTranslation({
+          translationY,
+          hourHeight: HOUR_HEIGHT,
+          stepMinutes: SLOT_STEP_MINUTES,
+        }),
+        dayStart,
+        minDurationMinutes: SLOT_MIN_DURATION_MINUTES,
+        maxDurationMinutes: SLOT_MAX_DURATION_MINUTES,
+      });
+    },
+    [dayStart],
+  );
+
+  const updateSlotAdjustment = useCallback(
+    (edge: 'move' | 'start' | 'end', translationY: number) => {
+      const next = resolveSlotAdjustment(edge, translationY);
+      if (next) onSlotDraftChange?.(next);
+    },
+    [onSlotDraftChange, resolveSlotAdjustment],
+  );
+
+  const completeSlotAdjustment = useCallback(
+    (edge: 'move' | 'start' | 'end', translationY: number) => {
+      const next = resolveSlotAdjustment(edge, translationY);
+      slotAdjustmentActiveRef.current = false;
+      slotGestureBaseRef.current = null;
+      if (!next) return;
+      onSlotDraftChange?.(next);
+      onSlotDraftComplete?.(next);
+    },
+    [onSlotDraftChange, onSlotDraftComplete, resolveSlotAdjustment],
+  );
+
+  const finalizeSlotAdjustment = useCallback(() => {
+    slotAdjustmentActiveRef.current = false;
+    slotGestureBaseRef.current = null;
+  }, []);
+
+  const adjustSlotWithAccessibilityAction = useCallback(
+    (edge: 'move' | 'start' | 'end', actionName: string) => {
+      const current = slotDraftRef.current;
+      if (!current) return;
+      const direction = actionName === 'increment' ? 1 : actionName === 'decrement' ? -1 : 0;
+      if (direction === 0) return;
+      const next = adjustSlotDraft({
+        slot: current,
+        edge,
+        deltaMinutes: direction * SLOT_STEP_MINUTES,
+        dayStart,
+        minDurationMinutes: SLOT_MIN_DURATION_MINUTES,
+        maxDurationMinutes: SLOT_MAX_DURATION_MINUTES,
+      });
+      onSlotDraftChange?.(next);
+      onSlotDraftComplete?.(next);
+    },
+    [dayStart, onSlotDraftChange, onSlotDraftComplete],
+  );
+
+  const buildAdjustmentGesture = useCallback(
+    (edge: 'move' | 'start' | 'end') => {
+      if (!onSlotDraftChange) return Gesture.Pan().enabled(false);
+      return Gesture.Pan()
+        .runOnJS(true)
+        .minDistance(SLOT_DRAG_MIN_DISTANCE_PX)
+        .onBegin(() => {
+          beginSlotAdjustment();
+        })
+        .onUpdate((event) => {
+          updateSlotAdjustment(edge, event.translationY);
+        })
+        .onEnd((event) => {
+          completeSlotAdjustment(edge, event.translationY);
+        })
+        .onFinalize(() => {
+          finalizeSlotAdjustment();
+        });
+    },
+    [
+      beginSlotAdjustment,
+      completeSlotAdjustment,
+      finalizeSlotAdjustment,
+      onSlotDraftChange,
+      updateSlotAdjustment,
+    ],
+  );
+
+  const moveSlotGesture = useMemo(() => buildAdjustmentGesture('move'), [buildAdjustmentGesture]);
+  const resizeSlotStartGesture = useMemo(() => buildAdjustmentGesture('start'), [buildAdjustmentGesture]);
+  const resizeSlotEndGesture = useMemo(() => buildAdjustmentGesture('end'), [buildAdjustmentGesture]);
+
+  const positionedSlotDraft = useMemo(() => {
+    if (!slotDraft) return null;
+    const clamped = clampToDay(slotDraft.start, slotDraft.end);
+    const startMin = Math.max(0, Math.min(24 * 60, minutesFromDayStart(clamped.start)));
+    const endMin = Math.max(startMin + SLOT_MIN_DURATION_MINUTES, Math.min(24 * 60, minutesFromDayStart(clamped.end)));
+    return {
+      top: (startMin / 60) * HOUR_HEIGHT,
+      height: Math.max(MIN_EVENT_HEIGHT, ((endMin - startMin) / 60) * HOUR_HEIGHT),
+      label: formatTimeRange(clamped.start, clamped.end),
+    };
+  }, [slotDraft, dayStart]);
+
+  useEffect(() => {
+    if (!positionedSlotDraft) {
+      lastFocusedSlotRequestIdRef.current = null;
+      return;
+    }
+    if (bottomOverlayInset <= 0 || timelineViewportHeight <= 0) return;
+
+    const margin = SLOT_HANDLE_OFFSET_PX + spacing.sm;
+    const shouldFocusSlot = lastFocusedSlotRequestIdRef.current !== slotFocusRequestId;
+    const nextOffset = getTimelineScrollOffsetForSlot({
+      adjustmentActive: slotAdjustmentActiveRef.current,
+      shouldFocusSlot,
+      slotTop: positionedSlotDraft.top,
+      slotHeight: positionedSlotDraft.height,
+      currentOffset: timelineScrollOffsetRef.current,
+      viewportHeight: timelineViewportHeight,
+      bottomOverlayInset,
+      margin,
+    });
+
+    if (nextOffset === null) return;
+
+    lastFocusedSlotRequestIdRef.current = slotFocusRequestId;
+
+    if (Math.abs(nextOffset - timelineScrollOffsetRef.current) < 1) return;
+    timelineScrollOffsetRef.current = nextOffset;
+    scrollRef.current?.scrollTo({ y: nextOffset, animated: true });
+  }, [bottomOverlayInset, positionedSlotDraft, slotFocusRequestId, timelineViewportHeight]);
+
   if (calendarStatus === 'missing') {
     return (
       <View style={[styles.emptyContainer, { padding: contentPadding }]}>
@@ -382,89 +554,6 @@ export function PlanCalendarLensPage({
       </View>
     );
   }
-
-  const buildSlotDraftFromY = (startY: number, currentY: number): PlanSlotDraft => {
-    const start = dateForTimelineY({
-      y: startY,
-      hourHeight: HOUR_HEIGHT,
-      dayStart,
-      stepMinutes: SLOT_STEP_MINUTES,
-    });
-    const end = dateForTimelineY({
-      y: currentY,
-      hourHeight: HOUR_HEIGHT,
-      dayStart,
-      stepMinutes: SLOT_STEP_MINUTES,
-    });
-    return clampSlotDraft({
-      start,
-      end,
-      dayStart,
-      minDurationMinutes: SLOT_MIN_DURATION_MINUTES,
-      maxDurationMinutes: SLOT_MAX_DURATION_MINUTES,
-    });
-  };
-
-  const updateSlotDraftFromGesture = (startY: number, currentY: number) => {
-    if (!onSlotDraftChange) return;
-    onSlotDraftChange(buildSlotDraftFromY(startY, currentY));
-  };
-
-  const completeSlotDraftFromGesture = (startY: number, currentY: number) => {
-    const slot = buildSlotDraftFromY(startY, currentY);
-    onSlotDraftChange?.(slot);
-    onSlotDraftComplete?.(slot);
-  };
-
-  const cancelSlotDraftFromGesture = () => {
-    onSlotDraftChange?.(null);
-  };
-
-  const handlePressEmptyTime = (e: GestureResponderEvent) => {
-    if (!onPressEmptyTime) return;
-    const rawY = typeof e?.nativeEvent?.locationY === 'number' ? e.nativeEvent.locationY : 0;
-    const date = dateForTimelineY({
-      y: rawY,
-      hourHeight: HOUR_HEIGHT,
-      dayStart,
-      stepMinutes: SLOT_STEP_MINUTES,
-    });
-    onPressEmptyTime({ date });
-  };
-
-  const emptySlotGesture = useMemo(() => {
-    if (!onSlotDraftChange || !onSlotDraftComplete) {
-      return Gesture.Pan().enabled(false);
-    }
-    return Gesture.Pan()
-      .activateAfterLongPress(SLOT_LONG_PRESS_MS)
-      .onBegin((event) => {
-        slotDraftStartY.value = event.y;
-        runOnJS(updateSlotDraftFromGesture)(event.y, event.y + SLOT_MIN_DURATION_PX);
-      })
-      .onUpdate((event) => {
-        runOnJS(updateSlotDraftFromGesture)(slotDraftStartY.value, event.y);
-      })
-      .onEnd((event) => {
-        runOnJS(completeSlotDraftFromGesture)(slotDraftStartY.value, event.y);
-      })
-      .onFinalize((_, success) => {
-        if (success) return;
-        runOnJS(cancelSlotDraftFromGesture)();
-      });
-  }, [onSlotDraftChange, onSlotDraftComplete, slotDraftStartY]);
-
-  const positionedSlotDraft = useMemo(() => {
-    if (!slotDraft) return null;
-    const clamped = clampToDay(slotDraft.start, slotDraft.end);
-    const startMin = Math.max(0, Math.min(24 * 60, minutesFromDayStart(clamped.start)));
-    const endMin = Math.max(startMin + SLOT_MIN_DURATION_MINUTES, Math.min(24 * 60, minutesFromDayStart(clamped.end)));
-    return {
-      top: (startMin / 60) * HOUR_HEIGHT,
-      height: Math.max(MIN_EVENT_HEIGHT, ((endMin - startMin) / 60) * HOUR_HEIGHT),
-      label: formatTimeRange(clamped.start, clamped.end),
-    };
-  }, [slotDraft, dayStart]);
 
   return (
     <View style={styles.root}>
@@ -520,7 +609,18 @@ export function PlanCalendarLensPage({
         ref={(n) => {
           scrollRef.current = n;
         }}
-        contentContainerStyle={[styles.timelineScrollContent, { paddingHorizontal: contentPadding, paddingBottom: spacing.xl * 4 }]}
+        contentContainerStyle={[
+          styles.timelineScrollContent,
+          {
+            paddingHorizontal: contentPadding,
+            paddingBottom: spacing.xl * 4 + bottomOverlayInset,
+          },
+        ]}
+        onLayout={(event) => setTimelineViewportHeight(event.nativeEvent.layout.height)}
+        onScroll={(event) => {
+          timelineScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.timelineContainer}>
@@ -533,14 +633,7 @@ export function PlanCalendarLensPage({
             ))}
           </View>
 
-          <GestureDetector gesture={emptySlotGesture}>
-            <Pressable
-              testID="plan-empty-slot-column"
-              accessibilityRole={onPressEmptyTime ? 'button' : undefined}
-              accessibilityLabel="Plan empty time slots"
-              style={styles.eventsColumn}
-              onPress={handlePressEmptyTime}
-            >
+          <View style={styles.eventsColumn}>
             <View
               style={styles.eventsColumnMeasure}
               onLayout={(e) => {
@@ -550,8 +643,16 @@ export function PlanCalendarLensPage({
               pointerEvents="none"
             />
             {HOURS.map((h) => (
-              <View key={h} style={styles.gridRow} />
+              <View key={h} pointerEvents="none" style={styles.gridRow} />
             ))}
+
+            <Pressable
+              testID="plan-empty-slot-column"
+              accessibilityRole={onPressEmptyTime ? 'button' : undefined}
+              accessibilityLabel="Plan empty time slots"
+              style={styles.eventsColumnPressTarget}
+              onPress={handlePressEmptyTime}
+            />
 
             {showNowIndicator ? (
               <View pointerEvents="none" style={[styles.nowIndicator, { top: nowTop }]}>
@@ -561,20 +662,76 @@ export function PlanCalendarLensPage({
             ) : null}
 
             {positionedSlotDraft ? (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.slotDraftBlock,
-                  {
-                    top: positionedSlotDraft.top,
-                    height: positionedSlotDraft.height,
-                  },
-                ]}
-              >
-                <Text numberOfLines={1} style={styles.slotDraftTime}>
-                  {positionedSlotDraft.label}
-                </Text>
-              </View>
+              <>
+                <GestureDetector gesture={moveSlotGesture}>
+                  <Pressable
+                    accessibilityRole="adjustable"
+                    accessibilityLabel={`Move selected time, ${positionedSlotDraft.label}`}
+                    accessibilityHint="Drag up or down to move this time block"
+                    accessibilityActions={SLOT_ACCESSIBILITY_ACTIONS}
+                    onAccessibilityAction={(event) =>
+                      adjustSlotWithAccessibilityAction('move', event.nativeEvent.actionName)
+                    }
+                    onPress={(event) => event.stopPropagation()}
+                    style={[
+                      styles.slotDraftBlock,
+                      {
+                        top: positionedSlotDraft.top,
+                        height: positionedSlotDraft.height,
+                      },
+                    ]}
+                  >
+                    <Text numberOfLines={1} style={styles.slotDraftTime}>
+                      {positionedSlotDraft.label}
+                    </Text>
+                  </Pressable>
+                </GestureDetector>
+
+                <GestureDetector gesture={resizeSlotStartGesture}>
+                  <View
+                    accessible
+                    accessibilityRole="adjustable"
+                    accessibilityLabel="Change start time"
+                    accessibilityHint="Drag up or down to resize from the start"
+                    accessibilityActions={SLOT_ACCESSIBILITY_ACTIONS}
+                    onAccessibilityAction={(event) =>
+                      adjustSlotWithAccessibilityAction('start', event.nativeEvent.actionName)
+                    }
+                    style={[
+                      styles.slotDraftHandleTouchTarget,
+                      styles.slotDraftStartHandle,
+                      { top: positionedSlotDraft.top - SLOT_HANDLE_OFFSET_PX },
+                    ]}
+                  >
+                    <View style={styles.slotDraftHandleDot} />
+                  </View>
+                </GestureDetector>
+
+                <GestureDetector gesture={resizeSlotEndGesture}>
+                  <View
+                    accessible
+                    accessibilityRole="adjustable"
+                    accessibilityLabel="Change end time"
+                    accessibilityHint="Drag up or down to resize from the end"
+                    accessibilityActions={SLOT_ACCESSIBILITY_ACTIONS}
+                    onAccessibilityAction={(event) =>
+                      adjustSlotWithAccessibilityAction('end', event.nativeEvent.actionName)
+                    }
+                    style={[
+                      styles.slotDraftHandleTouchTarget,
+                      styles.slotDraftEndHandle,
+                      {
+                        top:
+                          positionedSlotDraft.top +
+                          positionedSlotDraft.height -
+                          SLOT_HANDLE_OFFSET_PX,
+                      },
+                    ]}
+                  >
+                    <View style={styles.slotDraftHandleDot} />
+                  </View>
+                </GestureDetector>
+              </>
             ) : null}
 
             {positionedItems.map((it) => {
@@ -643,6 +800,7 @@ export function PlanCalendarLensPage({
               <>
                 {/* Lightweight skeleton overlay: gives immediate feedback without blocking layout. */}
                 <View
+                  pointerEvents="none"
                   style={[
                     styles.skeletonBlock,
                     {
@@ -654,6 +812,7 @@ export function PlanCalendarLensPage({
                   ]}
                 />
                 <View
+                  pointerEvents="none"
                   style={[
                     styles.skeletonBlock,
                     {
@@ -665,6 +824,7 @@ export function PlanCalendarLensPage({
                   ]}
                 />
                 <View
+                  pointerEvents="none"
                   style={[
                     styles.skeletonBlock,
                     {
@@ -677,8 +837,7 @@ export function PlanCalendarLensPage({
                 />
               </>
             ) : null}
-            </Pressable>
-          </GestureDetector>
+          </View>
         </View>
 
         {pickerVisible && pendingMoveDate ? (
@@ -711,11 +870,15 @@ const MIN_EVENT_HEIGHT = 28;
 const HOURS = Array.from({ length: 24 }).map((_, i) => i);
 const EVENTS_INSET = spacing.xs;
 const COLUMN_GUTTER = 6;
-const SLOT_LONG_PRESS_MS = 320;
 const SLOT_MIN_DURATION_MINUTES = 15;
 const SLOT_MAX_DURATION_MINUTES = 240;
 const SLOT_STEP_MINUTES = 15;
-const SLOT_MIN_DURATION_PX = HOUR_HEIGHT * (SLOT_MIN_DURATION_MINUTES / 60);
+const SLOT_DRAG_MIN_DISTANCE_PX = 3;
+const SLOT_HANDLE_OFFSET_PX = 18;
+const SLOT_ACCESSIBILITY_ACTIONS = [
+  { name: 'increment' as const, label: 'Move 15 minutes later' },
+  { name: 'decrement' as const, label: 'Move 15 minutes earlier' },
+];
 
 function formatHourLabel(h: number): string {
   const hour = ((h + 11) % 12) + 1;
@@ -822,6 +985,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
   },
+  eventsColumnPressTarget: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
   eventsColumnMeasure: {
     position: 'absolute',
     top: 0,
@@ -872,6 +1039,7 @@ const styles = StyleSheet.create({
   },
   eventBlock: {
     position: 'absolute',
+    zIndex: 10,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: 6,
@@ -883,20 +1051,46 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: EVENTS_INSET,
     right: EVENTS_INSET,
-    zIndex: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    zIndex: 30,
+    elevation: 8,
+    borderRadius: 8,
+    borderWidth: 2,
     borderColor: colors.pine500,
-    backgroundColor: colors.pine100,
+    backgroundColor: colors.card,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     justifyContent: 'center',
+    shadowColor: colors.sumi900,
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
   slotDraftTime: {
     ...typography.bodySm,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.pine700,
+  },
+  slotDraftHandleTouchTarget: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 32,
+  },
+  slotDraftStartHandle: {
+    left: EVENTS_INSET - 14,
+  },
+  slotDraftEndHandle: {
+    right: EVENTS_INSET - 14,
+  },
+  slotDraftHandleDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.pine500,
+    borderWidth: 3,
+    borderColor: colors.pine100,
   },
   eventBlockTitle: {
     ...typography.bodySm,

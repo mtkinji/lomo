@@ -1,8 +1,12 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
-import { HStack, Text, VStack } from '../../ui/primitives';
+import { ActivityListItem } from '../../ui/ActivityListItem';
+import { BottomDrawerFlatList } from '../../ui/BottomDrawer';
+import { Icon } from '../../ui/Icon';
+import { HStack, Text } from '../../ui/primitives';
 import { QuickAddDock } from '../activities/QuickAddDock';
 import { formatTimeRange } from '../../services/plan/planDates';
 import { formatMinutes } from '../../utils/formatMinutes';
@@ -25,7 +29,6 @@ export type PlanSlotCaptureModel = {
   onSelectActivity: (activityId: string) => void;
   onCommitNew: () => void;
   onCommitExisting: () => void;
-  onSaveNewToTodos: () => void;
 };
 
 export function PlanSlotCapturePage({
@@ -39,29 +42,90 @@ export function PlanSlotCapturePage({
   onSelectActivity,
   onCommitNew,
   onCommitExisting,
-  onSaveNewToTodos,
 }: PlanSlotCaptureModel) {
+  const insets = useSafeAreaInsets();
+  const [dockReservedHeight, setDockReservedHeight] = useState(64);
   const durationMinutes = useMemo(
     () => Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000)),
     [end, start],
   );
-  const selectedExistingTitle =
-    existingActivities.find((activity) => activity.activityId === selectedActivityId)?.title ?? null;
   const canCommit = Boolean(selectedActivityId);
   const selectedCreatedActivity = Boolean(
     createdActivityId && selectedActivityId === createdActivityId,
   );
+  const selectedExistingTitle = selectedCreatedActivity
+    ? null
+    : existingActivities.find((activity) => activity.activityId === selectedActivityId)?.title ?? null;
   const isCommitting = Boolean(committingActivityId);
+  const selectedLabel = selectedCreatedActivity
+    ? 'New to-do ready'
+    : selectedExistingTitle
+      ? `Selected: ${selectedExistingTitle}`
+      : null;
+  const dockBottomOffset = Math.max(insets.bottom, spacing.sm);
 
   return (
-    <VStack space={spacing.md} style={styles.container}>
-      <VStack space={spacing.xs}>
+    <View style={styles.container}>
+      <HStack space={spacing.sm} style={styles.timeRow}>
         <Text style={styles.timeLabel}>{formatTimeRange(start, end)}</Text>
         <Text style={styles.durationLabel}>{formatMinutes(durationMinutes)}</Text>
-      </VStack>
+      </HStack>
+
+      {selectedLabel ? (
+        <HStack space={spacing.sm} style={styles.selectionRow}>
+          <Text numberOfLines={1} style={styles.selectedCopy}>{selectedLabel}</Text>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!canCommit || isCommitting}
+            onPress={selectedCreatedActivity ? onCommitNew : onCommitExisting}
+          >
+            {isCommitting ? 'Adding...' : 'Add to calendar'}
+          </Button>
+        </HStack>
+      ) : null}
+
+      <BottomDrawerFlatList
+        style={styles.inventory}
+        contentContainerStyle={[
+          styles.inventoryContent,
+          { paddingBottom: dockReservedHeight + dockBottomOffset + spacing.md },
+        ]}
+        data={existingActivities}
+        keyExtractor={(activity) => activity.activityId}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item: activity }) => {
+          const selected = selectedActivityId === activity.activityId;
+          return (
+            <View style={styles.activityRowWrap}>
+              <ActivityListItem
+                title={activity.title}
+                estimateMeta={activity.estimateMinutes ? formatMinutes(activity.estimateMinutes) : undefined}
+                showCheckbox={false}
+                showPriorityControl={false}
+                rightAccessory={
+                  selected ? (
+                    <View accessible accessibilityLabel="Selected" style={styles.selectedAccessory}>
+                      <Icon name="check" size={16} color={colors.pine700} />
+                    </View>
+                  ) : undefined
+                }
+                onPress={() => onSelectActivity(activity.activityId)}
+              />
+            </View>
+          );
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyExisting}>
+            <Text style={styles.emptyExistingText}>No unscheduled to-dos available.</Text>
+          </View>
+        }
+      />
 
       <QuickAddDock
-        placement="inline"
+        placement="bottomDock"
+        placeholder="Add a new to-do"
         value={quickAdd.value}
         onChangeText={quickAdd.onChangeText}
         inputRef={quickAdd.inputRef}
@@ -73,119 +137,58 @@ export function PlanSlotCapturePage({
         onSelectedAiActionsChange={quickAdd.onSelectedAiActionsChange}
         lockedAiActions={quickAdd.lockedAiActions}
         onLockedAiActionPress={quickAdd.onLockedAiActionPress}
+        collapsedBottomOffsetPx={dockBottomOffset}
+        floatingHorizontalInsetPx={0}
+        onReservedHeightChange={setDockReservedHeight}
       />
-
-      <VStack space={spacing.sm}>
-        <Text style={styles.sectionLabel}>Or choose an existing to-do</Text>
-        <VStack space={spacing.xs}>
-          {existingActivities.length > 0 ? (
-            existingActivities.map((activity) => {
-              const selected = selectedActivityId === activity.activityId;
-              const meta = activity.estimateMinutes ? formatMinutes(activity.estimateMinutes) : null;
-              return (
-                <Pressable
-                  key={activity.activityId}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Choose ${activity.title}`}
-                  accessibilityState={{ selected }}
-                  onPress={() => onSelectActivity(activity.activityId)}
-                  style={({ pressed }) => [
-                    styles.activityRow,
-                    selected ? styles.activityRowSelected : null,
-                    pressed ? styles.activityRowPressed : null,
-                  ]}
-                >
-                  <Text style={styles.activityTitle}>{activity.title}</Text>
-                  {meta ? <Text style={styles.activityMeta}>{meta}</Text> : null}
-                </Pressable>
-              );
-            })
-          ) : (
-            <View style={styles.emptyExisting}>
-              <Text style={styles.emptyExistingText}>No unscheduled to-dos available.</Text>
-            </View>
-          )}
-        </VStack>
-      </VStack>
-
-      {selectedExistingTitle ? (
-        <Text style={styles.selectedCopy}>
-          {selectedCreatedActivity ? 'Ready to commit this to-do.' : `Selected: ${selectedExistingTitle}`}
-        </Text>
-      ) : null}
-
-      <HStack space={spacing.sm} style={styles.actionsRow}>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={quickAdd.value.trim().length === 0 || isCommitting}
-          onPress={onSaveNewToTodos}
-        >
-          Save to To-dos
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={!canCommit || isCommitting}
-          onPress={selectedCreatedActivity ? onCommitNew : onCommitExisting}
-        >
-          {isCommitting ? 'Committing...' : 'Commit to calendar'}
-        </Button>
-      </HStack>
-    </VStack>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    flex: 1,
+    minHeight: 0,
   },
   timeLabel: {
-    ...typography.titleSm,
+    ...typography.bodySm,
     color: colors.textPrimary,
+    flex: 1,
   },
   durationLabel: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  sectionLabel: {
-    ...typography.bodySm,
-    fontWeight: '700',
-    color: colors.textSecondary,
+  timeRow: {
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
   },
-  actionsRow: {
-    justifyContent: 'flex-end',
-    flexWrap: 'wrap',
+  selectionRow: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
   selectedCopy: {
     ...typography.bodySm,
     color: colors.textSecondary,
+    flex: 1,
   },
-  activityRow: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  inventory: {
+    flex: 1,
+    minHeight: 0,
   },
-  activityRowSelected: {
-    borderColor: colors.pine500,
+  inventoryContent: {
+    paddingTop: spacing.xs,
+  },
+  activityRowWrap: {
+    paddingBottom: spacing.xs,
+  },
+  selectedAccessory: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.pine100,
-  },
-  activityRowPressed: {
-    opacity: 0.9,
-  },
-  activityTitle: {
-    ...typography.body,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  activityMeta: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   emptyExisting: {
     borderRadius: 12,

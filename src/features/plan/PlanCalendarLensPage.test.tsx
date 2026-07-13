@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { fireEvent } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { PlanCalendarLensPage } from './PlanCalendarLensPage';
 
@@ -20,10 +21,12 @@ describe('PlanCalendarLensPage', () => {
     jest.clearAllMocks();
   });
 
-  it('leaves touch long-press handling exclusively to the drag gesture', () => {
+  it('uses a direct tap callback instead of requiring a long press', () => {
+    const onPressEmptyTime = jest.fn();
     const { getByTestId } = renderWithProviders(
       <PlanCalendarLensPage
         {...baseProps}
+        onPressEmptyTime={onPressEmptyTime}
         onSlotDraftChange={jest.fn()}
         onSlotDraftComplete={jest.fn()}
       />,
@@ -33,5 +36,38 @@ describe('PlanCalendarLensPage', () => {
 
     expect(emptySlotColumn.props.onLongPress).toBeUndefined();
     expect(emptySlotColumn.props.delayLongPress).toBeUndefined();
+
+    fireEvent.press(emptySlotColumn, { nativeEvent: { locationY: 640 } });
+
+    expect(onPressEmptyTime).toHaveBeenCalledTimes(1);
+    expect(onPressEmptyTime.mock.calls[0][0].date.getHours()).toBe(10);
+  });
+
+  it('shows move and resize affordances on the selected time block', () => {
+    const onSlotDraftChange = jest.fn();
+    const { getByLabelText } = renderWithProviders(
+      <PlanCalendarLensPage
+        {...baseProps}
+        slotDraft={{
+          start: new Date('2026-07-08T10:00:00.000-06:00'),
+          end: new Date('2026-07-08T11:00:00.000-06:00'),
+        }}
+        onPressEmptyTime={jest.fn()}
+        onSlotDraftChange={onSlotDraftChange}
+        onSlotDraftComplete={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('Move selected time, 10:00 AM - 11:00 AM')).toBeTruthy();
+    expect(getByLabelText('Change start time')).toBeTruthy();
+    const endHandle = getByLabelText('Change end time');
+    expect(endHandle).toBeTruthy();
+
+    fireEvent(endHandle, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+
+    expect(onSlotDraftChange).toHaveBeenCalledWith({
+      start: new Date('2026-07-08T10:00:00.000-06:00'),
+      end: new Date('2026-07-08T11:15:00.000-06:00'),
+    });
   });
 });

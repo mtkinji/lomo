@@ -9,13 +9,18 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useWindowDimensions } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme';
 import { HStack, VStack, Text } from '../../ui/primitives';
 import { useAppStore } from '../../store/useAppStore';
 import { PlanCalendarLensPage } from './PlanCalendarLensPage';
-import { PlanEventPeekDrawerHost, type PlanDrawerMode } from './PlanEventPeekDrawerHost';
+import {
+  PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO,
+  PlanEventPeekDrawerHost,
+  type PlanDrawerMode,
+} from './PlanEventPeekDrawerHost';
 import type { BusyInterval } from '../../services/scheduling/schedulingEngine';
-import type { PlanSlotDraft } from './planSlotDraft';
+import { createDefaultSlotDraft, type PlanSlotDraft } from './planSlotDraft';
 import {
   createCalendarEvent,
   getOrInitCalendarPreferences,
@@ -127,6 +132,7 @@ export function PlanPager({
   const [sheetCreatedProposals, setSheetCreatedProposals] = useState<DailyPlanProposal[]>([]);
   const [sheetCreatedUnscheduledIds, setSheetCreatedUnscheduledIds] = useState<string[]>([]);
   const [slotDraft, setSlotDraft] = useState<PlanSlotDraft | null>(null);
+  const [slotFocusRequestId, setSlotFocusRequestId] = useState(0);
   const [hasLoadedProposalsOnce, setHasLoadedProposalsOnce] = useState(false);
   const prevDateKeyRef = useRef<string | null>(null);
   const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
@@ -176,7 +182,8 @@ export function PlanPager({
   const hasAnyCommitment = (plannedRecord?.committedActivityIds?.length ?? 0) > 0;
 
   // Smooth horizontal day transition (swipe only).
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const canvasTranslateX = useSharedValue(0);
   const canvasWidth = useSharedValue(Math.max(1, screenWidth));
   const isDayTransitionAnimating = useSharedValue(false);
@@ -1493,6 +1500,12 @@ export function PlanPager({
         <Animated.View style={[{ flex: 1 }, canvasAnimatedStyle]}>
           <PlanCalendarLensPage
             contentPadding={pagePadding}
+            bottomOverlayInset={
+              slotDraft
+                ? Math.max(screenHeight - insets.top, 0) * PLAN_SLOT_DRAWER_COMPACT_HEIGHT_RATIO
+                : 0
+            }
+            slotFocusRequestId={slotFocusRequestId}
             targetDayLabel={formatDayLabel(targetDate)}
             targetDate={targetDate}
             externalEvents={externalEventsForTimeline}
@@ -1528,6 +1541,19 @@ export function PlanPager({
               if (recommendationsDrawerVisible) setSheetSnapIndex(0);
               if (slotDraft) setSlotDraft(null);
               setPeekSelection({ kind: 'external', event });
+            }}
+            onPressEmptyTime={({ date }) => {
+              const dayStart = new Date(targetDate);
+              dayStart.setHours(0, 0, 0, 0);
+              const nextSlot = createDefaultSlotDraft({
+                tappedAt: date,
+                dayStart,
+                durationMinutes: 60,
+              });
+              setSlotDraft(nextSlot);
+              setSlotFocusRequestId((current) => current + 1);
+              setPeekSelection(null);
+              setSheetSnapIndex(0);
             }}
             onSlotDraftChange={setSlotDraft}
             onSlotDraftComplete={(slot) => {

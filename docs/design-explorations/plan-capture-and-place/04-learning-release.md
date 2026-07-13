@@ -2,7 +2,7 @@
 
 ## Concept To Build
 
-Plan lets the user long-press open calendar time, drag to set duration, then create a new Activity or place an existing one into that time as a real calendar block.
+Plan lets the user tap open calendar time, move or resize the provisional block, then create a new Activity or place an existing one into that time as a real calendar block.
 
 ## Capability Delta
 
@@ -12,8 +12,8 @@ Today, the user cannot:
 - Keep the planning flow inside Plan when the intent starts from open time.
 
 After this release, the user can:
-- Long-press open time in Plan.
-- Drag a provisional block to set duration.
+- Tap open time in Plan to select a one-hour provisional block.
+- Drag the block to move it or use its handles to resize it.
 - Create a lightweight Activity for that time, or choose an existing Activity.
 - Commit it to the configured write calendar.
 - See the resulting block on the Plan calendar and manage it through existing scheduled-block actions.
@@ -27,11 +27,11 @@ Still intentionally not supported:
 
 ## User Experience
 
-The user is on Plan, looking at a day. A single tap on empty calendar space does not create anything. The user long-presses open space. A temporary block appears at the press location. As the user drags, the block grows or shrinks in 15-minute increments. On release, a bottom drawer opens with the selected start/end time.
+The user is on Plan, looking at a day. A single tap on empty calendar space creates a temporary one-hour block with visible start and end handles. Dragging the block moves it; dragging either handle resizes it in 15-minute increments. The calendar scrolls the selected block near the top of the timeline, and a taller bottom drawer opens with the selected start/end time while the visible calendar stays interactive.
 
 Happy path:
-- The drawer shows the time range, Quick Add, and a short list of eligible existing to-dos together.
-- The user creates the to-do through Quick Add, then taps "Commit to calendar."
+- The drawer shows the time range, a scrollable list of eligible existing to-dos, and an anchored Quick Add dock together.
+- The user creates the to-do through Quick Add, then taps "Add to calendar."
 - Kwilt creates an Activity, writes the calendar event, stores `scheduledAt` and `calendarBinding`, closes the drawer, and shows the new block on the Plan calendar.
 
 Existing-Activity path:
@@ -63,8 +63,8 @@ Recommendations-sheet no-slot path:
 ## Buildable Slice
 
 Must be real:
-- Empty-time long press and drag wired inside `PlanCalendarLensPage`.
-- Provisional block preview during drag.
+- Empty-time tap, move, and handle-resize gestures wired inside `PlanCalendarLensPage`.
+- Provisional block preview while moving or resizing.
 - Bottom drawer for a selected slot.
 - New Activity creation with title and duration inferred from the selected slot.
 - Existing Activity selection path, even if initially simple.

@@ -4,25 +4,48 @@ import { fireEvent } from '@testing-library/react-native';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { PlanSlotCapturePage } from './PlanSlotCapturePage';
 
+const mockQuickAddProps: Array<Record<string, unknown>> = [];
+
 jest.mock('../activities/QuickAddDock', () => ({
   QuickAddDock: ({
     value,
     setIsFocused,
+    placeholder,
+    ...props
   }: {
     value: string;
     setIsFocused: (next: boolean) => void;
-  }) => {
+    placeholder?: string;
+  } & Record<string, unknown>) => {
     const React = require('react');
     const { Pressable, Text } = require('react-native');
+    mockQuickAddProps.push({ value, setIsFocused, placeholder, ...props });
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Add a to-do"
+        accessibilityLabel={placeholder || 'Add a to-do'}
         onPress={() => setIsFocused(true)}
       >
-        <Text>{value || 'Add a to-do'}</Text>
+        <Text>{value || placeholder || 'Add a to-do'}</Text>
       </Pressable>
     );
+  },
+}));
+
+jest.mock('../../ui/BottomDrawer', () => ({
+  BottomDrawerFlatList: ({
+    data,
+    renderItem,
+    ListEmptyComponent,
+  }: {
+    data: unknown[];
+    renderItem: (info: { item: unknown; index: number }) => React.ReactNode;
+    ListEmptyComponent?: React.ComponentType;
+  }) => {
+    const React = require('react');
+    const { View } = require('react-native');
+    if (data.length === 0 && ListEmptyComponent) return <ListEmptyComponent />;
+    return <View>{data.map((item, index) => <View key={index}>{renderItem({ item, index })}</View>)}</View>;
   },
 }));
 
@@ -52,25 +75,28 @@ const defaultProps = {
   onSelectActivity: jest.fn(),
   onCommitNew: jest.fn(),
   onCommitExisting: jest.fn(),
-  onSaveNewToTodos: jest.fn(),
 };
 
 describe('PlanSlotCapturePage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuickAddProps.length = 0;
   });
 
-  it('combines quick add and existing to-dos without a mode switcher', () => {
+  it('uses a scrollable to-do inventory with Quick Add anchored at the bottom', () => {
     const { getByText, getAllByText, getByLabelText } = renderWithProviders(
       <PlanSlotCapturePage {...defaultProps} />,
     );
 
     expect(getByText('11:15 AM - 12:00 PM')).toBeTruthy();
     expect(getAllByText('45 min')).toHaveLength(2);
-    expect(getByLabelText('Add a to-do')).toBeTruthy();
-    expect(getByText('Or choose an existing to-do')).toBeTruthy();
+    expect(getByLabelText('Add a new to-do')).toBeTruthy();
     expect(getByText('Buy lumber')).toBeTruthy();
     expect(getByText('Send cabinet dimensions')).toBeTruthy();
+    expect(mockQuickAddProps.at(-1)?.placement).toBe('bottomDock');
+    expect(mockQuickAddProps.at(-1)?.collapsedBottomOffsetPx).toEqual(expect.any(Number));
+    expect(mockQuickAddProps.at(-1)?.floatingHorizontalInsetPx).toBe(0);
+    expect(() => getByText('Choose existing to-do')).toThrow();
     expect(() => getByText('New to-do')).toThrow();
     expect(() => getByText('Existing')).toThrow();
   });
@@ -78,7 +104,7 @@ describe('PlanSlotCapturePage', () => {
   it('selects an existing to-do and commits it', () => {
     const onSelectActivity = jest.fn();
     const onCommitExisting = jest.fn();
-    const { getByText, rerender } = renderWithProviders(
+    const { getByText, queryByText, rerender } = renderWithProviders(
       <PlanSlotCapturePage
         {...defaultProps}
         onSelectActivity={onSelectActivity}
@@ -99,7 +125,10 @@ describe('PlanSlotCapturePage', () => {
       />,
     );
 
-    fireEvent.press(getByText('Commit to calendar'));
+    expect(getByText('Selected: Buy lumber')).toBeTruthy();
+    expect(queryByText('Save without time')).toBeNull();
+
+    fireEvent.press(getByText('Add to calendar'));
 
     expect(onCommitExisting).toHaveBeenCalledTimes(1);
   });
@@ -115,7 +144,7 @@ describe('PlanSlotCapturePage', () => {
       />,
     );
 
-    fireEvent.press(getByText('Commit to calendar'));
+    fireEvent.press(getByText('Add to calendar'));
 
     expect(onCommitNew).toHaveBeenCalledTimes(1);
   });
@@ -133,7 +162,7 @@ describe('PlanSlotCapturePage', () => {
       />,
     );
 
-    fireEvent.press(getByLabelText('Add a to-do'));
+    fireEvent.press(getByLabelText('Add a new to-do'));
 
     expect(setIsFocused).toHaveBeenCalledWith(true);
   });

@@ -80,6 +80,64 @@ function QuickAddHarness() {
 }
 
 describe('QuickAddDock', () => {
+  it('allows a host surface to align the floating dock with its own content gutter', () => {
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        floatingHorizontalInsetPx={0}
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-floating-dock').props.style)).toMatchObject({
+      left: 0,
+      right: 0,
+      paddingHorizontal: 0,
+    });
+  });
+
+  it('uses a contextual placeholder for the collapsed and expanded composer', () => {
+    const inputRef = React.createRef<TextInput | null>();
+    const { getByLabelText, getByTestId, rerender } = renderWithProviders(
+      <QuickAddDock
+        placement="inline"
+        placeholder="Add a new to-do"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={inputRef}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('Add a new to-do')).toBeTruthy();
+
+    rerender(
+      <QuickAddDock
+        placement="inline"
+        placeholder="Add a new to-do"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={inputRef}
+        isFocused
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(getByLabelText('To-do title')).toBeTruthy();
+    expect(getByTestId('e2e.activities.quickAdd.input').props.placeholder).toBe('Add a new to-do');
+  });
+
   it('keeps the native text input multiline while the title grows past one visual row', () => {
     const { getByTestId } = renderWithProviders(<QuickAddHarness />);
     const input = getByTestId('e2e.activities.quickAdd.input');

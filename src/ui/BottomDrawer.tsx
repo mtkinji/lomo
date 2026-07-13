@@ -101,6 +101,13 @@ type BottomDrawerProps = {
   handleStyle?: StyleProp<ViewStyle>;
 
   /**
+   * When true, the sheet surface extends through the bottom safe-area instead of
+   * reserving that inset inside its fixed snap height. The hosted scroll content
+   * must provide its own end padding so the final control can clear the home indicator.
+   */
+  contentExtendsIntoBottomSafeArea?: boolean;
+
+  /**
    * When true, allows dragging from the content area in addition to the handle.
    * When enabled, nested scroll views should use BottomDrawerScrollView/FlatList so
    * gestures cooperate.
@@ -189,6 +196,7 @@ export function BottomDrawer({
   sheetStyle,
   handleContainerStyle,
   handleStyle,
+  contentExtendsIntoBottomSafeArea = false,
   enableContentPanningGesture = false,
   dynamicSizing = false,
 }: BottomDrawerProps) {
@@ -605,7 +613,7 @@ export function BottomDrawer({
               style={[
                 styles.sheet,
                 {
-                  paddingBottom: insets.bottom,
+                  paddingBottom: contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
                   // Max height is the safe-area-aware available height.
                   maxHeight: availableHeight,
                 },
@@ -626,7 +634,8 @@ export function BottomDrawer({
                 <View
                   onLayout={(event) => {
                     const { y, height } = event.nativeEvent.layout;
-                    const next = clamp(y + height + insets.bottom, 0, maxAllowedHeight);
+                    const safeAreaHeight = contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
+                    const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
                     setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
                   }}
                 >
@@ -663,7 +672,7 @@ export function BottomDrawer({
               style={[
                 styles.sheet,
                 {
-                  paddingBottom: insets.bottom,
+                  paddingBottom: contentExtendsIntoBottomSafeArea ? 0 : insets.bottom,
                   maxHeight: availableHeight,
                 },
                 sheetAnimatedStyle,
@@ -683,7 +692,8 @@ export function BottomDrawer({
                 <View
                   onLayout={(event) => {
                     const { y, height } = event.nativeEvent.layout;
-                    const next = clamp(y + height + insets.bottom, 0, maxAllowedHeight);
+                    const safeAreaHeight = contentExtendsIntoBottomSafeArea ? 0 : insets.bottom;
+                    const next = clamp(y + height + safeAreaHeight, 0, maxAllowedHeight);
                     setDynamicTargetHeight((prev) => (prev !== next ? next : prev));
                   }}
                 >

@@ -9,7 +9,7 @@ job_flow: job-flow-marcus-move-the-few-things-that-matter
 serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [auto-schedule, calendar-export-ics, due-date-reminders]
 owner: andrew
-last_updated: 2026-07-10
+last_updated: 2026-07-13
 ---
 
 # Plan Capture And Place
@@ -46,21 +46,25 @@ When I am looking at my day in Plan, I want to turn an open time into a real Kwi
 
 ### Product behavior
 
-When the user long-presses empty time in the Plan calendar, Kwilt shows a provisional block. Dragging adjusts the duration. On release, Kwilt opens a bottom drawer for that selected slot.
+When the user taps empty time in the Plan calendar, Kwilt immediately shows a one-hour provisional block at the nearest 15-minute boundary. The block has two visible handles: dragging either handle changes the start or end, while dragging the body moves the whole block without changing its duration.
+
+A non-blocking bottom drawer opens with the selected time and the lightweight Activity composer. The calendar scrolls the provisional block near the top of its timeline, then gives most of the remaining viewport to a scrollable inventory of eligible unscheduled Activities. The calendar remains interactive above the drawer, and the drawer can expand further. This follows the direct-manipulation contract proven by Outlook mobile and Google Calendar without copying their event-specific metadata into Kwilt.
 
 The drawer uses one combined surface rather than separate new/existing modes:
-- The familiar Quick Add dock creates a lightweight Activity for the selected calendar time.
-- Eligible unscheduled Activities remain visible below it for direct selection.
+- A filtered, scrollable inventory of eligible unscheduled Activities reuses the proven To-dos list rows without its view switcher or inventory-management chrome.
+- The familiar Quick Add dock stays anchored to the bottom of the drawer and creates a lightweight Activity for the selected calendar time.
+- Existing and new Activities are therefore simultaneously discoverable without a mode switcher or preliminary choice screen.
 - One primary commit action schedules whichever Activity is selected or was just created.
 
 Calendar writes stay explicit. Nothing is created on the external calendar until the user taps the commit action.
 
 ### Slot handling
 
-- Single tap on empty time should not create a todo. Keep it available for inspection or no-op behavior.
-- Long press starts a provisional block at the nearest 15-minute boundary.
-- Dragging changes the end time in 15-minute increments, with minimum and maximum guardrails.
-- If no drag duration is available in an edge case, V1 can fall back to 30 minutes unless the chosen existing Activity has `estimateMinutes`.
+- Single tap on empty time starts a one-hour provisional block at the nearest 15-minute boundary. It does not create an Activity or external calendar event by itself.
+- Dragging the block moves its start and end together in 15-minute increments.
+- Dragging the start or end handle resizes that edge in 15-minute increments, with minimum and maximum guardrails.
+- Opening the drawer scrolls the selected block near the top of the visible timeline so the block stays oriented while the to-do inventory receives more space.
+- The drawer does not block calendar taps or block manipulation above it; expanding it reveals more of the existing Activity list.
 - New Activities use the selected slot duration as `estimateMinutes`.
 - The committed Activity receives `scheduledAt` and a calendar binding exactly like recommendation commits.
 
@@ -147,21 +151,23 @@ Assumptions Codex made:
 - The first release should include both new Activity creation and existing Activity placement because the user named both.
 - The correct system extension is Plan slot capture, not a new planning object or dashboard.
 - V1 should keep Goal/Arc optional and avoid AI ranking or schedule mutation.
-- The calendar canvas should use a long-press/drag/release gesture, not a persistent Quick Add dock and not single-tap creation.
+- The calendar canvas should use tap-to-select plus visible move/resize affordances, not a persistent Quick Add dock. This replaces the earlier long-press bet after it failed dogfooding discovery.
 - A recommendation-sheet Quick Add affordance is useful, but it serves a different moment than slot creation.
 
 Implementation questions to settle before code:
-- Should V1 include a visible plus affordance on the calendar if long-press discovery is weak?
-- What minimum and maximum duration guardrails should the long-press drag gesture enforce?
-- Should the existing Activity picker reuse global search or be a purpose-built lightweight drawer section?
+- Should a later release remember the user's most recent default duration instead of always starting at one hour?
+- Should the current 15-minute minimum and four-hour maximum guardrails change after dogfooding?
+- Should a later release add search when the eligible to-do inventory is long?
 - Which Quick Add AI actions should be exposed in the slot drawer for the first dogfood build?
 
 Acceptance criteria:
-- Single tapping empty time in Plan does not create a todo.
-- Long-pressing empty time in Plan shows a provisional block.
-- Dragging during long press adjusts the provisional block duration.
-- Releasing opens a slot-aware drawer.
-- The touch long press is owned by the drag gesture; no competing press handler opens the drawer before drag can begin.
+- Single tapping empty time in Plan shows a one-hour provisional block and compact slot-aware drawer without creating a todo.
+- The provisional block displays visible start and end handles.
+- Dragging the block moves it without changing its duration.
+- Dragging either handle adjusts that edge in 15-minute increments.
+- The calendar remains interactive above the slot drawer.
+- Opening slot capture shifts the selected block near the top of the visible timeline and opens a drawer tall enough to show multiple eligible to-dos.
+- The drawer can expand to reveal the existing Activity list.
 - The drawer shows Quick Add and eligible existing to-dos together without a new/existing segmented control.
 - One commit action schedules the selected or newly created Activity.
 - Creating a new Activity from the drawer adds a real calendar event and a scheduled Kwilt block.
@@ -179,5 +185,5 @@ Acceptance criteria:
 
 ## Open questions
 
-- Does direct tapping discover well enough, or should the Recommendations sheet also expose an "Add to this day" CTA?
+- Should the Recommendations sheet also expose an "Add to this day" CTA after direct calendar tapping is dogfooded?
 - Should the existing Activity picker bias by duration fit, Goal priority, or recent recommendations after the basic flow proves useful?

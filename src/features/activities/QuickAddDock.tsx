@@ -54,6 +54,7 @@ type QuickAddDockProps = {
    * - inline: render the collapsed trigger row inline (no absolute positioning)
    */
   placement?: 'bottomDock' | 'inline';
+  placeholder?: string;
   value: string;
   onChangeText: (text: string) => void;
   inputRef: RefObject<TextInput | null>;
@@ -81,10 +82,13 @@ type QuickAddDockProps = {
    * bottom bar, but To-dos can lower it when global chrome auto-hides.
    */
   collapsedBottomOffsetPx?: number;
+  /** Outer horizontal inset for the collapsed floating dock. Defaults to the screen gutter. */
+  floatingHorizontalInsetPx?: number;
 };
 
 export function QuickAddDock({
   placement = 'bottomDock',
+  placeholder = 'Add a to-do',
   value,
   onChangeText,
   inputRef,
@@ -99,6 +103,7 @@ export function QuickAddDock({
   dismissAfterSubmit = true,
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
+  floatingHorizontalInsetPx = spacing.lg,
 }: QuickAddDockProps) {
   const collapsedBottomOffsetPx =
     placement === 'inline'
@@ -259,10 +264,12 @@ export function QuickAddDock({
             />
           </Animated.View>
           <Animated.View
+            testID="quick-add-floating-dock"
             style={[
               styles.floatingDock,
               {
                 bottom: expandedCollapsedBottomOffsetRef.current,
+                paddingHorizontal: floatingHorizontalInsetPx,
                 transform: [{ translateY: collapsedDockTranslateY }],
               },
               isFocused ? styles.dockHidden : null,
@@ -279,7 +286,10 @@ export function QuickAddDock({
               }}
             >
               <View style={styles.collapsedInputShell}>
-                <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
+                <CollapsedQuickAddTrigger
+                  placeholder={placeholder}
+                  onPress={() => setIsFocused(true)}
+                />
               </View>
             </View>
           </Animated.View>
@@ -287,7 +297,10 @@ export function QuickAddDock({
       ) : (
         <View style={isFocused ? styles.inlineHidden : null}>
           <View style={styles.collapsedInputShell}>
-            <CollapsedQuickAddTrigger onPress={() => setIsFocused(true)} />
+            <CollapsedQuickAddTrigger
+              placeholder={placeholder}
+              onPress={() => setIsFocused(true)}
+            />
           </View>
         </View>
       )}
@@ -356,7 +369,7 @@ export function QuickAddDock({
                           onChangeText(next);
                           setResolvedInputHeight(resolveInputHeightForText(next));
                         }}
-                        placeholder="Add a to-do"
+                        placeholder={placeholder}
                         placeholderTextColor={colors.textSecondary}
                         returnKeyType="done"
                         showSoftInputOnFocus
@@ -519,12 +532,18 @@ export function QuickAddDock({
   );
 }
 
-function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
+function CollapsedQuickAddTrigger({
+  placeholder,
+  onPress,
+}: {
+  placeholder: string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       testID="e2e.activities.quickAdd.open"
       accessibilityRole="button"
-      accessibilityLabel="Add a to-do"
+      accessibilityLabel={placeholder}
       onPress={onPress}
       style={styles.collapsedPressable}
     >
@@ -538,7 +557,7 @@ function CollapsedQuickAddTrigger({ onPress }: { onPress: () => void }) {
           <View style={styles.collapsedLeftIconSlot}>
             <Icon name="plus" size={16} color={colors.textSecondary} />
           </View>
-          <Text style={styles.collapsedPlaceholderText}>Add a to-do</Text>
+          <Text style={styles.collapsedPlaceholderText}>{placeholder}</Text>
         </HStack>
         {/* Reserve the same trailing "star" column width as ActivityListItem */}
         <View style={styles.collapsedRightSpacer} />
@@ -617,7 +636,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
     // Ensure the dock renders above the scroll view content on both platforms.
     zIndex: 50,
     elevation: 50,

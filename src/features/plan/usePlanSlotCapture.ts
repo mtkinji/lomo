@@ -1,5 +1,5 @@
 import { Alert, type TextInput } from 'react-native';
-import { useCallback, useMemo, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { useCanUseProTools } from '../../store/proToolsAccess';
 import type { Activity, Arc, Goal } from '../../domain/types';
@@ -31,6 +31,29 @@ type ConsumeGenerativeCredit = (params: {
 }) => { ok: boolean; remaining: number; limit: number };
 
 type CommitProposal = (activityId: string, proposal: DailyPlanProposal) => Promise<boolean>;
+
+export function usePlanSlotSelectionState(slotDraft: PlanSlotDraft | null) {
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
+  const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
+  const captureOpen = Boolean(slotDraft);
+
+  useEffect(() => {
+    if (captureOpen) return;
+    setSelectedActivityId(null);
+    setCreatedActivityId(null);
+    setCommittingActivityId(null);
+  }, [captureOpen]);
+
+  return {
+    selectedActivityId,
+    setSelectedActivityId,
+    createdActivityId,
+    setCreatedActivityId,
+    committingActivityId,
+    setCommittingActivityId,
+  };
+}
 
 export function usePlanSlotCapture(params: {
   slotDraft: PlanSlotDraft | null;
@@ -74,9 +97,14 @@ export function usePlanSlotCapture(params: {
     commitProposal,
     clearSlotDraft,
   } = params;
-  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
-  const [createdActivityId, setCreatedActivityId] = useState<string | null>(null);
-  const [committingActivityId, setCommittingActivityId] = useState<string | null>(null);
+  const {
+    selectedActivityId,
+    setSelectedActivityId,
+    createdActivityId,
+    setCreatedActivityId,
+    committingActivityId,
+    setCommittingActivityId,
+  } = usePlanSlotSelectionState(slotDraft);
   const isPro = useCanUseProTools();
   const canUseUnsplash = useCanUseProTools('unsplash_banners');
 
@@ -250,12 +278,6 @@ export function usePlanSlotCapture(params: {
     [activities, clearSlotDraft, commitProposal, validateSlot],
   );
 
-  const handleSaveNewToTodos = useCallback(() => {
-    if (controller.value.trim().length === 0) return;
-    controller.submit({ aiActions: selectedAiActions });
-    clearSlotDraft();
-  }, [clearSlotDraft, controller, selectedAiActions]);
-
   if (!slotDraft) return null;
 
   return {
@@ -281,6 +303,5 @@ export function usePlanSlotCapture(params: {
     onSelectActivity: setSelectedActivityId,
     onCommitNew: () => commitActivity(createdActivityId),
     onCommitExisting: () => commitActivity(selectedActivityId),
-    onSaveNewToTodos: handleSaveNewToTodos,
   };
 }
