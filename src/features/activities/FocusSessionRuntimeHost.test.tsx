@@ -2,6 +2,9 @@ import { act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { renderWithProviders } from '../../test/renderWithProviders';
+import { syncLiveActivity } from '../../services/appleEcosystem/liveActivity';
+import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
+import { startSoundscapeLoop } from '../../services/soundscape';
 import { useAppStore } from '../../store/useAppStore';
 import { FocusSessionRuntimeHost } from './FocusSessionRuntimeHost';
 import { useFocusSessionStore } from './focusSessionStore';
@@ -38,6 +41,9 @@ jest.mock('../../store/useCelebrationStore', () => ({
 
 const scheduleNotificationAsync = Notifications.scheduleNotificationAsync as jest.Mock;
 const cancelScheduledNotificationAsync = Notifications.cancelScheduledNotificationAsync as jest.Mock;
+const syncLiveActivityMock = syncLiveActivity as jest.Mock;
+const reconcileScreenTimeRestrictionsMock = reconcileScreenTimeRestrictions as jest.Mock;
+const startSoundscapeLoopMock = startSoundscapeLoop as jest.Mock;
 
 describe('FocusSessionRuntimeHost', () => {
   beforeEach(async () => {
@@ -111,5 +117,26 @@ describe('FocusSessionRuntimeHost', () => {
 
     expect(useFocusSessionStore.getState().activeSession).toBeNull();
     expect(cancelScheduledNotificationAsync).not.toHaveBeenCalledWith('focus-complete-notification');
+  });
+
+  it('does not restart native Focus state for a restored session that already expired', async () => {
+    useFocusSessionStore.getState().startSession({
+      activityId: 'activity-1',
+      title: 'Budget remaining app MVP',
+      minutes: 1,
+      startedAtMs: -60_000,
+    });
+
+    renderWithProviders(<FocusSessionRuntimeHost />);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(useFocusSessionStore.getState().activeSession).toBeNull();
+    expect(reconcileScreenTimeRestrictionsMock).not.toHaveBeenCalledWith({ focusSessionActive: true });
+    expect(syncLiveActivityMock).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'running' }));
+    expect(startSoundscapeLoopMock).not.toHaveBeenCalled();
   });
 });

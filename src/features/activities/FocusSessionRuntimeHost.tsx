@@ -9,7 +9,10 @@ import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtec
 import { startSoundscapeLoop, stopSoundscapeLoop } from '../../services/soundscape';
 import { useAppStore } from '../../store/useAppStore';
 import { recordShowUpWithCelebration } from '../../store/useCelebrationStore';
-import { getFocusCompletionNotificationSeconds } from './focusSessionLifecycle';
+import {
+  getFocusCompletionNotificationSeconds,
+  isRunningFocusSessionExpired,
+} from './focusSessionLifecycle';
 import { useFocusSessionStore } from './focusSessionStore';
 
 async function cancelFocusNotification(notificationId: string | null | undefined) {
@@ -129,6 +132,13 @@ export function FocusSessionRuntimeHost() {
         void endLiveActivity().catch(() => undefined);
         void reconcileScreenTimeRestrictions({ focusSessionActive: false }).catch(() => undefined);
       }
+      return;
+    }
+
+    // The expiry effect above clears restored sessions synchronously, but the
+    // remaining effects from that render still see the stale session value.
+    // Do not restart native Focus state while that cleanup rerender is pending.
+    if (isRunningFocusSessionExpired(activeSession)) {
       return;
     }
 

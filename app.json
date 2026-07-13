@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kwilt",
     "slug": "kwilt",
-    "version": "1.0.84",
+    "version": "1.0.85",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,7 +14,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.andrewwatanabe.kwilt",
       "appleTeamId": "BK3N7YXHN7",
-      "buildNumber": "86",
+      "buildNumber": "87",
       "appExtensions": [
         {
           "targetName": "KwiltWidgets",
