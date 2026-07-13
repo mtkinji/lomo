@@ -32,16 +32,15 @@ Prioritize by compounding leverage per unit of risk:
   - Why: suggestion request success, quota, and transport-error transitions remain coupled inside the screen.
   - Result: `activitySuggestionRequestState.ts` now owns bootstrap, regeneration, quota, and transport-error outcomes with focused tests.
 
-- [ ] Integrate the existing onboarding Arc prompt extraction
+- [x] Integrate the existing onboarding Arc prompt extraction
   - Area: `src/features/onboarding/IdentityAspirationFlow.tsx`
   - Why: `codex/code-quality-refinement-2026-06-29` already contains the tested `identityArcPrompt.ts` extraction; reuse and reconcile that work instead of reimplementing it.
-  - Ideal test: preserve its prompt-builder coverage for required rules and identity-signal inclusion.
-  - Risk: medium
+  - Result: `identityArcPrompt.ts` now owns the prompt contract with focused tests, including current FTUX Goal+Arc guidance and reviewer-feedback retries.
 
-- [ ] Extract Chapter generation prompt/data assembly
+- [ ] Integrate the existing Chapter OpenAI request builder
   - Area: `supabase/functions/chapters-generate/index.ts`
-  - Why: prompt and data assembly are still coupled to request orchestration in a dense Edge Function.
-  - Ideal test: Deno tests around prompt/data helper outputs.
+  - Why: `codex/code-quality-refinement-2026-06-30` already contains `chapterOpenAiRequest.ts`; reconcile that tested request-body policy with the current generation function instead of reimplementing it.
+  - Ideal test: preserve its Deno request-body policy tests and current function lint.
   - Risk: medium
 
 - [ ] Extract store UI preference slice helpers

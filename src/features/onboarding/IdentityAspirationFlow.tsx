@@ -28,7 +28,6 @@ import { defaultForceLevels, useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { canCreateArc } from '../../domain/limits';
-import { buildHybridArcGuidelinesBlock } from '../../domain/arcHybridPrompt';
 import type {
   ArchetypeAdmiredQualityId,
   ArchetypeRoleModelTypeId,
@@ -99,6 +98,7 @@ import {
   type AspirationQualityResult,
   type AspirationPayload,
 } from './identityAspirationParsing';
+import { buildIdentityArcGenerationPrompt } from './identityArcPrompt';
 
 type IdentityAspirationFlowMode = 'firstTimeOnboarding' | 'reuseIdentityForNewArc';
 
@@ -1732,178 +1732,13 @@ export function IdentityAspirationFlow({
 
       const inputsSummary = inputsSummaryLines.join('\n- ');
 
-      const buildPrompt = (judgeFeedback?: string) => {
-        const conversationSnapshot = buildConversationSnapshotFromTimeline();
-        const lines: string[] = [
-          'You are an identity-development coach inside the Kwilt app. You help users generate a long-term identity direction called an Arc.',
-          '',
-          'An Arc is:',
-          '- a slow-changing identity arena where the user wants to grow,',
-          '- a direction for who they want to become in one area of life,',
-          '- not a task list, not a project, not a personality label, and not corporate-speak.',
-          '',
-          'You will receive structured signals about the direction the user wants to practice:',
-          '- domain of life needing attention',
-          '- emotional vibe',
-          '- how they want to show up around other people',
-          '- kind of strength they grow into',
-          '- what they do on a normal "proud" day',
-          '- optional nickname',
-          '- optional age band',
-          '- optional big dream (a concrete picture of something they want to make room for)',
-          '',
-          'Your job is to generate:',
-          '1. Arc.name — a short, stable identity direction label (1–3 words, emoji optional)',
-          '2. Arc.narrative — a 3-sentence, second-person description of what they want to grow toward in this Arc.',
-          '',
-          'Your outputs must be readable and useful to both a 14-year-old and a 41-year-old.',
-          '',
-          ftuxInput
-            ? [
-                'For this FTUX Goal+Arc flow:',
-                '- The user may have typed a plain goal sentence like "I want to get better at Tennis." Do not paste that sentence into the Arc.',
-                '- Use the interpreted focus and choices to infer the target identity.',
-                '- The Arc should feel like a named aspiration the user can recognize, not a recap of survey answers.',
-                '- The Goal can be practical and near-term; the Arc should be more durable, memorable, and identity-based.',
-              ].join('\n')
-            : null,
-          '',
-          // Hybrid paradigm: align FTUE generation with our rubric targets.
-          // Even though FTUE collects more than the "minimal essentials", we still optimize for:
-          // - felt accuracy (specific, true-to-signals)
-          // - reading ease (teen-friendly language)
-          // - everyday concreteness (scenes + micro-behaviors)
-          buildHybridArcGuidelinesBlock(),
-          '',
-          '-----------------------------------------',
-          'ARC NAME — RULES',
-          '-----------------------------------------',
-          'Arc.name must:',
-          '- be 1–3 words (emoji allowed),',
-          '- describe an identity direction or arena,',
-          '- feel stable over years (can hold many goals),',
-          '- reflect the user\'s inputs (domain + vibe + dream),',
-          '- when a concrete big dream is present, treat it as a **primary naming anchor** so the Arc name describes an aspirational identity of the kind of person who achieves that dream (or its essence),',
-          // '- avoid personality types ("The Visionary", "The Genius"),',
-          '- avoid tasks ("Start My Business", "Get Fit This Year"),',
-          '- avoid vague abstractions ("My Best Self", "Life Journey"),',
-          '- avoid abstract noun combinations that don\'t form a coherent identity ("Creativity Curiosity", "Exploration Discovery", "Growth Learning").',
-          '',
-          'When the user has given a concrete big dream (e.g., record an album, build a cabin, start a small studio), first look for a short identity phrase that **codes that dream into who they are becoming**. Examples:',
-          '- Dream: "build a small, honest woodworking studio" → Name: "Woodshop Steward", "Honest Woodshop"',
-          '- Dream: "record a folk album with friends" → Name: "Folk Album Season", "Honest Album"',
-          '- Dream: "start a tiny design studio" → Name: "Studio Stewardship", "Tiny Studio"',
-          '',
-          'Avoid simply echoing the raw dream text as-is (e.g., "Build a cabin I can rent on Airbnb"). Your job is to convert the dream into an identity direction, not copy the sentence.',
-          '',
-          'If you cannot form a clean, identity-like phrase from the dream, fall back to the following patterns. Allowed name patterns (choose ONE and follow it exactly):',
-          '- Domain + Posture: "Venture Stewardship", "Family Stewardship", "Relational Courage", "Creative Discipline"',
-          '  * First word = life domain (Venture, Family, Relational, Creative)',
-          '  * Second word = how you approach it (Stewardship, Courage, Discipline)',
-          '- Value + Domain: "Honest Entrepreneurship", "Intentional Friendship"',
-          '  * First word = core value (Honest, Intentional)',
-          '  * Second word = domain where value applies (Entrepreneurship, Friendship)',
-          '- Two-noun frame: "Craft & Contribution", "Making & Embodied Creativity"',
-          '  * Both nouns must relate to the same identity direction',
-          '  * Use "&" to connect them',
-          '  * Example: "Craft & Contribution" = craft work that contributes; "Making & Embodied Creativity" = physical making as creative expression',
-          '- Canonical template when matching spiritual / family / craft / venture arcs:',
-          '  - "♾️ Discipleship"',
-          '  - "🏡 Family Stewardship"',
-          '  - "🧠 Craft & Contribution"',
-          '  - "🪚 Making & Embodied Creativity"',
-          '  - "🚀 Venture / Entrepreneurship"',
-          '',
-          'CRITICAL: Do NOT combine two abstract traits or concepts without a clear relationship. "Creativity Curiosity" is wrong because it\'s just two traits. "Creative Exploration" could work if it means exploring through creative means, but "Craft & Contribution" is better because it shows a clear relationship (craft that contributes).',
-          '',
-          'If unsure, choose the simplest truthful identity arena that matches the signals. Prefer Domain + Posture or Value + Domain patterns over abstract combinations.',
-          '',
-          '-----------------------------------------',
-          'ARC NARRATIVE — RULES',
-          '-----------------------------------------',
-          'The Arc narrative MUST:',
-          '- be exactly 3 sentences in a single paragraph,',
-          '- be 35-65 words,',
-          '- have the FIRST sentence start with: "You are becoming",',
-          '- use "you", not "I",',
-          '- use plain, grounded language suitable for ages 14–50+,',
-          '- avoid guru-speak, cosmic language, therapy language, or prescriptive "shoulds",',
-          '- avoid parenthetical lists and packed compound sentences,',
-          '- avoid short-horizon goal language like "this week", "today", "next step", "focus block", or "outcome" unless the user explicitly wrote it,',
-          '- describe the identity trajectory the user is growing into,',
-          '- do not start with "I want".',
-          '- keep each sentence reasonably short and readable — no sentence should be longer than about 30 words.',
-          '',
-          'Sentence roles:',
-          '1. Sentence 1: Begin with "You are becoming", clearly naming the identity trajectory. If the user gave a specific big dream, treat it as an expression of the Arc, not the whole Arc.',
-          '2. Sentence 2: In a short sentence, name the central insight, tension, or why this matters.',
-          '3. Sentence 3: In another short sentence, name 1-3 concrete ordinary-day behaviors that would make progress visible.',
-          '',
-          'Tone:',
-          '- grounded, human, reflective,',
-          '- no mystical metaphors like "tapestry", "radiant", "harmonious existence", "legacy", "essence", etc.,',
-          '- no advice, no "you should…", no step-by-step coaching,',
-          '- no diagnosing the user (no "I am the kind of person who always…"),',
-          '- it should feel like something the user could have written in a thoughtful journal entry.',
-          '',
-          '-----------------------------------------',
-          'STYLE EXAMPLES — FOLLOW THIS FEEL',
-          '-----------------------------------------',
-          'These examples show the style, structure, and level of concreteness you should aim for. Do NOT copy them; adapt the same pattern to the user\'s signals.',
-          '',
-          'Example 1 (Venture / Entrepreneurship):',
-          '- name: "The Steady Builder"',
-          '- narrative:',
-          '"You are becoming someone who turns useful ideas into real, trustworthy work. The important shift is learning to protect your energy from scattered effort and give one venture enough rhythm to grow. Progress looks like sketching at the kitchen table, shipping one small improvement, and sharing early progress with someone you trust."',
-          '',
-          'Example 2 (Making & Embodied Creativity):',
-          '- name: "The Grounded Maker"',
-          '- narrative:',
-          '"You are becoming someone who stays connected to the physical world through the work of your hands. The tension is between drifting into screens and returning to materials, tools, and patient attention. Progress looks like stepping into the garage, picking up one tool, and making one visible improvement to something real."',
-          '',
-          'Example 3 (Family Stewardship):',
-          '- name: "The Patient Parent"',
-          '- narrative:',
-          '"You are becoming someone who helps home feel safe, steady, and seen. The central shift is treating the atmosphere of family life as something you can practice with care, not something left to stress or schedule. Progress looks like putting your phone down, listening before reacting, and doing one quiet thing that makes the house feel cared for."',
-          '',
-          'Your goal is to produce outputs that feel as clear, grounded, and personally meaningful as these examples, but customized to the user\'s signals.',
-          '',
-          '-----------------------------------------',
-          'OUTPUT FORMAT',
-          '-----------------------------------------',
-          'Return ONLY JSON in this exact format:',
-          '',
-          '{',
-          '  "name": "<Arc name>",',
-          '  "narrative": "<single paragraph, 3 sentences>",',
-          '  "status": "active"',
-          '}',
-          '',
-          'Do not add explanations, headings, or commentary.',
-          '',
-          'Inputs:',
-          `- ${inputsSummary}`,
-        ].filter((line): line is string => Boolean(line));
-
-        if (conversationSnapshot && conversationSnapshot.trim().length > 0) {
-          lines.push(
-            '',
-            'Recent visible conversation between you (the guide) and the user inside this onboarding thread. Use this only as extra nuance; the structured identity signals above remain the source of truth:',
-            conversationSnapshot
-          );
-        }
-
-        if (judgeFeedback && judgeFeedback.trim().length > 0) {
-          lines.push(
-            '',
-            'Previous draft feedback from an internal reviewer (fix these issues while keeping the user’s underlying identity and inputs):',
-            judgeFeedback.trim(),
-            'Generate a new candidate that still fits the same person and inputs, but directly addresses this feedback.'
-          );
-        }
-
-        return lines.join('\n');
-      };
+      const buildPrompt = (judgeFeedback?: string) =>
+        buildIdentityArcGenerationPrompt({
+          inputsSummary,
+          conversationSnapshot: buildConversationSnapshotFromTimeline(),
+          judgeFeedback,
+          isFtuxGoalArcFlow: Boolean(ftuxInput),
+        });
 
       const QUALITY_THRESHOLD = 9;
       const MAX_ATTEMPTS = 3;
