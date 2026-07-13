@@ -123,9 +123,9 @@ export function FocusSessionRuntimeHost() {
 
   useEffect(() => {
     const previousSessionId = lastSessionIdRef.current;
-    lastSessionIdRef.current = activeSession?.sessionId ?? null;
 
     if (!activeSession) {
+      lastSessionIdRef.current = null;
       if (previousSessionId) {
         void stopSoundscapeLoop({ unload: true }).catch(() => undefined);
         void setGlanceableFocusSession(null).catch(() => undefined);
@@ -141,6 +141,8 @@ export function FocusSessionRuntimeHost() {
     if (isRunningFocusSessionExpired(activeSession)) {
       return;
     }
+
+    lastSessionIdRef.current = activeSession.sessionId;
 
     void reconcileScreenTimeRestrictions({ focusSessionActive: true }).catch(() => undefined);
 

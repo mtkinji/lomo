@@ -135,7 +135,7 @@ describe('FocusSessionRuntimeHost', () => {
     });
 
     expect(useFocusSessionStore.getState().activeSession).toBeNull();
-    expect(reconcileScreenTimeRestrictionsMock).not.toHaveBeenCalledWith({ focusSessionActive: true });
+    expect(reconcileScreenTimeRestrictionsMock).not.toHaveBeenCalled();
     expect(syncLiveActivityMock).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'running' }));
     expect(startSoundscapeLoopMock).not.toHaveBeenCalled();
   });
