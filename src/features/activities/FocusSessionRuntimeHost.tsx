@@ -13,6 +13,7 @@ import {
   getFocusCompletionNotificationSeconds,
   isRunningFocusSessionExpired,
 } from './focusSessionLifecycle';
+import { focusOverlayColorKeyForIndex } from './focusOverlayPalette';
 import { useFocusSessionStore } from './focusSessionStore';
 
 async function cancelFocusNotification(notificationId: string | null | undefined) {
@@ -96,6 +97,8 @@ export function FocusSessionRuntimeHost() {
   const activeSession = useFocusSessionStore((state) => state.activeSession);
   const soundscapeEnabled = useAppStore((state) => state.soundscapeEnabled);
   const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
+  const focusOverlayColorIndex = useAppStore((state) => state.focusOverlayColorIndex);
+  const focusOverlayColorKey = focusOverlayColorKeyForIndex(focusOverlayColorIndex);
   const lastSessionIdRef = useRef<string | null>(null);
   const activeSessionEndAtMs = activeSession?.mode === 'running' ? activeSession.endAtMs : undefined;
 
@@ -161,14 +164,6 @@ export function FocusSessionRuntimeHost() {
         activityId: activeSession.activityId,
         title: activeSession.title,
       });
-      void syncLiveActivity({
-        mode: 'running',
-        activityId: activeSession.activityId,
-        title: activeSession.title,
-        sessionId: activeSession.sessionId,
-        startedAtMs: activeSession.startedAtMs,
-        endAtMs: activeSession.endAtMs,
-      });
       return;
     }
 
@@ -184,15 +179,34 @@ export function FocusSessionRuntimeHost() {
       activityId: activeSession.activityId,
       title: activeSession.title,
     });
+  }, [activeSession, soundscapeEnabled, soundscapeTrackId]);
+
+  useEffect(() => {
+    if (!activeSession || isRunningFocusSessionExpired(activeSession)) return;
+
+    if (activeSession.mode === 'running') {
+      void syncLiveActivity({
+        mode: 'running',
+        activityId: activeSession.activityId,
+        title: activeSession.title,
+        colorKey: focusOverlayColorKey,
+        sessionId: activeSession.sessionId,
+        startedAtMs: activeSession.startedAtMs,
+        endAtMs: activeSession.endAtMs,
+      });
+      return;
+    }
+
     void syncLiveActivity({
       mode: 'paused',
       activityId: activeSession.activityId,
       title: activeSession.title,
+      colorKey: focusOverlayColorKey,
       sessionId: activeSession.sessionId,
       startedAtMs: activeSession.startedAtMs,
       remainingMs: activeSession.remainingMs,
     });
-  }, [activeSession, soundscapeEnabled, soundscapeTrackId]);
+  }, [activeSession, focusOverlayColorKey]);
 
   return null;
 }

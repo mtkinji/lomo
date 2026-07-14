@@ -12,6 +12,7 @@ type KwiltLiveActivityNativeModule = {
     startedAtMs: number,
     endAtMs: number,
     remainingMs: number,
+    colorKey: string,
   ) => Promise<Partial<SyncLiveActivityResult> | null | undefined>;
   end: () => Promise<boolean>;
   getActiveFocusLiveActivities?: () => Promise<ActiveFocusLiveActivity[]>;
@@ -37,6 +38,7 @@ export type ActiveFocusLiveActivity = {
   startedAtMs: number;
   endAtMs: number;
   remainingMs?: number;
+  colorKey?: string;
   activityState?: string;
 };
 
@@ -79,6 +81,7 @@ export async function syncLiveActivity(params: {
   startedAtMs: number;
   endAtMs?: number;
   remainingMs?: number;
+  colorKey?: string;
   sessionId?: string;
 }): Promise<SyncLiveActivityResult> {
   const sessionId = params.sessionId ?? `${params.activityId}-${params.startedAtMs}`;
@@ -91,6 +94,7 @@ export async function syncLiveActivity(params: {
     startedAtMs: params.startedAtMs,
     endAtMs: params.endAtMs ?? 0,
     remainingMs: params.remainingMs ?? 0,
+    colorKey: params.colorKey ?? 'pine',
   };
   try {
     if (native.sync) {
@@ -103,6 +107,7 @@ export async function syncLiveActivity(params: {
         params.startedAtMs,
         params.endAtMs ?? 0,
         params.remainingMs ?? 0,
+        params.colorKey ?? 'pine',
       );
       const result = normalizeResult(raw, sessionId);
       await recordLiveActivityBreadcrumb('sync', 'after', {

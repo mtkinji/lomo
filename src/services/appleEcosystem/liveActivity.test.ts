@@ -39,6 +39,7 @@ describe('liveActivity bridge', () => {
       mode: 'paused',
       activityId: 'activity-1',
       title: 'Write proposal',
+      colorKey: 'violet',
       sessionId: 'activity-1-1000',
       startedAtMs: 1000,
       remainingMs: 120000,
@@ -52,6 +53,7 @@ describe('liveActivity bridge', () => {
       1000,
       0,
       120000,
+      'violet',
     );
     expect(native.end).not.toHaveBeenCalled();
     expect(result).toEqual({
