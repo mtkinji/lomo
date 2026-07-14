@@ -37,14 +37,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: `codex/code-quality-refinement-2026-06-29` already contains the tested `identityArcPrompt.ts` extraction; reuse and reconcile that work instead of reimplementing it.
   - Result: `identityArcPrompt.ts` now owns the prompt contract with focused tests, including current FTUX Goal+Arc guidance and reviewer-feedback retries.
 
-- [ ] Integrate the existing Chapter OpenAI request builder
+- [x] Integrate the existing Chapter OpenAI request builder
   - Area: `supabase/functions/chapters-generate/index.ts`
   - Why: `codex/code-quality-refinement-2026-06-30` already contains `chapterOpenAiRequest.ts`; reconcile that tested request-body policy with the current generation function instead of reimplementing it.
-  - Ideal test: preserve its Deno request-body policy tests and current function lint.
-  - Risk: medium
+  - Result: `chapterOpenAiRequest.ts` owns token, temperature, strict-retry, and JSON response-format policy with Deno tests; the test script now discovers all Chapter Deno tests.
 
-- [ ] Extract store UI preference slice helpers
+- [ ] Integrate the existing Quick Add AI preference helper
   - Area: `src/store/useAppStore.ts`
-  - Why: central store remains high-blast-radius; UI preferences are lower-risk than domain mutations.
-  - Ideal test: existing store lifecycle/export tests plus focused helper tests if logic emerges.
+  - Why: `codex/code-quality-refinement-2026-07-01` already contains `uiPreferences.ts`; reconcile that tested normalization contract with the current store instead of reimplementing it.
+  - Ideal test: preserve its Quick Add AI preference normalization tests plus store lifecycle/export coverage.
   - Risk: low to medium
