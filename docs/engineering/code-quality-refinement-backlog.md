@@ -42,8 +42,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: `codex/code-quality-refinement-2026-06-30` already contains `chapterOpenAiRequest.ts`; reconcile that tested request-body policy with the current generation function instead of reimplementing it.
   - Result: `chapterOpenAiRequest.ts` owns token, temperature, strict-retry, and JSON response-format policy with Deno tests; the test script now discovers all Chapter Deno tests.
 
-- [ ] Integrate the existing Quick Add AI preference helper
+- [x] Integrate the existing Quick Add AI preference helper
   - Area: `src/store/useAppStore.ts`
   - Why: `codex/code-quality-refinement-2026-07-01` already contains `uiPreferences.ts`; reconcile that tested normalization contract with the current store instead of reimplementing it.
-  - Ideal test: preserve its Quick Add AI preference normalization tests plus store lifecycle/export coverage.
-  - Risk: low to medium
+  - Result: `uiPreferences.ts` owns legacy fallback, intentional empty selections, validation, deduplication, and canonical ordering with focused tests.
+
+- [ ] Integrate the existing Activities quick-add filter defaults
+  - Area: `src/features/activities/ActivitiesScreen.tsx`
+  - Why: `codex/code-quality-refinement-2026-07-02` already contains `activityQuickAddDefaults.ts`; reuse its tested filter-default contract instead of re-reading the 4,000-line screen.
+  - Ideal test: preserve focused defaults tests plus Activities screen coverage.
+  - Risk: medium
