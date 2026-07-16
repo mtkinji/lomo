@@ -47,8 +47,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: `codex/code-quality-refinement-2026-07-01` already contains `uiPreferences.ts`; reconcile that tested normalization contract with the current store instead of reimplementing it.
   - Result: `uiPreferences.ts` owns legacy fallback, intentional empty selections, validation, deduplication, and canonical ordering with focused tests.
 
-- [ ] Integrate the existing Activities quick-add filter defaults
+- [x] Integrate the existing Activities quick-add filter defaults
   - Area: `src/features/activities/ActivitiesScreen.tsx`
   - Why: `codex/code-quality-refinement-2026-07-02` already contains `activityQuickAddDefaults.ts`; reuse its tested filter-default contract instead of re-reading the 4,000-line screen.
-  - Ideal test: preserve focused defaults tests plus Activities screen coverage.
+  - Result: `activityQuickAddDefaults.ts` now owns AND/OR filter inheritance, relative date normalization, conservative defaults, and active-tag fallback with focused tests.
+
+- [ ] Integrate the existing Goal progress-signal summaries
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: `codex/code-quality-refinement-2026-07-03` already contains a tested `goalProgressSignals.ts` extraction for the largest remaining feature screen.
+  - Ideal test: preserve focused summary tests and Goal detail hook-order coverage.
   - Risk: medium
