@@ -52,8 +52,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: `codex/code-quality-refinement-2026-07-02` already contains `activityQuickAddDefaults.ts`; reuse its tested filter-default contract instead of re-reading the 4,000-line screen.
   - Result: `activityQuickAddDefaults.ts` now owns AND/OR filter inheritance, relative date normalization, conservative defaults, and active-tag fallback with focused tests.
 
-- [ ] Integrate the existing Goal progress-signal summaries
+- [x] Integrate the existing Goal progress-signal summaries
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: `codex/code-quality-refinement-2026-07-03` already contains a tested `goalProgressSignals.ts` extraction for the largest remaining feature screen.
-  - Ideal test: preserve focused summary tests and Goal detail hook-order coverage.
-  - Risk: medium
+  - Result: `goalProgressSignals.ts` now owns completion counts, weekly momentum, target-date labels and colors, and next-scheduled labels with focused tests.
+
+- [ ] Integrate the existing Activity date-picker defaults
+  - Area: `src/features/activities/ActivityDetailScreen.tsx`
+  - Why: `codex/code-quality-refinement-2026-07-05` already contains a tested `activityDatePickerDefaults.ts` extraction for reminder and due-date initialization.
+  - Ideal test: preserve focused date-default tests and Activity detail coverage.
+  - Risk: low
