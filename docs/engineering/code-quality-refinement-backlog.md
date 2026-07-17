@@ -57,8 +57,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: `codex/code-quality-refinement-2026-07-03` already contains a tested `goalProgressSignals.ts` extraction for the largest remaining feature screen.
   - Result: `goalProgressSignals.ts` now owns completion counts, weekly momentum, target-date labels and colors, and next-scheduled labels with focused tests.
 
-- [ ] Integrate the existing Activity date-picker defaults
+- [x] Integrate the existing Activity date-picker defaults
   - Area: `src/features/activities/ActivityDetailScreen.tsx`
   - Why: `codex/code-quality-refinement-2026-07-05` already contains a tested `activityDatePickerDefaults.ts` extraction for reminder and due-date initialization.
-  - Ideal test: preserve focused date-default tests and Activity detail coverage.
+  - Result: `activityDatePickerDefaults.ts` now owns existing-value reuse, next-hour reminder defaults, valid due dates, and invalid due-date fallback with focused tests.
+
+- [ ] Reuse Activity picker defaults in Goal quick add
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: the Goal quick-add dock independently implements the same reminder and due-date initialization contract.
+  - Ideal test: pin valid, missing, and invalid quick-add values before replacing the duplicated callbacks.
   - Risk: low
