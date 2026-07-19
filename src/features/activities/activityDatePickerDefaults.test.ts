@@ -33,7 +33,7 @@ describe('activity date picker defaults', () => {
     ).toBe('2026-07-08T23:00:00.000Z');
   });
 
-  it('falls back to now for missing or invalid due dates', () => {
+  it('falls back to now for missing or invalid due dates, including quick-add state', () => {
     expect(
       resolveInitialDueDateForPicker({
         scheduledDate: null,
