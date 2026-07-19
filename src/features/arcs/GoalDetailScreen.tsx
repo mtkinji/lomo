@@ -166,6 +166,7 @@ import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
 import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
+import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1102,12 +1103,7 @@ export function GoalDetailScreen() {
   }, [goal?.id, updateGoal]);
 
   const getInitialGoalTargetDate = useCallback(() => {
-    const existing = goal?.targetDate ? Date.parse(goal.targetDate) : NaN;
-    if (Number.isFinite(existing)) return new Date(existing);
-    const fallback = new Date();
-    fallback.setDate(fallback.getDate() + 14);
-    fallback.setHours(23, 0, 0, 0);
-    return fallback;
+    return resolveInitialGoalTargetDateForPicker({ targetDate: goal?.targetDate });
   }, [goal?.targetDate]);
 
   const refineGoalLaunchContext = useMemo(
