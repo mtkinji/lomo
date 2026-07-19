@@ -119,6 +119,10 @@ import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
 import { RepeatInfoMenu } from '../activities/RepeatInfoMenu';
 import {
+  resolveInitialDueDateForPicker,
+  resolveInitialReminderDateTimeForPicker,
+} from '../activities/activityDatePickerDefaults';
+import {
   useQuickAddDockController,
   type QuickAddAiAction,
   type QuickAddLocationTriggerRecommendation,
@@ -570,11 +574,7 @@ export function GoalDetailScreen() {
   }, [quickAddDueDateSheetVisible, quickAddEstimateSheetVisible, quickAddReminderSheetVisible, quickAddRepeatSheetVisible, setQuickAddFocused]);
 
   const getInitialQuickAddReminderDateTime = useCallback(() => {
-    if (quickAddReminderAt) return new Date(quickAddReminderAt);
-    const base = new Date();
-    base.setMinutes(0, 0, 0);
-    base.setHours(base.getHours() + 1);
-    return base;
+    return resolveInitialReminderDateTimeForPicker({ reminderAt: quickAddReminderAt });
   }, [quickAddReminderAt]);
 
   const setQuickAddReminderByOffsetDays = useCallback(
@@ -596,8 +596,7 @@ export function GoalDetailScreen() {
   }, [closeQuickAddToolDrawer, setQuickAddReminderAt]);
 
   const getInitialQuickAddDueDate = useCallback(() => {
-    if (quickAddScheduledDate) return new Date(quickAddScheduledDate);
-    return new Date();
+    return resolveInitialDueDateForPicker({ scheduledDate: quickAddScheduledDate });
   }, [quickAddScheduledDate]);
 
   const setQuickAddDueDateByOffsetDays = useCallback(
