@@ -67,8 +67,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: the Goal quick-add dock independently implements the same reminder and due-date initialization contract.
   - Result: Goal quick add now delegates existing-value reuse, next-hour reminder defaults, and safe due-date fallback to `activityDatePickerDefaults.ts`.
 
-- [ ] Extract Goal target-date picker defaults
+- [x] Extract Goal target-date picker defaults
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: valid-date reuse plus the 14-day end-of-day fallback is a scheduling rule embedded in the largest screen.
-  - Ideal test: pin valid, missing, and invalid target dates plus the local end-of-day fallback.
+  - Result: `goalTargetDatePickerDefaults.ts` now owns valid-date reuse and the 14-day local end-of-day fallback with focused tests.
+
+- [ ] Extract Goal first-plan-activity selection
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: active-first selection, manual ordering, creation-time tie-breaking, and all-complete fallback are embedded in screen composition.
+  - Ideal test: pin empty, all-complete, manual-order, and creation-time tie cases.
   - Risk: low
