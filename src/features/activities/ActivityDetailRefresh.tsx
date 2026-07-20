@@ -42,6 +42,7 @@ import {
 import { getActivityAreaIcon, getActivityAreaIconById } from './activityAreaIcons';
 import { ActivityDetailTagPicker } from './ActivityDetailTagPicker';
 import { REMINDER_SOURCE_DUE_DATE_DEFAULT } from './dueDateReminderPolicy';
+import { InlineClearButton } from '../../ui/InlineClearButton';
 
 function withAlpha(hex: string, alpha: number) {
   // Supports #RRGGBB. Falls back to the original string if format is unexpected.
@@ -164,6 +165,7 @@ export function ActivityDetailRefresh(props: any) {
     hasDifficulty,
     handleClearReminder,
     handleClearDueDate,
+    handleClearLocation,
     handleClearRepeatRule,
     openEstimateSheet,
     handleClearTimeEstimate,
@@ -933,6 +935,20 @@ export function ActivityDetailRefresh(props: any) {
                                 {label}
                               </Text>
                             </Pressable>
+                            {activity.goalId ? (
+                              <InlineClearButton
+                                accessibilityLabel="Clear linked goal"
+                                onPress={() => {
+                                  const timestamp = new Date().toISOString();
+                                  updateActivity(activity.id, (prev: typeof activity) => ({
+                                    ...prev,
+                                    goalId: null,
+                                    updatedAt: timestamp,
+                                  }));
+                                }}
+                                testID="e2e.activityDetail.goal.clear"
+                              />
+                            ) : null}
                             <Pressable
                               accessibilityRole="button"
                               accessibilityLabel={activity.goalId ? 'Change linked goal' : 'Choose linked goal'}
@@ -1283,7 +1299,15 @@ export function ActivityDetailRefresh(props: any) {
               >
                 <ThreeColumnRow
                   left={<Icon name="bell" size={18} color={colors.sumi} />}
-                  right={null}
+                  right={
+                    activity.reminderAt ? (
+                      <InlineClearButton
+                        accessibilityLabel="Clear reminder"
+                        onPress={handleClearReminder}
+                        testID="e2e.activityDetail.triggers.reminder.clear"
+                      />
+                    ) : null
+                  }
                   style={styles.planListRowInner}
                 >
                   <Text style={styles.rowLabel} numberOfLines={1}>
@@ -1301,7 +1325,15 @@ export function ActivityDetailRefresh(props: any) {
               >
                 <ThreeColumnRow
                   left={<Icon name="today" size={18} color={isDueToday ? colors.destructive : colors.sumi} />}
-                  right={null}
+                  right={
+                    activity.scheduledDate ? (
+                      <InlineClearButton
+                        accessibilityLabel="Clear due date"
+                        onPress={handleClearDueDate}
+                        testID="e2e.activityDetail.triggers.dueDate.clear"
+                      />
+                    ) : null
+                  }
                   style={styles.planListRowInner}
                 >
                   <Text style={[styles.rowLabel, isDueToday && { color: colors.destructive }]} numberOfLines={1}>
@@ -1319,7 +1351,17 @@ export function ActivityDetailRefresh(props: any) {
               >
                 <ThreeColumnRow
                   left={<Icon name="pin" size={18} color={colors.sumi} />}
-                  right={null}
+                  right={
+                    activity?.location &&
+                    typeof activity.location.latitude === 'number' &&
+                    typeof activity.location.longitude === 'number' ? (
+                      <InlineClearButton
+                        accessibilityLabel="Clear location"
+                        onPress={handleClearLocation}
+                        testID="e2e.activityDetail.triggers.location.clear"
+                      />
+                    ) : null
+                  }
                   style={styles.planListRowInner}
                 >
                   <Text style={styles.rowLabel} numberOfLines={1}>
@@ -1345,7 +1387,15 @@ export function ActivityDetailRefresh(props: any) {
               >
                 <ThreeColumnRow
                   left={<Icon name="refresh" size={18} color={colors.sumi} />}
-                  right={null}
+                  right={
+                    activity.repeatRule ? (
+                      <InlineClearButton
+                        accessibilityLabel="Clear repeat schedule"
+                        onPress={handleClearRepeatRule}
+                        testID="e2e.activityDetail.triggers.repeat.clear"
+                      />
+                    ) : null
+                  }
                   style={styles.planListRowInner}
                 >
                   <Text style={styles.rowLabel} numberOfLines={1}>

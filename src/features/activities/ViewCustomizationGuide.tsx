@@ -46,7 +46,7 @@ export const VIEW_PRESETS: ViewPreset[] = [
         ],
       },
     ],
-    sorts: [{ field: 'priority', direction: 'desc' }],
+    sorts: [{ field: 'priority', direction: 'asc' }],
     showCompleted: false,
   },
   {
@@ -328,4 +328,3 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
-

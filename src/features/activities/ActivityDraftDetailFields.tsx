@@ -21,6 +21,7 @@ import {
 } from '../../ui/DropdownMenu';
 import { isDateToday } from '../../utils/activityListMeta';
 import { RepeatInfoMenu } from './RepeatInfoMenu';
+import { InlineClearButton } from '../../ui/InlineClearButton';
 
 export type ActivityDraft = {
   title: string;
@@ -407,17 +408,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                   left={<Icon name="bell" size={16} color={colors.textSecondary} />}
                   right={
                     draft.reminderAt ? (
-                      <Pressable
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          setReminderAt(null);
-                        }}
-                        accessibilityRole="button"
+                      <InlineClearButton
                         accessibilityLabel="Clear reminder"
-                        hitSlop={8}
-                      >
-                        <Icon name="close" size={16} color={colors.textSecondary} />
-                      </Pressable>
+                        onPress={() => setReminderAt(null)}
+                      />
                     ) : null
                   }
                 >
@@ -437,17 +431,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                   left={<Icon name="today" size={16} color={isDueToday ? colors.destructive : colors.textSecondary} />}
                   right={
                     draft.scheduledDate ? (
-                      <Pressable
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          setScheduledDate(null);
-                        }}
-                        accessibilityRole="button"
+                      <InlineClearButton
                         accessibilityLabel="Clear due date"
-                        hitSlop={8}
-                      >
-                        <Icon name="close" size={16} color={colors.textSecondary} />
-                      </Pressable>
+                        onPress={() => setScheduledDate(null)}
+                      />
                     ) : null
                   }
                 >
@@ -467,17 +454,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                   left={<Icon name="refresh" size={16} color={colors.textSecondary} />}
                   right={
                     draft.repeatRule ? (
-                      <Pressable
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          setRepeatRule(undefined);
-                        }}
-                        accessibilityRole="button"
+                      <InlineClearButton
                         accessibilityLabel="Clear repeat schedule"
-                        hitSlop={8}
-                      >
-                        <Icon name="close" size={16} color={colors.textSecondary} />
-                      </Pressable>
+                        onPress={() => setRepeatRule(undefined)}
+                      />
                     ) : null
                   }
                 >
@@ -507,17 +487,10 @@ export function ActivityDraftDetailFields({ draft, onChange, goalLabel, lockGoal
                   left={<Icon name="estimate" size={16} color={colors.textSecondary} />}
                   right={
                     draft.estimateMinutes != null ? (
-                      <Pressable
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          setEstimateMinutes(null);
-                        }}
-                        accessibilityRole="button"
+                      <InlineClearButton
                         accessibilityLabel="Clear time estimate"
-                        hitSlop={8}
-                      >
-                        <Icon name="close" size={16} color={colors.textSecondary} />
-                      </Pressable>
+                        onPress={() => setEstimateMinutes(null)}
+                      />
                     ) : (
                       <Icon name="chevronRight" size={18} color={colors.textSecondary} />
                     )

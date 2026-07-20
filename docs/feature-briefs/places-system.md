@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-move-the-few-things-that-matter, jtbd-carry-intentions-into-action, jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [todo-action-contexts, geolocation-activity-offers, kwilt-phone-agent, kwilt-text-coach]
 owner: andrew
-last_updated: 2026-06-25
+last_updated: 2026-07-20
 ---
 
 # Places System
@@ -206,6 +206,59 @@ Learning should use a ladder:
 5. **Remember only with approval** before creating or updating durable Saved Place memory.
 6. **Learn from correction** so rejection, edits, and "not this place" reduce future suggestions.
 
+### Automatic Assignment From Activity Language
+
+Activity language can automatically assign useful Place meaning without automatically choosing coordinates or creating durable memory. For example, `Pick up prescriptions from Costco` contains enough evidence to create:
+
+- a broad `PlaceTarget` for `Costco`;
+- a `PlaceIntent` such as `pickup` / `doable there`;
+- a provisional `PlaceLink` from the Activity to that target, with text-inference provenance and confidence.
+
+It does not, by itself, identify which physical Costco holds the prescription. Resolution should use the strongest available user-specific evidence in this order:
+
+1. **Exact user-approved Saved Place**: if the user has one strongly preferred or aliased Costco, automatically link the Activity to it.
+2. **Explicit current-place evidence**: if the user chooses `Use current location` or the app already has valid foreground location access, search nearby and resolve only when one Costco result clearly matches the current point.
+3. **Explicit scope in language or schedule**: `Costco on 300 West`, `Costco near home`, or a travel city can scope candidate search.
+4. **Candidate set**: if several Costcos remain plausible, preserve the broad target and ranked candidates instead of selecting one silently.
+5. **Value-moment clarification**: ask `Which Costco?` only when the user requests directions, an alert, durable saving, or opens the Place editor to resolve it.
+
+| Evidence | Safe automatic assignment | Must not happen automatically |
+| --- | --- | --- |
+| `Costco` in title only | Brand-level target/link | Pick a branch, save coordinates, or enable an alert |
+| One exact Saved Place match | Link to the existing Saved Place | Change Saved Place memory or enable an alert |
+| Several Saved Place matches | Retain broad target and candidates | Choose one without another differentiating signal |
+| Foreground current point inside one verified Costco result | Link a specific task-scoped candidate | Promote it to durable Saved Place memory |
+| Explicit arrive/leave request | Propose a specific place resolution | Request permission or register a geofence before confirmation |
+| Repeated accepted use of one Costco | Suggest `Remember this Costco?` | Create Saved Place memory silently |
+
+Automatic links must carry `provenance`, `confidence`, and `resolutionScope` so Activity Detail, Recommended, and correction flows can distinguish:
+
+- inferred brand/category target;
+- matched existing Saved Place;
+- current-location-resolved specific place;
+- user-confirmed specific place.
+
+The user-facing result should remain lightweight and correctable. A high-confidence existing Saved Place match can appear as `Related to My Costco` with a change/remove affordance. A broad inferred target may remain quiet until it supports search, Recommended, or Place editing. Automatic assignment never implies current proximity, background tracking, a notification, or durable Saved Place creation.
+
+#### Nearby Versus Home Resolution
+
+Travel creates a meaningful ambiguity that nearest-place ranking cannot safely solve. If Maya is in another state and captures `Pick up something from Costco`, she may mean a Costco near her family now or her user-approved home Costco for later.
+
+When Kwilt has a valid foreground current-region signal and a materially distant Saved Place match, it should surface a small post-capture receipt:
+
+- `Nearby` - one or more Costco candidates scoped to the current city/state, labeled with place and distance;
+- `My Costco` - the existing Saved Place, labeled with its home city/state;
+- `Any Costco` - retain a brand-level target when any branch will do;
+- `Choose another` - open the normal Place search.
+
+Do not preselect `Nearby`. Proximity does not reveal whether the Activity is for this trip or after the user returns home. The selected Place supplies the action context:
+
+- a nearby choice can make the Activity relevant in the current errands/place context;
+- the home Saved Place keeps the Activity associated with home and prevents it from rising merely because the user is near a different Costco;
+- a broad `Any Costco` target remains unresolved until an explicit current context makes one candidate useful.
+
+This chooser is earned only when both candidates are real. If Kwilt lacks current-location access, it can show `My Costco` plus `Choose nearby…`; choosing nearby is the value moment for foreground location permission. If no home Costco exists, show nearby candidates only after the user asks for nearby resolution. Do not infer that the user is traveling from distance alone, and do not store a travel history. Persist the chosen Place link, not the transient comparison context.
+
 This means Kwilt can handle Walgreens intelligently with minimal input:
 
 - If the user types "pick up prescription at Walgreens", Kwilt should create the Activity without interrupting capture. It may use Walgreens later inside search, Activity Detail, or a bounded recommendation/context pass, but it should not pop a location setup prompt by default.
@@ -314,7 +367,7 @@ Places should support several surfaces without becoming a top-level tab by defau
 
 - **Recommended**: highlight place-relevant Activities when place evidence makes them more likely to be doable now.
 - **Location Triggers / Location Offers**: explicit user-approved arrive/leave delivery for a specific Activity.
-- **Quick Add**: create the to-do first, then open a post-capture place confirmation flow when the user requested location behavior.
+- **Quick Add**: create the to-do first, then show a compact receipt; open focused Place confirmation only after the user engages a consequential or ambiguous result.
 - **Activity Detail**: inspect and edit the Activity's place target/link and optional trigger intent.
 - **Phone Agent / Text Coach**: parse place-bearing capture such as "remind me to return the library books when I am near the library" and create a permissioned Activity/place proposal.
 - **Settings-managed Places**: let the user inspect, rename, delete, or forget durable place memory after it is confirmed.
@@ -323,7 +376,18 @@ Places should support several surfaces without becoming a top-level tab by defau
 
 ### Quick Add Confirmation Workflow
 
-Quick Add cannot satisfy a clear location-reminder request by parsing alone. It needs a confirmation affordance after capture.
+Quick Add cannot satisfy a clear location-reminder request or ambiguous Place resolution by parsing alone. It needs a compact confirmation affordance after capture, but the dock should not automatically open a sheet for ordinary generated results.
+
+The shared pattern is a **Quick Add receipt** anchored directly above the collapsed dock:
+
+- Confirm creation immediately.
+- Add generated-result chips asynchronously when enrichment finishes.
+- Show safe, reversible additions such as steps/details as passive inspectable receipts.
+- Show one ambiguous Place decision with direct choices such as `Nearby`, `My Costco`, or `Any`.
+- Use `Review`, `Choose another`, or `Set alert` to open a focused sheet only after the user asks for more space.
+- Let the user start another Quick Add without dismissing or answering the receipt.
+
+Do not require confirmation of every generated result. Consequence determines presentation: safe/reversible enrichment may apply with a receipt; ambiguous Place resolution needs a choice; location permission, geofence monitoring, or durable Place memory needs explicit confirmation.
 
 When the user captures:
 
@@ -333,15 +397,15 @@ The reliable flow should be:
 
 1. **Create the Activity first** with the user's original wording preserved.
 2. **Recognize explicit location-alert intent** because the user asked for "when I get to" behavior.
-3. **Show a post-capture confirmation sheet/card** instead of silently saving a place or registering a geofence.
-4. **Resolve the place only as needed**:
+3. **Show a post-capture receipt action** such as `Set alert` instead of silently saving a location rule or automatically opening a sheet.
+4. **Open focused Place resolution only after the user taps the receipt action**, then resolve the place only as needed:
    - if there is one obvious saved/resolved Walgreens, show it;
    - if there are multiple candidates, ask "Which Walgreens?";
    - if the target is broad, such as "any Walgreens", explain that alerts need a specific place unless multi-place watching is supported.
 5. **Ask for OS location permission only after the user confirms the specific alert behavior.**
 6. **Attach the location alert** to the Activity, or keep the Activity without location behavior if the user dismisses the sheet.
 
-This sheet is not a general "place detected" prompt. It should appear only for explicit place behavior such as:
+The full Place sheet is not a general "place detected" prompt. It should appear only after the user engages an explicit place behavior such as:
 
 - "remind me when I get to..."
 - "when I arrive at..."
@@ -352,13 +416,15 @@ For weaker text such as "pick up prescription at Walgreens", Quick Add should us
 
 Do not invite location setup merely because the capture text contains a place. The invite should require explicit alert language, repeated user-visible value, or a user action such as opening Activity Detail and choosing "remind me there." This protects capture from becoming a setup funnel.
 
-The post-capture confirmation affordance should show the contract clearly:
+The receipt and any user-opened confirmation surface should show the contract clearly:
 
 - `Create task only` - no place behavior.
 - `Remind me there` - choose/confirm a specific place, then enable an alert.
 - `Remember this place` - optional later action, only after user approval.
 
 This makes the workflow honest: capture remains low-friction, but explicit location requests have a real path to confirmation.
+
+If the user ignores or dismisses the receipt, the Activity remains valid. A broad place target may remain if it supports a real search/recommendation/edit path, but there is no required-review queue, no automatic trigger, and no unresolved setup debt.
 
 ### Recommendation Relationship
 
@@ -385,7 +451,9 @@ The Places system should be explicit about what Kwilt can know in each moment.
 | Scenario | What Kwilt knows reliably | What Kwilt can do | What Kwilt must not imply |
 | --- | --- | --- | --- |
 | Maya captures "pick up prescription at Walgreens" at home. | The text contains a possible place target. Kwilt does not know she is at Walgreens. | Create the Activity. Later use the text for search or a bounded recommendation pass. | Do not imply a reminder is active or that Kwilt knows her current place. |
-| Maya captures "remind me when I get to Walgreens" at home. | The user requested arrive behavior, but the specific Walgreens is unresolved. | Create the Activity, then ask which Walgreens in a post-capture confirmation sheet. | Do not enable an alert or ask for location permission before confirmation. |
+| Maya captures "pick up something from Costco" while visiting another state and has a saved home Costco. | With foreground location access, Kwilt knows the current region differs materially from the Saved Place; it does not know whether she means now or later. | Create the Activity, then offer `Nearby`, `My Costco`, `Any Costco`, or `Choose another`. | Do not automatically choose the nearest Costco, claim to understand the trip, or overwrite the Saved Place. |
+| Maya creates the Costco Activity from Quick Add. | The Activity is saved before asynchronous place enrichment finishes. | Show a compact receipt above the dock; add `Nearby`, `My Costco`, and `Any` when ready; keep Quick Add available. | Do not open a large sheet automatically, require a response, or hide whether generated fields were applied. |
+| Maya captures "remind me when I get to Walgreens" at home. | The user requested arrive behavior, but the specific Walgreens is unresolved. | Create the Activity, show `Set alert` in the receipt, then ask which Walgreens after she taps it. | Do not open a sheet, enable an alert, or ask for location permission before engagement and confirmation. |
 | Maya captures the same request while physically at Walgreens, but location alerts are off. | Unless she grants current-location access or chooses "use this location," Kwilt only knows the text. | Ask whether to use the current location or choose from search/saved places. | Do not silently infer "this Walgreens" from background location. |
 | Maya is a passenger near Walgreens and opens Kwilt. | If no location alert fired and no foreground location permission is active, Kwilt does not know she is near Walgreens. | Show normal Recommended or an explicit Errands context if she selected it. | Do not lift Walgreens tasks as if proximity is known. |
 | Maya arrives at a watched Walgreens. | OS geofence event says the device entered the registered region. | Show a notification or in-app offer for Activities tied to that watched place. | Do not auto-complete Activities or generalize to every Walgreens. |
@@ -428,7 +496,7 @@ The Phone Agent should not silently write durable place memory. It should conver
 
 This lets Phone Agent, Quick Add, and in-app Activity editing share the same Places primitives instead of each inventing their own location handling.
 
-Phone Agent and Quick Add should share the same confirmation model, even if the UI differs. Text Coach can ask a short follow-up question in conversation; Quick Add should use a post-capture sheet or card. Both should create the Activity first and require confirmation before enabling a location alert.
+Phone Agent and Quick Add should share the same confirmation model, even if the UI differs. Text Coach can ask a short follow-up question in conversation; Quick Add should use a compact post-capture receipt with a user-opened focused sheet when needed. Both should create the Activity first and require confirmation before enabling a location alert.
 
 ### Trust And Permission Posture
 
@@ -451,7 +519,7 @@ Must be real:
 - A typed minimum model for place mention, target, link, intent, evidence, context, memory, and suggestion.
 - A compact Settings-managed durable Place representation for confirmed memory.
 - Quick Add and Activity Detail should write or display that model through existing Activity place behavior.
-- Quick Add should have a post-capture confirmation affordance for explicit location-alert requests.
+- Quick Add should have a compact post-capture receipt with a focused confirmation affordance for explicit location-alert requests.
 - Recommended should consume place evidence through the shared model instead of directly treating `activity.location` as a flat boost.
 - Location trigger offers should remain explicit and permissioned.
 - Tests should cover the important trust edges: capture first, no current-location inference when disabled, weak place signal does not beat stronger actionability, and trigger events are offers rather than completions.
@@ -519,6 +587,13 @@ Acceptance criteria for a build-ready spec:
 - Weak, medium, and strong place signals are represented explicitly.
 - Trust rules are enforceable in code, not just copy.
 - Saved/learned Places can remain absent from the first value moment, but confirmed durable Places have a Settings management home.
+- Activity-language inference can create a broad Place target/link without coordinates, notification behavior, or a Saved Place.
+- A single strong Saved Place match can resolve automatically with provenance and correction; ambiguous matches remain unresolved.
+- Current-location resolution requires explicit foreground evidence and never promotes a task-scoped match to durable memory without approval.
+- A current-region versus saved-home mismatch presents both choices and never silently defaults to the nearby venue.
+- Choosing a home Saved Place keeps the Activity associated with home rather than the current travel context.
+- Quick Add uses a compact post-capture receipt for generated results and opens a full Place/Alert sheet only after explicit user action.
+- Dismissing a receipt leaves a valid Activity and does not create a required-review queue.
 
 ## Success Signal
 

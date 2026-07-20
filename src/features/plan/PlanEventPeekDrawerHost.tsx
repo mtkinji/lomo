@@ -6,7 +6,7 @@ import {
 } from '../../ui/BottomDrawer';
 import { colors, spacing, typography } from '../../theme';
 import { Text } from '../../ui/primitives';
-import { PlanRecsPage } from './PlanRecsPage';
+import { PlanRecsPage, type PlanUnplacedPriorityItem } from './PlanRecsPage';
 import { PlanSlotCapturePage, type PlanSlotCaptureModel } from './PlanSlotCapturePage';
 import { ActivityEventPeek, type ActivityEventPeekModel } from './ActivityEventPeek';
 import { ExternalEventPeek, type ExternalEventPeekModel } from './ExternalEventPeek';
@@ -40,12 +40,7 @@ type PlanRecommendationsModel = {
     title: string;
     estimateMinutes?: number | null;
   }>;
-  dueUnplaced?: Array<{
-    activityId: string;
-    title: string;
-    goalTitle?: string | null;
-    arcTitle?: string | null;
-  }>;
+  unplacedPriorities?: PlanUnplacedPriorityItem[];
   recommendations: Array<{
     activityId: string;
     title: string;
@@ -53,6 +48,7 @@ type PlanRecommendationsModel = {
     arcTitle?: string | null;
     proposal: { startDate: string; endDate: string };
     candidateStartDates?: string[] | null;
+    priorityPosition?: number;
   }>;
   emptyState:
     | {
@@ -79,6 +75,7 @@ type PlanRecommendationsModel = {
   onOpenAvailabilitySettings?: () => void;
   onFindActivities?: () => void;
   onPickTimeForCreated?: (activityId: string) => void;
+  onPickTimeForUnplaced?: (activityId: string) => void;
   onSaveCreatedWithoutScheduling?: (activityId: string) => void;
   onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
@@ -159,7 +156,7 @@ export function PlanEventPeekDrawerHost({
         <View>
           <BottomDrawerHeader
             title={
-              <Text style={styles.sheetTitle}>Recommendations</Text>
+              <Text style={styles.sheetTitle}>Plan your day</Text>
             }
             variant="withClose"
             onClose={onClose}
@@ -171,9 +168,14 @@ export function PlanEventPeekDrawerHost({
             targetDayLabel={recommendations.targetDayLabel}
             quickAdd={recommendations.quickAdd}
             unscheduledCreated={recommendations.unscheduledCreated ?? []}
-            dueUnplaced={recommendations.dueUnplaced ?? []}
+            unplacedPriorities={recommendations.unplacedPriorities ?? []}
             recommendations={recommendations.recommendations}
-            emptyState={recommendations.recommendations.length === 0 ? recommendations.emptyState : null}
+            emptyState={
+              recommendations.recommendations.length === 0 &&
+              (recommendations.unplacedPriorities?.length ?? 0) === 0
+                ? recommendations.emptyState
+                : null
+            }
             isLoading={recommendations.isLoading}
             showAlreadyPlanned={recommendations.showAlreadyPlanned}
             entryPoint={recommendations.entryPoint}
@@ -185,6 +187,7 @@ export function PlanEventPeekDrawerHost({
             onOpenAvailabilitySettings={recommendations.onOpenAvailabilitySettings}
             onFindActivities={recommendations.onFindActivities}
             onPickTimeForCreated={recommendations.onPickTimeForCreated}
+            onPickTimeForUnplaced={recommendations.onPickTimeForUnplaced}
             onSaveCreatedWithoutScheduling={recommendations.onSaveCreatedWithoutScheduling}
             onDismissForToday={recommendations.onDismissForToday}
             onReviewPlan={recommendations.onReviewPlan}

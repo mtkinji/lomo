@@ -119,7 +119,7 @@ export const LIST_TEMPLATES: ViewTemplate[] = [
         ],
       },
     ],
-    sorts: [{ field: 'priority', direction: 'desc' }],
+    sorts: [{ field: 'priority', direction: 'asc' }],
     showCompleted: false,
   },
   {

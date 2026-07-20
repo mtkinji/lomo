@@ -242,7 +242,7 @@ export function usePlanSlotCapture(params: {
   );
 
   const validateSlot = useCallback(
-    (activity: Activity): DailyPlanProposal | null => {
+    (activity: Activity): { proposal: DailyPlanProposal; conflicts: boolean } | null => {
       if (!slotDraft) return null;
       if (!writeCalendarId) {
         Alert.alert('Choose a calendar', 'Select a write calendar in Settings before committing.');
@@ -254,13 +254,20 @@ export function usePlanSlotCapture(params: {
         return null;
       }
       const conflicts = busyIntervals.some((busy) => busy.start < slotDraft.end && slotDraft.start < busy.end);
-      if (conflicts) {
-        Alert.alert('Time conflict', 'That time conflicts with your calendar.');
-        return null;
-      }
-      return buildProposal(activity);
+      const proposal = buildProposal(activity);
+      return proposal ? { proposal, conflicts } : null;
     },
     [buildProposal, busyIntervals, getPlanModeForActivity, isWithinWindows, slotDraft, writeCalendarId],
+  );
+
+  const commitValidatedProposal = useCallback(
+    async (activity: Activity, proposal: DailyPlanProposal) => {
+      setCommittingActivityId(activity.id);
+      const committed = await commitProposal(activity.id, proposal);
+      setCommittingActivityId(null);
+      if (committed) clearSlotDraft();
+    },
+    [clearSlotDraft, commitProposal],
   );
 
   const commitActivity = useCallback(
@@ -268,14 +275,25 @@ export function usePlanSlotCapture(params: {
       if (!activityId) return;
       const activity = activities.find((candidate) => candidate.id === activityId) ?? null;
       if (!activity) return;
-      const proposal = validateSlot(activity);
-      if (!proposal) return;
-      setCommittingActivityId(activity.id);
-      const committed = await commitProposal(activity.id, proposal);
-      setCommittingActivityId(null);
-      if (committed) clearSlotDraft();
+      const validation = validateSlot(activity);
+      if (!validation) return;
+      if (validation.conflicts) {
+        Alert.alert(
+          'Time conflict',
+          'That time conflicts with your calendar. Add it anyway?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Add anyway',
+              onPress: () => void commitValidatedProposal(activity, validation.proposal),
+            },
+          ],
+        );
+        return;
+      }
+      await commitValidatedProposal(activity, validation.proposal);
     },
-    [activities, clearSlotDraft, commitProposal, validateSlot],
+    [activities, commitValidatedProposal, validateSlot],
   );
 
   if (!slotDraft) return null;

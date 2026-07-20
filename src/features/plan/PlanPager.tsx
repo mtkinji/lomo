@@ -37,7 +37,12 @@ import {
 } from '../../services/plan/calendarApi';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
 import { getAvailabilityForDate, getWindowsForMode, resolvePlanModeForArea } from '../../services/plan/planAvailability';
-import { proposeDailyPlan, type DailyPlanProposal } from '../../services/plan/planScheduling';
+import {
+  getPlanCandidateEligibility,
+  proposeDailyPlan,
+  type DailyPlanProposal,
+  type PlanUnplacedPriorityCandidate,
+} from '../../services/plan/planScheduling';
 import { formatDayLabel, setTimeOnDate, toLocalDateKey } from '../../services/plan/planDates';
 import { inferSchedulingDomain } from '../../services/scheduling/inferSchedulingDomain';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
@@ -57,6 +62,7 @@ import {
 } from '../../services/plan/calendarEventCommit';
 import { usePlanRecommendationsQuickAdd } from './usePlanRecommendationsQuickAdd';
 import { usePlanSlotCapture } from './usePlanSlotCapture';
+import { usePlanRecommendationFunnel } from './usePlanRecommendationFunnel';
 
 export type PlanPagerInsetMode = 'screen' | 'drawer';
 export type PlanPagerEntryPoint = 'manual' | 'kickoff';
@@ -81,6 +87,7 @@ type PlanRecommendation = {
   goalTitle?: string | null;
   arcTitle?: string | null;
   proposal: DailyPlanProposal;
+  priorityPosition?: number;
 };
 
 export function PlanPager({
@@ -128,7 +135,7 @@ export function PlanPager({
     fetchedAtMs: number;
   } | null>(null);
   const [proposals, setProposals] = useState<DailyPlanProposal[]>([]);
-  const [unplacedDueActivityIds, setUnplacedDueActivityIds] = useState<string[]>([]);
+  const [unplacedPriorityCandidates, setUnplacedPriorityCandidates] = useState<PlanUnplacedPriorityCandidate[]>([]);
   const [sheetCreatedProposals, setSheetCreatedProposals] = useState<DailyPlanProposal[]>([]);
   const [sheetCreatedUnscheduledIds, setSheetCreatedUnscheduledIds] = useState<string[]>([]);
   const [slotDraft, setSlotDraft] = useState<PlanSlotDraft | null>(null);
@@ -571,7 +578,7 @@ export function PlanPager({
       // proposals visible to avoid flashing empty state.
       if (!hasLoadedProposalsOnce) {
         setProposals([]);
-        setUnplacedDueActivityIds([]);
+        setUnplacedPriorityCandidates([]);
       }
       return;
     }
@@ -589,7 +596,7 @@ export function PlanPager({
       activityAreas,
     });
     setProposals(next.proposals);
-    setUnplacedDueActivityIds(next.unplacedDueActivityIds);
+    setUnplacedPriorityCandidates(next.unplacedPriorityCandidates);
     setHasLoadedProposalsOnce(true);
   }, [
     activities,
@@ -605,14 +612,6 @@ export function PlanPager({
     dailyActivityResolutions,
     hasLoadedProposalsOnce,
   ]);
-
-  const handleDismissForToday = useCallback(
-    (activityId: string) => {
-      dismissActivityForDay(dateKey, activityId);
-      showToast({ message: 'Dismissed for today.', variant: 'light' });
-    },
-    [dateKey, dismissActivityForDay, showToast],
-  );
 
   const scheduleProposals = useMemo(() => {
     const activityById = new Map(activities.map((a) => [a.id, a]));
@@ -641,6 +640,7 @@ export function PlanPager({
           goalTitle: goal?.title ?? null,
           arcTitle: arc?.name ?? null,
           proposal: p,
+          priorityPosition: p.priorityPosition,
         };
       });
   }, [scheduleProposals, activities, goals, arcs]);
@@ -690,34 +690,66 @@ export function PlanPager({
       .filter(Boolean) as Array<{ activityId: string; title: string; estimateMinutes?: number | null }>;
   }, [activities, scheduleProposals, sheetCreatedUnscheduledIds, skippedIds]);
 
-  const dueUnplaced = useMemo(() => {
-    if (unplacedDueActivityIds.length === 0) return [];
-    const goalById = new Map(goals.map((g) => [g.id, g]));
-    const arcById = new Map(arcs.map((a) => [a.id, a]));
-    return unplacedDueActivityIds
-      .map((activityId) => {
-        const activity = activities.find((a) => a.id === activityId) ?? null;
+  const unplacedPriorities = useMemo(() => {
+    const goalById = new Map(goals.map((goal) => [goal.id, goal]));
+    return unplacedPriorityCandidates
+      .map((candidate) => {
+        const activity = activities.find((a) => a.id === candidate.activityId) ?? null;
         if (!activity) return null;
-        const goal = activity.goalId ? goalById.get(activity.goalId) : null;
-        const arc = goal?.arcId ? arcById.get(goal.arcId) : null;
         return {
-          activityId,
+          ...candidate,
           title: activity.title,
-          goalTitle: goal?.title ?? null,
-          arcTitle: arc?.name ?? null,
+          goalTitle: activity.goalId ? goalById.get(activity.goalId)?.title ?? null : null,
         };
       })
-      .filter(Boolean) as Array<{ activityId: string; title: string; goalTitle?: string | null; arcTitle?: string | null }>;
-  }, [activities, arcs, goals, unplacedDueActivityIds]);
+      .filter(Boolean) as Array<PlanUnplacedPriorityCandidate & { title: string }>;
+  }, [activities, goals, unplacedPriorityCandidates]);
+
+  const recommendationTelemetry = useMemo(
+    () =>
+      recommendations.map((recommendation) => ({
+        activityId: recommendation.activityId,
+        priorityPosition: recommendation.priorityPosition,
+        durationMinutes: Math.max(
+          0,
+          Math.round(
+            (new Date(recommendation.proposal.endDate).getTime() -
+              new Date(recommendation.proposal.startDate).getTime()) /
+              60_000,
+          ),
+        ),
+      })),
+    [recommendations],
+  );
+  const { recordCommitted, recordDismissed } = usePlanRecommendationFunnel({
+    visible: recommendationsDrawerVisible,
+    dateKey,
+    recommendations: recommendationTelemetry,
+    unplacedPriorities,
+  });
+
+  const handleDismissForToday = useCallback(
+    (activityId: string) => {
+      dismissActivityForDay(dateKey, activityId);
+      recordDismissed(activityId, 'not_today');
+      showToast({ message: 'Left out of today’s plan.', variant: 'light' });
+    },
+    [dateKey, dismissActivityForDay, recordDismissed, showToast],
+  );
 
   useEffect(() => {
-    onRecommendationsCountChange?.(recommendations.length);
-    setPlanRecommendationsCount(recommendations.length);
-  }, [recommendations.length, onRecommendationsCountChange, setPlanRecommendationsCount]);
+    const priorityCount = recommendations.length + unplacedPriorities.length;
+    onRecommendationsCountChange?.(priorityCount);
+    setPlanRecommendationsCount(priorityCount);
+  }, [recommendations.length, onRecommendationsCountChange, setPlanRecommendationsCount, unplacedPriorities.length]);
 
   const hasEligibleActivities = useMemo(() => {
-    return activities.some((a) => a.status !== 'done' && a.status !== 'cancelled' && !a.scheduledAt);
-  }, [activities]);
+    const dismissedForDay = dailyActivityResolutions?.[dateKey]?.dismissedActivityIds ?? [];
+    const now = new Date();
+    return activities.some((activity) =>
+      getPlanCandidateEligibility({ activity, now, dismissedActivityIds: dismissedForDay }).eligible,
+    );
+  }, [activities, dailyActivityResolutions, dateKey]);
 
   const hasAvailabilityWindows = useMemo(() => {
     if (!dayAvailability.enabled) return false;
@@ -894,7 +926,8 @@ export function PlanPager({
   const handleCommit = async (activityId: string) => {
     const proposal = scheduleProposals.find((p) => p.activityId === activityId);
     if (!proposal) return;
-    await commitProposal(activityId, proposal);
+    const committed = await commitProposal(activityId, proposal);
+    if (committed) recordCommitted(activityId);
   };
 
   const isWithinWindows = useCallback(
@@ -1176,6 +1209,7 @@ export function PlanPager({
   };
 
   const handleSkip = (activityId: string) => {
+    recordDismissed(activityId, 'skip');
     setSkippedIds((prev) => new Set(prev).add(activityId));
     setSheetCreatedProposals((prev) => prev.filter((proposal) => proposal.activityId !== activityId));
     setSheetCreatedUnscheduledIds((prev) => prev.filter((id) => id !== activityId));
@@ -1354,6 +1388,7 @@ export function PlanPager({
     !allowRerun &&
     !isLoadingRecommendations &&
     scheduleProposals.length === 0 &&
+    unplacedPriorities.length === 0 &&
     sheetCreatedUnscheduled.length === 0;
 
   const canvasAnimatedStyle = useAnimatedStyle(() => {
@@ -1574,11 +1609,11 @@ export function PlanPager({
           recommendations={
             drawerMode === 'recs'
               ? {
-                  recommendationCount: recommendations.length,
+                  recommendationCount: recommendations.length + unplacedPriorities.length,
                   targetDayLabel: formatDayLabel(targetDate),
                   quickAdd: planQuickAdd,
                   unscheduledCreated: sheetCreatedUnscheduled,
-                  dueUnplaced,
+                  unplacedPriorities,
                   recommendations: recommendations.map((r) => ({
                     activityId: r.activityId,
                     title: r.title,
@@ -1586,6 +1621,7 @@ export function PlanPager({
                     arcTitle: r.arcTitle,
                     proposal: { startDate: r.proposal.startDate, endDate: r.proposal.endDate },
                     candidateStartDates: getCandidateStartSlotsForRecommendation(r.activityId),
+                    priorityPosition: r.priorityPosition,
                   })),
                   emptyState,
                   isLoading: isLoadingRecommendations,
@@ -1607,6 +1643,7 @@ export function PlanPager({
                       rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
                     }
                   },
+                  onPickTimeForUnplaced: handlePickTimeForCreated,
                   onOpenAvailabilitySettings: () => {
                     setSheetSnapIndex(0);
                     if (rootNavigationRef.isReady()) {

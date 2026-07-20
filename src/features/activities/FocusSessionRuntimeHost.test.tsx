@@ -73,6 +73,7 @@ describe('FocusSessionRuntimeHost', () => {
       },
       soundscapeEnabled: true,
       soundscapeTrackId: 'default',
+      focusOverlayColorIndex: 5,
     });
     scheduleNotificationAsync.mockResolvedValue('focus-complete-notification');
   });
@@ -168,5 +169,11 @@ describe('FocusSessionRuntimeHost', () => {
       }),
     );
     expect(reconcileScreenTimeRestrictionsMock).toHaveBeenCalledTimes(1);
+    expect(syncLiveActivityMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'paused',
+        colorKey: 'indigo',
+      }),
+    );
   });
 });

@@ -361,6 +361,7 @@ export type ActivityPriorityRankSource = 'inferred' | 'auto' | 'manual';
 export type ActivityPriorityReasonCode =
   | 'explicit_priority'
   | 'goal_priority'
+  | 'overdue'
   | 'due_today'
   | 'due_soon'
   | 'reminder_soon'

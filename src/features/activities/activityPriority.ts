@@ -46,6 +46,7 @@ export type RecommendedModuleEligibility = {
 };
 
 const REASON_LABELS: Partial<Record<ActivityPriorityReasonCode, string>> = {
+  overdue: 'Overdue',
   due_today: 'Due today',
   due_soon: 'Due soon',
   reminder_soon: 'Reminder soon',
@@ -65,6 +66,7 @@ const REASON_LABELS: Partial<Record<ActivityPriorityReasonCode, string>> = {
 };
 
 const REASON_PRIORITY: ActivityPriorityReasonCode[] = [
+  'overdue',
   'due_today',
   'reminder_soon',
   'due_soon',
@@ -356,7 +358,10 @@ function scoreActivity(params: {
 
   const scheduledDays = daysUntil(activity.scheduledDate ?? activity.scheduledAt ?? null, now);
   if (scheduledDays !== null) {
-    if (scheduledDays <= 0) {
+    if (scheduledDays < 0) {
+      scoreComponents.urgency += 70;
+      addReason(reasons, 'overdue');
+    } else if (scheduledDays === 0) {
       scoreComponents.urgency += 70;
       addReason(reasons, 'due_today');
     } else if (scheduledDays <= 3) {

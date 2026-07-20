@@ -748,6 +748,7 @@ public struct KwiltFocusAttributes: ActivityAttributes {
     public var sessionId: String? = nil
     public var mode: String? = "running"
     public var remainingMs: Int64? = nil
+    public var colorKey: String? = "pine"
   }
 
   public var activityId: String
@@ -785,7 +786,8 @@ class KwiltLiveActivity: NSObject {
     mode: String,
     startedAtMs: NSNumber,
     endAtMs: NSNumber,
-    remainingMs: NSNumber
+    remainingMs: NSNumber,
+    colorKey: String
   ) -> ActivityContent<KwiltFocusAttributes.ContentState> {
     let normalizedMode = mode == "paused" ? "paused" : "running"
     let state = KwiltFocusAttributes.ContentState(
@@ -794,7 +796,8 @@ class KwiltLiveActivity: NSObject {
       endAtMs: normalizedMode == "running" ? endAtMs.int64Value : 0,
       sessionId: sessionId,
       mode: normalizedMode,
-      remainingMs: normalizedMode == "paused" ? remainingMs.int64Value : nil
+      remainingMs: normalizedMode == "paused" ? remainingMs.int64Value : nil,
+      colorKey: colorKey
     )
     return ActivityContent(state: state, staleDate: nil)
   }
@@ -827,6 +830,7 @@ class KwiltLiveActivity: NSObject {
       "startedAtMs": state.startedAtMs,
       "endAtMs": state.endAtMs,
       "remainingMs": state.remainingMs ?? 0,
+      "colorKey": state.colorKey ?? "pine",
       "activityState": String(describing: activity.activityState),
     ]
   }
@@ -887,7 +891,7 @@ class KwiltLiveActivity: NSObject {
     resolve(false)
   }
 
-  @objc(sync:title:sessionId:mode:startedAtMs:endAtMs:remainingMs:resolver:rejecter:)
+  @objc(sync:title:sessionId:mode:startedAtMs:endAtMs:remainingMs:colorKey:resolver:rejecter:)
   func sync(
     _ activityId: String,
     title: String,
@@ -896,6 +900,7 @@ class KwiltLiveActivity: NSObject {
     startedAtMs: NSNumber,
     endAtMs: NSNumber,
     remainingMs: NSNumber,
+    colorKey: String,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
@@ -932,7 +937,8 @@ class KwiltLiveActivity: NSObject {
             mode: mode,
             startedAtMs: startedAtMs,
             endAtMs: endAtMs,
-            remainingMs: remainingMs
+            remainingMs: remainingMs,
+            colorKey: colorKey
           )
 
           let action: String
@@ -1082,6 +1088,7 @@ RCT_EXTERN_METHOD(
   startedAtMs:(nonnull NSNumber *)startedAtMs
   endAtMs:(nonnull NSNumber *)endAtMs
   remainingMs:(nonnull NSNumber *)remainingMs
+  colorKey:(NSString *)colorKey
   resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
@@ -2176,8 +2183,42 @@ struct KwiltStreakWidget: Widget {
 // ---------------------------------------------------------------------------
 
 @available(iOS 16.2, *)
+struct KwiltFocusPalette {
+  let background: Color
+  let primary: Color
+  let progressTrack: Color
+
+  static func forKey(_ rawKey: String?) -> KwiltFocusPalette {
+    let background: Color
+    switch rawKey ?? "pine" {
+    case "madder":
+      background = Color(red: 148/255, green: 76/255, blue: 61/255)
+    case "orange":
+      background = Color(red: 138/255, green: 78/255, blue: 26/255)
+    case "turmeric":
+      background = Color(red: 140/255, green: 90/255, blue: 24/255)
+    case "blue":
+      background = Color(red: 50/255, green: 73/255, blue: 102/255)
+    case "indigo":
+      background = Color(red: 20/255, green: 28/255, blue: 40/255)
+    case "violet":
+      background = Color(red: 78/255, green: 63/255, blue: 116/255)
+    default:
+      background = KwiltPalette.pine
+    }
+
+    return KwiltFocusPalette(
+      background: background,
+      primary: Color(red: 250/255, green: 247/255, blue: 237/255),
+      progressTrack: Color.white.opacity(0.22)
+    )
+  }
+}
+
+@available(iOS 16.2, *)
 struct KwiltFocusTimerLabel: View {
   let context: ActivityViewContext<KwiltFocusAttributes>
+  let palette: KwiltFocusPalette
 
   var startedAt: Date { Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0) }
   var endAt: Date? {
@@ -2188,40 +2229,28 @@ struct KwiltFocusTimerLabel: View {
   var remainingMinutesText: String {
     let remaining = max(0, context.state.remainingMs ?? 0)
     let minutes = max(1, Int(ceil(Double(remaining) / 60000.0)))
-    return "\\(minutes) min left"
+    return "\\(minutes) min"
   }
 
   var body: some View {
     if isPaused {
-      VStack(alignment: .trailing, spacing: 2) {
-        Text("Paused")
-          .font(.caption2.weight(.medium))
-          .foregroundStyle(.secondary)
+      HStack(spacing: 5) {
+        Image(systemName: "pause.fill")
+          .font(.caption2.weight(.semibold))
         Text(remainingMinutesText)
-          .font(.system(.headline, design: .rounded, weight: .semibold).monospacedDigit())
-          .foregroundStyle(KwiltPalette.pine)
+          .font(.system(.headline, design: .rounded, weight: .semibold))
+          .monospacedDigit()
       }
-      .padding(.horizontal, 10)
-      .padding(.vertical, 6)
-      .background(KwiltPalette.pineSoft)
-      .clipShape(Capsule())
+      .foregroundStyle(palette.primary)
     } else if let end = endAt {
-      VStack(alignment: .trailing, spacing: 1) {
-        Text("Remaining")
-          .font(.caption2.weight(.medium))
-          .foregroundStyle(.secondary)
-        Text(timerInterval: startedAt...end, countsDown: true)
-          .font(.system(.title3, design: .rounded, weight: .semibold).monospacedDigit())
-          .foregroundStyle(KwiltPalette.pine)
-      }
-      .padding(.horizontal, 10)
-      .padding(.vertical, 6)
-      .background(KwiltPalette.pineSoft)
-      .clipShape(Capsule())
+      Text(timerInterval: startedAt...end, countsDown: true)
+        .font(.system(.title3, design: .rounded, weight: .semibold))
+        .monospacedDigit()
+        .foregroundStyle(palette.primary)
     } else {
       Text(startedAt, style: .timer)
         .font(.title2.monospacedDigit().weight(.semibold))
-        .foregroundStyle(KwiltPalette.pine)
+        .foregroundStyle(palette.primary)
     }
   }
 }
@@ -2236,42 +2265,39 @@ struct KwiltFocusLiveActivityView: View {
     return ms > 0 ? Date(timeIntervalSince1970: Double(ms) / 1000.0) : nil
   }
   var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
+  var palette: KwiltFocusPalette { KwiltFocusPalette.forKey(context.state.colorKey) }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 12) {
-        ZStack {
-          Circle()
-            .fill(KwiltPalette.pineSoft)
-          Image(systemName: isPaused ? "pause.fill" : "timer")
-            .font(.caption.weight(.bold))
-            .foregroundStyle(KwiltPalette.pine)
-        }
-        .frame(width: 30, height: 30)
-
-        VStack(alignment: .leading, spacing: 2) {
-          Text(isPaused ? "Focus paused" : "Focus")
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
-          Text(context.state.title)
-            .font(.headline)
-            .lineLimit(1)
+        if let logo = kwiltLogoImage() {
+          logo
+            .resizable()
+            .scaledToFit()
+            .frame(width: 30, height: 30)
         }
 
-        Spacer()
-        KwiltFocusTimerLabel(context: context)
+        Text(context.state.title)
+          .font(.headline)
+          .foregroundStyle(palette.primary)
+          .lineLimit(2)
+
+        Spacer(minLength: 8)
+        KwiltFocusTimerLabel(context: context, palette: palette)
+          .layoutPriority(1)
       }
 
       Group {
         if !isPaused, let end = endAt {
           ProgressView(timerInterval: startedAt...end, countsDown: true)
             .progressViewStyle(.linear)
-            .tint(KwiltPalette.pine)
-            .background(KwiltPalette.pineSoft)
+            .labelsHidden()
+            .tint(palette.primary)
+            .background(palette.progressTrack)
             .clipShape(Capsule())
         } else {
           Capsule()
-            .fill(KwiltPalette.pineSoft)
+            .fill(palette.progressTrack)
         }
       }
       .frame(height: 4)
@@ -2285,22 +2311,21 @@ struct KwiltFocusLiveActivityView: View {
 struct KwiltFocusDynamicIslandExpandedView: View {
   let context: ActivityViewContext<KwiltFocusAttributes>
 
-  var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
+  var palette: KwiltFocusPalette { KwiltFocusPalette.forKey(context.state.colorKey) }
 
   var body: some View {
     HStack(spacing: 12) {
-      Image(systemName: isPaused ? "pause.fill" : "timer")
-        .foregroundStyle(KwiltPalette.pine)
-      VStack(alignment: .leading, spacing: 3) {
-        Text(context.state.title)
-          .font(.headline)
-          .lineLimit(1)
-        Text(isPaused ? "Paused" : "In focus")
-          .font(.caption2)
-          .foregroundStyle(.secondary)
+      if let logo = kwiltLogoImage() {
+        logo
+          .resizable()
+          .scaledToFit()
+          .frame(width: 24, height: 24)
       }
+      Text(context.state.title)
+        .font(.headline)
+        .lineLimit(1)
       Spacer()
-      KwiltFocusTimerLabel(context: context)
+      KwiltFocusTimerLabel(context: context, palette: palette)
     }
     .padding(.vertical, 2)
   }
@@ -2320,7 +2345,7 @@ struct KwiltFocusCompactTrailingView: View {
   var body: some View {
     if isPaused {
       Image(systemName: "pause.fill")
-        .foregroundStyle(KwiltPalette.pine)
+        .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)
         .font(.caption2)
     } else if let end = endAt {
       Text(timerInterval: startedAt...end, countsDown: true)
@@ -2339,22 +2364,31 @@ struct KwiltFocusLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: KwiltFocusAttributes.self) { context in
       KwiltFocusLiveActivityView(context: context)
-        .activityBackgroundTint(Color(.systemBackground))
-        .activitySystemActionForegroundColor(KwiltPalette.pine)
+        .activityBackgroundTint(KwiltFocusPalette.forKey(context.state.colorKey).background)
+        .activitySystemActionForegroundColor(KwiltFocusPalette.forKey(context.state.colorKey).primary)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.center) {
           KwiltFocusDynamicIslandExpandedView(context: context)
         }
       } compactLeading: {
-        Image(systemName: (context.state.mode ?? "running") == "paused" ? "pause.fill" : "timer")
-          .foregroundStyle(KwiltPalette.pine)
+        if let logo = kwiltLogoImage() {
+          logo
+            .resizable()
+            .scaledToFit()
+            .frame(width: 16, height: 16)
+        }
       } compactTrailing: {
         KwiltFocusCompactTrailingView(context: context)
       } minimal: {
-        Image(systemName: (context.state.mode ?? "running") == "paused" ? "pause.fill" : "timer")
-          .foregroundStyle(KwiltPalette.pine)
+        if let logo = kwiltLogoImage() {
+          logo
+            .resizable()
+            .scaledToFit()
+            .frame(width: 16, height: 16)
+        }
       }
+      .keylineTint(KwiltFocusPalette.forKey(context.state.colorKey).background)
     }
   }
 }

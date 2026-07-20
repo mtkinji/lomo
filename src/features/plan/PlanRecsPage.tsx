@@ -11,6 +11,8 @@ import { formatTimeRange } from '../../services/plan/planDates';
 import { formatMinutes } from '../../utils/formatMinutes';
 import { useCanUseProTools } from '../../store/proToolsAccess';
 import { openPaywallInterstitial } from '../../services/paywall';
+import type { PlanMode } from '../../services/plan/planAvailability';
+import type { PlanUnplacedPriorityReason } from '../../services/plan/planScheduling';
 
 type PlanRecommendation = {
   activityId: string;
@@ -22,7 +24,32 @@ type PlanRecommendation = {
     endDate: string;
   };
   candidateStartDates?: string[] | null;
+  priorityPosition?: number;
 };
+
+export type PlanUnplacedPriorityItem = {
+  activityId: string;
+  title: string;
+  reason: PlanUnplacedPriorityReason;
+  durationMinutes: number;
+  mode: PlanMode;
+  goalTitle?: string | null;
+  priorityPosition: number;
+};
+
+function formatNeedsTimeReason(item: PlanUnplacedPriorityItem): string {
+  const duration = formatMinutes(item.durationMinutes);
+  switch (item.reason) {
+    case 'no_matching_window':
+      return `No obvious time in your ${item.mode} hours.`;
+    case 'needs_larger_window':
+      return `No obvious ${duration} opening.`;
+    case 'no_open_slot':
+      return `No obvious ${duration} opening.`;
+    case 'no_write_calendar':
+      return 'No calendar is ready for this yet.';
+  }
+}
 
 type PlanRecsPageProps = {
   targetDayLabel: string;
@@ -44,12 +71,7 @@ type PlanRecsPageProps = {
     title: string;
     estimateMinutes?: number | null;
   }>;
-  dueUnplaced?: Array<{
-    activityId: string;
-    title: string;
-    goalTitle?: string | null;
-    arcTitle?: string | null;
-  }>;
+  unplacedPriorities?: PlanUnplacedPriorityItem[];
   recommendations: PlanRecommendation[];
   emptyState:
     | {
@@ -76,6 +98,7 @@ type PlanRecsPageProps = {
   onOpenAvailabilitySettings?: () => void;
   onFindActivities?: () => void;
   onPickTimeForCreated?: (activityId: string) => void;
+  onPickTimeForUnplaced?: (activityId: string) => void;
   onSaveCreatedWithoutScheduling?: (activityId: string) => void;
   onDismissForToday?: (activityId: string) => void;
   onReviewPlan: () => void;
@@ -95,7 +118,7 @@ export function PlanRecsPage({
   targetDayLabel,
   quickAdd,
   unscheduledCreated = [],
-  dueUnplaced = [],
+  unplacedPriorities = [],
   recommendations,
   emptyState,
   isLoading = false,
@@ -109,6 +132,7 @@ export function PlanRecsPage({
   onOpenAvailabilitySettings,
   onFindActivities,
   onPickTimeForCreated,
+  onPickTimeForUnplaced,
   onSaveCreatedWithoutScheduling,
   onDismissForToday,
   onReviewPlan,
@@ -122,6 +146,18 @@ export function PlanRecsPage({
   const [expandedMoveActivityId, setExpandedMoveActivityId] = useState<string | null>(null);
   const isCommittingAny = Boolean(committingActivityId);
   const isPro = useCanUseProTools();
+  const priorityItems = [
+    ...recommendations.map((recommendation) => ({
+      kind: 'scheduled' as const,
+      priorityPosition: recommendation.priorityPosition ?? Number.MAX_SAFE_INTEGER,
+      recommendation,
+    })),
+    ...unplacedPriorities.map((priority) => ({
+      kind: 'needs_time' as const,
+      priorityPosition: priority.priorityPosition,
+      priority,
+    })),
+  ].sort((a, b) => a.priorityPosition - b.priorityPosition);
 
   function parseDateSafe(iso: string): Date | null {
     const d = new Date(iso);
@@ -226,7 +262,13 @@ export function PlanRecsPage({
     );
   }
 
-  if (recommendations.length === 0 && unscheduledCreated.length === 0 && !quickAdd && emptyState) {
+  if (
+    recommendations.length === 0 &&
+    unplacedPriorities.length === 0 &&
+    unscheduledCreated.length === 0 &&
+    !quickAdd &&
+    emptyState
+  ) {
     if (emptyState.kind === 'calendar_access_expired') {
       const providerLabel = calendarAccessProviderLabel ?? 'your calendar';
       const isRefreshingAccess = calendarAccessStatus === 'refreshing';
@@ -345,49 +387,7 @@ export function PlanRecsPage({
       showsVerticalScrollIndicator={false}
     >
       <VStack space={spacing.md}>
-        {dueUnplaced.length > 0 ? (
-          <View style={styles.warningCard}>
-            <VStack space={spacing.sm}>
-              <VStack space={spacing.xs}>
-                <Text style={styles.warningTitle}>Due today didn’t fit</Text>
-                <Text style={styles.warningBody}>
-                  {dueUnplaced.length === 1
-                    ? 'One due-today to-do couldn’t be scheduled within your availability and conflicts.'
-                    : `${dueUnplaced.length} due-today activities couldn’t be scheduled within your availability and conflicts.`}
-                </Text>
-              </VStack>
-
-              <VStack space={spacing.xs}>
-                {dueUnplaced.slice(0, 5).map((a) => (
-                  <HStack key={a.activityId} alignItems="center" justifyContent="space-between">
-                    <Text style={styles.warningItemTitle}>{a.title}</Text>
-                    {onDismissForToday ? (
-                      <Button variant="ghost" size="sm" onPress={() => onDismissForToday(a.activityId)}>
-                        Dismiss for today
-                      </Button>
-                    ) : null}
-                  </HStack>
-                ))}
-                {dueUnplaced.length > 5 ? (
-                  <Text style={styles.warningMore}>+{dueUnplaced.length - 5} more</Text>
-                ) : null}
-              </VStack>
-
-              <HStack space={spacing.sm} style={{ justifyContent: 'flex-end' }}>
-                {onOpenAvailabilitySettings ? (
-                  <Button variant="secondary" size="sm" onPress={onOpenAvailabilitySettings}>
-                    Adjust availability
-                  </Button>
-                ) : null}
-                <Button variant="ghost" size="sm" onPress={onOpenCalendarSettings}>
-                  Calendars
-                </Button>
-              </HStack>
-            </VStack>
-          </View>
-        ) : null}
-
-        <Text style={styles.subtitle}>Commit a few for {targetDayLabel}.</Text>
+        <Text style={styles.subtitle}>Choose what to make room for on {targetDayLabel}.</Text>
 
         <VStack space={spacing.sm}>
           {quickAdd ? (
@@ -451,7 +451,7 @@ export function PlanRecsPage({
             );
           })}
 
-          {recommendations.length === 0 && emptyState ? (
+          {recommendations.length === 0 && unplacedPriorities.length === 0 && emptyState ? (
             <View style={styles.createdCard}>
               <VStack space={spacing.xs}>
                 <Text style={styles.recTitle}>{emptyState.title}</Text>
@@ -460,7 +460,36 @@ export function PlanRecsPage({
             </View>
           ) : null}
 
-          {recommendations.map((rec) => {
+          {priorityItems.map((priorityItem) => {
+            if (priorityItem.kind === 'needs_time') {
+              const item = priorityItem.priority;
+              const metaParts = [formatMinutes(item.durationMinutes)];
+              if (item.goalTitle) metaParts.push(item.goalTitle);
+              return (
+                <View key={item.activityId} style={styles.recCard}>
+                  <VStack space={spacing.xs}>
+                    <Text style={styles.recTitle}>{item.title}</Text>
+                    <Text style={styles.recMetaText} numberOfLines={1} ellipsizeMode="tail">
+                      {metaParts.join(' · ')}
+                    </Text>
+                    <Text style={styles.needsTimeReason}>{formatNeedsTimeReason(item)}</Text>
+                    <HStack space={spacing.sm} style={styles.needsTimeActions}>
+                      {onPickTimeForUnplaced ? (
+                        <Button variant="secondary" size="xs" onPress={() => onPickTimeForUnplaced(item.activityId)}>
+                          Pick a time
+                        </Button>
+                      ) : null}
+                      {onDismissForToday ? (
+                        <Button variant="ghost" size="xs" onPress={() => onDismissForToday(item.activityId)}>
+                          Not today
+                        </Button>
+                      ) : null}
+                    </HStack>
+                  </VStack>
+                </View>
+              );
+            }
+            const rec = priorityItem.recommendation;
             const start = parseDateSafe(rec.proposal.startDate);
             const end = parseDateSafe(rec.proposal.endDate);
             const isCommittingThis = committingActivityId === rec.activityId;
@@ -510,23 +539,23 @@ export function PlanRecsPage({
                       </HStack>
                     </Pressable>
                     <HStack space={spacing.sm} style={styles.recActions}>
-                    <Button
+                      <Button
                         variant="ghost"
                         size="xs"
-                      style={styles.recActionButton}
+                        style={styles.recActionButton}
                         disabled={isCommittingAny}
-                        onPress={() => onSkip(rec.activityId)}
+                        onPress={() => (onDismissForToday ?? onSkip)(rec.activityId)}
                       >
-                        Skip
+                        Not today
                       </Button>
                       <Button
                         variant="primary"
                         size="xs"
-                      style={styles.recActionButton}
+                        style={styles.recActionButton}
                         disabled={isCommittingAny}
                         onPress={() => onCommit(rec.activityId)}
                       >
-                        {isCommittingThis ? 'Committing…' : 'Commit'}
+                        {isCommittingThis ? 'Adding…' : 'Add to plan'}
                       </Button>
                     </HStack>
                   </HStack>
@@ -685,32 +714,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingTop: spacing.sm,
   },
-  warningCard: {
-    backgroundColor: colors.shellAlt,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  warningTitle: {
-    ...typography.body,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  warningBody: {
+  needsTimeReason: {
     ...typography.bodySm,
     color: colors.textSecondary,
   },
-  warningItemTitle: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    flex: 1,
-    paddingRight: spacing.sm,
-  },
-  warningMore: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+  needsTimeActions: {
+    justifyContent: 'flex-end',
+    paddingTop: spacing.sm,
   },
   recCard: {
     backgroundColor: colors.card,

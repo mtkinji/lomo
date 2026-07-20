@@ -45,12 +45,14 @@ describe('PlanCalendarLensPage', () => {
 
   it('shows move and resize affordances on the selected time block', () => {
     const onSlotDraftChange = jest.fn();
+    const slotStart = new Date(2026, 6, 8, 10);
+    const slotEnd = new Date(2026, 6, 8, 11);
     const { getByLabelText } = renderWithProviders(
       <PlanCalendarLensPage
         {...baseProps}
         slotDraft={{
-          start: new Date('2026-07-08T10:00:00.000-06:00'),
-          end: new Date('2026-07-08T11:00:00.000-06:00'),
+          start: slotStart,
+          end: slotEnd,
         }}
         onPressEmptyTime={jest.fn()}
         onSlotDraftChange={onSlotDraftChange}
@@ -66,8 +68,8 @@ describe('PlanCalendarLensPage', () => {
     fireEvent(endHandle, 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
 
     expect(onSlotDraftChange).toHaveBeenCalledWith({
-      start: new Date('2026-07-08T10:00:00.000-06:00'),
-      end: new Date('2026-07-08T11:15:00.000-06:00'),
+      start: slotStart,
+      end: new Date(2026, 6, 8, 11, 15),
     });
   });
 });

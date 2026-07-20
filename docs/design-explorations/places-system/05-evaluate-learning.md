@@ -8,6 +8,7 @@
 - Can Kwilt avoid parsing or storing place-like artifacts unless a decision path needs them for search, recommendation, alerts, correction, audit, or Saved Place memory?
 - Can Quick Add handle explicit location-reminder requests with a clear post-capture confirmation path?
 - Can Quick Add avoid turning weak place mentions into setup prompts?
+- Can a compact Quick Add receipt make generated Place results inspectable without interrupting rapid capture or becoming a review queue?
 - Can the UI distinguish internal mentions, related context, Saved Places, and enabled triggers clearly enough that users do not expect a notification from a text-only mention?
 - Can users correctly predict what will happen after a place is visible: better prioritization, contextual grouping, an explicit notification, or reusable memory?
 - Can users understand the difference between a broad match such as "any Walgreens" and a specific geofence such as "Walgreens on Broadway"?
@@ -28,6 +29,7 @@ Evidence supporting the bet:
 - Location-trigger proposals are accepted when timely and rejected without users disabling location trust entirely.
 - Users who type explicit arrive/leave requests in Quick Add can complete the confirmation flow without losing the captured Activity.
 - Users who type weak place-bearing captures are not interrupted by setup prompts.
+- Users can answer an ambiguous Place choice from the receipt or immediately continue capturing another Activity.
 - Users can explain why Kwilt suggested a place behavior.
 - Users can find and remove a place relationship from an Activity.
 - Users can assign a to-do to a Place without expecting or receiving a notification.
@@ -49,6 +51,7 @@ Evidence disconfirming the bet:
 - Users assume assigning a to-do to a Place automatically enables location tracking or notifications.
 - Quick Add creates location-alert expectations but provides no confirmation affordance.
 - Quick Add prompts for place setup after weak place mentions and starts feeling like a setup funnel.
+- Quick Add automatically opens a sheet for ordinary generated results, or the receipt becomes a dense inspector users feel required to clear.
 - Soft assignments frequently choose the wrong place or create surprise memory.
 - The system accumulates hidden place-like data that does not affect any user-visible or auditable behavior.
 - The UI makes text-only or linked-place evidence look like an active reminder.

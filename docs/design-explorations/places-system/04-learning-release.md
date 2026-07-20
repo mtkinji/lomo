@@ -37,7 +37,7 @@ Still intentionally not supported:
 
 The user encounters Places through existing flows:
 
-- In Quick Add, the Activity is created first. If the user explicitly asked for arrive/leave behavior, Kwilt proposes a place confirmation sheet/card after creation.
+- In Quick Add, the Activity is created first. A compact receipt summarizes generated results; explicit arrive/leave behavior gets a `Set alert` action that opens focused confirmation only after tap.
 - In Activity Detail, the user can inspect, edit, or remove the place link and separately enable or disable a trigger.
 - In Settings, the user can manage durable Places once they exist: rename, inspect usage, delete, or forget.
 - In Recommended, place evidence can help an already-actionable Activity rise when the current context makes it more doable.
@@ -71,7 +71,7 @@ Must be real:
 - A retention policy that discards unused place mentions unless they support a concrete decision or durable user-approved record.
 - A visibility policy that keeps raw text mentions internal and labels visible place behavior clearly as related context, saved memory, or enabled trigger.
 - A visible-place contract so every surfaced place names the expected outcome: context, prioritization, alert, or memory.
-- A post-capture Quick Add confirmation flow for explicit location-alert requests.
+- A compact post-capture Quick Add receipt with a focused confirmation path for explicit location-alert requests.
 - Recommended consumes place evidence through the shared model rather than a flat coordinate boost.
 - Quick Add and Activity Detail use the same place proposal/edit semantics.
 - Activity-place links work without OS location permission or geofence registration.

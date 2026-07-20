@@ -14,6 +14,7 @@ serves:
   - jtbd-capture-and-find-meaning
   - jtbd-trust-this-app-with-my-life
 briefs:
+  - activity-place-context
   - activity-session-substrate
   - activity-areas
   - auto-schedule
@@ -37,7 +38,7 @@ briefs:
   - todo-list-grouping-config
   - todo-organization-triage
 status: shipped
-last_reviewed: 2026-07-10
+last_reviewed: 2026-07-20
 ---
 
 # activities

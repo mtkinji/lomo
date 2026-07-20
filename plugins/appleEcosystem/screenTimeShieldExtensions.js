@@ -64,6 +64,7 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
   private func configuration(appName: String) -> ShieldConfiguration {
     let reason = KwiltShieldCopy.reason()
     return ShieldConfiguration(
+      backgroundBlurStyle: .systemMaterialDark,
       backgroundColor: backgroundColor,
       icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: "app.badge.clock")?.withTintColor(UIColor.white, renderingMode: .alwaysOriginal),
       title: ShieldConfiguration.Label(text: KwiltShieldCopy.title(for: reason), color: UIColor.white),
