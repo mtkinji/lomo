@@ -167,6 +167,7 @@ import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/bac
 import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
+import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1478,19 +1479,10 @@ export function GoalDetailScreen() {
       ),
     [completedGoalActivities, goal, goalActivities]
   );
-  const firstPlanActivityId = useMemo(() => {
-    const list = [...activeGoalActivities];
-    if (list.length === 0) return goalActivities[0]?.id ?? null;
-    list.sort((a, b) => {
-      const orderA = a.orderIndex ?? Number.MAX_SAFE_INTEGER;
-      const orderB = b.orderIndex ?? Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      const createdA = a.createdAt ?? '';
-      const createdB = b.createdAt ?? '';
-      return createdA.localeCompare(createdB);
-    });
-    return list[0]?.id ?? null;
-  }, [activeGoalActivities, goalActivities]);
+  const firstPlanActivityId = useMemo(
+    () => selectFirstGoalPlanActivityId(goalActivities),
+    [goalActivities],
+  );
 
   const handleToggleActivityComplete = useCallback(
     (activityId: string) => {
