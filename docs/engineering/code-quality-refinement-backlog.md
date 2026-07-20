@@ -72,8 +72,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: valid-date reuse plus the 14-day end-of-day fallback is a scheduling rule embedded in the largest screen.
   - Result: `goalTargetDatePickerDefaults.ts` now owns valid-date reuse and the 14-day local end-of-day fallback with focused tests.
 
-- [ ] Extract Goal first-plan-activity selection
+- [x] Extract Goal first-plan-activity selection
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: active-first selection, manual ordering, creation-time tie-breaking, and all-complete fallback are embedded in screen composition.
-  - Ideal test: pin empty, all-complete, manual-order, and creation-time tie cases.
-  - Risk: low
+  - Result: `goalFirstPlanActivity.ts` now owns active selection, manual ordering, creation-time tie-breaking, and completed-only fallback with focused tests.
+
+- [ ] Extract AI Goal proposal merge policy
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: generated title, description, target date, metrics, priority, and quality-state merging is a high-risk model-output contract embedded in UI orchestration.
+  - Ideal test: pin partial proposals, whitespace handling, field preservation, and ready/draft transitions.
+  - Risk: medium
