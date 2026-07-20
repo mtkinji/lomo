@@ -16,4 +16,15 @@ describe('ActivityDetail linked goal navigation', () => {
     expect(activityDetailRefresh).toContain("navigation.push('GoalDetail'");
     expect(activityDetailRefresh).not.toContain("screen: 'GoalsTab',");
   });
+
+  it('keeps unlinking the current goal available directly from the relation row', () => {
+    const activityDetailRefresh = readFileSync(
+      path.join(__dirname, 'ActivityDetailRefresh.tsx'),
+      'utf8',
+    );
+
+    expect(activityDetailRefresh).toContain('testID="e2e.activityDetail.goal.clear"');
+    expect(activityDetailRefresh).toContain('accessibilityLabel="Clear linked goal"');
+    expect(activityDetailRefresh).toContain('goalId: null');
+  });
 });

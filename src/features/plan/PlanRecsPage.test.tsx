@@ -124,4 +124,52 @@ describe('PlanRecsPage', () => {
     expect(onOpenAvailabilitySettings).toHaveBeenCalledTimes(1);
     expect(onSaveCreatedWithoutScheduling).toHaveBeenCalledWith('activity-1');
   });
+
+  it('keeps scheduled and unscheduled priorities in one user-decided shortlist', () => {
+    const onPickTimeForUnplaced = jest.fn();
+    const onDismissForToday = jest.fn();
+    const onCommit = jest.fn();
+    const { getAllByText, getByText, queryByText } = renderWithProviders(
+      <PlanRecsPage
+        {...defaultProps}
+        recommendations={[
+          {
+            activityId: 'scheduled-task',
+            title: 'Call the contractor',
+            proposal: {
+              startDate: '2026-07-08T16:00:00.000Z',
+              endDate: '2026-07-08T16:45:00.000Z',
+            },
+            priorityPosition: 1,
+          },
+        ]}
+        unplacedPriorities={[
+          {
+            activityId: 'long-task',
+            title: 'Install the media console',
+            reason: 'needs_larger_window',
+            durationMinutes: 150,
+            mode: 'personal',
+            priorityPosition: 0,
+          },
+        ]}
+        onPickTimeForUnplaced={onPickTimeForUnplaced}
+        onDismissForToday={onDismissForToday}
+        onCommit={onCommit}
+      />,
+    );
+
+    expect(queryByText('Priorities that didn’t fit')).toBeNull();
+    expect(getByText('Choose what to make room for on Wed, Jul 8.')).toBeTruthy();
+    expect(getByText('No obvious 2 hrs 30 min opening.')).toBeTruthy();
+    expect(getByText('Call the contractor')).toBeTruthy();
+
+    fireEvent.press(getByText('Pick a time'));
+    fireEvent.press(getAllByText('Not today')[0]);
+    fireEvent.press(getByText('Add to plan'));
+
+    expect(onPickTimeForUnplaced).toHaveBeenCalledWith('long-task');
+    expect(onDismissForToday).toHaveBeenCalledWith('long-task');
+    expect(onCommit).toHaveBeenCalledWith('scheduled-task');
+  });
 });

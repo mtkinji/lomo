@@ -1422,6 +1422,18 @@ export function ActivityDetailScreen() {
     setIsLocationSearchOpen(false);
   }, []);
 
+  const handleClearLocation = useCallback(() => {
+    if (!activity?.id) return;
+    const timestamp = new Date().toISOString();
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      location: null,
+      updatedAt: timestamp,
+    }));
+    clearLocationSelection();
+    setActiveSheet(null);
+  }, [activity?.id, clearLocationSelection, updateActivity]);
+
   const closeLocationSheet = useCallback(() => {
     setActiveSheet(null);
     setLocationQuery('');
@@ -4228,6 +4240,7 @@ export function ActivityDetailScreen() {
               hasDifficulty={hasDifficulty}
               handleClearReminder={handleClearReminder}
               handleClearDueDate={handleClearDueDate}
+              handleClearLocation={handleClearLocation}
               handleClearRepeatRule={handleClearRepeatRule}
               openEstimateSheet={openEstimateSheet}
               handleClearTimeEstimate={handleClearTimeEstimate}

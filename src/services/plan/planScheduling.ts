@@ -40,6 +40,7 @@ function resolveModeForActivity(activity: Activity, goals: Goal[], activityAreas
 export type DailyPlanProposal = ProposedEvent & {
   goalId?: string | null;
   arcId?: string | null;
+  priorityPosition?: number;
 };
 
 export type DailyPlanProposeResult = {
@@ -49,7 +50,68 @@ export type DailyPlanProposeResult = {
    * This enables an explicit warning surface rather than silently dropping them.
    */
   unplacedDueActivityIds: string[];
+  unplacedPriorityCandidates: PlanUnplacedPriorityCandidate[];
 };
+
+export type PlanUnplacedPriorityReason =
+  | 'no_write_calendar'
+  | 'no_matching_window'
+  | 'needs_larger_window'
+  | 'no_open_slot';
+
+export type PlanUnplacedPriorityCandidate = {
+  activityId: string;
+  reason: PlanUnplacedPriorityReason;
+  durationMinutes: number;
+  mode: PlanMode;
+  priorityPosition: number;
+};
+
+export type PlanCandidateEligibilityReason =
+  | 'closed'
+  | 'not_active'
+  | 'already_scheduled'
+  | 'dismissed';
+
+export type PlanCandidateEligibility = {
+  eligible: boolean;
+  reason: PlanCandidateEligibilityReason | null;
+  scheduleState: 'unscheduled' | 'scheduled' | 'stale';
+};
+
+export function getPlanCandidateEligibility(params: {
+  activity: Activity;
+  now: Date;
+  dismissedActivityIds?: string[] | Set<string>;
+}): PlanCandidateEligibility {
+  const { activity, now, dismissedActivityIds } = params;
+  const dismissed =
+    dismissedActivityIds instanceof Set
+      ? dismissedActivityIds
+      : new Set(Array.isArray(dismissedActivityIds) ? dismissedActivityIds : []);
+
+  if (activity.status === 'done' || activity.status === 'skipped' || activity.status === 'cancelled') {
+    return { eligible: false, reason: 'closed', scheduleState: 'unscheduled' };
+  }
+  if (getActivityPriorityState(activity) !== 'active') {
+    return { eligible: false, reason: 'not_active', scheduleState: 'unscheduled' };
+  }
+  if (dismissed.has(activity.id)) {
+    return { eligible: false, reason: 'dismissed', scheduleState: 'unscheduled' };
+  }
+
+  const scheduledStartMs = activity.scheduledAt ? Date.parse(activity.scheduledAt) : Number.NaN;
+  if (Number.isFinite(scheduledStartMs)) {
+    const durationMinutes = Math.max(10, activity.estimateMinutes ?? 30);
+    const scheduledEndMs = scheduledStartMs + durationMinutes * 60_000;
+    if (scheduledEndMs > now.getTime()) {
+      return { eligible: false, reason: 'already_scheduled', scheduleState: 'scheduled' };
+    }
+    return { eligible: true, reason: null, scheduleState: 'stale' };
+  }
+
+  return { eligible: true, reason: null, scheduleState: 'unscheduled' };
+}
 
 export function proposeDailyPlan(params: {
   activities: Activity[];
@@ -76,8 +138,6 @@ export function proposeDailyPlan(params: {
   } = params;
 
   const dayAvailability = getAvailabilityForDate(userProfile, targetDate);
-  if (!dayAvailability.enabled) return { proposals: [], unplacedDueActivityIds: [] };
-
   const now = new Date();
   const isToday =
     targetDate.getFullYear() === now.getFullYear() &&
@@ -90,25 +150,27 @@ export function proposeDailyPlan(params: {
       ? dismissedActivityIds
       : new Set(Array.isArray(dismissedActivityIds) ? dismissedActivityIds : []);
 
+  const proposals: DailyPlanProposal[] = [];
+  const unplacedPriorityCandidates: PlanUnplacedPriorityCandidate[] = [];
+  const busy = normalizeBusy(busyIntervals);
+  const startCursor = clampToNextQuarterHour(now);
+
+  function canConsiderActivity(activity: Activity): boolean {
+    return getPlanCandidateEligibility({
+      activity,
+      now,
+      dismissedActivityIds: dismissed,
+    }).eligible;
+  }
+
   const ranked = sortActivitiesByPriorityRanking({
     activities,
     goals,
     // For non-today days, anchor ranking to the target day (so "what's next" can vary by day).
     // Using midday avoids edge cases around midnight/timezone boundaries.
     now: isToday ? now : new Date(new Date(targetDate).setHours(12, 0, 0, 0)),
-  }).slice(0, Math.max(10, maxItems * 3));
-
-  const proposals: DailyPlanProposal[] = [];
-  const busy = normalizeBusy(busyIntervals);
-  const startCursor = clampToNextQuarterHour(now);
-
-  function canConsiderActivity(activity: Activity): boolean {
-    if (activity.status === 'done' || activity.status === 'cancelled') return false;
-    if (getActivityPriorityState(activity) !== 'active') return false;
-    if (activity.scheduledAt) return false;
-    if (dismissed.has(activity.id)) return false;
-    return true;
-  }
+  })
+    .filter(canConsiderActivity);
 
   function isDueOnTargetDay(activity: Activity): boolean {
     const raw = activity.scheduledDate ?? null;
@@ -118,14 +180,34 @@ export function proposeDailyPlan(params: {
     return toLocalDateKey(d) === targetKey;
   }
 
-  function tryPlace(activity: Activity): boolean {
-    if (!writeCalendarId) return false;
-
+  function tryPlace(
+    activity: Activity,
+    priorityPosition: number,
+  ): { placed: boolean; unplaced?: PlanUnplacedPriorityCandidate } {
     const mode = resolveModeForActivity(activity, goals, activityAreas);
-    const windows = getWindowsForMode(dayAvailability, mode);
-    if (windows.length === 0) return false;
-
     const durationMinutes = Math.max(10, activity.estimateMinutes ?? 30);
+    const unplaced = (reason: PlanUnplacedPriorityReason): PlanUnplacedPriorityCandidate => ({
+      activityId: activity.id,
+      reason,
+      durationMinutes,
+      mode,
+      priorityPosition,
+    });
+    if (!writeCalendarId) return { placed: false, unplaced: unplaced('no_write_calendar') };
+
+    const windows = getWindowsForMode(dayAvailability, mode);
+    if (windows.length === 0) return { placed: false, unplaced: unplaced('no_matching_window') };
+
+    const hasLargeEnoughWindow = windows.some((window) => {
+      const windowStart = setTimeOnDate(targetDate, window.start);
+      const windowEnd = setTimeOnDate(targetDate, window.end);
+      if (!windowStart || !windowEnd) return false;
+      const usableStart = isToday && windowStart < startCursor ? startCursor : windowStart;
+      return usableStart.getTime() + durationMinutes * 60_000 <= windowEnd.getTime();
+    });
+    if (!hasLargeEnoughWindow) {
+      return { placed: false, unplaced: unplaced('needs_larger_window') };
+    }
 
     for (const window of windows) {
       const windowStart = setTimeOnDate(targetDate, window.start);
@@ -151,35 +233,28 @@ export function proposeDailyPlan(params: {
             calendarId: writeCalendarId,
             domain: mode,
             goalId: activity.goalId ?? null,
+            priorityPosition,
           });
           busy.push(candidate);
-          return true;
+          return { placed: true };
         }
         cursor = new Date(cursor.getTime() + 15 * 60 * 1000);
       }
     }
-    return false;
+    return { placed: false, unplaced: unplaced('no_open_slot') };
   }
 
-  // 1) Force-schedule due-on-target-day activities first (unless dismissed).
-  const dueCandidates = ranked.filter((a) => canConsiderActivity(a) && isDueOnTargetDay(a));
   const unplacedDueActivityIds: string[] = [];
-  for (const activity of dueCandidates) {
-    if (proposals.length >= maxItems) break;
-    const placed = tryPlace(activity);
-    if (!placed) unplacedDueActivityIds.push(activity.id);
+  const priorityCandidates = ranked.slice(0, maxItems);
+  for (const [priorityPosition, activity] of priorityCandidates.entries()) {
+    const attempt = tryPlace(activity, priorityPosition);
+    if (!attempt.placed) {
+      if (isDueOnTargetDay(activity)) unplacedDueActivityIds.push(activity.id);
+      if (attempt.unplaced) unplacedPriorityCandidates.push(attempt.unplaced);
+    }
   }
 
-  // 2) Fill remaining slots with the normal ranked list.
-  for (const activity of ranked) {
-    if (proposals.length >= maxItems) break;
-    if (!canConsiderActivity(activity)) continue;
-    // Skip if it was already attempted as a due candidate.
-    if (isDueOnTargetDay(activity)) continue;
-    void tryPlace(activity);
-  }
-
-  return { proposals, unplacedDueActivityIds };
+  return { proposals, unplacedDueActivityIds, unplacedPriorityCandidates };
 }
 
 export function formatProposalTimeLabel(proposal: DailyPlanProposal): string {

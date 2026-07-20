@@ -52,6 +52,123 @@ function profile(): UserProfile {
 }
 
 describe('planScheduling', () => {
+  it('recovers an unfinished activity after its scheduled block has passed', () => {
+    const result = proposeDailyPlan({
+      activities: [
+        activity({
+          id: 'stale-schedule',
+          title: 'Still needs doing',
+          scheduledAt: '2026-06-21T09:00:00.000Z',
+          priority: 1,
+        }),
+      ],
+      goals: [goal()],
+      arcs: [],
+      userProfile: profile(),
+      targetDate: TARGET_DATE,
+      busyIntervals: [],
+      writeCalendarId: 'calendar-1',
+      maxItems: 1,
+    });
+
+    expect(result.proposals.map((proposal) => proposal.activityId)).toEqual(['stale-schedule']);
+  });
+
+  it('filters ineligible high-ranked activities before limiting the candidate pool', () => {
+    const alreadyScheduled = Array.from({ length: 12 }, (_, index) =>
+      activity({
+        id: `scheduled-${index}`,
+        title: `Already scheduled ${index}`,
+        priority: 1,
+        scheduledAt: '2099-06-22T09:00:00.000Z',
+      }),
+    );
+    const result = proposeDailyPlan({
+      activities: [
+        ...alreadyScheduled,
+        activity({ id: 'eligible-next', title: 'Eligible next', priority: 2 }),
+      ],
+      goals: [goal()],
+      arcs: [],
+      userProfile: profile(),
+      targetDate: TARGET_DATE,
+      busyIntervals: [],
+      writeCalendarId: 'calendar-1',
+      maxItems: 1,
+    });
+
+    expect(result.proposals.map((proposal) => proposal.activityId)).toEqual(['eligible-next']);
+  });
+
+  it('keeps the highest-ranked activity visible even when it cannot fit', () => {
+    const tooLong = Array.from({ length: 12 }, (_, index) =>
+      activity({
+        id: `too-long-${index}`,
+        title: `Too long ${index}`,
+        priority: 1,
+        estimateMinutes: 600,
+      }),
+    );
+    const result = proposeDailyPlan({
+      activities: [
+        ...tooLong,
+        activity({ id: 'short-enough', title: 'Short enough', priority: 2, estimateMinutes: 30 }),
+      ],
+      goals: [goal()],
+      arcs: [],
+      userProfile: profile(),
+      targetDate: TARGET_DATE,
+      busyIntervals: [],
+      writeCalendarId: 'calendar-1',
+      maxItems: 1,
+    });
+
+    expect(result.proposals).toEqual([]);
+    expect(result.unplacedPriorityCandidates[0]).toEqual({
+      activityId: 'too-long-0',
+      reason: 'needs_larger_window',
+      durationMinutes: 600,
+      mode: 'personal',
+      priorityPosition: 0,
+    });
+    expect(result.unplacedPriorityCandidates.map((candidate) => candidate.activityId)).toEqual(['too-long-0']);
+  });
+
+  it('preserves priority positions across timed and needs-time candidates', () => {
+    const result = proposeDailyPlan({
+      activities: [
+        activity({ id: 'important-long', priority: 1, estimateMinutes: 600 }),
+        activity({ id: 'next-short', priority: 2, estimateMinutes: 30 }),
+      ],
+      goals: [goal()],
+      arcs: [],
+      userProfile: profile(),
+      targetDate: TARGET_DATE,
+      busyIntervals: [],
+      writeCalendarId: 'calendar-1',
+      maxItems: 2,
+    });
+
+    expect(result.unplacedPriorityCandidates[0]?.priorityPosition).toBe(0);
+    expect(result.proposals[0]?.activityId).toBe('next-short');
+    expect(result.proposals[0]?.priorityPosition).toBe(1);
+  });
+
+  it('never proposes skipped activities', () => {
+    const result = proposeDailyPlan({
+      activities: [activity({ id: 'skipped', status: 'skipped', priority: 1 })],
+      goals: [goal()],
+      arcs: [],
+      userProfile: profile(),
+      targetDate: TARGET_DATE,
+      busyIntervals: [],
+      writeCalendarId: 'calendar-1',
+      maxItems: 1,
+    });
+
+    expect(result.proposals).toEqual([]);
+  });
+
   it('uses the shared priority state before proposing plan slots', () => {
     const result = proposeDailyPlan({
       activities: [

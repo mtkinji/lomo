@@ -113,7 +113,7 @@ The matching scope should follow the promise. Linked context and place-aware pri
 
 Places should activate at natural value moments:
 
-- Quick Add detects place-bearing language and creates the to-do first, then proposes place behavior if useful.
+- Quick Add detects place-bearing language and creates the to-do first, then uses a compact receipt to summarize safe enrichment or offer one-tap Place choices; full confirmation opens only after engagement.
 - Activity Detail lets the user inspect, edit, or remove the place assignment and any optional trigger behavior.
 - Recommended uses place evidence only when it improves the next doable action.
 - Location Offers ask for permission only after a user accepts a geofence trigger behavior; assignment alone never requires permission.

@@ -26,6 +26,11 @@ export const AnalyticsEvent = {
   ActivityCompletionToggled: 'activity_completion_toggled',
   ActivityActionInvoked: 'activity_action_invoked',
 
+  PlanRecommendationShown: 'plan_recommendation_shown',
+  PlanRecommendationUnplaced: 'plan_recommendation_unplaced',
+  PlanRecommendationCommitted: 'plan_recommendation_committed',
+  PlanRecommendationDismissed: 'plan_recommendation_dismissed',
+
   // Navigation performance. Safe metadata only: route names, timings, counts,
   // and frame-gap summaries. No user-authored object titles or notes.
   NavigationTabSwitchPerf: 'navigation_tab_switch_perf',

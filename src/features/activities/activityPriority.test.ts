@@ -104,6 +104,21 @@ describe('activity priority model', () => {
     ]);
   });
 
+  it('distinguishes overdue work from work due today', () => {
+    const ranked = rankActivitiesBySmartOrder({
+      activities: [
+        activity({ id: 'overdue', scheduledDate: '2026-06-21' }),
+        activity({ id: 'due-today', scheduledDate: '2026-06-22' }),
+      ],
+      goals: [],
+      now: NOW,
+    });
+
+    expect(ranked.find((row) => row.activity.id === 'overdue')?.reasonCodes).toContain('overdue');
+    expect(ranked.find((row) => row.activity.id === 'overdue')?.reasonCodes).not.toContain('due_today');
+    expect(ranked.find((row) => row.activity.id === 'due-today')?.reasonCodes).toContain('due_today');
+  });
+
   it('keeps urgent due work ahead of vague contextual cues', () => {
     const ranked = rankActivitiesBySmartOrder({
       activities: [

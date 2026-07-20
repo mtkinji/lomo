@@ -152,12 +152,18 @@ describe('useAppStore object lifecycles', () => {
   });
 
   it('infers priority metadata when adding an activity without priority metadata', () => {
+    const now = new Date();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
     useAppStore.getState().addActivity(
       activity({
         id: 'act-inferred',
         goalId: null,
         title: 'Call the school today',
-        scheduledDate: '2026-01-01',
+        scheduledDate: today,
       }),
     );
 
