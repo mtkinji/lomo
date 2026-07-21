@@ -1,5 +1,13 @@
 # Kwilt Brand Family Architecture
 
+> **Superseded for public product hierarchy (2026-07-21).** The accepted
+> `docs/architecture/unified-kwilt-capability-platform.md` direction is one public app named
+> **Kwilt**, with Money, Games, Goals, and other domains represented as capabilities rather
+> than separate public apps or a `Kwilt Goals` parent layer. The visual-role, token, and
+> capability-distinction guidance below remains useful only where it does not conflict with
+> that decision. Separate-app naming, App Store, app-icon, and launch-lockup recommendations
+> are historical and must not drive new implementation.
+
 Kwilt is becoming a family of apps, not one green app. The parent brand should give every product a shared sense of trust, warmth, and calm intelligence, while each app gets enough visual independence to be recognizable on a home screen, in App Store listings, and inside cross-app workflows.
 
 North-star phrase:
