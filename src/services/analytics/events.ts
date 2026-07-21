@@ -35,6 +35,16 @@ export const AnalyticsEvent = {
   // and frame-gap summaries. No user-authored object titles or notes.
   NavigationTabSwitchPerf: 'navigation_tab_switch_perf',
 
+  // Unified Kwilt capability host. Safe metadata only: capability/group IDs,
+  // source surface, object type, and durations. Never object titles or chat content.
+  CapabilityMenuOpened: 'capability_menu_opened',
+  CapabilitySelected: 'capability_selected',
+  CapabilityActivated: 'capability_activated',
+  CapabilityDeactivated: 'capability_deactivated',
+  CapabilityActivationFailed: 'capability_activation_failed',
+  AgentOpenedFromCapability: 'agent_opened_from_capability',
+  AgentReturnedToCapability: 'agent_returned_to_capability',
+
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.
   PhoneAgentLinkCodeRequested: 'phone_agent_link_code_requested',
