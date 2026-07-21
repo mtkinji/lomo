@@ -11,7 +11,7 @@ import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { CapabilityLifecycleCoordinator } from '../capabilities/lifecycle';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
-import { useCapabilityMenuState } from './CapabilityMenuStateContext';
+import { useCapabilityMenuActions } from './CapabilityMenuStateContext';
 
 type NavigationStateLike = {
   index?: number;
@@ -49,7 +49,6 @@ export function deriveActiveCapabilityId(
 }
 
 type CapabilityShellContextValue = {
-  menuOpen: boolean;
   activeCapabilityId: CapabilityId | null;
   openMenu: () => void;
   coverMenu: () => void;
@@ -60,7 +59,7 @@ const CapabilityShellContext = createContext<CapabilityShellContextValue | null>
 
 export function CapabilityShellProvider({ children }: { children: ReactNode }) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const { menuOpen, openMenu, coverMenu } = useCapabilityMenuState();
+  const { openMenu, coverMenu } = useCapabilityMenuActions();
   const { capture } = useAnalytics();
   const lifecycleRef = useRef<CapabilityLifecycleCoordinator | null>(null);
   if (!lifecycleRef.current) {
@@ -105,8 +104,8 @@ export function CapabilityShellProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<CapabilityShellContextValue>(
-    () => ({ menuOpen, activeCapabilityId, openMenu, coverMenu, navigateToCapability }),
-    [activeCapabilityId, coverMenu, menuOpen, navigateToCapability, openMenu],
+    () => ({ activeCapabilityId, openMenu, coverMenu, navigateToCapability }),
+    [activeCapabilityId, coverMenu, navigateToCapability, openMenu],
   );
 
   return <CapabilityShellContext.Provider value={value}>{children}</CapabilityShellContext.Provider>;

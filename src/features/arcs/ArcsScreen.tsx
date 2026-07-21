@@ -157,7 +157,6 @@ export function ArcsScreen() {
       <PageHeader
         title="Arcs"
         onPressMenu={capabilityShell?.openMenu}
-        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}

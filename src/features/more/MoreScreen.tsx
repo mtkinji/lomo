@@ -71,7 +71,6 @@ export function MoreScreen() {
       <PageHeader
         title="More"
         onPressMenu={capabilityShell?.openMenu}
-        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => navigation.navigate('Settings' as any, { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}

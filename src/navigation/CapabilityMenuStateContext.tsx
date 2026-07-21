@@ -13,7 +13,10 @@ type CapabilityMenuState = {
   coverMenu: () => void;
 };
 
-const CapabilityMenuStateContext = createContext<CapabilityMenuState | null>(null);
+type CapabilityMenuActions = Pick<CapabilityMenuState, 'openMenu' | 'coverMenu'>;
+
+const CapabilityMenuActionsContext = createContext<CapabilityMenuActions | null>(null);
+const CapabilityMenuOpenContext = createContext<boolean | null>(null);
 
 export function CapabilityMenuStateProvider({
   children,
@@ -36,22 +39,35 @@ export function CapabilityMenuStateProvider({
     setMenuOpen(false);
   }, []);
 
-  const value = useMemo(
-    () => ({ menuOpen, openMenu, coverMenu }),
-    [coverMenu, menuOpen, openMenu],
-  );
+  const actions = useMemo(() => ({ openMenu, coverMenu }), [coverMenu, openMenu]);
 
   return (
-    <CapabilityMenuStateContext.Provider value={value}>
-      {children}
-    </CapabilityMenuStateContext.Provider>
+    <CapabilityMenuActionsContext.Provider value={actions}>
+      <CapabilityMenuOpenContext.Provider value={menuOpen}>
+        {children}
+      </CapabilityMenuOpenContext.Provider>
+    </CapabilityMenuActionsContext.Provider>
   );
 }
 
-export function useCapabilityMenuState(): CapabilityMenuState {
-  const value = useContext(CapabilityMenuStateContext);
+export function useCapabilityMenuActions(): CapabilityMenuActions {
+  const value = useContext(CapabilityMenuActionsContext);
   if (!value) {
-    throw new Error('useCapabilityMenuState must be used within CapabilityMenuStateProvider');
+    throw new Error('useCapabilityMenuActions must be used within CapabilityMenuStateProvider');
   }
   return value;
+}
+
+export function useCapabilityMenuOpen(): boolean {
+  const value = useContext(CapabilityMenuOpenContext);
+  if (value === null) {
+    throw new Error('useCapabilityMenuOpen must be used within CapabilityMenuStateProvider');
+  }
+  return value;
+}
+
+export function useCapabilityMenuState(): CapabilityMenuState {
+  const menuOpen = useCapabilityMenuOpen();
+  const actions = useCapabilityMenuActions();
+  return useMemo(() => ({ menuOpen, ...actions }), [actions, menuOpen]);
 }

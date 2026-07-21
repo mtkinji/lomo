@@ -101,7 +101,7 @@ import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
-import { CapabilityMenuStateProvider, useCapabilityMenuState } from './CapabilityMenuStateContext';
+import { CapabilityMenuStateProvider, useCapabilityMenuActions } from './CapabilityMenuStateContext';
 import { CapabilitySideSheet } from './CapabilitySideSheet';
 
 export type RootDrawerParamList = {
@@ -929,7 +929,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const { capture } = useAnalytics();
-  const { coverMenu } = useCapabilityMenuState();
+  const { coverMenu } = useCapabilityMenuActions();
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const activeCapabilityId = deriveActiveCapabilityId(navigationState);
   const capabilityContext = deriveCapabilityAgentContext(

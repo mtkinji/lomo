@@ -33,6 +33,8 @@
 
 - Keep React Navigation as the single router and route registry. Present Option G through
   one owned `CapabilitySideSheet` and one ephemeral open/close state shared by nested headers.
+- Capability surfaces consume stable menu commands; only the side-sheet presentation
+  subscribes to open/close visibility so populated inventories do not rerender for shell motion.
 - Derive menu rows and capability routing from the registry.
 - Reuse `useAppStore.openGlobalSearch()` for Search.
 - Reuse `Settings > SettingsHome` for the avatar.

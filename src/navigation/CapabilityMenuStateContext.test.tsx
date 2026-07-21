@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
 import {
   CapabilityMenuStateProvider,
+  useCapabilityMenuActions,
   useCapabilityMenuState,
 } from './CapabilityMenuStateContext';
 
@@ -12,6 +13,17 @@ function Harness() {
       <Text testID="state">{menuOpen ? 'open' : 'closed'}</Text>
       <Pressable testID="open" onPress={openMenu} />
       <Pressable testID="close" onPress={coverMenu} />
+    </>
+  );
+}
+
+function ActionOnlyHarness({ onRender }: { onRender: () => void }) {
+  onRender();
+  const { openMenu, coverMenu } = useCapabilityMenuActions();
+  return (
+    <>
+      <Pressable testID="action-open" onPress={openMenu} />
+      <Pressable testID="action-close" onPress={coverMenu} />
     </>
   );
 }
@@ -35,5 +47,19 @@ describe('CapabilityMenuStateProvider', () => {
 
     fireEvent.press(view.getByTestId('close'));
     expect(view.getByTestId('state').props.children).toBe('closed');
+  });
+
+  it('does not rerender action-only capability consumers when visibility changes', () => {
+    const onRender = jest.fn();
+    const view = render(
+      <CapabilityMenuStateProvider>
+        <ActionOnlyHarness onRender={onRender} />
+      </CapabilityMenuStateProvider>,
+    );
+
+    expect(onRender).toHaveBeenCalledTimes(1);
+    fireEvent.press(view.getByTestId('action-open'));
+    fireEvent.press(view.getByTestId('action-close'));
+    expect(onRender).toHaveBeenCalledTimes(1);
   });
 });

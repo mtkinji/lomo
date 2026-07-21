@@ -83,7 +83,6 @@ export function PlanScreen() {
       <PageHeader
         title="Plan"
         onPressMenu={capabilityShell?.openMenu}
-        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}

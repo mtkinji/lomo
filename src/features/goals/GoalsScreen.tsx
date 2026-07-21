@@ -427,7 +427,6 @@ export function GoalsScreen() {
       <PageHeader
         title="Goals"
         onPressMenu={capabilityShell?.openMenu}
-        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
