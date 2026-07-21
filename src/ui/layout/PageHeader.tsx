@@ -40,7 +40,8 @@ type PageHeaderProps = {
   onPressBack?: () => void;
   /**
    * Optional avatar handler; when provided, the avatar (or StreakCapsule) appears
-   * on the right side. Intended for top-level canvases where the avatar opens Settings.
+   * on the right side. Capability inventories suppress this avatar because the
+   * launcher menu owns the global profile/settings entry.
    */
   onPressAvatar?: () => void;
   /**
@@ -77,8 +78,7 @@ type PageHeaderProps = {
    */
   children?: ReactNode;
   /**
-   * When provided, the avatar slot upgrades to a StreakCapsule showing
-   * the user's current streak count alongside their avatar.
+   * When provided, shows a StreakCapsule independently of the launcher-owned avatar.
    */
   streakCount?: number;
   /**
@@ -136,8 +136,8 @@ export function PageHeader({
 
   const hasBack = !!onPressBack;
   const hasMenu = !!onPressMenu;
-  const hasAvatar = !!onPressAvatar;
-  const hasStreakCapsule = hasAvatar && typeof streakCount === 'number';
+  const hasAvatar = !!onPressAvatar && !hasMenu;
+  const hasStreakCapsule = typeof streakCount === 'number';
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -269,6 +269,7 @@ const styles = StyleSheet.create({
   },
   headerIconButtonGhost: {
     backgroundColor: 'transparent',
+    marginLeft: -spacing.sm,
   },
   headerAvatarButton: {
     alignItems: 'center',
