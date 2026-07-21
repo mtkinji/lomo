@@ -165,3 +165,36 @@ blocked:
 
 Task 2 of the Phase 1 implementation plan must not begin until Andrew reviews this partial
 baseline and explicitly authorizes continuing despite or after resolving those blocks.
+
+## Phase 1 implementation evidence
+
+**Recorded:** 2026-07-21
+
+Andrew authorized Phase 1 with the recorded rollback tag and retained TestFlight build as
+the recovery boundary. The following evidence is development evidence only and does not
+replace the blocked production-widgets archive or physical-iPhone acceptance fields above.
+
+| Evidence | Result |
+|---|---|
+| Fresh iOS development build | PASS — Xcode 26.6 built and installed Kwilt on the iPhone 17 Pro / iOS 26.4 simulator with zero build errors (four existing native warnings). |
+| Real signed-in To-dos surface | PASS — restored Supabase session and domain data rendered under the Option G shell; the former bottom navigation was absent. |
+| Option G interaction | PASS — menu open, group collapse/expand, selected capability, Plan navigation, and foreground cover behavior were exercised on the real app surface. |
+| Reduce Motion development proof | PASS — simulator preference returned `1`, Reanimated reported reduced motion enabled, and the patched drawer used `ReduceMotion.System`. |
+| First-class Chat return | PASS — Plan → Chat → Return restored Plan; pure tests cover To-do, Goal, and Chapter detail envelopes plus deleted-object fallback. |
+| Automated verification | PASS — full Jest run: 150 suites / 1,118 tests; application and test typechecks passed. |
+| Physical iPhone visual review | **BLOCKED** — the required device evidence remains unavailable and has not been replaced by simulator proof. |
+
+### Zero-work-before-entry checkpoint
+
+Phase 1 registers only the five current Kwilt capabilities: Goals, To-dos, Plan, Arcs, and
+Chapters. There are no Money or Games capability definitions, imports, native dependencies,
+startup services, network clients, subscriptions, or lifecycle hooks in this branch.
+Therefore the truthful Phase 1 result is **zero Money work and zero Games work because
+neither capability is present yet**. This is the comparison point for the later vertical
+slice imports; each imported capability must remain inert until activation.
+
+The current-source startup-owner inventory above remains accurate. Phase 1 adds only host
+navigation restoration, safe capability lifecycle events, and once-only monotonic timing
+from app start to root readiness and first usable To-dos. It does not reclassify the
+existing global services or claim that their physical-device request, subscription, memory,
+or timing behavior has been measured.

@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import {
   CommonActions,
   DrawerActions,
@@ -10,6 +10,9 @@ import {
 import { useDrawerStatus } from '@react-navigation/drawer';
 import type { CapabilityId } from '../capabilities/types';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
+import { CapabilityLifecycleCoordinator } from '../capabilities/lifecycle';
+import { useAnalytics } from '../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../services/analytics/events';
 
 type NavigationStateLike = {
   index?: number;
@@ -58,12 +61,40 @@ const CapabilityShellContext = createContext<CapabilityShellContextValue | null>
 
 export function CapabilityShellProvider({ children }: { children: ReactNode }) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const { capture } = useAnalytics();
+  const lifecycleRef = useRef<CapabilityLifecycleCoordinator | null>(null);
+  if (!lifecycleRef.current) {
+    lifecycleRef.current = new CapabilityLifecycleCoordinator({
+      report: (event) => {
+        const analyticsEvent = event.type === 'activated'
+          ? AnalyticsEvent.CapabilityActivated
+          : event.type === 'deactivated'
+            ? AnalyticsEvent.CapabilityDeactivated
+            : AnalyticsEvent.CapabilityActivationFailed;
+        capture(analyticsEvent, {
+          capability_id: event.capabilityId,
+          duration_ms: event.durationMs,
+          ...('errorName' in event ? { error_name: event.errorName } : null),
+        });
+      },
+    });
+  }
   const menuOpen = useDrawerStatus() === 'open';
   const navigationState = useNavigationState((state) => state as NavigationStateLike);
   const activeCapabilityId = useMemo(
     () => deriveActiveCapabilityId(navigationState),
     [navigationState],
   );
+
+  useEffect(() => {
+    const lifecycle = lifecycleRef.current;
+    if (!lifecycle) return;
+    if (activeCapabilityId) void lifecycle.activate(activeCapabilityId);
+    else void lifecycle.deactivate();
+    return () => {
+      void lifecycle.deactivate();
+    };
+  }, [activeCapabilityId]);
 
   const openMenu = useCallback(() => {
     navigation.dispatch(DrawerActions.openDrawer());

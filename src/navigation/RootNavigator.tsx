@@ -104,6 +104,7 @@ import { deriveCapabilityAgentContext } from '../features/ai/capabilityAgentCont
 import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
+import { markRootNavigationReady } from '../services/performance/startupTelemetry';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -540,6 +541,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       initialState={initialState}
       linking={linking}
       onReady={() => {
+        markRootNavigationReady(Boolean(initialState));
         const currentRoute = rootNavigationRef.getCurrentRoute();
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;

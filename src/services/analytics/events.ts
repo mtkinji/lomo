@@ -44,6 +44,7 @@ export const AnalyticsEvent = {
   CapabilityActivationFailed: 'capability_activation_failed',
   AgentOpenedFromCapability: 'agent_opened_from_capability',
   AgentReturnedToCapability: 'agent_returned_to_capability',
+  UnifiedShellFirstSurfaceUsable: 'unified_shell_first_surface_usable',
 
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.

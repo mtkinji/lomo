@@ -38,6 +38,7 @@ import { DraggableList } from '../../ui/DraggableList';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
+import { markFirstSurfaceUsable, wasNavigationRestoredForStartup } from '../../services/performance/startupTelemetry';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
 import type { ActivitiesStackParamList, MainTabsParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
@@ -304,6 +305,24 @@ export function ActivitiesScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const domainHydrated = useAppStore((state) => state.domainHydrated);
+
+  React.useEffect(() => {
+    if (!domainHydrated) return;
+    const measurement = markFirstSurfaceUsable({
+      capabilityId: 'todos',
+      restored: wasNavigationRestoredForStartup(),
+      shellVariant: 'option-g',
+    });
+    if (measurement) {
+      capture(AnalyticsEvent.UnifiedShellFirstSurfaceUsable, {
+        capability_id: measurement.capabilityId,
+        restored: measurement.restored,
+        shell_variant: measurement.shellVariant,
+        app_to_root_ready_ms: measurement.appToRootReadyMs,
+        app_to_first_surface_usable_ms: measurement.appToFirstSurfaceUsableMs,
+      });
+    }
+  }, [capture, domainHydrated]);
   const domainSyncStatus = useAppStore((state) => state.domainSyncStatus);
   const domainSyncError = useAppStore((state) => state.domainSyncError);
   const authIdentity = useAppStore((state) => state.authIdentity);
