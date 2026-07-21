@@ -12,6 +12,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import type { RootDrawerParamList, MoreStackParamList } from '../../navigation/RootNavigator';
+import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
 
 type MoreNavigation = NavigationProp<MoreStackParamList> & NavigationProp<RootDrawerParamList>;
 
@@ -49,6 +50,7 @@ function MoreRow({ title, subtitle, icon, onPress }: MoreRowProps) {
 }
 
 export function MoreScreen() {
+  const capabilityShell = useCapabilityShellOptional();
   const navigation = useNavigation<MoreNavigation>();
   const insets = useSafeAreaInsets();
   const isPro = useEntitlementsStore((state) => state.isPro);
@@ -68,6 +70,8 @@ export function MoreScreen() {
     <AppShell>
       <PageHeader
         title="More"
+        onPressMenu={capabilityShell?.openMenu}
+        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => navigation.navigate('Settings' as any, { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
@@ -181,4 +185,3 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
 });
-

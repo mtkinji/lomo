@@ -73,6 +73,7 @@ import { EditableField } from '../../ui/EditableField';
 import { LongTextField } from '../../ui/LongTextField';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { useCanUseProTools } from '../../store/proToolsAccess';
+import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
 import { blurs } from '../../theme/overlays';
 import {
   FREE_GENERATIVE_CREDITS_PER_MONTH,
@@ -136,6 +137,7 @@ const GOAL_FORCE_LABELS: Record<(typeof GOAL_FORCE_ORDER)[number], string> = {
 };
 
 export function GoalsScreen() {
+  const capabilityShell = useCapabilityShellOptional();
   const { capture } = useAnalytics();
   const navigation = useNavigation<NativeStackNavigationProp<GoalsStackParamList, 'GoalsList'>>();
   const route = useRoute<RouteProp<GoalsStackParamList, 'GoalsList'>>();
@@ -424,6 +426,8 @@ export function GoalsScreen() {
     <AppShell>
       <PageHeader
         title="Goals"
+        onPressMenu={capabilityShell?.openMenu}
+        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}

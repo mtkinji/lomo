@@ -33,6 +33,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { recordChapterOpenHint } from './chapterOpenSource';
 import { getChapterHistorySnippet } from './chapterSnippet';
+import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
 import {
   getChapterReadMap,
   getChapterReadMapSync,
@@ -69,6 +70,7 @@ function buildFirstChapterArrival(deliveryWeekday: WeeklyChapterDeliveryWeekday 
 }
 
 export function ChaptersScreen() {
+  const capabilityShell = useCapabilityShellOptional();
   const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList, 'MoreChapters'>>();
   const { capture } = useAnalytics();
   const listViewTrackedRef = React.useRef(false);
@@ -227,6 +229,8 @@ export function ChaptersScreen() {
     <AppShell>
       <PageHeader
         title="Chapters"
+        onPressMenu={capabilityShell?.openMenu}
+        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}

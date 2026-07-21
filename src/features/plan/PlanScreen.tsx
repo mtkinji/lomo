@@ -15,7 +15,9 @@ import { PlanDateStrip } from './PlanDateStrip';
 import { useAppStore } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { StreakWeeklyRecapCard } from './StreakWeeklyRecapCard';
+import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
 export function PlanScreen() {
+  const capabilityShell = useCapabilityShellOptional();
   const navigation = useNavigation();
   const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -80,6 +82,8 @@ export function PlanScreen() {
     <AppShell>
       <PageHeader
         title="Plan"
+        onPressMenu={capabilityShell?.openMenu}
+        menuOpen={capabilityShell?.menuOpen ?? false}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}
@@ -153,4 +157,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
 });
-
