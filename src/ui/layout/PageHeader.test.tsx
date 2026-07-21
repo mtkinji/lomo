@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react-native';
-import { PageHeader } from './PageHeader';
+import { getMenuToggleStroke, PageHeader } from './PageHeader';
+import { colors } from '../../theme';
 
 describe('PageHeader capability menu affordance', () => {
   it('keeps the control labeled as a menu when the drawer is open', () => {
@@ -17,5 +18,6 @@ describe('PageHeader capability menu affordance', () => {
       d: 'M4 16h12',
       strokeLinecap: 1,
     });
+    expect(getMenuToggleStroke(true)).toBe(colors.gray600);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   useWindowDimensions,
   View,
@@ -26,6 +26,7 @@ import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
   createDrawerNavigator,
+  useDrawerStatus,
 } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -589,9 +590,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       <Drawer.Navigator
         drawerContent={(props) => <KwiltDrawerContent {...props} />}
         screenLayout={({ children }) => (
-          <View testID="capability.foreground-sheet" style={styles.capabilityForegroundSheet}>
-            {children}
-          </View>
+          <CapabilityForegroundSheet>{children}</CapabilityForegroundSheet>
         )}
         screenListeners={({ navigation, route }) => ({
           drawerOpen: () => {
@@ -633,15 +632,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           },
           overlayColor: 'rgba(255,255,255,0.18)',
           sceneStyle: {
-            backgroundColor: colors.canvas,
-            borderTopLeftRadius: 28,
-            borderBottomLeftRadius: 28,
-            overflow: 'hidden',
-            shadowColor: colors.sumi900,
-            shadowOffset: { width: -6, height: 6 },
-            shadowOpacity: 0.1,
-            shadowRadius: 18,
-            elevation: 12,
+            backgroundColor: 'transparent',
           },
         }}
         initialRouteName="MainTabs"
@@ -994,12 +985,12 @@ function KwiltDrawerContent(props: any) {
         { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET, paddingBottom: spacing.sm + insets.bottom },
       ]}
     >
-      <View pointerEvents="none" style={styles.capabilityForegroundShadow}>
+      <View pointerEvents="none" style={styles.capabilityForegroundDropShadow}>
         <LinearGradient
           colors={['rgba(17,20,27,0)', 'rgba(17,20,27,0.03)', 'rgba(17,20,27,0.1)']}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
-          style={styles.capabilityForegroundShadowFill}
+          style={styles.capabilityForegroundDropShadowFill}
         />
       </View>
       <CapabilityMenu
@@ -1029,26 +1020,53 @@ function KwiltDrawerContent(props: any) {
   );
 }
 
+function CapabilityForegroundSheet({ children }: { children: ReactNode }) {
+  const revealed = useDrawerStatus() === 'open';
+
+  return (
+    <View
+      testID="capability.foreground-sheet"
+      style={[styles.capabilityForegroundScene, revealed && styles.capabilityForegroundSceneRevealed]}
+    >
+      <View
+        style={[
+          styles.capabilityForegroundSurface,
+          revealed && styles.capabilityForegroundSurfaceRevealed,
+        ]}
+      >
+        {children}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  capabilityForegroundSheet: {
+  capabilityForegroundScene: {
     flex: 1,
-    overflow: 'hidden',
+  },
+  capabilityForegroundSceneRevealed: {
     backgroundColor: colors.canvas,
     borderTopLeftRadius: 28,
     borderBottomLeftRadius: 28,
   },
-  capabilityForegroundShadow: {
+  capabilityForegroundSurface: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+  },
+  capabilityForegroundSurfaceRevealed: {
+    overflow: 'hidden',
+    borderTopLeftRadius: 28,
+    borderBottomLeftRadius: 28,
+  },
+  capabilityForegroundDropShadow: {
     position: 'absolute',
     zIndex: 1,
     top: 0,
     right: 0,
     bottom: 0,
     width: 28,
-    borderTopRightRadius: 28,
-    borderBottomRightRadius: 28,
-    overflow: 'hidden',
   },
-  capabilityForegroundShadowFill: {
+  capabilityForegroundDropShadowFill: {
     flex: 1,
   },
   navRestoreScreen: {

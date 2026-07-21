@@ -1,5 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
+import { colors } from '../theme';
 
 const handlers = {
   onSelectCapability: jest.fn(),
@@ -50,6 +52,19 @@ describe('CapabilityMenu', () => {
     expect(getByLabelText('To-dos').props.accessibilityState).toEqual({ selected: true });
     fireEvent.press(getByLabelText('Plan'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('plan');
+  });
+
+  it('uses neutral launcher chrome rather than Pine accents', () => {
+    const { getByLabelText } = render(
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
+    );
+
+    expect(StyleSheet.flatten(getByLabelText('To-dos').props.style)?.backgroundColor).toBe(
+      colors.gray100,
+    );
+    expect(StyleSheet.flatten(getByLabelText('Open chat').props.style)?.backgroundColor).toBe(
+      colors.sumi900,
+    );
   });
 
   it('reuses global search, settings, and Agent entry points', () => {

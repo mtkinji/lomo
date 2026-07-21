@@ -61,7 +61,7 @@ export function CapabilityMenu({
         <Icon
           name={capability.icon}
           size={18}
-          color={selected ? colors.pine700 : colors.textSecondary}
+          color={selected ? colors.gray700 : colors.textSecondary}
         />
         <Text style={[styles.capabilityLabel, selected && styles.capabilityLabelSelected]}>
           {capability.label}
@@ -140,7 +140,7 @@ export function CapabilityMenu({
           onPress={onOpenAgent}
           style={({ pressed }) => [styles.chatButton, pressed && styles.chatButtonPressed]}
         >
-          <Icon name="navAiGuide" size={17} color={colors.parchment} />
+          <Icon name="navAiGuide" size={17} color={colors.gray50} />
           <Text style={styles.chatButtonLabel}>Chat</Text>
         </Pressable>
       </View>
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   capabilityRowSelected: {
-    backgroundColor: colors.pine50,
+    backgroundColor: colors.gray100,
   },
   capabilityLabel: {
     ...typography.bodySm,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   capabilityLabelSelected: {
     fontFamily: fonts.medium,
-    color: colors.pine700,
+    color: colors.gray800,
   },
   rowPressed: {
     opacity: 0.62,
@@ -241,14 +241,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: 22,
-    backgroundColor: colors.pine700,
+    backgroundColor: colors.sumi900,
   },
   chatButtonPressed: {
-    backgroundColor: colors.pine800,
+    backgroundColor: colors.sumi800,
   },
   chatButtonLabel: {
     ...typography.bodySm,
     fontFamily: fonts.medium,
-    color: colors.parchment,
+    color: colors.gray50,
   },
 });

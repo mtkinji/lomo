@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
 });
 
 function MenuToggleIcon({ open }: { open: boolean }) {
-  const stroke = open ? colors.pine700 : colors.textPrimary;
+  const stroke = getMenuToggleStroke(open);
 
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -349,4 +349,8 @@ function MenuToggleIcon({ open }: { open: boolean }) {
       />
     </Svg>
   );
+}
+
+export function getMenuToggleStroke(open: boolean): string {
+  return open ? colors.gray600 : colors.textPrimary;
 }
