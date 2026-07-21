@@ -7,6 +7,7 @@ import { ObjectTypeIconBadge } from '../ObjectTypeIconBadge';
 import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objectTypeBadges';
 import { ProfileAvatar } from '../ProfileAvatar';
 import { StreakCapsule } from '../StreakCapsule';
+import Svg, { Path } from 'react-native-svg';
 
 type PageHeaderProps = {
   title: string;
@@ -323,35 +324,29 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   rightElement: {},
-  menuIconBox: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuLine: {
-    position: 'absolute',
-    width: 22,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.textPrimary,
-  },
-  menuLineTop: {
-    transform: [{ translateY: -4 }],
-  },
-  menuLineBottom: {
-    transform: [{ translateY: 4 }],
-  },
-  menuLineOpen: {
-    backgroundColor: colors.pine700,
-  },
 });
 
 function MenuToggleIcon({ open }: { open: boolean }) {
+  const stroke = open ? colors.pine700 : colors.textPrimary;
+
   return (
-    <View style={styles.menuIconBox}>
-      <View style={[styles.menuLine, styles.menuLineTop, open && styles.menuLineOpen]} />
-      <View style={[styles.menuLine, styles.menuLineBottom, open && styles.menuLineOpen]} />
-    </View>
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <Path
+        testID="nav.drawer.icon.line.top"
+        d="M4 8h16"
+        stroke={stroke}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        testID="nav.drawer.icon.line.bottom"
+        d="M4 16h12"
+        stroke={stroke}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }

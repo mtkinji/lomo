@@ -105,6 +105,7 @@ import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -587,6 +588,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     >
       <Drawer.Navigator
         drawerContent={(props) => <KwiltDrawerContent {...props} />}
+        screenLayout={({ children }) => (
+          <View testID="capability.foreground-sheet" style={styles.capabilityForegroundSheet}>
+            {children}
+          </View>
+        )}
         screenListeners={({ navigation, route }) => ({
           drawerOpen: () => {
             capture(AnalyticsEvent.CapabilityMenuOpened, {
@@ -628,13 +634,14 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           overlayColor: 'rgba(255,255,255,0.18)',
           sceneStyle: {
             backgroundColor: colors.canvas,
-            borderTopLeftRadius: 18,
-            borderBottomLeftRadius: 18,
+            borderTopLeftRadius: 28,
+            borderBottomLeftRadius: 28,
+            overflow: 'hidden',
             shadowColor: colors.sumi900,
-            shadowOffset: { width: -3, height: 0 },
-            shadowOpacity: 0.16,
-            shadowRadius: 8,
-            elevation: 8,
+            shadowOffset: { width: -6, height: 6 },
+            shadowOpacity: 0.1,
+            shadowRadius: 18,
+            elevation: 12,
           },
         }}
         initialRouteName="MainTabs"
@@ -987,6 +994,14 @@ function KwiltDrawerContent(props: any) {
         { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET, paddingBottom: spacing.sm + insets.bottom },
       ]}
     >
+      <View pointerEvents="none" style={styles.capabilityForegroundShadow}>
+        <LinearGradient
+          colors={['rgba(17,20,27,0)', 'rgba(17,20,27,0.03)', 'rgba(17,20,27,0.1)']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.capabilityForegroundShadowFill}
+        />
+      </View>
       <CapabilityMenu
         activeCapabilityId={activeCapabilityId}
         displayName={displayName}
@@ -1015,6 +1030,27 @@ function KwiltDrawerContent(props: any) {
 }
 
 const styles = StyleSheet.create({
+  capabilityForegroundSheet: {
+    flex: 1,
+    overflow: 'hidden',
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: 28,
+    borderBottomLeftRadius: 28,
+  },
+  capabilityForegroundShadow: {
+    position: 'absolute',
+    zIndex: 1,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 28,
+    borderTopRightRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
+  },
+  capabilityForegroundShadowFill: {
+    flex: 1,
+  },
   navRestoreScreen: {
     flex: 1,
     alignItems: 'center',
