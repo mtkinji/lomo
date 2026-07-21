@@ -34,7 +34,8 @@
 - Reuse `useAppStore.openGlobalSearch()` for Search.
 - Reuse `Settings > SettingsHome` for the avatar.
 - Reuse `PageHeader.moreMenu` for contextual actions/settings.
-- Use the new `option_g_capability_shell` PostHog flag and development override.
+- Ship Option G as the single shell in its TestFlight candidate; rollback is by retained
+  TestFlight build and immutable source tag, not a runtime shell flag.
 - Do not reuse `nav_drawer_menu`, create a second root navigator, or persist a second
   mutable active-capability value.
 

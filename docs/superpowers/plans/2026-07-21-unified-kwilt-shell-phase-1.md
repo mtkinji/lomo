@@ -19,6 +19,34 @@ The production-equivalent lane is `production-widgets`. Phase 0 documentation wo
 land independently; no capability registry, route adapter, shell flag, or UI implementation
 belongs in the Phase 0 branch.
 
+Andrew authorized Phase 1 on 2026-07-21 with clean rollback as a hard condition. Preserve
+the pre-unification runtime at `8c2fb015c44c30a10206ad23f180e1836138fcdc`, preserve the
+Phase 0 branch unchanged, and implement Phase 1 on
+`codex/unified-kwilt-shell-phase-1`. Do not merge Phase 1 into the current release branch or
+enable its production default before the physical-device gate passes.
+
+### Rollback gates
+
+- Option G becomes the single shell in the Phase 1 TestFlight candidate. Do not add a
+  production runtime shell flag or retain two live root-navigation implementations.
+- Keep the last accepted TestFlight build assigned to the internal test group and record its
+  90-day expiration date. Do not expire or remove it during the integration window.
+- Tag the pre-unification runtime and every accepted phase boundary. If an accepted
+  TestFlight build expires, create a higher build number from its tag so the exact prior code
+  state can be distributed again.
+- Games and Money land as separate tagged vertical slices and separate TestFlight builds;
+  rolling back one import must not require reconstructing an earlier source tree by hand.
+- Supabase changes are additive and backward-readable. No destructive column/table rename,
+  deletion, or one-way data rewrite is allowed in a capability-import phase.
+- Keep standalone Money and Games TestFlight lanes available until their unified parity
+  checklists pass on the same account data.
+- Create each TestFlight candidate from an immutable commit. Record that commit, source tag,
+  build ID, migrations, prior build expiration, and exact last-accepted rollback commit in
+  the acceptance evidence.
+- A failed performance, navigation, data, or physical-device gate returns testers to the
+  prior eligible TestFlight build or ships a replacement from the last accepted tag. It does
+  not trigger a partial manual code unwind.
+
 ## File map
 
 **Create**
@@ -51,8 +79,6 @@ belongs in the Phase 0 branch.
 - `src/features/ai/workflowRegistry.ts` — define the capability-context input shape used by Agent.
 - `src/services/analytics/events.ts` — add capability menu, activation, return, and startup events.
 - `src/services/analytics/analytics.ts` — type the new event properties.
-- `src/store/useAppStore.ts` — persist the reversible shell flag only if an existing feature-flag mechanism cannot own it.
-- `src/features/dev/DevToolsScreen.tsx` — add the Phase 1 Option G enable/disable control.
 - `App.tsx` — start/end startup telemetry without initializing capability services.
 
 ## Task 1: Record the pre-change production baseline
@@ -334,15 +360,13 @@ git add src/capabilities src/services/analytics
 git commit -m "feat: instrument capability lifecycle"
 ```
 
-## Task 5: Implement the Option G underlay menu behind a flag
+## Task 5: Implement the Option G underlay menu as the single shell
 
 **Files:**
 - Create: `src/navigation/CapabilityMenu.tsx`
 - Create: `src/navigation/CapabilityMenu.test.tsx`
 - Create: `src/navigation/CapabilityShellContext.tsx`
 - Modify: `src/navigation/RootNavigator.tsx`
-- Modify: `src/features/dev/DevToolsScreen.tsx`
-- Modify: `src/store/useAppStore.ts` only if needed for local persistence
 
 - [ ] **Step 1: Write interaction tests**
 
@@ -394,12 +418,11 @@ owner. Keep the foreground card white, fade its contents modestly, keep the hamb
 legible, and use the accepted short double shadow rather than a distant directional shadow.
 Respect Reduce Motion by replacing the translation animation with an immediate state change.
 
-- [ ] **Step 6: Gate the shell**
+- [ ] **Step 6: Make Option G the sole host shell**
 
-Add a developer-visible `Option G capability shell` switch backed by the new
-`option_g_capability_shell` PostHog flag plus a persisted development override. Do not
-reuse the existing `nav_drawer_menu` experiment. Default it off in production until
-Phase 1 acceptance. When off, current tabs and navigation remain unchanged.
+Replace the old global shell without keeping a runtime-selectable parallel implementation.
+Preserve the existing capability stacks, route names, deep links, and local workflows under
+the new shell. The rollback boundary is the prior tagged source/TestFlight build.
 
 - [ ] **Step 7: Run tests and capture visual proof**
 
@@ -416,8 +439,8 @@ Expected: tests pass and screenshots show the real To-dos surface rather than a 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/navigation src/features/dev/DevToolsScreen.tsx src/store/useAppStore.ts
-git commit -m "feat: add flagged Option G capability shell"
+git add src/navigation
+git commit -m "feat: make Option G the Kwilt capability shell"
 ```
 
 ## Task 6: Preserve navigation state and local workflows
@@ -628,9 +651,11 @@ Acceptance:
 - Existing deep links pass.
 - Option G passes physical-device visual review.
 
-- [ ] **Step 4: Decide the flag default**
+- [ ] **Step 4: Decide TestFlight promotion or rollback**
 
-If all acceptance criteria pass, enable Option G for the next internal/TestFlight cohort. If any criterion fails, leave the existing shell as default and create a focused repair plan from the failed evidence.
+If all acceptance criteria pass, promote the Option G build to the next internal/TestFlight
+cohort. If any criterion fails, return testers to the retained prior build or cut a
+replacement from the last accepted source tag, then create a focused repair plan.
 
 - [ ] **Step 5: Commit the acceptance record**
 
@@ -645,11 +670,11 @@ Do not begin the Games import until:
 
 - The registry is the sole source of capability navigation metadata.
 - Existing Goals, To-dos, Plan, Arcs, and Chapters workflows remain intact.
-- Option G works on a physical iPhone and can be disabled without a rebuild.
+- Option G works on a physical iPhone and the prior build can be reinstalled or rebuilt from
+  its recorded source tag.
 - Global settings and local ellipsis ownership follow the accepted contract.
 - Agent entry and exact return work from inventory and object detail.
 - App size, launch, memory, and startup-work evidence meet the recorded gates.
 - `npm run verify:changed -- --run` passes on the final Phase 1 diff.
 
 After this gate, create a separate `Games vertical slice import` plan. That plan must add native dependencies and capability code one bounded integration at a time and archive after each native addition.
-

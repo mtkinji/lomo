@@ -75,9 +75,9 @@ The shell must preserve a capability's local interaction contract and distinctiv
 
 The Phase 1 shell adapts the existing React Navigation drawer, global-search store action,
 shared `PageHeader`, and settings route. It must not introduce a second root router, a
-parallel underlay state owner, or a duplicate global-search/settings implementation. The
-reversible production flag is `option_g_capability_shell`; the older `nav_drawer_menu`
-experiment remains a separate compatibility experiment.
+parallel underlay state owner, a duplicate global-search/settings implementation, or a
+permanent second shell path. TestFlight and source-control build boundaries provide
+reversibility rather than runtime feature flags.
 
 ### Agent contract
 
@@ -287,7 +287,7 @@ Without importing Money or Games:
 
 - Introduce the capability registry and route adapters.
 - Register Goals, To-dos, Plan, Arcs, and Chapters.
-- Implement Option G behind a reversible runtime flag.
+- Implement Option G as the single host shell; do not retain a runtime-selectable legacy shell.
 - Preserve current stacks and deep links.
 - Establish global/avatar settings and contextual ellipsis ownership.
 - Add capability lifecycle telemetry.
@@ -348,6 +348,36 @@ Every mutation path must preserve source list, destination list, totals, detail,
 - Stop distributing standalone Money and Games builds after unified parity.
 - Release only Kwilt publicly.
 
+## Reversibility and TestFlight promotion contract
+
+Reversibility is a release requirement for every phase, not an emergency procedure added
+after integration. The pre-unification runtime is anchored at
+`8c2fb015c44c30a10206ad23f180e1836138fcdc` and the Phase 0 evidence remains isolated on
+`codex/unified-kwilt-shell-phase-0`. Unified implementation proceeds on a separate branch.
+
+Every phase must preserve three rollback layers:
+
+1. **TestFlight rollback.** Keep the last accepted build assigned to the internal tester
+   group and do not expire or remove it while it remains inside TestFlight's 90-day testing
+   window. Record its version, build number, build ID, source commit, and expiration date.
+   If that build has expired, cut a new higher build number from its immutable source tag.
+2. **Source rollback.** The pre-unification runtime and every accepted phase boundary remain
+   addressable by annotated tag and immutable commit. A rollback branch and replacement
+   build can be created from the last accepted boundary without reverting a chain of feature
+   commits. Standalone Money and Games source and TestFlight lanes remain available until
+   unified parity is accepted.
+3. **Data rollback.** Consolidation migrations are additive and backward-readable. No phase
+   may drop, rename in place, or destructively rewrite standalone Money or Games data. New
+   writes use dual-readable schemas or compatibility views until both the unified and prior
+   clients can read the affected records. Destructive cleanup requires a later, separately
+   approved retirement plan and verified backup/restore path.
+
+Promotion follows a one-way evidence ladder: local tests, current-source release archive,
+physical-device proof, internal TestFlight cohort, then broader TestFlight. A failed gate
+returns testers to the prior eligible build or ships a replacement from the last accepted
+source tag; it does not weaken the gate. Money and Games are imported as independently
+revertible vertical slices, never as one inseparable merge.
+
 ## Performance and release gates
 
 Initial gates are regression-based and are finalized from the Phase 0 baseline:
@@ -382,7 +412,7 @@ Initial gates are regression-based and are finalized from the Phase 0 baseline:
 | Global shell displaces useful local navigation | Preserve capability stacks and test real inventory/detail workflows |
 | Settings duplicate across capabilities | One domain registry with contextual deep links |
 | Shared identity hides data-ownership inconsistencies | RLS/schema/data inventory before enabling writes |
-| One release train increases blast radius | Capability flags, bounded vertical slices, reversible phase releases |
+| One release train increases blast radius | Immutable phase tags, retained TestFlight builds, bounded vertical slices |
 | Asset payload remains needlessly large | Asset ownership, font/icon pruning, compression, on-demand media |
 | Agent and capability navigation become separate worlds | Context envelope plus exact return route in every capability contract |
 
