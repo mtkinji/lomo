@@ -181,7 +181,7 @@ replace the blocked production-widgets archive or physical-iPhone acceptance fie
 | Option G interaction | PASS — menu open, group collapse/expand, selected capability, Plan navigation, and foreground cover behavior were exercised on the real app surface. |
 | Reduce Motion development proof | PASS — simulator preference returned `1`, Reanimated reported reduced motion enabled, and the patched drawer used `ReduceMotion.System`. |
 | First-class Chat return | PASS — Plan → Chat → Return restored Plan; pure tests cover To-do, Goal, and Chapter detail envelopes plus deleted-object fallback. |
-| Automated verification | PASS — full Jest run: 150 suites / 1,118 tests; application and test typechecks passed. |
+| Automated verification | PASS — final diff-aware verification ran 151 suites / 1,119 tests; application and test typechecks, code-health ratchet, generated agent map, and architecture lint passed. Product lint also passed with no errors. |
 | Physical iPhone visual review | **BLOCKED** — the required device evidence remains unavailable and has not been replaced by simulator proof. |
 
 ### Zero-work-before-entry checkpoint
@@ -198,3 +198,29 @@ navigation restoration, safe capability lifecycle events, and once-only monotoni
 from app start to root readiness and first usable To-dos. It does not reclassify the
 existing global services or claim that their physical-device request, subscription, memory,
 or timing behavior has been measured.
+
+## Phase 1 acceptance decision
+
+**Decision recorded:** 2026-07-21
+
+Phase 1 implementation is complete on `codex/unified-kwilt-shell-phase-1`, but Phase 1 is
+**not accepted for TestFlight promotion**. A final device inventory still reports
+`Andy’s iPhone 16` / iOS 26.5.2 as offline and unavailable. The current environment also
+still lacks the current-source signed `production-widgets` archive and matching App
+Thinning Size Report required for a like-for-like comparison with the retained baseline.
+
+The following acceptance fields therefore remain blocked and have not been inferred from
+the development build:
+
+- current-source compressed and installed App Thinning size;
+- physical-device cold and warm launch p50/p90 and usable-To-dos timing;
+- physical-device idle and peak memory;
+- production-equivalent startup requests and realtime subscriptions;
+- the complete physical-device navigation, deep-link, Agent-return, Reduce Motion, and
+  visual review matrices.
+
+No Phase 1 TestFlight build was promoted. The retained 1.0.89 (89) build and annotated
+`kwilt-pre-unified-capabilities-2026-07-21` source tag remain the rollback boundaries.
+When the iPhone is online, resume at the evidence ladder's release-archive and
+physical-device steps; promote only if every recorded regression gate passes. Games and
+Money import work remains out of scope until this Phase 1 acceptance gate is satisfied.
