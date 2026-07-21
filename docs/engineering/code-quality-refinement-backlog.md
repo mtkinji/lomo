@@ -77,8 +77,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: active-first selection, manual ordering, creation-time tie-breaking, and all-complete fallback are embedded in screen composition.
   - Result: `goalFirstPlanActivity.ts` now owns active selection, manual ordering, creation-time tie-breaking, and completed-only fallback with focused tests.
 
-- [ ] Extract AI Goal proposal merge policy
+- [x] Extract AI Goal proposal merge policy
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: generated title, description, target date, metrics, priority, and quality-state merging is a high-risk model-output contract embedded in UI orchestration.
-  - Ideal test: pin partial proposals, whitespace handling, field preservation, and ready/draft transitions.
+  - Result: `goalProposalMerge.ts` now owns partial proposal normalization, field preservation, explicit metric clearing, priority updates, and ready/draft transitions with focused tests.
+
+- [ ] Extract AI Goal refinement prompt builder
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: the focused-goal snapshot, metric summary, and refinement instructions form a prompt contract embedded in screen orchestration.
+  - Ideal test: pin focused Goal context, empty/populated metrics, target-date context, and required proposal instructions.
   - Risk: medium

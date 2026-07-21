@@ -163,6 +163,7 @@ import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
+import { mergeRefinedGoalProposal } from './goalProposalMerge';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1149,30 +1150,7 @@ export function GoalDetailScreen() {
     (proposal: GoalProposalDraft) => {
       if (!goal?.id) return;
       const now = new Date().toISOString();
-      const nextTitle = typeof proposal.title === 'string' ? proposal.title.trim() : '';
-      const nextDescription =
-        typeof proposal.description === 'string' && proposal.description.trim().length > 0
-          ? proposal.description.trim()
-          : undefined;
-      const nextTargetDate = typeof proposal.targetDate === 'string' ? proposal.targetDate : undefined;
-      const nextMetrics = Array.isArray(proposal.metrics) ? proposal.metrics : undefined;
-      const nextPriority = proposal.priority;
-
-      updateGoal(goal.id, (prev) => {
-        const mergedTargetDate = nextTargetDate ?? prev.targetDate;
-        const mergedMetrics = nextMetrics ?? prev.metrics;
-        const hasQuality = Boolean(mergedTargetDate) && Array.isArray(mergedMetrics) && mergedMetrics.length > 0;
-        return {
-          ...prev,
-          title: nextTitle || prev.title,
-          description: typeof nextDescription === 'string' ? nextDescription : prev.description,
-          ...(nextTargetDate ? { targetDate: nextTargetDate } : null),
-          ...(nextMetrics ? { metrics: nextMetrics } : null),
-          ...(nextPriority !== undefined ? { priority: nextPriority } : null),
-          qualityState: hasQuality ? 'ready' : 'draft',
-          updatedAt: now,
-        };
-      });
+      updateGoal(goal.id, (prev) => mergeRefinedGoalProposal({ goal: prev, proposal, updatedAt: now }));
 
       showToast({ message: 'Goal refined', variant: 'success', durationMs: 2200 });
       setRefineGoalSheetVisible(false);
