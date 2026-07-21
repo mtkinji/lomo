@@ -99,7 +99,8 @@ import type {
   JoinSharedGoalRouteParams,
 } from './routeParams';
 import type { LaunchContext } from '../domain/workflows';
-import type { ChatMode } from '../features/ai/workflowRegistry';
+import type { CapabilityAgentContext, ChatMode } from '../features/ai/workflowRegistry';
+import { deriveCapabilityAgentContext } from '../features/ai/capabilityAgentContext';
 import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
@@ -125,6 +126,7 @@ export type RootDrawerParamList = {
         workflowDefinitionId?: string;
         resumeDraft?: boolean;
         hidePromptSuggestions?: boolean;
+        capabilityContext?: CapabilityAgentContext;
       }
     | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
@@ -972,6 +974,7 @@ function KwiltDrawerContent(props: any) {
   const { capture } = useAnalytics();
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const activeCapabilityId = deriveActiveCapabilityId(props.state);
+  const capabilityContext = deriveCapabilityAgentContext(props.state);
 
   const closeDrawer = () => props.navigation.dispatch(DrawerActions.closeDrawer());
 
@@ -1001,7 +1004,7 @@ function KwiltDrawerContent(props: any) {
           closeDrawer();
         }}
         onOpenAgent={() => {
-          props.navigation.navigate('Agent');
+          props.navigation.navigate('Agent', capabilityContext ? { capabilityContext } : undefined);
           closeDrawer();
         }}
       />

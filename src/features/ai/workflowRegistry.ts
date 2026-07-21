@@ -2,6 +2,7 @@ import type { GeneratedArc } from '../../services/ai';
 import type { AgentComponentId } from '../../domain/agentComponents';
 import { listIdealArcTemplates } from '../../domain/idealArcs';
 import type { WorkflowDefinition } from '../../domain/workflows';
+import type { CapabilityId, CapabilityRouteTarget } from '../../capabilities/types';
 import { goalCreationWorkflow } from './workflows/goalCreationWorkflow';
 import { arcCreationWorkflow } from './workflows/arcCreationWorkflow';
 import { activityCreationWorkflow } from './workflows/activityCreationWorkflow';
@@ -20,6 +21,13 @@ export type ChatMode =
   | 'activityCreation'
   | 'activityGuidance'
   | 'shareIntake';
+
+export type CapabilityAgentContext = {
+  capabilityId: CapabilityId;
+  surface: 'inventory' | 'detail' | 'session';
+  object?: { type: 'activity' | 'goal' | 'arc' | 'chapter'; id: string };
+  returnTarget: CapabilityRouteTarget;
+};
 
 /**
  * Logical identifiers for tools the AI can call.
@@ -147,5 +155,4 @@ export type ArcSuggestionToolPayload = {
   mode: 'arcCreation';
   suggestions: GeneratedArc[];
 };
-
 

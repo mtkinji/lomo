@@ -32,7 +32,7 @@ import {
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { CommonActions, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { cardElevation, spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -102,6 +102,7 @@ type AgentRouteParams = {
   workflowDefinitionId?: string;
   resumeDraft?: boolean;
   hidePromptSuggestions?: boolean;
+  capabilityContext?: import('./workflowRegistry').CapabilityAgentContext;
 };
 
 const ARC_FEEDBACK_REASONS: { value: ArcProposalFeedbackReason; label: string }[] = [
@@ -2963,22 +2964,24 @@ export const AiChatPane = forwardRef(function AiChatPane(
               {!hideBrandHeader && (
                 <View style={styles.headerRow}>
                   <BrandLockup logoSize={32} wordmarkSize="sm" />
-                  {shouldShowContextPill && contextPillLabel && (
-                    <Pressable
-                      style={styles.modePill}
-                      onPress={() => setIsWorkflowInfoVisible(true)}
-                      accessibilityRole="button"
-                      accessibilityLabel="View context"
-                    >
-                      <Text style={styles.modePillText}>Context</Text>
-                      <Icon
-                        name="info"
-                        size={16}
-                        color={CHAT_COLORS.textSecondary}
-                        style={styles.modePillInfoIcon}
-                      />
-                    </Pressable>
-                  )}
+                  <View style={styles.agentHeaderActions}>
+                    {shouldShowContextPill && contextPillLabel && (
+                      <Pressable
+                        style={styles.modePill}
+                        onPress={() => setIsWorkflowInfoVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="View context"
+                      >
+                        <Text style={styles.modePillText}>Context</Text>
+                        <Icon name="info" size={16} color={CHAT_COLORS.textSecondary} style={styles.modePillInfoIcon} />
+                      </Pressable>
+                    )}
+                    {onDismiss ? (
+                      <Button variant="ghost" size="icon" onPress={onDismiss} accessibilityLabel="Return to workspace">
+                        <Icon name="arrowLeft" size={20} color={CHAT_COLORS.textPrimary} />
+                      </Button>
+                    ) : null}
+                  </View>
                 </View>
               )}
               <View
@@ -3942,6 +3945,7 @@ export function AiChatScreen() {
   const route =
     useRoute<RouteProp<Record<string, AgentRouteParams | undefined>, string>>();
   const routeParams = (route?.params ?? {}) as AgentRouteParams;
+  const navigation = useNavigation();
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const sharePayload = useShareIntentStore((s: any) => s.payload) as any;
@@ -3955,6 +3959,26 @@ export function AiChatScreen() {
   const goals = useAppStore((s: any) => s.goals) as any[];
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const activities = useAppStore((s: any) => s.activities) as any[];
+
+  const returnFromCapabilityAgent = () => {
+    const context = routeParams.capabilityContext;
+    if (!context) return;
+    const { canRestoreCapabilityObject, resolveCapabilityAgentReturn } = require('./capabilityAgentContext') as typeof import('./capabilityAgentContext');
+    const objectExists = canRestoreCapabilityObject(context, {
+      activityIds: new Set(activities.map(({ id }) => id)),
+      goalIds: new Set(goals.map(({ id }) => id)),
+      arcIds: new Set(arcs.map(({ id }) => id)),
+    });
+    const { resolveCapabilityNavigation } = require('../../navigation/capabilityNavigation') as typeof import('../../navigation/capabilityNavigation');
+    const target = objectExists
+      ? resolveCapabilityAgentReturn(context)
+      : resolveCapabilityNavigation(context.capabilityId);
+    if (!objectExists) {
+      const { useToastStore } = require('../../store/useToastStore') as typeof import('../../store/useToastStore');
+      useToastStore.getState().showToast({ message: 'That item is no longer available. Returning to its workspace.' });
+    }
+    navigation.dispatch(CommonActions.navigate(target));
+  };
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const activityTagHistory = useAppStore(
     (s: { activityTagHistory?: Record<string, { tag?: string }> }) => s.activityTagHistory,
@@ -4264,6 +4288,7 @@ export function AiChatScreen() {
           workspaceSnapshot={routeParams.workspaceSnapshot}
           resumeDraft={routeParams.resumeDraft}
           hidePromptSuggestions={routeParams.hidePromptSuggestions}
+          onDismiss={routeParams.capabilityContext ? returnFromCapabilityAgent : undefined}
         />
       </AppShell>
     );
@@ -4336,6 +4361,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  agentHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   modelLabel: {
     ...typography.titleLg,
