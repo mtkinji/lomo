@@ -10,6 +10,8 @@
 - The underlay occupies 80% of the viewport width.
 - The current white capability surface moves aside and remains visibly connected to its
   prior state.
+- The revealed foreground uses the 44pt `deviceSheet` radius so its left corners echo the
+  iPhone display curvature rather than reading as a generic card.
 - Foreground content fades modestly; the hamburger remains legible.
 - Use a short double shadow, not a distant directional shadow.
 - Reduce Motion changes the transition to an immediate state change.

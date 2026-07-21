@@ -110,7 +110,6 @@ export function CapabilitySideSheet({ menu, children }: CapabilitySideSheetProps
     <View style={styles.root}>
       <View
         accessibilityElementsHidden={!menuOpen}
-        accessibilityViewIsModal={menuOpen}
         importantForAccessibility={menuOpen ? 'yes' : 'no-hide-descendants'}
         pointerEvents={menuOpen ? 'auto' : 'none'}
         style={[styles.menuUnderlay, { width: drawerWidth }]}

@@ -1,7 +1,7 @@
 import { radii } from '../theme';
 
 export const CAPABILITY_SIDE_SHEET_WIDTH_RATIO = 0.8;
-export const CAPABILITY_SIDE_SHEET_RADIUS = radii.sheet;
+export const CAPABILITY_SIDE_SHEET_RADIUS = radii.deviceSheet;
 export const CAPABILITY_SIDE_SHEET_DURATION_MS = 240;
 export const CAPABILITY_SIDE_SHEET_FLING_VELOCITY = 600;
 

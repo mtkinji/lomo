@@ -9,7 +9,7 @@ import {
 describe('capability side sheet motion contract', () => {
   it('uses the accepted Option G geometry', () => {
     expect(CAPABILITY_SIDE_SHEET_WIDTH_RATIO).toBe(0.8);
-    expect(CAPABILITY_SIDE_SHEET_RADIUS).toBe(28);
+    expect(CAPABILITY_SIDE_SHEET_RADIUS).toBe(44);
     expect(getCapabilitySideSheetTranslation(400, 1)).toBe(320);
     expect(getCapabilitySideSheetTranslation(400, 0.5)).toBe(160);
   });
