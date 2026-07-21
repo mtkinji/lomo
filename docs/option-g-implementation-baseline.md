@@ -29,7 +29,8 @@
 
 ## Ownership and reuse
 
-- Adapt the existing React Navigation drawer and its open/close lifecycle.
+- Keep React Navigation as the single router and route registry. Present Option G through
+  one owned `CapabilitySideSheet` and one ephemeral open/close state shared by nested headers.
 - Derive menu rows and capability routing from the registry.
 - Reuse `useAppStore.openGlobalSearch()` for Search.
 - Reuse `Settings > SettingsHome` for the avatar.
@@ -37,7 +38,7 @@
 - Ship Option G as the single shell in its TestFlight candidate; rollback is by retained
   TestFlight build and immutable source tag, not a runtime shell flag.
 - Do not reuse `nav_drawer_menu`, create a second root navigator, or persist a second
-  mutable active-capability value.
+  mutable active-capability value. Derive the active capability from navigation state.
 
 ## Phase 1 evidence
 

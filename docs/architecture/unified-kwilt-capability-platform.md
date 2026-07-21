@@ -73,11 +73,14 @@ Option G is the accepted global-navigation baseline:
 
 The shell must preserve a capability's local interaction contract and distinctive visual language. Kwilt Games can remain playful and immersive; Money can remain information-dense and trustworthy; Goals can retain its existing inventory and detail workflows.
 
-The Phase 1 shell adapts the existing React Navigation drawer, global-search store action,
-shared `PageHeader`, and settings route. It must not introduce a second root router, a
-parallel underlay state owner, a duplicate global-search/settings implementation, or a
-permanent second shell path. TestFlight and source-control build boundaries provide
-reversibility rather than runtime feature flags.
+The Phase 1 shell keeps React Navigation as the single root router and route registry, while
+an owned `CapabilitySideSheet` presents Option G's underlay and foreground motion. One
+ephemeral shell-state owner coordinates the menu across nested headers; active capability
+still derives from navigation state and is never persisted separately. The shell reuses the
+global-search store action, shared `PageHeader`, and settings route. It must not introduce a
+second router, duplicate global-search/settings implementations, or a permanent second shell
+path. TestFlight and source-control build boundaries provide reversibility rather than runtime
+feature flags.
 
 ### Agent contract
 

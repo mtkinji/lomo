@@ -1,18 +1,17 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import {
   CommonActions,
-  DrawerActions,
   useNavigation,
   useNavigationState,
   type NavigationProp,
   type ParamListBase,
 } from '@react-navigation/native';
-import { useDrawerStatus } from '@react-navigation/drawer';
 import type { CapabilityId } from '../capabilities/types';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { CapabilityLifecycleCoordinator } from '../capabilities/lifecycle';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
+import { useCapabilityMenuState } from './CapabilityMenuStateContext';
 
 type NavigationStateLike = {
   index?: number;
@@ -61,6 +60,7 @@ const CapabilityShellContext = createContext<CapabilityShellContextValue | null>
 
 export function CapabilityShellProvider({ children }: { children: ReactNode }) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const { menuOpen, openMenu, coverMenu } = useCapabilityMenuState();
   const { capture } = useAnalytics();
   const lifecycleRef = useRef<CapabilityLifecycleCoordinator | null>(null);
   if (!lifecycleRef.current) {
@@ -79,7 +79,6 @@ export function CapabilityShellProvider({ children }: { children: ReactNode }) {
       },
     });
   }
-  const menuOpen = useDrawerStatus() === 'open';
   const navigationState = useNavigationState((state) => state as NavigationStateLike);
   const activeCapabilityId = useMemo(
     () => deriveActiveCapabilityId(navigationState),
@@ -96,21 +95,13 @@ export function CapabilityShellProvider({ children }: { children: ReactNode }) {
     };
   }, [activeCapabilityId]);
 
-  const openMenu = useCallback(() => {
-    navigation.dispatch(DrawerActions.openDrawer());
-  }, [navigation]);
-
-  const coverMenu = useCallback(() => {
-    navigation.dispatch(DrawerActions.closeDrawer());
-  }, [navigation]);
-
   const navigateToCapability = useCallback(
     (id: CapabilityId) => {
       const target = resolveCapabilityNavigation(id);
       navigation.dispatch(CommonActions.navigate(target));
-      navigation.dispatch(DrawerActions.closeDrawer());
+      coverMenu();
     },
-    [navigation],
+    [coverMenu, navigation],
   );
 
   const value = useMemo<CapabilityShellContextValue>(

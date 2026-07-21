@@ -1,6 +1,5 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  useWindowDimensions,
   View,
   StyleSheet,
   Platform,
@@ -16,7 +15,6 @@ import {
   NavigationContainer,
   DefaultTheme,
   Theme,
-  DrawerActions,
   NavigatorScreenParams,
   getFocusedRouteNameFromRoute,
   type NavigationState,
@@ -24,10 +22,7 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {
-  createDrawerNavigator,
-  useDrawerStatus,
-} from '@react-navigation/drawer';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
@@ -106,7 +101,8 @@ import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
-import { LinearGradient } from 'expo-linear-gradient';
+import { CapabilityMenuStateProvider, useCapabilityMenuState } from './CapabilityMenuStateContext';
+import { CapabilitySideSheet } from './CapabilitySideSheet';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -371,8 +367,6 @@ type TrackScreenFn = (
 ) => void;
 
 function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
-  const { width } = useWindowDimensions();
-  const drawerWidth = width * 0.8;
   const showDevTools = __DEV__;
   const { capture } = useAnalytics();
   const completeWidgetNudge = useAppStore((s) => s.completeWidgetNudge);
@@ -389,6 +383,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   }, [authIdentity?.userId, isNavReady]);
 
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
+  const [currentNavigationState, setCurrentNavigationState] = useState<NavigationState | undefined>();
   const lastTrackedRouteNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -544,6 +539,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       linking={linking}
       onReady={() => {
         markRootNavigationReady(Boolean(initialState));
+        setCurrentNavigationState(rootNavigationRef.getRootState());
         const currentRoute = rootNavigationRef.getCurrentRoute();
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;
@@ -552,6 +548,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       }}
       onStateChange={(state) => {
         if (!state) return;
+        setCurrentNavigationState(state);
         AsyncStorage.setItem(NAV_PERSISTENCE_KEY, JSON.stringify(state)).catch((e) => {
           console.warn('Failed to persist navigation state', e);
         });
@@ -587,98 +584,58 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         }
       }}
     >
-      <Drawer.Navigator
-        drawerContent={(props) => <KwiltDrawerContent {...props} />}
-        screenLayout={({ children }) => (
-          <CapabilityForegroundSheet>{children}</CapabilityForegroundSheet>
-        )}
-        screenListeners={({ navigation, route }) => ({
-          drawerOpen: () => {
-            capture(AnalyticsEvent.CapabilityMenuOpened, {
-              source_surface: 'capability_shell',
-            });
-          },
-          drawerItemPress: (event) => {
-            if (route.name === 'ArcsStack') {
-              // Override the default so we always jump to the ArcsList screen
-              // inside the Arcs stack instead of treating a tap on an already
-              // focused drawer item as a no-op.
-              event.preventDefault();
-              navigation.navigate('ArcsStack', {
-                screen: 'ArcsList',
-              });
-              return;
-            }
-
-            if (route.name === 'Settings') {
-              // Mirror other primary nav items: tapping Settings should always land on the
-              // Settings home canvas, not the last nested Settings screen (e.g. Subscriptions).
-              event.preventDefault();
-              navigation.navigate('Settings', {
-                screen: 'SettingsHome',
-              });
-              return;
-            }
-          },
-        })}
-        screenOptions={{
-          headerShown: false,
-          // Use "slide" so the entire app canvas shifts right while the drawer stays pinned,
-          // similar to the ChatGPT mobile app behavior.
-          drawerType: 'slide',
-          drawerStyle: {
-            backgroundColor: colors.canvas,
-            width: drawerWidth,
-          },
-          overlayColor: 'rgba(255,255,255,0.18)',
-          sceneStyle: {
-            backgroundColor: 'transparent',
-          },
+      <CapabilityMenuStateProvider
+        onMenuOpened={() => {
+          capture(AnalyticsEvent.CapabilityMenuOpened, {
+            source_surface: 'capability_shell',
+          });
         }}
-        initialRouteName="MainTabs"
       >
-        <Drawer.Screen
-          name="MainTabs"
-          component={CapabilityMainTabsHost}
-          options={{
-            title: 'Home',
-            drawerItemStyle: { display: 'none' },
-          }}
-        />
-        <Drawer.Screen
-          name="Agent"
-          component={AiChatScreen}
-          options={{
-            title: 'Agent',
-            // Hidden: this route exists for deep links + programmatic launches.
-            drawerItemStyle: { display: 'none' },
-          }}
-        />
-        <Drawer.Screen
-          name="ArcsStack"
-          component={ArcsStackRedirectScreen}
-          options={{ title: 'Arcs' }}
-        />
-        {showDevTools && (
-          <>
+        <CapabilitySideSheet
+          menu={<KwiltCapabilityMenuHost navigationState={currentNavigationState} />}
+        >
+          <Drawer.Navigator
+            drawerContent={() => null}
+            screenOptions={{
+              headerShown: false,
+              drawerType: 'front',
+              swipeEnabled: false,
+              drawerStyle: { width: 1 },
+              overlayColor: 'transparent',
+              sceneStyle: { backgroundColor: colors.canvas },
+            }}
+            initialRouteName="MainTabs"
+          >
             <Drawer.Screen
-              name="DevTools"
-              component={DevToolsScreen}
-              options={{
-                title: 'Developer tools',
-                // Keep the route available for deep links and programmatic navigation,
-                // but move the entry point into Settings (dev-only).
-                drawerItemStyle: { display: 'none' },
-              }}
+              name="MainTabs"
+              component={CapabilityMainTabsHost}
+              options={{ title: 'Home', drawerItemStyle: { display: 'none' } }}
             />
-          </>
-        )}
-        <Drawer.Screen
-          name="Settings"
-          component={SettingsStackNavigator}
-          options={{ title: 'Settings' }}
-        />
-      </Drawer.Navigator>
+            <Drawer.Screen
+              name="Agent"
+              component={AiChatScreen}
+              options={{ title: 'Agent', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
+              name="ArcsStack"
+              component={ArcsStackRedirectScreen}
+              options={{ title: 'Arcs', drawerItemStyle: { display: 'none' } }}
+            />
+            {showDevTools ? (
+              <Drawer.Screen
+                name="DevTools"
+                component={DevToolsScreen}
+                options={{ title: 'Developer tools', drawerItemStyle: { display: 'none' } }}
+              />
+            ) : null}
+            <Drawer.Screen
+              name="Settings"
+              component={SettingsStackNavigator}
+              options={{ title: 'Settings', drawerItemStyle: { display: 'none' } }}
+            />
+          </Drawer.Navigator>
+        </CapabilitySideSheet>
+      </CapabilityMenuStateProvider>
       <PlanKickoffDrawerHost />
       <CreditsInterstitialDrawerHost />
       <PaywallDrawerHost />
@@ -967,16 +924,17 @@ function SettingsStackNavigator() {
   );
 }
 
-function KwiltDrawerContent(props: any) {
+function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: NavigationState }) {
   const insets = useSafeAreaInsets();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const { capture } = useAnalytics();
+  const { coverMenu } = useCapabilityMenuState();
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
-  const activeCapabilityId = deriveActiveCapabilityId(props.state);
-  const capabilityContext = deriveCapabilityAgentContext(props.state);
-
-  const closeDrawer = () => props.navigation.dispatch(DrawerActions.closeDrawer());
+  const activeCapabilityId = deriveActiveCapabilityId(navigationState);
+  const capabilityContext = deriveCapabilityAgentContext(
+    navigationState as Parameters<typeof deriveCapabilityAgentContext>[0],
+  );
 
   return (
     <View
@@ -985,14 +943,6 @@ function KwiltDrawerContent(props: any) {
         { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET, paddingBottom: spacing.sm + insets.bottom },
       ]}
     >
-      <View pointerEvents="none" style={styles.capabilityForegroundDropShadow}>
-        <LinearGradient
-          colors={['rgba(17,20,27,0)', 'rgba(17,20,27,0.03)', 'rgba(17,20,27,0.1)']}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-          style={styles.capabilityForegroundDropShadowFill}
-        />
-      </View>
       <CapabilityMenu
         activeCapabilityId={activeCapabilityId}
         displayName={displayName}
@@ -1000,75 +950,27 @@ function KwiltDrawerContent(props: any) {
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, { capability_id: id, source_surface: 'menu' });
-          props.navigation.dispatch(CommonActions.navigate(capability));
-          closeDrawer();
+          rootNavigationRef.dispatch(CommonActions.navigate(capability));
+          coverMenu();
         }}
         onOpenSearch={() => {
-          closeDrawer();
+          coverMenu();
           useAppStore.getState().openGlobalSearch();
         }}
         onOpenSettings={() => {
-          props.navigation.navigate('Settings', { screen: 'SettingsHome' });
-          closeDrawer();
+          rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
+          coverMenu();
         }}
         onOpenAgent={() => {
-          props.navigation.navigate('Agent', capabilityContext ? { capabilityContext } : undefined);
-          closeDrawer();
+          rootNavigationRef.navigate('Agent', capabilityContext ? { capabilityContext } : undefined);
+          coverMenu();
         }}
       />
     </View>
   );
 }
 
-function CapabilityForegroundSheet({ children }: { children: ReactNode }) {
-  const revealed = useDrawerStatus() === 'open';
-
-  return (
-    <View
-      testID="capability.foreground-sheet"
-      style={[styles.capabilityForegroundScene, revealed && styles.capabilityForegroundSceneRevealed]}
-    >
-      <View
-        style={[
-          styles.capabilityForegroundSurface,
-          revealed && styles.capabilityForegroundSurfaceRevealed,
-        ]}
-      >
-        {children}
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  capabilityForegroundScene: {
-    flex: 1,
-  },
-  capabilityForegroundSceneRevealed: {
-    backgroundColor: colors.canvas,
-    borderTopLeftRadius: 28,
-    borderBottomLeftRadius: 28,
-  },
-  capabilityForegroundSurface: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  capabilityForegroundSurfaceRevealed: {
-    overflow: 'hidden',
-    borderTopLeftRadius: 28,
-    borderBottomLeftRadius: 28,
-  },
-  capabilityForegroundDropShadow: {
-    position: 'absolute',
-    zIndex: 1,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: 28,
-  },
-  capabilityForegroundDropShadowFill: {
-    flex: 1,
-  },
   navRestoreScreen: {
     flex: 1,
     alignItems: 'center',

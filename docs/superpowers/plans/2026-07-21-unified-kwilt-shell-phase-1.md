@@ -412,11 +412,13 @@ Match the accepted Option G contract: Inter, white background, pine only in the 
 
 - [ ] **Step 5: Implement the underlay motion**
 
-Open by translating the foreground surface 80% to the right. Adapt the existing React
-Navigation drawer rather than mounting a second root underlay or independent open-state
-owner. Keep the foreground card white, fade its contents modestly, keep the hamburger
-legible, and use the accepted short double shadow rather than a distant directional shadow.
-Respect Reduce Motion by replacing the translation animation with an immediate state change.
+Open by translating the foreground surface 80% to the right. Keep React Navigation as the
+single router and route registry, but own Option G's presentation in one
+`CapabilitySideSheet` with one ephemeral open/close state shared by nested headers. Do not
+mount a second router or persist active capability separately. Keep the foreground card white,
+fade its contents modestly, keep the hamburger legible, and use the accepted short double
+shadow rather than a distant directional shadow. Respect Reduce Motion by replacing the
+translation animation with an immediate state change.
 
 - [ ] **Step 6: Make Option G the sole host shell**
 

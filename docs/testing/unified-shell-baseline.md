@@ -178,10 +178,10 @@ replace the blocked production-widgets archive or physical-iPhone acceptance fie
 |---|---|
 | Fresh iOS development build | PASS — Xcode 26.6 built and installed Kwilt on the iPhone 17 Pro / iOS 26.4 simulator with zero build errors (four existing native warnings). |
 | Real signed-in To-dos surface | PASS — restored Supabase session and domain data rendered under the Option G shell; the former bottom navigation was absent. |
-| Option G interaction | PASS — menu open, group collapse/expand, selected capability, Plan navigation, and foreground cover behavior were exercised on the real app surface. |
-| Reduce Motion development proof | PASS — simulator preference returned `1`, Reanimated reported reduced motion enabled, and the patched drawer used `ReduceMotion.System`. |
+| Option G interaction | PASS — the owned `CapabilitySideSheet` opened over the real To-dos and Plan surfaces with the white foreground's rounded left corners and curved double shadow visible; group collapse/expand, selected capability, Plan navigation, foreground cover, and avatar-to-Settings behavior were exercised. |
+| Reduce Motion development proof | PASS — simulator preference returned `1` and the owned side sheet replaced its 240ms transition with an immediate state change; the preference was restored to `0` after proof. |
 | First-class Chat return | PASS — Plan → Chat → Return restored Plan; pure tests cover To-do, Goal, and Chapter detail envelopes plus deleted-object fallback. |
-| Automated verification | PASS — final diff-aware verification ran 151 suites / 1,119 tests; application and test typechecks, code-health ratchet, generated agent map, and architecture lint passed. Product lint also passed with no errors. |
+| Automated verification | PASS — final diff-aware verification ran 153 suites / 1,125 tests; application and test typechecks, code-health ratchet, generated agent map, and architecture lint passed. Product lint also passed with no errors. |
 | Physical iPhone visual review | **BLOCKED** — the required device evidence remains unavailable and has not been replaced by simulator proof. |
 
 ### Zero-work-before-entry checkpoint
