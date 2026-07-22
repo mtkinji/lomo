@@ -1,0 +1,230 @@
+id: unified-chat
+brief: docs/feature-briefs/unified-chat.md
+job_flow: job-flow-nina-trust-ai-with-my-life-system
+job_flow_source: docs/job-flows/nina-trust-ai-with-my-life-system.md
+last_reviewed: 2026-07-22
+scale:
+  1: mostly absent or represented only by strategy
+  2: partial local behavior without the durable trust contract
+  3: credible end-to-end behavior with important gaps
+  4: complete implementation awaiting required runtime proof or one bounded resilience gap
+  5: shipped behavior with automated, conformance, simulator, and physical-device evidence
+steps:
+  - id: 1
+    name: Arrive with visible scope and exact return
+    score: 4
+    gap: Goal To-do and Chapter launches now persist visible removable scope plus exact return targets; signed physical-device proof remains.
+    code:
+      - src/features/unifiedChat/UnifiedChatScreen.tsx
+      - src/features/unifiedChat/buildWorkbenchSnapshot.ts
+      - src/features/unifiedChat/autoApplyCreatePolicy.ts
+      - src/features/unifiedChat/launchContext.ts
+    tests:
+      - src/features/unifiedChat/UnifiedChatScreen.test.tsx
+      - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
+      - src/features/unifiedChat/autoApplyCreatePolicy.test.ts
+      - src/features/unifiedChat/launchContext.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 2
+    name: Express intent in ordinary language
+    score: 4
+    gap: Durable free-form text, name-only To-do capture, native recording, authenticated transcription, and bounded text-document attachment work in Unified Chat; physical-device interaction proof remains.
+    code:
+      - src/features/unifiedChat/runUnifiedChatTurn.ts
+      - src/features/unifiedChat/requestPolicy.ts
+      - src/features/unifiedChat/threadRepository.ts
+      - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
+      - src/features/unifiedChat/unifiedChatVoice.ts
+      - src/features/unifiedChat/unifiedChatAttachmentPicker.ts
+      - src/features/unifiedChat/unifiedChatAttachmentPolicy.ts
+      - supabase/functions/unified-chat-transcribe/index.ts
+      - supabase/migrations/20260722154051_unified_chat_text_attachments.sql
+    tests:
+      - src/features/unifiedChat/runUnifiedChatTurn.test.ts
+      - src/features/unifiedChat/requestPolicy.test.ts
+      - src/features/unifiedChat/threadRepository.test.ts
+      - scripts/unified-chat-migration-contract.test.mjs
+      - src/features/unifiedChat/UnifiedChatScreen.test.tsx
+      - supabase/functions/_shared/__tests__/unifiedChatTranscription_deno_test.ts
+      - src/features/unifiedChat/unifiedChatAttachmentPolicy.test.ts
+      - scripts/unified-chat-migration-contract.test.mjs
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 3
+    name: Establish bounded request scope
+    score: 4
+    gap: Visible removable and user-addable Kwilt context plus explicitly attached untrusted text documents and deterministic least-privilege routing drive bounded participation while general questions remain detached; signed physical-device proof remains.
+    code:
+      - src/features/unifiedChat/runUnifiedChatTurn.ts
+      - src/features/unifiedChat/requestPolicy.ts
+      - src/features/unifiedChat/capabilityAdapters.ts
+      - src/features/unifiedChat/launchContext.ts
+      - src/features/unifiedChat/unifiedChatAttachmentPolicy.ts
+    tests:
+      - src/features/unifiedChat/runUnifiedChatTurn.test.ts
+      - src/features/unifiedChat/requestPolicy.test.ts
+      - src/features/unifiedChat/capabilityAdapters.test.ts
+      - src/features/unifiedChat/launchContext.test.ts
+      - src/features/unifiedChat/unifiedChatAttachmentPolicy.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 4
+    name: Retrieve inspectable evidence
+    score: 4
+    gap: Goals To-dos and Chapters feed bounded persisted evidence and coverage into the model request and workbench; signed physical-device proof remains.
+    code:
+      - src/features/unifiedChat/buildRunContext.ts
+      - src/features/unifiedChat/capabilityContracts.ts
+      - src/features/unifiedChat/capabilityAdapters.ts
+      - src/features/unifiedChat/runUnifiedChatTurn.ts
+      - src/features/unifiedChat/threadRepository.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.ts
+    tests:
+      - src/features/unifiedChat/buildRunContext.test.ts
+      - src/features/unifiedChat/capabilityAdapters.test.ts
+      - src/features/unifiedChat/runUnifiedChatTurn.test.ts
+      - src/features/unifiedChat/threadRepository.test.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 5
+    name: Understand result and limits
+    score: 4
+    gap: Grounded answers structurally separate stored facts inference and uncertainty while evidence authority freshness and coverage limits render; signed physical-device proof remains.
+    code:
+      - src/features/unifiedChat/runUnifiedChatTurn.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.ts
+      - src/features/unifiedChat/groundedAnswer.ts
+      - src/features/unifiedChat/visibleAssistantText.ts
+    tests:
+      - src/features/unifiedChat/runUnifiedChatTurn.test.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
+      - src/features/unifiedChat/groundedAnswer.test.ts
+      - src/features/unifiedChat/visibleAssistantText.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 6
+    name: Review a typed capability-owned proposal
+    score: 4
+    gap: Explicit and ordinary name-only To-do creates now auto-apply, run all available Quick Add AI enrichments, and project an authoritative standard-inventory row; updates retain schema-bounded proposals. Physical-device proof remains.
+    code:
+      - src/features/unifiedChat/workbenchProtocol.ts
+      - src/features/unifiedChat/activityProposal.ts
+      - src/features/unifiedChat/runUnifiedChatTurn.ts
+      - src/features/unifiedChat/threadRepository.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.ts
+      - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.ts
+    tests:
+      - src/features/unifiedChat/workbenchProtocol.test.ts
+      - src/features/unifiedChat/activityProposal.test.ts
+      - src/features/unifiedChat/runUnifiedChatTurn.test.ts
+      - src/features/unifiedChat/threadRepository.test.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
+      - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 7
+    name: Correct decline defer or approve
+    score: 4
+    gap: Explicit create intent now serves as the durable approval; update decisions remain atomic and owner-scoped. Simulator row-tap and swipe-delete are proven; physical-device proof remains.
+    code:
+      - src/features/unifiedChat/workbenchProtocol.ts
+      - src/features/unifiedChat/runStateMachine.ts
+      - src/features/unifiedChat/executeProposalDecision.ts
+      - src/features/unifiedChat/UnifiedChatScreen.tsx
+      - src/features/unifiedChat/autoApplyCreatePolicy.ts
+      - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
+      - src/features/unifiedChat/threadRepository.ts
+    tests:
+      - src/features/unifiedChat/workbenchProtocol.test.ts
+      - src/features/unifiedChat/runStateMachine.test.ts
+      - src/features/unifiedChat/executeProposalDecision.test.ts
+      - src/features/unifiedChat/UnifiedChatScreen.test.tsx
+      - src/features/unifiedChat/autoApplyCreatePolicy.test.ts
+      - scripts/unified-chat-migration-contract.test.mjs
+      - src/features/unifiedChat/threadRepository.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 8
+    name: Apply idempotently with authoritative receipt
+    score: 4
+    gap: Approved To-do operations reserve a receipt before native mutation, enrich through Quick Add, recover across crash windows, and finalize authoritatively before applied status. Simulator proof is complete; physical-device proof remains.
+    code:
+      - src/features/unifiedChat/threadRepository.ts
+      - src/features/unifiedChat/activityProposalExecutor.ts
+      - src/features/unifiedChat/executeProposalDecision.ts
+      - src/features/unifiedChat/recoverActivityMutations.ts
+      - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
+      - src/features/unifiedChat/UnifiedChatScreen.tsx
+      - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.ts
+    tests:
+      - src/features/unifiedChat/threadRepository.test.ts
+      - src/features/unifiedChat/activityProposalExecutor.test.ts
+      - src/features/unifiedChat/executeProposalDecision.test.ts
+      - src/features/unifiedChat/recoverActivityMutations.test.ts
+      - scripts/unified-chat-migration-contract.test.mjs
+      - src/features/unifiedChat/UnifiedChatScreen.test.tsx
+      - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 9
+    name: Return to the exact native destination
+    score: 4
+    gap: Tapping the inventory row opens the authoritative native To-do detail and its Back action returns to the exact durable Chat thread; simulator proof is complete and physical-device proof remains.
+    code:
+      - src/navigation/RootNavigator.tsx
+      - src/features/unifiedChat/UnifiedChatScreen.tsx
+      - src/features/unifiedChat/capabilityAdapters.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.ts
+      - src/features/activities/ActivityDetailScreen.tsx
+      - src/navigation/routeParams.ts
+    tests:
+      - src/features/unifiedChat/UnifiedChatScreen.test.tsx
+      - src/features/unifiedChat/capabilityAdapters.test.ts
+      - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
+      - src/features/activities/ActivityDetailGoalNavigation.test.ts
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
+  - id: 10
+    name: Resume correct and undo
+    score: 4
+    gap: Threads resume durably with stop, steer, duplicate-free retry, correction, feedback, crash recovery, and receipt-backed swipe Delete. Simulator delete proof is complete; remaining interaction and physical-device proof are required.
+    code:
+      - src/features/unifiedChat/threadRepository.ts
+      - src/features/unifiedChat/UnifiedChatScreen.tsx
+      - src/features/unifiedChat/executeReceiptUndo.ts
+      - src/features/unifiedChat/recoverActivityMutations.ts
+      - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
+    tests:
+      - src/features/unifiedChat/threadRepository.test.ts
+      - src/features/unifiedChat/UnifiedChatScreen.test.tsx
+      - src/features/unifiedChat/executeReceiptUndo.test.ts
+      - src/features/unifiedChat/recoverActivityMutations.test.ts
+      - scripts/unified-chat-migration-contract.test.mjs
+    runtime_evidence:
+      - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+    proof:
+      simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md

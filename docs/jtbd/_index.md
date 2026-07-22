@@ -16,6 +16,9 @@ Auto-discoverable list of every JTBD id. Read by `assess-against-jtbd` and `desi
 - **jtbd-make-sense-of-the-season** — *Help me understand the season of life I just lived through.* (Chapters)
 - **jtbd-invite-the-right-people-in** — *Help me invite the right people into my becoming without losing privacy.* (Cross-cutting / shared goals / social)
 - **jtbd-trust-this-app-with-my-life** — *Help me trust this place enough to keep coming back.* (Meta — reliability, transparency, calm UX)
+  - jtbd-get-help-without-retelling-my-life
+  - jtbd-understand-why-ai-suggested-this
+  - jtbd-stay-in-control-of-ai-actions
 
 ## Retired
 

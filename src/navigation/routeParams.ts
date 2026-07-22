@@ -35,6 +35,8 @@ export type GoalDetailRouteParams = {
 
 export type ActivityDetailRouteParams = {
   activityId: string;
+  /** Return the Chat-created To-do inspection flow to its exact durable thread. */
+  returnToUnifiedChatThreadId?: string;
   /**
    * Optional hint about where the Activity detail screen was opened from.
    * When set to "goalPlan", the back affordance should return to the

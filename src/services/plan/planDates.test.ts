@@ -5,10 +5,24 @@ import {
   formatTimeLabel,
   formatTimeRange,
   getWeekdayKey,
+  parseLocalCalendarDate,
   parseTimeToMinutes,
   setTimeOnDate,
   toLocalDateKey,
 } from './planDates';
+
+describe('parseLocalCalendarDate', () => {
+  it('keeps a date-only Activity value on the intended local calendar day', () => {
+    const parsed = parseLocalCalendarDate('2026-07-24');
+    expect(parsed.getFullYear()).toBe(2026);
+    expect(parsed.getMonth()).toBe(6);
+    expect(parsed.getDate()).toBe(24);
+  });
+
+  it('keeps a synchronized UTC-midnight Activity value on the intended calendar day', () => {
+    expect(toLocalDateKey(parseLocalCalendarDate('2026-07-24T00:00:00.000Z'))).toBe('2026-07-24');
+  });
+});
 
 describe('toLocalDateKey', () => {
   it('formats a Date as YYYY-MM-DD using local components', () => {

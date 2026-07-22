@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   View,
   StyleSheet,
   Platform,
@@ -37,6 +38,8 @@ import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilit
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
+import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
+import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
@@ -101,8 +104,14 @@ import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
-import { CapabilityMenuStateProvider, useCapabilityMenuActions } from './CapabilityMenuStateContext';
+import {
+  CapabilityMenuStateProvider,
+  useCapabilityMenuActions,
+  useCapabilityMenuOpen,
+} from './CapabilityMenuStateContext';
 import { CapabilitySideSheet } from './CapabilitySideSheet';
+import { createUnifiedChatRepository } from '../features/unifiedChat/threadRepository';
+import type { UnifiedChatThread } from '../features/unifiedChat/types';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -132,7 +141,7 @@ export type RootDrawerParamList = {
    * Standalone durable Chat capability. This is intentionally separate from
    * the compatibility `Agent` route that owns Kwilt's existing workflow chat.
    */
-  UnifiedChat: undefined;
+  UnifiedChat: UnifiedChatRouteParams | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: undefined;
 };
@@ -940,8 +949,50 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const userProfile = useAppStore((state) => state.userProfile);
   const { capture } = useAnalytics();
   const { coverMenu } = useCapabilityMenuActions();
+  const menuOpen = useCapabilityMenuOpen();
+  const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
+  const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
+  const [chatsLoading, setChatsLoading] = useState(false);
+  const [chatsError, setChatsError] = useState<string | null>(null);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const activeCapabilityId = deriveActiveCapabilityId(navigationState);
+  const activeRoute = getActiveRoute(navigationState);
+  const activeChatThreadId = activeRoute?.name === 'UnifiedChat' && typeof activeRoute.params?.threadId === 'string'
+    ? activeRoute.params.threadId
+    : null;
+
+  const refreshChatThreads = useCallback(async () => {
+    setChatsLoading(true);
+    setChatsError(null);
+    try {
+      setChatThreads(await chatRepository.listThreads());
+    } catch {
+      setChatsError('Chats could not be loaded.');
+    } finally {
+      setChatsLoading(false);
+    }
+  }, [chatRepository]);
+
+  useEffect(() => {
+    if (menuOpen) void refreshChatThreads();
+  }, [menuOpen, refreshChatThreads]);
+
+  const openChatThread = useCallback((threadId: string) => {
+    rootNavigationRef.navigate('UnifiedChat', { threadId });
+    coverMenu();
+  }, [coverMenu]);
+
+  const createChatThread = useCallback(async () => {
+    setChatsError(null);
+    try {
+      const thread = await chatRepository.createThread();
+      setChatThreads((current) => [thread, ...current.filter((item) => item.id !== thread.id)]);
+      openChatThread(thread.id);
+    } catch {
+      Alert.alert('Could not create chat', 'Try again in a moment.');
+    }
+  }, [chatRepository, openChatThread]);
+
   return (
     <View
       style={[
@@ -951,6 +1002,10 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     >
       <CapabilityMenu
         activeCapabilityId={activeCapabilityId}
+        activeChatThreadId={activeChatThreadId}
+        chats={chatThreads}
+        chatsLoading={chatsLoading}
+        chatsError={chatsError}
         displayName={displayName}
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
         onSelectCapability={(id) => {
@@ -959,6 +1014,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           rootNavigationRef.dispatch(CommonActions.navigate(capability));
           coverMenu();
         }}
+        onSelectChat={openChatThread}
+        onCreateChat={() => void createChatThread()}
         onOpenSearch={() => {
           coverMenu();
           useAppStore.getState().openGlobalSearch();
@@ -968,7 +1025,29 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         onOpenChat={() => {
-          rootNavigationRef.navigate('UnifiedChat');
+          const context = deriveCapabilityAgentContext(navigationState);
+          let launchContext: UnifiedChatLaunchContext | undefined;
+          if (context && (
+            context.capabilityId === 'goals' ||
+            context.capabilityId === 'todos' ||
+            context.capabilityId === 'chapters'
+          )) {
+            let supportedObject: UnifiedChatLaunchContext['object'];
+            if (context.object?.type === 'goal') {
+              supportedObject = { type: 'goal', id: context.object.id };
+            } else if (context.object?.type === 'activity') {
+              supportedObject = { type: 'activity', id: context.object.id };
+            } else if (context.object?.type === 'chapter') {
+              supportedObject = { type: 'chapter', id: context.object.id };
+            }
+            launchContext = {
+              capabilityId: context.capabilityId,
+              surface: context.surface === 'detail' ? 'detail' : 'inventory',
+              ...(supportedObject ? { object: supportedObject } : {}),
+              returnTarget: resolveCapabilityAgentReturn(context) as unknown as Record<string, unknown>,
+            };
+          }
+          rootNavigationRef.navigate('UnifiedChat', launchContext ? { launchContext } : undefined);
           coverMenu();
         }}
       />

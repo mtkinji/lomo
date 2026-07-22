@@ -27,4 +27,14 @@ describe('ActivityDetail linked goal navigation', () => {
     expect(activityDetailRefresh).toContain('accessibilityLabel="Clear linked goal"');
     expect(activityDetailRefresh).toContain('goalId: null');
   });
+
+  it('returns Chat-created To-do inspection to the exact durable thread', () => {
+    const activityDetail = readFileSync(
+      path.join(__dirname, 'ActivityDetailScreen.tsx'),
+      'utf8',
+    );
+
+    expect(activityDetail).toContain('returnToUnifiedChatThreadId');
+    expect(activityDetail).toContain("rootNavigationRef.navigate('UnifiedChat', { threadId: returnToUnifiedChatThreadId })");
+  });
 });

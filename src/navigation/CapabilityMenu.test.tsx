@@ -5,10 +5,17 @@ import { colors } from '../theme';
 
 const handlers = {
   onSelectCapability: jest.fn(),
+  onSelectChat: jest.fn(),
+  onCreateChat: jest.fn(),
   onOpenSearch: jest.fn(),
   onOpenSettings: jest.fn(),
   onOpenChat: jest.fn(),
 };
+
+const chats = [
+  { id: 'chat-2', title: 'Plan the school week', updatedAt: '2026-07-22T18:00:00.000Z' },
+  { id: 'chat-1', title: 'Tea tomorrow', updatedAt: '2026-07-21T18:00:00.000Z' },
+];
 
 describe('CapabilityMenu', () => {
   beforeEach(() => {
@@ -17,7 +24,7 @@ describe('CapabilityMenu', () => {
 
   it('renders the accepted hierarchy without a close control', () => {
     const { getByText, getByLabelText, queryByLabelText } = render(
-      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
     expect(getByText('Kwilt')).toBeTruthy();
@@ -34,7 +41,7 @@ describe('CapabilityMenu', () => {
 
   it('collapses and expands a capability group', () => {
     const { getByLabelText, queryByText, getByText } = render(
-      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
     fireEvent.press(getByLabelText('Collapse Goals & Plans'));
@@ -46,7 +53,7 @@ describe('CapabilityMenu', () => {
 
   it('marks and selects the active capability', () => {
     const { getByLabelText } = render(
-      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
     expect(getByLabelText('To-dos').props.accessibilityState).toEqual({ selected: true });
@@ -56,7 +63,7 @@ describe('CapabilityMenu', () => {
 
   it('uses neutral launcher chrome rather than Pine accents', () => {
     const { getByLabelText } = render(
-      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
     expect(StyleSheet.flatten(getByLabelText('To-dos').props.style)?.backgroundColor).toBe(
@@ -69,7 +76,7 @@ describe('CapabilityMenu', () => {
 
   it('reuses global search and settings and opens durable Chat', () => {
     const { getByLabelText } = render(
-      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
+      <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
     fireEvent.press(getByLabelText('Search Kwilt'));
@@ -79,5 +86,19 @@ describe('CapabilityMenu', () => {
     expect(handlers.onOpenSearch).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenSettings).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders and opens every chat from the scrollable menu and owns chat creation there', () => {
+    const { getByLabelText, getByText } = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    expect(getByText('Plan the school week')).toBeTruthy();
+    expect(getByText('Tea tomorrow')).toBeTruthy();
+    fireEvent.press(getByLabelText('New chat'));
+    fireEvent.press(getByLabelText('Open chat Plan the school week'));
+
+    expect(handlers.onCreateChat).toHaveBeenCalledTimes(1);
+    expect(handlers.onSelectChat).toHaveBeenCalledWith('chat-2');
   });
 });

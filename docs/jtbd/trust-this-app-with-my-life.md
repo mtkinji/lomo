@@ -4,7 +4,7 @@ title: "Help me trust this place enough to keep coming back"
 parent: null
 level: top
 owner: andrew
-last_reviewed: 2026-05-08
+last_reviewed: 2026-07-22
 confidence: hypothesis
 evidence: []
 realized_by: []
@@ -21,7 +21,9 @@ The app feels calm, transparent, and intentional. Notifications respect their at
 
 ## Sub-jobs
 
-(to be expanded — likely includes data durability, notification respect, AI honesty, calm visual design, transparent pricing)
+- `jtbd-get-help-without-retelling-my-life` - Help me get useful help without retelling my life.
+- `jtbd-understand-why-ai-suggested-this` - Help me understand why AI suggested this.
+- `jtbd-stay-in-control-of-ai-actions` - Help me stay in control of what AI changes.
 
 ## Notes
 

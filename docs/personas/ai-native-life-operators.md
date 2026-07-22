@@ -9,7 +9,10 @@ supporting_jtbds:
   - jtbd-move-the-few-things-that-matter
   - jtbd-see-my-arcs-in-everyday-moments
   - jtbd-trust-this-app-with-my-life
-last_updated: 2026-05-08
+  - jtbd-get-help-without-retelling-my-life
+  - jtbd-understand-why-ai-suggested-this
+  - jtbd-stay-in-control-of-ai-actions
+last_updated: 2026-07-22
 ---
 
 # AI-native life operators
@@ -45,6 +48,9 @@ Supporting JTBDs:
 - `jtbd-capture-and-find-meaning` - she wants to capture from the tools where thoughts and commitments already happen.
 - `jtbd-move-the-few-things-that-matter` - AI should help organize action around the few commitments that matter.
 - `jtbd-see-my-arcs-in-everyday-moments` - external tools should keep identity context visible without forcing app-hopping.
+- `jtbd-get-help-without-retelling-my-life` - a thread or contextual launch should carry the minimum useful context forward without making Nina reconstruct it.
+- `jtbd-understand-why-ai-suggested-this` - evidence, provenance, freshness, and coverage limits should make an answer inspectable.
+- `jtbd-stay-in-control-of-ai-actions` - proposals, approval, authoritative receipts, correction, and undo should preserve Nina's authorship.
 
 Feature-level descent:
 - MCP, external connectors, and AI operator workflows descend from `jtbd-trust-this-app-with-my-life`.
@@ -57,6 +63,9 @@ Feature-level descent:
 - `jtbd-move-the-few-things-that-matter`
 - `jtbd-see-my-arcs-in-everyday-moments`
 - `jtbd-trust-this-app-with-my-life`
+- `jtbd-get-help-without-retelling-my-life`
+- `jtbd-understand-why-ai-suggested-this`
+- `jtbd-stay-in-control-of-ai-actions`
 
 ## Evidence In The Product
 
