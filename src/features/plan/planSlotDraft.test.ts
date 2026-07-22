@@ -20,8 +20,7 @@ describe('planSlotDraft', () => {
       stepMinutes: 15,
     });
 
-    expect(date.getHours()).toBe(1);
-    expect(date.getMinutes()).toBe(30);
+    expect(date.getTime() - dayStart.getTime()).toBe(90 * 60_000);
   });
 
   it('clamps draft slots to the day and a minimum duration', () => {

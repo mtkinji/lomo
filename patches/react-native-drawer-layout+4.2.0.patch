@@ -1,0 +1,26 @@
+diff --git a/node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js b/node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js
+index 40fdcdb..9587eaa 100644
+--- a/node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js
++++ b/node_modules/react-native-drawer-layout/lib/module/views/Drawer.native.js
+@@ -141,7 +141,7 @@ export function Drawer({
+       overshootClamping: true,
+       restDisplacementThreshold: 0.01,
+       restSpeedThreshold: 0.01,
+-      reduceMotion: ReduceMotion.Never
++      reduceMotion: ReduceMotion.System
+     }, finished => runOnJS(onAnimationEnd)(open, finished));
+     if (open) {
+       runOnJS(onOpen)();
+diff --git a/node_modules/react-native-drawer-layout/src/views/Drawer.native.tsx b/node_modules/react-native-drawer-layout/src/views/Drawer.native.tsx
+index a88307a..531c2e7 100644
+--- a/node_modules/react-native-drawer-layout/src/views/Drawer.native.tsx
++++ b/node_modules/react-native-drawer-layout/src/views/Drawer.native.tsx
+@@ -196,7 +196,7 @@ export function Drawer({
+           overshootClamping: true,
+           restDisplacementThreshold: 0.01,
+           restSpeedThreshold: 0.01,
+-          reduceMotion: ReduceMotion.Never,
++          reduceMotion: ReduceMotion.System,
+         },
+         (finished) => runOnJS(onAnimationEnd)(open, finished)
+       );

@@ -49,7 +49,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
+import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
 
 const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
   if (__DEV__) {
@@ -62,6 +62,7 @@ const logArcsDebug = (event: string, payload?: Record<string, unknown>) => {
 };
 
 export function ArcsScreen() {
+  const capabilityShell = useCapabilityShellOptional();
   const arcs = useAppStore((state) => state.arcs);
   const goals = useAppStore((state) => state.goals);
   const authIdentity = useAppStore((state) => state.authIdentity);
@@ -149,12 +150,13 @@ export function ArcsScreen() {
     [goals]
   );
 
-  const listBottomPadding = KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + insets.bottom + spacing.lg;
+  const listBottomPadding = insets.bottom + spacing.lg;
 
   return (
     <AppShell>
       <PageHeader
         title="Arcs"
+        onPressMenu={capabilityShell?.openMenu}
         onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
         avatarName={avatarName}
         avatarUrl={avatarUrl}

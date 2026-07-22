@@ -16,6 +16,7 @@ export const radii = {
   panel: 20,
   menu: 22,
   sheet: 28,
+  deviceSheet: 44,
   hero: 28,
   pill: 999,
 } as const;

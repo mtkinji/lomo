@@ -96,6 +96,12 @@ describe('linkingConfig', () => {
       expect(parse('today')?.name).toBe('ActivitiesList');
     });
 
+    test('kwilt://todos aliases the canonical To-dos root', () => {
+      const leaf = parse('todos');
+      expect(leaf?.name).toBe('ActivitiesList');
+      expect(leaf?.path).toEqual(['MainTabs', 'ActivitiesTab', 'ActivitiesList']);
+    });
+
     test('kwilt://plan -> PlanTab', () => {
       expect(parse('plan')?.name).toBe('PlanTab');
     });

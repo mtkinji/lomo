@@ -34,4 +34,16 @@ describe('Unified Chat coexistence contract', () => {
     expect(navigatorSource).toContain('component={AiChatScreen}');
     expect(navigatorSource).toContain('component={UnifiedChatScreen}');
   });
+
+  test('makes durable Chat the shell entry while preserving the legacy Agent route', () => {
+    expect(navigatorSource).toContain("rootNavigationRef.navigate('UnifiedChat')");
+    expect(navigatorSource).not.toContain("onOpenAgent={() =>");
+    expect(navigatorSource).toContain('name="Agent"');
+  });
+
+  test('can reopen the capability shell without replacing the thread picker', () => {
+    expect(screenSource).toContain('accessibilityLabel="Open Kwilt menu"');
+    expect(screenSource).toContain('accessibilityLabel="Open chats"');
+    expect(screenSource).toContain('openMenu');
+  });
 });

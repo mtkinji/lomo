@@ -67,6 +67,9 @@ import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
 import { resetUserSpecificState } from './src/store/useAppStore';
 import { Text } from './src/ui/primitives';
 import { getAuthRuntimeDiagnostics } from './src/utils/getEnv';
+import { markAppStarted } from './src/services/performance/startupTelemetry';
+
+markAppStarted();
 
 type AuthStartupState = 'boot' | 'hydratingAuth' | 'signedOut' | 'signedIn';
 

@@ -53,6 +53,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
               // We route into the Activities canvas (shell/canvas preserved) and let the
               // screen decide what "Today" means based on current state.
               path: 'today',
+              alias: ['todos'],
               parse: {
                 highlightSuggested: (v: string) => v === '1' || v === 'true',
                 contextGoalId: (v: string) => String(v),

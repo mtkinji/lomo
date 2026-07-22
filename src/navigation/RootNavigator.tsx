@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  useWindowDimensions,
   View,
   StyleSheet,
   Platform,
@@ -12,10 +11,10 @@ import {
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
 import {
+  CommonActions,
   NavigationContainer,
   DefaultTheme,
   Theme,
-  DrawerActions,
   NavigatorScreenParams,
   getFocusedRouteNameFromRoute,
   type NavigationState,
@@ -23,11 +22,7 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {
-  createDrawerNavigator,
-  DrawerContentScrollView,
-  DrawerItem,
-} from '@react-navigation/drawer';
+import { createDrawerNavigator } from '@react-navigation/drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArcsScreen } from '../features/arcs/ArcsScreen';
@@ -79,15 +74,9 @@ import { handleIncomingArcDraftUrl } from '../services/arcDrafts';
 import { handleIncomingShareUrl } from '../services/appleEcosystem/shareExtension';
 import { pingInstall } from '../services/installPing';
 import { colors, spacing, typography } from '../theme';
-import { Icon, IconName } from '../ui/Icon';
-import { Input } from '../ui/Input';
 import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 import { useAppStore } from '../store/useAppStore';
-import { useEntitlementsStore } from '../store/useEntitlementsStore';
-import { ProfileAvatar } from '../ui/ProfileAvatar';
-import { Button } from '../ui/Button';
 import { rootNavigationRef } from './rootNavigationRef';
-import { KwiltBottomBar } from './KwiltBottomBar';
 import { ChromeVisibilityProvider } from './ChromeVisibilityContext';
 import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
@@ -95,7 +84,6 @@ import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
 import { ChapterAlignScreen } from '../features/chapters/ChapterAlignScreen';
 import { ChapterDigestSettingsScreen } from '../features/chapters/ChapterDigestSettingsScreen';
-import { PLACE_TABS } from './placeTabs';
 import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
 import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
@@ -108,7 +96,13 @@ import type {
   JoinSharedGoalRouteParams,
 } from './routeParams';
 import type { LaunchContext } from '../domain/workflows';
-import type { ChatMode } from '../features/ai/workflowRegistry';
+import type { CapabilityAgentContext, ChatMode } from '../features/ai/workflowRegistry';
+import { CapabilityMenu } from './CapabilityMenu';
+import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
+import { resolveCapabilityNavigation } from './capabilityNavigation';
+import { markRootNavigationReady } from '../services/performance/startupTelemetry';
+import { CapabilityMenuStateProvider, useCapabilityMenuActions } from './CapabilityMenuStateContext';
+import { CapabilitySideSheet } from './CapabilitySideSheet';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -131,6 +125,7 @@ export type RootDrawerParamList = {
         workflowDefinitionId?: string;
         resumeDraft?: boolean;
         hidePromptSuggestions?: boolean;
+        capabilityContext?: CapabilityAgentContext;
       }
     | undefined;
   /**
@@ -377,8 +372,6 @@ type TrackScreenFn = (
 ) => void;
 
 function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
-  const { width } = useWindowDimensions();
-  const drawerWidth = width * 0.8;
   const showDevTools = __DEV__;
   const { capture } = useAnalytics();
   const completeWidgetNudge = useAppStore((s) => s.completeWidgetNudge);
@@ -395,6 +388,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   }, [authIdentity?.userId, isNavReady]);
 
   const [initialState, setInitialState] = useState<NavigationState | undefined>(undefined);
+  const [currentNavigationState, setCurrentNavigationState] = useState<NavigationState | undefined>();
   const lastTrackedRouteNameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -549,6 +543,8 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       initialState={initialState}
       linking={linking}
       onReady={() => {
+        markRootNavigationReady(Boolean(initialState));
+        setCurrentNavigationState(rootNavigationRef.getRootState());
         const currentRoute = rootNavigationRef.getCurrentRoute();
         if (currentRoute?.name) {
           lastTrackedRouteNameRef.current = currentRoute.name;
@@ -557,6 +553,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       }}
       onStateChange={(state) => {
         if (!state) return;
+        setCurrentNavigationState(state);
         AsyncStorage.setItem(NAV_PERSISTENCE_KEY, JSON.stringify(state)).catch((e) => {
           console.warn('Failed to persist navigation state', e);
         });
@@ -592,112 +589,63 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
         }
       }}
     >
-      <Drawer.Navigator
-        drawerContent={(props) => <KwiltDrawerContent {...props} />}
-        screenListeners={({ navigation, route }) => ({
-          drawerItemPress: (event) => {
-            if (route.name === 'ArcsStack') {
-              // Override the default so we always jump to the ArcsList screen
-              // inside the Arcs stack instead of treating a tap on an already
-              // focused drawer item as a no-op.
-              event.preventDefault();
-              navigation.navigate('ArcsStack', {
-                screen: 'ArcsList',
-              });
-              return;
-            }
-
-            if (route.name === 'Settings') {
-              // Mirror other primary nav items: tapping Settings should always land on the
-              // Settings home canvas, not the last nested Settings screen (e.g. Subscriptions).
-              event.preventDefault();
-              navigation.navigate('Settings', {
-                screen: 'SettingsHome',
-              });
-              return;
-            }
-          },
-        })}
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          // Use "slide" so the entire app canvas shifts right while the drawer stays pinned,
-          // similar to the ChatGPT mobile app behavior.
-          drawerType: 'slide',
-          drawerStyle: {
-            backgroundColor: colors.canvas,
-            width: drawerWidth,
-          },
-          overlayColor: 'rgba(15,23,42,0.35)',
-          sceneContainerStyle: {
-            backgroundColor: colors.shell,
-          },
-          drawerActiveTintColor: colors.accent,
-          drawerInactiveTintColor: colors.textSecondary,
-          drawerLabelStyle: {
-            ...typography.bodySm,
-          },
-          drawerItemStyle: {
-            borderRadius: 12,
-            marginVertical: spacing.xs / 4,
-            paddingVertical: spacing.xs / 8,
-            minHeight: 32,
-          },
-          drawerIcon: ({ color, size }) => {
-            const iconName = getDrawerIcon(route.name as keyof RootDrawerParamList);
-            return <Icon name={iconName} color={color} size={size ?? 20} />;
-          },
-        })}
-        initialRouteName="MainTabs"
+      <CapabilityMenuStateProvider
+        onMenuOpened={() => {
+          capture(AnalyticsEvent.CapabilityMenuOpened, {
+            source_surface: 'capability_shell',
+          });
+        }}
       >
-        <Drawer.Screen
-          name="MainTabs"
-          component={MainTabsNavigator}
-          options={{
-            title: 'Home',
-            drawerItemStyle: { display: 'none' },
-          }}
-        />
-        <Drawer.Screen
-          name="Agent"
-          component={AiChatScreen}
-          options={{
-            title: 'Agent',
-            // Hidden: this route exists for deep links + programmatic launches.
-            drawerItemStyle: { display: 'none' },
-          }}
-        />
-        <Drawer.Screen
-          name="UnifiedChat"
-          component={UnifiedChatScreen}
-          options={{
-            title: 'Chat',
-          }}
-        />
-        <Drawer.Screen
-          name="ArcsStack"
-          component={ArcsStackRedirectScreen}
-          options={{ title: 'Arcs' }}
-        />
-        {showDevTools && (
-          <>
+        <CapabilitySideSheet
+          menu={<KwiltCapabilityMenuHost navigationState={currentNavigationState} />}
+        >
+          <Drawer.Navigator
+            drawerContent={() => null}
+            screenOptions={{
+              headerShown: false,
+              drawerType: 'front',
+              swipeEnabled: false,
+              drawerStyle: { width: 1 },
+              overlayColor: 'transparent',
+              sceneStyle: { backgroundColor: colors.canvas },
+            }}
+            initialRouteName="MainTabs"
+          >
             <Drawer.Screen
-              name="DevTools"
-              component={DevToolsScreen}
-              options={{
-                title: 'Developer tools',
-                // Keep the route available for deep links and programmatic navigation,
-                // but move the entry point into Settings (dev-only).
-                drawerItemStyle: { display: 'none' },
-              }}
+              name="MainTabs"
+              component={CapabilityMainTabsHost}
+              options={{ title: 'Home', drawerItemStyle: { display: 'none' } }}
             />
-          </>
-        )}
-        <Drawer.Screen
-          name="Settings"
-          component={SettingsStackNavigator}
-          options={{ title: 'Settings' }}
-        />
-      </Drawer.Navigator>
+            <Drawer.Screen
+              name="Agent"
+              component={AiChatScreen}
+              options={{ title: 'Agent', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
+              name="UnifiedChat"
+              component={UnifiedChatScreen}
+              options={{ title: 'Chat', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
+              name="ArcsStack"
+              component={ArcsStackRedirectScreen}
+              options={{ title: 'Arcs', drawerItemStyle: { display: 'none' } }}
+            />
+            {showDevTools ? (
+              <Drawer.Screen
+                name="DevTools"
+                component={DevToolsScreen}
+                options={{ title: 'Developer tools', drawerItemStyle: { display: 'none' } }}
+              />
+            ) : null}
+            <Drawer.Screen
+              name="Settings"
+              component={SettingsStackNavigator}
+              options={{ title: 'Settings', drawerItemStyle: { display: 'none' } }}
+            />
+          </Drawer.Navigator>
+        </CapabilitySideSheet>
+      </CapabilityMenuStateProvider>
       <PlanKickoffDrawerHost />
       <CreditsInterstitialDrawerHost />
       <PaywallDrawerHost />
@@ -832,41 +780,8 @@ function ActivitiesStackNavigator() {
 function MainTabsNavigator() {
   return (
     <Tabs.Navigator
-      screenOptions={({ route }) => {
-        const getDeepestFocusedNestedRouteNameFromState = (r: any): string | null => {
-          // Walk down the currently-focused child route until we hit a leaf.
-          // Only works when React Navigation has populated nested `route.state`.
-          if (!r?.state?.routes || typeof r.state.index !== 'number') return null;
-          let current: any = r.state.routes[r.state.index];
-          while (current?.state?.routes && typeof current.state.index === 'number') {
-            current = current.state.routes[current.state.index];
-          }
-          return current?.name ?? null;
-        };
-
-        // The deep walker returns the leaf-level screen name (e.g. 'ActivityDetailFromGoal'
-        // inside MoreTab → MoreArcs → ArcsStack). `getFocusedRouteNameFromRoute` only
-        // returns the immediate child ('MoreArcs'), which isn't enough for tab-bar hiding.
-        const focusedRouteName =
-          getDeepestFocusedNestedRouteNameFromState(route) ?? getFocusedRouteNameFromRoute(route) ?? '';
-
-        const hideTabBar =
-          focusedRouteName === 'ActivityDetail' ||
-          focusedRouteName === 'ActivityDetailFromGoal' ||
-          focusedRouteName === 'MoreChapterDetail';
-        return {
-          headerShown: false,
-          tabBarStyle: hideTabBar
-            ? { display: 'none' }
-            : {
-                position: 'absolute',
-                backgroundColor: 'transparent',
-                borderTopWidth: 0,
-                elevation: 0,
-              },
-        };
-      }}
-      tabBar={(props) => <KwiltBottomBar {...props} />}
+      screenOptions={{ headerShown: false }}
+      tabBar={() => null}
       initialRouteName="ActivitiesTab"
     >
       <Tabs.Screen
@@ -890,6 +805,14 @@ function MainTabsNavigator() {
         options={{ title: 'More' }}
       />
     </Tabs.Navigator>
+  );
+}
+
+function CapabilityMainTabsHost() {
+  return (
+    <CapabilityShellProvider>
+      <MainTabsNavigator />
+    </CapabilityShellProvider>
   );
 }
 
@@ -1011,232 +934,45 @@ function SettingsStackNavigator() {
   );
 }
 
-function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
-  switch (routeName) {
-    case 'MainTabs':
-      return 'navHome';
-    case 'ArcsStack':
-      return 'navArcs';
-    case 'UnifiedChat':
-      return 'messageCircle';
-    case 'Settings':
-      return 'dot';
-    case 'DevTools':
-      return 'dev';
-    default:
-      return 'dot';
-  }
-}
-
-function KwiltDrawerContent(props: any) {
+function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: NavigationState }) {
   const insets = useSafeAreaInsets();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
-  const isPro = useEntitlementsStore((state) => state.isPro);
+  const { capture } = useAnalytics();
+  const { coverMenu } = useCapabilityMenuActions();
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
-  const subtitle = authIdentity?.email?.trim() || '';
-  const DRAWER_ICON_SIZE = 24;
-
-  // Hide the top-level Settings item from the drawer list while keeping the
-  // Settings screen available for navigation from the profile row.
-  const activeRoute = props.state.routes[props.state.index];
-  const activeRouteName = activeRoute?.name as keyof RootDrawerParamList | undefined;
-
-  const mainRoutes = props.state.routes.filter(
-    (route: { name: string }) =>
-      route.name !== 'MainTabs' &&
-      route.name !== 'Settings' &&
-      route.name !== 'DevTools' &&
-      route.name !== 'ArcsStack', // ArcsStack is shown via PLACE_TABS, so exclude it from main routes
-  );
-
-  const getActivePlaceTab = (): string | undefined => {
-    if (activeRouteName !== 'MainTabs') return undefined;
-    const mainTabsRoute = props.state.routes.find((route: { name: string }) => route.name === 'MainTabs');
-    const tabState = mainTabsRoute?.state as
-      | { index?: number; routes?: Array<{ name: string }> }
-      | undefined;
-    const activeIndex = tabState?.index ?? 0;
-    const activeTab = tabState?.routes?.[activeIndex];
-    return activeTab?.name;
-  };
-
-  const activePlaceTabName = getActivePlaceTab();
-
-  const navigateToPlace = (tabName: string) => {
-    if (tabName === 'GoalsTab') {
-      props.navigation.navigate('MainTabs', { screen: 'GoalsTab', params: { screen: 'GoalsList' } });
-      props.navigation.dispatch(DrawerActions.closeDrawer());
-      return;
-    }
-    if (tabName === 'ActivitiesTab') {
-      props.navigation.navigate('MainTabs', {
-        screen: 'ActivitiesTab',
-        params: { screen: 'ActivitiesList' },
-      });
-      props.navigation.dispatch(DrawerActions.closeDrawer());
-      return;
-    }
-    props.navigation.navigate('MainTabs', { screen: tabName });
-    props.navigation.dispatch(DrawerActions.closeDrawer());
-  };
-
-  const navigateFromDrawer = (routeName: keyof RootDrawerParamList) => {
-    if (routeName === 'ArcsStack') {
-      props.navigation.navigate('ArcsStack', { screen: 'ArcsList' });
-      props.navigation.dispatch(DrawerActions.closeDrawer());
-      return;
-    }
-
-    props.navigation.navigate(routeName as any);
-    props.navigation.dispatch(DrawerActions.closeDrawer());
-  };
-
-  const getDrawerLabel = (route: { key: string; name: keyof RootDrawerParamList }) => {
-    const options = props.descriptors?.[route.key]?.options ?? {};
-    if (typeof options.drawerLabel === 'string' && options.drawerLabel.trim()) {
-      return options.drawerLabel.trim();
-    }
-    if (typeof options.title === 'string' && options.title.trim()) {
-      return options.title.trim();
-    }
-    return route.name;
-  };
-
+  const activeCapabilityId = deriveActiveCapabilityId(navigationState);
   return (
-    <DrawerContentScrollView
-      {...props}
-      contentContainerStyle={[
+    <View
+      style={[
         styles.drawerContentContainer,
-        {
-          paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET,
-          // Keep the footer (Dev Mode + Profile) visually anchored to the bottom.
-          // Use minimal safe-area padding so it doesn't float upward.
-          paddingBottom: spacing.sm + insets.bottom,
-        },
+        { paddingTop: insets.top + NAV_DRAWER_TOP_OFFSET, paddingBottom: spacing.sm + insets.bottom },
       ]}
     >
-      {/* Search is temporarily disabled until navigation search is implemented. */}
-      {/*
-      <View style={styles.drawerHeader}>
-        <Input
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search arcs, goals, activities"
-          accessibilityLabel="Search navigation"
-          leadingIcon="search"
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-          containerStyle={styles.searchContainer}
-        />
-      </View>
-      */}
-      <View style={styles.drawerLayout}>
-        <View style={styles.drawerTop}>
-          <View style={styles.drawerMainItems}>
-              {PLACE_TABS.map((tab) => {
-                const focused = activeRouteName === 'MainTabs' && activePlaceTabName === tab.name;
-                return (
-                  <DrawerItem
-                    key={tab.name}
-                    testID={`nav.drawer.place.${tab.name}`}
-                    label={tab.label}
-                    focused={focused}
-                    onPress={() => navigateToPlace(tab.name)}
-                    icon={({ color, size }) => (
-                      <Icon name={tab.icon} color={color} size={DRAWER_ICON_SIZE ?? size ?? 20} />
-                    )}
-                    activeTintColor={colors.parchment}
-                    inactiveTintColor={colors.textSecondary}
-                    activeBackgroundColor={colors.pine700}
-                    inactiveBackgroundColor="transparent"
-                    labelStyle={styles.drawerLabel}
-                    style={styles.drawerItem}
-                  />
-                );
-              })}
-            {mainRoutes.map((route: { key: string; name: keyof RootDrawerParamList }) => {
-              const focused = route.key === activeRoute?.key;
-              const label = getDrawerLabel(route);
-              const iconName = getDrawerIcon(route.name);
-
-              return (
-                <DrawerItem
-                  key={route.key}
-                  testID={`nav.drawer.item.${String(route.name)}`}
-                  label={label}
-                  focused={focused}
-                  onPress={() => navigateFromDrawer(route.name)}
-                  icon={({ color, size }) => (
-                    <Icon name={iconName} color={color} size={DRAWER_ICON_SIZE ?? size ?? 20} />
-                  )}
-                  activeTintColor={colors.parchment}
-                  inactiveTintColor={colors.textSecondary}
-                  activeBackgroundColor={colors.pine700}
-                  inactiveBackgroundColor="transparent"
-                  labelStyle={styles.drawerLabel}
-                  style={styles.drawerItem}
-                />
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.drawerBottom}>
-          <Pressable
-            style={styles.profileRow}
-            accessibilityRole="button"
-            accessibilityLabel="View profile and settings"
-            onPress={() => {
-              // Always land on the Settings home canvas from the profile row (not the last
-              // nested Settings screen like Subscriptions).
-              props.navigation.navigate('Settings', { screen: 'SettingsHome' });
-              props.navigation.dispatch(DrawerActions.closeDrawer());
-            }}
-          >
-            <ProfileAvatar
-              name={displayName}
-              avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
-              size={44}
-              borderRadius={22}
-              style={styles.avatarPlaceholder}
-            />
-            <View style={styles.profileTextBlock}>
-              <Text style={styles.profileName} numberOfLines={1}>
-                {displayName}
-              </Text>
-              {subtitle ? (
-                <Text style={styles.profileSubtitle} numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-
-          {!isPro ? (
-            <View style={styles.upgradeButtonContainer}>
-              <Button
-                fullWidth
-                variant="primary"
-                accessibilityLabel="Upgrade to Kwilt Pro"
-                onPress={() => {
-                  props.navigation.navigate('Settings', {
-                    screen: 'SettingsManageSubscription',
-                    params: {
-                      openPricingDrawer: true,
-                      openPricingDrawerNonce: Date.now(),
-                    },
-                  });
-                  props.navigation.dispatch(DrawerActions.closeDrawer());
-                }}
-              >
-                Upgrade to Kwilt Pro
-              </Button>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </DrawerContentScrollView>
+      <CapabilityMenu
+        activeCapabilityId={activeCapabilityId}
+        displayName={displayName}
+        avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
+        onSelectCapability={(id) => {
+          const capability = resolveCapabilityNavigation(id);
+          capture(AnalyticsEvent.CapabilitySelected, { capability_id: id, source_surface: 'menu' });
+          rootNavigationRef.dispatch(CommonActions.navigate(capability));
+          coverMenu();
+        }}
+        onOpenSearch={() => {
+          coverMenu();
+          useAppStore.getState().openGlobalSearch();
+        }}
+        onOpenSettings={() => {
+          rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
+          coverMenu();
+        }}
+        onOpenChat={() => {
+          rootNavigationRef.navigate('UnifiedChat');
+          coverMenu();
+        }}
+      />
+    </View>
   );
 }
 
@@ -1255,65 +991,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   drawerContentContainer: {
-    // DrawerContentScrollView uses contentContainerStyle; `flexGrow` is the
-    // reliable way to make the content fill the viewport height.
-    flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-  },
-  drawerHeader: {
-    marginBottom: spacing.lg,
-  },
-  searchContainer: {
-  },
-  drawerLayout: {
     flex: 1,
-    justifyContent: 'space-between',
-  },
-  drawerTop: {
-    flex: 1,
-  },
-  drawerMainItems: {
-    paddingTop: spacing.lg,
-  },
-  drawerBottom: {
-    // Keep this section tight so it sits lower in the drawer.
-    paddingTop: spacing.md,
-    marginTop: spacing.md,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  avatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.shell,
-  },
-  profileTextBlock: {
-    flex: 1,
-  },
-  profileName: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-  },
-  profileSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  upgradeButtonContainer: {
-    marginTop: spacing.sm,
-  },
-  drawerItem: {
-    borderRadius: 12,
-    marginVertical: spacing.xs / 2,
-    paddingVertical: spacing.sm / 2,
-    minHeight: 52,
-  },
-  drawerLabel: {
-    ...typography.body,
   },
 });

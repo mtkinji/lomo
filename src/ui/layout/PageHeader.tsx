@@ -1,5 +1,5 @@
-import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import { ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { IconButton } from '../Button';
@@ -7,6 +7,7 @@ import { ObjectTypeIconBadge } from '../ObjectTypeIconBadge';
 import { getObjectTypeBadgeColors, type ObjectTypeTone } from '../../theme/objectTypeBadges';
 import { ProfileAvatar } from '../ProfileAvatar';
 import { StreakCapsule } from '../StreakCapsule';
+import Svg, { Path } from 'react-native-svg';
 
 type PageHeaderProps = {
   title: string;
@@ -39,7 +40,8 @@ type PageHeaderProps = {
   onPressBack?: () => void;
   /**
    * Optional avatar handler; when provided, the avatar (or StreakCapsule) appears
-   * on the right side. Intended for top-level canvases where the avatar opens Settings.
+   * on the right side. Capability inventories suppress this avatar because the
+   * launcher menu owns the global profile/settings entry.
    */
   onPressAvatar?: () => void;
   /**
@@ -51,8 +53,8 @@ type PageHeaderProps = {
    */
   avatarUrl?: string | null;
   /**
-   * When true, the menu icon is visually treated as "open" (rotated 180deg).
-   * Typically wired to the drawer's open/closed state.
+   * When true, the menu icon receives the active shell color while remaining a
+   * familiar menu icon. The drawer owns the close gesture and outside-tap behavior.
    */
   menuOpen?: boolean;
   /**
@@ -76,8 +78,7 @@ type PageHeaderProps = {
    */
   children?: ReactNode;
   /**
-   * When provided, the avatar slot upgrades to a StreakCapsule showing
-   * the user's current streak count alongside their avatar.
+   * When provided, shows a StreakCapsule independently of the launcher-owned avatar.
    */
   streakCount?: number;
   /**
@@ -135,8 +136,8 @@ export function PageHeader({
 
   const hasBack = !!onPressBack;
   const hasMenu = !!onPressMenu;
-  const hasAvatar = !!onPressAvatar;
-  const hasStreakCapsule = hasAvatar && typeof streakCount === 'number';
+  const hasAvatar = !!onPressAvatar && !hasMenu;
+  const hasStreakCapsule = typeof streakCount === 'number';
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -268,6 +269,7 @@ const styles = StyleSheet.create({
   },
   headerIconButtonGhost: {
     backgroundColor: 'transparent',
+    marginLeft: -spacing.sm,
   },
   headerAvatarButton: {
     alignItems: 'center',
@@ -323,72 +325,33 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   rightElement: {},
-  menuIconBox: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuLine: {
-    position: 'absolute',
-    width: 22,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.textPrimary,
-  },
 });
 
 function MenuToggleIcon({ open }: { open: boolean }) {
-  const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(progress, {
-      toValue: open ? 1 : 0,
-      useNativeDriver: true,
-      damping: 15,
-      stiffness: 180,
-      mass: 0.8,
-    }).start();
-  }, [open, progress]);
-
-  const topStyle = {
-    transform: [
-      {
-        translateY: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [-4, 0],
-        }),
-      },
-      {
-        rotate: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '45deg'],
-        }),
-      },
-    ],
-  };
-
-  const bottomStyle = {
-    transform: [
-      {
-        translateY: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [4, 0],
-        }),
-      },
-      {
-        rotate: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '-45deg'],
-        }),
-      },
-    ],
-  };
+  const stroke = getMenuToggleStroke(open);
 
   return (
-    <View style={styles.menuIconBox}>
-      <Animated.View style={[styles.menuLine, topStyle]} />
-      <Animated.View style={[styles.menuLine, bottomStyle]} />
-    </View>
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <Path
+        testID="nav.drawer.icon.line.top"
+        d="M4 8h16"
+        stroke={stroke}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        testID="nav.drawer.icon.line.bottom"
+        d="M4 16h12"
+        stroke={stroke}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
+}
+
+export function getMenuToggleStroke(open: boolean): string {
+  return open ? colors.gray600 : colors.textPrimary;
 }

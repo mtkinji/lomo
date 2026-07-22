@@ -24,9 +24,11 @@ import {
   makeAgentWorkbenchHostMessage,
   parseAgentWorkbenchSurfaceMessage,
 } from './workbenchProtocol';
+import { useCapabilityMenuActions } from '../../navigation/CapabilityMenuStateContext';
 
 export function UnifiedChatScreen() {
   const insets = useSafeAreaInsets();
+  const { openMenu } = useCapabilityMenuActions();
   const config = useMemo(getUnifiedChatConfig, []);
   const repository = useMemo(() => createUnifiedChatRepository(), []);
   const webViewRef = useRef<WebView>(null);
@@ -267,17 +269,25 @@ export function UnifiedChatScreen() {
 
   return (
     <AppShell fullBleedCanvas>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}> 
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open Kwilt menu"
+          onPress={openMenu}
+          style={styles.iconButton}
+        >
+          <Icon name="menu" size={20} color={colors.textPrimary} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open chats"
           onPress={() => setPickerVisible(true)}
           style={styles.headerTitleButton}
         >
-          <Icon name="menu" size={20} color={colors.textPrimary} />
           <Text numberOfLines={1} style={styles.headerTitle}>
             {aggregate?.thread.title ?? 'Chat'}
           </Text>
+          <Icon name="chevronDown" size={16} color={colors.textSecondary} />
         </Pressable>
         <Pressable
           accessibilityRole="button"

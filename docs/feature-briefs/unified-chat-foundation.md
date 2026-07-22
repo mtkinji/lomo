@@ -58,7 +58,7 @@ When I open Chat, I want to start a distinct conversation or return to one I alr
 
 The new capability provides:
 
-- a hidden or internally gated Chat entry;
+- a first-class Chat entry in the unified Kwilt capability shell;
 - create, list, open, rename, and archive for multiple conversations;
 - server-backed thread, message, and run records owned by the authenticated Kwilt user;
 - a Kwilt-owned web workbench, derived from the mature Giraffed interaction system, hosted in a restricted WebView;

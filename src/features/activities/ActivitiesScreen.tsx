@@ -37,7 +37,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { DraggableList } from '../../ui/DraggableList';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
-import { useDrawerMenuEnabled } from '../../navigation/useDrawerMenuEnabled';
+import { useCapabilityShellOptional } from '../../navigation/CapabilityShellContext';
+import { markFirstSurfaceUsable, wasNavigationRestoredForStartup } from '../../services/performance/startupTelemetry';
 import { CanvasFlatListWithRef } from '../../ui/layout/CanvasFlatList';
 import type { ActivitiesStackParamList, MainTabsParamList } from '../../navigation/RootNavigator';
 import { Button } from '../../ui/Button';
@@ -130,7 +131,6 @@ import type {
   ActivityStep,
 } from '../../domain/types';
 import { styles, QUICK_ADD_BAR_HEIGHT } from './activitiesScreenStyles';
-import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 import { useChromeVisibility } from '../../navigation/ChromeVisibilityContext';
 import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeReanimatedEasing } from '../../navigation/chromeMotion';
 import { Dialog } from '../../ui/Dialog';
@@ -278,7 +278,7 @@ function getTopPriorityBandRowStyle(indicator?: ActivityPriorityIndicator | null
 }
 
 export function ActivitiesScreen() {
-  useDrawerMenuEnabled();
+  const capabilityShell = useCapabilityShellOptional();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<ActivitiesStackParamList, 'ActivitiesList'>>();
   // This screen is used for both the canonical `today` entrypoint and widget-origin
@@ -287,7 +287,6 @@ export function ActivitiesScreen() {
   const tabsNavigation = navigation.getParent<BottomTabNavigationProp<MainTabsParamList>>();
   const insets = useSafeAreaInsets();
   const {
-    bottomBarVisible,
     setChromeAutoHideEnabled,
     setChromeVisibility,
     notifyChromeScrollIntent,
@@ -306,6 +305,24 @@ export function ActivitiesScreen() {
   const activities = useAppStore((state) => state.activities);
   const goals = useAppStore((state) => state.goals);
   const domainHydrated = useAppStore((state) => state.domainHydrated);
+
+  React.useEffect(() => {
+    if (!domainHydrated) return;
+    const measurement = markFirstSurfaceUsable({
+      capabilityId: 'todos',
+      restored: wasNavigationRestoredForStartup(),
+      shellVariant: 'option-g',
+    });
+    if (measurement) {
+      capture(AnalyticsEvent.UnifiedShellFirstSurfaceUsable, {
+        capability_id: measurement.capabilityId,
+        restored: measurement.restored,
+        shell_variant: measurement.shellVariant,
+        app_to_root_ready_ms: measurement.appToRootReadyMs,
+        app_to_first_surface_usable_ms: measurement.appToFirstSurfaceUsableMs,
+      });
+    }
+  }, [capture, domainHydrated]);
   const domainSyncStatus = useAppStore((state) => state.domainSyncStatus);
   const domainSyncError = useAppStore((state) => state.domainSyncError);
   const authIdentity = useAppStore((state) => state.authIdentity);
@@ -1275,9 +1292,7 @@ export function ActivitiesScreen() {
   const quickAddCompactBottomOffsetPx = Math.max(insets.bottom + spacing.sm, spacing.md);
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
-    : bottomBarVisible
-      ? KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX + spacing.sm
-      : quickAddCompactBottomOffsetPx;
+    : quickAddCompactBottomOffsetPx;
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
@@ -2896,6 +2911,7 @@ export function ActivitiesScreen() {
           >
             <PageHeader
               title="To-dos"
+              onPressMenu={capabilityShell?.openMenu}
               onPressAvatar={() => (navigation as any).navigate('Settings', { screen: 'SettingsHome' })}
               avatarName={avatarName}
               avatarUrl={avatarUrl}

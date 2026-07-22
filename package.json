@@ -35,7 +35,8 @@
     "visual:compare": "node scripts/visual-regression/compare.js",
     "visual:update": "node scripts/visual-regression/compare.js --update",
     "product:lint": "node scripts/product-lint.mjs",
-    "jtbd:lint": "npm run product:lint"
+    "jtbd:lint": "npm run product:lint",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -115,6 +116,7 @@
     "jest-expo": "^54.0.16",
     "jsonwebtoken": "^9.0.3",
     "pixelmatch": "^7.1.0",
+    "patch-package": "8.0.0",
     "pngjs": "^7.0.0",
     "react-native-web": "0.21.2",
     "storybook": "10.4.6",
