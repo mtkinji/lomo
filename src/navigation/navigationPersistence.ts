@@ -1,6 +1,12 @@
 import type { NavigationState } from '@react-navigation/native';
 
-type RootRouteName = 'MainTabs' | 'Agent' | 'ArcsStack' | 'Settings' | 'DevTools';
+type RootRouteName =
+  | 'MainTabs'
+  | 'Agent'
+  | 'UnifiedChat'
+  | 'ArcsStack'
+  | 'Settings'
+  | 'DevTools';
 
 type PersistedRouteLike = {
   key?: string;
@@ -153,6 +159,7 @@ export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteN
   return [
     'MainTabs',
     'Agent',
+    'UnifiedChat',
     'ArcsStack',
     'Settings',
     ...(showDevTools ? (['DevTools'] as const) : []),

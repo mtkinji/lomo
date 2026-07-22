@@ -36,6 +36,7 @@ import { PlanScreen } from '../features/plan/PlanScreen';
 import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
+import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
@@ -96,7 +97,6 @@ import type {
 } from './routeParams';
 import type { LaunchContext } from '../domain/workflows';
 import type { CapabilityAgentContext, ChatMode } from '../features/ai/workflowRegistry';
-import { deriveCapabilityAgentContext } from '../features/ai/capabilityAgentContext';
 import { CapabilityMenu } from './CapabilityMenu';
 import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
@@ -128,6 +128,11 @@ export type RootDrawerParamList = {
         capabilityContext?: CapabilityAgentContext;
       }
     | undefined;
+  /**
+   * Standalone durable Chat capability. This is intentionally separate from
+   * the compatibility `Agent` route that owns Kwilt's existing workflow chat.
+   */
+  UnifiedChat: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: undefined;
 };
@@ -617,6 +622,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               options={{ title: 'Agent', drawerItemStyle: { display: 'none' } }}
             />
             <Drawer.Screen
+              name="UnifiedChat"
+              component={UnifiedChatScreen}
+              options={{ title: 'Chat', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
               name="ArcsStack"
               component={ArcsStackRedirectScreen}
               options={{ title: 'Arcs', drawerItemStyle: { display: 'none' } }}
@@ -932,10 +942,6 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { coverMenu } = useCapabilityMenuActions();
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const activeCapabilityId = deriveActiveCapabilityId(navigationState);
-  const capabilityContext = deriveCapabilityAgentContext(
-    navigationState as Parameters<typeof deriveCapabilityAgentContext>[0],
-  );
-
   return (
     <View
       style={[
@@ -961,8 +967,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' });
           coverMenu();
         }}
-        onOpenAgent={() => {
-          rootNavigationRef.navigate('Agent', capabilityContext ? { capabilityContext } : undefined);
+        onOpenChat={() => {
+          rootNavigationRef.navigate('UnifiedChat');
           coverMenu();
         }}
       />

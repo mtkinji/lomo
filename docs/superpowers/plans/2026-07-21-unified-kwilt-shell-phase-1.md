@@ -379,7 +379,8 @@ Test:
 - Avatar opens `SettingsHome`
 - Search invokes the existing global search surface
 - Chats appears after capabilities
-- Chat action opens the Agent destination
+- Chat action opens the durable `UnifiedChat` destination; the hidden `Agent` route remains
+  available to existing onboarding, Arc/Goal, and To-do workflow callers
 - No close `X` is rendered
 
 - [ ] **Step 2: Verify failure**
@@ -676,6 +677,8 @@ Do not begin the Games import until:
   its recorded source tag.
 - Global settings and local ellipsis ownership follow the accepted contract.
 - Agent entry and exact return work from inventory and object detail.
+- The shell Chat action opens durable Unified Chat, and Unified Chat can reopen the shell menu
+  without replacing its separate thread picker.
 - App size, launch, memory, and startup-work evidence meet the recorded gates.
 - `npm run verify:changed -- --run` passes on the final Phase 1 diff.
 

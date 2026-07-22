@@ -54,17 +54,19 @@ describe('navigationPersistence', () => {
     jest.useRealTimers();
   });
 
-  test('allows every registered production drawer route, including hidden Agent', () => {
+  test('allows every registered production drawer route, including both chat systems', () => {
     expect(getAllowedPersistedRootRoutes(false)).toEqual([
       'MainTabs',
       'Agent',
+      'UnifiedChat',
       'ArcsStack',
       'Settings',
     ]);
     expect(
-      shouldRestoreNavigationState(rootState(['MainTabs', 'Agent', 'ArcsStack', 'Settings']), {
-        showDevTools: false,
-      }),
+      shouldRestoreNavigationState(
+        rootState(['MainTabs', 'Agent', 'UnifiedChat', 'ArcsStack', 'Settings']),
+        { showDevTools: false },
+      ),
     ).toBe(true);
   });
 

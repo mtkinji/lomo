@@ -14,7 +14,7 @@ type CapabilityMenuProps = {
   onSelectCapability: (id: CapabilityId) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
-  onOpenAgent: () => void;
+  onOpenChat: () => void;
 };
 
 export function CapabilityMenu({
@@ -24,7 +24,7 @@ export function CapabilityMenu({
   onSelectCapability,
   onOpenSearch,
   onOpenSettings,
-  onOpenAgent,
+  onOpenChat,
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -137,7 +137,7 @@ export function CapabilityMenu({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open chat"
-          onPress={onOpenAgent}
+          onPress={onOpenChat}
           style={({ pressed }) => [styles.chatButton, pressed && styles.chatButtonPressed]}
         >
           <Icon name="navAiGuide" size={17} color={colors.gray50} />

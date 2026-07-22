@@ -7,7 +7,7 @@ const handlers = {
   onSelectCapability: jest.fn(),
   onOpenSearch: jest.fn(),
   onOpenSettings: jest.fn(),
-  onOpenAgent: jest.fn(),
+  onOpenChat: jest.fn(),
 };
 
 describe('CapabilityMenu', () => {
@@ -67,7 +67,7 @@ describe('CapabilityMenu', () => {
     );
   });
 
-  it('reuses global search, settings, and Agent entry points', () => {
+  it('reuses global search and settings and opens durable Chat', () => {
     const { getByLabelText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" {...handlers} />,
     );
@@ -78,6 +78,6 @@ describe('CapabilityMenu', () => {
 
     expect(handlers.onOpenSearch).toHaveBeenCalledTimes(1);
     expect(handlers.onOpenSettings).toHaveBeenCalledTimes(1);
-    expect(handlers.onOpenAgent).toHaveBeenCalledTimes(1);
+    expect(handlers.onOpenChat).toHaveBeenCalledTimes(1);
   });
 });
