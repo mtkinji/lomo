@@ -18,13 +18,15 @@ describe('activity AI enrichment prompt', () => {
     expect(prompt).toContain('mapped goal has a target date');
     expect(prompt).toContain('return repeatRule as null');
     expect(prompt).toContain('Do not invent hard deadlines');
+    expect(prompt).toContain('placeQuery');
+    expect(prompt).toContain('explicitly names a place or merchant');
     expect(prompt).toContain('steps is not requested: omit steps');
   });
 
   it('explicitly omits trigger fields when triggers are not selected', () => {
     const prompt = buildActivityEnrichmentSystemPrompt(['details']);
 
-    expect(prompt).toContain('triggers is not requested: omit reminderAt, scheduledDate, and repeatRule');
+    expect(prompt).toContain('triggers is not requested: omit reminderAt, scheduledDate, repeatRule, and place');
     expect(prompt).not.toContain('populate reminderAt, scheduledDate, and repeatRule');
   });
 
@@ -80,6 +82,13 @@ describe('normalizeActivityAiEnrichmentResponse', () => {
           estimateMinutes: 184.7,
           priority: 2,
           difficulty: 'hard',
+          place: {
+            placeQuery: '  Costco  ',
+            label: ' Costco ',
+            trigger: 'arrive',
+            radiusM: 150,
+            intent: 'pickup',
+          },
         },
         {
           validGoalIds: new Set(['goal-1']),
@@ -106,6 +115,13 @@ describe('normalizeActivityAiEnrichmentResponse', () => {
       estimateMinutes: 180,
       priority: 2,
       difficulty: 'hard',
+      place: {
+        placeQuery: 'Costco',
+        label: 'Costco',
+        trigger: 'arrive',
+        radiusM: 150,
+        intent: 'pickup',
+      },
     });
   });
 
@@ -149,6 +165,14 @@ describe('normalizeActivityAiEnrichmentResponse', () => {
         areaId: 'unknown',
         reminderAt: 'not a date',
         scheduledDate: 'not a date',
+      }),
+    ).toBeNull();
+  });
+
+  it('rejects a place candidate without an explicit query', () => {
+    expect(
+      normalizeActivityAiEnrichmentResponse({
+        place: { label: 'Nearby store', trigger: 'arrive', radiusM: 150 },
       }),
     ).toBeNull();
   });

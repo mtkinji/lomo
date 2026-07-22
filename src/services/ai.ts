@@ -51,6 +51,13 @@ export type ActivityAiEnrichment = {
   estimateMinutes?: number | null;
   priority?: 1 | 2 | 3 | null;
   difficulty?: ActivityDifficulty;
+  place?: {
+    placeQuery: string;
+    label?: string;
+    trigger: 'arrive' | 'leave';
+    radiusM: number;
+    intent: 'pickup' | 'dropoff' | 'visit' | 'doable_there';
+  };
 };
 
 export type ActivityAiEnrichmentAction = 'steps' | 'triggers' | 'details';
@@ -3281,8 +3288,10 @@ export function buildActivityEnrichmentSystemPrompt(
         '  If no explicit date is present, choose a gentle future reminder during waking hours within the next 1-7 days when that would help the user start.\n' +
         '  If a mapped goal has a target date, use it to estimate urgency: near or overdue goals should get sooner reminders and a tighter cadence.\n' +
         '  If repetition is not explicit or strongly implied, return repeatRule as null.\n' +
-        '  Do not invent hard deadlines; scheduledDate can be a soft planned day rather than a claimed deadline.\n'
-      : '- triggers is not requested: omit reminderAt, scheduledDate, and repeatRule.\n') +
+        '  Do not invent hard deadlines; scheduledDate can be a soft planned day rather than a claimed deadline.\n' +
+        '  Optionally return place with placeQuery, label, intent, trigger, and radiusM only when the to-do explicitly names a place or merchant.\n' +
+        '  Keep placeQuery broad when the text does not identify a specific branch; never choose the nearest branch.\n'
+      : '- triggers is not requested: omit reminderAt, scheduledDate, repeatRule, and place.\n') +
     '- notes: 1-3 short sentences, practical and specific.\n' +
     '- tags: 0-5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
     '- goalId: one id from Candidate goals if the to-do clearly belongs to an existing goal; otherwise omit or null.\n' +
@@ -3449,6 +3458,21 @@ export async function enrichActivityWithAI(
               difficulty: {
                 type: 'string',
                 enum: ['very_easy', 'easy', 'medium', 'hard', 'very_hard'],
+              },
+              place: {
+                type: 'object',
+                properties: {
+                  placeQuery: { type: 'string' },
+                  label: { type: 'string' },
+                  trigger: { type: 'string', enum: ['arrive', 'leave'] },
+                  radiusM: { type: 'integer', minimum: 15, maximum: 5000 },
+                  intent: {
+                    type: 'string',
+                    enum: ['pickup', 'dropoff', 'visit', 'doable_there'],
+                  },
+                },
+                required: ['placeQuery', 'intent', 'trigger', 'radiusM'],
+                additionalProperties: false,
               },
             },
             additionalProperties: false,

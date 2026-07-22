@@ -169,6 +169,11 @@ import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
+import {
+  isActivityLocationDraftDirty,
+  serializeActivityLocationDraft,
+  type ActivityLocationAlert,
+} from './activityLocationDraft';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
@@ -1163,7 +1168,7 @@ export function ActivityDetailScreen() {
   );
   const [isLocationSearchOpen, setIsLocationSearchOpen] = useState(false);
   const [locationSelectedValue, setLocationSelectedValue] = useState('');
-  const [locationTriggerDraft, setLocationTriggerDraft] = useState<'arrive' | 'leave'>('leave');
+  const [locationTriggerDraft, setLocationTriggerDraft] = useState<ActivityLocationAlert>('off');
   // MVP (US-only): feet-only radius UI. We still store meters canonically.
   const [locationRadiusMetersDraft, setLocationRadiusMetersDraft] = useState<number>(DEFAULT_RADIUS_FT * 0.3048);
 
@@ -1302,22 +1307,26 @@ export function ActivityDetailScreen() {
   ]);
 
   const applyLocationDraft = useCallback(() => {
-      if (!activity?.id) return;
-      const timestamp = new Date().toISOString();
+    if (!activity?.id) return;
+    const timestamp = new Date().toISOString();
     const safeRadiusM = getSafeLocationRadiusM();
-      updateActivity(activity.id, (prev) => ({
-        ...prev,
-      location: previewLocation
-        ? {
-            label: previewLocation.label,
-            latitude: previewLocation.latitude,
-            longitude: previewLocation.longitude,
-          trigger: locationTriggerDraft,
-          radiusM: safeRadiusM,
-          }
-        : null,
-        updatedAt: timestamp,
-      }));
+    updateActivity(activity.id, (prev) => ({
+      ...prev,
+      location: serializeActivityLocationDraft({
+        place: previewLocation,
+        alert: locationTriggerDraft,
+        radiusM: safeRadiusM,
+      }),
+      placeLink:
+        previewLocation && prev.placeLink
+          ? {
+              ...prev.placeLink,
+              resolution: 'specific',
+              provenance: { source: 'user_selected', confidence: 1 },
+            }
+          : prev.placeLink,
+      updatedAt: timestamp,
+    }));
   }, [activity?.id, getSafeLocationRadiusM, locationTriggerDraft, previewLocation, updateActivity]);
   const computeRegionForRadius = useCallback((center: { latitude: number; longitude: number }, radiusM: number): Region => {
     // Roughly fit ~3 radii to each edge of the viewport.
@@ -1428,6 +1437,7 @@ export function ActivityDetailScreen() {
     updateActivity(activity.id, (prev) => ({
       ...prev,
       location: null,
+      placeLink: null,
       updatedAt: timestamp,
     }));
     clearLocationSelection();
@@ -1448,34 +1458,17 @@ export function ActivityDetailScreen() {
   }, []);
 
   const isLocationDraftDirty = useMemo(() => {
-    const loc = (activity as any)?.location as any;
-    const hasSaved = Boolean(loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number');
-    const hasDraft = Boolean(previewLocation);
-    if (hasSaved !== hasDraft) return true;
-    if (!hasSaved && !hasDraft) return false;
-
-    const eqNum = (a: number, b: number) => Math.abs(a - b) <= 1e-6;
-    const savedLabel = String(loc?.label ?? '');
-    const draftLabel = String(previewLocation?.label ?? '');
-    if (savedLabel !== draftLabel) return true;
-    if (!eqNum(Number(loc.latitude), Number(previewLocation!.latitude))) return true;
-    if (!eqNum(Number(loc.longitude), Number(previewLocation!.longitude))) return true;
-
     const safeRadiusM = getSafeLocationRadiusM();
-    const savedTrigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
-    const savedRadiusM =
-      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
-        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
-        : DEFAULT_RADIUS_FT * 0.3048;
-
-    if (savedTrigger !== locationTriggerDraft) return true;
-    if (!eqNum(Number(savedRadiusM), Number(safeRadiusM))) return true;
-    return false;
+    return isActivityLocationDraftDirty({
+      saved: activity?.location,
+      draft: {
+        place: previewLocation,
+        alert: locationTriggerDraft,
+        radiusM: safeRadiusM,
+      },
+    });
   }, [
     activity,
-    DEFAULT_RADIUS_FT,
-    MAX_LOCATION_RADIUS_FT,
-    MIN_LOCATION_RADIUS_FT,
     getSafeLocationRadiusM,
     locationTriggerDraft,
     previewLocation,
@@ -1487,11 +1480,12 @@ export function ActivityDetailScreen() {
     setMapCenterOverride(null);
     mapCenterOverrideRef.current = null;
     setLocationSelectedValue('');
-    // Initialize trigger/radius from current activity (or defaults).
+    // Preserve the difference between a context-only place and an explicit alert.
     const loc = (activity as any)?.location as any;
     const hasSavedLocation =
       Boolean(loc) && typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number';
-    const trigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
+    const trigger: ActivityLocationAlert =
+      loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'off';
     const radiusM =
       typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
         ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
@@ -1504,28 +1498,22 @@ export function ActivityDetailScreen() {
         latitude: loc.latitude,
         longitude: loc.longitude,
       });
+    } else if (activity?.placeLink?.target.query) {
+      setLocationQuery(activity.placeLink.target.query);
     } else {
       setPreviewLocation(null);
     }
-    // Best-effort: if we haven't asked yet, request so we can center on "current location".
+    // Reading an already-authorized foreground point is fine; opening the sheet itself
+    // must never prompt or turn that point into the selected place.
     void (async () => {
-      const prefs = useAppStore.getState().locationOfferPreferences;
-      if (prefs.osPermissionStatus === 'notRequested') {
-        await LocationPermissionService.requestOsPermission();
-      } else {
-        await LocationPermissionService.syncOsPermissionStatus();
-      }
+      const status = await LocationPermissionService.syncOsPermissionStatus();
+      if (status !== 'authorized' && status !== 'foregroundOnly') return;
       const coords = await getCurrentLocationBestEffort();
       if (coords) {
         setCurrentCoords(coords);
-        // If there's no saved location, seed the draft with the user's current location so Save works immediately.
-        // Don't overwrite if the user has already picked/dragged a location while this async is resolving.
-        if (!hasSavedLocation) {
-          setPreviewLocation((prev) => prev ?? { label: 'Current location', latitude: coords.latitude, longitude: coords.longitude });
-          if (!mapCenterOverrideRef.current) {
-            setMapCenterOverride(coords);
-            mapCenterOverrideRef.current = coords;
-          }
+        if (!hasSavedLocation && !mapCenterOverrideRef.current) {
+          setMapCenterOverride(coords);
+          mapCenterOverrideRef.current = coords;
         }
       } else {
         const next = useAppStore.getState().locationOfferPreferences.osPermissionStatus;
@@ -1568,9 +1556,6 @@ export function ActivityDetailScreen() {
         setIsSearchingLocation(false);
         setLocationSearchError(null);
         setLocationResults(cached);
-        if (cached.length > 0) {
-          setPreviewLocation((prev) => prev ?? cached[0] ?? null);
-        }
         return;
       }
 
@@ -1601,7 +1586,6 @@ export function ActivityDetailScreen() {
             setLocationResults(next);
             locationSearchCacheRef.current.set(cacheKey, next);
             setLocationSearchError(null);
-            if (next.length > 0) setPreviewLocation((prev) => prev ?? next[0] ?? null);
             return;
           }
 
@@ -1706,10 +1690,6 @@ export function ActivityDetailScreen() {
           setLocationResults(next);
           locationSearchCacheRef.current.set(cacheKey, next);
           setLocationSearchError(null);
-          // If the user hasn't explicitly picked a preview, default the preview to the top result.
-          if (next.length > 0) {
-            setPreviewLocation((prev) => prev ?? next[0] ?? null);
-          }
         } catch (err) {
           if ((err as any)?.name === 'AbortError') return;
           setLocationResults([]);
@@ -4643,13 +4623,15 @@ export function ActivityDetailScreen() {
                             setPreviewLocation({ label, latitude: nextCenter.latitude, longitude: nextCenter.longitude });
                           }}
                         >
-                          <Circle
-                            center={{ latitude: center.latitude, longitude: center.longitude }}
-                            radius={radiusM}
-                            strokeWidth={2}
-                            strokeColor={colors.accent}
-                            fillColor="rgba(49,85,69,0.12)"
-                          />
+                          {locationTriggerDraft !== 'off' ? (
+                            <Circle
+                              center={{ latitude: center.latitude, longitude: center.longitude }}
+                              radius={radiusM}
+                              strokeWidth={2}
+                              strokeColor={colors.accent}
+                              fillColor="rgba(49,85,69,0.12)"
+                            />
+                          ) : null}
                         </MapView>
                       </BottomDrawerNativeGestureView>
                     ) : (
@@ -4658,7 +4640,7 @@ export function ActivityDetailScreen() {
                         longitude={center.longitude}
                         heightPx={locationMapHeightPx}
                         zoom={LOCATION_MAP_ZOOM}
-                        radiusM={radiusM}
+                        radiusM={locationTriggerDraft === 'off' ? undefined : radiusM}
                       />
                     )
                   ) : (
@@ -4704,7 +4686,7 @@ export function ActivityDetailScreen() {
                           setMapCenterOverride(coords);
                           mapCenterOverrideRef.current = coords;
                           setPreviewLocation({
-                            label: 'Dropped pin',
+                            label: 'Pinned place',
                             latitude: coords.latitude,
                             longitude: coords.longitude,
                           });
@@ -4731,15 +4713,19 @@ export function ActivityDetailScreen() {
             {/* Rule builder */}
             <VStack space="sm">
               <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
-                <Text style={styles.sheetRowLabel}>Send a notification</Text>
+                <Text style={styles.sheetRowLabel}>Alert</Text>
                 <DropdownMenu>
-                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select location trigger">
+                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select location alert">
                     <Pressable
                       style={({ pressed }) => [styles.locationFormulaTrigger, pressed ? { opacity: 0.85 } : null]}
                     >
                       <HStack space="xs" alignItems="center">
                         <Text style={styles.locationFormulaTriggerText}>
-                          {locationTriggerDraft === 'leave' ? 'When I leave' : 'When I enter'}
+                          {locationTriggerDraft === 'off'
+                            ? 'Off'
+                            : locationTriggerDraft === 'leave'
+                              ? 'When I leave'
+                              : 'When I arrive'}
                         </Text>
                         <Icon name="chevronDown" size={16} color={colors.textSecondary} />
                       </HStack>
@@ -4751,6 +4737,11 @@ export function ActivityDetailScreen() {
                     sideOffset={6}
                     align="start"
                   >
+                    <DropdownMenuItem onPress={() => setLocationTriggerDraft('off')}>
+                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
+                        Off
+                      </Text>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onPress={() => setLocationTriggerDraft('leave')}>
                       <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
                         When I leave
@@ -4758,13 +4749,14 @@ export function ActivityDetailScreen() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onPress={() => setLocationTriggerDraft('arrive')}>
                       <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        When I enter
+                        When I arrive
                       </Text>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </HStack>
 
+              {locationTriggerDraft !== 'off' ? (
               <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
                 <Text style={styles.sheetRowLabel}>Boundary radius</Text>
                 <DropdownMenu>
@@ -4801,6 +4793,7 @@ export function ActivityDetailScreen() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </HStack>
+              ) : null}
 
               <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
                 <Text style={styles.sheetRowLabel}>from</Text>
@@ -4815,7 +4808,7 @@ export function ActivityDetailScreen() {
                       if (next === '__current_location__') {
                         const coords = currentCoords;
                         if (!coords) return;
-                        const loc = { label: 'Current location', latitude: coords.latitude, longitude: coords.longitude };
+                        const loc = { label: 'Pinned place', latitude: coords.latitude, longitude: coords.longitude };
                         setPreviewLocation(loc);
                         setMapCenterOverride(coords);
                         mapCenterOverrideRef.current = coords;

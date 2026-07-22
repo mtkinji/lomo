@@ -1,5 +1,6 @@
 import type {
   ActivityDifficulty,
+  ActivityPlaceIntent,
   ActivityRepeatRule,
   ActivityType,
 } from '../domain/types';
@@ -17,6 +18,13 @@ export type NormalizedActivityAiEnrichment = {
   estimateMinutes?: number | null;
   priority?: 1 | 2 | 3 | null;
   difficulty?: ActivityDifficulty;
+  place?: {
+    placeQuery: string;
+    label?: string;
+    trigger: 'arrive' | 'leave';
+    radiusM: number;
+    intent: ActivityPlaceIntent;
+  };
 };
 
 export type NormalizeActivityAiEnrichmentResponseOptions = {
@@ -138,6 +146,33 @@ export function normalizeActivityAiEnrichmentResponse(
 
   if (typeof parsed.difficulty === 'string' && VALID_DIFFICULTIES.includes(parsed.difficulty as ActivityDifficulty)) {
     normalized.difficulty = parsed.difficulty as ActivityDifficulty;
+  }
+
+  if (isRecord(parsed.place)) {
+    const placeQuery =
+      typeof parsed.place.placeQuery === 'string' ? parsed.place.placeQuery.trim().slice(0, 160) : '';
+    if (placeQuery) {
+      const label =
+        typeof parsed.place.label === 'string' ? parsed.place.label.trim().slice(0, 80) : '';
+      const trigger = parsed.place.trigger === 'leave' ? 'leave' : 'arrive';
+      const intent: ActivityPlaceIntent =
+        parsed.place.intent === 'pickup' ||
+        parsed.place.intent === 'dropoff' ||
+        parsed.place.intent === 'visit'
+          ? parsed.place.intent
+          : 'doable_there';
+      const rawRadius = Number(parsed.place.radiusM);
+      const radiusM = Number.isFinite(rawRadius)
+        ? Math.max(15, Math.min(5000, Math.round(rawRadius)))
+        : 150;
+      normalized.place = {
+        placeQuery,
+        ...(label ? { label } : null),
+        trigger,
+        radiusM,
+        intent,
+      };
+    }
   }
 
   return Object.keys(normalized).length > 0 ? normalized : null;
