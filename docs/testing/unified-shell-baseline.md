@@ -178,10 +178,10 @@ replace the blocked production-widgets archive or physical-iPhone acceptance fie
 |---|---|
 | Fresh iOS development build | PASS — Xcode 26.6 built and installed Kwilt on the iPhone 17 Pro / iOS 26.4 simulator with zero build errors (four existing native warnings). |
 | Real signed-in To-dos surface | PASS — restored Supabase session and domain data rendered under the Option G shell; the former bottom navigation was absent. |
-| Option G interaction | PASS — the owned `CapabilitySideSheet` opened over the real To-dos and Plan surfaces with the white foreground's rounded left corners and curved double shadow visible; group collapse/expand, selected capability, Plan navigation, foreground cover, and avatar-to-Settings behavior were exercised. |
+| Option G interaction | PASS — the owned `CapabilitySideSheet` opened over the real To-dos, Goals, and Plan surfaces with the white foreground's rounded left corners and curved double shadow visible; group collapse/expand, selected capability, Plan navigation, foreground cover, avatar-to-Settings, and swipe-to-close behavior were exercised. A 60fps simulator capture found the original open path paused for about 150ms when its native pan recognizer was enabled; the stable-recognizer implementation produced 13 consecutive opening frames, mostly 15–18ms apart, and 14 consecutive closing frames. |
 | Reduce Motion development proof | PASS — simulator preference returned `1` and the owned side sheet replaced its 240ms transition with an immediate state change; the preference was restored to `0` after proof. |
 | First-class Chat return | PASS — Plan → Chat → Return restored Plan; pure tests cover To-do, Goal, and Chapter detail envelopes plus deleted-object fallback. |
-| Automated verification | PASS — final diff-aware verification ran 153 suites / 1,125 tests; application and test typechecks, code-health ratchet, generated agent map, and architecture lint passed. Product lint also passed with no errors. |
+| Automated verification | PASS — final diff-aware verification ran 153 suites / 1,127 tests; application and test typechecks, code-health ratchet, generated agent map, and architecture lint passed. Product lint also passed with no errors. |
 | Physical iPhone visual review | **BLOCKED** — the required device evidence remains unavailable and has not been replaced by simulator proof. |
 
 ### Zero-work-before-entry checkpoint

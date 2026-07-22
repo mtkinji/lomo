@@ -16,6 +16,7 @@ import {
   CAPABILITY_SIDE_SHEET_RADIUS,
   CAPABILITY_SIDE_SHEET_WIDTH_RATIO,
   getCapabilitySideSheetDuration,
+  resolveCapabilitySideSheetGestureActivation,
   resolveCapabilitySideSheetSettle,
 } from './capabilitySideSheetMotion';
 
@@ -51,20 +52,49 @@ export function CapabilitySideSheet({ menu, children }: CapabilitySideSheetProps
   const drawerWidth = width * CAPABILITY_SIDE_SHEET_WIDTH_RATIO;
   const progress = useSharedValue(menuOpen ? 1 : 0);
   const dragStart = useSharedValue(menuOpen ? 1 : 0);
+  const menuOpenOnUI = useSharedValue(menuOpen);
+  const reduceMotionOnUI = useSharedValue(reduceMotion);
+  const touchStartX = useSharedValue(0);
+  const touchStartY = useSharedValue(0);
 
   useEffect(() => {
+    menuOpenOnUI.value = menuOpen;
+    reduceMotionOnUI.value = reduceMotion;
     progress.value = withTiming(menuOpen ? 1 : 0, {
       duration: getCapabilitySideSheetDuration(reduceMotion),
       easing: Easing.out(Easing.cubic),
     });
-  }, [menuOpen, progress, reduceMotion]);
+  }, [menuOpen, menuOpenOnUI, progress, reduceMotion, reduceMotionOnUI]);
 
   const closeGesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(menuOpen && !reduceMotion)
-        .activeOffsetX([-8, 8])
-        .failOffsetY([-14, 14])
+        .manualActivation(true)
+        .onTouchesDown((event, stateManager) => {
+          const touch = event.allTouches[0];
+          if (!touch || !menuOpenOnUI.value || reduceMotionOnUI.value) {
+            stateManager.fail();
+            return;
+          }
+          touchStartX.value = touch.absoluteX;
+          touchStartY.value = touch.absoluteY;
+          stateManager.begin();
+        })
+        .onTouchesMove((event, stateManager) => {
+          const touch = event.allTouches[0];
+          if (!touch) {
+            stateManager.fail();
+            return;
+          }
+          const decision = resolveCapabilitySideSheetGestureActivation({
+            menuOpen: menuOpenOnUI.value,
+            reduceMotion: reduceMotionOnUI.value,
+            translationX: touch.absoluteX - touchStartX.value,
+            translationY: touch.absoluteY - touchStartY.value,
+          });
+          if (decision === 'activate') stateManager.activate();
+          else if (decision === 'fail') stateManager.fail();
+        })
         .onBegin(() => {
           dragStart.value = progress.value;
         })
@@ -85,7 +115,17 @@ export function CapabilitySideSheet({ menu, children }: CapabilitySideSheetProps
             else runOnJS(coverMenu)();
           });
         }),
-    [coverMenu, dragStart, drawerWidth, menuOpen, openMenu, progress, reduceMotion],
+    [
+      coverMenu,
+      dragStart,
+      drawerWidth,
+      menuOpenOnUI,
+      openMenu,
+      progress,
+      reduceMotionOnUI,
+      touchStartX,
+      touchStartY,
+    ],
   );
 
   const motionStyle = useAnimatedStyle(() => ({

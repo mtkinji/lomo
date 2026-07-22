@@ -3,6 +3,7 @@ import {
   CAPABILITY_SIDE_SHEET_WIDTH_RATIO,
   getCapabilitySideSheetDuration,
   getCapabilitySideSheetTranslation,
+  resolveCapabilitySideSheetGestureActivation,
   resolveCapabilitySideSheetSettle,
 } from './capabilitySideSheetMotion';
 
@@ -24,5 +25,38 @@ describe('capability side sheet motion contract', () => {
   it('replaces motion with an immediate state change when Reduce Motion is enabled', () => {
     expect(getCapabilitySideSheetDuration(false)).toBeGreaterThan(0);
     expect(getCapabilitySideSheetDuration(true)).toBe(0);
+  });
+
+  it('keeps one mounted pan recognizer inert until an open-sheet close gesture is deliberate', () => {
+    expect(resolveCapabilitySideSheetGestureActivation({
+      menuOpen: false,
+      reduceMotion: false,
+      translationX: -20,
+      translationY: 0,
+    })).toBe('fail');
+    expect(resolveCapabilitySideSheetGestureActivation({
+      menuOpen: true,
+      reduceMotion: true,
+      translationX: -20,
+      translationY: 0,
+    })).toBe('fail');
+    expect(resolveCapabilitySideSheetGestureActivation({
+      menuOpen: true,
+      reduceMotion: false,
+      translationX: -4,
+      translationY: 2,
+    })).toBe('wait');
+    expect(resolveCapabilitySideSheetGestureActivation({
+      menuOpen: true,
+      reduceMotion: false,
+      translationX: -12,
+      translationY: 3,
+    })).toBe('activate');
+    expect(resolveCapabilitySideSheetGestureActivation({
+      menuOpen: true,
+      reduceMotion: false,
+      translationX: -6,
+      translationY: 18,
+    })).toBe('fail');
   });
 });

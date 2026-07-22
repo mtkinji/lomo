@@ -14,6 +14,8 @@
   iPhone display curvature rather than reading as a generic card.
 - Foreground content fades modestly; the hamburger remains legible.
 - Use a short double shadow, not a distant directional shadow.
+- Keep the close-pan recognizer mounted and gate activation on the UI thread; changing menu
+  visibility must not reconfigure native gesture infrastructure during the reveal.
 - Reduce Motion changes the transition to an immediate state change.
 - There is no close `X`; selecting a destination or covering the menu closes it.
 
