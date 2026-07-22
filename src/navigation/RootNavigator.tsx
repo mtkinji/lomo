@@ -41,6 +41,7 @@ import { PlanScreen } from '../features/plan/PlanScreen';
 import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
+import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
@@ -132,6 +133,11 @@ export type RootDrawerParamList = {
         hidePromptSuggestions?: boolean;
       }
     | undefined;
+  /**
+   * Standalone durable Chat capability. This is intentionally separate from
+   * the compatibility `Agent` route that owns Kwilt's existing workflow chat.
+   */
+  UnifiedChat: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: undefined;
 };
@@ -661,6 +667,13 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           }}
         />
         <Drawer.Screen
+          name="UnifiedChat"
+          component={UnifiedChatScreen}
+          options={{
+            title: 'Chat',
+          }}
+        />
+        <Drawer.Screen
           name="ArcsStack"
           component={ArcsStackRedirectScreen}
           options={{ title: 'Arcs' }}
@@ -1004,6 +1017,8 @@ function getDrawerIcon(routeName: keyof RootDrawerParamList): IconName {
       return 'navHome';
     case 'ArcsStack':
       return 'navArcs';
+    case 'UnifiedChat':
+      return 'messageCircle';
     case 'Settings':
       return 'dot';
     case 'DevTools':

@@ -286,6 +286,13 @@ const config = {
     // Useful at runtime to hide internal tooling in store builds while still
     // allowing it in internal distributions.
     easBuildProfile: process.env.EAS_BUILD_PROFILE,
+    // Standalone durable Chat. The workbench is a credential-free web surface;
+    // native Kwilt retains auth, persistence, AI calls, and navigation.
+    unifiedChatEnabled:
+      (process.env.UNIFIED_CHAT_ENABLED ?? process.env.EXPO_PUBLIC_UNIFIED_CHAT_ENABLED) === '1',
+    unifiedChatWorkbenchUrl:
+      process.env.UNIFIED_CHAT_WORKBENCH_URL ??
+      process.env.EXPO_PUBLIC_UNIFIED_CHAT_WORKBENCH_URL,
     // AI proxy base URL (no OpenAI keys in the client).
     // Example (Supabase Edge Functions): https://<project-ref>.functions.supabase.co/functions/v1/ai-chat
     // Local (Supabase CLI): http://localhost:54321/functions/v1/ai-chat
