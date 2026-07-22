@@ -13,6 +13,7 @@ import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import { getInstallId } from './installId';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
+import { buildKwiltChatSystemPrompt } from '../features/ai/chatVoicePrompt';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
 import {
@@ -2579,17 +2580,16 @@ export async function sendCoachChat(
     }
   }
 
-  const baseSystemPrompt =
-    'You are Kwilt Coach, a calm, practical life architecture coach. ' +
-    'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
-    'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
-
+  const communicationPreferences = useAppStore.getState().userProfile?.communication;
   const userProfileSummary = options?.includeUserProfileContext === false
     ? undefined
     : buildUserProfileSummary();
-  const systemPrompt = userProfileSummary
-    ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
-    : baseSystemPrompt;
+  const systemPrompt = buildKwiltChatSystemPrompt({
+    tone: communicationPreferences?.tone,
+    detailLevel: communicationPreferences?.detailLevel,
+    emojiAllowed: communicationPreferences?.emojiAllowed,
+    userProfileSummary,
+  });
 
   const summarizeConversationChunk = async (params: {
     existingSummary?: string;

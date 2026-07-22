@@ -124,6 +124,27 @@ Future Screen Time controls are the clearest example. Chat may understand a requ
 
 Routing should be invisible when confidence is high and legible when it changes context, permissions, sources, or durable state. Tool use is not success by itself; sometimes the correct route is an ordinary answer with no Kwilt data attached.
 
+## Voice and response depth
+
+Chat inherits Kwilt's existing copy voice rather than introducing a separate AI personality. It should sound like a smart, warm coworker who helps the person make progress on what matters: clear, practical, honest, grounded, and human without becoming a therapist, guru, productivity coach, or academic lecturer.
+
+Visible prose should:
+
+- think deeply, speak plainly, and stop when it has helped;
+- lead with the answer and use familiar words, short sentences, concrete nouns, and active verbs;
+- avoid jargon, unnecessary frameworks, formal transitions, repeated questions, narrated reasoning, and redundant recaps;
+- preserve material uncertainty, evidence limits, risks, and trade-offs even when the answer should be brief;
+- offer at most one useful next move in ordinary chat unless the user requests options or the workflow requires structured choices;
+- avoid repeating information already rendered in a proposal, receipt, inventory row, or other structured surface.
+
+Response depth is adaptive rather than one fixed word count:
+
+- **Brief** for confirmations, simple questions, completed actions, and receipts: usually one to three sentences or one compact structured result.
+- **Standard** for explanations, comparisons, and recommendations: direct answer first, followed only by the support needed to understand or act.
+- **Deep** for complex planning, meaningful reflection, high-stakes choices, conflicting evidence, or an explicit request for detail: still plain and well organized.
+
+The current message always outranks a stored tone or detail preference. Stored preferences tune the default but do not replace Kwilt's voice, workflow schemas, or the needs of the current request. Prompt-level brevity is a soft response contract, not a hard truncation rule. Kwilt must never cut off a response or omit a material caveat merely to meet a word target.
+
 ## Persona and situation map
 
 Nina and Marcus are the accepted initial audiences. The other canonical Kwilt personas are product-review lenses: their rows prevent the shared surface from quietly optimizing for an AI power user while becoming wrong for ordinary Kwilt situations.
@@ -222,6 +243,7 @@ Adopt Giraffed's mature interaction as the shared baseline, then subtract for Kw
 
 ## Trust and language rules
 
+- Apply the shared Kwilt voice and adaptive response-depth contract to every visible assistant path, including tool-follow-up replies.
 - State what Kwilt found, inferred, could not verify, and would change.
 - Do not expose chain-of-thought-like reasoning, internal policy, raw tool traces, or hidden context.
 - Do not claim feelings, pride, disappointment, certainty, or relationship intimacy.
@@ -272,6 +294,8 @@ The first release succeeds when the end-to-end job becomes more trustworthy, not
 - The hosted workbench meets native expectations for keyboard, focus, scrolling, safe area, accessibility, voice, attachments, and perceived performance on a real iPhone.
 - One shared workbench improvement reaches both Giraffed and Kwilt without sharing product data, policy, or release ownership.
 - A general question receives a useful answer without unnecessary private-context retrieval, tool calls, or pressure to create a Kwilt object.
+- Responses use ordinary human language, lead with the answer, and are no longer than the request requires without losing material context.
+- Feedback can distinguish "too long," "too brief," and "unclear" so length is evaluated separately from correctness and usefulness.
 - When a broad question naturally becomes a Kwilt action, the user can cross that boundary without restating the intent or losing permission clarity.
 
 The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`](../design-explorations/discovery-to-action-intelligence/05-evaluate-learning.md).
@@ -302,6 +326,8 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - No long-lived product credential is exposed to workbench JavaScript.
 - Every applied operation has a capability-owned idempotency key and authoritative receipt.
 - Visible assistant text is sanitized consistently across stream, persistence, render, speech, notification, and external response paths.
+- Current Coach and future unified-Chat prompt assembly share one tested Kwilt voice contract; workflow prompts may refine context but do not redefine the brand voice.
+- Prompt-contract tests cover the core voice, adaptive depth rules, stored preference handling, current-message override, structured-output precedence, and material-caveat guardrail.
 - Giraffed remains behaviorally equivalent under its compatibility adapter.
 - Kwilt passes simulator interaction checks and separate signed physical-device proof before any claim of first-class mobile hosting.
 
