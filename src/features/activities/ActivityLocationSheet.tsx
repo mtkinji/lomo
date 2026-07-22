@@ -108,7 +108,7 @@ export function ActivityLocationSheet({
         const center = mapCenterRef.current ?? resolvedCenter;
         if (!center) return;
         controller.setPreviewLocation({
-          label: controller.previewLocation?.label ?? 'Dropped pin',
+          label: controller.previewLocation?.label ?? 'Pinned place',
           ...center,
         });
       },
@@ -172,18 +172,20 @@ export function ActivityLocationSheet({
                         const center = { latitude: region.latitude, longitude: region.longitude };
                         centerMap(center);
                         controller.setPreviewLocation({
-                          label: controller.previewLocation?.label ?? 'Dropped pin',
+                          label: controller.previewLocation?.label ?? 'Pinned place',
                           ...center,
                         });
                       }}
                     >
-                      <Circle
-                        center={resolvedCenter}
-                        radius={controller.radiusM}
-                        strokeWidth={2}
-                        strokeColor={colors.accent}
-                        fillColor="rgba(49,85,69,0.12)"
-                      />
+                      {controller.trigger !== 'off' ? (
+                        <Circle
+                          center={resolvedCenter}
+                          radius={controller.radiusM}
+                          strokeWidth={2}
+                          strokeColor={colors.accent}
+                          fillColor="rgba(49,85,69,0.12)"
+                        />
+                      ) : null}
                     </MapView>
                   </BottomDrawerNativeGestureView>
                 ) : (
@@ -192,7 +194,7 @@ export function ActivityLocationSheet({
                     longitude={resolvedCenter.longitude}
                     heightPx={mapHeight}
                     zoom={MAP_ZOOM}
-                    radiusM={controller.radiusM}
+                    radiusM={controller.trigger === 'off' ? undefined : controller.radiusM}
                   />
                 )
               ) : (
@@ -219,23 +221,31 @@ export function ActivityLocationSheet({
 
           <VStack space="sm" style={{ marginTop: spacing.md }}>
             <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
-              <Text style={styles.sheetRowLabel}>Send a notification</Text>
+              <Text style={styles.sheetRowLabel}>Alert</Text>
               <DropdownMenu>
-                <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select location trigger">
+                <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select location alert">
                   <Pressable style={({ pressed }) => [styles.locationFormulaTrigger, pressed ? { opacity: 0.85 } : null]}>
                     <HStack space="xs" alignItems="center">
-                      <Text style={styles.locationFormulaTriggerText}>{controller.trigger === 'leave' ? 'When I leave' : 'When I enter'}</Text>
+                      <Text style={styles.locationFormulaTriggerText}>
+                        {controller.trigger === 'off'
+                          ? 'Off'
+                          : controller.trigger === 'leave'
+                            ? 'When I leave'
+                            : 'When I arrive'}
+                      </Text>
                       <Icon name="chevronDown" size={16} color={colors.textSecondary} />
                     </HStack>
                   </Pressable>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent portalHost={portalHostName} side="bottom" sideOffset={6} align="start">
+                  <DropdownMenuItem onPress={() => controller.setTrigger('off')}><Text style={styles.menuRowText}>Off</Text></DropdownMenuItem>
                   <DropdownMenuItem onPress={() => controller.setTrigger('leave')}><Text style={styles.menuRowText}>When I leave</Text></DropdownMenuItem>
-                  <DropdownMenuItem onPress={() => controller.setTrigger('arrive')}><Text style={styles.menuRowText}>When I enter</Text></DropdownMenuItem>
+                  <DropdownMenuItem onPress={() => controller.setTrigger('arrive')}><Text style={styles.menuRowText}>When I arrive</Text></DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </HStack>
 
+            {controller.trigger !== 'off' ? (
             <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
               <Text style={styles.sheetRowLabel}>Boundary radius</Text>
               <DropdownMenu>
@@ -256,6 +266,7 @@ export function ActivityLocationSheet({
                 </DropdownMenuContent>
               </DropdownMenu>
             </HStack>
+            ) : null}
 
             <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
               <Text style={styles.sheetRowLabel}>from</Text>
@@ -267,7 +278,7 @@ export function ActivityLocationSheet({
                   onValueChange={(value) => {
                     controller.setSelectedValue(value);
                     if (value === '__current_location__' && controller.currentCoords) {
-                      const location = { label: 'Current location', ...controller.currentCoords };
+                      const location = { label: 'Pinned place', ...controller.currentCoords };
                       controller.setPreviewLocation(location);
                       centerMap(location);
                       return;

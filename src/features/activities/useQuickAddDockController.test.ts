@@ -125,6 +125,27 @@ describe('applyQuickAddAiEnrichment', () => {
     expect(result.steps).toEqual([]);
   });
 
+  it('persists a broad inferred place link without coordinates or an alert', () => {
+    const placeLink = {
+      target: { kind: 'named' as const, label: 'Costco', query: 'Costco' },
+      intent: 'pickup' as const,
+      resolution: 'broad' as const,
+      provenance: { source: 'activity_text' as const, confidence: 0.85 },
+    };
+    const result = applyQuickAddAiEnrichment(
+      baseActivity(),
+      { placeLink },
+      {
+        activityId: 'activity-1',
+        selectedActions: ['triggers'],
+        timestamp: '2026-05-13T12:00:00.000Z',
+      },
+    );
+
+    expect(result.placeLink).toEqual(placeLink);
+    expect(result.location).toBeUndefined();
+  });
+
   it('fills missing trigger fields without inventing recurrence for one-off to-dos', () => {
     const result = applyQuickAddAiEnrichment(
       baseActivity({ title: 'Cancel the massage luxe membership' }),
@@ -239,36 +260,65 @@ describe('resolveQuickAddLocationTriggerEnrichment', () => {
     radiusM: 150,
   };
 
-  it('keeps an AI location trigger pending when location triggers are not enabled', () => {
+  it('applies inferred location as context while keeping its alert pending', () => {
     const result = resolveQuickAddLocationTriggerEnrichment({
       enrichment: { location, reminderAt: '2026-05-14T16:00:00.000Z' },
-      locationTriggersEnabled: false,
     });
 
-    expect(result.recommendation).toEqual(location);
-    expect(result.enrichment.location).toBeUndefined();
+    expect(result.recommendation).toEqual({ location });
+    expect(result.enrichment.location).toEqual({
+      label: 'This location',
+      latitude: 40.7128,
+      longitude: -74.006,
+    });
     expect(result.enrichment.reminderAt).toBe('2026-05-14T16:00:00.000Z');
   });
 
-  it('applies an AI location trigger when location triggers are already enabled', () => {
+  it('does not silently enable an AI location alert when permission is already enabled', () => {
     const result = resolveQuickAddLocationTriggerEnrichment({
       enrichment: { location },
-      locationTriggersEnabled: true,
     });
 
-    expect(result.recommendation).toBeNull();
-    expect(result.enrichment.location).toEqual(location);
+    expect(result.recommendation).toEqual({ location });
+    expect(result.enrichment.location).toEqual({
+      label: 'This location',
+      latitude: 40.7128,
+      longitude: -74.006,
+    });
   });
 
-  it('does not invent a current-location trigger when location triggers are disabled', () => {
+  it('does not invent a current-location trigger from device position', () => {
     const result = resolveQuickAddLocationTriggerEnrichment({
       enrichment: {},
-      currentLocation: { latitude: 40.7128, longitude: -74.006 },
-      locationTriggersEnabled: false,
     });
 
     expect(result.recommendation).toBeNull();
     expect(result.enrichment.location).toBeUndefined();
+  });
+
+  it('keeps a named merchant broad until the user chooses a branch', () => {
+    const result = resolveQuickAddLocationTriggerEnrichment({
+      enrichment: {
+        place: {
+          placeQuery: 'Costco',
+          label: 'Costco',
+          intent: 'pickup',
+          trigger: 'arrive',
+          radiusM: 150,
+        },
+      },
+    });
+
+    expect(result.enrichment.location).toBeUndefined();
+    expect(result.enrichment.placeLink).toEqual({
+      target: { kind: 'named', label: 'Costco', query: 'Costco' },
+      intent: 'pickup',
+      resolution: 'broad',
+      provenance: { source: 'activity_text', confidence: 0.85 },
+    });
+    expect(result.recommendation).toEqual({
+      placeLink: result.enrichment.placeLink,
+    });
   });
 });
 

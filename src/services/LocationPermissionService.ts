@@ -39,7 +39,7 @@ function showLocationBlockedAlert(reason: 'ftue' | 'attach_place' | 'location_of
 
   const message =
     reason === 'attach_place'
-      ? 'To use place search and map centering, allow Location in system settings.'
+      ? 'To use your current location, allow Location in system settings. Place search still works without it.'
       : 'To use location-based prompts, allow “Always” Location in system settings.';
 
   Alert.alert(
@@ -173,7 +173,7 @@ async function syncOsPermissionStatusInternal(): Promise<OsPermissionStatus> {
   }
 }
 
-async function requestOsPermissionInternal(): Promise<boolean> {
+async function requestOsPermissionInternal(options: { includeBackground?: boolean } = {}): Promise<boolean> {
   const mod = getNativeModule();
   if (!mod?.requestForegroundPermissionsAsync) {
     setOsPermissionStatus('unavailable');
@@ -185,7 +185,7 @@ async function requestOsPermissionInternal(): Promise<boolean> {
     
     // If foreground permission was granted, try to request background permission.
     // iOS geofencing requires background permission ("Always").
-    if (fgStatus === 'authorized' && mod.requestBackgroundPermissionsAsync) {
+    if (fgStatus === 'authorized' && options.includeBackground !== false && mod.requestBackgroundPermissionsAsync) {
       try {
         const bg = await mod.requestBackgroundPermissionsAsync();
         const resolvedStatus = deriveLocationOfferPermissionStatus({
@@ -237,7 +237,7 @@ async function ensurePermissionWithRationaleInternal(
 
   // If not requested yet, we can prompt the system dialog.
   if (current === 'notRequested') {
-    await requestOsPermissionInternal();
+    await requestOsPermissionInternal({ includeBackground: reason !== 'attach_place' });
     const finalStatus = await syncOsPermissionStatusInternal();
     if (finalStatus === 'authorized') {
       return true;
@@ -276,5 +276,3 @@ export const LocationPermissionService = {
     return await ensurePermissionWithRationaleInternal(reason);
   },
 };
-
-

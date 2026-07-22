@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import { useAppStore } from '../../store/useAppStore';
 import { LOCATION_OFFER_GEOFENCE_TASK } from './locationOfferGeofenceTask';
 import { LocationPermissionService } from '../LocationPermissionService';
+import type { Activity } from '../../domain/types';
 
 const MAX_GEOFENCES = 20;
 
@@ -10,28 +11,27 @@ let hasAttachedStoreSubscription = false;
 let reconcileTimeout: ReturnType<typeof setTimeout> | null = null;
 let lastRegionsSignature: string | null = null;
 
+export function isLocationOfferGeofenceEligible(
+  activity: Pick<Activity, 'location'>,
+): boolean {
+  const loc = activity.location;
+  if (!loc || (loc.trigger !== 'arrive' && loc.trigger !== 'leave')) return false;
+
+  const lat = Number(loc.latitude);
+  const lon = Number(loc.longitude);
+  const radiusM = Number(loc.radiusM);
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    (loc.radiusM == null || Number.isFinite(radiusM))
+  );
+}
+
 function getEligibleActivities() {
   const state = useAppStore.getState();
   return (state.activities ?? [])
     .filter((a) => a.status !== 'done' && a.status !== 'cancelled')
-    .filter((a) => Boolean((a as any)?.location))
-    .filter((a) => {
-      const loc = (a as any).location as any;
-      const lat = Number(loc?.latitude);
-      const lon = Number(loc?.longitude);
-      const radiusM = Number(loc?.radiusM);
-      const trigger = loc?.trigger;
-      return (
-        loc &&
-        Number.isFinite(lat) &&
-        Number.isFinite(lon) &&
-        // Radius/trigger can be absent (older data / partially configured); we clamp/default later.
-        // If trigger is present, it must be valid.
-        (trigger == null || trigger === 'arrive' || trigger === 'leave') &&
-        // If radius is present, it must be a finite number (otherwise we default).
-        (loc?.radiusM == null || Number.isFinite(radiusM))
-      );
-    })
+    .filter(isLocationOfferGeofenceEligible)
     .slice(0, MAX_GEOFENCES);
 }
 
@@ -222,5 +222,4 @@ export const LocationOfferService = {
     await stopGeofencingIfRunning();
   },
 };
-
 

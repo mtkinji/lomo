@@ -130,7 +130,7 @@ import {
 import {
   useQuickAddDockController,
   type QuickAddAiAction,
-  type QuickAddLocationTriggerRecommendation,
+  type QuickAddPlaceRecommendation,
 } from '../activities/useQuickAddDockController';
 import { DurationPicker } from '../activities/DurationPicker';
 import type { GoalProposalDraft } from '../ai/AiChatScreen';
@@ -414,11 +414,8 @@ export function GoalDetailScreen() {
   const [quickAddIsReminderDateTimePickerVisible, setQuickAddIsReminderDateTimePickerVisible] =
     useState(false);
   const [quickAddEstimateDraftMinutes, setQuickAddEstimateDraftMinutes] = useState<number>(30);
-  const quickAddLocationTriggersEnabled =
-    Boolean(locationOfferPreferences.enabled) &&
-    locationOfferPreferences.osPermissionStatus === 'authorized';
   const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
-    useState<QuickAddLocationTriggerRecommendation | null>(null);
+    useState<QuickAddPlaceRecommendation | null>(null);
   const effectiveQuickAddAiActions = useMemo(
     () =>
       isPro
@@ -455,7 +452,8 @@ export function GoalDetailScreen() {
 
   const handleUseQuickAddLocationTrigger = useCallback(async () => {
     const pending = pendingQuickAddLocationRecommendation;
-    if (!pending) return;
+    const location = pending?.location;
+    if (!pending || !location) return;
 
     const granted = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
     const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable' as const);
@@ -470,7 +468,7 @@ export function GoalDetailScreen() {
       const nextUpdatedAt = new Date().toISOString();
       updateActivity(pending.activityId, (activity) => ({
         ...activity,
-        location: pending.location,
+        location,
         updatedAt: nextUpdatedAt,
       }));
       showToast({ message: 'Location trigger ready', variant: 'success', durationMs: 2200 });
@@ -533,7 +531,6 @@ export function GoalDetailScreen() {
     initialReservedHeightPx: quickAddInitialReservedHeightPx,
     toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
     focusAfterSubmit: false,
-    locationTriggersEnabled: quickAddLocationTriggersEnabled,
     onLocationTriggerRecommended: setPendingQuickAddLocationRecommendation,
     onCreated: (activity) => {
       capture(AnalyticsEvent.ActivityCreated, {
@@ -2552,35 +2549,6 @@ export function GoalDetailScreen() {
           </Button>
         </HStack>
       </BottomGuide>
-      <BottomGuide
-        visible={Boolean(pendingQuickAddLocationRecommendation)}
-        onClose={() => setPendingQuickAddLocationRecommendation(null)}
-        scrim="light"
-        snapPoints={['34%']}
-      >
-        <Heading variant="sm">Use location to make this automatic</Heading>
-        <Text style={styles.onboardingGuideBody}>
-          Kwilt can use this location to nudge you{' '}
-          {pendingQuickAddLocationRecommendation?.location.trigger === 'arrive'
-            ? 'when you arrive'
-            : 'when you leave'}
-          , so the to-do shows up at the moment it matters.
-        </Text>
-        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
-          <Button
-            variant="outline"
-            onPress={() => setPendingQuickAddLocationRecommendation(null)}
-          >
-            <Text style={styles.onboardingGuideSecondaryLabel}>Keep regular to-do</Text>
-          </Button>
-          <Button
-            variant="turmeric"
-            onPress={() => void handleUseQuickAddLocationTrigger()}
-          >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Use location triggers</Text>
-          </Button>
-        </HStack>
-      </BottomGuide>
       <Coachmark
         visible={addActivitiesCoachmarkHost.coachmarkVisible}
         targetRef={addActivitiesButtonRef}
@@ -3016,6 +2984,15 @@ export function GoalDetailScreen() {
                           onSelectedAiActionsChange={setQuickAddAiActions}
                           lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
                           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
+                          placeReceipt={pendingQuickAddLocationRecommendation}
+                          onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
+                          onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
+                          onReviewPlaceReceipt={() => {
+                            const pending = pendingQuickAddLocationRecommendation;
+                            if (!pending) return;
+                            setPendingQuickAddLocationRecommendation(null);
+                            handleOpenActivityDetail(pending.activityId);
+                          }}
                         />
                       </View>
                     </>
@@ -3059,6 +3036,15 @@ export function GoalDetailScreen() {
                           onSelectedAiActionsChange={setQuickAddAiActions}
                           lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
                           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
+                          placeReceipt={pendingQuickAddLocationRecommendation}
+                          onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
+                          onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
+                          onReviewPlaceReceipt={() => {
+                            const pending = pendingQuickAddLocationRecommendation;
+                            if (!pending) return;
+                            setPendingQuickAddLocationRecommendation(null);
+                            handleOpenActivityDetail(pending.activityId);
+                          }}
                         />
                       </View>
 

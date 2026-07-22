@@ -76,7 +76,6 @@ import {
 } from '../../store/useCelebrationStore';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
-import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import {
   applyDueDateReminderPolicy,
   REMINDER_SOURCE_MANUAL,
@@ -108,7 +107,7 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import {
   useQuickAddDockController,
   type QuickAddAiAction,
-  type QuickAddLocationTriggerRecommendation,
+  type QuickAddPlaceRecommendation,
 } from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
@@ -1297,15 +1296,13 @@ export function ActivitiesScreen() {
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
-  const quickAddLocationTriggersEnabled =
-    Boolean(locationOfferPreferences.enabled) &&
-    locationOfferPreferences.osPermissionStatus === 'authorized';
   const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
-    React.useState<QuickAddLocationTriggerRecommendation | null>(null);
+    React.useState<QuickAddPlaceRecommendation | null>(null);
 
   const handleUseQuickAddLocationTrigger = React.useCallback(async () => {
     const pending = pendingQuickAddLocationRecommendation;
-    if (!pending) return;
+    const location = pending?.location;
+    if (!pending || !location) return;
 
     const granted = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
     const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable' as const);
@@ -1320,7 +1317,7 @@ export function ActivitiesScreen() {
       const nextUpdatedAt = new Date().toISOString();
       updateActivity(pending.activityId, (activity) => ({
         ...activity,
-        location: pending.location,
+        location,
         updatedAt: nextUpdatedAt,
       }));
       showToast({ message: 'Location trigger ready', variant: 'success', durationMs: 2200 });
@@ -1428,7 +1425,6 @@ export function ActivitiesScreen() {
     showToast: wrappedShowToast,
     initialReservedHeightPx: quickAddInitialReservedHeight,
     focusAfterSubmit: false,
-    locationTriggersEnabled: quickAddLocationTriggersEnabled,
     onLocationTriggerRecommended: setPendingQuickAddLocationRecommendation,
     onCreated: (activity) => {
       lastCreatedActivityRef.current = activity;
@@ -3411,39 +3407,17 @@ export function ActivitiesScreen() {
           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
           onReservedHeightChange={setQuickAddReservedHeight}
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
+          placeReceipt={pendingQuickAddLocationRecommendation}
+          onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
+          onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
+          onReviewPlaceReceipt={() => {
+            const pending = pendingQuickAddLocationRecommendation;
+            if (!pending) return;
+            setPendingQuickAddLocationRecommendation(null);
+            navigateToActivityDetail(pending.activityId);
+          }}
         />
       )}
-      <BottomGuide
-        visible={Boolean(pendingQuickAddLocationRecommendation)}
-        onClose={() => setPendingQuickAddLocationRecommendation(null)}
-        scrim="light"
-        snapPoints={['34%']}
-      >
-        <Text style={styles.triggerGuideTitle}>Use location to make this automatic</Text>
-        <Text style={styles.triggerGuideBody}>
-          Kwilt can use this location to nudge you{' '}
-          {pendingQuickAddLocationRecommendation?.location.trigger === 'arrive'
-            ? 'when you arrive'
-            : 'when you leave'}
-          , so the to-do shows up at the moment it matters.
-        </Text>
-        <HStack space="sm" alignItems="center" style={styles.triggerGuideActions}>
-          <Button
-            variant="ghost"
-            onPress={() => setPendingQuickAddLocationRecommendation(null)}
-          >
-            <ButtonLabel size="md">Keep regular to-do</ButtonLabel>
-          </Button>
-          <Button
-            onPress={() => void handleUseQuickAddLocationTrigger()}
-            style={{ backgroundColor: colors.turmeric700, borderColor: colors.turmeric800 }}
-          >
-            <ButtonLabel size="md" tone="inverse">
-              Use location triggers
-            </ButtonLabel>
-          </Button>
-        </HStack>
-      </BottomGuide>
       <BottomGuide
         visible={ghostWarningVisible && Boolean(postCreateGhostId)}
         onClose={dismissGhostWarning}

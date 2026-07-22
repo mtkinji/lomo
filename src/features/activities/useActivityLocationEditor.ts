@@ -9,15 +9,17 @@ import {
 import type { useAppStore } from '../../store/useAppStore';
 import { useAppStore as appStore } from '../../store/useAppStore';
 import {
-  buildActivityLocationDraft,
   DEFAULT_LOCATION_RADIUS_FT,
   feetToMeters,
   formatLocationRadiusLabel,
-  isActivityLocationDraftDirty,
   resolveActivityLocationDraft,
   type ActivityLocationPreview,
-  type ActivityLocationTrigger,
 } from './activityLocationTriggers';
+import {
+  isActivityLocationDraftDirty,
+  serializeActivityLocationDraft,
+  type ActivityLocationAlert,
+} from './activityLocationDraft';
 
 type UpdateActivity = ReturnType<typeof useAppStore.getState>['updateActivity'];
 export type Coordinates = { latitude: number; longitude: number };
@@ -40,14 +42,14 @@ export type ActivityLocationEditorController = {
   currentCoords: Coordinates | null;
   searchOpen: boolean;
   selectedValue: string;
-  trigger: ActivityLocationTrigger;
+  trigger: ActivityLocationAlert;
   radiusM: number;
   isDirty: boolean;
   radiusLabel: string;
   setQuery: (query: string) => void;
   setSearchOpen: (open: boolean) => void;
   setSelectedValue: (value: string) => void;
-  setTrigger: (trigger: ActivityLocationTrigger) => void;
+  setTrigger: (trigger: ActivityLocationAlert) => void;
   setRadiusM: (radiusM: number) => void;
   setPreviewLocation: (location: ActivityLocationPreview | null) => void;
   selectResult: (result: ActivityLocationSearchResult) => void;
@@ -135,7 +137,11 @@ export function useActivityLocationEditor({
   const [currentCoords, setCurrentCoords] = useState<Coordinates | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState('');
-  const [trigger, setTrigger] = useState(initial.trigger);
+  const [trigger, setTrigger] = useState<ActivityLocationAlert>(
+    activity?.location?.trigger === 'arrive' || activity?.location?.trigger === 'leave'
+      ? activity.location.trigger
+      : 'off',
+  );
   const [radiusM, setRadiusM] = useState(initial.radiusM);
   const abortRef = useRef<AbortController | null>(null);
   const cacheRef = useRef(new Map<string, ActivityLocationSearchResult[]>());
@@ -144,24 +150,23 @@ export function useActivityLocationEditor({
     if (!visible) return;
     const draft = resolveActivityLocationDraft(activity?.location);
     setPreviewLocation(draft.previewLocation);
-    setTrigger(draft.trigger);
+    setTrigger(
+      activity?.location?.trigger === 'arrive' || activity?.location?.trigger === 'leave'
+        ? activity.location.trigger
+        : 'off',
+    );
     setRadiusM(draft.radiusM);
     setStatusHint(null);
     setSelectedValue('');
+    if (!draft.previewLocation && activity?.placeLink?.target.query) {
+      setQuery(activity.placeLink.target.query);
+    }
     void (async () => {
-      const permission = appStore.getState().locationOfferPreferences.osPermissionStatus;
-      if (permission === 'notRequested') await LocationPermissionService.requestOsPermission();
-      else await LocationPermissionService.syncOsPermissionStatus();
+      const permission = await LocationPermissionService.syncOsPermissionStatus();
+      if (permission !== 'authorized' && permission !== 'foregroundOnly') return;
       const coordinates = await getCurrentLocationBestEffort();
       if (coordinates) {
         setCurrentCoords(coordinates);
-        if (!draft.previewLocation) {
-          setPreviewLocation((current) => current ?? {
-            label: 'Current location',
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-          });
-        }
         return;
       }
       const nextPermission = appStore.getState().locationOfferPreferences.osPermissionStatus;
@@ -216,7 +221,6 @@ export function useActivityLocationEditor({
           if (controller.signal.aborted) return;
           cacheRef.current.set(key, next);
           setResults(next);
-          if (next.length > 0) setPreviewLocation((current) => current ?? next[0]);
         } catch (error) {
           if ((error as { name?: string }).name === 'AbortError') return;
           setResults([]);
@@ -247,10 +251,8 @@ export function useActivityLocationEditor({
     onClose();
   }, [clearSelection, onClose]);
   const isDirty = useMemo(() => isActivityLocationDraftDirty({
-    savedLocation: activity?.location,
-    draftLocation: previewLocation,
-    draftTrigger: trigger,
-    draftRadiusM: radiusM,
+    saved: activity?.location,
+    draft: { place: previewLocation, alert: trigger, radiusM },
   }), [activity?.location, previewLocation, radiusM, trigger]);
 
   return {
@@ -285,16 +287,33 @@ export function useActivityLocationEditor({
         return null;
       }
       setCurrentCoords(coordinates);
-      const location = { label: 'Current location', ...coordinates };
+      const location = { label: 'Pinned place', ...coordinates };
       setPreviewLocation(location);
       return location;
     },
     clearSelection,
     save: () => {
       if (!activity) return;
-      const location = buildActivityLocationDraft({ previewLocation, trigger, radiusM });
+      const location = serializeActivityLocationDraft({
+        place: previewLocation,
+        alert: trigger,
+        radiusM,
+      });
       const updatedAt = new Date().toISOString();
-      updateActivity(activity.id, (previous) => ({ ...previous, location, updatedAt }));
+      updateActivity(activity.id, (previous) => ({
+        ...previous,
+        location,
+        placeLink: previewLocation
+          ? previous.placeLink
+            ? {
+                ...previous.placeLink,
+                resolution: 'specific',
+                provenance: { source: 'user_selected', confidence: 1 },
+              }
+            : previous.placeLink
+          : null,
+        updatedAt,
+      }));
       close();
     },
     close,
