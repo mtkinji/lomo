@@ -226,6 +226,23 @@ export function createUnifiedChatRepository(
       return mapMessage(data);
     },
 
+    async setMessageFeedback(
+      messageId: string,
+      feedback: 'positive' | 'negative',
+    ): Promise<UnifiedChatMessage> {
+      const userId = await requireUserId();
+      const { data, error } = await client
+        .from('kwilt_agent_messages')
+        .update({ feedback, updated_at: new Date().toISOString() })
+        .eq('id', messageId)
+        .eq('user_id', userId)
+        .select(MESSAGE_COLUMNS)
+        .single();
+      assertNoError(error, 'Unable to save response feedback.');
+      if (!data) throw new UnifiedChatRepositoryError('Message was not returned after feedback.');
+      return mapMessage(data);
+    },
+
     async createRun(input: CreateUnifiedChatRunInput): Promise<UnifiedChatRun> {
       const userId = await requireUserId();
       const { data, error } = await client

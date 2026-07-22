@@ -186,6 +186,27 @@ export function UnifiedChatScreen() {
         await createThread();
         return;
       }
+      if (command.type === 'message.feedback') {
+        try {
+          const updated = await repository.setMessageFeedback(
+            command.messageId,
+            command.feedback,
+          );
+          setAggregate((current) =>
+            current
+              ? {
+                  ...current,
+                  messages: current.messages.map((item) =>
+                    item.id === updated.id ? updated : item,
+                  ),
+                }
+              : current,
+          );
+        } catch {
+          setError('Kwilt could not save that feedback.');
+        }
+        return;
+      }
       if (command.type !== 'run.send' || !aggregate) return;
 
       setPrompt('');

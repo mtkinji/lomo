@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a separate, TestFlight-ready Unified Chat capability with multiple server-persisted conversations and the extracted Giraffed workbench, without changing any existing Kwilt workflow chat.
+**Goal:** Add a separate, TestFlight-ready Unified Chat capability with multiple server-persisted conversations and a Kwilt-owned workbench derived from Giraffed, without changing any existing Kwilt workflow chat.
 
-**Architecture:** Keep `AiChatScreen`, `AgentWorkspace`, and `AiChatPane` as the complete owner of existing contextual workflows. Add `src/features/unifiedChat/` as a sibling system: Supabase owns authenticated thread/message/run records, native Kwilt owns AI and persistence, and a restricted WebView renders the versioned credential-free workbench. A feature gate and independent `UnifiedChat` route make the slice reversible.
+**Architecture:** Keep `AiChatScreen`, `AgentWorkspace`, and `AiChatPane` as the complete owner of existing contextual workflows. Add `src/features/unifiedChat/` as a sibling system: Supabase owns authenticated thread/message/run records, native Kwilt owns AI and persistence, and a restricted WebView renders the versioned credential-free workbench from a Kwilt-owned route. A feature gate and independent `UnifiedChat` route make the slice reversible; Giraffed is never a runtime dependency.
 
-**Tech Stack:** Expo SDK 54, React Native, React Navigation, `react-native-webview`, Supabase Postgres/RLS, `@supabase/supabase-js`, Jest, the existing Kwilt AI proxy, and the Giraffed embedded workbench protocol v1.
+**Tech Stack:** Expo SDK 54, React Native, React Navigation, `react-native-webview`, Supabase Postgres/RLS, `@supabase/supabase-js`, Jest, the existing Kwilt AI proxy, and the Kwilt-hosted workbench protocol v1.
 
 ---
 
@@ -17,7 +17,7 @@
 - Do not send Supabase sessions, publishable keys, AI credentials, or long-lived tokens into WebView JavaScript.
 - Persist only visible user/assistant content; never persist hidden reasoning.
 - Do not add capability mutations, evidence retrieval, proposals, attachments, or voice in the first TestFlight slice.
-- Keep Giraffed and Kwilt data planes independent.
+- Keep Giraffed and Kwilt data planes and production deployments independent.
 
 ## File map
 
@@ -224,7 +224,7 @@ Add `kwilt://chat` and, if the Option G capability menu is available on the inte
 
 - [ ] **Step 3: Configure the hosted surface**
 
-Expose `UNIFIED_CHAT_WORKBENCH_URL` through `app.config.ts` and set it only in the intended preview/production TestFlight profiles. Do not hard-code a preview deployment URL in source.
+Expose `UNIFIED_CHAT_WORKBENCH_URL` through `app.config.ts` and use the stable Kwilt-owned URL `https://www.kwilt.app/embed/chat`. Never point a released Kwilt build at a Giraffed or protected preview deployment.
 
 - [ ] **Step 4: Verify navigation compatibility**
 
@@ -232,23 +232,24 @@ Run: `npx jest src/navigation/linkingConfig.test.ts src/features/unifiedChat --r
 
 Expected: both chat routes compile and existing deep links still pass.
 
-## Task 9: Complete Giraffed hosting and deploy the credential-free route
+## Task 9: Complete Kwilt hosting and deploy the credential-free route
 
 **Files:**
-- Reference: `/Users/andrewwatanabe/Documents/Orchard-worktrees/shared-agent-workbench-extraction/src/app/embed/agent-workbench/page.tsx`
-- Reference: `/Users/andrewwatanabe/Documents/Orchard-worktrees/shared-agent-workbench-extraction/src/components/agent-workbench/embedded-agent-workbench-host.tsx`
+- Implement: `/Users/andrewwatanabe/kwilt-site/app/(embed)/embed/chat/page.tsx`
+- Implement: `/Users/andrewwatanabe/kwilt-site/components/unified-chat/KwiltChatWorkbench.tsx`
+- Reference only: `/Users/andrewwatanabe/Documents/Orchard-worktrees/shared-agent-workbench-extraction/src/components/agent-workbench/embedded-agent-workbench-host.tsx`
 
 - [ ] **Step 1: Finish extraction verification**
 
-Run Giraffed's focused workbench tests, `npm run verify:changed -- --run`, and `npm run build` on `codex/shared-agent-workbench-extraction`.
+Run the Kwilt site's bridge tests, full site tests, and `npm run build` on `codex/unified-chat-host`.
 
-- [ ] **Step 2: Enable only the embedded route in the target deployment**
+- [ ] **Step 2: Publish only the credential-free Kwilt embed route**
 
-Set `AGENT_WORKBENCH_EMBED_ENABLED=1` for the selected deployment. Confirm the page contains no product data, auth session, or mutation service.
+Deploy the static route through the Kwilt site. Confirm the page contains no product data, auth session, or mutation service and bypasses only the exact embed path when the marketing site lock is active.
 
 - [ ] **Step 3: Verify from a real WebView origin**
 
-Load the deployed HTTPS route, confirm `surface.ready`, send the Kwilt fixture snapshot, and verify a `run.send` command returns without any Giraffed credential or authoring vocabulary.
+Load `https://www.kwilt.app/embed/chat`, confirm `surface.ready`, send the Kwilt fixture snapshot, and verify a `run.send` command returns without any credential or Giraffed authoring vocabulary.
 
 ## Task 10: Verify the TestFlight learning release
 

@@ -23,6 +23,11 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).not.toContain('Authorization');
   });
 
+  test('handles workbench feedback through the native repository', () => {
+    expect(screenSource).toContain("command.type === 'message.feedback'");
+    expect(screenSource).toContain('repository.setMessageFeedback');
+  });
+
   test('registers UnifiedChat independently from the compatibility Agent route', () => {
     expect(navigatorSource).toContain('Agent:');
     expect(navigatorSource).toContain('UnifiedChat:');

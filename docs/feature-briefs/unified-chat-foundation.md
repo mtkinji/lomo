@@ -61,12 +61,19 @@ The new capability provides:
 - a hidden or internally gated Chat entry;
 - create, list, open, rename, and archive for multiple conversations;
 - server-backed thread, message, and run records owned by the authenticated Kwilt user;
-- the extracted Giraffed workbench hosted in a restricted WebView;
+- a Kwilt-owned web workbench, derived from the mature Giraffed interaction system, hosted in a restricted WebView;
 - a versioned, runtime-validated bridge that sends only snapshots and commands;
 - text turns powered by Kwilt's existing authenticated AI proxy;
 - leave-and-return continuity across app launches and devices.
 
 The workbench never receives Supabase or AI credentials. Native Kwilt code owns authentication, persistence, AI requests, navigation, and any future capability action.
+
+### Runtime ownership
+
+- Kwilt owns the production renderer, public URL, deployment, availability, privacy posture, visual language, and mobile compatibility contract.
+- Giraffed is the donor and an independent consumer of the workbench interaction grammar; Kwilt never depends on a Giraffed deployment at runtime.
+- The TestFlight renderer is hosted by the Kwilt product family at `https://www.kwilt.app/embed/chat`.
+- A neutral cross-repository package is intentionally deferred until both products are actively pulling changes from the same kernel.
 
 ### Data model
 
@@ -88,7 +95,7 @@ Andrew can create at least three distinct chats in a TestFlight build, leave and
 
 ## Spec refinement
 
-- The first release uses the remote extracted workbench because the goal is to test its actual interaction quality rather than reimplement it in React Native.
+- The first release uses a Kwilt-hosted web workbench derived from the extracted Giraffed surface because the goal is to test its actual interaction quality rather than reimplement it in React Native.
 - Thread persistence is server-backed from the beginning; device-only AsyncStorage is not sufficient evidence for the eventual multi-client system.
 - Only visible user and assistant messages are persisted in the first slice. Internal chain-of-thought is never stored or bridged.
 - The first TestFlight slice is text-only. Existing voice and attachment capabilities remain unchanged elsewhere and can be added after the bridge passes device proof.

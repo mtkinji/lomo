@@ -157,6 +157,27 @@ describe('Unified Chat repository', () => {
     );
   });
 
+  test('persists assistant feedback for the current user', async () => {
+    const positiveMessage = { ...messageRow, role: 'assistant', feedback: 'positive' };
+    const { client, calls } = createClient([{ data: positiveMessage, error: null }]);
+    const repository = createUnifiedChatRepository(client as never);
+
+    await expect(repository.setMessageFeedback('message-1', 'positive')).resolves.toMatchObject({
+      id: 'message-1',
+      feedback: 'positive',
+    });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_messages',
+      method: 'update',
+      args: [expect.objectContaining({ feedback: 'positive' })],
+    });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_messages',
+      method: 'eq',
+      args: ['user_id', 'user-1'],
+    });
+  });
+
   test('renames and archives a thread with explicit status timestamps', async () => {
     const archived = {
       ...threadRow,
