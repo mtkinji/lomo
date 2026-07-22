@@ -13,6 +13,8 @@
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_SCREEN_TIME": "1",
         "KWILT_ENABLE_WIDGETS": "1",
+        "UNIFIED_CHAT_ENABLED": "1",
+        "UNIFIED_CHAT_WORKBENCH_URL": "https://www.kwilt.app/embed/chat",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
@@ -26,6 +28,8 @@
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_SCREEN_TIME": "1",
         "KWILT_ENABLE_WIDGETS": "1",
+        "UNIFIED_CHAT_ENABLED": "1",
+        "UNIFIED_CHAT_WORKBENCH_URL": "https://www.kwilt.app/embed/chat",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
@@ -44,6 +48,8 @@
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_SCREEN_TIME": "1",
         "KWILT_ENABLE_WIDGETS": "1",
+        "UNIFIED_CHAT_ENABLED": "1",
+        "UNIFIED_CHAT_WORKBENCH_URL": "https://www.kwilt.app/embed/chat",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
@@ -56,6 +62,8 @@
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_SCREEN_TIME": "1",
         "KWILT_ENABLE_WIDGETS": "1",
+        "UNIFIED_CHAT_ENABLED": "1",
+        "UNIFIED_CHAT_WORKBENCH_URL": "https://www.kwilt.app/embed/chat",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat"
       }
@@ -71,6 +79,8 @@
         "KWILT_ENABLE_APP_GROUPS": "0",
         "KWILT_ENABLE_SCREEN_TIME": "1",
         "KWILT_ENABLE_WIDGETS": "0",
+        "UNIFIED_CHAT_ENABLED": "1",
+        "UNIFIED_CHAT_WORKBENCH_URL": "https://www.kwilt.app/embed/chat",
         "AUTH_BRAND_ORIGIN": "https://auth.kwilt.app",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat",
@@ -88,6 +98,8 @@
         "KWILT_ENABLE_APP_GROUPS": "1",
         "KWILT_ENABLE_SCREEN_TIME": "1",
         "KWILT_ENABLE_WIDGETS": "1",
+        "UNIFIED_CHAT_ENABLED": "1",
+        "UNIFIED_CHAT_WORKBENCH_URL": "https://www.kwilt.app/embed/chat",
         "AUTH_BRAND_ORIGIN": "https://auth.kwilt.app",
         "SUPABASE_URL": "https://auth.kwilt.app",
         "AI_PROXY_BASE_URL": "https://auth.kwilt.app/functions/v1/ai-chat",

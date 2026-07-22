@@ -113,6 +113,9 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     Agent: {
       path: 'agent',
     },
+    UnifiedChat: {
+      path: 'chat',
+    },
     ArcsStack: {
       screens: {
         ArcsList: {

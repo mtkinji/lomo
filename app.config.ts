@@ -128,7 +128,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.89',
+  version: '1.0.90',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -165,7 +165,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '89',
+    buildNumber: '90',
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -211,7 +211,7 @@ const config = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 89,
+    versionCode: 90,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -286,6 +286,13 @@ const config = {
     // Useful at runtime to hide internal tooling in store builds while still
     // allowing it in internal distributions.
     easBuildProfile: process.env.EAS_BUILD_PROFILE,
+    // Standalone durable Chat. The workbench is a credential-free web surface;
+    // native Kwilt retains auth, persistence, AI calls, and navigation.
+    unifiedChatEnabled:
+      (process.env.UNIFIED_CHAT_ENABLED ?? process.env.EXPO_PUBLIC_UNIFIED_CHAT_ENABLED) === '1',
+    unifiedChatWorkbenchUrl:
+      process.env.UNIFIED_CHAT_WORKBENCH_URL ??
+      process.env.EXPO_PUBLIC_UNIFIED_CHAT_WORKBENCH_URL,
     // AI proxy base URL (no OpenAI keys in the client).
     // Example (Supabase Edge Functions): https://<project-ref>.functions.supabase.co/functions/v1/ai-chat
     // Local (Supabase CLI): http://localhost:54321/functions/v1/ai-chat
