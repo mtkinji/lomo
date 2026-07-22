@@ -69,7 +69,7 @@ describe('buildWorkbenchSnapshot', () => {
 
     expect(snapshot.composer.state).toBe('working');
     expect(snapshot.runs[0]?.events).toEqual([
-      expect.objectContaining({ status: 'active', label: 'Thinking' }),
+      expect.objectContaining({ status: 'active', label: 'Preparing a response' }),
     ]);
   });
 

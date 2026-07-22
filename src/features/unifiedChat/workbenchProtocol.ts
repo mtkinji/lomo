@@ -26,7 +26,7 @@ export type AgentWorkbenchRun = {
     id: string;
     sequence: number;
     type: string;
-    status: 'active' | 'complete' | 'warning' | 'failed';
+    status: 'pending' | 'active' | 'complete' | 'warning' | 'failed';
     label: string;
     detail?: string;
   }>;

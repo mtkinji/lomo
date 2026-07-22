@@ -68,6 +68,17 @@ The new capability provides:
 
 The workbench never receives Supabase or AI credentials. Native Kwilt code owns authentication, persistence, AI requests, navigation, and any future capability action.
 
+### Agent work plan treatment
+
+When a response has inspectable run activity, the conversation renders it as a small inline, collapsible work plan derived from AI Elements' `Plan` and `Task` composition. The plan is subordinate to the conversation: its collapsed header communicates `Working`, `Work completed`, or `Work interrupted`, while expansion reveals only user-legible execution events and outcomes.
+
+- Agent work plans are run state, not a fifth Kwilt object and not the user's Plan, Goals, or Activities.
+- Task rows use status indicators rather than checkboxes so they cannot be mistaken for user-owned To-dos.
+- The surface never invents progress steps or exposes hidden reasoning. It renders only durable or host-reported run events.
+- Ordinary one-shot replies may show a single restrained working event; richer agent runs can stream multiple events through the same protocol later.
+- Completed work yields visual priority to the assistant response. Failed work remains inspectable with contained recovery copy.
+- Proposals that could change Kwilt objects remain a separate, more prominent future contract.
+
 ### Runtime ownership
 
 - Kwilt owns the production renderer, public URL, deployment, availability, privacy posture, visual language, and mobile compatibility contract.
@@ -100,6 +111,7 @@ Andrew can create at least three distinct chats in a TestFlight build, leave and
 - Only visible user and assistant messages are persisted in the first slice. Internal chain-of-thought is never stored or bridged.
 - The first TestFlight slice is text-only. Existing voice and attachment capabilities remain unchanged elsewhere and can be added after the bridge passes device proof.
 - The new route is independently named `UnifiedChat` in code so it cannot accidentally resolve to the existing hidden `Agent` route.
+- The work plan is a renderer and lifecycle refinement, not evidence that autonomous multi-step planning or capability tools exist. The first slice reports the real response lifecycle and is ready to display richer run events when the agent runtime produces them.
 
 ## Open questions
 

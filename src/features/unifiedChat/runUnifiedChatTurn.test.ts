@@ -64,19 +64,35 @@ function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer
 describe('runUnifiedChatTurn', () => {
   test('persists user, run, response, and completion in order', async () => {
     const { order, repository, send } = dependencies();
+    const onRunStarted = jest.fn((aggregate: UnifiedChatThreadAggregate) => {
+      order.push('run:reported');
+      expect(aggregate.messages).toEqual([
+        expect.objectContaining({ id: 'message-user', body: 'What matters this week?' }),
+      ]);
+      expect(aggregate.runs).toEqual([
+        expect.objectContaining({ id: 'run-1', status: 'active' }),
+      ]);
+    });
 
     await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'What matters this week?', clientRequestId: 'request-1' },
+      {
+        aggregate: startingAggregate,
+        prompt: 'What matters this week?',
+        clientRequestId: 'request-1',
+        onRunStarted,
+      },
       { repository: repository as never, sendCoachChat: send as never },
     );
 
     expect(order).toEqual([
       'message:user',
       'run:active',
+      'run:reported',
       'send',
       'message:assistant',
       'run:complete',
     ]);
+    expect(onRunStarted).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith(
       [expect.objectContaining({ role: 'user', content: 'What matters this week?' })],
       expect.objectContaining({ aiJob: 'default_chat', workflowInstanceId: 'thread-1' }),

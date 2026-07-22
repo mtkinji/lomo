@@ -23,6 +23,7 @@ export type RunUnifiedChatTurnInput = {
   aggregate: UnifiedChatThreadAggregate;
   prompt: string;
   clientRequestId?: string;
+  onRunStarted?: (aggregate: UnifiedChatThreadAggregate) => void;
 };
 
 export type RunUnifiedChatTurnDependencies = {
@@ -53,6 +54,11 @@ export async function runUnifiedChatTurn(
   const run = await repository.createRun({
     threadId: input.aggregate.thread.id,
     userMessageId: userMessage.id,
+  });
+  input.onRunStarted?.({
+    ...input.aggregate,
+    messages: [...input.aggregate.messages, userMessage],
+    runs: [...input.aggregate.runs, run],
   });
   const history: CoachChatTurn[] = [
     ...input.aggregate.messages.map((message) => ({

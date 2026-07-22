@@ -11,7 +11,7 @@ function projectRun(run: UnifiedChatRun): AgentWorkbenchRun {
           sequence: 1,
           type: 'progress',
           status: 'active',
-          label: 'Thinking',
+          label: 'Preparing a response',
         },
       ]
     : isFailed

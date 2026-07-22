@@ -218,6 +218,7 @@ export function UnifiedChatScreen() {
           aggregate,
           prompt: command.prompt,
           clientRequestId: message.requestId,
+          onRunStarted: setAggregate,
         });
         setAggregate(next);
         const refreshed = await repository.listThreads();
@@ -225,10 +226,11 @@ export function UnifiedChatScreen() {
       } catch (turnError) {
         try {
           setAggregate(await repository.loadThread(aggregate.thread.id));
+          setError(null);
         } catch {
           // Preserve the last visible transcript if refreshing the failed run also fails.
+          setError(turnError instanceof Error ? turnError.message : 'Response interrupted.');
         }
-        setError(turnError instanceof Error ? turnError.message : 'Response interrupted.');
       }
     },
     [aggregate, createThread, postSnapshot, repository],
