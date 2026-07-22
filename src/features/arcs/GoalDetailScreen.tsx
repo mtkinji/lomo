@@ -164,6 +164,7 @@ import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 import { mergeRefinedGoalProposal } from './goalProposalMerge';
+import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1117,33 +1118,11 @@ export function GoalDetailScreen() {
   const refineGoalWorkspaceSnapshot = useMemo(() => {
     const base =
       buildActivityCoachLaunchContext(goals, activities, goalId, arcs, undefined, undefined) ?? '';
-    const metricSummary =
-      goal?.metrics && goal.metrics.length > 0
-        ? goal.metrics
-            .slice(0, 3)
-            .map((m) => {
-              const kind = (m as any).kind ? ` kind:${(m as any).kind}` : '';
-              const target = typeof m.target === 'number' ? ` target:${m.target}` : '';
-              const unit = m.unit ? ` unit:${m.unit}` : '';
-              const milestoneDone = (m as any).completedAt ? ` done:true` : '';
-              return `- ${m.label}${kind}${target}${unit}${milestoneDone}`;
-            })
-            .join('\n')
-        : 'None';
-
-    const extraLines = [
-      '',
-      '---',
-      'TASK: refine the focused goal (do NOT create a different goal).',
-      'Return a revised GOAL_PROPOSAL_JSON that makes the goal more specific + timeboxed.',
-      'Prefer including both a structured targetDate and 1 metric in metrics if possible.',
-      '',
-      `Current targetDate: ${goal?.targetDate ?? 'None'}`,
-      'Current metrics:',
-      metricSummary,
-    ].join('\n');
-
-    return `${base}${extraLines}`;
+    return buildGoalRefinementPrompt({
+      workspaceSnapshot: base,
+      targetDate: goal?.targetDate,
+      metrics: goal?.metrics,
+    });
   }, [activities, arcs, goal?.metrics, goal?.targetDate, goalId, goals]);
 
   const handleApplyRefinedGoal = useCallback(

@@ -82,8 +82,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: generated title, description, target date, metrics, priority, and quality-state merging is a high-risk model-output contract embedded in UI orchestration.
   - Result: `goalProposalMerge.ts` now owns partial proposal normalization, field preservation, explicit metric clearing, priority updates, and ready/draft transitions with focused tests.
 
-- [ ] Extract AI Goal refinement prompt builder
+- [x] Extract AI Goal refinement prompt builder
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: the focused-goal snapshot, metric summary, and refinement instructions form a prompt contract embedded in screen orchestration.
-  - Ideal test: pin focused Goal context, empty/populated metrics, target-date context, and required proposal instructions.
-  - Risk: medium
+  - Result: `goalRefinementPrompt.ts` now owns target context, capped metric summaries, and required refinement instructions without unchecked casts, with focused tests.
+
+- [ ] Extract Goal share-preview URL policy
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: external share previews must reject blank, malformed, and device-local image URLs while retaining public HTTP(S) images.
+  - Ideal test: pin blank, malformed, local-scheme, HTTP, and HTTPS values.
+  - Risk: low
