@@ -110,8 +110,16 @@ if (matches(/^supabase\/functions\/.*\.ts$/)) {
   add('npm run test:supabase-functions', 'run Deno unit tests for extracted Supabase function helpers');
 }
 
-if (matches(/^(docs\/jtbd\/|docs\/personas\/|docs\/job-flows\/|docs\/feature-briefs\/|src\/features\/[^/]+\/FEATURE\.md)/)) {
+if (matches(/^(docs\/jtbd\/|docs\/personas\/|docs\/job-flows\/|docs\/feature-briefs\/|docs\/delivery-evidence\/|src\/features\/[^/]+\/FEATURE\.md)/)) {
   add('npm run product:lint', 'validate JTBD, persona, job-flow, feature, and feature-brief references');
+}
+
+if (matches(/^(src\/features\/unifiedChat\/|docs\/delivery-evidence\/unified-chat|docs\/feature-briefs\/unified-chat|scripts\/chat-delivery-lint)/)) {
+  add('npm run chat:delivery-lint', 'validate Unified Chat delivery scores against code, tests, and runtime evidence');
+}
+
+if (matches(/^(src\/features\/unifiedChat\/|protocol-fixtures\/|supabase\/migrations\/.*unified_chat|scripts\/(chat-delivery-lint|unified-chat-migration-contract|unified-chat-protocol-conformance))/)) {
+  add('npm run test:chat-contracts', 'run Unified Chat delivery and durable-schema contract tests');
 }
 
 if (matches(/^(docs\/|src\/features\/[^/]+\/FEATURE\.md|scripts\/generate-agent-code-map\.mjs)/)) {

@@ -1,0 +1,85 @@
+{
+  "protocolVersion": 2,
+  "type": "host.initialize",
+  "requestId": "fixture-kwilt-v2",
+  "snapshot": {
+    "product": {
+      "id": "kwilt",
+      "assistantName": "Kwilt",
+      "placeholder": "Ask, search or chat…",
+      "features": {
+        "attachments": true,
+        "mentions": false,
+        "modelControl": false,
+        "runDepthControl": false,
+        "runModeControl": false,
+        "voice": true,
+        "webSearchControl": false
+      }
+    },
+    "thread": { "id": "thread-1", "title": "Plan my week", "status": "active" },
+    "context": [{
+      "id": "context-1",
+      "capabilityId": "goals",
+      "object": { "id": "goal-1", "type": "goal", "label": "Read together", "secondaryLabel": "In progress" },
+      "source": "launch",
+      "removable": true,
+      "version": 2
+    }],
+    "evidence": [{
+      "id": "evidence-1",
+      "runId": "run-1",
+      "capabilityId": "goals",
+      "object": { "id": "goal-1", "type": "goal", "label": "Read together" },
+      "selectionStatus": "included",
+      "authority": "authoritative",
+      "freshness": "current",
+      "selectionReason": "Visible context explicitly attached to this request.",
+      "sufficient": true,
+      "coverageNote": "Selected 1 of 1 bounded Kwilt records."
+    }],
+    "messages": [{
+      "id": "message-1",
+      "threadId": "thread-1",
+      "role": "user",
+      "body": "What is one realistic next move for this?",
+      "createdAt": "2026-07-22T12:00:00.000Z",
+      "feedback": null,
+      "attachments": [{
+        "id": "attachment-sent-1",
+        "name": "school-notes.txt",
+        "mimeType": "text/plain",
+        "sizeBytes": 42,
+        "status": "ready"
+      }]
+    }],
+    "runs": [{
+      "id": "run-1",
+      "threadId": "thread-1",
+      "status": "failed",
+      "canRetry": true,
+      "events": [{
+        "id": "event-1",
+        "sequence": 1,
+        "type": "response",
+        "status": "failed",
+        "label": "Response interrupted",
+        "detail": "Try again without duplicating your message."
+      }]
+    }],
+    "proposals": [],
+    "receipts": [],
+    "composer": {
+      "prompt": "",
+      "state": "ready",
+      "attachments": [{
+        "id": "attachment-pending-1",
+        "name": "week-notes.md",
+        "mimeType": "text/markdown",
+        "sizeBytes": 84,
+        "status": "ready"
+      }],
+      "voice": { "state": "idle", "elapsedSeconds": 0 }
+    }
+  }
+}

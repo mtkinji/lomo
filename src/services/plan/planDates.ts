@@ -21,6 +21,13 @@ export function dateKeyToLocalDate(dateKey: string): Date {
   return date;
 }
 
+export function parseLocalCalendarDate(value: string): Date {
+  const dateKey = /^(\d{4}-\d{2}-\d{2})(?:$|T00:00:00(?:\.000)?Z$)/.exec(value)?.[1];
+  return dateKey
+    ? dateKeyToLocalDate(dateKey)
+    : new Date(value);
+}
+
 export function getWeekdayKey(date: Date): PlanWeekdayKey {
   const idx = date.getDay();
   switch (idx) {
@@ -88,5 +95,3 @@ export function clampToNextQuarterHour(date: Date): Date {
   }
   return d;
 }
-
-

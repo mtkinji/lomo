@@ -5,10 +5,16 @@ import { resolveCapabilityNavigation, type CapabilityNavigationTarget } from '..
 
 type NavigationStateLike = {
   index?: number;
-  routes?: Array<{ name: string; params?: Record<string, unknown>; state?: NavigationStateLike }>;
+  routes?: Array<{ name: string; params?: object; state?: NavigationStateLike }>;
 };
 
-type FocusedRoute = { name: string; params?: Record<string, unknown> };
+type FocusedRoute = { name: string; params?: object };
+
+function routeParam(route: FocusedRoute | undefined, key: string): unknown {
+  return route?.params && key in route.params
+    ? (route.params as Record<string, unknown>)[key]
+    : undefined;
+}
 
 function focusedRoutes(state: NavigationStateLike | undefined): FocusedRoute[] {
   if (!state?.routes?.length) return [];
@@ -33,14 +39,14 @@ export function deriveCapabilityAgentContext(
 
   if (tab === 'ActivitiesTab') {
     const detail = routes.find(({ name }) => name === 'ActivityDetail');
-    const activityId = detail?.params?.activityId;
+    const activityId = routeParam(detail, 'activityId');
     return typeof activityId === 'string'
       ? { ...rootContext('todos'), surface: 'detail', object: { type: 'activity', id: activityId } }
       : rootContext('todos');
   }
   if (tab === 'GoalsTab') {
     const detail = routes.find(({ name }) => name === 'GoalDetail');
-    const goalId = detail?.params?.goalId;
+    const goalId = routeParam(detail, 'goalId');
     return typeof goalId === 'string'
       ? { ...rootContext('goals'), surface: 'detail', object: { type: 'goal', id: goalId } }
       : rootContext('goals');
@@ -49,12 +55,12 @@ export function deriveCapabilityAgentContext(
   if (tab !== 'MoreTab') return null;
 
   const chapter = routes.find(({ name }) => name === 'MoreChapterDetail');
-  const chapterId = chapter?.params?.chapterId;
+  const chapterId = routeParam(chapter, 'chapterId');
   if (typeof chapterId === 'string') {
     return { ...rootContext('chapters'), surface: 'detail', object: { type: 'chapter', id: chapterId } };
   }
   const arc = routes.find(({ name }) => name === 'ArcDetail');
-  const arcId = arc?.params?.arcId;
+  const arcId = routeParam(arc, 'arcId');
   if (typeof arcId === 'string') {
     return { ...rootContext('arcs'), surface: 'detail', object: { type: 'arc', id: arcId } };
   }

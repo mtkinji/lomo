@@ -43,6 +43,7 @@ Modes are temporary postures, not audiences:
 - Returning after drift.
 - Inviting someone in.
 - Shaping the system from a command center.
+- Asking broadly after Kwilt has demonstrated that it can help.
 
 ## Using audiences in design work
 

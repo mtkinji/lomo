@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CAPABILITY_GROUPS, CAPABILITY_REGISTRY } from '../capabilities/registry';
 import type { CapabilityGroupId, CapabilityId } from '../capabilities/types';
 import { colors, fonts, spacing, typography } from '../theme';
@@ -9,19 +9,37 @@ import { ProfileAvatar } from '../ui/ProfileAvatar';
 
 type CapabilityMenuProps = {
   activeCapabilityId: CapabilityId | null;
+  activeChatThreadId?: string | null;
+  chats: readonly CapabilityMenuChat[];
+  chatsLoading?: boolean;
+  chatsError?: string | null;
   displayName?: string;
   avatarUrl?: string | null;
   onSelectCapability: (id: CapabilityId) => void;
+  onSelectChat: (threadId: string) => void;
+  onCreateChat: () => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onOpenChat: () => void;
 };
 
+export type CapabilityMenuChat = {
+  id: string;
+  title: string;
+  updatedAt: string;
+};
+
 export function CapabilityMenu({
   activeCapabilityId,
+  activeChatThreadId,
+  chats,
+  chatsLoading = false,
+  chatsError = null,
   displayName,
   avatarUrl,
   onSelectCapability,
+  onSelectChat,
+  onCreateChat,
   onOpenSearch,
   onOpenSettings,
   onOpenChat,
@@ -120,7 +138,50 @@ export function CapabilityMenu({
 
         {directCapabilities.map(({ id }) => renderCapability(id))}
 
-        <Text style={[styles.groupLabel, styles.chatsLabel]}>CHATS</Text>
+        <View style={styles.chatsHeader}>
+          <Text style={styles.groupLabel}>CHATS</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="New chat"
+            onPress={onCreateChat}
+            hitSlop={6}
+            style={({ pressed }) => [styles.newChatButton, pressed && styles.rowPressed]}
+          >
+            <Icon name="plus" size={17} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+        {chatsLoading && chats.length === 0 ? (
+          <View style={styles.chatStateRow}>
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text style={styles.chatStateText}>Loading chats…</Text>
+          </View>
+        ) : chatsError && chats.length === 0 ? (
+          <Text style={styles.chatStateText}>{chatsError}</Text>
+        ) : chats.length === 0 ? (
+          <Text style={styles.chatStateText}>No chats yet.</Text>
+        ) : chats.map((chat) => {
+          const selected = chat.id === activeChatThreadId;
+          return (
+            <Pressable
+              key={chat.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open chat ${chat.title}`}
+              accessibilityState={{ selected }}
+              onPress={() => onSelectChat(chat.id)}
+              style={({ pressed }) => [
+                styles.chatRow,
+                selected && styles.capabilityRowSelected,
+                pressed && styles.rowPressed,
+              ]}
+            >
+              <Icon name="navAiGuide" size={17} color={colors.textSecondary} />
+              <View style={styles.chatRowText}>
+                <Text numberOfLines={1} style={styles.chatTitle}>{chat.title}</Text>
+                <Text style={styles.chatDate}>{formatChatDate(chat.updatedAt)}</Text>
+              </View>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -214,11 +275,55 @@ const styles = StyleSheet.create({
   rowPressed: {
     opacity: 0.62,
   },
-  chatsLabel: {
+  chatsHeader: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.md,
-    textAlignVertical: 'center',
+  },
+  newChatButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  chatStateRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  chatStateText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  chatRow: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 10,
+  },
+  chatRowText: {
+    minWidth: 0,
+    flex: 1,
+    paddingVertical: spacing.xs,
+  },
+  chatTitle: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  chatDate: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   footer: {
     minHeight: 56,
@@ -252,3 +357,10 @@ const styles = StyleSheet.create({
     color: colors.gray50,
   },
 });
+
+function formatChatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}

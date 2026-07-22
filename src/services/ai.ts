@@ -755,6 +755,15 @@ export type CoachChatOptions = {
   workflowInstanceId?: string;
   workflowStepId?: string;
   launchContextSummary?: string;
+  /**
+   * Whether the shared coach service may attach its broad user-profile summary.
+   * Defaults to true for legacy coach flows. Unified Chat sets this false and
+   * supplies only request-scoped evidence through launchContextSummary.
+   */
+  includeUserProfileContext?: boolean;
+  /** Internal structured-output contract used by native-owned workflows. */
+  responseFormat?: Record<string, unknown>;
+  signal?: AbortSignal;
   aiJob?: KwiltAiJob;
   /**
    * Optional paywall attribution used when generative credits are exhausted.
@@ -2575,7 +2584,9 @@ export async function sendCoachChat(
     'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
     'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
 
-  const userProfileSummary = buildUserProfileSummary();
+  const userProfileSummary = options?.includeUserProfileContext === false
+    ? undefined
+    : buildUserProfileSummary();
   const systemPrompt = userProfileSummary
     ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
     : baseSystemPrompt;
@@ -2688,6 +2699,10 @@ export async function sendCoachChat(
     messages: openAiMessages,
   };
 
+  if (options?.responseFormat) {
+    body.response_format = options.responseFormat;
+  }
+
   if (tools && tools.length > 0) {
     body.tools = tools;
     body.tool_choice = 'auto';
@@ -2721,6 +2736,7 @@ export async function sendCoachChat(
           ...kwiltProxyHeaders,
         },
         body: JSON.stringify(body),
+        signal: options?.signal,
       },
       OPENAI_CHAT_TIMEOUT_MS
     );
@@ -3127,6 +3143,9 @@ async function fetchWithTimeout(
   }
 
   const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  else options.signal?.addEventListener('abort', abortFromCaller, { once: true });
   const timeoutId = setTimeout(() => {
     devLog('fetchWithTimeout:aborting', { url, timeoutMs });
     controller.abort();
@@ -3173,6 +3192,7 @@ async function fetchWithTimeout(
     return response;
   } finally {
     clearTimeout(timeoutId);
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }
 }
 

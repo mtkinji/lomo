@@ -1,4 +1,4 @@
-export const AGENT_WORKBENCH_PROTOCOL_VERSION = 1 as const;
+export const AGENT_WORKBENCH_PROTOCOL_VERSION = 2 as const;
 
 export type AgentWorkbenchObjectRef = {
   id: string;
@@ -8,6 +8,14 @@ export type AgentWorkbenchObjectRef = {
   thumbnailUrl?: string;
 };
 
+export type AgentWorkbenchAttachment = {
+  id: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: 'ready';
+};
+
 export type AgentWorkbenchMessage = {
   id: string;
   threadId: string;
@@ -15,6 +23,7 @@ export type AgentWorkbenchMessage = {
   body: string;
   createdAt: string;
   feedback?: 'positive' | 'negative' | null;
+  attachments: AgentWorkbenchAttachment[];
 };
 
 export type AgentWorkbenchRun = {
@@ -22,6 +31,7 @@ export type AgentWorkbenchRun = {
   threadId: string;
   assistantMessageId?: string;
   status: 'queued' | 'active' | 'complete' | 'partial' | 'stopped' | 'steered' | 'failed';
+  canRetry: boolean;
   events: Array<{
     id: string;
     sequence: number;
@@ -30,6 +40,63 @@ export type AgentWorkbenchRun = {
     label: string;
     detail?: string;
   }>;
+};
+
+export type AgentWorkbenchEvidenceRef = {
+  id: string;
+  runId: string;
+  capabilityId: string;
+  object: AgentWorkbenchObjectRef;
+  selectionStatus: 'included' | 'omitted';
+  authority: 'authoritative' | 'derived' | 'user_supplied';
+  freshness: 'current' | 'recent' | 'stale' | 'unknown';
+  selectionReason: string;
+  sufficient: boolean;
+  coverageNote: string;
+};
+
+export type AgentWorkbenchContextRef = {
+  id: string;
+  capabilityId: string;
+  object: AgentWorkbenchObjectRef;
+  source: 'launch' | 'user_added' | 'retrieved_promoted';
+  removable: boolean;
+  version: number;
+};
+
+export type AgentWorkbenchProposal = {
+  id: string;
+  runId: string;
+  messageId?: string;
+  capabilityId: 'todos';
+  title: string;
+  body: string;
+  status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
+  version: number;
+  operation: {
+    id: string;
+    type: 'create_activity' | 'update_activity';
+    targetId?: string;
+    summary: string;
+    fields: Record<string, unknown>;
+  };
+};
+
+export type AgentWorkbenchReceipt = {
+  id: string;
+  proposalId: string;
+  status: 'applied' | 'failed' | 'undone';
+  summary: string;
+  object?: AgentWorkbenchObjectRef;
+  returnTarget?: Record<string, unknown>;
+  canUndo: boolean;
+  inventoryItem?: {
+    title: string;
+    meta?: string;
+    estimateMeta?: string;
+    metaTone?: 'urgent' | 'today' | 'tomorrow' | 'future';
+    isCompleted: boolean;
+  };
 };
 
 export type AgentWorkbenchSnapshot = {
@@ -48,23 +115,35 @@ export type AgentWorkbenchSnapshot = {
     };
   };
   thread?: { id: string; title: string; status: 'active' | 'archived' };
-  context: AgentWorkbenchObjectRef[];
+  context: AgentWorkbenchContextRef[];
+  evidence: AgentWorkbenchEvidenceRef[];
   messages: AgentWorkbenchMessage[];
   runs: AgentWorkbenchRun[];
-  proposals: [];
+  proposals: AgentWorkbenchProposal[];
+  receipts: AgentWorkbenchReceipt[];
   composer: {
     prompt: string;
     state: 'ready' | 'working' | 'complete';
-    attachments: [];
-    voice: { state: 'idle' | 'unsupported'; elapsedSeconds: number; message?: string };
+    attachments: AgentWorkbenchAttachment[];
+    voice: {
+      state: 'idle' | 'recording' | 'transcribing' | 'unsupported' | 'error';
+      elapsedSeconds: number;
+      message?: string;
+    };
   };
 };
 
 export type SupportedAgentWorkbenchCommand =
   | { type: 'composer.change'; prompt: string }
+  | { type: 'context.add' }
+  | { type: 'attachment.pick' }
+  | { type: 'attachment.remove'; attachmentId: string }
+  | { type: 'voice.toggle' }
   | { type: 'run.send'; prompt: string }
   | { type: 'run.stop'; runId: string }
   | { type: 'run.steer'; runId: string; prompt: string }
+  | { type: 'run.retry'; runId: string }
+  | { type: 'context.remove'; contextId: string; expectedVersion: number }
   | {
       type: 'message.feedback';
       messageId: string;
@@ -72,6 +151,14 @@ export type SupportedAgentWorkbenchCommand =
       reason?: string;
     }
   | { type: 'object.open'; object: AgentWorkbenchObjectRef }
+  | {
+      type: 'proposal.decide';
+      proposalId: string;
+      action: 'edit' | 'reject' | 'defer' | 'approve';
+      expectedVersion: number;
+      patch?: Record<string, unknown>;
+    }
+  | { type: 'receipt.undo'; receiptId: string }
   | { type: 'thread.create' };
 
 export type AgentWorkbenchSurfaceMessage =
@@ -121,13 +208,34 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
       return typeof value.prompt === 'string'
         ? ({ type: value.type, prompt: value.prompt } as SupportedAgentWorkbenchCommand)
         : null;
+    case 'voice.toggle':
+      return { type: 'voice.toggle' };
+    case 'context.add':
+      return { type: 'context.add' };
+    case 'attachment.pick':
+      return { type: 'attachment.pick' };
+    case 'attachment.remove':
+      return hasText(value, 'attachmentId')
+        ? { type: 'attachment.remove', attachmentId: String(value.attachmentId) }
+        : null;
     case 'run.stop':
+    case 'run.retry':
       return hasText(value, 'runId')
-        ? { type: 'run.stop', runId: String(value.runId) }
+        ? { type: value.type, runId: String(value.runId) }
         : null;
     case 'run.steer':
       return hasText(value, 'runId') && hasText(value, 'prompt')
         ? { type: 'run.steer', runId: String(value.runId), prompt: String(value.prompt) }
+        : null;
+    case 'context.remove':
+      return hasText(value, 'contextId') &&
+        typeof value.expectedVersion === 'number' &&
+        Number.isInteger(value.expectedVersion) && value.expectedVersion > 0
+        ? {
+            type: 'context.remove',
+            contextId: String(value.contextId),
+            expectedVersion: value.expectedVersion,
+          }
         : null;
     case 'message.feedback':
       return hasText(value, 'messageId') &&
@@ -141,6 +249,24 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
         : null;
     case 'object.open':
       return isObjectRef(value.object) ? { type: 'object.open', object: value.object } : null;
+    case 'proposal.decide':
+      return hasText(value, 'proposalId') &&
+        (value.action === 'edit' || value.action === 'reject' || value.action === 'defer' || value.action === 'approve') &&
+        typeof value.expectedVersion === 'number' &&
+        Number.isInteger(value.expectedVersion) && value.expectedVersion > 0 &&
+        (value.patch === undefined || isRecord(value.patch))
+        ? {
+            type: 'proposal.decide',
+            proposalId: String(value.proposalId),
+            action: value.action,
+            expectedVersion: value.expectedVersion,
+            ...(isRecord(value.patch) ? { patch: value.patch } : {}),
+          }
+        : null;
+    case 'receipt.undo':
+      return hasText(value, 'receiptId')
+        ? { type: 'receipt.undo', receiptId: String(value.receiptId) }
+        : null;
     case 'thread.create':
       return { type: 'thread.create' };
     default:

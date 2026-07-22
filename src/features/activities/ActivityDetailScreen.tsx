@@ -52,6 +52,7 @@ import type {
 } from '../../navigation/RootNavigator';
 import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
+import { parseLocalCalendarDate } from '../../services/plan/planDates';
 import { BottomDrawer, BottomDrawerNativeGestureView, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { StaticMapImage } from '../../ui/maps/StaticMapImage';
 import { LocationPermissionService } from '../../services/LocationPermissionService';
@@ -1744,6 +1745,11 @@ export function ActivityDetailScreen() {
   const [scheduleCardOffset, setScheduleCardOffset] = useState<number | null>(null);
 
   const handleBackToActivities = () => {
+    const returnToUnifiedChatThreadId = (route.params as ActivityDetailRouteParams)?.returnToUnifiedChatThreadId;
+    if (returnToUnifiedChatThreadId) {
+      rootNavigationRef.navigate('UnifiedChat', { threadId: returnToUnifiedChatThreadId });
+      return;
+    }
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
@@ -3585,7 +3591,7 @@ export function ActivityDetailScreen() {
   const getInitialDueDateForPicker = () => {
     if (!activity) return new Date();
     if (activity.scheduledDate) {
-      const parsed = new Date(activity.scheduledDate);
+      const parsed = parseLocalCalendarDate(activity.scheduledDate);
       if (!Number.isNaN(parsed.getTime())) {
         return parsed;
       }
@@ -3714,7 +3720,7 @@ export function ActivityDetailScreen() {
 
   const dueDateLabel = useMemo(() => {
     if (!activity?.scheduledDate) return 'None';
-    const date = new Date(activity.scheduledDate);
+    const date = parseLocalCalendarDate(activity.scheduledDate);
     return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
