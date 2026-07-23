@@ -124,6 +124,27 @@ Future Screen Time controls are the clearest example. Chat may understand a requ
 
 Routing should be invisible when confidence is high and legible when it changes context, permissions, sources, or durable state. Tool use is not success by itself; sometimes the correct route is an ordinary answer with no Kwilt data attached.
 
+## Voice and response depth
+
+Chat inherits Kwilt's existing copy voice rather than introducing a separate AI personality. It should sound like a smart, warm coworker who helps the person make progress on what matters: clear, practical, honest, grounded, and human without becoming a therapist, guru, productivity coach, or academic lecturer.
+
+Visible prose should:
+
+- think deeply, speak plainly, and stop when it has helped;
+- lead with the answer and use familiar words, short sentences, concrete nouns, and active verbs;
+- avoid jargon, unnecessary frameworks, formal transitions, repeated questions, narrated reasoning, and redundant recaps;
+- preserve material uncertainty, evidence limits, risks, and trade-offs even when the answer should be brief;
+- offer at most one useful next move in ordinary chat unless the user requests options or the workflow requires structured choices;
+- avoid repeating information already rendered in a proposal, receipt, inventory row, or other structured surface.
+
+Response depth is adaptive rather than one fixed word count:
+
+- **Brief** for confirmations, simple questions, completed actions, and receipts: usually one to three sentences or one compact structured result.
+- **Standard** for explanations, comparisons, and recommendations: direct answer first, followed only by the support needed to understand or act.
+- **Deep** for complex planning, meaningful reflection, high-stakes choices, conflicting evidence, or an explicit request for detail: still plain and well organized.
+
+The current message always outranks a stored tone or detail preference. Stored preferences tune the default but do not replace Kwilt's voice, workflow schemas, or the needs of the current request. Prompt-level brevity is a soft response contract, not a hard truncation rule. Kwilt must never cut off a response or omit a material caveat merely to meet a word target.
+
 ## Persona and situation map
 
 Nina and Marcus are the accepted initial audiences. The other canonical Kwilt personas are product-review lenses: their rows prevent the shared surface from quietly optimizing for an AI power user while becoming wrong for ordinary Kwilt situations.
@@ -222,6 +243,7 @@ Adopt Giraffed's mature interaction as the shared baseline, then subtract for Kw
 
 ## Trust and language rules
 
+- Apply the shared Kwilt voice and adaptive response-depth contract to every visible assistant path, including tool-follow-up replies.
 - State what Kwilt found, inferred, could not verify, and would change.
 - Do not expose chain-of-thought-like reasoning, internal policy, raw tool traces, or hidden context.
 - Do not claim feelings, pride, disappointment, certainty, or relationship intimacy.
@@ -230,6 +252,27 @@ Adopt Giraffed's mature interaction as the shared baseline, then subtract for Kw
 - Do not make a permission global when only one capability granted it.
 - Do not treat conversation retention as permission to attach every old object to every new request.
 - Do not send to another person, spend money, reshape an Arc, or expose household data without the owning product flow's explicit policy.
+
+## Thread cleanup controls
+
+Active Chat rows in the capability menu support two deliberately distinct swipe actions:
+
+- Swipe right reveals **Archive**. Archiving removes the thread from the active list and offers a compact **Undo** action.
+- Swipe left reveals **Delete**. Deletion is permanent, cascades through the thread-owned conversation records, and always requires explicit confirmation before the repository is called.
+
+Neither direction executes merely because the row crossed a full-swipe threshold. A failed archive, restore, or delete leaves the user's local list truthful and produces concise recovery feedback. This first slice does not add bulk management, retention settings, or a persistent archived-thread browser.
+
+## Intelligent thread titles
+
+New threads begin as `New chat`, then receive a short model-suggested title from the first completed exchange. Titles do not update on every turn. When the existing conversation-compression path produces a materially new durable summary, it may suggest a refined title based on that compressed understanding.
+
+Thread title ownership is durable:
+
+- `default` — the placeholder may be replaced by an opening suggestion;
+- `generated` — compression may refine it;
+- `user` — a manual rename is authoritative and automatic naming must never overwrite it.
+
+Title generation is background maintenance: it cannot delay or fail a Chat response, and an invalid or failed suggestion leaves the current title untouched. Generated titles are short, specific, plain-language labels—not summaries, dates, quoted user text, or generic labels such as “Conversation.”
 
 ## First vertical slice
 
@@ -272,6 +315,8 @@ The first release succeeds when the end-to-end job becomes more trustworthy, not
 - The hosted workbench meets native expectations for keyboard, focus, scrolling, safe area, accessibility, voice, attachments, and perceived performance on a real iPhone.
 - One shared workbench improvement reaches both Giraffed and Kwilt without sharing product data, policy, or release ownership.
 - A general question receives a useful answer without unnecessary private-context retrieval, tool calls, or pressure to create a Kwilt object.
+- Responses use ordinary human language, lead with the answer, and are no longer than the request requires without losing material context.
+- Feedback can distinguish "too long," "too brief," and "unclear" so length is evaluated separately from correctness and usefulness.
 - When a broad question naturally becomes a Kwilt action, the user can cross that boundary without restating the intent or losing permission clarity.
 
 The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`](../design-explorations/discovery-to-action-intelligence/05-evaluate-learning.md).
@@ -285,6 +330,8 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - Chat is the public destination name; capabilities remain the authoritative place for durable work.
 - Shared workbench extraction is a reuse mechanism, not a shared Giraffed/Kwilt product or data plane.
 - Broad questions are supported, but Kwilt's product differentiation and prioritization remain centered on trusted context and capability action rather than general-chat breadth.
+- Active-thread cleanup uses bidirectional native swipe actions: reversible archive to the right and confirmed permanent delete to the left.
+- Automatic titles may evolve only at the opening-exchange and compression boundaries; manual titles always win.
 
 ### Decisions intentionally deferred
 
@@ -293,7 +340,7 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - The exact standing-permission threshold for low-risk Activity operations.
 - Household/thread scope and shared Chat behavior.
 - Money and Games evidence, action, consent, and receipt policies.
-- Long-term retention controls, export, deletion, and per-thread privacy controls beyond the first hidden learning release.
+- Long-term retention policies, export, bulk cleanup, and per-thread privacy controls beyond archive and confirmed deletion.
 
 ### Build acceptance criteria
 
@@ -302,12 +349,14 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - No long-lived product credential is exposed to workbench JavaScript.
 - Every applied operation has a capability-owned idempotency key and authoritative receipt.
 - Visible assistant text is sanitized consistently across stream, persistence, render, speech, notification, and external response paths.
+- Current Coach and future unified-Chat prompt assembly share one tested Kwilt voice contract; workflow prompts may refine context but do not redefine the brand voice.
+- Prompt-contract tests cover the core voice, adaptive depth rules, stored preference handling, current-message override, structured-output precedence, and material-caveat guardrail.
 - Giraffed remains behaviorally equivalent under its compatibility adapter.
 - Kwilt passes simulator interaction checks and separate signed physical-device proof before any claim of first-class mobile hosting.
 
 ## Open questions
 
-- What retention and deletion controls make a life-system Chat thread feel trustworthy before public rollout?
+- Does archive need a persistent browser after self-use shows whether the compact Undo window is sufficient?
 - When should retrieved context become a visible removable chip for the next turn rather than remain evidence from the prior run?
 - Which Activity operations are low-risk enough for standing permission, and which always require per-operation review?
 - When should Kwilt answer from the base model, use current external sources, use personal Kwilt context, invoke a capability, or recommend a specialist destination?

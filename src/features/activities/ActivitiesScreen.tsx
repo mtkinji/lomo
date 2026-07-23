@@ -76,7 +76,6 @@ import {
 } from '../../store/useCelebrationStore';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
-import { geocodePlaceBestEffort } from '../../services/locationOffers/geocodePlace';
 import {
   applyDueDateReminderPolicy,
   REMINDER_SOURCE_MANUAL,
@@ -108,13 +107,14 @@ import { AgentWorkspace } from '../ai/AgentWorkspace';
 import {
   useQuickAddDockController,
   type QuickAddAiAction,
-  type QuickAddLocationTriggerRecommendation,
+  type QuickAddPlaceRecommendation,
 } from './useQuickAddDockController';
 import { ACTIVITY_CREATION_WORKFLOW_ID } from '../../domain/workflows';
 import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
+import { ActivityInventoryRow } from './ActivityInventoryRow';
 import { ViewMenuItem } from './ViewMenuItem';
 import { TagGroupMenuItems } from './TagGroupMenuItems';
 import { TagGroupsDrawer } from './TagGroupsDrawer';
@@ -143,6 +143,7 @@ import { buildActivityListMeta } from '../../utils/activityListMeta';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { RepeatInfoMenu } from './RepeatInfoMenu';
+import { buildQuickAddDefaultsFromFilters } from './activityQuickAddDefaults';
 import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../services/paywall';
 import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
@@ -257,24 +258,6 @@ type InventoryScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
 
 function isPrioritySort(sortConditions: SortCondition[]): boolean {
   return sortConditions[0]?.field === 'priority';
-}
-
-function isTopPriorityBandIndicator(indicator?: ActivityPriorityIndicator | null): boolean {
-  return (
-    indicator?.label === '#1' ||
-    indicator?.label === '#2' ||
-    indicator?.label === '#3'
-  );
-}
-
-function getTopPriorityBandRowStyle(indicator?: ActivityPriorityIndicator | null) {
-  if (!isTopPriorityBandIndicator(indicator)) return null;
-
-  return [
-    styles.topPriorityBandRow,
-    indicator?.label === '#1' ? styles.topPriorityBandFirstRow : null,
-    indicator?.label === '#3' ? styles.topPriorityBandLastRow : null,
-  ];
 }
 
 export function ActivitiesScreen() {
@@ -1289,22 +1272,22 @@ export function ActivitiesScreen() {
     return enrichingActivityIdsRef.current.has(activityId);
   }, []);
 
-  const quickAddCompactBottomOffsetPx = Math.max(insets.bottom + spacing.sm, spacing.md);
+  // The Option G shell has no bottom nav. Keep the collapsed pill low, but
+  // leave enough breathing room to follow the iPhone's bottom-corner curve.
+  const quickAddCompactBottomOffsetPx = spacing.xl;
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
     : quickAddCompactBottomOffsetPx;
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
-  const quickAddLocationTriggersEnabled =
-    Boolean(locationOfferPreferences.enabled) &&
-    locationOfferPreferences.osPermissionStatus === 'authorized';
   const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
-    React.useState<QuickAddLocationTriggerRecommendation | null>(null);
+    React.useState<QuickAddPlaceRecommendation | null>(null);
 
   const handleUseQuickAddLocationTrigger = React.useCallback(async () => {
     const pending = pendingQuickAddLocationRecommendation;
-    if (!pending) return;
+    const location = pending?.location;
+    if (!pending || !location) return;
 
     const granted = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
     const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable' as const);
@@ -1319,7 +1302,7 @@ export function ActivitiesScreen() {
       const nextUpdatedAt = new Date().toISOString();
       updateActivity(pending.activityId, (activity) => ({
         ...activity,
-        location: pending.location,
+        location,
         updatedAt: nextUpdatedAt,
       }));
       showToast({ message: 'Location trigger ready', variant: 'success', durationMs: 2200 });
@@ -1339,255 +1322,10 @@ export function ActivitiesScreen() {
     updateActivity,
   ]);
 
-  const quickAddDefaultsFromFilters = React.useMemo<Partial<Activity>>(() => {
-    // Users expect new activities created while filters are applied to "inherit" those filters.
-    // We keep this conservative and only apply unambiguous equality-based constraints.
-    if (!filterGroups || filterGroups.length !== 1) {
-      return activeTagGroupLabel ? { tags: [activeTagGroupLabel] } : {};
-    }
-    const group = filterGroups[0];
-    if (!group || (group.logic !== 'and' && group.logic !== 'or')) return {};
-
-    const toLocalDateKey = (date: Date): string => {
-      const y = String(date.getFullYear());
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    };
-
-    const addLocalDays = (date: Date, deltaDays: number): Date => {
-      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      d.setDate(d.getDate() + deltaDays);
-      return d;
-    };
-
-    const parseLocalDateKey = (key: string): Date | null => {
-      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key.trim());
-      if (!match) return null;
-      const y = Number.parseInt(match[1] ?? '', 10);
-      const m = Number.parseInt(match[2] ?? '', 10);
-      const d = Number.parseInt(match[3] ?? '', 10);
-      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-      return new Date(y, m - 1, d);
-    };
-
-    const resolveRelativeDateTokenToDateKey = (raw: string, now = new Date()): string | null => {
-      const s = String(raw ?? '').trim().toLowerCase();
-      if (!s) return null;
-      if (s === 'today') return toLocalDateKey(now);
-      if (s === 'tomorrow') return toLocalDateKey(addLocalDays(now, 1));
-      if (s === 'yesterday') return toLocalDateKey(addLocalDays(now, -1));
-
-      const m = s.match(/^([+-])\s*(\d+)\s*(day|days|week|weeks)$/i);
-      if (!m) return null;
-      const sign = m[1] === '-' ? -1 : 1;
-      const count = Number.parseInt(m[2] ?? '', 10);
-      const unit = (m[3] ?? '').toLowerCase();
-      if (!Number.isFinite(count)) return null;
-      const n = Math.max(0, Math.floor(count));
-      const deltaDays = unit.startsWith('week') ? sign * n * 7 : sign * n;
-      return toLocalDateKey(addLocalDays(now, deltaDays));
-    };
-
-    const normalizeDateLikeFilterValueToDateKey = (value: unknown): string | null => {
-      if (typeof value !== 'string') return null;
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-      return resolveRelativeDateTokenToDateKey(trimmed);
-    };
-
-    const chooseBestDateKey = (keys: string[], now = new Date()): string | null => {
-      if (!keys || keys.length === 0) return null;
-      const todayKey = toLocalDateKey(now);
-      const today = parseLocalDateKey(todayKey);
-      if (!today) return keys[0] ?? null;
-
-      const unique = Array.from(new Set(keys.filter((k) => typeof k === 'string' && k.trim().length > 0)));
-      const dated = unique
-        .map((k) => ({ k, d: parseLocalDateKey(k) }))
-        .filter((x): x is { k: string; d: Date } => Boolean(x.d));
-
-      // Prefer the soonest date >= today; else, pick the closest date < today.
-      const futureOrToday = dated
-        .map((x) => ({ ...x, delta: x.d.getTime() - today.getTime() }))
-        .filter((x) => x.delta >= 0)
-        .sort((a, b) => a.delta - b.delta);
-      if (futureOrToday.length > 0) return futureOrToday[0].k;
-
-      const past = dated
-        .map((x) => ({ ...x, delta: x.d.getTime() - today.getTime() }))
-        .filter((x) => x.delta < 0)
-        .sort((a, b) => b.delta - a.delta); // closer to today (less negative) first
-      if (past.length > 0) return past[0].k;
-
-      return unique[0] ?? null;
-    };
-
-    const defaults: Partial<Activity> = {};
-    const tagDefaults: string[] = [];
-
-    // For OR groups, we can safely apply multiple compatible defaults (setting more fields never
-    // invalidates an OR). But for any given field, we still must pick a single value.
-    const candidatesByField: Partial<Record<string, any[]>> | null = group.logic === 'or' ? {} : null;
-
-    for (const c of group.conditions ?? []) {
-      if (!c) continue;
-      switch (c.field) {
-        case 'goalId':
-          if (c.operator === 'eq' && typeof c.value === 'string') {
-            if (candidatesByField) {
-              (candidatesByField.goalId ??= []).push(c.value);
-            } else {
-              defaults.goalId = c.value;
-            }
-          }
-          break;
-        case 'priority':
-          if (c.operator === 'eq' && typeof c.value === 'number' && (c.value === 1 || c.value === 2 || c.value === 3)) {
-            if (candidatesByField) {
-              (candidatesByField.priority ??= []).push(c.value);
-            } else {
-              defaults.priority = c.value as any;
-            }
-          }
-          break;
-        case 'status':
-          if (c.operator === 'eq' && typeof c.value === 'string') {
-            // Only apply "planning-safe" statuses for quick add.
-            if (c.value === 'planned' || c.value === 'in_progress') {
-              if (candidatesByField) {
-                (candidatesByField.status ??= []).push(c.value);
-              } else {
-                defaults.status = c.value as any;
-              }
-            }
-          }
-          break;
-        case 'scheduledDate':
-          // Due date filters may be absolute (YYYY-MM-DD) or relative tokens ("today", "+7days").
-          // Normalize to a date key so creation is stable and matches the view.
-          if (c.operator === 'eq') {
-            const key = normalizeDateLikeFilterValueToDateKey(c.value);
-            if (key) {
-              if (candidatesByField) {
-                (candidatesByField.scheduledDate ??= []).push(key);
-              } else {
-                defaults.scheduledDate = key;
-              }
-            }
-          } else if (c.operator === 'lt' || c.operator === 'gt') {
-            const boundaryKey = normalizeDateLikeFilterValueToDateKey(c.value);
-            const boundaryDate = boundaryKey ? parseLocalDateKey(boundaryKey) : null;
-            if (boundaryDate) {
-              const chosen = toLocalDateKey(addLocalDays(boundaryDate, c.operator === 'lt' ? -1 : 1));
-              if (candidatesByField) {
-                (candidatesByField.scheduledDate ??= []).push(chosen);
-              } else {
-                defaults.scheduledDate = chosen;
-              }
-            }
-          }
-          break;
-        case 'reminderAt':
-          // Reminder timestamps are ISO strings in Activities. Only inherit when the filter
-          // value is already an ISO datetime (or a YYYY-MM-DD key, which some callers may use).
-          if (c.operator === 'eq' && typeof c.value === 'string') {
-            const trimmed = c.value.trim();
-            const isIso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed);
-            const isKey = /^\d{4}-\d{2}-\d{2}$/.test(trimmed);
-            if (isIso || isKey) {
-              if (candidatesByField) {
-                (candidatesByField.reminderAt ??= []).push(trimmed);
-              } else {
-                defaults.reminderAt = trimmed;
-              }
-            }
-          }
-          break;
-        case 'type':
-          if (c.operator === 'eq' && typeof c.value === 'string') {
-            if (candidatesByField) {
-              (candidatesByField.type ??= []).push(c.value);
-            } else {
-              defaults.type = c.value as any;
-            }
-          }
-          break;
-        case 'difficulty':
-          if (c.operator === 'eq' && typeof c.value === 'string') {
-            if (candidatesByField) {
-              (candidatesByField.difficulty ??= []).push(c.value);
-            } else {
-              defaults.difficulty = c.value as any;
-            }
-          }
-          break;
-        case 'estimateMinutes':
-          if (c.operator === 'eq' && typeof c.value === 'number') {
-            if (candidatesByField) {
-              (candidatesByField.estimateMinutes ??= []).push(c.value);
-            } else {
-              defaults.estimateMinutes = c.value;
-            }
-          }
-          break;
-        case 'tags':
-          // Tag filters are expressed via `in` (value is an array). If the user is filtering by tags,
-          // add those tags to the new activity so it appears in the filtered view.
-          if (c.operator === 'in' && Array.isArray(c.value)) {
-            for (const t of c.value) {
-              if (typeof t === 'string' && t.trim().length > 0) tagDefaults.push(t.trim());
-            }
-          }
-          break;
-        default:
-          break;
-      }
-    }
-
-    if (candidatesByField) {
-      // Pick a single value per field (deterministic, conservative).
-      if (Array.isArray(candidatesByField.goalId) && candidatesByField.goalId.length > 0) {
-        const v = candidatesByField.goalId.find((x) => typeof x === 'string' && x.trim().length > 0);
-        if (v) defaults.goalId = v;
-      }
-      if (Array.isArray(candidatesByField.status) && candidatesByField.status.length > 0) {
-        // Prefer planned if present.
-        const list = candidatesByField.status.filter((x) => x === 'planned' || x === 'in_progress');
-        if (list.includes('planned')) defaults.status = 'planned' as any;
-        else if (list.includes('in_progress')) defaults.status = 'in_progress' as any;
-      }
-      if (Array.isArray(candidatesByField.priority) && candidatesByField.priority.length > 0) {
-        const nums = candidatesByField.priority.filter((x) => x === 1 || x === 2 || x === 3) as number[];
-        if (nums.length > 0) defaults.priority = (Math.min(...nums) as any);
-      }
-      if (Array.isArray(candidatesByField.scheduledDate) && candidatesByField.scheduledDate.length > 0) {
-        const key = chooseBestDateKey(candidatesByField.scheduledDate as string[]);
-        if (key) defaults.scheduledDate = key;
-      }
-      if (Array.isArray(candidatesByField.reminderAt) && candidatesByField.reminderAt.length > 0) {
-        const v = candidatesByField.reminderAt.find((x) => typeof x === 'string' && x.trim().length > 0);
-        if (v) defaults.reminderAt = v;
-      }
-      if (Array.isArray(candidatesByField.type) && candidatesByField.type.length > 0) {
-        const v = candidatesByField.type.find((x) => typeof x === 'string' && x.trim().length > 0);
-        if (v) defaults.type = v as any;
-      }
-      if (Array.isArray(candidatesByField.difficulty) && candidatesByField.difficulty.length > 0) {
-        const v = candidatesByField.difficulty.find((x) => typeof x === 'string' && x.trim().length > 0);
-        if (v) defaults.difficulty = v as any;
-      }
-      if (Array.isArray(candidatesByField.estimateMinutes) && candidatesByField.estimateMinutes.length > 0) {
-        const v = candidatesByField.estimateMinutes.find((x) => typeof x === 'number' && Number.isFinite(x));
-        if (typeof v === 'number') defaults.estimateMinutes = v;
-      }
-    }
-
-    if (activeTagGroupLabel) tagDefaults.push(activeTagGroupLabel);
-    if (tagDefaults.length > 0) defaults.tags = Array.from(new Set(tagDefaults));
-    return defaults;
-  }, [activeTagGroupLabel, filterGroups]);
+  const quickAddDefaultsFromFilters = React.useMemo<Partial<Activity>>(
+    () => buildQuickAddDefaultsFromFilters({ filterGroups, activeTagGroupLabel }),
+    [activeTagGroupLabel, filterGroups],
+  );
 
   const effectiveQuickAddAiActions = React.useMemo(
     () =>
@@ -1672,7 +1410,6 @@ export function ActivitiesScreen() {
     showToast: wrappedShowToast,
     initialReservedHeightPx: quickAddInitialReservedHeight,
     focusAfterSubmit: false,
-    locationTriggersEnabled: quickAddLocationTriggersEnabled,
     onLocationTriggerRecommended: setPendingQuickAddLocationRecommendation,
     onCreated: (activity) => {
       lastCreatedActivityRef.current = activity;
@@ -3468,41 +3205,33 @@ export function ActivitiesScreen() {
               priorityIndicator,
               hasNextItem: index < activeActivities.length - 1,
             });
-            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
-
             return (
-              <View style={[
-                { paddingBottom: rowGap },
-                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
-                topPriorityBandRowStyle,
-                isDragging && { opacity: 0.9, shadowColor: colors.textPrimary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
-              ]}>
-                <ActivityListItem
-                  title={activity.title}
-                  meta={meta}
-                  estimateMeta={estimateMeta}
-                  metaTone={metaTone}
-                  priorityIndicator={priorityIndicator}
-                  metaLoading={metaLoading}
-                  isCompleted={activity.status === 'done'}
-                  onToggleComplete={isDragging ? undefined : () => handleToggleComplete(activity.id)}
-                  isPriorityOne={activity.priority === 1}
-                  onTogglePriority={isDragging ? undefined : () => handleTogglePriorityOne(activity.id)}
-                  onStartFocus={isDragging ? undefined : () => openActivityFocus(activity.id)}
-                  onSchedule={isDragging ? undefined : () => openActivitySchedule(activity.id)}
-                  onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
-                  onDelete={isDragging ? undefined : () => handleDeleteActivity(activity)}
-                  isDueToday={isDueToday}
-                  isGhost={
-                    sessionCreatedIdsForGhostContext.has(activity.id) &&
-                    QueryService.applyActivityFilters(
-                      [activity],
-                      filterGroups,
-                      effectiveFilterGroupLogic,
-                    ).length === 0
-                  }
-                />
-              </View>
+              <ActivityInventoryRow
+                activity={activity}
+                meta={meta}
+                estimateMeta={estimateMeta}
+                metaTone={metaTone}
+                priorityIndicator={priorityIndicator}
+                metaLoading={metaLoading}
+                isDueToday={Boolean(isDueToday)}
+                rowGap={rowGap}
+                rowOuterGap={rowOuterGap}
+                isDragging={isDragging}
+                isGhost={
+                  sessionCreatedIdsForGhostContext.has(activity.id) &&
+                  QueryService.applyActivityFilters(
+                    [activity],
+                    filterGroups,
+                    effectiveFilterGroupLogic,
+                  ).length === 0
+                }
+                onToggleComplete={handleToggleComplete}
+                onTogglePriority={handleTogglePriorityOne}
+                onStartFocus={openActivityFocus}
+                onSchedule={openActivitySchedule}
+                onPressActivity={navigateToActivityDetail}
+                onDeleteActivity={handleDeleteActivity}
+              />
             );
           }}
           ListHeaderComponent={activityListHeader}
@@ -3577,40 +3306,33 @@ export function ActivitiesScreen() {
               priorityIndicator,
               hasNextItem: index < activeActivities.length - 1,
             });
-            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
-
             return (
-              <View style={[
-                { paddingBottom: rowGap },
-                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
-                topPriorityBandRowStyle,
-              ]}>
-                <ActivityListItem
-                  title={activity.title}
-                  meta={meta}
-                  estimateMeta={estimateMeta}
-                  metaTone={metaTone}
-                  priorityIndicator={priorityIndicator}
-                  metaLoading={metaLoading}
-                  isCompleted={activity.status === 'done'}
-                  onToggleComplete={() => handleToggleComplete(activity.id)}
-                  isPriorityOne={activity.priority === 1}
-                  onTogglePriority={() => handleTogglePriorityOne(activity.id)}
-                  onStartFocus={() => openActivityFocus(activity.id)}
-                  onSchedule={() => openActivitySchedule(activity.id)}
-                  onPress={() => navigateToActivityDetail(activity.id)}
-                  onDelete={() => handleDeleteActivity(activity)}
-                  isDueToday={isDueToday}
-                  isGhost={
-                    sessionCreatedIdsForGhostContext.has(activity.id) &&
-                    QueryService.applyActivityFilters(
-                      [activity],
-                      filterGroups,
-                      effectiveFilterGroupLogic,
-                    ).length === 0
-                  }
-                />
-              </View>
+              <ActivityInventoryRow
+                activity={activity}
+                meta={meta}
+                estimateMeta={estimateMeta}
+                metaTone={metaTone}
+                priorityIndicator={priorityIndicator}
+                metaLoading={metaLoading}
+                isDueToday={Boolean(isDueToday)}
+                rowGap={rowGap}
+                rowOuterGap={rowOuterGap}
+                isDragging={false}
+                isGhost={
+                  sessionCreatedIdsForGhostContext.has(activity.id) &&
+                  QueryService.applyActivityFilters(
+                    [activity],
+                    filterGroups,
+                    effectiveFilterGroupLogic,
+                  ).length === 0
+                }
+                onToggleComplete={handleToggleComplete}
+                onTogglePriority={handleTogglePriorityOne}
+                onStartFocus={openActivityFocus}
+                onSchedule={openActivitySchedule}
+                onPressActivity={navigateToActivityDetail}
+                onDeleteActivity={handleDeleteActivity}
+              />
             );
           }}
           ListHeaderComponent={activityListHeader}
@@ -3655,39 +3377,17 @@ export function ActivitiesScreen() {
           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
           onReservedHeightChange={setQuickAddReservedHeight}
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
+          placeReceipt={pendingQuickAddLocationRecommendation}
+          onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
+          onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
+          onReviewPlaceReceipt={() => {
+            const pending = pendingQuickAddLocationRecommendation;
+            if (!pending) return;
+            setPendingQuickAddLocationRecommendation(null);
+            navigateToActivityDetail(pending.activityId);
+          }}
         />
       )}
-      <BottomGuide
-        visible={Boolean(pendingQuickAddLocationRecommendation)}
-        onClose={() => setPendingQuickAddLocationRecommendation(null)}
-        scrim="light"
-        snapPoints={['34%']}
-      >
-        <Text style={styles.triggerGuideTitle}>Use location to make this automatic</Text>
-        <Text style={styles.triggerGuideBody}>
-          Kwilt can use this location to nudge you{' '}
-          {pendingQuickAddLocationRecommendation?.location.trigger === 'arrive'
-            ? 'when you arrive'
-            : 'when you leave'}
-          , so the to-do shows up at the moment it matters.
-        </Text>
-        <HStack space="sm" alignItems="center" style={styles.triggerGuideActions}>
-          <Button
-            variant="ghost"
-            onPress={() => setPendingQuickAddLocationRecommendation(null)}
-          >
-            <ButtonLabel size="md">Keep regular to-do</ButtonLabel>
-          </Button>
-          <Button
-            onPress={() => void handleUseQuickAddLocationTrigger()}
-            style={{ backgroundColor: colors.turmeric700, borderColor: colors.turmeric800 }}
-          >
-            <ButtonLabel size="md" tone="inverse">
-              Use location triggers
-            </ButtonLabel>
-          </Button>
-        </HStack>
-      </BottomGuide>
       <BottomGuide
         visible={ghostWarningVisible && Boolean(postCreateGhostId)}
         onClose={dismissGhostWarning}

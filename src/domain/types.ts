@@ -535,6 +535,23 @@ export interface ActivityAttachment {
   updatedAt: string;
 }
 
+export type ActivityPlaceIntent = 'pickup' | 'dropoff' | 'visit' | 'doable_there';
+
+export interface ActivityPlaceLink {
+  target: {
+    kind: 'named';
+    label: string;
+    query: string;
+  };
+  intent: ActivityPlaceIntent;
+  resolution: 'broad' | 'specific';
+  provenance: {
+    source: 'activity_text' | 'user_selected' | 'saved_place';
+    confidence: number;
+  };
+  savedPlaceId?: string;
+}
+
 export interface Activity {
   id: string;
   goalId: string | null;
@@ -615,6 +632,11 @@ export interface Activity {
      */
     radiusM?: number;
   } | null;
+  /**
+   * Semantic relationship to a place, independent from coordinates and alerts.
+   * A broad link such as Costco can exist before a branch is chosen.
+   */
+  placeLink?: ActivityPlaceLink | null;
   /**
    * Optional timestamp for a reminder notification associated with this
    * activity (for example, "remind me tomorrow morning"). This is stored as an

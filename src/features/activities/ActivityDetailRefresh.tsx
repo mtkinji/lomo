@@ -1352,9 +1352,10 @@ export function ActivityDetailRefresh(props: any) {
                 <ThreeColumnRow
                   left={<Icon name="pin" size={18} color={colors.sumi} />}
                   right={
-                    activity?.location &&
-                    typeof activity.location.latitude === 'number' &&
-                    typeof activity.location.longitude === 'number' ? (
+                    (activity?.location &&
+                      typeof activity.location.latitude === 'number' &&
+                      typeof activity.location.longitude === 'number') ||
+                    activity.placeLink ? (
                       <InlineClearButton
                         accessibilityLabel="Clear location"
                         onPress={handleClearLocation}
@@ -1372,6 +1373,8 @@ export function ActivityDetailRefresh(props: any) {
                         ? `${(((activity as any).location?.label as string | undefined)?.trim() || 'On')}${
                             (activity as any).location?.trigger ? ` · ${(activity as any).location.trigger}` : ''
                           }`
+                        : activity.placeLink
+                          ? `${activity.placeLink.target.label} · Choose place`
                         : 'Off'
                     }`}
                   </Text>

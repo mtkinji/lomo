@@ -111,6 +111,19 @@ describe('LocationPermissionService', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
+  it('requests only foreground permission when attaching a context-only place', async () => {
+    moduleMock.getForegroundPermissionsAsync
+      .mockResolvedValueOnce({ status: 'undetermined' })
+      .mockResolvedValue({ status: 'granted' });
+    moduleMock.getBackgroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
+
+    const ok = await LocationPermissionService.ensurePermissionWithRationale('attach_place');
+
+    expect(ok).toBe(true);
+    expect(moduleMock.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(moduleMock.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+
   it('keeps ftue flow non-alerting when foregroundOnly', async () => {
     moduleMock.getForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
     moduleMock.getBackgroundPermissionsAsync.mockResolvedValue({ status: 'denied' });

@@ -3,9 +3,42 @@ import { StyleSheet } from 'react-native';
 import { CapabilityMenu } from './CapabilityMenu';
 import { colors } from '../theme';
 
+type MockSwipeableProps = {
+  children: import('react').ReactNode;
+  renderLeftActions?: (
+    progress: null,
+    translation: null,
+    instance: { close: () => void },
+  ) => import('react').ReactNode;
+  renderRightActions?: (
+    progress: null,
+    translation: null,
+    instance: { close: () => void },
+  ) => import('react').ReactNode;
+};
+
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const swipeable = { close: jest.fn() };
+  return {
+    __esModule: true,
+    default: ({ children, renderLeftActions, renderRightActions }: MockSwipeableProps) =>
+      React.createElement(
+        View,
+        null,
+        renderLeftActions?.(null, null, swipeable),
+        children,
+        renderRightActions?.(null, null, swipeable),
+      ),
+  };
+});
+
 const handlers = {
   onSelectCapability: jest.fn(),
   onSelectChat: jest.fn(),
+  onArchiveChat: jest.fn(),
+  onDeleteChat: jest.fn(),
   onCreateChat: jest.fn(),
   onOpenSearch: jest.fn(),
   onOpenSettings: jest.fn(),
@@ -100,5 +133,30 @@ describe('CapabilityMenu', () => {
 
     expect(handlers.onCreateChat).toHaveBeenCalledTimes(1);
     expect(handlers.onSelectChat).toHaveBeenCalledWith('chat-2');
+  });
+
+  it('exposes archive to the right and delete to the left for each chat', () => {
+    const { getByLabelText } = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    fireEvent.press(getByLabelText('Archive Plan the school week'));
+    fireEvent.press(getByLabelText('Delete Plan the school week'));
+
+    expect(handlers.onArchiveChat).toHaveBeenCalledWith('chat-2');
+    expect(handlers.onDeleteChat).toHaveBeenCalledWith('chat-2');
+  });
+
+  it('offers the same cleanup actions without requiring a swipe', () => {
+    const { getByLabelText } = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+    const row = getByLabelText('Open chat Plan the school week');
+
+    fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'archive' } });
+    fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'delete' } });
+
+    expect(handlers.onArchiveChat).toHaveBeenCalledWith('chat-2');
+    expect(handlers.onDeleteChat).toHaveBeenCalledWith('chat-2');
   });
 });

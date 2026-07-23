@@ -16,11 +16,15 @@ import {
   INVENTORY_CHROME_FADE_CONTROL_GAP_PX,
   INVENTORY_CHROME_FADE_MAX_ALPHA,
 } from './inventoryChrome';
-import { DEFAULT_QUICK_ADD_AI_ACTIONS, type QuickAddAiAction } from './useQuickAddDockController';
+import {
+  DEFAULT_QUICK_ADD_AI_ACTIONS,
+  type QuickAddAiAction,
+  type QuickAddPlaceRecommendation,
+} from './useQuickAddDockController';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
-const QUICK_ADD_DOCK_SURFACE_RADIUS = 14;
+const QUICK_ADD_COMPOSER_SURFACE_RADIUS = 14;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -84,6 +88,10 @@ type QuickAddDockProps = {
   collapsedBottomOffsetPx?: number;
   /** Outer horizontal inset for the collapsed floating dock. Defaults to the screen gutter. */
   floatingHorizontalInsetPx?: number;
+  placeReceipt?: QuickAddPlaceRecommendation | null;
+  onDismissPlaceReceipt?: () => void;
+  onSetPlaceAlert?: () => void;
+  onReviewPlaceReceipt?: () => void;
 };
 
 export function QuickAddDock({
@@ -104,6 +112,10 @@ export function QuickAddDock({
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
   floatingHorizontalInsetPx = spacing.lg,
+  placeReceipt,
+  onDismissPlaceReceipt,
+  onSetPlaceAlert,
+  onReviewPlaceReceipt,
 }: QuickAddDockProps) {
   const collapsedBottomOffsetPx =
     placement === 'inline'
@@ -285,7 +297,15 @@ export function QuickAddDock({
                 reportReservedHeight(layoutHeight + collapsedBottomOffsetPx + spacing.xs);
               }}
             >
-              <View style={styles.collapsedInputShell}>
+              {placeReceipt ? (
+                <QuickAddPlaceReceipt
+                  receipt={placeReceipt}
+                  onDismiss={onDismissPlaceReceipt}
+                  onSetAlert={onSetPlaceAlert}
+                  onReview={onReviewPlaceReceipt}
+                />
+              ) : null}
+              <View testID="quick-add-collapsed-surface" style={styles.collapsedInputShell}>
                 <CollapsedQuickAddTrigger
                   placeholder={placeholder}
                   onPress={() => setIsFocused(true)}
@@ -296,6 +316,14 @@ export function QuickAddDock({
         </>
       ) : (
         <View style={isFocused ? styles.inlineHidden : null}>
+          {placeReceipt ? (
+            <QuickAddPlaceReceipt
+              receipt={placeReceipt}
+              onDismiss={onDismissPlaceReceipt}
+              onSetAlert={onSetPlaceAlert}
+              onReview={onReviewPlaceReceipt}
+            />
+          ) : null}
           <View style={styles.collapsedInputShell}>
             <CollapsedQuickAddTrigger
               placeholder={placeholder}
@@ -532,6 +560,65 @@ export function QuickAddDock({
   );
 }
 
+function QuickAddPlaceReceipt({
+  receipt,
+  onDismiss,
+  onSetAlert,
+  onReview,
+}: {
+  receipt: QuickAddPlaceRecommendation;
+  onDismiss?: () => void;
+  onSetAlert?: () => void;
+  onReview?: () => void;
+}) {
+  const placeLabel =
+    receipt.placeLink?.target.label.trim() || receipt.location?.label?.trim() || 'Place';
+  const hasSpecificLocation = Boolean(receipt.location);
+  return (
+    <View testID="quick-add-place-receipt" style={styles.placeReceipt}>
+      <View style={styles.placeReceiptCopy}>
+        <Text numberOfLines={1} style={styles.placeReceiptCreated}>
+          Created · {receipt.activityTitle}
+        </Text>
+        <Text numberOfLines={1} style={styles.placeReceiptPlace}>
+          {hasSpecificLocation ? `${placeLabel} added` : `${placeLabel} · choose a place`}
+        </Text>
+      </View>
+      <View style={styles.placeReceiptActions}>
+        {hasSpecificLocation ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Set location alert"
+            onPress={onSetAlert}
+            hitSlop={6}
+            style={({ pressed }) => [styles.placeReceiptAction, pressed ? styles.placeReceiptActionPressed : null]}
+          >
+            <Text style={styles.placeReceiptActionText}>Set alert</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hasSpecificLocation ? 'Review location' : 'Choose place'}
+          onPress={onReview}
+          hitSlop={6}
+          style={({ pressed }) => [styles.placeReceiptAction, pressed ? styles.placeReceiptActionPressed : null]}
+        >
+          <Text style={styles.placeReceiptActionText}>{hasSpecificLocation ? 'Review' : 'Choose'}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss location receipt"
+          onPress={onDismiss}
+          hitSlop={8}
+          style={({ pressed }) => [styles.placeReceiptClose, pressed ? styles.placeReceiptActionPressed : null]}
+        >
+          <Icon name="close" size={15} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function CollapsedQuickAddTrigger({
   placeholder,
   onPress,
@@ -645,6 +732,62 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     backgroundColor: 'transparent',
   },
+  placeReceipt: {
+    width: '100%',
+    minHeight: 54,
+    marginBottom: spacing.xs,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: QUICK_ADD_COMPOSER_SURFACE_RADIUS,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 7,
+  },
+  placeReceiptCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  placeReceiptCreated: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  placeReceiptPlace: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  placeReceiptActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: spacing.xs,
+  },
+  placeReceiptAction: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  placeReceiptActionPressed: {
+    opacity: 0.58,
+  },
+  placeReceiptActionText: {
+    ...typography.bodySm,
+    color: colors.accent,
+  },
+  placeReceiptClose: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dockHidden: {
     opacity: 0,
     pointerEvents: 'none',
@@ -658,7 +801,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.cardBorder,
-    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS,
+    borderRadius: 999,
     shadowColor: '#000',
     shadowOpacity: 0.18,
     shadowRadius: 12,
@@ -696,7 +839,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS + 2,
+    borderRadius: QUICK_ADD_COMPOSER_SURFACE_RADIUS + 2,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,

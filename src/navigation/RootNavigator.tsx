@@ -79,6 +79,7 @@ import { pingInstall } from '../services/installPing';
 import { colors, spacing, typography } from '../theme';
 import { DevToolsScreen } from '../features/dev/DevToolsScreen';
 import { useAppStore } from '../store/useAppStore';
+import { useToastStore } from '../store/useToastStore';
 import { rootNavigationRef } from './rootNavigationRef';
 import { ChromeVisibilityProvider } from './ChromeVisibilityContext';
 import { ArcDraftContinueScreen } from '../features/arcs/ArcDraftContinueScreen';
@@ -993,6 +994,79 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
     }
   }, [chatRepository, openChatThread]);
 
+  const navigateAfterChatRemoval = useCallback((removedThreadId: string, remaining: UnifiedChatThread[]) => {
+    if (activeChatThreadId !== removedThreadId) return;
+    rootNavigationRef.navigate('UnifiedChat', { threadId: remaining[0]?.id ?? null });
+  }, [activeChatThreadId]);
+
+  const archiveChatThread = useCallback(async (threadId: string) => {
+    const thread = chatThreads.find((candidate) => candidate.id === threadId);
+    if (!thread) return;
+    try {
+      await chatRepository.archiveThread(threadId);
+      const remaining = chatThreads.filter((candidate) => candidate.id !== threadId);
+      setChatThreads(remaining);
+      navigateAfterChatRemoval(threadId, remaining);
+      useToastStore.getState().showToast({
+        message: 'Chat archived',
+        actionLabel: 'Undo',
+        actionOnPress: () => {
+          void (async () => {
+            try {
+              const restored = await chatRepository.restoreThread(threadId);
+              setChatThreads((current) => [
+                restored,
+                ...current.filter((candidate) => candidate.id !== restored.id),
+              ]);
+            } catch {
+              useToastStore.getState().showToast({
+                message: 'Could not restore chat',
+                variant: 'danger',
+              });
+            }
+          })();
+        },
+      });
+    } catch {
+      useToastStore.getState().showToast({
+        message: 'Could not archive chat',
+        variant: 'danger',
+      });
+    }
+  }, [chatRepository, chatThreads, navigateAfterChatRemoval]);
+
+  const deleteChatThread = useCallback((threadId: string) => {
+    const thread = chatThreads.find((candidate) => candidate.id === threadId);
+    if (!thread) return;
+    Alert.alert(
+      'Delete chat?',
+      `“${thread.title}” and its conversation history will be permanently deleted. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await chatRepository.deleteThread(threadId);
+                const remaining = chatThreads.filter((candidate) => candidate.id !== threadId);
+                setChatThreads(remaining);
+                navigateAfterChatRemoval(threadId, remaining);
+                useToastStore.getState().showToast({ message: 'Chat deleted' });
+              } catch {
+                useToastStore.getState().showToast({
+                  message: 'Could not delete chat',
+                  variant: 'danger',
+                });
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [chatRepository, chatThreads, navigateAfterChatRemoval]);
+
   return (
     <View
       style={[
@@ -1015,6 +1089,8 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           coverMenu();
         }}
         onSelectChat={openChatThread}
+        onArchiveChat={(threadId) => void archiveChatThread(threadId)}
+        onDeleteChat={deleteChatThread}
         onCreateChat={() => void createChatThread()}
         onOpenSearch={() => {
           coverMenu();

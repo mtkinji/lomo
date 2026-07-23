@@ -13,6 +13,7 @@ import { openPaywallInterstitial, type PaywallSource } from './paywall';
 import { getInstallId } from './installId';
 import type { ChatMode } from '../features/ai/workflowRegistry';
 import { buildCoachChatContext } from '../features/ai/agentRuntime';
+import { buildKwiltChatSystemPrompt } from '../features/ai/chatVoicePrompt';
 import type { ActivityStep } from '../domain/types';
 import { richTextToPlainText } from '../ui/richText';
 import {
@@ -28,6 +29,14 @@ import {
   parseKwiltProxyError,
   parseOpenAiError,
 } from './aiErrorParsing';
+import {
+  buildCompressionMetadataMessages,
+  buildOpeningTitleMessages,
+  COMPRESSION_METADATA_RESPONSE_FORMAT,
+  OPENING_THREAD_TITLE_RESPONSE_FORMAT,
+  parseCompressionMetadataResponse,
+  parseOpeningTitleResponse,
+} from '../features/unifiedChat/threadTitle';
 
 export { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
 
@@ -51,6 +60,13 @@ export type ActivityAiEnrichment = {
   estimateMinutes?: number | null;
   priority?: 1 | 2 | 3 | null;
   difficulty?: ActivityDifficulty;
+  place?: {
+    placeQuery: string;
+    label?: string;
+    trigger: 'arrive' | 'leave';
+    radiusM: number;
+    intent: 'pickup' | 'dropoff' | 'visit' | 'doable_there';
+  };
 };
 
 export type ActivityAiEnrichmentAction = 'steps' | 'triggers' | 'details';
@@ -770,6 +786,11 @@ export type CoachChatOptions = {
    * If omitted, we fall back to 'unknown'.
    */
   paywallSource?: PaywallSource;
+  conversationTitlePolicy?: {
+    suggestFromOpening: boolean;
+    refreshFromSummary: boolean;
+    onSuggestedTitle: (title: string, source: 'opening' | 'summary') => void | Promise<void>;
+  };
 };
 
 type KwiltAiJob =
@@ -2579,22 +2600,21 @@ export async function sendCoachChat(
     }
   }
 
-  const baseSystemPrompt =
-    'You are Kwilt Coach, a calm, practical life architecture coach. ' +
-    'Help users clarify arcs (longer identity directions), goals, and today’s focus. ' +
-    'Ask thoughtful follow-ups when helpful, keep answers grounded and concise, and avoid emoji unless the user uses them first.';
-
+  const communicationPreferences = useAppStore.getState().userProfile?.communication;
   const userProfileSummary = options?.includeUserProfileContext === false
     ? undefined
     : buildUserProfileSummary();
-  const systemPrompt = userProfileSummary
-    ? `${baseSystemPrompt} Here is relevant context about the user: ${userProfileSummary}`
-    : baseSystemPrompt;
+  const systemPrompt = buildKwiltChatSystemPrompt({
+    tone: communicationPreferences?.tone,
+    detailLevel: communicationPreferences?.detailLevel,
+    emojiAllowed: communicationPreferences?.emojiAllowed,
+    userProfileSummary,
+  });
 
   const summarizeConversationChunk = async (params: {
     existingSummary?: string;
     newTurns: CoachChatTurn[];
-  }): Promise<string> => {
+  }): Promise<{ summary: string; title: string | null }> => {
     const { existingSummary, newTurns } = params;
     const transcript = newTurns
       .map((t) => {
@@ -2620,14 +2640,21 @@ export async function sendCoachChat(
       transcript,
     ].join('\n\n');
 
+    const metadataMessages = options?.conversationTitlePolicy?.refreshFromSummary
+      ? buildCompressionMetadataMessages({ existingSummary, newTurns })
+      : null;
     const summaryBody: Record<string, unknown> = {
       model: resolveChatModel(),
       temperature: 0.2,
-      messages: [
-        { role: 'system' as const, content: truncateMessageContent(summarySystemPrompt) },
-        { role: 'user' as const, content: truncateMessageContent(summaryUserContent) },
-      ],
+      messages: (metadataMessages ?? [
+        { role: 'system' as const, content: summarySystemPrompt },
+        { role: 'user' as const, content: summaryUserContent },
+      ]).map((message) => ({
+        ...message,
+        content: truncateMessageContent(message.content),
+      })),
     };
+    if (metadataMessages) summaryBody.response_format = COMPRESSION_METADATA_RESPONSE_FORMAT;
 
     const kwiltProxyHeaders: Record<string, string> = {};
     if (options?.mode) {
@@ -2660,11 +2687,44 @@ export async function sendCoachChat(
 
     const summaryData = await summaryResponse.json();
     const summaryContent: string | undefined = summaryData?.choices?.[0]?.message?.content;
-    const cleaned = (summaryContent ?? '').trim();
-    if (!cleaned) {
-      throw new Error('Empty summary');
+    if (metadataMessages) {
+      const metadata = parseCompressionMetadataResponse(summaryContent ?? '');
+      if (!metadata) throw new Error('Invalid conversation metadata');
+      return metadata;
     }
-    return cleaned;
+    const cleaned = (summaryContent ?? '').trim();
+    if (!cleaned) throw new Error('Empty summary');
+    return { summary: cleaned, title: null };
+  };
+
+  const suggestOpeningConversationTitle = async (
+    completedTurns: CoachChatTurn[],
+  ): Promise<string | null> => {
+    const titleResponse = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'lightweight_helper',
+        },
+        body: JSON.stringify({
+          model: resolveChatModel(),
+          temperature: 0.2,
+          messages: buildOpeningTitleMessages(completedTurns).map((message) => ({
+            ...message,
+            content: truncateMessageContent(message.content),
+          })),
+          response_format: OPENING_THREAD_TITLE_RESPONSE_FORMAT,
+        }),
+      },
+      OPENAI_TIMEOUT_MS,
+    );
+    if (!titleResponse.ok) throw new Error('Unable to name conversation');
+    const titleData = await titleResponse.json();
+    const content: string | undefined = titleData?.choices?.[0]?.message?.content;
+    return parseOpeningTitleResponse(content ?? '');
   };
 
   const summaryRecord = await loadCoachConversationSummaryRecord(options);
@@ -2835,7 +2895,7 @@ export async function sendCoachChat(
         const newEligibleTurns = eligibleTurns.slice(Math.max(0, prevEligibleCount));
         if (newEligibleTurns.length < 6) return;
 
-        const updatedSummary = await summarizeConversationChunk({
+        const updatedMetadata = await summarizeConversationChunk({
           existingSummary: summaryRecord?.summary,
           newTurns: newEligibleTurns,
         });
@@ -2844,13 +2904,31 @@ export async function sendCoachChat(
           {
             version: 1,
             updatedAt: new Date().toISOString(),
-            summary: updatedSummary,
+            summary: updatedMetadata.summary,
             summarizedEligibleCount: eligibleTurns.length,
           },
           options
         );
+        if (updatedMetadata.title) {
+          await options?.conversationTitlePolicy?.onSuggestedTitle(updatedMetadata.title, 'summary');
+        }
       } catch {
         // Ignore summary failures; they should never break chat.
+      }
+    })();
+  };
+
+  const scheduleOpeningTitleMaintenance = (assistantContent: string) => {
+    if (!options?.conversationTitlePolicy?.suggestFromOpening) return;
+    void (async () => {
+      try {
+        const title = await suggestOpeningConversationTitle([
+          ...messages.filter((message) => message.role !== 'system'),
+          { role: 'assistant', content: assistantContent },
+        ]);
+        if (title) await options.conversationTitlePolicy?.onSuggestedTitle(title, 'opening');
+      } catch {
+        // Ignore title failures; they should never break chat.
       }
     })();
   };
@@ -2883,6 +2961,7 @@ export async function sendCoachChat(
     });
 
     scheduleConversationSummaryMaintenance();
+    scheduleOpeningTitleMaintenance(String(content));
     return content as string;
   }
 
@@ -3004,6 +3083,7 @@ export async function sendCoachChat(
   });
 
   scheduleConversationSummaryMaintenance();
+  scheduleOpeningTitleMaintenance(String(finalContent));
   return finalContent as string;
 }
 
@@ -3301,8 +3381,10 @@ export function buildActivityEnrichmentSystemPrompt(
         '  If no explicit date is present, choose a gentle future reminder during waking hours within the next 1-7 days when that would help the user start.\n' +
         '  If a mapped goal has a target date, use it to estimate urgency: near or overdue goals should get sooner reminders and a tighter cadence.\n' +
         '  If repetition is not explicit or strongly implied, return repeatRule as null.\n' +
-        '  Do not invent hard deadlines; scheduledDate can be a soft planned day rather than a claimed deadline.\n'
-      : '- triggers is not requested: omit reminderAt, scheduledDate, and repeatRule.\n') +
+        '  Do not invent hard deadlines; scheduledDate can be a soft planned day rather than a claimed deadline.\n' +
+        '  Optionally return place with placeQuery, label, intent, trigger, and radiusM only when the to-do explicitly names a place or merchant.\n' +
+        '  Keep placeQuery broad when the text does not identify a specific branch; never choose the nearest branch.\n'
+      : '- triggers is not requested: omit reminderAt, scheduledDate, repeatRule, and place.\n') +
     '- notes: 1-3 short sentences, practical and specific.\n' +
     '- tags: 0-5 simple lowercase-ish tags (no #), like "errands", "outdoors".\n' +
     '- goalId: one id from Candidate goals if the to-do clearly belongs to an existing goal; otherwise omit or null.\n' +
@@ -3469,6 +3551,21 @@ export async function enrichActivityWithAI(
               difficulty: {
                 type: 'string',
                 enum: ['very_easy', 'easy', 'medium', 'hard', 'very_hard'],
+              },
+              place: {
+                type: 'object',
+                properties: {
+                  placeQuery: { type: 'string' },
+                  label: { type: 'string' },
+                  trigger: { type: 'string', enum: ['arrive', 'leave'] },
+                  radiusM: { type: 'integer', minimum: 15, maximum: 5000 },
+                  intent: {
+                    type: 'string',
+                    enum: ['pickup', 'dropoff', 'visit', 'doable_there'],
+                  },
+                },
+                required: ['placeQuery', 'intent', 'trigger', 'radiusM'],
+                additionalProperties: false,
               },
             },
             additionalProperties: false,

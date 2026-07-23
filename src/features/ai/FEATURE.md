@@ -12,13 +12,17 @@ serves:
   - jtbd-see-my-arcs-in-everyday-moments
   - jtbd-make-sense-of-the-season
   - jtbd-recover-when-i-drift-from-an-arc
+  - jtbd-get-help-without-retelling-my-life
+  - jtbd-understand-why-ai-suggested-this
+  - jtbd-stay-in-control-of-ai-actions
 briefs:
   - ai-proxy-and-quotas
   - external-ai-connector
   - keyboard-input-safety
   - kwilt-phone-agent
+  - unified-chat
 status: shipped
-last_reviewed: 2026-05-10
+last_reviewed: 2026-07-22
 ---
 
 # ai

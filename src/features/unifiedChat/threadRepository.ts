@@ -27,7 +27,7 @@ import type {
 } from './types';
 import { validateUnifiedChatAttachmentSet } from './unifiedChatAttachmentPolicy';
 
-const THREAD_COLUMNS = 'id,title,status,archived_at,created_at,updated_at';
+const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,updated_at';
 const MESSAGE_COLUMNS =
   'id,thread_id,role,body,feedback,created_at,updated_at,attachments:kwilt_agent_message_attachments(id,message_id,name,mime_type,size_bytes,content_text,created_at)';
 const RUN_COLUMNS =
@@ -74,6 +74,10 @@ function mapThread(row: DbRow): UnifiedChatThread {
   return {
     id: String(row.id),
     title: String(row.title),
+    titleSource:
+      row.title_source === 'generated' || row.title_source === 'user'
+        ? row.title_source
+        : 'default',
     status: row.status === 'archived' ? 'archived' : 'active',
     archivedAt: typeof row.archived_at === 'string' ? row.archived_at : null,
     createdAt: String(row.created_at),
@@ -414,7 +418,11 @@ export function createUnifiedChatRepository(
       if (!normalizedTitle) throw new UnifiedChatRepositoryError('Chat title cannot be empty.');
       const { data, error } = await client
         .from('kwilt_agent_threads')
-        .update({ title: normalizedTitle.slice(0, 160), updated_at: new Date().toISOString() })
+        .update({
+          title: normalizedTitle.slice(0, 160),
+          title_source: 'user',
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', threadId)
         .eq('user_id', userId)
         .select(THREAD_COLUMNS)
@@ -422,6 +430,29 @@ export function createUnifiedChatRepository(
       assertNoError(error, 'Unable to rename chat.');
       if (!data) throw new UnifiedChatRepositoryError('Chat was not returned after rename.');
       return mapThread(data);
+    },
+
+    async applyGeneratedThreadTitle(
+      threadId: string,
+      title: string,
+    ): Promise<UnifiedChatThread | null> {
+      const userId = await requireUserId();
+      const normalizedTitle = title.trim();
+      if (!normalizedTitle) return null;
+      const { data, error } = await client
+        .from('kwilt_agent_threads')
+        .update({
+          title: normalizedTitle.slice(0, 160),
+          title_source: 'generated',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', threadId)
+        .eq('user_id', userId)
+        .in('title_source', ['default', 'generated'])
+        .select(THREAD_COLUMNS)
+        .maybeSingle();
+      assertNoError(error, 'Unable to update the chat title.');
+      return data ? mapThread(data) : null;
     },
 
     async archiveThread(threadId: string): Promise<UnifiedChatThread> {
@@ -437,6 +468,31 @@ export function createUnifiedChatRepository(
       assertNoError(error, 'Unable to archive chat.');
       if (!data) throw new UnifiedChatRepositoryError('Chat was not returned after archive.');
       return mapThread(data);
+    },
+
+    async restoreThread(threadId: string): Promise<UnifiedChatThread> {
+      const userId = await requireUserId();
+      const now = new Date().toISOString();
+      const { data, error } = await client
+        .from('kwilt_agent_threads')
+        .update({ status: 'active', archived_at: null, updated_at: now })
+        .eq('id', threadId)
+        .eq('user_id', userId)
+        .select(THREAD_COLUMNS)
+        .single();
+      assertNoError(error, 'Unable to restore chat.');
+      if (!data) throw new UnifiedChatRepositoryError('Chat was not returned after restore.');
+      return mapThread(data);
+    },
+
+    async deleteThread(threadId: string): Promise<void> {
+      const userId = await requireUserId();
+      const { error } = await client
+        .from('kwilt_agent_threads')
+        .delete()
+        .eq('id', threadId)
+        .eq('user_id', userId);
+      assertNoError(error, 'Unable to delete chat.');
     },
 
     async attachContext(input: AttachUnifiedChatContextInput): Promise<UnifiedChatContextRef> {

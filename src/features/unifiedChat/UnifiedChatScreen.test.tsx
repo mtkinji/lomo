@@ -27,10 +27,27 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('hideKeyboardAccessoryView');
   });
 
+  test('reloads the embedded surface when a transient load error is tapped', () => {
+    expect(screenSource).toContain('const retrySurface = useCallback');
+    expect(screenSource).toContain('webViewRef.current?.reload()');
+    expect(screenSource).toContain('surfaceLoadFailed ? retrySurface');
+  });
+
   test('handles workbench feedback through the native repository', () => {
     expect(screenSource).toContain("command.type === 'message.feedback'");
     expect(screenSource).toContain('repository.setMessageFeedback');
     expect(screenSource).toContain('command.reason');
+  });
+
+  test('uses subtle paired haptics when the composer engages and disengages', () => {
+    expect(screenSource).toContain("command.type === 'composer.focus.change'");
+    expect(screenSource).toContain("command.focused ? 'canvas.toggle.on' : 'canvas.toggle.off'");
+  });
+
+  test('dismisses the embedded keyboard before revealing the navigation menu', () => {
+    expect(screenSource).toContain('Keyboard.dismiss()');
+    expect(screenSource).toContain('webViewRef.current?.injectJavaScript');
+    expect(screenSource).toContain('document.activeElement?.blur()');
   });
 
   test('deduplicates commands and only opens capability objects evidenced in the active thread', () => {
@@ -131,6 +148,20 @@ describe('Unified Chat coexistence contract', () => {
     expect(navigatorSource).toContain('chats={chatThreads}');
     expect(navigatorSource).toContain('onSelectChat={openChatThread}');
     expect(navigatorSource).toContain('onCreateChat={() => void createChatThread()}');
+  });
+
+  test('keeps shell thread cleanup reversible for archive and confirmed for delete', () => {
+    expect(navigatorSource).toContain('chatRepository.archiveThread');
+    expect(navigatorSource).toContain('chatRepository.restoreThread');
+    expect(navigatorSource).toContain("actionLabel: 'Undo'");
+    expect(navigatorSource).toContain("'Delete chat?'");
+    expect(navigatorSource).toContain('chatRepository.deleteThread');
+  });
+
+  test('projects background intelligent title updates into the open thread and chat list', () => {
+    expect(screenSource).toContain('onThreadTitleUpdated: (updatedThread) =>');
+    expect(screenSource).toContain('{ ...current, thread: updatedThread }');
+    expect(screenSource).toContain('thread.id === updatedThread.id ? updatedThread : thread');
   });
 
   test('uses the standard page header and leaves chat creation and selection to the capability menu', () => {

@@ -6,10 +6,12 @@ import type { ActivityMutationPatch } from './activityProposal';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 
 export type UnifiedChatThreadStatus = 'active' | 'archived';
+export type UnifiedChatThreadTitleSource = 'default' | 'generated' | 'user';
 
 export type UnifiedChatThread = {
   id: string;
   title: string;
+  titleSource: UnifiedChatThreadTitleSource;
   status: UnifiedChatThreadStatus;
   archivedAt: string | null;
   createdAt: string;

@@ -2,24 +2,18 @@ import { RouteProp, useIsFocused, useNavigation, useRoute } from '@react-navigat
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Alert,
-  Image,
   InteractionManager,
   LayoutAnimation,
   View,
   Text,
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   TextInput,
   Platform,
   Keyboard,
-  Modal,
   Share,
   Linking,
   useWindowDimensions,
-  Animated,
-  Easing,
-  PanResponder,
   findNodeHandle,
   UIManager,
 } from 'react-native';
@@ -41,7 +35,6 @@ import { useToastStore } from '../../store/useToastStore';
 import type {
   ActivityDifficulty,
   ActivityPriorityState,
-  ActivityRepeatCustom,
   ActivityStatus,
   ActivityStep,
   ActivityType,
@@ -53,20 +46,11 @@ import type {
 import type { ActivityDetailRouteParams } from '../../navigation/routeParams';
 import { rootNavigationRef } from '../../navigation/rootNavigationRef';
 import { parseLocalCalendarDate } from '../../services/plan/planDates';
-import { BottomDrawer, BottomDrawerNativeGestureView, BottomDrawerScrollView } from '../../ui/BottomDrawer';
-import { StaticMapImage } from '../../ui/maps/StaticMapImage';
-import { LocationPermissionService } from '../../services/LocationPermissionService';
-import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
-import { applePlaceSearchBestEffort, cancelApplePlaceSearchBestEffort } from '../../services/locationOffers/applePlaceSearch';
-import { NumberWheelPicker } from '../../ui/NumberWheelPicker';
-import { Picker } from '@react-native-picker/picker';
-import { SOUND_SCAPES, preloadSoundscape } from '../../services/soundscape';
+import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
 import { VStack, HStack, Input, ThreeColumnRow, Combobox, KeyboardAwareScrollView } from '../../ui/primitives';
 import { Button, IconButton } from '../../ui/Button';
 import { Icon, type IconName } from '../../ui/Icon';
 import { ObjectTypeIconBadge } from '../../ui/ObjectTypeIconBadge';
-import { BrandLockup } from '../../ui/BrandLockup';
-import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { Coachmark } from '../../ui/Coachmark';
 import { BreadcrumbBar } from '../../ui/BreadcrumbBar';
 import type { KeyboardAwareScrollViewHandle } from '../../ui/KeyboardAwareScrollView';
@@ -77,8 +61,6 @@ import { NarrativeEditableTitle } from '../../ui/NarrativeEditableTitle';
 import { CollapsibleSection } from '../../ui/CollapsibleSection';
 import { richTextToPlainText } from '../../ui/richText';
 import { DurationPicker, formatDurationMinutes } from './DurationPicker';
-import type { ActiveFocusSession } from './focusSessionLifecycle';
-import { useFocusSessionStore } from './focusSessionStore';
 import { Badge } from '../../ui/Badge';
 import { KeyActionsRow } from '../../ui/KeyActionsRow';
 import { Card } from '../../ui/Card';
@@ -93,37 +75,10 @@ import { normalizeActivitySteps } from '../../domain/normalizeActivity';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { parseTags, suggestTagsFromText } from '../../utils/tags';
 import { suggestActivityTagsWithAi } from '../../services/ai';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { getImagePickerMediaTypesImages } from '../../utils/imagePickerMediaTypes';
 import * as Clipboard from 'expo-clipboard';
-import * as Notifications from 'expo-notifications';
-import {
-  // Device calendar helpers remain used elsewhere in ActivityDetail (e.g. permission checks / legacy flows).
-  // This Schedule sheet no longer creates device events directly (it writes to Plan's write calendar).
-  getCalendarPermissions,
-} from '../../services/calendar/deviceCalendar';
-import { buildIcsEvent } from '../../utils/ics';
-import { buildOutlookEventLinks } from '../../utils/outlookEventLinks';
-import { inferCalendarBindingHealth } from '../../services/calendar/calendarBinding';
-import {
-  createCalendarEvent as createProviderCalendarEvent,
-  getOrInitCalendarPreferences,
-  listBusyIntervals as listProviderBusyIntervals,
-  listCalendarEvents as listProviderCalendarEvents,
-  type CalendarEvent,
-  type CalendarEventRef,
-  type CalendarRef,
-} from '../../services/plan/calendarApi';
-import {
-  getCalendarCommitAlertForError,
-  resolveCalendarEventRefBeforeCreate,
-  resolveCalendarEventRefAfterCreate,
-} from '../../services/plan/calendarEventCommit';
-import { proposeSlotsForActivity } from '../../services/plan/planScheduling';
 import { toLocalDateKey } from '../../services/plan/planDates';
-import { PlanCalendarLensPage } from '../plan/PlanCalendarLensPage';
-import { PlanDateStrip } from '../plan/PlanDateStrip';
 import { useAgentLauncher } from '../ai/useAgentLauncher';
 import { buildActivityCoachLaunchContext } from '../ai/workspaceSnapshots';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
@@ -137,15 +92,6 @@ import {
 } from '../../store/useCelebrationStore';
 import { queueCheckinDraftFromProgress } from '../../services/checkinNudgeDrafts';
 import { trackUnsplashDownload, type UnsplashPhoto, withUnsplashReferral } from '../../services/unsplash';
-import {
-  cancelAudioRecording,
-  deleteAttachment,
-  getAttachmentDownloadUrl,
-  openAttachment,
-  startAudioRecording,
-  setAttachmentSharedWithGoalMembers,
-  stopAudioRecordingAndAttachToActivity,
-} from '../../services/attachments/activityAttachments';
 import { deriveStatusFromSteps } from './activityStepStatus';
 import {
   buildActivityCompletionUndoSnapshot,
@@ -162,14 +108,44 @@ import { playActivityDoneSound, playStepDoneSound } from '../../services/uiSound
 import { useCoachmarkHost } from '../../ui/hooks/useCoachmarkHost';
 import { styles } from './activityDetailStyles';
 import { ActivityDetailRefresh } from './ActivityDetailRefresh';
-import { RepeatInfoMenu } from './RepeatInfoMenu';
+import { ActivityRepeatSheets } from './ActivityRepeatSheets';
+import { useActivityRepeatEditor } from './useActivityRepeatEditor';
+import { ActivityAttachmentSheets } from './ActivityAttachmentSheets';
+import { useActivityAttachmentsController } from './useActivityAttachmentsController';
+import { ActivityLocationSheet } from './ActivityLocationSheet';
+import { useActivityLocationEditor } from './useActivityLocationEditor';
+import { ActivityFocusExperience } from './ActivityFocusExperience';
+import { useActivityFocusController } from './useActivityFocusController';
 import type { NarrativeEditableTitleRef } from '../../ui/NarrativeEditableTitle';
 import { ArcBannerSheet } from '../arcs/ArcBannerSheet';
 import type { ArcHeroImage } from '../arcs/arcHeroLibrary';
 import { getArcGradient, getArcTopoSizes } from '../arcs/thumbnailVisuals';
+import {
+  resolveInitialDueDateForPicker,
+  resolveInitialReminderDateTimeForPicker,
+} from './activityDatePickerDefaults';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
+import { buildActivityCustomRepeatPayload, resolveActivityCustomRepeatDraft } from './activityCustomRepeat';
 import { buildLinkedGoalOptions, isSelectableLinkedGoal } from './activityGoalOptions';
+import {
+  DEFAULT_LOCATION_RADIUS_FT,
+  LOCATION_RADIUS_FT_OPTIONS,
+  buildActivityLocationDraft,
+  clampLocationRadiusMeters,
+  formatLocationRadiusLabel,
+  isActivityLocationDraftDirty,
+  normalizeActivityLocation,
+  resolveActivityLocationDraft,
+  type ActivityLocationPreview,
+  type ActivityLocationTrigger,
+} from './activityLocationTriggers';
+import { formatActivityRepeatLabel } from './activityRepeatLabels';
+import { formatScheduleSlotTimeRange, getScheduleDurationOptions, resolveScheduleDurationMinutes } from './activityScheduleDisplay';
+import { resolveActivityScheduleSheetDraft } from './activityScheduleSheetDraft';
+import { resolveSelectedScheduleSlot } from './activityScheduleSelection';
 import { resolveManualScheduleSlot } from './activityScheduleSlots';
+import { ActivityScheduleSheet } from './ActivityScheduleSheet';
+import { useActivityScheduleSheetController } from './useActivityScheduleSheetController';
 import { useHeroImageUrl } from '../../ui/hooks/useHeroImageUrl';
 import { ActionDock } from '../../ui/ActionDock';
 import { OpportunityCard } from '../../ui/OpportunityCard';
@@ -185,10 +161,6 @@ import {
   normalizeScreenTimeProtectionSettings,
   shouldShowScreenTimeSetupOffer,
 } from '../../services/screenTimeProtection';
-import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from '../../services/nativeCrashBreadcrumbs';
-import MapView, { Circle, type Region } from 'react-native-maps';
-
-type FocusSessionState = ActiveFocusSession;
 
 type ActivityDetailRouteProp = RouteProp<
   { ActivityDetail: ActivityDetailRouteParams; ActivityDetailFromGoal: ActivityDetailRouteParams },
@@ -199,37 +171,6 @@ type ActivityDetailNavigationProp = NativeStackNavigationProp<
   ActivitiesStackParamList,
   'ActivityDetail'
 >;
-
-async function runFocusNativeBoundary<T>(
-  operation: string,
-  fn: () => Promise<T>,
-  context?: Record<string, unknown>,
-): Promise<T> {
-  await recordFocusNativeBreadcrumb(operation, 'before', context);
-  try {
-    const result = await fn();
-    await recordFocusNativeBreadcrumb(operation, 'after', context);
-    return result;
-  } catch (error) {
-    await recordFocusNativeBreadcrumb(operation, 'error', context, error);
-    throw error;
-  }
-}
-
-async function recordFocusNativeBreadcrumb(
-  operation: string,
-  phase: 'before' | 'after' | 'error',
-  context?: Record<string, unknown>,
-  error?: unknown,
-): Promise<void> {
-  await recordNativeCrashBreadcrumb({
-    area: 'focus.session',
-    operation,
-    phase,
-    context,
-    errorMessage: error === undefined ? undefined : nativeCrashErrorMessage(error),
-  });
-}
 
 export function ActivityDetailScreen() {
   // Focus duration limits:
@@ -718,22 +659,15 @@ export function ActivityDetailScreen() {
   const locationSheetVisible = activeSheet === 'location';
   const repeatSheetVisible = activeSheet === 'repeat';
   const customRepeatSheetVisible = activeSheet === 'customRepeat';
-  const [customRepeatInterval, setCustomRepeatInterval] = useState<number>(1);
-  const [customRepeatCadence, setCustomRepeatCadence] = useState<ActivityRepeatCustom['cadence']>('weeks');
-  const [customRepeatWeekdays, setCustomRepeatWeekdays] = useState<number[]>(() => [new Date().getDay()]);
   const [isDueDatePickerVisible, setIsDueDatePickerVisible] = useState(false);
   const [isReminderDateTimePickerVisible, setIsReminderDateTimePickerVisible] = useState(false);
-
-  // Avoid stacking modal BottomDrawers during transitions (can leave an invisible backdrop).
-  const repeatDrawerTransitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (repeatDrawerTransitionTimeoutRef.current) {
-        clearTimeout(repeatDrawerTransitionTimeoutRef.current);
-        repeatDrawerTransitionTimeoutRef.current = null;
-      }
-    };
-  }, []);
+  const repeatController = useActivityRepeatEditor({
+    activity,
+    updateActivity,
+    onClose: () => setActiveSheet(null),
+    onOpenCustom: () => setActiveSheet('customRepeat'),
+    onReturnToPresets: () => setActiveSheet('repeat'),
+  });
 
   // Credits warning toast is now handled centrally in `tryConsumeGenerativeCredit`.
 
@@ -776,160 +710,17 @@ export function ActivityDetailScreen() {
     shouldShowFocusScreenTimeOffer,
   ]);
 
-  const [focusMinutesDraft, setFocusMinutesDraft] = useState('25');
-  const [focusCustomExpanded, setFocusCustomExpanded] = useState(false);
-  const activeFocusSession = useFocusSessionStore((state) => state.activeSession);
-  const focusSession: FocusSessionState | null =
-    activeFocusSession?.activityId === activityId ? activeFocusSession : null;
-  const [focusTickMs, setFocusTickMs] = useState(() => Date.now());
-  const [focusSoundscapeMenuOpen, setFocusSoundscapeMenuOpen] = useState(false);
-  const [focusSoundscapeMenuVisible, setFocusSoundscapeMenuVisible] = useState(false);
-  const suppressNextFocusAudioTapRef = useRef(false);
-  const focusSoundscapeMenuAnim = useRef(new Animated.Value(0)).current;
-  const focusOverlayColors = useMemo(
-    () => [
-      colors.pine700,        // Default: G
-      colors.madder700,      // R
-      colors.orange700,      // O
-      colors.turmeric700,    // Y
-      colors.quiltBlue600,   // B
-      colors.indigo900,      // I (deepest premium indigo)
-      colors.violet700,      // V
-    ],
-    [],
-  );
-  const normalizedFocusOverlayColorIndex = useMemo(() => {
-    if (!Number.isFinite(focusOverlayColorIndex) || focusOverlayColorIndex < 0) return 0;
-    if (focusOverlayColors.length <= 0) return 0;
-    return Math.floor(focusOverlayColorIndex) % focusOverlayColors.length;
-  }, [focusOverlayColorIndex, focusOverlayColors.length]);
-  const focusOverlayColorStep = useRef(new Animated.Value(normalizedFocusOverlayColorIndex)).current;
-  const focusOverlayColorStepRef = useRef(normalizedFocusOverlayColorIndex);
-  const focusOverlayAnimatingRef = useRef(false);
-  const focusLaunchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const focusPresetValues = useMemo<number[]>(() => [10, 25, 45, 60], []);
-  const focusCustomOptionsMinutes = useMemo<number[]>(() => {
-    // Keep the list reference stable so the custom picker doesn't churn/rebuild items on every tap.
-    return Array.from(
-      { length: Math.max(1, Math.floor(focusMaxMinutes / 5)) },
-      (_, idx) => (idx + 1) * 5,
-    );
-  }, [focusMaxMinutes]);
-  const handleChangeFocusMinutes = useCallback((next: number) => {
-    setFocusMinutesDraft(String(next));
-  }, []);
-  const focusDraftMinutes = Math.min(
-    focusMaxMinutes,
-    Math.max(1, Math.floor(Number(focusMinutesDraft) || 1)),
-  );
-  const focusIsCustomValue = !focusPresetValues.includes(focusDraftMinutes);
-  const focusOverlayBackgroundColor = focusOverlayColorStep.interpolate({
-    inputRange: Array.from({ length: focusOverlayColors.length + 1 }, (_, idx) => idx),
-    outputRange: [...focusOverlayColors, focusOverlayColors[0] ?? colors.pine700],
+  const focusController = useActivityFocusController({
+    activity,
+    activityId,
+    maxMinutes: focusMaxMinutes,
+    lastFocusMinutes,
+    soundscapeTrackId,
+    setLastFocusMinutes,
+    onOpen: () => setActiveSheet('focus'),
+    onClose: () => setActiveSheet(null),
   });
-
-  const handleFocusOverlayTap = useCallback(() => {
-    if (focusSoundscapeMenuOpen) {
-      setFocusSoundscapeMenuOpen(false);
-      return;
-    }
-    if (focusOverlayAnimatingRef.current) return;
-    const paletteSize = focusOverlayColors.length;
-    let currentStep = focusOverlayColorStepRef.current;
-    if (currentStep >= paletteSize) {
-      currentStep = currentStep % paletteSize;
-      focusOverlayColorStepRef.current = currentStep;
-      focusOverlayColorStep.stopAnimation();
-      focusOverlayColorStep.setValue(currentStep);
-    }
-    const toStep = currentStep + 1;
-    focusOverlayAnimatingRef.current = true;
-    Animated.timing(focusOverlayColorStep, {
-      toValue: toStep,
-      duration: 520,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      focusOverlayAnimatingRef.current = false;
-      if (!finished) return;
-      if (toStep >= paletteSize) {
-        focusOverlayColorStepRef.current = 0;
-        setFocusOverlayColorIndex(0);
-        focusOverlayColorStep.setValue(0);
-        return;
-      }
-      focusOverlayColorStepRef.current = toStep;
-      setFocusOverlayColorIndex(toStep);
-    });
-  }, [focusOverlayColorStep, focusOverlayColors, setFocusOverlayColorIndex, focusSoundscapeMenuOpen]);
-
-  const handlePressFocusAudio = useCallback(() => {
-    if (suppressNextFocusAudioTapRef.current) {
-      suppressNextFocusAudioTapRef.current = false;
-      return;
-    }
-    setFocusSoundscapeMenuOpen(false);
-    setSoundscapeEnabled(!soundscapeEnabled);
-  }, [setSoundscapeEnabled, soundscapeEnabled]);
-
-  const handleLongPressFocusAudio = useCallback(() => {
-    suppressNextFocusAudioTapRef.current = true;
-    setFocusSoundscapeMenuOpen(true);
-  }, []);
-
-  useEffect(() => {
-    if (focusOverlayAnimatingRef.current) return;
-    focusOverlayColorStepRef.current = normalizedFocusOverlayColorIndex;
-    focusOverlayColorStep.stopAnimation();
-    focusOverlayColorStep.setValue(normalizedFocusOverlayColorIndex);
-  }, [normalizedFocusOverlayColorIndex, focusOverlayColorStep]);
-
-  useEffect(() => {
-    if (!focusSession) return;
-    focusOverlayAnimatingRef.current = false;
-    focusOverlayColorStepRef.current = normalizedFocusOverlayColorIndex;
-    focusOverlayColorStep.stopAnimation();
-    focusOverlayColorStep.setValue(normalizedFocusOverlayColorIndex);
-  }, [focusSession?.startedAtMs, focusOverlayColorStep, normalizedFocusOverlayColorIndex]);
-
-  useEffect(() => {
-    if (focusSession) return;
-    setFocusSoundscapeMenuOpen(false);
-  }, [focusSession]);
-
-  useEffect(() => {
-    if (focusSoundscapeMenuOpen) {
-      setFocusSoundscapeMenuVisible(true);
-      Animated.timing(focusSoundscapeMenuAnim, {
-        toValue: 1,
-        duration: 180,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-      return;
-    }
-    Animated.timing(focusSoundscapeMenuAnim, {
-      toValue: 0,
-      duration: 130,
-      easing: Easing.in(Easing.quad),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setFocusSoundscapeMenuVisible(false);
-    });
-  }, [focusSoundscapeMenuOpen, focusSoundscapeMenuAnim]);
-
-  const focusSheetSnapPoints = useMemo(() => {
-    // Ensure the sheet can show the full preset row + optional custom wheel + soundscape + CTA buttons
-    // without requiring scroll on typical phone sizes.
-    if (Platform.OS === 'ios') {
-      if (focusCustomExpanded) return ['82%' as const];
-      return ['72%' as const];
-    }
-    if (focusCustomExpanded) return ['74%' as const];
-    return ['62%' as const];
-  }, [focusCustomExpanded]);
-
+  const focusSession = focusController.session;
   const focusScreenTimeOfferCard = shouldShowFocusScreenTimeOffer ? (
     <OpportunityCard
       title="Fewer distractions during Focus."
@@ -974,764 +765,53 @@ export function ActivityDetailScreen() {
   ) : null;
 
   const calendarSheetVisible = activeSheet === 'calendar';
-  const [calendarStartDraft, setCalendarStartDraft] = useState<Date>(new Date());
-  const [calendarDurationDraft, setCalendarDurationDraft] = useState('30');
-  const [scheduleDurationExpanded, setScheduleDurationExpanded] = useState(false);
-  const [scheduleTargetDate, setScheduleTargetDate] = useState<Date>(new Date());
-  const scheduleInitialTargetDateRef = useRef<Date>(new Date());
-  const scheduleHorizonCacheRef = useRef<{
-    start: Date;
-    end: Date;
-    busyAll: Array<{ start: Date; end: Date }>;
-    eventsAll: CalendarEvent[];
-  } | null>(null);
-  const [scheduleFetchNonce, setScheduleFetchNonce] = useState(0);
-  const [scheduleBusyIntervals, setScheduleBusyIntervals] = useState<Array<{ start: Date; end: Date }>>([]);
-  const [scheduleExternalEvents, setScheduleExternalEvents] = useState<CalendarEvent[]>([]);
-  const [scheduleWriteRef, setScheduleWriteRef] = useState<CalendarRef | null>(null);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleHorizonExhausted, setScheduleHorizonExhausted] = useState(false);
-  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number>(0);
-  const [manualScheduleSlot, setManualScheduleSlot] = useState<{ startDate: string; endDate: string } | null>(null);
-
-  const calendarBindingHealth = useMemo(() => {
-    return inferCalendarBindingHealth({
-      binding: activity?.calendarBinding ?? null,
-      deviceCalendarPermission: 'unknown',
-      providerConnection: 'unknown',
-    });
-  }, [activity?.calendarBinding]);
-
-  const scheduleDurationOptions = useMemo(
-    () => Array.from({ length: 16 }, (_, idx) => (idx + 1) * 15),
-    [],
-  );
-  const scheduleDurationMinutes = useMemo(() => {
-    const fallback = Math.round(activity?.estimateMinutes ?? 30);
-    const raw = Math.round(Number(calendarDurationDraft));
-    let minutes = Number.isFinite(raw) && raw > 0 ? raw : fallback;
-    minutes = Math.min(240, Math.max(15, minutes));
-    const snapped = Math.round(minutes / 15) * 15;
-    return Math.min(240, Math.max(15, snapped));
-  }, [activity?.estimateMinutes, calendarDurationDraft]);
-
-  const scheduleSlots = useMemo(() => {
-    if (!activity) return [];
-    const scheduleActivity = { ...activity, estimateMinutes: scheduleDurationMinutes };
-    return proposeSlotsForActivity({
-      activity: scheduleActivity,
-      goals: goals ?? [],
-      userProfile,
-      targetDate: scheduleTargetDate,
-      busyIntervals: scheduleBusyIntervals,
-      writeCalendarId: scheduleWriteRef?.calendarId ?? null,
-      activityAreas,
-      limit: 6,
-    });
-  }, [
+  const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
+  const scheduleController = useActivityScheduleSheetController({
+    visible: calendarSheetVisible,
     activity,
+    activities,
     goals,
-    scheduleBusyIntervals,
-    scheduleDurationMinutes,
-    scheduleTargetDate,
-    scheduleWriteRef?.calendarId,
     activityAreas,
     userProfile,
-  ]);
-
-  const selectedSlot = manualScheduleSlot
-    ? { startDate: manualScheduleSlot.startDate, endDate: manualScheduleSlot.endDate }
-    : scheduleSlots[selectedSlotIndex] ?? null;
-
-  const scheduleTargetDayLabel = useMemo(() => {
-    return scheduleTargetDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  }, [scheduleTargetDate]);
-
-  const selectedScheduleSlotLabel = useMemo(() => {
-    if (!selectedSlot) return null;
-    const start = new Date(selectedSlot.startDate);
-    const end = new Date(selectedSlot.endDate);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-    const formatTime = (date: Date) =>
-      date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    return `${formatTime(start)}-${formatTime(end)}`;
-  }, [selectedSlot]);
-
-  const kwiltBlocksForScheduleDay = useMemo(() => {
-    const key = toLocalDateKey(scheduleTargetDate);
-    const blocks =
-      (activities ?? [])
-        .filter((a) => {
-          if (!a?.scheduledAt) return false;
-          const d = new Date(a.scheduledAt);
-          if (Number.isNaN(d.getTime())) return false;
-          return toLocalDateKey(d) === key;
-        })
-        .map((a) => {
-          const start = new Date(a.scheduledAt as string);
-          const dur = Math.max(10, a.estimateMinutes ?? 30);
-          const end = new Date(start.getTime() + dur * 60000);
-          return { activity: a, start, end };
-        }) ?? [];
-    return blocks;
-  }, [activities, scheduleTargetDate]);
-
-  const calendarColorByRefKeyForSchedule = useMemo(() => {
-    // Keep simple for now; Plan pager decorates provider colors more richly.
-    return {};
-  }, []);
-  const [isCreatingCalendarEvent, setIsCreatingCalendarEvent] = useState(false);
+    updateActivity,
+    showToast,
+    onOpen: () => setActiveSheet('calendar'),
+    onClose: () => setActiveSheet(null),
+    onScheduled: setPendingCalendarToast,
+  });
   const sendToSheetVisible = activeSheet === 'sendTo';
   const [installedDestinations, setInstalledDestinations] = useState<ExecutionTargetRow[]>([]);
   const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
   const recordAudioSheetVisible = activeSheet === 'recordAudio';
   const attachmentDetailsSheetVisible = activeSheet === 'attachmentDetails';
-  const [selectedAttachment, setSelectedAttachment] = useState<any | null>(null);
-  const [attachmentDownloadUrl, setAttachmentDownloadUrl] = useState<string | null>(null);
-  const [isLoadingAttachmentDownloadUrl, setIsLoadingAttachmentDownloadUrl] = useState(false);
-  const [attachmentPhotoAspectRatio, setAttachmentPhotoAspectRatio] = useState<number>(4 / 3);
-  const openAttachmentDetails = useCallback((att: any) => {
-    setSelectedAttachment(att ?? null);
-    setActiveSheet('attachmentDetails');
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const att = selectedAttachment;
-    const visible = attachmentDetailsSheetVisible;
-    const kind = (att?.kind ?? '').toString();
-
-    setAttachmentDownloadUrl(null);
-    setIsLoadingAttachmentDownloadUrl(false);
-    setAttachmentPhotoAspectRatio(4 / 3);
-
-    // Fetch a signed URL for downloading (and photo preview rendering).
-    if (!visible || !att?.id) return;
-
-    setIsLoadingAttachmentDownloadUrl(true);
-    getAttachmentDownloadUrl(String(att.id))
-      .then((url) => {
-        if (cancelled) return;
-        setAttachmentDownloadUrl(url);
-        if (kind === 'photo') {
-          try {
-            Image.getSize(
-              url,
-              (w, h) => {
-                if (cancelled) return;
-                if (typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0) {
-                  setAttachmentPhotoAspectRatio(w / h);
-                }
-              },
-              () => undefined,
-            );
-          } catch {
-            // ignore
-          }
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAttachmentDownloadUrl(null);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setIsLoadingAttachmentDownloadUrl(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [attachmentDetailsSheetVisible, selectedAttachment]);
+  const attachmentsController = useActivityAttachmentsController({
+    activity,
+    detailsVisible: attachmentDetailsSheetVisible,
+    onOpenDetails: () => setActiveSheet('attachmentDetails'),
+    onCloseDetails: () => setActiveSheet(null),
+    onCloseRecording: () => setActiveSheet(null),
+  });
   const LOCATION_SHEET_PORTAL_HOST = 'activity-detail-location-sheet';
   const FOCUS_SHEET_PORTAL_HOST = 'activity-detail-focus-sheet';
-  const DEFAULT_RADIUS_FT = 150;
-  const LOCATION_RADIUS_FT_OPTIONS = [50, 100, 150, 300, 500] as const;
-  const LOCATION_MAP_ZOOM = 15;
-  const MIN_LOCATION_RADIUS_FT = 50;
-  const MAX_LOCATION_RADIUS_FT = 2000;
-
-  // Location picker (Plan → Location)
-  const [locationQuery, setLocationQuery] = useState('');
-  const [locationResults, setLocationResults] = useState<
-    Array<{ id: string; label: string; latitude: number; longitude: number }>
-  >([]);
-  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
-  const [locationSearchError, setLocationSearchError] = useState<string | null>(null);
-  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [previewLocation, setPreviewLocation] = useState<{ label: string; latitude: number; longitude: number } | null>(
-    null,
-  );
-  const [isLocationSearchOpen, setIsLocationSearchOpen] = useState(false);
-  const [locationSelectedValue, setLocationSelectedValue] = useState('');
-  const [locationTriggerDraft, setLocationTriggerDraft] = useState<'arrive' | 'leave'>('leave');
-  // MVP (US-only): feet-only radius UI. We still store meters canonically.
-  const [locationRadiusMetersDraft, setLocationRadiusMetersDraft] = useState<number>(DEFAULT_RADIUS_FT * 0.3048);
-
-  const formatRadiusLabel = useCallback(
-    (meters: number) => {
-      const metersClamped = Math.max(
-        MIN_LOCATION_RADIUS_FT * 0.3048,
-        Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, meters),
-      );
-      // Convert meters -> feet without rounding meters first (avoids 150 -> 151).
-      const ft = Math.round(metersClamped / 0.3048);
-      return `${ft} feet`;
-    },
-    [MAX_LOCATION_RADIUS_FT, MIN_LOCATION_RADIUS_FT],
-  );
-
-  const [locationStatusHint, setLocationStatusHint] = useState<string | null>(null);
-  const [mapCenterOverride, setMapCenterOverride] = useState<{ latitude: number; longitude: number } | null>(null);
-  const mapCenterOverrideRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const mapDragStartCenterRef = useRef<{ latitude: number; longitude: number } | null>(null);
-  const didAutoCenterLocationSheetRef = useRef(false);
-
-  const locationMapWidthPx = useMemo(() => Math.max(1, windowWidth - spacing.xl * 2), [windowWidth]);
-  const locationMapHeightPx = useMemo(
-    () => Math.round(Math.max(200, Math.min(340, (locationMapWidthPx * 2) / 3))),
-    [locationMapWidthPx],
-  );
-
-  const scheduleLensHeightPx = useMemo(() => {
-    // Schedule sheet is near full-height; give the timeline a reliably usable viewport.
-    // Keep a floor for small screens while avoiding absurdly tall canvases.
-    return Math.max(360, Math.min(640, Math.round(windowHeight * 0.52)));
-  }, [windowHeight]);
-
-  const resolvedLocationMapCenter = useMemo(() => {
-    return (
-      mapCenterOverride ??
-      (previewLocation ? { latitude: previewLocation.latitude, longitude: previewLocation.longitude } : null) ??
-      currentCoords ??
-      (activity?.location &&
-      typeof (activity as any).location?.latitude === 'number' &&
-      typeof (activity as any).location?.longitude === 'number'
-        ? { latitude: (activity as any).location.latitude, longitude: (activity as any).location.longitude }
-        : null)
-    );
-  }, [activity, currentCoords, mapCenterOverride, previewLocation]);
-
-  const mapRef = useRef<MapView | null>(null);
-  const locationSearchAbortRef = useRef<AbortController | null>(null);
-  const locationSearchCacheRef = useRef<
-    Map<string, Array<{ id: string; label: string; latitude: number; longitude: number }>>
-  >(new Map());
-
-  const normalizePlaceLabel = useCallback((raw: string) => {
-    const base = String(raw ?? '').trim();
-    if (!base) return '';
-    const parts = base
-      .split(',')
-      .map((p) => p.trim())
-      .filter(Boolean);
-    if (parts.length === 0) return base;
-
-    const isUsCountry = (p: string) => {
-      const t = p.trim().toLowerCase();
-      return (
-        t === 'united states' ||
-        t === 'united states of america' ||
-        t === 'usa' ||
-        t === 'us'
-      );
-    };
-
-    // Drop trailing country.
-    while (parts.length > 0 && isUsCountry(parts[parts.length - 1]!)) parts.pop();
-    // Drop any "* County" segment.
-    const withoutCounty = parts.filter((p) => !/\bcounty\b/i.test(p));
-
-    // Fix Apple-style split street number: "368, East Echo Ledge Drive" -> "368 East Echo Ledge Drive"
-    if (withoutCounty.length >= 2 && /^\d+$/.test(withoutCounty[0]!)) {
-      withoutCounty[0] = `${withoutCounty[0]} ${withoutCounty[1]}`;
-      withoutCounty.splice(1, 1);
-    }
-
-    // If we can detect a US ZIP, rebuild as "street, city, state zip" and drop obvious venue-y fragments.
-    const zipIdx = (() => {
-      for (let i = withoutCounty.length - 1; i >= 0; i--) {
-        if (/^\d{5}(?:-\d{4})?$/.test(withoutCounty[i]!)) return i;
-      }
-      return -1;
-    })();
-
-    if (zipIdx >= 2) {
-      const zip = withoutCounty[zipIdx]!;
-      const state = withoutCounty[zipIdx - 1]!;
-      const city = withoutCounty[zipIdx - 2]!;
-      const streetParts = withoutCounty.slice(0, zipIdx - 2);
-
-      const VENUE_Y_TERMS = [
-        'resort',
-        'hotel',
-        'inn',
-        'plaza',
-        'mall',
-        'shopping center',
-        'shopping centre',
-        'center',
-        'centre',
-      ];
-
-      const streetClean = streetParts.filter((p) => {
-        const t = p.toLowerCase();
-        // Keep apartment/unit identifiers and anything with digits.
-        if (/\d/.test(p)) return true;
-        // Drop common venue fragments when they're standalone comma segments.
-        return !VENUE_Y_TERMS.some((term) => t.includes(term));
-      });
-
-      const street = (streetClean[0] ?? withoutCounty[0] ?? '').trim();
-      const out = [street, city, `${state} ${zip}`].filter(Boolean).join(', ');
-      return out || base;
-    }
-
-    return withoutCounty.join(', ');
-  }, []);
-
-  const getSafeLocationRadiusM = useCallback(() => {
-    return Math.max(
-      MIN_LOCATION_RADIUS_FT * 0.3048,
-      Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048),
-    );
-  }, [
-    DEFAULT_RADIUS_FT,
-    MAX_LOCATION_RADIUS_FT,
-    MIN_LOCATION_RADIUS_FT,
-    locationRadiusMetersDraft,
-  ]);
-
-  const applyLocationDraft = useCallback(() => {
-      if (!activity?.id) return;
-      const timestamp = new Date().toISOString();
-    const safeRadiusM = getSafeLocationRadiusM();
-      updateActivity(activity.id, (prev) => ({
-        ...prev,
-      location: previewLocation
-        ? {
-            label: previewLocation.label,
-            latitude: previewLocation.latitude,
-            longitude: previewLocation.longitude,
-          trigger: locationTriggerDraft,
-          radiusM: safeRadiusM,
-          }
-        : null,
-        updatedAt: timestamp,
-      }));
-  }, [activity?.id, getSafeLocationRadiusM, locationTriggerDraft, previewLocation, updateActivity]);
-  const computeRegionForRadius = useCallback((center: { latitude: number; longitude: number }, radiusM: number): Region => {
-    // Roughly fit ~3 radii to each edge of the viewport.
-    const safeRadius = Math.max(10, Math.min(5000, radiusM));
-    const deltaLat = Math.max(0.005, (safeRadius * 6) / 111_000);
-    const cos = Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180));
-    const deltaLon = Math.max(0.005, deltaLat / cos);
-    return {
-      latitude: center.latitude,
-      longitude: center.longitude,
-      latitudeDelta: deltaLat,
-      longitudeDelta: deltaLon,
-    };
-  }, []);
-
-  const animateMapToCenter = useCallback(
-    (center: { latitude: number; longitude: number }, radiusM: number) => {
-      const region = computeRegionForRadius(center, radiusM);
-      mapRef.current?.animateToRegion(region, 250);
-    },
-    [computeRegionForRadius],
-  );
-
-  useEffect(() => {
-    if (!locationSheetVisible) return;
-    // Reset per-opening so the sheet recenters on saved/preview location even if the MapView
-    // is still mounted from a prior open.
-    didAutoCenterLocationSheetRef.current = false;
-  }, [locationSheetVisible]);
-
-  useEffect(() => {
-    if (!locationSheetVisible) return;
-    if (didAutoCenterLocationSheetRef.current) return;
-    if (!resolvedLocationMapCenter) return;
-    if (!mapRef.current) return;
-    didAutoCenterLocationSheetRef.current = true;
-    animateMapToCenter(resolvedLocationMapCenter, getSafeLocationRadiusM());
-  }, [
-    animateMapToCenter,
-    getSafeLocationRadiusM,
-    locationSheetVisible,
-    resolvedLocationMapCenter,
-  ]);
-
-  const locationMapPanResponder = useMemo(() => {
-    // WebMercator helpers (pixel space at given zoom).
-    const worldSize = 256 * Math.pow(2, LOCATION_MAP_ZOOM);
-    const clampLat = (lat: number) => Math.max(-85.05112878, Math.min(85.05112878, lat));
-    const lonToX = (lon: number) => ((lon + 180) / 360) * worldSize;
-    const latToY = (lat: number) => {
-      const rad = (clampLat(lat) * Math.PI) / 180;
-      const sin = Math.sin(rad);
-      return (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * worldSize;
-    };
-    const xToLon = (x: number) => (x / worldSize) * 360 - 180;
-    const yToLat = (y: number) => {
-      const n = Math.PI - (2 * Math.PI * y) / worldSize;
-      return (180 / Math.PI) * Math.atan(Math.sinh(n));
-    };
-
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => Boolean(resolvedLocationMapCenter),
-      onMoveShouldSetPanResponder: (_evt, gesture) =>
-        Boolean(resolvedLocationMapCenter) && Math.abs(gesture.dx) + Math.abs(gesture.dy) > 2,
-      onPanResponderGrant: () => {
-        if (!resolvedLocationMapCenter) return;
-        mapDragStartCenterRef.current = { ...resolvedLocationMapCenter };
-      },
-      onPanResponderMove: (_evt, gesture) => {
-        const start = mapDragStartCenterRef.current;
-        if (!start) return;
-        // Dragging the map moves the camera opposite the finger direction.
-        const startX = lonToX(start.longitude);
-        const startY = latToY(start.latitude);
-        const nextX = startX - gesture.dx;
-        const nextY = startY - gesture.dy;
-        const nextCenter = { latitude: clampLat(yToLat(nextY)), longitude: xToLon(nextX) };
-        mapCenterOverrideRef.current = nextCenter;
-        setMapCenterOverride(nextCenter);
-      },
-      onPanResponderRelease: () => {
-        const center = mapCenterOverrideRef.current ?? resolvedLocationMapCenter;
-        if (!center) return;
-        const label = previewLocation?.label ?? ((activity as any)?.location?.label as string | undefined) ?? 'Dropped pin';
-        const loc = { label, latitude: center.latitude, longitude: center.longitude };
-        setPreviewLocation(loc);
-      },
-      onPanResponderTerminate: () => {
-        // no-op
-      },
-    });
-  }, [LOCATION_MAP_ZOOM, activity, previewLocation?.label, resolvedLocationMapCenter]);
-
-  const clearLocationSelection = useCallback(() => {
-    setLocationQuery('');
-    setLocationResults([]);
-    setIsSearchingLocation(false);
-    setPreviewLocation(null);
-    setMapCenterOverride(null);
-    mapCenterOverrideRef.current = null;
-    setLocationSelectedValue('');
-    setIsLocationSearchOpen(false);
-  }, []);
-
+  const locationController = useActivityLocationEditor({
+    visible: locationSheetVisible,
+    activity,
+    updateActivity,
+    onClose: () => setActiveSheet(null),
+  });
   const handleClearLocation = useCallback(() => {
     if (!activity?.id) return;
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
+    const updatedAt = new Date().toISOString();
+    updateActivity(activity.id, (previous) => ({
+      ...previous,
       location: null,
-      updatedAt: timestamp,
+      placeLink: null,
+      updatedAt,
     }));
-    clearLocationSelection();
-    setActiveSheet(null);
-  }, [activity?.id, clearLocationSelection, updateActivity]);
-
-  const closeLocationSheet = useCallback(() => {
-    setActiveSheet(null);
-    setLocationQuery('');
-    setLocationResults([]);
-    setIsSearchingLocation(false);
-    setPreviewLocation(null);
-    setMapCenterOverride(null);
-    mapCenterOverrideRef.current = null;
-    setLocationSelectedValue('');
-    setIsLocationSearchOpen(false);
-    locationSearchAbortRef.current?.abort();
-  }, []);
-
-  const isLocationDraftDirty = useMemo(() => {
-    const loc = (activity as any)?.location as any;
-    const hasSaved = Boolean(loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number');
-    const hasDraft = Boolean(previewLocation);
-    if (hasSaved !== hasDraft) return true;
-    if (!hasSaved && !hasDraft) return false;
-
-    const eqNum = (a: number, b: number) => Math.abs(a - b) <= 1e-6;
-    const savedLabel = String(loc?.label ?? '');
-    const draftLabel = String(previewLocation?.label ?? '');
-    if (savedLabel !== draftLabel) return true;
-    if (!eqNum(Number(loc.latitude), Number(previewLocation!.latitude))) return true;
-    if (!eqNum(Number(loc.longitude), Number(previewLocation!.longitude))) return true;
-
-    const safeRadiusM = getSafeLocationRadiusM();
-    const savedTrigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
-    const savedRadiusM =
-      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
-        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
-        : DEFAULT_RADIUS_FT * 0.3048;
-
-    if (savedTrigger !== locationTriggerDraft) return true;
-    if (!eqNum(Number(savedRadiusM), Number(safeRadiusM))) return true;
-    return false;
-  }, [
-    activity,
-    DEFAULT_RADIUS_FT,
-    MAX_LOCATION_RADIUS_FT,
-    MIN_LOCATION_RADIUS_FT,
-    getSafeLocationRadiusM,
-    locationTriggerDraft,
-    previewLocation,
-  ]);
-
-  useEffect(() => {
-    if (!locationSheetVisible) return;
-    setLocationStatusHint(null);
-    setMapCenterOverride(null);
-    mapCenterOverrideRef.current = null;
-    setLocationSelectedValue('');
-    // Initialize trigger/radius from current activity (or defaults).
-    const loc = (activity as any)?.location as any;
-    const hasSavedLocation =
-      Boolean(loc) && typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number';
-    const trigger = loc?.trigger === 'arrive' || loc?.trigger === 'leave' ? loc.trigger : 'leave';
-    const radiusM =
-      typeof loc?.radiusM === 'number' && Number.isFinite(loc.radiusM)
-        ? Math.max(MIN_LOCATION_RADIUS_FT * 0.3048, Math.min(MAX_LOCATION_RADIUS_FT * 0.3048, loc.radiusM))
-        : DEFAULT_RADIUS_FT * 0.3048;
-    setLocationTriggerDraft(trigger);
-    setLocationRadiusMetersDraft(radiusM);
-    if (hasSavedLocation) {
-      setPreviewLocation({
-        label: String(loc.label ?? 'Selected location'),
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-      });
-    } else {
-      setPreviewLocation(null);
-    }
-    // Best-effort: if we haven't asked yet, request so we can center on "current location".
-    void (async () => {
-      const prefs = useAppStore.getState().locationOfferPreferences;
-      if (prefs.osPermissionStatus === 'notRequested') {
-        await LocationPermissionService.requestOsPermission();
-      } else {
-        await LocationPermissionService.syncOsPermissionStatus();
-      }
-      const coords = await getCurrentLocationBestEffort();
-      if (coords) {
-        setCurrentCoords(coords);
-        // If there's no saved location, seed the draft with the user's current location so Save works immediately.
-        // Don't overwrite if the user has already picked/dragged a location while this async is resolving.
-        if (!hasSavedLocation) {
-          setPreviewLocation((prev) => prev ?? { label: 'Current location', latitude: coords.latitude, longitude: coords.longitude });
-          if (!mapCenterOverrideRef.current) {
-            setMapCenterOverride(coords);
-            mapCenterOverrideRef.current = coords;
-          }
-        }
-      } else {
-        const next = useAppStore.getState().locationOfferPreferences.osPermissionStatus;
-        if (next === 'denied' || next === 'restricted') {
-          setLocationStatusHint('Location is blocked in system settings. Search still works.');
-        } else if (next === 'foregroundOnly') {
-          setLocationStatusHint('Location is enabled while using the app. Search still works.');
-        } else if (next === 'unavailable') {
-          setLocationStatusHint('Location isn’t available in this build yet. Search still works.');
-        } else {
-          setLocationStatusHint('Couldn’t read current location. Search still works.');
-        }
-      }
-    })();
-  }, [locationSheetVisible]);
-
-  useEffect(() => {
-    if (!locationSheetVisible) return;
-    const q = locationQuery.trim();
-    if (q.length < 2) {
-      setLocationResults([]);
-      setIsSearchingLocation(false);
-      setLocationSearchError(null);
-      locationSearchAbortRef.current?.abort();
-      cancelApplePlaceSearchBestEffort();
-      return;
-    }
-    // Any new query invalidates the previous in-flight request immediately (even before debounce),
-    // so stale responses can’t overwrite newer results.
-    locationSearchAbortRef.current?.abort();
-    cancelApplePlaceSearchBestEffort();
-    // Show "Searching…" immediately (even during debounce) so the UI doesn't flash
-    // "No results found" while we wait to fire the request.
-    setIsSearchingLocation(true);
-    setLocationSearchError(null);
-    const timer = setTimeout(() => {
-      const cacheKey = q.toLowerCase();
-      const cached = locationSearchCacheRef.current.get(cacheKey);
-      if (cached) {
-        setIsSearchingLocation(false);
-        setLocationSearchError(null);
-        setLocationResults(cached);
-        if (cached.length > 0) {
-          setPreviewLocation((prev) => prev ?? cached[0] ?? null);
-        }
-        return;
-      }
-
-      const controller = new AbortController();
-      locationSearchAbortRef.current = controller;
-
-      void (async () => {
-        // Keep searching state on while the request is in-flight.
-        setIsSearchingLocation(true);
-        try {
-          // iOS (dev build): prefer Apple Maps search for high-quality local addresses.
-          // Fallback: Nominatim (cross-platform).
-          const apple = await applePlaceSearchBestEffort({
-            query: q,
-            center: currentCoords,
-            radiusKm: 200,
-            limit: 6,
-          });
-          if (controller.signal.aborted) return;
-
-          if (apple && apple.length > 0) {
-            const next = apple.map((r) => ({
-              id: r.id,
-              label: normalizePlaceLabel(r.label),
-              latitude: r.latitude,
-              longitude: r.longitude,
-            }));
-            setLocationResults(next);
-            locationSearchCacheRef.current.set(cacheKey, next);
-            setLocationSearchError(null);
-            if (next.length > 0) setPreviewLocation((prev) => prev ?? next[0] ?? null);
-            return;
-          }
-
-          // Nominatim best-effort fallback (used on Android/web, and on iOS when Apple search isn't available).
-          const baseUrl = 'https://nominatim.openstreetmap.org/search';
-          const makeUrl = (opts: { bounded: boolean }) => {
-            const params = new URLSearchParams();
-            params.set('format', 'json');
-            // Pull more than we display so we can distance-sort for local relevance.
-            params.set('limit', currentCoords ? '18' : '6');
-            params.set('q', q);
-            // Prefer English-ish labels; Nominatim accepts multiple languages but this helps US addresses.
-            params.set('accept-language', 'en');
-            // Bias toward US results; still not strictly bounded unless we set viewbox+bounded.
-            params.set('countrycodes', 'us');
-
-            if (currentCoords) {
-              const lat = currentCoords.latitude;
-              const lon = currentCoords.longitude;
-              // ~200km radius bounding box.
-              const radiusKm = 200;
-              const dLat = radiusKm / 111;
-              const cos = Math.max(0.2, Math.cos((lat * Math.PI) / 180));
-              const dLon = radiusKm / (111 * cos);
-              const left = lon - dLon;
-              const right = lon + dLon;
-              const top = lat + dLat;
-              const bottom = lat - dLat;
-              params.set('viewbox', `${left},${top},${right},${bottom}`);
-              if (opts.bounded) {
-                // Strictly constrain to the viewbox (best for "near me" address search).
-                params.set('bounded', '1');
-              }
-            }
-
-            return `${baseUrl}?${params.toString()}`;
-          };
-
-          const fetchNominatim = async (opts: { bounded: boolean }) => {
-            const url = makeUrl(opts);
-            const resp = await fetch(url, {
-              signal: controller.signal,
-              headers: {
-                Accept: 'application/json',
-                // Nominatim usage policy requests a UA identifying the application.
-                // This is best-effort; some platforms may ignore it.
-                'User-Agent': 'Kwilt/1.0 (location search)',
-              },
-            });
-            if (!resp.ok) {
-              const text = await resp.text().catch(() => '');
-              throw new Error(`Nominatim ${resp.status}${text ? `: ${text.slice(0, 160)}` : ''}`);
-            }
-            const json = (await resp.json()) as Array<any>;
-            const raw = (Array.isArray(json) ? json : [])
-              .map((row) => {
-                const lat = Number.parseFloat(String(row?.lat ?? ''));
-                const lon = Number.parseFloat(String(row?.lon ?? ''));
-                const label = normalizePlaceLabel(String(row?.display_name ?? '').trim());
-                const idRaw = row?.place_id ?? row?.osm_id ?? null;
-                const id = idRaw != null ? String(idRaw) : `${lat}:${lon}:${label}`;
-                if (!Number.isFinite(lat) || !Number.isFinite(lon) || !label) return null;
-                return { id, label, latitude: lat, longitude: lon };
-              })
-              .filter(Boolean) as Array<{ id: string; label: string; latitude: number; longitude: number }>;
-
-            if (!currentCoords) return raw.slice(0, 6);
-
-            // Nearest-first sort when we have a user location.
-            const toRad = (deg: number) => (deg * Math.PI) / 180;
-            const lat1 = toRad(currentCoords.latitude);
-            const lon1 = toRad(currentCoords.longitude);
-            const haversineMeters = (lat2d: number, lon2d: number) => {
-              const R = 6371e3;
-              const lat2 = toRad(lat2d);
-              const lon2 = toRad(lon2d);
-              const dLat = lat2 - lat1;
-              const dLon = lon2 - lon1;
-              const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1) * Math.cos(lat2) * (Math.sin(dLon / 2) * Math.sin(dLon / 2));
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-              return R * c;
-            };
-            return raw
-              .map((r) => ({ ...r, _dist: haversineMeters(r.latitude, r.longitude) }))
-              .sort((a, b) => a._dist - b._dist)
-              .slice(0, 6)
-              .map(({ _dist: _ignored, ...r }) => r);
-          };
-
-          // Two-pass strategy:
-          // - Pass 1: bounded to the local viewbox (best for "near me" addresses)
-          // - Pass 2: unbounded (still US-biased) if pass 1 returns nothing
-          let next = await fetchNominatim({ bounded: Boolean(currentCoords) });
-          if (controller.signal.aborted) return;
-          if (next.length === 0 && currentCoords) {
-            next = await fetchNominatim({ bounded: false });
-          }
-
-          if (controller.signal.aborted) return;
-          setLocationResults(next);
-          locationSearchCacheRef.current.set(cacheKey, next);
-          setLocationSearchError(null);
-          // If the user hasn't explicitly picked a preview, default the preview to the top result.
-          if (next.length > 0) {
-            setPreviewLocation((prev) => prev ?? next[0] ?? null);
-          }
-        } catch (err) {
-          if ((err as any)?.name === 'AbortError') return;
-          setLocationResults([]);
-          setLocationSearchError(err instanceof Error ? err.message : 'Search failed.');
-        } finally {
-          if (!controller.signal.aborted) {
-            setIsSearchingLocation(false);
-          }
-        }
-      })();
-    }, 280);
-    return () => {
-      clearTimeout(timer);
-      locationSearchAbortRef.current?.abort();
-      cancelApplePlaceSearchBestEffort();
-    };
-  }, [locationQuery, locationSheetVisible, normalizePlaceLabel]);
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  const [isOutlookInstalled, setIsOutlookInstalled] = useState(false);
-  const [pendingCalendarToast, setPendingCalendarToast] = useState<string | null>(null);
-
+  }, [activity?.id, updateActivity]);
+  const scheduleLensHeightPx = useMemo(() => {
+    return Math.max(360, Math.min(640, Math.round(windowHeight * 0.52)));
+  }, [windowHeight]);
   const titleStepsBundleRef = useRef<View | null>(null);
   const scheduleAndPlanningCardRef = useRef<View | null>(null);
   const nextActionDockRef = useRef<View | null>(null);
@@ -2013,7 +1093,7 @@ export function ActivityDetailScreen() {
     !editingUiActive &&
     !difficultyComboboxOpen &&
     activeSheet == null &&
-    activeFocusSession == null &&
+    focusSession == null &&
     !isPlanKickoffVisible;
 
   useEffect(() => {
@@ -2128,19 +1208,7 @@ export function ActivityDetailScreen() {
     });
   };
 
-  const openFocusSheet = () => {
-    if (!activity) return;
-    const fallback = Math.min(
-      focusMaxMinutes,
-      Math.max(
-      1,
-      Math.round(typeof lastFocusMinutes === 'number' ? lastFocusMinutes : (activity.estimateMinutes ?? 25)),
-      ),
-    );
-    setFocusMinutesDraft(String(fallback));
-    setFocusCustomExpanded(false);
-    setActiveSheet('focus');
-  };
+  const openFocusSheet = focusController.open;
 
   // Allow deep links (e.g. from calendar event descriptions) to land directly in Focus mode UI.
   useEffect(() => {
@@ -2168,7 +1236,7 @@ export function ActivityDetailScreen() {
         typeof autoStartMinutes === 'number' && Number.isFinite(autoStartMinutes)
           ? autoStartMinutes
           : undefined;
-      startFocusSession(minutes).catch(() => undefined);
+      focusController.start(minutes).catch(() => undefined);
       // Best-effort: clear params so returning to this screen doesn't re-trigger.
       try {
         navigation.setParams({ autoStartFocus: undefined, minutes: undefined } as any);
@@ -2184,7 +1252,7 @@ export function ActivityDetailScreen() {
     if (!endFocus) return;
     if (!activity) return;
     requestAnimationFrame(() => {
-      endFocusSession().catch(() => undefined);
+      focusController.end().catch(() => undefined);
       try {
         navigation.setParams({ endFocus: undefined } as any);
       } catch {
@@ -2206,35 +1274,6 @@ export function ActivityDetailScreen() {
     setPendingCalendarToast(null);
   }, [isFocused, pendingCalendarToast, showToast]);
 
-  const clearPendingFocusLaunch = () => {
-    if (focusLaunchTimeoutRef.current) {
-      clearTimeout(focusLaunchTimeoutRef.current);
-      focusLaunchTimeoutRef.current = null;
-    }
-  };
-
-  const cancelScheduledFocusNotification = async (
-    notificationId: string,
-    context?: Record<string, unknown>,
-  ) => {
-    await runFocusNativeBoundary(
-      'Notifications.cancelScheduledNotificationAsync.focusComplete',
-      () => Notifications.cancelScheduledNotificationAsync(notificationId),
-      { notificationId, ...context },
-    );
-  };
-
-  const cancelFocusNotificationIfNeeded = async () => {
-    const existing = focusSession?.notificationId ?? null;
-    if (!existing) return;
-    try {
-      await cancelScheduledFocusNotification(existing);
-      useFocusSessionStore.getState().clearNotificationId(focusSession?.sessionId ?? '');
-    } catch {
-      // best-effort
-    }
-  };
-
   const recordScreenTimeProgress = (
     action: 'activity_completed' | 'activity_progress_recorded',
     occurredAt = new Date(),
@@ -2245,99 +1284,6 @@ export function ActivityDetailScreen() {
       now: occurredAt,
     }).catch(() => undefined);
   };
-
-  const endFocusSession = async () => {
-    clearPendingFocusLaunch();
-    const ended = useFocusSessionStore.getState().endSession(focusSession?.sessionId);
-    if (ended?.notificationId) {
-      await cancelScheduledFocusNotification(ended.notificationId, { reason: 'ended_by_user' }).catch(() => undefined);
-    }
-  };
-
-  const startFocusSession = async (overrideMinutes?: number) => {
-    if (!activity) return;
-    const draftOrOverride =
-      typeof overrideMinutes === 'number' && Number.isFinite(overrideMinutes)
-        ? overrideMinutes
-        : Number(focusMinutesDraft);
-    const minutes = Math.max(1, Math.floor(draftOrOverride));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Choose a duration', 'Enter a number of minutes greater than 0.');
-      return;
-    }
-    if (minutes > focusMaxMinutes) {
-      void HapticsService.trigger('outcome.warning');
-      openPaywallInterstitial({ reason: 'pro_only_focus_mode', source: 'activity_focus_mode' });
-      return;
-    }
-    void HapticsService.trigger('canvas.primary.confirm');
-    setLastFocusMinutes(minutes);
-
-    const replacedSession = useFocusSessionStore.getState().endSession();
-    if (replacedSession?.notificationId) {
-      await cancelScheduledFocusNotification(replacedSession.notificationId, { reason: 'replaced_by_new_session' }).catch(
-        () => undefined,
-      );
-    }
-    setActiveSheet(null);
-    // Start preloading immediately so sound can come up quickly once the focus overlay appears.
-    preloadSoundscape({ soundscapeId: soundscapeTrackId }).catch(() => undefined);
-    // Avoid stacking our focus interstitial modal on top of the BottomDrawer modal
-    // while it is animating out; otherwise iOS can show the scrim but hide the next modal.
-    clearPendingFocusLaunch();
-
-    focusLaunchTimeoutRef.current = setTimeout(() => {
-      const startedAtMs = Date.now();
-      useFocusSessionStore.getState().startSession({
-        activityId: activity.id,
-        goalId: activity.goalId ?? null,
-        title: activity.title,
-        minutes,
-        startedAtMs,
-      });
-      focusLaunchTimeoutRef.current = null;
-      setFocusTickMs(startedAtMs);
-      reconcileScreenTimeRestrictions({
-        focusSessionActive: true,
-        now: new Date(startedAtMs),
-      }).catch(() => undefined);
-    }, 320);
-  };
-
-  const remainingFocusMs = (() => {
-    if (!focusSession) return 0;
-    if (focusSession.mode === 'paused') return Math.max(0, focusSession.remainingMs);
-    return Math.max(0, focusSession.endAtMs - focusTickMs);
-  })();
-
-  const togglePauseFocusSession = async () => {
-    if (!focusSession) return;
-    if (focusSession.mode === 'paused') {
-      void HapticsService.trigger('canvas.toggle.on');
-      if (!activity) return;
-      await cancelFocusNotificationIfNeeded();
-      const resumedAtMs = Date.now();
-      useFocusSessionStore.getState().resumeSession(focusSession.sessionId, resumedAtMs);
-      setFocusTickMs(resumedAtMs);
-      return;
-    }
-
-    void HapticsService.trigger('canvas.toggle.off');
-    const paused = useFocusSessionStore.getState().pauseSession(focusSession.sessionId);
-    if (paused?.notificationId) {
-      await cancelScheduledFocusNotification(paused.notificationId, { reason: 'paused' }).catch(() => undefined);
-    }
-  };
-
-  useEffect(() => {
-    if (!focusSession) return;
-    if (focusSession.mode !== 'running') return;
-
-    const id = setInterval(() => {
-      setFocusTickMs(Date.now());
-    }, 1000);
-    return () => clearInterval(id);
-  }, [focusSession]);
 
   const focusSoundscapeShouldPlay = focusSession?.mode === 'running' && soundscapeEnabled;
 
@@ -2358,33 +1304,7 @@ export function ActivityDetailScreen() {
   ]);
 
 
-  const openCalendarSheet = () => {
-    if (!activity) return;
-    const existingStart = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-    const existingIsValid = Boolean(existingStart && !Number.isNaN(existingStart.getTime()));
-    const existingIsReasonablyFuture =
-      existingIsValid && (existingStart as Date).getTime() > Date.now() - 60_000 /* 1 min grace */;
-
-    const base = existingIsReasonablyFuture ? (existingStart as Date) : new Date();
-    const draftStart = (() => {
-      if (existingIsReasonablyFuture) return base;
-      // Round up to the next 15-minute boundary so the default feels intentional.
-      const intervalMs = 15 * 60_000;
-      return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
-    })();
-
-    setCalendarStartDraft(draftStart);
-    setCalendarDurationDraft(String(Math.max(5, Math.round(activity.estimateMinutes ?? 30))));
-    setScheduleDurationExpanded(false);
-    scheduleInitialTargetDateRef.current = new Date(draftStart);
-    scheduleHorizonCacheRef.current = null;
-    setScheduleTargetDate(new Date(draftStart));
-    setSelectedSlotIndex(0);
-    setManualScheduleSlot(null);
-    setScheduleHorizonExhausted(false);
-    setScheduleFetchNonce((n) => n + 1);
-    setActiveSheet('calendar');
-  };
+  const openCalendarSheet = scheduleController.open;
 
   useEffect(() => {
     if (!openSchedule) return;
@@ -2416,42 +1336,22 @@ export function ActivityDetailScreen() {
           typeof action.minutes === 'number' && Number.isFinite(action.minutes)
             ? Math.max(1, Math.round(action.minutes))
             : Math.max(1, Math.round(activity.estimateMinutes ?? 25));
-        setFocusMinutesDraft(String(minutes));
-        setFocusCustomExpanded(false);
+        focusController.setMinutes(minutes);
+        focusController.setCustomExpanded(false);
         setActiveSheet('focus');
         return;
       }
 
       if (action.type === 'openCalendar') {
         const fromAction = action.startAtISO ? new Date(action.startAtISO) : null;
-        const fromExisting = activity.scheduledAt ? new Date(activity.scheduledAt) : null;
-        const draftStart =
-          fromAction && !Number.isNaN(fromAction.getTime())
-            ? fromAction
-            : fromExisting && !Number.isNaN(fromExisting.getTime())
-              ? fromExisting
-              : (() => {
-                  const base = new Date();
-                  const intervalMs = 15 * 60_000;
-                  return new Date(Math.ceil(base.getTime() / intervalMs) * intervalMs);
-                })();
-
         const duration =
           typeof action.durationMinutes === 'number' && Number.isFinite(action.durationMinutes)
             ? Math.max(5, Math.round(action.durationMinutes))
             : Math.max(5, Math.round(activity.estimateMinutes ?? 30));
-
-        setCalendarStartDraft(draftStart);
-        setCalendarDurationDraft(String(duration));
-        setScheduleDurationExpanded(false);
-        scheduleInitialTargetDateRef.current = new Date(draftStart);
-        scheduleHorizonCacheRef.current = null;
-        setScheduleTargetDate(new Date(draftStart));
-        setSelectedSlotIndex(0);
-        setManualScheduleSlot(null);
-        setScheduleHorizonExhausted(false);
-        setScheduleFetchNonce((n) => n + 1);
-        setActiveSheet('calendar');
+        scheduleController.open({
+          startAt: fromAction && !Number.isNaN(fromAction.getTime()) ? fromAction : null,
+          durationMinutes: duration,
+        });
       }
 
       if (action.type === 'confirmStepCompletion') {
@@ -2501,515 +1401,6 @@ export function ActivityDetailScreen() {
       }
     });
   }, [activity, agentHostActions, consumeAgentHostActions]);
-
-  // NOTE: Schedule uses the Plan write calendar; no device calendar preloading needed.
-
-  useEffect(() => {
-    if (!calendarSheetVisible) return;
-    let cancelled = false;
-    (async () => {
-      if (!activity) return;
-      try {
-        setScheduleLoading(true);
-        setScheduleHorizonExhausted(false);
-        setManualScheduleSlot(null);
-
-        const prefs = await getOrInitCalendarPreferences();
-        if (cancelled) return;
-        const writeRef = prefs.writeCalendarRef ?? null;
-        const readRefs = prefs.readCalendarRefs ?? [];
-        setScheduleWriteRef(writeRef);
-
-        if (!writeRef) {
-          setScheduleBusyIntervals([]);
-          setScheduleExternalEvents([]);
-          return;
-        }
-
-        const HORIZON_DAYS = 14;
-        const initialTargetDate = scheduleInitialTargetDateRef.current ?? new Date();
-        const horizonStart = new Date(initialTargetDate);
-        horizonStart.setHours(0, 0, 0, 0);
-        const horizonEnd = new Date(horizonStart);
-        horizonEnd.setDate(horizonEnd.getDate() + HORIZON_DAYS + 1);
-
-        const [busyRes, eventsRes] = await Promise.all([
-          listProviderBusyIntervals({
-            start: horizonStart.toISOString(),
-            end: horizonEnd.toISOString(),
-            readCalendarRefs: [...readRefs, writeRef],
-          }),
-          listProviderCalendarEvents({
-            start: horizonStart.toISOString(),
-            end: horizonEnd.toISOString(),
-            readCalendarRefs: [...readRefs, writeRef],
-          }),
-        ]);
-        if (cancelled) return;
-
-        const busyAll = (busyRes?.intervals ?? [])
-          .map((i) => ({ start: new Date(i.start), end: new Date(i.end) }))
-          .filter((i) => !Number.isNaN(i.start.getTime()) && !Number.isNaN(i.end.getTime()));
-        const eventsAll = Array.isArray(eventsRes?.events) ? eventsRes.events : [];
-        scheduleHorizonCacheRef.current = { start: horizonStart, end: horizonEnd, busyAll, eventsAll };
-
-        const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => aStart < bEnd && bStart < aEnd;
-        const sliceBusyForDay = (day: Date) => {
-          const dayStart = new Date(day);
-          dayStart.setHours(0, 0, 0, 0);
-          const dayEnd = new Date(dayStart);
-          dayEnd.setDate(dayEnd.getDate() + 1);
-          return busyAll.filter((b) => overlaps(b.start, b.end, dayStart, dayEnd));
-        };
-        const sliceEventsForDay = (day: Date) => {
-          const dayStart = new Date(day);
-          dayStart.setHours(0, 0, 0, 0);
-          const dayEnd = new Date(dayStart);
-          dayEnd.setDate(dayEnd.getDate() + 1);
-          return eventsAll.filter((e) => {
-            const start = new Date((e as any)?.start);
-            const end = new Date((e as any)?.end);
-            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-            return overlaps(start, end, dayStart, dayEnd);
-          });
-        };
-
-        let resolvedDate: Date | null = null;
-        let resolvedBusy: Array<{ start: Date; end: Date }> = [];
-        let resolvedEvents: CalendarEvent[] = [];
-
-        const scheduleActivity = { ...activity, estimateMinutes: scheduleDurationMinutes };
-        for (let offset = 0; offset <= HORIZON_DAYS; offset++) {
-          const day = new Date(horizonStart);
-          day.setDate(day.getDate() + offset);
-          const dayBusy = sliceBusyForDay(day);
-          const slots = proposeSlotsForActivity({
-            activity: scheduleActivity,
-            goals: goals ?? [],
-            userProfile,
-            targetDate: day,
-            busyIntervals: dayBusy,
-            writeCalendarId: writeRef.calendarId ?? null,
-            activityAreas,
-            limit: 6,
-          });
-          if (slots.length > 0) {
-            resolvedDate = day;
-            resolvedBusy = dayBusy;
-            resolvedEvents = sliceEventsForDay(day);
-            break;
-          }
-        }
-
-        if (!resolvedDate) {
-          const fallbackDay = new Date(horizonStart);
-          const dayBusy = sliceBusyForDay(fallbackDay);
-          setScheduleTargetDate(fallbackDay);
-          setScheduleBusyIntervals(dayBusy);
-          setScheduleExternalEvents(sliceEventsForDay(fallbackDay));
-          setSelectedSlotIndex(0);
-          setScheduleHorizonExhausted(true);
-          return;
-        }
-
-        setScheduleTargetDate(resolvedDate);
-        setScheduleBusyIntervals(resolvedBusy);
-        setScheduleExternalEvents(resolvedEvents);
-        setSelectedSlotIndex(0);
-      } catch {
-        if (cancelled) return;
-        setScheduleBusyIntervals([]);
-        setScheduleExternalEvents([]);
-        setScheduleWriteRef(null);
-      } finally {
-        if (!cancelled) setScheduleLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally do not depend on `scheduleTargetDate` to avoid re-fetching after auto-advancing days.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calendarSheetVisible, activity, scheduleFetchNonce]);
-
-  const handleSelectScheduleDate = useCallback(
-    (date: Date) => {
-      const d = new Date(date);
-      if (Number.isNaN(d.getTime())) return;
-      d.setHours(12, 0, 0, 0);
-
-      setManualScheduleSlot(null);
-      setSelectedSlotIndex(0);
-      setScheduleHorizonExhausted(false);
-
-      const cache = scheduleHorizonCacheRef.current;
-      if (cache && d >= cache.start && d < cache.end) {
-        const overlaps = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => aStart < bEnd && bStart < aEnd;
-        const dayStart = new Date(d);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayEnd.getDate() + 1);
-        const busy = cache.busyAll.filter((b) => overlaps(b.start, b.end, dayStart, dayEnd));
-        const events = cache.eventsAll.filter((e) => {
-          const start = new Date((e as any)?.start);
-          const end = new Date((e as any)?.end);
-          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-          return overlaps(start, end, dayStart, dayEnd);
-        });
-        setScheduleTargetDate(new Date(d));
-        setScheduleBusyIntervals(busy);
-        setScheduleExternalEvents(events);
-        return;
-      }
-
-      // Outside the cached horizon: refetch a fresh horizon anchored at this day.
-      scheduleInitialTargetDateRef.current = new Date(d);
-      scheduleHorizonCacheRef.current = null;
-      setScheduleTargetDate(new Date(d));
-      setScheduleFetchNonce((n) => n + 1);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!calendarSheetVisible) return;
-    setManualScheduleSlot(null);
-    setSelectedSlotIndex(0);
-  }, [calendarSheetVisible, scheduleDurationMinutes]);
-
-  useEffect(() => {
-    if (!calendarSheetVisible) return;
-    if (Platform.OS !== 'ios') {
-      setIsOutlookInstalled(false);
-      return;
-    }
-    // No prompt; iOS only answers this if the scheme is whitelisted in Info.plist.
-    Linking.canOpenURL('ms-outlook://')
-      .then((ok) => setIsOutlookInstalled(Boolean(ok)))
-      .catch(() => setIsOutlookInstalled(false));
-  }, [calendarSheetVisible]);
-
-  const handlePressScheduleEmptyTime = useCallback(
-    (params: { date: Date }) => {
-      const { date } = params;
-      if (!activity) return;
-      if (!scheduleWriteRef?.calendarId) {
-        showToast({
-          message: 'Set a Plan write calendar to schedule.',
-          variant: 'default',
-          durationMs: 2200,
-        });
-        return;
-      }
-      const start = new Date(date);
-      if (Number.isNaN(start.getTime())) return;
-      start.setSeconds(0, 0);
-
-      const resolvedSlot = resolveManualScheduleSlot({
-        activity,
-        activityAreas,
-        goals: goals ?? [],
-        userProfile,
-        date: start,
-        durationMinutes: scheduleDurationMinutes,
-        busyIntervals: scheduleBusyIntervals,
-      });
-      if (!resolvedSlot.ok) {
-        if (resolvedSlot.toast) {
-          showToast({
-            message: resolvedSlot.toast.message,
-            variant: 'default',
-            durationMs: resolvedSlot.toast.durationMs,
-          });
-        }
-        return;
-      }
-
-      setManualScheduleSlot(resolvedSlot.slot);
-      setSelectedSlotIndex(-1);
-      // Day view is always visible in this sheet.
-    },
-    [
-      activity,
-      activityAreas,
-      goals,
-      scheduleBusyIntervals,
-      scheduleDurationMinutes,
-      scheduleWriteRef?.calendarId,
-      showToast,
-      userProfile,
-    ],
-  );
-
-  const scheduleIntoWriteCalendar = async (slotIndex?: number) => {
-    if (!activity) return;
-    const writeRef = scheduleWriteRef;
-    if (!writeRef) {
-      Alert.alert('Choose a write calendar', 'Set a write calendar in Settings → Plan Calendars to schedule.');
-      return;
-    }
-    const slot =
-      typeof slotIndex === 'number'
-        ? scheduleSlots[slotIndex] ?? null
-        : manualScheduleSlot ?? scheduleSlots[selectedSlotIndex ?? 0] ?? null;
-    if (!slot) {
-      Alert.alert('No available slots', 'Kwilt couldn’t find a free slot for this day.');
-      return;
-    }
-    const startAt = new Date(slot.startDate);
-    const endAt = new Date(slot.endDate);
-    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) return;
-
-    const applyScheduledCalendarBinding = (eventRef: CalendarEventRef) => {
-      const stamp = new Date().toISOString();
-      updateActivity(activity.id, (prev) => ({
-        ...prev,
-        scheduledAt: slot.startDate,
-        calendarBinding: {
-          kind: 'provider',
-          provider: eventRef.provider,
-          accountId: eventRef.accountId,
-          calendarId: eventRef.calendarId,
-          eventId: eventRef.eventId,
-          createdBy: 'activity_detail',
-        },
-        // Keep legacy provider fields in sync (until removed).
-        scheduledProvider: eventRef.provider,
-        scheduledProviderAccountId: eventRef.accountId,
-        scheduledProviderCalendarId: eventRef.calendarId,
-        scheduledProviderEventId: eventRef.eventId,
-        updatedAt: stamp,
-      }));
-      setActiveSheet(null);
-      setPendingCalendarToast('Scheduled on your calendar.');
-    };
-
-    setIsCreatingCalendarEvent(true);
-    try {
-      const existing = await resolveCalendarEventRefBeforeCreate({
-        block: slot,
-        writeRef,
-      });
-      if (existing?.status === 'linked') {
-        applyScheduledCalendarBinding(existing.eventRef);
-        return;
-      }
-
-      // Provider-backed: this is the Plan write calendar.
-      const res = await createProviderCalendarEvent({
-        title: activity.title,
-        start: slot.startDate,
-        end: slot.endDate,
-        writeCalendarRef: writeRef,
-      });
-      const resolved = await resolveCalendarEventRefAfterCreate({
-        createResult: res,
-        block: slot,
-        writeRef,
-      });
-      if (resolved.status === 'unconfirmed') {
-        Alert.alert('Check your calendar', 'We may have added this block, but we couldn’t confirm it. Please check your calendar.');
-        return;
-      }
-      if (resolved.status === 'unlinked') {
-        Alert.alert('Check your calendar', 'We couldn’t safely link this event for future moves/unschedule. Please check your calendar.');
-        return;
-      }
-      applyScheduledCalendarBinding(resolved.eventRef);
-    } catch (err) {
-      const recovered = await resolveCalendarEventRefAfterCreate({
-        createResult: null,
-        block: slot,
-        writeRef,
-      });
-      if (recovered.status === 'linked') {
-        applyScheduledCalendarBinding(recovered.eventRef);
-        return;
-      }
-      if (recovered.status === 'unlinked') {
-        Alert.alert('Check your calendar', 'We may have added this block, but we couldn’t safely link it for future moves/unschedule. Please check your calendar before trying again.');
-        return;
-      }
-      const alert = getCalendarCommitAlertForError(err);
-      if (alert) {
-        Alert.alert(alert.title, alert.message);
-        return;
-      }
-    } finally {
-      setIsCreatingCalendarEvent(false);
-    }
-  };
-
-  const shareActivityAsIcs = async () => {
-    if (!activity) return;
-    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
-      return;
-    }
-
-    const startAt = calendarStartDraft;
-    if (!startAt || Number.isNaN(startAt.getTime())) {
-      Alert.alert('Start time needed', 'Pick a start date/time.');
-      return;
-    }
-
-    const endAt = new Date(startAt.getTime() + minutes * 60_000);
-    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
-    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
-    const focusPart = `Focus mode: ${focusLink}`;
-    const description = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-    const ics = buildIcsEvent({
-      uid: `kwilt-activity-${activity.id}`,
-      title: activity.title,
-      description,
-      startAt,
-      endAt,
-    });
-
-    try {
-      const filename = `kwilt-${activity.title.trim().slice(0, 48).replace(/[^a-z0-9-_]+/gi, '-') || 'activity'}.ics`;
-      const baseDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
-      const fileUri = `${baseDir}${filename}`;
-      await FileSystem.writeAsStringAsync(fileUri, ics, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
-
-      if (Platform.OS === 'web') {
-        await Clipboard.setStringAsync(ics);
-        setActiveSheet(null);
-        Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
-        return;
-      }
-
-      const result = await Share.share({
-        title: 'Send to calendar',
-        message: activity.title,
-        url: fileUri,
-      });
-
-      if ((result as any)?.action === (Share as any).dismissedAction) {
-        // User cancelled share; don't mutate the Activity.
-        return;
-      }
-
-      setActiveSheet(null);
-    } catch (error) {
-      // Last-ditch fallback: copy the ICS text.
-      try {
-        await Clipboard.setStringAsync(ics);
-        setActiveSheet(null);
-        Alert.alert('Copied', 'Calendar file contents copied to clipboard.');
-      } catch {
-        Alert.alert('Could not share', 'Something went wrong while exporting to calendar.');
-        if (__DEV__) {
-          console.warn('ICS share failed', error);
-        }
-      }
-    }
-  };
-
-  // NOTE: iOS does not offer a reliable deep link to open Apple Calendar’s "new event"
-  // composer with prefilled data. We create the event in the system calendar store and
-  // then open Calendar so the user can refine it there.
-
-  const openOutlookEventComposer = async () => {
-    if (!activity) return;
-    if (Platform.OS !== 'ios') {
-      Alert.alert('Not available', 'This shortcut is only available on iOS.');
-      return;
-    }
-
-    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
-      return;
-    }
-
-    const startAt = calendarStartDraft;
-    if (!startAt || Number.isNaN(startAt.getTime())) {
-      Alert.alert('Start time needed', 'Pick a start date/time.');
-      return;
-    }
-
-    const endAt = new Date(startAt.getTime() + minutes * 60_000);
-    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
-    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
-    const focusPart = `Focus mode: ${focusLink}`;
-    const body = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-    const { nativeUrl, webUrl } = buildOutlookEventLinks({
-      subject: activity.title,
-      body,
-      startAt,
-      endAt,
-    });
-
-    try {
-      if (isOutlookInstalled) {
-        await Linking.openURL(nativeUrl);
-      } else {
-        await Linking.openURL(webUrl);
-      }
-
-      setActiveSheet(null);
-    } catch {
-      Alert.alert('Could not open Outlook', 'Use “.ics file” instead.');
-    }
-  };
-
-  const openGoogleCalendarComposer = async () => {
-    if (!activity) return;
-    const minutes = Math.max(5, Math.floor(Number(calendarDurationDraft)));
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      Alert.alert('Duration needed', 'Enter a duration in minutes (5 or more).');
-      return;
-    }
-
-    const startAt = calendarStartDraft;
-    if (!startAt || Number.isNaN(startAt.getTime())) {
-      Alert.alert('Start time needed', 'Pick a start date/time.');
-      return;
-    }
-
-    const endAt = new Date(startAt.getTime() + minutes * 60_000);
-
-    const toGCalDate = (d: Date) =>
-      d
-        .toISOString()
-        .replace(/[-:]/g, '')
-        .replace(/\.\d{3}Z$/, 'Z');
-
-    const goalTitlePart = goalTitle ? `Goal: ${goalTitle}` : '';
-    const notesPlain = activity.notes ? richTextToPlainText(activity.notes) : '';
-    const notesPart = notesPlain.trim() ? `Notes: ${notesPlain.trim()}` : '';
-    const focusLink = `kwilt://activity/${activity.id}?openFocus=1`;
-    const focusPart = `Focus mode: ${focusLink}`;
-    const details = [goalTitlePart, notesPart, focusPart].filter(Boolean).join('\n\n');
-
-    const url =
-      `https://www.google.com/calendar/render?action=TEMPLATE` +
-      `&text=${encodeURIComponent(activity.title)}` +
-      `&dates=${encodeURIComponent(`${toGCalDate(startAt)}/${toGCalDate(endAt)}`)}` +
-      (details ? `&details=${encodeURIComponent(details)}` : '');
-
-    try {
-      await Linking.openURL(url);
-      setActiveSheet(null);
-    } catch {
-      Alert.alert('Could not open Google Calendar', 'Use “Share calendar file (.ics)” instead.');
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      clearPendingFocusLaunch();
-    };
-  }, []);
 
   const commitTitle = () => {
     if (!activity) return;
@@ -3545,12 +1936,9 @@ export function ActivityDetailScreen() {
   };
 
   const getInitialReminderDateTimeForPicker = () => {
-    if (!activity) return new Date();
-    if (activity.reminderAt) return new Date(activity.reminderAt);
-    const base = new Date();
-    base.setMinutes(0, 0, 0);
-    base.setHours(base.getHours() + 1);
-    return base;
+    return resolveInitialReminderDateTimeForPicker({
+      reminderAt: activity?.reminderAt,
+    });
   };
 
   const handleSelectDueDate = (offsetDays: number) => {
@@ -3589,14 +1977,9 @@ export function ActivityDetailScreen() {
   };
 
   const getInitialDueDateForPicker = () => {
-    if (!activity) return new Date();
-    if (activity.scheduledDate) {
-      const parsed = parseLocalCalendarDate(activity.scheduledDate);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    return new Date();
+    return resolveInitialDueDateForPicker({
+      scheduledDate: activity?.scheduledDate,
+    });
   };
 
   const handleDueDateChange = (event: DateTimePickerEvent, date?: Date) => {
@@ -3626,71 +2009,6 @@ export function ActivityDetailScreen() {
     }));
 
     // Once a date is chosen, close the sheet to confirm the selection.
-    setActiveSheet(null);
-  };
-
-  const handleSelectRepeat = (rule: NonNullable<Activity['repeatRule']>) => {
-    if (!activity) return;
-    const timestamp = new Date().toISOString();
-    // Note: Planning no longer counts as "showing up" for streaks.
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      repeatRule: rule,
-      repeatCustom: rule === 'custom' ? prev.repeatCustom : undefined,
-      updatedAt: timestamp,
-    }));
-    setActiveSheet(null);
-  };
-
-  const openCustomRepeat = () => {
-    if (!activity) return;
-    // Hydrate from existing custom config if present.
-    if (activity.repeatRule === 'custom' && activity.repeatCustom) {
-      const cfg = activity.repeatCustom;
-      setCustomRepeatCadence(cfg.cadence);
-      const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-      setCustomRepeatInterval(interval);
-      if (cfg.cadence === 'weeks') {
-        const list = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
-        setCustomRepeatWeekdays(list.length > 0 ? list : [new Date().getDay()]);
-      } else {
-        setCustomRepeatWeekdays([new Date().getDay()]);
-      }
-    } else {
-      setCustomRepeatCadence('weeks');
-      setCustomRepeatInterval(1);
-      setCustomRepeatWeekdays([new Date().getDay()]);
-    }
-    setActiveSheet(null);
-    if (repeatDrawerTransitionTimeoutRef.current) {
-      clearTimeout(repeatDrawerTransitionTimeoutRef.current);
-    }
-    repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
-      setActiveSheet('customRepeat');
-    }, 260);
-  };
-
-  const commitCustomRepeat = () => {
-    if (!activity) return;
-    const interval = Math.max(1, Math.round(customRepeatInterval));
-    const weekdays =
-      customRepeatWeekdays.length > 0
-        ? Array.from(new Set(customRepeatWeekdays))
-            .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-            .sort((a, b) => a - b)
-        : [new Date().getDay()];
-
-    const payload: ActivityRepeatCustom =
-      customRepeatCadence === 'weeks'
-        ? { cadence: 'weeks', interval, weekdays }
-        : { cadence: customRepeatCadence, interval };
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      repeatRule: 'custom',
-      repeatCustom: payload,
-      updatedAt: timestamp,
-    }));
     setActiveSheet(null);
   };
 
@@ -3728,55 +2046,7 @@ export function ActivityDetailScreen() {
     });
   }, [activity?.scheduledDate]);
 
-  const repeatLabel = (() => {
-    const rule = activity?.repeatRule ?? null;
-    if (!rule) return 'Off';
-    if (rule === 'weekdays') return 'Weekdays';
-    if (rule === 'custom') {
-      const cfg = activity?.repeatCustom;
-      if (cfg && cfg.cadence === 'weeks') {
-        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-        const names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-        const days: number[] = Array.isArray(cfg.weekdays) ? cfg.weekdays : [];
-        const picked =
-          days.length > 0
-            ? Array.from(new Set(days))
-                .filter((d) => Number.isFinite(d) && d >= 0 && d <= 6)
-                .sort((a, b) => a - b)
-            : [];
-        const dayLabel = picked.length > 0 ? picked.map((d) => names[d] ?? '').filter(Boolean).join(' ') : '';
-        return interval === 1
-          ? (dayLabel ? `Weekly (${dayLabel})` : 'Weekly')
-          : (dayLabel ? `Every ${interval} weeks (${dayLabel})` : `Every ${interval} weeks`);
-      }
-      if (cfg) {
-        const interval = Math.max(1, Math.round(cfg.interval ?? 1));
-        const unit =
-          cfg.cadence === 'days'
-            ? 'day'
-            : cfg.cadence === 'months'
-              ? 'month'
-              : cfg.cadence === 'years'
-                ? 'year'
-                : 'week';
-        return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
-      }
-      return 'Custom';
-    }
-    return rule.charAt(0).toUpperCase() + rule.slice(1);
-  })();
-
-  const handleClearRepeatRule = () => {
-    if (!activity) return;
-    const timestamp = new Date().toISOString();
-    updateActivity(activity.id, (prev) => ({
-      ...prev,
-      repeatRule: undefined,
-      repeatCustom: undefined,
-      updatedAt: timestamp,
-    }));
-    setActiveSheet(null);
-  };
+  const repeatLabel = repeatController.repeatLabel;
 
   const completedStepsCount = useMemo(
     () => (stepsDraft ?? []).filter((step) => !!step.completedAt).length,
@@ -4199,7 +2469,7 @@ export function ActivityDetailScreen() {
               openCalendarSheet={openCalendarSheet}
               openAgentForActivity={openAgentForActivity}
               setActiveSheet={setActiveSheet}
-              openAttachmentDetails={openAttachmentDetails}
+              openAttachmentDetails={attachmentsController.openDetails}
               scrollRef={scrollRef}
               KEYBOARD_CLEARANCE={KEYBOARD_CLEARANCE}
               detailGuideHost={detailGuideHost}
@@ -4247,7 +2517,7 @@ export function ActivityDetailScreen() {
               handleClearReminder={handleClearReminder}
               handleClearDueDate={handleClearDueDate}
               handleClearLocation={handleClearLocation}
-              handleClearRepeatRule={handleClearRepeatRule}
+              handleClearRepeatRule={repeatController.clear}
               openEstimateSheet={openEstimateSheet}
               handleClearTimeEstimate={handleClearTimeEstimate}
               difficultyComboboxOpen={difficultyComboboxOpen}
@@ -4548,572 +2818,16 @@ export function ActivityDetailScreen() {
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer
-        visible={repeatSheetVisible}
-        onClose={() => setActiveSheet(null)}
-        snapPoints={['60%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={styles.sheetContent}>
-          <BottomDrawerHeader
-            title="Repeat"
-            rightAction={<RepeatInfoMenu />}
-            containerStyle={styles.sheetHeader}
-            titleStyle={styles.sheetTitle}
-          />
-          <VStack space="sm">
-            <SheetOption testID="e2e.activityDetail.repeat.daily" label="Daily" onPress={() => handleSelectRepeat('daily')} />
-            <SheetOption testID="e2e.activityDetail.repeat.weekly" label="Weekly" onPress={() => handleSelectRepeat('weekly')} />
-            <SheetOption testID="e2e.activityDetail.repeat.weekdays" label="Weekdays" onPress={() => handleSelectRepeat('weekdays')} />
-            <SheetOption testID="e2e.activityDetail.repeat.monthly" label="Monthly" onPress={() => handleSelectRepeat('monthly')} />
-            <SheetOption testID="e2e.activityDetail.repeat.yearly" label="Yearly" onPress={() => handleSelectRepeat('yearly')} />
-            <SheetOption testID="e2e.activityDetail.repeat.custom" label="Custom…" onPress={openCustomRepeat} />
-            <SheetOption testID="e2e.activityDetail.repeat.clear" label="Off" onPress={handleClearRepeatRule} />
-          </VStack>
-        </View>
-      </BottomDrawer>
-
-      <BottomDrawer
+      <ActivityRepeatSheets
+        presetVisible={repeatSheetVisible}
+        customVisible={customRepeatSheetVisible}
+        controller={repeatController}
+      />
+      <ActivityLocationSheet
         visible={locationSheetVisible}
-        onClose={closeLocationSheet}
-        snapPoints={Platform.OS === 'ios' ? ['92%'] : ['82%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={{ flex: 1 }}>
-          {/* Ensure dropdown menus can render above the BottomDrawer modal layer. */}
-          {Platform.OS === 'ios' ? (
-            <FullWindowOverlay>
-              <PortalHost name={LOCATION_SHEET_PORTAL_HOST} />
-            </FullWindowOverlay>
-          ) : (
-            <PortalHost name={LOCATION_SHEET_PORTAL_HOST} />
-          )}
-          <BottomDrawerScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={[styles.sheetContent, { paddingBottom: spacing['2xl'] }]}
-            keyboardShouldPersistTaps="handled"
-          >
-          <BottomDrawerHeader
-            title="Location"
-            variant="minimal"
-            containerStyle={styles.sheetHeader}
-            titleStyle={styles.sheetTitle}
-          />
-
-          {locationStatusHint ? (
-            <Text style={[styles.sheetRowSubtext, { marginTop: spacing.xs }]}>{locationStatusHint}</Text>
-          ) : null}
-
-          <View style={{ marginTop: spacing.md }}>
-            {(() => {
-              const radiusM = locationRadiusMetersDraft || DEFAULT_RADIUS_FT * 0.3048;
-              const center = resolvedLocationMapCenter;
-              const showNativeMap = Platform.OS === 'ios';
-
-              return (
-                <View
-                  style={{ position: 'relative' }}
-                  {...(!showNativeMap ? locationMapPanResponder.panHandlers : undefined)}
-                >
-                  {center ? (
-                    showNativeMap ? (
-                      <BottomDrawerNativeGestureView
-                        style={{
-                          width: '100%',
-                          height: locationMapHeightPx,
-                          borderRadius: 12,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <MapView
-                          ref={(r) => {
-                            mapRef.current = r;
-                          }}
-                          style={{ width: '100%', height: '100%' }}
-                          mapType="standard"
-                          scrollEnabled
-                          zoomEnabled
-                          rotateEnabled={false}
-                          pitchEnabled={false}
-                          showsUserLocation={false}
-                          showsMyLocationButton={false}
-                          initialRegion={computeRegionForRadius(center, radiusM)}
-                          onRegionChangeComplete={(region) => {
-                            const nextCenter = { latitude: region.latitude, longitude: region.longitude };
-                            setMapCenterOverride(nextCenter);
-                            mapCenterOverrideRef.current = nextCenter;
-                            const label =
-                              previewLocation?.label ??
-                              ((activity as any)?.location?.label as string | undefined) ??
-                              'Dropped pin';
-                            setPreviewLocation({ label, latitude: nextCenter.latitude, longitude: nextCenter.longitude });
-                          }}
-                        >
-                          <Circle
-                            center={{ latitude: center.latitude, longitude: center.longitude }}
-                            radius={radiusM}
-                            strokeWidth={2}
-                            strokeColor={colors.accent}
-                            fillColor="rgba(49,85,69,0.12)"
-                          />
-                        </MapView>
-                      </BottomDrawerNativeGestureView>
-                    ) : (
-                      <StaticMapImage
-                        latitude={center.latitude}
-                        longitude={center.longitude}
-                        heightPx={locationMapHeightPx}
-                        zoom={LOCATION_MAP_ZOOM}
-                        radiusM={radiusM}
-                      />
-                    )
-                  ) : (
-                    <View
-                      style={{
-                        height: locationMapHeightPx,
-                        borderRadius: 12,
-                        borderWidth: StyleSheet.hairlineWidth,
-                        borderColor: colors.border,
-                        backgroundColor: colors.shellAlt,
-                      }}
-                    />
-                  )}
-
-                  {center ? (
-                    <View
-                      pointerEvents="none"
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Icon name="pin" size={22} color={colors.accent} />
-                    </View>
-                  ) : null}
-
-                  <IconButton
-                    variant="secondary"
-                    accessibilityRole="button"
-                    accessibilityLabel="Center map on current location"
-                    onPress={() => {
-                      void (async () => {
-                        // Best-effort: ensure we can request if needed, then read the current position.
-                        await LocationPermissionService.ensurePermissionWithRationale('attach_place');
-                        const coords = await getCurrentLocationBestEffort();
-                        if (coords) {
-                          setCurrentCoords(coords);
-                          setMapCenterOverride(coords);
-                          mapCenterOverrideRef.current = coords;
-                          setPreviewLocation({
-                            label: 'Dropped pin',
-                            latitude: coords.latitude,
-                            longitude: coords.longitude,
-                          });
-                          animateMapToCenter(coords, radiusM);
-                        } else {
-                          setLocationStatusHint((prev) => prev ?? 'Couldn’t read current location on this device.');
-                        }
-                      })();
-                    }}
-                    style={{
-                      position: 'absolute',
-                      right: spacing.sm,
-                      top: spacing.sm,
-                    }}
-                  >
-                    <Icon name="locate" size={18} color={colors.sumi} />
-                  </IconButton>
-                </View>
-              );
-            })()}
-          </View>
-
-          <View style={{ marginTop: spacing.md }}>
-            {/* Rule builder */}
-            <VStack space="sm">
-              <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
-                <Text style={styles.sheetRowLabel}>Send a notification</Text>
-                <DropdownMenu>
-                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select location trigger">
-                    <Pressable
-                      style={({ pressed }) => [styles.locationFormulaTrigger, pressed ? { opacity: 0.85 } : null]}
-                    >
-                      <HStack space="xs" alignItems="center">
-                        <Text style={styles.locationFormulaTriggerText}>
-                          {locationTriggerDraft === 'leave' ? 'When I leave' : 'When I enter'}
-                        </Text>
-                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                      </HStack>
-                    </Pressable>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    portalHost={LOCATION_SHEET_PORTAL_HOST}
-                    side="bottom"
-                    sideOffset={6}
-                    align="start"
-                  >
-                    <DropdownMenuItem onPress={() => setLocationTriggerDraft('leave')}>
-                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        When I leave
-                      </Text>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onPress={() => setLocationTriggerDraft('arrive')}>
-                      <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                        When I enter
-                      </Text>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </HStack>
-
-              <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
-                <Text style={styles.sheetRowLabel}>Boundary radius</Text>
-                <DropdownMenu>
-                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select boundary radius">
-                    <Pressable
-                      style={({ pressed }) => [styles.locationFormulaTrigger, pressed ? { opacity: 0.85 } : null]}
-                    >
-                      <HStack space="xs" alignItems="center">
-                        <Text style={styles.locationFormulaTriggerText}>
-                          {formatRadiusLabel(locationRadiusMetersDraft)}
-                        </Text>
-                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                      </HStack>
-                    </Pressable>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    portalHost={LOCATION_SHEET_PORTAL_HOST}
-                    side="bottom"
-                    sideOffset={6}
-                    align="start"
-                  >
-                    {LOCATION_RADIUS_FT_OPTIONS.map((ft) => (
-                      <DropdownMenuItem
-                        key={ft}
-                        onPress={() => {
-                          setLocationRadiusMetersDraft(ft * 0.3048);
-                        }}
-                      >
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          {ft} feet
-                        </Text>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </HStack>
-
-              <HStack space="sm" alignItems="center" style={{ flexWrap: 'wrap' }}>
-                <Text style={styles.sheetRowLabel}>from</Text>
-                <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 220 }}>
-                  <Combobox
-                    open={isLocationSearchOpen}
-                    onOpenChange={setIsLocationSearchOpen}
-                    value={locationSelectedValue}
-                    onValueChange={(next) => {
-                      setLocationSelectedValue(next);
-                      if (!next) return;
-                      if (next === '__current_location__') {
-                        const coords = currentCoords;
-                        if (!coords) return;
-                        const loc = { label: 'Current location', latitude: coords.latitude, longitude: coords.longitude };
-                        setPreviewLocation(loc);
-                        setMapCenterOverride(coords);
-                        mapCenterOverrideRef.current = coords;
-                        animateMapToCenter(coords, getSafeLocationRadiusM());
-                        return;
-                      }
-                      const found = locationResults.find((r) => r.id === next);
-                      if (!found) return;
-                      const loc = { label: found.label, latitude: found.latitude, longitude: found.longitude };
-                      setPreviewLocation(loc);
-                      const coords = { latitude: found.latitude, longitude: found.longitude };
-                      setMapCenterOverride(coords);
-                      mapCenterOverrideRef.current = coords;
-                      animateMapToCenter(coords, getSafeLocationRadiusM());
-                    }}
-                    options={[
-                      ...(isSearchingLocation
-                        ? ([
-                            {
-                              value: '__location_searching__',
-                              label: 'Searching…',
-                              disabled: true,
-                              leftElement: <ActivityIndicator size="small" color={colors.textSecondary} />,
-                            },
-                          ] as const)
-                        : []),
-                      ...(currentCoords
-                        ? ([
-                            {
-                              value: '__current_location__',
-                              label: 'Use current location',
-                              leftElement: <Icon name="locate" size={16} color={colors.textSecondary} />,
-                            },
-                          ] as const)
-                        : []),
-                      ...locationResults.map((r) => ({
-                        value: r.id,
-                        label: r.label,
-                        leftElement: <Icon name="pin" size={16} color={colors.textSecondary} />,
-                      })),
-                    ]}
-                    query={locationQuery}
-                    onQueryChange={setLocationQuery}
-                    autoFilter={false}
-                    searchPlaceholder="Enter a place or address"
-                    emptyText={
-                      isSearchingLocation
-                        ? 'Searching…'
-                        : locationSearchError
-                          ? locationSearchError
-                        : locationQuery.trim().length >= 2
-                          ? 'No results found.'
-                          : 'Type to search.'
-                    }
-                    // iOS: popover + keyboard inside a BottomDrawer can land the search input/menu
-                    // under the keyboard (and trigger "Error measuring text field" warnings).
-                    // Use the keyboard-safe drawer presentation instead.
-                    presentation={Platform.OS === 'ios' ? 'drawer' : 'popover'}
-                    portalHost={LOCATION_SHEET_PORTAL_HOST}
-                    allowDeselect={false}
-                    trigger={
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Enter a place or address"
-                        onPress={() => setIsLocationSearchOpen(true)}
-                        style={({ pressed }) => [
-                          {
-                            backgroundColor: colors.fieldFill,
-                            borderRadius: 12,
-                            paddingHorizontal: spacing.md,
-                            paddingVertical: spacing.sm,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: spacing.sm,
-                            minHeight: 44,
-                          },
-                          pressed ? { opacity: 0.92 } : null,
-                        ]}
-                      >
-                        <Icon name="pin" size={16} color={colors.textSecondary} />
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            typography.bodySm,
-                            {
-                              color: previewLocation || activity?.location ? colors.textPrimary : colors.muted,
-                              flex: 1,
-                            },
-                          ]}
-                        >
-                          {previewLocation?.label ??
-                            ((activity as any)?.location?.label as string | undefined) ??
-                            'Enter a place or address'}
-                        </Text>
-                        {previewLocation || activity?.location ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Clear location"
-                            hitSlop={10}
-                            onPress={clearLocationSelection}
-                          >
-                            <Icon name="close" size={16} color={colors.textSecondary} />
-                          </Pressable>
-                        ) : (
-                          <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                        )}
-                      </Pressable>
-                    }
-                  />
-                </View>
-              </HStack>
-            </VStack>
-          </View>
-
-          {/* Results now render in the dropdown menu anchored to the "from" field. */}
-          </BottomDrawerScrollView>
-
-          <BottomDrawerFooter>
-            <HStack space="sm">
-              <Button variant="outline" style={{ flex: 1 }} onPress={closeLocationSheet}>
-                <Text style={styles.sheetRowLabel}>Cancel</Text>
-              </Button>
-              <Button
-                variant="primary"
-                style={{ flex: 1 }}
-                disabled={!isLocationDraftDirty}
-                onPress={() => {
-                  applyLocationDraft();
-                  closeLocationSheet();
-                }}
-              >
-                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Save</Text>
-              </Button>
-            </HStack>
-          </BottomDrawerFooter>
-        </View>
-      </BottomDrawer>
-
-      <BottomDrawer
-        visible={customRepeatSheetVisible}
-        onClose={() => setActiveSheet(null)}
-        snapPoints={Platform.OS === 'ios' ? ['62%'] : ['60%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={styles.sheetContent}>
-          <HStack alignItems="center" justifyContent="space-between" style={styles.customRepeatHeaderRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Back to repeat options"
-              testID="e2e.activityDetail.customRepeat.back"
-              onPress={() => {
-                setActiveSheet(null);
-                if (repeatDrawerTransitionTimeoutRef.current) {
-                  clearTimeout(repeatDrawerTransitionTimeoutRef.current);
-                }
-                repeatDrawerTransitionTimeoutRef.current = setTimeout(() => {
-                  setActiveSheet('repeat');
-                }, 260);
-              }}
-              hitSlop={8}
-            >
-              <Icon name="arrowLeft" size={18} color={colors.textSecondary} />
-            </Pressable>
-            <Text style={styles.customRepeatHeaderTitle}>Repeat every…</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Set custom repeat rule"
-              testID="e2e.activityDetail.customRepeat.set"
-              onPress={commitCustomRepeat}
-              hitSlop={8}
-            >
-              <Text style={styles.customRepeatSetLabel}>Set</Text>
-            </Pressable>
-          </HStack>
-
-          <View style={styles.customRepeatPickerBlock}>
-            <HStack space="md" alignItems="center" justifyContent="center">
-              {Platform.OS === 'ios' ? (
-                <>
-                  <View style={styles.iosWheelFrame}>
-                    <Picker
-                      selectedValue={customRepeatInterval}
-                      onValueChange={(value) => setCustomRepeatInterval(Number(value))}
-                      itemStyle={styles.iosWheelItem}
-                    >
-                      {Array.from(
-                        {
-                          length:
-                            customRepeatCadence === 'days'
-                              ? 30
-                              : customRepeatCadence === 'weeks'
-                                ? 12
-                                : customRepeatCadence === 'months'
-                                  ? 24
-                                  : 10,
-                        },
-                        (_, idx) => idx + 1,
-                      ).map((n) => (
-                        <Picker.Item key={String(n)} label={String(n)} value={n} />
-                      ))}
-                    </Picker>
-                  </View>
-                  <View style={styles.iosWheelFrame}>
-                    <Picker
-                      selectedValue={customRepeatCadence}
-                      onValueChange={(value) => setCustomRepeatCadence(value)}
-                      itemStyle={styles.iosWheelItem}
-                    >
-                      <Picker.Item label="Days" value="days" />
-                      <Picker.Item label="Weeks" value="weeks" />
-                      <Picker.Item label="Months" value="months" />
-                      <Picker.Item label="Years" value="years" />
-                    </Picker>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <NumberWheelPicker
-                    value={customRepeatInterval}
-                    onChange={setCustomRepeatInterval}
-                    min={1}
-                    max={
-                      customRepeatCadence === 'days'
-                        ? 30
-                        : customRepeatCadence === 'weeks'
-                          ? 12
-                          : customRepeatCadence === 'months'
-                            ? 24
-                            : 10
-                    }
-                  />
-                  <NumberWheelPicker
-                    value={['days', 'weeks', 'months', 'years'].indexOf(customRepeatCadence)}
-                    onChange={(idx) => {
-                      const next = (['days', 'weeks', 'months', 'years'] as const)[idx] ?? 'weeks';
-                      setCustomRepeatCadence(next);
-                    }}
-                    min={0}
-                    max={3}
-                    formatLabel={(idx) => {
-                      const v = (['Days', 'Weeks', 'Months', 'Years'] as const)[idx] ?? 'Weeks';
-                      return v;
-                    }}
-                  />
-                </>
-              )}
-            </HStack>
-          </View>
-
-          {customRepeatCadence === 'weeks' ? (
-            <>
-              <Text style={styles.customRepeatSectionLabel}>Repeat on</Text>
-              <HStack space="sm" alignItems="center" style={styles.customRepeatWeekdayRow}>
-                {(['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const).map((label, idx) => {
-                  const selected = customRepeatWeekdays.includes(idx);
-                  return (
-                    <Pressable
-                      key={label}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Toggle ${label}`}
-                      onPress={() => {
-                        setCustomRepeatWeekdays((prev) => {
-                          if (prev.includes(idx)) {
-                            const next = prev.filter((d) => d !== idx);
-                            return next.length > 0 ? next : prev; // keep at least one selected
-                          }
-                          return [...prev, idx];
-                        });
-                      }}
-                      style={[
-                        styles.customRepeatWeekdayChip,
-                        selected && styles.customRepeatWeekdayChipSelected,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.customRepeatWeekdayChipText,
-                          selected && styles.customRepeatWeekdayChipTextSelected,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </HStack>
-            </>
-          ) : null}
-        </View>
-      </BottomDrawer>
-
-
+        controller={locationController}
+        portalHostName={LOCATION_SHEET_PORTAL_HOST}
+      />
       <BottomDrawer
         visible={estimateSheetVisible}
         onClose={() => setActiveSheet(null)}
@@ -5157,521 +2871,33 @@ export function ActivityDetailScreen() {
         </View>
       </BottomDrawer>
 
-      <BottomDrawer
-        visible={focusSheetVisible}
-        onClose={() => setActiveSheet(null)}
-        snapPoints={focusSheetSnapPoints}
-        scrimToken="pineSubtle"
-      >
-        <View style={{ flex: 1 }}>
-          {/* Ensure dropdown menus can render above the BottomDrawer modal layer. */}
-          {Platform.OS === 'ios' ? (
-            <FullWindowOverlay>
-              <PortalHost name={FOCUS_SHEET_PORTAL_HOST} />
-            </FullWindowOverlay>
-          ) : (
-            <PortalHost name={FOCUS_SHEET_PORTAL_HOST} />
-          )}
-
-          <BottomDrawerScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.sheetContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <VStack space="md">
-              <View>
-                <VStack space="md">
-                  <BottomDrawerHeader
-                    title="Focus mode"
-                    variant="withClose"
-                    onClose={() => setActiveSheet(null)}
-                    containerStyle={styles.sheetHeader}
-                    titleStyle={styles.focusSheetTitle}
-                  />
-
-                  {focusScreenTimeOfferCard}
-
-                  <Text style={styles.sheetDescription}>
-                    Pick a duration. Kwilt keeps the session tied to this to-do, so the
-                    work has a place to land.
-                  </Text>
-                </VStack>
-              </View>
-
-              <View>
-                <Text style={styles.estimateFieldLabel}>Minutes</Text>
-                <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
-                  {focusPresetValues.map((m) => {
-                    const selected = !focusCustomExpanded && focusDraftMinutes === m;
-                    return (
-                      <Pressable
-                        key={String(m)}
-                        style={({ pressed }) => [
-                          styles.focusPresetChip,
-                          selected && styles.focusPresetChipSelected,
-                          pressed && styles.focusPresetChipPressed,
-                        ]}
-                        onPress={() => {
-                          setFocusMinutesDraft(String(m));
-                          setFocusCustomExpanded(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.focusPresetChipText,
-                            selected && styles.focusPresetChipTextSelected,
-                          ]}
-                        >
-                          {m}m
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-
-                  <Pressable
-                    style={({ pressed }) => {
-                      const selected = focusCustomExpanded || focusIsCustomValue;
-                      return [
-                        styles.focusPresetChip,
-                        selected && styles.focusPresetChipSelected,
-                        pressed && styles.focusPresetChipPressed,
-                      ];
-                    }}
-                    onPress={() => setFocusCustomExpanded((v) => !v)}
-                  >
-                    <Text
-                      style={[
-                        styles.focusPresetChipText,
-                        (focusCustomExpanded || focusIsCustomValue) &&
-                          styles.focusPresetChipTextSelected,
-                      ]}
-                    >
-                      {(() => {
-                        if (focusCustomExpanded) return `${focusDraftMinutes}m`;
-                        if (focusIsCustomValue) return `${focusDraftMinutes}m`;
-                        return 'Custom';
-                      })()}
-                    </Text>
-                  </Pressable>
-                </HStack>
-
-                {focusCustomExpanded ? (
-                  <View style={{ marginTop: spacing.md }}>
-                    <DurationPicker
-                      valueMinutes={focusDraftMinutes}
-                      onChangeMinutes={handleChangeFocusMinutes}
-                      optionsMinutes={focusCustomOptionsMinutes}
-                      accessibilityLabel="Select custom focus duration"
-                      iosWheelHeight={160}
-                      showHelperText={false}
-                      iosUseEdgeFades={false}
-                    />
-                  </View>
-                ) : null}
-              </View>
-
-              <View>
-                <Text style={styles.estimateFieldLabel}>Soundscape</Text>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    {...({ asChild: true } as any)}
-                    accessibilityLabel="Select soundscape"
-                  >
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.focusSoundscapeTrigger,
-                        pressed && styles.focusPresetChipPressed,
-                      ]}
-                    >
-                      <HStack space="xs" alignItems="center">
-                        <Text style={styles.focusSoundscapeTriggerText}>
-                          {SOUND_SCAPES.find((s) => s.id === soundscapeTrackId)?.title ??
-                            'Soundscape'}
-                        </Text>
-                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                      </HStack>
-                    </Pressable>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    portalHost={FOCUS_SHEET_PORTAL_HOST}
-                    side="bottom"
-                    sideOffset={6}
-                    align="start"
-                  >
-                    {SOUND_SCAPES.map((s) => (
-                      <DropdownMenuItem
-                        key={s.id}
-                        onPress={() => {
-                          setSoundscapeTrackId(s.id);
-                        }}
-                      >
-                        <Text style={styles.menuRowText} numberOfLines={1} ellipsizeMode="tail">
-                          {s.title}
-                        </Text>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </View>
-            </VStack>
-          </BottomDrawerScrollView>
-
-          <View style={styles.focusSheetFooter}>
-            <Button
-              variant="primary"
-              fullWidth
-              testID="e2e.activityDetail.focus.start"
-              onPress={() => {
-                startFocusSession().catch(() => undefined);
-              }}
-            >
-              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                Start
-              </Text>
-            </Button>
-          </View>
-        </View>
-      </BottomDrawer>
-
-      <BottomDrawer
+      <ActivityFocusExperience
+        setupVisible={focusSheetVisible}
+        activityTitle={activity?.title ?? 'To-do'}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+        portalHostName={FOCUS_SHEET_PORTAL_HOST}
+        controller={focusController}
+        screenTimeOffer={focusScreenTimeOfferCard}
+        soundscapeEnabled={soundscapeEnabled}
+        soundscapeTrackId={soundscapeTrackId}
+        overlayColorIndex={focusOverlayColorIndex}
+        setSoundscapeEnabled={setSoundscapeEnabled}
+        setSoundscapeTrackId={setSoundscapeTrackId}
+        setOverlayColorIndex={setFocusOverlayColorIndex}
+      />
+      <ActivityScheduleSheet
         visible={calendarSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
+        activityTitle={activity?.title ?? 'To-do'}
+        lensHeight={scheduleLensHeightPx}
+        controller={scheduleController}
+        onOpenCalendarSettings={() => {
+          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
         }}
-        // Day-first schedule sheet should be tall enough to actually use the timeline.
-        snapPoints={['95%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={[styles.sheetContent, styles.scheduleSheetContent]}>
-          <View style={{ flex: 1, minHeight: 0 }}>
-            <BottomDrawerHeader
-              title="Schedule to-do"
-              variant="withClose"
-              onClose={() => setActiveSheet(null)}
-              containerStyle={styles.sheetHeader}
-              titleStyle={styles.sheetTitle}
-            />
-            <Text style={styles.sheetDescription}>Adds a block to your Plan calendar.</Text>
-            {calendarBindingHealth && calendarBindingHealth !== 'healthy' ? (
-              <Text style={[styles.sheetDescription, { color: colors.warning, marginTop: spacing.sm }]}>
-                Calendar binding is {calendarBindingHealth}. Kwilt may not be able to move or unschedule this block until calendar access is restored.
-              </Text>
-            ) : null}
-
-            <VStack space="md" style={{ flex: 1, minHeight: 0 }}>
-            <VStack space="sm">
-              <HStack justifyContent="space-between" alignItems="center">
-                <Text style={styles.sheetSectionLabel}>Duration</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit scheduling duration"
-                  onPress={() => setScheduleDurationExpanded((prev) => !prev)}
-                  style={({ pressed }) => [
-                    styles.scheduleDurationChip,
-                    pressed ? styles.scheduleDurationChipPressed : null,
-                  ]}
-                >
-                  <Text style={styles.scheduleDurationChipText}>{formatDurationMinutes(scheduleDurationMinutes)}</Text>
-                </Pressable>
-              </HStack>
-              {scheduleDurationExpanded ? (
-                <View style={styles.scheduleDurationPicker}>
-                  <View style={styles.scheduleDurationCard}>
-                    <DurationPicker
-                      valueMinutes={scheduleDurationMinutes}
-                      onChangeMinutes={(next) => {
-                        setCalendarDurationDraft(String(next));
-                      }}
-                      optionsMinutes={scheduleDurationOptions}
-                      accessibilityLabel="Select scheduling duration"
-                      iosWheelHeight={180}
-                      showHelperText={false}
-                      iosUseEdgeFades={false}
-                    />
-                  </View>
-                </View>
-              ) : null}
-            </VStack>
-
-            {scheduleLoading ? (
-              <HStack alignItems="center" space="sm">
-                <ActivityIndicator color={colors.textSecondary} />
-                <Text style={styles.sheetDescription}>Finding slots…</Text>
-              </HStack>
-            ) : !scheduleWriteRef ? (
-              <VStack space="sm">
-                <Text style={styles.sheetDescription}>Set a Plan write calendar to schedule.</Text>
-                <Button
-                  variant="primary"
-                  fullWidth
-                  onPress={() => {
-                    setActiveSheet(null);
-                    rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
-                  }}
-                >
-                  Open Plan Calendars
-                </Button>
-              </VStack>
-            ) : scheduleSlots.length === 0 && !manualScheduleSlot ? (
-              <View style={styles.scheduleEmptyStateCard}>
-                <HStack space="sm" alignItems="flex-start">
-                  <View style={styles.scheduleEmptyStateIconWrap}>
-                    <Icon name="calendar" size={16} color={colors.textSecondary} />
-                  </View>
-                  <VStack space="xs" style={{ flex: 1 }}>
-                    <Text style={styles.scheduleEmptyStateTitle}>
-                      {scheduleHorizonExhausted
-                        ? 'No available time in the next 2 weeks'
-                        : 'No suggested times for this day'}
-                    </Text>
-                    <Text style={styles.scheduleEmptyStateBody}>
-                      Tap the calendar below to pick a time or adjust availability.
-                    </Text>
-                    <View style={styles.scheduleEmptyStateActionRow}>
-                      <Button
-                        variant="secondary"
-                        fullWidth
-                        onPress={() => {
-                          setActiveSheet(null);
-                          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
-                        }}
-                      >
-                        Adjust availability
-                      </Button>
-                    </View>
-                  </VStack>
-                </HStack>
-              </View>
-            ) : (
-              <VStack space="sm">
-                <Text style={styles.sheetSectionLabel}>{scheduleSlots.length > 0 ? 'Suggested times' : 'Pick a time'}</Text>
-                {scheduleSlots.length > 0 ? (
-                  <HStack style={{ flexWrap: 'wrap', gap: spacing.sm }}>
-                    {scheduleSlots.map((slot, idx) => {
-                      const start = new Date(slot.startDate);
-                      const end = new Date(slot.endDate);
-                      const label = `${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}–${end.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
-                      return (
-                        <Button
-                          key={`${slot.startDate}:${idx}`}
-                          variant={idx === selectedSlotIndex ? 'primary' : 'secondary'}
-                          size="sm"
-                          onPress={() => {
-                            setManualScheduleSlot(null);
-                            setSelectedSlotIndex(idx);
-                          }}
-                        >
-                          {label}
-                        </Button>
-                      );
-                    })}
-                  </HStack>
-                ) : null}
-              </VStack>
-            )}
-
-            {scheduleWriteRef ? (
-              <View style={{ flex: 1, minHeight: 0, marginTop: spacing.sm }}>
-                <View style={{ height: 72, marginBottom: spacing.xs }}>
-                  <PlanDateStrip selectedDate={scheduleTargetDate} onSelectDate={handleSelectScheduleDate} />
-                </View>
-                <View style={{ flex: 1, minHeight: Math.min(280, scheduleLensHeightPx) }}>
-                <PlanCalendarLensPage
-                  contentPadding={0}
-                  targetDayLabel={scheduleTargetDayLabel}
-                  targetDate={scheduleTargetDate}
-                  externalEvents={scheduleExternalEvents}
-                  calendarColorByRefKey={calendarColorByRefKeyForSchedule}
-                  proposedBlocks={
-                    selectedSlot
-                      ? [
-                          {
-                            title: activity?.title ?? 'To-do',
-                            start: new Date(selectedSlot.startDate),
-                            end: new Date(selectedSlot.endDate),
-                          },
-                        ]
-                      : []
-                  }
-                  kwiltBlocks={kwiltBlocksForScheduleDay as any}
-                  conflictActivityIds={[]}
-                  calendarStatus="connected"
-                  isLoadingExternal={scheduleLoading}
-                  onOpenCalendarSettings={() => {
-                    setActiveSheet(null);
-                    rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanCalendars' } as any);
-                  }}
-                  onMoveCommitment={() => undefined}
-                  onPressEmptyTime={handlePressScheduleEmptyTime}
-                />
-                </View>
-              </View>
-            ) : null}
-
-            </VStack>
-          </View>
-
-          {scheduleWriteRef ? (
-            <BottomDrawerFooter
-              showTopBorder
-              paddingHorizontal={0}
-              paddingTop={spacing.sm}
-              paddingBottom={spacing.sm}
-              backgroundColor={colors.canvas}
-            >
-              <Button
-                variant="primary"
-                fullWidth
-                disabled={!selectedSlot || isCreatingCalendarEvent}
-                accessibilityLabel="Schedule selected to-do time"
-                accessibilityState={{ disabled: !selectedSlot || isCreatingCalendarEvent }}
-                testID="e2e.activityDetail.schedule.confirm"
-                style={!selectedSlot || isCreatingCalendarEvent ? { opacity: 0.55 } : null}
-                onPress={() => {
-                  scheduleIntoWriteCalendar().catch(() => undefined);
-                }}
-              >
-                <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>
-                  {isCreatingCalendarEvent
-                    ? 'Scheduling...'
-                    : selectedScheduleSlotLabel
-                      ? `Schedule ${selectedScheduleSlotLabel}`
-                      : 'Schedule'}
-                </Text>
-              </Button>
-            </BottomDrawerFooter>
-          ) : null}
-        </View>
-      </BottomDrawer>
-
-      {focusSession ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            endFocusSession().catch(() => undefined);
-          }}
-        >
-          <Pressable
-            onPress={handleFocusOverlayTap}
-            accessibilityRole="button"
-            accessibilityLabel="Focus color"
-            accessibilityHint="Double tap to shift focus background color"
-            style={{ flex: 1 }}
-          >
-          <Animated.View
-            style={[
-              styles.focusOverlay,
-              { backgroundColor: focusOverlayBackgroundColor },
-              { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
-            ]}
-          >
-            <View style={styles.focusTopBar}>
-              <BrandLockup
-                logoSize={28}
-                wordmarkSize="sm"
-                logoVariant="parchment"
-                color={colors.parchment}
-              />
-            </View>
-
-            <View style={styles.focusCenter}>
-              <Text style={styles.focusTimer}>{formatMsAsTimer(remainingFocusMs)}</Text>
-              <Text style={styles.focusActivityTitle} numberOfLines={2}>
-                {activity.title}
-              </Text>
-            </View>
-
-            <HStack space="sm" style={styles.focusBottomBar}>
-              <HeaderActionPill
-                size={56}
-                accessibilityLabel="End focus session"
-                style={styles.focusActionIconButton}
-                onPress={() => endFocusSession().catch(() => undefined)}
-              >
-                <Icon name="stop" size={22} color={colors.parchment} />
-              </HeaderActionPill>
-              <HeaderActionPill
-                size={56}
-                accessibilityLabel={
-                  focusSession?.mode === 'paused' ? 'Resume focus session' : 'Pause focus session'
-                }
-                style={styles.focusActionIconButton}
-                onPress={() => togglePauseFocusSession().catch(() => undefined)}
-              >
-                <Icon
-                  name={focusSession?.mode === 'paused' ? 'play' : 'pause'}
-                  size={22}
-                  color={colors.parchment}
-                />
-              </HeaderActionPill>
-              <View style={styles.focusAudioControlWrap}>
-                {focusSoundscapeMenuVisible ? (
-                  <Animated.View
-                    style={[
-                      styles.focusSoundscapeQuickMenu,
-                      {
-                        opacity: focusSoundscapeMenuAnim,
-                        transform: [
-                          {
-                            translateY: focusSoundscapeMenuAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [8, 0],
-                            }),
-                          },
-                          {
-                            scale: focusSoundscapeMenuAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0.98, 1],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  >
-                    {SOUND_SCAPES.map((s) => {
-                      const selected = s.id === soundscapeTrackId;
-                      return (
-                        <Pressable
-                          key={s.id}
-                          onPress={() => {
-                            setSoundscapeTrackId(s.id);
-                            setFocusSoundscapeMenuOpen(false);
-                          }}
-                          style={({ pressed }) => [
-                            styles.focusSoundscapeQuickMenuItem,
-                            selected && styles.focusSoundscapeQuickMenuItemActive,
-                            pressed && styles.focusSoundscapeQuickMenuItemPressed,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Select ${s.title} soundscape`}
-                        >
-                          <Text style={styles.focusSoundscapeQuickMenuItemText} numberOfLines={1}>
-                            {s.title}
-                          </Text>
-                          {selected ? <Icon name="check" size={16} color={colors.textPrimary} /> : null}
-                        </Pressable>
-                      );
-                    })}
-                  </Animated.View>
-                ) : null}
-                <HeaderActionPill
-                  size={56}
-                  accessibilityLabel="Focus soundscape"
-                  style={styles.focusActionIconButton}
-                  onPress={handlePressFocusAudio}
-                  onLongPress={handleLongPressFocusAudio}
-                >
-                  <Icon name={soundscapeEnabled ? 'sound' : 'soundOff'} size={22} color={colors.parchment} />
-                </HeaderActionPill>
-              </View>
-            </HStack>
-          </Animated.View>
-          </Pressable>
-        </Modal>
-      ) : null}
-
+        onOpenAvailabilitySettings={() => {
+          rootNavigationRef.navigate('Settings', { screen: 'SettingsPlanAvailability' } as any);
+        }}
+      />
       <ArcBannerSheet
         visible={thumbnailSheetVisible}
         onClose={() => setThumbnailSheetVisible(false)}
@@ -5710,294 +2936,12 @@ export function ActivityDetailScreen() {
 
       {AgentWorkspaceSheet}
 
-      <BottomDrawer
-        visible={attachmentDetailsSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
-          setSelectedAttachment(null);
-          setAttachmentDownloadUrl(null);
-          setIsLoadingAttachmentDownloadUrl(false);
-          setAttachmentPhotoAspectRatio(4 / 3);
-        }}
-        // Allow the sheet to grow near full-height when the preview is tall,
-        // while still supporting a more compact resting state.
-        snapPoints={Platform.OS === 'ios' ? (['70%', '96%'] as const) : (['66%', '94%'] as const)}
-        scrimToken="pineSubtle"
-        enableContentPanningGesture
-        // Let the sheet surface extend all the way to the bottom of the screen.
-        // We'll handle safe-area padding inside the scroll content so buttons never clip.
-        sheetStyle={{ paddingBottom: 0, paddingTop: 0, paddingHorizontal: 0 }}
-      >
-        <BottomDrawerScrollView
-          // Important: keep the scroll view itself flexed to fill the sheet height.
-          style={{ flex: 1 }}
-          // Avoid `flex: 1` on the content container; it can prevent scroll when content is taller.
-          contentContainerStyle={{
-            paddingTop: spacing.lg,
-            paddingHorizontal: spacing.lg,
-            paddingBottom: spacing['2xl'] + insets.bottom,
-          }}
-        >
-          {(() => {
-            const att = selectedAttachment;
-            if (!att) {
-              return (
-                <>
-                  <BottomDrawerHeader
-                    title="Attachment"
-                    variant="minimal"
-                    containerStyle={styles.sheetHeader}
-                    titleStyle={styles.sheetTitle}
-                  />
-                  <Text style={styles.sheetBody}>No attachment selected.</Text>
-                </>
-              );
-            }
-
-            const kind = (att?.kind ?? '').toString();
-            const kindLabel =
-              kind === 'photo'
-                ? 'Photo'
-                : kind === 'video'
-                  ? 'Video'
-                  : kind === 'audio'
-                    ? 'Audio'
-                    : kind === 'document'
-                      ? 'Document'
-                      : 'Attachment';
-            const rawName = typeof att?.fileName === 'string' ? att.fileName : '';
-            const name = rawName.trim() ? rawName.trim() : 'Attachment';
-            const status = (att?.uploadStatus ?? 'uploaded').toString();
-            const isOpenable = status === 'uploaded';
-            const isFailed = status === 'failed';
-
-            const formatBytes = (bytes: number) => {
-              if (!Number.isFinite(bytes) || bytes <= 0) return '';
-              const kb = bytes / 1024;
-              if (kb < 1024) return `${Math.round(kb)} KB`;
-              const mb = kb / 1024;
-              if (mb < 1024) return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
-              const gb = mb / 1024;
-              return `${gb.toFixed(gb < 10 ? 1 : 0)} GB`;
-            };
-
-            const formatDuration = (secs: number) => {
-              if (!Number.isFinite(secs) || secs <= 0) return '';
-              const s = Math.round(secs);
-              const m = Math.floor(s / 60);
-              const r = s % 60;
-              return m > 0 ? `${m}:${String(r).padStart(2, '0')}` : `${r}s`;
-            };
-
-            const sizeBytes = typeof att?.sizeBytes === 'number' ? att.sizeBytes : null;
-            const durationSeconds = typeof att?.durationSeconds === 'number' ? att.durationSeconds : null;
-            const createdAt = typeof att?.createdAt === 'string' ? att.createdAt : null;
-            const uploadError = typeof att?.uploadError === 'string' ? att.uploadError.trim() : '';
-
-            return (
-              <>
-                <View
-                  style={[
-                    styles.attachmentPreviewFrame,
-                    // Photos should render at natural aspect ratio (can push content and enable scroll).
-                    kind === 'photo' ? { aspectRatio: attachmentPhotoAspectRatio } : { height: 164 },
-                  ]}
-                >
-                  {isLoadingAttachmentDownloadUrl ? (
-                    <View style={styles.attachmentPreviewPlaceholder}>
-                      <ActivityIndicator size="small" color={colors.textSecondary} />
-                      <Text style={styles.attachmentPreviewPlaceholderText}>Loading…</Text>
-                    </View>
-                  ) : kind === 'photo' && attachmentDownloadUrl ? (
-                    <Image source={{ uri: attachmentDownloadUrl }} style={styles.attachmentPreviewImage} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.attachmentPreviewPlaceholder}>
-                      <Icon
-                        name={kind === 'video' ? 'image' : kind === 'audio' ? 'mic' : 'paperclip'}
-                        size={22}
-                        color={colors.textSecondary}
-                      />
-                      <Text style={styles.attachmentPreviewPlaceholderText}>
-                        {kind === 'photo' ? 'Preview unavailable' : 'Preview available for photos'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <BottomDrawerHeader
-                  title={name}
-                  variant="minimal"
-                  containerStyle={styles.sheetHeader}
-                  titleStyle={styles.sheetTitle}
-                />
-                <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
-                  {kindLabel}
-                  {sizeBytes ? ` · ${formatBytes(sizeBytes)}` : ''}
-                  {durationSeconds ? ` · ${formatDuration(durationSeconds)}` : ''}
-                </Text>
-
-                <View style={styles.rowsCard}>
-                  <View style={[styles.row, styles.rowContent]}>
-                    <Text style={styles.rowLabel}>Status</Text>
-                    <Text style={[styles.rowValue, isFailed ? { color: colors.destructive } : null]}>
-                      {status === 'uploading' ? 'Uploading' : status === 'failed' ? 'Failed' : 'Uploaded'}
-                    </Text>
-                  </View>
-                  {createdAt ? (
-                    <>
-                      <View style={styles.cardSectionDivider} />
-                      <View style={[styles.row, styles.rowContent]}>
-                        <Text style={styles.rowLabel}>Added</Text>
-                        <Text style={styles.rowValue}>{new Date(createdAt).toLocaleString()}</Text>
-                      </View>
-                    </>
-                  ) : null}
-                  {uploadError ? (
-                    <>
-                      <View style={styles.cardSectionDivider} />
-                      <View style={[styles.row, styles.rowContent]}>
-                        <Text style={styles.rowLabel}>Error</Text>
-                        <Text style={[styles.rowValue, { color: colors.destructive }]} numberOfLines={2}>
-                          {uploadError}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
-                </View>
-
-                <View style={{ marginTop: spacing.md }}>
-                  <VStack space="sm">
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      disabled={!isOpenable || !attachmentDownloadUrl}
-                      accessibilityLabel="Download attachment"
-                      onPress={() => {
-                        if (!isOpenable || !attachmentDownloadUrl) return;
-                        // iOS: share sheet includes "Save Image" for photos.
-                        Share.share({ url: attachmentDownloadUrl, message: attachmentDownloadUrl }).catch(() => {
-                          Linking.openURL(attachmentDownloadUrl).catch(() => undefined);
-                        });
-                      }}
-                    >
-                      <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Download</Text>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      accessibilityLabel="Delete attachment"
-                      onPress={() => {
-                        Alert.alert('Delete attachment?', 'This will remove it from this to-do.', [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Delete',
-                            style: 'destructive',
-                            onPress: () => {
-                              void deleteAttachment({
-                                activityId: activity.id,
-                                attachmentId: String(att.id),
-                              }).catch(() => undefined);
-                              setActiveSheet(null);
-                              setSelectedAttachment(null);
-                            },
-                          },
-                        ]);
-                      }}
-                    >
-                      <Text style={[styles.sheetRowLabel, { color: colors.destructive }]}>Delete</Text>
-                    </Button>
-                  </VStack>
-                </View>
-              </>
-            );
-          })()}
-        </BottomDrawerScrollView>
-      </BottomDrawer>
-
-      <BottomDrawer
-        visible={recordAudioSheetVisible}
-        onClose={() => {
-          setActiveSheet(null);
-          if (isRecordingAudio) {
-            setIsRecordingAudio(false);
-            cancelAudioRecording().catch(() => undefined);
-          }
-        }}
-        snapPoints={Platform.OS === 'ios' ? ['52%'] : ['48%']}
-        scrimToken="pineSubtle"
-      >
-        <View style={styles.sheetContent}>
-          <BottomDrawerHeader
-            title="Record audio"
-            variant="minimal"
-            containerStyle={styles.sheetHeader}
-            titleStyle={styles.sheetTitle}
-          />
-          <Text style={[styles.sheetBody, { marginBottom: spacing.md }]}>
-            Record a quick voice note and attach it to this to-do.
-          </Text>
-
-          <VStack space="sm">
-            <Button
-              variant={isRecordingAudio ? 'outline' : 'primary'}
-              fullWidth
-              accessibilityLabel={isRecordingAudio ? 'Recording in progress' : 'Start recording'}
-              testID="e2e.activityDetail.attachments.record.start"
-              onPress={() => {
-                if (isRecordingAudio) return;
-                startAudioRecording()
-                  .then(() => setIsRecordingAudio(true))
-                  .catch(() => undefined);
-              }}
-            >
-              <Text style={[styles.sheetRowLabel, !isRecordingAudio ? { color: colors.primaryForeground } : null]}>
-                {isRecordingAudio ? 'Recording…' : 'Start recording'}
-              </Text>
-            </Button>
-
-            <Button
-              variant={isRecordingAudio ? 'primary' : 'outline'}
-              fullWidth
-              accessibilityLabel="Stop recording and attach"
-              testID="e2e.activityDetail.attachments.record.stopAttach"
-              onPress={() => {
-                if (!isRecordingAudio) return;
-                setIsRecordingAudio(false);
-                stopAudioRecordingAndAttachToActivity(activity)
-                  .catch(() => undefined)
-                  .finally(() => {
-                    setActiveSheet(null);
-                  });
-              }}
-            >
-              <Text
-                style={[
-                  styles.sheetRowLabel,
-                  isRecordingAudio ? { color: colors.primaryForeground } : null,
-                ]}
-              >
-                Stop & save
-              </Text>
-            </Button>
-
-            <Button
-              variant="outline"
-              fullWidth
-              accessibilityLabel="Cancel recording"
-              testID="e2e.activityDetail.attachments.record.cancel"
-              onPress={() => {
-                setIsRecordingAudio(false);
-                cancelAudioRecording().catch(() => undefined);
-                setActiveSheet(null);
-              }}
-            >
-              <Text style={styles.sheetRowLabel}>Cancel</Text>
-            </Button>
-          </VStack>
-        </View>
-      </BottomDrawer>
-
+      <ActivityAttachmentSheets
+        detailsVisible={attachmentDetailsSheetVisible}
+        recordingVisible={recordAudioSheetVisible}
+        bottomInset={insets.bottom}
+        controller={attachmentsController}
+      />
       <BottomDrawer
         visible={sendToSheetVisible}
         onClose={() => setActiveSheet(null)}
@@ -6127,13 +3071,6 @@ export function ActivityDetailScreen() {
       </BottomDrawer>
     </AppShell>
   );
-}
-
-function formatMsAsTimer(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 type SheetOptionProps = {

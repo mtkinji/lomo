@@ -91,6 +91,7 @@ Use this as the “source of truth” for what gets haptics and how strong it sh
 | Activities: priority star toggled | Canvas | `canvas.toggle.on/off` | Only on state change. |
 | Onboarding milestone guide appears (first Arc/Goal/plan-ready) | Canvas | `outcome.success` | Fire once when the guide first appears. |
 | App shell: drawer/menu opened | Shell | `shell.nav.open` | Use sparingly; only for actual open action. |
+| App shell: drawer/menu closed | Shell | `shell.nav.close` | Pair with open; fire only when an open menu actually closes. |
 | App shell: primary destination change | Shell | `shell.nav.selection` | Only when destination actually changes. |
-
+| Chat composer engaged/disengaged | Canvas | `canvas.toggle.on/off` | One subtle selection at each real boundary; suppress the disengage pulse when opening navigation already provides shell feedback. |
 

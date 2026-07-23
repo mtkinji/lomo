@@ -80,6 +80,82 @@ function QuickAddHarness() {
 }
 
 describe('QuickAddDock', () => {
+  it('keeps an inferred place question attached to the collapsed dock', () => {
+    const onSetPlaceAlert = jest.fn();
+    const onReviewPlaceReceipt = jest.fn();
+    const onDismissPlaceReceipt = jest.fn();
+    const { getByLabelText, getByText, getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+        placeReceipt={{
+          activityId: 'activity-costco',
+          activityTitle: 'Pick up prescriptions from Costco',
+          location: {
+            label: 'Costco Wholesale',
+            latitude: 40.7128,
+            longitude: -74.006,
+            trigger: 'arrive',
+            radiusM: 150,
+          },
+        }}
+        onSetPlaceAlert={onSetPlaceAlert}
+        onReviewPlaceReceipt={onReviewPlaceReceipt}
+        onDismissPlaceReceipt={onDismissPlaceReceipt}
+      />,
+    );
+
+    expect(getByTestId('quick-add-place-receipt')).toBeTruthy();
+    expect(getByText('Created · Pick up prescriptions from Costco')).toBeTruthy();
+    expect(getByText('Costco Wholesale added')).toBeTruthy();
+
+    fireEvent.press(getByLabelText('Set location alert'));
+    fireEvent.press(getByLabelText('Review location'));
+    fireEvent.press(getByLabelText('Dismiss location receipt'));
+
+    expect(onSetPlaceAlert).toHaveBeenCalledTimes(1);
+    expect(onReviewPlaceReceipt).toHaveBeenCalledTimes(1);
+    expect(onDismissPlaceReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks the user to choose a branch for a broad inferred merchant', () => {
+    const onReviewPlaceReceipt = jest.fn();
+    const { getByLabelText, getByText, queryByLabelText } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+        placeReceipt={{
+          activityId: 'activity-costco',
+          activityTitle: 'Pick up prescriptions from Costco',
+          placeLink: {
+            target: { kind: 'named', label: 'Costco', query: 'Costco' },
+            intent: 'pickup',
+            resolution: 'broad',
+            provenance: { source: 'activity_text', confidence: 0.85 },
+          },
+        }}
+        onReviewPlaceReceipt={onReviewPlaceReceipt}
+      />,
+    );
+
+    expect(getByText('Costco · choose a place')).toBeTruthy();
+    expect(queryByLabelText('Set location alert')).toBeNull();
+    fireEvent.press(getByLabelText('Choose place'));
+    expect(onReviewPlaceReceipt).toHaveBeenCalledTimes(1);
+  });
+
   it('allows a host surface to align the floating dock with its own content gutter', () => {
     const { getByTestId } = renderWithProviders(
       <QuickAddDock
@@ -99,6 +175,25 @@ describe('QuickAddDock', () => {
       left: 0,
       right: 0,
       paddingHorizontal: 0,
+    });
+  });
+
+  it('renders the collapsed floating surface as a full pill', () => {
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-collapsed-surface').props.style)).toMatchObject({
+      borderRadius: 999,
     });
   });
 

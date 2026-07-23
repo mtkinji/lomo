@@ -124,9 +124,13 @@ import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import { QuickAddDock } from '../activities/QuickAddDock';
 import { RepeatInfoMenu } from '../activities/RepeatInfoMenu';
 import {
+  resolveInitialDueDateForPicker,
+  resolveInitialReminderDateTimeForPicker,
+} from '../activities/activityDatePickerDefaults';
+import {
   useQuickAddDockController,
   type QuickAddAiAction,
-  type QuickAddLocationTriggerRecommendation,
+  type QuickAddPlaceRecommendation,
 } from '../activities/useQuickAddDockController';
 import { DurationPicker } from '../activities/DurationPicker';
 import type { GoalProposalDraft } from '../ai/AiChatScreen';
@@ -161,6 +165,11 @@ import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
 import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
+import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
+import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
+import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
+import { mergeRefinedGoalProposal } from './goalProposalMerge';
+import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -405,11 +414,8 @@ export function GoalDetailScreen() {
   const [quickAddIsReminderDateTimePickerVisible, setQuickAddIsReminderDateTimePickerVisible] =
     useState(false);
   const [quickAddEstimateDraftMinutes, setQuickAddEstimateDraftMinutes] = useState<number>(30);
-  const quickAddLocationTriggersEnabled =
-    Boolean(locationOfferPreferences.enabled) &&
-    locationOfferPreferences.osPermissionStatus === 'authorized';
   const [pendingQuickAddLocationRecommendation, setPendingQuickAddLocationRecommendation] =
-    useState<QuickAddLocationTriggerRecommendation | null>(null);
+    useState<QuickAddPlaceRecommendation | null>(null);
   const effectiveQuickAddAiActions = useMemo(
     () =>
       isPro
@@ -446,7 +452,8 @@ export function GoalDetailScreen() {
 
   const handleUseQuickAddLocationTrigger = useCallback(async () => {
     const pending = pendingQuickAddLocationRecommendation;
-    if (!pending) return;
+    const location = pending?.location;
+    if (!pending || !location) return;
 
     const granted = await LocationPermissionService.ensurePermissionWithRationale('location_offers');
     const nextStatus = await LocationPermissionService.syncOsPermissionStatus().catch(() => 'unavailable' as const);
@@ -461,7 +468,7 @@ export function GoalDetailScreen() {
       const nextUpdatedAt = new Date().toISOString();
       updateActivity(pending.activityId, (activity) => ({
         ...activity,
-        location: pending.location,
+        location,
         updatedAt: nextUpdatedAt,
       }));
       showToast({ message: 'Location trigger ready', variant: 'success', durationMs: 2200 });
@@ -524,7 +531,6 @@ export function GoalDetailScreen() {
     initialReservedHeightPx: quickAddInitialReservedHeightPx,
     toastBottomOffsetOverridePx: quickAddToastBottomOffsetPx,
     focusAfterSubmit: false,
-    locationTriggersEnabled: quickAddLocationTriggersEnabled,
     onLocationTriggerRecommended: setPendingQuickAddLocationRecommendation,
     onCreated: (activity) => {
       capture(AnalyticsEvent.ActivityCreated, {
@@ -574,11 +580,7 @@ export function GoalDetailScreen() {
   }, [quickAddDueDateSheetVisible, quickAddEstimateSheetVisible, quickAddReminderSheetVisible, quickAddRepeatSheetVisible, setQuickAddFocused]);
 
   const getInitialQuickAddReminderDateTime = useCallback(() => {
-    if (quickAddReminderAt) return new Date(quickAddReminderAt);
-    const base = new Date();
-    base.setMinutes(0, 0, 0);
-    base.setHours(base.getHours() + 1);
-    return base;
+    return resolveInitialReminderDateTimeForPicker({ reminderAt: quickAddReminderAt });
   }, [quickAddReminderAt]);
 
   const setQuickAddReminderByOffsetDays = useCallback(
@@ -600,8 +602,7 @@ export function GoalDetailScreen() {
   }, [closeQuickAddToolDrawer, setQuickAddReminderAt]);
 
   const getInitialQuickAddDueDate = useCallback(() => {
-    if (quickAddScheduledDate) return new Date(quickAddScheduledDate);
-    return new Date();
+    return resolveInitialDueDateForPicker({ scheduledDate: quickAddScheduledDate });
   }, [quickAddScheduledDate]);
 
   const setQuickAddDueDateByOffsetDays = useCallback(
@@ -1102,12 +1103,7 @@ export function GoalDetailScreen() {
   }, [goal?.id, updateGoal]);
 
   const getInitialGoalTargetDate = useCallback(() => {
-    const existing = goal?.targetDate ? Date.parse(goal.targetDate) : NaN;
-    if (Number.isFinite(existing)) return new Date(existing);
-    const fallback = new Date();
-    fallback.setDate(fallback.getDate() + 14);
-    fallback.setHours(23, 0, 0, 0);
-    return fallback;
+    return resolveInitialGoalTargetDateForPicker({ targetDate: goal?.targetDate });
   }, [goal?.targetDate]);
 
   const refineGoalLaunchContext = useMemo(
@@ -1124,63 +1120,18 @@ export function GoalDetailScreen() {
   const refineGoalWorkspaceSnapshot = useMemo(() => {
     const base =
       buildActivityCoachLaunchContext(goals, activities, goalId, arcs, undefined, undefined) ?? '';
-    const metricSummary =
-      goal?.metrics && goal.metrics.length > 0
-        ? goal.metrics
-            .slice(0, 3)
-            .map((m) => {
-              const kind = (m as any).kind ? ` kind:${(m as any).kind}` : '';
-              const target = typeof m.target === 'number' ? ` target:${m.target}` : '';
-              const unit = m.unit ? ` unit:${m.unit}` : '';
-              const milestoneDone = (m as any).completedAt ? ` done:true` : '';
-              return `- ${m.label}${kind}${target}${unit}${milestoneDone}`;
-            })
-            .join('\n')
-        : 'None';
-
-    const extraLines = [
-      '',
-      '---',
-      'TASK: refine the focused goal (do NOT create a different goal).',
-      'Return a revised GOAL_PROPOSAL_JSON that makes the goal more specific + timeboxed.',
-      'Prefer including both a structured targetDate and 1 metric in metrics if possible.',
-      '',
-      `Current targetDate: ${goal?.targetDate ?? 'None'}`,
-      'Current metrics:',
-      metricSummary,
-    ].join('\n');
-
-    return `${base}${extraLines}`;
+    return buildGoalRefinementPrompt({
+      workspaceSnapshot: base,
+      targetDate: goal?.targetDate,
+      metrics: goal?.metrics,
+    });
   }, [activities, arcs, goal?.metrics, goal?.targetDate, goalId, goals]);
 
   const handleApplyRefinedGoal = useCallback(
     (proposal: GoalProposalDraft) => {
       if (!goal?.id) return;
       const now = new Date().toISOString();
-      const nextTitle = typeof proposal.title === 'string' ? proposal.title.trim() : '';
-      const nextDescription =
-        typeof proposal.description === 'string' && proposal.description.trim().length > 0
-          ? proposal.description.trim()
-          : undefined;
-      const nextTargetDate = typeof proposal.targetDate === 'string' ? proposal.targetDate : undefined;
-      const nextMetrics = Array.isArray(proposal.metrics) ? proposal.metrics : undefined;
-      const nextPriority = proposal.priority;
-
-      updateGoal(goal.id, (prev) => {
-        const mergedTargetDate = nextTargetDate ?? prev.targetDate;
-        const mergedMetrics = nextMetrics ?? prev.metrics;
-        const hasQuality = Boolean(mergedTargetDate) && Array.isArray(mergedMetrics) && mergedMetrics.length > 0;
-        return {
-          ...prev,
-          title: nextTitle || prev.title,
-          description: typeof nextDescription === 'string' ? nextDescription : prev.description,
-          ...(nextTargetDate ? { targetDate: nextTargetDate } : null),
-          ...(nextMetrics ? { metrics: nextMetrics } : null),
-          ...(nextPriority !== undefined ? { priority: nextPriority } : null),
-          qualityState: hasQuality ? 'ready' : 'draft',
-          updatedAt: now,
-        };
-      });
+      updateGoal(goal.id, (prev) => mergeRefinedGoalProposal({ goal: prev, proposal, updatedAt: now }));
 
       showToast({ message: 'Goal refined', variant: 'success', durationMs: 2200 });
       setRefineGoalSheetVisible(false);
@@ -1463,131 +1414,29 @@ export function GoalDetailScreen() {
     setCompletedActivitiesExpanded((current) => !current);
   }, []);
 
-  const goalProgressSignals = useMemo<GoalProgressSignal[]>(() => {
-    const nowMs = Date.now();
-    const weekAgoMs = nowMs - 7 * 24 * 60 * 60 * 1000;
-    const targetDateLabelLocal = goal?.targetDate
-      ? new Date(goal.targetDate).toLocaleDateString(undefined, {
-          month: 'numeric',
-          day: 'numeric',
-          year: '2-digit',
-        })
-      : undefined;
-
-    const doneWithTimestamps = completedGoalActivities
-      .map((activity) => {
-        const completedAt = activity.completedAt ?? activity.updatedAt ?? activity.createdAt ?? null;
-        const completedAtMs = completedAt ? Date.parse(completedAt) : NaN;
-        return { activity, completedAtMs };
-      })
-      .filter((entry) => Number.isFinite(entry.completedAtMs));
-
-    const doneLast7Days = doneWithTimestamps.filter((entry) => entry.completedAtMs >= weekAgoMs).length;
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayStartMs = todayStart.getTime();
-
-    const nextScheduled = goalActivities
-      .map((activity) => {
-        const scheduledAt = activity.scheduledDate ?? null;
-        const scheduledAtMs = scheduledAt ? Date.parse(scheduledAt) : NaN;
-        return { scheduledAt, scheduledAtMs };
-      })
-      .filter((entry) => Number.isFinite(entry.scheduledAtMs) && entry.scheduledAtMs >= todayStartMs)
-      .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs)[0]?.scheduledAt;
-
-    const nextScheduledLabel = nextScheduled
-      ? (() => {
-          const d = new Date(nextScheduled);
-          const diffDays = Math.round((d.getTime() - todayStartMs) / (24 * 60 * 60 * 1000));
-          if (diffDays === 0) return 'Today';
-          if (diffDays === 1) return 'Tomorrow';
-          return d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
-        })()
-      : null;
-
-    const targetValue = (() => {
-      if (!goal?.targetDate) return 'No date';
-      const targetMs = Date.parse(goal.targetDate);
-      if (!Number.isFinite(targetMs)) return targetDateLabelLocal ?? 'No date';
-      const diffDays = Math.ceil((targetMs - nowMs) / (24 * 60 * 60 * 1000));
-      const absDiff = Math.abs(diffDays);
-      // When it's close, show a countdown; otherwise show the date label.
-      if (absDiff <= 21) {
-        if (diffDays === 0) return 'Due today';
-        if (diffDays > 0) return `${diffDays}d left`;
-        return `${absDiff}d overdue`;
-      }
-      return (
-        targetDateLabelLocal ??
-        new Date(goal.targetDate).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' })
-      );
-    })();
-    const targetValueColor =
-      typeof targetValue === 'string' && targetValue.includes('overdue')
-        ? colors.destructive
-        : targetValue === 'No date'
-          ? colors.gray600
-          : typeof targetValue === 'string' && (targetValue.includes('left') || targetValue.includes('Due today'))
-            ? colors.indigo600
-            : colors.textPrimary;
-    const momentumValueColor = doneLast7Days > 0 ? colors.indigo600 : colors.gray600;
-
-    const signals: GoalProgressSignal[] = [
-      {
-        id: 'goal-signal-plan',
-        value: `${completedGoalActivities.length}/${goalActivities.length}`,
-        label: 'Done',
-        accessibilityLabel: `Plan: ${completedGoalActivities.length} of ${goalActivities.length} done`,
-        valueColor:
-          goalActivities.length > 0 && completedGoalActivities.length === goalActivities.length
-            ? colors.indigo600
-            : colors.textPrimary,
-      },
-      {
-        id: 'goal-signal-momentum',
-        value: `${doneLast7Days}`,
-        label: 'This week',
-        accessibilityLabel: `${doneLast7Days} activities done in the last 7 days`,
-        valueColor: momentumValueColor,
-      },
-      {
-        id: 'goal-signal-target',
-        value: targetValue,
-        label: 'Finish by',
-        onPress: () => {
-          setGoalTargetDateSheetStep('menu');
-          setGoalTargetDateSheetVisible(true);
-        },
-        accessibilityLabel: `Finish by: ${targetValue}. Tap to set a finish date.`,
-        valueColor: targetValueColor,
-      },
-    ];
-
-    if (nextScheduledLabel) {
-      signals.push({
-        id: 'goal-signal-next',
-        value: nextScheduledLabel,
-        label: 'Next',
-      });
-    }
-
-    return signals;
-  }, [completedGoalActivities, goal, goalActivities]);
-  const firstPlanActivityId = useMemo(() => {
-    const list = [...activeGoalActivities];
-    if (list.length === 0) return goalActivities[0]?.id ?? null;
-    list.sort((a, b) => {
-      const orderA = a.orderIndex ?? Number.MAX_SAFE_INTEGER;
-      const orderB = b.orderIndex ?? Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      const createdA = a.createdAt ?? '';
-      const createdB = b.createdAt ?? '';
-      return createdA.localeCompare(createdB);
-    });
-    return list[0]?.id ?? null;
-  }, [activeGoalActivities, goalActivities]);
+  const goalProgressSignals = useMemo<GoalProgressSignal[]>(
+    () =>
+      buildGoalProgressSignalSummaries({
+        goal,
+        goalActivities,
+        completedGoalActivities,
+      }).map((signal) =>
+        signal.id === 'goal-signal-target'
+          ? {
+              ...signal,
+              onPress: () => {
+                setGoalTargetDateSheetStep('menu');
+                setGoalTargetDateSheetVisible(true);
+              },
+            }
+          : signal
+      ),
+    [completedGoalActivities, goal, goalActivities]
+  );
+  const firstPlanActivityId = useMemo(
+    () => selectFirstGoalPlanActivityId(goalActivities),
+    [goalActivities],
+  );
 
   const handleToggleActivityComplete = useCallback(
     (activityId: string) => {
@@ -2700,35 +2549,6 @@ export function GoalDetailScreen() {
           </Button>
         </HStack>
       </BottomGuide>
-      <BottomGuide
-        visible={Boolean(pendingQuickAddLocationRecommendation)}
-        onClose={() => setPendingQuickAddLocationRecommendation(null)}
-        scrim="light"
-        snapPoints={['34%']}
-      >
-        <Heading variant="sm">Use location to make this automatic</Heading>
-        <Text style={styles.onboardingGuideBody}>
-          Kwilt can use this location to nudge you{' '}
-          {pendingQuickAddLocationRecommendation?.location.trigger === 'arrive'
-            ? 'when you arrive'
-            : 'when you leave'}
-          , so the to-do shows up at the moment it matters.
-        </Text>
-        <HStack space="sm" marginTop={spacing.sm} justifyContent="flex-end">
-          <Button
-            variant="outline"
-            onPress={() => setPendingQuickAddLocationRecommendation(null)}
-          >
-            <Text style={styles.onboardingGuideSecondaryLabel}>Keep regular to-do</Text>
-          </Button>
-          <Button
-            variant="turmeric"
-            onPress={() => void handleUseQuickAddLocationTrigger()}
-          >
-            <Text style={styles.onboardingGuidePrimaryLabel}>Use location triggers</Text>
-          </Button>
-        </HStack>
-      </BottomGuide>
       <Coachmark
         visible={addActivitiesCoachmarkHost.coachmarkVisible}
         targetRef={addActivitiesButtonRef}
@@ -3164,6 +2984,15 @@ export function GoalDetailScreen() {
                           onSelectedAiActionsChange={setQuickAddAiActions}
                           lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
                           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
+                          placeReceipt={pendingQuickAddLocationRecommendation}
+                          onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
+                          onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
+                          onReviewPlaceReceipt={() => {
+                            const pending = pendingQuickAddLocationRecommendation;
+                            if (!pending) return;
+                            setPendingQuickAddLocationRecommendation(null);
+                            handleOpenActivityDetail(pending.activityId);
+                          }}
                         />
                       </View>
                     </>
@@ -3207,6 +3036,15 @@ export function GoalDetailScreen() {
                           onSelectedAiActionsChange={setQuickAddAiActions}
                           lockedAiActions={isPro ? undefined : { cover_image: 'Pro' }}
                           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
+                          placeReceipt={pendingQuickAddLocationRecommendation}
+                          onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
+                          onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
+                          onReviewPlaceReceipt={() => {
+                            const pending = pendingQuickAddLocationRecommendation;
+                            if (!pending) return;
+                            setPendingQuickAddLocationRecommendation(null);
+                            handleOpenActivityDetail(pending.activityId);
+                          }}
                         />
                       </View>
 

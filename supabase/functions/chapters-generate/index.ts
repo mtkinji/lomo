@@ -37,20 +37,20 @@ import {
   containsHealthKeyword,
 } from '../_shared/chapterHealth.ts';
 import {
-  allowedUnanchoredStoryParagraphs,
-  countQuotedTitles,
+  buildValidationRepairInstruction,
   countQuoteableActivityTitles,
   findMismatchedCompletionCount,
-  paragraphHasAnchor,
   resolveCitedExampleRequirement,
   resolveQuotedTitleRequirement,
   shouldRequireVerbatimUserNote,
+  stripGroundedTextForHealthScan,
   splitParagraphs,
 } from '../_shared/chapterOutputValidation.ts';
 import type {
   ChapterHealthBlock,
   HealthDailyRow,
 } from '../_shared/chapterHealth.ts';
+import { buildChapterOpenAiRequestBody } from './chapterOpenAiRequest.ts';
 
 type TemplateKind = 'reflection' | 'report';
 
@@ -1128,26 +1128,6 @@ function resolveChaptersModel(): string {
   return raw || 'gpt-4o';
 }
 
-// Words / phrases the prompt already bans. We also enforce them in the
-// validator so a model slip doesn't ship.
-const BANNED_DEK_WORDS = [
-  'meaningful',
-  'remarkable',
-  'meaningfully',
-  'growth',
-  'balance',
-  'journey',
-  'harnessing',
-];
-
-const BANNED_DEK_PHRASES = [
-  'this chapter highlights',
-  'reflecting on',
-  'a week of growth',
-  'meaningful activities',
-  'personal and professional',
-];
-
 // Phase 8 of docs/chapters-plan.md — the continuity-citation sentence
 // for `acted_on` Next Step outcomes must read as investigative
 // reporter, not as a high-five. These phrases anywhere in the opening
@@ -1167,23 +1147,6 @@ const BANNED_CONTINUITY_PRAISE_PHRASES = [
 
 const BANNED_TITLE_PREFIX_RE =
   /^\s*(reflections?\s+on|this\s+(week|month|year)|your\s+(week|month|year)|progress\s+report|weekly\s+recap|weekly\s+report|weekly\s+reflection|monthly\s+reflection)\b/i;
-
-function resolveMaxOutputTokens(params: { detailLevel: string | null; kind: TemplateKind }): number {
-  const dl = (params.detailLevel ?? '').trim().toLowerCase();
-  const base = params.kind === 'report' ? 900 : 1100;
-  if (dl === 'short') return Math.min(800, base);
-  if (dl === 'deep') return Math.max(1600, base + 500);
-  // medium/default
-  return base;
-}
-
-function resolveTemperature(kind: TemplateKind, tone: string | null): number {
-  if (kind === 'report') return 0.25;
-  const t = (tone ?? '').trim().toLowerCase();
-  if (t === 'direct') return 0.45;
-  if (t === 'playful') return 0.8;
-  return 0.65; // gentle/neutral/default
-}
 
 type PriorChapterArc = {
   arc_id: string | null;
@@ -1313,6 +1276,7 @@ function buildWritingRequirements(params: {
    */
   hasHealth: boolean;
   quoteableActivityTitleCount: number;
+  citedActivityIdCount: number;
   completedActivityCount: number;
 }) {
   const {
@@ -1323,6 +1287,7 @@ function buildWritingRequirements(params: {
     hasNotes,
     hasHealth,
     quoteableActivityTitleCount,
+    citedActivityIdCount,
     completedActivityCount,
   } = params;
 
@@ -1340,6 +1305,11 @@ function buildWritingRequirements(params: {
     cadence,
     strict: stricter,
     quoteableActivityTitleCount,
+  });
+  const citedExampleRequirement = resolveCitedExampleRequirement({
+    cadence,
+    strict: stricter,
+    availableExampleCount: citedActivityIdCount,
   });
   const paragraphAnchorRule = isShortForm
     ? `Anchor rule: nearly every paragraph in story.body must include a concrete anchor: (a) a number from metrics, OR (b) a quoted activity title, OR (c) a named arc or goal title from stable_context. At most one short interpretive paragraph may omit the anchor if the surrounding paragraphs are concrete.`
@@ -1391,7 +1361,9 @@ function buildWritingRequirements(params: {
     `Headline ban: title must not start with "Reflection(s) on", "A week of", "This week/month/year", "Progress Report", "Weekly Recap", "Weekly Report", "Weekly Reflection", or "Monthly Reflection".`,
     `Headline rules: 4–12 words, no date strings, no cadence labels, no colons unless essential. It must be a real headline.`,
     `Dek rule: 1–2 sentences, concrete, metric- or evidence-anchored.`,
-    `Include at least ${resolveCitedExampleRequirement({ cadence, strict: stricter })} cited activity examples drawn from evidence.noteworthy_examples (and add their ids to citations.examples_used).`,
+    citedExampleRequirement > 0
+      ? `Include at least ${citedExampleRequirement} cited activity examples drawn from evidence.noteworthy_examples first, then evidence.activities_full if more ids are needed (and add their ids to citations.examples_used).`
+      : `No cited activity examples are required because this period has no activity evidence; citations.examples_used may be an empty array.`,
     `Do not use numbered lists in the article body.`,
     `If there are "quiet" arcs/goals (low activity), mention neutrally (no shame).`,
   ];
@@ -1412,7 +1384,7 @@ function buildWritingRequirements(params: {
   const captionRules = [
     `sections.signal.caption MUST be 1–3 sentences summarizing the SINGLE top story hook of the period in reader-facing prose.`,
     `Caption constraints: length 80–320 characters. Must NOT exceed 320 characters.`,
-    `Caption anchors (ALL THREE required): (a) at least ONE quoted activity title from evidence.activities_full wrapped in double quotes; (b) at least ONE Arc name from stable_context by its exact title; (c) at least ONE number from metrics.`,
+    `Caption anchors: include at least ONE Arc name from stable_context by its exact title and at least ONE number from metrics. Quote one activity title from evidence.activities_full when it fits naturally, but do not force the caption around a title if the story hook is clearer without it.`,
     `Caption voice: same investigative reporter voice as story.body. Do NOT say "this chapter highlights", "this week's chapter", "in this chapter", or any meta-framing. Write the hook directly.`,
     `Caption alignment: the caption must reflect the same story hook as chosen_hook_id. Reader opens caption → reads story; voice + angle are continuous.`,
     `Caption anti-spoiler rule: do not re-use the dek verbatim. Dek is a news dek; caption is a lede for a mobile reader.`,
@@ -1451,12 +1423,14 @@ function buildChapterPrompt(params: {
   };
   priorChapter: PriorChapterContext;
   stricter?: boolean;
+  validationError?: string | null;
 }) {
-  const { template, period, periodLabel, metrics, stableContext, evidence, priorChapter, stricter } = params;
+  const { template, period, periodLabel, metrics, stableContext, evidence, priorChapter, stricter, validationError } = params;
   const tz = validZoneOrUtc(template.timezone);
   const kind = template.kind;
   const tone = (template.tone ?? '').trim() || (kind === 'report' ? 'neutral' : 'gentle');
   const detail = (template.detail_level ?? '').trim() || 'medium';
+  const validationRepair = stricter ? buildValidationRepairInstruction(validationError) : '';
   const hasNotes = Array.isArray(evidence.activities_full) &&
     evidence.activities_full.some((a: any) => typeof a?.notes_snippet === 'string' && a.notes_snippet.trim().length > 0);
   const quoteableActivityTitleCount = countQuoteableActivityTitles(
@@ -1464,6 +1438,13 @@ function buildChapterPrompt(params: {
       ? evidence.activities_full.map((a: any) => (typeof a?.title === 'string' ? a.title : ''))
       : [],
   );
+  const citedActivityIdCount = new Set(
+    Array.isArray(evidence.activities_full)
+      ? evidence.activities_full
+          .map((a) => (typeof a?.activity_id === 'string' ? a.activity_id.trim() : ''))
+          .filter(Boolean)
+      : [],
+  ).size;
 
   const writing = buildWritingRequirements({
     cadence: template.cadence,
@@ -1473,6 +1454,7 @@ function buildChapterPrompt(params: {
     hasNotes,
     hasHealth: Boolean((metrics as any)?.health),
     quoteableActivityTitleCount,
+    citedActivityIdCount,
     completedActivityCount: metrics.activities.completed_count,
   });
 
@@ -1489,6 +1471,7 @@ function buildChapterPrompt(params: {
     stricter
       ? `STRICTER RETRY: your previous attempt was rejected by the validator. Every rule below is now enforced. Be concrete, quote activity titles, name Arcs, and open with the chosen story hook.`
       : ``,
+    validationRepair ? `VALIDATION REPAIR: ${validationRepair}` : ``,
   ].filter(Boolean).join('\n');
 
   const user = {
@@ -1520,6 +1503,7 @@ function buildChapterPrompt(params: {
       citations: { metrics_used: true, examples_used: ['activity_id'] },
     },
     writing_requirements: writing,
+    validation_repair: validationRepair || undefined,
   };
 
   return {
@@ -1552,16 +1536,12 @@ async function callOpenAiForChapter(params: {
   };
   priorChapter: PriorChapterContext;
   stricter?: boolean;
+  validationError?: string | null;
 }) {
   const key = (Deno.env.get('OPENAI_API_KEY') ?? '').trim();
   if (!key) return { ok: false as const, error: 'OPENAI_API_KEY not set' };
 
   const model = resolveChaptersModel();
-  let maxTokens = resolveMaxOutputTokens({ detailLevel: params.template.detail_level, kind: params.template.kind });
-  maxTokens = Math.max(maxTokens, params.metrics.period_days >= 180 ? 1900 : 1200);
-  // Slightly cooler on stricter retries to trade creativity for rule-adherence.
-  const baseTemperature = resolveTemperature(params.template.kind, params.template.tone);
-  const temperature = params.stricter ? Math.max(0.2, baseTemperature - 0.2) : baseTemperature;
   const prompt = buildChapterPrompt({
     template: params.template,
     period: params.period,
@@ -1571,15 +1551,20 @@ async function callOpenAiForChapter(params: {
     evidence: params.evidence,
     priorChapter: params.priorChapter,
     stricter: params.stricter,
+    validationError: params.validationError,
   });
 
-  const body = {
+  const body = buildChapterOpenAiRequestBody({
     model,
     messages: prompt.messages,
-    temperature,
-    max_tokens: maxTokens,
-    response_format: { type: 'json_object' },
-  };
+    template: {
+      kind: params.template.kind,
+      detailLevel: params.template.detail_level,
+      tone: params.template.tone,
+    },
+    periodDays: params.metrics.period_days,
+    stricter: params.stricter,
+  });
 
   const startedAt = Date.now();
   const resp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1679,18 +1664,6 @@ function validateChapterOutput(params: {
   const titleWordCount = title.split(/\s+/).filter(Boolean).length;
   if (titleWordCount < 3) return { ok: false, error: 'Title too short (min 3 words)' };
 
-  const dekLc = dek.toLowerCase();
-  const titleLc = title.toLowerCase();
-  for (const phrase of BANNED_DEK_PHRASES) {
-    if (dekLc.includes(phrase)) return { ok: false, error: `Dek contains banned phrase: "${phrase}"` };
-    if (titleLc.includes(phrase)) return { ok: false, error: `Title contains banned phrase: "${phrase}"` };
-  }
-  for (const word of BANNED_DEK_WORDS) {
-    const re = new RegExp(`\\b${word}\\b`, 'i');
-    if (re.test(dek)) return { ok: false, error: `Dek contains banned word: "${word}"` };
-    if (re.test(title)) return { ok: false, error: `Title contains banned word: "${word}"` };
-  }
-
   const p = out?.period;
   if (!p || typeof p !== 'object') return { ok: false, error: 'Output missing period' };
   if (typeof p.start !== 'string' || typeof p.end !== 'string' || typeof p.label !== 'string') {
@@ -1735,17 +1708,6 @@ function validateChapterOutput(params: {
     return { ok: false, error: `sections.signal.caption is too long (> 320 chars; got ${caption.length})` };
   }
   const captionLc = caption.toLowerCase();
-  for (const phrase of BANNED_DEK_PHRASES) {
-    if (captionLc.includes(phrase)) {
-      return { ok: false, error: `sections.signal.caption contains banned phrase: "${phrase}"` };
-    }
-  }
-  for (const word of BANNED_DEK_WORDS) {
-    const re = new RegExp(`\\b${word}\\b`, 'i');
-    if (re.test(caption)) {
-      return { ok: false, error: `sections.signal.caption contains banned word: "${word}"` };
-    }
-  }
   // Meta-framing rejections (caption must read as article lede, not as a
   // description of the chapter itself).
   const metaPhrases = ['this chapter', 'this week\u2019s chapter', "this week's chapter", 'in this chapter', 'this report'];
@@ -1776,53 +1738,8 @@ function validateChapterOutput(params: {
     }
   }
 
-  // Banned phrases/words in the body too.
-  for (const phrase of BANNED_DEK_PHRASES) {
-    if (body.toLowerCase().includes(phrase)) {
-      return { ok: false, error: `story.body contains banned phrase: "${phrase}"` };
-    }
-  }
-
-  // Per-paragraph anchor check.
   const paragraphs = splitParagraphs(body);
   const activityTitles = Array.from(activityTitlesById.values());
-  const allowedUnanchored = allowedUnanchoredStoryParagraphs(cadence);
-  const unanchoredParagraphs: number[] = [];
-  for (let i = 0; i < paragraphs.length; i += 1) {
-    const para = paragraphs[i];
-    // Let the very first paragraph slip if needed, but after that, enforce.
-    if (i === 0) continue;
-    if (!paragraphHasAnchor({ paragraph: para, arcTitles, goalTitles, activityTitles })) {
-      unanchoredParagraphs.push(i + 1);
-    }
-  }
-  if (unanchoredParagraphs.length > allowedUnanchored) {
-    return {
-      ok: false,
-      error: `story.body paragraph ${unanchoredParagraphs[0]} lacks a concrete anchor (number, quoted title, or named arc/goal)`,
-    };
-  }
-
-  // Quoted-title count.
-  const minQuoted = resolveQuotedTitleRequirement({
-    cadence,
-    strict,
-    quoteableActivityTitleCount: countQuoteableActivityTitles(activityTitles),
-  });
-  const quotedCount = countQuotedTitles(body, activityTitles);
-  if (quotedCount < minQuoted) {
-    return {
-      ok: false,
-      error: `story.body must quote at least ${minQuoted} activity titles verbatim; found ${quotedCount}`,
-    };
-  }
-
-  // At least one Arc named in body.
-  if (arcTitles.length > 0) {
-    const lc = body.toLowerCase();
-    const mentioned = arcTitles.some((t) => t && lc.includes(t.toLowerCase()));
-    if (!mentioned) return { ok: false, error: 'story.body must name at least one Arc from stable_context' };
-  }
 
   const validForceLabels = Array.isArray(forceLabels)
     ? forceLabels.filter((label) => typeof label === 'string' && label.trim().length > 0)
@@ -1844,24 +1761,6 @@ function validateChapterOutput(params: {
     }
   }
 
-  // Phase 3.1 caption anchor checks (run here, after arcTitles/activityTitles
-  // are hoisted for story.body validation). Caption must quote at least one
-  // activity title, name at least one Arc, and include at least one number.
-  if (!/\d/.test(caption)) {
-    return { ok: false, error: 'sections.signal.caption must include at least one number from metrics' };
-  }
-  if (arcTitles.length > 0) {
-    const capLc = caption.toLowerCase();
-    const arcMentioned = arcTitles.some((t) => t && capLc.includes(t.toLowerCase()));
-    if (!arcMentioned) {
-      return { ok: false, error: 'sections.signal.caption must name at least one Arc from stable_context' };
-    }
-  }
-  // Require at least one quoted activity title (tolerates smart quotes).
-  const captionQuotedCount = countQuotedTitles(caption, activityTitles);
-  if (activityTitles.length > 0 && captionQuotedCount < 1) {
-    return { ok: false, error: 'sections.signal.caption must quote at least one activity title verbatim' };
-  }
   // Anti-spoiler: caption must not be byte-for-byte identical to the dek.
   if (caption === dek) {
     return { ok: false, error: 'sections.signal.caption must not be identical to dek' };
@@ -1874,14 +1773,26 @@ function validateChapterOutput(params: {
   // anchor rule still requires a number/title/Arc, so health prose must
   // cite concrete evidence instead of floating as interpretation.
   if (hasHealth === false) {
-    if (containsHealthKeyword(caption)) {
+    const healthCaptionScanText = stripGroundedTextForHealthScan({
+      text: caption,
+      activityTitles,
+      arcTitles,
+      goalTitles,
+    });
+    const healthBodyScanText = stripGroundedTextForHealthScan({
+      text: body,
+      activityTitles,
+      arcTitles,
+      goalTitles,
+    });
+    if (containsHealthKeyword(healthCaptionScanText)) {
       return {
         ok: false,
         error:
           'sections.signal.caption mentions health/sleep/movement/mindfulness but metrics.health is not attached — the generator has no evidence to support that claim',
       };
     }
-    if (containsHealthKeyword(body)) {
+    if (containsHealthKeyword(healthBodyScanText)) {
       return {
         ok: false,
         error:
@@ -1910,7 +1821,11 @@ function validateChapterOutput(params: {
   if (citations.metrics_used !== true) return { ok: false, error: 'citations.metrics_used must be true' };
   const examplesUsed = Array.isArray(citations.examples_used) ? citations.examples_used : null;
   if (!examplesUsed) return { ok: false, error: 'citations.examples_used must be an array' };
-  const minExamples = resolveCitedExampleRequirement({ cadence, strict });
+  const minExamples = resolveCitedExampleRequirement({
+    cadence,
+    strict,
+    availableExampleCount: allowedActivityIds.size,
+  });
   if (examplesUsed.length < minExamples) {
     return { ok: false, error: `citations.examples_used must include at least ${minExamples} activity ids` };
   }
@@ -2277,6 +2192,8 @@ async function upsertChapter(
 type ManualBody = {
   template_id?: unknown;
   templateId?: unknown; // backward compat
+  user_id?: unknown;
+  userId?: unknown; // admin rerun naming
   limit?: unknown;
   force?: unknown;
   skip_email?: unknown;
@@ -2290,6 +2207,24 @@ type ManualBody = {
   periodEnd?: unknown; // backward compat
   periodKey?: unknown; // backward compat (ignored for new manual key)
 };
+
+function requireAdminRerunUserId(req: Request, body: ManualBody | null): string | null {
+  const secret = (Deno.env.get('KWILT_CHAPTERS_RERUN_SECRET') ?? '').trim();
+  if (!secret) return null;
+  const token = (req.headers.get('x-kwilt-rerun-secret') ?? '').trim();
+  if (token !== secret) return null;
+
+  const raw =
+    typeof body?.user_id === 'string'
+      ? body.user_id
+      : typeof body?.userId === 'string'
+        ? body.userId
+        : '';
+  const userId = raw.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+    ? userId
+    : null;
+}
 
 function normalizeManualHealthRows(raw: unknown): HealthDailyRow[] | null {
   if (!Array.isArray(raw)) return null;
@@ -2336,7 +2271,7 @@ serve(async (req) => {
   const isManual = req.method === 'POST';
   const body = (isManual ? ((await req.json().catch(() => null)) as ManualBody | null) : null) ?? null;
 
-  const manualUserId = isManual ? await requireUserId(req) : null;
+  const manualUserId = isManual ? (requireAdminRerunUserId(req, body) ?? await requireUserId(req)) : null;
   if (isManual && !manualUserId) {
     return json(401, { error: { message: 'Unauthorized' } });
   }
@@ -2368,6 +2303,12 @@ serve(async (req) => {
       : typeof (body as any)?.periodEnd === 'string'
         ? String((body as any).periodEnd).trim()
         : '';
+  const periodKeyOverride =
+    isManual && requireAdminRerunUserId(req, body)
+      ? typeof body?.periodKey === 'string'
+        ? body.periodKey.trim()
+        : ''
+      : '';
 
   const templateParams = {
     templateId: templateIdRaw && templateIdRaw.length > 0 ? templateIdRaw : null,
@@ -2410,9 +2351,12 @@ serve(async (req) => {
       continue;
     }
 
-    const period = startDate && endDate
+    const parsedPeriod = startDate && endDate
       ? parseManualRange({ timezone: t.timezone, startDate, endDate })
       : nthCompletePeriod({ cadence: t.cadence, timezone: t.timezone, offset: periodOffset });
+    const period = parsedPeriod && periodKeyOverride
+      ? { ...parsedPeriod, key: periodKeyOverride }
+      : parsedPeriod;
     if (!period) {
       results.push({ templateId: t.id, userId: t.user_id, ok: false, action: 'failed', error: 'invalid period' });
       continue;
@@ -2676,7 +2620,7 @@ serve(async (req) => {
       .map((a) => (typeof a?.notes_snippet === 'string' ? a.notes_snippet : ''))
       .filter((s) => s.trim().length > 0);
 
-    const runOnce = async (stricter: boolean) =>
+    const runOnce = async (stricter: boolean, validationError?: string | null) =>
       callOpenAiForChapter({
         template: t,
         period,
@@ -2693,6 +2637,7 @@ serve(async (req) => {
         },
         priorChapter,
         stricter,
+        validationError,
       });
 
     const validate = (out: any, strict: boolean) =>
@@ -2735,7 +2680,7 @@ serve(async (req) => {
       if (!validation.ok) {
         // Retry once with a stricter prompt variant — stronger enforcement +
         // lower temperature — before we write `failed`.
-        const retry = await runOnce(true);
+        const retry = await runOnce(true, validation.error);
         if (retry.ok) {
           const revalidation = validate(retry.outputJson, true);
           if (revalidation.ok) {
@@ -2753,6 +2698,25 @@ serve(async (req) => {
           finalError = `AI output validation failed: ${validation.error} (retry error: ${retry.error})`;
           outputJson = null;
         }
+      }
+    } else {
+      const retry = await runOnce(true, aiRes.error);
+      if (retry.ok) {
+        const revalidation = validate(retry.outputJson, true);
+        if (revalidation.ok) {
+          aiRes = retry;
+          outputJson = retry.outputJson;
+          finalOk = true;
+          finalError = null;
+        } else {
+          finalOk = false;
+          finalError = `AI output validation failed after retry: ${revalidation.error} (first error: ${aiRes.error})`;
+          outputJson = null;
+        }
+      } else {
+        finalOk = false;
+        finalError = `AI generation failed after retry: ${retry.error} (first error: ${aiRes.error})`;
+        outputJson = null;
       }
     }
 
