@@ -114,6 +114,7 @@ import { AgentModeHeader } from '../../ui/AgentModeHeader';
 import { ActivityDraftDetailFields, type ActivityDraft } from './ActivityDraftDetailFields';
 import { ActivityCoachDrawer, SheetOption } from './ActivityCoachDrawer';
 import { CompletedActivitySection } from './CompletedActivitySection';
+import { ActivityInventoryRow } from './ActivityInventoryRow';
 import { ViewMenuItem } from './ViewMenuItem';
 import { TagGroupMenuItems } from './TagGroupMenuItems';
 import { TagGroupsDrawer } from './TagGroupsDrawer';
@@ -257,24 +258,6 @@ type InventoryScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
 
 function isPrioritySort(sortConditions: SortCondition[]): boolean {
   return sortConditions[0]?.field === 'priority';
-}
-
-function isTopPriorityBandIndicator(indicator?: ActivityPriorityIndicator | null): boolean {
-  return (
-    indicator?.label === '#1' ||
-    indicator?.label === '#2' ||
-    indicator?.label === '#3'
-  );
-}
-
-function getTopPriorityBandRowStyle(indicator?: ActivityPriorityIndicator | null) {
-  if (!isTopPriorityBandIndicator(indicator)) return null;
-
-  return [
-    styles.topPriorityBandRow,
-    indicator?.label === '#1' ? styles.topPriorityBandFirstRow : null,
-    indicator?.label === '#3' ? styles.topPriorityBandLastRow : null,
-  ];
 }
 
 export function ActivitiesScreen() {
@@ -1289,7 +1272,9 @@ export function ActivitiesScreen() {
     return enrichingActivityIdsRef.current.has(activityId);
   }, []);
 
-  const quickAddCompactBottomOffsetPx = Math.max(insets.bottom + spacing.sm, spacing.md);
+  // The Option G shell has no bottom nav. Keep the collapsed pill low, but
+  // leave enough breathing room to follow the iPhone's bottom-corner curve.
+  const quickAddCompactBottomOffsetPx = spacing.xl;
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
     : quickAddCompactBottomOffsetPx;
@@ -3220,41 +3205,33 @@ export function ActivitiesScreen() {
               priorityIndicator,
               hasNextItem: index < activeActivities.length - 1,
             });
-            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
-
             return (
-              <View style={[
-                { paddingBottom: rowGap },
-                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
-                topPriorityBandRowStyle,
-                isDragging && { opacity: 0.9, shadowColor: colors.textPrimary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
-              ]}>
-                <ActivityListItem
-                  title={activity.title}
-                  meta={meta}
-                  estimateMeta={estimateMeta}
-                  metaTone={metaTone}
-                  priorityIndicator={priorityIndicator}
-                  metaLoading={metaLoading}
-                  isCompleted={activity.status === 'done'}
-                  onToggleComplete={isDragging ? undefined : () => handleToggleComplete(activity.id)}
-                  isPriorityOne={activity.priority === 1}
-                  onTogglePriority={isDragging ? undefined : () => handleTogglePriorityOne(activity.id)}
-                  onStartFocus={isDragging ? undefined : () => openActivityFocus(activity.id)}
-                  onSchedule={isDragging ? undefined : () => openActivitySchedule(activity.id)}
-                  onPress={isDragging ? undefined : () => navigateToActivityDetail(activity.id)}
-                  onDelete={isDragging ? undefined : () => handleDeleteActivity(activity)}
-                  isDueToday={isDueToday}
-                  isGhost={
-                    sessionCreatedIdsForGhostContext.has(activity.id) &&
-                    QueryService.applyActivityFilters(
-                      [activity],
-                      filterGroups,
-                      effectiveFilterGroupLogic,
-                    ).length === 0
-                  }
-                />
-              </View>
+              <ActivityInventoryRow
+                activity={activity}
+                meta={meta}
+                estimateMeta={estimateMeta}
+                metaTone={metaTone}
+                priorityIndicator={priorityIndicator}
+                metaLoading={metaLoading}
+                isDueToday={Boolean(isDueToday)}
+                rowGap={rowGap}
+                rowOuterGap={rowOuterGap}
+                isDragging={isDragging}
+                isGhost={
+                  sessionCreatedIdsForGhostContext.has(activity.id) &&
+                  QueryService.applyActivityFilters(
+                    [activity],
+                    filterGroups,
+                    effectiveFilterGroupLogic,
+                  ).length === 0
+                }
+                onToggleComplete={handleToggleComplete}
+                onTogglePriority={handleTogglePriorityOne}
+                onStartFocus={openActivityFocus}
+                onSchedule={openActivitySchedule}
+                onPressActivity={navigateToActivityDetail}
+                onDeleteActivity={handleDeleteActivity}
+              />
             );
           }}
           ListHeaderComponent={activityListHeader}
@@ -3329,40 +3306,33 @@ export function ActivitiesScreen() {
               priorityIndicator,
               hasNextItem: index < activeActivities.length - 1,
             });
-            const topPriorityBandRowStyle = getTopPriorityBandRowStyle(priorityIndicator);
-
             return (
-              <View style={[
-                { paddingBottom: rowGap },
-                rowOuterGap > 0 ? { marginBottom: rowOuterGap } : null,
-                topPriorityBandRowStyle,
-              ]}>
-                <ActivityListItem
-                  title={activity.title}
-                  meta={meta}
-                  estimateMeta={estimateMeta}
-                  metaTone={metaTone}
-                  priorityIndicator={priorityIndicator}
-                  metaLoading={metaLoading}
-                  isCompleted={activity.status === 'done'}
-                  onToggleComplete={() => handleToggleComplete(activity.id)}
-                  isPriorityOne={activity.priority === 1}
-                  onTogglePriority={() => handleTogglePriorityOne(activity.id)}
-                  onStartFocus={() => openActivityFocus(activity.id)}
-                  onSchedule={() => openActivitySchedule(activity.id)}
-                  onPress={() => navigateToActivityDetail(activity.id)}
-                  onDelete={() => handleDeleteActivity(activity)}
-                  isDueToday={isDueToday}
-                  isGhost={
-                    sessionCreatedIdsForGhostContext.has(activity.id) &&
-                    QueryService.applyActivityFilters(
-                      [activity],
-                      filterGroups,
-                      effectiveFilterGroupLogic,
-                    ).length === 0
-                  }
-                />
-              </View>
+              <ActivityInventoryRow
+                activity={activity}
+                meta={meta}
+                estimateMeta={estimateMeta}
+                metaTone={metaTone}
+                priorityIndicator={priorityIndicator}
+                metaLoading={metaLoading}
+                isDueToday={Boolean(isDueToday)}
+                rowGap={rowGap}
+                rowOuterGap={rowOuterGap}
+                isDragging={false}
+                isGhost={
+                  sessionCreatedIdsForGhostContext.has(activity.id) &&
+                  QueryService.applyActivityFilters(
+                    [activity],
+                    filterGroups,
+                    effectiveFilterGroupLogic,
+                  ).length === 0
+                }
+                onToggleComplete={handleToggleComplete}
+                onTogglePriority={handleTogglePriorityOne}
+                onStartFocus={openActivityFocus}
+                onSchedule={openActivitySchedule}
+                onPressActivity={navigateToActivityDetail}
+                onDeleteActivity={handleDeleteActivity}
+              />
             );
           }}
           ListHeaderComponent={activityListHeader}

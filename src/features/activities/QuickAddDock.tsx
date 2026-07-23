@@ -24,7 +24,7 @@ import {
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
-const QUICK_ADD_DOCK_SURFACE_RADIUS = 14;
+const QUICK_ADD_COMPOSER_SURFACE_RADIUS = 14;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -305,7 +305,7 @@ export function QuickAddDock({
                   onReview={onReviewPlaceReceipt}
                 />
               ) : null}
-              <View style={styles.collapsedInputShell}>
+              <View testID="quick-add-collapsed-surface" style={styles.collapsedInputShell}>
                 <CollapsedQuickAddTrigger
                   placeholder={placeholder}
                   onPress={() => setIsFocused(true)}
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.cardBorder,
-    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS,
+    borderRadius: 999,
     shadowColor: '#000',
     shadowOpacity: 0.18,
     shadowRadius: 12,
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS + 2,
+    borderRadius: QUICK_ADD_COMPOSER_SURFACE_RADIUS + 2,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
