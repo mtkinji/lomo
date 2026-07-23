@@ -10,13 +10,13 @@ Reveal later: Context, attachment chips, and transient voice/work status appear 
 
 Must not add: Persistent context chrome at the top of the conversation, a third toolbar row, a rectangular field treatment, a context-management step before typing, a detached floating toolbar, or duplicated context controls.
 
-Reuse map: Draft -> existing ShadCN-style `Textarea`; attachment, voice, and Send/Stop -> existing `Button` primitives and typed commands; context truth and removal -> existing workbench snapshot and `context.add` / `context.remove` bridge commands; layout transition -> CSS state on the existing composer.
+Reuse map: Draft -> one stable ShadCN-style `Textarea` that remains mounted across layout states; attachment, voice, and Send/Stop -> existing `Button` primitives and typed commands; context truth and removal -> existing workbench snapshot and `context.add` / `context.remove` bridge commands; layout transition -> CSS grid state on the existing composer.
 
 Behavior sources: The user's 2026-07-22 direction and ChatGPT reference screenshots; the Kwilt job “Help me get useful help without retelling my life”; the existing typed native bridge; the keyboard-seam and lightweight-composer contracts.
 
 Unresolved decisions: None. Multiple contexts and attachments remain horizontally scrollable within the second-row tool well rather than increasing composer height.
 
-Required states: Resting empty, focused empty, drafted, multiline, context present, attachment present, recording, transcribing, voice error, working/stop, keyboard closed, and keyboard open.
+Required states: Resting empty, focused empty on the first tap, drafted, multiline, context present, attachment present, recording, transcribing, voice error, working/stop, keyboard closed, keyboard open with a 12px gap, and navigation open with the keyboard dismissed.
 
 Proof path: Open signed-in Unified Chat on the iPhone 17 Pro simulator; confirm no context strip above the conversation; inspect the one-row resting composer; focus it and confirm a rounded two-row composer attached to the keyboard; verify context controls are inside its second row; type a multiline draft and exercise context removal/addition, voice, and Send/Stop reachability.
 

@@ -29,6 +29,7 @@ export type AgentWorkbenchMessage = {
 export type AgentWorkbenchRun = {
   id: string;
   threadId: string;
+  userMessageId?: string;
   assistantMessageId?: string;
   status: 'queued' | 'active' | 'complete' | 'partial' | 'stopped' | 'steered' | 'failed';
   canRetry: boolean;
@@ -40,6 +41,26 @@ export type AgentWorkbenchRun = {
     label: string;
     detail?: string;
   }>;
+};
+
+export type AgentWorkbenchTimelineItem =
+  | { kind: 'message'; id: string }
+  | { kind: 'run'; id: string }
+  | { kind: 'evidence'; ids: string[] }
+  | { kind: 'proposal'; id: string }
+  | { kind: 'receipt'; id: string }
+  | {
+      kind: 'correction';
+      id: string;
+      targetKind: 'proposal' | 'receipt';
+      targetItemId: string;
+      summary: string;
+    };
+
+export type AgentWorkbenchTurn = {
+  id: string;
+  sequence: number;
+  items: AgentWorkbenchTimelineItem[];
 };
 
 export type AgentWorkbenchEvidenceRef = {
@@ -121,6 +142,8 @@ export type AgentWorkbenchSnapshot = {
   runs: AgentWorkbenchRun[];
   proposals: AgentWorkbenchProposal[];
   receipts: AgentWorkbenchReceipt[];
+  /** Optional so protocol-v2 hosts can adopt coherent turns without breaking older surfaces. */
+  timeline?: AgentWorkbenchTurn[];
   composer: {
     prompt: string;
     state: 'ready' | 'working' | 'complete';
@@ -135,6 +158,7 @@ export type AgentWorkbenchSnapshot = {
 
 export type SupportedAgentWorkbenchCommand =
   | { type: 'composer.change'; prompt: string }
+  | { type: 'composer.focus.change'; focused: boolean }
   | { type: 'context.add' }
   | { type: 'attachment.pick' }
   | { type: 'attachment.remove'; attachmentId: string }
@@ -207,6 +231,10 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
     case 'run.send':
       return typeof value.prompt === 'string'
         ? ({ type: value.type, prompt: value.prompt } as SupportedAgentWorkbenchCommand)
+        : null;
+    case 'composer.focus.change':
+      return typeof value.focused === 'boolean'
+        ? { type: 'composer.focus.change', focused: value.focused }
         : null;
     case 'voice.toggle':
       return { type: 'voice.toggle' };

@@ -3,6 +3,7 @@ import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type 
 import {
   Alert,
   FlatList,
+  Keyboard,
   Modal,
   Pressable,
   SafeAreaView,
@@ -62,6 +63,7 @@ import {
   validateUnifiedChatAttachmentSet,
   type UnifiedChatTextAttachment,
 } from './unifiedChatAttachmentPolicy';
+import { HapticsService } from '../../services/HapticsService';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -101,6 +103,7 @@ export function UnifiedChatScreen() {
   const [contextCandidates, setContextCandidates] = useState<UnifiedChatAttachableContext[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [surfaceLoadFailed, setSurfaceLoadFailed] = useState(false);
   const [voice, setVoice] = useState<{
     state: 'idle' | 'recording' | 'transcribing' | 'error';
     elapsedSeconds: number;
@@ -111,6 +114,19 @@ export function UnifiedChatScreen() {
     if (voiceTimer.current) clearInterval(voiceTimer.current);
     voiceTimer.current = null;
   }, []);
+
+  const retrySurface = useCallback(() => {
+    setError(null);
+    setSurfaceLoadFailed(false);
+    setSurfaceReady(false);
+    webViewRef.current?.reload();
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    Keyboard.dismiss();
+    webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;');
+  }, [menuOpen]);
 
   const loadThreadWithRecovery = useCallback(async (threadId: string) => {
     const loaded = await repository.loadThread(threadId);
@@ -323,6 +339,14 @@ export function UnifiedChatScreen() {
         if (typeof oldest === 'string') handledRequestIds.current.delete(oldest);
       }
       const command = message.command;
+      if (command.type === 'composer.focus.change') {
+        if (!menuOpen || command.focused) {
+          void HapticsService.trigger(
+            command.focused ? 'canvas.toggle.on' : 'canvas.toggle.off',
+          );
+        }
+        return;
+      }
       if (command.type === 'composer.change') {
         setPrompt(command.prompt);
         return;
@@ -628,7 +652,7 @@ export function UnifiedChatScreen() {
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, loadThreadWithRecovery, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, loadThreadWithRecovery, menuOpen, postSnapshot, repository, voice.state],
   );
 
   const allowedOrigin = useMemo(() => {
@@ -688,7 +712,11 @@ export function UnifiedChatScreen() {
       />
 
       {error ? (
-        <Pressable accessibilityRole="button" onPress={() => setError(null)} style={styles.errorBar}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={surfaceLoadFailed ? retrySurface : () => setError(null)}
+          style={styles.errorBar}
+        >
           <Text style={styles.errorText}>{error}</Text>
         </Pressable>
       ) : null}
@@ -702,7 +730,10 @@ export function UnifiedChatScreen() {
           originWhitelist={allowedOrigin ? [allowedOrigin] : []}
           onShouldStartLoadWithRequest={canNavigate}
           onMessage={(event) => void handleSurfaceMessage(event)}
-          onError={() => setError('The Chat surface could not load. Tap here to dismiss and retry.')}
+          onError={() => {
+            setSurfaceLoadFailed(true);
+            setError('The Chat surface could not load. Tap here to retry.');
+          }}
           javaScriptEnabled
           sharedCookiesEnabled={false}
           thirdPartyCookiesEnabled={false}

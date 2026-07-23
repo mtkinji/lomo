@@ -27,10 +27,27 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('hideKeyboardAccessoryView');
   });
 
+  test('reloads the embedded surface when a transient load error is tapped', () => {
+    expect(screenSource).toContain('const retrySurface = useCallback');
+    expect(screenSource).toContain('webViewRef.current?.reload()');
+    expect(screenSource).toContain('surfaceLoadFailed ? retrySurface');
+  });
+
   test('handles workbench feedback through the native repository', () => {
     expect(screenSource).toContain("command.type === 'message.feedback'");
     expect(screenSource).toContain('repository.setMessageFeedback');
     expect(screenSource).toContain('command.reason');
+  });
+
+  test('uses subtle paired haptics when the composer engages and disengages', () => {
+    expect(screenSource).toContain("command.type === 'composer.focus.change'");
+    expect(screenSource).toContain("command.focused ? 'canvas.toggle.on' : 'canvas.toggle.off'");
+  });
+
+  test('dismisses the embedded keyboard before revealing the navigation menu', () => {
+    expect(screenSource).toContain('Keyboard.dismiss()');
+    expect(screenSource).toContain('webViewRef.current?.injectJavaScript');
+    expect(screenSource).toContain('document.activeElement?.blur()');
   });
 
   test('deduplicates commands and only opens capability objects evidenced in the active thread', () => {
