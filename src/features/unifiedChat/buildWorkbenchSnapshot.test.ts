@@ -5,6 +5,7 @@ const aggregate: UnifiedChatThreadAggregate = {
   thread: {
     id: 'thread-1',
     title: 'Plan my week',
+    titleSource: 'generated',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-07-21T10:00:00.000Z',

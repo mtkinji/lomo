@@ -6,6 +6,7 @@ const startingAggregate: UnifiedChatThreadAggregate = {
   thread: {
     id: 'thread-1',
     title: 'New chat',
+    titleSource: 'default',
     status: 'active',
     archivedAt: null,
     createdAt: '2026-07-21T10:00:00.000Z',
@@ -75,6 +76,11 @@ function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer
       messages: [],
       runs: [],
     })),
+    applyGeneratedThreadTitle: jest.fn(async (_threadId: string, title: string) => ({
+      ...startingAggregate.thread,
+      title,
+      titleSource: 'generated' as const,
+    })),
   };
   const send = jest.fn(async (...args: unknown[]) => {
     order.push('send');
@@ -141,6 +147,58 @@ describe('runUnifiedChatTurn', () => {
         aiJob: 'default_chat',
         workflowInstanceId: 'thread-1',
         includeUserProfileContext: false,
+        conversationTitlePolicy: expect.objectContaining({
+          suggestFromOpening: true,
+          refreshFromSummary: true,
+          onSuggestedTitle: expect.any(Function),
+        }),
+      }),
+    );
+  });
+
+  test('persists model title suggestions without allowing automation to own manual names', async () => {
+    const { repository, send } = dependencies();
+    const onThreadTitleUpdated = jest.fn();
+
+    await runUnifiedChatTurn(
+      {
+        aggregate: startingAggregate,
+        prompt: 'Can you help plan the school week?',
+        onThreadTitleUpdated,
+      },
+      { repository: repository as never, sendCoachChat: send as never },
+    );
+
+    const options = send.mock.calls[0]?.[1] as {
+      conversationTitlePolicy?: {
+        onSuggestedTitle: (title: string, source: 'opening' | 'summary') => Promise<void>;
+      };
+    };
+    await options.conversationTitlePolicy?.onSuggestedTitle('Planning the School Week', 'opening');
+    expect(repository.applyGeneratedThreadTitle).toHaveBeenCalledWith(
+      'thread-1',
+      'Planning the School Week',
+    );
+    expect(onThreadTitleUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Planning the School Week', titleSource: 'generated' }),
+    );
+
+    const manualAggregate = {
+      ...startingAggregate,
+      thread: { ...startingAggregate.thread, title: 'My Family Plan', titleSource: 'user' as const },
+    };
+    const manual = dependencies();
+    await runUnifiedChatTurn(
+      { aggregate: manualAggregate, prompt: 'What changed?' },
+      { repository: manual.repository as never, sendCoachChat: manual.send as never },
+    );
+    expect(manual.send).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        conversationTitlePolicy: expect.objectContaining({
+          suggestFromOpening: false,
+          refreshFromSummary: false,
+        }),
       }),
     );
   });

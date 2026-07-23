@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableProps,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { CAPABILITY_GROUPS, CAPABILITY_REGISTRY } from '../capabilities/registry';
 import type { CapabilityGroupId, CapabilityId } from '../capabilities/types';
 import { colors, fonts, spacing, typography } from '../theme';
@@ -17,6 +20,8 @@ type CapabilityMenuProps = {
   avatarUrl?: string | null;
   onSelectCapability: (id: CapabilityId) => void;
   onSelectChat: (threadId: string) => void;
+  onArchiveChat: (threadId: string) => void;
+  onDeleteChat: (threadId: string) => void;
   onCreateChat: () => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
@@ -39,6 +44,8 @@ export function CapabilityMenu({
   avatarUrl,
   onSelectCapability,
   onSelectChat,
+  onArchiveChat,
+  onDeleteChat,
   onCreateChat,
   onOpenSearch,
   onOpenSettings,
@@ -159,29 +166,16 @@ export function CapabilityMenu({
           <Text style={styles.chatStateText}>{chatsError}</Text>
         ) : chats.length === 0 ? (
           <Text style={styles.chatStateText}>No chats yet.</Text>
-        ) : chats.map((chat) => {
-          const selected = chat.id === activeChatThreadId;
-          return (
-            <Pressable
-              key={chat.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Open chat ${chat.title}`}
-              accessibilityState={{ selected }}
-              onPress={() => onSelectChat(chat.id)}
-              style={({ pressed }) => [
-                styles.chatRow,
-                selected && styles.capabilityRowSelected,
-                pressed && styles.rowPressed,
-              ]}
-            >
-              <Icon name="navAiGuide" size={17} color={colors.textSecondary} />
-              <View style={styles.chatRowText}>
-                <Text numberOfLines={1} style={styles.chatTitle}>{chat.title}</Text>
-                <Text style={styles.chatDate}>{formatChatDate(chat.updatedAt)}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
+        ) : chats.map((chat) => (
+          <CapabilityMenuChatRow
+            key={chat.id}
+            chat={chat}
+            selected={chat.id === activeChatThreadId}
+            onOpen={() => onSelectChat(chat.id)}
+            onArchive={() => onArchiveChat(chat.id)}
+            onDelete={() => onDeleteChat(chat.id)}
+          />
+        ))}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -206,6 +200,105 @@ export function CapabilityMenu({
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function CapabilityMenuChatRow({
+  chat,
+  selected,
+  onOpen,
+  onArchive,
+  onDelete,
+}: {
+  chat: CapabilityMenuChat;
+  selected: boolean;
+  onOpen: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+}) {
+  const renderArchiveAction: NonNullable<SwipeableProps['renderLeftActions']> = (
+    _progress,
+    _translation,
+    swipeable,
+  ) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Archive ${chat.title}`}
+      onPress={() => {
+        swipeable.close();
+        onArchive();
+      }}
+      style={({ pressed }) => [
+        styles.swipeAction,
+        styles.swipeArchiveAction,
+        pressed && styles.swipeActionPressed,
+      ]}
+    >
+      <Icon name="archive" size={17} color={colors.primaryForeground} />
+      <Text style={styles.swipeActionLabel}>Archive</Text>
+    </Pressable>
+  );
+
+  const renderDeleteAction: NonNullable<SwipeableProps['renderRightActions']> = (
+    _progress,
+    _translation,
+    swipeable,
+  ) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${chat.title}`}
+      onPress={() => {
+        swipeable.close();
+        onDelete();
+      }}
+      style={({ pressed }) => [
+        styles.swipeAction,
+        styles.swipeDeleteAction,
+        pressed && styles.swipeActionPressed,
+      ]}
+    >
+      <Icon name="trash" size={17} color={colors.primaryForeground} />
+      <Text style={styles.swipeActionLabel}>Delete</Text>
+    </Pressable>
+  );
+
+  return (
+    <ReanimatedSwipeable
+      friction={1.5}
+      leftThreshold={36}
+      rightThreshold={36}
+      overshootLeft={false}
+      overshootRight={false}
+      renderLeftActions={renderArchiveAction}
+      renderRightActions={renderDeleteAction}
+      containerStyle={styles.chatSwipeContainer}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open chat ${chat.title}`}
+        accessibilityState={{ selected }}
+        accessibilityActions={[
+          { name: 'archive', label: `Archive ${chat.title}` },
+          { name: 'delete', label: `Delete ${chat.title}` },
+        ]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'archive') onArchive();
+          if (event.nativeEvent.actionName === 'delete') onDelete();
+        }}
+        onPress={onOpen}
+        style={({ pressed }) => [
+          styles.chatRow,
+          selected && styles.capabilityRowSelected,
+          pressed && styles.rowPressed,
+        ]}
+      >
+        <Icon name="navAiGuide" size={17} color={colors.textSecondary} />
+        <View style={styles.chatRowText}>
+          <Text numberOfLines={1} style={styles.chatTitle}>{chat.title}</Text>
+          <Text style={styles.chatDate}>{formatChatDate(chat.updatedAt)}</Text>
+        </View>
+      </Pressable>
+    </ReanimatedSwipeable>
   );
 }
 
@@ -310,6 +403,33 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: 10,
+    backgroundColor: colors.canvas,
+  },
+  chatSwipeContainer: {
+    width: '100%',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  swipeAction: {
+    width: 88,
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  swipeArchiveAction: {
+    backgroundColor: colors.gray700,
+  },
+  swipeDeleteAction: {
+    backgroundColor: colors.destructive,
+  },
+  swipeActionPressed: {
+    opacity: 0.82,
+  },
+  swipeActionLabel: {
+    ...typography.caption,
+    fontFamily: fonts.medium,
+    color: colors.primaryForeground,
   },
   chatRowText: {
     minWidth: 0,

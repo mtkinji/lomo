@@ -150,6 +150,20 @@ describe('Unified Chat coexistence contract', () => {
     expect(navigatorSource).toContain('onCreateChat={() => void createChatThread()}');
   });
 
+  test('keeps shell thread cleanup reversible for archive and confirmed for delete', () => {
+    expect(navigatorSource).toContain('chatRepository.archiveThread');
+    expect(navigatorSource).toContain('chatRepository.restoreThread');
+    expect(navigatorSource).toContain("actionLabel: 'Undo'");
+    expect(navigatorSource).toContain("'Delete chat?'");
+    expect(navigatorSource).toContain('chatRepository.deleteThread');
+  });
+
+  test('projects background intelligent title updates into the open thread and chat list', () => {
+    expect(screenSource).toContain('onThreadTitleUpdated: (updatedThread) =>');
+    expect(screenSource).toContain('{ ...current, thread: updatedThread }');
+    expect(screenSource).toContain('thread.id === updatedThread.id ? updatedThread : thread');
+  });
+
   test('uses the standard page header and leaves chat creation and selection to the capability menu', () => {
     expect(screenSource).toContain('<PageHeader');
     expect(screenSource).toContain('onPressMenu={openMenu}');
