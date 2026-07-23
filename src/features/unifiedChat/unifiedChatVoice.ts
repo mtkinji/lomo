@@ -1,8 +1,10 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { AppState } from 'react-native';
 import { getAccessToken } from '../../services/backend/auth';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../../services/edgeFunctions';
 import { getInstallId } from '../../services/installId';
 import { getSupabasePublishableKey } from '../../utils/getEnv';
+import { recoverForegroundAudioRace } from './unifiedChatVoiceRecovery';
 
 type ExpoAudio = (typeof import('expo-av'))['Audio'];
 let recording: InstanceType<ExpoAudio['Recording']> | null = null;
@@ -11,14 +13,32 @@ async function audio(): Promise<ExpoAudio> {
   return (await import('expo-av')).Audio;
 }
 
+async function waitForForegroundAudioSession(): Promise<void> {
+  if (AppState.currentState !== 'active') {
+    await new Promise<void>((resolve) => {
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state !== 'active') return;
+        subscription.remove();
+        resolve();
+      });
+    });
+  }
+
+  // Let Expo's native lifecycle listener settle after the permission sheet closes.
+  await new Promise<void>((resolve) => setTimeout(resolve, 100));
+}
+
 export async function startUnifiedChatVoiceRecording(): Promise<void> {
   if (recording) return;
   const Audio = await audio();
   const permission = await Audio.requestPermissionsAsync();
   if (!permission.granted) throw new Error('Allow microphone access to use voice input.');
-  await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-  const next = new Audio.Recording();
-  await next.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+  const next = await recoverForegroundAudioRace(async () => {
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    const candidate = new Audio.Recording();
+    await candidate.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+    return candidate;
+  }, waitForForegroundAudioSession);
   await next.startAsync();
   recording = next;
 }
