@@ -14,8 +14,9 @@ serves:
 briefs:
   - unified-chat-foundation
   - unified-chat
+  - chat-turn-coherent-timeline
 status: shipping
-last_reviewed: 2026-07-21
+last_reviewed: 2026-07-22
 ---
 
 # Unified Chat

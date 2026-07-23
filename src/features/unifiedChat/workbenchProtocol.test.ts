@@ -32,6 +32,8 @@ describe('Unified Chat workbench protocol', () => {
 
   test.each([
     { type: 'composer.change', prompt: 'New draft' },
+    { type: 'composer.focus.change', focused: true },
+    { type: 'composer.focus.change', focused: false },
     { type: 'voice.toggle' },
     { type: 'context.add' },
     { type: 'attachment.pick' },

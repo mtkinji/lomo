@@ -17,6 +17,19 @@ Reuse map:
 - row tap -> native `ActivityDetail`
 - destructive action -> inventory swipe-left `Delete`
 - return -> exact durable Unified Chat thread
+- evidence and work detail disclosure -> standard `Collapsible`
+- proposal, evidence, and non-inventory receipt surfaces -> standard `Card`
+- proposal, feedback, context, correction, and retry controls -> standard `Button`
+- correction entry -> standard `Input`
+
+Chat-specific exceptions:
+
+- user-authored message bubbles may keep their asymmetric conversational shape
+- the progressive composer may keep its responsive one-row/two-row shell while composing standard `Textarea` and `Button` primitives
+- the embedded Activity receipt remains a DOM mirror of the native inventory row because React Native componentry cannot render inside the credential-free workbench
+- the run plan remains a domain renderer, but composes standard disclosure and action primitives rather than defining replacements for them
+
+Color rule: Timeline chrome, focus, progress, and actions use Sumi neutrals. Pine is reserved for the Kwilt mark and other explicit brand moments; destructive state uses the destructive token. Chat must not introduce raw color literals when a semantic Kwilt token exists.
 
 Behavior sources: Explicit user direction in this design exploration; Quick Add controller and AI-enrichment production contracts; `ActivityListItem` inventory interaction contract; existing durable proposal/receipt/idempotency boundary behind the UI.
 

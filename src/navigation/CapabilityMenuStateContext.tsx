@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { HapticsService } from '../services/HapticsService';
 
 type CapabilityMenuState = {
   menuOpen: boolean;
@@ -30,13 +31,18 @@ export function CapabilityMenuStateProvider({
   const openMenu = useCallback(() => {
     setMenuOpen((current) => {
       if (current) return current;
+      void HapticsService.trigger('shell.nav.open');
       onMenuOpened?.();
       return true;
     });
   }, [onMenuOpened]);
 
   const coverMenu = useCallback(() => {
-    setMenuOpen(false);
+    setMenuOpen((current) => {
+      if (!current) return current;
+      void HapticsService.trigger('shell.nav.close');
+      return false;
+    });
   }, []);
 
   const actions = useMemo(() => ({ openMenu, coverMenu }), [coverMenu, openMenu]);

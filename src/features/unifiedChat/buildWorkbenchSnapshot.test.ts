@@ -169,6 +169,183 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.receipts[0]).toMatchObject({ canUndo: true, object: { id: 'activity-library' } });
   });
 
+  test('keeps an older turn complete before placing a newer prompt and its working state', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      messages: [
+        {
+          ...aggregate.messages[0]!,
+          id: 'message-old-user',
+          body: 'Move tea to tomorrow',
+          createdAt: '2026-07-21T11:00:00.000Z',
+          updatedAt: '2026-07-21T11:00:00.000Z',
+        },
+        {
+          ...aggregate.messages[0]!,
+          id: 'message-old-assistant',
+          role: 'assistant',
+          body: 'I can make that change.',
+          createdAt: '2026-07-21T11:00:02.000Z',
+          updatedAt: '2026-07-21T11:00:02.000Z',
+        },
+        {
+          ...aggregate.messages[0]!,
+          id: 'message-new-user',
+          body: 'What should I do today?',
+          createdAt: '2026-07-22T15:36:00.000Z',
+          updatedAt: '2026-07-22T15:36:00.000Z',
+        },
+      ],
+      runs: [
+        {
+          id: 'run-old', threadId: 'thread-1', userMessageId: 'message-old-user', assistantMessageId: null,
+          status: 'complete', errorCode: null, errorMessage: null, requestClass: 'capability_action',
+          participatingCapabilities: ['todos'], contextPolicy: { usePrivateContext: true, reason: 'typed-capability-proposal-required', clarification: null },
+          version: 2, stopRequestedAt: null, steerCount: 0,
+          createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:03.000Z', completedAt: '2026-07-21T11:00:03.000Z',
+        },
+        {
+          id: 'run-new', threadId: 'thread-1', userMessageId: 'message-new-user', assistantMessageId: null,
+          status: 'active', errorCode: null, errorMessage: null, requestClass: 'general',
+          participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'general-answer-without-private-context', clarification: null },
+          version: 1, stopRequestedAt: null, steerCount: 0,
+          createdAt: '2026-07-22T15:36:01.000Z', updatedAt: '2026-07-22T15:36:01.000Z', completedAt: null,
+        },
+      ],
+      evidence: [{
+        id: 'evidence-old', threadId: 'thread-1', runId: 'run-old', sequence: 1,
+        capabilityId: 'todos', objectType: 'activity', objectId: 'activity-tea', label: 'Tea',
+        selectionStatus: 'included', authority: 'authoritative', freshness: 'current',
+        selectionReason: 'Matched the requested To-do.', sufficient: true, coverageNote: 'Selected 1 record.',
+      }],
+      proposals: [{
+        id: 'proposal-old', threadId: 'thread-1', runId: 'run-old', messageId: 'message-old-assistant',
+        capabilityId: 'todos', title: 'Move tea to tomorrow', body: 'Changes the date.', status: 'undone', version: 3,
+        createdAt: '2026-07-21T11:00:02.000Z', updatedAt: '2026-07-22T15:37:00.000Z',
+        operation: {
+          id: 'operation-old', proposalId: 'proposal-old', capabilityId: 'todos', type: 'update_activity',
+          targetId: 'activity-tea', summary: 'Move tea to tomorrow',
+          payload: { scheduledDate: '2026-07-22', expectedUpdatedAt: '2026-07-21T10:59:00.000Z' },
+          idempotencyKey: 'unified-chat:run-old:1', sequence: 1,
+        },
+      }],
+      receipts: [{
+        id: 'receipt-old', proposalId: 'proposal-old', operationId: 'operation-old', capabilityId: 'todos',
+        idempotencyKey: 'unified-chat:run-old:1', status: 'undone', resultingObjectType: 'activity',
+        resultingObjectId: 'activity-tea', resultState: { title: 'Tea' }, returnTarget: null,
+        undoOperation: { type: 'restore_activity' }, canUndo: false,
+        appliedAt: '2026-07-21T11:00:03.000Z', undoneAt: '2026-07-22T15:37:00.000Z',
+      }],
+    });
+
+    expect(snapshot.runs).toEqual([
+      expect.objectContaining({ id: 'run-old', userMessageId: 'message-old-user' }),
+      expect.objectContaining({ id: 'run-new', userMessageId: 'message-new-user' }),
+    ]);
+    expect(snapshot.timeline).toEqual([
+      {
+        id: 'run:run-old',
+        sequence: 1,
+        items: [
+          { kind: 'message', id: 'message-old-user' },
+          { kind: 'message', id: 'message-old-assistant' },
+          { kind: 'evidence', ids: ['evidence-old'] },
+          { kind: 'proposal', id: 'proposal-old' },
+          { kind: 'receipt', id: 'receipt-old' },
+        ],
+      },
+      {
+        id: 'run:run-new',
+        sequence: 2,
+        items: [
+          { kind: 'message', id: 'message-new-user' },
+          { kind: 'run', id: 'run-new' },
+        ],
+      },
+      {
+        id: 'correction:receipt:receipt-old:undone',
+        sequence: 3,
+        items: [{
+          kind: 'correction',
+          id: 'correction:receipt:receipt-old:undone',
+          targetKind: 'receipt',
+          targetItemId: 'receipt-old',
+          summary: 'Undid an earlier change',
+        }],
+      },
+    ]);
+  });
+
+  test('replaces a failed retry state inside the original prompt turn', () => {
+    const failedRun = {
+      id: 'run-failed', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'failed' as const, errorCode: 'timeout', errorMessage: 'private detail', requestClass: 'general' as const,
+      participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'general-answer-without-private-context', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+      createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:02.000Z', completedAt: '2026-07-21T11:00:02.000Z',
+    };
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      runs: [
+        failedRun,
+        {
+          ...failedRun,
+          id: 'run-retry',
+          status: 'active',
+          errorCode: null,
+          errorMessage: null,
+          version: 1,
+          createdAt: '2026-07-21T11:01:00.000Z',
+          updatedAt: '2026-07-21T11:01:00.000Z',
+          completedAt: null,
+        },
+      ],
+    });
+
+    expect(snapshot.timeline).toEqual([{
+      id: 'run:run-failed',
+      sequence: 1,
+      items: [
+        { kind: 'message', id: 'message-1' },
+        { kind: 'run', id: 'run-retry' },
+      ],
+    }]);
+  });
+
+  test('keeps prior retry output inside the original prompt turn', () => {
+    const priorAssistant = {
+      ...aggregate.messages[0]!, id: 'message-prior-assistant', role: 'assistant' as const,
+      body: 'A partial answer.', createdAt: '2026-07-21T11:00:02.000Z', updatedAt: '2026-07-21T11:00:02.000Z',
+    };
+    const failedRun = {
+      id: 'run-failed', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: priorAssistant.id,
+      status: 'failed' as const, errorCode: 'timeout', errorMessage: 'private detail', requestClass: 'general' as const,
+      participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'general-answer-without-private-context', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+      createdAt: '2026-07-21T11:00:01.000Z', updatedAt: '2026-07-21T11:00:03.000Z', completedAt: '2026-07-21T11:00:03.000Z',
+    };
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      messages: [...aggregate.messages, priorAssistant],
+      runs: [
+        failedRun,
+        {
+          ...failedRun, id: 'run-retry', assistantMessageId: null, status: 'active', errorCode: null, errorMessage: null,
+          version: 1, createdAt: '2026-07-21T11:01:00.000Z', updatedAt: '2026-07-21T11:01:00.000Z', completedAt: null,
+        },
+      ],
+    });
+
+    expect(snapshot.timeline).toEqual([{
+      id: 'run:run-failed', sequence: 1,
+      items: [
+        { kind: 'message', id: 'message-1' },
+        { kind: 'run', id: 'run-retry' },
+        { kind: 'message', id: 'message-prior-assistant' },
+      ],
+    }]);
+  });
+
   test('projects active launch context separately from retrieved evidence', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,

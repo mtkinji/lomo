@@ -5,6 +5,11 @@ import {
   useCapabilityMenuActions,
   useCapabilityMenuState,
 } from './CapabilityMenuStateContext';
+import { HapticsService } from '../services/HapticsService';
+
+jest.mock('../services/HapticsService', () => ({
+  HapticsService: { trigger: jest.fn(async () => undefined) },
+}));
 
 function Harness() {
   const { menuOpen, openMenu, coverMenu } = useCapabilityMenuState();
@@ -29,6 +34,10 @@ function ActionOnlyHarness({ onRender }: { onRender: () => void }) {
 }
 
 describe('CapabilityMenuStateProvider', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('owns one ephemeral open state shared by the shell and nested screens', () => {
     const onMenuOpened = jest.fn();
     const view = render(
@@ -41,12 +50,18 @@ describe('CapabilityMenuStateProvider', () => {
     fireEvent.press(view.getByTestId('open'));
     expect(view.getByTestId('state').props.children).toBe('open');
     expect(onMenuOpened).toHaveBeenCalledTimes(1);
+    expect(HapticsService.trigger).toHaveBeenCalledWith('shell.nav.open');
 
     fireEvent.press(view.getByTestId('open'));
     expect(onMenuOpened).toHaveBeenCalledTimes(1);
+    expect(HapticsService.trigger).toHaveBeenCalledTimes(1);
 
     fireEvent.press(view.getByTestId('close'));
     expect(view.getByTestId('state').props.children).toBe('closed');
+    expect(HapticsService.trigger).toHaveBeenLastCalledWith('shell.nav.close');
+
+    fireEvent.press(view.getByTestId('close'));
+    expect(HapticsService.trigger).toHaveBeenCalledTimes(2);
   });
 
   it('does not rerender action-only capability consumers when visibility changes', () => {
