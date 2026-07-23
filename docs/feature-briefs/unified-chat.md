@@ -231,6 +231,27 @@ Adopt Giraffed's mature interaction as the shared baseline, then subtract for Kw
 - Do not treat conversation retention as permission to attach every old object to every new request.
 - Do not send to another person, spend money, reshape an Arc, or expose household data without the owning product flow's explicit policy.
 
+## Thread cleanup controls
+
+Active Chat rows in the capability menu support two deliberately distinct swipe actions:
+
+- Swipe right reveals **Archive**. Archiving removes the thread from the active list and offers a compact **Undo** action.
+- Swipe left reveals **Delete**. Deletion is permanent, cascades through the thread-owned conversation records, and always requires explicit confirmation before the repository is called.
+
+Neither direction executes merely because the row crossed a full-swipe threshold. A failed archive, restore, or delete leaves the user's local list truthful and produces concise recovery feedback. This first slice does not add bulk management, retention settings, or a persistent archived-thread browser.
+
+## Intelligent thread titles
+
+New threads begin as `New chat`, then receive a short model-suggested title from the first completed exchange. Titles do not update on every turn. When the existing conversation-compression path produces a materially new durable summary, it may suggest a refined title based on that compressed understanding.
+
+Thread title ownership is durable:
+
+- `default` — the placeholder may be replaced by an opening suggestion;
+- `generated` — compression may refine it;
+- `user` — a manual rename is authoritative and automatic naming must never overwrite it.
+
+Title generation is background maintenance: it cannot delay or fail a Chat response, and an invalid or failed suggestion leaves the current title untouched. Generated titles are short, specific, plain-language labels—not summaries, dates, quoted user text, or generic labels such as “Conversation.”
+
 ## First vertical slice
 
 Prove the full job map with Goals, To-dos, and Chapters:
@@ -285,6 +306,8 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - Chat is the public destination name; capabilities remain the authoritative place for durable work.
 - Shared workbench extraction is a reuse mechanism, not a shared Giraffed/Kwilt product or data plane.
 - Broad questions are supported, but Kwilt's product differentiation and prioritization remain centered on trusted context and capability action rather than general-chat breadth.
+- Active-thread cleanup uses bidirectional native swipe actions: reversible archive to the right and confirmed permanent delete to the left.
+- Automatic titles may evolve only at the opening-exchange and compression boundaries; manual titles always win.
 
 ### Decisions intentionally deferred
 
@@ -293,7 +316,7 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - The exact standing-permission threshold for low-risk Activity operations.
 - Household/thread scope and shared Chat behavior.
 - Money and Games evidence, action, consent, and receipt policies.
-- Long-term retention controls, export, deletion, and per-thread privacy controls beyond the first hidden learning release.
+- Long-term retention policies, export, bulk cleanup, and per-thread privacy controls beyond archive and confirmed deletion.
 
 ### Build acceptance criteria
 
@@ -307,7 +330,7 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 
 ## Open questions
 
-- What retention and deletion controls make a life-system Chat thread feel trustworthy before public rollout?
+- Does archive need a persistent browser after self-use shows whether the compact Undo window is sufficient?
 - When should retrieved context become a visible removable chip for the next turn rather than remain evidence from the prior run?
 - Which Activity operations are low-risk enough for standing permission, and which always require per-operation review?
 - When should Kwilt answer from the base model, use current external sources, use personal Kwilt context, invoke a capability, or recommend a specialist destination?

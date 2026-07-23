@@ -196,6 +196,14 @@ export function UnifiedChatScreen() {
     })();
   }, [aggregate, openThread, repository, requestedThreadId]);
 
+  useEffect(() => {
+    if (requestedThreadId !== null) return;
+    setAggregate(null);
+    setThreads([]);
+    setPrompt('');
+    setAttachments([]);
+  }, [requestedThreadId]);
+
   useEffect(() => () => {
     clearVoiceTimer();
     void cancelUnifiedChatVoiceRecording();
@@ -557,6 +565,13 @@ export function UnifiedChatScreen() {
               turnState.runId = started.runs.at(-1)?.id ?? null;
               setAggregate(started);
               if (!retryRunId) setAttachments([]);
+            },
+            onThreadTitleUpdated: (updatedThread) => {
+              setAggregate((current) => current?.thread.id === updatedThread.id
+                ? { ...current, thread: updatedThread }
+                : current);
+              setThreads((current) => current.map((thread) =>
+                thread.id === updatedThread.id ? updatedThread : thread));
             },
           });
           const completedRunId = refreshedAggregate.runs.at(-1)?.id;

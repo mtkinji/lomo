@@ -17,6 +17,7 @@ function createClient(results: Result[], userId: string | null = 'user-1') {
     insert(...args: unknown[]) { return this.record('insert', args); }
     upsert(...args: unknown[]) { return this.record('upsert', args); }
     update(...args: unknown[]) { return this.record('update', args); }
+    delete(...args: unknown[]) { return this.record('delete', args); }
     eq(...args: unknown[]) { return this.record('eq', args); }
     in(...args: unknown[]) { return this.record('in', args); }
     order(...args: unknown[]) { return this.record('order', args); }
@@ -24,6 +25,11 @@ function createClient(results: Result[], userId: string | null = 'user-1') {
 
     async single() {
       this.record('single', []);
+      return results.shift() ?? { data: null, error: null };
+    }
+
+    async maybeSingle() {
+      this.record('maybeSingle', []);
       return results.shift() ?? { data: null, error: null };
     }
 
@@ -51,6 +57,7 @@ function createClient(results: Result[], userId: string | null = 'user-1') {
 const threadRow = {
   id: 'thread-1',
   title: 'Plan my week',
+  title_source: 'default',
   status: 'active',
   archived_at: null,
   created_at: '2026-07-21T10:00:00.000Z',
@@ -101,6 +108,7 @@ describe('Unified Chat repository', () => {
     await expect(repository.createThread('Plan my week')).resolves.toEqual({
       id: 'thread-1',
       title: 'Plan my week',
+      titleSource: 'default',
       status: 'active',
       archivedAt: null,
       createdAt: threadRow.created_at,
@@ -257,24 +265,59 @@ describe('Unified Chat repository', () => {
     });
   });
 
-  test('renames and archives a thread with explicit status timestamps', async () => {
+  test('protects manual names while generating, archiving, restoring, and deleting an owned thread', async () => {
     const archived = {
       ...threadRow,
       title: 'A clearer title',
+      title_source: 'user',
       status: 'archived',
       archived_at: '2026-07-21T12:00:00.000Z',
     };
-    const { client } = createClient([
-      { data: { ...threadRow, title: 'A clearer title' }, error: null },
+    const restored = {
+      ...archived,
+      status: 'active',
+      archived_at: null,
+    };
+    const generated = {
+      ...threadRow,
+      title: 'Planning the School Week',
+      title_source: 'generated',
+    };
+    const { client, calls } = createClient([
+      { data: { ...threadRow, title: 'A clearer title', title_source: 'user' }, error: null },
+      { data: generated, error: null },
+      { data: null, error: null },
       { data: archived, error: null },
+      { data: restored, error: null },
+      { data: null, error: null },
     ]);
     const repository = createUnifiedChatRepository(client as never);
 
     await expect(repository.renameThread('thread-1', 'A clearer title')).resolves.toMatchObject({
       title: 'A clearer title',
+      titleSource: 'user',
+    });
+    await expect(repository.applyGeneratedThreadTitle('thread-1', 'Planning the School Week'))
+      .resolves.toMatchObject({ title: 'Planning the School Week', titleSource: 'generated' });
+    await expect(repository.applyGeneratedThreadTitle('thread-1', 'A Later Generated Name'))
+      .resolves.toBeNull();
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_threads', method: 'in',
+      args: ['title_source', ['default', 'generated']],
     });
     await expect(repository.archiveThread('thread-1')).resolves.toMatchObject({
       status: 'archived',
+    });
+    await expect(repository.restoreThread('thread-1')).resolves.toMatchObject({
+      status: 'active',
+      archivedAt: null,
+    });
+    await expect(repository.deleteThread('thread-1')).resolves.toBeUndefined();
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_threads', method: 'delete', args: [],
+    });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_threads', method: 'eq', args: ['user_id', 'user-1'],
     });
   });
 

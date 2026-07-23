@@ -21,7 +21,7 @@ const proposal: UnifiedChatProposal = {
 function aggregate(activityAlreadyApplied: boolean): UnifiedChatThreadAggregate {
   const appliedAt = '2026-07-22T13:00:00.000Z';
   return {
-    thread: { id: 'thread-1', title: 'Chat', status: 'active', archivedAt: null, createdAt: prior.createdAt, updatedAt: appliedAt },
+    thread: { id: 'thread-1', title: 'Chat', titleSource: 'default', status: 'active', archivedAt: null, createdAt: prior.createdAt, updatedAt: appliedAt },
     messages: [], runs: [], proposals: [proposal],
     receipts: [{
       id: 'receipt-1', proposalId: proposal.id, operationId: proposal.operation.id,

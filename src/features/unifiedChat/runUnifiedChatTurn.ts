@@ -31,6 +31,7 @@ import {
   type UnifiedChatTextAttachment,
 } from './unifiedChatAttachmentPolicy';
 import { transitionRun } from './runStateMachine';
+import { normalizeSuggestedThreadTitle } from './threadTitle';
 
 export class UnifiedChatTurnError extends Error {
   constructor(message: string) {
@@ -48,6 +49,7 @@ type TurnRepository = Pick<
   | 'createProposal'
   | 'transitionRunStatus'
   | 'loadThread'
+  | 'applyGeneratedThreadTitle'
 >;
 
 type SendCoachChat = typeof defaultSendCoachChat;
@@ -63,6 +65,7 @@ export type RunUnifiedChatTurnInput = {
   retryRunId?: string;
   attachments?: UnifiedChatTextAttachment[];
   onRunStarted?: (aggregate: UnifiedChatThreadAggregate) => void;
+  onThreadTitleUpdated?: (thread: UnifiedChatThreadAggregate['thread']) => void;
 };
 
 export type RunUnifiedChatTurnDependencies = {
@@ -336,6 +339,12 @@ export async function runUnifiedChatTurn(
       requestPolicy.participatingCapabilities.includes('todos');
     const expectsGroundedAnswer = (requestPolicy.usePrivateContext || turnAttachments.length > 0) && !expectsActivityProposal;
     failureCode = 'model_response_failed';
+    const automaticTitlesAllowed = input.aggregate.thread.titleSource !== 'user';
+    const suggestFromOpening =
+      automaticTitlesAllowed &&
+      input.aggregate.thread.titleSource === 'default' &&
+      input.aggregate.messages.length === 0 &&
+      !retryMessage;
     const response = await sendCoachChat(history, {
       aiJob: 'default_chat',
       workflowInstanceId: input.aggregate.thread.id,
@@ -353,6 +362,23 @@ export async function runUnifiedChatTurn(
         turnAttachments,
       ),
       paywallSource: 'unknown',
+      conversationTitlePolicy: {
+        suggestFromOpening,
+        refreshFromSummary: automaticTitlesAllowed,
+        onSuggestedTitle: async (suggestedTitle) => {
+          const title = normalizeSuggestedThreadTitle(suggestedTitle);
+          if (!title) return;
+          try {
+            const updatedThread = await repository.applyGeneratedThreadTitle(
+              input.aggregate.thread.id,
+              title,
+            );
+            if (updatedThread) input.onThreadTitleUpdated?.(updatedThread);
+          } catch {
+            // Title maintenance is helpful metadata and must never break a chat turn.
+          }
+        },
+      },
     });
     const parsedActionResponse = expectsActivityProposal
       ? parseActivityActionResponse(response)

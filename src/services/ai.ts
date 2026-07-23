@@ -28,6 +28,14 @@ import {
   parseKwiltProxyError,
   parseOpenAiError,
 } from './aiErrorParsing';
+import {
+  buildCompressionMetadataMessages,
+  buildOpeningTitleMessages,
+  COMPRESSION_METADATA_RESPONSE_FORMAT,
+  OPENING_THREAD_TITLE_RESPONSE_FORMAT,
+  parseCompressionMetadataResponse,
+  parseOpeningTitleResponse,
+} from '../features/unifiedChat/threadTitle';
 
 export { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
 
@@ -770,6 +778,14 @@ export type CoachChatOptions = {
    * If omitted, we fall back to 'unknown'.
    */
   paywallSource?: PaywallSource;
+  conversationTitlePolicy?: {
+    suggestFromOpening: boolean;
+    refreshFromSummary: boolean;
+    onSuggestedTitle: (
+      title: string,
+      source: 'opening' | 'summary',
+    ) => void | Promise<void>;
+  };
 };
 
 type KwiltAiJob =
@@ -2594,7 +2610,7 @@ export async function sendCoachChat(
   const summarizeConversationChunk = async (params: {
     existingSummary?: string;
     newTurns: CoachChatTurn[];
-  }): Promise<string> => {
+  }): Promise<{ summary: string; title: string | null }> => {
     const { existingSummary, newTurns } = params;
     const transcript = newTurns
       .map((t) => {
@@ -2620,14 +2636,21 @@ export async function sendCoachChat(
       transcript,
     ].join('\n\n');
 
+    const metadataMessages = options?.conversationTitlePolicy?.refreshFromSummary
+      ? buildCompressionMetadataMessages({ existingSummary, newTurns })
+      : null;
     const summaryBody: Record<string, unknown> = {
       model: resolveChatModel(),
       temperature: 0.2,
-      messages: [
-        { role: 'system' as const, content: truncateMessageContent(summarySystemPrompt) },
-        { role: 'user' as const, content: truncateMessageContent(summaryUserContent) },
-      ],
+      messages: (metadataMessages ?? [
+        { role: 'system' as const, content: summarySystemPrompt },
+        { role: 'user' as const, content: summaryUserContent },
+      ]).map((message) => ({
+        ...message,
+        content: truncateMessageContent(message.content),
+      })),
     };
+    if (metadataMessages) summaryBody.response_format = COMPRESSION_METADATA_RESPONSE_FORMAT;
 
     const kwiltProxyHeaders: Record<string, string> = {};
     if (options?.mode) {
@@ -2660,11 +2683,44 @@ export async function sendCoachChat(
 
     const summaryData = await summaryResponse.json();
     const summaryContent: string | undefined = summaryData?.choices?.[0]?.message?.content;
-    const cleaned = (summaryContent ?? '').trim();
-    if (!cleaned) {
-      throw new Error('Empty summary');
+    if (metadataMessages) {
+      const metadata = parseCompressionMetadataResponse(summaryContent ?? '');
+      if (!metadata) throw new Error('Invalid conversation metadata');
+      return metadata;
     }
-    return cleaned;
+    const cleaned = (summaryContent ?? '').trim();
+    if (!cleaned) throw new Error('Empty summary');
+    return { summary: cleaned, title: null };
+  };
+
+  const suggestOpeningConversationTitle = async (
+    completedTurns: CoachChatTurn[],
+  ): Promise<string | null> => {
+    const titleResponse = await fetchWithTimeout(
+      OPENAI_COMPLETIONS_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'lightweight_helper',
+        },
+        body: JSON.stringify({
+          model: resolveChatModel(),
+          temperature: 0.2,
+          messages: buildOpeningTitleMessages(completedTurns).map((message) => ({
+            ...message,
+            content: truncateMessageContent(message.content),
+          })),
+          response_format: OPENING_THREAD_TITLE_RESPONSE_FORMAT,
+        }),
+      },
+      OPENAI_TIMEOUT_MS,
+    );
+    if (!titleResponse.ok) throw new Error('Unable to name conversation');
+    const titleData = await titleResponse.json();
+    const content: string | undefined = titleData?.choices?.[0]?.message?.content;
+    return parseOpeningTitleResponse(content ?? '');
   };
 
   const summaryRecord = await loadCoachConversationSummaryRecord(options);
@@ -2835,7 +2891,7 @@ export async function sendCoachChat(
         const newEligibleTurns = eligibleTurns.slice(Math.max(0, prevEligibleCount));
         if (newEligibleTurns.length < 6) return;
 
-        const updatedSummary = await summarizeConversationChunk({
+        const updatedMetadata = await summarizeConversationChunk({
           existingSummary: summaryRecord?.summary,
           newTurns: newEligibleTurns,
         });
@@ -2844,13 +2900,36 @@ export async function sendCoachChat(
           {
             version: 1,
             updatedAt: new Date().toISOString(),
-            summary: updatedSummary,
+            summary: updatedMetadata.summary,
             summarizedEligibleCount: eligibleTurns.length,
           },
           options
         );
+        if (updatedMetadata.title) {
+          await options?.conversationTitlePolicy?.onSuggestedTitle(
+            updatedMetadata.title,
+            'summary',
+          );
+        }
       } catch {
         // Ignore summary failures; they should never break chat.
+      }
+    })();
+  };
+
+  const scheduleOpeningTitleMaintenance = (assistantContent: string) => {
+    if (!options?.conversationTitlePolicy?.suggestFromOpening) return;
+    void (async () => {
+      try {
+        const title = await suggestOpeningConversationTitle([
+          ...messages.filter((message) => message.role !== 'system'),
+          { role: 'assistant', content: assistantContent },
+        ]);
+        if (title) {
+          await options.conversationTitlePolicy?.onSuggestedTitle(title, 'opening');
+        }
+      } catch {
+        // Ignore title failures; they should never break chat.
       }
     })();
   };
@@ -2883,6 +2962,7 @@ export async function sendCoachChat(
     });
 
     scheduleConversationSummaryMaintenance();
+    scheduleOpeningTitleMaintenance(String(content));
     return content as string;
   }
 
@@ -3004,6 +3084,7 @@ export async function sendCoachChat(
   });
 
   scheduleConversationSummaryMaintenance();
+  scheduleOpeningTitleMaintenance(String(finalContent));
   return finalContent as string;
 }
 

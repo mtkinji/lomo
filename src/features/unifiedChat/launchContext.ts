@@ -18,7 +18,7 @@ export type UnifiedChatLaunchContext = {
 
 export type UnifiedChatRouteParams = {
   launchContext?: UnifiedChatLaunchContext;
-  threadId?: string;
+  threadId?: string | null;
 };
 
 export type UnifiedChatLaunchSnapshots = {
