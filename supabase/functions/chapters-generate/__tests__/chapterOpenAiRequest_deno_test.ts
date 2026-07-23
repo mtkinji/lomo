@@ -23,7 +23,7 @@ Deno.test('chapterOpenAiRequest builds the chat completion JSON contract', () =>
 
   assertEquals(body.model, 'gpt-4o');
   assertEquals(body.messages.length, 2);
-  assertEquals(body.max_tokens, 1200);
+  assertEquals(body.max_tokens, 1800);
   assertEquals(body.temperature, 0.65);
   assertEquals(body.response_format.type, 'json_object');
 });
@@ -43,8 +43,8 @@ Deno.test('chapterOpenAiRequest applies detail, kind, period, and retry policies
     periodDays: 30,
   });
 
-  assertEquals(longPeriod.max_tokens, 1900);
+  assertEquals(longPeriod.max_tokens, 2200);
   assertEquals(longPeriod.temperature, 0.2);
-  assertEquals(deepPlayful.max_tokens, 1600);
+  assertEquals(deepPlayful.max_tokens, 1800);
   assert(deepPlayful.temperature > longPeriod.temperature, 'playful reflection should stay warmer than strict report retry');
 });

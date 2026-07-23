@@ -30,7 +30,6 @@ describe('Chat Quick Add enrichment', () => {
           reminderAt: '2026-07-24T15:00:00.000Z', repeatRule: null,
         })),
         findCover: jest.fn(async () => ({ thumbnailUrl: 'https://example.com/school.jpg' })),
-        getCurrentLocation: jest.fn(async () => null),
         now: () => '2026-07-22T13:00:00.000Z',
       },
     });

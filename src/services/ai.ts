@@ -789,10 +789,7 @@ export type CoachChatOptions = {
   conversationTitlePolicy?: {
     suggestFromOpening: boolean;
     refreshFromSummary: boolean;
-    onSuggestedTitle: (
-      title: string,
-      source: 'opening' | 'summary',
-    ) => void | Promise<void>;
+    onSuggestedTitle: (title: string, source: 'opening' | 'summary') => void | Promise<void>;
   };
 };
 
@@ -2913,10 +2910,7 @@ export async function sendCoachChat(
           options
         );
         if (updatedMetadata.title) {
-          await options?.conversationTitlePolicy?.onSuggestedTitle(
-            updatedMetadata.title,
-            'summary',
-          );
+          await options?.conversationTitlePolicy?.onSuggestedTitle(updatedMetadata.title, 'summary');
         }
       } catch {
         // Ignore summary failures; they should never break chat.
@@ -2932,9 +2926,7 @@ export async function sendCoachChat(
           ...messages.filter((message) => message.role !== 'system'),
           { role: 'assistant', content: assistantContent },
         ]);
-        if (title) {
-          await options.conversationTitlePolicy?.onSuggestedTitle(title, 'opening');
-        }
+        if (title) await options.conversationTitlePolicy?.onSuggestedTitle(title, 'opening');
       } catch {
         // Ignore title failures; they should never break chat.
       }

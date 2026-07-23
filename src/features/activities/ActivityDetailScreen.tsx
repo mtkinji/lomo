@@ -799,6 +799,16 @@ export function ActivityDetailScreen() {
     updateActivity,
     onClose: () => setActiveSheet(null),
   });
+  const handleClearLocation = useCallback(() => {
+    if (!activity?.id) return;
+    const updatedAt = new Date().toISOString();
+    updateActivity(activity.id, (previous) => ({
+      ...previous,
+      location: null,
+      placeLink: null,
+      updatedAt,
+    }));
+  }, [activity?.id, updateActivity]);
   const scheduleLensHeightPx = useMemo(() => {
     return Math.max(360, Math.min(640, Math.round(windowHeight * 0.52)));
   }, [windowHeight]);

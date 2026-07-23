@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.md,
     paddingRight: spacing.sm,
     paddingVertical: spacing.sm,
-    borderRadius: QUICK_ADD_DOCK_SURFACE_RADIUS,
+    borderRadius: QUICK_ADD_COMPOSER_SURFACE_RADIUS,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.cardBorder,
     backgroundColor: colors.card,

@@ -1,6 +1,5 @@
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { enrichActivityWithAI } from '../../services/ai';
-import { getCurrentLocationBestEffort } from '../../services/location/currentLocation';
 import { findActivityCoverImageWithAI } from '../activities/activityCoverImage';
 import {
   applyQuickAddAiEnrichment,
@@ -15,7 +14,6 @@ export function resolveChatQuickAddAiActions(canUseCoverImage: boolean): QuickAd
 type Dependencies = {
   enrich?: typeof enrichActivityWithAI;
   findCover?: typeof findActivityCoverImageWithAI;
-  getCurrentLocation?: typeof getCurrentLocationBestEffort;
   now?: () => string;
 };
 
@@ -24,7 +22,6 @@ export async function enrichCreatedActivityLikeQuickAdd({
   goals,
   arcs,
   canUseCoverImage,
-  locationTriggersEnabled,
   dependencies = {},
 }: {
   activity: Activity;
@@ -40,9 +37,8 @@ export async function enrichCreatedActivityLikeQuickAdd({
   );
   const enrich = dependencies.enrich ?? enrichActivityWithAI;
   const findCover = dependencies.findCover ?? findActivityCoverImageWithAI;
-  const getCurrentLocation = dependencies.getCurrentLocation ?? getCurrentLocationBestEffort;
 
-  const [enrichmentResult, coverResult, currentLocationResult] = await Promise.allSettled([
+  const [enrichmentResult, coverResult] = await Promise.allSettled([
     enrich({
       activityId: activity.id,
       title: activity.title,
@@ -63,15 +59,11 @@ export async function enrichCreatedActivityLikeQuickAdd({
           canUseUnsplash: true,
         })
       : Promise.resolve(null),
-    locationTriggersEnabled ? getCurrentLocation().catch(() => null) : Promise.resolve(null),
   ]);
 
   const rawEnrichment = enrichmentResult.status === 'fulfilled' ? enrichmentResult.value ?? {} : {};
-  const currentLocation = currentLocationResult.status === 'fulfilled' ? currentLocationResult.value : null;
   const locationResolution = resolveQuickAddLocationTriggerEnrichment({
     enrichment: rawEnrichment,
-    currentLocation,
-    locationTriggersEnabled,
   });
   const timestamp = dependencies.now?.() ?? new Date().toISOString();
   const goalContext = activity.goalId

@@ -1,5 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import type { Activity } from '../../domain/types';
+import { LocationPermissionService } from '../../services/LocationPermissionService';
 import { useActivityLocationEditor } from './useActivityLocationEditor';
 
 jest.mock('../../services/LocationPermissionService', () => ({
@@ -41,6 +42,7 @@ describe('useActivityLocationEditor', () => {
     });
     expect(result.current.trigger).toBe('arrive');
     expect(result.current.radiusM).toBeCloseTo(45.72);
-    await waitFor(() => expect(result.current.statusHint).not.toBeNull());
+    expect(result.current.statusHint).toBeNull();
+    await waitFor(() => expect(LocationPermissionService.syncOsPermissionStatus).toHaveBeenCalled());
   });
 });
