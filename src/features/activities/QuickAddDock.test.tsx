@@ -102,6 +102,25 @@ describe('QuickAddDock', () => {
     });
   });
 
+  it('renders the collapsed floating surface as a full pill', () => {
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-collapsed-surface').props.style)).toMatchObject({
+      borderRadius: 999,
+    });
+  });
+
   it('uses a contextual placeholder for the collapsed and expanded composer', () => {
     const inputRef = React.createRef<TextInput | null>();
     const { getByLabelText, getByTestId, rerender } = renderWithProviders(
