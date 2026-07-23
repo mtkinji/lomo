@@ -27,6 +27,10 @@ const aggregate: UnifiedChatThreadAggregate = {
 };
 
 describe('buildWorkbenchSnapshot', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test('projects a calm Kwilt configuration with an ordered transcript', () => {
     const snapshot = buildWorkbenchSnapshot(aggregate, 'draft text');
 
@@ -370,6 +374,9 @@ describe('buildWorkbenchSnapshot', () => {
   });
 
   test('collapses an applied create into its authoritative receipt instead of a second editor', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 20, 10));
+
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,
       messages: [
