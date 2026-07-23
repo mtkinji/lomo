@@ -87,8 +87,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: the focused-goal snapshot, metric summary, and refinement instructions form a prompt contract embedded in screen orchestration.
   - Result: `goalRefinementPrompt.ts` now owns target context, capped metric summaries, and required refinement instructions without unchecked casts, with focused tests.
 
-- [ ] Extract Goal share-preview URL policy
+- [x] Extract Goal share-preview URL policy
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: external share previews must reject blank, malformed, and device-local image URLs while retaining public HTTP(S) images.
-  - Ideal test: pin blank, malformed, local-scheme, HTTP, and HTTPS values.
+  - Result: `goalSharePreviewUrl.ts` now owns HTTP(S)-only image normalization with focused tests for blank, malformed, local-scheme, HTTP, and HTTPS values.
+
+- [ ] Unify Goal invite referral URL mutation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
+  - Why: both share paths independently trim referral codes, preserve an existing `ref`, and append a fallback query parameter for malformed URLs.
+  - Ideal test: pin blank codes, existing refs, encoded refs, query strings, and malformed URL fallback.
   - Risk: low

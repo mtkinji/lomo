@@ -165,6 +165,7 @@ import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDef
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 import { mergeRefinedGoalProposal } from './goalProposalMerge';
 import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
+import { normalizeGoalSharePreviewImageUrl } from './goalSharePreviewUrl';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1142,18 +1143,7 @@ export function GoalDetailScreen() {
       if (!goal) return;
       capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId: goal.id, channel: 'share_sheet' });
       const referralCode = await createReferralCode({ kind: 'shared_goal_invite' }).catch(() => '');
-      const goalImageUrl = (() => {
-        const raw = (displayThumbnailUrl ?? '').trim();
-        if (!raw) return undefined;
-        try {
-          const u = new URL(raw);
-          // Only include publicly fetchable URLs for OG previews (no file://, ph://, etc).
-          if (u.protocol !== 'https:' && u.protocol !== 'http:') return undefined;
-          return u.toString();
-        } catch {
-          return undefined;
-        }
-      })();
+      const goalImageUrl = normalizeGoalSharePreviewImageUrl(displayThumbnailUrl);
 
       const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({
         goalId: goal.id,
