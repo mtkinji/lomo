@@ -1,4 +1,4 @@
-import { CAPABILITY_GROUPS, CAPABILITY_REGISTRY } from './registry';
+import { CAPABILITY_GROUPS, CAPABILITY_REGISTRY, getCapability } from './registry';
 
 describe('capability registry', () => {
   it('keeps the accepted Phase 1 capability order', () => {
@@ -8,6 +8,7 @@ describe('capability registry', () => {
       'plan',
       'arcs',
       'chapters',
+      'money',
     ]);
   });
 
@@ -28,9 +29,19 @@ describe('capability registry', () => {
   it('gives every active capability a root route', () => {
     expect(
       CAPABILITY_REGISTRY.filter(({ availability }) => availability === 'active').every(
-        ({ rootRoute }) => rootRoute.root === 'MainTabs' && rootRoute.tab.length > 0,
+        ({ rootRoute }) => rootRoute.root.length > 0,
       ),
     ).toBe(true);
+  });
+
+  it('registers Money as an active capability with a capability-local root', () => {
+    expect(getCapability('money')).toMatchObject({
+      id: 'money',
+      label: 'Money',
+      group: 'money',
+      rootRoute: { root: 'Money', screen: 'MoneySummary' },
+      availability: 'active',
+    });
   });
 
   it('maps the current capabilities onto their existing host routes', () => {
@@ -40,6 +51,7 @@ describe('capability registry', () => {
       ['plan', { root: 'MainTabs', tab: 'PlanTab' }],
       ['arcs', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreArcs' }],
       ['chapters', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreChapters' }],
+      ['money', { root: 'Money', screen: 'MoneySummary' }],
     ]);
   });
 });

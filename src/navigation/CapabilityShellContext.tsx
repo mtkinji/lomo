@@ -33,6 +33,7 @@ export function deriveActiveCapabilityId(
   state: NavigationStateLike | undefined,
 ): CapabilityId | null {
   const names = focusedRouteNames(state);
+  if (names[0] === 'Money') return 'money';
   if (names[0] === 'ArcsStack') return 'arcs';
   if (names[0] !== 'MainTabs') return null;
 

@@ -16,6 +16,7 @@ describe('deriveActiveCapabilityId', () => {
     [['MainTabs', 'MoreTab', 'MoreChapters'], 'chapters'],
     [['MainTabs', 'MoreTab', 'MoreChapterDetail'], 'chapters'],
     [['ArcsStack', 'ArcsList'], 'arcs'],
+    [['Money', 'MoneySummary'], 'money'],
   ] as const)('derives %s as %s', (routeNames, expected) => {
     expect(deriveActiveCapabilityId(state(...routeNames))).toBe(expected);
   });

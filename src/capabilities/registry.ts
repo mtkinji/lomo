@@ -4,9 +4,11 @@ import type {
   CapabilityId,
   CapabilityRouteTarget,
 } from './types';
+import { moneyCapabilityDefinition } from './money/definition';
 
 export const CAPABILITY_GROUPS = [
   { id: 'goals-plans', label: 'Goals & Plans' },
+  { id: 'money', label: 'Money' },
 ] as const satisfies readonly CapabilityGroupDefinition[];
 
 const currentKwiltAgentContract = {
@@ -70,6 +72,7 @@ export const CAPABILITY_REGISTRY = [
     { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreChapters' },
     ['kwilt://chapters'],
   ),
+  moneyCapabilityDefinition,
 ] as const satisfies readonly CapabilityDefinition[];
 
 export function getCapability(id: CapabilityId): CapabilityDefinition {

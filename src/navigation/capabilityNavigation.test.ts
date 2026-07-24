@@ -22,6 +22,7 @@ describe('resolveCapabilityNavigation', () => {
         params: { screen: 'MoreTab', params: { screen: 'MoreChapters' } },
       },
     ],
+    ['money', { name: 'Money', params: { screen: 'MoneySummary' } }],
   ] as const)('resolves %s through the existing host navigator', (id, expected) => {
     expect(resolveCapabilityNavigation(id)).toEqual(expected);
   });
