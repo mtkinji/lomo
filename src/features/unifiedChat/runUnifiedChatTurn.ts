@@ -740,15 +740,18 @@ export async function runUnifiedChatTurn(
         toolId: directTool.id,
         resultStatus: result.status,
       }];
-      if (result.status !== 'proposed' && result.status !== 'pending_client_action') {
+      if (result.status === 'unavailable' && directScreenTime) {
+        directResponse = `Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change ${directScreenTime.appName} on ${directScreenTime.childName}'s device.`;
+      } else if (result.status !== 'proposed' && result.status !== 'pending_client_action') {
         failureCode = 'direct_app_control_failed';
         throw new UnifiedChatTurnError(
           result.status === 'needs_input' ? result.prompt : 'Kwilt could not prepare that app change safely.',
         );
+      } else {
+        directResponse = directReminder
+          ? `I prepared a recurring “${directReminder.title}” reminder for review.`
+          : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
       }
-      directResponse = directReminder
-        ? `I prepared a recurring “${directReminder.title}” reminder for review.`
-        : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
     }
     const response = directResponse ?? await sendCoachChat(history, {
       aiJob: 'default_chat',

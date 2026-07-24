@@ -95,7 +95,7 @@ test('applies shared consequence policy before a direct server relationship muta
   expect(rpc).not.toHaveBeenCalled();
 });
 
-test('stages a device-only action and never reports the underlying effect as complete', async () => {
+test('reports the cross-device Screen Time boundary without staging the wrong native action', async () => {
   const stageDeviceAction = jest.fn(async () => undefined);
   const { client } = clientWith({ data: [], error: null });
   await expect(executeServerAgentTool({
@@ -104,16 +104,11 @@ test('stages a device-only action and never reports the underlying effect as com
       arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
     },
     tool: tool('screen_time.configure'), stageDeviceAction,
-  })).resolves.toMatchObject({
-    status: 'pending_client_action', provider: 'device',
-    request: expect.objectContaining({
-      actionType: 'configure_screen_time', title: 'Review Brawl Stars access for Charlie',
-      payload: expect.objectContaining({ childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' }),
-    }),
+  })).resolves.toEqual({
+    status: 'unavailable', retryable: false,
+    reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
   });
-  expect(stageDeviceAction).toHaveBeenCalledWith(expect.objectContaining({
-    consequenceSummary: expect.stringContaining('Apple authorization'),
-  }));
+  expect(stageDeviceAction).not.toHaveBeenCalled();
 });
 
 test('stages native Plan preferences without claiming availability or calendars changed', async () => {

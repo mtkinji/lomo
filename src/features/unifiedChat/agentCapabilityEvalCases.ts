@@ -25,7 +25,7 @@ export type AppControlEvalCase = {
     | 'future-screen-time-control';
   prompt: string;
   expectedOperations: readonly KwiltOperationId[];
-  expectedOutcome: 'answer' | 'proposal_or_receipt' | 'native_review';
+  expectedOutcome: 'answer' | 'proposal_or_receipt' | 'native_review' | 'honest_boundary';
 };
 
 const standingCases = <const Cases extends readonly AppControlEvalCase[]>(cases: Cases) => cases;
@@ -86,17 +86,17 @@ export const APP_CONTROL_EVAL_CASES = standingCases([
   {
     id: 'screen-time-primary', scenarioId: 'future-screen-time-control',
     prompt: 'Turn on Brawl Stars for Charlie.',
-    expectedOperations: ['screen_time.configure'], expectedOutcome: 'native_review',
+    expectedOperations: ['screen_time.configure'], expectedOutcome: 'honest_boundary',
   },
   {
     id: 'screen-time-paraphrase', scenarioId: 'future-screen-time-control',
     prompt: 'Let Charlie use Brawl Stars now.',
-    expectedOperations: ['screen_time.configure'], expectedOutcome: 'native_review',
+    expectedOperations: ['screen_time.configure'], expectedOutcome: 'honest_boundary',
   },
   {
     id: 'screen-time-access-paraphrase', scenarioId: 'future-screen-time-control',
     prompt: 'Enable Charlie\'s access to Brawl Stars.',
-    expectedOperations: ['screen_time.configure'], expectedOutcome: 'native_review',
+    expectedOperations: ['screen_time.configure'], expectedOutcome: 'honest_boundary',
   },
 ] as const);
 

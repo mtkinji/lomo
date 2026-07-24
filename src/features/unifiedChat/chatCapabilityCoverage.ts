@@ -94,7 +94,7 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'goals.check_in', 'goals.share',
   'activities.focus.open', 'activities.location.update', 'activities.attachments.update', 'activities.share',
   'plan.preferences.open',
-  'screen_time.configure', 'notifications.configure', 'search.open',
+  'notifications.configure', 'search.open',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
 ]);
 
@@ -310,7 +310,7 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   live({ id: 'chapters.note.update', providers: ['server'], consequence: 'low', confirmation: 'explicit', toolIds: ['chapters.note.update'], sourceRefs: ['mcp:update_chapter_user_note'] }, chapterMutationProof),
   live({ id: 'account.show_up_status', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['account.show_up_status'], sourceRefs: ['mcp:get_show_up_status'] }, showUpProof),
 
-  bounded('confirmation_only', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; Screen Time still requires household role, Apple authorization, device apply, and acknowledgement.', deviceHandoffProof),
+  bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'search.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.search.open'], sourceRefs: [] }, 'Chat stages and opens the native search surface; the user completes the search there.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.settings.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.account_settings.open'], sourceRefs: [] }, 'Chat stages and opens native account settings; changes remain user-driven.', deviceHandoffProof),

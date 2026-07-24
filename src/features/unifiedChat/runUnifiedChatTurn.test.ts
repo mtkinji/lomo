@@ -1373,45 +1373,7 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
-  test('persists Screen Time work as a pending device action instead of model success', async () => {
-    const runtimeSender = jest.fn(async (_history: unknown, options: {
-      runtimeTools?: Array<{ id: string }>;
-      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
-    }) => {
-      const screenTimeTool = options.runtimeTools?.find((tool) => tool.id === 'screen_time.configure');
-      expect(screenTimeTool).toBeDefined();
-      await options.executeRuntimeTool?.({
-        id: 'screen-time', toolId: 'screen_time.configure', arguments: {
-          childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow',
-        },
-      }, screenTimeTool);
-      return 'I prepared Screen Time setup on your phone.';
-    });
-    const { repository, send } = dependencies(runtimeSender);
-    await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Turn on Brawl Stars for Charlie.' },
-      {
-        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
-        routeRequest: async () => ({
-          requestClass: 'native_control', participatingCapabilities: ['screenTime'],
-          usePrivateContext: false, confidence: 0.98,
-          reason: 'Named app access for a child requires Screen Time native review.',
-        }),
-        loadCapabilitySnapshots: async () => ({
-          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-        }),
-      },
-    );
-    expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'screenTime', actionType: 'configure_screen_time',
-      title: 'Review Brawl Stars access for Charlie',
-      payload: expect.objectContaining({ childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' }),
-      consequenceSummary: expect.stringContaining('Apple authorization'),
-    }));
-    expect(repository.createProposal).not.toHaveBeenCalled();
-  });
-
-  test('routes an explicit child app-control command without depending on semantic model selection', async () => {
+  test('returns an honest boundary for child app control without depending on model selection', async () => {
     const sender = jest.fn(async () => 'What would you like Kwilt to change?');
     const { repository, send } = dependencies(sender);
 
@@ -1426,9 +1388,10 @@ describe('runUnifiedChatTurn', () => {
     );
 
     expect(sender).not.toHaveBeenCalled();
-    expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'screenTime', actionType: 'configure_screen_time',
-      title: 'Review Brawl Stars access for Charlie',
+    expect(repository.createClientAction).not.toHaveBeenCalled();
+    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      role: 'assistant',
+      body: "Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change Brawl Stars on Charlie's device.",
     }));
   });
 

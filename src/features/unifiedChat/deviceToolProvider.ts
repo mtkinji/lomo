@@ -81,12 +81,11 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
           fields: ['childName', 'appName', 'desiredAccess'],
         };
       }
-      return stage({
-        capabilityId: 'screenTime', actionType: 'configure_screen_time', targetType: 'screen_time_rule', targetId: null,
-        title: `Review ${appName} access for ${childName}`,
-        consequenceSummary: `Kwilt will prepare ${desiredAccess === 'allow' ? 'allowing' : 'blocking'} ${appName} for ${childName}. Household role, Apple authorization, device apply, and acknowledgement must all succeed before Kwilt reports the change complete.`,
-        payload: { childName, appName, desiredAccess, entrySurface: 'settings' },
-      });
+      return {
+        status: 'unavailable',
+        retryable: false,
+        reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
+      };
     }
     const definitions: Record<string, StagedUnifiedChatClientAction> = {
       'notifications.configure': {

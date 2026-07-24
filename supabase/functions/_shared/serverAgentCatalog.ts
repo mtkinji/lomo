@@ -532,7 +532,7 @@ export const SERVER_AGENT_TOOL_CATALOG: readonly ServerAgentToolDefinition[] = [
   },
   {
     id: 'screen_time.configure', version: 1, capabilityId: 'screenTime',
-    purpose: 'Interpret one child, app, and allow-or-block intent, then open native Screen Time review without claiming it was applied.',
+    purpose: 'Interpret one child, app, and allow-or-block intent, then report the cross-device capability boundary without opening same-device settings or claiming enforcement.',
     providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
     confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {

@@ -35,7 +35,7 @@ describe('AGENT_CAPABILITY_EVAL_CASES', () => {
     }));
     expect(byScenario.get('future-screen-time-control')?.[0]).toEqual(expect.objectContaining({
       expectedOperations: ['screen_time.configure'],
-      expectedOutcome: 'native_review',
+      expectedOutcome: 'honest_boundary',
     }));
   });
 

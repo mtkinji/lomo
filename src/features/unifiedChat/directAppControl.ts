@@ -67,6 +67,15 @@ export function directScreenTimeControl(prompt: string): DirectScreenTimeControl
   const normalized = prompt.trim();
   const allow = /^(?:please\s+)?(?:turn\s+on|enable|allow|unlock)\s+(.+?)\s+for\s+([\p{L}][\p{L}'’-]{0,79})\s*[.!?]*$/iu.exec(normalized);
   const block = /^(?:please\s+)?(?:turn\s+off|disable|block|lock)\s+(.+?)\s+for\s+([\p{L}][\p{L}'’-]{0,79})\s*[.!?]*$/iu.exec(normalized);
+  const letUse = /^(?:please\s+)?let\s+([\p{L}][\p{L}'’-]{0,79})\s+use\s+(.+?)(?:\s+now)?\s*[.!?]*$/iu.exec(normalized);
+  const possessiveAccess = /^(?:please\s+)?(?:enable|allow|unlock)\s+([\p{L}][\p{L}’-]{0,79})['’]s\s+access\s+to\s+(.+?)\s*[.!?]*$/iu.exec(normalized);
+  if (letUse || possessiveAccess) {
+    const conversationalAllow = letUse ?? possessiveAccess!;
+    const childName = conversationalAllow[1].trim();
+    const appName = conversationalAllow[2].trim();
+    if (!appName || appName.length > 160) return null;
+    return { childName, appName, desiredAccess: 'allow' };
+  }
   const match = allow ?? block;
   if (!match) return null;
   const appName = match[1].trim();

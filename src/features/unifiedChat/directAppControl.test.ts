@@ -27,8 +27,12 @@ describe('directRecurringReminder', () => {
 });
 
 describe('directScreenTimeControl', () => {
-  test('resolves a named app allow command for one child', () => {
-    expect(directScreenTimeControl('Turn on Brawl Stars for Charlie.')).toEqual({
+  test.each([
+    'Turn on Brawl Stars for Charlie.',
+    'Let Charlie use Brawl Stars now.',
+    "Enable Charlie's access to Brawl Stars.",
+  ])('resolves a named app allow command for one child: %s', (prompt) => {
+    expect(directScreenTimeControl(prompt)).toEqual({
       childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow',
     });
   });
