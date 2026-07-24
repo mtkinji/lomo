@@ -260,6 +260,7 @@ class KwiltScreenTimeProtection: NSObject {
   private let appGroupIdentifier = "__KWILT_APP_GROUP_ID__"
   private let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
   private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
+  private let reviewRequestedAtKey = "kwilt_screen_time_review_requested_at_v1"
 
   @available(iOS 16.0, *)
   private func selectionId(from json: String) -> String {
@@ -383,6 +384,20 @@ class KwiltScreenTimeProtection: NSObject {
     }
 #endif
     resolve("unavailable")
+  }
+
+  @objc(consumePendingReviewRequest:rejecter:)
+  func consumePendingReviewRequest(
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
+      resolve(nil)
+      return
+    }
+    let requestedAtMs = defaults.double(forKey: reviewRequestedAtKey)
+    defaults.removeObject(forKey: reviewRequestedAtKey)
+    resolve(requestedAtMs > 0 ? requestedAtMs : nil)
   }
 
   @objc(requestAuthorization:rejecter:)
@@ -586,6 +601,11 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
   requestAuthorization:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  consumePendingReviewRequest:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 

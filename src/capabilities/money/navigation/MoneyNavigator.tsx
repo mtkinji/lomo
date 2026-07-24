@@ -7,6 +7,7 @@ import { MoneySummaryScreen } from '../screens/MoneySummaryScreen';
 import { MoneyTransactionsScreen } from '../screens/MoneyTransactionsScreen';
 import type { MoneyStackParamList } from './types';
 import { MoneyPrivacyGate } from '../runtime/MoneyPrivacyGate';
+import { MoneyAppControlScreen } from '../screens/MoneyAppControlScreen';
 
 const Stack = createNativeStackNavigator<MoneyStackParamList>();
 
@@ -20,6 +21,7 @@ export function MoneyNavigator() {
           <Stack.Screen name="MoneyAccounts" component={MoneyAccountsScreen} />
           <Stack.Screen name="MoneyCategoryDetail" component={MoneyDetailScreen} />
           <Stack.Screen name="MoneyCategoryCreate" component={MoneyCategoryCreateScreen} />
+          <Stack.Screen name="MoneyAppControl" component={MoneyAppControlScreen} />
           <Stack.Screen name="MoneyTransactionDetail" component={MoneyDetailScreen} />
         </Stack.Navigator>
       </MoneyDataProvider>

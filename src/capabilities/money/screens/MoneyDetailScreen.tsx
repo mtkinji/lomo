@@ -30,11 +30,14 @@ export function MoneyDetailScreen({
     savingCategory,
     renameCategory,
     updateCategoryPlan,
+    pendingAppControlReviewCategoryId,
+    reviewMoneyAppControl,
   } = useMoneyData();
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
+  const [appControlReceipt, setAppControlReceipt] = useState<'opened_for_now' | 'left_blocked' | null>(null);
   const categoryId = 'categoryId' in route.params ? route.params.categoryId : null;
   const transactionId = 'transactionId' in route.params ? route.params.transactionId : null;
   const category = categoryId
@@ -54,6 +57,7 @@ export function MoneyDetailScreen({
     setCategoryNameDraft(category.name);
     setCategoryAmountDraft((category.plannedCents / 100).toFixed(2));
     setCategoryError(null);
+    setAppControlReceipt(null);
   }, [category?.sourceId, category?.name, category?.plannedCents]);
 
   const saveReview = async (mutation: () => Promise<void>) => {
@@ -74,6 +78,17 @@ export function MoneyDetailScreen({
     }
   };
 
+  const finishAppControlReview = async (outcome: 'opened_for_now' | 'left_blocked') => {
+    if (!category) return;
+    setCategoryError(null);
+    try {
+      await reviewMoneyAppControl(category.sourceId, outcome);
+      setAppControlReceipt(outcome);
+    } catch (error) {
+      setCategoryError(error instanceof Error ? error.message : 'The app-control review could not be recorded.');
+    }
+  };
+
   return (
     <AppShell>
       <PageHeader title={title} onPressBack={() => navigation.goBack()} />
@@ -91,6 +106,33 @@ export function MoneyDetailScreen({
               <DetailRow label="Transactions" value={String(category.transactionCount)} />
               <DetailRow label="Rollover" value={category.rolloverEnabled ? 'On' : 'Off'} />
               {category.description ? <DetailRow label="About" value={category.description} /> : null}
+              {pendingAppControlReviewCategoryId === category.sourceId ? (
+                <View style={styles.reviewSection}>
+                  <Heading variant="sm">Review before access</Heading>
+                  <Text tone="secondary">Review {category.name} before opening your selected apps.</Text>
+                  <Button fullWidth onPress={() => void finishAppControlReview('opened_for_now')}>
+                    Open selected apps for 20 min
+                  </Button>
+                  <Button fullWidth onPress={() => void finishAppControlReview('left_blocked')} variant="outline">
+                    Keep blocked
+                  </Button>
+                </View>
+              ) : appControlReceipt ? (
+                <View style={styles.ruleState}>
+                  <Text variant="label">
+                    {appControlReceipt === 'opened_for_now' ? 'Selected apps are open for 20 min.' : 'Selected apps stay blocked.'}
+                  </Text>
+                  <Text tone="secondary">This review was recorded for {category.name}.</Text>
+                </View>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })}
+                style={styles.action}
+              >
+                <Text variant="label" tone="accent">App controls</Text>
+                <Text tone="secondary">Pause selected apps when this category needs attention.</Text>
+              </Pressable>
               <View style={styles.categorySettings}>
                 <Heading variant="sm">Category settings</Heading>
                 <Input

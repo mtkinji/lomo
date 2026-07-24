@@ -4,6 +4,17 @@ import type { TransactionMeaningReviewInput } from './moneyMutations';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
 import { syncMoneyGlanceableState } from '../runtime/moneyGlanceableState';
+import { reconcileMoneyAppControls } from '../runtime/moneyAppControlRuntime';
+import {
+  evaluateMoneyAppControlPolicy,
+  recordMoneyAppControlReview,
+  type MoneyAppControlReviewOutcome,
+} from '../domain/moneyAppControl';
+import { loadMoneyAppControlSettings, saveMoneyAppControlSettings } from '../runtime/moneyAppControlStorage';
+import {
+  claimPendingMoneyReviewHandoff,
+  subscribeToMoneyReviewHandoff,
+} from '../runtime/moneyAppControlForegroundSync';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
@@ -16,6 +27,8 @@ type MoneyDataContextValue = MoneyDataState & {
   createCategory: (input: CategoryPlanInput) => Promise<string>;
   renameCategory: (categoryId: string, name: string) => Promise<void>;
   updateCategoryPlan: (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => Promise<void>;
+  pendingAppControlReviewCategoryId: string | null;
+  reviewMoneyAppControl: (categoryId: string, outcome: MoneyAppControlReviewOutcome) => Promise<void>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
@@ -30,11 +43,13 @@ export function MoneyDataProvider({
   const [state, dispatch] = useReducer(moneyDataReducer, initialMoneyDataState);
   const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [pendingAppControlReviewCategoryId, setPendingAppControlReviewCategoryId] = useState<string | null>(null);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
 
   const acceptSnapshot = useCallback((snapshot: Awaited<ReturnType<MoneyRepository['loadSnapshot']>>) => {
     dispatch({ type: 'success', snapshot });
     void syncMoneyGlanceableState(snapshot);
+    void reconcileMoneyAppControls(snapshot);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -53,6 +68,25 @@ export function MoneyDataProvider({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!state.snapshot) return;
+    let cancelled = false;
+    const consumeHandoff = async () => {
+      if (!claimPendingMoneyReviewHandoff()) return;
+      const now = new Date();
+      const settings = await loadMoneyAppControlSettings();
+      const category = state.snapshot?.categories.find((candidate) =>
+        evaluateMoneyAppControlPolicy({ settings, snapshot: state.snapshot!, category: candidate, now }).restricted);
+      if (!cancelled && category) setPendingAppControlReviewCategoryId(category.sourceId);
+    };
+    void consumeHandoff();
+    const unsubscribe = subscribeToMoneyReviewHandoff(() => { void consumeHandoff(); });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [state.snapshot]);
 
   const reviewTransaction = useCallback(async (
     transactionId: string,
@@ -150,6 +184,15 @@ export function MoneyDataProvider({
     [applyCategoryMutation, resolvedRepository],
   );
 
+  const reviewMoneyAppControl = useCallback(async (categoryId: string, outcome: MoneyAppControlReviewOutcome) => {
+    if (!state.snapshot) throw new Error('Money must finish loading before this review can be recorded.');
+    const current = await loadMoneyAppControlSettings();
+    const next = recordMoneyAppControlReview(current, categoryId, outcome);
+    await saveMoneyAppControlSettings(next);
+    await reconcileMoneyAppControls(state.snapshot, next);
+    setPendingAppControlReviewCategoryId(null);
+  }, [state.snapshot]);
+
   const value = useMemo(() => ({
     ...state,
     refresh,
@@ -162,7 +205,9 @@ export function MoneyDataProvider({
     createCategory,
     renameCategory,
     updateCategoryPlan,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, refresh, renameCategory, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state, updateCategoryPlan]);
+    pendingAppControlReviewCategoryId,
+    reviewMoneyAppControl,
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

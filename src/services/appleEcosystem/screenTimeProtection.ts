@@ -19,6 +19,7 @@ type KwiltScreenTimeProtectionNativeModule = {
   applyRestrictions?: (json: string) => Promise<boolean>;
   clearRestrictions?: () => Promise<boolean>;
   clearRestrictionsForSelection?: (json: string) => Promise<boolean>;
+  consumePendingReviewRequest?: () => Promise<number | null | undefined>;
 };
 
 const native: KwiltScreenTimeProtectionNativeModule | undefined = (NativeModules as any)?.KwiltScreenTimeProtection;
@@ -53,8 +54,18 @@ export async function requestScreenTimeAuthorization(): Promise<ScreenTimeAuthor
   }
 }
 
+export async function consumePendingScreenTimeReviewRequest(): Promise<number | null> {
+  if (Platform.OS !== 'ios' || !native?.consumePendingReviewRequest) return null;
+  try {
+    const value = Number(await native.consumePendingReviewRequest());
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function presentScreenTimeActivityPicker(
-  settings: ScreenTimeProtectionSettings,
+  settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>,
   options?: { selectionId?: string },
 ): Promise<ScreenTimeSelectionResult | null> {
   if (Platform.OS !== 'ios') return null;
@@ -75,7 +86,7 @@ export async function presentScreenTimeActivityPicker(
 }
 
 export async function applyScreenTimeRestrictions(params: {
-  settings: ScreenTimeProtectionSettings;
+  settings: Pick<ScreenTimeProtectionSettings, 'selectedApps' | 'selectedCategories'>;
   reasons: ScreenTimeRestrictionReason[];
   selectionId?: string;
   reason?: string;

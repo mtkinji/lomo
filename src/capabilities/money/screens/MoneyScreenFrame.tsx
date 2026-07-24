@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
@@ -8,7 +10,7 @@ import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { MoneyPlaceBar } from '../navigation/MoneyPlaceBar';
-import type { MoneyPlaceRouteName } from '../navigation/types';
+import type { MoneyPlaceRouteName, MoneyStackParamList } from '../navigation/types';
 
 export function MoneyScreenFrame({
   activePlace,
@@ -22,7 +24,13 @@ export function MoneyScreenFrame({
   title: string;
 }) {
   const { openMenu } = useCapabilityShell();
-  const { error, refresh, refreshing, snapshot, status } = useMoneyData();
+  const navigation = useNavigation<NativeStackNavigationProp<MoneyStackParamList>>();
+  const { error, pendingAppControlReviewCategoryId, refresh, refreshing, snapshot, status } = useMoneyData();
+
+  useEffect(() => {
+    if (!pendingAppControlReviewCategoryId) return;
+    navigation.navigate('MoneyCategoryDetail', { categoryId: pendingAppControlReviewCategoryId });
+  }, [navigation, pendingAppControlReviewCategoryId]);
 
   return (
     <AppShell>

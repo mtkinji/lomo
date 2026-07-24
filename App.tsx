@@ -61,6 +61,7 @@ import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/dom
 import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
+import { startMoneyAppControlForegroundSync } from './src/capabilities/money/runtime/moneyAppControlForegroundSync';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
 import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
@@ -393,6 +394,8 @@ export default function App() {
     startPartnerProgressService();
     // Keep Meaningful First app shields applied across launches/foreground returns.
     startScreenTimeProtectionForegroundSync();
+    // Route fresh Screen Time shield handoffs into the native Money review flow.
+    startMoneyAppControlForegroundSync();
   }, []);
 
   useEffect(() => {

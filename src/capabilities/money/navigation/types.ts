@@ -4,6 +4,7 @@ export type MoneyStackParamList = {
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string };
   MoneyCategoryCreate: undefined;
+  MoneyAppControl: { categoryId: string };
   MoneyTransactionDetail: { transactionId: string };
 };
 

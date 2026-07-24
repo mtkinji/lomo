@@ -37,6 +37,14 @@ private enum KwiltShieldCopy {
       return "Do one thing first."
     case "meaningful_first_bypass":
       return "Your Kwilt pause is active."
+    case "money_usage_threshold", "money_review_required":
+      return "Review this category first."
+    case "money_over_limit":
+      return "This category is over its plan."
+    case "money_ahead_of_pace":
+      return "This category is running hot."
+    case "money_transactions_need_review":
+      return "Review recent spending."
     default:
       return "Do one thing first."
     }
@@ -50,6 +58,8 @@ private enum KwiltShieldCopy {
       return "Complete a to-do, record progress, or finish Focus in Kwilt to open \\(appName) today."
     case "meaningful_first_bypass":
       return "Wait for this short pause to end, or open Kwilt to change it."
+    case "money_usage_threshold", "money_review_required", "money_over_limit", "money_ahead_of_pace", "money_transactions_need_review":
+      return "Open Kwilt Money to review before using \\(appName)."
     default:
       return "Complete a to-do, record progress, or finish Focus in Kwilt to open \\(appName) today."
     }
@@ -57,19 +67,21 @@ private enum KwiltShieldCopy {
 }
 
 final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
-  private let backgroundColor = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
-  private let foregroundColor = UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
   private let detailColor = UIColor(white: 1.0, alpha: 0.84)
 
   private func configuration(appName: String) -> ShieldConfiguration {
     let reason = KwiltShieldCopy.reason()
+    let isMoney = reason.hasPrefix("money_")
+    let accent = isMoney
+      ? UIColor(red: 0.106, green: 0.157, blue: 0.227, alpha: 1.0)
+      : UIColor(red: 0.192, green: 0.333, blue: 0.271, alpha: 1.0)
     return ShieldConfiguration(
       backgroundBlurStyle: .systemMaterialDark,
-      backgroundColor: backgroundColor,
-      icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: "app.badge.clock")?.withTintColor(UIColor.white, renderingMode: .alwaysOriginal),
+      backgroundColor: accent,
+      icon: UIImage(named: "KwiltShieldAppIcon") ?? UIImage(systemName: isMoney ? "creditcard.and.123" : "app.badge.clock")?.withTintColor(UIColor.white, renderingMode: .alwaysOriginal),
       title: ShieldConfiguration.Label(text: KwiltShieldCopy.title(for: reason), color: UIColor.white),
       subtitle: ShieldConfiguration.Label(text: KwiltShieldCopy.subtitle(for: reason, appName: appName), color: detailColor),
-      primaryButtonLabel: ShieldConfiguration.Label(text: "Open Kwilt", color: foregroundColor),
+      primaryButtonLabel: ShieldConfiguration.Label(text: isMoney ? "Open Kwilt Money" : "Open Kwilt", color: accent),
       primaryButtonBackgroundColor: UIColor.white,
       secondaryButtonLabel: nil
     )
@@ -94,7 +106,21 @@ final class KwiltShieldConfigurationExtension: ShieldConfigurationDataSource {
 `;
 }
 
-const actionSwift = `import ManagedSettings
+function buildActionSwift(appGroupId) {
+return `import Foundation
+import ManagedSettings
+
+private enum KwiltReviewRequest {
+  static let appGroupIdentifier = "${appGroupId}"
+  static let requestedAtKey = "kwilt_screen_time_review_requested_at_v1"
+
+  static func record() {
+    UserDefaults(suiteName: appGroupIdentifier)?.set(
+      Date().timeIntervalSince1970 * 1000.0,
+      forKey: requestedAtKey
+    )
+  }
+}
 
 final class KwiltShieldActionExtension: ShieldActionDelegate {
   override func handle(action: ShieldAction, for application: ApplicationToken, completionHandler: @escaping (ShieldActionResponse) -> Void) {
@@ -113,6 +139,7 @@ final class KwiltShieldActionExtension: ShieldActionDelegate {
     switch action {
     case .primaryButtonPressed:
       if #available(iOS 26.5, *), let openKwilt = ShieldActionResponse(rawValue: 3) {
+        KwiltReviewRequest.record()
         completionHandler(openKwilt)
       } else {
         completionHandler(.close)
@@ -125,6 +152,7 @@ final class KwiltShieldActionExtension: ShieldActionDelegate {
   }
 }
 `;
+}
 
 function infoPlist({ displayName, extensionPointIdentifier, principalClass }) {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -150,11 +178,15 @@ function infoPlist({ displayName, extensionPointIdentifier, principalClass }) {
 `;
 }
 
-function entitlements() {
+function entitlements(appGroupId) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict/>
+<dict>
+  <key>com.apple.developer.family-controls</key><true/>
+  <key>com.apple.security.application-groups</key>
+  <array><string>${appGroupId}</string></array>
+</dict>
 </plist>
 `;
 }
@@ -206,7 +238,7 @@ function ensureTarget(project, config, target) {
 
   fs.writeFileSync(path.join(iosRoot, swiftRel), target.swift(appGroupId), 'utf8');
   fs.writeFileSync(path.join(iosRoot, infoRel), infoPlist(target), 'utf8');
-  fs.writeFileSync(path.join(iosRoot, entitlementsRel), entitlements(), 'utf8');
+  fs.writeFileSync(path.join(iosRoot, entitlementsRel), entitlements(appGroupId), 'utf8');
 
   project = addResourceFileToGroup({ filepath: infoRel, groupName: target.name, isBuildFile: false, project, targetUuid });
   project = addResourceFileToGroup({ filepath: entitlementsRel, groupName: target.name, isBuildFile: false, project, targetUuid });
@@ -239,7 +271,7 @@ function withScreenTimeShieldExtensions(config) {
         name: 'KwiltShieldAction',
         suffix: 'shield-action',
         file: 'KwiltShieldAction.swift',
-        swift: () => actionSwift,
+        swift: buildActionSwift,
         displayName: 'KwiltShieldAction',
         extensionPointIdentifier: 'com.apple.ManagedSettings.shield-action-service',
         principalClass: '$(PRODUCT_MODULE_NAME).KwiltShieldActionExtension',
