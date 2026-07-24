@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kwilt",
     "slug": "kwilt",
-    "version": "1.0.93",
+    "version": "1.0.94",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,7 +14,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.andrewwatanabe.kwilt",
       "appleTeamId": "BK3N7YXHN7",
-      "buildNumber": "93",
+      "buildNumber": "94",
       "appExtensions": [
         {
           "targetName": "KwiltWidgets",
@@ -23,7 +23,7 @@
       ]
     },
     "android": {
-      "versionCode": 93,
+      "versionCode": 94,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
