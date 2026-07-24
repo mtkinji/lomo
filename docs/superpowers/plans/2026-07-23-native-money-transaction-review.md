@@ -9,8 +9,9 @@
 - A category assignment writes `budget_id`, corrected match source, confidence, reason, and review time in one row update.
 - “Not counted” writes the excluded match state and explicit `not_counted` money meaning in the same row update.
 - Money received can be classified as household income, transfer, not counted, or a credit to one category; each choice updates money meaning and budget match together.
+- After the current transaction is authoritatively categorized, a separate explicit action can upsert an exact-merchant rule for future matches and reload rule truth.
 - Never optimistically alter dollar totals. Reload the complete snapshot after every successful write and retain the last known-good snapshot after failure.
-- Merchant-wide rules, similar-transaction bulk changes, category creation, and category-plan editing remain later slices.
+- Similar-transaction bulk changes, partial merchant rules, category creation, and category-plan editing remain later slices.
 
 ## Implementation
 

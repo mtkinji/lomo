@@ -200,4 +200,27 @@ describe('projectMoneySnapshot', () => {
       reviewState: 'not_counted',
     });
   });
+
+  it('projects the active merchant rule category onto matching transactions', () => {
+    const snapshot = projectMoneySnapshot(
+      {
+        categories,
+        plans,
+        accounts: [],
+        connections: [],
+        rules: [{
+          id: 'rule-1', budget_id: 'category-grocery-uuid', merchant_contains: 'costco 01234',
+          merchant_match_mode: 'exact', label: 'Groceries merchant rule', created_from_transaction_id: 'transaction-1',
+        }],
+        transactions: [{
+          id: 'transaction-1', financial_account_id: null, name: 'COSTCO #01234', merchant_name: 'COSTCO #01234',
+          amount_cents: 1000, direction: 'outflow', date: '2026-07-02', pending: false,
+          iso_currency_code: 'USD', budget_id: 'groceries', money_meaning: null,
+        }],
+      },
+      new Date('2026-07-23T18:00:00.000Z'),
+    );
+
+    expect(snapshot.transactions[0]?.merchantRuleCategoryId).toBe('groceries');
+  });
 });

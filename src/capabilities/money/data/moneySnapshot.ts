@@ -21,6 +21,15 @@ export type MoneyConnectionRow = {
   last_synced_at: string | null;
 };
 
+export type MoneyRuleRow = {
+  id: string;
+  budget_id: string;
+  merchant_contains: string;
+  merchant_match_mode: 'exact' | 'partial';
+  label: string;
+  created_from_transaction_id: string | null;
+};
+
 export type MoneyAccountRow = {
   id: string;
   connection_id: string;
@@ -75,6 +84,7 @@ export type MoneyTransaction = {
   categoryId: string | null;
   categoryName: string;
   reviewState: 'assigned' | 'needs_review' | 'not_counted';
+  merchantRuleCategoryId?: string | null;
   moneyMeaning: MoneyTransactionRow['money_meaning'];
 };
 
@@ -111,6 +121,7 @@ export type MoneySnapshotRows = {
   plans: MoneyPlanRow[];
   connections: MoneyConnectionRow[];
   accounts: MoneyAccountRow[];
+  rules?: MoneyRuleRow[];
   transactions: MoneyTransactionRow[];
 };
 
@@ -131,7 +142,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
   const accountById = new Map(rows.accounts.map((account) => [account.id, account]));
   const currentTransactions = rows.transactions.filter((transaction) => transaction.date.startsWith(monthKey));
   const transactions = rows.transactions
-    .map((transaction) => projectTransaction(transaction, accountById, categoryByAlias))
+    .map((transaction) => projectTransaction(transaction, accountById, categoryByAlias, rows.rules ?? []))
     .sort((left, right) => right.date.localeCompare(left.date));
 
   const categories = rows.categories
@@ -221,11 +232,14 @@ function projectTransaction(
   transaction: MoneyTransactionRow,
   accounts: Map<string, MoneyAccountRow>,
   categories: Map<string, MoneyCategoryRow>,
+  rules: MoneyRuleRow[],
 ): MoneyTransaction {
   const account = transaction.financial_account_id ? accounts.get(transaction.financial_account_id) : undefined;
   const connection = normalizeConnection(account?.budget_financial_connections);
   const category = transaction.budget_id ? categories.get(transaction.budget_id) : undefined;
   const reviewState = reviewStateFor(transaction, categories);
+  const merchantRule = rules.find((rule) => merchantRuleMatches(rule, transaction.merchant_name?.trim() || transaction.name));
+  const merchantRuleCategory = merchantRule ? categories.get(merchantRule.budget_id) : undefined;
 
   return {
     id: transaction.id,
@@ -242,8 +256,34 @@ function projectTransaction(
     categoryName: category?.name.trim()
       || (reviewState === 'not_counted' ? 'Not counted' : transaction.direction === 'inflow' ? 'Income or transfer' : 'Needs review'),
     reviewState,
+    merchantRuleCategoryId: merchantRuleCategory
+      ? merchantRuleCategory.legacy_budget_id?.trim() || merchantRuleCategory.slug
+      : null,
     moneyMeaning: transaction.money_meaning,
   };
+}
+
+function merchantRuleMatches(rule: MoneyRuleRow, merchantName: string): boolean {
+  if (rule.merchant_match_mode === 'exact') {
+    return normalizeMerchant(rule.merchant_contains) === normalizeMerchant(merchantName);
+  }
+  const ruleKey = partialMerchantKey(rule.merchant_contains);
+  const merchantKey = partialMerchantKey(merchantName);
+  return Boolean(ruleKey && merchantKey && merchantKey.includes(ruleKey));
+}
+
+function normalizeMerchant(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+}
+
+const GENERIC_MERCHANT_WORDS = new Set(['co', 'company', 'food', 'foods', 'inc', 'llc', 'market', 'marketplace', 'mktpl', 'store', 'the']);
+
+function partialMerchantKey(value: string): string {
+  return normalizeMerchant(value)
+    .split(' ')
+    .filter((word) => word && !/^[0-9]+$/.test(word) && !GENERIC_MERCHANT_WORDS.has(word))
+    .slice(0, 2)
+    .join(' ');
 }
 
 function reviewStateFor(

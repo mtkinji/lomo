@@ -6,11 +6,13 @@ import {
   type MoneyCategoryRow,
   type MoneyConnectionRow,
   type MoneyPlanRow,
+  type MoneyRuleRow,
   type MoneySnapshot,
   type MoneyTransactionRow,
 } from './moneySnapshot';
 import {
   buildTransactionMeaningReviewUpdate,
+  buildMerchantRuleUpsert,
   buildTransactionReviewUpdate,
   type TransactionMeaningReviewInput,
   type TransactionReviewUpdate,
@@ -25,6 +27,7 @@ type MoneyReadQuery = PromiseLike<ReadResult> & {
   order(column: string, options?: { ascending?: boolean }): MoneyReadQuery;
   select(columns: string): MoneyReadQuery;
   update(values: Record<string, unknown>): MoneyReadQuery;
+  upsert(values: Record<string, unknown>, options?: { onConflict?: string }): MoneyReadQuery;
 };
 
 type MoneyReadClient = {
@@ -36,6 +39,12 @@ export interface MoneyRepository {
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
   markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
   reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<MoneySnapshot>;
+  saveMerchantRule(input: {
+    transactionId: string;
+    merchantName: string;
+    categoryId: string;
+    categoryName: string;
+  }): Promise<MoneySnapshot>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -43,7 +52,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     await requireSignedIn(client);
 
     const db = client as unknown as MoneyReadClient;
-    const [categories, plans, connections, accounts, transactions] = await Promise.all([
+    const [categories, plans, connections, accounts, rules, transactions] = await Promise.all([
       readPart<MoneyCategoryRow[]>('categories',
         db
           .from('budget_categories')
@@ -74,6 +83,11 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               budget_financial_connections!inner(environment,institution_name,status,last_synced_at)
           `), 'budget_financial_connections.environment')
           .order('created_at', { ascending: false })),
+      readPart<MoneyRuleRow[]>('merchant rules',
+        db
+          .from('budget_transaction_match_rules')
+          .select('id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id')
+          .order('created_at', { ascending: false })),
       readPart<MoneyTransactionRow[]>('transactions',
         environmentQuery(db
           .from('budget_transactions')
@@ -101,6 +115,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       plans,
       connections,
       accounts: normalizeAccountRelations(accounts),
+      rules,
       transactions,
     });
   };
@@ -132,6 +147,16 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       reviewTransaction(transactionId, buildTransactionReviewUpdate({ type: 'not_counted' })),
     reviewTransactionMeaning: (transactionId, input) =>
       reviewTransaction(transactionId, buildTransactionMeaningReviewUpdate(input)),
+    async saveMerchantRule(input) {
+      const userId = await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      await readPart<unknown[]>('merchant rule', db
+        .from('budget_transaction_match_rules')
+        .upsert(buildMerchantRuleUpsert({ userId, ...input }), {
+          onConflict: 'user_id,merchant_contains,merchant_match_mode',
+        }));
+      return loadSnapshot();
+    },
   };
 }
 

@@ -22,6 +22,7 @@ export function MoneyDetailScreen({
     assignTransactionCategory,
     markTransactionNotCounted,
     reviewTransactionMeaning,
+    saveMerchantRule,
   } = useMoneyData();
   const [reviewError, setReviewError] = useState<string | null>(null);
   const categoryId = 'categoryId' in route.params ? route.params.categoryId : null;
@@ -34,6 +35,9 @@ export function MoneyDetailScreen({
     : undefined;
   const title = category?.name || transaction?.merchantName || (route.name === 'MoneyCategoryDetail' ? 'Category' : 'Transaction');
   const isSavingReview = Boolean(transaction && reviewingTransactionId === transaction.id);
+  const assignedCategory = transaction?.categoryId
+    ? snapshot?.categories.find((candidate) => candidate.id === transaction.categoryId)
+    : undefined;
 
   const saveReview = async (mutation: () => Promise<void>) => {
     setReviewError(null);
@@ -117,6 +121,30 @@ export function MoneyDetailScreen({
                       {transaction.reviewState === 'not_counted' ? 'Current' : 'Keep it outside the monthly plan'}
                     </Text>
                   </Pressable>
+                  {assignedCategory ? (
+                    transaction.merchantRuleCategoryId === assignedCategory.id ? (
+                      <View style={styles.ruleState}>
+                        <Text variant="label">Future matches go to {assignedCategory.name}</Text>
+                        <Text tone="secondary">This merchant rule is active.</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isSavingReview }}
+                        disabled={isSavingReview}
+                        onPress={() => void saveReview(() => saveMerchantRule({
+                          transactionId: transaction.id,
+                          merchantName: transaction.merchantName,
+                          categoryId: assignedCategory.sourceId,
+                          categoryName: assignedCategory.name,
+                        }))}
+                        style={styles.ruleAction}
+                      >
+                        <Text variant="label" tone="accent">Use this category for future matches</Text>
+                        <Text tone="secondary">Applies to this exact merchant name.</Text>
+                      </Pressable>
+                    )
+                  ) : null}
                   {reviewError ? <Text tone="destructive">{reviewError}</Text> : null}
                 </View>
               ) : (
@@ -240,4 +268,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder,
   },
   reviewActionSelected: { backgroundColor: colors.fieldFill, borderColor: colors.accent },
+  ruleState: {
+    gap: spacing.xs, padding: spacing.md, borderRadius: 14,
+    backgroundColor: colors.fieldFill, borderWidth: 1, borderColor: colors.border,
+  },
+  ruleAction: {
+    gap: spacing.xs, padding: spacing.md, borderRadius: 14,
+    backgroundColor: colors.fieldFill, borderWidth: 1, borderColor: colors.accent,
+  },
 });

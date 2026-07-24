@@ -4,6 +4,8 @@ import { createMoneyRepository } from './moneyRepository';
 type RecordedCall = {
   table: string;
   update?: Record<string, unknown>;
+  upsert?: Record<string, unknown>;
+  onConflict?: string;
   filters: Array<[string, unknown]>;
 };
 
@@ -20,6 +22,11 @@ function createClient() {
         select: () => query,
         update: (values: Record<string, unknown>) => {
           call.update = values;
+          return query;
+        },
+        upsert: (values: Record<string, unknown>, options?: { onConflict?: string }) => {
+          call.upsert = values;
+          call.onConflict = options?.onConflict;
           return query;
         },
         eq: (column: string, value: unknown) => {
@@ -82,5 +89,30 @@ describe('createMoneyRepository transaction review', () => {
         budget_match_source: 'corrected',
       },
     });
+  });
+
+  it('upserts one exact merchant rule before reloading the snapshot', async () => {
+    const { client, calls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await repository.saveMerchantRule({
+      transactionId: 'transaction-1',
+      merchantName: 'COSTCO #01234',
+      categoryId: 'category-1',
+      categoryName: 'Groceries',
+    });
+
+    expect(calls.find((call) => call.upsert)).toMatchObject({
+      table: 'budget_transaction_match_rules',
+      onConflict: 'user_id,merchant_contains,merchant_match_mode',
+      upsert: {
+        user_id: 'user-1',
+        budget_id: 'category-1',
+        merchant_contains: 'costco 01234',
+        merchant_match_mode: 'exact',
+        created_from_transaction_id: 'transaction-1',
+      },
+    });
+    expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(2);
   });
 });

@@ -9,6 +9,7 @@ type MoneyDataContextValue = MoneyDataState & {
   assignTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>;
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
   reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
+  saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
@@ -82,6 +83,14 @@ export function MoneyDataProvider({
     [resolvedRepository, reviewTransaction],
   );
 
+  const saveMerchantRule = useCallback(
+    (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewTransaction(
+      input.transactionId,
+      () => resolvedRepository.saveMerchantRule(input),
+    ),
+    [resolvedRepository, reviewTransaction],
+  );
+
   const value = useMemo(() => ({
     ...state,
     refresh,
@@ -89,7 +98,8 @@ export function MoneyDataProvider({
     assignTransactionCategory,
     markTransactionNotCounted,
     reviewTransactionMeaning,
-  }), [assignTransactionCategory, markTransactionNotCounted, refresh, reviewTransactionMeaning, reviewingTransactionId, state]);
+    saveMerchantRule,
+  }), [assignTransactionCategory, markTransactionNotCounted, refresh, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, state]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

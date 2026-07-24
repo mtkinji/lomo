@@ -19,6 +19,41 @@ export type TransactionReviewUpdate = {
   money_meaning_reviewed_at?: string;
 };
 
+export type MerchantRuleUpsert = {
+  user_id: string;
+  budget_id: string;
+  merchant_contains: string;
+  merchant_match_mode: 'exact';
+  label: string;
+  created_from_transaction_id: string;
+};
+
+export function buildMerchantRuleUpsert(input: {
+  userId: string;
+  transactionId: string;
+  merchantName: string;
+  categoryId: string;
+  categoryName: string;
+}): MerchantRuleUpsert {
+  const userId = input.userId.trim();
+  const transactionId = input.transactionId.trim();
+  const categoryId = input.categoryId.trim();
+  const merchantContains = normalizeExactMerchant(input.merchantName);
+  if (!userId) throw new Error('Sign in before saving a merchant rule.');
+  if (!transactionId) throw new Error('Choose a transaction before saving a merchant rule.');
+  if (!categoryId) throw new Error('Choose a category before saving a merchant rule.');
+  if (!merchantContains) throw new Error('This transaction does not have a usable merchant name.');
+
+  return {
+    user_id: userId,
+    budget_id: categoryId,
+    merchant_contains: merchantContains,
+    merchant_match_mode: 'exact',
+    label: `${input.categoryName.trim() || 'Category'} merchant rule`,
+    created_from_transaction_id: transactionId,
+  };
+}
+
 export function buildTransactionReviewUpdate(
   input: TransactionReviewInput,
   reviewedAt = new Date().toISOString(),
@@ -78,4 +113,12 @@ function getMeaningReason(meaning: TransactionMeaningReviewInput['meaning']): st
   if (meaning === 'category_credit') return 'Treated as a category credit.';
   if (meaning === 'transfer') return 'Treated as an internal transfer.';
   return 'Marked as outside the budget.';
+}
+
+export function normalizeExactMerchant(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
