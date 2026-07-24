@@ -1,5 +1,5 @@
-import { runBoundedAgentToolLoop } from './orchestrator';
-import type { AgentModelStep, AgentToolDefinition, AgentToolExecutionResult } from './types';
+import { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
+import type { AgentModelStep, AgentToolDefinition, AgentToolExecutionResult, AppControlStep } from './types';
 
 const readTool: AgentToolDefinition = {
   id: 'goals.read', version: 1, capabilityId: 'goals', purpose: 'Read Goals.',
@@ -101,5 +101,33 @@ describe('runBoundedAgentToolLoop', () => {
     expect(result.status).toBe('partial');
     expect(result.errorCode).toBe('max_rounds_reached');
     expect(modelStep).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('runOrderedAppControlPlan', () => {
+  it('resolves a dependent operation from the authoritative earlier result', async () => {
+    const steps: AppControlStep[] = [
+      { operationId: 'goals.create', arguments: { title: 'Walk every day' } },
+      {
+        operationId: 'activities.capture',
+        dependsOn: 0,
+        arguments: {
+          title: 'Go for a walk',
+          goalId: { $fromStep: 0, path: 'output.goalId' },
+        },
+      },
+    ];
+    const executeOperation = jest.fn(async (step: AppControlStep): Promise<AgentToolExecutionResult> => {
+      if (step.operationId === 'goals.create') return completed({ goalId: 'goal-authoritative' });
+      return completed({ activityId: 'activity-authoritative', linkedGoalId: step.arguments.goalId });
+    });
+
+    const result = await runOrderedAppControlPlan({ steps, executeOperation, answerText: 'Created both.' });
+
+    expect(executeOperation).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      operationId: 'activities.capture',
+      arguments: expect.objectContaining({ goalId: 'goal-authoritative' }),
+    }));
+    expect(result.outcome).toEqual({ type: 'answer', text: 'Created both.' });
   });
 });

@@ -89,3 +89,27 @@ export type AgentToolPolicyDecision =
   | { decision: 'execute' | 'propose' | 'require_confirmation'; provider: AgentToolProvider }
   | { decision: 'pending_client_action'; provider: 'device' }
   | { decision: 'unavailable'; providers: readonly AgentToolProvider[] };
+
+export type AppControlResultReference = {
+  $fromStep: number;
+  path: string;
+};
+
+export type AppControlStep = {
+  operationId: string;
+  arguments: Record<string, unknown>;
+  dependsOn?: number;
+};
+
+export type AppControlOutcome =
+  | { type: 'answer'; text: string }
+  | { type: 'clarification'; question: string }
+  | { type: 'applied'; receiptIds: string[] }
+  | { type: 'review'; proposalIds: string[] }
+  | { type: 'native_handoff'; actionId: string }
+  | { type: 'unsupported'; reason: string };
+
+export type AppControlPlanResult = {
+  outcome: AppControlOutcome;
+  results: AgentToolExecutionResult[];
+};

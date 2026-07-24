@@ -58,6 +58,7 @@ import type {
   AgentToolDefinition,
   AgentToolExecutionResult,
   AgentToolLoopEvent,
+  AppControlOutcome,
 } from '@kwilt/agent-runtime';
 import { resolveTypedTurnControl } from './typedTurnControl';
 import { buildUnifiedChatRouteTelemetry, buildUnifiedChatToolTelemetry, type UnifiedChatTelemetryProperties } from './unifiedChatTelemetry';
@@ -76,6 +77,23 @@ export class UnifiedChatTurnError extends Error {
     super(message);
     this.name = 'UnifiedChatTurnError';
   }
+}
+
+export function buildAppControlOutcome({
+  text,
+  proposalIds,
+  receiptIds,
+  clientActionIds,
+}: {
+  text: string;
+  proposalIds: string[];
+  receiptIds: string[];
+  clientActionIds: string[];
+}): AppControlOutcome {
+  if (receiptIds.length > 0) return { type: 'applied', receiptIds };
+  if (proposalIds.length > 0) return { type: 'review', proposalIds };
+  if (clientActionIds.length > 0) return { type: 'native_handoff', actionId: clientActionIds[0]! };
+  return { type: 'answer', text };
 }
 
 type TurnRepository = Pick<
@@ -755,10 +773,18 @@ export async function runUnifiedChatTurn(
       role: 'assistant',
       body: visibleBody,
     });
+    const proposalIds: string[] = [];
+    const receiptIds: string[] = [];
+    const clientActionIds: string[] = [];
+    const persistProposal = async (proposal: Parameters<TurnRepository['createProposal']>[0]) => {
+      const created = await repository.createProposal(proposal);
+      proposalIds.push(created.id);
+      return created;
+    };
     if (actionResponse?.proposal) {
       failureCode = 'proposal_persistence_failed';
       const operation = actionResponse.proposal.operation;
-      await repository.createProposal({
+      await persistProposal({
         threadId: aggregate.thread.id,
         runId: run.id,
         messageId: assistantMessage.id,
@@ -833,7 +859,7 @@ export async function runUnifiedChatTurn(
         permissionPolicy: { requiresExplicitApproval: true as const },
       };
       if (proposal.capabilityId === 'todos') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'todos',
           operation: withProposalMetadata(
@@ -843,7 +869,7 @@ export async function runUnifiedChatTurn(
           ),
         });
       } else if (proposal.capabilityId === 'plan') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'plan',
           operation: {
@@ -853,7 +879,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else if (proposal.capabilityId === 'goals') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'goals',
           operation: {
@@ -863,7 +889,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else if (proposal.capabilityId === 'profile') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'profile',
           operation: {
@@ -873,7 +899,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else if (proposal.capabilityId === 'chapters') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'chapters',
           operation: {
@@ -883,7 +909,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'arcs',
           operation: {
@@ -896,13 +922,14 @@ export async function runUnifiedChatTurn(
     }
     for (const [index, action] of stagedClientActions.entries()) {
       failureCode = 'client_action_persistence_failed';
-      await repository.createClientAction({
+      const createdAction = await repository.createClientAction({
         threadId: aggregate.thread.id, runId: run.id, messageId: assistantMessage.id,
         capabilityId: action.capabilityId, actionType: action.actionType,
         targetType: action.targetType, targetId: action.targetId,
         title: action.title, consequenceSummary: action.consequenceSummary, payload: action.payload,
         idempotencyKey: `unified-chat:${run.id}:client:${index + 1}`,
       });
+      clientActionIds.push(createdAction.id);
     }
     const planSnapshot = requestPolicy.participatingCapabilities.includes('plan')
       ? snapshots.plan
@@ -916,7 +943,7 @@ export async function runUnifiedChatTurn(
           : new Intl.DateTimeFormat('en-US', {
               weekday: 'short', hour: 'numeric', minute: '2-digit',
             }).format(start);
-        await repository.createProposal({
+        await persistProposal({
           threadId: aggregate.thread.id,
           runId: run.id,
           messageId: assistantMessage.id,
@@ -942,6 +969,12 @@ export async function runUnifiedChatTurn(
         });
       }
     }
+    const appControlOutcome = buildAppControlOutcome({
+      text: visibleBody,
+      proposalIds,
+      receiptIds,
+      clientActionIds,
+    });
     failureCode = 'run_completion_failed';
     transitionRun(run, 'complete', run.version);
     await repository.transitionRunStatus({
@@ -952,9 +985,14 @@ export async function runUnifiedChatTurn(
       completedAt: new Date().toISOString(),
       event: {
         type: 'response', status: 'complete', visibility: 'user',
-        label: actionResponse?.proposal || stagedToolProposals.length > 0 || stagedClientActions.length > 0
-          ? 'Prepared a change for review'
-          : 'Response ready',
+        label: appControlOutcome.type === 'answer'
+          ? 'Response ready'
+          : appControlOutcome.type === 'applied'
+            ? 'Change applied'
+            : appControlOutcome.type === 'native_handoff'
+              ? 'Ready to continue in Kwilt'
+              : 'Prepared a change for review',
+        payload: { outcomeType: appControlOutcome.type },
       },
     });
     return repository.loadThread(aggregate.thread.id);

@@ -1,4 +1,4 @@
-import { runUnifiedChatTurn } from './runUnifiedChatTurn';
+import { buildAppControlOutcome, runUnifiedChatTurn } from './runUnifiedChatTurn';
 import type { CreateUnifiedChatMessageInput, UnifiedChatThreadAggregate } from './types';
 import type { Activity, Goal } from '../../domain/types';
 
@@ -15,6 +15,19 @@ const startingAggregate: UnifiedChatThreadAggregate = {
   messages: [],
   runs: [],
 };
+
+describe('buildAppControlOutcome', () => {
+  test('normalizes a conversational turn around its authoritative result', () => {
+    expect(buildAppControlOutcome({ text: 'Here is tomorrow.', proposalIds: [], receiptIds: [], clientActionIds: [] }))
+      .toEqual({ type: 'answer', text: 'Here is tomorrow.' });
+    expect(buildAppControlOutcome({ text: 'Ready.', proposalIds: ['proposal-1'], receiptIds: [], clientActionIds: [] }))
+      .toEqual({ type: 'review', proposalIds: ['proposal-1'] });
+    expect(buildAppControlOutcome({ text: 'Done.', proposalIds: [], receiptIds: ['receipt-1'], clientActionIds: [] }))
+      .toEqual({ type: 'applied', receiptIds: ['receipt-1'] });
+    expect(buildAppControlOutcome({ text: 'Continue.', proposalIds: [], receiptIds: [], clientActionIds: ['action-1'] }))
+      .toEqual({ type: 'native_handoff', actionId: 'action-1' });
+  });
+});
 
 function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer')) {
   const order: string[] = [];
