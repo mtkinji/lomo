@@ -55,7 +55,6 @@ test('rejects a Goal check-in when the Goal or draft text is invalid', async () 
 });
 
 test.each([
-  ['screen_time.configure', 'configure_screen_time'],
   ['notifications.configure', 'configure_notifications'],
   ['account.subscription.open', 'open_subscription_management'],
   ['account.delete.open', 'open_account_deletion'],
@@ -65,4 +64,28 @@ test.each([
     .resolves.toMatchObject({ status: 'pending_client_action' });
   expect(provider.actions()).toEqual([expect.objectContaining({ actionType })]);
   expect(provider.actions()[0].consequenceSummary.length).toBeGreaterThan(20);
+});
+
+test('returns an honest boundary for cross-device Screen Time control', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'screen-time', toolId: 'screen_time.configure',
+    arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
+  }, tool('screen_time.configure'))).resolves.toEqual({
+    status: 'unavailable', retryable: false,
+    reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
+  });
+  expect(provider.actions()).toEqual([]);
+});
+
+test('names missing Screen Time intent fields instead of staging a generic setup action', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'screen-time', toolId: 'screen_time.configure', arguments: { childName: 'Charlie' },
+  }, tool('screen_time.configure'))).resolves.toEqual({
+    status: 'needs_input',
+    prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
+    fields: ['childName', 'appName', 'desiredAccess'],
+  });
+  expect(provider.actions()).toEqual([]);
 });

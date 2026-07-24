@@ -60,6 +60,9 @@ describe('REQUEST_ROUTING_EVAL_CASES', () => {
         case 'provider_boundary':
           expect(rows.every((row) => row?.providers.includes('connector'))).toBe(true);
           break;
+        case 'honest_boundary':
+          expect(rows.every((row) => row?.channels.mobile.state === 'pending_provider' && row.channels.mobile.outcome === 'honest_boundary')).toBe(true);
+          break;
         case 'cancel_pending':
         case 'boundary':
         case 'not_yet_supported':

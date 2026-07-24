@@ -12,6 +12,16 @@ describe('classifyUnifiedChatRequest', () => {
     });
   });
 
+  test('routes an official day-Plan status question as an authoritative read', () => {
+    expect(classifyUnifiedChatRequest({ prompt: "What's officially on my Plan tomorrow?" })).toEqual({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      clarification: null,
+      policyReason: 'day-plan-status',
+    });
+  });
+
   test.each([
     ['What are some good rainy-day activities for kids?', 'general', false, []],
     [
@@ -30,6 +40,7 @@ describe('classifyUnifiedChatRequest', () => {
     ["Forget Lily's birthday.", 'capability_action', true, ['relationships']],
     ['Move my unfinished errands to Saturday morning.', 'capability_action', true, ['todos']],
     ['Block games until reading is done.', 'native_control', false, ['screenTime']],
+    ['Turn on Brawl Stars for Charlie.', 'native_control', false, ['screenTime']],
     ['Can you diagnose this chest pain?', 'better_served_elsewhere', false, []],
   ] as const)(
     'classifies %s as %s',

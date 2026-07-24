@@ -130,3 +130,47 @@ test('reserves a deterministic Goal creation before adding the draft', async () 
   }));
   expect(goals).toEqual([expect.objectContaining({ title: 'Learn watercolor', qualityState: 'draft' })]);
 });
+
+test('suggests a linked daily Activity only after Goal creation returns its authoritative id', async () => {
+  let goals: Goal[] = [];
+  const proposal = {
+    id: 'proposal-walk', threadId: 'thread-1', runId: 'run-1', messageId: 'message-1',
+    capabilityId: 'goals', title: 'Create a walking Goal', body: 'Creates a seven-day Goal.',
+    status: 'pending', version: 1, createdAt: 'now', updatedAt: 'now',
+    operation: {
+      id: 'operation-walk', proposalId: 'proposal-walk', capabilityId: 'goals', type: 'create_goal',
+      targetId: null, summary: 'Create a walking Goal', idempotencyKey: 'walk-1', sequence: 1,
+      payload: {
+        title: 'Walk every day for the next week', targetDate: '2026-07-30T23:59:59.000-06:00',
+        followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' }, expectedUpdatedAt: null,
+      },
+    },
+  } as Extract<UnifiedChatProposal, { capabilityId: 'goals' }>;
+  const receipt = (status: UnifiedChatMutationReceipt['status']): UnifiedChatMutationReceipt => ({
+    id: 'receipt-walk', proposalId: proposal.id, operationId: proposal.operation.id,
+    capabilityId: 'goals', idempotencyKey: 'walk-1', status, resultingObjectType: 'goal',
+    resultingObjectId: 'goal-operation-walk', resultState: {}, returnTarget: null,
+    undoOperation: null, canUndo: false, appliedAt: null, undoneAt: null,
+  });
+  const repository = {
+    decideProposal: jest.fn(async () => ({ id: proposal.id, status: 'approved' as const, version: 2 })),
+    transitionProposalStatus: jest.fn(async ({ toStatus, expectedVersion }: { toStatus: UnifiedChatProposal['status']; expectedVersion: number }) => ({ status: toStatus, version: expectedVersion + 1 })),
+    persistMutationReceipt: jest.fn(async () => receipt('reserved')),
+    finalizeMutationReceipt: jest.fn(async () => receipt('applied')),
+    insertMessage: jest.fn(async () => ({})),
+  };
+  const store = {
+    getGoals: () => goals, getArcIds: () => [] as string[], getActivities: () => [],
+    addGoal: (value: Goal) => { goals = [...goals, value]; }, updateGoal: jest.fn(),
+    removeGoal: jest.fn(), restoreRemovedGoal: jest.fn(),
+  };
+
+  await executeGoalProposalDecision({ proposal, action: 'approve', repository, store, now: () => 'applied' });
+
+  expect(goals[0]?.id).toBe('goal-operation-walk');
+  expect(repository.insertMessage).toHaveBeenCalledWith({
+    threadId: 'thread-1', role: 'assistant',
+    body: 'Goal created: Walk every day for the next week. To make it easier to follow through, I can add one daily repeating “Go for a walk” Activity linked to this Goal. Want me to prepare that?',
+    clientRequestId: 'goal-follow-through:operation-walk',
+  });
+});

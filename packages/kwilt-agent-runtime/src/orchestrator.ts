@@ -6,7 +6,93 @@ import type {
   AgentToolExecutionResult,
   AgentToolLoopEvent,
   AgentToolLoopResult,
+  AppControlPlanResult,
+  AppControlResultReference,
+  AppControlStep,
 } from './types';
+
+function isResultReference(value: unknown): value is AppControlResultReference {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value) &&
+    Number.isInteger((value as AppControlResultReference).$fromStep) &&
+    typeof (value as AppControlResultReference).path === 'string' &&
+    (value as AppControlResultReference).path.length > 0;
+}
+
+function readPath(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, segment) => {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[segment];
+  }, value);
+}
+
+function resolveStepValue(value: unknown, stepIndex: number, results: readonly AgentToolExecutionResult[]): unknown {
+  if (isResultReference(value)) {
+    if (value.$fromStep < 0 || value.$fromStep >= stepIndex) {
+      throw new Error(`Step ${stepIndex} cannot reference step ${value.$fromStep}.`);
+    }
+    const resolved = readPath(results[value.$fromStep], value.path);
+    if (resolved === undefined) throw new Error(`Step ${stepIndex} could not resolve ${value.path} from step ${value.$fromStep}.`);
+    return resolved;
+  }
+  if (Array.isArray(value)) return value.map((entry) => resolveStepValue(entry, stepIndex, results));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .map(([key, entry]) => [key, resolveStepValue(entry, stepIndex, results)]));
+  }
+  return value;
+}
+
+/** Executes a model-interpreted operation plan without allowing later steps to invent prior result ids. */
+export async function runOrderedAppControlPlan({
+  steps,
+  executeOperation,
+  answerText,
+}: {
+  steps: readonly AppControlStep[];
+  executeOperation: (step: AppControlStep) => Promise<AgentToolExecutionResult>;
+  answerText: string;
+}): Promise<AppControlPlanResult> {
+  const results: AgentToolExecutionResult[] = [];
+  const receiptIds: string[] = [];
+
+  for (const [index, step] of steps.entries()) {
+    if (step.dependsOn !== undefined && (step.dependsOn < 0 || step.dependsOn >= index)) {
+      return { outcome: { type: 'unsupported', reason: `Step ${index} has an invalid dependency.` }, results };
+    }
+    let resolvedArguments: Record<string, unknown>;
+    try {
+      resolvedArguments = resolveStepValue(step.arguments, index, results) as Record<string, unknown>;
+    } catch (error) {
+      return { outcome: { type: 'unsupported', reason: error instanceof Error ? error.message : 'A dependent result could not be resolved.' }, results };
+    }
+    const result = await executeOperation({ ...step, arguments: resolvedArguments });
+    results.push(result);
+
+    if (result.status === 'needs_input') {
+      return { outcome: { type: 'clarification', question: result.prompt }, results };
+    }
+    if (result.status === 'proposed') {
+      const proposalId = typeof result.proposal.id === 'string' ? result.proposal.id : `step:${index}`;
+      return { outcome: { type: 'review', proposalIds: [proposalId] }, results };
+    }
+    if (result.status === 'pending_client_action') {
+      const actionId = typeof result.request.actionId === 'string' ? result.request.actionId : `step:${index}`;
+      return { outcome: { type: 'native_handoff', actionId }, results };
+    }
+    if (result.status === 'unavailable') {
+      return { outcome: { type: 'unsupported', reason: result.reason }, results };
+    }
+    if (result.status === 'failed') {
+      return { outcome: { type: 'unsupported', reason: result.message }, results };
+    }
+    if (result.receipt && typeof result.receipt.id === 'string') receiptIds.push(result.receipt.id);
+  }
+
+  return {
+    outcome: receiptIds.length > 0 ? { type: 'applied', receiptIds } : { type: 'answer', text: answerText },
+    results,
+  };
+}
 
 function stableValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stableValue);

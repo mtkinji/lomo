@@ -10,6 +10,7 @@ const DETERMINISTIC_LOCK_REASONS = new Set([
   'specialist-or-high-stakes-boundary',
   'native-capability-authorization-required',
   'day-plan-recommendation',
+  'day-plan-status',
   'bounded-relationship-memory-request',
   'explicit-relationship-memory-mutation',
 ]);

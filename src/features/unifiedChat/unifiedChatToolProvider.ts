@@ -5,7 +5,7 @@ import {
   type AgentToolExecutionResult,
 } from '@kwilt/agent-runtime';
 import type { ActivityProposalOperation } from './activityProposal';
-import { parseActivityMutationPatch } from './activityProposal';
+import { buildRecurringReminderFields, parseActivityMutationPatch } from './activityProposal';
 import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type {
   PlanRemoveActivityPayload,
@@ -71,6 +71,7 @@ export function createUnifiedChatToolProvider({
   snapshots,
   planConversationReferent,
   executeRelationshipTool,
+  now = () => new Date(),
 }: {
   snapshots: UnifiedChatCapabilitySnapshots;
   planConversationReferent?: PlanPlacementConversationReferent | null;
@@ -78,6 +79,7 @@ export function createUnifiedChatToolProvider({
     call: AgentToolCall,
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
+  now?: () => Date;
 }) {
   const staged: StagedUnifiedChatToolProposal[] = [];
   const deviceProvider = createDeviceToolProvider({ snapshots });
@@ -340,13 +342,25 @@ export function createUnifiedChatToolProvider({
           targetDate: snapshots.plan.targetDate,
           limitation: snapshots.plan.limitation,
           conversationReferent: planConversationReferent ?? null,
+          scheduledItems: snapshots.plan.scheduledItems ?? [],
           recommendations: snapshots.plan.recommendations.slice(0, 8),
         },
       };
     }
 
     if (call.toolId === 'activities.capture') {
-      const patch = parseActivityMutationPatch(call.arguments);
+      const {
+        reminderLocalTime,
+        repeatWeekdays,
+        ...durableArguments
+      } = call.arguments;
+      const recurringReminder = reminderLocalTime !== undefined || repeatWeekdays !== undefined
+        ? buildRecurringReminderFields({ reminderLocalTime, repeatWeekdays, now: now() })
+        : null;
+      if ((reminderLocalTime !== undefined || repeatWeekdays !== undefined) && !recurringReminder) {
+        return failed('invalid_recurring_reminder', 'A valid local reminder time and weekday are required.');
+      }
+      const patch = parseActivityMutationPatch({ ...durableArguments, ...(recurringReminder ?? {}) });
       if (!patch?.title) return failed('invalid_activity_patch', 'A valid Activity title is required.');
       const proposal: StagedUnifiedChatToolProposal = {
         capabilityId: 'todos',

@@ -304,6 +304,26 @@ function planRecommendationEvidence(
   };
 }
 
+function planScheduledEvidence(
+  item: NonNullable<PlanRecommendationResult['scheduledItems']>[number],
+  targetDate: string,
+): CapabilityEvidenceSource {
+  const timing = item.placement === 'calendar' && item.startDate && item.endDate
+    ? `Scheduled ${item.startDate} to ${item.endDate}`
+    : `Planned for ${targetDate} without a clock time`;
+  return {
+    capabilityId: 'plan',
+    object: {
+      type: 'plan_item', id: item.activityId, label: item.title,
+      secondaryLabel: item.goalTitle ?? timing,
+    },
+    searchableText: compact(['plan scheduled placed official', item.title, item.goalTitle, targetDate, timing]),
+    summary: compact([timing, item.goalTitle ? `Goal: ${item.goalTitle}` : null]),
+    authority: 'authoritative',
+    observedAt: item.startDate,
+  };
+}
+
 export const goalsChatAdapter: CapabilityChatAdapter<GoalsChatSnapshot> = {
   capabilityId: 'goals',
   context: { dataClassification: 'private_kwilt_data', readOnly: false },
@@ -383,8 +403,12 @@ export function collectCapabilityEvidence({
     ...(selected.has('goals') ? goalsChatAdapter.evidence.list(snapshots.goals) : []),
     ...(selected.has('todos') ? todosChatAdapter.evidence.list(snapshots.todos) : []),
     ...(selected.has('plan') && snapshots.plan
-      ? snapshots.plan.recommendations.map((recommendation) =>
-          planRecommendationEvidence(recommendation, snapshots.plan!.targetDate))
+      ? [
+          ...(snapshots.plan.scheduledItems ?? []).map((item) =>
+            planScheduledEvidence(item, snapshots.plan!.targetDate)),
+          ...snapshots.plan.recommendations.map((recommendation) =>
+            planRecommendationEvidence(recommendation, snapshots.plan!.targetDate)),
+        ]
       : []),
     ...(selected.has('chapters') ? chaptersChatAdapter.evidence.list(snapshots.chapters) : []),
     ...(selected.has('profile') && snapshots.profile ? profileChatAdapter.evidence.list(snapshots.profile) : []),

@@ -27,7 +27,14 @@ const ACTIVITY_FIELD_PROPERTIES = {
 } as const;
 const ACTIVITY_CAPTURE_SCHEMA = {
   type: 'object',
-  properties: ACTIVITY_FIELD_PROPERTIES,
+  properties: {
+    ...ACTIVITY_FIELD_PROPERTIES,
+    reminderLocalTime: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+    repeatWeekdays: {
+      type: 'array', minItems: 1, maxItems: 7,
+      items: { type: 'integer', minimum: 0, maximum: 6 },
+    },
+  },
   required: ['title'],
   additionalProperties: false,
 } as const;
@@ -56,6 +63,18 @@ const GOAL_FIELD_PROPERTIES = {
   status: { type: 'string', enum: ['planned', 'in_progress', 'completed', 'archived'] },
   priority: { type: ['integer', 'null'], enum: [1, 2, 3, null] },
   targetDate: { type: ['string', 'null'], format: 'date-time' },
+} as const;
+const GOAL_CREATE_PROPERTIES = {
+  ...GOAL_FIELD_PROPERTIES,
+  followUpActivity: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', minLength: 1, maxLength: 240 },
+      repeatRule: { type: 'string', enum: ['daily'] },
+    },
+    required: ['title', 'repeatRule'],
+    additionalProperties: false,
+  },
 } as const;
 const ARC_FIELD_PROPERTIES = {
   name: { type: 'string', minLength: 1, maxLength: 160 },
@@ -178,9 +197,20 @@ export const UNIFIED_CHAT_TOOL_CATALOG: readonly AgentToolDefinition[] = [
   },
   {
     id: 'screen_time.configure', version: 1, capabilityId: 'screenTime',
-    purpose: 'Open native Screen Time setup for household-role and Apple authorization review.',
+    purpose: 'Interpret one child, app, and allow-or-block intent, then report the cross-device capability boundary without opening same-device settings or claiming enforcement.',
     providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
-    confirmation: 'explicit', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        childName: { type: 'string', minLength: 1, maxLength: 160 },
+        appName: { type: 'string', minLength: 1, maxLength: 160 },
+        desiredAccess: { type: 'string', enum: ['allow', 'block'] },
+      },
+      required: ['childName', 'appName', 'desiredAccess'],
+      additionalProperties: false,
+    },
+    outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'notifications.configure', version: 1, capabilityId: 'notifications',
@@ -372,7 +402,7 @@ export const UNIFIED_CHAT_TOOL_CATALOG: readonly AgentToolDefinition[] = [
     purpose: 'Create one explicit Goal draft, optionally linked to an existing Arc.', providers: ['device', 'server'],
     effect: 'write', consequence: 'consequential', reversible: true, confirmation: 'explicit', canDeferToClient: true,
     inputSchema: {
-      type: 'object', properties: GOAL_FIELD_PROPERTIES, required: ['title'], additionalProperties: false,
+      type: 'object', properties: GOAL_CREATE_PROPERTIES, required: ['title'], additionalProperties: false,
     }, outputSchema: OBJECT_SCHEMA,
   },
   {

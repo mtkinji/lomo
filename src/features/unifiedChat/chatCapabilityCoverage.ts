@@ -1,5 +1,6 @@
 import type { AgentToolProvider } from '@kwilt/agent-runtime';
 import {
+  KWILT_OPERATION_REGISTRY,
   getKwiltOperation,
   type KwiltOperationOwner,
 } from '../../capabilities/operations';
@@ -93,7 +94,7 @@ const PHONE_DEVICE_HANDOFF_OPERATION_IDS = new Set([
   'goals.check_in', 'goals.share',
   'activities.focus.open', 'activities.location.update', 'activities.attachments.update', 'activities.share',
   'plan.preferences.open',
-  'screen_time.configure', 'notifications.configure', 'search.open',
+  'notifications.configure', 'search.open',
   'account.settings.open', 'account.subscription.manage', 'account.delete',
 ]);
 
@@ -309,7 +310,7 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   live({ id: 'chapters.note.update', providers: ['server'], consequence: 'low', confirmation: 'explicit', toolIds: ['chapters.note.update'], sourceRefs: ['mcp:update_chapter_user_note'] }, chapterMutationProof),
   live({ id: 'account.show_up_status', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['account.show_up_status'], sourceRefs: ['mcp:get_show_up_status'] }, showUpProof),
 
-  bounded('confirmation_only', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; Screen Time still requires household role, Apple authorization, device apply, and acknowledgement.', deviceHandoffProof),
+  bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'search.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.search.open'], sourceRefs: [] }, 'Chat stages and opens the native search surface; the user completes the search there.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'account.settings.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: ['navigation.account_settings.open'], sourceRefs: [] }, 'Chat stages and opens native account settings; changes remain user-driven.', deviceHandoffProof),
@@ -317,6 +318,19 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   bounded('confirmation_only', { id: 'account.delete', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.delete.open'], sourceRefs: [] }, 'Chat stages a durable handoff to the existing two-step native deletion confirmation and never deletes silently.', deviceHandoffProof),
   bounded('pending_provider', { id: 'channel.phone.continue_run', providers: ['channel', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['channel.phone.continue_run'], sourceRefs: [] }, 'The canonical queued coordinator is implemented, but migration, deployment, scheduler, and signed-provider runtime proof are still pending.'),
 ];
+
+export function assertCompleteConversationalCoverage(
+  operations: readonly { id: string }[] = KWILT_OPERATION_REGISTRY,
+  coverage: readonly { id: string }[] = CHAT_CAPABILITY_COVERAGE,
+): void {
+  const coverageIds = new Set(coverage.map((row) => row.id));
+  const missing = operations.map((operation) => operation.id).filter((id) => !coverageIds.has(id));
+  if (missing.length > 0) {
+    throw new Error(`Missing conversational coverage for Kwilt operation${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`);
+  }
+}
+
+assertCompleteConversationalCoverage();
 
 export function summarizeChatCapabilityCoverage(
   channel: ChatCapabilityChannel = 'mobile',

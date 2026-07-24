@@ -95,19 +95,20 @@ test('applies shared consequence policy before a direct server relationship muta
   expect(rpc).not.toHaveBeenCalled();
 });
 
-test('stages a device-only action and never reports the underlying effect as complete', async () => {
+test('reports the cross-device Screen Time boundary without staging the wrong native action', async () => {
   const stageDeviceAction = jest.fn(async () => undefined);
   const { client } = clientWith({ data: [], error: null });
   await expect(executeServerAgentTool({
-    client, userId: 'user-1', call: { id: 'call-1', toolId: 'screen_time.configure', arguments: {} },
+    client, userId: 'user-1', call: {
+      id: 'call-1', toolId: 'screen_time.configure',
+      arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
+    },
     tool: tool('screen_time.configure'), stageDeviceAction,
-  })).resolves.toMatchObject({
-    status: 'pending_client_action', provider: 'device',
-    request: expect.objectContaining({ actionType: 'configure_screen_time' }),
+  })).resolves.toEqual({
+    status: 'unavailable', retryable: false,
+    reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
   });
-  expect(stageDeviceAction).toHaveBeenCalledWith(expect.objectContaining({
-    consequenceSummary: expect.stringContaining('native review'),
-  }));
+  expect(stageDeviceAction).not.toHaveBeenCalled();
 });
 
 test('stages native Plan preferences without claiming availability or calendars changed', async () => {
@@ -162,6 +163,28 @@ test('captures a low-risk Activity through one receipt-safe service RPC', async 
     p_user_id: 'user-1', p_thread_id: 'thread-1', p_run_id: 'run-1', p_message_id: 'message-1',
     p_call_id: 'call-1', p_payload: { title: 'Pack lunch', scheduledDate: '2026-07-24' },
   });
+});
+
+test('converts phone reminder intent into durable weekly Activity fields before capture', async () => {
+  const rpc = jest.fn(async () => ({
+    data: { status: 'applied', activityId: 'activity-1', receiptId: 'receipt-1', replayed: false }, error: null,
+  }));
+  const { client } = clientWith({ data: [], error: null });
+  await executeServerAgentTool({
+    client: { ...client, rpc }, userId: 'user-1',
+    call: {
+      id: 'call-reminder', toolId: 'activities.capture',
+      arguments: { title: 'Take out the trash', reminderLocalTime: '20:00', repeatWeekdays: [2] },
+    },
+    tool: tool('activities.capture'), stageDeviceAction: jest.fn(), timeZone: 'America/Denver',
+    writeContext: { threadId: 'thread-1', runId: 'run-1', messageId: 'message-1' },
+  });
+  expect(rpc).toHaveBeenCalledWith('capture_kwilt_agent_activity', expect.objectContaining({
+    p_payload: {
+      title: 'Take out the trash', reminderAt: expect.any(String), repeatRule: 'custom',
+      repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] }, repeatBasis: 'scheduled',
+    },
+  }));
 });
 
 test('rejects malformed Activity capture arguments before the service write', async () => {
@@ -285,7 +308,13 @@ test('stages a Goal creation for mobile review without writing a Goal', async ()
   const { client } = clientWith({ data: null, error: null });
   await expect(executeServerAgentTool({
     client, userId: 'user-1',
-    call: { id: 'call-goal-create', toolId: 'goals.create', arguments: { title: 'Calm school mornings', priority: 1 } },
+    call: {
+      id: 'call-goal-create', toolId: 'goals.create',
+      arguments: {
+        title: 'Calm school mornings', priority: 1,
+        followUpActivity: { title: 'Prepare backpacks', repeatRule: 'daily' },
+      },
+    },
     tool: tool('goals.create'), stageDeviceAction: jest.fn(), stageProposal,
   })).resolves.toMatchObject({ status: 'proposed', proposal: { id: 'proposal-goal-create' } });
   expect(stageProposal).toHaveBeenCalledWith({
@@ -293,7 +322,11 @@ test('stages a Goal creation for mobile review without writing a Goal', async ()
     body: 'Creates this unassigned Goal draft after review.',
     operation: {
       type: 'create_goal', targetType: 'goal', targetId: null, summary: 'Create Goal Calm school mornings',
-      payload: { title: 'Calm school mornings', priority: 1, expectedUpdatedAt: null },
+      payload: {
+        title: 'Calm school mornings', priority: 1,
+        followUpActivity: { title: 'Prepare backpacks', repeatRule: 'daily' },
+        expectedUpdatedAt: null,
+      },
     },
   });
   expect(client.from).not.toHaveBeenCalled();

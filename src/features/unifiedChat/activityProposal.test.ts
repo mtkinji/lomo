@@ -3,9 +3,20 @@ import {
   ActivityProposalApprovalRequiredError,
   assertActivityProposalCanApply,
   parseActivityActionResponse,
+  recurringReminderClarification,
 } from './activityProposal';
 
 describe('Unified Chat Activity proposals', () => {
+  test('asks for an exact reminder time without inventing what night means', () => {
+    expect(recurringReminderClarification(
+      'Create a to-do called Take out the trash, set it to be a recurring reminder every Tuesday night.',
+    )).toBe('What time Tuesday night should I remind you?');
+    expect(recurringReminderClarification(
+      'Create a to-do called Take out the trash and remind me every Tuesday at 8 PM.',
+    )).toBeNull();
+    expect(recurringReminderClarification('What should I add to my Plan tomorrow?')).toBeNull();
+  });
+
   test('constrains generated Activity types to the capability domain', () => {
     expect(ACTIVITY_ACTION_RESPONSE_FORMAT.json_schema.strict).toBe(true);
     const schema = ACTIVITY_ACTION_RESPONSE_FORMAT.json_schema.schema;

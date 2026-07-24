@@ -95,6 +95,18 @@ function projectAuthoritativeServerAnswer({
   if (proposedCount > 1) {
     return `I prepared ${proposedCount} changes for review in Kwilt. They have not been applied yet.`;
   }
+  const unavailableReason = messages.reduce<string | null>((reason, message) => {
+    if (reason || message.role !== 'tool') return reason;
+    try {
+      const result = JSON.parse(message.content) as { status?: string; reason?: string };
+      return result.status === 'unavailable' && typeof result.reason === 'string' && result.reason.trim()
+        ? result.reason.trim()
+        : null;
+    } catch {
+      return null;
+    }
+  }, null);
+  if (unavailableReason) return unavailableReason;
   const pendingClientActionCount = events.filter((event) => event.resultStatus === 'pending_client_action').length;
   if (pendingClientActionCount > 0) {
     return 'I prepared that next step for review in Kwilt. The underlying action has not happened yet.';

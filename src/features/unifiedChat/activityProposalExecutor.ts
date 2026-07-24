@@ -32,6 +32,7 @@ export type ActivityMutationReceipt = {
     scheduledDate: string | null | undefined;
     reminderAt: string | null | undefined;
     repeatRule: Activity['repeatRule'];
+    repeatCustom: Activity['repeatCustom'];
     repeatBasis: Activity['repeatBasis'];
     estimateMinutes: number | null | undefined;
     updatedAt: string;
@@ -151,6 +152,7 @@ function resultState(activity: Activity): ActivityMutationReceipt['resultState']
     scheduledDate: activity.scheduledDate,
     reminderAt: activity.reminderAt,
     repeatRule: activity.repeatRule,
+    repeatCustom: activity.repeatCustom,
     repeatBasis: activity.repeatBasis,
     estimateMinutes: activity.estimateMinutes,
     updatedAt: activity.updatedAt,
@@ -461,6 +463,9 @@ export function hydrateActivityMutationReceipt(
         state.repeatRule === 'weekdays' || state.repeatRule === 'monthly' ||
         state.repeatRule === 'yearly' || state.repeatRule === 'custom'
         ? state.repeatRule
+        : undefined,
+      repeatCustom: state.repeatCustom && typeof state.repeatCustom === 'object' && !Array.isArray(state.repeatCustom)
+        ? state.repeatCustom as Activity['repeatCustom']
         : undefined,
       repeatBasis: state.repeatBasis === 'scheduled' || state.repeatBasis === 'after_completion'
         ? state.repeatBasis

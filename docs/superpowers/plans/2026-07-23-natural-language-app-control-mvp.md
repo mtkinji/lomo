@@ -155,6 +155,7 @@ npm test -- --runInBand src/features/unifiedChat/activityProposal.test.ts src/fe
 - [ ] **Step 4: Reuse Activity capture, recurrence, and notification scheduling**
 
 Do not create a Chat reminder model. Persist through the existing Activity recurrence fields and notification service.
+For a new recurring reminder, use one atomic `activities.capture` operation containing the durable recurrence and reminder fields; reserve `activities.repeat.update` and `activities.reminder.update` for existing Activities.
 
 - [ ] **Step 5: Prove reload and undo, then commit**
 

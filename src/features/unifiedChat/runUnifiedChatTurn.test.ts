@@ -1331,35 +1331,6 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
-  test('persists Screen Time work as a pending device action instead of model success', async () => {
-    const runtimeSender = jest.fn(async (_history: unknown, options: {
-      runtimeTools?: Array<{ id: string }>;
-      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
-    }) => {
-      const screenTimeTool = options.runtimeTools?.find((tool) => tool.id === 'screen_time.configure');
-      expect(screenTimeTool).toBeDefined();
-      await options.executeRuntimeTool?.({
-        id: 'screen-time', toolId: 'screen_time.configure', arguments: {},
-      }, screenTimeTool);
-      return 'I prepared Screen Time setup on your phone.';
-    });
-    const { repository, send } = dependencies(runtimeSender);
-    await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Block games until reading is done.' },
-      {
-        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
-        loadCapabilitySnapshots: async () => ({
-          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-        }),
-      },
-    );
-    expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'screenTime', actionType: 'configure_screen_time',
-      consequenceSummary: expect.stringContaining('Apple authorization'),
-    }));
-    expect(repository.createProposal).not.toHaveBeenCalled();
-  });
-
   test('guarantees a create proposal for ordinary name-only capture even when the model asks a question', async () => {
     const sender = jest.fn(async () => JSON.stringify({
       answer: 'Would you like that in a shopping list?',
@@ -1378,6 +1349,97 @@ describe('runUnifiedChatTurn', () => {
         type: 'create_activity',
         targetId: null,
         payload: expect.objectContaining({ title: 'milk', status: 'planned' }),
+      }),
+    }));
+  });
+
+  test('asks for the exact time before creating a vague recurring reminder', async () => {
+    const sender = jest.fn(async () => 'I guessed 8 PM.');
+    const { repository, send } = dependencies(sender);
+
+    await runUnifiedChatTurn(
+      {
+        aggregate: startingAggregate,
+        prompt: 'Create a to-do called Take out the trash, set it to be a recurring reminder every Tuesday night.',
+      },
+      { repository: repository as never, sendCoachChat: send as never },
+    );
+
+    expect(sender).not.toHaveBeenCalled();
+    expect(repository.createProposal).not.toHaveBeenCalled();
+    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      role: 'assistant', body: 'What time Tuesday night should I remind you?',
+    }));
+  });
+
+  test('prepares one atomic recurring reminder proposal from an exact natural-language request', async () => {
+    const runtimeSender = jest.fn(async (_history: unknown, options: {
+      launchContextSummary?: string;
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      expect(options.launchContextSummary).toContain('call activities.capture once');
+      const captureTool = options.runtimeTools?.find((tool) => tool.id === 'activities.capture');
+      expect(captureTool).toBeDefined();
+      await options.executeRuntimeTool?.({
+        id: 'capture-trash', toolId: 'activities.capture', arguments: {
+          title: 'Take out the trash', reminderLocalTime: '20:00', repeatWeekdays: [2],
+        },
+      }, captureTool);
+      return 'I prepared a weekly Tuesday reminder for review.';
+    });
+    const { repository, send } = dependencies(runtimeSender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Create a to-do called Take out the trash and remind me every Tuesday at 8 PM.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        routeRequest: async () => ({
+          requestClass: 'capability_action', participatingCapabilities: ['todos'],
+          usePrivateContext: true, confidence: 0.99, reason: 'Create one recurring reminded Activity.',
+        }),
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(repository.createProposal).toHaveBeenCalledTimes(1);
+    const operation = (repository.createProposal.mock.calls[0]?.[0] as { operation?: unknown } | undefined)?.operation;
+    expect(operation).toMatchObject({
+      type: 'create_activity', payload: {
+        title: 'Take out the trash', repeatRule: 'custom',
+        repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+        repeatBasis: 'scheduled', reminderAt: expect.any(String),
+      },
+    });
+  });
+
+  test('prepares the ordinary reminder phrasing even when the model would return calendar prose', async () => {
+    const sender = jest.fn(async () => 'What time zone and calendar block length should I use?');
+    const { repository, send } = dependencies(sender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Remind me every Tuesday at 8 PM to take out the trash.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(sender).not.toHaveBeenCalled();
+    expect(repository.createProposal).toHaveBeenCalledTimes(1);
+    expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+      capabilityId: 'todos',
+      operation: expect.objectContaining({
+        type: 'create_activity',
+        payload: expect.objectContaining({
+          title: 'Take out the trash', repeatRule: 'custom',
+          repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+          repeatBasis: 'scheduled', reminderAt: expect.any(String),
+        }),
       }),
     }));
   });

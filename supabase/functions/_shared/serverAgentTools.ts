@@ -31,13 +31,59 @@ const DIFFICULTIES = new Set(['very_easy', 'easy', 'medium', 'hard', 'very_hard'
 const CAPTURE_FIELDS = new Set([
   'title', 'notes', 'goalId', 'type', 'status', 'tags', 'priority', 'scheduledDate',
   'reminderAt', 'repeatRule', 'repeatCustom', 'repeatBasis', 'estimateMinutes', 'difficulty',
+  'reminderLocalTime', 'repeatWeekdays',
 ]);
 
 function validNullableString(value: unknown, max: number): boolean {
   return value == null || (typeof value === 'string' && value.length <= max);
 }
 
-function normalizeActivityCapture(value: unknown): Record<string, unknown> | null {
+function zonedLocalInstant(dateKey: string, localTime: string, timeZone: string): Date {
+  const desired = new Date(`${dateKey}T${localTime}:00.000Z`);
+  let candidate = desired;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    }).formatToParts(candidate);
+    const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0);
+    const represented = Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'));
+    candidate = new Date(candidate.getTime() + (desired.getTime() - represented));
+  }
+  return candidate;
+}
+
+function recurringReminderFields(
+  reminderLocalTime: unknown,
+  repeatWeekdays: unknown,
+  timeZone: string,
+  now: Date,
+): Record<string, unknown> | null {
+  if (typeof reminderLocalTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderLocalTime) ||
+      !Array.isArray(repeatWeekdays) || repeatWeekdays.length < 1 || repeatWeekdays.length > 7 ||
+      repeatWeekdays.some((day) => !Number.isInteger(day) || Number(day) < 0 || Number(day) > 6)) return null;
+  const weekdays = [...new Set(repeatWeekdays.map(Number))];
+  const normalizedZone = normalizeIanaTimeZone(timeZone) ?? 'UTC';
+  const candidates: Date[] = [];
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const probe = new Date(now.getTime() + offset * 86_400_000);
+    const dateKey = calendarDateInTimeZone(probe, normalizedZone);
+    const noon = zonedLocalInstant(dateKey, '12:00', normalizedZone);
+    const weekdayLabel = new Intl.DateTimeFormat('en-US', { timeZone: normalizedZone, weekday: 'short' }).format(noon);
+    const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekdayLabel);
+    if (!weekdays.includes(weekday)) continue;
+    const candidate = zonedLocalInstant(dateKey, reminderLocalTime, normalizedZone);
+    if (candidate.getTime() > now.getTime()) candidates.push(candidate);
+  }
+  const first = candidates.sort((left, right) => left.getTime() - right.getTime())[0];
+  if (!first) return null;
+  return {
+    reminderAt: first.toISOString(), repeatRule: 'custom',
+    repeatCustom: { cadence: 'weeks', interval: 1, weekdays }, repeatBasis: 'scheduled',
+  };
+}
+
+function normalizeActivityCapture(value: unknown, timeZone = 'UTC', now = new Date()): Record<string, unknown> | null {
   const input = asRecord(value);
   if (Object.keys(input).some((key) => !CAPTURE_FIELDS.has(key))) return null;
   const title = typeof input.title === 'string' ? input.title.trim() : '';
@@ -61,7 +107,15 @@ function normalizeActivityCapture(value: unknown): Record<string, unknown> | nul
       || (custom.weekdays != null && (!Array.isArray(custom.weekdays) || custom.weekdays.length > 7
         || custom.weekdays.some((day) => !Number.isInteger(day) || Number(day) < 0 || Number(day) > 6)))) return null;
   }
-  return { ...input, title, ...(Array.isArray(input.tags) ? { tags: input.tags.map((tag) => String(tag).trim()) } : {}) };
+  const semanticReminder = 'reminderLocalTime' in input || 'repeatWeekdays' in input
+    ? recurringReminderFields(input.reminderLocalTime, input.repeatWeekdays, timeZone, now)
+    : null;
+  if (('reminderLocalTime' in input || 'repeatWeekdays' in input) && !semanticReminder) return null;
+  const { reminderLocalTime: _reminderLocalTime, repeatWeekdays: _repeatWeekdays, ...durableInput } = input;
+  return {
+    ...durableInput, ...semanticReminder, title,
+    ...(Array.isArray(input.tags) ? { tags: input.tags.map((tag) => String(tag).trim()) } : {}),
+  };
 }
 
 function normalizeActivityPatch(value: unknown): Record<string, unknown> | null {
@@ -211,9 +265,21 @@ function normalizeArcCreate(value: unknown): Record<string, unknown> | null {
 }
 
 function normalizeGoalCreate(value: unknown): Record<string, unknown> | null {
-  const patch = normalizeGoalPatch(value);
+  const input = asRecord(value);
+  const followUp = asRecord(input.followUpActivity);
+  const hasFollowUp = 'followUpActivity' in input;
+  const { followUpActivity: _followUpActivity, ...goalFields } = input;
+  const patch = normalizeGoalPatch(goalFields);
   if (typeof patch?.title !== 'string') return null;
-  return Object.fromEntries(Object.entries(patch).filter(([, entry]) => entry !== null));
+  if (hasFollowUp && (
+    Object.keys(followUp).some((key) => key !== 'title' && key !== 'repeatRule') ||
+    typeof followUp.title !== 'string' || !followUp.title.trim() || followUp.title.trim().length > 240 ||
+    followUp.repeatRule !== 'daily'
+  )) return null;
+  return {
+    ...Object.fromEntries(Object.entries(patch).filter(([, entry]) => entry !== null)),
+    ...(hasFollowUp ? { followUpActivity: { title: String(followUp.title).trim(), repeatRule: 'daily' } } : {}),
+  };
 }
 
 function normalizeChapterNote(value: unknown): string | null | undefined {
@@ -254,12 +320,6 @@ const ACTIVITY_REVIEW_TOOLS = new Set([
 ]);
 
 const DEVICE_ACTIONS: Record<string, ClientActionRequest> = {
-  'screen_time.configure': {
-    capabilityId: 'screenTime', actionType: 'configure_screen_time', targetType: null, targetId: null,
-    title: 'Review Screen Time protection',
-    consequenceSummary: 'Kwilt will open Screen Time setup. Household role, Apple authorization, protected apps, and enforcement stay under native review.',
-    payload: { setupIntent: 'settings_discovery', entrySurface: 'settings' },
-  },
   'notifications.configure': {
     capabilityId: 'notifications', actionType: 'configure_notifications', targetType: null, targetId: null,
     title: 'Review notification settings',
@@ -323,6 +383,25 @@ export async function executeServerAgentTool({
 }): Promise<ServerAgentToolResult> {
   if (call.toolId !== tool.id) {
     return { status: 'failed', code: 'tool_mismatch', message: 'The discovered tool does not match this call.', retryable: false };
+  }
+  if (call.toolId === 'screen_time.configure') {
+    const childName = typeof call.arguments.childName === 'string' ? call.arguments.childName.trim() : '';
+    const appName = typeof call.arguments.appName === 'string' ? call.arguments.appName.trim() : '';
+    const desiredAccess = call.arguments.desiredAccess === 'allow' || call.arguments.desiredAccess === 'block'
+      ? call.arguments.desiredAccess
+      : null;
+    if (!childName || !appName || !desiredAccess) {
+      return {
+        status: 'needs_input',
+        prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
+        fields: ['childName', 'appName', 'desiredAccess'],
+      };
+    }
+    return {
+      status: 'unavailable',
+      reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
+      retryable: false,
+    };
   }
   const deviceAction = DEVICE_ACTIONS[call.toolId];
   if (deviceAction) {
@@ -697,7 +776,7 @@ export async function executeServerAgentTool({
     });
   }
   if (call.toolId === 'activities.capture') {
-    const payload = normalizeActivityCapture(call.arguments);
+    const payload = normalizeActivityCapture(call.arguments, timeZone);
     if (!payload) {
       return { status: 'failed', code: 'invalid_activity_patch', message: 'A valid Activity title and supported fields are required.', retryable: false };
     }

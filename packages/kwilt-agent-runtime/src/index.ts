@@ -1,6 +1,6 @@
 export { discoverAgentTools } from './discovery';
 export { evaluateToolPolicy } from './policy';
-export { runBoundedAgentToolLoop } from './orchestrator';
+export { runBoundedAgentToolLoop, runOrderedAppControlPlan } from './orchestrator';
 export { calendarDateInTimeZone, normalizeIanaTimeZone } from './timeContext';
 export type {
   AgentToolDefinition,
@@ -14,5 +14,9 @@ export type {
   AgentModelStep,
   AgentToolLoopEvent,
   AgentToolLoopResult,
+  AppControlOutcome,
+  AppControlPlanResult,
+  AppControlResultReference,
+  AppControlStep,
 } from './types';
 export type { DiscoveredAgentTool } from './discovery';

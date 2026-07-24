@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { KWILT_OPERATION_REGISTRY } from '../../capabilities/operations';
 import { CAPABILITY_REGISTRY } from '../../capabilities/registry';
-import { CHAT_CAPABILITY_COVERAGE } from './chatCapabilityCoverage';
+import { assertCompleteConversationalCoverage, CHAT_CAPABILITY_COVERAGE } from './chatCapabilityCoverage';
 import { LEGACY_AGENT_CAPABILITY_INVENTORY } from './legacyAgentCapabilityInventory';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 
@@ -27,6 +27,13 @@ function serverAgentToolNames(): string[] {
 }
 
 describe('CHAT_CAPABILITY_COVERAGE', () => {
+  it('fails registration with the exact operation id when conversational coverage is missing', () => {
+    expect(() => assertCompleteConversationalCoverage(
+      [{ id: 'future.capability.do_the_thing' }],
+      [],
+    )).toThrow('Missing conversational coverage for Kwilt operation: future.capability.do_the_thing');
+  });
+
   it('has one unique row for every required native intent', () => {
     const ids = CHAT_CAPABILITY_COVERAGE.map((row) => row.id);
     expect(new Set(ids).size).toBe(ids.length);

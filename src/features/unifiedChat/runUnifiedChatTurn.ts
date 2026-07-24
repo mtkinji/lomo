@@ -27,6 +27,7 @@ import type { BuiltRunContext } from './capabilityContracts';
 import {
   ACTIVITY_ACTION_RESPONSE_FORMAT,
   parseActivityActionResponse,
+  recurringReminderClarification,
   type ActivityProposalOperation,
 } from './activityProposal';
 import {
@@ -58,6 +59,7 @@ import type {
   AgentToolDefinition,
   AgentToolExecutionResult,
   AgentToolLoopEvent,
+  AppControlOutcome,
 } from '@kwilt/agent-runtime';
 import { resolveTypedTurnControl } from './typedTurnControl';
 import { buildUnifiedChatRouteTelemetry, buildUnifiedChatToolTelemetry, type UnifiedChatTelemetryProperties } from './unifiedChatTelemetry';
@@ -65,6 +67,11 @@ import { AnalyticsEvent, type AnalyticsEventName } from '../../services/analytic
 import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
 import { buildPlanPriorityChatBody } from './planPriorityChatPresentation';
+import {
+  directRecurringReminder,
+  directScreenTimeControl,
+  inferredGoalTargetDate,
+} from './directAppControl';
 import {
   buildPlanPlacementReferent,
   resolvePlanPlacementReferent,
@@ -76,6 +83,23 @@ export class UnifiedChatTurnError extends Error {
     super(message);
     this.name = 'UnifiedChatTurnError';
   }
+}
+
+export function buildAppControlOutcome({
+  text,
+  proposalIds,
+  receiptIds,
+  clientActionIds,
+}: {
+  text: string;
+  proposalIds: string[];
+  receiptIds: string[];
+  clientActionIds: string[];
+}): AppControlOutcome {
+  if (receiptIds.length > 0) return { type: 'applied', receiptIds };
+  if (proposalIds.length > 0) return { type: 'review', proposalIds };
+  if (clientActionIds.length > 0) return { type: 'native_handoff', actionId: clientActionIds[0]! };
+  return { type: 'answer', text };
 }
 
 type TurnRepository = Pick<
@@ -126,6 +150,7 @@ export type RunUnifiedChatTurnDependencies = {
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry?: (event: AnalyticsEventName, properties?: UnifiedChatTelemetryProperties) => void;
+  now?: () => Date;
 };
 
 const EMPTY_CAPABILITY_SNAPSHOTS: UnifiedChatCapabilitySnapshots = {
@@ -257,11 +282,19 @@ function groundingSummary(
     parts.push(
       'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
     );
+    parts.push(
+      'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
+    );
   } else if (requestClass === 'capability_action' || requestClass === 'native_control') {
     parts.push(
       `Use only discovered tools for these Kwilt capabilities: ${participatingCapabilities.join(', ')}. ` +
       'Read bounded evidence as needed, then stage typed changes for explicit review. Copy object ids and optimistic versions exactly from evidence. Never claim a write succeeded from model prose, invent identity or sharing decisions, or bypass a native permission, entitlement, proposal, or receipt boundary.',
     );
+    if (participatingCapabilities.includes('goals')) {
+      parts.push(
+        'When the user asks for a new Goal and also describes a daily follow-through habit, call goals.create once with the bounded Goal targetDate and a followUpActivity containing only its title and daily repeat rule. Do not invent an Arc or call activities.capture before the reviewed Goal exists. After approval, Kwilt will offer the Activity using the authoritative created Goal id.',
+      );
+    }
   }
   if (participatingCapabilities.includes('relationships')) {
     parts.push(
@@ -477,6 +510,9 @@ export async function runUnifiedChatTurn(
   const planConversationReferent = requestPolicy.policyReason === 'conversation-follow-up:plan'
     ? resolvePlanPlacementReferent(aggregate)
     : null;
+  const activityClarification = requestPolicy.participatingCapabilities.includes('todos')
+    ? recurringReminderClarification(prompt)
+    : null;
   captureTelemetry(AnalyticsEvent.UnifiedChatRouteSelected, buildUnifiedChatRouteTelemetry(requestPolicy));
   if (requestPolicy.requestClass === 'better_served_elsewhere') {
     captureTelemetry(AnalyticsEvent.UnifiedChatUnsupportedIntent, {
@@ -492,7 +528,7 @@ export async function runUnifiedChatTurn(
     contextPolicy: {
       usePrivateContext: requestPolicy.usePrivateContext,
       reason: requestPolicy.policyReason,
-      clarification: requestPolicy.clarification,
+      clarification: activityClarification ?? requestPolicy.clarification,
     },
   });
   input.onRunStarted?.({
@@ -569,6 +605,27 @@ export async function runUnifiedChatTurn(
       runId: run.id,
       evidence: persistenceRows(context),
     });
+    if (activityClarification) {
+      const assistantMessage = await repository.insertMessage({
+        threadId: aggregate.thread.id,
+        role: 'assistant',
+        body: activityClarification,
+      });
+      transitionRun(run, 'complete', run.version);
+      await repository.transitionRunStatus({
+        runId: run.id, fromStatus: 'active', toStatus: 'complete', expectedVersion: run.version,
+        assistantMessageId: assistantMessage.id,
+        errorCode: null,
+        errorMessage: null,
+        completedAt: new Date().toISOString(),
+        event: {
+          type: 'clarification', status: 'warning', visibility: 'user',
+          label: 'Clarification needed', detail: activityClarification,
+          payload: { outcomeType: 'clarification' },
+        },
+      });
+      return repository.loadThread(aggregate.thread.id);
+    }
     const directCreateTitle = directTodoCaptureTitle(prompt);
     const usesRuntimeToolLoop = runtimeToolsEnabled &&
       (requestPolicy.requestClass === 'capability_action' || requestPolicy.requestClass === 'native_control' ||
@@ -589,7 +646,22 @@ export async function runUnifiedChatTurn(
       snapshots,
       planConversationReferent,
       executeRelationshipTool: relationshipProvider.execute,
+      now: dependencies?.now,
     });
+    const executeTurnTool = (
+      call: AgentToolCall,
+      tool: AgentToolDefinition,
+    ): Promise<AgentToolExecutionResult> => {
+      const inferredTargetDate = call.toolId === 'goals.create' && call.arguments.targetDate == null
+        ? inferredGoalTargetDate(prompt, dependencies?.now?.() ?? new Date())
+        : null;
+      return toolProvider.execute(
+        inferredTargetDate
+          ? { ...call, arguments: { ...call.arguments, targetDate: inferredTargetDate } }
+          : call,
+        tool,
+      );
+    };
     let runtimeToolEvents: readonly AgentToolLoopEvent[] = [];
     const runtimeTools = usesRuntimeToolLoop
       ? discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
@@ -637,7 +709,51 @@ export async function runUnifiedChatTurn(
       aggregate.thread.titleSource === 'default' &&
       aggregate.messages.length === 0 &&
       !retryMessage;
-    const response = await sendCoachChat(history, {
+    const directReminder = requestPolicy.participatingCapabilities.includes('todos')
+      ? directRecurringReminder(prompt)
+      : null;
+    const directScreenTime = requestPolicy.requestClass === 'native_control' &&
+      requestPolicy.participatingCapabilities.includes('screenTime')
+      ? directScreenTimeControl(prompt)
+      : null;
+    const directTool = directReminder
+      ? runtimeTools.find((tool) => tool.id === 'activities.capture')
+      : directScreenTime
+        ? runtimeTools.find((tool) => tool.id === 'screen_time.configure')
+        : undefined;
+    let directResponse: string | null = null;
+    if ((directReminder || directScreenTime) && !directTool) {
+      throw new UnifiedChatTurnError('Kwilt could not load the capability needed for that request.');
+    }
+    if (directTool) {
+      const directCall: AgentToolCall = {
+        id: `direct:${run.id}:1`,
+        toolId: directTool.id,
+        arguments: directReminder ?? directScreenTime ?? {},
+      };
+      const result = await executeTurnTool(directCall, directTool);
+      runtimeToolEvents = [{
+        sequence: 1,
+        type: 'tool_completed',
+        round: 1,
+        toolCallId: directCall.id,
+        toolId: directTool.id,
+        resultStatus: result.status,
+      }];
+      if (result.status === 'unavailable' && directScreenTime) {
+        directResponse = `Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change ${directScreenTime.appName} on ${directScreenTime.childName}'s device.`;
+      } else if (result.status !== 'proposed' && result.status !== 'pending_client_action') {
+        failureCode = 'direct_app_control_failed';
+        throw new UnifiedChatTurnError(
+          result.status === 'needs_input' ? result.prompt : 'Kwilt could not prepare that app change safely.',
+        );
+      } else {
+        directResponse = directReminder
+          ? `I prepared a recurring “${directReminder.title}” reminder for review.`
+          : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
+      }
+    }
+    const response = directResponse ?? await sendCoachChat(history, {
       aiJob: 'default_chat',
       workflowInstanceId: aggregate.thread.id,
       includeUserProfileContext: false,
@@ -645,7 +761,7 @@ export async function runUnifiedChatTurn(
       ...(usesRuntimeToolLoop
         ? {
             runtimeTools,
-            executeRuntimeTool: toolProvider.execute,
+            executeRuntimeTool: executeTurnTool,
             runtimeMaxRounds: 4,
             onRuntimeToolLoopComplete: (result: { events: readonly AgentToolLoopEvent[] }) => {
               runtimeToolEvents = result.events;
@@ -741,7 +857,13 @@ export async function runUnifiedChatTurn(
     }
     const planPriorityBody = requestPolicy.policyReason === 'day-plan-recommendation' && snapshots.plan
       ? buildPlanPriorityChatBody(snapshots.plan.recommendations)
-      : null;
+      : requestPolicy.policyReason === 'day-plan-status' && snapshots.plan
+        ? buildPlanPriorityChatBody(
+            snapshots.plan.recommendations,
+            'tomorrow',
+            snapshots.plan.scheduledItems ?? [],
+          )
+        : null;
     const visibleBody = planPriorityBody ?? (groundedAnswer
       ? formatGroundedAnswer(groundedAnswer)
       : sanitizeVisibleAssistantText(actionResponse?.answer ?? response));
@@ -755,10 +877,18 @@ export async function runUnifiedChatTurn(
       role: 'assistant',
       body: visibleBody,
     });
+    const proposalIds: string[] = [];
+    const receiptIds: string[] = [];
+    const clientActionIds: string[] = [];
+    const persistProposal = async (proposal: Parameters<TurnRepository['createProposal']>[0]) => {
+      const created = await repository.createProposal(proposal);
+      proposalIds.push(created.id);
+      return created;
+    };
     if (actionResponse?.proposal) {
       failureCode = 'proposal_persistence_failed';
       const operation = actionResponse.proposal.operation;
-      await repository.createProposal({
+      await persistProposal({
         threadId: aggregate.thread.id,
         runId: run.id,
         messageId: assistantMessage.id,
@@ -833,7 +963,7 @@ export async function runUnifiedChatTurn(
         permissionPolicy: { requiresExplicitApproval: true as const },
       };
       if (proposal.capabilityId === 'todos') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'todos',
           operation: withProposalMetadata(
@@ -843,7 +973,7 @@ export async function runUnifiedChatTurn(
           ),
         });
       } else if (proposal.capabilityId === 'plan') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'plan',
           operation: {
@@ -853,7 +983,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else if (proposal.capabilityId === 'goals') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'goals',
           operation: {
@@ -863,7 +993,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else if (proposal.capabilityId === 'profile') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'profile',
           operation: {
@@ -873,7 +1003,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else if (proposal.capabilityId === 'chapters') {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'chapters',
           operation: {
@@ -883,7 +1013,7 @@ export async function runUnifiedChatTurn(
           },
         });
       } else {
-        await repository.createProposal({
+        await persistProposal({
           ...common,
           capabilityId: 'arcs',
           operation: {
@@ -896,18 +1026,19 @@ export async function runUnifiedChatTurn(
     }
     for (const [index, action] of stagedClientActions.entries()) {
       failureCode = 'client_action_persistence_failed';
-      await repository.createClientAction({
+      const createdAction = await repository.createClientAction({
         threadId: aggregate.thread.id, runId: run.id, messageId: assistantMessage.id,
         capabilityId: action.capabilityId, actionType: action.actionType,
         targetType: action.targetType, targetId: action.targetId,
         title: action.title, consequenceSummary: action.consequenceSummary, payload: action.payload,
         idempotencyKey: `unified-chat:${run.id}:client:${index + 1}`,
       });
+      clientActionIds.push(createdAction.id);
     }
     const planSnapshot = requestPolicy.participatingCapabilities.includes('plan')
       ? snapshots.plan
       : undefined;
-    if (requestPolicy.requestClass === 'capability_question' && planSnapshot?.writeCalendarRef) {
+    if (requestPolicy.policyReason === 'day-plan-recommendation' && planSnapshot?.writeCalendarRef) {
       for (const recommendation of planSnapshot.recommendations) {
         if (recommendation.placement.status !== 'placed' || !recommendation.expectedUpdatedAt) continue;
         const start = new Date(recommendation.placement.startDate);
@@ -916,7 +1047,7 @@ export async function runUnifiedChatTurn(
           : new Intl.DateTimeFormat('en-US', {
               weekday: 'short', hour: 'numeric', minute: '2-digit',
             }).format(start);
-        await repository.createProposal({
+        await persistProposal({
           threadId: aggregate.thread.id,
           runId: run.id,
           messageId: assistantMessage.id,
@@ -942,6 +1073,12 @@ export async function runUnifiedChatTurn(
         });
       }
     }
+    const appControlOutcome = buildAppControlOutcome({
+      text: visibleBody,
+      proposalIds,
+      receiptIds,
+      clientActionIds,
+    });
     failureCode = 'run_completion_failed';
     transitionRun(run, 'complete', run.version);
     await repository.transitionRunStatus({
@@ -952,9 +1089,14 @@ export async function runUnifiedChatTurn(
       completedAt: new Date().toISOString(),
       event: {
         type: 'response', status: 'complete', visibility: 'user',
-        label: actionResponse?.proposal || stagedToolProposals.length > 0 || stagedClientActions.length > 0
-          ? 'Prepared a change for review'
-          : 'Response ready',
+        label: appControlOutcome.type === 'answer'
+          ? 'Response ready'
+          : appControlOutcome.type === 'applied'
+            ? 'Change applied'
+            : appControlOutcome.type === 'native_handoff'
+              ? 'Ready to continue in Kwilt'
+              : 'Prepared a change for review',
+        payload: { outcomeType: appControlOutcome.type },
       },
     });
     return repository.loadThread(aggregate.thread.id);

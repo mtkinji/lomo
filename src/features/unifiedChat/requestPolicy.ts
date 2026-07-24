@@ -1,3 +1,5 @@
+import { directScreenTimeControl } from './directAppControl';
+
 export type UnifiedChatRequestClass =
   | 'general'
   | 'general_with_kwilt_context'
@@ -46,6 +48,8 @@ const NON_TODO_DOMAIN_PATTERN =
   /\b(goals?|plans?|chapters?|reflections?|profiles?|screen time|app limits?|money|budget|transaction|payment|transfer)\b/i;
 const DAY_PLAN_RECOMMENDATION_PATTERN =
   /(?:\b(?:what|which)\b[^?]*\b(?:should|could)\b[^?]*\b(?:plan|today|tomorrow)\b|\bcould\b[^?]*\b(?:today|tomorrow)\b[^?]*\b(?:use|fit)\b|\b(?:what|which)\b[^?]*\b(?:focus|prioriti[sz]e)\b[^?]*\b(?:today|tomorrow)\b)/i;
+const DAY_PLAN_STATUS_PATTERN =
+  /(?:\b(?:what(?:'s| is)?|show me|do i have)\b[^?]*\b(?:officially|already|actually|scheduled|planned|placed|on)\b[^?]*\b(?:my\s+)?plan\b[^?]*\b(?:today|tomorrow)\b|\b(?:what(?:'s| is)?)\b[^?]*\bon\s+my\s+plan\b[^?]*\b(?:today|tomorrow)\b)/i;
 const RELATIONSHIP_MEMORY_QUESTION_PATTERN =
   /\b(?:what|which)\b[^?]*\b(?:remember|know|saved?)\b[^?]*\b(?:about|for)\b/i;
 const RELATIONSHIP_MEMORY_MUTATION_PATTERN =
@@ -138,7 +142,7 @@ export function classifyUnifiedChatRequest({
     };
   }
 
-  if (NATIVE_CONTROL_PATTERN.test(normalizedPrompt)) {
+  if (NATIVE_CONTROL_PATTERN.test(normalizedPrompt) || directScreenTimeControl(normalizedPrompt)) {
     return {
       requestClass: 'native_control',
       participatingCapabilities: ['screenTime'],
@@ -169,6 +173,15 @@ export function classifyUnifiedChatRequest({
       usePrivateContext: true,
       clarification: null,
       policyReason: 'day-plan-recommendation',
+    };
+  }
+  if (DAY_PLAN_STATUS_PATTERN.test(normalizedPrompt)) {
+    return {
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      clarification: null,
+      policyReason: 'day-plan-status',
     };
   }
   const actionCandidate = normalizedPrompt.replace(/\bnext move\b/gi, '');
