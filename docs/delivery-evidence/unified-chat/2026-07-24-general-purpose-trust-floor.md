@@ -28,7 +28,7 @@ Red tests and live runs exposed: missing search contracts; prompt layers in the 
 - App TypeScript, test TypeScript, and every Supabase Edge Function Deno check pass.
 - The hosted workbench passes 86 tests, lint with one pre-existing Hook warning outside Chat, and a production build. Its exact source commit is `7dc7f951a6377cd4a8549604b9d0e0e0b80e1446`.
 - Cross-repository protocol conformance accepts the credential-free source command against that exact workbench commit, the Giraffed adapter, and the canonical v2 fixture.
-- The diff-derived completion gate passes: 275 Jest suites / 1,963 tests, 14 Deno tests, 27 durable Chat contracts, app and test typechecks, Supabase typechecks, code-health ratchets, product and delivery lint, protocol conformance, code-map generation, and architecture lint. The only warnings are pre-existing repository-wide feature-brief registration and raw-`Text` notices outside this change.
+- The diff-derived completion gate passes: 275 Jest suites / 1,964 tests, 14 Deno tests, 27 durable Chat contracts, app and test typechecks, Supabase typechecks, code-health ratchets, product and delivery lint, protocol conformance, code-map generation, and architecture lint. The only warnings are pre-existing repository-wide feature-brief registration and raw-`Text` notices outside this change.
 - `phase4-live-model-eval.json` passes 39/39 cases and 25/25 safety-critical cases. It covers all 30 standing routes plus ordinary, context-visible, medical, self-harm, legal, financial, native-effect, and money-effect answers.
 - A direct hosted-provider smoke returned a useful two-sentence tides answer without Kwilt workflow forcing.
 - Supabase `ai-chat` version `57` is deployed `ACTIVE` with the existing client contract preserved (`verify_jwt=false`). The deployed SHA-256 is `5d1dc4c3624f944a83de5f66280ab14744f071aaa1152fd44a3be374e2e4cad8`.
@@ -36,13 +36,15 @@ Red tests and live runs exposed: missing search contracts; prompt layers in the 
 - The actual Kwilt request builder plus `parseCurrentInformationResponse` accepted production response `resp_068e83e9438085d8016a63df897e188199858f2274a3f2d98a`: two inspectable `openai.com` sources and a 586-character visible answer with Sources rendered.
 - A weather probe returned HTTP 200 but no URL citation annotations. Kwilt rejected that result rather than showing an uncited current claim, proving the intended fail-closed boundary.
 - The signed iPhone 17 Pro simulator rendered the production-backed current-information answer with inline official links and a separate inspectable Sources link: [current-information-citations.png](./2026-07-24-phase4-runtime/current-information-citations.png).
+- The same signed simulator answered an ordinary arithmetic request directly, visibly declared that no personal records were needed, and created no proposal: [ordinary-general.png](./2026-07-24-phase4-runtime/ordinary-general.png).
+- The Kwilt-native Plan row returned tomorrow's authoritative ordered Plan and exposed the three bounded records used: [kwilt-native-plan.png](./2026-07-24-phase4-runtime/kwilt-native-plan.png).
+- The context-enhanced row answered a broader rainy-day planning question and exposed the three bounded Plan records used, plus explicit limits: [context-enhanced-plan.png](./2026-07-24-phase4-runtime/context-enhanced-plan.png).
+- Malformed prompts caused by the simulator hardware-keyboard focus harness were excluded from acceptance. They asked for clarification or failed honestly and used zero records; the accepted context row used the exact standing fixture after focus was allowed to settle before typing.
 - Production acceptance exposed a cross-turn routing defect: after the cited turn, two ordinary prompts were incorrectly sent to `/v1/responses` and failed with durable `model_response_failed` runs. Edge logs proved the proxy itself returned 200; request telemetry proved the mistaken main route was `/v1/responses` rather than `/v1/chat/completions`.
 - A regression now makes the current user text—not semantic carryover from recent dialogue—the authority for invoking citation-required search. The test failed against the original behavior and passes after the one-line planning fix; the focused Chat routing set passes 98 tests.
 
-## Unverified and blocked proof
+## Unverified proof boundaries
 
-- The signed simulator matrix is pending because the Mac re-locked during the post-fix replay. Current-information is proven; the remaining rows are Kwilt-native, context-enhanced, and ordinary general.
-- The ordinary-general regression is proven in tests and production diagnostics, but its signed-simulator replay after the fix is not yet proven.
 - No physical-device, TestFlight, Phone Agent, or production cross-channel claim is made.
 
-Phase 4 is not complete until the current-information provider path and all four signed-simulator rows are proven, followed by `npm run verify:changed -- --run` against the final phase diff.
+Phase 4 is complete: the provider path, four signed-simulator rows, safety-critical live evaluation, deterministic contracts, and final diff-derived completion gate are all proven. Physical-device, TestFlight, Phone Agent, and cross-channel continuity remain later proof classes rather than inferred Phase 4 evidence.
