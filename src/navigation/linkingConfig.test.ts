@@ -116,6 +116,12 @@ describe('linkingConfig', () => {
       expect(leaf?.path).toEqual(['Settings', 'SettingsHome']);
     });
 
+    test('kwilt://settings/money-privacy resolves to Money privacy settings', () => {
+      const leaf = parse('settings/money-privacy');
+      expect(leaf?.name).toBe('SettingsMoneyPrivacy');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsMoneyPrivacy']);
+    });
+
     test('settings/subscription?openPricingDrawer=1 parses the boolean param', () => {
       const leaf = parse('settings/subscription?openPricingDrawer=1');
       expect(leaf?.params).toMatchObject({ openPricingDrawer: true });

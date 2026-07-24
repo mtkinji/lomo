@@ -36,6 +36,7 @@ import { ActivityDetailScreen } from '../features/activities/ActivityDetailScree
 import { PlanScreen } from '../features/plan/PlanScreen';
 import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
+import { MoneyPrivacySettingsScreen } from '../capabilities/money/screens/MoneyPrivacySettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
@@ -300,6 +301,7 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
+  SettingsMoneyPrivacy: undefined;
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
@@ -884,6 +886,7 @@ function SettingsStackNavigator() {
         name="SettingsScreenTimeProtection"
         component={ScreenTimeProtectionSettingsScreen}
       />
+      <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
       <SettingsStack.Screen
         name="SettingsWeeklyChapters"
         component={ChapterDigestSettingsScreen}

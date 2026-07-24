@@ -154,6 +154,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         SettingsConnectedTools: {
           path: 'settings/connections',
         },
+        SettingsMoneyPrivacy: 'settings/money-privacy',
       },
     },
   },

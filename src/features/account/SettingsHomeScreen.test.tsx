@@ -130,6 +130,12 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsLegalPrivacy');
   });
 
+  it('navigates to capability-scoped Money privacy from the shared settings root', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Money privacy'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsMoneyPrivacy');
+  });
+
   it('keeps account deletion off the root Settings menu', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     expect(getByText('Account settings')).toBeTruthy();

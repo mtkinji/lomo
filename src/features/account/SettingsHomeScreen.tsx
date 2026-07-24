@@ -55,6 +55,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     title: 'Integrations',
     entries: [
       { id: 'connected_tools', title: 'Connected tools', route: 'SettingsConnectedTools' },
+      { id: 'money_privacy', title: 'Money privacy', route: 'SettingsMoneyPrivacy' },
     ],
   },
   {

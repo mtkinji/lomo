@@ -258,6 +258,12 @@ const config = {
     'expo-localization',
     'expo-location',
     [
+      'expo-local-authentication',
+      {
+        faceIDPermission: 'Allow Kwilt to use Face ID to protect your Money details.',
+      },
+    ],
+    [
       '@kingstinct/react-native-healthkit',
       {
         NSHealthShareUsageDescription:
