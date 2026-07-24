@@ -183,6 +183,11 @@ export function GoalsScreen() {
   );
   const hasGoals = visibleGoals.length > 0;
   const [goalCoachVisible, setGoalCoachVisible] = React.useState(false);
+  const [goalCoachPrefill, setGoalCoachPrefill] = React.useState<{
+    title?: string;
+    description?: string;
+    initialTab?: 'ai' | 'manual';
+  }>({});
   const [goalsMasonryWidth, setGoalsMasonryWidth] = React.useState(0);
   const [showArchived, setShowArchived] = React.useState(true);
   const [archivedExpanded, setArchivedExpanded] = React.useState(false);
@@ -407,18 +412,24 @@ export function GoalsScreen() {
   });
 
   const handlePressNewGoal = React.useCallback(() => {
+    setGoalCoachPrefill({});
     setGoalCoachVisible(true);
   }, []);
 
   React.useEffect(() => {
     if (route.params?.openCreateGoal) {
       const interactionTask = InteractionManager.runAfterInteractions(() => {
-        handlePressNewGoal();
-        (navigation as any).setParams?.({ openCreateGoal: undefined });
+        setGoalCoachPrefill({
+          title: route.params?.prefilledGoalTitle,
+          description: route.params?.prefilledGoalDescription,
+          initialTab: route.params?.goalCreationInitialTab,
+        });
+        setGoalCoachVisible(true);
+        (navigation as any).setParams?.({ openCreateGoal: undefined, prefilledGoalTitle: undefined, prefilledGoalDescription: undefined, goalCreationInitialTab: undefined });
       });
       return () => interactionTask.cancel();
     }
-  }, [handlePressNewGoal, navigation, route.params?.openCreateGoal]);
+  }, [navigation, route.params?.goalCreationInitialTab, route.params?.openCreateGoal, route.params?.prefilledGoalDescription, route.params?.prefilledGoalTitle]);
 
   const fabClearancePx = insets.bottom + spacing.xl + 56;
 
@@ -651,6 +662,9 @@ export function GoalsScreen() {
         onClose={() => setGoalCoachVisible(false)}
         arcs={arcs}
         goals={goals}
+        initialDescription={goalCoachPrefill.description}
+        initialTab={goalCoachPrefill.initialTab}
+        initialTitle={goalCoachPrefill.title}
       />
 
     </AppShell>
@@ -798,6 +812,7 @@ type GoalCoachDrawerProps = {
    * full control of the field.
    */
   initialTitle?: string;
+  initialDescription?: string;
   /**
    * Force the drawer into a specific tab on open. Used by Chapter
    * Next Steps deep links that prefer to route users straight to the
@@ -816,6 +831,7 @@ export function GoalCoachDrawer({
   navigateToGoalDetailOnCreate = true,
   onGoalCreated,
   initialTitle,
+  initialDescription,
   initialTab,
 }: GoalCoachDrawerProps) {
   const [activeTab, setActiveTab] = React.useState<'ai' | 'manual'>('ai');
@@ -827,7 +843,7 @@ export function GoalCoachDrawer({
   const buildEmptyDraft = React.useCallback(
     (): GoalCreationDraft => ({
       title: initialTitle?.trim() ?? '',
-      description: '',
+      description: initialDescription?.trim() ?? '',
       status: 'planned',
       forceIntent: defaultForceLevels(0),
       arcId: launchFromArcId ?? null,
@@ -835,7 +851,7 @@ export function GoalCoachDrawer({
       thumbnailVariant: 0,
       heroImageMeta: undefined,
     }),
-    [launchFromArcId, initialTitle],
+    [initialDescription, launchFromArcId, initialTitle],
   );
   const [draft, setDraft] = React.useState<GoalCreationDraft>(() => buildEmptyDraft());
   const addGoal = useAppStore((state) => state.addGoal);
@@ -924,6 +940,12 @@ export function GoalCoachDrawer({
       setDraft(buildEmptyDraft());
     }
   }, [aiCreditsRemaining, visible, buildEmptyDraft, setDraft, initialTab]);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    setDraft(buildEmptyDraft());
+    if (initialTab) setActiveTab(initialTab);
+  }, [buildEmptyDraft, initialTab, visible]);
 
   React.useEffect(() => {
     if (!visible) return;

@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Heading, Text } from '../../../ui/Typography';
@@ -10,6 +11,7 @@ import { formatMoney, formatMoneyFreshness } from '../data/moneySnapshot';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { getLivingPlanSettings, type LivingPlanReceipt } from '../data/livingPlanRepository';
 import { getLivingPlanNoticeContent, type LivingPlanNoticeContent } from '../domain/living-plan-notice';
+import { buildMoneyGoalBridgeDraft } from '../domain/moneyGoalBridge';
 import type { MoneyStackParamList } from '../navigation/types';
 import type { MoneyPlaceRouteName } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
@@ -17,6 +19,7 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const { snapshot } = useMoneyData();
   const [planNotice, setPlanNotice] = useState<{ receipt: LivingPlanReceipt; content: LivingPlanNoticeContent } | null>(null);
+  const goalDraft = snapshot ? buildMoneyGoalBridgeDraft(snapshot.categories) : null;
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
@@ -109,6 +112,29 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
             >
               <Text variant="label">{snapshot.totals.needsReviewCount} {snapshot.totals.needsReviewCount === 1 ? 'transaction needs' : 'transactions need'} review</Text>
               <Text tone="secondary">Open Transactions to see what is not assigned.</Text>
+            </Pressable>
+          ) : null}
+
+          {goalDraft ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => rootNavigationRef.navigate('MainTabs', {
+                screen: 'GoalsTab',
+                params: {
+                  screen: 'GoalsList',
+                  params: {
+                    openCreateGoal: true,
+                    prefilledGoalTitle: goalDraft.title,
+                    prefilledGoalDescription: goalDraft.description,
+                    goalCreationInitialTab: 'manual',
+                  },
+                },
+              })}
+              style={styles.reviewCard}
+            >
+              <Text variant="label">Turn this pattern into a goal</Text>
+              <Text tone="secondary">{goalDraft.evidenceLabel}. Start with a private draft; transaction rows stay in Money.</Text>
+              <Text variant="label" tone="accent">Draft a goal</Text>
             </Pressable>
           ) : null}
 

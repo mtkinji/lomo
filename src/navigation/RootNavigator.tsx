@@ -275,6 +275,9 @@ export type GoalsStackParamList = {
   GoalsList:
     | {
         openCreateGoal?: boolean;
+        prefilledGoalTitle?: string;
+        prefilledGoalDescription?: string;
+        goalCreationInitialTab?: 'ai' | 'manual';
       }
     | undefined;
   GoalDetail: GoalDetailRouteParams;
