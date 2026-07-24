@@ -1,7 +1,53 @@
-import { AGENT_CAPABILITY_EVAL_CASES } from './agentCapabilityEvalCases';
+import {
+  AGENT_CAPABILITY_EVAL_CASES,
+  APP_CONTROL_EVAL_CASES,
+  OPERATION_LANGUAGE_CASES,
+} from './agentCapabilityEvalCases';
 import { CHAT_CAPABILITY_COVERAGE } from './chatCapabilityCoverage';
+import { KWILT_OPERATION_REGISTRY } from '../../capabilities/operations';
 
 describe('AGENT_CAPABILITY_EVAL_CASES', () => {
+  it('defines the standing app-control jobs with two natural paraphrases each', () => {
+    const byScenario = new Map<string, typeof APP_CONTROL_EVAL_CASES[number][]>();
+    for (const item of APP_CONTROL_EVAL_CASES) {
+      byScenario.set(item.scenarioId, [...(byScenario.get(item.scenarioId) ?? []), item]);
+    }
+
+    expect([...byScenario.keys()].sort()).toEqual([
+      'create-recurring-reminded-activity',
+      'create-walking-goal-and-routine',
+      'future-screen-time-control',
+      'read-tomorrow-plan',
+    ]);
+    for (const cases of byScenario.values()) expect(cases).toHaveLength(3);
+
+    expect(byScenario.get('create-recurring-reminded-activity')?.[0]).toEqual(expect.objectContaining({
+      expectedOperations: ['activities.capture', 'activities.repeat.update', 'activities.reminder.update'],
+      expectedOutcome: 'proposal_or_receipt',
+    }));
+    expect(byScenario.get('read-tomorrow-plan')?.[0]).toEqual(expect.objectContaining({
+      expectedOperations: ['plan.read_day_context'],
+      expectedOutcome: 'answer',
+    }));
+    expect(byScenario.get('create-walking-goal-and-routine')?.[0]).toEqual(expect.objectContaining({
+      expectedOperations: ['goals.create', 'activities.capture', 'activities.repeat.update'],
+      expectedOutcome: 'proposal_or_receipt',
+    }));
+    expect(byScenario.get('future-screen-time-control')?.[0]).toEqual(expect.objectContaining({
+      expectedOperations: ['screen_time.configure'],
+      expectedOutcome: 'native_review',
+    }));
+  });
+
+  it('gives every registered operation an ordinary utterance or an explicit boundary case', () => {
+    const operationIds = OPERATION_LANGUAGE_CASES.map((item) => item.operationId);
+    expect(new Set(operationIds).size).toBe(operationIds.length);
+    expect([...operationIds].sort()).toEqual(KWILT_OPERATION_REGISTRY.map((item) => item.id).sort());
+    for (const item of OPERATION_LANGUAGE_CASES) {
+      expect(Boolean(item.prompt?.trim()) || Boolean(item.boundaryReason?.trim())).toBe(true);
+    }
+  });
+
   it('represents every manifest operation exactly once', () => {
     expect(AGENT_CAPABILITY_EVAL_CASES.map((item) => item.operationId))
       .toEqual(CHAT_CAPABILITY_COVERAGE.map((row) => row.id));
