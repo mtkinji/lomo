@@ -1,0 +1,621 @@
+version: 1
+last_updated: "2026-07-03"
+purpose: >
+  Map Kwilt Money's promised user outcomes to job steps, current UX flows,
+  evidence, surface opportunities, and recommended improvement actions.
+  Use this as the source artifact for daily and ad hoc Job Delivery Reviews.
+
+review_policy:
+  scoring_scale:
+    "0": "No meaningful support for the step."
+    "1": "Scaffold exists, but the user cannot reliably complete the step."
+    "2": "Partial support; meaningful manual work, broken paths, or weak proof remain."
+    "3": "Usable path exists, but traversal is uneven or limited."
+    "4": "Strong path; remaining gaps are clarity, proof, or edge cases."
+    "5": "Job step is easy, trustworthy, and proven in realistic use."
+  score_change_rule: >
+    Update scores only after a shipped change, runtime verification, user/self-use
+    evidence, or an explicit documented assumption.
+  next_action_types:
+    - implement
+    - verify
+    - run_design_loop
+    - reflect_after_ship
+    - no_action
+  leverage_policy: >
+    Rank next moves by strategic weight, importance, risk if bad, actionability,
+    confidence, and low delivery score. A low score alone is not enough if the
+    step is not on the current value-unit path.
+
+jobs:
+  - id: review-budget-reality-before-spending
+    title: Review Budget Reality Before Spending
+    source_job_flow: docs/job-flows/maya-review-budget-reality-before-spending.md
+    audience: audience-aspirational-family-organizers
+    persona: Maya
+    hero_jtbd: jtbd-move-the-few-things-that-matter
+    serves:
+      - jtbd-put-intention-before-impulse
+      - jtbd-carry-intentions-into-action
+      - jtbd-trust-this-app-with-my-life
+      - jtbd-review-budget-reality-before-spending
+    promised_outcome: >
+      When Maya is near a spend-triggering app or purchase moment, Kwilt Money
+      helps her see the relevant live budget reality first so the next action is
+      intentional instead of automatic.
+    current_primary_value_unit: >
+      A chosen spend category can be reviewed through in-app meters, transaction
+      evidence, and app-control scaffolding before spend-triggering behavior.
+    related_feature_briefs:
+      - docs/feature-briefs/budget-reality-gate.md
+      - docs/feature-briefs/screen-time-controls.md
+      - docs/feature-briefs/ios-budget-widgets.md
+      - docs/feature-briefs/job-delivery-map.md
+    related_design_explorations:
+      - docs/design-explorations/budget-reality-gate
+      - docs/design-explorations/ios-budget-widgets
+      - docs/design-explorations/budget-detail-month-scoped-activity
+      - docs/design-explorations/transaction-inventory-date-scope
+      - docs/design-explorations/lane-gate-onboarding
+    steps:
+      - id: name-spending-category
+        sequence: 1
+        leverage:
+          importance: high
+          user_frequency: medium
+          strategic_weight: supporting_value_unit
+          risk_if_bad: medium
+          actionability: medium
+        job_step: Name the spending categories that often drift.
+        user_question: What spending area am I trying to keep intentional?
+        desired_outcome: >
+          Maya has a clear, user-owned category with a name and budget limit that
+          can guide later spending decisions.
+        current_ux_flows:
+          - label: Create category
+            route: app/budgets/new.tsx
+            role: primary_creation_flow
+          - label: Edit category budget
+            route: app/budgets/[budgetId].tsx
+            role: rename_or_limit_adjustment
+          - label: Summary category rows
+            route: app/(tabs)/index.tsx
+            role: category_inventory
+        evidence:
+          - type: code
+            status: observed
+            summary: Category creation and budget-edit surfaces exist for name and amount.
+            refs:
+              - app/budgets/new.tsx
+              - app/budgets/[budgetId].tsx
+          - type: assumption
+            status: needs_runtime_check
+            summary: The category model is usable enough for one user-owned category, but setup does not yet carry Maya into matching or app-control rehearsal.
+        delivery_score:
+          value: 3
+          confidence: medium
+          rationale: >
+            The in-app category creation/editing path exists, but it is not yet a
+            complete job flow from category naming into keeping that category present
+            at spending moments.
+        current_friction:
+          - Category setup is mostly in-app management, not a remembered or ambient cue.
+          - Creation does not automatically lead into transaction matching or app controls.
+          - Cadence and richer lane setup are still thin.
+        surface_opportunities:
+          - id: ios-widget-category-reminder
+            surface: ios_widget
+            linked_design_exploration: docs/design-explorations/ios-budget-widgets
+            hypothesis: >
+              A Home Screen or Lock Screen widget could keep the intentional
+              category visible without requiring Maya to open Kwilt Money.
+            job_elevation: >
+              Moves the category from a setup object into an ambient reminder before
+              spending choices.
+            design_loop_status: concept_ready
+            next_action: run_design_loop
+          - id: onboarding-starter-category
+            surface: onboarding
+            linked_design_exploration: docs/design-explorations/lane-gate-onboarding
+            hypothesis: >
+              First-run setup can make the first category feel like a personal
+              spending intention rather than a finance taxonomy entry.
+            job_elevation: Makes the first category easier to remember and trust.
+            design_loop_status: explored
+            next_action: verify
+        recommended_next_action:
+          type: run_design_loop
+          priority: medium
+          summary: >
+            If this step becomes the weakest high-value step, refresh the iOS
+            widget loop rather than only polishing the create/edit budget flow.
+
+      - id: connect-spend-source
+        sequence: 2
+        leverage:
+          importance: high
+          user_frequency: low
+          strategic_weight: trust_foundation
+          risk_if_bad: high
+          actionability: medium
+        job_step: Ground the category in real spending evidence.
+        user_question: Is this budget based on real spend?
+        desired_outcome: >
+          Maya trusts that the category meter is current enough because it is backed
+          by connected accounts or clearly labeled preview data.
+        current_ux_flows:
+          - label: Accounts inventory and Plaid Link
+            route: app/(tabs)/accounts.tsx
+            role: connect_and_review_accounts
+          - label: Onboarding account step
+            route: src/features/onboarding/BudgetOnboardingFlow.tsx
+            role: first_run_connection
+          - label: Live connected spend snapshot
+            route: src/platform/plaid.ts
+            role: budget_meter_data_source
+        evidence:
+          - type: code
+            status: observed
+            summary: Accounts supports Plaid connection and account inventory; budget surfaces use connected spend snapshots when signed in.
+            refs:
+              - app/(tabs)/accounts.tsx
+              - src/platform/use-plaid-link.ts
+              - src/platform/plaid.ts
+          - type: runtime_history
+            status: prior_evidence
+            summary: Previous Sandbox runs proved accounts and transactions could sync, but production Link/config state has had separate blockers.
+        delivery_score:
+          value: 3.5
+          confidence: medium
+          rationale: >
+            The account connection and snapshot path are real enough to support
+            the job, but reliability and post-link traversal into budget review
+            still need stronger live proof.
+        current_friction:
+          - Link success and transaction availability can be separated by sync/config issues.
+          - Onboarding acknowledges connection but does not yet complete a full review of starter budget matches.
+          - Empty or sparse states can still look like missing truth unless carefully scoped.
+        surface_opportunities:
+          - id: account-sync-receipt
+            surface: in_app_receipt
+            linked_design_exploration: docs/design-explorations/plaid-transaction-backed-meter
+            hypothesis: >
+              A short sync receipt after account connection could show what was
+              imported and what needs review.
+            job_elevation: Converts account connection from setup plumbing into trust-building evidence.
+            design_loop_status: candidate
+            next_action: run_design_loop
+        recommended_next_action:
+          type: verify
+          priority: medium
+          summary: >
+            Re-run a signed-in Sandbox account connection and confirm the user
+            lands in a useful budget/transaction review state.
+
+      - id: match-transactions-to-lane
+        sequence: 3
+        leverage:
+          importance: high
+          user_frequency: medium
+          strategic_weight: trust_foundation
+          risk_if_bad: high
+          actionability: medium
+        job_step: Keep the category meter trustworthy with reviewed transactions.
+        user_question: Does this transaction belong in this category?
+        desired_outcome: >
+          Maya can confirm, correct, exclude, or create a budget from transaction
+          evidence, and similar future transactions become easier to handle.
+        current_ux_flows:
+          - label: Transactions inventory
+            route: app/(tabs)/transactions.tsx
+            role: review_all_or_scoped_transactions
+          - label: Transaction detail sheet
+            route: src/components/transaction-detail-sheet.tsx
+            role: confirm_correct_create_or_exclude
+          - label: Budget detail activity
+            route: app/budgets/[budgetId].tsx
+            role: review_budget_specific_evidence
+        evidence:
+          - type: code
+            status: observed
+            summary: Transaction rows can be filtered, confirmed, corrected, marked unbudgeted, or applied to similar merchant rows.
+            refs:
+              - app/(tabs)/transactions.tsx
+              - src/components/transaction-detail-sheet.tsx
+          - type: assumption
+            status: needs_runtime_check
+            summary: Preview review updates are clear, but live persistence of review assignments/rules needs explicit proof.
+        delivery_score:
+          value: 3.5
+          confidence: medium
+          rationale: >
+            The review UX is one of the strongest current flows, but live durable
+            persistence and post-review meter updates still need verification.
+        current_friction:
+          - Live review assignments may be locally mirrored before durable backend proof.
+          - The path from onboarding/account sync into first transaction review is not yet seamless.
+          - Similar-transaction rules are helpful but may need clearer persistence language.
+        surface_opportunities:
+          - id: review-queue-entry
+            surface: in_app_queue
+            linked_design_exploration: docs/design-explorations/transaction-inventory-date-scope
+            hypothesis: >
+              A focused "needs review" queue could reduce the work needed to
+              make meters trustworthy after account sync.
+            job_elevation: Makes trust repair a short task instead of ledger browsing.
+            design_loop_status: explored
+            next_action: verify
+        recommended_next_action:
+          type: verify
+          priority: high
+          summary: >
+            Prove that a live Sandbox transaction correction persists and changes
+            the relevant budget meter after reload or refetch.
+
+      - id: see-budget-reality
+        sequence: 4
+        leverage:
+          importance: high
+          user_frequency: high
+          strategic_weight: core_value_unit
+          risk_if_bad: high
+          actionability: medium
+        job_step: See the relevant category meter before spending.
+        user_question: Am I okay to spend right now?
+        desired_outcome: >
+          Maya can quickly understand spend against limit, remaining amount,
+          pace, and projected end-of-period state before acting.
+        current_ux_flows:
+          - label: Summary
+            route: app/(tabs)/index.tsx
+            role: monthly_overview_and_category_rows
+          - label: Category detail
+            route: app/budgets/[budgetId].tsx
+            role: deep_category_reality
+          - label: Review screen
+            route: app/review.tsx
+            role: app_open_review
+        evidence:
+          - type: code
+            status: observed
+            summary: Budget detail computes selected-month meter, forecast, activity rows, and secondary stats.
+            refs:
+              - app/(tabs)/index.tsx
+              - app/budgets/[budgetId].tsx
+          - type: design_exploration
+            status: concept_ready
+            summary: iOS widgets are already explored as an ambient way to show budget reality outside the app.
+            refs:
+              - docs/design-explorations/ios-budget-widgets
+              - docs/feature-briefs/ios-budget-widgets.md
+        delivery_score:
+          value: 4
+          confidence: medium
+          rationale: >
+            The in-app budget reality path is strong. The remaining weakness is
+            that the best spending moment may happen outside the app, before
+            Maya decides to check Budget.
+        current_friction:
+          - Review screen does not yet carry the same richness as budget detail.
+          - User must open Kwilt Money or hit a gate to see reality.
+          - Widget/Lock Screen glance is concept-ready but not built.
+        surface_opportunities:
+          - id: percent-first-ios-widget
+            surface: ios_widget
+            linked_design_exploration: docs/design-explorations/ios-budget-widgets
+            hypothesis: >
+              A percent-first widget could make the relevant category visible
+              before the user opens a spend-triggering app.
+            job_elevation: Turns budget reality into a nearby glance instead of a deliberate app check.
+            design_loop_status: concept_ready
+            next_action: run_design_loop
+          - id: review-screen-meter-upgrade
+            surface: app_gate_review
+            linked_design_exploration: docs/design-explorations/budget-reality-gate
+            hypothesis: >
+              The review gate should reuse the same clear meter language as
+              budget detail, but in a smaller decision-focused format.
+            job_elevation: Makes the app-open decision faster and more trustworthy.
+            design_loop_status: explored
+            next_action: implement
+        recommended_next_action:
+          type: run_design_loop
+          priority: medium
+          summary: >
+            If ambient visibility is the bottleneck, continue the iOS widget
+            learning release; if gate clarity is the bottleneck, implement the
+            review-screen meter upgrade.
+
+      - id: choose-intentional-access
+        sequence: 5
+        leverage:
+          importance: high
+          user_frequency: high
+          strategic_weight: core_value_unit
+          risk_if_bad: high
+          actionability: high
+        job_step: Choose whether to open the spend-triggering app for now.
+        user_question: Do I still want to open it?
+        desired_outcome: >
+          Maya can make a calm, reversible choice: open for now or leave blocked,
+          with the budget reality visible enough to make the choice intentional.
+        current_ux_flows:
+          - label: Review screen
+            route: app/review.tsx
+            role: record_review_and_unlock_scaffold
+          - label: App controls
+            route: app/app-control/[budgetId].tsx
+            role: app_rule_summary
+          - label: Screen Time controls
+            route: app/screen-time-controls.tsx
+            role: authorize_choose_apps_and_toggle_rules
+        evidence:
+          - type: code
+            status: observed
+            summary: Review screen records an unlock review and Screen Time controls manage authorization, selected apps, and rule conditions.
+            refs:
+              - app/review.tsx
+              - app/screen-time-controls.tsx
+          - type: code
+            status: observed
+            summary: Source now wires Budget Detail to App controls, App controls to review rehearsal, and review to explicit Open for now / Leave blocked outcomes.
+            refs:
+              - app/app-control/[budgetId].tsx
+              - app/budgets/[budgetId].tsx
+          - type: runtime_history
+            status: observed
+            summary: Andrew confirmed the refreshed simulator build navigates from Budget Detail's App controls row after the native dev-client bundle was reloaded on 2026-07-03.
+            refs:
+              - app/budgets/[budgetId].tsx
+              - app/app-control/[budgetId].tsx
+              - app/review.tsx
+          - type: self_use
+            status: observed
+            summary: Andrew confirmed on 2026-07-09 that native Screen Time behavior and both open/keep-blocked outcomes work on device; the remaining failure is that the review offer activates too frequently and at poorly refined times.
+          - type: self_use
+            status: observed
+            summary: Andrew confirmed on 2026-07-13 that Amazon was blocked, referred him into Kwilt Money, opened the right budget, and successfully unblocked after choosing access.
+            refs:
+              - ios/KwiltShieldAction/KwiltShieldAction.swift
+              - ios/KwiltBudget/KwiltScreenTimeProtection.swift
+              - src/services/budgetScreenTimeForegroundSync.ts
+              - app/budgets/[budgetId].tsx
+        delivery_score:
+          value: 4
+          confidence: high
+          rationale: >
+            The core signed-device traversal now works from a blocked Amazon
+            shield into the right budget and back to unblocked access. The
+            remaining weakness is less about opening access and more about
+            durable review/history proof and broader repeated-use confidence.
+        current_friction:
+          - Signed-device proof covers one Amazon unblock path, but repeated-use cadence still needs broader observation.
+          - Review proof exists, but durable/history behavior needs stronger exposure.
+        surface_opportunities:
+          - id: app-gate-rehearsal-flow
+            surface: app_gate_review
+            linked_design_exploration: docs/design-explorations/budget-reality-gate
+            hypothesis: >
+              A complete rehearsal flow could let Maya feel the value unit before
+              relying on real Screen Time behavior.
+            job_elevation: Converts abstract controls into an understandable spending pause.
+            design_loop_status: converged
+            next_action: verify
+          - id: screen-time-native-gate
+            surface: screen_time
+            linked_design_exploration: docs/design-explorations/budget-reality-gate
+            hypothesis: >
+              Native Screen Time integration can make the spending app actually
+              wait behind the budget review.
+            job_elevation: Carries intention into the real app-open moment.
+            design_loop_status: verified
+            next_action: reflect_after_ship
+        recommended_next_action:
+          type: reflect_after_ship
+          priority: high
+          summary: >
+            Reflect on the signed-device Amazon unblock proof and decide whether
+            review receipt/history clarity should become the next trust-building slice.
+
+      - id: record-review-proof
+        sequence: 6
+        leverage:
+          importance: high
+          user_frequency: medium
+          strategic_weight: trust_foundation
+          risk_if_bad: high
+          actionability: medium
+        job_step: Record the review as proof of intentional access.
+        user_question: What happened, and why did the app open or stay blocked?
+        desired_outcome: >
+          Maya can trust that access changes follow her review choices and can
+          see a simple explanation of recent review outcomes.
+        current_ux_flows:
+          - label: Review event recording
+            route: app/review.tsx
+            role: writes_review_event
+          - label: Screen Time reconciliation
+            route: src/services/budgetScreenTimeRuntime.ts
+            role: apply_or_clear_restrictions
+          - label: Screen Time controls status
+            route: app/screen-time-controls.tsx
+            role: rule_state_visibility
+        evidence:
+          - type: code
+            status: observed
+            summary: Review events are recorded and restriction reconciliation is called after review.
+            refs:
+              - app/review.tsx
+              - src/services/budgetScreenTimeRuntime.ts
+          - type: code
+            status: observed
+            summary: Review receipt copy and recent review history are now visible on the review screen and Screen Time Controls.
+            refs:
+              - app/review.tsx
+              - app/screen-time-controls.tsx
+              - src/domain/app-gate.ts
+          - type: assumption
+            status: needs_runtime_check
+            summary: The visible receipt/history path still needs native runtime proof through a real Screen Time review and repeated-use pass.
+        delivery_score:
+          value: 2.5
+          confidence: medium
+          rationale: >
+            The event path exists, but the user-facing proof/history loop is
+            still thin and may be too invisible for a high-trust restriction
+            surface.
+        current_friction:
+          - Persistence and history clarity need native runtime verification.
+          - Screen Time state may still be hard to trust until repeated review history is observed on device.
+        surface_opportunities:
+          - id: review-receipt
+            surface: in_app_receipt
+            linked_design_exploration: docs/design-explorations/budget-reality-gate
+            hypothesis: >
+              A small recent-review receipt could explain why an app is open,
+              still blocked, or blocked again.
+            job_elevation: Builds trust in a restriction system without making it punitive.
+            design_loop_status: candidate
+            next_action: run_design_loop
+        recommended_next_action:
+          type: verify
+          priority: medium
+          summary: >
+            Verify the visible review receipt and recent history on a signed
+            device after an Open for now and Leave blocked pass.
+
+      - id: sustain-household-pattern
+        sequence: 7
+        leverage:
+          importance: medium
+          user_frequency: low
+          strategic_weight: long_term_retention
+          risk_if_bad: medium
+          actionability: low
+        job_step: Keep the household pattern because the pause feels helpful, not punitive.
+        user_question: Is this helping me live the pattern I chose?
+        desired_outcome: >
+          Maya continues using the pause because it feels calm, transparent,
+          reversible, and aligned with household intention.
+        current_ux_flows:
+          - label: Budget home and detail
+            route: app/(tabs)/index.tsx
+            role: ongoing_state_check
+          - label: Plan summary
+            route: app/(tabs)/plan.tsx
+            role: lightweight_review_summary
+          - label: Ask workspace
+            route: app/(tabs)/ask.tsx
+            role: future_agent_help
+        evidence:
+          - type: code
+            status: observed
+            summary: Plan and Ask surfaces exist but do not yet complete a durable household pattern loop.
+            refs:
+              - app/(tabs)/plan.tsx
+              - app/(tabs)/ask.tsx
+          - type: assumption
+            status: needs_learning
+            summary: There is not yet enough self-use or user evidence that the pause becomes a helpful habit.
+        delivery_score:
+          value: 1.5
+          confidence: medium
+          rationale: >
+            The app has supporting surfaces, but durable behavior change is not
+            yet proven and likely depends on the gate/widget/review loop becoming
+            coherent first.
+        current_friction:
+          - No durable habit receipt or weekly pattern reflection.
+          - Ask is not yet a real budget operating layer.
+          - The product has not proven that the pause feels helpful over time.
+        surface_opportunities:
+          - id: weekly-budget-reality-review
+            surface: weekly_review
+            linked_design_exploration: null
+            hypothesis: >
+              A lightweight weekly receipt could help Maya see the pattern
+              without becoming a finance chore.
+            job_elevation: Connects individual pauses into household confidence.
+            design_loop_status: not_started
+            next_action: run_design_loop
+        recommended_next_action:
+          type: no_action
+          priority: low
+          summary: >
+            Do not optimize habit loops until the core review/gate and ambient
+            reality steps are stronger.
+
+    workflows:
+      - id: app-gate-rehearsal
+        title: App Gate Rehearsal
+        serves_steps:
+          - choose-intentional-access
+          - record-review-proof
+        current_status: signed_device_verified
+        routes:
+          - app/budgets/[budgetId].tsx
+          - app/app-control/[budgetId].tsx
+          - app/review.tsx
+          - app/screen-time-controls.tsx
+        failure_points:
+          - The signed-device Amazon unblock path works; review receipt/history clarity still needs stronger product exposure.
+        desired_traversal: >
+          Budget detail -> App controls -> Test review -> Review budget reality
+          -> Open for now or Leave blocked -> review receipt/history.
+        recommended_next_action:
+          type: verify
+          summary: >
+            Verify visible review receipt/history on a signed device after both outcomes.
+
+      - id: transaction-review-to-trustworthy-meter
+        title: Transaction Review To Trustworthy Meter
+        serves_steps:
+          - match-transactions-to-lane
+          - see-budget-reality
+        current_status: needs_live_verification
+        routes:
+          - app/(tabs)/transactions.tsx
+          - src/components/transaction-detail-sheet.tsx
+          - app/budgets/[budgetId].tsx
+        failure_points:
+          - Preview review updates are clear, but live Sandbox persistence needs proof.
+          - The first account-sync-to-review path is not yet a single guided flow.
+        desired_traversal: >
+          Account sync -> Needs review filter -> transaction correction -> similar
+          rule decision -> budget meter update after reload or refetch.
+        recommended_next_action:
+          type: verify
+          summary: >
+            Prove a live Sandbox correction persists and updates the meter.
+
+      - id: ambient-budget-reality
+        title: Ambient Category Reality
+        serves_steps:
+          - name-spending-category
+          - see-budget-reality
+        current_status: design_loop_ready
+        routes:
+          - docs/design-explorations/ios-budget-widgets
+          - docs/feature-briefs/ios-budget-widgets.md
+        failure_points:
+          - Current budget reality is strong in-app but weak before the user decides to open Kwilt Money.
+          - Widget and Lock Screen surfaces are concept-ready but not built.
+        desired_traversal: >
+          Maya glances at the relevant category before a spend-triggering moment,
+          then opens Summary only when she wants detail or action.
+        recommended_next_action:
+          type: run_design_loop
+          summary: >
+            Resume the iOS widget learning release when ambient visibility becomes the bottleneck.
+
+review_queries:
+  - id: promised-outcome-score
+    prompt: How good is the app at delivering this job's promised outcome today?
+  - id: weakest-step
+    prompt: Which high-value job step has the weakest delivery score or evidence?
+  - id: workflow-improvement
+    prompt: Which current UX workflow should improve next?
+  - id: missing-surface
+    prompt: Which weak job step may require a new surface or platform capability?
+  - id: design-loop-candidate
+    prompt: Which surface opportunity should enter or resume a design loop next?

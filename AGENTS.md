@@ -15,6 +15,7 @@ For Kwilt, the project content lives at:
 - **Job flows** (product operating artifact): [`docs/job-flows/`](docs/job-flows/) — maps hero JTBDs to user steps, app flows, offerings, delivery scores, and gaps. Used by roadmap prioritization, design-thinking, feature briefs, product review / QA, analytics, growth positioning, and reflect-after-ship.
 - **Context primer** (read by `design-thinking-loop` Phase 2 Diverge): [`docs/jtbd/_kwilt-context-primer.md`](docs/jtbd/_kwilt-context-primer.md).
 - **Feature brief authoring conventions** (read by `design-thinking-loop` Phase 4 Build): [`docs/feature-briefs/_AUTHORING.md`](docs/feature-briefs/_AUTHORING.md).
+- **Money product documentation**: [`docs/capabilities/money/README.md`](docs/capabilities/money/README.md) — canonical Money persona/JTBD/job-flow links, 26 topical briefs, design explorations, concepts, source provenance, and current proof boundaries. Read this before framing or changing Money behavior.
 
 ### The loop
 

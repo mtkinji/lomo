@@ -54,11 +54,17 @@ function topFiles(dir) {
 }
 
 const packageJson = JSON.parse(read(path.join(repoRoot, 'package.json')));
-const featureRoot = path.join(repoRoot, 'src', 'features');
-const featureDirs = fs.readdirSync(featureRoot, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .sort();
+const manifestRoots = [
+  { root: path.join(repoRoot, 'src', 'features'), kind: 'feature' },
+  { root: path.join(repoRoot, 'src', 'capabilities'), kind: 'capability' },
+];
+const featureDirs = manifestRoots
+  .flatMap(({ root, kind }) => fs.existsSync(root)
+    ? fs.readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => ({ name: entry.name, dir: path.join(root, entry.name), kind }))
+    : [])
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 const lines = [];
 lines.push('# Agent Code Map');
@@ -83,6 +89,7 @@ lines.push('');
 lines.push('## Primary Code Areas');
 lines.push('');
 lines.push('- `src/features/` - user-facing feature surfaces, each with a `FEATURE.md` manifest except dev-only tooling.');
+lines.push('- `src/capabilities/` - imported first-class capability surfaces, each with a `FEATURE.md` manifest.');
 lines.push('- `src/domain/` - pure domain types, workflow specs, limits, and transformation logic.');
 lines.push('- `src/services/` - backend, AI, notification, analytics, sync, calendar, and integration clients.');
 lines.push('- `src/store/` - Zustand stores and app state lifecycle logic.');
@@ -92,11 +99,10 @@ lines.push('- `packages/arc-survey`, `packages/kwilt-sdk`, `packages/kwilt-token
 lines.push('');
 lines.push('## Feature Manifests');
 lines.push('');
-lines.push('| Feature | Persona | Hero JTBD | Serves | Key files | Tests |');
+lines.push('| Feature / capability | Persona | Hero JTBD | Serves | Key files | Tests |');
 lines.push('|---|---|---|---|---|---|');
 
-for (const feature of featureDirs) {
-  const dir = path.join(featureRoot, feature);
+for (const { name: feature, dir, kind } of featureDirs) {
   const manifestPath = path.join(dir, 'FEATURE.md');
   const manifest = read(manifestPath);
   const personas = frontMatterValue(manifest, 'personas') || '';
@@ -104,14 +110,15 @@ for (const feature of featureDirs) {
   const serves = listBlock(manifest, 'serves') || '';
   const keyFiles = topFiles(dir).join('<br>');
   const tests = siblingTests(dir).slice(0, 6).join('<br>');
-  lines.push(`| \`${feature}\` | ${personas} | ${hero} | ${serves} | ${keyFiles || '-'} | ${tests || '-'} |`);
+  const label = kind === 'capability' ? `${feature} (capability)` : feature;
+  lines.push(`| \`${label}\` | ${personas} | ${hero} | ${serves} | ${keyFiles || '-'} | ${tests || '-'} |`);
 }
 
 lines.push('');
 lines.push('## Agent Routing Heuristics');
 lines.push('');
 lines.push('- Touching `supabase/functions/**` usually requires `npm run lint:supabase-functions`; tests under `_shared/__tests__` are Deno-oriented and outside the npm/Jest app gate.');
-lines.push('- Touching `docs/jtbd`, `docs/personas`, `docs/job-flows`, `docs/feature-briefs`, or `src/features/*/FEATURE.md` requires `npm run product:lint`.');
+lines.push('- Touching `docs/jtbd`, `docs/personas`, `docs/job-flows`, `docs/feature-briefs`, `src/features/*/FEATURE.md`, or `src/capabilities/*/FEATURE.md` requires `npm run product:lint`.');
 lines.push('- Touching feature UI should run `npm run architecture:lint`; heed warnings when already editing files with legacy raw `Text` imports.');
 lines.push('- Touching large screens should prefer extracting pure helpers/hooks with focused tests over broad inline edits.');
 lines.push('- New code should stay inside the `code:health` ratchets; if a large-file or loose-typing exception is intentional, make the exception explicit in review instead of quietly expanding the baseline.');
