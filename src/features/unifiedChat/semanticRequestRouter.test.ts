@@ -16,6 +16,7 @@ describe('semanticRequestRouter', () => {
             'requestClass',
             'participatingCapabilities',
             'usePrivateContext',
+            'informationNeed',
             'confidence',
             'reason',
           ],
@@ -33,12 +34,14 @@ describe('semanticRequestRouter', () => {
       requestClass: 'capability_question',
       participatingCapabilities: ['plan', 'todos'],
       usePrivateContext: true,
+      informationNeed: 'stable',
       confidence: 0.91,
       reason: 'The user wants help arranging an existing task tomorrow.',
     }))).toEqual({
       requestClass: 'capability_question',
       participatingCapabilities: ['plan', 'todos'],
       usePrivateContext: true,
+      informationNeed: 'stable',
       confidence: 0.91,
       reason: 'The user wants help arranging an existing task tomorrow.',
     });
@@ -49,17 +52,19 @@ describe('semanticRequestRouter', () => {
       requestClass: 'capability_action',
       participatingCapabilities: ['relationships'],
       usePrivateContext: true,
+      informationNeed: 'stable',
       confidence: 0.96,
       reason: 'The user explicitly corrected a remembered birthday.',
     }))).toMatchObject({ participatingCapabilities: ['relationships'] });
   });
 
   it.each([
-    ['unknown capability', { requestClass: 'capability_question', participatingCapabilities: ['money'], usePrivateContext: true, confidence: 0.9, reason: 'Money.' }],
-    ['invalid confidence', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: false, confidence: 2, reason: 'General.' }],
-    ['private general answer', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: true, confidence: 0.9, reason: 'General.' }],
-    ['private route without a capability', { requestClass: 'capability_question', participatingCapabilities: [], usePrivateContext: true, confidence: 0.9, reason: 'Missing owner.' }],
-    ['unsupported field', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: false, confidence: 0.9, reason: 'General.', chainOfThought: 'hidden' }],
+    ['unknown capability', { requestClass: 'capability_question', participatingCapabilities: ['money'], usePrivateContext: true, informationNeed: 'stable', confidence: 0.9, reason: 'Money.' }],
+    ['invalid confidence', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: false, informationNeed: 'stable', confidence: 2, reason: 'General.' }],
+    ['private general answer', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: true, informationNeed: 'stable', confidence: 0.9, reason: 'General.' }],
+    ['private route without a capability', { requestClass: 'capability_question', participatingCapabilities: [], usePrivateContext: true, informationNeed: 'stable', confidence: 0.9, reason: 'Missing owner.' }],
+    ['unsupported information need', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: false, informationNeed: 'maybe', confidence: 0.9, reason: 'General.' }],
+    ['unsupported field', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: false, informationNeed: 'stable', confidence: 0.9, reason: 'General.', chainOfThought: 'hidden' }],
   ])('rejects %s', (_label, value) => {
     expect(parseSemanticRequestRoute(JSON.stringify(value))).toBeNull();
   });

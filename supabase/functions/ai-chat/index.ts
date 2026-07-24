@@ -2,6 +2,7 @@
 //
 // Routes:
 // - POST /v1/chat/completions
+// - POST /v1/responses (web search only)
 // - POST /v1/images/generations
 //
 // Called via:
@@ -120,10 +121,11 @@ function getMaxRequestBytes(): number {
 
 function getMaxOutputTokens(route: string): number {
   // Clamp completion size to avoid runaway cost even when using "actions-only" quotas.
-  const raw = Deno.env.get(route === '/v1/chat/completions' ? 'KWILT_AI_MAX_OUTPUT_TOKENS' : 'KWILT_AI_MAX_IMAGE_TOKENS');
+  const isText = route === '/v1/chat/completions' || route === '/v1/responses';
+  const raw = Deno.env.get(isText ? 'KWILT_AI_MAX_OUTPUT_TOKENS' : 'KWILT_AI_MAX_IMAGE_TOKENS');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  return route === '/v1/chat/completions' ? 1200 : 0;
+  return isText ? 1200 : 0;
 }
 
 function getSupabaseAdmin() {
@@ -280,6 +282,19 @@ function validateRequestShape(route: string, parsed: any): { ok: true } | { ok: 
     return { ok: true };
   }
 
+  if (route === '/v1/responses') {
+    if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 40) {
+      return { ok: false, message: 'input must be a bounded non-empty array' };
+    }
+    if (!Array.isArray(parsed.tools) || parsed.tools.length !== 1 || parsed.tools[0]?.type !== 'web_search') {
+      return { ok: false, message: 'responses route allows only hosted web_search' };
+    }
+    if (parsed.store === true || parsed.background === true) {
+      return { ok: false, message: 'stored and background responses are not allowed' };
+    }
+    return { ok: true };
+  }
+
   if (route === '/v1/images/generations') {
     // Minimal validation; clamp n later.
     return { ok: true };
@@ -308,7 +323,7 @@ serve(async (req) => {
   const idx = fullPath.indexOf(marker);
   const route = idx >= 0 ? fullPath.slice(idx + marker.length) : fullPath;
 
-  const isUpstreamRoute = route === '/v1/chat/completions' || route === '/v1/images/generations';
+  const isUpstreamRoute = route === '/v1/chat/completions' || route === '/v1/responses' || route === '/v1/images/generations';
   const isCommitRoute = route === '/v1/commit';
   if (!isUpstreamRoute && !isCommitRoute) {
     return json(404, { error: { message: 'Not found', code: 'not_found' } });
@@ -331,6 +346,9 @@ serve(async (req) => {
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
   const aiJob = (req.headers.get('x-kwilt-ai-job') ?? '').trim();
+  if (route === '/v1/responses' && aiJob !== 'current_information') {
+    return json(400, { error: { message: 'Responses route requires current_information job', code: 'bad_request' } });
+  }
   const isOnboarding = chatMode === 'firstTimeOnboarding';
   const isPreview = chatMode.startsWith('preview_');
   // Preview calls should not consume the user's monthly credits. We isolate them into a separate
@@ -561,6 +579,14 @@ serve(async (req) => {
       parsedBody.max_tokens = maxOut;
     }
   }
+  if (route === '/v1/responses') {
+    const maxOut = getMaxOutputTokens(route);
+    parsedBody.max_output_tokens = Math.min(
+      typeof parsedBody.max_output_tokens === 'number' ? parsedBody.max_output_tokens : maxOut,
+      maxOut,
+    );
+    parsedBody.store = false;
+  }
 
   // Clamp image params (safety; also prevents unexpected per-request cost spikes).
   if (route === '/v1/images/generations') {
@@ -591,12 +617,16 @@ serve(async (req) => {
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
   let totalTokens: number | null = null;
-  if (route === '/v1/chat/completions') {
+  if (route === '/v1/chat/completions' || route === '/v1/responses') {
     const respJson = safeJsonParse(upstreamText);
     const usage = respJson?.usage;
     if (usage && typeof usage === 'object') {
-      promptTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : null;
-      completionTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : null;
+      promptTokens = typeof usage.prompt_tokens === 'number'
+        ? usage.prompt_tokens
+        : typeof usage.input_tokens === 'number' ? usage.input_tokens : null;
+      completionTokens = typeof usage.completion_tokens === 'number'
+        ? usage.completion_tokens
+        : typeof usage.output_tokens === 'number' ? usage.output_tokens : null;
       totalTokens = typeof usage.total_tokens === 'number' ? usage.total_tokens : null;
     }
   }
@@ -638,4 +668,3 @@ serve(async (req) => {
     },
   });
 });
-

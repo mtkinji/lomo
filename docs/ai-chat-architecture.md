@@ -116,7 +116,7 @@ Every real effect requires authoritative capability evidence, normally a mutatio
 
 ## Current-information and specialist boundaries
 
-General assistance may use the base model. Requests whose answer depends on current facts, verification, recommendations, or unfamiliar claims require approved web search and compact inspectable citations. Until that provider exists in the supported runtime, Chat must state the freshness boundary.
+General assistance uses the base model without private Kwilt context. Requests whose answer depends on current facts, verification, recommendations, or unfamiliar claims use the dedicated `current_information` Responses API route with hosted web search. The client accepts a current answer only when the provider returns inspectable HTTPS citation annotations; the workbench sends source inspection through a credential-free command and native code opens only URLs present in the persisted assistant message. The proxy route is implemented in source but must not be described as hosted until its Edge Function deployment is separately proven.
 
 Medical, legal, financial, safety, and other consequential requests receive bounded assistance. Kwilt may explain, organize questions, or help the person prepare, but must not invent specialist authority or imply an unsupported action occurred.
 

@@ -40,13 +40,17 @@ function groundingSummary(
 ): string {
   const { requestClass, participatingCapabilities, usePrivateContext } = requestPolicy;
   const parts = [`Launch source: unifiedChat. Request class: ${requestClass}.`];
-  if (requestClass === 'capability_action' &&
-      participatingCapabilities.length === 1 && participatingCapabilities[0] === 'todos') {
+  if (requestClass === 'capability_action' && participatingCapabilities.includes('todos')) {
     parts.push(
       'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
       'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
     );
-  } else if (requestClass === 'capability_action' || requestClass === 'native_control') {
+  }
+  if (
+    (requestClass === 'capability_action' || requestClass === 'native_control') &&
+    !(requestClass === 'capability_action' &&
+      participatingCapabilities.length === 1 && participatingCapabilities[0] === 'todos')
+  ) {
     parts.push(
       `Use only discovered tools for these Kwilt capabilities: ${participatingCapabilities.join(', ')}. ` +
       'Read bounded evidence as needed, then stage typed changes for explicit review. Copy object ids and optimistic versions exactly from evidence. Never claim a write succeeded from model prose, invent identity or sharing decisions, or bypass a native permission, entitlement, proposal, or receipt boundary.',
@@ -60,6 +64,11 @@ function groundingSummary(
   if (participatingCapabilities.includes('relationships')) {
     parts.push(
       'Relationship records are retrieved only through the relationships.read tool; an empty preloaded evidence list does not mean no relationship records exist. Save only facts the user explicitly stated. For correction or forgetting, read first and copy the exact record id and updatedAt into the versioned tool. Never substitute a similarly named person or record.',
+    );
+  }
+  if (requestClass === 'better_served_elsewhere') {
+    parts.push(
+      'This request requires a specialist, an unsupported consequential effect, or an immediate-safety boundary. State exactly what you cannot safely or actually do. Do not diagnose, prescribe, provide personalized legal or financial directives, or imply that Kwilt performed an external effect. Give the safest useful general information, concrete next step, and urgent-help direction when delay could cause harm.',
     );
   }
   if (usePrivateContext) {
@@ -104,6 +113,7 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
   userMessage: UnifiedChatMessage;
   retryMessage?: UnifiedChatMessage;
   requestPolicy: UnifiedChatRequestPolicy;
+  requiresWebSearch?: boolean;
   snapshots: UnifiedChatCapabilitySnapshots;
   context: BuiltRunContext;
   turnAttachments: UnifiedChatTextAttachment[];
@@ -193,7 +203,7 @@ export async function executeUnifiedChatTurnPhase(
     : [];
   const supportsTypedAction = input.requestPolicy.requestClass !== 'capability_action' ||
     input.requestPolicy.participatingCapabilities.includes('todos') || usesRuntimeToolLoop;
-  if (!supportsTypedAction) {
+  if (input.requestPolicy.clarification || !supportsTypedAction) {
     const clarification = input.requestPolicy.clarification ??
       'Kwilt can prepare reviewed To-do changes here right now. What To-do would you like to change?';
     const assistantMessage = await input.repository.insertMessage({
@@ -284,6 +294,7 @@ export async function executeUnifiedChatTurnPhase(
     aiJob: 'default_chat',
     workflowInstanceId: input.aggregate.thread.id,
     includeUserProfileContext: false,
+    webSearch: input.requiresWebSearch === true,
     signal: input.signal,
     ...(usesRuntimeToolLoop
       ? {

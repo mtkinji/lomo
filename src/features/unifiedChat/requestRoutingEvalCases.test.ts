@@ -29,6 +29,9 @@ describe('REQUEST_ROUTING_EVAL_CASES', () => {
 
     expect(resolved.requestClass).toBe(fixture.expected.requestClass);
     expect(resolved.participatingCapabilities).toEqual(fixture.expected.participatingCapabilities);
+    expect(fixture.expected.requiresWebSearch).toBe(
+      fixture.productExpectation.expectedBehavior === 'current_information',
+    );
     expect(
       resolved.policyReason.startsWith('semantic-route:')
         ? 'semantic'

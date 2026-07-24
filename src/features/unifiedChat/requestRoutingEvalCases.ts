@@ -23,6 +23,7 @@ export type RequestRoutingEvalCase = {
     participatingCapabilities: readonly SemanticRequestRoute['participatingCapabilities'][number][];
     source: 'deterministic' | 'semantic' | 'conversation';
     executionExpectation: 'answer' | 'proposal' | 'receipt' | 'cancel_pending' | 'native_authorization' | 'provider_boundary' | 'honest_boundary' | 'boundary' | 'not_yet_supported';
+    requiresWebSearch: boolean;
   };
 };
 
@@ -92,10 +93,12 @@ const semantic = (
   participatingCapabilities: SemanticRequestRoute['participatingCapabilities'],
   reason: string,
   usePrivateContext = participatingCapabilities.length > 0,
+  informationNeed: SemanticRequestRoute['informationNeed'] = 'stable',
 ): SemanticRequestRoute => ({
   requestClass,
   participatingCapabilities,
   usePrivateContext,
+  informationNeed,
   confidence: 0.9,
   reason,
 });
@@ -119,19 +122,19 @@ const REQUEST_ROUTING_ROUTE_CASES = [
     id: 'context-enhanced-general',
     prompt: 'Given what this week looks like, what is a realistic rainy-day plan?',
     semanticRoute: semantic('capability_question', ['plan'], 'The broader answer materially benefits from bounded Plan context.'),
-    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'semantic', executionExpectation: 'answer' },
+    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'deterministic', executionExpectation: 'answer' },
   },
   {
     id: 'current-information',
     prompt: 'What is the weather forecast for Lehi tomorrow?',
-    semanticRoute: semantic('general', [], 'This needs current external information, not private Kwilt context.', false),
+    semanticRoute: semantic('general', [], 'This needs current external information, not private Kwilt context.', false, 'current'),
     expected: { requestClass: 'general', participatingCapabilities: [], source: 'semantic', executionExpectation: 'answer' },
   },
   {
     id: 'plan-paraphrase',
     prompt: 'Could tomorrow feel less crowded?',
     semanticRoute: semantic('capability_question', ['plan'], 'The user wants help shaping tomorrow.'),
-    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'semantic', executionExpectation: 'answer' },
+    expected: { requestClass: 'capability_question', participatingCapabilities: ['plan'], source: 'deterministic', executionExpectation: 'answer' },
   },
   {
     id: 'activity-plan-action',
@@ -286,7 +289,7 @@ const REQUEST_ROUTING_ROUTE_CASES = [
     id: 'money-transfer-boundary',
     prompt: 'Transfer $500 from checking to savings.',
     semanticRoute: semantic('better_served_elsewhere', [], 'Kwilt Chat has no money-transfer executor.', false),
-    expected: { requestClass: 'better_served_elsewhere', participatingCapabilities: [], source: 'semantic', executionExpectation: 'not_yet_supported' },
+    expected: { requestClass: 'better_served_elsewhere', participatingCapabilities: [], source: 'deterministic', executionExpectation: 'not_yet_supported' },
   },
   {
     id: 'medical-boundary',
@@ -347,6 +350,10 @@ export const REQUEST_ROUTING_PRODUCT_EXPECTATIONS = {
 export const REQUEST_ROUTING_EVAL_CASES = REQUEST_ROUTING_ROUTE_CASES.map(
   (fixture) => ({
     ...fixture,
+    expected: {
+      ...fixture.expected,
+      requiresWebSearch: REQUEST_ROUTING_PRODUCT_EXPECTATIONS[fixture.id].expectedBehavior === 'current_information',
+    },
     productExpectation: REQUEST_ROUTING_PRODUCT_EXPECTATIONS[fixture.id],
   }),
 ) satisfies readonly RequestRoutingEvalCase[];

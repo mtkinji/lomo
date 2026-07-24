@@ -1,5 +1,6 @@
 import type { UnifiedChatContextRef, UnifiedChatThreadAggregate } from './types';
 import {
+  classifyCurrentInformationNeed,
   classifyUnifiedChatRequest,
   type UnifiedChatRequestPolicy,
 } from './requestPolicy';
@@ -28,6 +29,7 @@ export type PlanUnifiedChatTurnPhaseInput = {
 
 export type PlannedUnifiedChatTurn = {
   requestPolicy: UnifiedChatRequestPolicy;
+  requiresWebSearch: boolean;
   planConversationReferent: PlanPlacementConversationReferent | null;
   activityClarification: string | null;
 };
@@ -80,6 +82,10 @@ export async function planUnifiedChatTurnPhase(
 
   return {
     requestPolicy,
+    requiresWebSearch: requestPolicy.requestClass === 'general' && (
+      semanticRoute?.informationNeed === 'current' ||
+      classifyCurrentInformationNeed(input.prompt) === 'current'
+    ),
     planConversationReferent: requestPolicy.policyReason === 'conversation-follow-up:plan'
       ? resolvePlanPlacementReferent(input.aggregate)
       : null,

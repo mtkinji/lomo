@@ -196,7 +196,7 @@ export async function runUnifiedChatTurn(
       publicErrorMessage: 'Kwilt could not plan that response.',
     });
   }
-  const { requestPolicy, planConversationReferent, activityClarification } = plannedTurn;
+  const { requestPolicy, requiresWebSearch, planConversationReferent, activityClarification } = plannedTurn;
   captureTelemetry(AnalyticsEvent.UnifiedChatRouteSelected, buildUnifiedChatRouteTelemetry(requestPolicy));
   if (requestPolicy.requestClass === 'better_served_elsewhere') {
     captureTelemetry(AnalyticsEvent.UnifiedChatUnsupportedIntent, {
@@ -269,6 +269,7 @@ export async function runUnifiedChatTurn(
       userMessage,
       retryMessage,
       requestPolicy,
+      requiresWebSearch,
       snapshots,
       context,
       turnAttachments,

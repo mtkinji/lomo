@@ -36,6 +36,7 @@
     "visual:update": "node scripts/visual-regression/compare.js --update",
     "chat:delivery-lint": "node scripts/chat-delivery-lint.mjs",
     "chat:protocol:conformance": "node scripts/unified-chat-protocol-conformance.mjs",
+    "chat:live-eval": "tsx scripts/unified-chat-live-eval.ts",
     "test:chat-contracts": "node --test scripts/chat-delivery-lint.test.mjs scripts/unified-chat-migration-contract.test.mjs && npm run chat:protocol:conformance",
     "product:lint": "node scripts/product-lint.mjs && npm run chat:delivery-lint",
     "jtbd:lint": "npm run product:lint",

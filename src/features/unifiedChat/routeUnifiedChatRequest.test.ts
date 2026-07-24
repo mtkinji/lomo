@@ -24,6 +24,7 @@ describe('routeUnifiedChatRequest', () => {
       requestClass: 'capability_question',
       participatingCapabilities: ['plan'],
       usePrivateContext: true,
+      informationNeed: 'stable',
       confidence: 0.92,
       reason: 'The user wants help shaping tomorrow.',
     }));

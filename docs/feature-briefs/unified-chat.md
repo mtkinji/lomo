@@ -35,7 +35,7 @@ Kwilt customers and their jobs come first. General-purpose competence is a trust
 | **Kwilt-native** | Use authoritative Kwilt capabilities, bounded evidence, capability-owned judgment, and proportionate action. |
 | **Context-enhanced** | Use the minimum relevant Kwilt context only when it materially improves a broader answer, and make that scope visible. |
 | **General-purpose** | Answer ordinary questions directly without forcing them into Arcs, Goals, To-dos, Plan, or another Kwilt workflow. |
-| **Current-information** | Search reliable current sources and cite them when freshness, verification, recommendations, or unfamiliar facts matter. Until search and citations are available, state that boundary instead of presenting stale knowledge as current. |
+| **Current-information** | Search reliable current sources and cite them when freshness, verification, recommendations, or unfamiliar facts matter. The HTTPS-citation-required search path is implemented in source but remains unaccepted until proxy deployment and signed-simulator source inspection are separately proven; until then, state the boundary instead of presenting stale knowledge as current. |
 | **Bounded** | For unsupported, specialist, consequential, or high-stakes requests, state the exact boundary and still provide the safest useful assistance available. |
 
 The standing executable matrix in `src/features/unifiedChat/requestRoutingEvalCases.ts` records, for every regression case, its expected product behavior, allowed context, allowed tool classes, required outcome, and forbidden trust failures. Its product expectations are the target contract; the separate routing and operation expectations record what the current implementation does.

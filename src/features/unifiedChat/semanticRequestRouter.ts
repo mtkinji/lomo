@@ -19,6 +19,7 @@ const ROUTE_KEYS = [
   'requestClass',
   'participatingCapabilities',
   'usePrivateContext',
+  'informationNeed',
   'confidence',
   'reason',
 ] as const;
@@ -27,6 +28,7 @@ export type SemanticRequestRoute = {
   requestClass: UnifiedChatRequestClass;
   participatingCapabilities: UnifiedChatCapabilityId[];
   usePrivateContext: boolean;
+  informationNeed?: 'stable' | 'current';
   confidence: number;
   reason: string;
 };
@@ -57,6 +59,7 @@ export const SEMANTIC_REQUEST_ROUTE_RESPONSE_FORMAT = {
           maxItems: CAPABILITY_IDS.length,
         },
         usePrivateContext: { type: 'boolean' },
+        informationNeed: { type: 'string', enum: ['stable', 'current'] },
         confidence: { type: 'number', minimum: 0, maximum: 1 },
         reason: { type: 'string', minLength: 1, maxLength: 180 },
       },
@@ -81,6 +84,7 @@ export function parseSemanticRequestRoute(raw: string): SemanticRequestRoute | n
     if (parsed.participatingCapabilities.some((item) => !CAPABILITY_IDS.includes(item))) return null;
     if (new Set(parsed.participatingCapabilities).size !== parsed.participatingCapabilities.length) return null;
     if (typeof parsed.usePrivateContext !== 'boolean') return null;
+    if (parsed.informationNeed !== 'stable' && parsed.informationNeed !== 'current') return null;
     if (
       typeof parsed.confidence !== 'number' ||
       !Number.isFinite(parsed.confidence) ||
@@ -101,6 +105,7 @@ export function parseSemanticRequestRoute(raw: string): SemanticRequestRoute | n
       requestClass,
       participatingCapabilities,
       usePrivateContext: parsed.usePrivateContext,
+      informationNeed: parsed.informationNeed,
       confidence: parsed.confidence,
       reason: parsed.reason.trim(),
     };
@@ -139,7 +144,16 @@ export function buildSemanticRequestRouterPrompt({
 
   return [
     'Route this request for Kwilt. Do not answer the user and do not perform an action.',
-    'Choose only listed request classes and capabilities. Private context is allowed only when one or more listed capabilities must read the user\'s Kwilt records. A requested action can be routed even when its executor is not live. Keep reason to one concise sentence; do not reveal chain-of-thought.',
+    [
+      'Request classes:',
+      '- general: ordinary assistance that does not need private Kwilt records or a Kwilt action.',
+      '- general_with_kwilt_context: broader assistance materially improved by one or more explicitly visible or authorized Kwilt capabilities.',
+      '- capability_question: a question whose answer depends on reading one or more Kwilt capabilities.',
+      '- capability_action: an explicit request to create, update, schedule, remove, remember, correct, or otherwise change something through a Kwilt capability.',
+      '- native_control: a Screen Time or OS-owned effect requiring native authorization.',
+      '- better_served_elsewhere: an unsupported consequential effect or specialist boundary; never use this for harmless ordinary knowledge, writing, recipes, or explanations.',
+    ].join('\n'),
+    'Choose only listed request classes and capabilities. Private context is allowed only when one or more listed capabilities must read the user\'s Kwilt records. Set informationNeed=current when the answer depends on fresh facts, verification, current recommendations, weather, news, schedules, prices, or unfamiliar claims; otherwise use stable. Freshness does not make a request better_served_elsewhere. A requested action can be routed even when its executor is not live. Keep reason to one concise sentence; do not reveal chain-of-thought.',
     `Current request:\n${compactText(prompt, 1200)}`,
     `Available capability semantics:\n${capabilities}`,
     `Visible in-app context (labels only; ids intentionally omitted):\n${context}`,

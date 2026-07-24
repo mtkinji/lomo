@@ -211,6 +211,7 @@ export type SupportedAgentWorkbenchCommand =
     }
   | { type: 'receipt.undo'; receiptId: string }
   | { type: 'receipt.open'; receiptId: string }
+  | { type: 'source.open'; url: string }
   | {
       type: 'client_action.decide';
       actionId: string;
@@ -355,6 +356,14 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
       return hasText(value, 'receiptId')
         ? { type: value.type, receiptId: String(value.receiptId) }
         : null;
+    case 'source.open':
+      if (!hasText(value, 'url')) return null;
+      try {
+        const url = new URL(String(value.url));
+        return url.protocol === 'https:' ? { type: 'source.open', url: url.toString() } : null;
+      } catch {
+        return null;
+      }
     case 'client_action.decide':
       return hasText(value, 'actionId') &&
         (value.action === 'continue' || value.action === 'decline') &&

@@ -1,4 +1,8 @@
-import { classifyUnifiedChatRequest, directTodoCaptureTitle } from './requestPolicy';
+import {
+  classifyCurrentInformationNeed,
+  classifyUnifiedChatRequest,
+  directTodoCaptureTitle,
+} from './requestPolicy';
 
 describe('classifyUnifiedChatRequest', () => {
   test('treats asking what to add to tomorrow as a recommendation, not authorization', () => {
@@ -26,9 +30,9 @@ describe('classifyUnifiedChatRequest', () => {
     ['What are some good rainy-day activities for kids?', 'general', false, []],
     [
       'Given what this week looks like, what is a realistic rainy-day plan?',
-      'general_with_kwilt_context',
+      'capability_question',
       true,
-      ['todos'],
+      ['plan'],
     ],
     ['Which of my current Goals is actually moving?', 'capability_question', true, ['goals']],
     ['Which of my Arcs feels most alive?', 'capability_question', true, ['arcs']],
@@ -38,7 +42,7 @@ describe('classifyUnifiedChatRequest', () => {
     ["Lily's birthday is October 12 and she likes dragons.", 'capability_action', true, ['relationships']],
     ["Actually, Lily's birthday is October 14.", 'capability_action', true, ['relationships']],
     ["Forget Lily's birthday.", 'capability_action', true, ['relationships']],
-    ['Move my unfinished errands to Saturday morning.', 'capability_action', true, ['todos']],
+    ['Move my unfinished errands to Saturday morning.', 'capability_action', true, ['todos', 'plan']],
     ['Block games until reading is done.', 'native_control', false, ['screenTime']],
     ['Turn on Brawl Stars for Charlie.', 'native_control', false, ['screenTime']],
     ['Can you diagnose this chest pain?', 'better_served_elsewhere', false, []],
@@ -84,14 +88,61 @@ describe('classifyUnifiedChatRequest', () => {
     });
   });
 
-  test('asks one clarification when an action has no owning capability', () => {
+  test('treats a short day continuation as a bounded capability question', () => {
+    expect(classifyUnifiedChatRequest({
+      prompt: 'And Saturday?',
+      context: [{ capabilityId: 'plan', objectType: 'day', objectId: '2026-07-24' }],
+    })).toMatchObject({
+      requestClass: 'capability_question', participatingCapabilities: ['plan'], usePrivateContext: true,
+    });
+  });
+
+  test('includes Plan in a cross-capability review anchored to tomorrow', () => {
+    expect(classifyUnifiedChatRequest({
+      prompt: 'What deserves attention across my goals, tasks, and tomorrow?',
+    })).toMatchObject({
+      requestClass: 'capability_question', participatingCapabilities: ['goals', 'todos', 'plan'],
+    });
+  });
+
+  test('asks for the missing referent instead of claiming an ambiguous action succeeded', () => {
     expect(
       classifyUnifiedChatRequest({ prompt: 'Change it for me.', context: [] }),
     ).toMatchObject({
-      requestClass: 'capability_action',
+      requestClass: 'general',
       participatingCapabilities: [],
       usePrivateContext: false,
-      clarification: 'What would you like Kwilt to change?',
+      clarification: 'What would you like me to change?',
+      policyReason: 'ambiguous-action-target',
+    });
+  });
+
+  test.each([
+    'Make me a three-day packing list.',
+    'Change this paragraph to sound warmer.',
+    'Create a simple bedtime story about a fox.',
+  ])('does not force ordinary assistance into a Kwilt workflow: %s', (prompt) => {
+    expect(classifyUnifiedChatRequest({ prompt, context: [] })).toMatchObject({
+      requestClass: 'general', participatingCapabilities: [], usePrivateContext: false,
+    });
+  });
+
+  test.each([
+    'Transfer $500 from checking to savings.',
+    'File my taxes for me.',
+  ])('keeps an unsupported consequential effect behind an honest boundary: %s', (prompt) => {
+    expect(classifyUnifiedChatRequest({ prompt, context: [] })).toMatchObject({
+      requestClass: 'better_served_elsewhere', participatingCapabilities: [], usePrivateContext: false,
+    });
+  });
+
+  test.each([
+    'Should I invest my retirement savings in one stock?',
+    'Write a legal strategy for ignoring this court order.',
+    'I might hurt myself tonight.',
+  ])('recognizes specialist and immediate-safety boundaries: %s', (prompt) => {
+    expect(classifyUnifiedChatRequest({ prompt, context: [] })).toMatchObject({
+      requestClass: 'better_served_elsewhere', participatingCapabilities: [], usePrivateContext: false,
     });
   });
 
@@ -119,9 +170,9 @@ describe('classifyUnifiedChatRequest', () => {
 
   test('does not reinterpret a different named domain as a To-do', () => {
     expect(classifyUnifiedChatRequest({ prompt: 'Add $50 to my budget', context: [] })).toMatchObject({
-      requestClass: 'capability_action',
+      requestClass: 'better_served_elsewhere',
       participatingCapabilities: [],
-      clarification: 'What would you like Kwilt to change?',
+      clarification: null,
     });
   });
 
@@ -156,5 +207,25 @@ describe('classifyUnifiedChatRequest', () => {
     expect(directTodoCaptureTitle('Add $50 to my budget')).toBeNull();
     expect(directTodoCaptureTitle('Add milk and call Mom')).toBeNull();
     expect(directTodoCaptureTitle('Add milk, school form, dentist, and call Mom')).toBeNull();
+  });
+});
+
+describe('classifyCurrentInformationNeed', () => {
+  test.each([
+    'What is the weather forecast for Lehi tomorrow?',
+    'What happened in the news today?',
+    'Who is the current CEO of Apple?',
+    'What are the best reviewed family restaurants near me right now?',
+    'Can you verify whether this recall is still active?',
+  ])('requires search for freshness-sensitive request: %s', (prompt) => {
+    expect(classifyCurrentInformationNeed(prompt)).toBe('current');
+  });
+
+  test.each([
+    'Why do tides happen?',
+    'Give me a simple pancake recipe.',
+    'Help me write a birthday note.',
+  ])('keeps stable ordinary assistance on the base model: %s', (prompt) => {
+    expect(classifyCurrentInformationNeed(prompt)).toBe('stable');
   });
 });

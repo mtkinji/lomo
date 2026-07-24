@@ -5,6 +5,7 @@ import {
   AppState,
   FlatList,
   Keyboard,
+  Linking,
   Modal,
   Pressable,
   SafeAreaView,
@@ -70,6 +71,7 @@ import {
   type UnifiedChatTextAttachment,
 } from './unifiedChatAttachmentPolicy';
 import { HapticsService } from '../../services/HapticsService';
+import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
@@ -592,6 +594,18 @@ export function UnifiedChatScreen() {
         } catch {
           setError('Kwilt could not save that feedback.');
         }
+        return;
+      }
+      if (command.type === 'source.open') {
+        const inspectableUrls = new Set(
+          (aggregate?.messages ?? [])
+            .filter((item) => item.role === 'assistant')
+            .flatMap((item) => extractInspectableSourceUrls(item.body)),
+        );
+        if (!inspectableUrls.has(command.url)) return;
+        await Linking.openURL(command.url).catch(() => {
+          setError('Kwilt could not open that source.');
+        });
         return;
       }
       if (command.type === 'context.remove' && aggregate) {

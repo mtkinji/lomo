@@ -125,7 +125,7 @@ describe('runUnifiedChatTurn', () => {
     }));
 
     await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Could tomorrow feel less crowded?' },
+      { aggregate: startingAggregate, prompt: 'Plan a lighter day for me tomorrow.' },
       {
         repository: repository as never,
         sendCoachChat: send as never,
@@ -135,7 +135,7 @@ describe('runUnifiedChatTurn', () => {
     );
 
     expect(routeRequest).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: 'Could tomorrow feel less crowded?',
+      prompt: 'Plan a lighter day for me tomorrow.',
       visibleContext: [],
     }));
     expect(repository.createRun).toHaveBeenCalledWith(expect.objectContaining({
@@ -148,7 +148,7 @@ describe('runUnifiedChatTurn', () => {
     }));
     expect(loadCapabilitySnapshots).toHaveBeenCalledWith(
       ['plan'],
-      { prompt: 'Could tomorrow feel less crowded?' },
+      { prompt: 'Plan a lighter day for me tomorrow.' },
     );
   });
 
@@ -165,6 +165,30 @@ describe('runUnifiedChatTurn', () => {
       requestClass: 'general',
       participatingCapabilities: [],
       contextPolicy: expect.objectContaining({ reason: 'general-answer-without-private-context' }),
+    }));
+    expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ webSearch: false }));
+  });
+
+  test('uses web search only for current-information general turns', async () => {
+    const { repository, send } = dependencies(jest.fn(async () =>
+      'Tomorrow will be cool. [1]\n\nSources: [1] [Forecast](https://weather.example/lehi)',
+    ));
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'What is the weather forecast for Lehi tomorrow?' },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        routeRequest: async () => ({
+          requestClass: 'general', participatingCapabilities: [], usePrivateContext: false,
+          informationNeed: 'current', confidence: 0.98, reason: 'Current weather requires verification.',
+        }),
+      },
+    );
+
+    expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
+      webSearch: true,
+      includeUserProfileContext: false,
     }));
   });
 
@@ -665,7 +689,7 @@ describe('runUnifiedChatTurn', () => {
       .toContain('Call the school');
     expect(repository.insertMessage).not.toHaveBeenCalledWith(expect.objectContaining({
       role: 'assistant',
-      body: 'What would you like Kwilt to change?',
+      body: 'What would you like me to change?',
     }));
     expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
       runId: 'run-1',
@@ -1501,7 +1525,7 @@ describe('runUnifiedChatTurn', () => {
     expect(repository.createProposal).not.toHaveBeenCalled();
     expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
       role: 'assistant',
-      body: 'What would you like Kwilt to change?',
+      body: 'What would you like me to change?',
     }));
     expect(repository.transitionRunStatus).toHaveBeenCalledWith(expect.objectContaining({
       toStatus: 'complete',

@@ -38,6 +38,10 @@ import {
   parseOpeningTitleResponse,
 } from '../features/unifiedChat/threadTitle';
 import {
+  buildCurrentInformationRequest,
+  parseCurrentInformationResponse,
+} from '../features/unifiedChat/webSearchResponse';
+import {
   type AgentLoopMessage,
   type AgentToolCall,
   type AgentToolDefinition,
@@ -334,6 +338,9 @@ const AI_PROXY_BASE_URL =
 const OPENAI_COMPLETIONS_URL = AI_PROXY_BASE_URL
   ? `${AI_PROXY_BASE_URL}/v1/chat/completions`
   : 'https://kwilt.invalid/v1/chat/completions';
+const OPENAI_RESPONSES_URL = AI_PROXY_BASE_URL
+  ? `${AI_PROXY_BASE_URL}/v1/responses`
+  : 'https://kwilt.invalid/v1/responses';
 const OPENAI_IMAGES_URL = AI_PROXY_BASE_URL
   ? `${AI_PROXY_BASE_URL}/v1/images/generations`
   : 'https://kwilt.invalid/v1/images/generations';
@@ -793,6 +800,8 @@ export type CoachChatOptions = {
    * supplies only request-scoped evidence through launchContextSummary.
    */
   includeUserProfileContext?: boolean;
+  /** Use hosted web search and require inspectable HTTPS citations. */
+  webSearch?: boolean;
   /** Internal structured-output contract used by native-owned workflows. */
   responseFormat?: Record<string, unknown>;
   signal?: AbortSignal;
@@ -829,9 +838,11 @@ type KwiltAiJob =
   | 'arc_image_query'
   | 'conversation_summary'
   | 'lightweight_helper'
+  | 'current_information'
   | 'default_chat';
 
 function getCoachAiJob(options?: CoachChatOptions): KwiltAiJob {
+  if (options?.webSearch) return 'current_information';
   if (options?.aiJob) return options.aiJob;
 
   const stepId = options?.workflowStepId ?? '';
@@ -2771,6 +2782,49 @@ export async function sendCoachChat(
       content: truncateMessageContent(m.content),
     })),
   ];
+  if (options?.webSearch) {
+    if (options.responseFormat || (options.runtimeTools?.length ?? 0) > 0) {
+      throw new Error('Web search cannot be combined with runtime tools or structured output.');
+    }
+    const response = await fetchWithTimeout(
+      OPENAI_RESPONSES_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'x-kwilt-ai-job': 'current_information',
+        },
+        body: JSON.stringify(buildCurrentInformationRequest({
+          model: resolveChatModel(),
+          systemPrompt,
+          messages: historyMessages.filter((message) => message.role !== 'system'),
+        })),
+        signal: options.signal,
+      },
+      OPENAI_CHAT_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      const error = parseOpenAiError(errorText);
+      markOpenAiQuotaExceeded('coachChat web search', response.status, errorText, apiKey);
+      throw new Error(`Unable to verify current sources: ${error.message}`);
+    }
+    const parsed = parseCurrentInformationResponse(await response.json());
+    if (!parsed) {
+      throw new Error('Current-information response did not include inspectable citations.');
+    }
+    void appendDevCoachChatHistory({
+      timestamp: new Date().toISOString(),
+      mode: options.mode,
+      workflowDefinitionId: options.workflowDefinitionId,
+      workflowInstanceId: options.workflowInstanceId,
+      workflowStepId: options.workflowStepId,
+      launchContextSummary: options.launchContextSummary,
+      messages: [...messages, { role: 'assistant', content: parsed.visibleBody }],
+    });
+    return parsed.visibleBody;
+  }
   const runtimeTools = options?.runtimeTools ?? [];
   if (runtimeTools.length > 0 && options?.responseFormat) {
     throw new Error('Runtime tools and structured response format cannot be combined.');
