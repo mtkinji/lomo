@@ -56,7 +56,16 @@ The coordinator follows the target pipeline:
 
 `persist → plan → authorize context → execute → materialize outcome → finalize`
 
-Current code has not yet completed that decomposition. Regardless of implementation shape, every phase preserves causal message/run IDs, optimistic versions, idempotency keys, typed failure codes, and recoverable run state.
+`runUnifiedChatTurn` coordinates that pipeline through focused phase modules:
+
+- `turnPersistencePhase` hydrates the durable aggregate, validates retries and attachments, inserts the user message idempotently, and handles typed pending-work cancellation.
+- `turnPlanningPhase` combines deterministic and semantic routing into one request policy and resolves typed follow-up referents.
+- `turnContextPhase` authorizes capability snapshots, selects bounded evidence, and persists visible scope plus evidence records.
+- `turnExecutionPhase` owns discovered tools, provider execution, prompt grounding, title maintenance, and validated visible model output.
+- `turnOutcomePhase` materializes assistant messages, proposals, client actions, tool events, and conversation referents. Completion-looking action prose without an authoritative proposal or handoff is rejected before it becomes a visible assistant message.
+- `turnFinalizationPhase` performs the final legal run transition and records stop, steer, typed failure, and recoverable completion-write failure states.
+
+Every phase preserves causal message/run IDs, optimistic versions, idempotency keys, typed failure codes, and recoverable run state. Persistence failure is reported before a run exists; planning failure creates a durable failed run linked to the saved user message; later phase failures transition the active run without exposing provider or database error details.
 
 The durable record contract is:
 
