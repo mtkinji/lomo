@@ -12,7 +12,11 @@
       "@kwilt/tokens/tailwind-preset": ["./packages/kwilt-tokens/src/tailwind-preset.ts"],
       "@kwilt/tokens/*": ["./packages/kwilt-tokens/src/*"],
       "@kwilt/sdk": ["./packages/kwilt-sdk/src/index.ts"],
-      "@kwilt/sdk/*": ["./packages/kwilt-sdk/src/*"]
+      "@kwilt/sdk/*": ["./packages/kwilt-sdk/src/*"],
+      "@kwilt/agent-runtime": ["./packages/kwilt-agent-runtime/src/index.ts"],
+      "@kwilt/agent-runtime/*": ["./packages/kwilt-agent-runtime/src/*"],
+      "@kwilt/plan-core": ["./packages/kwilt-plan-core/src/index.ts"],
+      "@kwilt/plan-core/*": ["./packages/kwilt-plan-core/src/*"]
     },
     "types": [
       "node",

@@ -38,6 +38,11 @@ const PERMISSION_ROWS: PermissionRow[] = [
     description: 'Text Kwilt and create a normal Activity in your app canvas.',
   },
   {
+    key: 'remember_relationships',
+    title: 'Remember people and dates',
+    description: 'Let Phone Agent save only the relationship details you explicitly state.',
+  },
+  {
     key: 'send_followups',
     title: 'Send follow-ups',
     description: 'Let Phone Agent send gentle right-time prompts.',

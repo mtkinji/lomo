@@ -37,8 +37,24 @@ import {
   parseCompressionMetadataResponse,
   parseOpeningTitleResponse,
 } from '../features/unifiedChat/threadTitle';
+import {
+  type AgentLoopMessage,
+  type AgentToolCall,
+  type AgentToolDefinition,
+  type AgentToolExecutionResult,
+  type AgentToolLoopResult,
+} from '@kwilt/agent-runtime';
+import {
+  parseOpenAiRuntimeStepResponse,
+  parseRuntimeToolCalls,
+  toOpenAiLoopMessages,
+  toOpenAiRuntimeTools,
+} from './aiRuntimeToolTransport';
+import { runCoachRuntimeToolLoop } from './runCoachRuntimeToolLoop';
+import { shouldConsumeCoachChatCredit } from './coachChatCreditPolicy';
 
 export { normalizeActivityAiEnrichmentResponse } from './aiActivityEnrichmentResponse';
+export { shouldConsumeCoachChatCredit } from './coachChatCreditPolicy';
 
 const MAX_MESSAGE_CONTENT_LENGTH = 19000;
 
@@ -781,6 +797,18 @@ export type CoachChatOptions = {
   responseFormat?: Record<string, unknown>;
   signal?: AbortSignal;
   aiJob?: KwiltAiJob;
+  /**
+   * Internal orchestration calls may share the user turn's credit only when
+   * they use the lightweight-helper job. Ordinary callers must omit this.
+   */
+  creditPolicy?: 'user_turn' | 'internal_helper';
+  runtimeTools?: readonly AgentToolDefinition[];
+  executeRuntimeTool?: (
+    call: AgentToolCall,
+    tool: AgentToolDefinition,
+  ) => Promise<AgentToolExecutionResult>;
+  runtimeMaxRounds?: number;
+  onRuntimeToolLoopComplete?: (result: AgentToolLoopResult) => void;
   /**
    * Optional paywall attribution used when generative credits are exhausted.
    * If omitted, we fall back to 'unknown'.
@@ -2579,14 +2607,12 @@ export async function sendCoachChat(
     throw new Error('AI proxy not configured');
   }
 
-  const isFirstTimeOnboarding = options?.mode === 'firstTimeOnboarding';
-
   // Enforce Kwilt's generative credit gate at the shared service layer so
   // any UI path that calls sendCoachChat cannot bypass paywall restrictions.
   //
   // Exception: first-time onboarding is "shielded" so the user can complete setup
   // and still exit onboarding with their full monthly allowance available.
-  if (!isFirstTimeOnboarding) {
+  if (shouldConsumeCoachChatCredit(options)) {
     // Note: We intentionally consume at the start to match existing patterns
     // elsewhere in the app (credits are treated as "attempts").
     const tier: 'free' | 'pro' = useEntitlementsStore.getState().isPro ? 'pro' : 'free';
@@ -2745,7 +2771,13 @@ export async function sendCoachChat(
       content: truncateMessageContent(m.content),
     })),
   ];
-  const tools = buildCoachToolsForMode(options?.mode);
+  const runtimeTools = options?.runtimeTools ?? [];
+  if (runtimeTools.length > 0 && options?.responseFormat) {
+    throw new Error('Runtime tools and structured response format cannot be combined.');
+  }
+  const tools = runtimeTools.length > 0
+    ? toOpenAiRuntimeTools(runtimeTools)
+    : buildCoachToolsForMode(options?.mode);
 
   const model = resolveChatModel();
 
@@ -2965,9 +2997,76 @@ export async function sendCoachChat(
     return content as string;
   }
 
+  if (runtimeTools.length > 0) {
+    const initialToolCalls = parseRuntimeToolCalls(firstChoice.tool_calls, runtimeTools);
+    if (!initialToolCalls) throw new Error('OpenAI runtime tool calls were malformed.');
+    const loopResult = await runCoachRuntimeToolLoop({
+      tools: runtimeTools,
+      initialMessages: openAiMessages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })) as AgentLoopMessage[],
+      initialStep: { content: firstChoice.content ?? null, toolCalls: initialToolCalls },
+      signal: options?.signal,
+      maxRounds: options?.runtimeMaxRounds ?? 4,
+      continueModel: async (loopMessages) => {
+        const runtimeResponse = await fetchWithTimeout(
+          OPENAI_COMPLETIONS_URL,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+              ...kwiltProxyHeaders,
+            },
+            body: JSON.stringify({
+              model,
+              temperature,
+              messages: toOpenAiLoopMessages(loopMessages),
+              tools,
+              tool_choice: 'auto',
+            }),
+            signal: options?.signal,
+          },
+          OPENAI_CHAT_TIMEOUT_MS,
+        );
+        return parseOpenAiRuntimeStepResponse(runtimeResponse, runtimeTools, (status, errorText) => {
+          const error = parseOpenAiError(errorText);
+          markOpenAiQuotaExceeded('coachChat runtime tool loop', status, errorText, apiKey);
+          return new Error(`Unable to continue Kwilt tool run: ${error.message}`);
+        });
+      },
+      executeTool: options?.executeRuntimeTool ?? (async () => ({
+        status: 'unavailable',
+        reason: 'No runtime provider is registered for this tool.',
+        retryable: false,
+      })),
+    });
+    if (loopResult.status === 'stopped') {
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    }
+    if (loopResult.status !== 'completed') {
+      throw new Error(`Kwilt tool run did not complete: ${loopResult.errorCode}`);
+    }
+    options?.onRuntimeToolLoopComplete?.(loopResult);
+    const finalContent = loopResult.content;
+    void appendDevCoachChatHistory({
+      timestamp: new Date().toISOString(),
+      mode: options?.mode,
+      workflowDefinitionId: options?.workflowDefinitionId,
+      workflowInstanceId: options?.workflowInstanceId,
+      workflowStepId: options?.workflowStepId,
+      launchContextSummary: options?.launchContextSummary,
+      messages: [...messages, { role: 'assistant', content: finalContent }],
+    });
+    scheduleConversationSummaryMaintenance();
+    scheduleOpeningTitleMaintenance(finalContent);
+    return finalContent;
+  }
+
   // Execute requested tools locally, then send a follow-up request so the model
   // can incorporate tool results into a final assistant message.
-  const toolCalls = firstChoice.tool_calls;
+  const toolCalls = firstChoice.tool_calls as CoachToolCall[];
   devLog('coachChat:tool-calls', {
     count: toolCalls.length,
     names: toolCalls.map((t) => t.function.name),

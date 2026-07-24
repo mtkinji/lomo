@@ -56,14 +56,30 @@ export type BuiltRunContext = {
   coverage: EvidenceCoverage;
 };
 
-export type CapabilityOperationKind = 'create_activity' | 'update_activity';
+export type CapabilityOperationKind =
+  | 'create_activity'
+  | 'update_activity'
+  | 'delete_activity'
+  | 'create_activity_step'
+  | 'update_activity_step'
+  | 'complete_activity_step'
+  | 'delete_activity_step'
+  | 'reorder_activity_steps'
+  | 'create_goal'
+  | 'update_goal'
+  | 'delete_goal'
+  | 'create_arc'
+  | 'update_arc'
+  | 'delete_arc'
+  | 'update_profile'
+  | 'update_chapter_note';
 
 export type CapabilityNativeReturnTarget = {
   capabilityId: UnifiedChatCapabilityId;
   object: Pick<CapabilityObjectRef, 'type' | 'id'>;
   label: string;
   route: {
-    name: 'MainTabs';
+    name: 'MainTabs' | 'Settings';
     params: Record<string, unknown>;
   };
 };

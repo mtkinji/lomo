@@ -13,6 +13,10 @@ import { useCanUseProTools } from '../../store/proToolsAccess';
 import { openPaywallInterstitial } from '../../services/paywall';
 import type { PlanMode } from '../../services/plan/planAvailability';
 import type { PlanUnplacedPriorityReason } from '../../services/plan/planScheduling';
+import {
+  buildPlanPriorityPresentation,
+  formatPlanNeedsTimeReason,
+} from '../../services/plan/planPriorityPresentation';
 
 type PlanRecommendation = {
   activityId: string;
@@ -36,20 +40,6 @@ export type PlanUnplacedPriorityItem = {
   goalTitle?: string | null;
   priorityPosition: number;
 };
-
-function formatNeedsTimeReason(item: PlanUnplacedPriorityItem): string {
-  const duration = formatMinutes(item.durationMinutes);
-  switch (item.reason) {
-    case 'no_matching_window':
-      return `No obvious time in your ${item.mode} hours.`;
-    case 'needs_larger_window':
-      return `No obvious ${duration} opening.`;
-    case 'no_open_slot':
-      return `No obvious ${duration} opening.`;
-    case 'no_write_calendar':
-      return 'No calendar is ready for this yet.';
-  }
-}
 
 type PlanRecsPageProps = {
   targetDayLabel: string;
@@ -146,18 +136,7 @@ export function PlanRecsPage({
   const [expandedMoveActivityId, setExpandedMoveActivityId] = useState<string | null>(null);
   const isCommittingAny = Boolean(committingActivityId);
   const isPro = useCanUseProTools();
-  const priorityItems = [
-    ...recommendations.map((recommendation) => ({
-      kind: 'scheduled' as const,
-      priorityPosition: recommendation.priorityPosition ?? Number.MAX_SAFE_INTEGER,
-      recommendation,
-    })),
-    ...unplacedPriorities.map((priority) => ({
-      kind: 'needs_time' as const,
-      priorityPosition: priority.priorityPosition,
-      priority,
-    })),
-  ].sort((a, b) => a.priorityPosition - b.priorityPosition);
+  const priorityItems = buildPlanPriorityPresentation({ recommendations, unplacedPriorities });
 
   function parseDateSafe(iso: string): Date | null {
     const d = new Date(iso);
@@ -472,7 +451,7 @@ export function PlanRecsPage({
                     <Text style={styles.recMetaText} numberOfLines={1} ellipsizeMode="tail">
                       {metaParts.join(' · ')}
                     </Text>
-                    <Text style={styles.needsTimeReason}>{formatNeedsTimeReason(item)}</Text>
+                    <Text style={styles.needsTimeReason}>{formatPlanNeedsTimeReason(item)}</Text>
                     <HStack space={spacing.sm} style={styles.needsTimeActions}>
                       {onPickTimeForUnplaced ? (
                         <Button variant="secondary" size="xs" onPress={() => onPickTimeForUnplaced(item.activityId)}>

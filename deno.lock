@@ -42,6 +42,7 @@
         "npm:expo-clipboard@~8.0.7",
         "npm:expo-dev-client@~6.0.20",
         "npm:expo-device@~8.0.10",
+        "npm:expo-document-picker@~14.0.8",
         "npm:expo-file-system@~19.0.21",
         "npm:expo-font@~14.0.9",
         "npm:expo-haptics@~15.0.8",
@@ -59,6 +60,7 @@
         "npm:jest@^29.7.0",
         "npm:jsonwebtoken@^9.0.3",
         "npm:lucide-react-native@0.553",
+        "npm:patch-package@8.0.0",
         "npm:pixelmatch@^7.1.0",
         "npm:pngjs@7",
         "npm:posthog-react-native@^4.14.3",
@@ -89,6 +91,22 @@
       ]
     },
     "members": {
+      "packages/kwilt-agent-runtime": {
+        "packageJson": {
+          "dependencies": [
+            "npm:tsup@^8.3.5",
+            "npm:typescript@~5.9.2"
+          ]
+        }
+      },
+      "packages/kwilt-plan-core": {
+        "packageJson": {
+          "dependencies": [
+            "npm:tsup@^8.3.5",
+            "npm:typescript@~5.9.2"
+          ]
+        }
+      },
       "packages/kwilt-sdk": {
         "packageJson": {
           "dependencies": [

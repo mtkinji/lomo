@@ -204,3 +204,16 @@ export function extractPhoneAgentFacts(raw: unknown): ExtractedPhoneAgentFacts {
 
   return empty;
 }
+
+export function buildLegacyPhoneAgentEnrichmentPayload(raw: unknown, nowIso = new Date().toISOString()) {
+  const facts = extractPhoneAgentFacts(raw);
+  return {
+    ...facts,
+    events: facts.events.map((event) => ({
+      ...event,
+      promptSchedule: event.kind === 'birthday'
+        ? buildBirthdayPromptSchedule({ dateText: event.dateText, nowIso })
+        : [],
+    })),
+  };
+}

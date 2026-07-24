@@ -373,6 +373,9 @@ deno_version = 2
 [functions.mcp]
 verify_jwt = false
 
+[functions.agent-channel-tick]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

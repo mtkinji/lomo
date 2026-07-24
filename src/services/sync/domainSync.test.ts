@@ -27,6 +27,7 @@ const mockRealtimeHandlers: Array<{
   callback: (payload: any) => void;
 }> = [];
 const mockRemoveChannel = jest.fn();
+const mockUpserts: Array<{ table: string; rows: unknown; options: unknown }> = [];
 
 const defaultEmptyResult = (): SelectResult => ({ data: [], error: null });
 
@@ -48,15 +49,18 @@ jest.mock('../backend/supabaseClient', () => ({
       }),
     })),
     removeChannel: mockRemoveChannel,
-    from: jest.fn((table: TableName) => ({
+    from: jest.fn((table: string) => ({
       select: jest.fn(() => ({
-        eq: jest.fn(() => mockNextSelectResult(table)),
+        eq: jest.fn(() => mockNextSelectResult(table as TableName)),
       })),
-      upsert: jest.fn(() => ({
+      upsert: jest.fn((rows: unknown, options: unknown) => {
+        mockUpserts.push({ table, rows, options });
+        return ({
         select: jest.fn(() => ({
           throwOnError: jest.fn(() => Promise.resolve({ data: [], error: null })),
         })),
-      })),
+      });
+      }),
     })),
   })),
 }));
@@ -187,6 +191,7 @@ describe('domainSync account transitions', () => {
     mockSelectQueues.kwilt_activities = [];
     mockRealtimeHandlers.length = 0;
     mockRemoveChannel.mockClear();
+    mockUpserts.length = 0;
   });
 
   afterEach(() => {
@@ -269,6 +274,40 @@ describe('domainSync account transitions', () => {
     expect(state.arcs).toEqual([]);
     expect(state.goals).toEqual([]);
     expect(state.activities).toEqual([]);
+  });
+
+  it('pushes only the bounded Profile projection and refreshes it after a native Profile change', async () => {
+    queueRemote({});
+    useAppStore.setState({
+      userProfile: {
+        id: 'profile-a', createdAt: NOW_ISO, updatedAt: NOW_ISO,
+        fullName: 'Andrew', ageRange: '35-44', email: 'private@example.com',
+        birthdate: '1988-01-01', identitySummary: 'private', coachContextRaw: 'private raw',
+        communication: {}, visuals: {},
+      },
+    });
+
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+
+    await waitForStore(() => mockUpserts.some((entry) => entry.table === 'kwilt_agent_profile_projections'));
+    const first = mockUpserts.find((entry) => entry.table === 'kwilt_agent_profile_projections');
+    expect(first).toEqual({
+      table: 'kwilt_agent_profile_projections',
+      rows: expect.objectContaining({
+        user_id: 'user-a', profile_id: 'profile-a', full_name: 'Andrew', age_range: '35-44',
+        profile_updated_at: NOW_ISO,
+      }),
+      options: { onConflict: 'user_id' },
+    });
+    expect(JSON.stringify(first)).not.toMatch(/private@example|birthdate|identity|coachContext/i);
+
+    useAppStore.getState().updateUserProfileAt((profile) => ({ ...profile, fullName: 'Andy' }), '2026-01-15T12:01:00.000Z');
+    await waitForStore(() => mockUpserts.filter((entry) => entry.table === 'kwilt_agent_profile_projections').length === 2);
+    const second = mockUpserts.filter((entry) => entry.table === 'kwilt_agent_profile_projections')[1];
+    expect(second.rows).toEqual(expect.objectContaining({
+      full_name: 'Andy', profile_updated_at: '2026-01-15T12:01:00.000Z',
+    }));
   });
 
   it('no local cache + remote table error does not mark empty data as hydrated', async () => {

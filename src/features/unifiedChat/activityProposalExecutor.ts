@@ -4,6 +4,8 @@ import { todosChatAdapter } from './capabilityAdapters';
 import type { CapabilityNativeReturnTarget } from './capabilityContracts';
 import type { UnifiedChatMutationReceipt, UnifiedChatProposal } from './types';
 
+type TodoUnifiedChatProposal = Extract<UnifiedChatProposal, { capabilityId: 'todos' }>;
+
 export type ActivityStoreBoundary = {
   getActivities: () => readonly Activity[];
   getGoals: () => readonly Goal[];
@@ -14,7 +16,8 @@ export type ActivityStoreBoundary = {
 
 export type ActivityUndoOperation =
   | { type: 'remove_created_activity'; expectedUpdatedAt: string }
-  | { type: 'restore_activity'; activity: Activity; expectedUpdatedAt: string };
+  | { type: 'restore_activity'; activity: Activity; expectedUpdatedAt: string }
+  | { type: 'restore_deleted_activity'; activity: Activity; expectedUpdatedAt: string };
 
 export type ActivityMutationReceipt = {
   proposalId: string;
@@ -28,6 +31,8 @@ export type ActivityMutationReceipt = {
     goalId: string | null;
     scheduledDate: string | null | undefined;
     reminderAt: string | null | undefined;
+    repeatRule: Activity['repeatRule'];
+    repeatBasis: Activity['repeatBasis'];
     estimateMinutes: number | null | undefined;
     updatedAt: string;
   };
@@ -65,9 +70,77 @@ function applyPatch(current: Activity, patch: ActivityMutationPatch, at: string)
   if (patch.tags !== undefined) next.tags = [...patch.tags];
   if ('priority' in patch) next.priority = patch.priority ?? undefined;
   if ('scheduledDate' in patch) next.scheduledDate = patch.scheduledDate;
+  if ('reminderAt' in patch) next.reminderAt = patch.reminderAt;
+  if ('repeatRule' in patch) next.repeatRule = patch.repeatRule ?? undefined;
+  if ('repeatCustom' in patch) next.repeatCustom = patch.repeatCustom ?? undefined;
+  if ('repeatBasis' in patch) next.repeatBasis = patch.repeatBasis ?? undefined;
   if ('estimateMinutes' in patch) next.estimateMinutes = patch.estimateMinutes;
   if ('difficulty' in patch) next.difficulty = patch.difficulty ?? undefined;
   return next;
+}
+
+function applyExistingActivityOperation(
+  current: Activity,
+  operation: TodoUnifiedChatProposal['operation'],
+  at: string,
+): Activity {
+  if (operation.type === 'create_activity') return current;
+  if (operation.type === 'delete_activity') return current;
+  if (operation.type === 'update_activity') {
+    const { expectedUpdatedAt: _expectedUpdatedAt, ...patch } = operation.payload;
+    return applyPatch(current, patch, at);
+  }
+
+  const steps = [...(current.steps ?? [])];
+  if (operation.type === 'create_activity_step') {
+    const id = `step-chat-${operation.id}`.slice(0, 200);
+    const existing = steps.find((step) => step.id === id);
+    if (existing && existing.title !== operation.payload.title) {
+      throw new ActivityMutationConflictError('The idempotent step target no longer matches this proposal.');
+    }
+    if (!existing) {
+      steps.push({
+        id,
+        title: operation.payload.title,
+        isOptional: operation.payload.isOptional,
+        completedAt: null,
+        orderIndex: steps.length,
+      });
+    }
+  } else if (operation.type === 'reorder_activity_steps') {
+    const byId = new Map(steps.map((step) => [step.id, step]));
+    const requested = operation.payload.stepIds.map((id) => byId.get(id));
+    if (requested.some((step) => !step)) {
+      throw new ActivityMutationConflictError('A step changed after this proposal was prepared.');
+    }
+    const requestedIds = new Set(operation.payload.stepIds);
+    steps.splice(0, steps.length, ...requested as NonNullable<typeof requested[number]>[], ...steps.filter((step) => !requestedIds.has(step.id)));
+  } else {
+    const index = steps.findIndex((step) => step.id === operation.payload.stepId);
+    if (index < 0) throw new ActivityMutationConflictError('The proposed step is no longer available.');
+    const step = steps[index];
+    if (operation.type === 'update_activity_step') {
+      steps[index] = {
+        ...step,
+        ...(operation.payload.title ? { title: operation.payload.title } : {}),
+        ...(operation.payload.isOptional !== undefined
+          ? { isOptional: operation.payload.isOptional }
+          : {}),
+      };
+    } else if (operation.type === 'complete_activity_step') {
+      steps[index] = {
+        ...step,
+        completedAt: operation.payload.completed ? (step.completedAt ?? at) : null,
+      };
+    } else if (operation.type === 'delete_activity_step') {
+      steps.splice(index, 1);
+    }
+  }
+  return {
+    ...current,
+    steps: steps.map((step, index) => ({ ...step, orderIndex: index })),
+    updatedAt: at,
+  };
 }
 
 function resultState(activity: Activity): ActivityMutationReceipt['resultState'] {
@@ -77,6 +150,8 @@ function resultState(activity: Activity): ActivityMutationReceipt['resultState']
     goalId: activity.goalId,
     scheduledDate: activity.scheduledDate,
     reminderAt: activity.reminderAt,
+    repeatRule: activity.repeatRule,
+    repeatBasis: activity.repeatBasis,
     estimateMinutes: activity.estimateMinutes,
     updatedAt: activity.updatedAt,
   };
@@ -99,7 +174,7 @@ export function refreshCreatedActivityReceipt(
 }
 
 function receiptFor(params: {
-  proposal: UnifiedChatProposal;
+  proposal: TodoUnifiedChatProposal;
   activity: Activity;
   undoOperation: ActivityUndoOperation;
   appliedAt: string;
@@ -132,6 +207,9 @@ export function prepareApprovedActivityProposal({
   store: ActivityStoreBoundary;
   appliedAt: string;
 }): ActivityMutationReservation {
+  if (proposal.capabilityId !== 'todos') {
+    throw new ActivityMutationConflictError('This proposal is not an Activity operation.');
+  }
   assertActivityProposalCanApply(proposal.status);
   const operation = proposal.operation;
   let predicted: Activity;
@@ -164,9 +242,16 @@ export function prepareApprovedActivityProposal({
     if (current.updatedAt !== operation.payload.expectedUpdatedAt) {
       throw new ActivityMutationConflictError('The To-do changed after this proposal was prepared.');
     }
-    const { expectedUpdatedAt: _expectedUpdatedAt, ...patch } = operation.payload;
-    predicted = applyPatch(current, patch, appliedAt);
-    undoOperation = { type: 'restore_activity', activity: current, expectedUpdatedAt: predicted.updatedAt };
+    if (operation.type === 'delete_activity') {
+      predicted = current;
+      undoOperation = {
+        type: 'restore_deleted_activity', activity: current,
+        expectedUpdatedAt: current.updatedAt,
+      };
+    } else {
+      predicted = applyExistingActivityOperation(current, operation, appliedAt);
+      undoOperation = { type: 'restore_activity', activity: current, expectedUpdatedAt: predicted.updatedAt };
+    }
   }
 
   return {
@@ -184,6 +269,9 @@ export function applyApprovedActivityProposal({
   store: ActivityStoreBoundary;
   now?: () => string;
 }): ActivityMutationReceipt {
+  if (proposal.capabilityId !== 'todos') {
+    throw new ActivityMutationConflictError('This proposal is not an Activity operation.');
+  }
   assertActivityProposalCanApply(proposal.status);
   const operation = proposal.operation;
   const at = now();
@@ -237,8 +325,19 @@ export function applyApprovedActivityProposal({
   if (typeof expectedUpdatedAt !== 'string' || current.updatedAt !== expectedUpdatedAt) {
     throw new ActivityMutationConflictError('The To-do changed after this proposal was prepared.');
   }
-  const { expectedUpdatedAt: _expectedUpdatedAt, ...patch } = operation.payload;
-  const next = applyPatch(current, patch, at);
+  if (operation.type === 'delete_activity') {
+    store.removeActivity(targetId);
+    return receiptFor({
+      proposal,
+      activity: current,
+      undoOperation: {
+        type: 'restore_deleted_activity', activity: current,
+        expectedUpdatedAt: current.updatedAt,
+      },
+      appliedAt: at,
+    });
+  }
+  const next = applyExistingActivityOperation(current, operation, at);
   store.updateActivity(targetId, () => next);
   const authoritative = store.getActivities().find((activity) => activity.id === targetId);
   if (!authoritative) throw new ActivityMutationConflictError('The updated To-do could not be reloaded.');
@@ -263,6 +362,14 @@ export function undoAppliedActivityProposal({
     throw new ActivityMutationConflictError('This capability receipt is not available to undo.');
   }
   const current = store.getActivities().find((activity) => activity.id === receipt.resultingObjectId);
+  if (receipt.undoOperation.type === 'restore_deleted_activity') {
+    if (current) {
+      throw new ActivityMutationConflictError('A To-do now uses this id, so Kwilt will not overwrite it during undo.');
+    }
+    const at = now();
+    store.addActivity({ ...receipt.undoOperation.activity, updatedAt: at });
+    return { ...receipt, status: 'undone', undoneAt: at };
+  }
   if (!current || current.updatedAt !== receipt.undoOperation.expectedUpdatedAt) {
     throw new ActivityMutationConflictError('The To-do changed after apply, so Kwilt will not overwrite it during undo.');
   }
@@ -285,6 +392,9 @@ export function recoverReservedActivityProposal({
   proposal: UnifiedChatProposal;
   store: ActivityStoreBoundary;
 }): ActivityMutationReceipt {
+  if (proposal.capabilityId !== 'todos') {
+    throw new ActivityMutationConflictError('This proposal is not an Activity operation.');
+  }
   if (receipt.status !== 'reserved' || !receipt.undoOperation) {
     throw new ActivityMutationConflictError('This capability receipt is not reserved for recovery.');
   }
@@ -296,6 +406,8 @@ export function recoverReservedActivityProposal({
     ? { type: 'remove_created_activity', expectedUpdatedAt: undo.expectedUpdatedAt }
     : undo.type === 'restore_activity' && undo.activity && typeof undo.activity === 'object'
       ? { type: 'restore_activity', activity: undo.activity as Activity, expectedUpdatedAt: undo.expectedUpdatedAt }
+      : undo.type === 'restore_deleted_activity' && undo.activity && typeof undo.activity === 'object'
+        ? { type: 'restore_deleted_activity', activity: undo.activity as Activity, expectedUpdatedAt: undo.expectedUpdatedAt }
       : (() => { throw new ActivityMutationConflictError('The reserved receipt has an unsupported recovery operation.'); })();
   const approved = { ...proposal, status: 'approved' as const };
   const existing = receipt.resultingObjectId
@@ -304,6 +416,9 @@ export function recoverReservedActivityProposal({
   const appliedAt = receipt.appliedAt ?? undoOperation.expectedUpdatedAt;
   if (existing?.updatedAt === undoOperation.expectedUpdatedAt) {
     return receiptFor({ proposal: approved, activity: existing, undoOperation, appliedAt });
+  }
+  if (!existing && undoOperation.type === 'restore_deleted_activity') {
+    return receiptFor({ proposal: approved, activity: undoOperation.activity, undoOperation, appliedAt });
   }
   return applyApprovedActivityProposal({ proposal: approved, store, now: () => appliedAt });
 }
@@ -325,6 +440,10 @@ export function hydrateActivityMutationReceipt(
     const activity = undo.activity as Activity;
     if (typeof activity.id !== 'string' || typeof activity.title !== 'string' || typeof activity.updatedAt !== 'string') return null;
     undoOperation = { type: 'restore_activity', activity, expectedUpdatedAt: undo.expectedUpdatedAt };
+  } else if (undo.type === 'restore_deleted_activity' && undo.activity && typeof undo.activity === 'object') {
+    const activity = undo.activity as Activity;
+    if (typeof activity.id !== 'string' || typeof activity.title !== 'string' || typeof activity.updatedAt !== 'string') return null;
+    undoOperation = { type: 'restore_deleted_activity', activity, expectedUpdatedAt: undo.expectedUpdatedAt };
   } else return null;
   return {
     proposalId: stored.proposalId,
@@ -338,6 +457,14 @@ export function hydrateActivityMutationReceipt(
       goalId: typeof state.goalId === 'string' ? state.goalId : null,
       scheduledDate: typeof state.scheduledDate === 'string' || state.scheduledDate === null ? state.scheduledDate : undefined,
       reminderAt: typeof state.reminderAt === 'string' || state.reminderAt === null ? state.reminderAt : undefined,
+      repeatRule: state.repeatRule === 'daily' || state.repeatRule === 'weekly' ||
+        state.repeatRule === 'weekdays' || state.repeatRule === 'monthly' ||
+        state.repeatRule === 'yearly' || state.repeatRule === 'custom'
+        ? state.repeatRule
+        : undefined,
+      repeatBasis: state.repeatBasis === 'scheduled' || state.repeatBasis === 'after_completion'
+        ? state.repeatBasis
+        : undefined,
       estimateMinutes: typeof state.estimateMinutes === 'number' || state.estimateMinutes === null
         ? state.estimateMinutes
         : undefined,

@@ -101,6 +101,17 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('executeReceiptUndo');
   });
 
+  test('shows pending device actions in a native review sheet and shares the durable decision path', () => {
+    expect(screenSource).toContain("item.status === 'pending_client_action'");
+    expect(screenSource).toContain('Review in Kwilt');
+    expect(screenSource).toContain("decideClientAction(pendingClientAction, 'continue')");
+    expect(screenSource).toContain("decideClientAction(pendingClientAction, 'decline')");
+    expect(screenSource).toContain('executeClientActionDecision');
+    expect(screenSource).toContain('resolveClientActionOpenInstruction');
+    expect(screenSource).toContain("item.status === 'pending_client_action' || item.status === 'presenting'");
+    expect(screenSource).toContain("AppState.addEventListener('change'");
+  });
+
   test('opens an applied To-do row with the exact Chat return thread', () => {
     expect(screenSource).toContain("command.object.type === 'activity'");
     expect(screenSource).toContain('returnToUnifiedChatThreadId: aggregate.thread.id');

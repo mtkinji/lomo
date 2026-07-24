@@ -3,11 +3,12 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { normalizeE164 } from '../_shared/phoneAgent.ts';
+import { normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 type LinkAction =
-  | { action: 'request_code'; phone: string }
+  | { action: 'request_code'; phone: string; timeZone: string }
   | { action: 'verify_code'; phone: string; code: string }
   | { action: 'update_settings'; phone: string; permissions: Record<string, boolean>; promptCapPerDay: number }
   | { action: 'revoke'; phone: string }
@@ -23,6 +24,7 @@ type PhoneAgentLinkRow = {
   permissions: Record<string, boolean>;
   prompt_cap_per_day: number;
   opted_out_at: string | null;
+  timezone: string | null;
 };
 
 const corsHeaders: Record<string, string> = {
@@ -33,6 +35,7 @@ const corsHeaders: Record<string, string> = {
 
 const DEFAULT_PERMISSIONS = {
   create_activities: false,
+  remember_relationships: false,
   send_followups: false,
   log_done_replies: false,
   offer_drafts: false,
@@ -123,7 +126,7 @@ async function getCurrentUserId(admin: SupabaseClient, req: Request): Promise<st
 async function getStatus(admin: SupabaseClient, userId: string) {
   const { data: links } = await admin
     .from('kwilt_phone_agent_links')
-    .select('phone_e164, status, permissions, prompt_cap_per_day, opted_out_at')
+    .select('phone_e164, status, permissions, prompt_cap_per_day, opted_out_at, timezone')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -148,6 +151,7 @@ async function getStatus(admin: SupabaseClient, userId: string) {
       permissions: sanitizePermissions(link.permissions),
       promptCapPerDay: normalizePromptCap(link.prompt_cap_per_day),
       optedOutAt: typeof link.opted_out_at === 'string' ? link.opted_out_at : null,
+      timeZone: normalizeIanaTimeZone(link.timezone),
     })),
     memorySummary: {
       peopleCount: peopleCount ?? 0,
@@ -196,6 +200,8 @@ serve(async (req) => {
   }
 
   if (action === 'request_code') {
+    const timeZone = normalizeIanaTimeZone((body as { timeZone?: unknown }).timeZone);
+    if (!timeZone) return json(400, { ok: false, error: 'invalid_timezone' });
     const code = randomVerificationCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const codeHash = await sha256Hex(code);
@@ -219,6 +225,7 @@ serve(async (req) => {
           verification_expires_at: expiresAt,
           opted_out_at: null,
           revoked_at: null,
+          timezone: timeZone,
           updated_at: new Date().toISOString(),
         })
         .eq('id', (existing as { id: string }).id);
@@ -230,6 +237,7 @@ serve(async (req) => {
         verification_code_hash: codeHash,
         verification_expires_at: expiresAt,
         permissions: DEFAULT_PERMISSIONS,
+        timezone: timeZone,
       });
     }
 
@@ -243,7 +251,7 @@ serve(async (req) => {
 
   const { data: link } = await admin
     .from('kwilt_phone_agent_links')
-    .select('id, user_id, phone_e164, status, verification_code_hash, verification_expires_at, permissions, prompt_cap_per_day, opted_out_at')
+    .select('id, user_id, phone_e164, status, verification_code_hash, verification_expires_at, permissions, prompt_cap_per_day, opted_out_at, timezone')
     .eq('user_id', userId)
     .eq('phone_e164', phone)
     .maybeSingle();

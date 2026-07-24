@@ -8,11 +8,11 @@ jest.mock('./PlanPager', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    PlanPager: ({ entryPoint, recommendationsSheetSnapIndex }: any) =>
+    PlanPager: ({ entryPoint, recommendationsSheetSnapIndex, targetDate }: any) =>
       React.createElement(View, {
         testID: 'mock-plan-pager',
         accessibilityValue: {
-          text: `entry=${entryPoint};snap=${recommendationsSheetSnapIndex}`,
+          text: `entry=${entryPoint};snap=${recommendationsSheetSnapIndex};date=${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`,
         },
       }),
   };
@@ -146,7 +146,7 @@ describe('PlanScreen openRecommendations route param', () => {
     navModule.__setRouteParams({ openRecommendations: true });
     const { getByTestId } = renderWithProviders(<PlanScreen />);
     const pager = getByTestId('mock-plan-pager');
-    expect(pager.props.accessibilityValue.text).toBe('entry=kickoff;snap=1');
+    expect(pager.props.accessibilityValue.text).toContain('entry=kickoff;snap=1');
     expect(navModule.__navMocks.setParams).toHaveBeenCalledWith({
       openRecommendations: undefined,
     });
@@ -156,8 +156,14 @@ describe('PlanScreen openRecommendations route param', () => {
     navModule.__setRouteParams(undefined);
     const { getByTestId } = renderWithProviders(<PlanScreen />);
     const pager = getByTestId('mock-plan-pager');
-    expect(pager.props.accessibilityValue.text).toBe('entry=manual;snap=0');
+    expect(pager.props.accessibilityValue.text).toContain('entry=manual;snap=0');
     expect(navModule.__navMocks.setParams).not.toHaveBeenCalled();
+  });
+
+  it('opens the exact day named by a durable Chat receipt', () => {
+    navModule.__setRouteParams({ dateKey: '2026-07-24' });
+    const { getByTestId } = renderWithProviders(<PlanScreen />);
+    expect(getByTestId('mock-plan-pager').props.accessibilityValue.text).toContain('date=2026-07-24');
   });
 });
 

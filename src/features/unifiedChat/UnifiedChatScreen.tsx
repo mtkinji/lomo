@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import {
   Alert,
+  AppState,
   FlatList,
   Keyboard,
   Modal,
@@ -21,7 +22,11 @@ import { colors, radii, spacing, typography } from '../../theme';
 import { buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
 import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
-import type { UnifiedChatThread, UnifiedChatThreadAggregate } from './types';
+import type {
+  UnifiedChatClientAction,
+  UnifiedChatThread,
+  UnifiedChatThreadAggregate,
+} from './types';
 import { getUnifiedChatConfig } from './unifiedChatConfig';
 import {
   makeAgentWorkbenchHostMessage,
@@ -34,6 +39,7 @@ import {
 import { navigateWhenReady } from '../../navigation/rootNavigationRef';
 import { resolveUnifiedChatObjectReturn } from './capabilityAdapters';
 import { useAppStore } from '../../store/useAppStore';
+import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { canUseProTools } from '../../store/proToolsAccess';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
 import { consumeQuickAddAiActionCredits } from '../activities/useQuickAddDockController';
@@ -64,6 +70,28 @@ import {
   type UnifiedChatTextAttachment,
 } from './unifiedChatAttachmentPolicy';
 import { HapticsService } from '../../services/HapticsService';
+import { executePlanProposalDecision } from './executePlanProposalDecision';
+import { executeGoalProposalDecision } from './executeGoalProposalDecision';
+import { applyApprovedPlanProposal } from './planProposalExecutor';
+import { executePlanProposalBatch } from './executePlanProposalBatch';
+import { recoverPlanMutations } from './recoverPlanMutations';
+import { recoverGoalMutations } from './recoverGoalMutations';
+import { executeArcProposalDecision } from './executeArcProposalDecision';
+import { recoverArcMutations } from './recoverArcMutations';
+import { executeProfileProposalDecision } from './executeProfileProposalDecision';
+import { recoverProfileMutations } from './recoverProfileMutations';
+import { executeChapterProposalDecision } from './executeChapterProposalDecision';
+import { recoverChapterMutations } from './recoverChapterMutations';
+import { fetchMyChapterById, updateChapterUserNote } from '../../services/chapters';
+import { executeClientActionDecision } from './executeClientActionDecision';
+import { resolveClientActionOpenInstruction } from './clientActionNavigation';
+import { prepareClientActionNativeReview } from './prepareClientActionNativeReview';
+import { useCheckinDraftStore } from '../../store/useCheckinDraftStore';
+import { AnalyticsEvent } from '../../services/analytics/events';
+import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
+import { track } from '../../services/analytics/analytics';
+import { posthogClient } from '../../services/analytics/posthogClient';
+import { buildUnifiedChatReconciliationTelemetry } from './unifiedChatTelemetry';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -73,6 +101,57 @@ const activityStoreBoundary = {
   updateActivity: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateActivity']>[1]) =>
     useAppStore.getState().updateActivity(id, updater),
   removeActivity: (id: string) => useAppStore.getState().removeActivity(id),
+};
+
+const planStoreBoundary = {
+  getActivities: () => useAppStore.getState().activities,
+  updateActivity: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateActivity']>[1]) =>
+    useAppStore.getState().updateActivity(id, updater),
+  addDailyPlanCommitment: (dateKey: string, activityId: string) =>
+    useAppStore.getState().addDailyPlanCommitment(dateKey, activityId),
+  removeDailyPlanCommitment: (dateKey: string, activityId: string) =>
+    useAppStore.getState().removeDailyPlanCommitment(dateKey, activityId),
+};
+
+const goalStoreBoundary = {
+  getGoals: () => useAppStore.getState().goals,
+  getArcIds: () => useAppStore.getState().arcs.map((arc) => arc.id),
+  getActivities: () => useAppStore.getState().activities,
+  addGoal: (goal: Parameters<ReturnType<typeof useAppStore.getState>['addGoal']>[0]) =>
+    useAppStore.getState().addGoal(goal),
+  updateGoal: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateGoal']>[1]) =>
+    useAppStore.getState().updateGoal(id, updater),
+  removeGoal: (id: string) => useAppStore.getState().removeGoal(id),
+  restoreRemovedGoal: (input: Parameters<ReturnType<typeof useAppStore.getState>['restoreRemovedGoal']>[0]) =>
+    useAppStore.getState().restoreRemovedGoal(input),
+};
+
+const arcStoreBoundary = {
+  getArcs: () => useAppStore.getState().arcs,
+  getGoals: () => useAppStore.getState().goals,
+  getActivities: () => useAppStore.getState().activities,
+  getGoalRecommendations: (arcId: string) => useAppStore.getState().goalRecommendations[arcId] ?? [],
+  getIsPro: () => useEntitlementsStore.getState().isPro,
+  addArc: (arc: Parameters<ReturnType<typeof useAppStore.getState>['addArc']>[0]) =>
+    useAppStore.getState().addArc(arc),
+  updateArc: (id: string, updater: Parameters<ReturnType<typeof useAppStore.getState>['updateArc']>[1]) =>
+    useAppStore.getState().updateArc(id, updater),
+  removeArc: (id: string) => useAppStore.getState().removeArc(id),
+  restoreRemovedArc: (input: Parameters<ReturnType<typeof useAppStore.getState>['restoreRemovedArc']>[0]) =>
+    useAppStore.getState().restoreRemovedArc(input),
+};
+
+const profileStoreBoundary = {
+  getProfile: () => useAppStore.getState().userProfile,
+  updateProfileAt: (
+    updater: Parameters<ReturnType<typeof useAppStore.getState>['updateUserProfileAt']>[0],
+    updatedAt: string,
+  ) => useAppStore.getState().updateUserProfileAt(updater, updatedAt),
+};
+
+const chapterStoreBoundary = {
+  getChapter: (id: string) => fetchMyChapterById(id),
+  updateNote: (id: string, note: string | null) => updateChapterUserNote({ chapterId: id, note }),
 };
 
 export function UnifiedChatScreen() {
@@ -104,6 +183,7 @@ export function UnifiedChatScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [surfaceLoadFailed, setSurfaceLoadFailed] = useState(false);
+  const [clientActionInFlight, setClientActionInFlight] = useState(false);
   const [voice, setVoice] = useState<{
     state: 'idle' | 'recording' | 'transcribing' | 'error';
     elapsedSeconds: number;
@@ -130,11 +210,32 @@ export function UnifiedChatScreen() {
 
   const loadThreadWithRecovery = useCallback(async (threadId: string) => {
     const loaded = await repository.loadThread(threadId);
-    return recoverActivityMutations({
+    const activitiesRecovered = await recoverActivityMutations({
       aggregate: loaded,
       repository,
       store: activityStoreBoundary,
     });
+    const plansRecovered = await recoverPlanMutations({
+      aggregate: activitiesRecovered,
+      repository,
+      apply: (proposal, options) => applyApprovedPlanProposal({ proposal, store: planStoreBoundary, ...options }),
+    });
+    const goalsRecovered = await recoverGoalMutations({
+      aggregate: plansRecovered, repository, store: goalStoreBoundary,
+    });
+    const arcsRecovered = await recoverArcMutations({
+      aggregate: goalsRecovered, repository, store: arcStoreBoundary,
+    });
+    const profilesRecovered = await recoverProfileMutations({
+      aggregate: arcsRecovered, repository, store: profileStoreBoundary,
+    });
+    const chaptersRecovered = await recoverChapterMutations({
+      aggregate: profilesRecovered, repository, store: chapterStoreBoundary,
+    });
+    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, chaptersRecovered)) {
+      track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
+    }
+    return chaptersRecovered;
   }, [repository]);
 
   const postSnapshot = useCallback(
@@ -228,6 +329,21 @@ export function UnifiedChatScreen() {
   useEffect(() => {
     if (surfaceReady && aggregate) postSnapshot(aggregate, 'host.snapshot');
   }, [aggregate, postSnapshot, surfaceReady]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active' || !aggregate) return;
+      const hasResumableAction = (aggregate.clientActions ?? []).some(
+        (item) => item.status === 'pending_client_action' || item.status === 'presenting',
+      );
+      if (!hasResumableAction) return;
+      const threadId = aggregate.thread.id;
+      void loadThreadWithRecovery(threadId).then((next) => {
+        setAggregate((current) => current?.thread.id === threadId ? next : current);
+      }).catch(() => setError('Kwilt could not refresh the pending device review.'));
+    });
+    return () => subscription.remove();
+  }, [aggregate, loadThreadWithRecovery]);
 
   useEffect(() => {
     if (!launchContext || !aggregate) return;
@@ -330,6 +446,39 @@ export function UnifiedChatScreen() {
     },
     [archiveThread, renameThread],
   );
+
+  const openNativeClientAction = useCallback((clientAction: UnifiedChatClientAction) => {
+    const instruction = resolveClientActionOpenInstruction(clientAction);
+    if (!instruction) throw new Error('This native review surface is unavailable.');
+    prepareClientActionNativeReview(clientAction, useCheckinDraftStore.getState());
+    if (instruction.kind === 'search') useAppStore.getState().openGlobalSearch();
+    else navigateWhenReady(instruction.name, instruction.params);
+  }, []);
+
+  const decideClientAction = useCallback(async (
+    clientAction: UnifiedChatClientAction,
+    decision: 'continue' | 'decline',
+  ) => {
+    if (!aggregate || clientAction.threadId !== aggregate.thread.id || clientActionInFlight) return;
+    setClientActionInFlight(true);
+    setError(null);
+    try {
+      await executeClientActionDecision({
+        clientAction,
+        decision,
+        repository,
+        open: openNativeClientAction,
+      });
+      setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+    } catch (clientActionError) {
+      setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+      setError(clientActionError instanceof Error
+        ? clientActionError.message
+        : 'Kwilt could not open that native review.');
+    } finally {
+      setClientActionInFlight(false);
+    }
+  }, [aggregate, clientActionInFlight, loadThreadWithRecovery, openNativeClientAction, repository]);
 
   const handleSurfaceMessage = useCallback(
     async (event: WebViewMessageEvent) => {
@@ -485,9 +634,136 @@ export function UnifiedChatScreen() {
         }
         return;
       }
+      if (command.type === 'client_action.decide' && aggregate) {
+        const clientAction = (aggregate.clientActions ?? []).find((item) => item.id === command.actionId);
+        if (!clientAction || clientAction.version !== command.expectedVersion) return;
+        await decideClientAction(clientAction, command.action);
+        return;
+      }
+      if (command.type === 'proposal.decide_many' && aggregate) {
+        setError(null);
+        try {
+          const result = await executePlanProposalBatch({
+            proposals: aggregate.proposals ?? [],
+            items: command.items,
+            execute: (proposal) => executePlanProposalDecision({
+              proposal,
+              action: 'approve',
+              repository,
+              apply: (approved) => applyApprovedPlanProposal({
+                proposal: approved,
+                store: planStoreBoundary,
+              }),
+            }),
+          });
+          setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          if (result.failed.length > 0) {
+            setError(
+              result.applied.length > 0
+                ? `${result.applied.length} added to Plan; ${result.failed.length} could not be added.`
+                : result.failed[0].message,
+            );
+          }
+        } catch (decisionError) {
+          setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not add those Plan items.');
+        }
+        return;
+      }
       if (command.type === 'proposal.decide' && aggregate) {
         const proposal = (aggregate.proposals ?? []).find((item) => item.id === command.proposalId);
         if (!proposal || proposal.version !== command.expectedVersion) return;
+        if (proposal.capabilityId === 'plan') {
+          if (command.action === 'edit') {
+            setError('Change the timing in Plan after adding it.');
+            return;
+          }
+          setError(null);
+          try {
+            await executePlanProposalDecision({
+              proposal,
+              action: command.action,
+              repository,
+              apply: (approved) => applyApprovedPlanProposal({
+                proposal: approved,
+                store: planStoreBoundary,
+              }),
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not add that Plan item.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'arcs') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Arc change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeArcProposalDecision({
+              proposal, action: command.action, repository, store: arcStoreBoundary,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Arc.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'goals') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Goal change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeGoalProposalDecision({
+              proposal, action: command.action, repository, store: goalStoreBoundary,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Goal.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'profile') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Profile change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeProfileProposalDecision({
+              proposal, action: command.action, repository, store: profileStoreBoundary,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update your Profile.');
+          }
+          return;
+        }
+        if (proposal.capabilityId === 'chapters') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Chapter note.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeChapterProposalDecision({
+              proposal, action: command.action, repository, store: chapterStoreBoundary,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Chapter.');
+          }
+          return;
+        }
         const patch = command.action === 'edit'
           ? parseActivityMutationPatch(command.patch)
           : undefined;
@@ -511,6 +787,28 @@ export function UnifiedChatScreen() {
         }
         return;
       }
+      if (command.type === 'receipt.open' && aggregate) {
+        const receipt = (aggregate.receipts ?? []).find((item) => item.id === command.receiptId);
+        const dateKey = receipt?.capabilityId === 'plan' && typeof receipt.resultState.targetDateKey === 'string'
+          ? receipt.resultState.targetDateKey
+          : null;
+        if (!receipt || receipt.status !== 'applied') return;
+        if (dateKey) {
+          navigateWhenReady('MainTabs', { screen: 'PlanTab', params: { dateKey } });
+          return;
+        }
+        if (!receipt.resultingObjectId || !receipt.resultingObjectType) return;
+        const label = typeof receipt.resultState.title === 'string'
+          ? receipt.resultState.title
+          : typeof receipt.resultState.name === 'string'
+            ? receipt.resultState.name
+            : receipt.resultingObjectType === 'profile' ? 'Profile' : 'Kwilt item';
+        const target = resolveUnifiedChatObjectReturn({
+          type: receipt.resultingObjectType, id: receipt.resultingObjectId, label,
+        });
+        if (target) navigateWhenReady(target.route.name, target.route.params);
+        return;
+      }
       if (command.type === 'receipt.undo' && aggregate) {
         const receipt = (aggregate.receipts ?? []).find((item) => item.id === command.receiptId);
         const proposal = receipt
@@ -519,7 +817,15 @@ export function UnifiedChatScreen() {
         if (!receipt || !proposal || !receipt.canUndo) return;
         setError(null);
         try {
-          await executeReceiptUndo({ receipt, proposal, repository, store: activityStoreBoundary });
+          await executeReceiptUndo({
+            receipt, proposal, repository, store: activityStoreBoundary, planStore: planStoreBoundary,
+            goalStore: goalStoreBoundary, arcStore: arcStoreBoundary,
+            profileStore: profileStoreBoundary,
+            chapterStore: chapterStoreBoundary,
+            relationshipUndo: receipt.capabilityId === 'relationships'
+              ? createRelationshipMemoryToolProvider({}).undoReceipt
+              : undefined,
+          });
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
         } catch (undoError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
@@ -575,6 +881,10 @@ export function UnifiedChatScreen() {
         activeTurn.current = turnState;
         let refreshedAggregate: UnifiedChatThreadAggregate | null = null;
         try {
+          // Route against the durable conversation, not the render-time snapshot
+          // captured when the workbench message handler was created. This keeps a
+          // short answer attached to the assistant question that prompted it.
+          turnAggregate = await loadThreadWithRecovery(turnAggregate.thread.id);
           refreshedAggregate = await runUnifiedChatTurn({
             aggregate: turnAggregate,
             prompt: turnPrompt,
@@ -667,7 +977,14 @@ export function UnifiedChatScreen() {
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, loadThreadWithRecovery, menuOpen, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, loadThreadWithRecovery, menuOpen, postSnapshot, repository, voice.state],
+  );
+
+  const pendingClientAction = useMemo(
+    () => (aggregate?.clientActions ?? []).find(
+      (item) => item.status === 'pending_client_action' || item.status === 'presenting',
+    ) ?? null,
+    [aggregate?.clientActions],
   );
 
   const allowedOrigin = useMemo(() => {
@@ -818,6 +1135,47 @@ export function UnifiedChatScreen() {
           />
         </SafeAreaView>
       </Modal>
+
+      <Modal
+        visible={Boolean(pendingClientAction)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (pendingClientAction) void decideClientAction(pendingClientAction, 'decline');
+        }}
+      >
+        <View style={styles.clientActionScrim}>
+          <View style={styles.clientActionSheet} accessibilityViewIsModal>
+            <Text style={styles.clientActionEyebrow}>Review in Kwilt</Text>
+            <Text style={styles.clientActionTitle}>{pendingClientAction?.title}</Text>
+            <Text style={styles.clientActionSummary}>{pendingClientAction?.consequenceSummary}</Text>
+            <View style={styles.clientActionButtons}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Not now"
+                disabled={clientActionInFlight}
+                onPress={() => {
+                  if (pendingClientAction) void decideClientAction(pendingClientAction, 'decline');
+                }}
+                style={({ pressed }) => [styles.clientActionSecondaryButton, pressed && styles.buttonPressed]}
+              >
+                <Text style={styles.clientActionSecondaryLabel}>Not now</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Continue to ${pendingClientAction?.title ?? 'native review'}`}
+                disabled={clientActionInFlight}
+                onPress={() => {
+                  if (pendingClientAction) void decideClientAction(pendingClientAction, 'continue');
+                }}
+                style={({ pressed }) => [styles.clientActionPrimaryButton, pressed && styles.buttonPressed]}
+              >
+                <Text style={styles.clientActionPrimaryLabel}>{clientActionInFlight ? 'Opening…' : 'Continue'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </AppShell>
   );
 }
@@ -880,4 +1238,37 @@ const styles = StyleSheet.create({
   threadTitle: { ...typography.body, color: colors.textPrimary },
   threadDate: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   emptyListText: { ...typography.body, color: colors.textSecondary, textAlign: 'center', paddingTop: spacing['2xl'] },
+  clientActionScrim: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: colors.scrimStrong,
+  },
+  clientActionSheet: {
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing['2xl'],
+  },
+  clientActionEyebrow: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.xs },
+  clientActionTitle: { ...typography.titleMd, color: colors.textPrimary },
+  clientActionSummary: { ...typography.body, color: colors.textSecondary, marginTop: spacing.sm },
+  clientActionButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.lg },
+  clientActionSecondaryButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+  },
+  clientActionPrimaryButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
+  },
+  clientActionSecondaryLabel: { ...typography.label, color: colors.textSecondary },
+  clientActionPrimaryLabel: { ...typography.label, color: colors.primaryForeground },
+  buttonPressed: { opacity: 0.72 },
 });

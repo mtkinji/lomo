@@ -3,15 +3,13 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
-  buildBirthdayPromptSchedule,
-  buildPhoneActivityData,
   buildTwimlMessage,
-  extractPhoneAgentFacts,
   normalizeE164,
   normalizeSmsBody,
   parseSmsCommand,
   verifyTwilioSignature,
 } from '../_shared/phoneAgent.ts';
+import { buildAgentChannelJobInsert } from '../_shared/agentChannelJobs.ts';
 
 type LinkRow = {
   id: string;
@@ -59,18 +57,8 @@ function safePermission(link: LinkRow, key: string): boolean {
   return link.permissions?.[key] === true;
 }
 
-function nextMorningIso(): string {
-  const due = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  due.setUTCHours(9, 0, 0, 0);
-  return due.toISOString();
-}
-
 function addDaysIso(days: number): string {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-}
-
-function dateTextToDueIso(dateText: string): string {
-  return `${dateText}T09:00:00.000Z`;
 }
 
 async function insertActionLog(admin: SupabaseClient, values: Record<string, unknown>) {
@@ -78,40 +66,6 @@ async function insertActionLog(admin: SupabaseClient, values: Record<string, unk
     channel: 'sms',
     ...values,
   });
-}
-
-async function findOrCreatePerson(admin: SupabaseClient, userId: string, displayName: string) {
-  const aliasKey = displayName.trim().toLowerCase();
-  const { data: existingAlias } = await admin
-    .from('kwilt_phone_agent_person_aliases')
-    .select('person_id')
-    .eq('user_id', userId)
-    .eq('alias_key', aliasKey)
-    .maybeSingle();
-
-  const existingPersonId = (existingAlias as { person_id?: string } | null)?.person_id;
-  if (existingPersonId) return existingPersonId;
-
-  const { data: person, error } = await admin
-    .from('kwilt_phone_agent_people')
-    .insert({
-      user_id: userId,
-      display_name: displayName,
-    })
-    .select('id')
-    .single();
-
-  if (error || !person) return null;
-  const personId = (person as { id: string }).id;
-  await admin.from('kwilt_phone_agent_person_aliases').upsert(
-    {
-      user_id: userId,
-      person_id: personId,
-      alias_text: displayName,
-    },
-    { onConflict: 'user_id,alias_key' },
-  );
-  return personId;
 }
 
 async function closePrompt(admin: SupabaseClient, link: LinkRow, messageSid: string, command: 'done' | 'snooze' | 'pause' | 'not_relevant', snoozeDays?: number) {
@@ -225,6 +179,7 @@ serve(async (req) => {
   if (!fromPhone) {
     return twiml('Kwilt does not know this number yet. Open Kwilt -> Settings -> Phone Agent to link it.');
   }
+  if (!body) return twiml('Text me what you want help with, and I’ll take it from there.');
 
   const { data: linkData } = await admin
     .from('kwilt_phone_agent_links')
@@ -319,168 +274,26 @@ serve(async (req) => {
     return twiml('Got it. Open Kwilt settings to adjust Phone Agent timing for now.');
   }
 
-  if (!safePermission(link, 'create_activities')) {
-    return twiml('Phone Agent is linked, but Activity creation is off. Turn it on in Kwilt settings to save texts into Kwilt.');
-  }
-
-  const nowIso = new Date().toISOString();
-  const activityId = `activity-phone-${messageSid}`;
-  const facts = extractPhoneAgentFacts(body);
-  const peopleByName = new Map<string, string>();
-
-  for (const person of facts.people) {
-    const personId = await findOrCreatePerson(admin, link.user_id, person.displayName);
-    if (!personId) continue;
-    peopleByName.set(person.displayName, personId);
-    for (const alias of person.aliases) {
-      await admin.from('kwilt_phone_agent_person_aliases').upsert(
-        {
-          user_id: link.user_id,
-          person_id: personId,
-          alias_text: alias,
-        },
-        { onConflict: 'user_id,alias_key' },
-      );
-    }
-  }
-
-  const { data: existingActivity } = await admin
-    .from('kwilt_activities')
-    .select('id')
-    .eq('user_id', link.user_id)
-    .eq('id', activityId)
-    .maybeSingle();
-
-  if (!existingActivity) {
-    const activityData = buildPhoneActivityData({
-      id: activityId,
-      title: body,
-      nowIso,
-      source: {
-        channel: 'sms',
-        twilioMessageSid: messageSid,
-        fromPhone,
-      },
-    });
-    await admin.from('kwilt_activities').insert({
-      user_id: link.user_id,
-      id: activityId,
-      data: activityData,
-      created_at: nowIso,
-      updated_at: nowIso,
-    });
-  }
-
-  const linkedIds: {
-    person_id?: string;
-    memory_item_id?: string;
-    event_id?: string;
-    cadence_id?: string;
-  } = {};
-
-  for (const item of facts.memoryItems) {
-    const personId = peopleByName.get(item.personName) ?? null;
-    const { data } = await admin
-      .from('kwilt_phone_agent_memory_items')
-      .insert({
-        user_id: link.user_id,
-        person_id: personId,
-        activity_id: activityId,
-        kind: item.kind,
-        text: item.text,
-        source_channel: 'sms',
-        source_twilio_message_sid: messageSid,
-      })
-      .select('id')
-      .single();
-    if ((data as { id?: string } | null)?.id) linkedIds.memory_item_id = (data as { id: string }).id;
-    if (personId) linkedIds.person_id = personId;
-  }
-
-  for (const event of facts.events) {
-    const personId = peopleByName.get(event.personName) ?? null;
-    const { data } = await admin
-      .from('kwilt_phone_agent_events')
-      .insert({
-        user_id: link.user_id,
-        person_id: personId,
-        activity_id: activityId,
-        kind: event.kind,
-        title: event.title,
-        date_text: event.dateText,
-      })
-      .select('id')
-      .single();
-    const eventId = (data as { id?: string } | null)?.id ?? null;
-    if (eventId) linkedIds.event_id = eventId;
-    if (personId) linkedIds.person_id = personId;
-
-    if (event.kind === 'birthday' && eventId) {
-      for (const schedule of buildBirthdayPromptSchedule({ dateText: event.dateText, nowIso })) {
-        await admin.from('kwilt_phone_agent_prompts').insert({
-          user_id: link.user_id,
-          phone_link_id: link.id,
-          activity_id: activityId,
-          person_id: personId,
-          event_id: eventId,
-          source_kind: 'event',
-          prompt_kind: 'birthday',
-          due_at: dateTextToDueIso(schedule.dueDateText),
-          body: schedule.offsetDays === 10
-            ? `${event.title} is in 10 days. Want to plan something small?`
-            : `${event.title} is tomorrow. Want to send a note?`,
-          payload: { offsetDays: schedule.offsetDays },
-        });
-      }
-    }
-  }
-
-  for (const cadence of facts.cadences) {
-    const personId = peopleByName.get(cadence.personName) ?? null;
-    const { data } = await admin
-      .from('kwilt_phone_agent_cadences')
-      .insert({
-        user_id: link.user_id,
-        person_id: personId,
-        activity_id: activityId,
-        kind: cadence.kind,
-        interval_days: cadence.intervalDays,
-        next_due_at: addDaysIso(cadence.intervalDays),
-      })
-      .select('id')
-      .single();
-    const cadenceId = (data as { id?: string } | null)?.id ?? null;
-    if (cadenceId) linkedIds.cadence_id = cadenceId;
-    if (personId) linkedIds.person_id = personId;
-  }
-
-  const hasSpecificSchedule = facts.events.some((event) => event.kind === 'birthday') || facts.cadences.length > 0;
-  if (safePermission(link, 'send_followups') && !hasSpecificSchedule) {
-    await admin.from('kwilt_phone_agent_prompts').insert({
-      user_id: link.user_id,
-      phone_link_id: link.id,
-      activity_id: activityId,
-      source_kind: 'activity',
-      prompt_kind: 'followup',
-      due_at: nextMorningIso(),
-      body: `Did you make progress on "${body.slice(0, 80)}"? Reply done, snooze 2d, pause, or not relevant.`,
-    });
-  }
+  const queued = buildAgentChannelJobInsert({
+    userId: link.user_id,
+    phoneLinkId: link.id,
+    externalMessageId: messageSid,
+    prompt: body,
+  });
+  const { error: queueError } = await admin.from('kwilt_agent_channel_jobs').upsert(queued, {
+    onConflict: 'channel,phone_link_id,external_message_id',
+    ignoreDuplicates: true,
+  });
+  if (queueError) return twiml('Kwilt could not queue that yet. Please try again.', 503);
 
   await insertActionLog(admin, {
     user_id: link.user_id,
     phone_link_id: link.id,
-    action_type: 'capture_activity',
-    activity_id: activityId,
+    action_type: 'queue_agent_turn',
     twilio_message_sid: messageSid,
-    input_summary: 'sms_capture',
-    output_summary: 'activity_saved',
-    permission_used: 'create_activities',
-    ...linkedIds,
+    input_summary: 'sms_agent_request',
+    output_summary: 'queued',
+    permission_used: null,
   });
-
-  if (safePermission(link, 'send_followups')) {
-    return twiml('Saved. I can remind you tomorrow morning. Reply `change time` if that is wrong.');
-  }
-  return twiml('Saved. You can manage Phone Agent follow-ups in Kwilt settings.');
+  return twiml('Got it. I’m working on that and will text back shortly.');
 });

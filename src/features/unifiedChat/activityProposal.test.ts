@@ -13,7 +13,8 @@ describe('Unified Chat Activity proposals', () => {
     const payload = payloadSchema.properties;
     expect(payloadSchema.required).toEqual([
       'title', 'notes', 'goalId', 'type', 'status', 'tags', 'priority',
-      'scheduledDate', 'estimateMinutes', 'difficulty', 'clearFields',
+      'scheduledDate', 'reminderAt', 'repeatRule', 'repeatCustom', 'repeatBasis',
+      'estimateMinutes', 'difficulty', 'clearFields',
     ]);
     expect(payload.type).toEqual({
       type: ['string', 'null'],
@@ -25,10 +26,44 @@ describe('Unified Chat Activity proposals', () => {
     expect(payload.tags).toMatchObject({ maxItems: 20 });
     expect(payload.tags.items).toMatchObject({ minLength: 1, maxLength: 80 });
     expect(payload.scheduledDate).toMatchObject({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' });
+    expect(payload.reminderAt).toMatchObject({ format: 'date-time' });
     expect(payload.estimateMinutes).toMatchObject({ minimum: 1, maximum: 1440 });
     expect(payload.clearFields.items.enum).toEqual([
-      'notes', 'goalId', 'tags', 'priority', 'scheduledDate', 'estimateMinutes', 'difficulty',
+      'notes', 'goalId', 'tags', 'priority', 'scheduledDate', 'reminderAt',
+      'repeatRule', 'repeatCustom', 'repeatBasis', 'estimateMinutes', 'difficulty',
     ]);
+  });
+
+  test('parses bounded reminder and recurrence fields and rejects malformed custom recurrence', () => {
+    expect(parseActivityActionResponse(JSON.stringify({
+      answer: 'I drafted the schedule change.',
+      proposal: {
+        title: 'Repeat the school call', body: 'Adds a weekly reminder.',
+        operation: {
+          type: 'update_activity', targetId: 'activity-school',
+          expectedUpdatedAt: '2026-07-22T13:00:00.000Z',
+          payload: {
+            reminderAt: '2026-07-30T15:00:00.000Z', repeatRule: 'custom',
+            repeatCustom: { cadence: 'weeks', interval: 2, weekdays: [1, 3] },
+            repeatBasis: 'scheduled',
+          },
+        },
+      },
+    }))?.proposal?.operation.payload).toMatchObject({
+      reminderAt: '2026-07-30T15:00:00.000Z', repeatRule: 'custom',
+      repeatCustom: { cadence: 'weeks', interval: 2, weekdays: [1, 3] },
+      repeatBasis: 'scheduled',
+    });
+
+    expect(parseActivityActionResponse(JSON.stringify({
+      answer: 'Drafted.', proposal: {
+        title: 'Repeat it', body: 'Invalid recurrence.', operation: {
+          type: 'update_activity', targetId: 'activity-school',
+          expectedUpdatedAt: '2026-07-22T13:00:00.000Z',
+          payload: { repeatRule: 'custom', repeatCustom: { cadence: 'weeks', interval: 0, weekdays: [9] } },
+        },
+      },
+    }))).toBeNull();
   });
 
   test('parses a bounded create proposal without applying it', () => {

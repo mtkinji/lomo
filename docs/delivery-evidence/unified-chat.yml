@@ -2,7 +2,7 @@ id: unified-chat
 brief: docs/feature-briefs/unified-chat.md
 job_flow: job-flow-nina-trust-ai-with-my-life-system
 job_flow_source: docs/job-flows/nina-trust-ai-with-my-life-system.md
-last_reviewed: 2026-07-22
+last_reviewed: 2026-07-23
 scale:
   1: mostly absent or represented only by strategy
   2: partial local behavior without the durable trust contract
@@ -32,10 +32,12 @@ steps:
   - id: 2
     name: Express intent in ordinary language
     score: 4
-    gap: Durable free-form text, name-only To-do capture, native recording, authenticated transcription, and bounded text-document attachment work in Unified Chat; physical-device interaction proof remains.
+    gap: Durable free-form text, hybrid semantic routing, typed pending-work cancellation, native recording, authenticated transcription, and bounded text-document attachment work in code; the expanded matrix still needs signed-device and deployed-channel proof.
     code:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/requestPolicy.ts
+      - src/features/unifiedChat/hybridRequestPolicy.ts
+      - src/features/unifiedChat/typedTurnControl.ts
       - src/features/unifiedChat/threadRepository.ts
       - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
       - src/features/unifiedChat/unifiedChatVoice.ts
@@ -46,6 +48,8 @@ steps:
     tests:
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
       - src/features/unifiedChat/requestPolicy.test.ts
+      - src/features/unifiedChat/requestRoutingEvalCases.test.ts
+      - src/features/unifiedChat/typedTurnControl.test.ts
       - src/features/unifiedChat/threadRepository.test.ts
       - scripts/unified-chat-migration-contract.test.mjs
       - src/features/unifiedChat/UnifiedChatScreen.test.tsx
@@ -81,7 +85,7 @@ steps:
   - id: 4
     name: Retrieve inspectable evidence
     score: 4
-    gap: Goals To-dos and Chapters feed bounded persisted evidence and coverage into the model request and workbench; signed physical-device proof remains.
+    gap: Goals To-dos Chapters the bounded Profile projection and owner-scoped relationship records feed owned evidence into Chat; signed physical-device and deployed Phone proof remain.
     code:
       - src/features/unifiedChat/buildRunContext.ts
       - src/features/unifiedChat/capabilityContracts.ts
@@ -89,12 +93,25 @@ steps:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/threadRepository.ts
       - src/features/unifiedChat/buildWorkbenchSnapshot.ts
+      - src/services/sync/agentProfileProjection.ts
+      - supabase/functions/_shared/serverProfileTools.ts
+      - supabase/functions/_shared/serverRelationshipTools.ts
+      - supabase/migrations/20260723190000_unified_chat_agent_profile_projection.sql
+      - supabase/migrations/20260723193000_unified_chat_relationship_memory.sql
+      - supabase/migrations/20260723194500_unified_chat_relationship_management.sql
+      - supabase/functions/relationship-memory/index.ts
+      - src/services/relationshipMemoryToolProvider.ts
     tests:
       - src/features/unifiedChat/buildRunContext.test.ts
       - src/features/unifiedChat/capabilityAdapters.test.ts
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
       - src/features/unifiedChat/threadRepository.test.ts
       - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
+      - src/services/sync/agentProfileProjection.test.ts
+      - src/services/sync/domainSync.test.ts
+      - supabase/functions/_shared/__tests__/serverProfileTools.test.ts
+      - supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts
+      - src/services/relationshipMemoryToolProvider.test.ts
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
     proof:
@@ -120,21 +137,39 @@ steps:
   - id: 6
     name: Review a typed capability-owned proposal
     score: 4
-    gap: Explicit and ordinary name-only To-do creates now auto-apply, run all available Quick Add AI enrichments, and project an authoritative standard-inventory row; updates retain schema-bounded proposals. Physical-device proof remains.
+    gap: Core capability writes are schema-bounded proposals; grouped calendar chunks are separately reviewable and retain one proposal per provider event. Physical-device proof remains.
     code:
       - src/features/unifiedChat/workbenchProtocol.ts
       - src/features/unifiedChat/activityProposal.ts
       - src/features/unifiedChat/runUnifiedChatTurn.ts
       - src/features/unifiedChat/threadRepository.ts
+      - supabase/functions/_shared/serverRelationshipTools.ts
+      - supabase/functions/relationship-memory/index.ts
+      - supabase/migrations/20260723194500_unified_chat_relationship_management.sql
       - src/features/unifiedChat/buildWorkbenchSnapshot.ts
       - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.ts
+      - src/features/unifiedChat/unifiedChatToolProvider.ts
+      - src/features/unifiedChat/planProposalExecutor.ts
+      - supabase/functions/_shared/serverAgentTools.ts
+      - supabase/functions/_shared/serviceAgentRunPersistence.ts
+      - supabase/functions/_shared/serverProfileTools.ts
+      - supabase/migrations/20260723174500_unified_chat_server_proposal_staging.sql
+      - supabase/migrations/20260723190000_unified_chat_agent_profile_projection.sql
     tests:
       - src/features/unifiedChat/workbenchProtocol.test.ts
       - src/features/unifiedChat/activityProposal.test.ts
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
       - src/features/unifiedChat/threadRepository.test.ts
+      - supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts
+      - src/services/relationshipMemoryToolProvider.test.ts
       - src/features/unifiedChat/buildWorkbenchSnapshot.test.ts
       - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.test.ts
+      - src/features/unifiedChat/unifiedChatToolProvider.test.ts
+      - src/features/unifiedChat/planProposalExecutor.test.ts
+      - supabase/functions/_shared/__tests__/serverAgentTools.test.ts
+      - supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts
+      - supabase/functions/_shared/__tests__/serverProfileTools.test.ts
+      - scripts/unified-chat-migration-contract.test.mjs
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
     proof:
@@ -142,13 +177,14 @@ steps:
   - id: 7
     name: Correct decline defer or approve
     score: 4
-    gap: Explicit create intent now serves as the durable approval; update decisions remain atomic and owner-scoped. Simulator row-tap and swipe-delete are proven; physical-device proof remains.
+    gap: Explicit create intent now serves as durable approval; update decisions remain atomic and owner-scoped, typed cancellation rejects one exact pending change, and relationship correction or forgetting requires an exact versioned record. Simulator row-tap and swipe-delete are proven; the new multi-capability controls need signed-device proof.
     code:
       - src/features/unifiedChat/workbenchProtocol.ts
       - src/features/unifiedChat/runStateMachine.ts
       - src/features/unifiedChat/executeProposalDecision.ts
       - src/features/unifiedChat/UnifiedChatScreen.tsx
       - src/features/unifiedChat/autoApplyCreatePolicy.ts
+      - src/features/unifiedChat/typedTurnControl.ts
       - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
       - src/features/unifiedChat/threadRepository.ts
     tests:
@@ -157,6 +193,7 @@ steps:
       - src/features/unifiedChat/executeProposalDecision.test.ts
       - src/features/unifiedChat/UnifiedChatScreen.test.tsx
       - src/features/unifiedChat/autoApplyCreatePolicy.test.ts
+      - src/features/unifiedChat/typedTurnControl.test.ts
       - scripts/unified-chat-migration-contract.test.mjs
       - src/features/unifiedChat/threadRepository.test.ts
     runtime_evidence:
@@ -166,7 +203,7 @@ steps:
   - id: 8
     name: Apply idempotently with authoritative receipt
     score: 4
-    gap: Approved To-do operations reserve a receipt before native mutation, enrich through Quick Add, recover across crash windows, and finalize authoritatively before applied status. Simulator proof is complete; physical-device proof remains.
+    gap: Approved capability operations reserve receipts before mutation and recover across crash windows. Relationship remember correct and forget use one atomic service transaction; calendar chunks apply sequentially with one provider event and receipt per proposal. Signed-provider and physical-device proof remain.
     code:
       - src/features/unifiedChat/threadRepository.ts
       - src/features/unifiedChat/activityProposalExecutor.ts
@@ -175,6 +212,11 @@ steps:
       - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
       - src/features/unifiedChat/UnifiedChatScreen.tsx
       - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.ts
+      - src/features/unifiedChat/planProposalExecutor.ts
+      - src/features/unifiedChat/executePlanProposalDecision.ts
+      - src/features/unifiedChat/recoverPlanMutations.ts
+      - supabase/functions/_shared/serverRelationshipTools.ts
+      - supabase/migrations/20260723194500_unified_chat_relationship_management.sql
     tests:
       - src/features/unifiedChat/threadRepository.test.ts
       - src/features/unifiedChat/activityProposalExecutor.test.ts
@@ -183,6 +225,11 @@ steps:
       - scripts/unified-chat-migration-contract.test.mjs
       - src/features/unifiedChat/UnifiedChatScreen.test.tsx
       - src/features/unifiedChat/enrichCreatedActivityLikeQuickAdd.test.ts
+      - src/features/unifiedChat/planProposalExecutor.test.ts
+      - src/features/unifiedChat/executePlanProposalDecision.test.ts
+      - src/features/unifiedChat/recoverPlanMutations.test.ts
+      - supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts
+      - src/features/unifiedChat/threadRepository.test.ts
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
@@ -211,19 +258,36 @@ steps:
   - id: 10
     name: Resume correct and undo
     score: 4
-    gap: Threads resume durably with stop, steer, duplicate-free retry, correction, feedback, crash recovery, and receipt-backed swipe Delete. Simulator delete proof is complete; remaining interaction and physical-device proof are required.
+    gap: Threads resume durably with stop, steer, typed cancellation, duplicate-free retry, correction, feedback, capability-specific crash recovery, receipt-backed native undo, and atomic restore for exact relationship corrections or individual forgotten records. Remember can be compensated through exact-record forgetting but lacks one-tap receipt Undo; whole-person forgetting remains explicitly excluded until dependent review and restore exist. Reconciliation telemetry and signed device and Phone continuity proof remain required.
     code:
       - src/features/unifiedChat/threadRepository.ts
       - src/features/unifiedChat/UnifiedChatScreen.tsx
       - src/features/unifiedChat/executeReceiptUndo.ts
+      - src/services/relationshipMemoryToolProvider.ts
       - src/features/unifiedChat/recoverActivityMutations.ts
+      - src/features/unifiedChat/agentCapabilityEvalCases.ts
+      - src/features/unifiedChat/unifiedChatTelemetry.ts
+      - src/features/unifiedChat/chatCapabilityCoverage.ts
+      - src/features/unifiedChat/agentCapabilityEvalCases.ts
+      - supabase/functions/_shared/serviceAgentRunPersistence.ts
       - supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql
+      - supabase/functions/relationship-memory/index.ts
+      - supabase/functions/_shared/serverRelationshipTools.ts
+      - supabase/migrations/20260723194500_unified_chat_relationship_management.sql
     tests:
       - src/features/unifiedChat/threadRepository.test.ts
       - src/features/unifiedChat/UnifiedChatScreen.test.tsx
       - src/features/unifiedChat/executeReceiptUndo.test.ts
+      - src/services/relationshipMemoryToolProvider.test.ts
       - src/features/unifiedChat/recoverActivityMutations.test.ts
+      - src/features/unifiedChat/agentCapabilityEvalCases.test.ts
+      - src/features/unifiedChat/unifiedChatTelemetry.test.ts
+      - src/features/unifiedChat/chatCapabilityCoverage.test.ts
+      - src/features/unifiedChat/agentCapabilityEvalCases.test.ts
+      - supabase/functions/_shared/__tests__/agentRunCoordinator.test.ts
+      - supabase/functions/_shared/__tests__/serviceAgentRunPersistence.test.ts
       - scripts/unified-chat-migration-contract.test.mjs
+      - supabase/functions/_shared/__tests__/serverRelationshipTools.test.ts
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
     proof:

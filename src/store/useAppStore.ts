@@ -1208,9 +1208,21 @@ interface AppState {
   addArc: (arc: Arc) => void;
   updateArc: (arcId: string, updater: Updater<Arc>) => void;
   removeArc: (arcId: string) => void;
+  restoreRemovedArc: (params: {
+    arc: Arc;
+    arcIndex: number;
+    goals: Array<{ goal: Goal; originalIndex: number }>;
+    activities: Array<{ activity: Activity; originalIndex: number }>;
+    goalRecommendations: GoalDraft[];
+  }) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goalId: string, updater: Updater<Goal>) => void;
   removeGoal: (goalId: string) => void;
+  restoreRemovedGoal: (params: {
+    goal: Goal;
+    goalIndex?: number;
+    activities?: Array<{ activity: Activity; originalIndex?: number }>;
+  }) => void;
   addActivity: (activity: Activity) => void;
   updateActivity: (activityId: string, updater: Updater<Activity>) => void;
   setActivityPriorityState: (activityId: string, priorityState: ActivityPriorityState) => void;
@@ -1235,6 +1247,7 @@ interface AppState {
   clearAuthIdentity: () => void;
   setUserProfile: (profile: UserProfile) => void;
   updateUserProfile: (updater: (current: UserProfile) => UserProfile) => void;
+  updateUserProfileAt: (updater: (current: UserProfile) => UserProfile, updatedAt: string) => void;
   clearUserProfile: () => void;
   setLlmModel: (model: LlmModel) => void;
   setLlmModelSystem: (model: LlmModel) => void;
@@ -1848,6 +1861,41 @@ export const useAppStore = create<AppState>()(
             goalRecommendations: restRecommendations,
           };
         }),
+      restoreRemovedArc: ({ arc, arcIndex, goals, activities, goalRecommendations }) =>
+        set((state) => {
+          const nextArcs = [...state.arcs];
+          const existingArcIndex = nextArcs.findIndex((candidate) => candidate.id === arc.id);
+          if (existingArcIndex >= 0) nextArcs[existingArcIndex] = arc;
+          else nextArcs.splice(Math.min(Math.max(0, arcIndex), nextArcs.length), 0, arc);
+
+          const nextGoals = [...state.goals];
+          [...goals]
+            .sort((left, right) => left.originalIndex - right.originalIndex)
+            .forEach(({ goal, originalIndex }) => {
+              const existingIndex = nextGoals.findIndex((candidate) => candidate.id === goal.id);
+              if (existingIndex >= 0) nextGoals[existingIndex] = goal;
+              else nextGoals.splice(Math.min(Math.max(0, originalIndex), nextGoals.length), 0, goal);
+            });
+
+          const nextActivities = [...state.activities];
+          [...activities]
+            .sort((left, right) => left.originalIndex - right.originalIndex)
+            .forEach(({ activity, originalIndex }) => {
+              const existingIndex = nextActivities.findIndex((candidate) => candidate.id === activity.id);
+              if (existingIndex >= 0) nextActivities[existingIndex] = activity;
+              else nextActivities.splice(Math.min(Math.max(0, originalIndex), nextActivities.length), 0, activity);
+            });
+
+          return {
+            arcs: nextArcs,
+            goals: nextGoals,
+            activities: nextActivities,
+            goalRecommendations: {
+              ...state.goalRecommendations,
+              ...(goalRecommendations.length > 0 ? { [arc.id]: goalRecommendations } : {}),
+            },
+          };
+        }),
       addGoal: (goal) =>
         set((state) => {
           const shouldTriggerPostGoalGuide =
@@ -1881,6 +1929,33 @@ export const useAppStore = create<AppState>()(
             pendingPostGoalPlanGuideGoalId:
               state.pendingPostGoalPlanGuideGoalId === goalId ? null : state.pendingPostGoalPlanGuideGoalId,
           };
+        }),
+      restoreRemovedGoal: ({ goal, goalIndex, activities = [] }) =>
+        set((state) => {
+          const nextGoals = [...state.goals];
+          const existingGoalIndex = nextGoals.findIndex((candidate) => candidate.id === goal.id);
+          if (existingGoalIndex >= 0) nextGoals[existingGoalIndex] = goal;
+          else nextGoals.splice(
+            typeof goalIndex === 'number' ? Math.min(Math.max(0, goalIndex), nextGoals.length) : nextGoals.length,
+            0,
+            goal,
+          );
+
+          const nextActivities = [...state.activities];
+          [...activities]
+            .sort((left, right) => (left.originalIndex ?? Number.MAX_SAFE_INTEGER) - (right.originalIndex ?? Number.MAX_SAFE_INTEGER))
+            .forEach(({ activity, originalIndex }) => {
+              const existingIndex = nextActivities.findIndex((candidate) => candidate.id === activity.id);
+              if (existingIndex >= 0) nextActivities[existingIndex] = activity;
+              else nextActivities.splice(
+                typeof originalIndex === 'number'
+                  ? Math.min(Math.max(0, originalIndex), nextActivities.length)
+                  : nextActivities.length,
+                0,
+                activity,
+              );
+            });
+          return { goals: nextGoals, activities: nextActivities };
         }),
       addActivity: (activity) =>
         set((state) => {
@@ -2458,6 +2533,12 @@ export const useAppStore = create<AppState>()(
               updatedAt: now(),
             },
           };
+        }),
+      updateUserProfileAt: (updater, updatedAt) =>
+        set((state) => {
+          const base: UserProfile = state.userProfile ?? buildDefaultUserProfile();
+          const next = updater(base);
+          return { userProfile: { ...next, updatedAt } };
         }),
       clearUserProfile: () => set({ userProfile: null }),
       setLlmModel: (model) => set({ llmModel: model, hasCustomizedLlmModel: true }),

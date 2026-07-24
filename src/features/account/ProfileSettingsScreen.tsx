@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -21,6 +21,7 @@ type SettingsNavigationProp = NativeStackNavigationProp<
 
 export function ProfileSettingsScreen() {
   const navigation = useNavigation<SettingsNavigationProp>();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'SettingsProfile'>>();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
@@ -173,6 +174,12 @@ export function ProfileSettingsScreen() {
     );
   };
 
+  useEffect(() => {
+    if (!route.params?.openAccountDeletion) return;
+    navigation.setParams({ openAccountDeletion: undefined });
+    confirmAccountDeletion();
+  }, [navigation, route.params?.openAccountDeletion]);
+
   return (
     <AppShell>
       <View style={styles.screen}>
@@ -320,4 +327,3 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-

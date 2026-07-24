@@ -1,5 +1,13 @@
 import type { Activity, ActivityArea, Arc, Goal, UserProfile } from '../../domain/types';
-import { getActivityPriorityState, sortActivitiesByPriorityRanking } from '../../features/activities/activityPriority';
+import {
+  getPlanCandidateEligibility,
+  sortActivitiesByPriorityRanking,
+} from '../../features/activities/activityPriority';
+export type {
+  PlanCandidateEligibility,
+  PlanCandidateEligibilityReason,
+} from '../../features/activities/activityPriority';
+export { getPlanCandidateEligibility } from '../../features/activities/activityPriority';
 import type { BusyInterval, ProposedEvent } from '../scheduling/schedulingEngine';
 import { inferSchedulingDomain } from '../scheduling/inferSchedulingDomain';
 import { clampToNextQuarterHour, formatTimeLabel, setTimeOnDate, toLocalDateKey } from './planDates';
@@ -66,52 +74,6 @@ export type PlanUnplacedPriorityCandidate = {
   mode: PlanMode;
   priorityPosition: number;
 };
-
-export type PlanCandidateEligibilityReason =
-  | 'closed'
-  | 'not_active'
-  | 'already_scheduled'
-  | 'dismissed';
-
-export type PlanCandidateEligibility = {
-  eligible: boolean;
-  reason: PlanCandidateEligibilityReason | null;
-  scheduleState: 'unscheduled' | 'scheduled' | 'stale';
-};
-
-export function getPlanCandidateEligibility(params: {
-  activity: Activity;
-  now: Date;
-  dismissedActivityIds?: string[] | Set<string>;
-}): PlanCandidateEligibility {
-  const { activity, now, dismissedActivityIds } = params;
-  const dismissed =
-    dismissedActivityIds instanceof Set
-      ? dismissedActivityIds
-      : new Set(Array.isArray(dismissedActivityIds) ? dismissedActivityIds : []);
-
-  if (activity.status === 'done' || activity.status === 'skipped' || activity.status === 'cancelled') {
-    return { eligible: false, reason: 'closed', scheduleState: 'unscheduled' };
-  }
-  if (getActivityPriorityState(activity) !== 'active') {
-    return { eligible: false, reason: 'not_active', scheduleState: 'unscheduled' };
-  }
-  if (dismissed.has(activity.id)) {
-    return { eligible: false, reason: 'dismissed', scheduleState: 'unscheduled' };
-  }
-
-  const scheduledStartMs = activity.scheduledAt ? Date.parse(activity.scheduledAt) : Number.NaN;
-  if (Number.isFinite(scheduledStartMs)) {
-    const durationMinutes = Math.max(10, activity.estimateMinutes ?? 30);
-    const scheduledEndMs = scheduledStartMs + durationMinutes * 60_000;
-    if (scheduledEndMs > now.getTime()) {
-      return { eligible: false, reason: 'already_scheduled', scheduleState: 'scheduled' };
-    }
-    return { eligible: true, reason: null, scheduleState: 'stale' };
-  }
-
-  return { eligible: true, reason: null, scheduleState: 'unscheduled' };
-}
 
 export function proposeDailyPlan(params: {
   activities: Activity[];

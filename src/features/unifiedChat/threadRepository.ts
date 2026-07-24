@@ -24,7 +24,12 @@ import type {
   AttachUnifiedChatContextInput,
   UnifiedChatContextRef,
   UnifiedChatMessageAttachment,
+  PlanScheduleActivityPayload,
+  CreateUnifiedChatClientActionInput,
+  TransitionUnifiedChatClientActionInput,
+  UnifiedChatClientAction,
 } from './types';
+import { isUnifiedChatCapabilityId } from './requestPolicy';
 import { validateUnifiedChatAttachmentSet } from './unifiedChatAttachmentPolicy';
 
 const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,updated_at';
@@ -37,13 +42,15 @@ const PROPOSAL_COLUMNS =
 const PROPOSAL_OPERATION_COLUMNS =
   'id,proposal_id,capability_id,operation_type,target_id,summary,payload,idempotency_key,sequence';
 const RUN_EVENT_COLUMNS =
-  'id,thread_id,run_id,sequence,event_type,status,visibility,label,detail';
+  'id,thread_id,run_id,sequence,event_type,status,visibility,label,detail,payload';
 const EVIDENCE_COLUMNS =
   'id,thread_id,run_id,sequence,capability_id,object_type,object_id,label,selection_status,authority,freshness_class,selection_reason,sufficient,coverage_note';
 const RECEIPT_COLUMNS =
   'id,proposal_id,operation_id,capability_id,idempotency_key,status,resulting_object_type,resulting_object_id,result_state,return_target,undo_operation,applied_at,undone_at';
 const CONTEXT_COLUMNS =
   'id,thread_id,capability_id,object_type,object_id,label,secondary_label,source,active,return_target,version';
+const CLIENT_ACTION_COLUMNS =
+  'id,thread_id,run_id,message_id,capability_id,action_type,target_type,target_id,title,consequence_summary,payload,idempotency_key,status,result,error_code,error_message,version,presented_at,completed_at,created_at,updated_at';
 
 type DbError = { message?: string; code?: string } | null;
 type DbRow = Record<string, unknown>;
@@ -68,6 +75,16 @@ export class UnifiedChatRepositoryError extends Error {
 function assertNoError(error: DbError, fallback: string): void {
   if (!error) return;
   throw new UnifiedChatRepositoryError(error.message || fallback, error.code);
+}
+
+function isMissingOptionalRelation(error: DbError, relation: string): boolean {
+  if (!error || (error.code !== 'PGRST205' && error.code !== '42P01')) return false;
+  const message = (error.message ?? '').toLowerCase();
+  return message.includes(relation.toLowerCase()) && (
+    message.includes('schema cache') ||
+    message.includes('could not find the table') ||
+    message.includes('relation')
+  );
 }
 
 function mapThread(row: DbRow): UnifiedChatThread {
@@ -166,13 +183,7 @@ function mapRun(row: DbRow): UnifiedChatRun {
     completedAt: typeof row.completed_at === 'string' ? row.completed_at : null,
     requestClass,
     participatingCapabilities: Array.isArray(row.participating_capabilities)
-      ? row.participating_capabilities.filter(
-          (value): value is UnifiedChatRun['participatingCapabilities'][number] =>
-            value === 'goals' ||
-            value === 'todos' ||
-            value === 'chapters' ||
-            value === 'screenTime',
-        )
+      ? row.participating_capabilities.filter(isUnifiedChatCapabilityId)
       : [],
     contextPolicy: {
       usePrivateContext: rawContextPolicy.usePrivateContext === true,
@@ -202,12 +213,15 @@ function mapRunEvent(row: DbRow): UnifiedChatRunEvent {
     visibility: row.visibility === 'user' ? 'user' : 'internal',
     label: typeof row.label === 'string' ? row.label : null,
     detail: typeof row.detail === 'string' ? row.detail : null,
+    payload: row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+      ? row.payload as Record<string, unknown>
+      : {},
   };
 }
 
 function mapEvidence(row: DbRow): UnifiedChatEvidenceRef | null {
   const capabilityId = row.capability_id;
-  if (capabilityId !== 'goals' && capabilityId !== 'todos' && capabilityId !== 'chapters' && capabilityId !== 'screenTime') return null;
+  if (!isUnifiedChatCapabilityId(capabilityId)) return null;
   const authority = row.authority === 'derived' || row.authority === 'user_supplied' ? row.authority : 'authoritative';
   const freshness = row.freshness_class === 'current' || row.freshness_class === 'recent' || row.freshness_class === 'stale' ? row.freshness_class : 'unknown';
   return {
@@ -223,18 +237,156 @@ function mapEvidence(row: DbRow): UnifiedChatEvidenceRef | null {
 
 function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
   const base = {
-    id: String(row.id), proposalId: String(row.proposal_id), capabilityId: 'todos' as const,
+    id: String(row.id), proposalId: String(row.proposal_id),
     summary: String(row.summary), idempotencyKey: String(row.idempotency_key),
     sequence: Number(row.sequence) || 1,
   };
   const payload = row.payload && typeof row.payload === 'object'
     ? row.payload as Record<string, unknown>
     : {};
+  if (
+    row.capability_id === 'relationships' &&
+    (row.operation_type === 'remember_relationship' || row.operation_type === 'correct_relationship' ||
+      row.operation_type === 'forget_relationship') &&
+    typeof row.target_id === 'string'
+  ) {
+    return {
+      ...base, capabilityId: 'relationships', type: row.operation_type,
+      targetId: row.target_id, payload,
+    };
+  }
+  if (row.capability_id === 'chapters' && row.operation_type === 'update_chapter_note' &&
+      typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string' &&
+      (payload.note === null || typeof payload.note === 'string')) {
+    return {
+      ...base, capabilityId: 'chapters', type: 'update_chapter_note', targetId: row.target_id, payload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'profile' && row.operation_type === 'update_profile' &&
+      typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string') {
+    return {
+      ...base, capabilityId: 'profile', type: 'update_profile', targetId: row.target_id, payload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'arcs' && row.operation_type === 'create_arc' && typeof payload.name === 'string') {
+    return {
+      ...base, capabilityId: 'arcs', type: 'create_arc', targetId: null,
+      payload: { ...payload, expectedUpdatedAt: null },
+    } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'arcs' && row.operation_type === 'update_arc' &&
+      typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string') {
+    return {
+      ...base, capabilityId: 'arcs', type: 'update_arc', targetId: row.target_id, payload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (row.capability_id === 'arcs' && row.operation_type === 'delete_arc' &&
+      typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string') {
+    return {
+      ...base, capabilityId: 'arcs', type: 'delete_arc', targetId: row.target_id,
+      payload: { expectedUpdatedAt: payload.expectedUpdatedAt },
+    };
+  }
   if (row.operation_type === 'create_activity' && typeof payload.title === 'string') {
-    return { ...base, type: 'create_activity', targetId: null, payload: { ...payload, title: payload.title, expectedUpdatedAt: null } } as UnifiedChatProposalOperation;
+    return { ...base, capabilityId: 'todos', type: 'create_activity', targetId: null, payload: { ...payload, title: payload.title, expectedUpdatedAt: null } } as UnifiedChatProposalOperation;
   }
   if (row.operation_type === 'update_activity' && typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string') {
-    return { ...base, type: 'update_activity', targetId: row.target_id, payload: { ...payload, expectedUpdatedAt: payload.expectedUpdatedAt } } as UnifiedChatProposalOperation;
+    return { ...base, capabilityId: 'todos', type: 'update_activity', targetId: row.target_id, payload: { ...payload, expectedUpdatedAt: payload.expectedUpdatedAt } } as UnifiedChatProposalOperation;
+  }
+  if (row.operation_type === 'delete_activity' && typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string') {
+    return { ...base, capabilityId: 'todos', type: 'delete_activity', targetId: row.target_id, payload: { expectedUpdatedAt: payload.expectedUpdatedAt } };
+  }
+  if (
+    row.operation_type === 'update_goal' && row.capability_id === 'goals' &&
+    typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string'
+  ) {
+    return { ...base, capabilityId: 'goals', type: 'update_goal', targetId: row.target_id, payload } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.operation_type === 'create_goal' && row.capability_id === 'goals' &&
+    typeof payload.title === 'string'
+  ) {
+    return {
+      ...base, capabilityId: 'goals', type: 'create_goal', targetId: null,
+      payload: { ...payload, expectedUpdatedAt: null },
+    } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.operation_type === 'delete_goal' && row.capability_id === 'goals' &&
+    typeof row.target_id === 'string' && typeof payload.expectedUpdatedAt === 'string'
+  ) {
+    return {
+      ...base, capabilityId: 'goals', type: 'delete_goal', targetId: row.target_id,
+      payload: { expectedUpdatedAt: payload.expectedUpdatedAt },
+    };
+  }
+  const activityStepOperationTypes = new Set([
+    'create_activity_step',
+    'update_activity_step',
+    'complete_activity_step',
+    'delete_activity_step',
+    'reorder_activity_steps',
+  ]);
+  if (
+    typeof row.operation_type === 'string' &&
+    activityStepOperationTypes.has(row.operation_type) &&
+    row.capability_id === 'todos' &&
+    typeof row.target_id === 'string' &&
+    typeof payload.expectedUpdatedAt === 'string'
+  ) {
+    return {
+      ...base,
+      capabilityId: 'todos',
+      type: row.operation_type,
+      targetId: row.target_id,
+      payload,
+    } as UnifiedChatProposalOperation;
+  }
+  const calendarRef = payload.writeCalendarRef;
+  if (
+    row.operation_type === 'schedule_activity_chunk' && row.capability_id === 'plan' &&
+    typeof row.target_id === 'string' && typeof payload.activityId === 'string' &&
+    typeof payload.expectedUpdatedAt === 'string' && typeof payload.groupId === 'string' &&
+    typeof payload.chunkId === 'string' && typeof payload.title === 'string' &&
+    typeof payload.startDate === 'string' && typeof payload.endDate === 'string' &&
+    typeof payload.targetDateKey === 'string' && calendarRef && typeof calendarRef === 'object' &&
+    ((calendarRef as DbRow).provider === 'google' || (calendarRef as DbRow).provider === 'microsoft') &&
+    typeof (calendarRef as DbRow).accountId === 'string' && typeof (calendarRef as DbRow).calendarId === 'string'
+  ) {
+    return {
+      ...base, capabilityId: 'plan', type: 'schedule_activity_chunk', targetId: row.target_id, payload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (
+    (row.operation_type === 'schedule_activity' || row.operation_type === 'reschedule_activity') &&
+    row.capability_id === 'plan' &&
+    typeof row.target_id === 'string' && typeof payload.activityId === 'string' &&
+    typeof payload.expectedUpdatedAt === 'string' && typeof payload.startDate === 'string' &&
+    typeof payload.endDate === 'string' && typeof payload.targetDateKey === 'string' &&
+    (row.operation_type === 'reschedule_activity' || (
+      calendarRef && typeof calendarRef === 'object' &&
+      ((calendarRef as DbRow).provider === 'google' || (calendarRef as DbRow).provider === 'microsoft') &&
+      typeof (calendarRef as DbRow).accountId === 'string' && typeof (calendarRef as DbRow).calendarId === 'string'
+    ))
+  ) {
+    return {
+      ...base, capabilityId: 'plan', type: row.operation_type, targetId: row.target_id,
+      payload,
+    } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.operation_type === 'remove_activity_from_plan' && row.capability_id === 'plan' &&
+    typeof row.target_id === 'string' && typeof payload.activityId === 'string' &&
+    typeof payload.expectedUpdatedAt === 'string' && typeof payload.previousStartDate === 'string' &&
+    typeof payload.previousEndDate === 'string' && typeof payload.previousTargetDateKey === 'string' &&
+    payload.previousBinding && typeof payload.previousBinding === 'object' &&
+    (payload.previousBinding as DbRow).kind === 'provider' &&
+    ((payload.previousBinding as DbRow).provider === 'google' || (payload.previousBinding as DbRow).provider === 'microsoft') &&
+    typeof (payload.previousBinding as DbRow).accountId === 'string' &&
+    typeof (payload.previousBinding as DbRow).calendarId === 'string' &&
+    typeof (payload.previousBinding as DbRow).eventId === 'string'
+  ) {
+    return { ...base, capabilityId: 'plan', type: 'remove_activity_from_plan', targetId: row.target_id, payload } as UnifiedChatProposalOperation;
   }
   return null;
 }
@@ -244,20 +396,22 @@ function mapProposal(row: DbRow, operation: UnifiedChatProposalOperation): Unifi
   return {
     id: String(row.id), threadId: String(row.thread_id), runId: String(row.run_id),
     messageId: typeof row.message_id === 'string' ? row.message_id : null,
-    capabilityId: 'todos', title: String(row.title), body: String(row.body),
+    capabilityId: operation.capabilityId, title: String(row.title), body: String(row.body),
     status: typeof row.status === 'string' && allowed.has(row.status) ? row.status as UnifiedChatProposal['status'] : 'failed',
     version: Number(row.version) || 1, createdAt: String(row.created_at), updatedAt: String(row.updated_at),
     operation,
-  };
+  } as UnifiedChatProposal;
 }
 
 function mapReceipt(row: DbRow): UnifiedChatMutationReceipt | null {
-  if (row.capability_id !== 'todos') return null;
+  if (row.capability_id !== 'todos' && row.capability_id !== 'plan' && row.capability_id !== 'goals' &&
+      row.capability_id !== 'arcs' && row.capability_id !== 'profile' && row.capability_id !== 'chapters' &&
+      row.capability_id !== 'relationships') return null;
   const status = row.status === 'reserved' || row.status === 'undone' || row.status === 'failed'
     ? row.status
     : 'applied';
   return {
-    id: String(row.id), proposalId: String(row.proposal_id), capabilityId: 'todos', status,
+    id: String(row.id), proposalId: String(row.proposal_id), capabilityId: row.capability_id, status,
     operationId: String(row.operation_id), idempotencyKey: String(row.idempotency_key),
     resultingObjectType: typeof row.resulting_object_type === 'string' ? row.resulting_object_type : null,
     resultingObjectId: typeof row.resulting_object_id === 'string' ? row.resulting_object_id : null,
@@ -272,7 +426,7 @@ function mapReceipt(row: DbRow): UnifiedChatMutationReceipt | null {
 
 function mapContextRef(row: DbRow): UnifiedChatContextRef | null {
   const capabilityId = row.capability_id;
-  if (capabilityId !== 'goals' && capabilityId !== 'todos' && capabilityId !== 'chapters' && capabilityId !== 'screenTime') return null;
+  if (!isUnifiedChatCapabilityId(capabilityId)) return null;
   const source = row.source === 'user_added' || row.source === 'retrieved_promoted' ? row.source : 'launch';
   return {
     id: String(row.id), threadId: String(row.thread_id), capabilityId,
@@ -281,6 +435,31 @@ function mapContextRef(row: DbRow): UnifiedChatContextRef | null {
     source, active: row.active === true,
     returnTarget: row.return_target && typeof row.return_target === 'object' ? row.return_target as Record<string, unknown> : null,
     version: Number(row.version) || 1,
+  };
+}
+
+function mapClientAction(row: DbRow): UnifiedChatClientAction | null {
+  const status = row.status;
+  if (status !== 'pending_client_action' && status !== 'presenting' && status !== 'completed' &&
+      status !== 'declined' && status !== 'failed') return null;
+  const capabilityId = row.capability_id;
+  if (!isUnifiedChatCapabilityId(capabilityId)) return null;
+  return {
+    id: String(row.id), threadId: String(row.thread_id), runId: String(row.run_id),
+    messageId: typeof row.message_id === 'string' ? row.message_id : null,
+    capabilityId, actionType: String(row.action_type),
+    targetType: typeof row.target_type === 'string' ? row.target_type : null,
+    targetId: typeof row.target_id === 'string' ? row.target_id : null,
+    title: String(row.title), consequenceSummary: String(row.consequence_summary),
+    payload: row.payload && typeof row.payload === 'object' ? row.payload as Record<string, unknown> : {},
+    idempotencyKey: String(row.idempotency_key), status,
+    result: row.result && typeof row.result === 'object' ? row.result as Record<string, unknown> : null,
+    errorCode: typeof row.error_code === 'string' ? row.error_code : null,
+    errorMessage: typeof row.error_message === 'string' ? row.error_message : null,
+    version: Number(row.version) || 1,
+    presentedAt: typeof row.presented_at === 'string' ? row.presented_at : null,
+    completedAt: typeof row.completed_at === 'string' ? row.completed_at : null,
+    createdAt: String(row.created_at), updatedAt: String(row.updated_at),
   };
 }
 
@@ -392,6 +571,17 @@ export function createUnifiedChatRepository(
         .eq('thread_id', threadId).eq('user_id', userId).eq('active', true)
         .order('created_at', { ascending: true });
       assertNoError(contextResult.error, 'Unable to load chat context.');
+      const clientActionsResult = await client
+        .from('kwilt_agent_client_actions').select(CLIENT_ACTION_COLUMNS)
+        .eq('thread_id', threadId).eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      const clientActionsUnavailable = isMissingOptionalRelation(
+        clientActionsResult.error,
+        'kwilt_agent_client_actions',
+      );
+      if (!clientActionsUnavailable) {
+        assertNoError(clientActionsResult.error, 'Unable to load pending device actions.');
+      }
       const operationByProposal = new Map(
         operations.map(mapLoadedOperation).filter((operation): operation is UnifiedChatProposalOperation => Boolean(operation))
           .map((operation) => [operation.proposalId, operation]),
@@ -409,6 +599,8 @@ export function createUnifiedChatRepository(
         }),
         receipts: (receiptsResult.data ?? []).map(mapReceipt).filter((item): item is UnifiedChatMutationReceipt => Boolean(item)),
         contextRefs: (contextResult.data ?? []).map(mapContextRef).filter((item): item is UnifiedChatContextRef => Boolean(item)),
+        clientActions: (clientActionsUnavailable ? [] : clientActionsResult.data ?? []).map(mapClientAction)
+          .filter((item): item is UnifiedChatClientAction => Boolean(item)),
       };
     },
 
@@ -674,7 +866,11 @@ export function createUnifiedChatRepository(
           proposal_id: proposalId,
           capability_id: input.capabilityId,
           operation_type: input.operation.type,
-          target_type: 'activity',
+          target_type: input.capabilityId === 'arcs' ? 'arc'
+            : input.capabilityId === 'goals' ? 'goal'
+              : input.capabilityId === 'profile' ? 'profile'
+                : input.capabilityId === 'chapters' ? 'chapter'
+                  : 'activity',
           target_id: input.operation.targetId,
           summary: input.operation.summary,
           payload: {
@@ -690,34 +886,20 @@ export function createUnifiedChatRepository(
       if (!operationResult.data) throw new UnifiedChatRepositoryError('Proposal operation was not returned after save.');
       const proposal = proposalResult.data as DbRow;
       const operation = operationResult.data as DbRow;
-      return {
-        id: proposalId,
-        threadId: String(proposal.thread_id),
-        runId: String(proposal.run_id),
-        messageId: typeof proposal.message_id === 'string' ? proposal.message_id : null,
-        capabilityId: 'todos',
-        title: String(proposal.title),
-        body: String(proposal.body),
-        status: 'pending',
-        version: typeof proposal.version === 'number' ? proposal.version : 1,
-        createdAt: String(proposal.created_at),
-        updatedAt: String(proposal.updated_at),
-        operation: input.operation.type === 'create_activity'
-          ? {
-              id: String(operation.id), proposalId, capabilityId: 'todos', type: 'create_activity',
-              targetId: null, summary: String(operation.summary),
-              payload: { ...input.operation.payload, title: String(input.operation.payload.title), expectedUpdatedAt: null },
-              idempotencyKey: String(operation.idempotency_key),
-              sequence: typeof operation.sequence === 'number' ? operation.sequence : 1,
-            }
-          : {
-              id: String(operation.id), proposalId, capabilityId: 'todos', type: 'update_activity',
-              targetId: String(input.operation.targetId), summary: String(operation.summary),
-              payload: { ...input.operation.payload, expectedUpdatedAt: String(input.operation.expectedUpdatedAt) },
-              idempotencyKey: String(operation.idempotency_key),
-              sequence: typeof operation.sequence === 'number' ? operation.sequence : 1,
-            },
-      };
+      const mappedOperation = mapLoadedOperation({
+        ...operation,
+        capability_id: input.capabilityId,
+        operation_type: input.operation.type,
+        target_id: input.operation.targetId,
+        payload: {
+          ...input.operation.payload,
+          expectedUpdatedAt: input.operation.expectedUpdatedAt,
+        },
+      });
+      if (!mappedOperation) {
+        throw new UnifiedChatRepositoryError('Proposal operation was invalid after save.');
+      }
+      return mapProposal(proposal, mappedOperation);
     },
 
     async decideProposal(
@@ -765,7 +947,7 @@ export function createUnifiedChatRepository(
       const userId = await requireUserId();
       const { data, error } = await client.from('kwilt_agent_mutation_receipts').insert({
         user_id: userId, thread_id: input.threadId, proposal_id: input.proposalId,
-        operation_id: input.operationId, capability_id: 'todos', idempotency_key: input.idempotencyKey,
+        operation_id: input.operationId, capability_id: input.capabilityId ?? 'todos', idempotency_key: input.idempotencyKey,
         status: input.status, resulting_object_type: input.resultingObjectType,
         resulting_object_id: input.resultingObjectId, result_state: input.resultState,
         return_target: input.returnTarget, undo_operation: input.undoOperation,
@@ -776,6 +958,43 @@ export function createUnifiedChatRepository(
       const receipt = data ? mapReceipt(data) : null;
       if (!receipt) throw new UnifiedChatRepositoryError('Capability receipt was not returned after save.');
       return receipt;
+    },
+
+    async createClientAction(input: CreateUnifiedChatClientActionInput): Promise<UnifiedChatClientAction> {
+      const userId = await requireUserId();
+      const { data, error } = await client.from('kwilt_agent_client_actions').insert({
+        user_id: userId, thread_id: input.threadId, run_id: input.runId, message_id: input.messageId,
+        capability_id: input.capabilityId, action_type: input.actionType,
+        target_type: input.targetType ?? null, target_id: input.targetId ?? null,
+        title: input.title, consequence_summary: input.consequenceSummary,
+        payload: input.payload, idempotency_key: input.idempotencyKey,
+        status: 'pending_client_action',
+      }).select(CLIENT_ACTION_COLUMNS).single();
+      assertNoError(error, 'Unable to save the pending device action.');
+      const action = data ? mapClientAction(data) : null;
+      if (!action) throw new UnifiedChatRepositoryError('Pending device action was not returned after save.');
+      return action;
+    },
+
+    async transitionClientAction(input: TransitionUnifiedChatClientActionInput): Promise<UnifiedChatClientAction> {
+      await requireUserId();
+      const { data, error } = await client.rpc('transition_kwilt_agent_client_action', {
+        p_action_id: input.actionId,
+        p_from_status: input.fromStatus,
+        p_to_status: input.toStatus,
+        p_expected_version: input.expectedVersion,
+        p_result: input.result ?? null,
+        p_error_code: input.errorCode ?? null,
+        p_error_message: input.errorMessage ?? null,
+        p_presented_at: input.presentedAt ?? null,
+        p_completed_at: input.completedAt ?? null,
+      });
+      assertNoError(error, 'Unable to advance the pending device action.');
+      const action = data ? mapClientAction(data) : null;
+      if (!action || action.status !== input.toStatus || action.version !== input.expectedVersion + 1) {
+        throw new UnifiedChatRepositoryError('Pending device action changed before this transition.');
+      }
+      return action;
     },
 
     async finalizeMutationReceipt(

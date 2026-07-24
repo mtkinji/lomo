@@ -159,6 +159,8 @@ export type MainTabsParamList = {
          * Used by the app-start Plan kickoff guide CTA.
          */
         openRecommendations?: boolean;
+        /** Open Plan on the exact local day selected by a durable Chat receipt. */
+        dateKey?: string;
       }
     | undefined;
   MoreTab: NavigatorScreenParams<MoreStackParamList> | undefined;
@@ -285,7 +287,7 @@ export type ActivitiesStackParamList = {
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   SettingsAppearance: undefined;
-  SettingsProfile: undefined;
+  SettingsProfile: { openAccountDeletion?: boolean } | undefined;
   SettingsAiModel: undefined;
   SettingsNotifications: undefined;
   SettingsScreenTimeProtection:

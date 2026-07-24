@@ -89,6 +89,22 @@ describe('phoneAgent shared helpers', () => {
     ]);
   });
 
+  test('packages prior relationship extraction with deterministic birthday prompt dates', () => {
+    const mod = loadModule();
+    const payload = mod.buildLegacyPhoneAgentEnrichmentPayload(
+      "Nina's birthday is Aug 12. She likes orchids.",
+      '2026-07-23T12:00:00.000Z',
+    );
+    expect(payload.people).toEqual([expect.objectContaining({ displayName: 'Nina' })]);
+    expect(payload.events).toEqual([expect.objectContaining({
+      kind: 'birthday',
+      promptSchedule: [
+        { kind: 'birthday', dueDateText: '2026-08-02', offsetDays: 10 },
+        { kind: 'birthday', dueDateText: '2026-08-11', offsetDays: 1 },
+      ],
+    })]);
+  });
+
   test('extracts simple relationship memory from birthday and cadence messages', () => {
     const mod = loadModule();
     expect(mod.extractPhoneAgentFacts("Lily's birthday is Oct 12. She likes dragons.")).toEqual({

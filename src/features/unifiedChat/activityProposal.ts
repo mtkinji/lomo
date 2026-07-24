@@ -1,4 +1,11 @@
-import type { ActivityDifficulty, ActivityStatus, ActivityType } from '../../domain/types';
+import type {
+  ActivityDifficulty,
+  ActivityRepeatBasis,
+  ActivityRepeatCustom,
+  ActivityRepeatRule,
+  ActivityStatus,
+  ActivityType,
+} from '../../domain/types';
 import type { UnifiedChatProposalStatus } from './runStateMachine';
 
 export type ActivityMutationPatch = {
@@ -10,6 +17,10 @@ export type ActivityMutationPatch = {
   tags?: string[];
   priority?: 1 | 2 | 3 | null;
   scheduledDate?: string | null;
+  reminderAt?: string | null;
+  repeatRule?: ActivityRepeatRule | null;
+  repeatCustom?: ActivityRepeatCustom | null;
+  repeatBasis?: ActivityRepeatBasis | null;
   estimateMinutes?: number | null;
   difficulty?: ActivityDifficulty | null;
 };
@@ -26,6 +37,42 @@ export type ActivityProposalOperation =
       targetId: string;
       expectedUpdatedAt: string;
       payload: ActivityMutationPatch;
+    }
+  | {
+      type: 'delete_activity';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: Record<string, never>;
+    }
+  | {
+      type: 'create_activity_step';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: { title: string; isOptional: boolean };
+    }
+  | {
+      type: 'update_activity_step';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: { stepId: string; title?: string; isOptional?: boolean };
+    }
+  | {
+      type: 'complete_activity_step';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: { stepId: string; completed: boolean };
+    }
+  | {
+      type: 'delete_activity_step';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: { stepId: string };
+    }
+  | {
+      type: 'reorder_activity_steps';
+      targetId: string;
+      expectedUpdatedAt: string;
+      payload: { stepIds: string[] };
     };
 
 export type ActivityActionResponse = {
@@ -75,6 +122,10 @@ export const ACTIVITY_ACTION_RESPONSE_FORMAT = {
                     'tags',
                     'priority',
                     'scheduledDate',
+                    'reminderAt',
+                    'repeatRule',
+                    'repeatCustom',
+                    'repeatBasis',
                     'estimateMinutes',
                     'difficulty',
                     'clearFields',
@@ -98,6 +149,27 @@ export const ACTIVITY_ACTION_RESPONSE_FORMAT = {
                       type: ['string', 'null'],
                       pattern: '^\\d{4}-\\d{2}-\\d{2}$',
                     },
+                    reminderAt: { type: ['string', 'null'], format: 'date-time' },
+                    repeatRule: {
+                      type: ['string', 'null'],
+                      enum: ['daily', 'weekly', 'weekdays', 'monthly', 'yearly', 'custom', null],
+                    },
+                    repeatCustom: {
+                      type: ['object', 'null'],
+                      additionalProperties: false,
+                      required: ['cadence', 'interval', 'weekdays'],
+                      properties: {
+                        cadence: { type: ['string', 'null'], enum: ['days', 'weeks', 'months', 'years', null] },
+                        interval: { type: ['integer', 'null'], minimum: 1, maximum: 365 },
+                        weekdays: {
+                          type: ['array', 'null'], maxItems: 7,
+                          items: { type: 'integer', minimum: 0, maximum: 6 },
+                        },
+                      },
+                    },
+                    repeatBasis: {
+                      type: ['string', 'null'], enum: ['scheduled', 'after_completion', null],
+                    },
                     estimateMinutes: {
                       type: ['integer', 'null'],
                       minimum: 1,
@@ -106,10 +178,10 @@ export const ACTIVITY_ACTION_RESPONSE_FORMAT = {
                     difficulty: { type: ['string', 'null'], enum: ['very_easy', 'easy', 'medium', 'hard', 'very_hard', null] },
                     clearFields: {
                       type: 'array',
-                      maxItems: 7,
+                      maxItems: 12,
                       items: {
                         type: 'string',
-                        enum: ['notes', 'goalId', 'tags', 'priority', 'scheduledDate', 'estimateMinutes', 'difficulty'],
+                        enum: ['notes', 'goalId', 'tags', 'priority', 'scheduledDate', 'reminderAt', 'repeatRule', 'repeatCustom', 'repeatBasis', 'estimateMinutes', 'difficulty'],
                       },
                     },
                   },
@@ -132,6 +204,10 @@ const ALLOWED_PATCH_KEYS = new Set([
   'tags',
   'priority',
   'scheduledDate',
+  'reminderAt',
+  'repeatRule',
+  'repeatCustom',
+  'repeatBasis',
   'estimateMinutes',
   'difficulty',
 ]);
@@ -141,6 +217,10 @@ const CLEARABLE_PATCH_KEYS = new Set([
   'tags',
   'priority',
   'scheduledDate',
+  'reminderAt',
+  'repeatRule',
+  'repeatCustom',
+  'repeatBasis',
   'estimateMinutes',
   'difficulty',
 ]);
@@ -157,6 +237,9 @@ const ACTIVITY_DIFFICULTIES = new Set<ActivityDifficulty>([
   'medium',
   'hard',
   'very_hard',
+]);
+const ACTIVITY_REPEAT_RULES = new Set<ActivityRepeatRule>([
+  'daily', 'weekly', 'weekdays', 'monthly', 'yearly', 'custom',
 ]);
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -184,6 +267,29 @@ function isActivityType(value: unknown): value is ActivityType {
     value === 'instructions' ||
     value === 'plan' ||
     (typeof value === 'string' && value.startsWith('custom:') && value.length <= 80);
+}
+
+function parseRepeatCustom(value: unknown): ActivityRepeatCustom | null | undefined {
+  if (value === null) return null;
+  const input = record(value);
+  if (!input || Object.keys(input).some((key) => !['cadence', 'interval', 'weekdays'].includes(key))) {
+    return undefined;
+  }
+  if (typeof input.interval !== 'number' || !Number.isInteger(input.interval) || input.interval < 1 || input.interval > 365) {
+    return undefined;
+  }
+  if (input.cadence === 'weeks') {
+    if (!Array.isArray(input.weekdays) || input.weekdays.length < 1 || input.weekdays.length > 7 ||
+        input.weekdays.some((day) => typeof day !== 'number' || !Number.isInteger(day) || day < 0 || day > 6)) {
+      return undefined;
+    }
+    return { cadence: 'weeks', interval: input.interval, weekdays: [...new Set(input.weekdays as number[])] };
+  }
+  if (input.weekdays !== undefined && input.weekdays !== null) return undefined;
+  if (input.cadence === 'days' || input.cadence === 'months' || input.cadence === 'years') {
+    return { cadence: input.cadence, interval: input.interval };
+  }
+  return undefined;
 }
 
 export function parseActivityMutationPatch(value: unknown): ActivityMutationPatch | null {
@@ -229,6 +335,25 @@ export function parseActivityMutationPatch(value: unknown): ActivityMutationPatc
     if (input.scheduledDate !== null &&
         (typeof input.scheduledDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.scheduledDate))) return null;
     patch.scheduledDate = input.scheduledDate;
+  }
+  if ('reminderAt' in input) {
+    if (input.reminderAt !== null &&
+        (typeof input.reminderAt !== 'string' || input.reminderAt.length > 100 || !Number.isFinite(Date.parse(input.reminderAt)))) return null;
+    patch.reminderAt = input.reminderAt;
+  }
+  if ('repeatRule' in input) {
+    if (input.repeatRule !== null &&
+        (typeof input.repeatRule !== 'string' || !ACTIVITY_REPEAT_RULES.has(input.repeatRule as ActivityRepeatRule))) return null;
+    patch.repeatRule = input.repeatRule as ActivityRepeatRule | null;
+  }
+  if ('repeatCustom' in input) {
+    const repeatCustom = parseRepeatCustom(input.repeatCustom);
+    if (repeatCustom === undefined) return null;
+    patch.repeatCustom = repeatCustom;
+  }
+  if ('repeatBasis' in input) {
+    if (input.repeatBasis !== null && input.repeatBasis !== 'scheduled' && input.repeatBasis !== 'after_completion') return null;
+    patch.repeatBasis = input.repeatBasis as ActivityRepeatBasis | null;
   }
   if ('estimateMinutes' in input) {
     if (input.estimateMinutes !== null &&
