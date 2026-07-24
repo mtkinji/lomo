@@ -28,6 +28,36 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
             <Text tone="muted">{formatMoneyFreshness(snapshot.lastSyncedAt)}</Text>
           </View>
 
+          <View style={styles.forecastCard}>
+            <View style={styles.rowBetween}>
+              <View style={styles.flex}>
+                <Text variant="label">Projected this month</Text>
+                <Text tone="secondary">
+                  {snapshot.forecast.projectedOverageCents > 0
+                    ? `${formatMoney(snapshot.forecast.projectedOverageCents)} over the plan`
+                    : `${formatMoney(snapshot.forecast.projectedRemainingCents)} projected left`}
+                </Text>
+              </View>
+              <Heading variant="sm">{formatMoney(snapshot.forecast.projectedSpendCents)}</Heading>
+            </View>
+            <Text tone="muted">
+              {formatMoney(snapshot.forecast.projectionRangeLowCents)}–{formatMoney(snapshot.forecast.projectionRangeHighCents)} range · {snapshot.forecast.confidence} confidence
+            </Text>
+          </View>
+
+          {snapshot.outsidePlan.transactionCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('MoneyTransactions', { reviewState: 'needs_review' })}
+              style={styles.reviewCard}
+            >
+              <Text variant="label">{formatMoney(snapshot.outsidePlan.spentCents)} outside the plan</Text>
+              <Text tone="secondary">
+                {snapshot.outsidePlan.transactionCount} {snapshot.outsidePlan.transactionCount === 1 ? 'transaction needs' : 'transactions need'} a category or an explicit exclusion.
+              </Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             accessibilityRole="button"
             onPress={() => navigation.navigate('MoneyLivingPlan')}
@@ -40,7 +70,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
           {snapshot.totals.needsReviewCount > 0 ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => navigation.navigate('MoneyTransactions')}
+              onPress={() => navigation.navigate('MoneyTransactions', { reviewState: 'needs_review' })}
               style={styles.reviewCard}
             >
               <Text variant="label">{snapshot.totals.needsReviewCount} {snapshot.totals.needsReviewCount === 1 ? 'transaction needs' : 'transactions need'} review</Text>
@@ -110,6 +140,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fieldFill,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  forecastCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   sectionHeader: {
     flexDirection: 'row',

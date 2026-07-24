@@ -22,7 +22,10 @@ const categories = [
 ];
 
 const plans = [
-  { category_id: 'category-grocery-uuid', base_budget_cents: 60000, rollover_enabled: false },
+  {
+    category_id: 'category-grocery-uuid', base_budget_cents: 60000, rollover_enabled: false,
+    forecast_mode: 'manual' as const, manual_projected_spend_cents: 70000,
+  },
   { category_id: 'category-fun-uuid', base_budget_cents: 20000, rollover_enabled: true },
 ];
 
@@ -134,6 +137,12 @@ describe('projectMoneySnapshot', () => {
       expect.objectContaining({ id: 'account-savings', transactionCount: 0 }),
     ]);
     expect(snapshot.lastSyncedAt).toBe('2026-07-23T16:00:00.000Z');
+    expect(snapshot.forecast).toMatchObject({
+      projectedSpendCents: 70000,
+      projectedRemainingCents: 10000,
+      projectedOverageCents: 0,
+      confidence: 'medium',
+    });
   });
 
   it('counts unmatched current-month outflows as needing review', () => {
@@ -163,6 +172,7 @@ describe('projectMoneySnapshot', () => {
     );
 
     expect(snapshot.totals.needsReviewCount).toBe(1);
+    expect(snapshot.outsidePlan).toEqual({ spentCents: 1000, transactionCount: 1 });
     expect(snapshot.transactions[0]?.categoryName).toBe('Needs review');
     expect(snapshot.transactions[0]?.reviewState).toBe('needs_review');
   });
@@ -195,6 +205,7 @@ describe('projectMoneySnapshot', () => {
     );
 
     expect(snapshot.totals.needsReviewCount).toBe(0);
+    expect(snapshot.outsidePlan).toEqual({ spentCents: 0, transactionCount: 0 });
     expect(snapshot.transactions[0]).toMatchObject({
       categoryName: 'Not counted',
       reviewState: 'not_counted',

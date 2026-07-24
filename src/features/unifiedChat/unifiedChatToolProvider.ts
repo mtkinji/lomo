@@ -154,6 +154,8 @@ export function createUnifiedChatToolProvider({
             periodLabel: money.periodLabel,
             lastSyncedAt: money.lastSyncedAt,
             totals: money.totals,
+            forecast: money.forecast,
+            outsidePlan: money.outsidePlan,
             categories: money.categories.map((category) => ({
               id: category.id,
               name: category.name,
@@ -162,6 +164,7 @@ export function createUnifiedChatToolProvider({
               remainingCents: category.remainingCents,
               percentUsed: category.percentUsed,
               transactionCount: category.transactionCount,
+              forecast: category.forecast,
             })),
             accountCount: money.accounts.length,
           } : null,

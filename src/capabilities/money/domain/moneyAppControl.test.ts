@@ -19,6 +19,12 @@ const category: MoneyCategory = {
   percentUsed: 95,
   transactionCount: 4,
   rolloverEnabled: false,
+  forecast: {
+    mode: 'paced', confidence: 'medium', expectedSpendCents: 15_000,
+    projectedSpendCents: 20_000, projectionRangeLowCents: 18_000,
+    projectionRangeHighCents: 22_000, projectedRemainingCents: 0,
+    projectedOverageCents: 0, status: 'watch',
+  },
 };
 
 function snapshot(): MoneySnapshot {
@@ -27,6 +33,11 @@ function snapshot(): MoneySnapshot {
     generatedAt: '2026-07-23T18:00:00.000Z',
     lastSyncedAt: null,
     totals: { plannedCents: 20_000, spentCents: 19_000, remainingCents: 1_000, needsReviewCount: 2 },
+    forecast: {
+      projectedSpendCents: 20_000, projectionRangeLowCents: 18_000, projectionRangeHighCents: 22_000,
+      projectedRemainingCents: 0, projectedOverageCents: 0, confidence: 'medium', atRiskCategoryCount: 1,
+    },
+    outsidePlan: { spentCents: 0, transactionCount: 0 },
     categories: [category],
     transactions: [],
     accounts: [],

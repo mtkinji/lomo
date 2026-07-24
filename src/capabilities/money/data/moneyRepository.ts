@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
+import { collectAllPages } from '../domain/living-plan-pagination';
 import {
   projectMoneySnapshot,
   type MoneyAccountRow,
@@ -26,6 +27,7 @@ type MoneyReadQuery = PromiseLike<ReadResult> & {
   limit(count: number): MoneyReadQuery;
   neq(column: string, value: unknown): MoneyReadQuery;
   order(column: string, options?: { ascending?: boolean }): MoneyReadQuery;
+  range(from: number, to: number): MoneyReadQuery;
   select(columns: string): MoneyReadQuery;
   update(values: Record<string, unknown>): MoneyReadQuery;
   upsert(values: Record<string, unknown>, options?: { onConflict?: string }): MoneyReadQuery;
@@ -70,7 +72,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       readPart<MoneyPlanRow[]>('plans',
         db
           .from('budget_plans')
-          .select('category_id,base_budget_cents,rollover_enabled')
+          .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day')
           .eq('status', 'active')),
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
@@ -96,26 +98,28 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
           .from('budget_transaction_match_rules')
           .select('id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id')
           .order('created_at', { ascending: false })),
-      readPart<MoneyTransactionRow[]>('transactions',
-        environmentQuery(db
-          .from('budget_transactions')
-          .select(`
-              id,
-              financial_account_id,
-              name,
-              merchant_name,
-              amount_cents,
-              direction,
-              date,
-              pending,
-              iso_currency_code,
-              budget_id,
-              budget_match_source,
-              money_meaning,
-              budget_financial_connections!inner(environment)
-          `), 'budget_financial_connections.environment')
-          .order('date', { ascending: false })
-          .limit(1000)),
+      collectAllPages<MoneyTransactionRow>((from, to) =>
+        readPart<MoneyTransactionRow[]>('transactions',
+          environmentQuery(db
+            .from('budget_transactions')
+            .select(`
+                id,
+                financial_account_id,
+                name,
+                merchant_name,
+                amount_cents,
+                direction,
+                date,
+                pending,
+                iso_currency_code,
+                budget_id,
+                budget_match_source,
+                money_meaning,
+                budget_financial_connections!inner(environment)
+            `), 'budget_financial_connections.environment')
+            .order('date', { ascending: false })
+            .range(from, to)),
+      ),
     ]);
 
     return projectMoneySnapshot({

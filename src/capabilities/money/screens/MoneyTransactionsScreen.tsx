@@ -12,14 +12,22 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const { snapshot } = useMoneyData();
   const accountId = route.params?.accountId;
   const categoryId = route.params?.categoryId;
+  const reviewState = route.params?.reviewState;
   const transactions = (snapshot?.transactions ?? []).filter(
-    (transaction) => (!accountId || transaction.accountId === accountId) && (!categoryId || transaction.categoryId === categoryId),
+    (transaction) =>
+      (!accountId || transaction.accountId === accountId) &&
+      (!categoryId || transaction.categoryId === categoryId) &&
+      (!reviewState || transaction.reviewState === reviewState),
   );
   const filterLabel = accountId
     ? snapshot?.accounts.find((account) => account.id === accountId)?.name
     : categoryId
       ? snapshot?.categories.find((category) => category.id === categoryId)?.name
-      : null;
+      : reviewState === 'needs_review'
+        ? 'Needs review'
+        : reviewState === 'not_counted'
+          ? 'Not counted'
+          : null;
 
   return (
     <MoneyScreenFrame
@@ -33,7 +41,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
             <Text variant="label">Filtered by {filterLabel}</Text>
             <Text tone="secondary">{transactions.length} {transactions.length === 1 ? 'transaction' : 'transactions'}</Text>
           </View>
-          <Pressable accessibilityRole="button" onPress={() => navigation.setParams({ accountId: undefined, categoryId: undefined })}>
+          <Pressable accessibilityRole="button" onPress={() => navigation.setParams({ accountId: undefined, categoryId: undefined, reviewState: undefined })}>
             <Text variant="label" tone="accent">Clear</Text>
           </Pressable>
         </View>

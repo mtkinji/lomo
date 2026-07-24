@@ -1,3 +1,10 @@
+import {
+  projectCategoryForecast,
+  type MoneyCategoryForecast,
+  type MoneyForecastConfidence,
+  type MoneyForecastMode,
+} from '../domain/moneyForecast';
+
 export type MoneyCategoryRow = {
   id: string;
   slug: string;
@@ -12,6 +19,10 @@ export type MoneyPlanRow = {
   category_id: string;
   base_budget_cents: number;
   rollover_enabled: boolean;
+  forecast_mode?: MoneyForecastMode | null;
+  manual_projected_spend_cents?: number | null;
+  scheduled_amount_cents?: number | null;
+  scheduled_due_day?: number | null;
 };
 
 export type MoneyConnectionRow = {
@@ -68,6 +79,7 @@ export type MoneyCategory = {
   percentUsed: number;
   transactionCount: number;
   rolloverEnabled: boolean;
+  forecast: MoneyCategoryForecast;
 };
 
 export type MoneyTransaction = {
@@ -111,6 +123,19 @@ export type MoneySnapshot = {
     remainingCents: number;
     needsReviewCount: number;
   };
+  forecast: {
+    projectedSpendCents: number;
+    projectionRangeLowCents: number;
+    projectionRangeHighCents: number;
+    projectedRemainingCents: number;
+    projectedOverageCents: number;
+    confidence: MoneyForecastConfidence;
+    atRiskCategoryCount: number;
+  };
+  outsidePlan: {
+    spentCents: number;
+    transactionCount: number;
+  };
   categories: MoneyCategory[];
   transactions: MoneyTransaction[];
   accounts: MoneyAccount[];
@@ -129,6 +154,9 @@ const DEFAULT_ACCENT = '#315545';
 
 export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()): MoneySnapshot {
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const todayIso = toLocalDay(now);
+  const periodStartIso = `${monthKey}-01`;
+  const periodEndIso = toLocalDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
   const periodLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const planByCategoryId = new Map(rows.plans.map((plan) => [plan.category_id, plan]));
   const categoryByAlias = new Map<string, MoneyCategoryRow>();
@@ -161,6 +189,17 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0);
       const spentCents = Math.max(0, outflowCents - creditCents);
       const plannedCents = validCents(plan?.base_budget_cents ?? 0);
+      const forecast = projectCategoryForecast({
+        periodStartIso,
+        periodEndIso,
+        todayIso,
+        plannedCents,
+        spentCents,
+        mode: plan?.forecast_mode,
+        manualProjectedSpendCents: plan?.manual_projected_spend_cents,
+        scheduledAmountCents: plan?.scheduled_amount_cents,
+        scheduledDueDay: plan?.scheduled_due_day,
+      });
 
       return {
         id: category.legacy_budget_id?.trim() || category.slug,
@@ -174,6 +213,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         percentUsed: plannedCents > 0 ? Math.round((spentCents / plannedCents) * 100) : 0,
         transactionCount: categoryTransactions.length,
         rolloverEnabled: plan?.rollover_enabled === true,
+        forecast,
       };
     });
 
@@ -211,6 +251,13 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
   const needsReviewCount = currentTransactions.filter(
     (transaction) => reviewStateFor(transaction, categoryByAlias) === 'needs_review',
   ).length;
+  const outsidePlanTransactions = currentTransactions.filter(
+    (transaction) => isCountedOutflow(transaction) && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
+  );
+  const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
+  const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
+  const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
+  const confidence = lowestForecastConfidence(categories.map((category) => category.forecast.confidence));
 
   return {
     periodLabel,
@@ -222,10 +269,33 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       remainingCents: plannedCents - spentCents,
       needsReviewCount,
     },
+    forecast: {
+      projectedSpendCents,
+      projectionRangeLowCents,
+      projectionRangeHighCents,
+      projectedRemainingCents: Math.max(0, plannedCents - projectedSpendCents),
+      projectedOverageCents: Math.max(0, projectedSpendCents - plannedCents),
+      confidence,
+      atRiskCategoryCount: categories.filter((category) => category.forecast.status !== 'steady').length,
+    },
+    outsidePlan: {
+      spentCents: outsidePlanTransactions.reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0),
+      transactionCount: outsidePlanTransactions.length,
+    },
     categories,
     transactions,
     accounts,
   };
+}
+
+function lowestForecastConfidence(values: MoneyForecastConfidence[]): MoneyForecastConfidence {
+  if (values.includes('low')) return 'low';
+  if (values.includes('medium')) return 'medium';
+  return 'high';
+}
+
+function toLocalDay(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function projectTransaction(

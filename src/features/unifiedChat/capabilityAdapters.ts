@@ -376,6 +376,14 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
         `Planned: ${formatMoney(category.plannedCents)}`,
         `Spent: ${formatMoney(category.spentCents)}`,
         `Remaining: ${formatMoney(category.remainingCents)}`,
+        `Projected: ${formatMoney(category.forecast.projectedSpendCents)}`,
+        category.forecast.projectedOverageCents > 0
+          ? `Projected over: ${formatMoney(category.forecast.projectedOverageCents)}`
+          : `Projected remaining: ${formatMoney(category.forecast.projectedRemainingCents)}`,
+        `Forecast confidence: ${category.forecast.confidence}`,
+        snapshot.outsidePlan.transactionCount > 0
+          ? `Outside plan: ${formatMoney(snapshot.outsidePlan.spentCents)} across ${snapshot.outsidePlan.transactionCount} transactions`
+          : null,
         `Transactions: ${category.transactionCount}`,
       ]),
       authority: 'authoritative' as const,

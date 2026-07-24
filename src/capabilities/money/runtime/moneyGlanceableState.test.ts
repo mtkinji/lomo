@@ -12,6 +12,11 @@ function snapshot(): MoneySnapshot {
       remainingCents: 36_000,
       needsReviewCount: 3,
     },
+    forecast: {
+      projectedSpendCents: 105_000, projectionRangeLowCents: 95_000, projectionRangeHighCents: 115_000,
+      projectedRemainingCents: 0, projectedOverageCents: 5_000, confidence: 'medium', atRiskCategoryCount: 1,
+    },
+    outsidePlan: { spentCents: 0, transactionCount: 0 },
     categories: [
       {
         id: 'groceries',
@@ -25,6 +30,12 @@ function snapshot(): MoneySnapshot {
         percentUsed: 80,
         transactionCount: 8,
         rolloverEnabled: false,
+        forecast: {
+          mode: 'paced', confidence: 'medium', expectedSpendCents: 30_000,
+          projectedSpendCents: 40_000, projectionRangeLowCents: 36_000,
+          projectionRangeHighCents: 44_000, projectedRemainingCents: 0,
+          projectedOverageCents: 0, status: 'watch',
+        },
       },
       {
         id: 'fun',
@@ -38,6 +49,12 @@ function snapshot(): MoneySnapshot {
         percentUsed: 130,
         transactionCount: 4,
         rolloverEnabled: false,
+        forecast: {
+          mode: 'paced', confidence: 'medium', expectedSpendCents: 8_000,
+          projectedSpendCents: 13_000, projectionRangeLowCents: 13_000,
+          projectionRangeHighCents: 14_300, projectedRemainingCents: 0,
+          projectedOverageCents: 3_000, status: 'over',
+        },
       },
     ],
     transactions: [],

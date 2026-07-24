@@ -3,10 +3,12 @@ import { createMoneyRepository } from './moneyRepository';
 
 type RecordedCall = {
   table: string;
+  selected?: string;
   update?: Record<string, unknown>;
   upsert?: Record<string, unknown>;
   onConflict?: string;
   filters: Array<[string, unknown]>;
+  ranges: Array<[number, number]>;
 };
 
 function createClient() {
@@ -17,10 +19,13 @@ function createClient() {
       getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
     },
     from(table: string) {
-      const call: RecordedCall = { table, filters: [] };
+      const call: RecordedCall = { table, filters: [], ranges: [] };
       calls.push(call);
       const query = {
-        select: () => query,
+        select: (columns: string) => {
+          call.selected = columns;
+          return query;
+        },
         update: (values: Record<string, unknown>) => {
           call.update = values;
           return query;
@@ -37,6 +42,10 @@ function createClient() {
         neq: () => query,
         order: () => query,
         limit: () => query,
+        range: (from: number, to: number) => {
+          call.ranges.push([from, to]);
+          return query;
+        },
         then: (
           resolve: (value: { data: unknown[]; error: null }) => unknown,
           reject?: (reason: unknown) => unknown,
@@ -53,6 +62,15 @@ function createClient() {
 }
 
 describe('createMoneyRepository transaction review', () => {
+  it('loads forecast settings and paginates the complete transaction history', async () => {
+    const { client, calls } = createClient();
+
+    await createMoneyRepository(client).loadSnapshot();
+
+    expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
+  });
+
   it('updates one transaction and reloads the authoritative snapshot', async () => {
     const { client, calls } = createClient();
     const repository = createMoneyRepository(client);

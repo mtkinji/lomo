@@ -5,6 +5,12 @@ const snapshot = {
   generatedAt: '2026-07-23T18:00:00.000Z',
   lastSyncedAt: null,
   totals: { plannedCents: 0, spentCents: 0, remainingCents: 0, needsReviewCount: 0 },
+  forecast: {
+    projectedSpendCents: 0, projectionRangeLowCents: 0, projectionRangeHighCents: 0,
+    projectedRemainingCents: 0, projectedOverageCents: 0, confidence: 'high' as const,
+    atRiskCategoryCount: 0,
+  },
+  outsidePlan: { spentCents: 0, transactionCount: 0 },
   categories: [],
   transactions: [],
   accounts: [],

@@ -133,6 +133,13 @@ export function MoneyDetailScreen({
                 <Text tone="secondary">{formatMoney(category.spentCents)} spent of {formatMoney(category.plannedCents)}</Text>
               </View>
               <DetailRow label="Transactions" value={String(category.transactionCount)} />
+              <DetailRow
+                label="Projected"
+                value={category.forecast.projectedOverageCents > 0
+                  ? `${formatMoney(category.forecast.projectedSpendCents)} · ${formatMoney(category.forecast.projectedOverageCents)} over`
+                  : `${formatMoney(category.forecast.projectedSpendCents)} · ${formatMoney(category.forecast.projectedRemainingCents)} left`}
+              />
+              <DetailRow label="Forecast confidence" value={category.forecast.confidence} />
               <DetailRow label="Rollover" value={category.rolloverEnabled ? 'On' : 'Off'} />
               {category.description ? <DetailRow label="About" value={category.description} /> : null}
               {pendingAppControlReviewCategoryId === category.sourceId ? (
