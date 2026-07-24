@@ -156,7 +156,7 @@ export function ProfileSettingsScreen() {
           onPress: () => {
             Alert.alert(
               'Delete permanently?',
-              'Your account, synced to-dos, goals, chapters, attachments, and connected services will be removed. Any Apple subscription remains managed by Apple until canceled.',
+              'Your account, synced to-dos, goals, chapters, attachments, Money plans, transactions, and connected financial accounts will be removed. Any Apple subscription remains managed by Apple until canceled.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -238,7 +238,7 @@ export function ProfileSettingsScreen() {
               <VStack space="xs">
                 <Text style={styles.dangerKicker}>Account deletion</Text>
                 <Text style={styles.dangerBody}>
-                  Permanently delete your Kwilt account and synced cloud data. Apple subscriptions are managed separately.
+                  Permanently delete your Kwilt account, synced cloud data, and Money connections. Apple subscriptions are managed separately.
                 </Text>
               </VStack>
               <Pressable

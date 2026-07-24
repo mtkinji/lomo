@@ -108,4 +108,20 @@ describe('ProfileSettingsScreen account deletion', () => {
 
     expect(openManageSubscription).toHaveBeenCalledTimes(1);
   });
+
+  it('names Money data and financial connections before permanent deletion', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    useAppStore.getState().setAuthIdentity({ userId: 'user-1', email: 'user@example.com' });
+
+    const { getByText } = renderWithProviders(<ProfileSettingsScreen />);
+    fireEvent.press(getByText('Delete account'));
+    const firstButtons = alertSpy.mock.calls[0][2] as Array<{ text?: string; onPress?: () => void }>;
+    firstButtons.find((button) => button.text === 'Continue')?.onPress?.();
+
+    expect(alertSpy).toHaveBeenLastCalledWith(
+      'Delete permanently?',
+      expect.stringMatching(/Money plans, transactions, and connected financial accounts/),
+      expect.any(Array),
+    );
+  });
 });

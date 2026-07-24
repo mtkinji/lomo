@@ -7,6 +7,8 @@ const mockPurchases = {
   logOut: jest.fn(),
   getCustomerInfo: jest.fn(),
   restorePurchases: jest.fn(),
+  getOfferings: jest.fn(),
+  purchasePackage: jest.fn(),
   setLogLevel: jest.fn(),
   LOG_LEVEL: { WARN: 'WARN' },
 };
@@ -42,6 +44,8 @@ describe('RevenueCat entitlement identity binding', () => {
       created: false,
     });
     mockPurchases.restorePurchases.mockResolvedValue(customerInfo(true, 'user-a'));
+    mockPurchases.getOfferings.mockResolvedValue({ current: { availablePackages: [] } });
+    mockPurchases.purchasePackage.mockResolvedValue({ customerInfo: customerInfo(true, 'user-a') });
     const { __resetRevenueCatEntitlementsForTests } = require('./entitlements');
     __resetRevenueCatEntitlementsForTests();
   });
@@ -156,5 +160,50 @@ describe('RevenueCat entitlement identity binding', () => {
     const appUserID = await getRevenueCatAppUserIdSafe('user-a');
 
     expect(appUserID).toBe('user-a');
+  });
+
+  it('purchases a legacy Money product through the one Kwilt RevenueCat identity', async () => {
+    const legacyPackage = {
+      product: { identifier: 'kwilt_budget_pro_annual' },
+    };
+    mockPurchases.getOfferings.mockResolvedValue({
+      current: {
+        availablePackages: [
+          { product: { identifier: 'unrelated_product' } },
+          legacyPackage,
+        ],
+      },
+    });
+    const { purchaseProSku } = require('./entitlements');
+
+    await purchaseProSku({ plan: 'individual', cadence: 'annual', appUserID: 'user-a' });
+
+    expect(mockPurchases.purchasePackage).toHaveBeenCalledWith(legacyPackage);
+    expect(mockPurchases.configure).toHaveBeenCalledWith({ apiKey: 'rc-key', appUserID: 'user-a' });
+  });
+
+  it('maps legacy Money pricing onto the canonical Kwilt product id', async () => {
+    mockPurchases.getOfferings.mockResolvedValue({
+      current: {
+        availablePackages: [
+          {
+            product: {
+              identifier: 'kwilt_budget_pro_family_monthly',
+              priceString: '$9.99',
+              currencyCode: 'USD',
+            },
+          },
+        ],
+      },
+    });
+    const { getProSkuPricing } = require('./entitlements');
+
+    const pricing = await getProSkuPricing('user-a');
+
+    expect(pricing.pro_family_monthly).toMatchObject({
+      sku: 'kwilt_budget_pro_family_monthly',
+      priceString: '$9.99',
+      currencyCode: 'USD',
+    });
   });
 });
