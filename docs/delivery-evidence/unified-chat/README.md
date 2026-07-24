@@ -17,6 +17,7 @@ A simulator pass and a signed physical-device pass are separate requirements. A 
 
 Current evidence:
 
+- [Turn-pipeline decomposition and automated proof](2026-07-24-turn-pipeline.md)
 - [Causal timeline renderer and apply/reload/undo proof](2026-07-24-causal-timeline.md)
 - [Trust-program contract and proof baseline](2026-07-24-trust-program-baseline.md)
 - [Production platform proof](2026-07-22-production-platform.md)
