@@ -86,6 +86,26 @@ describe('SettingsHomeScreen planning group', () => {
     expect(getByText('Calendars')).toBeTruthy();
   });
 
+  it('uses the shared grouped settings hierarchy', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Planning')).toBeTruthy();
+    expect(getByText('Integrations')).toBeTruthy();
+    expect(getByText('Personalization')).toBeTruthy();
+    expect(getByText('Account')).toBeTruthy();
+  });
+
+  it('keeps incomplete destinations hidden and removes non-settings dashboards', () => {
+    const { queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(queryByText('Phone Agent')).toBeNull();
+    expect(queryByText('Destinations')).toBeNull();
+    expect(queryByText('Widgets')).toBeNull();
+    expect(queryByText('Haptics')).toBeNull();
+    expect(queryByText('No Streak Yet')).toBeNull();
+    expect(queryByText('Get Kwilt Pro')).toBeNull();
+  });
+
   it('navigates to SettingsPlanAvailability when Availability is pressed', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Availability'));

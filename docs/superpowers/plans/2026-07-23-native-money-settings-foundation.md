@@ -184,7 +184,7 @@ Ensure the nested switch cannot double-fire the row callback, preserve 44-point 
 
 Expected: pass.
 
-- [ ] **Step 5: Commit the shared primitives**
+- [x] **Step 5: Commit the shared primitives**
 
 ```bash
 git add src/ui/SettingsSurface.tsx src/ui/SettingsSurface.test.tsx
@@ -198,23 +198,23 @@ git commit -m "refactor(settings): harden shared settings primitives"
 - Modify: `src/features/account/SettingsHomeScreen.test.tsx`
 - Modify: `docs/settings-product-inventory.md`
 
-- [ ] **Step 1: Extend Settings Home tests before changing layout**
+- [x] **Step 1: Extend Settings Home tests before changing layout**
 
 Assert that Planning, Integrations, Personalization, Account, and internal groups render only when they contain visible rows; existing destination presses still navigate to their exact routes; account deletion remains off the root; hidden/incomplete items remain absent; role/dev gates remain intact.
 
-- [ ] **Step 2: Run the focused test and confirm the new group expectations fail**
+- [x] **Step 2: Run the focused test and confirm the new group expectations fail**
 
 Run: `npm test -- --runInBand src/features/account/SettingsHomeScreen.test.tsx`
 
-- [ ] **Step 3: Replace the flat row renderer with shared groups and rows**
+- [x] **Step 3: Replace the flat row renderer with shared groups and rows**
 
 Keep the editable profile header and the single subscription surface. Render `SettingsGroup` sections with `SettingsRow` and `SettingsDivider`; remove decorative row icons and per-row description plumbing from the home menu. Keep detailed explanations inside destination screens or group footers only when they prevent misunderstanding.
 
-- [ ] **Step 4: Run the reduction pass**
+- [x] **Step 4: Run the reduction pass**
 
 Remove the streak dashboard card from Settings Home because it is not a setting, retain no duplicate subscription CTA, and confirm every visible element orients, states, or opens a durable choice.
 
-- [ ] **Step 5: Run Settings and adjacent account tests**
+- [x] **Step 5: Run Settings and adjacent account tests**
 
 Run: `npm test -- --runInBand src/features/account/SettingsHomeScreen.test.tsx src/features/account/ProfileSettingsScreen.test.tsx src/features/account/LegalPrivacyScreen.test.tsx src/features/account/NotificationsSettingsScreen.test.tsx src/ui/SettingsSurface.test.tsx`
 
