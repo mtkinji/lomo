@@ -146,7 +146,7 @@ Add `Money: NavigatorScreenParams<MoneyStackParamList> | undefined` to `RootDraw
 
 Expected: all new and modified suites pass.
 
-- [ ] **Step 6: Commit the navigation skeleton**
+- [x] **Step 6: Commit the navigation skeleton**
 
 ```bash
 git add src/capabilities/money src/navigation
@@ -159,7 +159,7 @@ git commit -m "feat(money): add native navigation and lifecycle skeleton"
 - Modify: `src/ui/SettingsSurface.tsx`
 - Create: `src/ui/SettingsSurface.test.tsx`
 
-- [ ] **Step 1: Write failing component behavior tests**
+- [x] **Step 1: Write failing component behavior tests**
 
 Cover grouped title/footer rendering, divider rendering, disabled rows, destructive rows, value+chevron behavior, and one toggle callback per press.
 
@@ -172,15 +172,15 @@ fireEvent.press(getByRole('switch'));
 expect(onPress).toHaveBeenCalledTimes(1);
 ```
 
-- [ ] **Step 2: Run the test and confirm any behavior gap fails**
+- [x] **Step 2: Run the test and confirm any behavior gap fails**
 
 Run: `npm test -- --runInBand src/ui/SettingsSurface.test.tsx`
 
-- [ ] **Step 3: Correct the shared primitives**
+- [x] **Step 3: Correct the shared primitives**
 
 Ensure the nested switch cannot double-fire the row callback, preserve 44-point interaction targets, use shared colors/type/radii, and expose no Expo Router dependency.
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 Expected: pass.
 

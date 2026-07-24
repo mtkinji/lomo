@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '../theme';
 
 export type KwiltSwitchProps = {
+  accessible?: boolean;
   accessibilityLabel?: string;
   disabled?: boolean;
   onPress: () => void;
@@ -12,7 +13,14 @@ export type KwiltSwitchProps = {
 
 const switchAnimationDurationMs = 160;
 
-export function KwiltSwitch({ accessibilityLabel, disabled = false, onPress, style, value }: KwiltSwitchProps) {
+export function KwiltSwitch({
+  accessible = true,
+  accessibilityLabel,
+  disabled = false,
+  onPress,
+  style,
+  value,
+}: KwiltSwitchProps) {
   const animation = useRef(new Animated.Value(value ? 1 : 0)).current;
   const thumbTranslateX = animation.interpolate({
     inputRange: [0, 1],
@@ -36,6 +44,24 @@ export function KwiltSwitch({ accessibilityLabel, disabled = false, onPress, sty
     }).start();
   }, [animation, value]);
 
+  const visual = (
+    <Animated.View
+      style={[
+        styles.track,
+        {
+          backgroundColor: trackBackgroundColor,
+          borderColor: trackBorderColor,
+        },
+      ]}
+    >
+      <Animated.View style={[styles.thumb, { transform: [{ translateX: thumbTranslateX }] }]} />
+    </Animated.View>
+  );
+
+  if (!accessible) {
+    return <View style={[styles.pressable, disabled ? styles.disabled : null, style]}>{visual}</View>;
+  }
+
   return (
     <Pressable
       accessibilityRole="switch"
@@ -45,17 +71,7 @@ export function KwiltSwitch({ accessibilityLabel, disabled = false, onPress, sty
       onPress={onPress}
       style={({ pressed }) => [styles.pressable, disabled ? styles.disabled : null, pressed ? styles.pressed : null, style]}
     >
-      <Animated.View
-        style={[
-          styles.track,
-          {
-            backgroundColor: trackBackgroundColor,
-            borderColor: trackBorderColor,
-          },
-        ]}
-      >
-        <Animated.View style={[styles.thumb, { transform: [{ translateX: thumbTranslateX }] }]} />
-      </Animated.View>
+      {visual}
     </Pressable>
   );
 }

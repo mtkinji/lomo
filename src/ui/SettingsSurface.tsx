@@ -97,6 +97,7 @@ export function SettingsRow({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={title}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -121,6 +122,7 @@ export function SettingsToggleRow({
   return (
     <Pressable
       accessibilityRole="switch"
+      accessibilityLabel={title}
       accessibilityState={{ checked: enabled, disabled }}
       disabled={disabled}
       onPress={onPress}
@@ -129,22 +131,39 @@ export function SettingsToggleRow({
       <Text selectable={false} numberOfLines={1} style={styles.rowTitle}>
         {title}
       </Text>
-      <SettingsToggle accessibilityLabel={title} disabled={disabled} value={enabled} onPress={onPress} />
+      <View pointerEvents="none">
+        <SettingsToggle
+          accessible={false}
+          accessibilityLabel={title}
+          disabled={disabled}
+          value={enabled}
+          onPress={onPress}
+        />
+      </View>
     </Pressable>
   );
 }
 
 export function SettingsToggle({
+  accessible,
   accessibilityLabel,
   disabled = false,
   onPress,
   value,
 }: Omit<KwiltSwitchProps, 'style'>) {
-  return <KwiltSwitch accessibilityLabel={accessibilityLabel} disabled={disabled} value={value} onPress={onPress} />;
+  return (
+    <KwiltSwitch
+      accessible={accessible}
+      accessibilityLabel={accessibilityLabel}
+      disabled={disabled}
+      value={value}
+      onPress={onPress}
+    />
+  );
 }
 
 export function SettingsDivider() {
-  return <View style={styles.divider} />;
+  return <View testID="settings.divider" style={styles.divider} />;
 }
 
 const styles = StyleSheet.create({
