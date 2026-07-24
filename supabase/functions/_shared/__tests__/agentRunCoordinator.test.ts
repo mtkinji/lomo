@@ -52,7 +52,10 @@ test('persists causal run state around the shared bounded loop', async () => {
   const order: string[] = [];
   const store = persistence(order);
   const steps: ServerAgentModelStep[] = [
-    { content: null, toolCalls: [{ id: 'call-1', toolId: 'screen_time.configure', arguments: {} }] },
+    { content: null, toolCalls: [{
+      id: 'call-1', toolId: 'screen_time.configure',
+      arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
+    }] },
     { content: 'Screen Time is configured.', toolCalls: [] },
   ];
   await expect(executeCanonicalAgentRun({
