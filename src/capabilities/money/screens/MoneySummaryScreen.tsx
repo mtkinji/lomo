@@ -1,16 +1,37 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Heading, Text } from '../../../ui/Typography';
 import { formatMoney, formatMoneyFreshness } from '../data/moneySnapshot';
 import { useMoneyData } from '../data/MoneyDataContext';
+import { getLivingPlanSettings, type LivingPlanReceipt } from '../data/livingPlanRepository';
+import { getLivingPlanNoticeContent, type LivingPlanNoticeContent } from '../domain/living-plan-notice';
 import type { MoneyStackParamList } from '../navigation/types';
 import type { MoneyPlaceRouteName } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const { snapshot } = useMoneyData();
+  const [planNotice, setPlanNotice] = useState<{ receipt: LivingPlanReceipt; content: LivingPlanNoticeContent } | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    void getLivingPlanSettings(getSupabaseClient())
+      .then((settings) => {
+        if (cancelled) return;
+        const receipt = settings.receipts.find((candidate) => getLivingPlanNoticeContent(candidate));
+        const content = getLivingPlanNoticeContent(receipt);
+        setPlanNotice(receipt && content ? { receipt, content } : null);
+      })
+      .catch(() => {
+        if (!cancelled) setPlanNotice(null);
+      });
+    return () => { cancelled = true; };
+  }, []));
 
   return (
     <MoneyScreenFrame
@@ -45,6 +66,18 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
               {formatMoney(snapshot.forecast.projectionRangeLowCents)}–{formatMoney(snapshot.forecast.projectionRangeHighCents)} range · {snapshot.forecast.confidence} confidence
             </Text>
           </View>
+
+          {planNotice ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('MoneyLivingPlanReceipt', { receiptId: planNotice.receipt.id })}
+              style={styles.noticeCard}
+            >
+              <Text variant="label">{planNotice.content.title}</Text>
+              <Text tone="secondary">{planNotice.content.body}</Text>
+              <Text variant="label" tone="accent">Review what changed</Text>
+            </Pressable>
+          ) : null}
 
           {snapshot.outsidePlan.transactionCount > 0 ? (
             <Pressable
@@ -142,6 +175,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fieldFill,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  noticeCard: {
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.fieldFill,
+    borderWidth: 1,
+    borderColor: colors.accent,
   },
   forecastCard: {
     gap: spacing.sm,
