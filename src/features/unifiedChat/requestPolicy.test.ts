@@ -12,6 +12,16 @@ describe('classifyUnifiedChatRequest', () => {
     });
   });
 
+  test('routes an official day-Plan status question as an authoritative read', () => {
+    expect(classifyUnifiedChatRequest({ prompt: "What's officially on my Plan tomorrow?" })).toEqual({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['plan'],
+      usePrivateContext: true,
+      clarification: null,
+      policyReason: 'day-plan-status',
+    });
+  });
+
   test.each([
     ['What are some good rainy-day activities for kids?', 'general', false, []],
     [

@@ -75,6 +75,31 @@ describe('planRecommendationTool', () => {
     }));
   });
 
+  test('separates Activities already on the target Plan from new recommendations', () => {
+    const scheduledAt = new Date(2026, 6, 23, 9, 30).toISOString();
+    const result = buildPlanRecommendations({
+      activities: [
+        activity({ id: 'calendar', title: 'Call the school', scheduledAt, estimateMinutes: 30, priority: 2 }),
+        activity({ id: 'day', title: 'Take out the trash', scheduledDate: '2026-07-23', priority: 1 }),
+        activity({ id: 'candidate', title: 'Pack lunch', priority: 3 }),
+      ],
+      goals: [], arcs: [], userProfile: profile(), targetDate: new Date(2026, 6, 23, 12),
+      busyIntervals: [], writeCalendarId: 'calendar-1', maxItems: 1,
+    });
+
+    expect(result.scheduledItems).toEqual([
+      expect.objectContaining({
+        activityId: 'calendar', title: 'Call the school', placement: 'calendar',
+        startDate: scheduledAt, endDate: expect.any(String),
+      }),
+      expect.objectContaining({
+        activityId: 'day', title: 'Take out the trash', placement: 'day',
+        startDate: null, endDate: null,
+      }),
+    ]);
+    expect(result.recommendations.map((item) => item.activityId)).toEqual(['candidate']);
+  });
+
   test.each([
     { writeCalendarId: null, busyIntervals: [], reason: 'no_write_calendar' },
     {

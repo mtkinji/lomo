@@ -342,6 +342,7 @@ export function createUnifiedChatToolProvider({
           targetDate: snapshots.plan.targetDate,
           limitation: snapshots.plan.limitation,
           conversationReferent: planConversationReferent ?? null,
+          scheduledItems: snapshots.plan.scheduledItems ?? [],
           recommendations: snapshots.plan.recommendations.slice(0, 8),
         },
       };

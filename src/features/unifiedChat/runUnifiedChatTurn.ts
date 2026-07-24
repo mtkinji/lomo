@@ -787,7 +787,13 @@ export async function runUnifiedChatTurn(
     }
     const planPriorityBody = requestPolicy.policyReason === 'day-plan-recommendation' && snapshots.plan
       ? buildPlanPriorityChatBody(snapshots.plan.recommendations)
-      : null;
+      : requestPolicy.policyReason === 'day-plan-status' && snapshots.plan
+        ? buildPlanPriorityChatBody(
+            snapshots.plan.recommendations,
+            'tomorrow',
+            snapshots.plan.scheduledItems ?? [],
+          )
+        : null;
     const visibleBody = planPriorityBody ?? (groundedAnswer
       ? formatGroundedAnswer(groundedAnswer)
       : sanitizeVisibleAssistantText(actionResponse?.answer ?? response));
@@ -962,7 +968,7 @@ export async function runUnifiedChatTurn(
     const planSnapshot = requestPolicy.participatingCapabilities.includes('plan')
       ? snapshots.plan
       : undefined;
-    if (requestPolicy.requestClass === 'capability_question' && planSnapshot?.writeCalendarRef) {
+    if (requestPolicy.policyReason === 'day-plan-recommendation' && planSnapshot?.writeCalendarRef) {
       for (const recommendation of planSnapshot.recommendations) {
         if (recommendation.placement.status !== 'placed' || !recommendation.expectedUpdatedAt) continue;
         const start = new Date(recommendation.placement.startDate);

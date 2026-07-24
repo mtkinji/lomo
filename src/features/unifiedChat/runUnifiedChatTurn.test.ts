@@ -691,6 +691,50 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
+  test('reports what is officially on tomorrow separately from recommendations', async () => {
+    const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: "What's officially on my Plan tomorrow?" },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+          plan: {
+            targetDate: '2026-07-24T18:00:00.000Z', writeCalendarRef: null,
+            limitation: 'no_write_calendar' as const,
+            scheduledItems: [
+              {
+                activityId: 'scheduled-school', title: 'Call the school', goalTitle: null,
+                placement: 'calendar' as const, startDate: '2026-07-24T15:00:00.000Z',
+                endDate: '2026-07-24T15:30:00.000Z',
+              },
+              {
+                activityId: 'planned-trash', title: 'Take out the trash', goalTitle: null,
+                placement: 'day' as const, startDate: null, endDate: null,
+              },
+            ],
+            recommendations: [{
+              activityId: 'recommended-lunch', expectedUpdatedAt: '2026-07-23T10:00:00.000Z',
+              title: 'Pack lunch', goalTitle: null, priorityPosition: 0,
+              placement: { status: 'unplaced' as const, reason: 'no_write_calendar' as const },
+            }],
+          },
+        }),
+      },
+    );
+
+    const assistantInsert = repository.insertMessage.mock.calls.find(
+      ([input]) => input.role === 'assistant',
+    )?.[0] as CreateUnifiedChatMessageInput | undefined;
+    expect(assistantInsert?.body).toContain('Already on your Plan for tomorrow');
+    expect(assistantInsert?.body).toContain('Call the school');
+    expect(assistantInsert?.body).toContain('Take out the trash');
+    expect(assistantInsert?.body).toContain('Recommended next');
+    expect(assistantInsert?.body).toContain('Pack lunch');
+    expect(repository.createProposal).not.toHaveBeenCalled();
+  });
+
   test('renders the capability-owned Plan order even when model prose reprioritizes it', async () => {
     const modelAnswer = JSON.stringify({
       answer: 'The Priority 2 item is the most leverage, so do that first.',
