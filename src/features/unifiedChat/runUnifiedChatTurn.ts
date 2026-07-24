@@ -24,7 +24,9 @@ import { AnalyticsEvent, type AnalyticsEventName } from '../../services/analytic
 import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
 import {
+  handleUnifiedChatPendingActivityWeekdayEditPhase,
   handleUnifiedChatPendingCancellationPhase,
+  handleUnifiedChatPendingPrefixSelectionPhase,
   persistUnifiedChatTurnPhase,
 } from './turnPersistencePhase';
 import { planUnifiedChatTurnPhase } from './turnPlanningPhase';
@@ -160,6 +162,58 @@ export async function runUnifiedChatTurn(
             capability_id: capabilityId,
           });
         }
+      },
+    });
+  }
+  if (typedControl?.type === 'keep_pending_prefix') {
+    return handleUnifiedChatPendingPrefixSelectionPhase({
+      aggregate,
+      userMessage,
+      retryMessage,
+      count: typedControl.count,
+      repository,
+      onRunStarted: input.onRunStarted,
+      now: dependencies?.now,
+      captureCorrection: ({ capabilityId }) => {
+        captureTelemetry(AnalyticsEvent.UnifiedChatProposalCorrected, {
+          correction_type: 'rejected',
+          capability_id: capabilityId,
+        });
+      },
+    });
+  }
+  if (typedControl?.type === 'keep_other_pending') {
+    return handleUnifiedChatPendingPrefixSelectionPhase({
+      aggregate,
+      userMessage,
+      retryMessage,
+      count: 1,
+      mode: 'other',
+      repository,
+      onRunStarted: input.onRunStarted,
+      now: dependencies?.now,
+      captureCorrection: ({ capabilityId }) => {
+        captureTelemetry(AnalyticsEvent.UnifiedChatProposalCorrected, {
+          correction_type: 'rejected',
+          capability_id: capabilityId,
+        });
+      },
+    });
+  }
+  if (typedControl?.type === 'edit_pending_activity_weekday') {
+    return handleUnifiedChatPendingActivityWeekdayEditPhase({
+      aggregate,
+      userMessage,
+      retryMessage,
+      weekday: typedControl.weekday,
+      repository,
+      onRunStarted: input.onRunStarted,
+      now: dependencies?.now,
+      captureCorrection: ({ capabilityId }) => {
+        captureTelemetry(AnalyticsEvent.UnifiedChatProposalCorrected, {
+          correction_type: 'edited',
+          capability_id: capabilityId,
+        });
       },
     });
   }

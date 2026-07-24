@@ -185,3 +185,58 @@ test('outcome phase blocks completion-looking action prose without an authoritat
   expect(setFailureCode).toHaveBeenCalledWith('action_outcome_missing');
   expect(repository.insertMessage).not.toHaveBeenCalled();
 });
+
+test('outcome phase persists an ordered typed referent for every staged proposal', async () => {
+  const { repository } = harness();
+  repository.createProposal
+    .mockResolvedValueOnce({ id: 'proposal-milk', status: 'pending' as const } as never)
+    .mockResolvedValueOnce({ id: 'proposal-mom', status: 'pending' as const } as never);
+  const run = await repository.createRun();
+
+  await materializeUnifiedChatOutcomePhase({
+    threadId: 'thread-1',
+    run,
+    visibleBody: 'I prepared two To-dos for review.',
+    actionResponse: null,
+    toolProvider: {
+      proposals: () => [{
+        capabilityId: 'todos', title: 'Add Buy milk', body: 'Creates this To-do.',
+        operation: {
+          type: 'create_activity', targetId: null, expectedUpdatedAt: null,
+          payload: { title: 'Buy milk' },
+        },
+      }, {
+        capabilityId: 'todos', title: 'Add Call Mom', body: 'Creates this To-do.',
+        operation: {
+          type: 'create_activity', targetId: null, expectedUpdatedAt: null,
+          payload: { title: 'Call Mom' },
+        },
+      }],
+      clientActions: () => [],
+    } as never,
+    runtimeToolEvents: [],
+    requestPolicy: {
+      requestClass: 'capability_action', participatingCapabilities: ['todos'],
+      usePrivateContext: true, policyReason: 'semantic-route:two To-dos', clarification: null,
+    },
+    snapshots: {
+      goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+    },
+    planConversationReferent: null,
+    repository: repository as never,
+    setFailureCode: jest.fn(),
+  });
+
+  expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
+    runId: run.id,
+    events: [expect.objectContaining({
+      type: 'conversation_referent', visibility: 'internal',
+      payload: {
+        schemaVersion: 2, kind: 'pending_work', items: [
+          expect.objectContaining({ proposalId: 'proposal-milk', expectedVersion: 1, sequence: 1 }),
+          expect.objectContaining({ proposalId: 'proposal-mom', expectedVersion: 1, sequence: 2 }),
+        ],
+      },
+    })],
+  }));
+});

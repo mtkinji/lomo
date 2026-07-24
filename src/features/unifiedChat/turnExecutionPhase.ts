@@ -11,6 +11,11 @@ import type { BuiltRunContext } from './capabilityContracts';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { buildUnifiedChatAttachmentContext } from './unifiedChatAttachmentPolicy';
 import type { PlanPlacementConversationReferent } from './planConversationReferent';
+import {
+  formatConversationReferentGrounding,
+  resolveConversationReferent,
+  type PendingWorkConversationReferent,
+} from './conversationReferent';
 import type { UnifiedChatRepository } from './threadRepository';
 import { transitionRun } from './runStateMachine';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
@@ -37,6 +42,7 @@ function groundingSummary(
   context: BuiltRunContext,
   attachments: readonly UnifiedChatTextAttachment[],
   planConversationReferent?: PlanPlacementConversationReferent | null,
+  pendingWorkConversationReferent?: PendingWorkConversationReferent | null,
 ): string {
   const { requestClass, participatingCapabilities, usePrivateContext } = requestPolicy;
   const parts = [`Launch source: unifiedChat. Request class: ${requestClass}.`];
@@ -101,6 +107,9 @@ function groundingSummary(
   } else {
     parts.push('Do not use private Kwilt capability context for this request.');
   }
+  if (pendingWorkConversationReferent) {
+    parts.push(formatConversationReferentGrounding(pendingWorkConversationReferent));
+  }
   const attachmentContext = buildUnifiedChatAttachmentContext(attachments);
   if (attachmentContext) parts.push(attachmentContext);
   return parts.join('\n\n');
@@ -154,6 +163,14 @@ export async function executeUnifiedChatTurnPhase(
   input: ExecuteUnifiedChatTurnPhaseInput,
 ): Promise<ExecutedUnifiedChatTurn | CompletedUnifiedChatTurn> {
   const directCreateTitle = directTodoCaptureTitle(input.prompt);
+  const resolvedConversationReferent = resolveConversationReferent(input.aggregate);
+  const pendingWorkConversationReferent =
+    resolvedConversationReferent?.schemaVersion === 2 &&
+    resolvedConversationReferent.kind === 'pending_work' &&
+    input.requestPolicy.requestClass === 'capability_action' &&
+    /\b(?:it|that|those|them|other|same|first|second|third|instead|only)\b|^no\b/i.test(input.prompt)
+      ? resolvedConversationReferent
+      : null;
   const usesRuntimeToolLoop = input.runtimeToolsEnabled &&
     (input.requestPolicy.requestClass === 'capability_action' ||
       input.requestPolicy.requestClass === 'native_control' ||
@@ -316,6 +333,7 @@ export async function executeUnifiedChatTurnPhase(
       input.context,
       input.turnAttachments,
       input.planConversationReferent,
+      pendingWorkConversationReferent,
     ),
     paywallSource: 'unknown',
     conversationTitlePolicy: {

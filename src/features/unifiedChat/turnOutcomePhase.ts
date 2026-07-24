@@ -2,6 +2,10 @@ import type { AgentToolLoopEvent, AppControlOutcome } from '@kwilt/agent-runtime
 import type { ActivityProposalOperation } from './activityProposal';
 import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import { buildPlanPlacementReferent, type PlanPlacementConversationReferent } from './planConversationReferent';
+import {
+  buildPendingWorkConversationReferent,
+  type PendingWorkConversationReferentItem,
+} from './conversationReferent';
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
 import type { UnifiedChatRepository } from './threadRepository';
 import type { ExecutedUnifiedChatTurn } from './turnExecutionPhase';
@@ -88,6 +92,7 @@ export async function materializeUnifiedChatOutcomePhase(
     body: input.visibleBody,
   });
   const proposalIds: string[] = [];
+  const pendingWorkReferentItems: PendingWorkConversationReferentItem[] = [];
   const receiptIds: string[] = [];
   const clientActionIds: string[] = [];
   const persistProposal = async (
@@ -95,6 +100,27 @@ export async function materializeUnifiedChatOutcomePhase(
   ) => {
     const created = await input.repository.createProposal(proposal);
     proposalIds.push(created.id);
+    const operation = proposal.operation as {
+      type: string;
+      targetId: string | null;
+      expectedUpdatedAt?: unknown;
+      payload?: { expectedUpdatedAt?: unknown };
+    };
+    const expectedUpdatedAt = typeof operation.expectedUpdatedAt === 'string'
+      ? operation.expectedUpdatedAt
+      : typeof operation.payload?.expectedUpdatedAt === 'string'
+        ? operation.payload.expectedUpdatedAt
+        : null;
+    pendingWorkReferentItems.push({
+      proposalId: created.id,
+      expectedVersion: typeof created.version === 'number' ? created.version : 1,
+      capabilityId: proposal.capabilityId,
+      operationType: operation.type,
+      targetId: operation.targetId,
+      expectedUpdatedAt,
+      label: proposal.title,
+      sequence: pendingWorkReferentItems.length + 1,
+    });
     return created;
   };
 
@@ -167,6 +193,7 @@ export async function materializeUnifiedChatOutcomePhase(
       }],
     });
   }
+  const persistedPlanReferent = Boolean(nextPlanConversationReferent && !referentWasStaged);
 
   for (const [index, proposal] of stagedToolProposals.entries()) {
     input.setFailureCode('proposal_persistence_failed');
@@ -298,6 +325,26 @@ export async function materializeUnifiedChatOutcomePhase(
         },
       });
     }
+  }
+
+  if (pendingWorkReferentItems.length > 0) {
+    const persistedToolEventCount = input.runtimeToolEvents
+      .filter((event) => event.type !== 'model_step').length;
+    await input.repository.appendRunEvents({
+      threadId: input.threadId,
+      runId: input.run.id,
+      events: [{
+        sequence: 4 + persistedToolEventCount + (persistedPlanReferent ? 1 : 0),
+        type: 'conversation_referent',
+        status: 'complete',
+        visibility: 'internal',
+        label: pendingWorkReferentItems.length === 1
+          ? 'Work awaiting review'
+          : `${pendingWorkReferentItems.length} changes awaiting review`,
+        detail: null,
+        payload: buildPendingWorkConversationReferent(pendingWorkReferentItems),
+      }],
+    });
   }
 
   return {

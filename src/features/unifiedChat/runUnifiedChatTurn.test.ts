@@ -18,6 +18,7 @@ const startingAggregate: UnifiedChatThreadAggregate = {
 
 function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer')) {
   const order: string[] = [];
+  let proposalSequence = 0;
   const repository = {
     insertMessage: jest.fn(async (input: CreateUnifiedChatMessageInput) => {
       order.push(`message:${input.role}`);
@@ -65,7 +66,8 @@ function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer
     }),
     createProposal: jest.fn(async (_input: unknown) => {
       order.push('proposal:persist');
-      return { id: 'proposal-1', status: 'pending' };
+      proposalSequence += 1;
+      return { id: `proposal-${proposalSequence}`, status: 'pending', version: 1 };
     }),
     createClientAction: jest.fn(async () => {
       order.push('client-action:persist');
@@ -101,6 +103,43 @@ const structuredGroundedAnswer = JSON.stringify({
   inference: 'Starting smaller may make follow-through easier.',
   uncertainty: 'Kwilt did not inspect capabilities outside this request.',
 });
+
+function pendingCompoundAggregate(labels: string[]): UnifiedChatThreadAggregate {
+  const run = {
+    id: 'run-compound', threadId: 'thread-1', userMessageId: 'user-compound', assistantMessageId: 'assistant-compound',
+    status: 'complete' as const, errorCode: null, errorMessage: null,
+    createdAt: 'before', updatedAt: 'before', completedAt: 'before',
+    requestClass: 'capability_action' as const, participatingCapabilities: ['todos' as const],
+    contextPolicy: { usePrivateContext: true, reason: 'semantic-route:compound capture', clarification: null },
+    version: 2, stopRequestedAt: null, steerCount: 0,
+  };
+  const proposals = labels.map((label, index) => ({
+    id: `proposal-${index + 1}`, threadId: 'thread-1', runId: run.id, messageId: 'assistant-compound',
+    capabilityId: 'todos' as const, title: `Add ${label}`, body: 'Creates this To-do.',
+    status: 'pending' as const, version: 1, createdAt: 'before', updatedAt: 'before',
+    operation: {
+      id: `operation-${index + 1}`, proposalId: `proposal-${index + 1}`, capabilityId: 'todos' as const,
+      type: 'create_activity' as const, targetId: null, summary: `Add ${label}`,
+      payload: { title: label }, idempotencyKey: `compound:${index + 1}`, sequence: index + 1,
+    },
+  }));
+  return {
+    ...startingAggregate, runs: [run], proposals,
+    events: [{
+      id: 'referent-event', threadId: 'thread-1', runId: run.id, sequence: 4,
+      type: 'conversation_referent', status: 'complete', visibility: 'internal',
+      label: `${labels.length} changes awaiting review`, detail: null,
+      payload: {
+        schemaVersion: 2, kind: 'pending_work',
+        items: proposals.map((proposal, index) => ({
+          proposalId: proposal.id, expectedVersion: 1, capabilityId: 'todos',
+          operationType: 'create_activity', targetId: null, expectedUpdatedAt: null,
+          label: proposal.title, sequence: index + 1,
+        })),
+      },
+    }],
+  };
+}
 
 describe('runUnifiedChatTurn', () => {
   test('persists a confident semantic route before loading bounded evidence', async () => {
@@ -456,8 +495,14 @@ describe('runUnifiedChatTurn', () => {
       capabilityId: 'plan',
       operation: expect.objectContaining({ type: 'schedule_activity', targetId: priorityOne.id }),
     }));
-    expect(repository.appendRunEvents).not.toHaveBeenCalledWith(expect.objectContaining({
-      events: [expect.objectContaining({ type: 'conversation_referent' })],
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
+      events: [expect.objectContaining({
+        type: 'conversation_referent',
+        payload: expect.objectContaining({
+          kind: 'pending_work',
+          items: [expect.objectContaining({ targetId: priorityOne.id })],
+        }),
+      })],
     }));
   });
 
@@ -496,6 +541,72 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
+  test('edits the exact referenced Activity proposal when the user changes its weekday', async () => {
+    const { repository, send } = dependencies();
+    repository.decideProposal.mockResolvedValueOnce({ id: 'proposal-1', status: 'edited' as const, version: 2 });
+    const priorRun = {
+      id: 'older-run', threadId: 'thread-1', userMessageId: 'older-user', assistantMessageId: 'older-message',
+      status: 'complete' as const, errorCode: null, errorMessage: null,
+      createdAt: 'before', updatedAt: 'before', completedAt: 'before',
+      requestClass: 'capability_action' as const, participatingCapabilities: ['todos' as const],
+      contextPolicy: { usePrivateContext: true, reason: 'typed-capability-proposal-required', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+    };
+    const aggregate: UnifiedChatThreadAggregate = {
+      ...startingAggregate,
+      runs: [priorRun],
+      proposals: [{
+        id: 'proposal-1', threadId: 'thread-1', runId: priorRun.id, messageId: 'older-message',
+        capabilityId: 'todos', title: 'Move school call', body: 'Changes the date.',
+        status: 'pending', version: 1, createdAt: 'before', updatedAt: 'before',
+        operation: {
+          id: 'operation-1', proposalId: 'proposal-1', capabilityId: 'todos',
+          type: 'update_activity', targetId: 'activity-1', summary: 'Move school call',
+          payload: { scheduledDate: '2026-07-23', expectedUpdatedAt: 'activity-version' },
+          idempotencyKey: 'older', sequence: 1,
+        },
+      }],
+      events: [{
+        id: 'referent-event', threadId: 'thread-1', runId: priorRun.id, sequence: 4,
+        type: 'conversation_referent', status: 'complete', visibility: 'internal',
+        label: 'Work awaiting review', detail: null,
+        payload: {
+          schemaVersion: 2, kind: 'pending_work', items: [{
+            proposalId: 'proposal-1', expectedVersion: 1, capabilityId: 'todos',
+            operationType: 'update_activity', targetId: 'activity-1', expectedUpdatedAt: 'activity-version',
+            label: 'Move school call', sequence: 1,
+          }],
+        },
+      }],
+    };
+
+    await runUnifiedChatTurn(
+      { aggregate, prompt: 'Move it to Friday.' },
+      {
+        repository: repository as never, sendCoachChat: send as never,
+        now: () => new Date('2026-07-20T10:00:00.000Z'),
+      },
+    );
+
+    expect(repository.decideProposal).toHaveBeenCalledWith({
+      proposalId: 'proposal-1', action: 'edit', expectedVersion: 1,
+      patch: { scheduledDate: '2026-07-24' },
+      note: 'Changed in Chat by the user.',
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
+      events: [expect.objectContaining({
+        type: 'conversation_referent',
+        payload: expect.objectContaining({
+          items: [expect.objectContaining({ proposalId: 'proposal-1', expectedVersion: 2 })],
+        }),
+      })],
+    }));
+    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      role: 'assistant', body: 'Okay—I moved that change to Friday. It is still waiting for your review.',
+    }));
+  });
+
   test('asks which item to cancel when more than one pending action exists', async () => {
     const { repository, send } = dependencies();
     const aggregate: UnifiedChatThreadAggregate = {
@@ -513,6 +624,137 @@ describe('runUnifiedChatTurn', () => {
     expect(send).not.toHaveBeenCalled();
     expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
       role: 'assistant', body: expect.stringContaining('more than one change waiting'),
+    }));
+  });
+
+  test('cancels an exact referenced compound set without making the user name machine records', async () => {
+    const { repository, send } = dependencies();
+    const run = {
+      id: 'run-compound', threadId: 'thread-1', userMessageId: 'user-compound', assistantMessageId: 'assistant-compound',
+      status: 'complete' as const, errorCode: null, errorMessage: null,
+      createdAt: 'before', updatedAt: 'before', completedAt: 'before',
+      requestClass: 'capability_action' as const, participatingCapabilities: ['todos' as const],
+      contextPolicy: { usePrivateContext: true, reason: 'semantic-route:compound capture', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+    };
+    const proposals = ['Milk', 'Call Mom'].map((label, index) => ({
+      id: `proposal-${index + 1}`, threadId: 'thread-1', runId: run.id, messageId: 'assistant-compound',
+      capabilityId: 'todos' as const, title: `Add ${label}`, body: 'Creates this To-do.',
+      status: 'pending' as const, version: 1, createdAt: 'before', updatedAt: 'before',
+      operation: {
+        id: `operation-${index + 1}`, proposalId: `proposal-${index + 1}`, capabilityId: 'todos' as const,
+        type: 'create_activity' as const, targetId: null, summary: `Add ${label}`,
+        payload: { title: label }, idempotencyKey: `compound:${index + 1}`, sequence: index + 1,
+      },
+    }));
+    const aggregate: UnifiedChatThreadAggregate = {
+      ...startingAggregate, runs: [run], proposals,
+      events: [{
+        id: 'referent-event', threadId: 'thread-1', runId: run.id, sequence: 4,
+        type: 'conversation_referent', status: 'complete', visibility: 'internal',
+        label: '2 changes awaiting review', detail: null,
+        payload: {
+          schemaVersion: 2, kind: 'pending_work',
+          items: proposals.map((proposal, index) => ({
+            proposalId: proposal.id, expectedVersion: 1, capabilityId: 'todos',
+            operationType: 'create_activity', targetId: null, expectedUpdatedAt: null,
+            label: proposal.title, sequence: index + 1,
+          })),
+        },
+      }],
+    };
+
+    await runUnifiedChatTurn(
+      { aggregate, prompt: 'Cancel that' },
+      { repository: repository as never, sendCoachChat: send as never },
+    );
+
+    expect(repository.decideProposal).toHaveBeenCalledTimes(2);
+    expect(repository.decideProposal).toHaveBeenNthCalledWith(1, {
+      proposalId: 'proposal-1', action: 'reject', expectedVersion: 1,
+      note: 'Cancelled in Chat by the user.',
+    });
+    expect(repository.decideProposal).toHaveBeenNthCalledWith(2, {
+      proposalId: 'proposal-2', action: 'reject', expectedVersion: 1,
+      note: 'Cancelled in Chat by the user.',
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      role: 'assistant', body: "Okay—I won't make those changes.",
+    }));
+  });
+
+  test('keeps the selected ordered prefix and rejects only the remaining referenced proposals', async () => {
+    const { repository, send } = dependencies();
+    const priorRun = {
+      id: 'run-compound', threadId: 'thread-1', userMessageId: 'user-compound', assistantMessageId: 'assistant-compound',
+      status: 'complete' as const, errorCode: null, errorMessage: null,
+      createdAt: 'before', updatedAt: 'before', completedAt: 'before',
+      requestClass: 'capability_action' as const, participatingCapabilities: ['todos' as const],
+      contextPolicy: { usePrivateContext: true, reason: 'semantic-route:compound capture', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+    };
+    const proposals = ['Milk', 'Call Mom', 'School form'].map((label, index) => ({
+      id: `proposal-${index + 1}`, threadId: 'thread-1', runId: priorRun.id, messageId: 'assistant-compound',
+      capabilityId: 'todos' as const, title: `Add ${label}`, body: 'Creates this To-do.',
+      status: 'pending' as const, version: 1, createdAt: 'before', updatedAt: 'before',
+      operation: {
+        id: `operation-${index + 1}`, proposalId: `proposal-${index + 1}`, capabilityId: 'todos' as const,
+        type: 'create_activity' as const, targetId: null, summary: `Add ${label}`,
+        payload: { title: label }, idempotencyKey: `compound:${index + 1}`, sequence: index + 1,
+      },
+    }));
+    const aggregate: UnifiedChatThreadAggregate = {
+      ...startingAggregate,
+      runs: [priorRun],
+      proposals,
+      events: [{
+        id: 'referent-event', threadId: 'thread-1', runId: priorRun.id, sequence: 4,
+        type: 'conversation_referent', status: 'complete', visibility: 'internal',
+        label: '3 changes awaiting review', detail: null,
+        payload: {
+          schemaVersion: 2, kind: 'pending_work',
+          items: proposals.map((proposal, index) => ({
+            proposalId: proposal.id, expectedVersion: 1, capabilityId: 'todos',
+            operationType: 'create_activity', targetId: null, expectedUpdatedAt: null,
+            label: proposal.title, sequence: index + 1,
+          })),
+        },
+      }],
+    };
+
+    await runUnifiedChatTurn(
+      { aggregate, prompt: 'Only add the first two.' },
+      { repository: repository as never, sendCoachChat: send as never },
+    );
+
+    expect(repository.decideProposal).toHaveBeenCalledTimes(1);
+    expect(repository.decideProposal).toHaveBeenCalledWith({
+      proposalId: 'proposal-3', action: 'reject', expectedVersion: 1,
+      note: 'Removed from the pending set in Chat by the user.',
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      role: 'assistant', body: 'Okay—I kept the first two changes for review and removed the rest.',
+    }));
+  });
+
+  test('selects the other proposal only when the durable referent contains exactly two choices', async () => {
+    const { repository, send } = dependencies();
+
+    await runUnifiedChatTurn(
+      { aggregate: pendingCompoundAggregate(['Buy milk', 'Call Mom']), prompt: 'No, the other one.' },
+      { repository: repository as never, sendCoachChat: send as never },
+    );
+
+    expect(repository.decideProposal).toHaveBeenCalledTimes(1);
+    expect(repository.decideProposal).toHaveBeenCalledWith({
+      proposalId: 'proposal-1', action: 'reject', expectedVersion: 1,
+      note: 'Removed from the pending set in Chat by the user.',
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      role: 'assistant', body: 'Okay—I kept the other change for review and removed the first one.',
     }));
   });
 
@@ -1020,7 +1262,7 @@ describe('runUnifiedChatTurn', () => {
         payload: { title: 'Call the school office' },
       }),
     }));
-    expect(repository.appendRunEvents).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
       events: [expect.objectContaining({
         type: 'tool', visibility: 'internal', label: 'Used activities.update',
         payload: expect.objectContaining({ resultStatus: 'proposed' }),
