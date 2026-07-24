@@ -5,8 +5,8 @@ const aggregate = {
   thread: { id: 'thread-1' },
   runs: [{ id: 'run-1', requestClass: 'capability_action' }],
   proposals: [{
-    id: 'proposal-1', runId: 'run-1', status: 'pending', version: 1,
-    operation: { type: 'create_activity' },
+    id: 'proposal-1', runId: 'run-1', status: 'pending', version: 1, capabilityId: 'todos',
+    operation: { type: 'create_activity', capabilityId: 'todos' },
   }],
 } as unknown as UnifiedChatThreadAggregate;
 

@@ -268,6 +268,18 @@ export type ActivityCalendarBinding =
 
 export type ActivityCalendarBindingHealth = 'healthy' | 'degraded' | 'broken';
 
+export type ActivityCalendarChunkBinding = {
+  groupId: string;
+  chunkId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  targetDateKey: string;
+  binding: Extract<ActivityCalendarBinding, { kind: 'provider' }>;
+  /** Activity version produced by the latest mutation in this chunk group. */
+  activityUpdatedAt: string;
+};
+
 /**
  * Activity "kind" used to shape planning + UI behaviors.
  *
@@ -708,6 +720,8 @@ export interface Activity {
    * set when this binding exists.
    */
   calendarBinding?: ActivityCalendarBinding | null;
+  /** Independently managed provider events created when one Activity is split into Plan chunks. */
+  calendarChunkBindings?: ActivityCalendarChunkBinding[];
   /**
    * Optional recurrence rule for Activities that repeat on a cadence. This is
    * intentionally lightweight for now; a future implementation can expand this

@@ -6,9 +6,12 @@ import {
 
 describe('phoneAgent service helpers', () => {
   test('builds request_code payload', () => {
-    expect(buildPhoneAgentLinkRequest({ action: 'request_code', phone: '+1 415 555 1212' })).toEqual({
+    expect(buildPhoneAgentLinkRequest({
+      action: 'request_code', phone: '+1 415 555 1212', timeZone: 'America/Denver',
+    })).toEqual({
       action: 'request_code',
       phone: '+1 415 555 1212',
+      timeZone: 'America/Denver',
     });
   });
 
@@ -16,15 +19,17 @@ describe('phoneAgent service helpers', () => {
     expect(normalizePhoneAgentLink({
       phone: '+14155551212',
       status: 'verified',
-      permissions: { create_activities: true },
+      permissions: { create_activities: true, remember_relationships: true },
       promptCapPerDay: 3,
       optedOutAt: null,
+      timeZone: 'America/Denver',
     })).toEqual({
       phone: '+14155551212',
       status: 'verified',
-      permissions: { create_activities: true },
+      permissions: { create_activities: true, remember_relationships: true },
       promptCapPerDay: 3,
       optedOutAt: null,
+      timeZone: 'America/Denver',
     });
   });
 

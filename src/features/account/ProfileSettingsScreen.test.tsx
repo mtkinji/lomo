@@ -44,7 +44,8 @@ jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
   return {
     ...actual,
-    useNavigation: () => ({ goBack: jest.fn() }),
+    useNavigation: () => ({ goBack: jest.fn(), setParams: jest.fn() }),
+    useRoute: () => ({ params: undefined }),
   };
 });
 

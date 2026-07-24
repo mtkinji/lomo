@@ -22,6 +22,7 @@ export async function recoverActivityMutations({
 }): Promise<UnifiedChatThreadAggregate> {
   let changed = false;
   for (const proposal of aggregate.proposals ?? []) {
+    if (proposal.capabilityId !== 'todos') continue;
     if (proposal.status !== 'applying') continue;
     const receipt = (aggregate.receipts ?? []).find((candidate) => candidate.proposalId === proposal.id);
     if (!receipt || (receipt.status !== 'reserved' && receipt.status !== 'applied')) continue;

@@ -174,6 +174,85 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.receipts[0]).toMatchObject({ canUndo: true, object: { id: 'activity-library' } });
   });
 
+  test('projects pending device work with its explicit consequence and causal turn', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      runs: [{
+        id: 'run-device', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: 'message-2',
+        status: 'complete', errorCode: null, errorMessage: null, requestClass: 'native_control',
+        participatingCapabilities: ['screenTime'],
+        contextPolicy: { usePrivateContext: false, reason: 'native', clarification: null },
+        version: 2, stopRequestedAt: null, steerCount: 0,
+        createdAt: '2026-07-22T12:00:00.000Z', updatedAt: '2026-07-22T12:00:01.000Z',
+        completedAt: '2026-07-22T12:00:01.000Z',
+      }],
+      clientActions: [{
+        id: 'client-action-1', threadId: 'thread-1', runId: 'run-device', messageId: 'message-2',
+        capabilityId: 'screenTime', actionType: 'configure_screen_time', targetType: null, targetId: null,
+        title: 'Review Screen Time protection', consequenceSummary: 'Review Apple authorization and enforcement.',
+        payload: {}, idempotencyKey: 'client-1', status: 'pending_client_action', result: null,
+        errorCode: null, errorMessage: null, version: 1, presentedAt: null, completedAt: null,
+        createdAt: '2026-07-22T12:00:01.000Z', updatedAt: '2026-07-22T12:00:01.000Z',
+      }],
+    });
+    expect(snapshot.clientActions).toEqual([expect.objectContaining({
+      title: 'Review Screen Time protection', status: 'pending_client_action', canContinue: true,
+    })]);
+    expect(snapshot.timeline?.flatMap((turn) => turn.items)).toContainEqual({
+      kind: 'client_action', id: 'client-action-1',
+    });
+  });
+
+  test('projects Plan schedule proposals without calendar credentials and labels their receipts', () => {
+    const run = {
+      id: 'run-plan', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'complete' as const, errorCode: null, errorMessage: null, requestClass: 'capability_action' as const,
+      participatingCapabilities: ['plan' as const], contextPolicy: { usePrivateContext: true, reason: 'plan', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0,
+      createdAt: '2026-07-23T12:00:00.000Z', updatedAt: '2026-07-23T12:00:01.000Z', completedAt: '2026-07-23T12:00:01.000Z',
+    };
+    const proposal = {
+      id: 'proposal-plan', threadId: 'thread-1', runId: 'run-plan', messageId: null,
+      capabilityId: 'plan' as const, title: 'Call the school', body: 'Tomorrow at 9:00 AM',
+      status: 'applied' as const, version: 4,
+      createdAt: '2026-07-23T12:00:00.000Z', updatedAt: '2026-07-23T12:00:01.000Z',
+      operation: {
+        id: 'operation-plan', proposalId: 'proposal-plan', capabilityId: 'plan' as const,
+        type: 'schedule_activity' as const, targetId: 'activity-school', summary: 'Add Call the school to Plan',
+        sequence: 1, idempotencyKey: 'run-plan:activity-school',
+        payload: {
+          activityId: 'activity-school', expectedUpdatedAt: 'private-version',
+          startDate: '2026-07-24T15:00:00.000Z', endDate: '2026-07-24T15:30:00.000Z', targetDateKey: '2026-07-24',
+          writeCalendarRef: { provider: 'google' as const, accountId: 'private-account', calendarId: 'private-calendar' },
+        },
+      },
+    };
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      runs: [run],
+      proposals: [proposal],
+      receipts: [{
+        id: 'receipt-plan', proposalId: proposal.id, operationId: proposal.operation.id,
+        capabilityId: 'plan', idempotencyKey: proposal.operation.idempotencyKey, status: 'applied',
+        resultingObjectType: 'activity', resultingObjectId: 'activity-school',
+        resultState: { title: 'Call the school', targetDateKey: '2026-07-24' },
+        returnTarget: { capabilityId: 'plan' }, undoOperation: null, canUndo: false,
+        appliedAt: '2026-07-23T12:00:01.000Z', undoneAt: null,
+      }],
+    });
+
+    expect(snapshot.proposals[0]).toMatchObject({
+      capabilityId: 'plan', operation: {
+        type: 'schedule_activity',
+        fields: { startDate: '2026-07-24T15:00:00.000Z', targetDateKey: '2026-07-24' },
+      },
+    });
+    expect(snapshot.receipts[0]?.summary).toBe('Scheduled Call the school');
+    expect(JSON.stringify(snapshot)).not.toContain('private-account');
+    expect(JSON.stringify(snapshot)).not.toContain('private-calendar');
+    expect(JSON.stringify(snapshot)).not.toContain('private-version');
+  });
+
   test('keeps an older turn complete before placing a newer prompt and its working state', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,

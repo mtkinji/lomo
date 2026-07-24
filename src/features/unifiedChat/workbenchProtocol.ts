@@ -49,6 +49,7 @@ export type AgentWorkbenchTimelineItem =
   | { kind: 'evidence'; ids: string[] }
   | { kind: 'proposal'; id: string }
   | { kind: 'receipt'; id: string }
+  | { kind: 'client_action'; id: string }
   | {
       kind: 'correction';
       id: string;
@@ -89,14 +90,19 @@ export type AgentWorkbenchProposal = {
   id: string;
   runId: string;
   messageId?: string;
-  capabilityId: 'todos';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships';
   title: string;
   body: string;
   status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
   version: number;
   operation: {
     id: string;
-    type: 'create_activity' | 'update_activity';
+    type: 'create_activity' | 'update_activity' | 'delete_activity' | 'create_activity_step' |
+      'update_activity_step' | 'complete_activity_step' | 'delete_activity_step' |
+      'reorder_activity_steps' | 'schedule_activity' | 'schedule_activity_chunk' | 'reschedule_activity' |
+      'remove_activity_from_plan' | 'create_goal' | 'update_goal' | 'delete_goal' |
+      'create_arc' | 'update_arc' | 'delete_arc' | 'update_profile' | 'update_chapter_note' |
+      'remember_relationship' | 'correct_relationship' | 'forget_relationship';
     targetId?: string;
     summary: string;
     fields: Record<string, unknown>;
@@ -118,6 +124,18 @@ export type AgentWorkbenchReceipt = {
     metaTone?: 'urgent' | 'today' | 'tomorrow' | 'future';
     isCompleted: boolean;
   };
+};
+
+export type AgentWorkbenchClientAction = {
+  id: string;
+  runId: string;
+  capabilityId: string;
+  actionType: string;
+  title: string;
+  consequenceSummary: string;
+  status: 'pending_client_action' | 'presenting' | 'completed' | 'declined' | 'failed';
+  version: number;
+  canContinue: boolean;
 };
 
 export type AgentWorkbenchSnapshot = {
@@ -142,6 +160,7 @@ export type AgentWorkbenchSnapshot = {
   runs: AgentWorkbenchRun[];
   proposals: AgentWorkbenchProposal[];
   receipts: AgentWorkbenchReceipt[];
+  clientActions: AgentWorkbenchClientAction[];
   /** Optional so protocol-v2 hosts can adopt coherent turns without breaking older surfaces. */
   timeline?: AgentWorkbenchTurn[];
   composer: {
@@ -182,7 +201,22 @@ export type SupportedAgentWorkbenchCommand =
       expectedVersion: number;
       patch?: Record<string, unknown>;
     }
+  | {
+      type: 'proposal.decide_many';
+      items: Array<{
+        proposalId: string;
+        action: 'approve';
+        expectedVersion: number;
+      }>;
+    }
   | { type: 'receipt.undo'; receiptId: string }
+  | { type: 'receipt.open'; receiptId: string }
+  | {
+      type: 'client_action.decide';
+      actionId: string;
+      action: 'continue' | 'decline';
+      expectedVersion: number;
+    }
   | { type: 'thread.create' };
 
 export type AgentWorkbenchSurfaceMessage =
@@ -291,9 +325,44 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
             ...(isRecord(value.patch) ? { patch: value.patch } : {}),
           }
         : null;
+    case 'proposal.decide_many': {
+      if (!Array.isArray(value.items) || value.items.length === 0 || value.items.length > 12) {
+        return null;
+      }
+      const items: Array<{ proposalId: string; action: 'approve'; expectedVersion: number }> = [];
+      const proposalIds = new Set<string>();
+      for (const item of value.items) {
+        if (
+          !isRecord(item) ||
+          !hasText(item, 'proposalId') ||
+          item.action !== 'approve' ||
+          typeof item.expectedVersion !== 'number' ||
+          !Number.isInteger(item.expectedVersion) ||
+          item.expectedVersion <= 0 ||
+          item.patch !== undefined
+        ) {
+          return null;
+        }
+        const proposalId = String(item.proposalId);
+        if (proposalIds.has(proposalId)) return null;
+        proposalIds.add(proposalId);
+        items.push({ proposalId, action: 'approve', expectedVersion: item.expectedVersion });
+      }
+      return { type: 'proposal.decide_many', items };
+    }
     case 'receipt.undo':
+    case 'receipt.open':
       return hasText(value, 'receiptId')
-        ? { type: 'receipt.undo', receiptId: String(value.receiptId) }
+        ? { type: value.type, receiptId: String(value.receiptId) }
+        : null;
+    case 'client_action.decide':
+      return hasText(value, 'actionId') &&
+        (value.action === 'continue' || value.action === 'decline') &&
+        typeof value.expectedVersion === 'number' && Number.isInteger(value.expectedVersion) && value.expectedVersion > 0
+        ? {
+            type: 'client_action.decide', actionId: String(value.actionId),
+            action: value.action, expectedVersion: value.expectedVersion,
+          }
         : null;
     case 'thread.create':
       return { type: 'thread.create' };

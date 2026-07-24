@@ -46,7 +46,17 @@ describe('Unified Chat workbench protocol', () => {
     { type: 'message.feedback', messageId: 'message-1', feedback: 'positive' },
     { type: 'proposal.decide', proposalId: 'proposal-1', action: 'approve', expectedVersion: 1 },
     { type: 'proposal.decide', proposalId: 'proposal-1', action: 'edit', expectedVersion: 2, patch: { scheduledDate: '2026-07-25' } },
+    {
+      type: 'proposal.decide_many',
+      items: [
+        { proposalId: 'proposal-plan-1', action: 'approve', expectedVersion: 1 },
+        { proposalId: 'proposal-plan-2', action: 'approve', expectedVersion: 2 },
+      ],
+    },
     { type: 'receipt.undo', receiptId: 'receipt-1' },
+    { type: 'receipt.open', receiptId: 'receipt-plan-1' },
+    { type: 'client_action.decide', actionId: 'client-action-1', action: 'continue', expectedVersion: 1 },
+    { type: 'client_action.decide', actionId: 'client-action-1', action: 'decline', expectedVersion: 2 },
     { type: 'thread.create' },
   ])('accepts supported $type commands', (command) => {
     expect(
@@ -84,6 +94,23 @@ describe('Unified Chat workbench protocol', () => {
       command: { type: 'proposal.decide', proposalId: 'proposal-1', action: 'approve', expectedVersion: 0 },
     }),
     JSON.stringify({
+      protocolVersion: 2, type: 'surface.command', requestId: 'x',
+      command: { type: 'proposal.decide_many', items: [] },
+    }),
+    JSON.stringify({
+      protocolVersion: 2, type: 'surface.command', requestId: 'x',
+      command: { type: 'proposal.decide_many', items: [
+        { proposalId: 'same', action: 'approve', expectedVersion: 1 },
+        { proposalId: 'same', action: 'approve', expectedVersion: 1 },
+      ] },
+    }),
+    JSON.stringify({
+      protocolVersion: 2, type: 'surface.command', requestId: 'x',
+      command: { type: 'proposal.decide_many', items: [
+        { proposalId: 'proposal-1', action: 'edit', expectedVersion: 1 },
+      ] },
+    }),
+    JSON.stringify({
       protocolVersion: 2,
       type: 'surface.command',
       requestId: 'x',
@@ -94,6 +121,16 @@ describe('Unified Chat workbench protocol', () => {
       type: 'surface.command',
       requestId: 'x',
       command: { type: 'attachment.remove' },
+    }),
+    JSON.stringify({
+      protocolVersion: 2,
+      type: 'surface.command',
+      requestId: 'x',
+      command: { type: 'receipt.open' },
+    }),
+    JSON.stringify({
+      protocolVersion: 2, type: 'surface.command', requestId: 'x',
+      command: { type: 'client_action.decide', actionId: 'client-action-1', action: 'continue', expectedVersion: 0 },
     }),
   ])('rejects malformed, stale, or unsupported messages', (raw) => {
     expect(parseAgentWorkbenchSurfaceMessage(raw)).toBeNull();

@@ -19,10 +19,23 @@ related_briefs:
   - brief-kwilt-phone-agent
   - brief-background-agents-weekly-planning
 owner: andrew
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 ---
 
 # Kwilt Chat
+
+## MVP reset — conversational app control
+
+The MVP is not the completeness of the agent runtime or the presentation of its timeline. The MVP is that a user can control capabilities already present in Kwilt using ordinary language.
+
+The acceptance contract is user-outcome-first:
+
+- “Create a to-do called Take out the trash and remind me every Tuesday night” reaches Activity creation, recurrence, and reminder, asking only for a missing exact time when necessary.
+- “What's on my Plan tomorrow?” reads the authoritative Plan date and reports what is actually scheduled or officially planned.
+- “Create a Goal to walk every day for the next week” creates or reviews the Goal and offers the repeating linked Activity that turns it into reliable follow-through.
+- When a future capability such as Screen Time exists, its registered operation becomes available to the same interpreter while the capability retains native household and device authorization.
+
+Mobile Chat is the first completion target. Timeline polish, Phone Agent parity, background coordination, and new native capabilities cannot block this MVP. Existing operation-registry, routing, proposal, receipt, and server work remains useful implementation inventory, but it is not itself evidence that the user job is complete.
 
 ## Context
 
@@ -202,6 +215,27 @@ Each capability may provide only the roles it can support responsibly:
 
 A capability does not become Chat-enabled merely because its screen text can be put in a model prompt.
 
+### Shared agent runtime and tool providers
+
+Chat is the first in-app channel over a channel-independent Kwilt Agent Runtime. The destination architecture is one durable coordinator for threads, runs, tool discovery, policy, interruption, proposals, and receipts, with execution delegated to typed providers:
+
+- `server` for durable Supabase-owned data and operations;
+- `device` for iOS/native state such as Screen Time, Focus, local authorization, and app navigation;
+- `channel` for SMS/voice delivery and compliance behavior;
+- `connector` for an authorized external system such as a calendar provider.
+
+The mobile app does not call Kwilt's external MCP server. MCP is an external-client projection of the server-capable catalog. In-app Chat calls authenticated server operations and native adapters through the same versioned tool semantics. Phone Agent should ultimately use the same coordinator and server tools, while persisting device-only or app-confirmation steps for later completion in Kwilt.
+
+Capability completeness is a coverage contract, not a promise that every schema is loaded into every prompt. Each meaningful user operation across Kwilt must eventually have a capability-owned tool or an explicit exclusion. The runtime discovers a small relevant tool set per turn, applies deterministic consequence-based policy, and treats only authoritative provider results as success.
+
+Capability ownership includes presentation. When Plan, Goals, Arcs, Activities, or Chapters already have a trusted prioritization method, review card, approval surface, receipt, recovery path, or native layout, Chat projects that durable contract into the conversation. The model may explain or connect the result, but it must not independently reprioritize the same objects or invent a parallel AI-only card and mutation path. Improving the capability-owned method should improve both its deterministic home and every conversational channel that reuses it.
+
+Current implementation checkpoint (2026-07-23): the mobile coordinator has hybrid semantic routing and bounded tools for the core Arc, Goal, Activity, Plan, Chapter, Profile, account-status, and native-handoff paths. The server coordinator can answer an ordinary cross-domain question by combining multiple authoritative capability reads in one bounded turn; its prompt requires capability-owned priority and status to survive synthesis. Plan recommendation turns persist the exact unplaced authoritative priority as a typed run-event referent; follow-up tools enforce its Activity id and optimistic version until a matching proposal is staged. Typed “never mind” cancellation rejects the one pending proposal or device action without sending the command back through the model. Goal check-ins prepare a persistent draft and open the existing audience-aware native review; they are never sent directly. Mobile chunk scheduling creates grouped, separately reviewable proposals with sequential provider apply, one tracked calendar binding and durable receipt per event, crash recovery, and event-specific undo. Phone stages all 2–10 chunk proposals through one service-only transaction before that same mobile review path can see the group. The product-level `KWILT_OPERATION_REGISTRY` now owns the user-meaningful operation inventory outside Chat. The executable Chat manifest must match that registry exactly and inherits its capability owner; prompt-eval execution expectations must resolve to those same manifest operations and mobile outcome classes. This removes the former Chat-only native-intent checklist. The deterministic fast path is limited to a clearly single To-do; compound syntax is sent through semantic routing and the bounded tool loop so multiple Activity proposals remain separate. The executable capability manifest records mobile and Phone state, outcome, boundary, and proof independently; evaluation cases are generated from it and Phone success must resolve to the actual server catalog. Twenty-three cross-channel reviewed-write intents are now implemented: Profile display-field update; Arc create/update/delete; Goal create/update/delete; Activity update/complete/delete, stable step create/update/complete/delete/reorder, recurrence, reminder, and focus-today; Chapter private-note update; and Plan schedule/reschedule/remove plus grouped chunk scheduling. Phone stages these through the same durable proposal path mobile Chat consumes, while existing native owners retain review, authoritative apply, receipts, recovery, and undo where supported. The local coaching Profile remains the authority: native sync emits an owner-scoped projection containing only profile id, display name, age range, and optimistic version; Phone can read it or stage a version-checked native Profile proposal, never persist a parallel full Profile. Activity-to-Goal reassignment validates the parent owner, step operations retain stable ids instead of replacing a model-authored whole array, and Plan writes validate the Activity owner/version plus the configured active provider calendar before staging. Reminder approval updates the Activity; the native notification service remains the only owner that schedules or cancels a device notification, subject to device settings. Focus-today reuses the soft Plan signal. Focus, Activity location, attachment selection, Activity sharing, Goal sharing, and Plan preference management are owner-scoped pending device actions that open the existing native review surfaces and never claim the effect already happened. The server coordinator replaces any model-authored success claim with deterministic staged or pending-action truth, including the exact unapplied proposal count for chunk groups. The authenticated server endpoint and queued Phone worker share one persistence adapter. Phone Plan read and recommendation use the exact `@kwilt/plan-core` priority and eligibility kernel used by native Plan, with linked-user timezone context grounding `today` and `tomorrow`; results explicitly remain unplaced when calendar availability is unavailable. The migration/functions remain undeployed pending authorization and runtime proof.
+
+The prior Phone relationship extractor is also now represented explicitly rather than hidden after Activity capture. The same server tools serve mobile and Phone: they read the existing owner-scoped People/Memory/Event/Cadence records and interpret an explicitly stated fact, date, or cadence into a strict one-person payload. A dedicated `remember_relationships` permission gates Phone writes; the atomic RPC records the existing relationship rows, an applied proposal/operation, mutation receipt, and Phone action log in one transaction, then suppresses the legacy compatibility extractor for that job. Mobile calls an authenticated relationship endpoint with the already persisted thread, run, and user-message identifiers rather than creating a second store or coordinator. Conversational correction and forgetting require a preceding read, exact record id, and optimistic version; they soft-correct or deactivate only that owner-scoped record and produce the same durable trust evidence. Exact corrections and individual memory/event/cadence forgetting carry a restore operation; the existing receipt Undo command calls the same authenticated endpoint, which restores the owner-scoped row and marks the receipt and proposal undone atomically. Remembering is compensatable by forgetting the exact records returned by the write, but does not yet have one-tap receipt Undo. Whole-person forgetting is an explicit excluded capability on mobile and Phone until every dependent relationship record can be reviewed and restored safely, and the internal model deliberately does not become a CRM-style People screen.
+
+The earlier `AgentWorkspace` is part of that coverage program. Its contextual Activity tools, profile tools, Arc/Goal workflows, workspace grounding, and proposal cards are migration inputs. Their domain behavior should be preserved behind versioned providers, while direct store writes, prompt-only approval, hidden mode selection, and non-durable execution are retired. A legacy `ChatMode` may bias discovery from a focused surface, but it must not prevent broad interpretation or become a second conversation backend.
+
 ## Initial capability policy
 
 | Capability | Evidence use | Proposal policy | Apply policy in first vertical slice |
@@ -274,7 +308,7 @@ Thread title ownership is durable:
 
 Title generation is background maintenance: it cannot delay or fail a Chat response, and an invalid or failed suggestion leaves the current title untouched. Generated titles are short, specific, plain-language labels—not summaries, dates, quoted user text, or generic labels such as “Conversation.”
 
-## First vertical slice
+## Shipped foundation slice
 
 Prove the full job map with Goals, To-dos, and Chapters:
 
@@ -289,6 +323,14 @@ Prove the full job map with Goals, To-dos, and Chapters:
 9. Correct or undo the change if the capability contract supports it.
 
 The slice should also include one ordinary general question that correctly receives a useful answer without personal retrieval or an action proposal. This is a routing and restraint check, not an attempt to benchmark Kwilt against ChatGPT.
+
+## Next learning release: Plan tomorrow
+
+The next vertical proof is the ordinary request, “What should I add to my plan tomorrow?” Chat must use current Plan context to return a short, realistic set of recommendations and let the user add selected items through Plan's authoritative operation. It must not reinterpret `add` as an ownerless mutation and answer with a generic clarification.
+
+This release establishes the portable tool definition/result contract, progressive Plan discovery, Plan recommendation provider, typed Plan proposal, idempotent apply, receipt reconciliation, and native return. The authenticated app coordinator and queued server coordinator now share those tool/result semantics. This remains delivery code rather than deployed Phone Agent proof: migrations, Edge Functions, scheduler behavior, signed-provider traffic, device resume, and duplicate-free cross-channel continuity must still be verified before the backend claim is complete.
+
+The architectural decision, scope boundary, and evaluation plan live in [`unified-chat-capability-complete-tools/`](../design-explorations/unified-chat-capability-complete-tools/).
 
 ## Activation loop
 
@@ -332,6 +374,8 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - Broad questions are supported, but Kwilt's product differentiation and prioritization remain centered on trusted context and capability action rather than general-chat breadth.
 - Active-thread cleanup uses bidirectional native swipe actions: reversible archive to the right and confirmed permanent delete to the left.
 - Automatic titles may evolve only at the opening-exchange and compression boundaries; manual titles always win.
+- The long-term coordinator is durable and channel-independent; device-local tools remain first-class providers rather than becoming a separate mobile agent architecture.
+- Tool completeness is measured against meaningful user operations and explicit exclusions, with progressive discovery rather than an all-tools prompt.
 
 ### Decisions intentionally deferred
 
@@ -341,6 +385,8 @@ The detailed evidence plan and decision rules live in [`05-evaluate-learning.md`
 - Household/thread scope and shared Chat behavior.
 - Money and Games evidence, action, consent, and receipt policies.
 - Long-term retention policies, export, bulk cleanup, and per-thread privacy controls beyond archive and confirmed deletion.
+- The exact migration boundary at which the mobile-hosted model loop moves to the authenticated durable server coordinator.
+- Which later capabilities qualify for standing permission after Plan proves provider truth, idempotency, and receipts.
 
 ### Build acceptance criteria
 

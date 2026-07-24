@@ -10,6 +10,47 @@ import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import type { Activity } from '../../domain/types';
 
+export function formatProposalReceiptSummary(
+  status: 'applied' | 'failed' | 'undone',
+  operationType: string | undefined,
+  title: string,
+): string {
+  if (status === 'failed') {
+    const verb = operationType === 'schedule_activity' || operationType === 'schedule_activity_chunk' ? 'Could not schedule'
+      : operationType === 'reschedule_activity' ? 'Could not move'
+        : operationType === 'remove_activity_from_plan' ? 'Could not remove'
+          : operationType === 'create_goal' ? 'Could not create'
+            : operationType === 'delete_goal' ? 'Could not delete'
+              : operationType === 'create_arc' ? 'Could not create'
+                : operationType === 'delete_arc' ? 'Could not delete'
+          : 'Could not update';
+    return `${verb} ${title}`;
+  }
+  if (status === 'undone') {
+    if (operationType === 'schedule_activity' || operationType === 'schedule_activity_chunk') return `Removed ${title} from Plan`;
+    if (operationType === 'reschedule_activity') return `Moved ${title} back`;
+    if (operationType === 'remove_activity_from_plan') return `Restored ${title} to Plan`;
+    if (operationType === 'create_activity') return `Removed ${title}`;
+    if (operationType === 'create_goal') return `Removed ${title}`;
+    if (operationType === 'delete_goal') return `Restored ${title}`;
+    if (operationType === 'create_arc') return `Removed ${title}`;
+    if (operationType === 'delete_arc') return `Restored ${title}`;
+    return `Restored ${title}`;
+  }
+  if (operationType === 'create_activity') return `Added ${title}`;
+  if (operationType === 'create_goal') return `Created ${title}`;
+  if (operationType === 'delete_goal') return `Deleted ${title}`;
+  if (operationType === 'create_arc') return `Created ${title}`;
+  if (operationType === 'delete_arc') return `Deleted ${title}`;
+  if (operationType === 'remember_relationship') return `Remembered ${title}`;
+  if (operationType === 'correct_relationship') return `Corrected ${title}`;
+  if (operationType === 'forget_relationship') return `Forgot ${title}`;
+  if (operationType === 'schedule_activity' || operationType === 'schedule_activity_chunk') return `Scheduled ${title}`;
+  if (operationType === 'reschedule_activity') return `Moved ${title}`;
+  if (operationType === 'remove_activity_from_plan') return `Removed ${title} from Plan`;
+  return `Updated ${title}`;
+}
+
 function projectRun(
   run: UnifiedChatRun,
   persistedEvents: readonly UnifiedChatRunEvent[],
@@ -68,6 +109,7 @@ function buildWorkbenchTimeline(
   const evidenceByRun = new Map<string, string[]>();
   const proposalsByRun = new Map<string, string[]>();
   const receiptsByRun = new Map<string, string[]>();
+  const clientActionsByRun = new Map<string, string[]>();
   const sourceProposalRun = new Map((aggregate.proposals ?? []).map((proposal) => [proposal.id, proposal.runId]));
 
   for (const evidence of snapshot.evidence) {
@@ -79,6 +121,9 @@ function buildWorkbenchTimeline(
   for (const receipt of snapshot.receipts) {
     const runId = sourceProposalRun.get(receipt.proposalId);
     if (runId) receiptsByRun.set(runId, [...(receiptsByRun.get(runId) ?? []), receipt.id]);
+  }
+  for (const action of snapshot.clientActions) {
+    clientActionsByRun.set(action.runId, [...(clientActionsByRun.get(action.runId) ?? []), action.id]);
   }
 
   type PendingTurn = {
@@ -93,6 +138,7 @@ function buildWorkbenchTimeline(
   const claimedEvidenceIds = new Set<string>();
   const claimedProposalIds = new Set<string>();
   const claimedReceiptIds = new Set<string>();
+  const claimedClientActionIds = new Set<string>();
   const runGroups = new Map<string, AgentWorkbenchRun[]>();
 
   for (const run of snapshot.runs) {
@@ -152,6 +198,10 @@ function buildWorkbenchTimeline(
         items.push({ kind: 'receipt', id: receiptId });
         claimedReceiptIds.add(receiptId);
       }
+      for (const actionId of clientActionsByRun.get(run.id) ?? []) {
+        items.push({ kind: 'client_action', id: actionId });
+        claimedClientActionIds.add(actionId);
+      }
     }
 
     const firstSourceRun = sourceRuns[0];
@@ -180,7 +230,8 @@ function buildWorkbenchTimeline(
   const hasOrphanedArtifact =
     snapshot.evidence.some((item) => !claimedEvidenceIds.has(item.id)) ||
     snapshot.proposals.some((item) => !claimedProposalIds.has(item.id)) ||
-    snapshot.receipts.some((item) => !claimedReceiptIds.has(item.id));
+    snapshot.receipts.some((item) => !claimedReceiptIds.has(item.id)) ||
+    snapshot.clientActions.some((item) => !claimedClientActionIds.has(item.id));
   if (hasOrphanedArtifact) return undefined;
 
   const baseTurns = [...pending]
@@ -347,6 +398,20 @@ export function buildWorkbenchSnapshot(
       (proposal) => !compactCreateProposals.has(proposal.id),
     ).map((proposal) => {
       const { expectedUpdatedAt: _expectedUpdatedAt, ...fields } = proposal.operation.payload;
+      const visibleFields = proposal.capabilityId !== 'plan'
+        ? fields
+        : proposal.operation.type === 'remove_activity_from_plan'
+          ? {
+              action: 'remove',
+              previousStartDate: proposal.operation.payload.previousStartDate,
+              previousEndDate: proposal.operation.payload.previousEndDate,
+              targetDateKey: proposal.operation.payload.previousTargetDateKey,
+            }
+          : {
+              startDate: proposal.operation.payload.startDate,
+              endDate: proposal.operation.payload.endDate,
+              targetDateKey: proposal.operation.payload.targetDateKey,
+            };
       return {
         id: proposal.id,
         runId: proposal.runId,
@@ -361,7 +426,7 @@ export function buildWorkbenchSnapshot(
           type: proposal.operation.type,
           ...(proposal.operation.targetId ? { targetId: proposal.operation.targetId } : {}),
           summary: proposal.operation.summary,
-          fields,
+          fields: visibleFields,
         },
       };
     }),
@@ -374,7 +439,27 @@ export function buildWorkbenchSnapshot(
     ).map((receipt) => {
       const proposal = (aggregate.proposals ?? []).find((candidate) => candidate.id === receipt.proposalId);
       const creating = proposal?.operation.type === 'create_activity';
-      const title = typeof receipt.resultState.title === 'string' ? receipt.resultState.title : null;
+      const relationshipBefore = receipt.resultState.before && typeof receipt.resultState.before === 'object'
+        ? receipt.resultState.before as Record<string, unknown>
+        : {};
+      const title = typeof receipt.resultState.title === 'string'
+        ? receipt.resultState.title
+        : typeof receipt.resultState.name === 'string'
+          ? receipt.resultState.name
+          : typeof receipt.resultState.personName === 'string'
+            ? receipt.resultState.personName
+            : receipt.capabilityId === 'relationships' && typeof relationshipBefore.title === 'string'
+              ? relationshipBefore.title
+              : receipt.capabilityId === 'relationships' && typeof relationshipBefore.text === 'string'
+                ? relationshipBefore.text
+                : receipt.capabilityId === 'relationships' && typeof relationshipBefore.display_name === 'string'
+                  ? relationshipBefore.display_name
+          : receipt.capabilityId === 'profile' ? 'Profile'
+            : receipt.capabilityId === 'chapters' && typeof receipt.resultState.periodKey === 'string'
+              ? `Chapter ${receipt.resultState.periodKey}`
+              : receipt.capabilityId === 'relationships' && typeof receipt.resultState.recordType === 'string'
+                ? `saved ${receipt.resultState.recordType}`
+                : null;
       const showInventory = Boolean(creating && receipt.status === 'applied' && title);
       const inventoryMeta = showInventory
         ? buildActivityListMeta({ activity: receipt.resultState as unknown as Activity })
@@ -384,7 +469,7 @@ export function buildWorkbenchSnapshot(
         proposalId: receipt.proposalId,
         status: receipt.status,
         summary: title
-          ? `${receipt.status === 'undone' ? 'Removed' : receipt.status === 'failed' ? 'Could not update' : creating ? 'Added' : 'Updated'} ${title}`
+          ? formatProposalReceiptSummary(receipt.status, proposal?.operation.type, title)
           : receipt.status === 'failed' ? 'The change could not be applied' : 'Kwilt saved the change',
         ...(receipt.resultingObjectId && title
           ? { object: { id: receipt.resultingObjectId, type: receipt.resultingObjectType ?? 'activity', label: title } }
@@ -402,6 +487,13 @@ export function buildWorkbenchSnapshot(
         canUndo: receipt.canUndo,
       };
     }),
+    clientActions: (aggregate.clientActions ?? []).map((action) => ({
+      id: action.id, runId: action.runId, capabilityId: action.capabilityId,
+      actionType: action.actionType, title: action.title,
+      consequenceSummary: action.consequenceSummary, status: action.status,
+      version: action.version,
+      canContinue: action.status === 'pending_client_action' || action.status === 'presenting',
+    })),
     composer: {
       prompt,
       state: hasActiveRun ? 'working' : 'ready',

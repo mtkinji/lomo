@@ -46,6 +46,17 @@ export const AnalyticsEvent = {
   AgentReturnedToCapability: 'agent_returned_to_capability',
   UnifiedShellFirstSurfaceUsable: 'unified_shell_first_surface_usable',
 
+  // Unified Chat agent reliability. Metadata only: request classes,
+  // capability/tool ids, provider/outcome enums, booleans, and counts.
+  // Never attach prompts, messages, tool arguments, titles, notes, or summaries.
+  UnifiedChatRouteSelected: 'unified_chat_route_selected',
+  UnifiedChatToolSelected: 'unified_chat_tool_selected',
+  UnifiedChatUnsupportedIntent: 'unified_chat_unsupported_intent',
+  UnifiedChatProposalCorrected: 'unified_chat_proposal_corrected',
+  UnifiedChatProviderOutcome: 'unified_chat_provider_outcome',
+  UnifiedChatReconciled: 'unified_chat_reconciled',
+  UnifiedChatNextTurnCorrection: 'unified_chat_next_turn_correction',
+
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.
   PhoneAgentLinkCodeRequested: 'phone_agent_link_code_requested',

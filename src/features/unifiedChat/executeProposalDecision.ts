@@ -46,6 +46,9 @@ export async function executeProposalDecision({
   now?: () => string;
   afterApply?: (receipt: ActivityMutationReceipt) => Promise<ActivityMutationReceipt>;
 }): Promise<void> {
+  if (proposal.capabilityId !== 'todos') {
+    throw new Error('This proposal is not an Activity operation.');
+  }
   const decision = await repository.decideProposal({
     proposalId: proposal.id,
     action,

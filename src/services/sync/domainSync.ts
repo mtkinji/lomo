@@ -5,6 +5,10 @@ import { useAppStore, switchDomainUser } from '../../store/useAppStore';
 import type { Activity, Arc, Goal } from '../../domain/types';
 import { normalizeActivity } from '../../domain/normalizeActivity';
 import { createLogger } from '../logger';
+import {
+  agentProfileProjectionSignature,
+  buildAgentProfileProjectionRow,
+} from './agentProfileProjection';
 
 type DomainTable = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
 
@@ -57,6 +61,7 @@ let prevActivityIds = new Set<string>();
 let prevArcSignatures = new Map<string, string>();
 let prevGoalSignatures = new Map<string, string>();
 let prevActivitySignatures = new Map<string, string>();
+let prevProfileProjectionSignature: string | null = null;
 
 function getDomainItemSignature(item: { id: string }): string {
   return JSON.stringify(item);
@@ -80,10 +85,11 @@ export function resetPrevIds(): void {
   prevArcSignatures = new Map<string, string>();
   prevGoalSignatures = new Map<string, string>();
   prevActivitySignatures = new Map<string, string>();
+  prevProfileProjectionSignature = null;
 }
 
-const PUSH_DEBOUNCE_MS = 1200;
 const IS_JEST = typeof process !== 'undefined' && Boolean((process as any).env?.JEST_WORKER_ID);
+const PUSH_DEBOUNCE_MS = IS_JEST ? 1 : 1200;
 const REALTIME_PULL_DEBOUNCE_MS = IS_JEST ? 1 : 500;
 const FIRST_PULL_RETRY_DELAYS_MS = IS_JEST ? [1, 1, 1] : [500, 1000, 2000];
 const REMOTE_TABLE_FETCH_TIMEOUT_MS = IS_JEST ? 50 : 12000;
@@ -382,6 +388,7 @@ async function pushNow(): Promise<void> {
     const arcs = state.arcs ?? [];
     const goals = state.goals ?? [];
     const activities = state.activities ?? [];
+    const profileProjectionSignature = agentProfileProjectionSignature(state.userProfile);
 
     const nextArcIds = new Set(arcs.map((a) => a.id));
     const nextGoalIds = new Set(goals.map((g) => g.id));
@@ -410,6 +417,12 @@ async function pushNow(): Promise<void> {
     await doUpsert('kwilt_arcs', [...arcRows, ...arcTombstones]);
     await doUpsert('kwilt_goals', [...goalRows, ...goalTombstones]);
     await doUpsert('kwilt_activities', [...activityRows, ...activityTombstones]);
+    if (profileProjectionSignature !== prevProfileProjectionSignature) {
+      const row = buildAgentProfileProjectionRow({ userId: user.userId, profile: state.userProfile });
+      await supabase.from('kwilt_agent_profile_projections').upsert(row, { onConflict: 'user_id' })
+        .select('user_id').throwOnError();
+      prevProfileProjectionSignature = profileProjectionSignature;
+    }
     seedPrevIdsFromStore();
   } catch (e) {
     if (__DEV__) {
@@ -583,21 +596,30 @@ async function enableForUser(user: SyncUser): Promise<void> {
       arcs: s.arcs,
       goals: s.goals,
       activities: s.activities,
+      userProfile: s.userProfile,
       domainHydrated: s.domainHydrated,
     }),
     (next, prev) => {
       if (!next?.domainHydrated) return;
-      if (prev && next.arcs === prev.arcs && next.goals === prev.goals && next.activities === prev.activities) {
+      if (prev && next.arcs === prev.arcs && next.goals === prev.goals &&
+          next.activities === prev.activities && next.userProfile === prev.userProfile) {
         return;
       }
       if (suppressNextPush) {
         suppressNextPush = false;
+        if (agentProfileProjectionSignature(next.userProfile) !== prevProfileProjectionSignature) {
+          schedulePush();
+        }
         return;
       }
       schedulePush();
     },
     { fireImmediately: true } as any,
   );
+  // The server projection is output-only and is intentionally not seeded from local state.
+  // Always schedule one pass after enabling so Phone sees the current bounded Profile even
+  // when the initial remote-domain merge is suppressed to prevent an Arc/Goal/Activity loop.
+  schedulePush();
 }
 
 function disable(): void {

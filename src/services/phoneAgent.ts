@@ -2,9 +2,11 @@ import { getSupabasePublishableKey } from '../utils/getEnv';
 import { ensureSignedInWithPrompt } from './backend/auth';
 import { getEdgeFunctionUrlCandidates } from './edgeFunctions';
 import { getInstallId } from './installId';
+import { normalizeIanaTimeZone } from '@kwilt/agent-runtime';
 
 export type PhoneAgentPermissionKey =
   | 'create_activities'
+  | 'remember_relationships'
   | 'send_followups'
   | 'log_done_replies'
   | 'offer_drafts'
@@ -16,6 +18,7 @@ export type PhoneAgentLink = {
   permissions: Record<string, boolean>;
   promptCapPerDay: number;
   optedOutAt: string | null;
+  timeZone: string | null;
 };
 
 export type PhoneAgentMemorySummary = {
@@ -39,7 +42,7 @@ export type PhoneAgentStatus = {
 };
 
 export type PhoneAgentLinkRequest =
-  | { action: 'request_code'; phone: string }
+  | { action: 'request_code'; phone: string; timeZone: string }
   | { action: 'verify_code'; phone: string; code: string }
   | { action: 'update_settings'; phone: string; permissions: Record<string, boolean>; promptCapPerDay: number }
   | { action: 'revoke'; phone: string }
@@ -75,6 +78,7 @@ export function normalizePhoneAgentLink(raw: unknown): PhoneAgentLink {
     permissions: asRecord(row.permissions) as Record<string, boolean>,
     promptCapPerDay: asInteger(row.promptCapPerDay, 3),
     optedOutAt: asNullableString(row.optedOutAt),
+    timeZone: normalizeIanaTimeZone(row.timeZone),
   };
 }
 
@@ -152,7 +156,8 @@ async function callPhoneAgentLink(request: PhoneAgentLinkRequest): Promise<unkno
 }
 
 export async function requestPhoneAgentCode(phone: string): Promise<{ status: 'code_sent'; phone: string }> {
-  const result = asRecord(await callPhoneAgentLink({ action: 'request_code', phone }));
+  const timeZone = normalizeIanaTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? 'UTC';
+  const result = asRecord(await callPhoneAgentLink({ action: 'request_code', phone, timeZone }));
   return { status: 'code_sent', phone: asString(result.phone) };
 }
 

@@ -12,6 +12,7 @@ import { IconButton } from '../../ui/Button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import type { MainTabsParamList } from '../../navigation/RootNavigator';
 import { PlanDateStrip } from './PlanDateStrip';
+import { dateKeyToLocalDate } from '../../services/plan/planDates';
 import { useAppStore } from '../../store/useAppStore';
 import { useShowedUpToday, useRepairWindowActive } from '../../store/useShowedUpToday';
 import { StreakWeeklyRecapCard } from './StreakWeeklyRecapCard';
@@ -20,7 +21,12 @@ export function PlanScreen() {
   const capabilityShell = useCapabilityShellOptional();
   const navigation = useNavigation();
   const route = useRoute<any>() as unknown as { params?: MainTabsParamList['PlanTab'] };
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const routeDateKey = route?.params?.dateKey;
+  const [selectedDate, setSelectedDate] = useState(() =>
+    routeDateKey && /^\d{4}-\d{2}-\d{2}$/.test(routeDateKey)
+      ? dateKeyToLocalDate(routeDateKey)
+      : new Date(),
+  );
   const [recsSheetSnapIndex, setRecsSheetSnapIndex] = useState(0);
   const [recsCount, setRecsCount] = useState(0);
   const [entryPoint, setEntryPoint] = useState<'manual' | 'kickoff'>(() =>
@@ -77,6 +83,12 @@ export function PlanScreen() {
       (navigation as any).setParams?.({ openRecommendations: undefined });
     }
   }, [navigation, route?.params?.openRecommendations]);
+
+  React.useEffect(() => {
+    if (routeDateKey && /^\d{4}-\d{2}-\d{2}$/.test(routeDateKey)) {
+      setSelectedDate(dateKeyToLocalDate(routeDateKey));
+    }
+  }, [routeDateKey]);
 
   return (
     <AppShell>
