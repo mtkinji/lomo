@@ -3,7 +3,7 @@
 ## Scope and source
 
 - Product phase: Phase 1, make conversation causality trustworthy.
-- Native host base: `e5eb0a156ecdee6ef7f7d7ce19effef9d1becb08` plus the uncommitted Phase 0/1 fixture and conformance changes on `codex/kwilt-chat-trust-program` at capture time.
+- Native host and trust-contract commit: `7658e1c54160121a80e9ab3334a775ce40b1d236` on `codex/kwilt-chat-trust-program` (base `e5eb0a156ecdee6ef7f7d7ce19effef9d1becb08`).
 - Renderer: `8585014508bb8d61811ed4df207b477fc88fa716` on the clean `codex/kwilt-chat-trust-program` worktree in `kwilt-site`.
 - Giraffed compatibility fixture: `9549e5036d528424110196db521da5aeaf8bb0f2`.
 - App source version: `1.0.94 (94)`.
