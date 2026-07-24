@@ -1,16 +1,16 @@
 ---
 id: brief-kwilt-money-capability-integration
 title: Kwilt Money Capability Integration
-status: draft
+status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
-job_flow: job-flow-maya-review-budget-reality-before-spending
+job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-unified-chat, brief-screen-time-controls-contextual-setup]
-exploration: docs/design-explorations/kwilt-money-capability-integration
+exploration: docs/design-explorations/kwilt-money-native-settings
 owner: andrew
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 ---
 
 # Kwilt Money Capability Integration
@@ -26,7 +26,7 @@ tables, and Edge Functions already live in the shared Kwilt Supabase project.
 This brief changes the prior program sequence: Money is the first imported capability;
 Games follows after the Money capability contract has been proven.
 
-Design source: [`docs/design-explorations/kwilt-money-capability-integration/`](../design-explorations/kwilt-money-capability-integration/).
+Design source: [`docs/design-explorations/kwilt-money-native-settings/`](../design-explorations/kwilt-money-native-settings/).
 
 ## Target audience and persona
 
@@ -71,8 +71,8 @@ The integration is a capability-native port. It is not:
 ### Host
 
 - Host repository: `/Users/andrewwatanabe/Kwilt`.
-- Integration branch: `codex/kwilt-money-integration`.
-- Branch point: `c436be6690352ecaa8ff15c1e599e332229d3697`.
+- Integration branch: `codex/native-money-settings-integration`.
+- Branch point: `e5eb0a156ecdee6ef7f7d7ce19effef9d1becb08`.
 - Kwilt owns the binary, React Navigation root, auth, entitlement state, analytics,
   notifications, settings, deep links, account deletion/export, release, and native targets.
 
@@ -101,6 +101,20 @@ The integration is a capability-native port. It is not:
   the host repository; do not replay already-applied Money migrations under new versions.
 
 ## Architecture
+
+### Shared settings presentation
+
+Money's grouped settings grammar becomes the shared Kwilt settings presentation system.
+`SettingsPage`, `SettingsGroup`, `SettingsRow`, `SettingsToggleRow`, and the divider contract
+remain host-owned components. Kwilt Settings Home adopts those primitives and preserves its
+existing visible destinations, role gates, profile behavior, and subscription behavior.
+
+The standalone Money settings home is not ported. Global identity, subscription, legal,
+notification, deletion/export, and shared-account choices remain in the one Kwilt Settings
+stack. Money contributes only named finance-specific destinations such as privacy lock,
+connections, widgets, category/app-control settings, and Screen Time review configuration.
+Contextual links may enter those routes from Money, but they never duplicate state or create
+a second settings root.
 
 ### Source layout
 
