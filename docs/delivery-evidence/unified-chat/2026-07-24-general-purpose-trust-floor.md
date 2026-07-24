@@ -5,6 +5,7 @@
 Answer ordinary questions competently without weakening Kwilt's capability-first behavior, least-privilege context boundary, or action truth. Requests that depend on fresh external facts must use source-backed search and expose inspectable citations.
 
 Base app commit: `607e0b3` (`refactor: centralize capability manifest`).
+Phase 4 implementation checkpoint: `83e5cca3107720429a68c93e50cbdeb954e63e3e` (`feat: establish general chat trust floor`).
 
 ## What changed
 
@@ -30,13 +31,18 @@ Red tests and live runs exposed: missing search contracts; prompt layers in the 
 - The diff-derived completion gate passes: 275 Jest suites / 1,963 tests, 14 Deno tests, 27 durable Chat contracts, app and test typechecks, Supabase typechecks, code-health ratchets, product and delivery lint, protocol conformance, code-map generation, and architecture lint. The only warnings are pre-existing repository-wide feature-brief registration and raw-`Text` notices outside this change.
 - `phase4-live-model-eval.json` passes 39/39 cases and 25/25 safety-critical cases. It covers all 30 standing routes plus ordinary, context-visible, medical, self-harm, legal, financial, native-effect, and money-effect answers.
 - A direct hosted-provider smoke returned a useful two-sentence tides answer without Kwilt workflow forcing.
-- The deployed proxy returned `404 not_found` for `/v1/responses`, proving source implementation is not deployment evidence.
+- Supabase `ai-chat` version `57` is deployed `ACTIVE` with the existing client contract preserved (`verify_jwt=false`). The deployed SHA-256 is `5d1dc4c3624f944a83de5f66280ab14744f071aaa1152fd44a3be374e2e4cad8`.
+- The production `/v1/responses` route returned HTTP 200 for an official OpenAI announcements query, completed two hosted web-search calls, and returned three HTTPS citation annotations from `openai.com`.
+- The actual Kwilt request builder plus `parseCurrentInformationResponse` accepted production response `resp_068e83e9438085d8016a63df897e188199858f2274a3f2d98a`: two inspectable `openai.com` sources and a 586-character visible answer with Sources rendered.
+- A weather probe returned HTTP 200 but no URL citation annotations. Kwilt rejected that result rather than showing an uncited current claim, proving the intended fail-closed boundary.
+- The signed iPhone 17 Pro simulator rendered the production-backed current-information answer with inline official links and a separate inspectable Sources link: [current-information-citations.png](./2026-07-24-phase4-runtime/current-information-citations.png).
+- Production acceptance exposed a cross-turn routing defect: after the cited turn, two ordinary prompts were incorrectly sent to `/v1/responses` and failed with durable `model_response_failed` runs. Edge logs proved the proxy itself returned 200; request telemetry proved the mistaken main route was `/v1/responses` rather than `/v1/chat/completions`.
+- A regression now makes the current user text—not semantic carryover from recent dialogue—the authority for invoking citation-required search. The test failed against the original behavior and passes after the one-line planning fix; the focused Chat routing set passes 98 tests.
 
 ## Unverified and blocked proof
 
-- The changed `ai-chat` Edge Function has not been deployed. Deployment requires explicit authorization.
-- No hosted or signed-simulator current-information answer with working citations has been proven.
-- The signed simulator matrix is pending because the Mac re-locked. Required rows remain Kwilt-native, context-enhanced, ordinary general, and current-information.
+- The signed simulator matrix is pending because the Mac re-locked during the post-fix replay. Current-information is proven; the remaining rows are Kwilt-native, context-enhanced, and ordinary general.
+- The ordinary-general regression is proven in tests and production diagnostics, but its signed-simulator replay after the fix is not yet proven.
 - No physical-device, TestFlight, Phone Agent, or production cross-channel claim is made.
 
 Phase 4 is not complete until the current-information provider path and all four signed-simulator rows are proven, followed by `npm run verify:changed -- --run` against the final phase diff.

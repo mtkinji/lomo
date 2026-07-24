@@ -82,10 +82,8 @@ export async function planUnifiedChatTurnPhase(
 
   return {
     requestPolicy,
-    requiresWebSearch: requestPolicy.requestClass === 'general' && (
-      semanticRoute?.informationNeed === 'current' ||
-      classifyCurrentInformationNeed(input.prompt) === 'current'
-    ),
+    requiresWebSearch: requestPolicy.requestClass === 'general' &&
+      classifyCurrentInformationNeed(input.prompt) === 'current',
     planConversationReferent: requestPolicy.policyReason === 'conversation-follow-up:plan'
       ? resolvePlanPlacementReferent(input.aggregate)
       : null,

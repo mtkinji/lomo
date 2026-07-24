@@ -192,6 +192,50 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
+  test('does not carry a prior turn current-information need into a stable general request', async () => {
+    const { repository, send } = dependencies(jest.fn(async () => 'Why did the calendar blush? It saw its dates.'));
+    const aggregateAfterCurrentInformation: UnifiedChatThreadAggregate = {
+      ...startingAggregate,
+      messages: [{
+        id: 'assistant-current', threadId: 'thread-1', role: 'assistant',
+        body: 'The newest announcement is available. [1]\n\nSources: [1] [Official source](https://example.com/latest)',
+        feedback: null, createdAt: '2026-07-21T10:30:00.000Z',
+        updatedAt: '2026-07-21T10:30:00.000Z', attachments: [],
+      }],
+      runs: [{
+        id: 'run-current', threadId: 'thread-1', userMessageId: 'user-current',
+        assistantMessageId: 'assistant-current', status: 'complete', errorCode: null,
+        errorMessage: null, createdAt: '2026-07-21T10:20:00.000Z',
+        updatedAt: '2026-07-21T10:30:00.000Z', completedAt: '2026-07-21T10:30:00.000Z',
+        requestClass: 'general', participatingCapabilities: [],
+        contextPolicy: {
+          usePrivateContext: false,
+          reason: 'semantic-route:Current information requires verification.',
+          clarification: null,
+        },
+        version: 2, stopRequestedAt: null, steerCount: 0,
+      }],
+    };
+
+    await runUnifiedChatTurn(
+      { aggregate: aggregateAfterCurrentInformation, prompt: 'Tell me a joke.' },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        routeRequest: async () => ({
+          requestClass: 'general', participatingCapabilities: [], usePrivateContext: false,
+          informationNeed: 'current', confidence: 0.96,
+          reason: 'The recent dialogue discussed current information.',
+        }),
+      },
+    );
+
+    expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
+      webSearch: false,
+      includeUserProfileContext: false,
+    }));
+  });
+
   test('carries Plan scope into a short answer to the assistant scheduling clarification', async () => {
     const { repository, send } = dependencies();
     const aggregate: UnifiedChatThreadAggregate = {
