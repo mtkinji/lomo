@@ -45,7 +45,7 @@ describe('CHAT_CAPABILITY_COVERAGE', () => {
 
   it('accounts for every active capability, external MCP tool, and legacy agent asset', () => {
     const refs = new Set(CHAT_CAPABILITY_COVERAGE.flatMap((row) => row.sourceRefs));
-    for (const capability of CAPABILITY_REGISTRY) {
+    for (const capability of CAPABILITY_REGISTRY.filter(({ availability }) => availability === 'active')) {
       expect(refs).toContain(`capability:${capability.id}`);
     }
     for (const toolName of externalMcpToolNames()) {

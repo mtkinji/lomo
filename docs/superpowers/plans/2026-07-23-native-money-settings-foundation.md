@@ -57,7 +57,7 @@ expect(getCapability('money')).toMatchObject({
   id: 'money',
   group: 'money',
   rootRoute: { root: 'Money', screen: 'MoneySummary' },
-  availability: 'active',
+  availability: 'preview',
 });
 expect(resolveCapabilityNavigation('money')).toEqual({
   name: 'Money',
@@ -88,6 +88,10 @@ export const moneyCapabilityDefinition = {
 ```
 
 Update active-capability derivation and capability navigation to handle the non-`MainTabs` root without weakening existing typed targets. Keep Money out of the host place bar.
+
+Keep Money at `preview` through the structural foundation. Flip it to `active` only when the
+live read-only path and its explicit Unified Chat coverage boundary are ready, so the global
+menu never advertises a fixture-free placeholder as a usable financial capability.
 
 - [x] **Step 4: Run the focused tests**
 
@@ -220,7 +224,7 @@ Run: `npm test -- --runInBand src/features/account/SettingsHomeScreen.test.tsx s
 
 Expected: pass.
 
-- [ ] **Step 6: Commit the Settings Home migration**
+- [x] **Step 6: Commit the Settings Home migration**
 
 ```bash
 git add src/features/account/SettingsHomeScreen.tsx src/features/account/SettingsHomeScreen.test.tsx docs/settings-product-inventory.md

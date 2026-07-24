@@ -6,7 +6,7 @@ export const moneyCapabilityDefinition = {
   label: 'Money',
   group: 'money',
   icon: 'cart',
-  availability: 'active',
+  availability: 'preview',
   rootRoute: { root: 'Money', screen: 'MoneySummary' },
   deepLinks: [
     'kwilt://money',

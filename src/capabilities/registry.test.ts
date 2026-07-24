@@ -34,13 +34,13 @@ describe('capability registry', () => {
     ).toBe(true);
   });
 
-  it('registers Money as an active capability with a capability-local root', () => {
+  it('registers Money as a preview capability until live financial reads are ready', () => {
     expect(getCapability('money')).toMatchObject({
       id: 'money',
       label: 'Money',
       group: 'money',
       rootRoute: { root: 'Money', screen: 'MoneySummary' },
-      availability: 'active',
+      availability: 'preview',
     });
   });
 
