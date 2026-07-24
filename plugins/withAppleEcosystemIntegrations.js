@@ -262,8 +262,25 @@ class KwiltScreenTimeProtection: NSObject {
   private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
 
   @available(iOS 16.0, *)
-  private var store: ManagedSettingsStore {
-    ManagedSettingsStore(named: ManagedSettingsStore.Name("kwilt.screenTimeProtection"))
+  private func selectionId(from json: String) -> String {
+    guard let data = json.data(using: .utf8),
+          let payload = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+          let raw = payload["selectionId"] as? String else { return "default" }
+    let allowed = raw.unicodeScalars.filter {
+      CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_"
+    }
+    let normalized = String(String.UnicodeScalarView(allowed)).prefix(64)
+    return normalized.isEmpty ? "default" : String(normalized)
+  }
+
+  private func selectionStorageKey(for selectionId: String) -> String {
+    selectionId == "default" ? selectionKey : "\\(selectionKey).\\(selectionId)"
+  }
+
+  @available(iOS 16.0, *)
+  private func store(for selectionId: String) -> ManagedSettingsStore {
+    let name = selectionId == "default" ? "kwilt.screenTimeProtection" : "kwilt.\\(selectionId)"
+    return ManagedSettingsStore(named: ManagedSettingsStore.Name(name))
   }
 
   @available(iOS 16.0, *)
@@ -281,8 +298,8 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func loadSelection() -> FamilyActivitySelection {
-    guard let data = UserDefaults.standard.data(forKey: selectionKey),
+  private func loadSelection(for selectionId: String) -> FamilyActivitySelection {
+    guard let data = UserDefaults.standard.data(forKey: selectionStorageKey(for: selectionId)),
           let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else {
       return FamilyActivitySelection(includeEntireCategory: true)
     }
@@ -290,9 +307,9 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func saveSelection(_ selection: FamilyActivitySelection) {
+  private func saveSelection(_ selection: FamilyActivitySelection, for selectionId: String) {
     guard let data = try? JSONEncoder().encode(selection) else { return }
-    UserDefaults.standard.set(data, forKey: selectionKey)
+    UserDefaults.standard.set(data, forKey: selectionStorageKey(for: selectionId))
   }
 
   @available(iOS 16.0, *)
@@ -345,8 +362,8 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func applySelection(_ selection: FamilyActivitySelection) {
-    let managedStore = store
+  private func applySelection(_ selection: FamilyActivitySelection, for selectionId: String) {
+    let managedStore = store(for: selectionId)
     managedStore.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
     managedStore.shield.applicationCategories = selection.categoryTokens.isEmpty
       ? nil
@@ -407,14 +424,15 @@ class KwiltScreenTimeProtection: NSObject {
           return
         }
 
+        let selectionId = self.selectionId(from: json)
         let coordinator = KwiltScreenTimePickerCoordinator(
-          initialSelection: self.loadSelection(),
+          initialSelection: self.loadSelection(for: selectionId),
           onDone: { [weak self] selection in
             guard let self = self else {
               resolve(nil)
               return
             }
-            self.saveSelection(selection)
+            self.saveSelection(selection, for: selectionId)
             resolve(self.selectionPayload(selection))
           },
           onCancel: {
@@ -441,12 +459,13 @@ class KwiltScreenTimeProtection: NSObject {
         resolve(false)
         return
       }
-      let selection = loadSelection()
+      let selectionId = selectionId(from: json)
+      let selection = loadSelection(for: selectionId)
       if selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty {
         resolve(false)
         return
       }
-      applySelection(selection)
+      applySelection(selection, for: selectionId)
       saveShieldReason(from: json)
       resolve(true)
       return
@@ -462,8 +481,24 @@ class KwiltScreenTimeProtection: NSObject {
   ) {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
-      store.clearAllSettings()
+      store(for: "default").clearAllSettings()
       clearShieldReason()
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
+
+  @objc(clearRestrictionsForSelection:resolver:rejecter:)
+  func clearRestrictionsForSelection(
+    _ json: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      store(for: selectionId(from: json)).clearAllSettings()
       resolve(true)
       return
     }
@@ -568,6 +603,12 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
   clearRestrictions:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  clearRestrictionsForSelection:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 
