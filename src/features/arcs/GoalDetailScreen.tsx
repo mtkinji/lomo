@@ -166,6 +166,7 @@ import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 import { mergeRefinedGoalProposal } from './goalProposalMerge';
 import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
 import { normalizeGoalSharePreviewImageUrl } from './goalSharePreviewUrl';
+import { appendGoalInviteReferralCode } from '../goals/goalInviteReferralUrl';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1168,24 +1169,8 @@ export function GoalDetailScreen() {
       // Tap/open URL for humans: prefer the public landing host (Universal Links) when available.
       const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
 
-      const withRef = (rawUrl: string): string => {
-        const ref = referralCode.trim();
-        if (!rawUrl) return rawUrl;
-        if (!ref) return rawUrl;
-        try {
-          const u = new URL(rawUrl);
-          if (!(u.searchParams.get('ref') ?? '').trim()) {
-            u.searchParams.set('ref', ref);
-          }
-          return u.toString();
-        } catch {
-          const joiner = rawUrl.includes('?') ? '&' : '?';
-          return `${rawUrl}${joiner}ref=${encodeURIComponent(ref)}`;
-        }
-      };
-
-      const tapUrl = withRef(tapUrlBase);
-      const shareUrl = withRef(shareUrlBase);
+      const tapUrl = appendGoalInviteReferralCode(tapUrlBase, referralCode);
+      const shareUrl = appendGoalInviteReferralCode(shareUrlBase, referralCode);
 
       const title = `Join my shared goal in Kwilt: “${goal.title}”`;
       // Share sheets: on iOS we must share the URL as the primary item to get a rich preview card.

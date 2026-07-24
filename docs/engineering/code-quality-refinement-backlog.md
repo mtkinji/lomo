@@ -92,8 +92,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: external share previews must reject blank, malformed, and device-local image URLs while retaining public HTTP(S) images.
   - Result: `goalSharePreviewUrl.ts` now owns HTTP(S)-only image normalization with focused tests for blank, malformed, local-scheme, HTTP, and HTTPS values.
 
-- [ ] Unify Goal invite referral URL mutation
+- [x] Unify Goal invite referral URL mutation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
   - Why: both share paths independently trim referral codes, preserve an existing `ref`, and append a fallback query parameter for malformed URLs.
-  - Ideal test: pin blank codes, existing refs, encoded refs, query strings, and malformed URL fallback.
+  - Result: `goalInviteReferralUrl.ts` now owns referral-code trimming, existing-ref preservation, URL encoding, and malformed-URL fallback, with focused tests for each contract edge.
+
+- [ ] Unify Goal invite destination URL selection
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
+  - Why: both invitation paths independently choose between landing, redirect, Expo Go, and native deep-link destinations before applying referral metadata.
+  - Ideal test: pin landing and redirect presence, Expo Go fallback encoding, native fallback, and missing optional URLs.
   - Risk: low
