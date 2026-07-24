@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { createMoneyRepository, type MoneyRepository } from './moneyRepository';
+import type { TransactionMeaningReviewInput } from './moneyMutations';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
 
 type MoneyDataContextValue = MoneyDataState & {
@@ -7,6 +8,7 @@ type MoneyDataContextValue = MoneyDataState & {
   reviewingTransactionId: string | null;
   assignTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>;
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
+  reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
@@ -72,13 +74,22 @@ export function MoneyDataProvider({
     [resolvedRepository, reviewTransaction],
   );
 
+  const reviewTransactionMeaning = useCallback(
+    (transactionId: string, input: TransactionMeaningReviewInput) => reviewTransaction(
+      transactionId,
+      () => resolvedRepository.reviewTransactionMeaning(transactionId, input),
+    ),
+    [resolvedRepository, reviewTransaction],
+  );
+
   const value = useMemo(() => ({
     ...state,
     refresh,
     reviewingTransactionId,
     assignTransactionCategory,
     markTransactionNotCounted,
-  }), [assignTransactionCategory, markTransactionNotCounted, refresh, reviewingTransactionId, state]);
+    reviewTransactionMeaning,
+  }), [assignTransactionCategory, markTransactionNotCounted, refresh, reviewTransactionMeaning, reviewingTransactionId, state]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

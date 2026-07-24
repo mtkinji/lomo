@@ -9,7 +9,12 @@ import {
   type MoneySnapshot,
   type MoneyTransactionRow,
 } from './moneySnapshot';
-import { buildTransactionReviewUpdate, type TransactionReviewInput } from './moneyMutations';
+import {
+  buildTransactionMeaningReviewUpdate,
+  buildTransactionReviewUpdate,
+  type TransactionMeaningReviewInput,
+  type TransactionReviewUpdate,
+} from './moneyMutations';
 
 type ReadResult = { data: unknown; error: { message?: string } | null };
 
@@ -30,6 +35,7 @@ export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
   markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
+  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<MoneySnapshot>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -101,7 +107,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
   const reviewTransaction = async (
     transactionId: string,
-    input: TransactionReviewInput,
+    update: TransactionReviewUpdate,
   ): Promise<MoneySnapshot> => {
     const normalizedTransactionId = transactionId.trim();
     if (!normalizedTransactionId) throw new Error('Choose a transaction to review.');
@@ -112,7 +118,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       'transaction review',
       db
         .from('budget_transactions')
-        .update(buildTransactionReviewUpdate(input))
+        .update(update)
         .eq('id', normalizedTransactionId),
     );
     return loadSnapshot();
@@ -121,9 +127,11 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
   return {
     loadSnapshot,
     assignTransactionCategory: (transactionId, categoryId) =>
-      reviewTransaction(transactionId, { type: 'category', categoryId }),
+      reviewTransaction(transactionId, buildTransactionReviewUpdate({ type: 'category', categoryId })),
     markTransactionNotCounted: (transactionId) =>
-      reviewTransaction(transactionId, { type: 'not_counted' }),
+      reviewTransaction(transactionId, buildTransactionReviewUpdate({ type: 'not_counted' })),
+    reviewTransactionMeaning: (transactionId, input) =>
+      reviewTransaction(transactionId, buildTransactionMeaningReviewUpdate(input)),
   };
 }
 

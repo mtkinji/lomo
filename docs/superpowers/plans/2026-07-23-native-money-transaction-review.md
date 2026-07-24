@@ -1,6 +1,6 @@
 # Native Money transaction-review plan
 
-**Goal:** Let a signed-in user correct one transaction's category or mark it outside the plan, then prove the result by reloading the authoritative Money snapshot.
+**Goal:** Let a signed-in user correct one transaction's category or money meaning, then prove the result by reloading the authoritative Money snapshot.
 
 ## Contract
 
@@ -8,8 +8,9 @@
 - Use Kwilt's existing Supabase client and RLS session.
 - A category assignment writes `budget_id`, corrected match source, confidence, reason, and review time in one row update.
 - “Not counted” writes the excluded match state and explicit `not_counted` money meaning in the same row update.
+- Money received can be classified as household income, transfer, not counted, or a credit to one category; each choice updates money meaning and budget match together.
 - Never optimistically alter dollar totals. Reload the complete snapshot after every successful write and retain the last known-good snapshot after failure.
-- Merchant-wide rules, similar-transaction bulk changes, income/transfer classification, category creation, and category-plan editing remain later slices.
+- Merchant-wide rules, similar-transaction bulk changes, category creation, and category-plan editing remain later slices.
 
 ## Implementation
 
@@ -24,4 +25,3 @@
 - Focused mutation, state, screen, operation, and Chat coverage tests.
 - `npm run verify:changed -- --run`.
 - Authenticated simulator review/reload proof may use only a user-authorized non-production test transaction. Do not mutate real financial classification merely to demonstrate the button.
-

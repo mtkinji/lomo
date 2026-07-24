@@ -1,4 +1,4 @@
-import { buildTransactionReviewUpdate } from './moneyMutations';
+import { buildTransactionMeaningReviewUpdate, buildTransactionReviewUpdate } from './moneyMutations';
 
 describe('buildTransactionReviewUpdate', () => {
   it('builds one corrected category assignment', () => {
@@ -34,5 +34,47 @@ describe('buildTransactionReviewUpdate', () => {
 
   it('rejects an empty category id', () => {
     expect(() => buildTransactionReviewUpdate({ type: 'category', categoryId: '  ' })).toThrow('Choose a category.');
+  });
+});
+
+describe('buildTransactionMeaningReviewUpdate', () => {
+  it.each([
+    ['income', 'Treated as household income.'],
+    ['transfer', 'Treated as an internal transfer.'],
+    ['not_counted', 'Marked as outside the budget.'],
+  ] as const)('builds one confirmed %s review', (meaning, reason) => {
+    expect(buildTransactionMeaningReviewUpdate(
+      { meaning },
+      '2026-07-23T19:00:00.000Z',
+    )).toEqual({
+      money_meaning: meaning,
+      money_meaning_source: 'confirmed',
+      money_meaning_category_budget_id: null,
+      money_meaning_reason: reason,
+      money_meaning_reviewed_at: '2026-07-23T19:00:00.000Z',
+      budget_id: null,
+      budget_match_source: 'excluded',
+      budget_match_confidence: 1,
+      budget_match_reason: reason,
+      budget_match_reviewed_at: '2026-07-23T19:00:00.000Z',
+    });
+  });
+
+  it('builds a category-credit review against the source category id', () => {
+    expect(buildTransactionMeaningReviewUpdate(
+      { meaning: 'category_credit', categoryId: 'category-uuid' },
+      '2026-07-23T19:00:00.000Z',
+    )).toMatchObject({
+      money_meaning: 'category_credit',
+      money_meaning_category_budget_id: 'category-uuid',
+      budget_id: 'category-uuid',
+      budget_match_source: 'corrected',
+      budget_match_reason: 'Treated as a category credit.',
+    });
+  });
+
+  it('rejects a category credit without a category', () => {
+    expect(() => buildTransactionMeaningReviewUpdate({ meaning: 'category_credit', categoryId: ' ' }))
+      .toThrow('Choose a category for this credit.');
   });
 });

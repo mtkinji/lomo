@@ -61,4 +61,26 @@ describe('createMoneyRepository transaction review', () => {
     expect(snapshot).toMatchObject({ categories: [], transactions: [], accounts: [] });
     expect(client.auth.getUser).toHaveBeenCalledTimes(2);
   });
+
+  it('persists an inflow meaning and category credit in one update', async () => {
+    const { client, calls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await repository.reviewTransactionMeaning('transaction-credit', {
+      meaning: 'category_credit',
+      categoryId: 'category-1',
+    });
+
+    expect(calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_transactions',
+      filters: [['id', 'transaction-credit']],
+      update: {
+        money_meaning: 'category_credit',
+        money_meaning_source: 'confirmed',
+        money_meaning_category_budget_id: 'category-1',
+        budget_id: 'category-1',
+        budget_match_source: 'corrected',
+      },
+    });
+  });
 });

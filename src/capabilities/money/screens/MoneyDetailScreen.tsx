@@ -21,6 +21,7 @@ export function MoneyDetailScreen({
     reviewingTransactionId,
     assignTransactionCategory,
     markTransactionNotCounted,
+    reviewTransactionMeaning,
   } = useMoneyData();
   const [reviewError, setReviewError] = useState<string | null>(null);
   const categoryId = 'categoryId' in route.params ? route.params.categoryId : null;
@@ -118,7 +119,61 @@ export function MoneyDetailScreen({
                   </Pressable>
                   {reviewError ? <Text tone="destructive">{reviewError}</Text> : null}
                 </View>
-              ) : null}
+              ) : (
+                <View style={styles.reviewSection}>
+                  <View style={styles.reviewHeading}>
+                    <Heading variant="sm">Classify money received</Heading>
+                    <Text tone="secondary">
+                      {isSavingReview ? 'Saving…' : 'Choose how this should affect the monthly plan.'}
+                    </Text>
+                  </View>
+                  {([
+                    ['income', 'Household income', 'Available to fund the plan'],
+                    ['transfer', 'Transfer', 'Money moved between your accounts'],
+                    ['not_counted', 'Don’t count this', 'Keep it outside the monthly plan'],
+                  ] as const).map(([meaning, label, description]) => {
+                    const selected = transaction.moneyMeaning === meaning;
+                    return (
+                      <Pressable
+                        key={meaning}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isSavingReview, selected }}
+                        disabled={isSavingReview || selected}
+                        onPress={() => void saveReview(() =>
+                          reviewTransactionMeaning(transaction.id, { meaning }))}
+                        style={[styles.reviewAction, selected && styles.reviewActionSelected]}
+                      >
+                        <Text variant="label" tone={selected ? 'accent' : 'default'}>{label}</Text>
+                        <Text tone={selected ? 'accent' : 'secondary'}>{selected ? 'Current' : description}</Text>
+                      </Pressable>
+                    );
+                  })}
+                  <Text variant="label" tone="secondary">Credit a category</Text>
+                  {snapshot?.categories.map((candidate) => {
+                    const selected = transaction.moneyMeaning === 'category_credit'
+                      && transaction.categoryId === candidate.id;
+                    return (
+                      <Pressable
+                        key={candidate.sourceId}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isSavingReview, selected }}
+                        disabled={isSavingReview || selected}
+                        onPress={() => void saveReview(() => reviewTransactionMeaning(
+                          transaction.id,
+                          { meaning: 'category_credit', categoryId: candidate.sourceId },
+                        ))}
+                        style={[styles.reviewAction, selected && styles.reviewActionSelected]}
+                      >
+                        <Text variant="label" tone={selected ? 'accent' : 'default'}>{candidate.name}</Text>
+                        <Text tone={selected ? 'accent' : 'secondary'}>
+                          {selected ? 'Current' : 'Reduce this category’s spending'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  {reviewError ? <Text tone="destructive">{reviewError}</Text> : null}
+                </View>
+              )}
             </>
           ) : (
             <View style={styles.centered}>
