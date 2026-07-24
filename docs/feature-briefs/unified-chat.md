@@ -19,14 +19,30 @@ related_briefs:
   - brief-kwilt-phone-agent
   - brief-background-agents-weekly-planning
 owner: andrew
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 ---
 
 # Kwilt Chat
 
+## Product goal and request behavior contract
+
+Make Kwilt Chat the most trustworthy way for Kwilt customers to understand and act on their lives through Kwilt, while remaining a competent, honest general-purpose assistant whenever users bring it ordinary questions.
+
+Kwilt customers and their jobs come first. General-purpose competence is a trust requirement, not the primary differentiation. A person can ask anything without first deciding whether it is a Kwilt request. Every turn must resolve to one of five product behaviors:
+
+| Product behavior | Required behavior |
+| --- | --- |
+| **Kwilt-native** | Use authoritative Kwilt capabilities, bounded evidence, capability-owned judgment, and proportionate action. |
+| **Context-enhanced** | Use the minimum relevant Kwilt context only when it materially improves a broader answer, and make that scope visible. |
+| **General-purpose** | Answer ordinary questions directly without forcing them into Arcs, Goals, To-dos, Plan, or another Kwilt workflow. |
+| **Current-information** | Search reliable current sources and cite them when freshness, verification, recommendations, or unfamiliar facts matter. Until search and citations are available, state that boundary instead of presenting stale knowledge as current. |
+| **Bounded** | For unsupported, specialist, consequential, or high-stakes requests, state the exact boundary and still provide the safest useful assistance available. |
+
+The standing executable matrix in `src/features/unifiedChat/requestRoutingEvalCases.ts` records, for every regression case, its expected product behavior, allowed context, allowed tool classes, required outcome, and forbidden trust failures. Its product expectations are the target contract; the separate routing and operation expectations record what the current implementation does.
+
 ## MVP reset — conversational app control
 
-The MVP is not the completeness of the agent runtime or the presentation of its timeline. The MVP is that a user can control capabilities already present in Kwilt using ordinary language.
+The first MVP proof is that a user can control capabilities already present in Kwilt using ordinary language and can see which request caused every answer, evidence set, proposal, receipt, and correction. Runtime completeness is not required, but causal presentation and action truth are part of the trust contract rather than optional polish.
 
 The acceptance contract is user-outcome-first:
 
@@ -35,7 +51,7 @@ The acceptance contract is user-outcome-first:
 - “Create a Goal to walk every day for the next week” creates or reviews the Goal and offers the repeating linked Activity that turns it into reliable follow-through.
 - When a future capability such as Screen Time exists, its registered operation becomes available to the same interpreter while the capability retains native household and device authorization.
 
-Mobile Chat is the first completion target. Timeline polish, Phone Agent parity, background coordination, and new native capabilities cannot block this MVP. Existing operation-registry, routing, proposal, receipt, and server work remains useful implementation inventory, but it is not itself evidence that the user job is complete.
+Mobile Chat is the first completion target. Cosmetic timeline polish, Phone Agent parity, background coordination, and new native capabilities cannot block this MVP. The canonical causal order—request → Working → answer → evidence → proposal → receipt—must still be truthful and durable. Existing operation-registry, routing, proposal, receipt, and server work remains useful implementation inventory, but it is not itself evidence that the user job is complete.
 
 ## Context
 

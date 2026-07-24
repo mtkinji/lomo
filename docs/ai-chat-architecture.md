@@ -1,295 +1,140 @@
-## kwilt AI Chat Architecture
+# Kwilt AI Chat architecture
 
-### Overview
+Status: current product architecture as of 2026-07-24. The fixed-mode bottom-sheet design described in earlier versions of this document is a legacy contextual-workflow architecture, not the architecture of standalone Unified Chat.
 
-kwilt’s AI experiences are built around a **contextual helper** that lives in a bottom sheet, layered on top of the existing app shell and page canvas. Instead of a single generic chatbot, we treat each AI entry point as doing a specific job (a **mode**) with a well-defined set of **tools** it is allowed to call.
+## Architectural intent
 
-- **Surface**: `KwiltBottomSheet` hosting a chat-like interaction.
-- **Mode**: describes the job (e.g. `arcCreation`).
-- **Context**: structured data passed at launch (arcs, goals, activities, etc.).
-- **Tool registry**: defines what the AI can do in that mode and where those tools live.
+Kwilt Chat is a durable conversational channel into Kwilt and a competent general-purpose assistant. It is not the owner of capability truth. The mobile app hosts a standalone Chat destination and loads a credential-free shared workbench; authenticated native code owns user identity, persistence, private context, capability providers, mutations, and bridge authorization.
 
-This keeps the UX tight and coaching-oriented while giving us a clean path to richer capabilities (e.g. scheduling Activities on a real calendar) over time.
+The long-term coordinator is channel-independent. Mobile Chat, Phone Agent, and future channels use the same logical thread, message, run, evidence, proposal, operation, receipt, and pending-client-action records. A channel may expose different provider availability, but it must not redefine the meaning or safety policy of an operation.
 
-### Core concepts
+## Product behavior layer
 
-#### Chat modes
+Each turn resolves to one product behavior before tools are executed:
 
-Modes answer the question: **“What is kwilt helping with right now?”**  
-Each mode has:
+- **Kwilt-native** — bounded capability evidence, capability-owned judgment, and proportionate action.
+- **Context-enhanced** — minimum relevant Kwilt context for a broader answer, with visible scope.
+- **General-purpose** — a direct useful answer without unnecessary private retrieval or forced Kwilt workflow.
+- **Current-information** — reliable current sources with citations when freshness or verification matters.
+- **Bounded** — exact limits plus the safest useful assistance available.
 
-- a **stable identifier** (e.g. `'arcCreation'`),
-- a **human label** (e.g. `"Arc Coach"`),
-- and a list of **allowed tools**.
+These are outcomes, not user-selectable modes. Internal request classes and routes may support planning, but the person should not need to choose a mode or capability before asking.
 
-Today we have:
+## Runtime boundaries
 
-- `arcCreation`: an **Arc Coach** that helps the user draft new Arcs.
+### Native host
 
-All Arc-creation modes should treat `docs/arc-aspiration-ftue.md` as the **gold-standard spec** for what a good Arc looks like and how `Arc.name` and `Arc.narrative` are synthesized from minimal input. FTUX onboarding specifically should also follow `docs/feature-briefs/ftux-goal-arc-onboarding.md`: create a first Goal and the identity Arc it belongs to in one deterministic concrete-to-identity flow.
+The React Native host owns:
 
-Future examples:
+- authenticated repository access and durable thread hydration;
+- request classification, capability discovery, policy, and provider invocation;
+- explicit and retrieved private-context authorization;
+- native voice, attachment selection, haptics, sharing, notifications, deep links, and OS authorization;
+- capability-owned proposal review, apply, recovery, undo, and exact native return;
+- a narrow versioned bridge to the workbench.
 
-- `goalDesign`: help translate an Arc into concrete Goals.
-- `goalActivities`: help design and schedule Activities for a goal.
-- `weeklyPlanning`: help shape a weekly plan across Arcs/goals.
+No long-lived product credential is exposed to workbench JavaScript. Unknown commands, stale request identifiers, incompatible protocol versions, and duplicate mutations must fail safely.
 
-#### Tool registry
+### Shared workbench
 
-Tools are the **capabilities** the AI can use in a given mode. They are defined in `src/features/ai/chatRegistry.ts` and intentionally abstracted from the current implementation details so we can move them behind a server and/or 3rd parties later.
+The workbench owns presentation and interaction for the durable conversation:
 
-Key fields on a tool:
+- causal turn rendering;
+- composer, context tray, stop, retry, steer, and feedback affordances;
+- human-readable answer, evidence, proposal, receipt, and recovery surfaces;
+- bridge requests for native-owned behavior.
 
-- `id`: logical name, e.g. `generateArcs`, `scheduleActivitiesOnCalendar`.
-- `description`: human-readable explanation (used in prompts and docs).
-- `kind`:
-  - `internal_ai`: uses an AI model (e.g. OpenAI) to generate suggestions.
-  - `internal_store`: reads or writes kwilt’s own data (arcs, goals, activities).
-  - `external_integration`: calls 3rd-party services (e.g. calendar).
-- `requiresAuth`: whether the tool depends on the user having connected a 3rd-party account.
-- `serverOperation`: logical server-side operation or endpoint name, so a future agent/orchestrator can map tools to real capabilities.
+The canonical v2 snapshot timeline is the presentation source of truth. Renderers must preserve causal order:
 
-Example (simplified) from `CHAT_MODE_REGISTRY`:
+`request → Working → answer → evidence → proposal → receipt`
 
-- Mode: `arcCreation` (Arc Coach)
-  - Tool `generateArcs` (internal AI)
-  - Tool `adoptArc` (internal store)
+Artifact buckets may remain compatibility payloads, but must not be used to reconstruct chronology. Updating or undoing an old proposal changes its original artifact; a later compact correction is added only when the newer state would otherwise be unclear.
 
-Planned tool IDs already sketched into the registry include:
+### Durable coordinator
 
-- `listActivitiesForGoal`
-- `suggestScheduleForActivities`
-- `scheduleActivitiesOnCalendar`
+The coordinator follows the target pipeline:
 
-These are not yet implemented, but the registry reserves their shape so that UI and agent code can be written against stable tool identities.
+`persist → plan → authorize context → execute → materialize outcome → finalize`
 
-### Toolable app surface & user profile tools
+Current code has not yet completed that decomposition. Regardless of implementation shape, every phase preserves causal message/run IDs, optimistic versions, idempotency keys, typed failure codes, and recoverable run state.
 
-Over time we want **everything the user can do in the app** (at least everything that touches domain data) to be **expressible as a tool** the coach can call on their behalf.
+The durable record contract is:
 
-- **Design principle**
-  - Every user-facing capability should have a clear, documented tool:
-    - **Good**: `setUserProfile`, `setUserAgeRange`, `createArcFromSuggestion`, `updateGoalStatus`.
-    - **Risky**: low-level primitives like “arbitrary SQL” or “raw AsyncStorage writes”.
-  - Tools should be **domain-level** (Arcs, Goals, Activities, Profile), not implementation-level.
-  - The tool registry is the single source of truth for:
-    - what the coach is *allowed* to do in a mode,
-    - and where those capabilities live (client vs server vs third party).
+- `AgentThread` — conversation scope and continuity.
+- `AgentMessage` — durable user and visible assistant content.
+- `AgentRun` and `AgentRunEvent` — one attempt and its ordered execution history.
+- `EvidenceRef` — material sources with authority, freshness, scope, and sufficiency.
+- `AgentProposal` and operations — reviewable candidate changes.
+- `MutationReceipt` — authoritative applied result, return target, and correction or undo state.
+- pending client action — work requiring an authenticated device or native surface.
 
-- **Profile as a first tool surface**
-  - The `UserProfile` (age range, communication preferences, visual style, accessibility, consent) is the first domain object exposed to the coach via tools.
-  - The coach should be able to:
-    - **Read** profile fields (e.g., age range, tone preference) to adapt its responses.
-    - **Propose updates** (e.g., “set your age range to 35–44 based on what you told me”) via explicit tools rather than hidden state changes.
-  - Client UI can still set profile fields directly (e.g., an age range picker), but any state that matters for coaching should also be reachable through tools so future agents/orchestrators can act without bespoke wiring.
+Rendered UI is a projection of these records, never the sole source of truth.
 
-In practice this means that as we implement new features (Arc creation, Goal design, scheduling, Chapters, settings), we **start by designing the tools** for that capability, then wire both the chat experience and the rest of the app against those tools.
+## Capability ownership
 
-#### Context at launch
+Every user-meaningful operation belongs to one capability. The capability owns:
 
-When a chat helper opens, the screen passes **context** describing the part of the workspace the user is working in. That context is combined with user answers in the conversation and fed into AI tools.
+- data and retrieval semantics;
+- ranking, eligibility, and domain judgment;
+- input and output schema;
+- consequence level, reversibility, and confirmation policy;
+- provider eligibility and channel availability;
+- mutation, receipt, recovery, undo, and native return behavior.
 
-For example, the Arcs screen passes a snapshot built from:
+Chat discovers and invokes that contract. It does not reproduce a second AI-shaped implementation of Goals, Activities, Plan, Chapters, Profile, relationships, Account, Money, Games, Screen Time, or future capabilities.
 
-- existing **Arcs** (count + a few names),
-- total **Goals**,
-- total **Activities**.
+Low-risk reversible capture may apply directly when the user's request itself supplies authorization. Updates and consequential changes require proportionate review. OS, audience, sharing, payment, provider, and device-control authorization stays in the owning native surface. Missing providers return an unavailable or pending-client-action outcome rather than completion-looking prose.
 
-That snapshot is appended into `additionalContext` for `generateArcs`, alongside any user-provided constraints, so the Arc Coach sees the user’s current arcs workspace instead of operating in a vacuum.
+The target is one canonical operation manifest projected into mobile, server, Phone Agent, coverage, and migration views. The repository currently contains multiple registries that must be reconciled before that target can be claimed.
 
-### Current implementation: Arc Coach (`arcCreation`)
+## Context and privacy
 
-The first production use of this architecture is the **Arc Coach** launched from the `+` button on the Arcs list.
-
-- Screen: `ArcsScreen`
-  - Uses `NewArcModal` (a conversational bottom sheet) as the UI surface.
-  - When the user taps `+`, this sheet opens.
-- Mode: `arcCreation`
-  - Defined in `CHAT_MODE_REGISTRY.arcCreation` with label `"Arc Coach"`.
-  - Allowed tools:
-    - `generateArcs` (internal AI, mapped to `ai.generateArcs`).
-    - `adoptArc` (internal store, mapped conceptually to `arc.createFromSuggestion`).
-- Context:
-  - `prompt`, `timeHorizon`, `additionalContext` collected in the conversation.
-  - A workspace snapshot summarizing Arcs/goals/activities.
-  - These are combined into the `GenerateArcParams` passed to `generateArcs`.
-
-In earlier versions, the UI drove most of the conversation imperatively and called
-`generateArcs` directly via `src/services/ai.ts`. As of the workflow‑driven
-AgentWorkspace refactor, **Arc Coach now runs as a first‑class workflow**:
-
-- `WorkflowDefinition.arcCreation` describes:
-  - the initial context collection step (`context_collect`),
-  - the agent generation step (`agent_generate_arc`),
-  - and the confirmation step (`confirm_arc`),
-  - plus light UI metadata (step titles, field labels, primary action copy).
-- `AgentWorkspace` owns a local `WorkflowInstance` and exposes a
-  `WorkflowRuntimeContext` that presenters (like `ArcCreationFlow`) can use to:
-  - complete steps with structured data,
-  - read the current step,
-  - and talk to the shared chat surface via `ChatTimelineController`.
-- `AiChatPane` is the single host for the **Agent Timeline**:
-  - user messages,
-  - assistant messages (streamed),
-  - inline cards (question cards, Arc proposal cards),
-  - and system events (loading / errors / workflow transitions).
-
-Presenters like `ArcCreationFlow` and `IdentityAspirationFlow` no longer mount
-their own chat UI or call `sendCoachChat` directly; they interact only through
-the timeline/controller surface. This keeps the UX consistent while allowing new
-workflows to reuse the same opinionated host.
-
-### How this evolves to scheduling and 3rd-party tools
-
-Within ~6 months we expect users to ask kwilt to **schedule Activities** and sync with the tools they already use (calendars, etc.). This architecture supports that by:
-
-1. Treating scheduling as a **mode** (`goalActivities` or `weeklyPlanning`).
-2. Adding **external integration tools** to the registry:
-   - `listActivitiesForGoal` (internal_store).
-   - `suggestScheduleForActivities` (internal_ai).
-   - `scheduleActivitiesOnCalendar` (external_integration, requiresAuth).
-3. Implementing these tools as **server-side operations** that:
-   - read/write kwilt’s store,
-   - call 3rd-party APIs using stored OAuth tokens,
-   - and return structured results to the chat UI.
-
-The bottom sheet UI and mode/registry shape remain consistent; only the backing implementations move from client-side helpers to server and 3rd-party services as needed.
-
-### What this architecture is optimized for
-
-- **Contextual coaching flows** with clear jobs (create an Arc, shape a Goal, plan Activities).
-- **Safety and governance** via per-mode tool allowlists.
-- **Incremental complexity**: start with internal AI tools, then add store + external tools behind stable tool IDs.
-- **UX continuity**: all AI experiences live in a consistent bottom sheet layered over the existing shell + canvas.
-
-### What it is not (yet) optimized for
-
-- Fully autonomous, long-running agents that act without user initiation.
-- Deep, cross-context orchestration spanning many screens and data types in one continuous thread.
-- Complex multi-pane editing experiences that don’t fit well in a bottom sheet.
-
-Those future needs can be met by building a server-side agent/orchestration layer that consumes the same **tool registry** and modes, while the mobile app continues to provide the conversational sheet UI and launch contexts.
-
-### Workflows & AgentWorkspace (v2)
-
-In addition to `ChatMode`, we now introduce **Workflows** and the shared **`AgentWorkspace`** shell:
-
-- **LaunchContext** (in `src/domain/workflows.ts`)
-  - Captures _where_ and _why_ the agent was launched.
-  - Example: `{ source: 'firstTimeAppOpen', intent: 'firstTimeOnboarding' }`.
-- **WorkflowDefinition**
-  - Describes a deterministic, step-based flow (`steps`, `outcomeSchema`, `chatMode`).
-  - Example: `FIRST_TIME_ONBOARDING_WORKFLOW` with steps like `welcome`, `profile_basics`, `notifications`, etc.
-- **WorkflowInstance** (future backend-backed)
-  - Tracks per-user progress through a definition (`currentStepId`, `collectedData`, `status`).
-- **AgentWorkspace** (`src/features/ai/AgentWorkspace.tsx`)
-  - Single, reusable host component for all agent UX.
-  - Receives `mode`, `launchContext`, and optional workflow IDs and owns the chat + card timeline.
-
-#### AgentWorkspace shell
-
-`AgentWorkspace` is the **only host/orchestrator** for AI workflows. It is always mounted **inside the existing AppShell + page canvas layers** (never as its own full-screen shell), and it delegates all visible chat UI to `AiChatPane`:
-
-- **App shell**: navigation + primary gutters (`AppShell`).
-- **Agent shell**: `AgentWorkspace` sitting inside a screen or bottom sheet, configured with a `ChatMode`, `LaunchContext`, and optional workflow IDs.
-- **Chat canvas**: `AiChatPane`, which renders the thread, cards, and composer.
-
-Any workflow-specific visuals (identity cards, activity suggestions, etc.) should be rendered as **cards inside this canvas**, not as separate modal/screen stacks that bypass `AgentWorkspace`.
-
-#### Timeline + cards model
-
-The chat surface is a simple **timeline of items**, not a special “step component” system:
-
-- **AgentTimelineItem** (conceptual type, implemented inside `AiChatPane`):
-  - `assistantMessage` – model replies.
-  - `userMessage` – anything the user typed or tapped that should appear in the thread.
-  - `card` – rich UI blocks (forms, suggestions, previews) rendered inline with the thread.
-  - `systemEvent` – internal status items (errors, loading, workflow transitions) that may or may not be visible.
-“Cards” are just **React nodes** slotted into the timeline:
-
-- Usually composed from `Card`, `QuestionCard`, `EditableField`, etc.
-- No dedicated `StepCard` primitive – the workflow decides _what_ to show, the
-  timeline decides _where_ it lands.
-
-Workflows can now also describe **standardised progress UI** for agent steps:
-
-- `agent_generate` steps carry hints about:
-  - whether to show a progress banner (e.g. “Shaping a first‑pass Arc…”),
-  - whether to render a skeleton card while a proposal is being generated,
-  - and which confirmation card should appear when the result arrives.
-- `AiChatPane` listens to workflow runtime events (`stepStarted`,
-  `agentCallStarted`, `agentCallCompleted`) and is responsible for inserting
-  these messages/cards into the timeline, instead of each presenter inventing
-  its own progress copy.
-
-This keeps the mental model as **“thread + cards”**: workflows talk in terms of messages and cards, and `AiChatPane` owns how they appear.
-
-#### Workflow contract
-
-A workflow is a small contract that says: **“given this `chatMode`, these `steps`, and this `outcomeSchema`, drive the Agent through a job inside `AgentWorkspace`.”**
-
-- Shape (in `src/domain/workflows.ts`):
-  - `id`, `label`, `version`.
-  - `chatMode`: which `ChatMode` the flow runs under (e.g. `'firstTimeOnboarding'`, `'arcCreation'`).
-  - `steps`: ordered list of `WorkflowStep`s, including any metadata like `hideFreeformChatInput`.
-  - `outcomeSchema`: short description of the structured result the workflow produces.
-- Runtime:
-  - `AgentWorkspace` looks up the `WorkflowDefinition` and tracks a local `WorkflowInstance`.
-- Presenters like `IdentityAspirationFlow` plug into the flow via **`WorkflowRuntimeContext` + `ChatTimelineController`**:
-    - `ChatTimelineController` is a small, exported interface in `AiChatScreen` that exposes just the timeline primitives workflows are allowed to use:
-      - `appendUserMessage` – mirror structured answers into the visible thread as user bubbles.
-      - `streamAssistantReplyFromWorkflow` – stream assistant copy into the canvas with the same typing animation as normal replies.
-      - `getHistory` – read the full hidden history (including system messages) to build prompts for `sendCoachChat`.
-      - `getTimeline` – read a normalized view of the visible thread (messages + cards) for lightweight summaries.
-    - Presenters treat this controller as their only link to the chat surface: they never mount their own chat UI or call `sendCoachChat` directly.
-
-The key rule is: **workflows never reach “around” the chat** – all visible UX goes through the shared timeline, even when most of the work is tap-first cards.
-
-#### Mode switching & persistence
-
-`ChatMode` is **chosen at launch** and remains fixed for the lifetime of an `AgentWorkspace` instance:
-
-- We do **not** support mid-thread `ChatMode` switching inside `AiChatPane`.
-- To hand off between flows (for example, “finish identity FTUE, then open Arc creation”), we **close one `AgentWorkspace` host and open another** with a new `mode` and `LaunchContext`.
-
-Persistence is scoped to a specific workflow instance rather than a global thread list:
-
-- **Persisted today** (client-side only):
-  - Minimal “draft” state for Arc creation inside `AiChatPane` (chat messages + input).
-  - In-memory `WorkflowInstance` metadata while the app is running.
-- **Planned**:
-  - Store `WorkflowInstance` records and their timelines server-side.
-  - Allow a host screen to **resume a specific workflow instance** by ID, restoring:
-    - the workflow metadata (`currentStepId`, `collectedData`, `status`),
-    - the associated chat timeline for that flow.
-
-Even with persistence, we do **not** expose a global “AI thread inbox” in the UX. Hosts (Arcs, Goals, Activities, onboarding) remain the primary entry points; they simply gain the ability to re-open a focused workflow where the user left off.
-
-#### Adding a new workflow (current pattern)
-
-For now, all workflow definitions live in `src/domain/workflows.ts` behind a small registry:
-
-1. **Define the workflow**
-   - Add a new `WorkflowDefinition` constant:
-     - `id`: e.g. `arc_creation_v1`.
-     - `label`: human-readable name.
-     - `version`: integer.
-     - `chatMode`: one of the existing `ChatMode` values.
-     - `outcomeSchema`: brief description of the final object shape.
-     - `steps`: ordered list of `WorkflowStep`s (`id`, `type`, `fieldsCollected`, `nextStepId`, etc.).
-2. **Register it**
-   - Add it to `WORKFLOW_DEFINITIONS` in the same file:
-     - `WORKFLOW_DEFINITIONS[ARC_CREATION_WORKFLOW_ID] = ARC_CREATION_WORKFLOW`.
-3. **Wire it into AgentWorkspace**
-   - Wherever you mount the agent, pass:
-     - `mode`: matching `ChatMode` (e.g. `'arcCreation'`).
-     - `launchContext`: describing the launch source and intent.
-     - `workflowDefinitionId`: your new workflow ID.
-4. **(Optional) Drive UI off the workflow**
-   - Inside `AgentWorkspace`, use the workflow’s `steps` to:
-     - Decide which conversational turn to ask the model for.
-     - Render step-specific form cards under the assistant’s text.
-     - Show user confirmations as chat bubbles and advance `currentStepId`.
-
-As workflows grow, we can split definitions into separate files (e.g. `workflows/firstTimeOnboarding.ts`) and re-export them from `src/domain/workflows.ts`, but the registry remains the single entry point for the app and AgentWorkspace.
+Private context is detached by default. A run may use only:
 
+- context the person explicitly attached or entered from;
+- capability data authorized by the route and owning policy;
+- the minimum evidence necessary to improve the answer or perform the requested operation.
+
+Visible scope must identify material private context. Conversation retention is not standing permission to attach old objects to unrelated questions. Ordinary general questions use no private Kwilt context unless the person asks for it or the answer materially depends on it and the scope is authorized and visible.
+
+## Action truth
+
+Model prose is never proof of an effect. A proposal is not an applied result. A staged Phone operation is not a native completion. A provider request is not a verified provider effect.
+
+Every real effect requires authoritative capability evidence, normally a mutation receipt tied to the proposal operation and idempotency key. Native or external effects are independently verified at the owning boundary. Failures leave a durable, honest, recoverable state.
+
+## Current-information and specialist boundaries
+
+General assistance may use the base model. Requests whose answer depends on current facts, verification, recommendations, or unfamiliar claims require approved web search and compact inspectable citations. Until that provider exists in the supported runtime, Chat must state the freshness boundary.
+
+Medical, legal, financial, safety, and other consequential requests receive bounded assistance. Kwilt may explain, organize questions, or help the person prepare, but must not invent specialist authority or imply an unsupported action occurred.
+
+## Legacy contextual workflows
+
+`AgentWorkspace`, `AiChatPane`, `ChatMode`, workflow definitions, Arc creation, onboarding, and related bottom sheets remain real implementation surfaces for bounded contextual jobs. They may continue to own those flows until deliberately migrated.
+
+They are not the standalone Chat architecture and must not impose these former constraints on Unified Chat:
+
+- one fixed mode for the lifetime of a conversation;
+- persistence only inside one workflow instance;
+- no global durable thread list;
+- all AI entry through a bottom sheet;
+- a mode-local tool registry as the final operation source of truth.
+
+Legacy workflows should reuse shared voice, capability contracts, and safe mutation paths where possible. They must not become an alternative durable agent runtime.
+
+## Proof classes
+
+Evidence is recorded separately for:
+
+- automated tests and static contracts;
+- signed simulator behavior;
+- signed physical-device behavior;
+- TestFlight build acceptance, processing, and installation;
+- hosted workbench source and deployed SHA;
+- database migration state;
+- Edge Function and worker deployment state;
+- real provider effects;
+- Phone-to-mobile cross-channel continuity.
+
+Success in one class cannot be used as proof for another. The current boundary is maintained in `docs/delivery-evidence/unified-chat/`.

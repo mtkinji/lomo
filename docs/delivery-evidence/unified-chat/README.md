@@ -17,6 +17,8 @@ A simulator pass and a signed physical-device pass are separate requirements. A 
 
 Current evidence:
 
+- [Causal timeline renderer and apply/reload/undo proof](2026-07-24-causal-timeline.md)
+- [Trust-program contract and proof baseline](2026-07-24-trust-program-baseline.md)
 - [Production platform proof](2026-07-22-production-platform.md)
 - [Signed simulator global-entry proof](2026-07-22-simulator-global-entry.md)
 - [Ten-step simulator matrix](2026-07-22-simulator-ten-step-matrix.md)

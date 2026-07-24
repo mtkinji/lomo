@@ -69,6 +69,16 @@
     }],
     "proposals": [],
     "receipts": [],
+    "clientActions": [],
+    "timeline": [{
+      "id": "run:run-1",
+      "sequence": 1,
+      "items": [
+        { "kind": "message", "id": "message-1" },
+        { "kind": "run", "id": "run-1" },
+        { "kind": "evidence", "ids": ["evidence-1"] }
+      ]
+    }],
     "composer": {
       "prompt": "",
       "state": "ready",
