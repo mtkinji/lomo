@@ -244,6 +244,29 @@ describe('createUnifiedChatToolProvider', () => {
     })]);
   });
 
+  it('keeps daily follow-through intent on the Goal proposal without inventing a Goal id', async () => {
+    const provider = createUnifiedChatToolProvider({
+      snapshots: { ...snapshots, goals: { goals: [goal], arcIds: ['arc-school'] } },
+    });
+    await expect(provider.execute({
+      id: 'goal-walk', toolId: 'goals.create', arguments: {
+        title: 'Walk every day for the next week',
+        targetDate: '2026-07-30T23:59:59.000-06:00',
+        followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' },
+      },
+    }, tool('goals.create'))).resolves.toEqual(expect.objectContaining({ status: 'proposed' }));
+    expect(provider.proposals()).toEqual([expect.objectContaining({
+      capabilityId: 'goals',
+      operation: expect.objectContaining({
+        type: 'create_goal', targetId: null,
+        payload: expect.objectContaining({
+          followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' },
+        }),
+      }),
+    })]);
+    expect(provider.proposals()[0]?.operation.payload).not.toHaveProperty('arcId');
+  });
+
   it('discloses linked Activities when staging Goal deletion', async () => {
     const provider = createUnifiedChatToolProvider({ snapshots });
     await expect(provider.execute({

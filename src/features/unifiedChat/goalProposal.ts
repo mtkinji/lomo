@@ -25,16 +25,36 @@ export type GoalCreateInput = {
   status?: Goal['status'];
   priority?: 1 | 2 | 3;
   targetDate?: string;
+  followUpActivity?: GoalFollowUpActivitySuggestion;
 };
+
+export type GoalFollowUpActivitySuggestion = {
+  title: string;
+  repeatRule: 'daily';
+};
+
+function parseGoalFollowUpActivitySuggestion(value: unknown): GoalFollowUpActivitySuggestion | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).some((key) => key !== 'title' && key !== 'repeatRule')) return null;
+  if (typeof input.title !== 'string' || !input.title.trim() || input.title.trim().length > 240) return null;
+  if (input.repeatRule !== 'daily') return null;
+  return { title: input.title.trim(), repeatRule: 'daily' };
+}
 
 export function parseGoalCreateInput(value: unknown): GoalCreateInput | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const input = value as Record<string, unknown>;
-  const allowed = new Set(['title', 'description', 'arcId', 'status', 'priority', 'targetDate']);
+  const allowed = new Set(['title', 'description', 'arcId', 'status', 'priority', 'targetDate', 'followUpActivity']);
   if (Object.keys(input).some((key) => !allowed.has(key))) return null;
   if (typeof input.title !== 'string' || !input.title.trim() || input.title.trim().length > 240) return null;
+  const followUpActivity = 'followUpActivity' in input
+    ? parseGoalFollowUpActivitySuggestion(input.followUpActivity)
+    : undefined;
+  if ('followUpActivity' in input && !followUpActivity) return null;
+  const { followUpActivity: _followUpActivity, ...goalFields } = input;
   const parsedPatch = parseGoalMutationPatch({
-    ...input,
+    ...goalFields,
     title: input.title,
   });
   if (!parsedPatch) return null;
@@ -45,6 +65,7 @@ export function parseGoalCreateInput(value: unknown): GoalCreateInput | null {
     ...(parsedPatch.status ? { status: parsedPatch.status } : {}),
     ...(parsedPatch.priority ? { priority: parsedPatch.priority } : {}),
     ...(typeof parsedPatch.targetDate === 'string' ? { targetDate: parsedPatch.targetDate } : {}),
+    ...(followUpActivity ? { followUpActivity } : {}),
   };
 }
 

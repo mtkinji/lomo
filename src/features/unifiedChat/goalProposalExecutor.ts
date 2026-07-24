@@ -35,6 +35,27 @@ export type GoalMutationReceipt = {
 
 export class GoalMutationConflictError extends Error {}
 
+export type GoalFollowThroughSuggestion = {
+  goalId: string;
+  title: string;
+  repeatRule: 'daily';
+  message: string;
+};
+
+export function buildGoalFollowThroughSuggestion({ proposal, resultingGoalId }: {
+  proposal: GoalProposal;
+  resultingGoalId: string;
+}): GoalFollowThroughSuggestion | null {
+  if (proposal.operation.type !== 'create_goal' || !proposal.operation.payload.followUpActivity) return null;
+  const suggestion = proposal.operation.payload.followUpActivity;
+  return {
+    goalId: resultingGoalId,
+    title: suggestion.title,
+    repeatRule: suggestion.repeatRule,
+    message: `Goal created: ${proposal.operation.payload.title}. To make it easier to follow through, I can add one daily repeating “${suggestion.title}” Activity linked to this Goal. Want me to prepare that?`,
+  };
+}
+
 function computeGoalMutation(proposal: UnifiedChatProposal, store: GoalStoreBoundary, appliedAt: string) {
   if (proposal.capabilityId !== 'goals' || proposal.operation.type !== 'update_goal' || proposal.status !== 'approved') {
     throw new GoalMutationConflictError('This Goal proposal is not approved.');

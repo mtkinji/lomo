@@ -1265,6 +1265,52 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
+  test('stages a bounded walking Goal with follow-through intent, not an invented Activity link', async () => {
+    const runtimeSender = jest.fn(async (_history: unknown, options: {
+      launchContextSummary?: string;
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      expect(options.launchContextSummary).toContain('Do not invent an Arc or call activities.capture before');
+      const goalTool = options.runtimeTools?.find((tool) => tool.id === 'goals.create');
+      await options.executeRuntimeTool?.({
+        id: 'goal-walk', toolId: 'goals.create', arguments: {
+          title: 'Walk every day for the next week',
+          targetDate: '2026-07-30T23:59:59.000-06:00',
+          followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' },
+        },
+      }, goalTool);
+      return 'I prepared the walking Goal for review.';
+    });
+    const { repository, send } = dependencies(runtimeSender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Create a goal to walk every day for the next week.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        routeRequest: async () => ({
+          requestClass: 'capability_action', participatingCapabilities: ['goals'],
+          usePrivateContext: true, confidence: 0.99, reason: 'Goal creation requested.',
+        }),
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [], arcIds: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+      capabilityId: 'goals',
+      operation: expect.objectContaining({
+        type: 'create_goal', targetId: null,
+        payload: expect.objectContaining({
+          targetDate: '2026-07-30T23:59:59.000-06:00',
+          followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' },
+        }),
+      }),
+    }));
+    expect(repository.createProposal).toHaveBeenCalledTimes(1);
+  });
+
   test('uses the shared runtime to interpret and stage an ordinary Arc identity update', async () => {
     const runtimeSender = jest.fn(async (_history: unknown, options: {
       runtimeTools?: Array<{ id: string }>;

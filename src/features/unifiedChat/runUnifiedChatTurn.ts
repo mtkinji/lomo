@@ -284,6 +284,11 @@ function groundingSummary(
       `Use only discovered tools for these Kwilt capabilities: ${participatingCapabilities.join(', ')}. ` +
       'Read bounded evidence as needed, then stage typed changes for explicit review. Copy object ids and optimistic versions exactly from evidence. Never claim a write succeeded from model prose, invent identity or sharing decisions, or bypass a native permission, entitlement, proposal, or receipt boundary.',
     );
+    if (participatingCapabilities.includes('goals')) {
+      parts.push(
+        'When the user asks for a new Goal and also describes a daily follow-through habit, call goals.create once with the bounded Goal targetDate and a followUpActivity containing only its title and daily repeat rule. Do not invent an Arc or call activities.capture before the reviewed Goal exists. After approval, Kwilt will offer the Activity using the authoritative created Goal id.',
+      );
+    }
   }
   if (participatingCapabilities.includes('relationships')) {
     parts.push(

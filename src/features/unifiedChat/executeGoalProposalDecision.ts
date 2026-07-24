@@ -1,5 +1,6 @@
 import {
   applyApprovedGoalProposal,
+  buildGoalFollowThroughSuggestion,
   prepareApprovedGoalProposal,
   type GoalMutationReceipt,
   type GoalStoreBoundary,
@@ -7,6 +8,7 @@ import {
 import type {
   DecideUnifiedChatProposalInput,
   FinalizeUnifiedChatMutationReceiptInput,
+  CreateUnifiedChatMessageInput,
   PersistUnifiedChatMutationReceiptInput,
   TransitionUnifiedChatProposalInput,
   UnifiedChatMutationReceipt,
@@ -20,6 +22,7 @@ type Repository = {
   transitionProposalStatus: (input: TransitionUnifiedChatProposalInput) => Promise<{ status: UnifiedChatProposal['status']; version: number }>;
   persistMutationReceipt: (input: PersistUnifiedChatMutationReceiptInput) => Promise<UnifiedChatMutationReceipt>;
   finalizeMutationReceipt: (id: string, input: FinalizeUnifiedChatMutationReceiptInput) => Promise<UnifiedChatMutationReceipt>;
+  insertMessage?: (input: CreateUnifiedChatMessageInput) => Promise<unknown>;
 };
 
 export async function executeGoalProposalDecision({ proposal, action, repository, store, now = () => new Date().toISOString() }: {
@@ -56,6 +59,18 @@ export async function executeGoalProposalDecision({ proposal, action, repository
     await repository.transitionProposalStatus({
       proposalId: proposal.id, fromStatus: 'applying', toStatus: 'applied', expectedVersion: applying.version,
     });
+    const followThrough = buildGoalFollowThroughSuggestion({
+      proposal: approved,
+      resultingGoalId: result.resultingObjectId,
+    });
+    if (followThrough && repository.insertMessage) {
+      await repository.insertMessage({
+        threadId: proposal.threadId,
+        role: 'assistant',
+        body: followThrough.message,
+        clientRequestId: `goal-follow-through:${proposal.operation.id}`,
+      }).catch(() => undefined);
+    }
   } catch (error) {
     if (reservationPersisted) throw error;
     await repository.transitionProposalStatus({
