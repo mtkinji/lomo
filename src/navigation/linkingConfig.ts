@@ -127,8 +127,18 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         },
       },
     },
+    Money: {
+      screens: {
+        MoneySummary: 'money',
+        MoneyTransactions: 'money/transactions',
+        MoneyAccounts: 'money/accounts',
+        MoneyCategoryDetail: 'money/category/:categoryId',
+        MoneyTransactionDetail: 'money/transaction/:transactionId',
+      },
+    },
     Settings: {
       screens: {
+        SettingsHome: 'settings',
         // Trial-expiry and Pro-grant emails deep-link into the Manage
         // Subscription screen, so paying users land on the right place.
         SettingsManageSubscription: {
@@ -144,6 +154,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         SettingsConnectedTools: {
           path: 'settings/connections',
         },
+        SettingsMoneyPrivacy: 'settings/money-privacy',
       },
     },
   },

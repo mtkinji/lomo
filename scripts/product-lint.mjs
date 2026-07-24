@@ -12,9 +12,11 @@ const jtbdDir = path.join(docsDir, "jtbd");
 const personasDir = path.join(docsDir, "personas");
 const jobFlowsDir = path.join(docsDir, "job-flows");
 const featureBriefsDir = path.join(docsDir, "feature-briefs");
-const featuresDir = path.join(repoRoot, "src", "features");
+const manifestRoots = [
+  { dir: path.join(repoRoot, "src", "features"), label: "src/features", exempt: new Set(["dev"]) },
+  { dir: path.join(repoRoot, "src", "capabilities"), label: "src/capabilities", exempt: new Set() },
+];
 
-const EXEMPT_FEATURE_DIRS = new Set(["dev"]);
 const VALID_FEATURE_STATUS = new Set(["draft", "shipping", "shipped", "sunset"]);
 const VALID_BRIEF_STATUS = new Set(["draft", "accepted", "shipped", "retired"]);
 const VALID_JTBD_LEVELS = new Set(["top", "mid", "leaf"]);
@@ -222,29 +224,30 @@ function validateBriefFrontMatter(file, frontMatter, jtbdById, audiences, jobFlo
 
 function collectFeatures(jtbdById, audiences, jobFlows, featureBriefs) {
   const featureBriefRefs = new Map();
-  if (!fs.existsSync(featuresDir)) return featureBriefRefs;
-
-  const entries = fs.readdirSync(featuresDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
-  for (const entry of entries) {
-    if (EXEMPT_FEATURE_DIRS.has(entry.name)) continue;
-    const manifestPath = path.join(featuresDir, entry.name, "FEATURE.md");
-    if (!fs.existsSync(manifestPath)) {
-      errors.push(`src/features/${entry.name}: missing FEATURE.md`);
-      continue;
-    }
-    const { frontMatter, parseError } = parseFrontMatter(manifestPath);
-    if (parseError) {
-      errors.push(`${relPath(manifestPath)}: YAML parse error - ${parseError}`);
-      continue;
-    }
-    if (!frontMatter) {
-      errors.push(`${relPath(manifestPath)}: missing YAML front-matter`);
-      continue;
-    }
-    validateFeatureManifest(manifestPath, entry.name, frontMatter, jtbdById, audiences, jobFlows, featureBriefs);
-    for (const brief of asArray(frontMatter.briefs)) {
-      if (!featureBriefRefs.has(brief)) featureBriefRefs.set(brief, []);
-      featureBriefRefs.get(brief).push({ file: manifestPath, frontMatter });
+  for (const root of manifestRoots) {
+    if (!fs.existsSync(root.dir)) continue;
+    const entries = fs.readdirSync(root.dir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+    for (const entry of entries) {
+      if (root.exempt.has(entry.name)) continue;
+      const manifestPath = path.join(root.dir, entry.name, "FEATURE.md");
+      if (!fs.existsSync(manifestPath)) {
+        errors.push(`${root.label}/${entry.name}: missing FEATURE.md`);
+        continue;
+      }
+      const { frontMatter, parseError } = parseFrontMatter(manifestPath);
+      if (parseError) {
+        errors.push(`${relPath(manifestPath)}: YAML parse error - ${parseError}`);
+        continue;
+      }
+      if (!frontMatter) {
+        errors.push(`${relPath(manifestPath)}: missing YAML front-matter`);
+        continue;
+      }
+      validateFeatureManifest(manifestPath, entry.name, frontMatter, jtbdById, audiences, jobFlows, featureBriefs);
+      for (const brief of asArray(frontMatter.briefs)) {
+        if (!featureBriefRefs.has(brief)) featureBriefRefs.set(brief, []);
+        featureBriefRefs.get(brief).push({ file: manifestPath, frontMatter });
+      }
     }
   }
 

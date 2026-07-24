@@ -76,6 +76,23 @@ export type GlanceableActivitiesWidgetPayload = {
   updatedAtMs: number;
 };
 
+export type GlanceableMoneyCategory = {
+  id: string;
+  name: string;
+  percentUsed: number;
+  periodElapsedPercent: number;
+  paceSentiment: 'under' | 'on-track' | 'over';
+  status: 'on_track' | 'near_limit' | 'over';
+  deepLink: string;
+};
+
+export type GlanceableMoney = {
+  periodLabel: string;
+  percentUsed: number;
+  needsReviewCount: number;
+  categories: GlanceableMoneyCategory[];
+};
+
 export type GlanceableStateV1 = {
   version: 1;
   updatedAtMs: number;
@@ -87,6 +104,7 @@ export type GlanceableStateV1 = {
   momentum?: GlanceableMomentum | null;
   activityViews?: GlanceableActivityViewSummary[] | null;
   activitiesWidgetByViewId?: Record<string, GlanceableActivitiesWidgetPayload> | null;
+  money?: GlanceableMoney | null;
 };
 
 function toLocalDateKey(date: Date): string {
@@ -129,6 +147,9 @@ export async function mergeGlanceableState(
     suggested: prev?.suggested ?? null,
     schedule: prev?.schedule ?? null,
     momentum: prev?.momentum ?? null,
+    activityViews: prev?.activityViews ?? null,
+    activitiesWidgetByViewId: prev?.activitiesWidgetByViewId ?? null,
+    money: prev?.money ?? null,
     ...partial,
   };
   const normalize = (state: GlanceableStateV1) =>
@@ -363,5 +384,3 @@ export function buildMomentumSnapshot(params: {
     showUpStreakDays: typeof showUpStreakDays === 'number' ? showUpStreakDays : undefined,
   };
 }
-
-

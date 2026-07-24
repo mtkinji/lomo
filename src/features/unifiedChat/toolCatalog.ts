@@ -172,6 +172,12 @@ const RELATIONSHIP_FORGET_SCHEMA = {
 
 export const UNIFIED_CHAT_TOOL_CATALOG: readonly AgentToolDefinition[] = [
   {
+    id: 'money.read', version: 1, capabilityId: 'money',
+    purpose: 'Read current-month Money aggregates and category totals without exposing merchant or account details.',
+    providers: ['device'], effect: 'read', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
     id: 'relationships.read', version: 1, capabilityId: 'relationships',
     purpose: 'Read bounded owner-scoped People, relationship memories, personal events, and follow-up cadences.',
     providers: ['server'], effect: 'read', consequence: 'low', reversible: true,

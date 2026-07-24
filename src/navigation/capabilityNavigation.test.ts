@@ -22,6 +22,10 @@ describe('resolveCapabilityNavigation', () => {
         params: { screen: 'MoreTab', params: { screen: 'MoreChapters' } },
       },
     ],
+    ['money', { name: 'Money', params: { screen: 'MoneySummary' } }],
+    ['money-summary', { name: 'Money', params: { screen: 'MoneySummary' } }],
+    ['money-transactions', { name: 'Money', params: { screen: 'MoneyTransactions' } }],
+    ['money-accounts', { name: 'Money', params: { screen: 'MoneyAccounts' } }],
   ] as const)('resolves %s through the existing host navigator', (id, expected) => {
     expect(resolveCapabilityNavigation(id)).toEqual(expected);
   });

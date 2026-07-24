@@ -55,7 +55,7 @@ describe('semanticRequestRouter', () => {
   });
 
   it.each([
-    ['unknown capability', { requestClass: 'capability_question', participatingCapabilities: ['money'], usePrivateContext: true, confidence: 0.9, reason: 'Money.' }],
+    ['unknown capability', { requestClass: 'capability_question', participatingCapabilities: ['future_capability'], usePrivateContext: true, confidence: 0.9, reason: 'Unknown.' }],
     ['invalid confidence', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: false, confidence: 2, reason: 'General.' }],
     ['private general answer', { requestClass: 'general', participatingCapabilities: [], usePrivateContext: true, confidence: 0.9, reason: 'General.' }],
     ['private route without a capability', { requestClass: 'capability_question', participatingCapabilities: [], usePrivateContext: true, confidence: 0.9, reason: 'Missing owner.' }],

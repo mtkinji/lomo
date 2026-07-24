@@ -117,11 +117,19 @@ describe('classifyUnifiedChatRequest', () => {
     },
   );
 
-  test('does not reinterpret a different named domain as a To-do', () => {
+  test('routes an explicit Money mutation to Money without treating it as a To-do', () => {
     expect(classifyUnifiedChatRequest({ prompt: 'Add $50 to my budget', context: [] })).toMatchObject({
       requestClass: 'capability_action',
-      participatingCapabilities: [],
-      clarification: 'What would you like Kwilt to change?',
+      participatingCapabilities: ['money'],
+      clarification: null,
+    });
+  });
+
+  test('routes a Money question to bounded private Money context', () => {
+    expect(classifyUnifiedChatRequest({ prompt: 'How is my grocery budget looking?', context: [] })).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
     });
   });
 

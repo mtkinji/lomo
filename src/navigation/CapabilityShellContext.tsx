@@ -6,7 +6,7 @@ import {
   type NavigationProp,
   type ParamListBase,
 } from '@react-navigation/native';
-import type { CapabilityId } from '../capabilities/types';
+import type { CapabilityId, CapabilityMenuDestinationId } from '../capabilities/types';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { CapabilityLifecycleCoordinator } from '../capabilities/lifecycle';
 import { useAnalytics } from '../services/analytics/useAnalytics';
@@ -33,6 +33,7 @@ export function deriveActiveCapabilityId(
   state: NavigationStateLike | undefined,
 ): CapabilityId | null {
   const names = focusedRouteNames(state);
+  if (names[0] === 'Money') return 'money';
   if (names[0] === 'ArcsStack') return 'arcs';
   if (names[0] !== 'MainTabs') return null;
 
@@ -46,6 +47,22 @@ export function deriveActiveCapabilityId(
   if (moreSurface === 'MoreArcs') return 'arcs';
   if (moreSurface.startsWith('MoreChapter')) return 'chapters';
   return null;
+}
+
+export function deriveActiveCapabilityDestinationId(
+  state: NavigationStateLike | undefined,
+): CapabilityMenuDestinationId | null {
+  const names = focusedRouteNames(state);
+  if (names[0] === 'Money') {
+    const moneySurface = names[1] ?? 'MoneySummary';
+    if (moneySurface === 'MoneyTransactions' || moneySurface === 'MoneyTransactionDetail') {
+      return 'money-transactions';
+    }
+    if (moneySurface === 'MoneyAccounts') return 'money-accounts';
+    return 'money-summary';
+  }
+
+  return deriveActiveCapabilityId(state) as CapabilityMenuDestinationId | null;
 }
 
 type CapabilityShellContextValue = {

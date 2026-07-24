@@ -36,6 +36,8 @@ import { ActivityDetailScreen } from '../features/activities/ActivityDetailScree
 import { PlanScreen } from '../features/plan/PlanScreen';
 import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
+import { MoneyPrivacySettingsScreen } from '../capabilities/money/screens/MoneyPrivacySettingsScreen';
+import { MoneyHouseholdSettingsScreen } from '../capabilities/money/screens/MoneyHouseholdSettingsScreen';
 import { AiChatScreen } from '../features/ai/AiChatScreen';
 import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
@@ -102,7 +104,10 @@ import type {
 import type { LaunchContext } from '../domain/workflows';
 import type { CapabilityAgentContext, ChatMode } from '../features/ai/workflowRegistry';
 import { CapabilityMenu } from './CapabilityMenu';
-import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
+import {
+  CapabilityShellProvider,
+  deriveActiveCapabilityDestinationId,
+} from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
 import {
@@ -113,6 +118,8 @@ import {
 import { CapabilitySideSheet } from './CapabilitySideSheet';
 import { createUnifiedChatRepository } from '../features/unifiedChat/threadRepository';
 import type { UnifiedChatThread } from '../features/unifiedChat/types';
+import { MoneyNavigator } from '../capabilities/money/navigation/MoneyNavigator';
+import type { MoneyStackParamList } from '../capabilities/money/navigation/types';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -123,6 +130,7 @@ export type RootDrawerParamList = {
    * to the Arcs stack without relying on tab navigation.
    */
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
+  Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
@@ -270,6 +278,9 @@ export type GoalsStackParamList = {
   GoalsList:
     | {
         openCreateGoal?: boolean;
+        prefilledGoalTitle?: string;
+        prefilledGoalDescription?: string;
+        goalCreationInitialTab?: 'ai' | 'manual';
       }
     | undefined;
   GoalDetail: GoalDetailRouteParams;
@@ -297,6 +308,8 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
+  SettingsMoneyPrivacy: undefined;
+  SettingsMoneyHousehold: undefined;
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
@@ -350,7 +363,7 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // This ensures we don't restore stale navigation state that can prevent certain
 // screens (like Arcs or Goals) from being reachable or animating correctly.
 // Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
-const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v4';
+const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v5';
 const NAV_RESTORE_TIMEOUT_MS = 2000;
 
 const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
@@ -643,6 +656,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               component={ArcsStackRedirectScreen}
               options={{ title: 'Arcs', drawerItemStyle: { display: 'none' } }}
             />
+            <Drawer.Screen
+              name="Money"
+              component={MoneyCapabilityHost}
+              options={{ title: 'Money', drawerItemStyle: { display: 'none' } }}
+            />
             {showDevTools ? (
               <Drawer.Screen
                 name="DevTools"
@@ -828,6 +846,14 @@ function CapabilityMainTabsHost() {
   );
 }
 
+function MoneyCapabilityHost() {
+  return (
+    <CapabilityShellProvider>
+      <MoneyNavigator />
+    </CapabilityShellProvider>
+  );
+}
+
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
@@ -868,6 +894,8 @@ function SettingsStackNavigator() {
         name="SettingsScreenTimeProtection"
         component={ScreenTimeProtectionSettingsScreen}
       />
+      <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
+      <SettingsStack.Screen name="SettingsMoneyHousehold" component={MoneyHouseholdSettingsScreen} />
       <SettingsStack.Screen
         name="SettingsWeeklyChapters"
         component={ChapterDigestSettingsScreen}
@@ -958,7 +986,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const [chatsLoading, setChatsLoading] = useState(false);
   const [chatsError, setChatsError] = useState<string | null>(null);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
-  const activeCapabilityId = deriveActiveCapabilityId(navigationState);
+  const activeCapabilityId = deriveActiveCapabilityDestinationId(navigationState);
   const activeRoute = getActiveRoute(navigationState);
   const activeChatThreadId = activeRoute?.name === 'UnifiedChat' && typeof activeRoute.params?.threadId === 'string'
     ? activeRoute.params.threadId
@@ -1086,7 +1114,11 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
-          capture(AnalyticsEvent.CapabilitySelected, { capability_id: id, source_surface: 'menu' });
+          capture(AnalyticsEvent.CapabilitySelected, {
+            capability_id: id.startsWith('money-') ? 'money' : id,
+            destination_id: id,
+            source_surface: 'menu',
+          });
           rootNavigationRef.dispatch(CommonActions.navigate(capability));
           coverMenu();
         }}

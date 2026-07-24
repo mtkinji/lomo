@@ -172,7 +172,7 @@ const config = {
     appExtensions: iosAppExtensions.length > 0 ? iosAppExtensions : undefined,
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
-    associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app'],
+    associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app', 'applinks:app.kwilt.app'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Enable Live Activities for Focus countdown (ActivityKit).
@@ -257,6 +257,12 @@ const config = {
     'expo-notifications',
     'expo-localization',
     'expo-location',
+    [
+      'expo-local-authentication',
+      {
+        faceIDPermission: 'Allow Kwilt to use Face ID to protect your Money details.',
+      },
+    ],
     [
       '@kingstinct/react-native-healthkit',
       {

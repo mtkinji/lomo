@@ -145,6 +145,33 @@ export function createUnifiedChatToolProvider({
       };
     }
 
+    if (call.toolId === 'money.read') {
+      const money = snapshots.money;
+      return {
+        status: 'completed', receipt: null,
+        output: {
+          money: money ? {
+            periodLabel: money.periodLabel,
+            lastSyncedAt: money.lastSyncedAt,
+            totals: money.totals,
+            forecast: money.forecast,
+            outsidePlan: money.outsidePlan,
+            categories: money.categories.map((category) => ({
+              id: category.id,
+              name: category.name,
+              plannedCents: category.plannedCents,
+              spentCents: category.spentCents,
+              remainingCents: category.remainingCents,
+              percentUsed: category.percentUsed,
+              transactionCount: category.transactionCount,
+              forecast: category.forecast,
+            })),
+            accountCount: money.accounts.length,
+          } : null,
+        },
+      };
+    }
+
     if (call.toolId === 'profile.update') {
       const profile = snapshots.profile?.profile;
       if (!profile) return failed('profile_not_found', 'The coaching profile is not available.');

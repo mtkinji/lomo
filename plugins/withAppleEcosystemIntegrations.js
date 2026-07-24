@@ -15,6 +15,8 @@ const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode
 
 const fs = require('fs');
 const path = require('path');
+const { addMoneyWidgetFontResources, copyMoneyWidgetFontResources } = require('./appleEcosystem/moneyWidgetResources');
+const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
 const { withScreenTimeShieldExtensions } = require('./appleEcosystem/screenTimeShieldExtensions');
 
 const KWILT_APP_GROUP_FALLBACK = 'group.com.andrewwatanabe.kwilt';
@@ -260,10 +262,28 @@ class KwiltScreenTimeProtection: NSObject {
   private let appGroupIdentifier = "__KWILT_APP_GROUP_ID__"
   private let shieldReasonKey = "kwilt_screen_time_shield_reason_v1"
   private let shieldUpdatedAtKey = "kwilt_screen_time_shield_updated_at_v1"
+  private let reviewRequestedAtKey = "kwilt_screen_time_review_requested_at_v1"
 
   @available(iOS 16.0, *)
-  private var store: ManagedSettingsStore {
-    ManagedSettingsStore(named: ManagedSettingsStore.Name("kwilt.screenTimeProtection"))
+  private func selectionId(from json: String) -> String {
+    guard let data = json.data(using: .utf8),
+          let payload = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+          let raw = payload["selectionId"] as? String else { return "default" }
+    let allowed = raw.unicodeScalars.filter {
+      CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_"
+    }
+    let normalized = String(String.UnicodeScalarView(allowed)).prefix(64)
+    return normalized.isEmpty ? "default" : String(normalized)
+  }
+
+  private func selectionStorageKey(for selectionId: String) -> String {
+    selectionId == "default" ? selectionKey : "\\(selectionKey).\\(selectionId)"
+  }
+
+  @available(iOS 16.0, *)
+  private func store(for selectionId: String) -> ManagedSettingsStore {
+    let name = selectionId == "default" ? "kwilt.screenTimeProtection" : "kwilt.\\(selectionId)"
+    return ManagedSettingsStore(named: ManagedSettingsStore.Name(name))
   }
 
   @available(iOS 16.0, *)
@@ -281,8 +301,8 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func loadSelection() -> FamilyActivitySelection {
-    guard let data = UserDefaults.standard.data(forKey: selectionKey),
+  private func loadSelection(for selectionId: String) -> FamilyActivitySelection {
+    guard let data = UserDefaults.standard.data(forKey: selectionStorageKey(for: selectionId)),
           let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data) else {
       return FamilyActivitySelection(includeEntireCategory: true)
     }
@@ -290,9 +310,9 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func saveSelection(_ selection: FamilyActivitySelection) {
+  private func saveSelection(_ selection: FamilyActivitySelection, for selectionId: String) {
     guard let data = try? JSONEncoder().encode(selection) else { return }
-    UserDefaults.standard.set(data, forKey: selectionKey)
+    UserDefaults.standard.set(data, forKey: selectionStorageKey(for: selectionId))
   }
 
   @available(iOS 16.0, *)
@@ -345,8 +365,8 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func applySelection(_ selection: FamilyActivitySelection) {
-    let managedStore = store
+  private func applySelection(_ selection: FamilyActivitySelection, for selectionId: String) {
+    let managedStore = store(for: selectionId)
     managedStore.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
     managedStore.shield.applicationCategories = selection.categoryTokens.isEmpty
       ? nil
@@ -366,6 +386,20 @@ class KwiltScreenTimeProtection: NSObject {
     }
 #endif
     resolve("unavailable")
+  }
+
+  @objc(consumePendingReviewRequest:rejecter:)
+  func consumePendingReviewRequest(
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
+      resolve(nil)
+      return
+    }
+    let requestedAtMs = defaults.double(forKey: reviewRequestedAtKey)
+    defaults.removeObject(forKey: reviewRequestedAtKey)
+    resolve(requestedAtMs > 0 ? requestedAtMs : nil)
   }
 
   @objc(requestAuthorization:rejecter:)
@@ -407,14 +441,15 @@ class KwiltScreenTimeProtection: NSObject {
           return
         }
 
+        let selectionId = self.selectionId(from: json)
         let coordinator = KwiltScreenTimePickerCoordinator(
-          initialSelection: self.loadSelection(),
+          initialSelection: self.loadSelection(for: selectionId),
           onDone: { [weak self] selection in
             guard let self = self else {
               resolve(nil)
               return
             }
-            self.saveSelection(selection)
+            self.saveSelection(selection, for: selectionId)
             resolve(self.selectionPayload(selection))
           },
           onCancel: {
@@ -441,12 +476,13 @@ class KwiltScreenTimeProtection: NSObject {
         resolve(false)
         return
       }
-      let selection = loadSelection()
+      let selectionId = selectionId(from: json)
+      let selection = loadSelection(for: selectionId)
       if selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty {
         resolve(false)
         return
       }
-      applySelection(selection)
+      applySelection(selection, for: selectionId)
       saveShieldReason(from: json)
       resolve(true)
       return
@@ -462,8 +498,24 @@ class KwiltScreenTimeProtection: NSObject {
   ) {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
-      store.clearAllSettings()
+      store(for: "default").clearAllSettings()
       clearShieldReason()
+      resolve(true)
+      return
+    }
+#endif
+    resolve(false)
+  }
+
+  @objc(clearRestrictionsForSelection:resolver:rejecter:)
+  func clearRestrictionsForSelection(
+    _ json: String,
+    resolver resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+#if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
+    if #available(iOS 16.0, *) {
+      store(for: selectionId(from: json)).clearAllSettings()
       resolve(true)
       return
     }
@@ -555,6 +607,11 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+  consumePendingReviewRequest:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
   presentActivityPicker:(NSString *)json
   resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
@@ -568,6 +625,12 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
   clearRestrictions:(RCTPromiseResolveBlock)resolve
+  rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+  clearRestrictionsForSelection:(NSString *)json
+  resolver:(RCTPromiseResolveBlock)resolve
   rejecter:(RCTPromiseRejectBlock)reject
 )
 
@@ -1480,6 +1543,12 @@ if userActivity.activityType == CSSearchableItemActionType,
   <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>CFBundleDisplayName</key>
   <string>${targetName}</string>
+  <key>UIAppFonts</key>
+  <array>
+    <string>Inter_500Medium.ttf</string>
+    <string>Inter_600SemiBold.ttf</string>
+    <string>Inter_900Black.ttf</string>
+  </array>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionAttributes</key>
@@ -1525,6 +1594,12 @@ if userActivity.activityType == CSSearchableItemActionType,
       patched = ensureKey(patched, 'CFBundlePackageType', 'XPC!');
       patched = ensureKey(patched, 'CFBundleShortVersionString', '$(MARKETING_VERSION)');
       patched = ensureKey(patched, 'CFBundleVersion', '$(CURRENT_PROJECT_VERSION)');
+      if (!patched.includes('<key>UIAppFonts</key>')) {
+        patched = patched.replace(
+          /<key>NSExtension<\/key>/m,
+          '<key>UIAppFonts</key>\n  <array>\n    <string>Inter_500Medium.ttf</string>\n    <string>Inter_600SemiBold.ttf</string>\n    <string>Inter_900Black.ttf</string>\n  </array>\n  <key>NSExtension</key>',
+        );
+      }
       patched = ensureExtensionAttributes(patched, bundleId);
       // WidgetKit extensions should not declare NSExtensionPrincipalClass.
       patched = patched.replace(
@@ -1570,6 +1645,7 @@ if userActivity.activityType == CSSearchableItemActionType,
     } catch {
       // best-effort
     }
+    const moneyWidgetFontResources = copyMoneyWidgetFontResources({ fs, path, projectRoot: config.modRequest.projectRoot, iosRoot, targetSubfolder });
 
     fs.writeFileSync(
       widgetSwiftAbs,
@@ -1639,6 +1715,23 @@ struct GlanceableStateV1: Codable {
     let updatedAtMs: Double
   }
 
+  struct MoneyCategory: Codable {
+    let id: String
+    let name: String
+    let percentUsed: Int
+    let periodElapsedPercent: Int
+    let paceSentiment: String
+    let status: String
+    let deepLink: String
+  }
+
+  struct Money: Codable {
+    let periodLabel: String
+    let percentUsed: Int
+    let needsReviewCount: Int
+    let categories: [MoneyCategory]
+  }
+
   let version: Int
   let updatedAtMs: Double
   let nextUp: NextUp?
@@ -1648,6 +1741,7 @@ struct GlanceableStateV1: Codable {
   let momentum: Momentum?
   let activityViews: [ActivityViewSummary]?
   let activitiesWidgetByViewId: [String: ActivitiesWidgetPayload]?
+  let money: Money?
 }
 
 func readGlanceableState() -> GlanceableStateV1? {
@@ -2178,6 +2272,8 @@ struct KwiltStreakWidget: Widget {
   }
 }
 
+${getMoneyWidgetSwift(targetName)}
+
 // ---------------------------------------------------------------------------
 // Focus Live Activities (W3) — ActivityConfiguration
 // ---------------------------------------------------------------------------
@@ -2400,6 +2496,7 @@ struct ${targetName}Bundle: WidgetBundle {
       KwiltActivitiesWidget()
       KwiltLockScreenWidget()
       KwiltStreakWidget()
+      KwiltMoneyWidget()
     }
     if #available(iOS 16.2, *) {
       KwiltFocusLiveActivity()
@@ -2525,6 +2622,7 @@ struct ${targetName}Bundle: WidgetBundle {
         targetUuid,
       });
     }
+    project = addMoneyWidgetFontResources({ addResourceFileToGroup, resources: moneyWidgetFontResources, project, targetSubfolder, targetUuid });
     // Extra defensive cleanup: certain Xcodeproj mutation paths can still attach the widget
     // source file to the main app target. Ensure it is NOT compiled there.
     if (appTargetUuid) {

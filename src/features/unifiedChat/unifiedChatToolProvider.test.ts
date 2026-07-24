@@ -34,6 +34,35 @@ const snapshots = {
       observedAt: '2026-07-23T12:00:00.000Z',
     },
   },
+  money: {
+    periodLabel: 'July 2026', generatedAt: '2026-07-23T18:00:00.000Z', lastSyncedAt: '2026-07-23T17:00:00.000Z',
+    totals: { plannedCents: 80000, spentCents: 10000, remainingCents: 70000, needsReviewCount: 1 },
+    forecast: {
+      projectedSpendCents: 45000, projectionRangeLowCents: 40000, projectionRangeHighCents: 50000,
+      projectedRemainingCents: 35000, projectedOverageCents: 0, confidence: 'medium' as const, atRiskCategoryCount: 0,
+    },
+    outsidePlan: { spentCents: 2500, transactionCount: 1 },
+    categories: [{
+      id: 'groceries', sourceId: 'category-uuid', name: 'Groceries', description: null, accentColor: '#315545',
+      plannedCents: 60000, spentCents: 10000, remainingCents: 50000, percentUsed: 17,
+      transactionCount: 1, rolloverEnabled: false,
+      forecast: {
+        mode: 'paced' as const, confidence: 'medium' as const, expectedSpendCents: 20000,
+        projectedSpendCents: 30000, projectionRangeLowCents: 27000,
+        projectionRangeHighCents: 33000, projectedRemainingCents: 30000,
+        projectedOverageCents: 0, status: 'steady' as const,
+      },
+    }],
+    accounts: [{
+      id: 'account-1', name: 'Private checking', institutionName: 'Private Bank', mask: '1042', type: 'depository', subtype: 'checking',
+      status: 'healthy' as const, lastSyncedAt: '2026-07-23T17:00:00.000Z', transactionCount: 1, latestTransactionDate: '2026-07-20',
+    }],
+    transactions: [{
+      id: 'transaction-private', accountId: 'account-1', accountName: 'Private checking', institutionName: 'Private Bank',
+      merchantName: 'Private merchant', amountCents: 10000, direction: 'outflow' as const, date: '2026-07-20', pending: false,
+      currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', reviewState: 'assigned' as const, moneyMeaning: null,
+    }],
+  },
 };
 
 const tool = (id: string) => {
@@ -43,6 +72,32 @@ const tool = (id: string) => {
 };
 
 describe('createUnifiedChatToolProvider', () => {
+  it('reads only bounded Money aggregates without account or merchant details', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots });
+    const result = await provider.execute(
+      { id: 'money-read', toolId: 'money.read', arguments: {} }, tool('money.read'),
+    );
+    expect(result).toEqual({
+      status: 'completed', receipt: null,
+      output: {
+        money: {
+          periodLabel: 'July 2026', lastSyncedAt: '2026-07-23T17:00:00.000Z',
+          totals: snapshots.money.totals,
+          forecast: snapshots.money.forecast,
+          outsidePlan: snapshots.money.outsidePlan,
+          categories: [{
+            id: 'groceries', name: 'Groceries', plannedCents: 60000, spentCents: 10000,
+            remainingCents: 50000, percentUsed: 17, transactionCount: 1,
+            forecast: snapshots.money.categories[0].forecast,
+          }],
+          accountCount: 1,
+        },
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('Private merchant');
+    expect(JSON.stringify(result)).not.toContain('Private checking');
+  });
+
   it('delegates relationship reads and writes to the shared authenticated provider', async () => {
     const executeRelationshipTool = jest.fn(async () => ({
       status: 'completed' as const,

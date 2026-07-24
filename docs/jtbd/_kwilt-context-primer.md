@@ -82,3 +82,17 @@ When generating 3+ solution alternatives:
 2. Each alternative must have a stance on capture-first (does it block capture? if so, why is that justified?).
 3. Each alternative must pass the anti-pattern checklist. If it fails, either fix it or discard it — don't water it down.
 4. The axis of variation between alternatives should be substantive (e.g. *AI-driven vs user-driven*, *in-app vs notification*, *deterministic vs ambient*, *synchronous vs asynchronous*, *solo vs invited*) — not three flavors of one idea.
+
+## Capability-specific context
+
+When the design touches Money, read
+[`docs/capabilities/money/README.md`](../capabilities/money/README.md) before
+diverging. Its topical briefs and design explorations preserve the financial
+truth, prediction, transaction-review, planning, intentional-access, privacy,
+widget, and connected-account decisions inherited from standalone Money.
+
+Treat those documents as product reasoning, not automatic current-runtime
+proof. Canonical Money demand lives in
+`job-flow-maya-review-budget-reality-before-spending` and
+`jtbd-review-budget-reality-before-spending`; current delivery claims must be
+checked against `src/capabilities/money/` and fresh runtime evidence.

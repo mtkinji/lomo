@@ -4,8 +4,16 @@
 
 **Observed:** 2026-07-21
 
+**Presentation updated:** 2026-07-23 on `codex/native-money-settings-integration`
+
 This inventory describes the current Kwilt host before Money or Games import. It is not a
 claim that every implemented route is production-visible.
+
+Settings Home now uses the shared Money-derived `SettingsGroup`, `SettingsRow`, and divider
+grammar. Planning, Integrations, Personalization, Account, and authorized Internal choices
+render as compact grouped cards. The prior streak dashboard and duplicate Pro upsell were
+removed from Settings because neither represented a durable setting; subscription remains a
+single Account row. Hidden/incomplete destinations remain hidden.
 
 | Domain | Current route or owner | Scope | Current visibility | Phase 1 treatment |
 |---|---|---|---|---|

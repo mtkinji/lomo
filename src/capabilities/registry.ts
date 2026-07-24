@@ -2,11 +2,15 @@ import type {
   CapabilityDefinition,
   CapabilityGroupDefinition,
   CapabilityId,
+  CapabilityMenuDestinationDefinition,
+  CapabilityMenuDestinationId,
   CapabilityRouteTarget,
 } from './types';
+import { moneyCapabilityDefinition } from './money/definition';
 
 export const CAPABILITY_GROUPS = [
   { id: 'goals-plans', label: 'Goals & Plans' },
+  { id: 'money', label: 'Money' },
 ] as const satisfies readonly CapabilityGroupDefinition[];
 
 const currentKwiltAgentContract = {
@@ -70,7 +74,56 @@ export const CAPABILITY_REGISTRY = [
     { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreChapters' },
     ['kwilt://chapters'],
   ),
+  moneyCapabilityDefinition,
 ] as const satisfies readonly CapabilityDefinition[];
+
+function currentCapabilityMenuDestination(
+  id: Exclude<CapabilityId, 'money'>,
+): CapabilityMenuDestinationDefinition {
+  const capability = getCapability(id);
+  return {
+    id,
+    ownerId: id,
+    label: capability.label,
+    group: capability.group,
+    icon: capability.icon,
+    availability: capability.availability,
+    rootRoute: capability.rootRoute,
+  };
+}
+
+export const CAPABILITY_MENU_REGISTRY = [
+  ...(['goals', 'todos', 'plan', 'arcs', 'chapters'] as const).map(
+    currentCapabilityMenuDestination,
+  ),
+  {
+    id: 'money-summary',
+    ownerId: 'money',
+    label: 'Summary',
+    group: 'money',
+    icon: 'gauge',
+    availability: 'active',
+    rootRoute: { root: 'Money', screen: 'MoneySummary' },
+  },
+  {
+    id: 'money-transactions',
+    ownerId: 'money',
+    label: 'Transactions',
+    group: 'money',
+    icon: 'receipt',
+    availability: 'active',
+    rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
+  },
+  {
+    id: 'money-accounts',
+    ownerId: 'money',
+    label: 'Accounts',
+    group: 'money',
+    icon: 'landmark',
+    availability: 'active',
+    rootRoute: { root: 'Money', screen: 'MoneyAccounts' },
+  },
+] as const satisfies readonly CapabilityMenuDestinationDefinition[];
 
 export function getCapability(id: CapabilityId): CapabilityDefinition {
   const capability = CAPABILITY_REGISTRY.find((candidate) => candidate.id === id);
@@ -78,4 +131,14 @@ export function getCapability(id: CapabilityId): CapabilityDefinition {
     throw new Error(`Unknown capability: ${id}`);
   }
   return capability;
+}
+
+export function getCapabilityMenuDestination(
+  id: CapabilityMenuDestinationId,
+): CapabilityMenuDestinationDefinition {
+  const destination = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
+  if (!destination) {
+    throw new Error(`Unknown capability menu destination: ${id}`);
+  }
+  return destination;
 }

@@ -60,14 +60,37 @@ describe('navigationPersistence', () => {
       'Agent',
       'UnifiedChat',
       'ArcsStack',
+      'Money',
       'Settings',
     ]);
     expect(
       shouldRestoreNavigationState(
-        rootState(['MainTabs', 'Agent', 'UnifiedChat', 'ArcsStack', 'Settings']),
+        rootState(['MainTabs', 'Agent', 'UnifiedChat', 'ArcsStack', 'Money', 'Settings']),
         { showDevTools: false },
       ),
     ).toBe(true);
+  });
+
+  test('restores a known Money detail route and drops unknown nested routes', async () => {
+    const money = nestedState('stack', 'MoneyTransactionDetail', [
+      route('MoneySummary'),
+      route('LegacyMoneyScreen'),
+      route('MoneyTransactionDetail', undefined, { transactionId: 'transaction-1' }),
+    ]);
+    const root = nestedState('drawer', 'Money', [
+      route('MainTabs'),
+      route('Money', money),
+      route('Settings'),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredMoney = restored.routes[restored.index].state!;
+    expect(restored.routes[restored.index].name).toBe('Money');
+    expect(restoredMoney.routes[restoredMoney.index]).toMatchObject({
+      name: 'MoneyTransactionDetail',
+      params: { transactionId: 'transaction-1' },
+    });
+    expect(restoredMoney.routes.map(({ name }) => name)).not.toContain('LegacyMoneyScreen');
   });
 
   test('rejects dev-only DevTools state in production', () => {

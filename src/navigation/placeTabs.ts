@@ -16,6 +16,9 @@ export type PlaceTabConfig = {
  */
 const primaryCapabilityTabs: PlaceTabConfig[] = CAPABILITY_REGISTRY.slice(0, 3).map(
   ({ label, icon, rootRoute }) => {
+    if (rootRoute.root !== 'MainTabs') {
+      throw new Error(`Primary capability must use the MainTabs root: ${label}`);
+    }
     if (rootRoute.tab === 'MoreTab') {
       throw new Error(`Primary capability cannot use the More tab: ${label}`);
     }

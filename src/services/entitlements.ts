@@ -44,8 +44,37 @@ const PRO_SKUS: Record<ProPlan, Record<BillingCadence, string>> = {
   },
 };
 
+// Money previously shipped with its own product identifiers. They remain
+// purchase aliases inside the host RevenueCat account; entitlement identity,
+// offerings, restore, and billing UI are still owned by Kwilt.
+const LEGACY_MONEY_PRO_SKUS: Record<ProPlan, Record<BillingCadence, string>> = {
+  individual: {
+    monthly: 'kwilt_budget_pro_monthly',
+    annual: 'kwilt_budget_pro_annual',
+  },
+  family: {
+    monthly: 'kwilt_budget_pro_family_monthly',
+    annual: 'kwilt_budget_pro_family_annual',
+  },
+};
+
 export function getProSku(plan: ProPlan, cadence: BillingCadence): string {
   return PRO_SKUS[plan][cadence];
+}
+
+function getProSkuCandidates(plan: ProPlan, cadence: BillingCadence): string[] {
+  return [PRO_SKUS[plan][cadence], LEGACY_MONEY_PRO_SKUS[plan][cadence]];
+}
+
+function getCanonicalProSku(candidate: string): string | null {
+  for (const plan of ['individual', 'family'] as const) {
+    for (const cadence of ['monthly', 'annual'] as const) {
+      if (getProSkuCandidates(plan, cadence).includes(candidate)) {
+        return PRO_SKUS[plan][cadence];
+      }
+    }
+  }
+  return null;
 }
 
 export type ProSkuPricing = {
@@ -676,8 +705,11 @@ export async function purchasePro(appUserID?: string | null): Promise<Entitlemen
     : [];
 
   const desiredSku = PRO_SKUS.individual.annual;
+  const skuCandidates = getProSkuCandidates('individual', 'annual');
   const matchingPackage = availablePackages.find(
-    (pkg) => pkg?.product?.identifier === desiredSku || pkg?.product?.productIdentifier === desiredSku,
+    (pkg) =>
+      skuCandidates.includes(pkg?.product?.identifier) ||
+      skuCandidates.includes(pkg?.product?.productIdentifier),
   );
   const selectedPackage = matchingPackage ?? availablePackages[0];
 
@@ -725,8 +757,11 @@ export async function purchaseProSku(params: {
     : [];
 
   const desiredSku = getProSku(params.plan, params.cadence);
+  const skuCandidates = getProSkuCandidates(params.plan, params.cadence);
   const matchingPackage = availablePackages.find(
-    (pkg) => pkg?.product?.identifier === desiredSku || pkg?.product?.productIdentifier === desiredSku,
+    (pkg) =>
+      skuCandidates.includes(pkg?.product?.identifier) ||
+      skuCandidates.includes(pkg?.product?.productIdentifier),
   );
   const selectedPackage = matchingPackage ?? availablePackages[0];
 
@@ -844,6 +879,8 @@ export async function getProSkuPricing(appUserID?: string | null): Promise<Recor
       }
 
       pricing[sku] = entry;
+      const canonicalSku = getCanonicalProSku(sku);
+      if (canonicalSku) pricing[canonicalSku] = entry;
     }
     return pricing;
   } catch {

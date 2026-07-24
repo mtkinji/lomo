@@ -1,4 +1,7 @@
-import { deriveActiveCapabilityId } from './CapabilityShellContext';
+import {
+  deriveActiveCapabilityDestinationId,
+  deriveActiveCapabilityId,
+} from './CapabilityShellContext';
 
 function state(...names: string[]) {
   return names.reduceRight<Record<string, unknown> | undefined>((child, name) => ({
@@ -16,6 +19,7 @@ describe('deriveActiveCapabilityId', () => {
     [['MainTabs', 'MoreTab', 'MoreChapters'], 'chapters'],
     [['MainTabs', 'MoreTab', 'MoreChapterDetail'], 'chapters'],
     [['ArcsStack', 'ArcsList'], 'arcs'],
+    [['Money', 'MoneySummary'], 'money'],
   ] as const)('derives %s as %s', (routeNames, expected) => {
     expect(deriveActiveCapabilityId(state(...routeNames))).toBe(expected);
   });
@@ -24,5 +28,14 @@ describe('deriveActiveCapabilityId', () => {
     expect(deriveActiveCapabilityId(state('Agent'))).toBeNull();
     expect(deriveActiveCapabilityId(state('Settings', 'SettingsHome'))).toBeNull();
     expect(deriveActiveCapabilityId(state('MainTabs', 'MoreTab', 'MoreHome'))).toBeNull();
+  });
+
+  it.each([
+    [['Money', 'MoneySummary'], 'money-summary'],
+    [['Money', 'MoneyTransactions'], 'money-transactions'],
+    [['Money', 'MoneyAccounts'], 'money-accounts'],
+    [['Money', 'MoneyCategoryDetail'], 'money-summary'],
+  ] as const)('derives %s as the active global destination %s', (routeNames, expected) => {
+    expect(deriveActiveCapabilityDestinationId(state(...routeNames))).toBe(expected);
   });
 });

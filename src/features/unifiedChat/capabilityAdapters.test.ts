@@ -5,6 +5,7 @@ import {
   collectCapabilityEvidence,
   arcsChatAdapter,
   goalsChatAdapter,
+  moneyChatAdapter,
   profileChatAdapter,
   resolveUnifiedChatObjectReturn,
   todosChatAdapter,
@@ -72,6 +73,45 @@ const chapter = (overrides: Partial<ChapterRow> = {}): ChapterRow => ({
 });
 
 describe('Unified Chat capability adapters', () => {
+  test('Money exposes category aggregates without transaction merchants and returns to native detail', () => {
+    const sources = moneyChatAdapter.evidence.list({
+      periodLabel: 'July 2026', generatedAt: '2026-07-23T18:00:00.000Z', lastSyncedAt: '2026-07-23T17:00:00.000Z',
+      totals: { plannedCents: 80000, spentCents: 10000, remainingCents: 70000, needsReviewCount: 1 },
+      forecast: {
+        projectedSpendCents: 45000, projectionRangeLowCents: 40000, projectionRangeHighCents: 50000,
+        projectedRemainingCents: 35000, projectedOverageCents: 0, confidence: 'medium', atRiskCategoryCount: 0,
+      },
+      outsidePlan: { spentCents: 2500, transactionCount: 1 },
+      accounts: [], transactions: [{
+        id: 'transaction-private', accountId: null, accountName: 'Checking', institutionName: 'Private Bank',
+        merchantName: 'Private merchant', amountCents: 10000, direction: 'outflow', date: '2026-07-20',
+        pending: false, currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', reviewState: 'assigned', moneyMeaning: null,
+      }],
+      categories: [{
+        id: 'groceries', sourceId: 'category-uuid', name: 'Groceries', description: null, accentColor: '#315545',
+        plannedCents: 60000, spentCents: 10000, remainingCents: 50000, percentUsed: 17,
+        transactionCount: 1, rolloverEnabled: false,
+        forecast: {
+          mode: 'paced', confidence: 'medium', expectedSpendCents: 20000,
+          projectedSpendCents: 30000, projectionRangeLowCents: 27000,
+          projectionRangeHighCents: 33000, projectedRemainingCents: 30000,
+          projectedOverageCents: 0, status: 'steady',
+        },
+      }],
+    });
+
+    expect(sources).toEqual([expect.objectContaining({
+      capabilityId: 'money', object: { type: 'money_category', id: 'groceries', label: 'Groceries', secondaryLabel: '$100 spent of $600' },
+      authority: 'authoritative', observedAt: '2026-07-23T17:00:00.000Z',
+      summary: expect.stringContaining('Projected: $300'),
+    })]);
+    expect(JSON.stringify(sources)).not.toContain('Private merchant');
+    expect(moneyChatAdapter.return.targetFor(sources[0].object)).toMatchObject({
+      capabilityId: 'money',
+      route: { name: 'Money', params: { screen: 'MoneyCategoryDetail', params: { categoryId: 'groceries' } } },
+    });
+  });
+
   test('Account exposes bounded authoritative show-up status as evidence', () => {
     const sources = collectCapabilityEvidence({
       participatingCapabilities: ['account'],

@@ -3,22 +3,22 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import ReanimatedSwipeable, {
   type SwipeableProps,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { CAPABILITY_GROUPS, CAPABILITY_REGISTRY } from '../capabilities/registry';
-import type { CapabilityGroupId, CapabilityId } from '../capabilities/types';
+import { CAPABILITY_GROUPS, CAPABILITY_MENU_REGISTRY } from '../capabilities/registry';
+import type { CapabilityGroupId, CapabilityMenuDestinationId } from '../capabilities/types';
 import { colors, fonts, spacing, typography } from '../theme';
 import { BrandLockup } from '../ui/BrandLockup';
 import { Icon } from '../ui/Icon';
 import { ProfileAvatar } from '../ui/ProfileAvatar';
 
 type CapabilityMenuProps = {
-  activeCapabilityId: CapabilityId | null;
+  activeCapabilityId: CapabilityMenuDestinationId | null;
   activeChatThreadId?: string | null;
   chats: readonly CapabilityMenuChat[];
   chatsLoading?: boolean;
   chatsError?: string | null;
   displayName?: string;
   avatarUrl?: string | null;
-  onSelectCapability: (id: CapabilityId) => void;
+  onSelectCapability: (id: CapabilityMenuDestinationId) => void;
   onSelectChat: (threadId: string) => void;
   onArchiveChat: (threadId: string) => void;
   onDeleteChat: (threadId: string) => void;
@@ -64,8 +64,8 @@ export function CapabilityMenu({
     });
   };
 
-  const renderCapability = (id: CapabilityId) => {
-    const capability = CAPABILITY_REGISTRY.find((candidate) => candidate.id === id);
+  const renderCapability = (id: CapabilityMenuDestinationId) => {
+    const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
     if (!capability || capability.availability !== 'active') return null;
     const selected = activeCapabilityId === capability.id;
 
@@ -95,7 +95,7 @@ export function CapabilityMenu({
     );
   };
 
-  const directCapabilities = CAPABILITY_REGISTRY.filter(({ group }) => group === null);
+  const directCapabilities = CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === null);
 
   return (
     <View style={styles.root}>
@@ -118,7 +118,7 @@ export function CapabilityMenu({
       >
         {CAPABILITY_GROUPS.map((group) => {
           const expanded = expandedGroups.has(group.id);
-          const capabilityIds = CAPABILITY_REGISTRY.filter(
+          const capabilityIds = CAPABILITY_MENU_REGISTRY.filter(
             (capability) => capability.group === group.id,
           ).map(({ id }) => id);
 

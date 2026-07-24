@@ -1,4 +1,10 @@
-import { CAPABILITY_GROUPS, CAPABILITY_REGISTRY } from './registry';
+import {
+  CAPABILITY_GROUPS,
+  CAPABILITY_MENU_REGISTRY,
+  CAPABILITY_REGISTRY,
+  getCapability,
+  getCapabilityMenuDestination,
+} from './registry';
 
 describe('capability registry', () => {
   it('keeps the accepted Phase 1 capability order', () => {
@@ -8,6 +14,7 @@ describe('capability registry', () => {
       'plan',
       'arcs',
       'chapters',
+      'money',
     ]);
   });
 
@@ -28,9 +35,48 @@ describe('capability registry', () => {
   it('gives every active capability a root route', () => {
     expect(
       CAPABILITY_REGISTRY.filter(({ availability }) => availability === 'active').every(
-        ({ rootRoute }) => rootRoute.root === 'MainTabs' && rootRoute.tab.length > 0,
+        ({ rootRoute }) => rootRoute.root.length > 0,
       ),
     ).toBe(true);
+  });
+
+  it('registers Money as active after live reads and bounded Chat coverage are ready', () => {
+    expect(getCapability('money')).toMatchObject({
+      id: 'money',
+      label: 'Money',
+      group: 'money',
+      rootRoute: { root: 'Money', screen: 'MoneySummary' },
+      availability: 'active',
+    });
+  });
+
+  it('exposes each established Money place directly in the global capability menu', () => {
+    expect(
+      CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'money').map(
+        ({ id, label, ownerId, rootRoute }) => ({ id, label, ownerId, rootRoute }),
+      ),
+    ).toEqual([
+      {
+        id: 'money-summary',
+        label: 'Summary',
+        ownerId: 'money',
+        rootRoute: { root: 'Money', screen: 'MoneySummary' },
+      },
+      {
+        id: 'money-transactions',
+        label: 'Transactions',
+        ownerId: 'money',
+        rootRoute: { root: 'Money', screen: 'MoneyTransactions' },
+      },
+      {
+        id: 'money-accounts',
+        label: 'Accounts',
+        ownerId: 'money',
+        rootRoute: { root: 'Money', screen: 'MoneyAccounts' },
+      },
+    ]);
+
+    expect(getCapabilityMenuDestination('money-summary').ownerId).toBe('money');
   });
 
   it('maps the current capabilities onto their existing host routes', () => {
@@ -40,6 +86,7 @@ describe('capability registry', () => {
       ['plan', { root: 'MainTabs', tab: 'PlanTab' }],
       ['arcs', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreArcs' }],
       ['chapters', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreChapters' }],
+      ['money', { root: 'Money', screen: 'MoneySummary' }],
     ]);
   });
 });

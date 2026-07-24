@@ -28,6 +28,12 @@ last_updated: YYYY-MM-DD
 
 `audiences:`, `personas:`, `hero_jtbd:`, `job_flow:`, and `serves:` are the load-bearing fields — they link the supply-side artifact back to who we are designing for, the main audience-level job, the current delivery gap, and the supporting or feature-level jobs active for that person. Put the primary audience and representative persona first. `npm run product:lint` validates these links.
 
+Imported capability briefs may also record `source_repo:` and an immutable
+`source_sha:`. Preserve the original artifact under the capability's frozen
+source directory when normalization changes parent taxonomy, status, or persona
+metadata. The promoted brief must state that source-era route, delivery, and
+release claims require verification against the current capability.
+
 Feature briefs should improve a job-flow delivery score or explain why the work is necessary even if the score will not move immediately. After ship, update the referenced job flow if the feature brief changed the current Kwilt flow, offerings, delivery score, or gap.
 
 ## Required body sections
@@ -129,7 +135,10 @@ Feature briefs absorb the spec role for Kwilt. The `design-thinking-loop`'s Buil
 npm run product:lint
 ```
 
-Validates feature brief front-matter, FEATURE.md manifests, JTBD references, audience/persona/job-flow links, and bidirectional drift between feature briefs and feature manifests. `npm run jtbd:lint` remains an alias.
+Validates feature brief front-matter, `src/features/*/FEATURE.md` and
+`src/capabilities/*/FEATURE.md` manifests, JTBD references,
+audience/persona/job-flow links, and bidirectional drift between feature briefs
+and manifests. `npm run jtbd:lint` remains an alias.
 
 ## Cross-repo
 

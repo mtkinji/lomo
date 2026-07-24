@@ -10,6 +10,7 @@ import type {
 import type { UnifiedChatCapabilityId } from './requestPolicy';
 import type { PlanRecommendationResult } from './planRecommendationTool';
 import type { CalendarRef } from '../../services/plan/calendarApi';
+import { formatMoney, type MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 
 export type GoalsChatSnapshot = { goals: readonly Goal[]; arcIds?: readonly string[] };
 export type ArcsChatSnapshot = { arcs: readonly Arc[] };
@@ -29,6 +30,7 @@ export type AccountChatSnapshot = {
     observedAt: string | null;
   };
 };
+export type MoneyChatSnapshot = MoneySnapshot;
 
 export type UnifiedChatCapabilitySnapshots = {
   arcs?: ArcsChatSnapshot;
@@ -38,6 +40,7 @@ export type UnifiedChatCapabilitySnapshots = {
   plan?: PlanChatSnapshot;
   profile?: ProfileChatSnapshot;
   account?: AccountChatSnapshot;
+  money?: MoneyChatSnapshot;
 };
 
 const GOAL_OPERATIONS = ['create_goal', 'update_goal', 'delete_goal'] as const;
@@ -351,6 +354,59 @@ export const todosChatAdapter: CapabilityChatAdapter<TodosChatSnapshot> = {
   return: { targetFor: (object) => nativeReturn('todos', object) },
 };
 
+export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
+  capabilityId: 'money',
+  context: { dataClassification: 'private_kwilt_data', readOnly: true },
+  evidence: {
+    list: (snapshot) => snapshot.categories.map((category) => ({
+      capabilityId: 'money',
+      object: {
+        type: 'money_category',
+        id: category.id,
+        label: category.name,
+        secondaryLabel: `${formatMoney(category.spentCents)} spent of ${formatMoney(category.plannedCents)}`,
+      },
+      searchableText: compact([
+        'money budget spending category current month',
+        category.name,
+        category.description,
+      ]),
+      summary: compact([
+        `Period: ${snapshot.periodLabel}`,
+        `Planned: ${formatMoney(category.plannedCents)}`,
+        `Spent: ${formatMoney(category.spentCents)}`,
+        `Remaining: ${formatMoney(category.remainingCents)}`,
+        `Projected: ${formatMoney(category.forecast.projectedSpendCents)}`,
+        category.forecast.projectedOverageCents > 0
+          ? `Projected over: ${formatMoney(category.forecast.projectedOverageCents)}`
+          : `Projected remaining: ${formatMoney(category.forecast.projectedRemainingCents)}`,
+        `Forecast confidence: ${category.forecast.confidence}`,
+        snapshot.outsidePlan.transactionCount > 0
+          ? `Outside plan: ${formatMoney(snapshot.outsidePlan.spentCents)} across ${snapshot.outsidePlan.transactionCount} transactions`
+          : null,
+        `Transactions: ${category.transactionCount}`,
+      ]),
+      authority: 'authoritative' as const,
+      observedAt: snapshot.lastSyncedAt ?? snapshot.generatedAt,
+    })),
+  },
+  proposal: { operationKinds: [] },
+  apply: { operationKinds: [] },
+  receipt: { reloadAuthoritativeObject: false },
+  undo: { operationKinds: [] },
+  return: {
+    targetFor: (object) => ({
+      capabilityId: 'money',
+      object: { type: object.type, id: object.id },
+      label: object.label,
+      route: {
+        name: 'Money',
+        params: { screen: 'MoneyCategoryDetail', params: { categoryId: object.id } },
+      },
+    }),
+  },
+};
+
 export const chaptersChatAdapter: CapabilityChatAdapter<ChaptersChatSnapshot> = {
   capabilityId: 'chapters',
   context: { dataClassification: 'private_kwilt_data', readOnly: false },
@@ -412,6 +468,7 @@ export function collectCapabilityEvidence({
       : []),
     ...(selected.has('chapters') ? chaptersChatAdapter.evidence.list(snapshots.chapters) : []),
     ...(selected.has('profile') && snapshots.profile ? profileChatAdapter.evidence.list(snapshots.profile) : []),
+    ...(selected.has('money') && snapshots.money ? moneyChatAdapter.evidence.list(snapshots.money) : []),
     ...(selected.has('account') && snapshots.account ? [{
       capabilityId: 'account' as const,
       object: { type: 'show_up_status', id: 'current', label: 'Show-up status' },
@@ -440,5 +497,6 @@ export function resolveUnifiedChatObjectReturn(
   if (object.type === 'activity') return todosChatAdapter.return.targetFor(object);
   if (object.type === 'chapter') return chaptersChatAdapter.return.targetFor(object);
   if (object.type === 'profile') return profileChatAdapter.return.targetFor(object);
+  if (object.type === 'money_category') return moneyChatAdapter.return.targetFor(object);
   return null;
 }

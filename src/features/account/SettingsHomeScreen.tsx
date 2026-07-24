@@ -1,188 +1,76 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable as RNPressable, ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import { Fragment, useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { AppShell } from '../../ui/layout/AppShell';
-import { PageHeader } from '../../ui/layout/PageHeader';
-import { Icon, IconName } from '../../ui/Icon';
-import { BottomDrawer } from '../../ui/BottomDrawer';
-import { colors, fonts, spacing, typography } from '../../theme';
+import type { RootDrawerParamList, SettingsStackParamList } from '../../navigation/RootNavigator';
+import { getAdminProCodesStatus } from '../../services/proCodes';
+import { ensureSignedInWithPrompt, signOut } from '../../services/backend/auth';
+import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
+import { unregisterPushToken } from '../../services/pushTokenService';
 import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
-import { VStack, Heading, Text, HStack } from '../../ui/primitives';
-import type {
-  RootDrawerParamList,
-  SettingsStackParamList,
-} from '../../navigation/RootNavigator';
+import { colors, fonts, spacing, typography } from '../../theme';
+import { BottomDrawer } from '../../ui/BottomDrawer';
+import { Icon } from '../../ui/Icon';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
-import { openPaywallInterstitial } from '../../services/paywall';
-import { getMonthKey } from '../../domain/generativeCredits';
-import { FREE_GENERATIVE_CREDITS_PER_MONTH, PRO_GENERATIVE_CREDITS_PER_MONTH } from '../../domain/generativeCredits';
-import { LinearGradient } from 'expo-linear-gradient';
-import { paywallTheme } from '../paywall/paywallTheme';
-import { createReferralCode } from '../../services/referrals';
-import { getAdminProCodesStatus } from '../../services/proCodes';
-import { signOut } from '../../services/backend/auth';
-import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { unregisterPushToken } from '../../services/pushTokenService';
-import { withHapticPress } from '../../ui/haptics/withHapticPress';
-import { shareUrlWithPreview } from '../../utils/share';
-import { clearAdminEntitlementsOverrideTier } from '../../services/entitlements';
+import {
+  SettingsDivider,
+  SettingsGroup,
+  SettingsRow,
+} from '../../ui/SettingsSurface';
+import { AppShell } from '../../ui/layout/AppShell';
+import { PageHeader } from '../../ui/layout/PageHeader';
+import { Heading, Text, VStack } from '../../ui/primitives';
 import { persistImageUri } from '../../utils/persistImageUri';
 
-type SettingsNavigationProp = NativeStackNavigationProp<
-  SettingsStackParamList,
-  'SettingsHome'
->;
+type SettingsNavigationProp = NativeStackNavigationProp<SettingsStackParamList, 'SettingsHome'>;
+type SettingsRoute = Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
 
-type SettingsItem = {
+type SettingsEntry = {
   id: string;
   title: string;
-  description: string;
-  icon: IconName;
-  // This screen is a flat menu of direct navigations; exclude routes that require params.
-  route?: Exclude<keyof SettingsStackParamList, 'SettingsPaywall'>;
-  disabled?: boolean;
-  status?: 'new' | 'soon';
-  tags?: string[];
+  route: SettingsRoute;
 };
 
-type SettingsGroup = {
+type SettingsSection = {
   id: string;
   title: string;
-  description: string;
-  items: SettingsItem[];
+  entries: readonly SettingsEntry[];
 };
 
-// Production-ready settings IA: keep incomplete surfaces implemented but out of the
-// primary Settings menu until they form a complete, trustworthy value unit.
-const HIDDEN_SETTINGS_ITEM_IDS = new Set([
-  'phone_agent',
-  'execution_targets',
-  'widgets',
-  'haptics',
-  'inviteFriend',
-]);
-
-const SETTINGS_GROUPS: SettingsGroup[] = [
+const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     id: 'planning',
     title: 'Planning',
-    description: 'Availability and calendar settings for Plan.',
-    items: [
-      {
-        id: 'activity_areas',
-        title: 'Areas',
-        description: 'Manage where different to-dos belong.',
-        icon: 'layers',
-        route: 'SettingsActivityAreas',
-        tags: ['areas', 'planning', 'availability'],
-      },
-      {
-        id: 'plan_availability',
-        title: 'Availability',
-        description: 'When Kwilt helps with planning.',
-        icon: 'today',
-        route: 'SettingsPlanAvailability',
-        tags: ['plan', 'availability', 'boundaries'],
-      },
-      {
-        id: 'plan_calendars',
-        title: 'Calendars',
-        description: 'Connect calendars for planning.',
-        icon: 'sendToCalendar',
-        route: 'SettingsPlanCalendars',
-        tags: ['calendar', 'plan', 'commitments'],
-      },
+    entries: [
+      { id: 'activity_areas', title: 'Areas', route: 'SettingsActivityAreas' },
+      { id: 'plan_availability', title: 'Availability', route: 'SettingsPlanAvailability' },
+      { id: 'plan_calendars', title: 'Calendars', route: 'SettingsPlanCalendars' },
     ],
   },
   {
     id: 'integrations',
     title: 'Integrations',
-    description: 'Connect destinations that can receive handed-off To-dos.',
-    items: [
-      {
-        id: 'phone_agent',
-        title: 'Phone Agent',
-        description: 'Text Kwilt to capture, follow up, and close loops.',
-        icon: 'phone',
-        route: 'SettingsPhoneAgent',
-        status: 'new',
-        tags: ['phone', 'sms', 'follow-through'],
-      },
-      {
-        id: 'connected_tools',
-        title: 'Connected tools',
-        description: 'Review and revoke AI agents connected to Kwilt.',
-        icon: 'settings',
-        route: 'SettingsConnectedTools',
-        tags: ['mcp', 'cursor', 'claude', 'codex', 'agents'],
-      },
-      {
-        id: 'execution_targets',
-        title: 'Destinations',
-        description: 'Install and configure destinations like Cursor.',
-        icon: 'share',
-        route: 'SettingsExecutionTargets',
-        tags: ['destinations', 'cursor', 'mcp', 'handoff'],
-      },
+    entries: [
+      { id: 'connected_tools', title: 'Connected tools', route: 'SettingsConnectedTools' },
+      { id: 'money_privacy', title: 'Money privacy', route: 'SettingsMoneyPrivacy' },
+      { id: 'money_household', title: 'Money household', route: 'SettingsMoneyHousehold' },
     ],
   },
   {
     id: 'personalization',
     title: 'Personalization',
-    description: 'Visual identity, tone, and how the app feels.',
-    items: [
-      {
-        id: 'widgets',
-        title: 'Widgets',
-        description: 'Keep your next step one tap away.',
-        icon: 'home',
-        route: 'SettingsWidgets',
-        tags: ['ios', 'home screen'],
-      },
-      {
-        id: 'haptics',
-        title: 'Haptics',
-        description: 'Make key moments feel more immersive.',
-        icon: 'haptics',
-        route: 'SettingsHaptics',
-        tags: ['feedback', 'touch', 'immersion'],
-      },
-      {
-        id: 'notifications',
-        title: 'Notifications',
-        description: 'Plan gentle reminders from Kwilt.',
-        icon: 'bell',
-        route: 'SettingsNotifications',
-        tags: ['reminders', 'nudges', 'alerts'],
-      },
+    entries: [
+      { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
       {
         id: 'screen_time_protection',
         title: 'Screen Time Controls',
-        description: 'Choose when selected apps are blocked.',
-        icon: 'shield',
         route: 'SettingsScreenTimeProtection',
-        tags: ['focus', 'screen time', 'distractions'],
       },
-      {
-        id: 'weekly_chapters',
-        title: 'Weekly Chapters',
-        description: 'Control generation, email delivery, and Apple Health summaries.',
-        icon: 'chapters',
-        route: 'SettingsWeeklyChapters',
-        tags: ['chapters', 'apple health', 'reflection'],
-      },
-      {
-        id: 'sharing',
-        title: 'Sharing',
-        description: 'Manage accountability reminders and shared goals.',
-        icon: 'share',
-        route: 'SettingsSharing',
-        tags: ['sharing', 'accountability', 'partners'],
-      },
+      { id: 'weekly_chapters', title: 'Weekly Chapters', route: 'SettingsWeeklyChapters' },
+      { id: 'sharing', title: 'Sharing', route: 'SettingsSharing' },
     ],
   },
 ];
@@ -191,26 +79,14 @@ export function SettingsHomeScreen() {
   const authIdentity = useAppStore((state) => state.authIdentity);
   const userProfile = useAppStore((state) => state.userProfile);
   const updateUserProfile = useAppStore((state) => state.updateUserProfile);
+  const isPro = useEntitlementsStore((state) => state.isPro);
   const navigation = useNavigation<SettingsNavigationProp>();
   const rootNavigation = navigation.getParent<NavigationProp<RootDrawerParamList>>();
   const [avatarSheetVisible, setAvatarSheetVisible] = useState(false);
   const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
-  const generativeCredits = useAppStore((state) => state.generativeCredits);
-  const bonusGenerativeCredits = useAppStore((state) => state.bonusGenerativeCredits);
-  const isPro = useEntitlementsStore((state) => state.isPro);
-  const restore = useEntitlementsStore((state) => state.restore);
-  const refreshEntitlements = useEntitlementsStore((state) => state.refreshEntitlements);
   const [showSuperAdmin, setShowSuperAdmin] = useState(false);
 
-  const settingsItems = useMemo(
-    () =>
-      SETTINGS_GROUPS.flatMap((group) => group.items).filter((item) => !HIDDEN_SETTINGS_ITEM_IDS.has(item.id)),
-    []
-  );
-
   useEffect(() => {
-    // Best-effort: only show Admin entry if the signed-in user is allowlisted server-side.
-    // Fail closed (hidden) to avoid confusing non-admin users.
     if (!authIdentity?.userId) {
       setShowSuperAdmin(false);
       clearAdminEntitlementsOverrideTier().catch(() => undefined);
@@ -218,214 +94,84 @@ export function SettingsHomeScreen() {
     }
 
     getAdminProCodesStatus({ requireAuth: true })
-      .then((s) => {
-        setShowSuperAdmin(Boolean(s.role === 'super_admin'));
-        // Only clear the override on an authoritative 200 confirming the user is not super-admin.
-        // Transient failures should not downgrade Pro status.
-        if (s.httpStatus === 200 && s.role !== 'super_admin') {
+      .then((status) => {
+        setShowSuperAdmin(status.role === 'super_admin');
+        if (status.httpStatus === 200 && status.role !== 'super_admin') {
           clearAdminEntitlementsOverrideTier().catch(() => undefined);
         }
       })
-      .catch(() => {
-        setShowSuperAdmin(false);
-      });
+      .catch(() => setShowSuperAdmin(false));
   }, [authIdentity?.userId]);
 
-  const handleNavigate = (item: SettingsItem) => {
-    if (item.disabled || !item.route) {
-      return;
-    }
-    // Use cast to bypass strict type-narrowing issues with union route types.
-    (navigation.navigate as (screen: string) => void)(item.route);
-  };
-
-  type RowAction = {
-    id: string;
-    title: string;
-    icon: IconName;
-    iconColor?: string;
-    onPress?: () => void;
-    disabled?: boolean;
-    status?: 'new' | 'soon';
-    variant?: 'default' | 'destructive';
-    showChevron?: boolean;
-  };
-
-  const renderRow = (row: RowAction, { isLast }: { isLast: boolean }) => {
-    const disabled = Boolean(row.disabled) || !row.onPress;
-    const showChevron = row.showChevron ?? (!disabled && row.variant !== 'destructive');
-    const iconColor =
-      disabled
-        ? colors.textSecondary
-        : row.variant === 'destructive'
-          ? colors.destructive
-          : row.iconColor ?? colors.textPrimary;
-    const titleColor =
-      row.variant === 'destructive'
-        ? colors.destructive
-        : disabled
-          ? colors.textSecondary
-          : colors.textPrimary;
-
-    return (
-      <Pressable
-        key={row.id}
-        accessibilityRole={disabled ? undefined : 'button'}
-        accessibilityState={{ disabled }}
-        onPress={withHapticPress(row.onPress, 'canvas.selection')}
-        disabled={disabled}
-        style={({ pressed }) => [
-          styles.listRow,
-          pressed && !disabled ? styles.listRowPressed : null,
-          !isLast && styles.listRowGap,
-        ]}
-      >
-        <View style={styles.listRowIcon}>
-          <Icon name={row.icon} size={18} color={iconColor} />
-        </View>
-        <VStack flex={1} space={0}>
-          <Text style={[styles.listRowTitle, { color: titleColor }]}>{row.title}</Text>
-        </VStack>
-        <HStack alignItems="center" space="xs">
-          {row.status === 'soon' ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeLabel}>Soon</Text>
-            </View>
-          ) : null}
-          {showChevron ? <Icon name="chevronRight" size={18} color={colors.textSecondary} /> : null}
-        </HStack>
-      </Pressable>
-    );
-  };
-
   const handleBack = () => {
-    if (rootNavigation && typeof rootNavigation.canGoBack === 'function' && rootNavigation.canGoBack()) {
+    if (rootNavigation?.canGoBack?.()) {
       rootNavigation.goBack();
       return;
     }
-    if (typeof navigation.canGoBack === 'function' && navigation.canGoBack()) {
+    if (navigation.canGoBack?.()) {
       navigation.goBack();
       return;
     }
-    // Safety fallback: return to the More home canvas.
     rootNavigation?.navigate('MainTabs', {
       screen: 'MoreTab',
       params: { screen: 'MoreHome' },
-    } as any);
+    });
   };
 
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const profileSubtitle = authIdentity?.email?.trim() || userProfile?.email?.trim() || 'Not signed in';
-  const authEmailLower = (authIdentity?.email ?? '').trim().toLowerCase();
-  // Dev-only UX fallback: allow internal dev builds to surface Super Admin tools even if the
-  // server-side status probe fails. Server still enforces authorization for all actions.
-  const isDevKnownSuperAdminEmail =
-    __DEV__ && (authEmailLower === 'mtkinji@gmail.com' || authEmailLower === 'andy@kwilt.app');
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
   const avatarSource = avatarUrl ? { uri: avatarUrl } : null;
-
-  const baseMonthlyLimit = isPro ? PRO_GENERATIVE_CREDITS_PER_MONTH : FREE_GENERATIVE_CREDITS_PER_MONTH;
-  const currentKey = getMonthKey(new Date());
-  const bonusRaw =
-    bonusGenerativeCredits?.monthKey === currentKey ? Number(bonusGenerativeCredits.bonusThisMonth ?? 0) : 0;
-  const bonusThisMonth = Number.isFinite(bonusRaw) ? Math.max(0, Math.floor(bonusRaw)) : 0;
-  const monthlyLimit = baseMonthlyLimit + bonusThisMonth;
-  const usedThisMonth =
-    generativeCredits?.monthKey === currentKey ? Math.max(0, generativeCredits.usedThisMonth ?? 0) : 0;
-  const remainingCredits = Math.max(0, monthlyLimit - usedThisMonth);
-
-  // Streak stats
-  const currentStreak = useAppStore((state) => state.currentShowUpStreak ?? 0);
-  const streakGrace = useAppStore((state) => state.streakGrace);
-  const lastShowUpDate = useAppStore((state) => state.lastShowUpDate);
-
-  // Calculate streak status
-  const getStreakStatus = () => {
-    if (!lastShowUpDate || currentStreak === 0) {
-      return { status: 'none', message: 'Complete a to-do to start your streak!' } as const;
-    }
-
-    const now = new Date();
-    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-    if (lastShowUpDate === todayKey) {
-      return { status: 'active', message: "You've shown up today!" } as const;
-    }
-
-    // Check if we're within grace period
-    const graceAvailable = (streakGrace?.freeDaysRemaining ?? 0) + (streakGrace?.shieldsAvailable ?? 0);
-    if (graceAvailable > 0) {
-      return {
-        status: 'at_risk',
-        message: `${graceAvailable} grace day${graceAvailable > 1 ? 's' : ''} available`,
-      } as const;
-    }
-
-    return { status: 'at_risk', message: "Complete a to-do to keep your streak!" } as const;
-  };
-
-  const streakStatus = getStreakStatus();
+  const authEmailLower = (authIdentity?.email ?? '').trim().toLowerCase();
+  const isDevKnownSuperAdminEmail =
+    __DEV__ && (authEmailLower === 'mtkinji@gmail.com' || authEmailLower === 'andy@kwilt.app');
 
   const updateAvatar = (uri?: string) => {
-    updateUserProfile((current) => ({
-      ...current,
-      avatarUrl: uri,
-    }));
+    updateUserProfile((current) => ({ ...current, avatarUrl: uri }));
   };
 
   const handleImageResult = async (result: ImagePicker.ImagePickerResult) => {
-    if ('canceled' in result && result.canceled) {
-      return;
-    }
+    if (result.canceled) return;
     const asset = result.assets?.[0];
-    if (asset?.uri) {
-      const stableUri = await persistImageUri({
-        uri: asset.uri,
-        subdir: 'avatars',
-        namePrefix: 'avatar',
-      });
-      updateAvatar(stableUri);
-    }
+    if (!asset?.uri) return;
+    const stableUri = await persistImageUri({
+      uri: asset.uri,
+      subdir: 'avatars',
+      namePrefix: 'avatar',
+    });
+    updateAvatar(stableUri);
   };
 
   const ensurePermission = async (type: 'camera' | 'library') => {
-    if (type === 'camera') {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      return permission.granted;
-    }
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = type === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
     return permission.granted;
   };
 
   const handlePick = async (type: 'camera' | 'library') => {
-    if (isUpdatingAvatar) {
-      return;
-    }
-    const hasPermission = await ensurePermission(type);
-    if (!hasPermission) {
+    if (isUpdatingAvatar) return;
+    if (!(await ensurePermission(type))) {
       Alert.alert(
         'Permission needed',
         type === 'camera'
           ? 'Allow camera access in Settings to take a new photo.'
-          : 'Allow photo library access in Settings to choose an image.'
+          : 'Allow photo library access in Settings to choose an image.',
       );
       return;
     }
 
     try {
       setIsUpdatingAvatar(true);
-      let result: ImagePicker.ImagePickerResult;
-      const pickerOptions: ImagePicker.ImagePickerOptions = {
+      const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.9,
       };
-      if (type === 'camera') {
-        result = await ImagePicker.launchCameraAsync(pickerOptions);
-      } else {
-        result = await ImagePicker.launchImageLibraryAsync(pickerOptions);
-      }
+      const result = type === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
       await handleImageResult(result);
     } catch (error) {
       console.error('Failed to update avatar', error);
@@ -436,190 +182,114 @@ export function SettingsHomeScreen() {
     }
   };
 
-  const handleRemoveAvatar = () => {
-    updateAvatar(undefined);
-    setAvatarSheetVisible(false);
+  const handleSignIn = async () => {
+    try {
+      await ensureSignedInWithPrompt('settings');
+      const status = await getAdminProCodesStatus();
+      setShowSuperAdmin(status.role === 'super_admin');
+    } catch {
+      // Cancellation leaves Settings unchanged.
+    }
   };
 
-  const accountRows: RowAction[] = [
+  const handleLogOut = () => {
+    Alert.alert('Log out?', 'You can sign back in anytime.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await unregisterPushToken().catch(() => undefined);
+            await signOut();
+            await clearAdminEntitlementsOverrideTier().catch(() => undefined);
+          } catch (error) {
+            Alert.alert(
+              'Unable to log out',
+              error instanceof Error && error.message ? error.message : 'Please try again.',
+            );
+          }
+        },
+      },
+    ]);
+  };
+
+  const renderRows = (
+    entries: readonly {
+      id: string;
+      title: string;
+      value?: string;
+      destructive?: boolean;
+      onPress: () => void;
+    }[],
+  ) => entries.map((entry, index) => (
+    <Fragment key={entry.id}>
+      <SettingsRow
+        destructive={entry.destructive}
+        onPress={entry.onPress}
+        title={entry.title}
+        value={entry.value}
+      />
+      {index < entries.length - 1 ? <SettingsDivider /> : null}
+    </Fragment>
+  ));
+
+  const accountRows = [
     {
       id: 'accountSettings',
       title: 'Account settings',
-      icon: 'identity',
       onPress: () => navigation.navigate('SettingsProfile'),
-      showChevron: true,
     },
     {
       id: 'subscriptions',
       title: 'Subscriptions',
-      icon: 'cart',
-      onPress: () => {
-        navigation.navigate('SettingsManageSubscription');
-      },
-      showChevron: true,
+      value: isPro ? 'Kwilt Pro' : 'Free',
+      onPress: () => navigation.navigate('SettingsManageSubscription'),
     },
     {
       id: 'legalPrivacy',
       title: 'Legal & privacy',
-      icon: 'shield',
-      onPress: () => {
-        navigation.navigate('SettingsLegalPrivacy');
-      },
-      showChevron: true,
+      onPress: () => navigation.navigate('SettingsLegalPrivacy'),
     },
-    ...(!HIDDEN_SETTINGS_ITEM_IDS.has('inviteFriend')
-      ? ([
-          {
-            id: 'inviteFriend',
-            title: 'Invite a friend',
-            icon: 'share',
-            onPress: async () => {
-              try {
-                const code = await createReferralCode();
-                const url = `https://go.kwilt.app/r/${encodeURIComponent(code)}`;
-                const message = `Try Kwilt — it’s helping me turn motivation into a real plan.`;
-                await shareUrlWithPreview({
-                  url,
-                  message,
-                  subject: 'Try Kwilt',
-                  androidDialogTitle: 'Invite a friend',
-                });
-              } catch (err: any) {
-                Alert.alert(
-                  'Unable to create invite',
-                  typeof err?.message === 'string' ? err.message : 'Please try again in a moment.',
-                );
-              }
-            },
-            showChevron: true,
-          },
-        ] satisfies RowAction[])
-      : []),
+    authIdentity
+      ? { id: 'logout', title: 'Log out', destructive: true, onPress: handleLogOut }
+      : { id: 'signIn', title: 'Sign in', onPress: () => void handleSignIn() },
   ];
 
-  const personalizationRows: RowAction[] = settingsItems.map((item) => ({
-    id: item.id,
-    title: item.title,
-    icon: item.icon,
-    onPress: item.disabled || !item.route ? undefined : () => handleNavigate(item),
-    disabled: item.disabled || !item.route,
-    status: item.status,
-    showChevron: true,
-  }));
-
-  const utilityRows: RowAction[] = [
-    ...(!authIdentity
-      ? ([
-          {
-            id: 'signIn',
-            title: 'Sign in',
-            icon: 'lock',
-            onPress: async () => {
-              try {
-                await ensureSignedInWithPrompt('settings');
-                const s = await getAdminProCodesStatus();
-                setShowSuperAdmin(Boolean(s.role === 'super_admin'));
-              } catch {
-                // user cancelled
-              }
-            },
-            showChevron: false,
-          },
-        ] satisfies RowAction[])
-      : []),
-    ...(authIdentity
-      ? ([
-          {
-            id: 'logout',
-            title: 'Log out',
-            icon: 'lock',
-            showChevron: false,
-            onPress: () => {
-              Alert.alert('Log out?', 'You can sign back in anytime.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Log out',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await unregisterPushToken().catch(() => undefined);
-                      await signOut();
-                      await clearAdminEntitlementsOverrideTier().catch(() => undefined);
-                    } catch (err: any) {
-                      Alert.alert(
-                        'Unable to log out',
-                        typeof err?.message === 'string' ? err.message : 'Please try again.',
-                      );
-                    }
-                  },
-                },
-              ]);
-            },
-          },
-        ] satisfies RowAction[])
-      : []),
-  ];
-
-  const devToolsRows: RowAction[] = __DEV__
-    ? ([
-        {
-          id: 'devTools',
+  const internalRows = [
+    ...(__DEV__
+      ? [{
+          id: 'developerTools',
           title: 'Developer tools',
-          icon: 'dev',
-          onPress: () => {
-            // DevTools is a root-level route; we intentionally surface the entry point here
-            // (Settings) instead of the nav drawer.
-            (rootNavigation?.navigate as any)?.('DevTools');
-          },
-          showChevron: true,
-        },
-      ] satisfies RowAction[])
-    : [];
-
-  const superAdminRows: RowAction[] = (showSuperAdmin || isDevKnownSuperAdminEmail)
-    ? ([
-        {
+          onPress: () => rootNavigation?.navigate('DevTools'),
+        }]
+      : []),
+    ...(showSuperAdmin || isDevKnownSuperAdminEmail
+      ? [{
           id: 'superAdminTools',
           title: 'Admin Tools',
-          icon: 'users',
-          iconColor: colors.madder,
           onPress: () => navigation.navigate('SettingsSuperAdminTools'),
-          showChevron: true,
-        },
-      ] satisfies RowAction[])
-    : [];
-
-  const allRows: RowAction[] = [
-    ...accountRows,
-    ...personalizationRows,
-    ...utilityRows,
-    ...devToolsRows,
-    ...superAdminRows,
+        }]
+      : []),
   ];
 
   return (
-    <AppShell>
+    <AppShell backgroundVariant="shellAlt">
       <View style={styles.screen}>
-        <PageHeader
-          title="Settings"
-          onPressBack={handleBack}
-        />
+        <PageHeader title="Settings" onPressBack={handleBack} />
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.profileHeader}>
-            <RNPressable
-              style={styles.profileAvatarPressable}
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Change profile photo"
               accessibilityState={{ busy: isUpdatingAvatar }}
-              hitSlop={8}
               disabled={isUpdatingAvatar}
-              onPress={() => {
-                if (isUpdatingAvatar) return;
-                setAvatarSheetVisible(true);
-              }}
+              hitSlop={8}
+              onPress={() => setAvatarSheetVisible(true)}
+              style={styles.profileAvatarPressable}
             >
               <View style={styles.profileAvatarWrap}>
                 <ProfileAvatar name={displayName} avatarUrl={avatarUrl} size={96} />
@@ -627,143 +297,36 @@ export function SettingsHomeScreen() {
                   <Icon name="camera" size={16} color={colors.canvas} />
                 </View>
               </View>
-            </RNPressable>
-            <Text style={styles.profileHeaderTitle} numberOfLines={1}>
-              {displayName}
-            </Text>
-            <Text style={styles.profileHeaderSubtitle} numberOfLines={1}>
-              {profileSubtitle}
-            </Text>
+            </Pressable>
+            <Text style={styles.profileHeaderTitle} numberOfLines={1}>{displayName}</Text>
+            <Text style={styles.profileHeaderSubtitle} numberOfLines={1}>{profileSubtitle}</Text>
           </View>
 
-          {/* Streak Stats Card */}
-          <View style={styles.streakCardSection}>
-            <View style={styles.streakCard}>
-              {/* Header is a 2-column row: left content wraps; right badge stays top-right. */}
-              <HStack alignItems="flex-start" justifyContent="space-between" style={styles.streakCardHeader}>
-                <HStack alignItems="flex-start" space="sm" style={styles.streakCardHeaderLeft}>
-                  <Text style={styles.streakCardIcon}>🔥</Text>
-                  <VStack space={0}>
-                    <Text style={styles.streakCardTitle}>
-                      {currentStreak > 0 ? `${currentStreak}-Day Streak` : 'No Streak Yet'}
-                    </Text>
-                    <Text style={styles.streakCardSubtitle}>{streakStatus.message}</Text>
-                  </VStack>
-                </HStack>
-                {currentStreak > 0 && (
-                  <View
-                    style={[
-                      styles.streakStatusBadge,
-                      streakStatus.status === 'active'
-                        ? styles.streakStatusActive
-                        : styles.streakStatusAtRisk,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.streakStatusLabel,
-                        streakStatus.status === 'active'
-                          ? styles.streakStatusLabelActive
-                          : styles.streakStatusLabelAtRisk,
-                      ]}
-                    >
-                      {streakStatus.status === 'active' ? 'Today' : 'At Risk'}
-                    </Text>
-                  </View>
-                )}
-              </HStack>
-              {/* Grace info */}
-              {(streakGrace?.graceDaysUsed ?? 0) > 0 && (
-                <View style={styles.streakGraceInfo}>
-                  <Text style={styles.streakGraceText}>
-                    🛡️ Streak saved! Used {streakGrace?.graceDaysUsed} grace day
-                    {(streakGrace?.graceDaysUsed ?? 0) > 1 ? 's' : ''} this week.
-                  </Text>
-                </View>
-              )}
-              {currentStreak > 0 && (
-                <View style={styles.streakGraceRow}>
-                  <HStack alignItems="center" space="xs">
-                    <Text style={styles.streakGraceLabel}>Grace days:</Text>
-                    <Text style={styles.streakGraceValue}>
-                      {streakGrace?.freeDaysRemaining ?? 0}/1 free
-                    </Text>
-                  </HStack>
-                  {isPro && (
-                    <HStack alignItems="center" space="xs">
-                      <Text style={styles.streakGraceLabel}>Shields:</Text>
-                      <Text style={styles.streakGraceValue}>
-                        {streakGrace?.shieldsAvailable ?? 0}/3
-                      </Text>
-                    </HStack>
-                  )}
-                </View>
-              )}
-            </View>
-          </View>
+          {SETTINGS_SECTIONS.map((section) => (
+            <SettingsGroup key={section.id} title={section.title}>
+              {renderRows(section.entries.map((entry) => ({
+                ...entry,
+                onPress: () => (navigation.navigate as (route: SettingsRoute) => void)(entry.route),
+              })))}
+            </SettingsGroup>
+          ))}
 
-          {/* Pro upsell (Free only). Keep this as a single, clear "Get Kwilt Pro" card. */}
-          {!isPro ? (
-            <View style={styles.proCardSection}>
-              <LinearGradient colors={paywallTheme.gradientColors} style={styles.proCardGradient}>
-                <VStack space="sm">
-                  <Text style={styles.proCardKicker}>Get Kwilt Pro</Text>
-                  <Text style={styles.proCardTitle}>Unlimited arcs + goals</Text>
-                  <Text style={styles.proCardBody}>
-                    Unlock family plans, longer focus sessions, searchable banner images, and a much larger monthly AI budget.
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Get Kwilt Pro"
-                    onPress={() =>
-                      openPaywallInterstitial({ reason: 'limit_arcs_total', source: 'settings' })
-                    }
-                    style={styles.proCardCta}
-                  >
-                    <Text style={styles.proCardCtaLabel}>Get Kwilt Pro</Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Already subscribed? Restore purchases"
-                    onPress={() => {
-                      restore()
-                        .then(() => {
-                          Alert.alert('Restored', 'We refreshed your subscription status.');
-                        })
-                        .catch(() => {
-                          Alert.alert(
-                            'Restore failed',
-                            'We could not restore purchases right now. Please try again.',
-                          );
-                        })
-                        .finally(() => {
-                          refreshEntitlements({ force: true }).catch(() => undefined);
-                        });
-                    }}
-                    style={styles.proCardLink}
-                  >
-                    <Text style={styles.proCardLinkLabel}>Already subscribed? Restore purchases</Text>
-                  </Pressable>
-                </VStack>
-              </LinearGradient>
-            </View>
-          ) : null}
+          <SettingsGroup title="Account">
+            {renderRows(accountRows)}
+          </SettingsGroup>
 
-          {allRows.length > 0 ? (
-            <View>
-              {allRows.map((row, idx) => renderRow(row, { isLast: idx === allRows.length - 1 }))}
-            </View>
+          {internalRows.length > 0 ? (
+            <SettingsGroup title="Internal">
+              {renderRows(internalRows)}
+            </SettingsGroup>
           ) : null}
         </ScrollView>
+
         <BottomDrawer
           visible={avatarSheetVisible}
           onClose={() => {
-            if (!isUpdatingAvatar) {
-              setAvatarSheetVisible(false);
-            }
+            if (!isUpdatingAvatar) setAvatarSheetVisible(false);
           }}
-          // This sheet should feel like a true action surface (not a half-height peek).
-          // Provide a larger max snap point; BottomDrawer opens to the largest snap by default.
           snapPoints={['55%', '78%']}
         >
           <View style={styles.sheetContent}>
@@ -771,38 +334,35 @@ export function SettingsHomeScreen() {
             <Text style={styles.sheetSubtitle}>Make Kwilt feel unmistakably yours.</Text>
             <VStack space="sm">
               <Pressable
-                style={styles.sheetOption}
                 accessibilityRole="button"
-                onPress={() => handlePick('camera')}
                 disabled={isUpdatingAvatar}
+                onPress={() => void handlePick('camera')}
+                style={styles.sheetOption}
               >
-                <VStack>
-                  <Text style={styles.sheetOptionTitle}>Take photo</Text>
-                  <Text style={styles.sheetOptionDescription}>Open your camera</Text>
-                </VStack>
+                <Text style={styles.sheetOptionTitle}>Take photo</Text>
+                <Text style={styles.sheetOptionDescription}>Open your camera</Text>
               </Pressable>
               <Pressable
-                style={styles.sheetOption}
                 accessibilityRole="button"
-                onPress={() => handlePick('library')}
                 disabled={isUpdatingAvatar}
+                onPress={() => void handlePick('library')}
+                style={styles.sheetOption}
               >
-                <VStack>
-                  <Text style={styles.sheetOptionTitle}>Choose from library</Text>
-                  <Text style={styles.sheetOptionDescription}>Pick an existing photo</Text>
-                </VStack>
+                <Text style={styles.sheetOptionTitle}>Choose from library</Text>
+                <Text style={styles.sheetOptionDescription}>Pick an existing photo</Text>
               </Pressable>
               {avatarSource ? (
                 <Pressable
-                  style={[styles.sheetOption, styles.sheetOptionDanger]}
                   accessibilityRole="button"
-                  onPress={handleRemoveAvatar}
                   disabled={isUpdatingAvatar}
+                  onPress={() => {
+                    updateAvatar(undefined);
+                    setAvatarSheetVisible(false);
+                  }}
+                  style={[styles.sheetOption, styles.sheetOptionDanger]}
                 >
-                  <VStack>
-                    <Text style={styles.sheetOptionTitleDanger}>Remove photo</Text>
-                    <Text style={styles.sheetOptionDescription}>Use initials instead</Text>
-                  </VStack>
+                  <Text style={styles.sheetOptionTitleDanger}>Remove photo</Text>
+                  <Text style={styles.sheetOptionDescription}>Use initials instead</Text>
                 </Pressable>
               ) : null}
             </VStack>
@@ -818,13 +378,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing['2xl'],
-    // Keep global spacing tight; we handle larger separations with section wrappers.
-    gap: spacing.md,
-  },
-  proCardSection: {
-    marginTop: 0,
-    marginBottom: 0,
+    gap: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingBottom: 152,
   },
   profileHeader: {
     alignItems: 'center',
@@ -844,107 +400,29 @@ const styles = StyleSheet.create({
     bottom: -2,
     width: 28,
     height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: colors.canvas,
+    borderRadius: 14,
+    backgroundColor: colors.textPrimary,
   },
   profileHeaderTitle: {
     ...typography.titleMd,
-    fontFamily: fonts.semibold,
-    color: colors.textPrimary,
     marginTop: spacing.md,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
   },
   profileHeaderSubtitle: {
     ...typography.bodySm,
-    color: colors.textSecondary,
     marginTop: spacing.xs,
-  },
-  proCardGradient: {
-    borderRadius: paywallTheme.cornerRadius,
-    padding: paywallTheme.padding,
-  },
-  proCardKicker: {
-    ...typography.bodySm,
-    color: paywallTheme.foreground,
-    opacity: 0.9,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  proCardTitle: {
-    ...typography.titleLg,
-    color: paywallTheme.foreground,
-  },
-  proCardBody: {
-    ...typography.bodySm,
-    color: paywallTheme.foreground,
-    opacity: 0.92,
-  },
-  proCardCta: {
-    marginTop: spacing.xs,
-    backgroundColor: paywallTheme.ctaBackground,
-    paddingVertical: spacing.sm,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  proCardCtaLabel: {
-    ...typography.body,
-    color: paywallTheme.ctaForeground,
-    fontFamily: typography.titleSm.fontFamily,
-  },
-  proCardLink: {
-    alignSelf: 'center',
-    paddingVertical: spacing.xs,
-  },
-  proCardLinkLabel: {
-    ...typography.bodySm,
-    color: paywallTheme.foreground,
-    opacity: 0.92,
-    textDecorationLine: 'underline',
-  },
-  listRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    columnGap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-  },
-  listRowPressed: {
-    backgroundColor: colors.shellAlt,
-  },
-  listRowGap: {
-    marginBottom: spacing.sm,
-  },
-  listRowIcon: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listRowTitle: {
-    ...typography.body,
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    backgroundColor: colors.shellAlt,
-  },
-  badgeLabel: {
-    ...typography.label,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    fontSize: 10,
-    letterSpacing: 1,
   },
   sheetContent: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing['2xl'],
-    paddingTop: spacing.lg,
     gap: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing['2xl'],
   },
   sheetTitle: {
     ...typography.titleSm,
@@ -955,6 +433,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   sheetOption: {
+    gap: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 18,
@@ -969,111 +448,15 @@ const styles = StyleSheet.create({
   sheetOptionTitle: {
     ...typography.body,
     color: colors.textPrimary,
-    fontFamily: typography.titleSm.fontFamily,
+    fontFamily: fonts.semibold,
   },
   sheetOptionTitleDanger: {
     ...typography.body,
     color: colors.destructive,
-    fontFamily: typography.titleSm.fontFamily,
+    fontFamily: fonts.semibold,
   },
   sheetOptionDescription: {
     ...typography.bodySm,
     color: colors.textSecondary,
-  },
-  // Streak card styles
-  streakCardSection: {
-    paddingHorizontal: spacing.lg,
-  },
-  streakCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  streakCardHeader: {
-    marginBottom: spacing.sm,
-  },
-  streakCardHeaderLeft: {
-    // Constrain the left group so it wraps instead of pushing the status badge
-    // outside the card on narrow widths.
-    flex: 1,
-    minWidth: 0,
-    paddingRight: spacing.sm,
-  },
-  streakCardIcon: {
-    fontSize: 28,
-    // `Text` defaults to typography.bodySm (lineHeight 20). When we override
-    // fontSize for emoji, we must also override lineHeight or iOS will clip
-    // ascenders (the 🔥 top gets cut off).
-    lineHeight: 32,
-    // Android-only but safe cross-platform; keeps vertical centering consistent.
-    includeFontPadding: false,
-    // Nudge the emoji down slightly so its visual center aligns with the title baseline.
-    marginTop: 1,
-  },
-  streakCardTitle: {
-    ...typography.body,
-    fontFamily: fonts.semibold,
-    color: colors.textPrimary,
-  },
-  streakCardSubtitle: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  streakStatusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: 999,
-    // Keep the pill anchored to the top-right of the header row.
-    alignSelf: 'flex-start',
-    flexShrink: 0,
-    marginLeft: spacing.sm,
-  },
-  streakStatusActive: {
-    backgroundColor: colors.success + '20',
-  },
-  streakStatusAtRisk: {
-    backgroundColor: colors.turmeric + '20',
-  },
-  streakStatusLabel: {
-    ...typography.label,
-    fontSize: 11,
-    // Keep emoji + text fully inside the pill (avoid glyph overflow/clipping).
-    lineHeight: 14,
-    includeFontPadding: false,
-    letterSpacing: 0.5,
-  },
-  streakStatusLabelActive: {
-    color: colors.success,
-  },
-  streakStatusLabelAtRisk: {
-    color: colors.turmeric700,
-  },
-  streakGraceInfo: {
-    backgroundColor: colors.shellAlt,
-    borderRadius: 8,
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  streakGraceText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  streakGraceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  streakGraceLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-  },
-  streakGraceValue: {
-    ...typography.bodySm,
-    color: colors.textPrimary,
-    fontFamily: fonts.medium,
   },
 });
