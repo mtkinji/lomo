@@ -1,5 +1,6 @@
 import type { AgentToolProvider } from '@kwilt/agent-runtime';
 import {
+  KWILT_OPERATION_REGISTRY,
   getKwiltOperation,
   type KwiltOperationOwner,
 } from '../../capabilities/operations';
@@ -317,6 +318,19 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   bounded('confirmation_only', { id: 'account.delete', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: ['account.delete.open'], sourceRefs: [] }, 'Chat stages a durable handoff to the existing two-step native deletion confirmation and never deletes silently.', deviceHandoffProof),
   bounded('pending_provider', { id: 'channel.phone.continue_run', providers: ['channel', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['channel.phone.continue_run'], sourceRefs: [] }, 'The canonical queued coordinator is implemented, but migration, deployment, scheduler, and signed-provider runtime proof are still pending.'),
 ];
+
+export function assertCompleteConversationalCoverage(
+  operations: readonly { id: string }[] = KWILT_OPERATION_REGISTRY,
+  coverage: readonly { id: string }[] = CHAT_CAPABILITY_COVERAGE,
+): void {
+  const coverageIds = new Set(coverage.map((row) => row.id));
+  const missing = operations.map((operation) => operation.id).filter((id) => !coverageIds.has(id));
+  if (missing.length > 0) {
+    throw new Error(`Missing conversational coverage for Kwilt operation${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}`);
+  }
+}
+
+assertCompleteConversationalCoverage();
 
 export function summarizeChatCapabilityCoverage(
   channel: ChatCapabilityChannel = 'mobile',

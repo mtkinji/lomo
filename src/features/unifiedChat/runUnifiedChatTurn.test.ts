@@ -1442,15 +1442,22 @@ describe('runUnifiedChatTurn', () => {
       const screenTimeTool = options.runtimeTools?.find((tool) => tool.id === 'screen_time.configure');
       expect(screenTimeTool).toBeDefined();
       await options.executeRuntimeTool?.({
-        id: 'screen-time', toolId: 'screen_time.configure', arguments: {},
+        id: 'screen-time', toolId: 'screen_time.configure', arguments: {
+          childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow',
+        },
       }, screenTimeTool);
       return 'I prepared Screen Time setup on your phone.';
     });
     const { repository, send } = dependencies(runtimeSender);
     await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Block games until reading is done.' },
+      { aggregate: startingAggregate, prompt: 'Turn on Brawl Stars for Charlie.' },
       {
         repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        routeRequest: async () => ({
+          requestClass: 'native_control', participatingCapabilities: ['screenTime'],
+          usePrivateContext: false, confidence: 0.98,
+          reason: 'Named app access for a child requires Screen Time native review.',
+        }),
         loadCapabilitySnapshots: async () => ({
           goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
         }),
@@ -1458,6 +1465,8 @@ describe('runUnifiedChatTurn', () => {
     );
     expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
       capabilityId: 'screenTime', actionType: 'configure_screen_time',
+      title: 'Review Brawl Stars access for Charlie',
+      payload: expect.objectContaining({ childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' }),
       consequenceSummary: expect.stringContaining('Apple authorization'),
     }));
     expect(repository.createProposal).not.toHaveBeenCalled();

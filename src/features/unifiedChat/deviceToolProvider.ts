@@ -68,13 +68,27 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
         payload: { route: 'goal' },
       });
     }
+    if (call.toolId === 'screen_time.configure') {
+      const childName = typeof call.arguments.childName === 'string' ? call.arguments.childName.trim() : '';
+      const appName = typeof call.arguments.appName === 'string' ? call.arguments.appName.trim() : '';
+      const desiredAccess = call.arguments.desiredAccess === 'allow' || call.arguments.desiredAccess === 'block'
+        ? call.arguments.desiredAccess
+        : null;
+      if (!childName || !appName || !desiredAccess) {
+        return {
+          status: 'needs_input',
+          prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
+          fields: ['childName', 'appName', 'desiredAccess'],
+        };
+      }
+      return stage({
+        capabilityId: 'screenTime', actionType: 'configure_screen_time', targetType: 'screen_time_rule', targetId: null,
+        title: `Review ${appName} access for ${childName}`,
+        consequenceSummary: `Kwilt will prepare ${desiredAccess === 'allow' ? 'allowing' : 'blocking'} ${appName} for ${childName}. Household role, Apple authorization, device apply, and acknowledgement must all succeed before Kwilt reports the change complete.`,
+        payload: { childName, appName, desiredAccess, entrySurface: 'settings' },
+      });
+    }
     const definitions: Record<string, StagedUnifiedChatClientAction> = {
-      'screen_time.configure': {
-        capabilityId: 'screenTime', actionType: 'configure_screen_time', targetType: null, targetId: null,
-        title: 'Review Screen Time protection',
-        consequenceSummary: 'Kwilt will open Screen Time setup. Household role, Apple authorization, protected apps, and enforcement stay under native review.',
-        payload: { setupIntent: 'settings_discovery', entrySurface: 'settings' },
-      },
       'notifications.configure': {
         capabilityId: 'notifications', actionType: 'configure_notifications', targetType: null, targetId: null,
         title: 'Review notification settings',

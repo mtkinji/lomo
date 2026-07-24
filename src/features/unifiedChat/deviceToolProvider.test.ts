@@ -55,7 +55,6 @@ test('rejects a Goal check-in when the Goal or draft text is invalid', async () 
 });
 
 test.each([
-  ['screen_time.configure', 'configure_screen_time'],
   ['notifications.configure', 'configure_notifications'],
   ['account.subscription.open', 'open_subscription_management'],
   ['account.delete.open', 'open_account_deletion'],
@@ -65,4 +64,33 @@ test.each([
     .resolves.toMatchObject({ status: 'pending_client_action' });
   expect(provider.actions()).toEqual([expect.objectContaining({ actionType })]);
   expect(provider.actions()[0].consequenceSummary.length).toBeGreaterThan(20);
+});
+
+test('preserves child, app, and desired access while requiring native Screen Time review', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'screen-time', toolId: 'screen_time.configure',
+    arguments: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow' },
+  }, tool('screen_time.configure'))).resolves.toMatchObject({
+    status: 'pending_client_action', provider: 'device',
+    request: expect.objectContaining({
+      actionType: 'configure_screen_time', targetType: 'screen_time_rule',
+      title: 'Review Brawl Stars access for Charlie',
+      payload: { childName: 'Charlie', appName: 'Brawl Stars', desiredAccess: 'allow', entrySurface: 'settings' },
+    }),
+  });
+  expect(provider.actions()[0].consequenceSummary).toContain('Apple authorization');
+  expect(provider.actions()[0].consequenceSummary).toContain('acknowledgement');
+});
+
+test('names missing Screen Time intent fields instead of staging a generic setup action', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'screen-time', toolId: 'screen_time.configure', arguments: { childName: 'Charlie' },
+  }, tool('screen_time.configure'))).resolves.toEqual({
+    status: 'needs_input',
+    prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
+    fields: ['childName', 'appName', 'desiredAccess'],
+  });
+  expect(provider.actions()).toEqual([]);
 });

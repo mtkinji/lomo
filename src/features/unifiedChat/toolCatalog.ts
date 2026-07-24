@@ -197,9 +197,20 @@ export const UNIFIED_CHAT_TOOL_CATALOG: readonly AgentToolDefinition[] = [
   },
   {
     id: 'screen_time.configure', version: 1, capabilityId: 'screenTime',
-    purpose: 'Open native Screen Time setup for household-role and Apple authorization review.',
+    purpose: 'Interpret one child, app, and allow-or-block intent, then open native Screen Time review without claiming it was applied.',
     providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
-    confirmation: 'explicit', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        childName: { type: 'string', minLength: 1, maxLength: 160 },
+        appName: { type: 'string', minLength: 1, maxLength: 160 },
+        desiredAccess: { type: 'string', enum: ['allow', 'block'] },
+      },
+      required: ['childName', 'appName', 'desiredAccess'],
+      additionalProperties: false,
+    },
+    outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'notifications.configure', version: 1, capabilityId: 'notifications',
