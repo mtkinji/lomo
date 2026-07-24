@@ -46,3 +46,10 @@ test.each(['No, the other one.', 'Actually, keep the other one'])(
     expect(resolveTypedTurnControl(prompt)).toEqual({ type: 'keep_other_pending' });
   },
 );
+
+test.each(['Do the same for next week.', 'Same thing next week'])(
+  'recognizes an exact pending create repetition: %s',
+  (prompt) => {
+    expect(resolveTypedTurnControl(prompt)).toEqual({ type: 'repeat_pending_next_week' });
+  },
+);

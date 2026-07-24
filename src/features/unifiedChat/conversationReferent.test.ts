@@ -124,4 +124,31 @@ describe('general conversation referents', () => {
     expect(grounding).not.toContain('proposal-machine-secret');
     expect(grounding).toContain('Machine references are tool-only');
   });
+
+  test('derives a typed referent from a hydrated capability proposal when an older channel omitted the event', () => {
+    const aggregate: UnifiedChatThreadAggregate = {
+      ...baseAggregate,
+      runs: [{ ...baseAggregate.runs[0]!, participatingCapabilities: ['relationships'] }],
+      proposals: [{
+        id: 'proposal-relationship', threadId: 'thread-1', runId: 'run-1', messageId: 'assistant-1',
+        capabilityId: 'relationships', title: 'Correct Mom’s birthday', body: 'Reviews the correction.',
+        status: 'pending', version: 2, createdAt: 'before', updatedAt: 'before',
+        operation: {
+          id: 'operation-relationship', proposalId: 'proposal-relationship', capabilityId: 'relationships',
+          type: 'correct_relationship', targetId: 'memory-authoritative', summary: 'Correct Mom’s birthday',
+          payload: { expectedUpdatedAt: 'memory-version', value: 'May 3' },
+          idempotencyKey: 'relationship-1', sequence: 1,
+        },
+      }],
+    };
+
+    expect(resolveConversationReferent(aggregate)).toEqual(expect.objectContaining({
+      schemaVersion: 2,
+      kind: 'pending_work',
+      items: [expect.objectContaining({
+        proposalId: 'proposal-relationship', capabilityId: 'relationships',
+        targetId: 'memory-authoritative', expectedUpdatedAt: 'memory-version', expectedVersion: 2,
+      })],
+    }));
+  });
 });

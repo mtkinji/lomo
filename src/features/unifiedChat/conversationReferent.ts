@@ -99,7 +99,28 @@ export function resolveConversationReferent(
     .find((candidate) =>
       candidate.runId === previousRun.id && candidate.type === 'conversation_referent');
   const pendingWork = parsePendingWorkConversationReferent(event?.payload);
-  return pendingWork ?? resolvePlanPlacementReferent(aggregate);
+  if (pendingWork) return pendingWork;
+  const hydratedPending = (aggregate.proposals ?? []).filter((proposal) =>
+    proposal.runId === previousRun.id &&
+    (proposal.status === 'pending' || proposal.status === 'edited' || proposal.status === 'deferred'));
+  if (hydratedPending.length > 0) {
+    return buildPendingWorkConversationReferent(hydratedPending.map((proposal, index) => {
+      const payload = proposal.operation.payload as Record<string, unknown>;
+      return {
+        proposalId: proposal.id,
+        expectedVersion: proposal.version,
+        capabilityId: proposal.capabilityId,
+        operationType: proposal.operation.type,
+        targetId: proposal.operation.targetId,
+        expectedUpdatedAt: typeof payload.expectedUpdatedAt === 'string'
+          ? payload.expectedUpdatedAt
+          : null,
+        label: proposal.title,
+        sequence: index + 1,
+      };
+    }));
+  }
+  return resolvePlanPlacementReferent(aggregate);
 }
 
 export function formatConversationReferentGrounding(

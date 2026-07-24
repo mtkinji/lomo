@@ -25,6 +25,7 @@ import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
 import {
   handleUnifiedChatPendingActivityWeekdayEditPhase,
+  handleUnifiedChatPendingActivityNextWeekRepeatPhase,
   handleUnifiedChatPendingCancellationPhase,
   handleUnifiedChatPendingPrefixSelectionPhase,
   persistUnifiedChatTurnPhase,
@@ -215,6 +216,16 @@ export async function runUnifiedChatTurn(
           capability_id: capabilityId,
         });
       },
+    });
+  }
+  if (typedControl?.type === 'repeat_pending_next_week') {
+    return handleUnifiedChatPendingActivityNextWeekRepeatPhase({
+      aggregate,
+      userMessage,
+      retryMessage,
+      repository,
+      onRunStarted: input.onRunStarted,
+      now: dependencies?.now,
     });
   }
   let plannedTurn: Awaited<ReturnType<typeof planUnifiedChatTurnPhase>>;

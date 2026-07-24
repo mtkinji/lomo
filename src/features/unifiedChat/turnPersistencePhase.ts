@@ -1,5 +1,11 @@
 import type { UnifiedChatRepository } from './threadRepository';
-import type { UnifiedChatMessage, UnifiedChatRun, UnifiedChatThreadAggregate } from './types';
+import type {
+  UnifiedChatMessage,
+  UnifiedChatProposal,
+  UnifiedChatProposalOperation,
+  UnifiedChatRun,
+  UnifiedChatThreadAggregate,
+} from './types';
 import { transitionRun } from './runStateMachine';
 import {
   validateUnifiedChatAttachmentSet,
@@ -18,6 +24,7 @@ type PersistenceRepository = Pick<
   | 'transitionRunStatus'
   | 'loadThread'
   | 'appendRunEvents'
+  | 'createProposal'
 >;
 
 export type PersistUnifiedChatTurnPhaseInput = {
@@ -434,6 +441,126 @@ export async function handleUnifiedChatPendingActivityWeekdayEditPhase({
       type: 'correction', status: eventStatus, visibility: 'user',
       label: eventStatus === 'complete' ? 'Pending date changed' : 'Date change needs a target',
       detail: body,
+    },
+  });
+  return repository.loadThread(aggregate.thread.id);
+}
+
+export async function handleUnifiedChatPendingActivityNextWeekRepeatPhase({
+  aggregate,
+  userMessage,
+  retryMessage,
+  repository,
+  onRunStarted,
+  now = () => new Date(),
+}: {
+  aggregate: UnifiedChatThreadAggregate;
+  userMessage: UnifiedChatMessage;
+  retryMessage?: UnifiedChatMessage;
+  repository: PersistenceRepository;
+  onRunStarted?: (aggregate: UnifiedChatThreadAggregate) => void;
+  now?: () => Date;
+}): Promise<UnifiedChatThreadAggregate> {
+  const referent = resolveConversationReferent(aggregate);
+  const item = referent?.schemaVersion === 2 && referent.kind === 'pending_work' && referent.items.length === 1
+    ? referent.items[0]
+    : null;
+  const proposal = item
+    ? (aggregate.proposals ?? []).find((candidate) => candidate.id === item.proposalId)
+    : null;
+  const canRepeat = Boolean(
+    item && proposal && item.capabilityId === 'todos' && proposal?.capabilityId === 'todos' &&
+    item.operationType === 'create_activity' && proposal.operation.type === 'create_activity' &&
+    (proposal.status === 'pending' || proposal.status === 'edited' || proposal.status === 'deferred') &&
+    proposal.version === item.expectedVersion,
+  );
+  const controlRun = await repository.createRun({
+    threadId: aggregate.thread.id,
+    userMessageId: userMessage.id,
+    requestClass: 'capability_action',
+    participatingCapabilities: canRepeat ? ['todos'] : [],
+    contextPolicy: {
+      usePrivateContext: false,
+      reason: 'typed-pending-activity-next-week-repeat',
+      clarification: canRepeat ? null : 'Which new To-do should Kwilt repeat next week?',
+    },
+  });
+  onRunStarted?.({
+    ...aggregate,
+    messages: retryMessage ? aggregate.messages : [...aggregate.messages, userMessage],
+    runs: [...aggregate.runs, controlRun],
+  });
+
+  type CreateActivityProposal = Extract<UnifiedChatProposal, { capabilityId: 'todos' }> & {
+    operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'todos'; type: 'create_activity' }>;
+  };
+  const originalCreate = canRepeat && proposal?.capabilityId === 'todos' && proposal.operation.type === 'create_activity'
+    ? proposal as CreateActivityProposal
+    : null;
+  const baseDateValue = originalCreate?.operation.payload.scheduledDate;
+  const repeatedDate = typeof baseDateValue === 'string'
+    ? new Date(`${baseDateValue}T12:00:00`)
+    : new Date(now());
+  repeatedDate.setDate(repeatedDate.getDate() + 7);
+  const scheduledDate = toLocalDateKey(repeatedDate);
+  const body = originalCreate
+    ? `I prepared another “${originalCreate.operation.payload.title}” To-do for next week. Both changes are waiting for review.`
+    : 'Which new To-do should I repeat next week?';
+  const assistantMessage = await repository.insertMessage({
+    threadId: aggregate.thread.id,
+    role: 'assistant',
+    body,
+  });
+
+  if (originalCreate && item) {
+    const { expectedUpdatedAt: _expectedUpdatedAt, ...originalPayload } = originalCreate.operation.payload;
+    const created = await repository.createProposal({
+      threadId: aggregate.thread.id,
+      runId: controlRun.id,
+      messageId: assistantMessage.id,
+      capabilityId: 'todos',
+      title: `Add ${originalCreate.operation.payload.title} next week`,
+      body: `Creates this To-do for ${scheduledDate}.`,
+      permissionPolicy: { requiresExplicitApproval: true },
+      operation: {
+        type: 'create_activity',
+        targetId: null,
+        expectedUpdatedAt: null,
+        payload: {
+          ...originalPayload,
+          scheduledDate,
+        },
+        summary: `Add ${originalCreate.operation.payload.title} next week`,
+        idempotencyKey: `unified-chat:${controlRun.id}:repeat-next-week`,
+      },
+    });
+    await repository.appendRunEvents({
+      threadId: aggregate.thread.id,
+      runId: controlRun.id,
+      events: [{
+        sequence: 1, type: 'conversation_referent', status: 'complete', visibility: 'internal',
+        label: '2 changes awaiting review', detail: null,
+        payload: buildPendingWorkConversationReferent([
+          item,
+          {
+            proposalId: created.id,
+            expectedVersion: typeof created.version === 'number' ? created.version : 1,
+            capabilityId: 'todos', operationType: 'create_activity', targetId: null,
+            expectedUpdatedAt: null, label: `Add ${originalCreate.operation.payload.title} next week`, sequence: 2,
+          },
+        ]),
+      }],
+    });
+  }
+
+  transitionRun(controlRun, 'complete', controlRun.version);
+  await repository.transitionRunStatus({
+    runId: controlRun.id, fromStatus: 'active', toStatus: 'complete', expectedVersion: controlRun.version,
+    assistantMessageId: assistantMessage.id, errorCode: null, errorMessage: null,
+    completedAt: now().toISOString(),
+    event: {
+      type: 'correction', status: originalCreate ? 'complete' : 'warning', visibility: 'user',
+      label: originalCreate ? 'Next-week change prepared' : 'Repetition needs a target', detail: body,
     },
   });
   return repository.loadThread(aggregate.thread.id);

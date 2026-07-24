@@ -2,7 +2,8 @@ export type TypedTurnControl =
   | { type: 'cancel_pending' }
   | { type: 'keep_pending_prefix'; count: number }
   | { type: 'edit_pending_activity_weekday'; weekday: number }
-  | { type: 'keep_other_pending' };
+  | { type: 'keep_other_pending' }
+  | { type: 'repeat_pending_next_week' };
 
 const CANCEL_PENDING_PATTERNS = [
   /^never\s*mind\b/i,
@@ -17,6 +18,9 @@ export function resolveTypedTurnControl(prompt: string): TypedTurnControl | null
   }
   if (/^(?:no,?\s+the\s+other\s+one|actually,?\s+keep\s+the\s+other\s+one)\s*[.!?]*$/i.test(normalized)) {
     return { type: 'keep_other_pending' };
+  }
+  if (/^(?:do\s+the\s+same\s+for\s+next\s+week|same\s+thing\s+next\s+week)\s*[.!?]*$/i.test(normalized)) {
+    return { type: 'repeat_pending_next_week' };
   }
   const weekdayEdit = /^(?:move|reschedule)\s+(?:it|that)\s+(?:to|for)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\s*[.!?]*$/i
     .exec(normalized);
