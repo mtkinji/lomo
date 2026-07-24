@@ -3,6 +3,7 @@ import { createMoneyRepository, type MoneyRepository } from './moneyRepository';
 import type { TransactionMeaningReviewInput } from './moneyMutations';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
+import { syncMoneyGlanceableState } from '../runtime/moneyGlanceableState';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
@@ -31,18 +32,23 @@ export function MoneyDataProvider({
   const [savingCategory, setSavingCategory] = useState(false);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
 
+  const acceptSnapshot = useCallback((snapshot: Awaited<ReturnType<MoneyRepository['loadSnapshot']>>) => {
+    dispatch({ type: 'success', snapshot });
+    void syncMoneyGlanceableState(snapshot);
+  }, []);
+
   const refresh = useCallback(async () => {
     dispatch({ type: 'load' });
     try {
       const snapshot = await resolvedRepository.loadSnapshot();
-      dispatch({ type: 'success', snapshot });
+      acceptSnapshot(snapshot);
     } catch (error) {
       dispatch({
         type: 'failure',
         message: error instanceof Error ? error.message : 'Money data could not be loaded.',
       });
     }
-  }, [resolvedRepository]);
+  }, [acceptSnapshot, resolvedRepository]);
 
   useEffect(() => {
     void refresh();
@@ -55,7 +61,7 @@ export function MoneyDataProvider({
     setReviewingTransactionId(transactionId);
     try {
       const snapshot = await mutation();
-      dispatch({ type: 'success', snapshot });
+      acceptSnapshot(snapshot);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The transaction could not be updated.';
       dispatch({ type: 'failure', message });
@@ -63,7 +69,7 @@ export function MoneyDataProvider({
     } finally {
       setReviewingTransactionId(null);
     }
-  }, []);
+  }, [acceptSnapshot]);
 
   const assignTransactionCategory = useCallback(
     (transactionId: string, categoryId: string) => reviewTransaction(
@@ -101,7 +107,7 @@ export function MoneyDataProvider({
     setSavingCategory(true);
     try {
       const result = await resolvedRepository.createCategory(input);
-      dispatch({ type: 'success', snapshot: result.snapshot });
+      acceptSnapshot(result.snapshot);
       return result.categoryId;
     } catch (error) {
       dispatch({
@@ -112,13 +118,13 @@ export function MoneyDataProvider({
     } finally {
       setSavingCategory(false);
     }
-  }, [resolvedRepository]);
+  }, [acceptSnapshot, resolvedRepository]);
 
   const applyCategoryMutation = useCallback(async (mutation: () => ReturnType<MoneyRepository['loadSnapshot']>) => {
     setSavingCategory(true);
     try {
       const snapshot = await mutation();
-      dispatch({ type: 'success', snapshot });
+      acceptSnapshot(snapshot);
     } catch (error) {
       dispatch({
         type: 'failure',
@@ -128,7 +134,7 @@ export function MoneyDataProvider({
     } finally {
       setSavingCategory(false);
     }
-  }, []);
+  }, [acceptSnapshot]);
 
   const renameCategory = useCallback(
     (categoryId: string, name: string) => applyCategoryMutation(

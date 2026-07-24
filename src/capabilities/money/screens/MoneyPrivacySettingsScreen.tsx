@@ -8,6 +8,7 @@ import {
   getMoneyPrivacyLockAvailability,
   useMoneyPrivacyLockSettings,
 } from '../runtime/moneyPrivacyLock';
+import { clearMoneyGlanceableState } from '../runtime/moneyGlanceableState';
 
 export function MoneyPrivacySettingsScreen({
   navigation,
@@ -39,7 +40,10 @@ export function MoneyPrivacySettingsScreen({
         return;
       }
       const result = await authenticateMoneyPrivacyLock();
-      if (result.success) await save(true);
+      if (result.success) {
+        await save(true);
+        await clearMoneyGlanceableState();
+      }
       else if (!['user_cancel', 'system_cancel', 'app_cancel'].includes(result.error)) {
         Alert.alert('Unable to turn on privacy lock', `Kwilt Money could not confirm ${availability.label}.`);
       }

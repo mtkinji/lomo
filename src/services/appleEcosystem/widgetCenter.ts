@@ -18,6 +18,7 @@ export const KWILT_WIDGET_KINDS = [
   'KwiltWidgets.activities',
   'KwiltWidgets.lockscreen',
   'KwiltWidgets.streak',
+  'KwiltWidgets.money',
 ];
 
 let pendingKinds = new Set<string>();
@@ -57,4 +58,3 @@ export function scheduleWidgetReload(kinds: string[] = KWILT_WIDGET_KINDS): void
   if (reloadTimeout) return;
   reloadTimeout = setTimeout(flushReload, RELOAD_DEBOUNCE_MS);
 }
-
