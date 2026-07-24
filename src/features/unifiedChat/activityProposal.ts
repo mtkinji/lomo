@@ -289,7 +289,13 @@ export function buildRecurringReminderFields({
   });
   const firstReminder = candidates.reduce((earliest, candidate) =>
     candidate.getTime() < earliest.getTime() ? candidate : earliest);
+  const scheduledDate = [
+    firstReminder.getFullYear(),
+    String(firstReminder.getMonth() + 1).padStart(2, '0'),
+    String(firstReminder.getDate()).padStart(2, '0'),
+  ].join('-');
   return {
+    scheduledDate,
     reminderAt: firstReminder.toISOString(),
     repeatRule: 'custom',
     repeatCustom: { cadence: 'weeks', interval: 1, weekdays },

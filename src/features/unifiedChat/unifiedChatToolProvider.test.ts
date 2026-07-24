@@ -495,7 +495,7 @@ describe('createUnifiedChatToolProvider', () => {
     expect(reminder.getDay()).toBe(2);
     expect(reminder.getHours()).toBe(20);
     expect(operation.payload).toMatchObject({
-      title: 'Take out the trash', repeatRule: 'custom',
+      title: 'Take out the trash', scheduledDate: '2026-07-28', repeatRule: 'custom',
       repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
       repeatBasis: 'scheduled',
     });

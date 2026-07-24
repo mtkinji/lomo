@@ -1208,6 +1208,48 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
+  test('preserves the next-week bound when the model omits the Goal target date', async () => {
+    const runtimeSender = jest.fn(async (_history: unknown, options: {
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      const goalTool = options.runtimeTools?.find((tool) => tool.id === 'goals.create');
+      expect(goalTool).toBeDefined();
+      await options.executeRuntimeTool?.({
+        id: 'goal-walk', toolId: 'goals.create', arguments: {
+          title: 'Walk every day next week',
+          description: 'Take a walk each day next week.',
+          followUpActivity: { title: 'Walk', repeatRule: 'daily' },
+        },
+      }, goalTool);
+      return 'I prepared that Goal for review.';
+    });
+    const { repository, send } = dependencies(runtimeSender);
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Create a Goal to walk every day next week.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        now: () => new Date(2026, 6, 23, 12),
+        routeRequest: async () => ({
+          requestClass: 'capability_action', participatingCapabilities: ['goals'],
+          usePrivateContext: true, confidence: 0.99, reason: 'Create a bounded walking Goal.',
+        }),
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    const proposal = repository.createProposal.mock.calls[0]?.[0] as {
+      operation?: { payload?: { targetDate?: string; followUpActivity?: unknown } };
+    };
+    const target = new Date(proposal.operation?.payload?.targetDate ?? '');
+    expect(target.getDay()).toBe(0);
+    expect(target.getDate()).toBe(2);
+    expect(target.getMonth()).toBe(7);
+    expect(proposal.operation?.payload?.followUpActivity).toEqual({ title: 'Walk', repeatRule: 'daily' });
+  });
+
   test('uses the shared runtime to interpret and stage an ordinary Arc identity update', async () => {
     const runtimeSender = jest.fn(async (_history: unknown, options: {
       runtimeTools?: Array<{ id: string }>;
@@ -1369,6 +1411,27 @@ describe('runUnifiedChatTurn', () => {
     expect(repository.createProposal).not.toHaveBeenCalled();
   });
 
+  test('routes an explicit child app-control command without depending on semantic model selection', async () => {
+    const sender = jest.fn(async () => 'What would you like Kwilt to change?');
+    const { repository, send } = dependencies(sender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Turn on Brawl Stars for Charlie.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(sender).not.toHaveBeenCalled();
+    expect(repository.createClientAction).toHaveBeenCalledWith(expect.objectContaining({
+      capabilityId: 'screenTime', actionType: 'configure_screen_time',
+      title: 'Review Brawl Stars access for Charlie',
+    }));
+  });
+
   test('guarantees a create proposal for ordinary name-only capture even when the model asks a question', async () => {
     const sender = jest.fn(async () => JSON.stringify({
       answer: 'Would you like that in a shopping list?',
@@ -1451,6 +1514,35 @@ describe('runUnifiedChatTurn', () => {
         repeatBasis: 'scheduled', reminderAt: expect.any(String),
       },
     });
+  });
+
+  test('prepares the ordinary reminder phrasing even when the model would return calendar prose', async () => {
+    const sender = jest.fn(async () => 'What time zone and calendar block length should I use?');
+    const { repository, send } = dependencies(sender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Remind me every Tuesday at 8 PM to take out the trash.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(sender).not.toHaveBeenCalled();
+    expect(repository.createProposal).toHaveBeenCalledTimes(1);
+    expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+      capabilityId: 'todos',
+      operation: expect.objectContaining({
+        type: 'create_activity',
+        payload: expect.objectContaining({
+          title: 'Take out the trash', repeatRule: 'custom',
+          repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+          repeatBasis: 'scheduled', reminderAt: expect.any(String),
+        }),
+      }),
+    }));
   });
 
   test('uses semantic tools to split a compound capture into separate native proposals', async () => {

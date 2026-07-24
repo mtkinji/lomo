@@ -1,3 +1,5 @@
+import { directScreenTimeControl } from './directAppControl';
+
 export type UnifiedChatRequestClass =
   | 'general'
   | 'general_with_kwilt_context'
@@ -140,7 +142,7 @@ export function classifyUnifiedChatRequest({
     };
   }
 
-  if (NATIVE_CONTROL_PATTERN.test(normalizedPrompt)) {
+  if (NATIVE_CONTROL_PATTERN.test(normalizedPrompt) || directScreenTimeControl(normalizedPrompt)) {
     return {
       requestClass: 'native_control',
       participatingCapabilities: ['screenTime'],

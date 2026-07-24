@@ -68,6 +68,11 @@ import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
 import { buildPlanPriorityChatBody } from './planPriorityChatPresentation';
 import {
+  directRecurringReminder,
+  directScreenTimeControl,
+  inferredGoalTargetDate,
+} from './directAppControl';
+import {
   buildPlanPlacementReferent,
   resolvePlanPlacementReferent,
   type PlanPlacementConversationReferent,
@@ -145,6 +150,7 @@ export type RunUnifiedChatTurnDependencies = {
     tool: AgentToolDefinition,
   ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry?: (event: AnalyticsEventName, properties?: UnifiedChatTelemetryProperties) => void;
+  now?: () => Date;
 };
 
 const EMPTY_CAPABILITY_SNAPSHOTS: UnifiedChatCapabilitySnapshots = {
@@ -640,7 +646,22 @@ export async function runUnifiedChatTurn(
       snapshots,
       planConversationReferent,
       executeRelationshipTool: relationshipProvider.execute,
+      now: dependencies?.now,
     });
+    const executeTurnTool = (
+      call: AgentToolCall,
+      tool: AgentToolDefinition,
+    ): Promise<AgentToolExecutionResult> => {
+      const inferredTargetDate = call.toolId === 'goals.create' && call.arguments.targetDate == null
+        ? inferredGoalTargetDate(prompt, dependencies?.now?.() ?? new Date())
+        : null;
+      return toolProvider.execute(
+        inferredTargetDate
+          ? { ...call, arguments: { ...call.arguments, targetDate: inferredTargetDate } }
+          : call,
+        tool,
+      );
+    };
     let runtimeToolEvents: readonly AgentToolLoopEvent[] = [];
     const runtimeTools = usesRuntimeToolLoop
       ? discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
@@ -688,7 +709,48 @@ export async function runUnifiedChatTurn(
       aggregate.thread.titleSource === 'default' &&
       aggregate.messages.length === 0 &&
       !retryMessage;
-    const response = await sendCoachChat(history, {
+    const directReminder = requestPolicy.participatingCapabilities.includes('todos')
+      ? directRecurringReminder(prompt)
+      : null;
+    const directScreenTime = requestPolicy.requestClass === 'native_control' &&
+      requestPolicy.participatingCapabilities.includes('screenTime')
+      ? directScreenTimeControl(prompt)
+      : null;
+    const directTool = directReminder
+      ? runtimeTools.find((tool) => tool.id === 'activities.capture')
+      : directScreenTime
+        ? runtimeTools.find((tool) => tool.id === 'screen_time.configure')
+        : undefined;
+    let directResponse: string | null = null;
+    if ((directReminder || directScreenTime) && !directTool) {
+      throw new UnifiedChatTurnError('Kwilt could not load the capability needed for that request.');
+    }
+    if (directTool) {
+      const directCall: AgentToolCall = {
+        id: `direct:${run.id}:1`,
+        toolId: directTool.id,
+        arguments: directReminder ?? directScreenTime ?? {},
+      };
+      const result = await executeTurnTool(directCall, directTool);
+      runtimeToolEvents = [{
+        sequence: 1,
+        type: 'tool_completed',
+        round: 1,
+        toolCallId: directCall.id,
+        toolId: directTool.id,
+        resultStatus: result.status,
+      }];
+      if (result.status !== 'proposed' && result.status !== 'pending_client_action') {
+        failureCode = 'direct_app_control_failed';
+        throw new UnifiedChatTurnError(
+          result.status === 'needs_input' ? result.prompt : 'Kwilt could not prepare that app change safely.',
+        );
+      }
+      directResponse = directReminder
+        ? `I prepared a recurring “${directReminder.title}” reminder for review.`
+        : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
+    }
+    const response = directResponse ?? await sendCoachChat(history, {
       aiJob: 'default_chat',
       workflowInstanceId: aggregate.thread.id,
       includeUserProfileContext: false,
@@ -696,7 +758,7 @@ export async function runUnifiedChatTurn(
       ...(usesRuntimeToolLoop
         ? {
             runtimeTools,
-            executeRuntimeTool: toolProvider.execute,
+            executeRuntimeTool: executeTurnTool,
             runtimeMaxRounds: 4,
             onRuntimeToolLoopComplete: (result: { events: readonly AgentToolLoopEvent[] }) => {
               runtimeToolEvents = result.events;
