@@ -10,7 +10,7 @@ export type UnifiedChatRequestClass =
 
 export const UNIFIED_CHAT_CAPABILITY_IDS = [
   'arcs', 'goals', 'todos', 'plan', 'chapters', 'profile', 'relationships',
-  'screenTime', 'notifications', 'account', 'navigation',
+  'money', 'screenTime', 'notifications', 'account', 'navigation',
 ] as const;
 export type UnifiedChatCapabilityId = typeof UNIFIED_CHAT_CAPABILITY_IDS[number];
 
@@ -99,6 +99,9 @@ function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
   }
   if ((personal || action) && /\b(chapters?|reflections?|what i learned|what i tried)\b/i.test(prompt)) {
     capabilities.push('chapters');
+  }
+  if ((personal || action) && /\b(money|budgets?|spend(?:ing|ings)?|transactions?|accounts?)\b/i.test(prompt)) {
+    capabilities.push('money');
   }
   if (/\b(my\s+)?profile\b|\b(?:call me|my name is|change my name|age range)\b/i.test(prompt)) {
     capabilities.push('profile');

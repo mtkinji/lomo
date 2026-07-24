@@ -24,11 +24,10 @@
 
 - Expose a redacted Money summary adapter to Unified Chat: aggregate values and counts only unless the user explicitly opens a native record.
 - Add an exact native return target for categories and transactions.
-- Change Money from `preview` to `active` only after the real-data UI and Chat boundary are tested and visually exercised.
+- [x] Change Money from `preview` to `active` after the real-data UI and Chat boundary are tested and visually exercised.
 
 ## Verification
 
 - Run focused repository, state, screen, navigation, registry, and Chat coverage tests.
 - Run `npm run verify:changed -- --run`.
-- Exercise `kwilt://money`, each local place, and both detail routes in the iOS simulator using an authenticated account. Simulator proof does not establish physical-device, archive, TestFlight, or production-Plaid behavior.
-
+- [x] Exercise `kwilt://money`, Summary, Transactions, Accounts, and a live category detail in the iOS simulator using an authenticated account. Transaction-detail route parsing is automated; a direct transaction tap remains outside this run because desktop UI control was locked. Simulator proof does not establish physical-device, archive, TestFlight, or production-Plaid behavior.

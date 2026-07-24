@@ -41,6 +41,7 @@ export function MoneyPlaceBar({
 
 const styles = StyleSheet.create({
   container: {
+    width: '100%',
     flexDirection: 'row',
     gap: spacing.xs,
     padding: spacing.xs,

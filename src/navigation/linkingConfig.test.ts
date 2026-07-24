@@ -110,6 +110,12 @@ describe('linkingConfig', () => {
       expect(leaf!.path).toEqual(['Settings', 'SettingsManageSubscription']);
     });
 
+    test('kwilt://settings resolves to the shared Settings home', () => {
+      const leaf = parse('settings');
+      expect(leaf?.name).toBe('SettingsHome');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsHome']);
+    });
+
     test('settings/subscription?openPricingDrawer=1 parses the boolean param', () => {
       const leaf = parse('settings/subscription?openPricingDrawer=1');
       expect(leaf?.params).toMatchObject({ openPricingDrawer: true });

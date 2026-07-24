@@ -15,6 +15,7 @@ export type KwiltOperationOwner =
   | 'todos'
   | 'plan'
   | 'chapters'
+  | 'money'
   | 'account'
   | 'screenTime'
   | 'notifications'
@@ -89,6 +90,7 @@ export const KWILT_OPERATION_REGISTRY = [
     'chapters.reflect',
     'chapters.note.update',
   ] as const),
+  ...owned('money', ['money.read'] as const),
   ...owned('account', [
     'account.show_up_status',
     'account.settings.open',

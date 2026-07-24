@@ -242,6 +242,12 @@ const showUpProof = [
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
   'supabase/functions/_shared/__tests__/serverAgentTools.test.ts',
 ] as const;
+const moneyReadProof = [
+  'src/features/unifiedChat/requestPolicy.test.ts',
+  'src/features/unifiedChat/capabilityAdapters.test.ts',
+  'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
+  'src/capabilities/money/data/moneySnapshot.test.ts',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -309,6 +315,7 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   live({ id: 'chapters.reflect', providers: ['server'], consequence: 'low', confirmation: 'none', toolIds: ['chapters.read'], sourceRefs: [] }, readProof),
   live({ id: 'chapters.note.update', providers: ['server'], consequence: 'low', confirmation: 'explicit', toolIds: ['chapters.note.update'], sourceRefs: ['mcp:update_chapter_user_note'] }, chapterMutationProof),
   live({ id: 'account.show_up_status', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['account.show_up_status'], sourceRefs: ['mcp:get_show_up_status'] }, showUpProof),
+  live({ id: 'money.read', providers: ['device'], consequence: 'low', confirmation: 'none', toolIds: ['money.read'], sourceRefs: ['capability:money'] }, moneyReadProof),
 
   bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),

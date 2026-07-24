@@ -172,6 +172,9 @@ async function loadDefaultCapabilitySnapshots(
   const chapters = capabilities.includes('chapters')
     ? await fetchMyChapters({ limit: 20, throwOnError: true })
     : [];
+  const money = capabilities.includes('money')
+    ? await (await import('../../capabilities/money/data/moneyRepository')).createMoneyRepository().loadSnapshot()
+    : undefined;
   const targetDate = resolvePlanTargetDate(
     new Date(),
     /\btomorrow\b/i.test(request.prompt) ? 'tomorrow' : 'today',
@@ -215,6 +218,7 @@ async function loadDefaultCapabilitySnapshots(
         observedAt: state.streakUpdatedAtIso,
       },
     },
+    money,
     plan,
   };
 }

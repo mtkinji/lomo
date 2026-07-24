@@ -79,7 +79,7 @@ export type CapabilityNativeReturnTarget = {
   object: Pick<CapabilityObjectRef, 'type' | 'id'>;
   label: string;
   route: {
-    name: 'MainTabs' | 'Settings';
+    name: 'MainTabs' | 'Settings' | 'Money';
     params: Record<string, unknown>;
   };
 };
