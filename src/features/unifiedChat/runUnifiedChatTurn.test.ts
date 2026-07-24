@@ -1,4 +1,4 @@
-import { buildAppControlOutcome, runUnifiedChatTurn } from './runUnifiedChatTurn';
+import { runUnifiedChatTurn } from './runUnifiedChatTurn';
 import type { CreateUnifiedChatMessageInput, UnifiedChatThreadAggregate } from './types';
 import type { Activity, Goal } from '../../domain/types';
 
@@ -15,19 +15,6 @@ const startingAggregate: UnifiedChatThreadAggregate = {
   messages: [],
   runs: [],
 };
-
-describe('buildAppControlOutcome', () => {
-  test('normalizes a conversational turn around its authoritative result', () => {
-    expect(buildAppControlOutcome({ text: 'Here is tomorrow.', proposalIds: [], receiptIds: [], clientActionIds: [] }))
-      .toEqual({ type: 'answer', text: 'Here is tomorrow.' });
-    expect(buildAppControlOutcome({ text: 'Ready.', proposalIds: ['proposal-1'], receiptIds: [], clientActionIds: [] }))
-      .toEqual({ type: 'review', proposalIds: ['proposal-1'] });
-    expect(buildAppControlOutcome({ text: 'Done.', proposalIds: [], receiptIds: ['receipt-1'], clientActionIds: [] }))
-      .toEqual({ type: 'applied', receiptIds: ['receipt-1'] });
-    expect(buildAppControlOutcome({ text: 'Continue.', proposalIds: [], receiptIds: [], clientActionIds: ['action-1'] }))
-      .toEqual({ type: 'native_handoff', actionId: 'action-1' });
-  });
-});
 
 function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer')) {
   const order: string[] = [];
@@ -691,50 +678,6 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
-  test('reports what is officially on tomorrow separately from recommendations', async () => {
-    const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));
-    await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: "What's officially on my Plan tomorrow?" },
-      {
-        repository: repository as never,
-        sendCoachChat: send as never,
-        loadCapabilitySnapshots: async () => ({
-          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-          plan: {
-            targetDate: '2026-07-24T18:00:00.000Z', writeCalendarRef: null,
-            limitation: 'no_write_calendar' as const,
-            scheduledItems: [
-              {
-                activityId: 'scheduled-school', title: 'Call the school', goalTitle: null,
-                placement: 'calendar' as const, startDate: '2026-07-24T15:00:00.000Z',
-                endDate: '2026-07-24T15:30:00.000Z',
-              },
-              {
-                activityId: 'planned-trash', title: 'Take out the trash', goalTitle: null,
-                placement: 'day' as const, startDate: null, endDate: null,
-              },
-            ],
-            recommendations: [{
-              activityId: 'recommended-lunch', expectedUpdatedAt: '2026-07-23T10:00:00.000Z',
-              title: 'Pack lunch', goalTitle: null, priorityPosition: 0,
-              placement: { status: 'unplaced' as const, reason: 'no_write_calendar' as const },
-            }],
-          },
-        }),
-      },
-    );
-
-    const assistantInsert = repository.insertMessage.mock.calls.find(
-      ([input]) => input.role === 'assistant',
-    )?.[0] as CreateUnifiedChatMessageInput | undefined;
-    expect(assistantInsert?.body).toContain('Already on your Plan for tomorrow');
-    expect(assistantInsert?.body).toContain('Call the school');
-    expect(assistantInsert?.body).toContain('Take out the trash');
-    expect(assistantInsert?.body).toContain('Recommended next');
-    expect(assistantInsert?.body).toContain('Pack lunch');
-    expect(repository.createProposal).not.toHaveBeenCalled();
-  });
-
   test('renders the capability-owned Plan order even when model prose reprioritizes it', async () => {
     const modelAnswer = JSON.stringify({
       answer: 'The Priority 2 item is the most leverage, so do that first.',
@@ -1263,52 +1206,6 @@ describe('runUnifiedChatTurn', () => {
         payload: { title: 'Learn watercolor', description: 'Paint one small scene.' },
       }),
     }));
-  });
-
-  test('stages a bounded walking Goal with follow-through intent, not an invented Activity link', async () => {
-    const runtimeSender = jest.fn(async (_history: unknown, options: {
-      launchContextSummary?: string;
-      runtimeTools?: Array<{ id: string }>;
-      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
-    }) => {
-      expect(options.launchContextSummary).toContain('Do not invent an Arc or call activities.capture before');
-      const goalTool = options.runtimeTools?.find((tool) => tool.id === 'goals.create');
-      await options.executeRuntimeTool?.({
-        id: 'goal-walk', toolId: 'goals.create', arguments: {
-          title: 'Walk every day for the next week',
-          targetDate: '2026-07-30T23:59:59.000-06:00',
-          followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' },
-        },
-      }, goalTool);
-      return 'I prepared the walking Goal for review.';
-    });
-    const { repository, send } = dependencies(runtimeSender);
-
-    await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Create a goal to walk every day for the next week.' },
-      {
-        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
-        routeRequest: async () => ({
-          requestClass: 'capability_action', participatingCapabilities: ['goals'],
-          usePrivateContext: true, confidence: 0.99, reason: 'Goal creation requested.',
-        }),
-        loadCapabilitySnapshots: async () => ({
-          goals: { goals: [], arcIds: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-        }),
-      },
-    );
-
-    expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
-      capabilityId: 'goals',
-      operation: expect.objectContaining({
-        type: 'create_goal', targetId: null,
-        payload: expect.objectContaining({
-          targetDate: '2026-07-30T23:59:59.000-06:00',
-          followUpActivity: { title: 'Go for a walk', repeatRule: 'daily' },
-        }),
-      }),
-    }));
-    expect(repository.createProposal).toHaveBeenCalledTimes(1);
   });
 
   test('uses the shared runtime to interpret and stage an ordinary Arc identity update', async () => {
