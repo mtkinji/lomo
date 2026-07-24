@@ -264,6 +264,11 @@ const moneyPrivacyProof = [
   'src/capabilities/money/runtime/MoneyPrivacyGate.tsx',
   'src/capabilities/money/screens/MoneyPrivacySettingsScreen.tsx',
 ] as const;
+const moneyConnectionProof = [
+  'src/capabilities/money/data/moneyPlaidApi.test.ts',
+  'src/capabilities/money/native/moneyPlaidLink.native.ts',
+  'src/capabilities/money/screens/MoneyAccountsScreen.tsx',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -336,6 +341,8 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   bounded('confirmation_only', { id: 'money.category.create', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Category creation completes only after native name and monthly-amount review. Chat cannot create a financial plan category silently.', moneyCategoryCreateProof),
   bounded('confirmation_only', { id: 'money.category.update', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Category name, monthly amount, and rollover changes complete as separate explicit native actions so partial multi-table success is never hidden.', moneyCategoryCreateProof),
   bounded('confirmation_only', { id: 'money.privacy.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Money privacy lock changes require native device-authentication review. Chat cannot prompt for or bypass Face ID, Touch ID, or passcode.', moneyPrivacyProof),
+  bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),
+  bounded('confirmation_only', { id: 'money.connection.sync', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Manual Plaid sync starts only from native Money; Phone and Chat do not receive client-side financial credentials.', moneyConnectionProof),
 
   bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),

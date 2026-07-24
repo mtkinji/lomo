@@ -90,7 +90,15 @@ export const KWILT_OPERATION_REGISTRY = [
     'chapters.reflect',
     'chapters.note.update',
   ] as const),
-  ...owned('money', ['money.read', 'money.review_transaction', 'money.category.create', 'money.category.update', 'money.privacy.configure'] as const),
+  ...owned('money', [
+    'money.read',
+    'money.review_transaction',
+    'money.category.create',
+    'money.category.update',
+    'money.privacy.configure',
+    'money.connection.connect',
+    'money.connection.sync',
+  ] as const),
   ...owned('account', [
     'account.show_up_status',
     'account.settings.open',
