@@ -35,19 +35,19 @@ export const APP_CONTROL_EVAL_CASES = standingCases([
   {
     id: 'trash-reminder-primary', scenarioId: 'create-recurring-reminded-activity',
     prompt: 'Create a to-do called Take out the trash and remind me every Tuesday at 8 PM.',
-    expectedOperations: ['activities.capture', 'activities.repeat.update', 'activities.reminder.update'],
+    expectedOperations: ['activities.capture'],
     expectedOutcome: 'proposal_or_receipt',
   },
   {
     id: 'trash-reminder-paraphrase', scenarioId: 'create-recurring-reminded-activity',
     prompt: 'Every Tuesday evening at eight, remind me to take out the trash.',
-    expectedOperations: ['activities.capture', 'activities.repeat.update', 'activities.reminder.update'],
+    expectedOperations: ['activities.capture'],
     expectedOutcome: 'proposal_or_receipt',
   },
   {
     id: 'bins-reminder-paraphrase', scenarioId: 'create-recurring-reminded-activity',
     prompt: 'Add taking the bins out as a weekly Tuesday 8 PM task with a reminder.',
-    expectedOperations: ['activities.capture', 'activities.repeat.update', 'activities.reminder.update'],
+    expectedOperations: ['activities.capture'],
     expectedOutcome: 'proposal_or_receipt',
   },
   {
@@ -68,19 +68,19 @@ export const APP_CONTROL_EVAL_CASES = standingCases([
   {
     id: 'walking-goal-primary', scenarioId: 'create-walking-goal-and-routine',
     prompt: 'Create a Goal to go on a walk every day for the next week and help me remember it.',
-    expectedOperations: ['goals.create', 'activities.capture', 'activities.repeat.update'],
+    expectedOperations: ['goals.create', 'activities.capture'],
     expectedOutcome: 'proposal_or_receipt',
   },
   {
     id: 'walking-goal-paraphrase', scenarioId: 'create-walking-goal-and-routine',
     prompt: 'I want a seven-day daily walking goal with a repeating to-do to keep me on track.',
-    expectedOperations: ['goals.create', 'activities.capture', 'activities.repeat.update'],
+    expectedOperations: ['goals.create', 'activities.capture'],
     expectedOutcome: 'proposal_or_receipt',
   },
   {
     id: 'daily-walk-paraphrase', scenarioId: 'create-walking-goal-and-routine',
     prompt: 'Set up a goal for walking each day next week, then add the daily routine for it.',
-    expectedOperations: ['goals.create', 'activities.capture', 'activities.repeat.update'],
+    expectedOperations: ['goals.create', 'activities.capture'],
     expectedOutcome: 'proposal_or_receipt',
   },
   {

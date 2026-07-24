@@ -27,7 +27,14 @@ const ACTIVITY_FIELD_PROPERTIES = {
 } as const;
 const ACTIVITY_CAPTURE_SCHEMA = {
   type: 'object',
-  properties: ACTIVITY_FIELD_PROPERTIES,
+  properties: {
+    ...ACTIVITY_FIELD_PROPERTIES,
+    reminderLocalTime: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+    repeatWeekdays: {
+      type: 'array', minItems: 1, maxItems: 7,
+      items: { type: 'integer', minimum: 0, maximum: 6 },
+    },
+  },
   required: ['title'],
   additionalProperties: false,
 } as const;

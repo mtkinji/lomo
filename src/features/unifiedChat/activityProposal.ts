@@ -242,6 +242,61 @@ const ACTIVITY_REPEAT_RULES = new Set<ActivityRepeatRule>([
   'daily', 'weekly', 'weekdays', 'monthly', 'yearly', 'custom',
 ]);
 
+const WEEKDAY_PATTERN = /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i;
+const DAYPART_PATTERN = /\b(morning|afternoon|evening|night)\b/i;
+const EXPLICIT_CLOCK_PATTERN = /\b(?:\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)|noon|midnight)\b/i;
+
+/** Prevents the model from silently assigning a clock time to a vague recurring reminder. */
+export function recurringReminderClarification(prompt: string): string | null {
+  const requestsReminder = /\bremind(?:er|ers|ing)?\b/i.test(prompt);
+  const requestsRecurrence = /\b(?:every|weekly|recurr(?:ing|ence)?|repeat(?:ing|s)?)\b/i.test(prompt);
+  if (!requestsReminder || !requestsRecurrence || EXPLICIT_CLOCK_PATTERN.test(prompt)) return null;
+
+  const weekday = prompt.match(WEEKDAY_PATTERN)?.[1];
+  const daypart = prompt.match(DAYPART_PATTERN)?.[1]?.toLowerCase();
+  if (weekday && daypart) {
+    const label = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1).toLowerCase()} ${daypart}`;
+    return `What time ${label} should I remind you?`;
+  }
+  if (weekday) {
+    const label = `${weekday.charAt(0).toUpperCase()}${weekday.slice(1).toLowerCase()}`;
+    return `What time ${label} should I remind you?`;
+  }
+  return 'What day and time should I remind you?';
+}
+
+export function buildRecurringReminderFields({
+  reminderLocalTime,
+  repeatWeekdays,
+  now,
+}: {
+  reminderLocalTime: unknown;
+  repeatWeekdays: unknown;
+  now: Date;
+}): ActivityMutationPatch | null {
+  if (typeof reminderLocalTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderLocalTime)) return null;
+  if (!Array.isArray(repeatWeekdays) || repeatWeekdays.length < 1 || repeatWeekdays.length > 7 ||
+      repeatWeekdays.some((day) => typeof day !== 'number' || !Number.isInteger(day) || day < 0 || day > 6)) return null;
+  const weekdays = [...new Set(repeatWeekdays as number[])];
+  const [hour, minute] = reminderLocalTime.split(':').map(Number) as [number, number];
+  const candidates = weekdays.map((weekday) => {
+    const candidate = new Date(now);
+    candidate.setHours(hour, minute, 0, 0);
+    let dayOffset = (weekday - candidate.getDay() + 7) % 7;
+    if (dayOffset === 0 && candidate.getTime() <= now.getTime()) dayOffset = 7;
+    candidate.setDate(candidate.getDate() + dayOffset);
+    return candidate;
+  });
+  const firstReminder = candidates.reduce((earliest, candidate) =>
+    candidate.getTime() < earliest.getTime() ? candidate : earliest);
+  return {
+    reminderAt: firstReminder.toISOString(),
+    repeatRule: 'custom',
+    repeatCustom: { cadence: 'weeks', interval: 1, weekdays },
+    repeatBasis: 'scheduled',
+  };
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>

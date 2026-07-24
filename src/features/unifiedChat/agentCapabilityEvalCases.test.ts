@@ -22,7 +22,7 @@ describe('AGENT_CAPABILITY_EVAL_CASES', () => {
     for (const cases of byScenario.values()) expect(cases).toHaveLength(3);
 
     expect(byScenario.get('create-recurring-reminded-activity')?.[0]).toEqual(expect.objectContaining({
-      expectedOperations: ['activities.capture', 'activities.repeat.update', 'activities.reminder.update'],
+      expectedOperations: ['activities.capture'],
       expectedOutcome: 'proposal_or_receipt',
     }));
     expect(byScenario.get('read-tomorrow-plan')?.[0]).toEqual(expect.objectContaining({
@@ -30,7 +30,7 @@ describe('AGENT_CAPABILITY_EVAL_CASES', () => {
       expectedOutcome: 'answer',
     }));
     expect(byScenario.get('create-walking-goal-and-routine')?.[0]).toEqual(expect.objectContaining({
-      expectedOperations: ['goals.create', 'activities.capture', 'activities.repeat.update'],
+      expectedOperations: ['goals.create', 'activities.capture'],
       expectedOutcome: 'proposal_or_receipt',
     }));
     expect(byScenario.get('future-screen-time-control')?.[0]).toEqual(expect.objectContaining({

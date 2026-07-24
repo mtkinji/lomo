@@ -100,6 +100,38 @@ describe('Activity proposal capability executor', () => {
     });
   });
 
+  test('creates one durable recurring reminded Activity and removes it on undo', () => {
+    const store = inventory([]);
+    const createProposal = proposal({
+      operation: {
+        id: 'operation-trash', proposalId: 'proposal-1', capabilityId: 'todos',
+        type: 'create_activity', targetId: null, summary: 'Add Take out the trash',
+        payload: {
+          title: 'Take out the trash', status: 'planned',
+          reminderAt: '2026-07-29T02:00:00.000Z', repeatRule: 'custom',
+          repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+          repeatBasis: 'scheduled', expectedUpdatedAt: null,
+        },
+        idempotencyKey: 'unified-chat:trash', sequence: 1,
+      },
+    });
+
+    const receipt = applyApprovedActivityProposal({ proposal: createProposal, store, now: () => '2026-07-23T12:00:00.000Z' });
+
+    expect(store.getActivities()).toEqual([expect.objectContaining({
+      title: 'Take out the trash', reminderAt: '2026-07-29T02:00:00.000Z',
+      repeatRule: 'custom', repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+      repeatBasis: 'scheduled',
+    })]);
+    expect(receipt.resultState).toMatchObject({
+      title: 'Take out the trash', reminderAt: '2026-07-29T02:00:00.000Z', repeatRule: 'custom',
+      repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+    });
+
+    undoAppliedActivityProposal({ receipt, store, now: () => '2026-07-23T13:00:00.000Z' });
+    expect(store.getActivities()).toEqual([]);
+  });
+
   test('rejects unapproved proposals and stale updates before mutation', () => {
     const store = inventory();
     expect(() => applyApprovedActivityProposal({

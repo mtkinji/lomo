@@ -27,6 +27,7 @@ import type { BuiltRunContext } from './capabilityContracts';
 import {
   ACTIVITY_ACTION_RESPONSE_FORMAT,
   parseActivityActionResponse,
+  recurringReminderClarification,
   type ActivityProposalOperation,
 } from './activityProposal';
 import {
@@ -275,6 +276,9 @@ function groundingSummary(
     parts.push(
       'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
     );
+    parts.push(
+      'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
+    );
   } else if (requestClass === 'capability_action' || requestClass === 'native_control') {
     parts.push(
       `Use only discovered tools for these Kwilt capabilities: ${participatingCapabilities.join(', ')}. ` +
@@ -495,6 +499,9 @@ export async function runUnifiedChatTurn(
   const planConversationReferent = requestPolicy.policyReason === 'conversation-follow-up:plan'
     ? resolvePlanPlacementReferent(aggregate)
     : null;
+  const activityClarification = requestPolicy.participatingCapabilities.includes('todos')
+    ? recurringReminderClarification(prompt)
+    : null;
   captureTelemetry(AnalyticsEvent.UnifiedChatRouteSelected, buildUnifiedChatRouteTelemetry(requestPolicy));
   if (requestPolicy.requestClass === 'better_served_elsewhere') {
     captureTelemetry(AnalyticsEvent.UnifiedChatUnsupportedIntent, {
@@ -510,7 +517,7 @@ export async function runUnifiedChatTurn(
     contextPolicy: {
       usePrivateContext: requestPolicy.usePrivateContext,
       reason: requestPolicy.policyReason,
-      clarification: requestPolicy.clarification,
+      clarification: activityClarification ?? requestPolicy.clarification,
     },
   });
   input.onRunStarted?.({
@@ -587,6 +594,27 @@ export async function runUnifiedChatTurn(
       runId: run.id,
       evidence: persistenceRows(context),
     });
+    if (activityClarification) {
+      const assistantMessage = await repository.insertMessage({
+        threadId: aggregate.thread.id,
+        role: 'assistant',
+        body: activityClarification,
+      });
+      transitionRun(run, 'complete', run.version);
+      await repository.transitionRunStatus({
+        runId: run.id, fromStatus: 'active', toStatus: 'complete', expectedVersion: run.version,
+        assistantMessageId: assistantMessage.id,
+        errorCode: null,
+        errorMessage: null,
+        completedAt: new Date().toISOString(),
+        event: {
+          type: 'clarification', status: 'warning', visibility: 'user',
+          label: 'Clarification needed', detail: activityClarification,
+          payload: { outcomeType: 'clarification' },
+        },
+      });
+      return repository.loadThread(aggregate.thread.id);
+    }
     const directCreateTitle = directTodoCaptureTitle(prompt);
     const usesRuntimeToolLoop = runtimeToolsEnabled &&
       (requestPolicy.requestClass === 'capability_action' || requestPolicy.requestClass === 'native_control' ||

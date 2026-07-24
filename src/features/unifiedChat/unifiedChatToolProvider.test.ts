@@ -433,6 +433,51 @@ describe('createUnifiedChatToolProvider', () => {
     ]);
   });
 
+  it('stages recurring reminder fields atomically when capturing a new Activity', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots });
+    await provider.execute({
+      id: 'capture-trash', toolId: 'activities.capture', arguments: {
+        title: 'Take out the trash', reminderAt: '2026-07-29T02:00:00.000Z',
+        repeatRule: 'custom', repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+        repeatBasis: 'scheduled',
+      },
+    }, tool('activities.capture'));
+
+    expect(provider.proposals()).toEqual([expect.objectContaining({
+      capabilityId: 'todos', title: 'Add Take out the trash',
+      operation: {
+        type: 'create_activity', targetId: null, expectedUpdatedAt: null,
+        payload: {
+          title: 'Take out the trash', reminderAt: '2026-07-29T02:00:00.000Z',
+          repeatRule: 'custom', repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+          repeatBasis: 'scheduled',
+        },
+      },
+    })]);
+  });
+
+  it('resolves a natural weekday and clock time through the device Activity boundary', async () => {
+    const now = new Date(2026, 6, 23, 12, 0, 0);
+    const provider = createUnifiedChatToolProvider({ snapshots, now: () => now });
+    await provider.execute({
+      id: 'capture-trash-local', toolId: 'activities.capture', arguments: {
+        title: 'Take out the trash', reminderLocalTime: '20:00', repeatWeekdays: [2],
+      },
+    }, tool('activities.capture'));
+
+    const operation = provider.proposals()[0]?.operation;
+    expect(operation?.type).toBe('create_activity');
+    if (operation?.type !== 'create_activity') throw new Error('Expected create Activity proposal.');
+    const reminder = new Date(operation.payload.reminderAt!);
+    expect(reminder.getDay()).toBe(2);
+    expect(reminder.getHours()).toBe(20);
+    expect(operation.payload).toMatchObject({
+      title: 'Take out the trash', repeatRule: 'custom',
+      repeatCustom: { cadence: 'weeks', interval: 1, weekdays: [2] },
+      repeatBasis: 'scheduled',
+    });
+  });
+
   it('stages a Plan placement only with owned Activity and authoritative calendar context', async () => {
     const writeCalendarRef = { provider: 'google' as const, accountId: 'account-1', calendarId: 'primary' };
     const provider = createUnifiedChatToolProvider({
