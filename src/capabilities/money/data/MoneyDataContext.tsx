@@ -15,6 +15,13 @@ import {
   claimPendingMoneyReviewHandoff,
   subscribeToMoneyReviewHandoff,
 } from '../runtime/moneyAppControlForegroundSync';
+import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import { getLivingPlanSettings, saveLivingPlanOverride } from './livingPlanRepository';
+import {
+  previewLivingPlanOverride,
+  reconcileLivingPlan,
+  type LivingPlanOverridePreview,
+} from '../runtime/livingPlanReconciliation';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
@@ -27,6 +34,7 @@ type MoneyDataContextValue = MoneyDataState & {
   createCategory: (input: CategoryPlanInput) => Promise<string>;
   renameCategory: (categoryId: string, name: string) => Promise<void>;
   updateCategoryPlan: (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => Promise<void>;
+  previewCategoryPlanAmount: (categoryId: string, budgetCents: number) => Promise<LivingPlanOverridePreview | null>;
   pendingAppControlReviewCategoryId: string | null;
   reviewMoneyAppControl: (categoryId: string, outcome: MoneyAppControlReviewOutcome) => Promise<void>;
 };
@@ -170,6 +178,15 @@ export function MoneyDataProvider({
     }
   }, [acceptSnapshot]);
 
+  const previewCategoryPlanAmount = useCallback(async (categoryId: string, budgetCents: number) => {
+    const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
+    if (!category) throw new Error('This category is no longer available.');
+    const client = getSupabaseClient();
+    const settings = await getLivingPlanSettings(client);
+    if (!settings.promotionEnabled || !settings.target) return null;
+    return previewLivingPlanOverride(client, category.id, budgetCents);
+  }, [state.snapshot]);
+
   const renameCategory = useCallback(
     (categoryId: string, name: string) => applyCategoryMutation(
       () => resolvedRepository.renameCategory(categoryId, name),
@@ -177,12 +194,31 @@ export function MoneyDataProvider({
     [applyCategoryMutation, resolvedRepository],
   );
 
-  const updateCategoryPlan = useCallback(
-    (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => applyCategoryMutation(
-      () => resolvedRepository.updateCategoryPlan(categoryId, input),
-    ),
-    [applyCategoryMutation, resolvedRepository],
-  );
+  const updateCategoryPlan = useCallback(async (
+    categoryId: string,
+    input: Parameters<MoneyRepository['updateCategoryPlan']>[1],
+  ) => {
+    const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
+    if (input.budgetCents != null && category) {
+      const client = getSupabaseClient();
+      const settings = await getLivingPlanSettings(client);
+      if (settings.promotionEnabled && settings.target) {
+        setSavingCategory(true);
+        try {
+          await saveLivingPlanOverride(client, category.id, input.budgetCents);
+          const result = await reconcileLivingPlan(client, 'override_changed');
+          if (result.outcome === 'blocked' || result.outcome === 'not_ready' || result.outcome === 'disabled') {
+            throw new Error('Your amount preference was saved, but the plan did not change because current account evidence is not ready.');
+          }
+          acceptSnapshot(await resolvedRepository.loadSnapshot());
+          return;
+        } finally {
+          setSavingCategory(false);
+        }
+      }
+    }
+    await applyCategoryMutation(() => resolvedRepository.updateCategoryPlan(categoryId, input));
+  }, [acceptSnapshot, applyCategoryMutation, resolvedRepository, state.snapshot]);
 
   const reviewMoneyAppControl = useCallback(async (categoryId: string, outcome: MoneyAppControlReviewOutcome) => {
     if (!state.snapshot) throw new Error('Money must finish loading before this review can be recorded.');
@@ -205,9 +241,10 @@ export function MoneyDataProvider({
     createCategory,
     renameCategory,
     updateCategoryPlan,
+    previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { Heading, Text } from '../../../ui/Typography';
 import { Button } from '../../../ui/Button';
@@ -30,6 +30,7 @@ export function MoneyDetailScreen({
     savingCategory,
     renameCategory,
     updateCategoryPlan,
+    previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
   } = useMoneyData();
@@ -86,6 +87,34 @@ export function MoneyDetailScreen({
       setAppControlReceipt(outcome);
     } catch (error) {
       setCategoryError(error instanceof Error ? error.message : 'The app-control review could not be recorded.');
+    }
+  };
+
+  const saveMonthlyAmount = async () => {
+    if (!category) return;
+    setCategoryError(null);
+    try {
+      const budgetCents = parseMonthlyAmount(categoryAmountDraft);
+      const preview = await previewCategoryPlanAmount(category.sourceId, budgetCents);
+      if (!preview || preview.outcome === 'no_op') {
+        await updateCategoryPlan(category.sourceId, { budgetCents });
+        return;
+      }
+      if (preview.outcome !== 'ready') {
+        setCategoryError('Kwilt needs current account evidence before it can check this amount against your living target.');
+        return;
+      }
+      const changedCount = preview.changes.length;
+      Alert.alert(
+        'Update the automatic plan?',
+        `${formatMoney(budgetCents)} for ${category.name} would leave ${formatMoney(Math.max(0, preview.after.unassignedCents))} unassigned and update ${changedCount} ${changedCount === 1 ? 'category' : 'categories'}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update plan', onPress: () => void saveCategoryChange(() => updateCategoryPlan(category.sourceId, { budgetCents })) },
+        ],
+      );
+    } catch (error) {
+      setCategoryError(error instanceof Error ? error.message : 'The category could not be updated.');
     }
   };
 
@@ -162,10 +191,7 @@ export function MoneyDetailScreen({
                 <Button
                   disabled={savingCategory}
                   fullWidth
-                  onPress={() => void saveCategoryChange(() => updateCategoryPlan(
-                    category.sourceId,
-                    { budgetCents: parseMonthlyAmount(categoryAmountDraft) },
-                  ))}
+                  onPress={() => void saveMonthlyAmount()}
                   variant="outline"
                 >
                   {savingCategory ? 'Saving…' : 'Save monthly amount'}

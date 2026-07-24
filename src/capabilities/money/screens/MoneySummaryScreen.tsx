@@ -28,6 +28,15 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
             <Text tone="muted">{formatMoneyFreshness(snapshot.lastSyncedAt)}</Text>
           </View>
 
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => navigation.navigate('MoneyLivingPlan')}
+            style={styles.reviewCard}
+          >
+            <Text variant="label">Automatic plan</Text>
+            <Text tone="secondary">Set a living target, review versioned changes, and reverse the active update.</Text>
+          </Pressable>
+
           {snapshot.totals.needsReviewCount > 0 ? (
             <Pressable
               accessibilityRole="button"
