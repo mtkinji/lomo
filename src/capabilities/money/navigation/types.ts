@@ -8,6 +8,7 @@ export type MoneyStackParamList = {
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string };
   MoneyCategoryCreate: undefined;
+  MoneySetup: undefined;
   MoneyAppControl: { categoryId: string };
   MoneyLivingPlan: undefined;
   MoneyLivingPlanReceipt: { receiptId: string };

@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../../theme';
+import { Button } from '../../../ui/Button';
 import { Heading, Text } from '../../../ui/Typography';
 import { formatMoney, formatMoneyFreshness } from '../data/moneySnapshot';
 import { useMoneyData } from '../data/MoneyDataContext';
@@ -88,7 +89,8 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
           {snapshot.categories.length === 0 ? (
             <View style={styles.emptyCard}>
               <Heading variant="sm">No Money plan yet</Heading>
-              <Text tone="secondary">Your saved categories will appear here when a Money plan exists.</Text>
+              <Text tone="secondary">Choose a living target and connect account evidence to build your first plan.</Text>
+              <Button fullWidth onPress={() => navigation.navigate('MoneySetup')} variant="primary">Set up Money</Button>
             </View>
           ) : snapshot.categories.map((category) => (
             <Pressable
