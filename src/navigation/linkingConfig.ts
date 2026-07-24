@@ -127,6 +127,15 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         },
       },
     },
+    Money: {
+      screens: {
+        MoneySummary: 'money',
+        MoneyTransactions: 'money/transactions',
+        MoneyAccounts: 'money/accounts',
+        MoneyCategoryDetail: 'money/category/:categoryId',
+        MoneyTransactionDetail: 'money/transaction/:transactionId',
+      },
+    },
     Settings: {
       screens: {
         // Trial-expiry and Pro-grant emails deep-link into the Manage

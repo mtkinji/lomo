@@ -1,4 +1,5 @@
 import type { CapabilityDefinition } from '../types';
+import { moneyLifecycle } from './runtime/moneyLifecycle';
 
 export const moneyCapabilityDefinition = {
   id: 'money',
@@ -16,5 +17,8 @@ export const moneyCapabilityDefinition = {
     surfaces: ['inventory', 'detail'],
     supportsObjectContext: true,
   },
-  lifecycle: {},
+  lifecycle: {
+    activate: () => moneyLifecycle.activate(),
+    deactivate: () => moneyLifecycle.deactivate(),
+  },
 } as const satisfies CapabilityDefinition;

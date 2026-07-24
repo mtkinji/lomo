@@ -113,6 +113,8 @@ import {
 import { CapabilitySideSheet } from './CapabilitySideSheet';
 import { createUnifiedChatRepository } from '../features/unifiedChat/threadRepository';
 import type { UnifiedChatThread } from '../features/unifiedChat/types';
+import { MoneyNavigator } from '../capabilities/money/navigation/MoneyNavigator';
+import type { MoneyStackParamList } from '../capabilities/money/navigation/types';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -123,6 +125,7 @@ export type RootDrawerParamList = {
    * to the Arcs stack without relying on tab navigation.
    */
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
+  Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
@@ -350,7 +353,7 @@ const NAV_DRAWER_TOP_OFFSET = spacing.sm;
 // This ensures we don't restore stale navigation state that can prevent certain
 // screens (like Arcs or Goals) from being reachable or animating correctly.
 // Prefix with "kwilt" so new installs don't carry any legacy LOMO state keys.
-const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v4';
+const NAV_PERSISTENCE_KEY = 'kwilt-nav-state-v5';
 const NAV_RESTORE_TIMEOUT_MS = 2000;
 
 const STACK_SCREEN_OPTIONS: NativeStackNavigationOptions = {
@@ -643,6 +646,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               component={ArcsStackRedirectScreen}
               options={{ title: 'Arcs', drawerItemStyle: { display: 'none' } }}
             />
+            <Drawer.Screen
+              name="Money"
+              component={MoneyCapabilityHost}
+              options={{ title: 'Money', drawerItemStyle: { display: 'none' } }}
+            />
             {showDevTools ? (
               <Drawer.Screen
                 name="DevTools"
@@ -824,6 +832,14 @@ function CapabilityMainTabsHost() {
   return (
     <CapabilityShellProvider>
       <MainTabsNavigator />
+    </CapabilityShellProvider>
+  );
+}
+
+function MoneyCapabilityHost() {
+  return (
+    <CapabilityShellProvider>
+      <MoneyNavigator />
     </CapabilityShellProvider>
   );
 }

@@ -43,6 +43,31 @@ function parse(path: string): LeafRoute | null {
 }
 
 describe('linkingConfig', () => {
+  describe('Money capability deep links', () => {
+    test.each([
+      ['money', 'MoneySummary', ['Money', 'MoneySummary'], undefined],
+      ['money/transactions', 'MoneyTransactions', ['Money', 'MoneyTransactions'], undefined],
+      ['money/accounts', 'MoneyAccounts', ['Money', 'MoneyAccounts'], undefined],
+      [
+        'money/category/category-1',
+        'MoneyCategoryDetail',
+        ['Money', 'MoneyCategoryDetail'],
+        { categoryId: 'category-1' },
+      ],
+      [
+        'money/transaction/transaction-1',
+        'MoneyTransactionDetail',
+        ['Money', 'MoneyTransactionDetail'],
+        { transactionId: 'transaction-1' },
+      ],
+    ] as const)('resolves %s to %s', (path, name, routePath, params) => {
+      const leaf = parse(path);
+      expect(leaf?.name).toBe(name);
+      expect(leaf?.path).toEqual(routePath);
+      if (params) expect(leaf?.params).toEqual(params);
+    });
+  });
+
   describe('Phase 2 deep links (added for email CTAs)', () => {
     test('kwilt://chapters resolves to MoreChapters inside MoreTab', () => {
       const leaf = parse('chapters');

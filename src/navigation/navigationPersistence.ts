@@ -5,6 +5,7 @@ type RootRouteName =
   | 'Agent'
   | 'UnifiedChat'
   | 'ArcsStack'
+  | 'Money'
   | 'Settings'
   | 'DevTools';
 
@@ -61,6 +62,17 @@ const ARCS_STACK_SCHEMA: ChildSchema = {
   fallback: 'ArcsList',
 };
 
+const MONEY_STACK_SCHEMA: ChildSchema = {
+  allowed: [
+    'MoneySummary',
+    'MoneyTransactions',
+    'MoneyAccounts',
+    'MoneyCategoryDetail',
+    'MoneyTransactionDetail',
+  ],
+  fallback: 'MoneySummary',
+};
+
 const SETTINGS_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'SettingsHome',
@@ -97,6 +109,7 @@ function childSchemaForRoute(routeName: string): ChildSchema | null {
   if (routeName === 'ActivitiesTab') return ACTIVITIES_STACK_SCHEMA;
   if (routeName === 'MoreTab') return MORE_STACK_SCHEMA;
   if (routeName === 'MoreArcs' || routeName === 'ArcsStack') return ARCS_STACK_SCHEMA;
+  if (routeName === 'Money') return MONEY_STACK_SCHEMA;
   if (routeName === 'Settings') return SETTINGS_STACK_SCHEMA;
   return null;
 }
@@ -161,6 +174,7 @@ export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteN
     'Agent',
     'UnifiedChat',
     'ArcsStack',
+    'Money',
     'Settings',
     ...(showDevTools ? (['DevTools'] as const) : []),
   ];

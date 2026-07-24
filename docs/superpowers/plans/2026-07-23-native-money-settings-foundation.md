@@ -32,7 +32,7 @@ Run: `npm run product:lint`
 
 Expected: zero errors; existing unrelated warnings may remain.
 
-- [ ] **Step 4: Commit the reconciled contracts**
+- [x] **Step 4: Commit the reconciled contracts**
 
 ```bash
 git add docs
@@ -50,7 +50,7 @@ git commit -m "docs: accept native Money and shared settings program"
 - Test: `src/navigation/capabilityNavigation.test.ts`
 - Test: `src/navigation/placeTabs.test.ts`
 
-- [ ] **Step 1: Add failing registry and navigation expectations**
+- [x] **Step 1: Add failing registry and navigation expectations**
 
 ```ts
 expect(getCapability('money')).toMatchObject({
@@ -65,13 +65,13 @@ expect(resolveCapabilityNavigation('money')).toEqual({
 });
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm the new expectations fail**
+- [x] **Step 2: Run the focused tests and confirm the new expectations fail**
 
 Run: `npm test -- --runInBand src/capabilities/registry.test.ts src/navigation/CapabilityShellContext.test.ts src/navigation/capabilityNavigation.test.ts src/navigation/placeTabs.test.ts`
 
 Expected: fail because `money` is not a capability id or registered route.
 
-- [ ] **Step 3: Add the typed Money definition and root-route union**
+- [x] **Step 3: Add the typed Money definition and root-route union**
 
 ```ts
 export const moneyCapabilityDefinition = {
@@ -89,11 +89,11 @@ export const moneyCapabilityDefinition = {
 
 Update active-capability derivation and capability navigation to handle the non-`MainTabs` root without weakening existing typed targets. Keep Money out of the host place bar.
 
-- [ ] **Step 4: Run the focused tests**
+- [x] **Step 4: Run the focused tests**
 
 Expected: all four suites pass.
 
-- [ ] **Step 5: Commit capability registration**
+- [x] **Step 5: Commit capability registration**
 
 ```bash
 git add src/capabilities src/navigation/CapabilityShellContext.tsx src/navigation/CapabilityShellContext.test.ts src/navigation/capabilityNavigation.ts src/navigation/capabilityNavigation.test.ts src/navigation/placeTabs.ts src/navigation/placeTabs.test.ts
@@ -109,7 +109,6 @@ git commit -m "feat(money): register native Money capability"
 - Create: `src/capabilities/money/screens/MoneySummaryScreen.tsx`
 - Create: `src/capabilities/money/screens/MoneyTransactionsScreen.tsx`
 - Create: `src/capabilities/money/screens/MoneyAccountsScreen.tsx`
-- Create: `src/capabilities/money/runtime/MoneyRuntimeProvider.tsx`
 - Create: `src/capabilities/money/runtime/moneyLifecycle.ts`
 - Modify: `src/navigation/RootNavigator.tsx`
 - Modify: `src/navigation/linkingConfig.ts`
@@ -118,7 +117,7 @@ git commit -m "feat(money): register native Money capability"
 - Test: `src/navigation/linkingConfig.test.ts`
 - Test: `src/navigation/navigationPersistence.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle, deep-link, and persistence tests**
+- [x] **Step 1: Write failing lifecycle, deep-link, and persistence tests**
 
 ```ts
 expect(moneyLifecycle.getSnapshot()).toEqual({ active: false, activationCount: 0 });
@@ -131,19 +130,19 @@ expect(moneyLifecycle.getSnapshot().active).toBe(false);
 
 Deep-link tests must resolve `/money`, `/money/transactions`, `/money/accounts`, `/money/category/:categoryId`, and `/money/transaction/:transactionId`. Persistence tests must sanitize unknown Money detail state safely and preserve known roots.
 
-- [ ] **Step 2: Run the focused tests and confirm failure**
+- [x] **Step 2: Run the focused tests and confirm failure**
 
 Run: `npm test -- --runInBand src/capabilities/money/runtime/moneyLifecycle.test.ts src/navigation/linkingConfig.test.ts src/navigation/navigationPersistence.test.ts`
 
-- [ ] **Step 3: Implement the nested navigator and idempotent lifecycle**
+- [x] **Step 3: Implement the nested navigator and idempotent lifecycle**
 
-The structural screens must contain no fixture amounts and must not import Supabase, Plaid, Skia, LocalAuthentication, widgets, or Screen Time. `MoneyRuntimeProvider` activates on mount and deactivates on unmount; the lifecycle object owns later cleanup registration.
+The structural screens must contain no fixture amounts and must not import Supabase, Plaid, Skia, LocalAuthentication, widgets, or Screen Time. Reuse the existing `CapabilityLifecycleCoordinator`; the Money definition delegates to the idempotent lifecycle object, which owns later cleanup registration. Do not add a second runtime provider.
 
-- [ ] **Step 4: Register the root and links**
+- [x] **Step 4: Register the root and links**
 
 Add `Money: NavigatorScreenParams<MoneyStackParamList> | undefined` to `RootDrawerParamList`, mount `MoneyNavigator` in the root stack, and bump the persisted navigation key with deterministic migration.
 
-- [ ] **Step 5: Run focused navigation and lifecycle tests**
+- [x] **Step 5: Run focused navigation and lifecycle tests**
 
 Expected: all new and modified suites pass.
 
