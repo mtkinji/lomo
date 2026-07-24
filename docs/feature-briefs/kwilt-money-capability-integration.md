@@ -5,12 +5,12 @@ status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
-job_flow: job-flow-maya-move-family-life-forward
-serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
+job_flow: job-flow-maya-review-budget-reality-before-spending
+serves: [jtbd-review-budget-reality-before-spending, jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-unified-chat, brief-screen-time-controls-contextual-setup]
 exploration: docs/design-explorations/kwilt-money-native-settings
 owner: andrew
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 ---
 
 # Kwilt Money Capability Integration
@@ -35,6 +35,9 @@ Primary audience: `audience-aspirational-family-organizers`.
 Maya wants household finances to stay understandable and current without becoming a
 finance hobby. She will tolerate a staged integration, but not misleading financial state,
 lost data, repeated onboarding, surprise permission requests, or an app-within-an-app.
+
+Canonical demand flow:
+[`job-flow-maya-review-budget-reality-before-spending`](../job-flows/maya-review-budget-reality-before-spending.md).
 
 ## Aspirational design challenge
 

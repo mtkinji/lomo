@@ -12,6 +12,7 @@ Auto-discoverable list of every JTBD id. Read by `assess-against-jtbd` and `desi
 - **jtbd-move-the-few-things-that-matter** — *Help me make real progress in the few areas I most want to grow.* (Goals)
   - jtbd-carry-intentions-into-action
   - jtbd-put-intention-before-impulse
+    - jtbd-review-budget-reality-before-spending
 - **jtbd-capture-and-find-meaning** — *Help me capture what I actually do and find meaning in it without it becoming admin work.* (Activities)
 - **jtbd-make-sense-of-the-season** — *Help me understand the season of life I just lived through.* (Chapters)
 - **jtbd-invite-the-right-people-in** — *Help me invite the right people into my becoming without losing privacy.* (Cross-cutting / shared goals / social)

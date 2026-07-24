@@ -3,7 +3,7 @@ id: job-flow-maya-move-family-life-forward
 audience: audience-aspirational-family-organizers
 persona: Maya
 hero_jtbd: jtbd-move-the-few-things-that-matter
-last_updated: 2026-06-22
+last_updated: 2026-07-24
 ---
 
 # Maya: Move Family Life Forward
@@ -36,7 +36,10 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
 2. Goals and Arcs can anchor important work, but ordinary family tasks may remain unanchored.
 3. Views exist for All to-dos, Due today, Past due, and custom configurations.
 4. Activity scheduling and Auto-Schedule Assist are planned surfaces for time placement.
-5. Kwilt Money exists as a separate TestFlight application using the shared backend identity; native Kwilt does not yet expose its financial surfaces.
+5. Native Money now exposes Summary, Transactions, Accounts, correction,
+   planning, forecast, and app-control surfaces inside the shared Kwilt shell.
+   See the specialist
+   [Money job flow](maya-review-budget-reality-before-spending.md).
 6. Shared-goal and accountability surfaces exist, but family-wide adoption is not the primary Activities frame today.
 
 ## Offerings
@@ -46,7 +49,7 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
 - System and custom views.
 - Goal/Arc linkage when useful.
 - Scheduling and calendar planning surfaces.
-- Standalone Kwilt Money financial workflows pending native capability integration.
+- Native Kwilt Money financial workflows and bounded Money evidence in Chat.
 - Shared goal/accountability foundations.
 
 ## Delivery Score
@@ -56,7 +59,7 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
 | Capture to-do | 4 | Quick Add and Activities support low-friction capture. |
 | Trust it won't disappear | 3 | Activities persist, but crowded lists can feel hard to re-enter. |
 | See what matters | 2 | Current views show dates/status, but not a family-friendly priority model. |
-| Review household money reality | 1 | Money is not yet available inside the one Kwilt app, so this job requires a separate product surface. |
+| Review household money reality | 3 | Native Money now covers the core read, correction, planning, forecast, and app-control paths, but signed-device/TestFlight parity and longitudinal use remain unproven. |
 | Know next doable action | 2 | Recommendations exist in places, but organization and scheduling constraints are not yet unified. |
 | Schedule or hand off | 2 | Scheduling and sharing foundations exist, but this flow is not yet cohesive. |
 | Family participation | 2 | Shared goal/accountability work exists, but ordinary household to-do adoption is early. |
@@ -67,7 +70,8 @@ Maya is using Kwilt because it helps her and her family keep track of real-life 
 - Maya needs organization that works without power-user setup.
 - Priority needs to account for actionability, scheduling, and family constraints.
 - Views should feel like helpful defaults, not a system she has to design.
-- Household money should be trustworthy inside Kwilt without duplicating identity, settings, or product navigation.
+- Household Money is native, but its same-account parity, Plaid, privacy,
+  widget, and Screen Time boundaries still need signed-device/TestFlight proof.
 
 ## Aspirational Design Challenge
 
