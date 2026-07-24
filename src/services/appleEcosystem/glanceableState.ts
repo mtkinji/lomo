@@ -80,6 +80,8 @@ export type GlanceableMoneyCategory = {
   id: string;
   name: string;
   percentUsed: number;
+  periodElapsedPercent: number;
+  paceSentiment: 'under' | 'on-track' | 'over';
   status: 'on_track' | 'near_limit' | 'over';
   deepLink: string;
 };
@@ -382,4 +384,3 @@ export function buildMomentumSnapshot(params: {
     showUpStreakDays: typeof showUpStreakDays === 'number' ? showUpStreakDays : undefined,
   };
 }
-

@@ -23,7 +23,7 @@ Still intentionally not supported in the first release:
 
 ## User Experience
 
-The avatar opens the refactored global Settings home. Money appears once in the capability menu. Entering Money activates its runtime and opens Summary; a compact local place control switches to Transactions or Accounts. Detail screens preserve local back behavior. Leaving Money deactivates foreground resources. Protected Money content uses a capability-local privacy gate.
+The avatar opens the refactored global Settings home. Money appears as a group with direct Summary, Transactions, and Accounts rows in the capability menu. Any of those destinations activates the same Money runtime and opens the selected standalone-derived inventory. There is no Money-local place control or bottom bar. Detail screens preserve back behavior. Leaving Money deactivates foreground resources. Protected Money content uses a capability-local privacy gate.
 
 ## Existing Product Relationship
 

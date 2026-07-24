@@ -1,248 +1,255 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import * as Haptics from 'expo-haptics';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { colors, fonts, spacing } from '../../../theme';
 import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
-import { colors, spacing } from '../../../theme';
-import { Button } from '../../../ui/Button';
-import { Heading, Text } from '../../../ui/Typography';
+import { Icon } from '../../../ui/Icon';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../ui/DropdownMenu';
+import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
 import { formatMoney, formatMoneyFreshness } from '../data/moneySnapshot';
 import { useMoneyData } from '../data/MoneyDataContext';
-import { getLivingPlanSettings, type LivingPlanReceipt } from '../data/livingPlanRepository';
-import { getLivingPlanNoticeContent, type LivingPlanNoticeContent } from '../domain/living-plan-notice';
-import { buildMoneyGoalBridgeDraft } from '../domain/moneyGoalBridge';
+import { projectMoneyPeriodView, type MoneyPeriodView } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
-import type { MoneyPlaceRouteName } from '../navigation/types';
+import { MoneyCategoryMeterTile } from '../components/MoneyCategoryMeterTile';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+
+const MONTH_RADIUS = 12;
+const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const { snapshot } = useMoneyData();
-  const [planNotice, setPlanNotice] = useState<{ receipt: LivingPlanReceipt; content: LivingPlanNoticeContent } | null>(null);
-  const goalDraft = snapshot ? buildMoneyGoalBridgeDraft(snapshot.categories) : null;
+  const { width: windowWidth } = useWindowDimensions();
+  const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
+  const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
+  const pagerWidth = measuredPagerWidth > 24
+    ? measuredPagerWidth
+    : Math.max(1, windowWidth - spacing.sm * 4);
+  const periods = useMemo(() => {
+    if (!snapshot) return [];
+    return Array.from({ length: MONTH_RADIUS * 2 + 1 }, (_, index) => (
+      projectMoneyPeriodView(snapshot, index - MONTH_RADIUS)
+    ));
+  }, [snapshot]);
+  const currentPeriod = periods[currentMonthIndex] ?? periods[INITIAL_MONTH_INDEX];
 
-  useFocusEffect(useCallback(() => {
-    let cancelled = false;
-    void getLivingPlanSettings(getSupabaseClient())
-      .then((settings) => {
-        if (cancelled) return;
-        const receipt = settings.receipts.find((candidate) => getLivingPlanNoticeContent(candidate));
-        const content = getLivingPlanNoticeContent(receipt);
-        setPlanNotice(receipt && content ? { receipt, content } : null);
-      })
-      .catch(() => {
-        if (!cancelled) setPlanNotice(null);
-      });
-    return () => { cancelled = true; };
-  }, []));
+  const scrollToMonth = useCallback((nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= periods.length) return;
+    pagerRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    setCurrentMonthIndex(nextIndex);
+    void Haptics.selectionAsync();
+  }, [periods.length]);
+
+  const handleMomentumEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (pagerWidth <= 0) return;
+    const nextIndex = Math.max(0, Math.min(periods.length - 1, Math.round(event.nativeEvent.contentOffset.x / pagerWidth)));
+    if (nextIndex !== currentMonthIndex) {
+      setCurrentMonthIndex(nextIndex);
+      void Haptics.selectionAsync();
+    }
+  }, [currentMonthIndex, pagerWidth, periods.length]);
+
+  const summaryMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Pressable accessibilityRole="button" accessibilityLabel="Summary options" style={styles.headerMoreButton}>
+          <Icon name="more" size={22} color={colors.textPrimary} />
+        </Pressable>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" sideOffset={6}>
+        <SummaryMenuItem icon="plus" label="Add category" onPress={() => navigation.navigate('MoneyCategoryCreate')} />
+        <SummaryMenuItem icon="receipt" label="Transactions" onPress={() => navigation.navigate('MoneyTransactions', {})} />
+        <SummaryMenuItem
+          icon="settings"
+          label="Settings"
+          onPress={() => rootNavigationRef.navigate('Settings', { screen: 'SettingsHome' })}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
-    <MoneyScreenFrame
-      activePlace="MoneySummary"
-      onSelectPlace={(place) => (navigation.navigate as (route: MoneyPlaceRouteName) => void)(place)}
-      title="Money"
-    >
-      {snapshot ? (
-        <>
-          <View style={styles.hero}>
-            <Text variant="label" tone="secondary">Left in {snapshot.periodLabel}</Text>
-            <Heading variant="xl">{formatMoney(snapshot.totals.remainingCents)}</Heading>
-            <Text tone="secondary">
-              {formatMoney(snapshot.totals.spentCents)} spent of {formatMoney(snapshot.totals.plannedCents)} planned
-            </Text>
-            <Text tone="muted">{formatMoneyFreshness(snapshot.lastSyncedAt)}</Text>
-          </View>
-
-          <View style={styles.forecastCard}>
-            <View style={styles.rowBetween}>
-              <View style={styles.flex}>
-                <Text variant="label">Projected this month</Text>
-                <Text tone="secondary">
-                  {snapshot.forecast.projectedOverageCents > 0
-                    ? `${formatMoney(snapshot.forecast.projectedOverageCents)} over the plan`
-                    : `${formatMoney(snapshot.forecast.projectedRemainingCents)} projected left`}
-                </Text>
-              </View>
-              <Heading variant="sm">{formatMoney(snapshot.forecast.projectedSpendCents)}</Heading>
+    <MoneyScreenFrame moreMenu={summaryMenu} title="Summary">
+      {snapshot && currentPeriod ? (
+        <View
+          style={styles.monthSwipeSurface}
+          onLayout={(event) => {
+            const width = Math.round(event.nativeEvent.layout.width);
+            if (width > 24) setMeasuredPagerWidth(width);
+          }}
+        >
+          <View style={styles.monthHeader}>
+            <View style={styles.monthPicker}>
+              <MonthArrow
+                direction="left"
+                disabled={currentMonthIndex === 0}
+                label={`Show previous month from ${currentPeriod.periodLabel}`}
+                onPress={() => scrollToMonth(currentMonthIndex - 1)}
+              />
+              <MonthArrow
+                direction="right"
+                disabled={currentMonthIndex === periods.length - 1}
+                label={`Show next month from ${currentPeriod.periodLabel}`}
+                onPress={() => scrollToMonth(currentMonthIndex + 1)}
+              />
+              <Text numberOfLines={1} style={styles.monthTitle}>{currentPeriod.periodLabel}</Text>
             </View>
-            <Text tone="muted">
-              {formatMoney(snapshot.forecast.projectionRangeLowCents)}–{formatMoney(snapshot.forecast.projectionRangeHighCents)} range · {snapshot.forecast.confidence} confidence
-            </Text>
-          </View>
-
-          {planNotice ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => navigation.navigate('MoneyLivingPlanReceipt', { receiptId: planNotice.receipt.id })}
-              style={styles.noticeCard}
+              accessibilityLabel="Add category"
+              hitSlop={10}
+              onPress={() => navigation.navigate('MoneyCategoryCreate')}
+              style={({ pressed }) => [styles.iconButton, pressed ? styles.iconButtonPressed : null]}
             >
-              <Text variant="label">{planNotice.content.title}</Text>
-              <Text tone="secondary">{planNotice.content.body}</Text>
-              <Text variant="label" tone="accent">Review what changed</Text>
-            </Pressable>
-          ) : null}
-
-          {snapshot.outsidePlan.transactionCount > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('MoneyTransactions', { reviewState: 'needs_review' })}
-              style={styles.reviewCard}
-            >
-              <Text variant="label">{formatMoney(snapshot.outsidePlan.spentCents)} outside the plan</Text>
-              <Text tone="secondary">
-                {snapshot.outsidePlan.transactionCount} {snapshot.outsidePlan.transactionCount === 1 ? 'transaction needs' : 'transactions need'} a category or an explicit exclusion.
-              </Text>
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('MoneyLivingPlan')}
-            style={styles.reviewCard}
-          >
-            <Text variant="label">Automatic plan</Text>
-            <Text tone="secondary">Set a living target, review versioned changes, and reverse the active update.</Text>
-          </Pressable>
-
-          {snapshot.totals.needsReviewCount > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('MoneyTransactions', { reviewState: 'needs_review' })}
-              style={styles.reviewCard}
-            >
-              <Text variant="label">{snapshot.totals.needsReviewCount} {snapshot.totals.needsReviewCount === 1 ? 'transaction needs' : 'transactions need'} review</Text>
-              <Text tone="secondary">Open Transactions to see what is not assigned.</Text>
-            </Pressable>
-          ) : null}
-
-          {goalDraft ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => rootNavigationRef.navigate('MainTabs', {
-                screen: 'GoalsTab',
-                params: {
-                  screen: 'GoalsList',
-                  params: {
-                    openCreateGoal: true,
-                    prefilledGoalTitle: goalDraft.title,
-                    prefilledGoalDescription: goalDraft.description,
-                    goalCreationInitialTab: 'manual',
-                  },
-                },
-              })}
-              style={styles.reviewCard}
-            >
-              <Text variant="label">Turn this pattern into a goal</Text>
-              <Text tone="secondary">{goalDraft.evidenceLabel}. Start with a private draft; transaction rows stay in Money.</Text>
-              <Text variant="label" tone="accent">Draft a goal</Text>
-            </Pressable>
-          ) : null}
-
-          <View style={styles.sectionHeader}>
-            <Heading variant="sm">Categories</Heading>
-            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('MoneyCategoryCreate')}>
-              <Text variant="label" tone="accent">Add category</Text>
+              <Icon name="plus" size={20} color={colors.textPrimary} />
             </Pressable>
           </View>
 
-          {snapshot.categories.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Heading variant="sm">No Money plan yet</Heading>
-              <Text tone="secondary">Choose a living target and connect account evidence to build your first plan.</Text>
-              <Button fullWidth onPress={() => navigation.navigate('MoneySetup')} variant="primary">Set up Money</Button>
-            </View>
-          ) : snapshot.categories.map((category) => (
-            <Pressable
-              key={category.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${category.name}, ${formatMoney(category.spentCents)} spent of ${formatMoney(category.plannedCents)}`}
-              onPress={() => navigation.navigate('MoneyCategoryDetail', { categoryId: category.id })}
-              style={({ pressed }) => [styles.categoryCard, pressed ? styles.pressed : null]}
-            >
-              <View style={styles.rowBetween}>
-                <View style={styles.flex}>
-                  <Heading variant="sm">{category.name}</Heading>
-                  <Text tone="secondary">{formatMoney(category.spentCents)} of {formatMoney(category.plannedCents)}</Text>
-                </View>
-                <Text variant="label">{formatMoney(category.remainingCents)} left</Text>
-              </View>
-              <View style={styles.track}>
-                <View
-                  style={[
-                    styles.fill,
-                    {
-                      backgroundColor: category.accentColor,
-                      width: `${Math.min(100, Math.max(0, category.percentUsed))}%`,
-                    },
-                  ]}
-                />
-              </View>
-            </Pressable>
-          ))}
-        </>
+          <FlatList
+            ref={pagerRef}
+            horizontal
+            pagingEnabled
+            data={periods}
+            keyExtractor={(period) => `money-month-${period.monthOffset}`}
+            initialScrollIndex={INITIAL_MONTH_INDEX}
+            getItemLayout={(_, index) => ({ index, length: pagerWidth, offset: pagerWidth * index })}
+            onMomentumScrollEnd={handleMomentumEnd}
+            onScrollToIndexFailed={({ index }) => {
+              requestAnimationFrame(() => pagerRef.current?.scrollToIndex({ index, animated: false }));
+            }}
+            renderItem={({ item }) => (
+              <SummaryMonthPanel
+                pageWidth={pagerWidth}
+                period={item}
+                freshness={formatMoneyFreshness(snapshot.lastSyncedAt)}
+                onOpenCategory={(categoryId) => navigation.navigate('MoneyCategoryDetail', { categoryId, monthOffset: item.monthOffset })}
+              />
+            )}
+            bounces={false}
+            showsHorizontalScrollIndicator={false}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            windowSize={3}
+            style={styles.monthPager}
+          />
+        </View>
       ) : null}
     </MoneyScreenFrame>
   );
 }
 
+function SummaryMonthPanel({
+  freshness,
+  onOpenCategory,
+  pageWidth,
+  period,
+}: {
+  freshness: string;
+  onOpenCategory: (categoryId: string) => void;
+  pageWidth: number;
+  period: MoneyPeriodView;
+}) {
+  const cardWidth = Math.max(1, Math.floor((pageWidth - spacing.sm) / 2));
+  return (
+    <View style={[styles.monthBody, { width: pageWidth }]}>
+      <View style={styles.categoryGrid}>
+        {period.categories.map((category) => (
+          <MoneyCategoryMeterTile
+            key={category.id}
+            category={category}
+            periodElapsedPercent={period.periodElapsedPercent}
+            onPress={() => onOpenCategory(category.id)}
+            style={{ width: cardWidth, flexBasis: cardWidth, flexGrow: 0, maxWidth: cardWidth }}
+          />
+        ))}
+      </View>
+      <View style={styles.totalSection}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalValue}>
+            {formatMoney(period.totals.spentCents)} / {formatMoney(period.totals.plannedCents)} ({period.totals.percentUsed}%)
+          </Text>
+        </View>
+        <Text style={styles.remainingLabel}>{formatMoney(period.totals.remainingCents)} left across planned categories</Text>
+      </View>
+      <Text style={styles.updatedLabel}>{period.monthOffset === 0 ? `Connected accounts · ${freshness}` : 'Saved transaction history'}</Text>
+    </View>
+  );
+}
+
+function MonthArrow({ direction, disabled, label, onPress }: {
+  direction: 'left' | 'right';
+  disabled: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={10}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.iconButton,
+        styles.monthArrowButton,
+        disabled ? styles.iconButtonDisabled : null,
+        pressed ? styles.iconButtonPressed : null,
+      ]}
+    >
+      <Icon name={direction === 'left' ? 'chevronLeft' : 'chevronRight'} size={22} color={disabled ? colors.textSecondary : colors.textPrimary} />
+    </Pressable>
+  );
+}
+
+function SummaryMenuItem({ icon, label, onPress }: {
+  icon: 'plus' | 'receipt' | 'settings';
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <DropdownMenuItem onPress={onPress} accessibilityLabel={label}>
+      <View style={menuStyles.menuItemRow}>
+        <Icon name={icon} size={18} color={colors.textPrimary} />
+        <Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text>
+      </View>
+    </DropdownMenuItem>
+  );
+}
+
 const styles = StyleSheet.create({
-  hero: {
-    gap: spacing.xs,
-    padding: spacing.lg,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  reviewCard: {
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.fieldFill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  noticeCard: {
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.fieldFill,
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  forecastCard: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  categoryCard: {
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  emptyCard: {
-    gap: spacing.xs,
-    padding: spacing.lg,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, justifyContent: 'space-between' },
-  flex: { flex: 1, gap: 2 },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.shellAlt },
-  fill: { height: '100%', borderRadius: 4 },
-  pressed: { opacity: 0.72 },
+  headerMoreButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  monthSwipeSurface: { gap: spacing.lg, overflow: 'hidden' },
+  monthPager: { overflow: 'hidden' },
+  monthHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  monthPicker: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  monthTitle: { flexShrink: 1, marginLeft: spacing.xs, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  monthArrowButton: { width: 32, height: 32 },
+  iconButtonPressed: { backgroundColor: colors.fieldFillPressed },
+  iconButtonDisabled: { opacity: 0.35 },
+  monthBody: { minHeight: 520, gap: spacing.lg },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md, columnGap: spacing.sm },
+  totalSection: { gap: spacing.xs, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder, paddingVertical: spacing.lg },
+  totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  totalLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  totalValue: { color: colors.textPrimary, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  remainingLabel: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  updatedLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
 });

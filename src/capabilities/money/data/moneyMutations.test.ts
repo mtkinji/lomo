@@ -101,6 +101,20 @@ describe('buildMerchantRuleUpsert', () => {
     });
   });
 
+  it('reduces a partial merchant rule to the stable merchant key', () => {
+    expect(buildMerchantRuleUpsert({
+      userId: 'user-1',
+      transactionId: 'transaction-1',
+      merchantName: "Trader Joe's #01234 Market",
+      categoryId: 'category-1',
+      categoryName: 'Groceries',
+      matchMode: 'partial',
+    })).toMatchObject({
+      merchant_contains: 'trader joe',
+      merchant_match_mode: 'partial',
+    });
+  });
+
   it('rejects a rule without a usable merchant or category', () => {
     expect(() => buildMerchantRuleUpsert({
       userId: 'user-1', transactionId: 'transaction-1', merchantName: '---', categoryId: 'category-1', categoryName: 'Groceries',

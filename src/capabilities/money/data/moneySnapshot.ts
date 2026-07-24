@@ -57,6 +57,8 @@ export type MoneyTransactionRow = {
   financial_account_id: string | null;
   name: string;
   merchant_name: string | null;
+  original_description?: string | null;
+  authorized_date?: string | null;
   amount_cents: number;
   direction: 'inflow' | 'outflow';
   date: string;
@@ -65,6 +67,9 @@ export type MoneyTransactionRow = {
   budget_id: string | null;
   budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | null;
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
+  personal_finance_category_primary?: string | null;
+  personal_finance_category_detailed?: string | null;
+  personal_finance_category_confidence?: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
 };
 
 export type MoneyCategory = {
@@ -79,6 +84,12 @@ export type MoneyCategory = {
   percentUsed: number;
   transactionCount: number;
   rolloverEnabled: boolean;
+  forecastSettings?: {
+    mode: MoneyForecastMode;
+    manualProjectedSpendCents: number | null;
+    scheduledAmountCents: number | null;
+    scheduledDueDay: number | null;
+  };
   forecast: MoneyCategoryForecast;
 };
 
@@ -87,6 +98,14 @@ export type MoneyTransaction = {
   accountId: string | null;
   accountName: string;
   institutionName: string;
+  originalDescription?: string;
+  authorizedDate?: string | null;
+  accountMask?: string | null;
+  accountType?: string | null;
+  accountSubtype?: string | null;
+  providerCategoryPrimary?: string | null;
+  providerCategoryDetailed?: string | null;
+  providerCategoryConfidence?: MoneyTransactionRow['personal_finance_category_confidence'];
   merchantName: string;
   amountCents: number;
   direction: 'inflow' | 'outflow';
@@ -213,6 +232,12 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         percentUsed: plannedCents > 0 ? Math.round((spentCents / plannedCents) * 100) : 0,
         transactionCount: categoryTransactions.length,
         rolloverEnabled: plan?.rollover_enabled === true,
+        forecastSettings: {
+          mode: plan?.forecast_mode ?? 'paced',
+          manualProjectedSpendCents: plan?.manual_projected_spend_cents ?? null,
+          scheduledAmountCents: plan?.scheduled_amount_cents ?? null,
+          scheduledDueDay: plan?.scheduled_due_day ?? null,
+        },
         forecast,
       };
     });
@@ -316,6 +341,14 @@ function projectTransaction(
     accountId: transaction.financial_account_id,
     accountName: account?.official_name?.trim() || account?.name.trim() || 'Unknown account',
     institutionName: connection?.institution_name?.trim() || 'Linked institution',
+    originalDescription: transaction.original_description?.trim() || transaction.name.trim() || transaction.merchant_name?.trim() || 'Transaction',
+    authorizedDate: transaction.authorized_date ?? null,
+    accountMask: account?.mask?.trim() || null,
+    accountType: account?.type ?? null,
+    accountSubtype: account?.subtype ?? null,
+    providerCategoryPrimary: transaction.personal_finance_category_primary ?? null,
+    providerCategoryDetailed: transaction.personal_finance_category_detailed ?? null,
+    providerCategoryConfidence: transaction.personal_finance_category_confidence ?? null,
     merchantName: transaction.merchant_name?.trim() || transaction.name.trim() || 'Transaction',
     amountCents: validCents(transaction.amount_cents),
     direction: transaction.direction,

@@ -13,10 +13,11 @@ function categoryStatus(percentUsed: number): GlanceableMoney['categories'][numb
   return 'on_track';
 }
 
-export function buildMoneyGlanceableSnapshot(snapshot: MoneySnapshot): GlanceableMoney {
+export function buildMoneyGlanceableSnapshot(snapshot: MoneySnapshot, now = new Date()): GlanceableMoney {
   const percentUsed = snapshot.totals.plannedCents > 0
     ? safePercent((snapshot.totals.spentCents / snapshot.totals.plannedCents) * 100)
     : 0;
+  const periodElapsedPercent = getPeriodElapsedPercent(now);
 
   return {
     periodLabel: snapshot.periodLabel,
@@ -29,13 +30,23 @@ export function buildMoneyGlanceableSnapshot(snapshot: MoneySnapshot): Glanceabl
           id: category.id,
           name: category.name,
           percentUsed: categoryPercentUsed,
+          periodElapsedPercent,
+          paceSentiment: categoryPercentUsed <= periodElapsedPercent
+            ? 'under' as const
+            : categoryPercentUsed < 100
+              ? 'on-track' as const
+              : 'over' as const,
           status: categoryStatus(categoryPercentUsed),
           deepLink: `kwilt://money/category/${encodeURIComponent(category.id)}?source=widget`,
         };
       })
       .sort((left, right) => right.percentUsed - left.percentUsed || left.name.localeCompare(right.name))
-      .slice(0, 3),
   };
+}
+
+function getPeriodElapsedPercent(now = new Date()): number {
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.round((now.getDate() / daysInMonth) * 100);
 }
 
 export async function syncMoneyGlanceableState(snapshot: MoneySnapshot): Promise<void> {

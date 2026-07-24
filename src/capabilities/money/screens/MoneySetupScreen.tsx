@@ -9,7 +9,7 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { getLivingPlanSettings, saveLivingPlanPromotionEnabled, saveLivingTargetIntent } from '../data/livingPlanRepository';
 import { buildMoneyOnboardingTarget, getMoneyOnboardingCompletionDecision, shouldOfferMoneyOnboarding } from '../domain/moneyOnboarding';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
-import type { MoneyPlaceRouteName, MoneyStackParamList } from '../navigation/types';
+import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { completeMoneyOnboarding, loadMoneyOnboardingState } from '../runtime/moneyOnboardingStorage';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
@@ -109,8 +109,6 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
 
   return (
     <MoneyScreenFrame
-      activePlace="MoneySummary"
-      onSelectPlace={(place) => (navigation.navigate as (route: MoneyPlaceRouteName) => void)(place)}
       title="Set up Money"
     >
       <View style={styles.progress} accessibilityLabel={`Money setup step ${stepNumber(step)} of 4`}>

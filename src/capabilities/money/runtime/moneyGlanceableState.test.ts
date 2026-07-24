@@ -64,7 +64,7 @@ function snapshot(): MoneySnapshot {
 
 describe('buildMoneyGlanceableSnapshot', () => {
   it('publishes progress without dollar amounts, merchants, or account details', () => {
-    const result = buildMoneyGlanceableSnapshot(snapshot());
+    const result = buildMoneyGlanceableSnapshot(snapshot(), new Date(2026, 6, 24));
 
     expect(result).toEqual({
       periodLabel: 'July 2026',
@@ -74,14 +74,18 @@ describe('buildMoneyGlanceableSnapshot', () => {
         {
           id: 'fun',
           name: 'Fun',
+          paceSentiment: 'over',
           percentUsed: 130,
+          periodElapsedPercent: 77,
           status: 'over',
           deepLink: 'kwilt://money/category/fun?source=widget',
         },
         {
           id: 'groceries',
           name: 'Groceries',
+          paceSentiment: 'on-track',
           percentUsed: 80,
+          periodElapsedPercent: 77,
           status: 'on_track',
           deepLink: 'kwilt://money/category/groceries?source=widget',
         },
@@ -90,7 +94,7 @@ describe('buildMoneyGlanceableSnapshot', () => {
     expect(JSON.stringify(result)).not.toMatch(/64000|36000|merchant|account/i);
   });
 
-  it('caps invalid percentages and limits the widget to three categories', () => {
+  it('caps invalid percentages and publishes every category for widget configuration', () => {
     const input = snapshot();
     input.categories = [
       ...input.categories,
@@ -98,9 +102,9 @@ describe('buildMoneyGlanceableSnapshot', () => {
       { ...input.categories[0], id: 'two', name: 'Two', percentUsed: Number.NaN },
     ];
 
-    const result = buildMoneyGlanceableSnapshot(input);
+    const result = buildMoneyGlanceableSnapshot(input, new Date(2026, 6, 24));
 
-    expect(result.categories).toHaveLength(3);
+    expect(result.categories).toHaveLength(4);
     expect(result.categories.every((category) => category.percentUsed >= 0 && category.percentUsed <= 999)).toBe(true);
   });
 });

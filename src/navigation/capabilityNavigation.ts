@@ -1,5 +1,5 @@
-import { getCapability } from '../capabilities/registry';
-import type { CapabilityId } from '../capabilities/types';
+import { getCapability, getCapabilityMenuDestination } from '../capabilities/registry';
+import type { CapabilityNavigationId } from '../capabilities/types';
 
 export type CapabilityNavigationTarget =
   | {
@@ -32,8 +32,10 @@ export type CapabilityNavigationTarget =
       params: { screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' };
     };
 
-export function resolveCapabilityNavigation(id: CapabilityId): CapabilityNavigationTarget {
-  const { rootRoute } = getCapability(id);
+export function resolveCapabilityNavigation(id: CapabilityNavigationId): CapabilityNavigationTarget {
+  const { rootRoute } = id.startsWith('money-')
+    ? getCapabilityMenuDestination(id as 'money-summary' | 'money-transactions' | 'money-accounts')
+    : getCapability(id as Parameters<typeof getCapability>[0]);
 
   if (rootRoute.root === 'Money') {
     return { name: 'Money', params: { screen: rootRoute.screen } };

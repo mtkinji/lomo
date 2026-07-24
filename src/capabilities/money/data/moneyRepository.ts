@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
+import type { MoneyForecastMode } from '../domain/moneyForecast';
 import { collectAllPages } from '../domain/living-plan-pagination';
 import {
   projectMoneySnapshot,
@@ -24,6 +25,7 @@ type ReadResult = { data: unknown; error: { message?: string } | null };
 
 type MoneyReadQuery = PromiseLike<ReadResult> & {
   eq(column: string, value: unknown): MoneyReadQuery;
+  in(column: string, values: unknown[]): MoneyReadQuery;
   limit(count: number): MoneyReadQuery;
   neq(column: string, value: unknown): MoneyReadQuery;
   order(column: string, options?: { ascending?: boolean }): MoneyReadQuery;
@@ -48,12 +50,18 @@ export interface MoneyRepository {
     merchantName: string;
     categoryId: string;
     categoryName: string;
+    matchMode?: 'exact' | 'partial';
+    similarTransactionIds?: string[];
   }): Promise<MoneySnapshot>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
   renameCategory(categoryId: string, name: string): Promise<MoneySnapshot>;
   updateCategoryPlan(categoryId: string, input: {
     budgetCents?: number;
     rolloverEnabled?: boolean;
+    forecastMode?: MoneyForecastMode;
+    manualProjectedSpendCents?: number | null;
+    scheduledAmountCents?: number | null;
+    scheduledDueDay?: number | null;
   }): Promise<MoneySnapshot>;
 }
 
@@ -107,6 +115,8 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 financial_account_id,
                 name,
                 merchant_name,
+                original_description,
+                authorized_date,
                 amount_cents,
                 direction,
                 date,
@@ -115,6 +125,9 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 budget_id,
                 budget_match_source,
                 money_meaning,
+                personal_finance_category_primary,
+                personal_finance_category_detailed,
+                personal_finance_category_confidence,
                 budget_financial_connections!inner(environment)
             `), 'budget_financial_connections.environment')
             .order('date', { ascending: false })
@@ -162,6 +175,13 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     async saveMerchantRule(input) {
       const userId = await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
+      const similarTransactionIds = [...new Set((input.similarTransactionIds ?? []).map((id) => id.trim()).filter(Boolean))];
+      if (similarTransactionIds.length > 0) {
+        await readPart<unknown[]>('similar transaction review', db
+          .from('budget_transactions')
+          .update(buildTransactionReviewUpdate({ type: 'category', categoryId: input.categoryId }))
+          .in('id', similarTransactionIds));
+      }
       await readPart<unknown[]>('merchant rule', db
         .from('budget_transaction_match_rules')
         .upsert(buildMerchantRuleUpsert({ userId, ...input }), {
@@ -207,6 +227,22 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         update.base_budget_cents = input.budgetCents;
       }
       if (input.rolloverEnabled != null) update.rollover_enabled = input.rolloverEnabled;
+      if (input.forecastMode != null) update.forecast_mode = input.forecastMode;
+      if ('manualProjectedSpendCents' in input) {
+        validateNullableCents(input.manualProjectedSpendCents, 'manual forecast');
+        update.manual_projected_spend_cents = input.manualProjectedSpendCents ?? null;
+      }
+      if ('scheduledAmountCents' in input) {
+        validateNullableCents(input.scheduledAmountCents, 'scheduled amount');
+        update.scheduled_amount_cents = input.scheduledAmountCents ?? null;
+      }
+      if ('scheduledDueDay' in input) {
+        const day = input.scheduledDueDay;
+        if (day != null && (!Number.isInteger(day) || day < 1 || day > 31)) {
+          throw new Error('Enter a due day from 1 through 31.');
+        }
+        update.scheduled_due_day = day ?? null;
+      }
       if (Object.keys(update).length === 0) throw new Error('Choose a category plan change.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
@@ -217,6 +253,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       return loadSnapshot();
     },
   };
+}
+
+function validateNullableCents(value: number | null | undefined, label: string) {
+  if (value != null && (!Number.isSafeInteger(value) || value < 0)) {
+    throw new Error(`Enter a valid ${label}.`);
+  }
 }
 
 async function requireSignedIn(client: SupabaseClient): Promise<string> {

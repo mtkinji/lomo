@@ -9,18 +9,15 @@ import { Text } from '../../../ui/Typography';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { useMoneyData } from '../data/MoneyDataContext';
-import { MoneyPlaceBar } from '../navigation/MoneyPlaceBar';
-import type { MoneyPlaceRouteName, MoneyStackParamList } from '../navigation/types';
+import type { MoneyStackParamList } from '../navigation/types';
 
 export function MoneyScreenFrame({
-  activePlace,
   children,
-  onSelectPlace,
+  moreMenu,
   title,
 }: {
-  activePlace: MoneyPlaceRouteName;
   children: ReactNode;
-  onSelectPlace: (place: MoneyPlaceRouteName) => void;
+  moreMenu?: ReactNode;
   title: string;
 }) {
   const { openMenu } = useCapabilityShell();
@@ -34,9 +31,7 @@ export function MoneyScreenFrame({
 
   return (
     <AppShell>
-      <PageHeader title={title} onPressMenu={openMenu}>
-        <MoneyPlaceBar activePlace={activePlace} onSelect={onSelectPlace} />
-      </PageHeader>
+      <PageHeader title={title} moreMenu={moreMenu} onPressMenu={openMenu} />
       {status === 'loading' && !snapshot ? (
         <View accessibilityLabel="Loading Money" style={styles.centered}>
           <ActivityIndicator color={colors.accent} />

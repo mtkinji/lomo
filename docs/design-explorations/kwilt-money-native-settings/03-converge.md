@@ -44,13 +44,13 @@ Must not add: a second settings home, duplicate account controls, decorative per
 
 Reuse map: page/group/row/toggle/divider -> `src/ui/SettingsSurface.tsx`; identity -> `ProfileAvatar`; global navigation -> existing Settings stack; capability contribution -> capability registry/settings metadata.
 
-Behavior sources: global/contextual/object/session ownership -> `docs/unified-settings-architecture.md`; Money local places and privacy -> Money integration brief and frozen manifest; visible Settings inventory -> `docs/settings-product-inventory.md`.
+Behavior sources: global/contextual/object/session ownership -> `docs/unified-settings-architecture.md`; direct Money destinations, standalone presentation parity, and privacy -> Money integration brief and frozen manifest; visible Settings inventory -> `docs/settings-product-inventory.md`.
 
 Unresolved decisions: none that change the first implementation slice.
 
 Required states: signed in/out, free/Pro, role-gated admin, disabled/unavailable destination, long identity text, Money locked/unlocked/loading/error/empty/live.
 
-Proof path: avatar -> Settings Home -> every visible destination; capability menu -> Money -> Summary/Transactions/Accounts -> detail -> back; contextual settings and Chat -> exact return; iPhone simulator first, signed physical device and TestFlight at native gates.
+Proof path: avatar -> Settings Home -> every visible destination; capability menu -> Summary/Transactions/Accounts direct rows -> detail -> back; contextual settings and Chat -> exact return; side-by-side iPhone simulator screenshots against the frozen standalone source first, signed physical device and TestFlight at native gates.
 
 ## Activation
 

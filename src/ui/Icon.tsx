@@ -37,6 +37,7 @@ import Code from 'lucide-react-native/dist/cjs/icons/code';
 import Columns3 from 'lucide-react-native/dist/cjs/icons/columns-3';
 import Compass from 'lucide-react-native/dist/cjs/icons/compass';
 import Crosshair from 'lucide-react-native/dist/cjs/icons/crosshair';
+import CreditCard from 'lucide-react-native/dist/cjs/icons/credit-card';
 import Ellipsis from 'lucide-react-native/dist/cjs/icons/ellipsis';
 import ExternalLink from 'lucide-react-native/dist/cjs/icons/external-link';
 import Eye from 'lucide-react-native/dist/cjs/icons/eye';
@@ -45,6 +46,7 @@ import FileText from 'lucide-react-native/dist/cjs/icons/file-text';
 import Flame from 'lucide-react-native/dist/cjs/icons/flame';
 import FlagTriangleRight from 'lucide-react-native/dist/cjs/icons/flag-triangle-right';
 import Funnel from 'lucide-react-native/dist/cjs/icons/funnel';
+import Gauge from 'lucide-react-native/dist/cjs/icons/gauge';
 import Heart from 'lucide-react-native/dist/cjs/icons/heart';
 import House from 'lucide-react-native/dist/cjs/icons/house';
 import Hourglass from 'lucide-react-native/dist/cjs/icons/hourglass';
@@ -53,6 +55,7 @@ import Info from 'lucide-react-native/dist/cjs/icons/info';
 import Inbox from 'lucide-react-native/dist/cjs/icons/inbox';
 import Italic from 'lucide-react-native/dist/cjs/icons/italic';
 import Layers from 'lucide-react-native/dist/cjs/icons/layers';
+import Landmark from 'lucide-react-native/dist/cjs/icons/landmark';
 import LayoutList from 'lucide-react-native/dist/cjs/icons/layout-list';
 import Link2 from 'lucide-react-native/dist/cjs/icons/link-2';
 import List from 'lucide-react-native/dist/cjs/icons/list';
@@ -79,6 +82,7 @@ import Phone from 'lucide-react-native/dist/cjs/icons/phone';
 import Play from 'lucide-react-native/dist/cjs/icons/play';
 import Plus from 'lucide-react-native/dist/cjs/icons/plus';
 import RefreshCw from 'lucide-react-native/dist/cjs/icons/refresh-cw';
+import ReceiptText from 'lucide-react-native/dist/cjs/icons/receipt-text';
 import RotateCcw from 'lucide-react-native/dist/cjs/icons/rotate-ccw';
 import RotateCw from 'lucide-react-native/dist/cjs/icons/rotate-cw';
 import Search from 'lucide-react-native/dist/cjs/icons/search';
@@ -216,6 +220,10 @@ const iconMap = {
   star: { library: 'lucide', icon: Star },
   starFilled: { library: 'lucide', icon: Star, fill: 'color' },
   funnel: { library: 'lucide', icon: Funnel },
+  gauge: { library: 'lucide', icon: Gauge },
+  creditCard: { library: 'lucide', icon: CreditCard },
+  landmark: { library: 'lucide', icon: Landmark },
+  receipt: { library: 'lucide', icon: ReceiptText },
   sort: { library: 'lucide', icon: SlidersHorizontal },
   thumbsDown: { library: 'lucide', icon: ThumbsDown },
   thumbsUp: { library: 'lucide', icon: ThumbsUp },

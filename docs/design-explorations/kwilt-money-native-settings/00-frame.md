@@ -42,7 +42,7 @@ Constraint posture: `Extend the system`
 Current system facts:
 
 - Existing surface: Option G is the single capability shell; global Settings opens from the avatar.
-- Existing user flow: Money has Summary, Transactions, and Accounts as its established local places.
+- Existing user flow: Money has established Summary, Transactions, and Accounts primary objects; integration promotes each to a direct Option G destination while removing only the standalone bottom bar.
 - Existing domain/data model: Money tables and Edge Functions already live in the shared Kwilt Supabase project.
 - Existing technical affordances: React Navigation root, capability registry/lifecycle coordinator, shared Supabase session, `SettingsSurface` primitives, unified Chat, and shared native targets.
 - Existing UX/copy conventions: Money's grouped settings cards and compact rows are calmer and more coherent than Kwilt Settings Home's current flat icon list.

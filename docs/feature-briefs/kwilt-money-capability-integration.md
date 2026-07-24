@@ -47,17 +47,23 @@ calm experience everywhere else in Kwilt?
 
 ## Product definition
 
-Money becomes a first-class Kwilt capability with three local places:
+Money becomes a first-class Kwilt capability with three primary objects exposed as direct
+destinations in the global Option G capability rail:
 
 1. Summary
 2. Transactions
 3. Accounts
 
-Category detail, transaction detail, review, and settings flows sit beneath those places.
+Category detail, transaction detail, review, and settings flows sit beneath those destinations.
 The global Option G shell owns capability switching, avatar/global settings, unified Chat,
-root restoration, and global deep links. Money owns financial content, local place
-navigation, finance-specific visual language, object workflows, data interpretation,
+root restoration, and global deep links. Money owns financial content, finance-specific
+visual language, object workflows, data interpretation,
 privacy rules, and specialized permissions.
+
+The standalone Summary, Transactions, Accounts, Settings, and widget presentations are the
+accepted visual and interaction sources. Integration removes only the standalone bottom tab
+bar and replaces it with Option G's global destinations. It must not introduce a Money-local
+place bar, replacement dashboard cards, simplified inventory rows, or a generic Money widget.
 
 The integration is a capability-native port. It is not:
 
@@ -140,13 +146,12 @@ layout.
 
 ### Navigation
 
-- Add `money` to `CapabilityId` and a `money` capability group.
-- Add one top-level `Money` route to the existing React Navigation root.
-- Inside `Money`, use a nested React Navigation tab navigator for Summary, Transactions,
-  and Accounts, with one Money stack for object/detail/modal routes.
-- Extract only the reusable local-place-bar behavior needed to preserve Money's established
-  three-place interaction. Do not make Money a tab in Goals' current `MainTabs`.
-- Hide the local place bar at detail/modal depth; preserve native back behavior.
+- Add `money` to `CapabilityId` as the lifecycle/data owner.
+- Add `money-summary`, `money-transactions`, and `money-accounts` as global menu destination
+  ids which all resolve to the same Money owner and stack.
+- Render Summary, Transactions, and Accounts as three direct rows under Money in the Option G
+  rail. Do not add a Money-local place bar or preserve the standalone bottom tab bar.
+- Keep one Money stack for object/detail/modal routes and preserve native back behavior.
 - Add `kwilt://money`, `kwilt://money/transactions`, `kwilt://money/accounts`,
   `kwilt://money/category/:categoryId`, and
   `kwilt://money/transaction/:transactionId`.
@@ -160,7 +165,7 @@ layout.
 | Supabase client/session storage | Kwilt shell |
 | RevenueCat identity and purchases | Kwilt shell |
 | Capability menu and global header | Kwilt shell |
-| Money Summary/Transactions/Accounts navigation | Money capability |
+| Money Summary/Transactions/Accounts global destinations | Kwilt shell, resolving to the Money capability owner |
 | Financial domain and display truth | Money capability |
 | Global account/privacy/legal/subscription settings | Kwilt shell |
 | Category, connection, and app-control settings | Money capability, linked contextually |
@@ -235,10 +240,10 @@ transaction description, account name/number, category content, or dollar amount
 Exit gate: no uncommitted source is in import scope and every standalone owner has a named
 host replacement, Money owner, or explicit retirement decision.
 
-### Phase 1 - Capability skeleton and local navigation
+### Phase 1 - Capability skeleton and global destinations
 
 - Register Money and its group.
-- Add the Money navigator, local three-place bar, side-sheet/header integration, active
+- Add the Money navigator, three global destination rows, side-sheet/header integration, active
   capability derivation, lifecycle hook, deep links, persisted-state migration, and tests.
 - Render fixture-free structural placeholders only on the feature branch.
 
@@ -296,10 +301,10 @@ privacy manifests, extension signing, and App Thinning evidence passes.
 
 ### Product and navigation
 
-- [ ] Money appears once in Option G and opens without a second app shell.
-- [ ] Summary, Transactions, and Accounts retain their local navigation contract.
-- [ ] Category/transaction detail back behavior returns to the exact local place/state.
-- [ ] Capability switching works from each local place and detail depth.
+- [ ] Money appears as one Option G group with three direct destinations and no second app shell.
+- [ ] Summary, Transactions, and Accounts are direct global capability destinations.
+- [ ] Category/transaction detail back behavior returns to the exact destination/state.
+- [ ] Capability switching works from each Money destination and detail depth.
 - [ ] Unified Chat enters and returns to exact Money context.
 - [ ] Existing Kwilt deep links and persisted states still migrate/fail safely.
 

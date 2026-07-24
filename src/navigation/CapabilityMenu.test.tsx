@@ -67,9 +67,29 @@ describe('CapabilityMenu', () => {
     expect(getByText('Plan')).toBeTruthy();
     expect(getByText('Arcs')).toBeTruthy();
     expect(getByText('Chapters')).toBeTruthy();
+    expect(getByText('MONEY')).toBeTruthy();
+    expect(getByText('Summary')).toBeTruthy();
+    expect(getByText('Transactions')).toBeTruthy();
+    expect(getByText('Accounts')).toBeTruthy();
+    expect(queryByLabelText('Money')).toBeNull();
     expect(getByText('CHATS')).toBeTruthy();
     expect(getByLabelText('Open chat')).toBeTruthy();
     expect(queryByLabelText(/close/i)).toBeNull();
+  });
+
+  it('selects each Money destination directly from the global menu', () => {
+    const { getByLabelText } = render(
+      <CapabilityMenu
+        activeCapabilityId="money-summary"
+        displayName="Andy"
+        chats={chats}
+        {...handlers}
+      />,
+    );
+
+    expect(getByLabelText('Summary').props.accessibilityState).toEqual({ selected: true });
+    fireEvent.press(getByLabelText('Transactions'));
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
   });
 
   it('collapses and expands a capability group', () => {

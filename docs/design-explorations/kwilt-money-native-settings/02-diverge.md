@@ -14,7 +14,7 @@ Embed Money's existing Expo Router shell and settings largely intact beneath a K
 
 ## B. Capability-Native Port With Shared Settings Grammar
 
-Translate Money's three local places into a nested React Navigation capability. Keep global ownership in Kwilt, promote Money's grouped settings surfaces into shared UI, and let capabilities contribute only named destinations.
+Translate Money's three primary objects into direct Option G global destinations which resolve to one React Navigation capability owner. Keep global ownership in Kwilt and promote Money's grouped settings surfaces into shared UI.
 
 - Persona fit: strongest; one app and one settings model, while Money still feels financially trustworthy.
 - System fit: extends the accepted capability registry, lifecycle, settings ownership, shared session, and native targets.

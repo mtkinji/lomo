@@ -3,10 +3,13 @@ export type MoneyStackParamList = {
   MoneyTransactions: {
     accountId?: string;
     categoryId?: string;
+    monthStart?: string;
+    monthEnd?: string;
+    monthLabel?: string;
     reviewState?: 'needs_review' | 'not_counted';
   } | undefined;
   MoneyAccounts: undefined;
-  MoneyCategoryDetail: { categoryId: string };
+  MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
   MoneyCategoryCreate: undefined;
   MoneySetup: undefined;
   MoneyAppControl: { categoryId: string };

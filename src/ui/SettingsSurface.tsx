@@ -17,7 +17,7 @@ export function SettingsPage({
   title: string;
 }) {
   return (
-    <AppShell>
+    <AppShell backgroundVariant="shellAlt">
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"

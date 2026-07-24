@@ -8,6 +8,7 @@ type RecordedCall = {
   upsert?: Record<string, unknown>;
   onConflict?: string;
   filters: Array<[string, unknown]>;
+  inFilters?: Array<[string, unknown[]]>;
   ranges: Array<[number, number]>;
 };
 
@@ -40,6 +41,10 @@ function createClient() {
           return query;
         },
         neq: () => query,
+        in: (column: string, values: unknown[]) => {
+          call.inFilters = [...(call.inFilters ?? []), [column, values]];
+          return query;
+        },
         order: () => query,
         limit: () => query,
         range: (from: number, to: number) => {
@@ -139,6 +144,32 @@ describe('createMoneyRepository transaction review', () => {
     expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(2);
   });
 
+  it('can correct visible similar rows and save a partial future-match rule before one reload', async () => {
+    const { client, calls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await repository.saveMerchantRule({
+      transactionId: 'transaction-1',
+      merchantName: "Trader Joe's #01234",
+      categoryId: 'category-1',
+      categoryName: 'Groceries',
+      matchMode: 'partial',
+      similarTransactionIds: ['transaction-2', 'transaction-3'],
+    });
+
+    expect(calls.find((call) => call.table === 'budget_transactions' && call.update)).toMatchObject({
+      inFilters: [['id', ['transaction-2', 'transaction-3']]],
+      update: {
+        budget_id: 'category-1',
+        budget_match_source: 'corrected',
+      },
+    });
+    expect(calls.find((call) => call.upsert)?.upsert).toMatchObject({
+      merchant_contains: 'trader joe',
+      merchant_match_mode: 'partial',
+    });
+  });
+
   it('creates a category and plan atomically through the verified RPC, then reloads', async () => {
     const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
@@ -182,6 +213,24 @@ describe('createMoneyRepository transaction review', () => {
       table: 'budget_plans',
       filters: [['category_id', 'category-1']],
       update: { rollover_enabled: true },
+    });
+
+    const fourth = createClient();
+    await createMoneyRepository(fourth.client).updateCategoryPlan('category-1', {
+      forecastMode: 'scheduled',
+      manualProjectedSpendCents: null,
+      scheduledAmountCents: 18000,
+      scheduledDueDay: 24,
+    });
+    expect(fourth.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_plans',
+      filters: [['category_id', 'category-1']],
+      update: {
+        forecast_mode: 'scheduled',
+        manual_projected_spend_cents: null,
+        scheduled_amount_cents: 18000,
+        scheduled_due_day: 24,
+      },
     });
   });
 });

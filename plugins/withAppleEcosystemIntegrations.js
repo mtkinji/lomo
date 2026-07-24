@@ -15,6 +15,7 @@ const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode
 
 const fs = require('fs');
 const path = require('path');
+const { addMoneyWidgetFontResources, copyMoneyWidgetFontResources } = require('./appleEcosystem/moneyWidgetResources');
 const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
 const { withScreenTimeShieldExtensions } = require('./appleEcosystem/screenTimeShieldExtensions');
 
@@ -1542,6 +1543,12 @@ if userActivity.activityType == CSSearchableItemActionType,
   <string>$(CURRENT_PROJECT_VERSION)</string>
   <key>CFBundleDisplayName</key>
   <string>${targetName}</string>
+  <key>UIAppFonts</key>
+  <array>
+    <string>Inter_500Medium.ttf</string>
+    <string>Inter_600SemiBold.ttf</string>
+    <string>Inter_900Black.ttf</string>
+  </array>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionAttributes</key>
@@ -1587,6 +1594,12 @@ if userActivity.activityType == CSSearchableItemActionType,
       patched = ensureKey(patched, 'CFBundlePackageType', 'XPC!');
       patched = ensureKey(patched, 'CFBundleShortVersionString', '$(MARKETING_VERSION)');
       patched = ensureKey(patched, 'CFBundleVersion', '$(CURRENT_PROJECT_VERSION)');
+      if (!patched.includes('<key>UIAppFonts</key>')) {
+        patched = patched.replace(
+          /<key>NSExtension<\/key>/m,
+          '<key>UIAppFonts</key>\n  <array>\n    <string>Inter_500Medium.ttf</string>\n    <string>Inter_600SemiBold.ttf</string>\n    <string>Inter_900Black.ttf</string>\n  </array>\n  <key>NSExtension</key>',
+        );
+      }
       patched = ensureExtensionAttributes(patched, bundleId);
       // WidgetKit extensions should not declare NSExtensionPrincipalClass.
       patched = patched.replace(
@@ -1632,6 +1645,7 @@ if userActivity.activityType == CSSearchableItemActionType,
     } catch {
       // best-effort
     }
+    const moneyWidgetFontResources = copyMoneyWidgetFontResources({ fs, path, projectRoot: config.modRequest.projectRoot, iosRoot, targetSubfolder });
 
     fs.writeFileSync(
       widgetSwiftAbs,
@@ -1705,6 +1719,8 @@ struct GlanceableStateV1: Codable {
     let id: String
     let name: String
     let percentUsed: Int
+    let periodElapsedPercent: Int
+    let paceSentiment: String
     let status: String
     let deepLink: String
   }
@@ -2606,6 +2622,7 @@ struct ${targetName}Bundle: WidgetBundle {
         targetUuid,
       });
     }
+    project = addMoneyWidgetFontResources({ addResourceFileToGroup, resources: moneyWidgetFontResources, project, targetSubfolder, targetUuid });
     // Extra defensive cleanup: certain Xcodeproj mutation paths can still attach the widget
     // source file to the main app target. Ensure it is NOT compiled there.
     if (appTargetUuid) {

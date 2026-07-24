@@ -6,7 +6,7 @@ import { colors, spacing } from '../../theme';
 
 interface AppShellProps {
   children: ReactNode;
-  backgroundVariant?: 'default' | 'arcGradient';
+  backgroundVariant?: 'default' | 'shellAlt' | 'arcGradient';
   /**
    * When true, removes the default canvas padding (top + horizontal) so screens can render
    * full-bleed content (e.g. hero images) while still living inside the app shell.
@@ -44,7 +44,11 @@ export function AppShell({
             paddingBottom: 0,
             paddingHorizontal: fullBleedCanvas ? 0 : spacing.sm,
             // For gradient variants, let the underlying shell/gradient show through.
-            backgroundColor: backgroundVariant === 'arcGradient' ? 'transparent' : colors.shell,
+            backgroundColor: backgroundVariant === 'arcGradient'
+              ? 'transparent'
+              : backgroundVariant === 'shellAlt'
+                ? colors.shellAlt
+                : colors.shell,
           },
         ]}
       >
@@ -68,5 +72,4 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
 });
-
 

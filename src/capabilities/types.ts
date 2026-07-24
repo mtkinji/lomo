@@ -2,6 +2,14 @@ import type { IconName } from '../ui/Icon';
 
 export type CapabilityId = 'goals' | 'todos' | 'plan' | 'arcs' | 'chapters' | 'money';
 
+export type CapabilityMenuDestinationId =
+  | Exclude<CapabilityId, 'money'>
+  | 'money-summary'
+  | 'money-transactions'
+  | 'money-accounts';
+
+export type CapabilityNavigationId = CapabilityId | CapabilityMenuDestinationId;
+
 export type CapabilityGroupId = 'goals-plans' | 'money';
 
 export type CapabilityAvailability = 'active' | 'preview' | 'hidden';
@@ -56,4 +64,14 @@ export type CapabilityDefinition = {
 export type CapabilityGroupDefinition = {
   id: CapabilityGroupId;
   label: string;
+};
+
+export type CapabilityMenuDestinationDefinition = {
+  id: CapabilityMenuDestinationId;
+  ownerId: CapabilityId;
+  label: string;
+  group: CapabilityGroupId | null;
+  icon: IconName;
+  availability: CapabilityAvailability;
+  rootRoute: CapabilityRouteTarget;
 };

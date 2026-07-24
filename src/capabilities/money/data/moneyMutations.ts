@@ -23,7 +23,7 @@ export type MerchantRuleUpsert = {
   user_id: string;
   budget_id: string;
   merchant_contains: string;
-  merchant_match_mode: 'exact';
+  merchant_match_mode: 'exact' | 'partial';
   label: string;
   created_from_transaction_id: string;
 };
@@ -34,11 +34,15 @@ export function buildMerchantRuleUpsert(input: {
   merchantName: string;
   categoryId: string;
   categoryName: string;
+  matchMode?: 'exact' | 'partial';
 }): MerchantRuleUpsert {
   const userId = input.userId.trim();
   const transactionId = input.transactionId.trim();
   const categoryId = input.categoryId.trim();
-  const merchantContains = normalizeExactMerchant(input.merchantName);
+  const matchMode = input.matchMode ?? 'exact';
+  const merchantContains = matchMode === 'partial'
+    ? normalizePartialMerchant(input.merchantName)
+    : normalizeExactMerchant(input.merchantName);
   if (!userId) throw new Error('Sign in before saving a merchant rule.');
   if (!transactionId) throw new Error('Choose a transaction before saving a merchant rule.');
   if (!categoryId) throw new Error('Choose a category before saving a merchant rule.');
@@ -48,7 +52,7 @@ export function buildMerchantRuleUpsert(input: {
     user_id: userId,
     budget_id: categoryId,
     merchant_contains: merchantContains,
-    merchant_match_mode: 'exact',
+    merchant_match_mode: matchMode,
     label: `${input.categoryName.trim() || 'Category'} merchant rule`,
     created_from_transaction_id: transactionId,
   };
@@ -121,4 +125,19 @@ export function normalizeExactMerchant(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+const GENERIC_MERCHANT_WORDS = new Set(['co', 'company', 'food', 'foods', 'inc', 'llc', 'market', 'marketplace', 'mktpl', 'store', 'the']);
+
+export function normalizePartialMerchant(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/'s\b/g, '')
+    .replace(/#[0-9]+/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word && !/^[0-9]+$/.test(word) && !GENERIC_MERCHANT_WORDS.has(word))
+    .slice(0, 2)
+    .join(' ');
 }

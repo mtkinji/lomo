@@ -104,7 +104,10 @@ import type {
 import type { LaunchContext } from '../domain/workflows';
 import type { CapabilityAgentContext, ChatMode } from '../features/ai/workflowRegistry';
 import { CapabilityMenu } from './CapabilityMenu';
-import { CapabilityShellProvider, deriveActiveCapabilityId } from './CapabilityShellContext';
+import {
+  CapabilityShellProvider,
+  deriveActiveCapabilityDestinationId,
+} from './CapabilityShellContext';
 import { resolveCapabilityNavigation } from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
 import {
@@ -983,7 +986,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const [chatsLoading, setChatsLoading] = useState(false);
   const [chatsError, setChatsError] = useState<string | null>(null);
   const displayName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
-  const activeCapabilityId = deriveActiveCapabilityId(navigationState);
+  const activeCapabilityId = deriveActiveCapabilityDestinationId(navigationState);
   const activeRoute = getActiveRoute(navigationState);
   const activeChatThreadId = activeRoute?.name === 'UnifiedChat' && typeof activeRoute.params?.threadId === 'string'
     ? activeRoute.params.threadId
@@ -1111,7 +1114,11 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
-          capture(AnalyticsEvent.CapabilitySelected, { capability_id: id, source_surface: 'menu' });
+          capture(AnalyticsEvent.CapabilitySelected, {
+            capability_id: id.startsWith('money-') ? 'money' : id,
+            destination_id: id,
+            source_surface: 'menu',
+          });
           rootNavigationRef.dispatch(CommonActions.navigate(capability));
           coverMenu();
         }}

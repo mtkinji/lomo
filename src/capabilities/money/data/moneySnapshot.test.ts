@@ -81,6 +81,8 @@ describe('projectMoneySnapshot', () => {
             financial_account_id: 'account-checking',
             name: 'Neighborhood Market',
             merchant_name: 'Neighborhood Market',
+            original_description: 'NEIGHBORHOOD MARKET 0042',
+            authorized_date: '2026-07-19',
             amount_cents: 12500,
             direction: 'outflow',
             date: '2026-07-20',
@@ -88,6 +90,8 @@ describe('projectMoneySnapshot', () => {
             iso_currency_code: 'USD',
             budget_id: 'groceries',
             money_meaning: null,
+            personal_finance_category_primary: 'FOOD_AND_DRINK',
+            personal_finance_category_detailed: 'FOOD_AND_DRINK_GROCERIES',
           },
           {
             id: 'transaction-credit',
@@ -131,11 +135,26 @@ describe('projectMoneySnapshot', () => {
       spentCents: 10000,
       plannedCents: 60000,
       transactionCount: 2,
+      forecastSettings: {
+        mode: 'manual',
+        manualProjectedSpendCents: 70000,
+        scheduledAmountCents: null,
+        scheduledDueDay: null,
+      },
     });
     expect(snapshot.accounts).toEqual([
       expect.objectContaining({ id: 'account-checking', transactionCount: 3 }),
       expect.objectContaining({ id: 'account-savings', transactionCount: 0 }),
     ]);
+    expect(snapshot.transactions.find((transaction) => transaction.id === 'transaction-1')).toMatchObject({
+      originalDescription: 'NEIGHBORHOOD MARKET 0042',
+      authorizedDate: '2026-07-19',
+      accountMask: '1042',
+      accountType: 'depository',
+      accountSubtype: 'checking',
+      providerCategoryPrimary: 'FOOD_AND_DRINK',
+      providerCategoryDetailed: 'FOOD_AND_DRINK_GROCERIES',
+    });
     expect(snapshot.lastSyncedAt).toBe('2026-07-23T16:00:00.000Z');
     expect(snapshot.forecast).toMatchObject({
       projectedSpendCents: 70000,

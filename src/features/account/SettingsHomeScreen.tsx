@@ -274,7 +274,7 @@ export function SettingsHomeScreen() {
   ];
 
   return (
-    <AppShell>
+    <AppShell backgroundVariant="shellAlt">
       <View style={styles.screen}>
         <PageHeader title="Settings" onPressBack={handleBack} />
         <ScrollView
