@@ -23,7 +23,7 @@ function harness(sender: jest.Mock) {
       createdAt: '2026-07-23T10:00:00.000Z', updatedAt: '2026-07-23T10:00:00.000Z', completedAt: null,
     })),
     appendRunEvents: jest.fn(async () => undefined), persistRunEvidence: jest.fn(async () => undefined),
-    createProposal: jest.fn(async () => ({ id: 'proposal-1', status: 'pending' })),
+    createProposal: jest.fn(async (_input: unknown) => ({ id: 'proposal-1', status: 'pending' })),
     createClientAction: jest.fn(async () => ({ id: 'action-1', status: 'pending_client_action' })),
     decideProposal: jest.fn(), transitionClientAction: jest.fn(), transitionRunStatus: jest.fn(async () => ({})),
     loadThread: jest.fn(async () => aggregate),
@@ -120,4 +120,64 @@ test('stages walking follow-through without inventing an Activity Goal id', asyn
     }),
   }));
   expect(repository.createProposal).toHaveBeenCalledTimes(1);
+});
+
+test('preserves the next-week bound when the model omits the Goal target date', async () => {
+  const runtimeSender = jest.fn(async (_history: unknown, options: {
+    runtimeTools?: Array<{ id: string }>;
+    executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+  }) => {
+    const goalTool = options.runtimeTools?.find((tool) => tool.id === 'goals.create');
+    await options.executeRuntimeTool?.({
+      id: 'goal-walk', toolId: 'goals.create', arguments: {
+        title: 'Walk every day next week', description: 'Take a walk each day next week.',
+        followUpActivity: { title: 'Walk', repeatRule: 'daily' },
+      },
+    }, goalTool);
+    return 'I prepared that Goal for review.';
+  });
+  const { repository, send } = harness(runtimeSender);
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Create a Goal to walk every day next week.' },
+    {
+      repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+      now: () => new Date(2026, 6, 23, 12),
+      routeRequest: async () => ({
+        requestClass: 'capability_action', participatingCapabilities: ['goals'],
+        usePrivateContext: true, confidence: 0.99, reason: 'Create a bounded walking Goal.',
+      }),
+      loadCapabilitySnapshots: async () => ({
+        goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+      }),
+    },
+  );
+
+  const proposal = repository.createProposal.mock.calls[0]?.[0] as {
+    operation?: { payload?: { targetDate?: string; followUpActivity?: unknown } };
+  };
+  const target = new Date(proposal.operation?.payload?.targetDate ?? '');
+  expect([target.getDay(), target.getDate(), target.getMonth()]).toEqual([0, 2, 7]);
+  expect(proposal.operation?.payload?.followUpActivity).toEqual({ title: 'Walk', repeatRule: 'daily' });
+});
+
+test('returns an honest boundary for child app control without depending on model selection', async () => {
+  const sender = jest.fn(async () => 'What would you like Kwilt to change?');
+  const { repository, send } = harness(sender);
+
+  await runUnifiedChatTurn(
+    { aggregate, prompt: 'Turn on Brawl Stars for Charlie.' },
+    {
+      repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+      loadCapabilitySnapshots: async () => ({
+        goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+      }),
+    },
+  );
+
+  expect(sender).not.toHaveBeenCalled();
+  expect(repository.createClientAction).not.toHaveBeenCalled();
+  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+    role: 'assistant',
+    body: "Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change Brawl Stars on Charlie's device.",
+  }));
 });

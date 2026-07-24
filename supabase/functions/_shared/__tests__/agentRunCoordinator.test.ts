@@ -64,9 +64,9 @@ test('persists causal run state around the shared bounded loop', async () => {
     modelStep: async () => steps.shift()!,
   })).resolves.toMatchObject({
     state: 'complete',
-    answer: 'I prepared that next step for review in Kwilt. The underlying action has not happened yet.',
+    answer: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
   });
-  expect(order).toEqual(['enqueue', 'start', 'history', 'stage', 'complete']);
+  expect(order).toEqual(['enqueue', 'start', 'history', 'complete']);
   expect(store.complete).toHaveBeenCalledWith(expect.objectContaining({
     expectedVersion: 2, participatingCapabilities: ['screenTime'], requestClass: 'capability_question',
   }));

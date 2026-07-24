@@ -1208,48 +1208,6 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
-  test('preserves the next-week bound when the model omits the Goal target date', async () => {
-    const runtimeSender = jest.fn(async (_history: unknown, options: {
-      runtimeTools?: Array<{ id: string }>;
-      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
-    }) => {
-      const goalTool = options.runtimeTools?.find((tool) => tool.id === 'goals.create');
-      expect(goalTool).toBeDefined();
-      await options.executeRuntimeTool?.({
-        id: 'goal-walk', toolId: 'goals.create', arguments: {
-          title: 'Walk every day next week',
-          description: 'Take a walk each day next week.',
-          followUpActivity: { title: 'Walk', repeatRule: 'daily' },
-        },
-      }, goalTool);
-      return 'I prepared that Goal for review.';
-    });
-    const { repository, send } = dependencies(runtimeSender);
-    await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Create a Goal to walk every day next week.' },
-      {
-        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
-        now: () => new Date(2026, 6, 23, 12),
-        routeRequest: async () => ({
-          requestClass: 'capability_action', participatingCapabilities: ['goals'],
-          usePrivateContext: true, confidence: 0.99, reason: 'Create a bounded walking Goal.',
-        }),
-        loadCapabilitySnapshots: async () => ({
-          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-        }),
-      },
-    );
-
-    const proposal = repository.createProposal.mock.calls[0]?.[0] as {
-      operation?: { payload?: { targetDate?: string; followUpActivity?: unknown } };
-    };
-    const target = new Date(proposal.operation?.payload?.targetDate ?? '');
-    expect(target.getDay()).toBe(0);
-    expect(target.getDate()).toBe(2);
-    expect(target.getMonth()).toBe(7);
-    expect(proposal.operation?.payload?.followUpActivity).toEqual({ title: 'Walk', repeatRule: 'daily' });
-  });
-
   test('uses the shared runtime to interpret and stage an ordinary Arc identity update', async () => {
     const runtimeSender = jest.fn(async (_history: unknown, options: {
       runtimeTools?: Array<{ id: string }>;
@@ -1370,28 +1328,6 @@ describe('runUnifiedChatTurn', () => {
         type: 'update_chapter_note', targetId: chapter.id, expectedUpdatedAt: chapter.updated_at,
         payload: { note: 'Sleep mattered.' },
       }),
-    }));
-  });
-
-  test('returns an honest boundary for child app control without depending on model selection', async () => {
-    const sender = jest.fn(async () => 'What would you like Kwilt to change?');
-    const { repository, send } = dependencies(sender);
-
-    await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Turn on Brawl Stars for Charlie.' },
-      {
-        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
-        loadCapabilitySnapshots: async () => ({
-          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
-        }),
-      },
-    );
-
-    expect(sender).not.toHaveBeenCalled();
-    expect(repository.createClientAction).not.toHaveBeenCalled();
-    expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
-      role: 'assistant',
-      body: "Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change Brawl Stars on Charlie's device.",
     }));
   });
 
