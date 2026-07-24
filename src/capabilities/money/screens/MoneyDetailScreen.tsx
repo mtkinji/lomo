@@ -1,12 +1,16 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { Heading, Text } from '../../../ui/Typography';
+import { Button } from '../../../ui/Button';
+import { Input } from '../../../ui/Input';
+import { KwiltSwitch } from '../../../ui/KwiltSwitch';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney } from '../data/moneySnapshot';
+import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import type { MoneyStackParamList } from '../navigation/types';
 
 type DetailRouteName = 'MoneyCategoryDetail' | 'MoneyTransactionDetail';
@@ -23,8 +27,14 @@ export function MoneyDetailScreen({
     markTransactionNotCounted,
     reviewTransactionMeaning,
     saveMerchantRule,
+    savingCategory,
+    renameCategory,
+    updateCategoryPlan,
   } = useMoneyData();
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categoryNameDraft, setCategoryNameDraft] = useState('');
+  const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
   const categoryId = 'categoryId' in route.params ? route.params.categoryId : null;
   const transactionId = 'transactionId' in route.params ? route.params.transactionId : null;
   const category = categoryId
@@ -39,12 +49,28 @@ export function MoneyDetailScreen({
     ? snapshot?.categories.find((candidate) => candidate.id === transaction.categoryId)
     : undefined;
 
+  useEffect(() => {
+    if (!category) return;
+    setCategoryNameDraft(category.name);
+    setCategoryAmountDraft((category.plannedCents / 100).toFixed(2));
+    setCategoryError(null);
+  }, [category?.sourceId, category?.name, category?.plannedCents]);
+
   const saveReview = async (mutation: () => Promise<void>) => {
     setReviewError(null);
     try {
       await mutation();
     } catch (error) {
       setReviewError(error instanceof Error ? error.message : 'The transaction could not be updated.');
+    }
+  };
+
+  const saveCategoryChange = async (mutation: () => Promise<void>) => {
+    setCategoryError(null);
+    try {
+      await mutation();
+    } catch (error) {
+      setCategoryError(error instanceof Error ? error.message : 'The category could not be updated.');
     }
   };
 
@@ -65,6 +91,60 @@ export function MoneyDetailScreen({
               <DetailRow label="Transactions" value={String(category.transactionCount)} />
               <DetailRow label="Rollover" value={category.rolloverEnabled ? 'On' : 'Off'} />
               {category.description ? <DetailRow label="About" value={category.description} /> : null}
+              <View style={styles.categorySettings}>
+                <Heading variant="sm">Category settings</Heading>
+                <Input
+                  editable={!savingCategory}
+                  label="Name"
+                  onChangeText={setCategoryNameDraft}
+                  value={categoryNameDraft}
+                />
+                <Button
+                  disabled={savingCategory || categoryNameDraft.trim() === category.name}
+                  fullWidth
+                  onPress={() => void saveCategoryChange(() => renameCategory(
+                    category.sourceId,
+                    parseCategoryName(categoryNameDraft),
+                  ))}
+                  variant="outline"
+                >
+                  {savingCategory ? 'Saving…' : 'Save name'}
+                </Button>
+                <Input
+                  editable={!savingCategory}
+                  keyboardType="decimal-pad"
+                  label="Monthly amount"
+                  onChangeText={setCategoryAmountDraft}
+                  value={categoryAmountDraft}
+                />
+                <Button
+                  disabled={savingCategory}
+                  fullWidth
+                  onPress={() => void saveCategoryChange(() => updateCategoryPlan(
+                    category.sourceId,
+                    { budgetCents: parseMonthlyAmount(categoryAmountDraft) },
+                  ))}
+                  variant="outline"
+                >
+                  {savingCategory ? 'Saving…' : 'Save monthly amount'}
+                </Button>
+                <View style={styles.toggleRow}>
+                  <View style={styles.flex}>
+                    <Text variant="label">Carry unused money forward</Text>
+                    <Text tone="secondary">Rollover applies to this category’s plan.</Text>
+                  </View>
+                  <KwiltSwitch
+                    accessibilityLabel="Carry unused money forward"
+                    disabled={savingCategory}
+                    onPress={() => void saveCategoryChange(() => updateCategoryPlan(
+                      category.sourceId,
+                      { rolloverEnabled: !category.rolloverEnabled },
+                    ))}
+                    value={category.rolloverEnabled}
+                  />
+                </View>
+                {categoryError ? <Text tone="destructive">{categoryError}</Text> : null}
+              </View>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => navigation.navigate('MoneyTransactions', { categoryId: category.id })}
@@ -257,6 +337,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.cardBorder,
   },
   rowValue: { flex: 1, textAlign: 'right' },
+  flex: { flex: 1 },
   action: {
     alignItems: 'center', padding: spacing.md, borderRadius: 14,
     backgroundColor: colors.fieldFill, borderWidth: 1, borderColor: colors.border,
@@ -268,6 +349,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder,
   },
   reviewActionSelected: { backgroundColor: colors.fieldFill, borderColor: colors.accent },
+  categorySettings: { gap: spacing.md, marginTop: spacing.sm },
+  toggleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    padding: spacing.md, borderRadius: 14, backgroundColor: colors.card,
+    borderWidth: 1, borderColor: colors.cardBorder,
+  },
   ruleState: {
     gap: spacing.xs, padding: spacing.md, borderRadius: 14,
     backgroundColor: colors.fieldFill, borderWidth: 1, borderColor: colors.border,

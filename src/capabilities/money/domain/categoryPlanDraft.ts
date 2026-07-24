@@ -9,10 +9,17 @@ export type CategoryPlanInput = {
 };
 
 export function parseCategoryPlanDraft(draft: CategoryPlanDraft): CategoryPlanInput {
-  const name = draft.name.trim();
-  if (!name) throw new Error('Enter a category name.');
+  return { name: parseCategoryName(draft.name), budgetCents: parseMonthlyAmount(draft.monthlyAmount) };
+}
 
-  const normalizedAmount = draft.monthlyAmount.trim().replace(/^\$/, '').replace(/,/g, '');
+export function parseCategoryName(value: string): string {
+  const name = value.trim();
+  if (!name) throw new Error('Enter a category name.');
+  return name;
+}
+
+export function parseMonthlyAmount(value: string): number {
+  const normalizedAmount = value.trim().replace(/^\$/, '').replace(/,/g, '');
   if (!/^\d+(?:\.\d{1,2})?$/.test(normalizedAmount)) {
     if (/^-/.test(normalizedAmount)) throw new Error('Enter a monthly amount of zero or more.');
     throw new Error('Enter a valid monthly amount.');
@@ -21,5 +28,5 @@ export function parseCategoryPlanDraft(draft: CategoryPlanDraft): CategoryPlanIn
   if (!Number.isSafeInteger(budgetCents) || budgetCents < 0) {
     throw new Error('Enter a valid monthly amount.');
   }
-  return { name, budgetCents };
+  return budgetCents;
 }

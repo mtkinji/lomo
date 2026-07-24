@@ -48,6 +48,11 @@ export interface MoneyRepository {
     categoryName: string;
   }): Promise<MoneySnapshot>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
+  renameCategory(categoryId: string, name: string): Promise<MoneySnapshot>;
+  updateCategoryPlan(categoryId: string, input: {
+    budgetCents?: number;
+    rolloverEnabled?: boolean;
+  }): Promise<MoneySnapshot>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -173,6 +178,39 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (error) throw new Error(`Money could not create the category: ${error.message || 'Unknown database error'}`);
       if (typeof data !== 'string' || !data.trim()) throw new Error('Money created the category without a return id.');
       return { categoryId: data.trim(), snapshot: await loadSnapshot() };
+    },
+    async renameCategory(categoryId, name) {
+      const normalizedCategoryId = categoryId.trim();
+      if (!normalizedCategoryId) throw new Error('Choose a category to rename.');
+      const normalizedName = name.trim();
+      if (!normalizedName) throw new Error('Enter a category name.');
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      await readPart<unknown[]>('category name', db
+        .from('budget_categories')
+        .update({ name: normalizedName })
+        .eq('id', normalizedCategoryId));
+      return loadSnapshot();
+    },
+    async updateCategoryPlan(categoryId, input) {
+      const normalizedCategoryId = categoryId.trim();
+      if (!normalizedCategoryId) throw new Error('Choose a category plan to update.');
+      const update: Record<string, unknown> = {};
+      if (input.budgetCents != null) {
+        if (!Number.isSafeInteger(input.budgetCents) || input.budgetCents < 0) {
+          throw new Error('Enter a valid monthly amount.');
+        }
+        update.base_budget_cents = input.budgetCents;
+      }
+      if (input.rolloverEnabled != null) update.rollover_enabled = input.rolloverEnabled;
+      if (Object.keys(update).length === 0) throw new Error('Choose a category plan change.');
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      await readPart<unknown[]>('category plan', db
+        .from('budget_plans')
+        .update(update)
+        .eq('category_id', normalizedCategoryId));
+      return loadSnapshot();
     },
   };
 }

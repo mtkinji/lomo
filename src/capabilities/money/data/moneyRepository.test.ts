@@ -140,4 +140,30 @@ describe('createMoneyRepository transaction review', () => {
     expect(result.categoryId).toBe('groceries-a1b2c3d4');
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
   });
+
+  it('updates category identity and plan settings as separate authoritative writes', async () => {
+    const first = createClient();
+    await createMoneyRepository(first.client).renameCategory('category-1', '  Food at home ');
+    expect(first.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_categories',
+      filters: [['id', 'category-1']],
+      update: { name: 'Food at home' },
+    });
+
+    const second = createClient();
+    await createMoneyRepository(second.client).updateCategoryPlan('category-1', { budgetCents: 72500 });
+    expect(second.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_plans',
+      filters: [['category_id', 'category-1']],
+      update: { base_budget_cents: 72500 },
+    });
+
+    const third = createClient();
+    await createMoneyRepository(third.client).updateCategoryPlan('category-1', { rolloverEnabled: true });
+    expect(third.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_plans',
+      filters: [['category_id', 'category-1']],
+      update: { rollover_enabled: true },
+    });
+  });
 });

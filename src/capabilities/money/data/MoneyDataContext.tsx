@@ -13,6 +13,8 @@ type MoneyDataContextValue = MoneyDataState & {
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
   savingCategory: boolean;
   createCategory: (input: CategoryPlanInput) => Promise<string>;
+  renameCategory: (categoryId: string, name: string) => Promise<void>;
+  updateCategoryPlan: (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => Promise<void>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
@@ -112,6 +114,36 @@ export function MoneyDataProvider({
     }
   }, [resolvedRepository]);
 
+  const applyCategoryMutation = useCallback(async (mutation: () => ReturnType<MoneyRepository['loadSnapshot']>) => {
+    setSavingCategory(true);
+    try {
+      const snapshot = await mutation();
+      dispatch({ type: 'success', snapshot });
+    } catch (error) {
+      dispatch({
+        type: 'failure',
+        message: error instanceof Error ? error.message : 'The category could not be updated.',
+      });
+      throw error;
+    } finally {
+      setSavingCategory(false);
+    }
+  }, []);
+
+  const renameCategory = useCallback(
+    (categoryId: string, name: string) => applyCategoryMutation(
+      () => resolvedRepository.renameCategory(categoryId, name),
+    ),
+    [applyCategoryMutation, resolvedRepository],
+  );
+
+  const updateCategoryPlan = useCallback(
+    (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => applyCategoryMutation(
+      () => resolvedRepository.updateCategoryPlan(categoryId, input),
+    ),
+    [applyCategoryMutation, resolvedRepository],
+  );
+
   const value = useMemo(() => ({
     ...state,
     refresh,
@@ -122,7 +154,9 @@ export function MoneyDataProvider({
     saveMerchantRule,
     savingCategory,
     createCategory,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, refresh, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state]);
+    renameCategory,
+    updateCategoryPlan,
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, refresh, renameCategory, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 
