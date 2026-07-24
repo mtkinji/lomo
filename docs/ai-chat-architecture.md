@@ -94,7 +94,9 @@ Chat discovers and invokes that contract. It does not reproduce a second AI-shap
 
 Low-risk reversible capture may apply directly when the user's request itself supplies authorization. Updates and consequential changes require proportionate review. OS, audience, sharing, payment, provider, and device-control authorization stays in the owning native surface. Missing providers return an unavailable or pending-client-action outcome rather than completion-looking prose.
 
-The target is one canonical operation manifest projected into mobile, server, Phone Agent, coverage, and migration views. The repository currently contains multiple registries that must be reconciled before that target can be claimed.
+The canonical operation manifest now lives in `packages/kwilt-agent-runtime/src/kwiltCapabilityManifest.ts`. It defines each user-meaningful operation once with its owner, purpose, resolved schemas, effect, consequence, reversibility, confirmation policy, provider eligibility, mobile and Phone availability, expected outcome, proof paths, source references, and return behavior. Shared versioned tool schemas live beside it in `kwiltToolContracts.ts`.
+
+Product inventory, mobile tool discovery, the Supabase server catalog, and conversational coverage are projections of that manifest. Mobile and server provider modules declare which tool ids and providers they implement; they do not copy schemas or operation safety policy. Phone execution, device-handoff, mobile-proposal, pending-provider, and excluded states are materialized from the same manifest rather than maintained as a second channel registry. A missing implementation is absent from the runtime catalog, while an eligible but unavailable provider still resolves through the shared unavailable or pending-client-action policy.
 
 ## Context and privacy
 
