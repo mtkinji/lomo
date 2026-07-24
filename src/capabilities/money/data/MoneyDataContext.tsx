@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { createMoneyRepository, type MoneyRepository } from './moneyRepository';
 import type { TransactionMeaningReviewInput } from './moneyMutations';
+import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
 
 type MoneyDataContextValue = MoneyDataState & {
@@ -10,6 +11,8 @@ type MoneyDataContextValue = MoneyDataState & {
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
   reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
+  savingCategory: boolean;
+  createCategory: (input: CategoryPlanInput) => Promise<string>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
@@ -23,6 +26,7 @@ export function MoneyDataProvider({
 }) {
   const [state, dispatch] = useReducer(moneyDataReducer, initialMoneyDataState);
   const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
 
   const refresh = useCallback(async () => {
@@ -91,6 +95,23 @@ export function MoneyDataProvider({
     [resolvedRepository, reviewTransaction],
   );
 
+  const createCategory = useCallback(async (input: CategoryPlanInput) => {
+    setSavingCategory(true);
+    try {
+      const result = await resolvedRepository.createCategory(input);
+      dispatch({ type: 'success', snapshot: result.snapshot });
+      return result.categoryId;
+    } catch (error) {
+      dispatch({
+        type: 'failure',
+        message: error instanceof Error ? error.message : 'The category could not be created.',
+      });
+      throw error;
+    } finally {
+      setSavingCategory(false);
+    }
+  }, [resolvedRepository]);
+
   const value = useMemo(() => ({
     ...state,
     refresh,
@@ -99,7 +120,9 @@ export function MoneyDataProvider({
     markTransactionNotCounted,
     reviewTransactionMeaning,
     saveMerchantRule,
-  }), [assignTransactionCategory, markTransactionNotCounted, refresh, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, state]);
+    savingCategory,
+    createCategory,
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, refresh, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

@@ -3,6 +3,7 @@ export type MoneyStackParamList = {
   MoneyTransactions: { accountId?: string; categoryId?: string } | undefined;
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string };
+  MoneyCategoryCreate: undefined;
   MoneyTransactionDetail: { transactionId: string };
 };
 

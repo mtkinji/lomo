@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import {
   projectMoneySnapshot,
   type MoneyAccountRow,
@@ -32,6 +33,7 @@ type MoneyReadQuery = PromiseLike<ReadResult> & {
 
 type MoneyReadClient = {
   from(table: string): MoneyReadQuery;
+  rpc(name: string, args: Record<string, unknown>): PromiseLike<ReadResult>;
 };
 
 export interface MoneyRepository {
@@ -45,6 +47,7 @@ export interface MoneyRepository {
     categoryId: string;
     categoryName: string;
   }): Promise<MoneySnapshot>;
+  createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -156,6 +159,20 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
           onConflict: 'user_id,merchant_contains,merchant_match_mode',
         }));
       return loadSnapshot();
+    },
+    async createCategory(input) {
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { data, error } = await db.rpc('create_budget_category_with_plan', {
+        p_name: input.name,
+        p_budget_cents: input.budgetCents,
+        p_icon_key: 'custom',
+        p_description: null,
+        p_accent_color: '#315545',
+      });
+      if (error) throw new Error(`Money could not create the category: ${error.message || 'Unknown database error'}`);
+      if (typeof data !== 'string' || !data.trim()) throw new Error('Money created the category without a return id.');
+      return { categoryId: data.trim(), snapshot: await loadSnapshot() };
     },
   };
 }

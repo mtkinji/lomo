@@ -11,6 +11,7 @@ type RecordedCall = {
 
 function createClient() {
   const calls: RecordedCall[] = [];
+  const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const client = {
     auth: {
       getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
@@ -43,8 +44,12 @@ function createClient() {
       };
       return query;
     },
+    rpc(name: string, args: Record<string, unknown>) {
+      rpcCalls.push({ name, args });
+      return Promise.resolve({ data: 'groceries-a1b2c3d4', error: null });
+    },
   };
-  return { client: client as unknown as SupabaseClient, calls };
+  return { client: client as unknown as SupabaseClient, calls, rpcCalls };
 }
 
 describe('createMoneyRepository transaction review', () => {
@@ -114,5 +119,25 @@ describe('createMoneyRepository transaction review', () => {
       },
     });
     expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(2);
+  });
+
+  it('creates a category and plan atomically through the verified RPC, then reloads', async () => {
+    const { client, calls, rpcCalls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    const result = await repository.createCategory({ name: 'Groceries', budgetCents: 60025 });
+
+    expect(rpcCalls).toEqual([{
+      name: 'create_budget_category_with_plan',
+      args: {
+        p_name: 'Groceries',
+        p_budget_cents: 60025,
+        p_icon_key: 'custom',
+        p_description: null,
+        p_accent_color: '#315545',
+      },
+    }]);
+    expect(result.categoryId).toBe('groceries-a1b2c3d4');
+    expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
   });
 });

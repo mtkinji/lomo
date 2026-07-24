@@ -41,7 +41,9 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
 
           <View style={styles.sectionHeader}>
             <Heading variant="sm">Categories</Heading>
-            <Text tone="secondary">Current month</Text>
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('MoneyCategoryCreate')}>
+              <Text variant="label" tone="accent">Add category</Text>
+            </Pressable>
           </View>
 
           {snapshot.categories.length === 0 ? (

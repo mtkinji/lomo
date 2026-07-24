@@ -254,6 +254,11 @@ const moneyReviewProof = [
   'src/capabilities/money/data/moneySnapshot.test.ts',
   'src/capabilities/money/screens/MoneyDetailScreen.tsx',
 ] as const;
+const moneyCategoryCreateProof = [
+  'src/capabilities/money/domain/categoryPlanDraft.test.ts',
+  'src/capabilities/money/data/moneyRepository.test.ts',
+  'src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx',
+] as const;
 const relationshipProof = [
   'src/features/unifiedChat/runUnifiedChatTurn.test.ts',
   'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
@@ -323,6 +328,7 @@ export const CHAT_CAPABILITY_COVERAGE: readonly ChatCapabilityCoverageRow[] = [
   live({ id: 'account.show_up_status', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['account.show_up_status'], sourceRefs: ['mcp:get_show_up_status'] }, showUpProof),
   live({ id: 'money.read', providers: ['device'], consequence: 'low', confirmation: 'none', toolIds: ['money.read'], sourceRefs: ['capability:money'] }, moneyReadProof),
   bounded('confirmation_only', { id: 'money.review_transaction', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Transaction category changes complete only after an explicit selection in native Money. Chat can explain the path but cannot silently reclassify spending.', moneyReviewProof),
+  bounded('confirmation_only', { id: 'money.category.create', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Category creation completes only after native name and monthly-amount review. Chat cannot create a financial plan category silently.', moneyCategoryCreateProof),
 
   bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),
