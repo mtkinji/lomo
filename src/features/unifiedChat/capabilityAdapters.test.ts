@@ -80,7 +80,7 @@ describe('Unified Chat capability adapters', () => {
       accounts: [], transactions: [{
         id: 'transaction-private', accountId: null, accountName: 'Checking', institutionName: 'Private Bank',
         merchantName: 'Private merchant', amountCents: 10000, direction: 'outflow', date: '2026-07-20',
-        pending: false, currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', moneyMeaning: null,
+        pending: false, currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', reviewState: 'assigned', moneyMeaning: null,
       }],
       categories: [{
         id: 'groceries', sourceId: 'category-uuid', name: 'Groceries', description: null, accentColor: '#315545',

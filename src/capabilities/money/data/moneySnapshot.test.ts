@@ -164,6 +164,40 @@ describe('projectMoneySnapshot', () => {
 
     expect(snapshot.totals.needsReviewCount).toBe(1);
     expect(snapshot.transactions[0]?.categoryName).toBe('Needs review');
+    expect(snapshot.transactions[0]?.reviewState).toBe('needs_review');
+  });
+
+  it('keeps an explicitly excluded transaction outside the review queue', () => {
+    const snapshot = projectMoneySnapshot(
+      {
+        categories,
+        plans,
+        accounts: [],
+        connections: [],
+        transactions: [
+          {
+            id: 'excluded',
+            financial_account_id: null,
+            name: 'Transfer-like purchase',
+            merchant_name: null,
+            amount_cents: 1000,
+            direction: 'outflow',
+            date: '2026-07-02',
+            pending: false,
+            iso_currency_code: 'USD',
+            budget_id: null,
+            budget_match_source: 'excluded',
+            money_meaning: 'not_counted',
+          },
+        ],
+      },
+      new Date('2026-07-23T18:00:00.000Z'),
+    );
+
+    expect(snapshot.totals.needsReviewCount).toBe(0);
+    expect(snapshot.transactions[0]).toMatchObject({
+      categoryName: 'Not counted',
+      reviewState: 'not_counted',
+    });
   });
 });
-

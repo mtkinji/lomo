@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors, spacing } from '../../../theme';
 import { Heading, Text } from '../../../ui/Typography';
@@ -14,7 +15,14 @@ export function MoneyDetailScreen({
   navigation,
   route,
 }: NativeStackScreenProps<MoneyStackParamList, DetailRouteName>) {
-  const { snapshot, status } = useMoneyData();
+  const {
+    snapshot,
+    status,
+    reviewingTransactionId,
+    assignTransactionCategory,
+    markTransactionNotCounted,
+  } = useMoneyData();
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const categoryId = 'categoryId' in route.params ? route.params.categoryId : null;
   const transactionId = 'transactionId' in route.params ? route.params.transactionId : null;
   const category = categoryId
@@ -24,6 +32,16 @@ export function MoneyDetailScreen({
     ? snapshot?.transactions.find((item) => item.id === transactionId)
     : undefined;
   const title = category?.name || transaction?.merchantName || (route.name === 'MoneyCategoryDetail' ? 'Category' : 'Transaction');
+  const isSavingReview = Boolean(transaction && reviewingTransactionId === transaction.id);
+
+  const saveReview = async (mutation: () => Promise<void>) => {
+    setReviewError(null);
+    try {
+      await mutation();
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'The transaction could not be updated.');
+    }
+  };
 
   return (
     <AppShell>
@@ -61,10 +79,46 @@ export function MoneyDetailScreen({
               <DetailRow label="Account" value={transaction.accountName} />
               <DetailRow label="Institution" value={transaction.institutionName} />
               <DetailRow label="Meaning" value={formatMeaning(transaction.moneyMeaning, transaction.direction)} />
-              <View style={styles.readOnly}>
-                <Text variant="label">Read-only</Text>
-                <Text tone="secondary">Corrections and matching rules arrive with the first Money write slice.</Text>
-              </View>
+              {transaction.direction === 'outflow' ? (
+                <View style={styles.reviewSection}>
+                  <View style={styles.reviewHeading}>
+                    <Heading variant="sm">Categorize transaction</Heading>
+                    <Text tone="secondary">
+                      {isSavingReview ? 'Saving…' : 'Choose where this belongs in your monthly plan.'}
+                    </Text>
+                  </View>
+                  {snapshot?.categories.map((candidate) => {
+                    const selected = transaction.categoryId === candidate.id;
+                    return (
+                      <Pressable
+                        key={candidate.sourceId}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isSavingReview, selected }}
+                        disabled={isSavingReview || selected}
+                        onPress={() => void saveReview(() =>
+                          assignTransactionCategory(transaction.id, candidate.sourceId))}
+                        style={[styles.reviewAction, selected && styles.reviewActionSelected]}
+                      >
+                        <Text variant="label" tone={selected ? 'accent' : 'default'}>{candidate.name}</Text>
+                        <Text tone={selected ? 'accent' : 'secondary'}>{selected ? 'Current' : formatMoney(candidate.remainingCents) + ' left'}</Text>
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isSavingReview, selected: transaction.reviewState === 'not_counted' }}
+                    disabled={isSavingReview || transaction.reviewState === 'not_counted'}
+                    onPress={() => void saveReview(() => markTransactionNotCounted(transaction.id))}
+                    style={[styles.reviewAction, transaction.reviewState === 'not_counted' && styles.reviewActionSelected]}
+                  >
+                    <Text variant="label" tone={transaction.reviewState === 'not_counted' ? 'accent' : 'default'}>Don’t count this</Text>
+                    <Text tone={transaction.reviewState === 'not_counted' ? 'accent' : 'secondary'}>
+                      {transaction.reviewState === 'not_counted' ? 'Current' : 'Keep it outside the monthly plan'}
+                    </Text>
+                  </Pressable>
+                  {reviewError ? <Text tone="destructive">{reviewError}</Text> : null}
+                </View>
+              ) : null}
             </>
           ) : (
             <View style={styles.centered}>
@@ -124,8 +178,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', padding: spacing.md, borderRadius: 14,
     backgroundColor: colors.fieldFill, borderWidth: 1, borderColor: colors.border,
   },
-  readOnly: {
+  reviewSection: { gap: spacing.sm, marginTop: spacing.sm },
+  reviewHeading: { gap: spacing.xs },
+  reviewAction: {
     gap: spacing.xs, padding: spacing.md, borderRadius: 14,
-    backgroundColor: colors.fieldFill, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder,
   },
+  reviewActionSelected: { backgroundColor: colors.fieldFill, borderColor: colors.accent },
 });

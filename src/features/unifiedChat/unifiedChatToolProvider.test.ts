@@ -49,7 +49,7 @@ const snapshots = {
     transactions: [{
       id: 'transaction-private', accountId: 'account-1', accountName: 'Private checking', institutionName: 'Private Bank',
       merchantName: 'Private merchant', amountCents: 10000, direction: 'outflow' as const, date: '2026-07-20', pending: false,
-      currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', moneyMeaning: null,
+      currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', reviewState: 'assigned' as const, moneyMeaning: null,
     }],
   },
 };

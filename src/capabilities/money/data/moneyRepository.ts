@@ -9,6 +9,7 @@ import {
   type MoneySnapshot,
   type MoneyTransactionRow,
 } from './moneySnapshot';
+import { buildTransactionReviewUpdate, type TransactionReviewInput } from './moneyMutations';
 
 type ReadResult = { data: unknown; error: { message?: string } | null };
 
@@ -18,6 +19,7 @@ type MoneyReadQuery = PromiseLike<ReadResult> & {
   neq(column: string, value: unknown): MoneyReadQuery;
   order(column: string, options?: { ascending?: boolean }): MoneyReadQuery;
   select(columns: string): MoneyReadQuery;
+  update(values: Record<string, unknown>): MoneyReadQuery;
 };
 
 type MoneyReadClient = {
@@ -26,37 +28,36 @@ type MoneyReadClient = {
 
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
+  assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
+  markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
-  return {
-    async loadSnapshot() {
-      const { data: userData, error: userError } = await client.auth.getUser();
-      if (userError) throw new Error(userError.message);
-      if (!userData.user?.id) throw new Error('Sign in to see your Money data.');
+  const loadSnapshot = async (): Promise<MoneySnapshot> => {
+    await requireSignedIn(client);
 
-      const db = client as unknown as MoneyReadClient;
-      const [categories, plans, connections, accounts, transactions] = await Promise.all([
-        readPart<MoneyCategoryRow[]>('categories',
-          db
-            .from('budget_categories')
-            .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
-            .eq('status', 'active')
-            .order('sort_order', { ascending: true })),
-        readPart<MoneyPlanRow[]>('plans',
-          db
-            .from('budget_plans')
-            .select('category_id,base_budget_cents,rollover_enabled')
-            .eq('status', 'active')),
-        readPart<MoneyConnectionRow[]>('connections',
-          environmentQuery(db
-            .from('budget_financial_connections')
-            .select('id,institution_name,status,last_synced_at'), 'environment')
-            .order('created_at', { ascending: false })),
-        readPart<MoneyAccountRow[]>('accounts',
-          environmentQuery(db
-            .from('budget_financial_accounts')
-            .select(`
+    const db = client as unknown as MoneyReadClient;
+    const [categories, plans, connections, accounts, transactions] = await Promise.all([
+      readPart<MoneyCategoryRow[]>('categories',
+        db
+          .from('budget_categories')
+          .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
+          .eq('status', 'active')
+          .order('sort_order', { ascending: true })),
+      readPart<MoneyPlanRow[]>('plans',
+        db
+          .from('budget_plans')
+          .select('category_id,base_budget_cents,rollover_enabled')
+          .eq('status', 'active')),
+      readPart<MoneyConnectionRow[]>('connections',
+        environmentQuery(db
+          .from('budget_financial_connections')
+          .select('id,institution_name,status,last_synced_at'), 'environment')
+          .order('created_at', { ascending: false })),
+      readPart<MoneyAccountRow[]>('accounts',
+        environmentQuery(db
+          .from('budget_financial_accounts')
+          .select(`
               id,
               connection_id,
               name,
@@ -65,12 +66,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               type,
               subtype,
               budget_financial_connections!inner(environment,institution_name,status,last_synced_at)
-            `), 'budget_financial_connections.environment')
-            .order('created_at', { ascending: false })),
-        readPart<MoneyTransactionRow[]>('transactions',
-          environmentQuery(db
-            .from('budget_transactions')
-            .select(`
+          `), 'budget_financial_connections.environment')
+          .order('created_at', { ascending: false })),
+      readPart<MoneyTransactionRow[]>('transactions',
+        environmentQuery(db
+          .from('budget_transactions')
+          .select(`
               id,
               financial_account_id,
               name,
@@ -81,22 +82,56 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
               pending,
               iso_currency_code,
               budget_id,
+              budget_match_source,
               money_meaning,
               budget_financial_connections!inner(environment)
-            `), 'budget_financial_connections.environment')
-            .order('date', { ascending: false })
-            .limit(1000)),
-      ]);
+          `), 'budget_financial_connections.environment')
+          .order('date', { ascending: false })
+          .limit(1000)),
+    ]);
 
-      return projectMoneySnapshot({
-        categories,
-        plans,
-        connections,
-        accounts: normalizeAccountRelations(accounts),
-        transactions,
-      });
-    },
+    return projectMoneySnapshot({
+      categories,
+      plans,
+      connections,
+      accounts: normalizeAccountRelations(accounts),
+      transactions,
+    });
   };
+
+  const reviewTransaction = async (
+    transactionId: string,
+    input: TransactionReviewInput,
+  ): Promise<MoneySnapshot> => {
+    const normalizedTransactionId = transactionId.trim();
+    if (!normalizedTransactionId) throw new Error('Choose a transaction to review.');
+    await requireSignedIn(client);
+
+    const db = client as unknown as MoneyReadClient;
+    await readPart<unknown[]>(
+      'transaction review',
+      db
+        .from('budget_transactions')
+        .update(buildTransactionReviewUpdate(input))
+        .eq('id', normalizedTransactionId),
+    );
+    return loadSnapshot();
+  };
+
+  return {
+    loadSnapshot,
+    assignTransactionCategory: (transactionId, categoryId) =>
+      reviewTransaction(transactionId, { type: 'category', categoryId }),
+    markTransactionNotCounted: (transactionId) =>
+      reviewTransaction(transactionId, { type: 'not_counted' }),
+  };
+}
+
+async function requireSignedIn(client: SupabaseClient): Promise<string> {
+  const { data: userData, error: userError } = await client.auth.getUser();
+  if (userError) throw new Error(userError.message);
+  if (!userData.user?.id) throw new Error('Sign in to see your Money data.');
+  return userData.user.id;
 }
 
 async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promise<T> {

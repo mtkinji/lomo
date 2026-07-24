@@ -1,9 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { createMoneyRepository, type MoneyRepository } from './moneyRepository';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
+  reviewingTransactionId: string | null;
+  assignTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>;
+  markTransactionNotCounted: (transactionId: string) => Promise<void>;
 };
 
 const MoneyDataContext = createContext<MoneyDataContextValue | null>(null);
@@ -16,6 +19,7 @@ export function MoneyDataProvider({
   repository?: MoneyRepository;
 }) {
   const [state, dispatch] = useReducer(moneyDataReducer, initialMoneyDataState);
+  const [reviewingTransactionId, setReviewingTransactionId] = useState<string | null>(null);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
 
   const refresh = useCallback(async () => {
@@ -35,7 +39,46 @@ export function MoneyDataProvider({
     void refresh();
   }, [refresh]);
 
-  const value = useMemo(() => ({ ...state, refresh }), [refresh, state]);
+  const reviewTransaction = useCallback(async (
+    transactionId: string,
+    mutation: () => ReturnType<MoneyRepository['loadSnapshot']>,
+  ) => {
+    setReviewingTransactionId(transactionId);
+    try {
+      const snapshot = await mutation();
+      dispatch({ type: 'success', snapshot });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The transaction could not be updated.';
+      dispatch({ type: 'failure', message });
+      throw error;
+    } finally {
+      setReviewingTransactionId(null);
+    }
+  }, []);
+
+  const assignTransactionCategory = useCallback(
+    (transactionId: string, categoryId: string) => reviewTransaction(
+      transactionId,
+      () => resolvedRepository.assignTransactionCategory(transactionId, categoryId),
+    ),
+    [resolvedRepository, reviewTransaction],
+  );
+
+  const markTransactionNotCounted = useCallback(
+    (transactionId: string) => reviewTransaction(
+      transactionId,
+      () => resolvedRepository.markTransactionNotCounted(transactionId),
+    ),
+    [resolvedRepository, reviewTransaction],
+  );
+
+  const value = useMemo(() => ({
+    ...state,
+    refresh,
+    reviewingTransactionId,
+    assignTransactionCategory,
+    markTransactionNotCounted,
+  }), [assignTransactionCategory, markTransactionNotCounted, refresh, reviewingTransactionId, state]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

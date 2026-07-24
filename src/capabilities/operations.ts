@@ -90,7 +90,7 @@ export const KWILT_OPERATION_REGISTRY = [
     'chapters.reflect',
     'chapters.note.update',
   ] as const),
-  ...owned('money', ['money.read'] as const),
+  ...owned('money', ['money.read', 'money.review_transaction'] as const),
   ...owned('account', [
     'account.show_up_status',
     'account.settings.open',

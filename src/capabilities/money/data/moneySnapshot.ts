@@ -43,6 +43,7 @@ export type MoneyTransactionRow = {
   pending: boolean;
   iso_currency_code: string;
   budget_id: string | null;
+  budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | null;
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
 };
 
@@ -73,6 +74,7 @@ export type MoneyTransaction = {
   currencyCode: string;
   categoryId: string | null;
   categoryName: string;
+  reviewState: 'assigned' | 'needs_review' | 'not_counted';
   moneyMeaning: MoneyTransactionRow['money_meaning'];
 };
 
@@ -196,7 +198,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
   const plannedCents = categories.reduce((sum, category) => sum + category.plannedCents, 0);
   const spentCents = categories.reduce((sum, category) => sum + category.spentCents, 0);
   const needsReviewCount = currentTransactions.filter(
-    (transaction) => isCountedOutflow(transaction) && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
+    (transaction) => reviewStateFor(transaction, categoryByAlias) === 'needs_review',
   ).length;
 
   return {
@@ -223,6 +225,7 @@ function projectTransaction(
   const account = transaction.financial_account_id ? accounts.get(transaction.financial_account_id) : undefined;
   const connection = normalizeConnection(account?.budget_financial_connections);
   const category = transaction.budget_id ? categories.get(transaction.budget_id) : undefined;
+  const reviewState = reviewStateFor(transaction, categories);
 
   return {
     id: transaction.id,
@@ -236,9 +239,20 @@ function projectTransaction(
     pending: transaction.pending,
     currencyCode: transaction.iso_currency_code || 'USD',
     categoryId: category ? category.legacy_budget_id?.trim() || category.slug : null,
-    categoryName: category?.name.trim() || (transaction.direction === 'inflow' ? 'Income or transfer' : 'Needs review'),
+    categoryName: category?.name.trim()
+      || (reviewState === 'not_counted' ? 'Not counted' : transaction.direction === 'inflow' ? 'Income or transfer' : 'Needs review'),
+    reviewState,
     moneyMeaning: transaction.money_meaning,
   };
+}
+
+function reviewStateFor(
+  transaction: MoneyTransactionRow,
+  categories: Map<string, MoneyCategoryRow>,
+): MoneyTransaction['reviewState'] {
+  if (transaction.budget_match_source === 'excluded' || transaction.money_meaning === 'not_counted') return 'not_counted';
+  if (transaction.budget_id && categories.has(transaction.budget_id)) return 'assigned';
+  return isCountedOutflow(transaction) ? 'needs_review' : 'not_counted';
 }
 
 function normalizeConnection(connection: MoneyAccountRow['budget_financial_connections']) {
@@ -284,4 +298,3 @@ export function formatMoneyFreshness(lastSyncedAt: string | null, now = new Date
   if (hours < 48) return 'Updated yesterday';
   return `Updated ${Math.round(hours / 24)} days ago`;
 }
-
