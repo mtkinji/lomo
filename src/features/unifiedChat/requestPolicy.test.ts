@@ -1,6 +1,7 @@
 import {
   classifyCurrentInformationNeed,
   classifyUnifiedChatRequest,
+  directCompoundTodoCaptureTitles,
   directTodoCaptureTitle,
 } from './requestPolicy';
 
@@ -207,6 +208,16 @@ describe('classifyUnifiedChatRequest', () => {
     expect(directTodoCaptureTitle('Add $50 to my budget')).toBeNull();
     expect(directTodoCaptureTitle('Add milk and call Mom')).toBeNull();
     expect(directTodoCaptureTitle('Add milk, school form, dentist, and call Mom')).toBeNull();
+  });
+
+  test('decomposes only an explicit simple compound capture into ordered To-do titles', () => {
+    expect(directCompoundTodoCaptureTitles('Add milk and call Mom')).toEqual(['Milk', 'Call Mom']);
+    expect(directCompoundTodoCaptureTitles('Please add printer paper and email the school')).toEqual([
+      'Printer paper',
+      'Email the school',
+    ]);
+    expect(directCompoundTodoCaptureTitles('Add salt and pepper')).toBeNull();
+    expect(directCompoundTodoCaptureTitles('Add $50 to my budget and call Mom')).toBeNull();
   });
 });
 

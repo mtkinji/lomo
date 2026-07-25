@@ -1520,21 +1520,8 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
-  test('uses semantic tools to split a compound capture into separate native proposals', async () => {
-    const runtimeSender = jest.fn(async (_history: unknown, options: {
-      runtimeTools?: Array<{ id: string }>;
-      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
-    }) => {
-      const captureTool = options.runtimeTools?.find((tool) => tool.id === 'activities.capture');
-      expect(captureTool).toBeDefined();
-      await options.executeRuntimeTool?.({
-        id: 'capture-milk', toolId: 'activities.capture', arguments: { title: 'Buy milk' },
-      }, captureTool);
-      await options.executeRuntimeTool?.({
-        id: 'capture-mom', toolId: 'activities.capture', arguments: { title: 'Call Mom' },
-      }, captureTool);
-      return 'I prepared two To-dos for review.';
-    });
+  test('deterministically stages every simple compound capture even when the model would drop one', async () => {
+    const runtimeSender = jest.fn(async () => 'I prepared only Call Mom.');
     const { repository, send } = dependencies(runtimeSender);
 
     await runUnifiedChatTurn(
@@ -1553,10 +1540,11 @@ describe('runUnifiedChatTurn', () => {
       },
     );
 
+    expect(runtimeSender).not.toHaveBeenCalled();
     expect(repository.createProposal).toHaveBeenCalledTimes(2);
     expect(repository.createProposal).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      capabilityId: 'todos', title: 'Add Buy milk',
-      operation: expect.objectContaining({ type: 'create_activity', payload: expect.objectContaining({ title: 'Buy milk' }) }),
+      capabilityId: 'todos', title: 'Add Milk',
+      operation: expect.objectContaining({ type: 'create_activity', payload: expect.objectContaining({ title: 'Milk' }) }),
     }));
     expect(repository.createProposal).toHaveBeenNthCalledWith(2, expect.objectContaining({
       capabilityId: 'todos', title: 'Add Call Mom',

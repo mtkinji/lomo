@@ -22,7 +22,7 @@ Reload resolves the referent from the immediately preceding durable run event. F
 | “Cancel that.” | Cancels every proposal in one exact referenced compound set; unrelated multiple pending actions still require one useful clarification. | `runUnifiedChatTurn.test.ts`; `runUnifiedChatTurn.continuity.test.ts` |
 | “Do the same for next week.” | Clones exactly one pending Activity creation seven days later as a second reviewable proposal, preserves the original, and uses `targetId: null` rather than inventing an object id. | `runUnifiedChatTurn.continuity.test.ts` |
 | “Create the Goal and give me a daily way to follow through.” | Stages only the Goal first; the linked daily Activity is offered only after approval returns the authoritative Goal id. | `runUnifiedChatTurn.appControl.test.ts`; `executeGoalProposalDecision.test.ts` |
-| “Add milk and call Mom.” | Stages two ordered Activity proposals and persists the ordered pending-work referent. | `runUnifiedChatTurn.test.ts`; `runUnifiedChatTurn.phases.test.ts` |
+| “Add milk and call Mom.” | A narrow explicit two-item capture is decomposed deterministically, stages two ordered Activity proposals, keeps both reviewable, and persists the ordered pending-work referent. Ambiguous lists and non-To-do domains remain model-routed. | `requestPolicy.test.ts`; `runUnifiedChatTurn.test.ts`; `autoApplyCreatePolicy.test.ts`; signed-in simulator replay |
 | “Two hours early afternoon” → “One to three.” | Retains the exact versioned Plan Activity through clarification and stages one matching Plan proposal only after the precise interval arrives. | `runUnifiedChatTurn.test.ts`; `unifiedChatToolProvider.test.ts`; `2026-07-23-local-runtime-boundary.md` |
 
 Typed referent construction is parameterized across Arcs, Goals, To-dos, Plan, Chapters, Profile, and Relationships. Plan’s pre-proposal `awaiting_placement` referent remains backward compatible; once a Plan proposal exists, the general pending-work envelope takes over.
@@ -47,4 +47,22 @@ Typed referent construction is parameterized across Arcs, Goals, To-dos, Plan, C
 
 ## Runtime boundary
 
-The fresh simulator matrix is still required for correction, cancellation, compound work, reload preservation, and exact native return. Until those rows are captured, Phase 5 remains in progress even though the focused and full automated gates are green.
+### Compound capture and cancellation — accepted
+
+The first fresh replay exposed two independent failures rather than being accepted as proof:
+
+1. The model followed the To-do grounding instruction to prepare at most one operation, so only “Call Mom” became a proposal and “Milk” appeared as an unreviewable card.
+2. After deterministic decomposition staged both creates, the shell's single-create convenience policy auto-applied the first proposal and left only the second reviewable.
+
+The corrected boundary is now deterministic and bounded: only a simple explicit two-item capture whose second clause begins with its own action verb is decomposed. The model is not called for that shape. Auto-apply remains available for exactly one explicit reversible create, but is disabled when a run contains multiple pending creates.
+
+Fresh signed-in iPhone 17 Pro simulator proof on the rebuilt current worktree:
+
+- `Add milk and call Mom` produced the exact response `I prepared 2 To-dos for review.`
+- Both `Milk` and `Call Mom` rendered as separate `CREATE TO-DO?` proposals with independent `Not now`, `Change`, and `Create` controls.
+- The exact verified follow-up `Cancel that` bypassed the model, changed both proposal cards to `REJECTED`, returned `Okay—I won't make those changes.`, and rendered two separate correction echoes.
+- Accepted screenshots: `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 19.12.14.png` and `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 19.15.06.png`.
+- Pre-fix failure screenshot retained for comparison: `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 18.45.14.png`.
+- Native build boundary: `npx expo run:ios --device "iPhone 17 Pro"` completed with 0 errors and installed/opened `com.andrewwatanabe.kwilt`; Metro then loaded the branch bundle with the main checkout's local environment and explicit local Chat flags.
+
+The fresh simulator matrix is still required for weekday correction, reload preservation, and exact native return. Until those rows are captured, Phase 5 remains in progress.

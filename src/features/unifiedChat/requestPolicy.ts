@@ -92,6 +92,34 @@ export function directTodoCaptureTitle(prompt: string): string | null {
   return title.length > 0 && title.length <= 240 ? title : null;
 }
 
+const COMPOUND_SECOND_ACTION_PATTERN =
+  /^(call|email|text|buy|pick up|schedule|book|submit|finish|clean|send|pack|complete|make|create|add|remember)\b\s+.+/i;
+
+function normalizeDirectCaptureTitle(value: string): string | null {
+  const title = value
+    .replace(/^(?:a|an)\s+/i, '')
+    .replace(/^(?:to[ -]?do|task)\s+(?:called\s+)?/i, '')
+    .replace(/[.!?]+$/, '')
+    .trim();
+  if (title.length === 0 || title.length > 240) return null;
+  return `${title.charAt(0).toUpperCase()}${title.slice(1)}`;
+}
+
+export function directCompoundTodoCaptureTitles(prompt: string): string[] | null {
+  const trimmed = prompt.trim();
+  if (isRelationshipMemoryRequest(trimmed)) return null;
+  if (NON_TODO_DOMAIN_PATTERN.test(trimmed)) return null;
+  if (GENERAL_CONTENT_CREATION_PATTERN.test(trimmed)) return null;
+  if (/[,;\n]/.test(trimmed)) return null;
+  const capture = /^(?:please\s+)?(?:add|create|make|remember|remind me to)\s+(.+)$/i.exec(trimmed);
+  if (!capture) return null;
+  const parts = /^(.+?)\s+(?:and|then)\s+(.+)$/.exec(capture[1].replace(/[.!?]+$/, '').trim());
+  if (!parts || !COMPOUND_SECOND_ACTION_PATTERN.test(parts[2])) return null;
+  const first = normalizeDirectCaptureTitle(parts[1]);
+  const second = normalizeDirectCaptureTitle(parts[2]);
+  return first && second ? [first, second] : null;
+}
+
 function uniqueCapabilities(
   values: readonly UnifiedChatCapabilityId[],
 ): UnifiedChatCapabilityId[] {

@@ -5,7 +5,7 @@ import type { UnifiedChatTelemetryProperties } from './unifiedChatTelemetry';
 import { buildUnifiedChatToolTelemetry } from './unifiedChatTelemetry';
 import type { UnifiedChatThreadAggregate, UnifiedChatMessage, UnifiedChatRun } from './types';
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
-import { directTodoCaptureTitle } from './requestPolicy';
+import { directCompoundTodoCaptureTitles, directTodoCaptureTitle } from './requestPolicy';
 import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type { BuiltRunContext } from './capabilityContracts';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
@@ -163,6 +163,7 @@ export async function executeUnifiedChatTurnPhase(
   input: ExecuteUnifiedChatTurnPhaseInput,
 ): Promise<ExecutedUnifiedChatTurn | CompletedUnifiedChatTurn> {
   const directCreateTitle = directTodoCaptureTitle(input.prompt);
+  const directCompoundTitles = directCompoundTodoCaptureTitles(input.prompt);
   const resolvedConversationReferent = resolveConversationReferent(input.aggregate);
   const pendingWorkConversationReferent =
     resolvedConversationReferent?.schemaVersion === 2 &&
@@ -268,33 +269,43 @@ export async function executeUnifiedChatTurnPhase(
     input.requestPolicy.participatingCapabilities.includes('screenTime')
     ? directScreenTimeControl(input.prompt)
     : null;
-  const directTool = directReminder
+  const directTool = directReminder || directCompoundTitles
     ? runtimeTools.find((tool) => tool.id === 'activities.capture')
     : directScreenTime
       ? runtimeTools.find((tool) => tool.id === 'screen_time.configure')
       : undefined;
   let directResponse: string | null = null;
-  if ((directReminder || directScreenTime) && !directTool) {
+  if ((directReminder || directCompoundTitles || directScreenTime) && !directTool) {
     throw input.error('Kwilt could not load the capability needed for that request.');
   }
   if (directTool) {
-    const directCall: AgentToolCall = {
-      id: `direct:${input.run.id}:1`,
-      toolId: directTool.id,
-      arguments: directReminder ?? directScreenTime ?? {},
-    };
-    const result = await executeTurnTool(directCall, directTool);
-    runtimeToolEvents = [{
-      sequence: 1,
-      type: 'tool_completed',
-      round: 1,
-      toolCallId: directCall.id,
-      toolId: directTool.id,
-      resultStatus: result.status,
-    }];
+    const directArguments = directCompoundTitles?.map((title) => ({ title })) ?? [
+      directReminder ?? directScreenTime ?? {},
+    ];
+    const results: AgentToolExecutionResult[] = [];
+    const events: AgentToolLoopEvent[] = [];
+    for (const [index, argumentsValue] of directArguments.entries()) {
+      const directCall: AgentToolCall = {
+        id: `direct:${input.run.id}:${index + 1}`,
+        toolId: directTool.id,
+        arguments: argumentsValue,
+      };
+      const result = await executeTurnTool(directCall, directTool);
+      results.push(result);
+      events.push({
+        sequence: index + 1,
+        type: 'tool_completed',
+        round: 1,
+        toolCallId: directCall.id,
+        toolId: directTool.id,
+        resultStatus: result.status,
+      });
+    }
+    runtimeToolEvents = events;
+    const result = results[0];
     if (result.status === 'unavailable' && directScreenTime) {
       directResponse = `Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change ${directScreenTime.appName} on ${directScreenTime.childName}'s device.`;
-    } else if (result.status !== 'proposed' && result.status !== 'pending_client_action') {
+    } else if (results.some((item) => item.status !== 'proposed' && item.status !== 'pending_client_action')) {
       input.setFailureCode('direct_app_control_failed');
       throw input.error(
         result.status === 'needs_input'
@@ -302,9 +313,11 @@ export async function executeUnifiedChatTurnPhase(
           : 'Kwilt could not prepare that app change safely.',
       );
     } else {
-      directResponse = directReminder
-        ? `I prepared a recurring “${directReminder.title}” reminder for review.`
-        : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
+      directResponse = directCompoundTitles
+        ? `I prepared ${directCompoundTitles.length} To-dos for review.`
+        : directReminder
+          ? `I prepared a recurring “${directReminder.title}” reminder for review.`
+          : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
     }
   }
   const response = directResponse ?? await input.sendCoachChat(input.history, {
