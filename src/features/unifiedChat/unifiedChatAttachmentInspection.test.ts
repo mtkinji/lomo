@@ -26,6 +26,10 @@ describe('Unified Chat attachment inspection', () => {
     expect(request.text).toEqual(expect.objectContaining({
       format: expect.objectContaining({ type: 'json_schema', strict: true }),
     }));
+    expect(request.text.format.schema.properties.attachments.items.properties.id).toEqual({
+      type: 'string',
+      enum: ['image-1', 'pdf-1'],
+    });
     expect(JSON.stringify(request)).not.toContain('http');
   });
 

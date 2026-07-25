@@ -65,6 +65,9 @@ describe('runUnifiedChatTurn Phase 6', () => {
 
     expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
       responseFormat: expect.objectContaining({ type: 'json_schema' }),
+      launchContextSummary: expect.stringContaining(
+        'Return the requested editable content in the artifact field',
+      ),
     }));
     expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
       role: 'assistant', body: 'I drafted an email you can edit.',

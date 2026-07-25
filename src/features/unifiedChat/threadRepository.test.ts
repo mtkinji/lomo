@@ -519,7 +519,7 @@ describe('Unified Chat repository', () => {
       status: 'complete',
       completed_at: '2026-07-21T12:00:00.000Z',
     };
-    const { client } = createClient([
+    const { client, calls } = createClient([
       { data: runRow, error: null },
       { data: completeRun, error: null },
     ]);
@@ -538,6 +538,15 @@ describe('Unified Chat repository', () => {
     }))
       .resolves.toMatchObject({ status: 'active' });
     expect(client.from).toHaveBeenCalledWith('kwilt_agent_runs');
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_runs',
+      method: 'insert',
+      args: [expect.objectContaining({
+        initiator: 'user',
+        trigger_kind: 'user_message',
+        trigger_id: expect.stringMatching(/^message-1:/),
+      })],
+    });
     await expect(repository.transitionRunStatus({
       runId: 'run-1', fromStatus: 'active', toStatus: 'complete', expectedVersion: 1,
       assistantMessageId: 'message-2',

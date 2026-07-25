@@ -40,6 +40,13 @@ const MESSAGE_COLUMNS =
   'id,thread_id,role,body,feedback,created_at,updated_at,attachments:kwilt_agent_message_attachments(id,message_id,name,mime_type,size_bytes,kind,inspection_status,inspection_failure,content_text,created_at)';
 const RUN_COLUMNS =
   'id,thread_id,user_message_id,assistant_message_id,status,error_code,error_message,created_at,updated_at,completed_at,request_class,participating_capabilities,context_policy,version,stop_requested_at,steer_count,origin_channel,initiator,trigger_kind,trigger_id,parent_run_id';
+
+function localUserMessageTriggerId(userMessageId: string): string {
+  const suffix = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return `${userMessageId}:${suffix}`.slice(0, 200);
+}
 const PROPOSAL_COLUMNS =
   'id,thread_id,run_id,message_id,capability_id,title,body,status,version,created_at,updated_at';
 const PROPOSAL_OPERATION_COLUMNS =
@@ -861,6 +868,9 @@ export function createUnifiedChatRepository(
           request_class: input.requestClass,
           participating_capabilities: input.participatingCapabilities,
           context_policy: input.contextPolicy,
+          initiator: 'user',
+          trigger_kind: 'user_message',
+          trigger_id: localUserMessageTriggerId(input.userMessageId),
         })
         .select(RUN_COLUMNS)
         .single();

@@ -352,13 +352,18 @@ export async function executeUnifiedChatTurnPhase(
         : expectsArtifactResponse
           ? { responseFormat: { ...ASSISTANT_ARTIFACT_RESPONSE_FORMAT } }
         : {}),
-    launchContextSummary: groundingSummary(
-      input.requestPolicy,
-      input.context,
-      input.turnAttachments,
-      input.planConversationReferent,
-      pendingWorkConversationReferent,
-    ),
+    launchContextSummary: [
+      groundingSummary(
+        input.requestPolicy,
+        input.context,
+        input.turnAttachments,
+        input.planConversationReferent,
+        pendingWorkConversationReferent,
+      ),
+      expectsArtifactResponse
+        ? 'The user requested editable output. Return the requested editable content in the artifact field with the best matching supported kind; do not leave artifact null. Keep the answer field to a brief introduction.'
+        : null,
+    ].filter((item): item is string => Boolean(item)).join('\n\n'),
     paywallSource: 'unknown',
     conversationTitlePolicy: {
       suggestFromOpening,
