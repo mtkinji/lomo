@@ -30,6 +30,7 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
 import { createReferralCode } from '../../services/referrals';
+import { selectGoalInviteDestinationUrls } from './goalInviteDestinationUrl';
 import { appendGoalInviteReferralCode } from './goalInviteReferralUrl';
 
 type Step = 'offer' | 'email' | 'sent';
@@ -103,12 +104,12 @@ export function ShareGoalDrawer(props: {
         const codeFromUrl = extractInviteCode(inviteUrl);
         setInviteCode(codeFromUrl);
         const open = buildInviteOpenUrl(codeFromUrl);
-        const fallbackTapUrl = inviteRedirectUrl
-          ? isExpoGo
-            ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
-            : inviteRedirectUrl
-          : open.primary;
-        const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
+        const { tapUrl: tapUrlBase } = selectGoalInviteDestinationUrls({
+          primaryOpenUrl: open.primary,
+          inviteRedirectUrl,
+          inviteLandingUrl,
+          isExpoGo,
+        });
 
         const tapU = appendGoalInviteReferralCode(tapUrlBase, code);
         setTapUrl(tapU);

@@ -97,8 +97,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: both share paths independently trim referral codes, preserve an existing `ref`, and append a fallback query parameter for malformed URLs.
   - Result: `goalInviteReferralUrl.ts` now owns referral-code trimming, existing-ref preservation, URL encoding, and malformed-URL fallback, with focused tests for each contract edge.
 
-- [ ] Unify Goal invite destination URL selection
+- [x] Unify Goal invite destination URL selection
   - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
   - Why: both invitation paths independently choose between landing, redirect, Expo Go, and native deep-link destinations before applying referral metadata.
-  - Ideal test: pin landing and redirect presence, Expo Go fallback encoding, native fallback, and missing optional URLs.
+  - Result: `goalInviteDestinationUrl.ts` now owns human-tap and share-preview destination priority plus Expo Go handoff encoding, with focused tests for every destination combination.
+
+- [ ] Extract Goal partner access presentation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: current-user identity normalization, membership lookup, leave/remove permissions, and visible partner avatars form one access-sensitive view contract embedded in screen state.
+  - Ideal test: pin auth/profile identity aliases, owner/member permissions, self exclusion, blank IDs, and owner exclusion from partner avatars.
   - Risk: low

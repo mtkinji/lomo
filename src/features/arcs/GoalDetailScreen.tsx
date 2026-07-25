@@ -166,6 +166,7 @@ import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 import { mergeRefinedGoalProposal } from './goalProposalMerge';
 import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
 import { normalizeGoalSharePreviewImageUrl } from './goalSharePreviewUrl';
+import { selectGoalInviteDestinationUrls } from '../goals/goalInviteDestinationUrl';
 import { appendGoalInviteReferralCode } from '../goals/goalInviteReferralUrl';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
@@ -1155,19 +1156,12 @@ export function GoalDetailScreen() {
       const code = extractInviteCode(inviteUrl);
       const open = buildInviteOpenUrl(code);
       const isExpoGo = Constants.appOwnership === 'expo';
-      const fallbackTapUrl = inviteRedirectUrl
-        ? isExpoGo
-          ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
-          : inviteRedirectUrl
-        : open.primary;
-
-      // Share-sheet preview needs a URL that returns OG metadata. Our Edge Function does that.
-      // Note: this URL may not be a Universal Link host; that's ok for previews, and it still
-      // performs a best-effort kwilt:// handoff via HTML.
-      const shareUrlBase = inviteRedirectUrl ?? inviteLandingUrl ?? fallbackTapUrl;
-
-      // Tap/open URL for humans: prefer the public landing host (Universal Links) when available.
-      const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
+      const { tapUrl: tapUrlBase, shareUrl: shareUrlBase } = selectGoalInviteDestinationUrls({
+        primaryOpenUrl: open.primary,
+        inviteRedirectUrl,
+        inviteLandingUrl,
+        isExpoGo,
+      });
 
       const tapUrl = appendGoalInviteReferralCode(tapUrlBase, referralCode);
       const shareUrl = appendGoalInviteReferralCode(shareUrlBase, referralCode);
