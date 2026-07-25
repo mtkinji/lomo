@@ -175,8 +175,9 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('thread.id === updatedThread.id ? updatedThread : thread');
   });
 
-  test('uses the standard page header and leaves chat creation and selection to the capability menu', () => {
+  test('uses the quiet conversation header and leaves chat creation and selection to the capability menu', () => {
     expect(screenSource).toContain('<PageHeader');
+    expect(screenSource).toContain('variant="conversation"');
     expect(screenSource).toContain('onPressMenu={openMenu}');
     expect(screenSource).toContain('menuOpen={menuOpen}');
     expect(screenSource).not.toContain('accessibilityLabel="Open Kwilt menu"');

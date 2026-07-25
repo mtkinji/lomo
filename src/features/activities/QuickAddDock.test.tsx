@@ -178,6 +178,25 @@ describe('QuickAddDock', () => {
     });
   });
 
+  it('matches the resting agent composer inset by default', () => {
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-floating-dock').props.style)).toMatchObject({
+      paddingHorizontal: 32,
+    });
+  });
+
   it('renders the collapsed floating surface as a full pill', () => {
     const { getByTestId } = renderWithProviders(
       <QuickAddDock
@@ -261,6 +280,41 @@ describe('QuickAddDock', () => {
     const drawer = getByTestId('under-keyboard-drawer');
 
     expect(drawer.props.maxVisibleContentHeightPx).toBe(drawer.props.visibleContentHeightFallbackPx);
+  });
+
+  it('uses the rounded white drawer as the only expanded surface', () => {
+    const { getByTestId } = renderWithProviders(<QuickAddHarness />);
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-expanded-composer').props.style)).toMatchObject({
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+    });
+  });
+
+  it('joins the expanded white drawer directly to the keyboard without a bottom seam', () => {
+    const { getByTestId } = renderWithProviders(<QuickAddHarness />);
+    const composer = getByTestId('quick-add-expanded-composer');
+    let drawerContent: typeof composer | null = null;
+    let ancestor = composer.parent;
+
+    while (ancestor) {
+      const style = StyleSheet.flatten(ancestor.props.style);
+      if (
+        style?.paddingHorizontal === 8 &&
+        style?.paddingTop === 8 &&
+        style?.backgroundColor === '#FFFFFF' &&
+        style?.overflow === 'visible'
+      ) {
+        drawerContent = ancestor;
+        break;
+      }
+      ancestor = ancestor.parent;
+    }
+
+    expect(drawerContent).not.toBeNull();
+    expect(StyleSheet.flatten(drawerContent?.props.style)).toMatchObject({
+      paddingBottom: 0,
+    });
   });
 
   it('renders AI action switch thumbs with animated transforms', () => {

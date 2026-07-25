@@ -99,17 +99,18 @@ export function CapabilityMenu({
 
   return (
     <View style={styles.root}>
-      <BrandLockup logoSize={28} wordmarkSize="sm" style={styles.brand} />
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Search Kwilt"
-        onPress={onOpenSearch}
-        style={({ pressed }) => [styles.searchRow, pressed && styles.rowPressed]}
-      >
-        <Icon name="search" size={18} color={colors.textSecondary} />
-        <Text style={styles.searchLabel}>Search</Text>
-      </Pressable>
+      <View testID="capability.menu.header" style={styles.header}>
+        <BrandLockup logoSize={28} wordmarkSize="sm" />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open profile and settings"
+          onPress={onOpenSettings}
+          hitSlop={6}
+          style={({ pressed }) => [styles.avatarButton, pressed && styles.rowPressed]}
+        >
+          <ProfileAvatar name={displayName} avatarUrl={avatarUrl} size={36} />
+        </Pressable>
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -178,15 +179,17 @@ export function CapabilityMenu({
         ))}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View testID="capability.menu.footer" style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open profile and settings"
-          onPress={onOpenSettings}
-          hitSlop={6}
-          style={({ pressed }) => [styles.avatarButton, pressed && styles.rowPressed]}
+          accessibilityLabel="Search Kwilt"
+          onPress={onOpenSearch}
+          style={({ pressed }) => [
+            styles.searchButton,
+            pressed && styles.searchButtonPressed,
+          ]}
         >
-          <ProfileAvatar name={displayName} avatarUrl={avatarUrl} size={36} />
+          <Icon name="search" size={20} color={colors.gray700} />
         </Pressable>
 
         <Pressable
@@ -308,21 +311,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     paddingHorizontal: spacing.lg,
   },
-  brand: {
-    marginBottom: spacing.lg,
-  },
-  searchRow: {
+  header: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 10,
-    backgroundColor: colors.gray50,
-  },
-  searchLabel: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
+    justifyContent: 'space-between',
   },
   scroll: {
     flex: 1,
@@ -455,9 +448,20 @@ const styles = StyleSheet.create({
   avatarButton: {
     width: 44,
     height: 44,
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
     justifyContent: 'center',
     borderRadius: 22,
+  },
+  searchButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: colors.gray100,
+  },
+  searchButtonPressed: {
+    backgroundColor: colors.gray200,
   },
   chatButton: {
     minHeight: 44,

@@ -1079,6 +1079,7 @@ export function UnifiedChatScreen() {
     <AppShell fullBleedCanvas>
       <PageHeader
         title={aggregate?.thread.title ?? 'Chat'}
+        variant="conversation"
         onPressMenu={openMenu}
         menuOpen={menuOpen}
         containerStyle={{
