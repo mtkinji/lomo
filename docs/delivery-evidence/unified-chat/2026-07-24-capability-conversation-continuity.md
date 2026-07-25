@@ -81,6 +81,16 @@ Fresh signed-in iPhone 17 Pro simulator proof on the rebuilt current worktree:
 
 The replay also exposed and fixed the singular response `kept the first one changes`; the deterministic response is now `Okay—I kept the first change for review and removed the rest.`
 
-### Remaining runtime boundary
+### Receipt undo and reload durability — accepted
 
-The applied inventory receipt exposes its reversible action through a left-swipe. The available simulator control translated the attempted swipe into a tap and opened the exact native record instead. Automated protocol, snapshot, executor, and renderer tests cover `receipt.undo`, but a fresh signed-in physical swipe → undone receipt replay has not yet been captured. Native deletion was used only to clean up the test records and is not counted as Chat undo proof. Phase 5 remains in progress until that exact undo row is proven.
+A final fresh signed-in row used the isolated Activity `phase five undo proof`:
+
+- The explicit create produced one applied inventory receipt in Chat and an authoritative native To-do with the same title.
+- A physical swipe left across the receipt exposed its red Delete action; selecting it removed the receipt from the causal timeline and executed the receipt-owned undo path.
+- The receipt remained absent after a fresh Metro reload of the signed development build.
+- An exact native To-do search for `phase five undo proof` returned no matching record after the reload.
+- Accepted screenshots: `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 20.50.58.png`, `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 20.51.21.png`, and `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 20.52.07.png`.
+
+The intermediate `Chat isn’t enabled in this build` screen was caused by the simulator relaunching the installed binary without reconnecting to the flagged Metro development runtime. Rebuilding and relaunching the current worktree reattached the app without losing the durable thread or receipt. That recovery screen is not counted as product proof.
+
+Phase 5 is complete: compound capture, ordered correction, referent advancement, reload preservation, authoritative apply, exact native return, physical receipt undo, post-undo reload durability, and native removal are all proven. Physical-device and TestFlight proof remain later release boundaries rather than inferred evidence.
