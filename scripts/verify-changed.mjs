@@ -122,6 +122,11 @@ if (matches(/^(src\/features\/unifiedChat\/|protocol-fixtures\/|supabase\/migrat
   add('npm run test:chat-contracts', 'run Unified Chat delivery and durable-schema contract tests');
 }
 
+if (matches(/^(docs\/(analytics-money-transaction-truth\.md|delivery-evidence\/money-transaction-truth\.json)|src\/capabilities\/money\/(domain\/transactionTruthTelemetry|runtime\/transactionTruthAnalytics)|scripts\/money-transaction-truth-evidence)/)) {
+  add('npm run test:money-transaction-truth:evidence', 'unit-test the privacy-safe score-five thresholds and denominators');
+  add('npm run money:transaction-truth:evidence', 'reject impossible evidence or an unsupported Money score-five claim');
+}
+
 if (matches(/^(docs\/|src\/features\/[^/]+\/FEATURE\.md|scripts\/generate-agent-code-map\.mjs)/)) {
   add('npm run agent:map', 'refresh the agent-facing code map after docs or feature manifest changes');
 }
