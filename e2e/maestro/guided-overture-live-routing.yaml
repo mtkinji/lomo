@@ -1,0 +1,16 @@
+appId: com.andrewwatanabe.kwilt
+---
+- runFlow: smoke-devtools.yaml
+- scrollUntilVisible:
+    element:
+      id: "dev.guidedOverture.open"
+    direction: DOWN
+- tapOn:
+    id: "dev.guidedOverture.open"
+- tapOn:
+    id: "guidedOverture.labOptions"
+- tapOn:
+    id: "guidedOverture.mode.live"
+- tapOn:
+    id: "guidedOverture.start.add-todo"
+- assertVisible: "Let’s get it out of your head. What do you need to remember to do?"

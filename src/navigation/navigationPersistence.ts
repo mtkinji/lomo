@@ -6,7 +6,8 @@ type RootRouteName =
   | 'UnifiedChat'
   | 'ArcsStack'
   | 'Settings'
-  | 'DevTools';
+  | 'DevTools'
+  | 'GuidedOvertureLab';
 
 type PersistedRouteLike = {
   key?: string;
@@ -162,7 +163,7 @@ export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteN
     'UnifiedChat',
     'ArcsStack',
     'Settings',
-    ...(showDevTools ? (['DevTools'] as const) : []),
+    ...(showDevTools ? (['DevTools', 'GuidedOvertureLab'] as const) : []),
   ];
 }
 

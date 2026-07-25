@@ -117,6 +117,13 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     UnifiedChat: {
       path: 'chat',
     },
+    // Development-only lab route. The matching screen is not mounted in production builds.
+    GuidedOvertureLab: {
+      path: '__dev/guided-overture',
+    },
+    DevTools: {
+      path: '__dev/tools',
+    },
     ArcsStack: {
       screens: {
         ArcsList: {

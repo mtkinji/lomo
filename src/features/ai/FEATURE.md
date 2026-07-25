@@ -22,7 +22,7 @@ briefs:
   - kwilt-phone-agent
   - unified-chat
 status: shipped
-last_reviewed: 2026-07-22
+last_reviewed: 2026-07-25
 ---
 
 # ai
@@ -31,8 +31,8 @@ Helps Nina use AI near her life system while preserving inspection, permission, 
 
 ## Surfaces in this folder
 
-- `AiChatScreen.tsx` - conversational AI entry point.
-- `AgentWorkspace.tsx` - inspectable workspace for AI-generated actions and proposals.
+- `AiChatScreen.tsx` - conversational AI entry point, including deterministic openings from bounded guided contexts.
+- `AgentWorkspace.tsx` - inspectable workspace for AI-generated actions and proposals, and the continuation host after Guided Overture.
 - `agentRuntime.ts`, `workflowRegistry.ts`, and `WorkflowRuntimeContext.ts` - runtime substrate for permissioned workflows.
 - `systemPrompts.ts` - prompt contract that keeps AI behavior aligned with Kwilt's product posture.
 - `ShareIntakeFlow.tsx` - intake path from shared or external contexts.

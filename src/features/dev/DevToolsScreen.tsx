@@ -1089,10 +1089,26 @@ export function DevToolsScreen() {
           <DevToolSection
             title="Preview flows"
             description="Fire user-facing moments without walking the full app path."
-            count={21}
+            count={22}
             expanded={expandedSections.preview}
             onToggle={() => toggleSection('preview')}
           >
+            <View style={styles.card}>
+              <Text style={styles.cardEyebrow}>Guided Overture onboarding lab</Text>
+              <Text style={styles.cardBody}>
+                Step through the suite introduction at your own pace, then continue in Agent with
+                the selected task already in context. This does not change current first-time UX.
+              </Text>
+              <Button
+                testID="dev.guidedOverture.open"
+                variant="accent"
+                onPress={() => navigation.navigate('GuidedOvertureLab', { sessionId: Date.now() })}
+                style={styles.cardAction}
+              >
+                <ButtonLabel size="md" tone="inverse">Play Guided Overture</ButtonLabel>
+              </Button>
+            </View>
+
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Check-in nudges (dev)</Text>
               <Text style={styles.cardBody}>

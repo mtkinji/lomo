@@ -13,6 +13,7 @@ export type LaunchSource =
   | 'activityDetail'
   | 'chapterDetail'
   | 'devTools'
+  | 'guidedOverture'
   | 'standaloneCoach'
   | 'shareExtension';
 
