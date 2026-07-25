@@ -18,7 +18,7 @@ Reload resolves the referent from the immediately preceding durable run event. F
 | --- | --- | --- |
 | “No, the other one.” | With exactly two referenced proposals, rejects the first by exact id/version and keeps the second. Any larger or missing set asks which change. | `typedTurnControl.test.ts`; `runUnifiedChatTurn.continuity.test.ts` |
 | “Move it to Friday.” | Edits exactly one referenced Activity proposal through the versioned proposal-decision RPC and persists the advanced proposal version for reload. | `runUnifiedChatTurn.continuity.test.ts` |
-| “Only add the first two.” | Preserves declared order, leaves the first two pending for review, and rejects only the tail. | `runUnifiedChatTurn.continuity.test.ts` |
+| “Only add the first two.” | Preserves declared order, leaves the first two pending for review, rejects only the tail, and persists a resequenced referent containing only the survivors. | `runUnifiedChatTurn.continuity.test.ts` |
 | “Cancel that.” | Cancels every proposal in one exact referenced compound set; unrelated multiple pending actions still require one useful clarification. | `runUnifiedChatTurn.test.ts`; `runUnifiedChatTurn.continuity.test.ts` |
 | “Do the same for next week.” | Clones exactly one pending Activity creation seven days later as a second reviewable proposal, preserves the original, and uses `targetId: null` rather than inventing an object id. | `runUnifiedChatTurn.continuity.test.ts` |
 | “Create the Goal and give me a daily way to follow through.” | Stages only the Goal first; the linked daily Activity is offered only after approval returns the authoritative Goal id. | `runUnifiedChatTurn.appControl.test.ts`; `executeGoalProposalDecision.test.ts` |
@@ -39,7 +39,7 @@ Typed referent construction is parameterized across Arcs, Goals, To-dos, Plan, C
 
 `npm run verify:changed -- --run` passed after the continuity changes:
 
-- 277 Jest suites, 1,993 tests.
+- 277 Jest suites, 1,996 tests.
 - 14 Deno tests.
 - 27 durable Chat contract tests.
 - App and test typechecks, code-health ratchet, Supabase function checks, product lint, Chat delivery lint, protocol conformance, code-map generation, and architecture lint.
@@ -65,4 +65,22 @@ Fresh signed-in iPhone 17 Pro simulator proof on the rebuilt current worktree:
 - Pre-fix failure screenshot retained for comparison: `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 18.45.14.png`.
 - Native build boundary: `npx expo run:ios --device "iPhone 17 Pro"` completed with 0 errors and installed/opened `com.andrewwatanabe.kwilt`; Metro then loaded the branch bundle with the main checkout's local environment and explicit local Chat flags.
 
-The fresh simulator matrix is still required for weekday correction, reload preservation, and exact native return. Until those rows are captured, Phase 5 remains in progress.
+### Selection, weekday correction, reload, and native return — accepted
+
+A fresh self-contained replay first exposed one more durable-identity failure: after `Only add the first one`, Kwilt rejected the tail but left the prior two-item `conversation_referent` as the latest durable referent. The exact next turn `Move it to Friday` therefore asked which proposal the user meant. The selection control run now writes a new referent containing only the kept proposals, in declared order with sequences starting at one. A regression test proves that payload before the implementation is accepted.
+
+Fresh signed-in iPhone 17 Pro simulator proof on the rebuilt current worktree:
+
+- `Add phase five test and call phase five test two` produced two independent reviewable To-do proposals.
+- `Only add the first one` rejected `Call phase five test two`, kept `Phase five test` reviewable, and advanced the durable referent to that single survivor.
+- `Move it to Friday` edited the survivor without clarification and retained its review controls.
+- A Metro reload preserved the edited proposal, its rejected sibling, and the exact conversation chronology.
+- Creating the survivor replaced the proposal with its authoritative inventory receipt. Tapping that receipt opened the exact native `Phase five test` To-do with `Due date · Jul 24, 2026` (Friday).
+- Accepted screenshots: `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 19.44.28.png`, `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 19.44.48.png`, and `/Users/andrewwatanabe/Desktop/Simulator Screenshot - iPhone 17 Pro - 2026-07-24 at 19.45.34.png`.
+- All runtime-only test To-dos were removed afterward through their native detail screens.
+
+The replay also exposed and fixed the singular response `kept the first one changes`; the deterministic response is now `Okay—I kept the first change for review and removed the rest.`
+
+### Remaining runtime boundary
+
+The applied inventory receipt exposes its reversible action through a left-swipe. The available simulator control translated the attempted swipe into a tap and opened the exact native record instead. Automated protocol, snapshot, executor, and renderer tests cover `receipt.undo`, but a fresh signed-in physical swipe → undone receipt replay has not yet been captured. Native deletion was used only to clean up the test records and is not counted as Chat undo proof. Phase 5 remains in progress until that exact undo row is proven.

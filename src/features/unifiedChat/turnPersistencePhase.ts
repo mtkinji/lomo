@@ -290,6 +290,7 @@ export async function handleUnifiedChatPendingPrefixSelectionPhase({
     eventLabel = 'Selection needs a target';
   } else {
     const removed = mode === 'other' ? referencedPending.slice(0, 1) : referencedPending.slice(count);
+    const kept = mode === 'other' ? referencedPending.slice(1) : referencedPending.slice(0, count);
     for (const { proposal } of removed) {
       await repository.decideProposal({
         proposalId: proposal.id,
@@ -299,12 +300,30 @@ export async function handleUnifiedChatPendingPrefixSelectionPhase({
       });
       captureCorrection({ type: 'rejected', capabilityId: proposal.capabilityId });
     }
+    await repository.appendRunEvents({
+      threadId: aggregate.thread.id,
+      runId: controlRun.id,
+      events: [{
+        sequence: 1,
+        type: 'conversation_referent',
+        status: 'complete',
+        visibility: 'internal',
+        label: `${kept.length} ${kept.length === 1 ? 'change' : 'changes'} awaiting review`,
+        detail: null,
+        payload: buildPendingWorkConversationReferent(kept.map(({ item }, index) => ({
+          ...item,
+          sequence: index + 1,
+        }))),
+      }],
+    });
     const keptCount = mode === 'other' ? 1 : Math.min(count, referencedPending.length);
     body = mode === 'other'
       ? 'Okay—I kept the other change for review and removed the first one.'
       : removed.length === 0
       ? `All ${keptCount} changes are already waiting for review.`
-      : `Okay—I kept the first ${keptCount === 1 ? 'one' : keptCount === 2 ? 'two' : keptCount} changes for review and removed the rest.`;
+      : keptCount === 1
+      ? 'Okay—I kept the first change for review and removed the rest.'
+      : `Okay—I kept the first ${keptCount === 2 ? 'two' : keptCount} changes for review and removed the rest.`;
     eventLabel = 'Pending selection updated';
   }
 

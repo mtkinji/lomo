@@ -125,6 +125,26 @@ describe('durable capability conversation continuity', () => {
     const repository = await runControl('Only add the first two.', pendingActivities(['Milk', 'Call Mom', 'School form']));
     expect(repository.decideProposal).toHaveBeenCalledTimes(1);
     expect(repository.decideProposal).toHaveBeenCalledWith(expect.objectContaining({ proposalId: 'proposal-3', action: 'reject' }));
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
+      runId: 'run-control',
+      events: [expect.objectContaining({
+        type: 'conversation_referent',
+        payload: expect.objectContaining({ items: [
+          expect.objectContaining({ proposalId: 'proposal-1', sequence: 1 }),
+          expect.objectContaining({ proposalId: 'proposal-2', sequence: 2 }),
+        ] }),
+      })],
+    }));
+    expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
+      body: 'Okay—I kept the first two changes for review and removed the rest.',
+    }));
+  });
+
+  test('uses singular copy when one pending change survives', async () => {
+    const repository = await runControl('Only add the first one.', pendingActivities(['Milk', 'Call Mom']));
+    expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
+      body: 'Okay—I kept the first change for review and removed the rest.',
+    }));
   });
 
   test('selects the other item only from an exact two-choice referent', async () => {
