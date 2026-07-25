@@ -55,9 +55,10 @@ showing that the workflow stays easy and trustworthy outside the development loo
   was then restored and reconciled in the database.
 - Four temporary five-merchant samples were restored to their exact prior
   unreviewed state after readback; the deliberate mixed-purchase split remains.
-- Six focused suites passed 48 tests; the full repository suite passed 293 suites
-  and 2,035 tests. App and test typechecks, product lint, architecture lint,
-  whitespace checks, and all four Maestro flow syntax checks passed.
+- The full repository suite passed 295 suites and 2,049 tests. The separate
+  privacy-safe evidence-scorecard suite passed 5 tests. App and test typechecks,
+  product lint, architecture lint, whitespace checks, and all four Maestro flow
+  syntax checks passed.
 - `verify:changed` reaches an unrelated Unified Chat compatibility-fixture drift
   that reproduces on a detached `origin/main` checkout.
 - No TestFlight build was started; release proof is intentionally paused.
@@ -72,3 +73,5 @@ showing that the workflow stays easy and trustworthy outside the development loo
 
 The privacy-safe event schema, evidence window, thresholds, and qualitative
 household protocol are defined in `docs/analytics-money-transaction-truth.md`.
+The machine-checkable current scorecard lives at
+`docs/delivery-evidence/money-transaction-truth.json`.

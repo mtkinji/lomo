@@ -54,6 +54,20 @@ These thresholds are a learning-release gate, not a claim of statistical
 significance. Any integrity discrepancy blocks 5 regardless of favorable
 aggregate rates.
 
+The rate denominators are fixed so the result cannot be reinterpreted later:
+
+- fast-save rate = saves under one minute / all successful saves;
+- abandonment rate = abandoned sessions / genuine starts;
+- save-failure rate = failed attempts / successful plus failed save attempts.
+
+Run `npm run money:transaction-truth:evidence` to validate the committed
+privacy-safe scorecard at
+`docs/delivery-evidence/money-transaction-truth.json`. The checker rejects
+impossible counts, fields outside its allowlist, and any score-5 claim whose
+six evidence gates do not all pass. Its household rows contain only ratings
+and booleans—no household, person, merchant, account, category, or transaction
+identifiers.
+
 ## PostHog review
 
 For the evidence window, review:
@@ -75,3 +89,5 @@ trust or cross-surface financial correctness.
 The event code, allowlisted adapter, privacy tests, and production environment
 key/host are present locally. No TestFlight build carrying these events has been
 started, so live event flow and the score-five evidence window have not begun.
+The committed scorecard therefore remains at 4 with all external proof gates
+explicitly pending.

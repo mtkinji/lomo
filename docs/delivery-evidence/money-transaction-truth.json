@@ -1,0 +1,23 @@
+{
+  "id": "money-transaction-truth",
+  "current_score": 4,
+  "build": {
+    "app_version": null,
+    "app_build": null,
+    "testflight_installed": false,
+    "physical_device_verified": false
+  },
+  "window": {
+    "observation_days": 0
+  },
+  "aggregate": {
+    "genuine_starts": 0,
+    "saved": 0,
+    "saved_under_one_minute": 0,
+    "save_failed": 0,
+    "abandoned": 0,
+    "replace_saved": 0
+  },
+  "installed_build_reconciliation_discrepancies": null,
+  "household_assessments": []
+}
