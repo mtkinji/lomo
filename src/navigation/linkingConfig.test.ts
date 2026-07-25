@@ -129,6 +129,14 @@ describe('linkingConfig', () => {
   });
 
   describe('Pre-existing deep links still resolve (no regression from refactor)', () => {
+    test('development Guided Overture link resolves to the isolated lab route', () => {
+      expect(parse('__dev/guided-overture')?.name).toBe('GuidedOvertureLab');
+    });
+
+    test('development tools link resolves to the development-only root route', () => {
+      expect(parse('__dev/tools')?.name).toBe('DevTools');
+    });
+
     test('kwilt://today -> ActivitiesList', () => {
       expect(parse('today')?.name).toBe('ActivitiesList');
     });

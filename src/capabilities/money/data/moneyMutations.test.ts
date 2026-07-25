@@ -15,6 +15,11 @@ describe('buildTransactionReviewUpdate', () => {
       budget_match_confidence: 1,
       budget_match_reason: 'Assigned to category.',
       budget_match_reviewed_at: '2026-07-23T19:00:00.000Z',
+      money_meaning: null,
+      money_meaning_source: null,
+      money_meaning_category_budget_id: null,
+      money_meaning_reason: null,
+      money_meaning_reviewed_at: null,
     });
   });
 

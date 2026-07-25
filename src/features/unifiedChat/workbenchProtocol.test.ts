@@ -55,6 +55,8 @@ describe('Unified Chat workbench protocol', () => {
     },
     { type: 'receipt.undo', receiptId: 'receipt-1' },
     { type: 'receipt.open', receiptId: 'receipt-plan-1' },
+    { type: 'artifact.update', artifactId: 'artifact-1', expectedVersion: 1, title: 'Email', content: 'Hello' },
+    { type: 'source.open', url: 'https://weather.example/lehi' },
     { type: 'client_action.decide', actionId: 'client-action-1', action: 'continue', expectedVersion: 1 },
     { type: 'client_action.decide', actionId: 'client-action-1', action: 'decline', expectedVersion: 2 },
     { type: 'thread.create' },
@@ -127,6 +129,12 @@ describe('Unified Chat workbench protocol', () => {
       type: 'surface.command',
       requestId: 'x',
       command: { type: 'receipt.open' },
+    }),
+    JSON.stringify({
+      protocolVersion: 2,
+      type: 'surface.command',
+      requestId: 'x',
+      command: { type: 'source.open', url: 'http://unsafe.example' },
     }),
     JSON.stringify({
       protocolVersion: 2, type: 'surface.command', requestId: 'x',

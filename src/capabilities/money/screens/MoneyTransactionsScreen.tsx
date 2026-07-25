@@ -20,6 +20,7 @@ import {
 import { useMoneyData } from '../data/MoneyDataContext';
 import { syncMoneyTransactions } from '../data/moneyPlaidApi';
 import { formatMoney, formatMoneyFreshness, type MoneyTransaction } from '../data/moneySnapshot';
+import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 
@@ -61,9 +62,15 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const monthEnd = route.params?.monthEnd;
   const monthLabel = route.params?.monthLabel;
   const allTransactions = snapshot?.transactions ?? [];
-  const scopedInventory = useMemo(() => allTransactions.filter((transaction) => (
-    (!accountId || transaction.accountId === accountId) && (!categoryId || transaction.categoryId === categoryId)
-  )), [accountId, allTransactions, categoryId]);
+  const selectedCategory = categoryId
+    ? snapshot?.categories.find((category) => category.id === categoryId || category.sourceId === categoryId)
+    : undefined;
+  const scopedInventory = useMemo(() => {
+    const accountTransactions = allTransactions.filter((transaction) => !accountId || transaction.accountId === accountId);
+    return selectedCategory
+      ? projectMoneyTransactionsForCategory(accountTransactions, selectedCategory)
+      : categoryId ? [] : accountTransactions;
+  }, [accountId, allTransactions, categoryId, selectedCategory]);
   const dateTransactions = useMemo(() => scopedInventory.filter((transaction) => (
     monthStart && monthEnd
       ? transaction.date >= monthStart && transaction.date <= monthEnd
@@ -72,7 +79,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const transactions = useMemo(() => sortTransactions(dateTransactions.filter((transaction) => matchesFilter(transaction, filter)), sort), [dateTransactions, filter, sort]);
   const groups = useMemo(() => groupByDate(transactions), [transactions]);
   const accountLabel = accountId ? snapshot?.accounts.find((account) => account.id === accountId)?.name : null;
-  const categoryLabel = categoryId ? snapshot?.categories.find((category) => category.id === categoryId)?.name : null;
+  const categoryLabel = selectedCategory?.name ?? null;
   const title = [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions';
 
   const selectDateScope = (next: DateScope) => {
@@ -158,14 +165,16 @@ function TransactionInventoryRow({ onPress, transaction }: { onPress: () => void
   const state = transaction.pending ? 'Pending' : transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.reviewState === 'not_counted' ? 'Not budgeted' : '';
   const stateStyle = transaction.pending ? styles.pendingChip : transaction.reviewState === 'needs_review' ? styles.reviewChip : styles.neutralChip;
   const amountCents = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
+  const assignment = transaction.categoryName ?? (state || 'Uncategorized');
+  const amountLabel = `${amountCents > 0 ? '+' : ''}${formatMoney(amountCents, transaction.currencyCode)}`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${assignment}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.transactionRowPressed : null]}>
       <View style={styles.merchantBlock}>
         <Text numberOfLines={1} style={styles.merchant}>{transaction.merchantName}</Text>
         {transaction.categoryName ? <Text numberOfLines={1} style={styles.assignmentMeta}>{transaction.categoryName}</Text> : null}
       </View>
       {state ? <Text numberOfLines={1} style={[styles.assignmentChip, stateStyle]}>{state}</Text> : null}
-      <Text style={[styles.amount, transaction.direction === 'inflow' ? styles.inflowAmount : null]}>{amountCents > 0 ? '+' : ''}{formatMoney(amountCents, transaction.currencyCode)}</Text>
+      <Text style={[styles.amount, transaction.direction === 'inflow' ? styles.inflowAmount : null]}>{amountLabel}</Text>
     </Pressable>
   );
 }

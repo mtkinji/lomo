@@ -50,6 +50,7 @@
         "name": "school-notes.txt",
         "mimeType": "text/plain",
         "sizeBytes": 42,
+        "kind": "text",
         "status": "ready"
       }]
     }],
@@ -69,6 +70,17 @@
     }],
     "proposals": [],
     "receipts": [],
+    "clientActions": [],
+    "artifacts": [],
+    "timeline": [{
+      "id": "run:run-1",
+      "sequence": 1,
+      "items": [
+        { "kind": "message", "id": "message-1" },
+        { "kind": "run", "id": "run-1" },
+        { "kind": "evidence", "ids": ["evidence-1"] }
+      ]
+    }],
     "composer": {
       "prompt": "",
       "state": "ready",
@@ -77,6 +89,7 @@
         "name": "week-notes.md",
         "mimeType": "text/markdown",
         "sizeBytes": 84,
+        "kind": "text",
         "status": "ready"
       }],
       "voice": { "state": "idle", "elapsedSeconds": 0 }

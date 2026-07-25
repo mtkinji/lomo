@@ -55,6 +55,39 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.evidence).toEqual([]);
     expect(snapshot.proposals).toEqual([]);
     expect(snapshot.receipts).toEqual([]);
+    expect(snapshot.artifacts).toEqual([]);
+  });
+
+  test('keeps an editable draft artifact inside its producing turn and outside receipts', () => {
+    const assistant = {
+      id: 'message-assistant', threadId: 'thread-1', role: 'assistant' as const,
+      body: 'I drafted an email you can edit.', feedback: null,
+      createdAt: '2026-07-21T11:00:02.000Z', updatedAt: '2026-07-21T11:00:02.000Z', attachments: [],
+    };
+    const run = {
+      id: 'run-artifact', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: assistant.id,
+      status: 'complete' as const, errorCode: null, errorMessage: null, requestClass: 'general' as const,
+      participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'general', clarification: null },
+      version: 2, stopRequestedAt: null, steerCount: 0, createdAt: '2026-07-21T11:00:01.000Z',
+      updatedAt: '2026-07-21T11:00:03.000Z', completedAt: '2026-07-21T11:00:03.000Z',
+    };
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate, messages: [...aggregate.messages, assistant], runs: [run],
+      artifacts: [{
+        id: 'artifact-1', threadId: 'thread-1', runId: run.id, messageId: assistant.id,
+        title: 'School email', kind: 'document', content: 'Hello Ms. Lee', version: 2,
+        createdAt: '2026-07-21T11:00:02.000Z', updatedAt: '2026-07-21T11:05:00.000Z',
+      }],
+    });
+    expect(snapshot.artifacts).toEqual([expect.objectContaining({
+      id: 'artifact-1', label: 'Draft', editable: true, version: 2,
+    })]);
+    expect(snapshot.receipts).toEqual([]);
+    expect(snapshot.timeline?.[0]?.items).toEqual([
+      { kind: 'message', id: 'message-1' },
+      { kind: 'message', id: 'message-assistant' },
+      { kind: 'artifact', id: 'artifact-1' },
+    ]);
   });
 
   test('projects one restrained visible event for an active run', () => {
@@ -86,6 +119,28 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.runs[0]?.events).toEqual([
       expect.objectContaining({ status: 'active', label: 'Preparing a response' }),
     ]);
+  });
+
+  test('keeps Phone and background provenance in the same calm causal timeline', () => {
+    const baseRun = {
+      id: 'run-phone', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'active' as const, errorCode: null, errorMessage: null, requestClass: 'general' as const,
+      participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'server', clarification: null },
+      version: 1, stopRequestedAt: null, steerCount: 0, createdAt: '2026-07-21T11:00:01.000Z',
+      updatedAt: '2026-07-21T11:00:01.000Z', completedAt: null,
+    };
+    const phone = buildWorkbenchSnapshot({
+      ...aggregate, runs: [{ ...baseRun, originChannel: 'sms', initiator: 'user', triggerKind: 'user_message' }],
+    });
+    expect(phone.runs[0]?.events[0]).toMatchObject({ sequence: 0, label: 'Started by Phone Agent' });
+
+    const background = buildWorkbenchSnapshot({
+      ...aggregate, runs: [{
+        ...baseRun, id: 'run-background', originChannel: 'external', initiator: 'system',
+        triggerKind: 'background_analysis', triggerId: 'weekly:2026-31',
+      }],
+    });
+    expect(background.runs[0]?.events[0]).toMatchObject({ sequence: 0, label: 'Prepared in the background' });
   });
 
   test('keeps a failed run inspectable without exposing internal error detail', () => {

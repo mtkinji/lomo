@@ -76,9 +76,10 @@ export function projectMoneyCategoryPeriodView(
   const monthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
   const periodStartIso = `${monthKey}-01`;
   const periodEndIso = toLocalDay(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0));
-  const transactions = snapshot.transactions.filter((transaction) => (
-    transaction.date.startsWith(monthKey) && transaction.categoryId === sourceCategory.id
-  ));
+  const transactions = projectMoneyTransactionsForCategory(
+    snapshot.transactions.filter((transaction) => transaction.date.startsWith(monthKey)),
+    sourceCategory,
+  );
 
   return {
     monthOffset,
@@ -98,11 +99,10 @@ function projectCategoryForMonth(
   now: Date,
 ): MoneyCategory {
   const monthKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
-  const transactions = snapshot.transactions.filter((transaction) => (
-    transaction.date.startsWith(monthKey)
-    && transaction.categoryId === category.id
-    && !transaction.pending
-  ));
+  const transactions = projectMoneyTransactionsForCategory(
+    snapshot.transactions.filter((transaction) => transaction.date.startsWith(monthKey) && !transaction.pending),
+    category,
+  );
   const outflowCents = transactions
     .filter((transaction) => transaction.direction === 'outflow' && transaction.moneyMeaning !== 'not_counted')
     .reduce((total, transaction) => total + transaction.amountCents, 0);
@@ -131,6 +131,32 @@ function projectCategoryForMonth(
       : 0,
     transactionCount: transactions.length,
     forecast,
+  };
+}
+
+export function projectMoneyTransactionsForCategory(
+  transactions: MoneyTransaction[],
+  category: MoneyCategory,
+): MoneyTransaction[] {
+  return transactions
+    .map((transaction) => projectTransactionForCategory(transaction, category))
+    .filter((transaction): transaction is MoneyTransaction => transaction != null);
+}
+
+function projectTransactionForCategory(
+  transaction: MoneyTransaction,
+  category: MoneyCategory,
+): MoneyTransaction | null {
+  if (transaction.categoryId === category.id) return transaction;
+  const allocation = transaction.allocations?.find((candidate) => (
+    candidate.categoryId === category.id || candidate.sourceCategoryId === category.sourceId
+  ));
+  if (!allocation) return null;
+  return {
+    ...transaction,
+    amountCents: allocation.amountCents,
+    categoryId: category.id,
+    categoryName: category.name,
   };
 }
 

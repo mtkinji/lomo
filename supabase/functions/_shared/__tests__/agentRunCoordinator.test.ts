@@ -37,6 +37,7 @@ function persistence(order: string[]): AgentRunPersistence {
     enqueue: jest.fn(async () => { order.push('enqueue'); return run; }),
     start: jest.fn(async () => { order.push('start'); return 2; }),
     loadHistory: jest.fn(async () => { order.push('history'); return [{ role: 'user' as const, content: request.prompt }]; }),
+    loadReplay: jest.fn(async () => { order.push('replay'); return { answer: 'Persisted answer', status: 'complete' as const }; }),
     stageClientAction: jest.fn(async () => { order.push('stage'); }),
     stageProposal: jest.fn(async () => { order.push('proposal'); return { id: 'proposal-1', status: 'pending', version: 1, replayed: false }; }),
     stageProposals: jest.fn(async ({ proposals }) => {
@@ -80,9 +81,9 @@ test('returns an idempotent replay without invoking the model', async () => {
   await expect(executeCanonicalAgentRun({
     request, userId: 'user-1', persistence: store,
     dataClient: { from: jest.fn() }, modelStep,
-  })).resolves.toMatchObject({ state: 'complete', replayed: true });
+  })).resolves.toMatchObject({ state: 'complete', replayed: true, answer: 'Persisted answer' });
   expect(modelStep).not.toHaveBeenCalled();
-  expect(order).toEqual([]);
+  expect(order).toEqual(['replay']);
 });
 
 test('records a durable failure after an active run throws', async () => {

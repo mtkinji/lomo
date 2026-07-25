@@ -83,6 +83,11 @@ export type ActivityDetailRouteParams = {
 
 export type ActivitiesListRouteParams = {
   /**
+   * When true, open and focus Quick Add on mount.
+   * Used by exact task entry points such as the Guided Overture lab.
+   */
+  openQuickAdd?: boolean;
+  /**
    * When true, the Activities canvas will scroll to and highlight the Suggested card.
    * Used by notification deep links (setupNextStep).
    */

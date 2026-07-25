@@ -1274,7 +1274,7 @@ export function ActivitiesScreen() {
 
   // The Option G shell has no bottom nav. Keep the collapsed pill low, but
   // leave enough breathing room to follow the iPhone's bottom-corner curve.
-  const quickAddCompactBottomOffsetPx = spacing.xl;
+  const quickAddCompactBottomOffsetPx = spacing.xl + spacing.sm;
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
     : quickAddCompactBottomOffsetPx;
@@ -1458,6 +1458,17 @@ export function ActivitiesScreen() {
     },
     [setQuickAddFocusedBase],
   );
+
+  React.useEffect(() => {
+    if (!route.params?.openQuickAdd) return;
+    setQuickAddFocused(true);
+    requestAnimationFrame(() => quickAddInputRef.current?.focus?.());
+    try {
+      navigation.setParams({ openQuickAdd: undefined });
+    } catch {
+      // Best-effort param cleanup. The focused dock is already open.
+    }
+  }, [navigation, quickAddInputRef, route.params?.openQuickAdd, setQuickAddFocused]);
 
   React.useEffect(() => {
     quickAddFocusedRef.current = isQuickAddFocused;

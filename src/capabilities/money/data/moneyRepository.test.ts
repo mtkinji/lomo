@@ -68,33 +68,76 @@ function createClient() {
 
 describe('createMoneyRepository transaction review', () => {
   it('loads forecast settings and paginates the complete transaction history', async () => {
-    const { client, calls } = createClient();
+    const { client, calls, rpcCalls } = createClient();
 
     await createMoneyRepository(client).loadSnapshot();
 
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
+    expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
+      .toBe('transaction_id,budget_id,amount_cents');
   });
 
-  it('updates one transaction and reloads the authoritative snapshot', async () => {
-    const { client, calls } = createClient();
+  it('atomically replaces stale splits when assigning one category, then reloads', async () => {
+    const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
 
     const snapshot = await repository.assignTransactionCategory('transaction-1', 'category-1');
 
-    const mutation = calls.find((call) => call.update);
-    expect(mutation).toMatchObject({
-      table: 'budget_transactions',
-      filters: [['id', 'transaction-1']],
-      update: {
-        budget_id: 'category-1',
-        budget_match_source: 'corrected',
-        budget_match_confidence: 1,
+    expect(rpcCalls).toContainEqual({
+      name: 'replace_budget_transaction_review',
+      args: {
+        p_transaction_ids: ['transaction-1'],
+        p_budget_id: 'category-1',
+        p_excluded: false,
       },
     });
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
     expect(snapshot).toMatchObject({ categories: [], transactions: [], accounts: [] });
     expect(client.auth.getUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists an exact split through the atomic allocation RPC, then reloads', async () => {
+    const { client, rpcCalls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await repository.splitTransaction({
+      transactionId: 'transaction-1',
+      transactionAmountCents: 18496,
+      direction: 'outflow',
+      pending: false,
+      allocations: [
+        { categoryId: 'category-grocery-uuid', amountCents: 14000 },
+        { categoryId: 'category-household-uuid', amountCents: 4496 },
+      ],
+    });
+
+    expect(rpcCalls).toContainEqual({
+      name: 'replace_budget_transaction_allocations',
+      args: {
+        p_transaction_id: 'transaction-1',
+        p_allocations: [
+          { budget_id: 'category-grocery-uuid', amount_cents: 14000 },
+          { budget_id: 'category-household-uuid', amount_cents: 4496 },
+        ],
+      },
+    });
+  });
+
+  it('rejects a partial split before any database mutation', async () => {
+    const { client, rpcCalls } = createClient();
+
+    await expect(createMoneyRepository(client).splitTransaction({
+      transactionId: 'transaction-1',
+      transactionAmountCents: 18496,
+      direction: 'outflow',
+      pending: false,
+      allocations: [
+        { categoryId: 'category-grocery-uuid', amountCents: 14000 },
+        { categoryId: 'category-household-uuid', amountCents: 4000 },
+      ],
+    })).rejects.toThrow('full transaction amount');
+    expect(rpcCalls).toEqual([]);
   });
 
   it('persists an inflow meaning and category credit in one update', async () => {
@@ -145,7 +188,7 @@ describe('createMoneyRepository transaction review', () => {
   });
 
   it('can correct visible similar rows and save a partial future-match rule before one reload', async () => {
-    const { client, calls } = createClient();
+    const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
 
     await repository.saveMerchantRule({
@@ -157,11 +200,12 @@ describe('createMoneyRepository transaction review', () => {
       similarTransactionIds: ['transaction-2', 'transaction-3'],
     });
 
-    expect(calls.find((call) => call.table === 'budget_transactions' && call.update)).toMatchObject({
-      inFilters: [['id', ['transaction-2', 'transaction-3']]],
-      update: {
-        budget_id: 'category-1',
-        budget_match_source: 'corrected',
+    expect(rpcCalls).toContainEqual({
+      name: 'replace_budget_transaction_review',
+      args: {
+        p_transaction_ids: ['transaction-2', 'transaction-3'],
+        p_budget_id: 'category-1',
+        p_excluded: false,
       },
     });
     expect(calls.find((call) => call.upsert)?.upsert).toMatchObject({

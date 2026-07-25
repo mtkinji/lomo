@@ -253,4 +253,53 @@ describe('projectMoneySnapshot', () => {
 
     expect(snapshot.transactions[0]?.merchantRuleCategoryId).toBe('groceries');
   });
+
+  it('keeps one mixed-purchase row while allocating exact cents to each category meter', () => {
+    const snapshot = projectMoneySnapshot(
+      {
+        categories,
+        plans,
+        accounts: [],
+        connections: [],
+        allocations: [
+          { transaction_id: 'mixed-purchase', budget_id: 'category-grocery-uuid', amount_cents: 14000 },
+          { transaction_id: 'mixed-purchase', budget_id: 'category-fun-uuid', amount_cents: 4496 },
+        ],
+        transactions: [{
+          id: 'mixed-purchase', financial_account_id: null, name: 'Costco', merchant_name: 'Costco',
+          amount_cents: 18496, direction: 'outflow', date: '2026-07-20', pending: false,
+          iso_currency_code: 'USD', budget_id: null, budget_match_source: 'corrected', money_meaning: null,
+        }],
+      },
+      new Date('2026-07-23T18:00:00.000Z'),
+    );
+
+    expect(snapshot.totals).toMatchObject({ spentCents: 18496, needsReviewCount: 0 });
+    expect(snapshot.outsidePlan).toEqual({ spentCents: 0, transactionCount: 0 });
+    expect(snapshot.categories.find((category) => category.id === 'groceries')).toMatchObject({
+      spentCents: 14000,
+      transactionCount: 1,
+    });
+    expect(snapshot.categories.find((category) => category.id === 'fun')).toMatchObject({
+      spentCents: 4496,
+      transactionCount: 1,
+    });
+    expect(snapshot.transactions).toHaveLength(1);
+    expect(snapshot.transactions[0]).toMatchObject({
+      id: 'mixed-purchase',
+      categoryId: null,
+      categoryName: 'Split across categories',
+      reviewState: 'assigned',
+      allocations: [
+        {
+          categoryId: 'groceries', sourceCategoryId: 'category-grocery-uuid',
+          categoryName: 'Groceries', amountCents: 14000,
+        },
+        {
+          categoryId: 'fun', sourceCategoryId: 'category-fun-uuid',
+          categoryName: 'Fun', amountCents: 4496,
+        },
+      ],
+    });
+  });
 });

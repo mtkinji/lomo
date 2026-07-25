@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { getMenuToggleStroke, PageHeader } from './PageHeader';
-import { colors, spacing } from '../../theme';
+import { colors, fonts, spacing, typography } from '../../theme';
 
 describe('PageHeader capability menu affordance', () => {
   it('keeps the control labeled as a menu when the drawer is open', () => {
@@ -40,5 +40,39 @@ describe('PageHeader capability menu affordance', () => {
     );
     expect(queryByTestId('nav.header.avatar')).toBeNull();
     expect(getByLabelText('67-day streak, 2 shields.')).toBeTruthy();
+  });
+
+  it('uses a quiet leading title and trailing actions for conversation headers only', () => {
+    const { getByText, getByTestId } = render(
+      <PageHeader
+        title="Implementing Phase Five"
+        variant="conversation"
+        onPressMenu={jest.fn()}
+        moreMenu={<></>}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByText('Implementing Phase Five').props.style)).toMatchObject({
+      fontFamily: fonts.semibold,
+      fontSize: typography.body.fontSize,
+      lineHeight: typography.body.lineHeight,
+      textAlign: 'left',
+    });
+    expect(StyleSheet.flatten(getByTestId('page.header').props.style)?.paddingBottom).toBe(
+      spacing.xs,
+    );
+    expect(getByTestId('page.header.trailing')).toBeTruthy();
+  });
+
+  it('keeps the strong object-page title treatment by default', () => {
+    const { getByText, getByTestId } = render(<PageHeader title="Goals" />);
+
+    expect(StyleSheet.flatten(getByText('Goals').props.style)).toMatchObject({
+      fontFamily: fonts.black,
+      fontSize: typography.titleMd.fontSize,
+    });
+    expect(StyleSheet.flatten(getByTestId('page.header').props.style)?.paddingBottom).toBe(
+      spacing.md,
+    );
   });
 });

@@ -1,0 +1,70 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Mutates an authenticated posted outflow, so supply deliberate category names
+# and exact amounts whose sum equals the transaction total.
+#
+# maestro test \
+#   -e DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8083' \
+#   -e TRANSACTION_ID=<uuid> \
+#   -e REMOVE_CATEGORY='Housing' \
+#   -e KEEP_CATEGORY='Shopping' \
+#   -e KEEP_AMOUNT='24.97' \
+#   -e ADD_CATEGORY='Groceries' \
+#   -e ADD_AMOUNT='70.00' \
+#   -e ADD_DISPLAY_AMOUNT='70' \
+#   e2e/maestro/money-transaction-split-persistence.yaml
+
+- openLink: "${DEV_CLIENT_URL}"
+
+- openLink: "kwilt://money/transaction/${TRANSACTION_ID}"
+
+- extendedWaitUntil:
+    visible: "(?:Split transaction|Edit split)"
+    timeout: 15000
+
+- tapOn: "(?:Split transaction|Edit split)"
+- assertVisible: "MIXED PURCHASE"
+
+- tapOn: "Split into .*${REMOVE_CATEGORY}"
+- tapOn: "Split into .*${ADD_CATEGORY}"
+
+- tapOn: ".*${KEEP_CATEGORY} allocation amount"
+- eraseText: 20
+- inputText: "${KEEP_AMOUNT}"
+
+- tapOn: ".*${ADD_CATEGORY} allocation amount"
+- eraseText: 20
+- inputText: "${ADD_AMOUNT}"
+- tapOn: "Done editing allocation"
+
+- scrollUntilVisible:
+    element:
+      text: "Save split"
+    direction: DOWN
+
+- tapOn: "Save split"
+
+- extendedWaitUntil:
+    visible: "Split across categories"
+    timeout: 15000
+
+- assertVisible: ".*${KEEP_CATEGORY}"
+- assertVisible: ".*${ADD_CATEGORY}"
+- assertVisible: "\\$${KEEP_AMOUNT}"
+- assertVisible: "\\$${ADD_DISPLAY_AMOUNT}"
+- takeScreenshot: "money-transaction-split-saved"
+
+- stopApp
+- openLink: "${DEV_CLIENT_URL}"
+- openLink: "kwilt://money/transaction/${TRANSACTION_ID}"
+
+- extendedWaitUntil:
+    visible: "Edit split"
+    timeout: 15000
+
+- assertVisible: "Split across categories"
+- assertVisible: ".*${KEEP_CATEGORY}"
+- assertVisible: ".*${ADD_CATEGORY}"
+- assertVisible: "\\$${KEEP_AMOUNT}"
+- assertVisible: "\\$${ADD_DISPLAY_AMOUNT}"
+- takeScreenshot: "money-transaction-split-reloaded"

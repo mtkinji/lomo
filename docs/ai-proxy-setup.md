@@ -54,6 +54,7 @@ Configure these as **Supabase Function secrets** (never in the client):
 - `KWILT_AI_DAILY_PRO_QUOTA` (optional daily safety rail; recommended: 50–100)
 - `KWILT_AI_IMAGE_ACTION_COST` (default: 10)
 - `KWILT_AI_MAX_REQUEST_BYTES` (default: 120000)
+- `KWILT_AI_MULTIMODAL_MAX_REQUEST_BYTES` (default and hard maximum: 15000000; used only for bounded Responses image/PDF inspection)
 - `KWILT_AI_MAX_OUTPUT_TOKENS` (default: 1200)
 - `KWILT_AI_RPM_LIMIT` (requests/minute per installId; recommended: 50)
 
@@ -107,5 +108,4 @@ After 3–7 days of internal use:
 - If Free users consistently hit the monthly cap too early, consider:
   - increasing Free actions slightly (e.g. 35/mo), or
   - reducing per-action “heaviness” by clamping outputs for Free tiers.
-
 

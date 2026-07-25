@@ -12,11 +12,11 @@ export type TransactionReviewUpdate = {
   budget_match_confidence: 1;
   budget_match_reason: string;
   budget_match_reviewed_at: string;
-  money_meaning?: TransactionMeaningReviewInput['meaning'];
-  money_meaning_source?: 'confirmed';
+  money_meaning?: TransactionMeaningReviewInput['meaning'] | null;
+  money_meaning_source?: 'confirmed' | null;
   money_meaning_category_budget_id?: string | null;
-  money_meaning_reason?: string;
-  money_meaning_reviewed_at?: string;
+  money_meaning_reason?: string | null;
+  money_meaning_reviewed_at?: string | null;
 };
 
 export type MerchantRuleUpsert = {
@@ -71,6 +71,11 @@ export function buildTransactionReviewUpdate(
       budget_match_confidence: 1,
       budget_match_reason: 'Assigned to category.',
       budget_match_reviewed_at: reviewedAt,
+      money_meaning: null,
+      money_meaning_source: null,
+      money_meaning_category_budget_id: null,
+      money_meaning_reason: null,
+      money_meaning_reviewed_at: null,
     };
   }
 

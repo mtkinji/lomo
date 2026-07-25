@@ -1,0 +1,30 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Requires an authenticated simulator, the active development-client URL, and
+# a posted outflow transaction ID:
+# maestro test \
+#   -e DEV_CLIENT_URL='exp+kwilt://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8083' \
+#   -e TRANSACTION_ID=<uuid> \
+#   e2e/maestro/money-transaction-split-smoke.yaml
+
+- openLink: "${DEV_CLIENT_URL}"
+
+- openLink: "kwilt://money/transaction/${TRANSACTION_ID}"
+
+- extendedWaitUntil:
+    visible: "Split transaction"
+    timeout: 15000
+
+- tapOn: "Split transaction"
+
+- assertVisible: "MIXED PURCHASE"
+- assertVisible: "Assign every cent once.*"
+
+- scrollUntilVisible:
+    element:
+      text: "Save split"
+    direction: DOWN
+
+- assertVisible: "Save split"
+
+- takeScreenshot: "money-transaction-split-smoke"

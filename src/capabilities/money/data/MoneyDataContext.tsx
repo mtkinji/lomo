@@ -28,6 +28,7 @@ type MoneyDataContextValue = MoneyDataState & {
   reviewingTransactionId: string | null;
   assignTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>;
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
+  splitTransaction: (input: Parameters<MoneyRepository['splitTransaction']>[0]) => Promise<void>;
   reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
   savingCategory: boolean;
@@ -125,6 +126,14 @@ export function MoneyDataProvider({
     (transactionId: string) => reviewTransaction(
       transactionId,
       () => resolvedRepository.markTransactionNotCounted(transactionId),
+    ),
+    [resolvedRepository, reviewTransaction],
+  );
+
+  const splitTransaction = useCallback(
+    (input: Parameters<MoneyRepository['splitTransaction']>[0]) => reviewTransaction(
+      input.transactionId,
+      () => resolvedRepository.splitTransaction(input),
     ),
     [resolvedRepository, reviewTransaction],
   );
@@ -235,6 +244,7 @@ export function MoneyDataProvider({
     reviewingTransactionId,
     assignTransactionCategory,
     markTransactionNotCounted,
+    splitTransaction,
     reviewTransactionMeaning,
     saveMerchantRule,
     savingCategory,
@@ -244,7 +254,7 @@ export function MoneyDataProvider({
     previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, state, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, splitTransaction, state, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

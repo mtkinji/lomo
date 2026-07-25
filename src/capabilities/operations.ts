@@ -1,117 +1,23 @@
-/**
- * Product-owned inventory of user-meaningful Kwilt operations.
- *
- * This intentionally lives outside Chat. Every conversational channel must
- * account for every operation here as live, pending, confirmation-only, or
- * explicitly excluded. UI gestures are not operations; durable user outcomes
- * are.
- */
-export type KwiltOperationOwner =
-  | 'general'
-  | 'relationships'
-  | 'profile'
-  | 'arcs'
-  | 'goals'
-  | 'todos'
-  | 'plan'
-  | 'chapters'
-  | 'money'
-  | 'account'
-  | 'screenTime'
-  | 'notifications'
-  | 'navigation'
-  | 'channels';
+import {
+  KWILT_CAPABILITY_MANIFEST,
+  type KwiltCapabilityOperationId,
+  type KwiltOperationOwner,
+} from '@kwilt/agent-runtime';
+
+export type { KwiltOperationOwner };
+export type KwiltOperationId = KwiltCapabilityOperationId;
 
 type KwiltOperationDefinition = {
-  id: string;
+  id: KwiltOperationId;
   owner: KwiltOperationOwner;
 };
 
-const owned = <const Ids extends readonly string[]>(
-  owner: KwiltOperationOwner,
-  ids: Ids,
-): Array<{ id: Ids[number]; owner: KwiltOperationOwner }> =>
-  ids.map((id) => ({ id, owner }));
-
-export const KWILT_OPERATION_REGISTRY = [
-  ...owned('general', ['general.answer', 'general.answer_with_context'] as const),
-  ...owned('relationships', [
-    'relationships.read',
-    'relationships.remember',
-    'relationships.correct',
-    'relationships.forget',
-    'relationships.forget_person',
-  ] as const),
-  ...owned('profile', ['profile.read', 'profile.update'] as const),
-  ...owned('arcs', ['arcs.list', 'arcs.get', 'arcs.create', 'arcs.update', 'arcs.delete'] as const),
-  ...owned('goals', [
-    'goals.list',
-    'goals.get',
-    'goals.create',
-    'goals.update',
-    'goals.delete',
-    'goals.check_in',
-    'goals.share',
-  ] as const),
-  ...owned('todos', [
-    'activities.list',
-    'activities.get',
-    'activities.search',
-    'activities.capture',
-    'activities.update',
-    'activities.complete',
-    'activities.delete',
-    'activities.steps.create',
-    'activities.steps.update',
-    'activities.steps.complete',
-    'activities.steps.delete',
-    'activities.steps.reorder',
-    'activities.focus.open',
-    'activities.focus_today',
-    'activities.schedule',
-    'activities.reminder.update',
-    'activities.repeat.update',
-    'activities.location.update',
-    'activities.attachments.update',
-    'activities.share',
-  ] as const),
-  ...owned('plan', [
-    'plan.schedule_chunks',
-    'plan.read_day_context',
-    'plan.recommend_day',
-    'plan.schedule_activity',
-    'plan.reschedule_activity',
-    'plan.remove_activity',
-    'plan.preferences.open',
-  ] as const),
-  ...owned('chapters', [
-    'chapters.list',
-    'chapters.get',
-    'chapters.reflect',
-    'chapters.note.update',
-  ] as const),
-  ...owned('money', [
-    'money.read',
-    'money.review_transaction',
-    'money.category.create',
-    'money.category.update',
-    'money.privacy.configure',
-    'money.connection.connect',
-    'money.connection.sync',
-  ] as const),
-  ...owned('account', [
-    'account.show_up_status',
-    'account.settings.open',
-    'account.subscription.manage',
-    'account.delete',
-  ] as const),
-  ...owned('screenTime', ['screen_time.configure'] as const),
-  ...owned('notifications', ['notifications.configure'] as const),
-  ...owned('navigation', ['search.open'] as const),
-  ...owned('channels', ['channel.phone.continue_run'] as const),
-] as const satisfies readonly KwiltOperationDefinition[];
-
-export type KwiltOperationId = typeof KWILT_OPERATION_REGISTRY[number]['id'];
+/** Product-owned projection of the canonical user-meaningful capability manifest. */
+export const KWILT_OPERATION_REGISTRY: readonly KwiltOperationDefinition[] =
+  KWILT_CAPABILITY_MANIFEST.map(({ id, owner }) => ({
+    id: id as KwiltOperationId,
+    owner: owner as KwiltOperationOwner,
+  }));
 
 const OPERATION_BY_ID = new Map<string, KwiltOperationDefinition>(
   KWILT_OPERATION_REGISTRY.map((operation) => [operation.id, operation]),

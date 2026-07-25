@@ -367,13 +367,14 @@ function CategoryCover({ categoryName }: { categoryName: string }) {
 
 function CategoryTransactionRow({ onPress, transaction }: { onPress: () => void; transaction: MoneyTransaction }) {
   const amount = transaction.direction === 'inflow' ? transaction.amountCents : -transaction.amountCents;
+  const amountLabel = `${amount > 0 ? '+' : ''}${formatMoney(amount, transaction.currencyCode)}`;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.pressed : null]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${transaction.merchantName} transaction, ${transaction.accountName}, ${amountLabel}`} onPress={onPress} style={({ pressed }) => [styles.transactionRow, pressed ? styles.pressed : null]}>
       <View style={styles.transactionCopy}>
         <Text numberOfLines={1} style={styles.transactionMerchant}>{transaction.merchantName}</Text>
         <Text numberOfLines={1} style={styles.transactionMeta}>{transaction.pending ? 'Pending' : transaction.reviewState === 'needs_review' ? 'Needs review' : transaction.accountName}</Text>
       </View>
-      <Text style={[styles.transactionAmount, transaction.direction === 'inflow' ? styles.inflow : null]}>{amount > 0 ? '+' : ''}{formatMoney(amount, transaction.currencyCode)}</Text>
+      <Text style={[styles.transactionAmount, transaction.direction === 'inflow' ? styles.inflow : null]}>{amountLabel}</Text>
       <Icon name="chevronRight" size={16} color={colors.gray400} />
     </Pressable>
   );

@@ -80,6 +80,7 @@ import { handleIncomingShareUrl } from '../services/appleEcosystem/shareExtensio
 import { pingInstall } from '../services/installPing';
 import { colors, spacing, typography } from '../theme';
 import { DevToolsScreen } from '../features/dev/DevToolsScreen';
+import { GuidedOvertureLabScreen } from '../features/dev/GuidedOvertureLabScreen';
 import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
 import { rootNavigationRef } from './rootNavigationRef';
@@ -140,6 +141,8 @@ export type RootDrawerParamList = {
         mode?: ChatMode;
         launchContext?: LaunchContext;
         workspaceSnapshot?: string;
+        guidedOvertureOfferId?: string;
+        guidedOvertureSessionId?: number;
         workflowDefinitionId?: string;
         resumeDraft?: boolean;
         hidePromptSuggestions?: boolean;
@@ -153,6 +156,7 @@ export type RootDrawerParamList = {
   UnifiedChat: UnifiedChatRouteParams | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
   DevTools: undefined;
+  GuidedOvertureLab: { sessionId?: number } | undefined;
 };
 
 export type { ActivityDetailRouteParams, GoalDetailRouteParams } from './routeParams';
@@ -662,11 +666,18 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               options={{ title: 'Money', drawerItemStyle: { display: 'none' } }}
             />
             {showDevTools ? (
-              <Drawer.Screen
-                name="DevTools"
-                component={DevToolsScreen}
-                options={{ title: 'Developer tools', drawerItemStyle: { display: 'none' } }}
-              />
+              <>
+                <Drawer.Screen
+                  name="DevTools"
+                  component={DevToolsScreen}
+                  options={{ title: 'Developer tools', drawerItemStyle: { display: 'none' } }}
+                />
+                <Drawer.Screen
+                  name="GuidedOvertureLab"
+                  component={GuidedOvertureLabScreen}
+                  options={{ title: 'Guided Overture lab', drawerItemStyle: { display: 'none' } }}
+                />
+              </>
             ) : null}
             <Drawer.Screen
               name="Settings"

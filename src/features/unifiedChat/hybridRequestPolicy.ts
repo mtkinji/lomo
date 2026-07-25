@@ -13,6 +13,8 @@ const DETERMINISTIC_LOCK_REASONS = new Set([
   'day-plan-status',
   'bounded-relationship-memory-request',
   'explicit-relationship-memory-mutation',
+  'unsupported-consequential-effect',
+  'ambiguous-action-target',
 ]);
 
 type PreviousConversationPolicy = Pick<
@@ -130,7 +132,35 @@ export function resolveHybridRequestPolicy({
   if (!semanticRoute || semanticRoute.confidence < MIN_SEMANTIC_ROUTE_CONFIDENCE) {
     return deterministicPolicy;
   }
+  if (
+    deterministicPolicy.requestClass === 'capability_question' &&
+    semanticRoute.requestClass === 'general_with_kwilt_context'
+  ) {
+    return deterministicPolicy;
+  }
   if (!hasCoherentShape(semanticRoute)) return deterministicPolicy;
+  if (deterministicPolicy.requestClass === 'general' && semanticRoute.requestClass === 'better_served_elsewhere') {
+    return deterministicPolicy;
+  }
+  if (
+    deterministicPolicy.participatingCapabilities.some(
+      (capability) => !semanticRoute.participatingCapabilities.includes(capability),
+    )
+  ) {
+    return deterministicPolicy;
+  }
+  if (
+    deterministicPolicy.requestClass === 'capability_action' &&
+    deterministicPolicy.participatingCapabilities.length > 0 &&
+    (
+      semanticRoute.requestClass !== 'capability_action' ||
+      semanticRoute.participatingCapabilities.some(
+        (capability) => !deterministicPolicy.participatingCapabilities.includes(capability),
+      )
+    )
+  ) {
+    return deterministicPolicy;
+  }
 
   const reason = semanticRoute.reason.replace(/\s+/g, ' ').trim().slice(0, 180);
   return {

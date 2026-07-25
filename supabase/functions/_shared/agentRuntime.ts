@@ -2,12 +2,24 @@ import { parseSmsCommand } from './phoneAgent.ts';
 import { normalizeIanaTimeZone } from '../../../packages/kwilt-agent-runtime/src/timeContext.ts';
 
 export type AgentRunChannel = 'mobile' | 'sms' | 'phone' | 'desktop' | 'external';
+export type AgentRunInitiator = 'user' | 'system';
+export type AgentRunTriggerKind =
+  | 'user_message'
+  | 'reminder'
+  | 'recurring_kwilt_action'
+  | 'monitor'
+  | 'background_analysis'
+  | 'native_device_enforcement';
 
 export type CanonicalAgentRunRequest = {
   channel: AgentRunChannel;
   requestId: string;
   prompt: string;
   threadId: string | null;
+  initiator?: AgentRunInitiator;
+  triggerKind?: AgentRunTriggerKind;
+  triggerId?: string;
+  parentRunId?: string | null;
   channelContext: {
     phoneLinkId?: string;
     externalMessageId?: string;
@@ -23,6 +35,10 @@ type PhoneLinkPolicy = {
 };
 
 const CHANNELS = new Set<AgentRunChannel>(['mobile', 'sms', 'phone', 'desktop', 'external']);
+const TRIGGER_KINDS = new Set<AgentRunTriggerKind>([
+  'user_message', 'reminder', 'recurring_kwilt_action', 'monitor',
+  'background_analysis', 'native_device_enforcement',
+]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function record(value: unknown): Record<string, unknown> {
@@ -43,6 +59,19 @@ export function normalizeAgentRunRequest(raw: unknown): CanonicalAgentRunRequest
   }
   const threadId = input.threadId == null ? null : boundedString(input.threadId, 'thread_id', 64);
   if (threadId && !UUID_PATTERN.test(threadId)) throw new Error('invalid_thread_id');
+  const requestId = boundedString(input.requestId, 'request_id', 200);
+  const initiator = input.initiator == null ? 'user' : input.initiator;
+  const triggerKind = input.triggerKind == null ? 'user_message' : input.triggerKind;
+  if ((initiator !== 'user' && initiator !== 'system') ||
+      typeof triggerKind !== 'string' || !TRIGGER_KINDS.has(triggerKind as AgentRunTriggerKind) ||
+      (initiator === 'user') !== (triggerKind === 'user_message')) {
+    throw new Error('invalid_trigger_provenance');
+  }
+  const triggerId = input.triggerId == null
+    ? requestId
+    : boundedString(input.triggerId, 'trigger_id', 200);
+  const parentRunId = input.parentRunId == null ? null : boundedString(input.parentRunId, 'parent_run_id', 64);
+  if (parentRunId && !UUID_PATTERN.test(parentRunId)) throw new Error('invalid_parent_run_id');
   const rawContext = record(input.channelContext);
   const channelContext: CanonicalAgentRunRequest['channelContext'] = {};
   if (typeof rawContext.phoneLinkId === 'string' && rawContext.phoneLinkId.trim()) {
@@ -56,9 +85,13 @@ export function normalizeAgentRunRequest(raw: unknown): CanonicalAgentRunRequest
   if (timeZone) channelContext.timeZone = timeZone;
   return {
     channel: channel as AgentRunChannel,
-    requestId: boundedString(input.requestId, 'request_id', 200),
+    requestId,
     prompt: boundedString(input.prompt, 'prompt', 100_000),
     threadId,
+    initiator: initiator as AgentRunInitiator,
+    triggerKind: triggerKind as AgentRunTriggerKind,
+    triggerId,
+    parentRunId,
     channelContext,
   };
 }

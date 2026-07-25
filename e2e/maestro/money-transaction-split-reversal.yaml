@@ -1,0 +1,31 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Mutates a deliberate authenticated split to the existing outside-plan state.
+# Follow with server readback and the persistence flow to restore the split.
+
+- runFlow:
+    when:
+      visible: "Where does this belong?"
+    commands:
+      - tapOn: "Close category picker"
+
+- openLink: "kwilt://money/transaction/${TRANSACTION_ID}"
+- extendedWaitUntil:
+    visible: "Edit split"
+    timeout: 15000
+
+- tapOn: "Change category from Split across categories"
+- assertVisible: "Where does this belong?"
+- scrollUntilVisible:
+    element:
+      text: ".*No budget category.*"
+    direction: DOWN
+    visibilityPercentage: 60
+- tapOn: ".*No budget category.*"
+
+- extendedWaitUntil:
+    visible: "Change category from No budget category"
+    timeout: 15000
+- assertVisible: "Split transaction"
+- assertNotVisible: "Edit split"
+- takeScreenshot: "money-transaction-split-reversed"

@@ -1,0 +1,50 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Read-only authenticated proof that one bank transaction projects as exact
+# category shares across detail, inventory, category activity, and Summary.
+# Supply values from a deliberate persisted split in the connected account.
+
+- openLink: "kwilt://money/transaction/${TRANSACTION_ID}"
+- extendedWaitUntil:
+    visible: "Edit split"
+    timeout: 15000
+- assertVisible: "Split across categories"
+- assertVisible: ".*${FIRST_CATEGORY}"
+- assertVisible: "\\$${FIRST_SHARE_DISPLAY}"
+- assertVisible: ".*${SECOND_CATEGORY}"
+- assertVisible: "\\$${SECOND_SHARE_DISPLAY}"
+
+- openLink: "kwilt://money/transactions"
+- extendedWaitUntil:
+    visible: "Transactions"
+    timeout: 15000
+- assertVisible: "Open ${MERCHANT} transaction, Split across categories, -\\$${TRANSACTION_TOTAL_DISPLAY}"
+
+- openLink: "kwilt://money/category/${FIRST_CATEGORY_ID}"
+- extendedWaitUntil:
+    visible: ".*${FIRST_CATEGORY}"
+    timeout: 15000
+- assertVisible: "\\$${FIRST_CATEGORY_SPENT_DISPLAY}"
+- assertVisible: "${FIRST_CATEGORY_TRANSACTION_COUNT}"
+- assertVisible: "Open ${MERCHANT} transaction, .*, -\\$${FIRST_SHARE_DISPLAY}"
+- tapOn: "View all in Transactions"
+- extendedWaitUntil:
+    visible: ".*${FIRST_CATEGORY}.*${MONTH_LABEL}"
+    timeout: 15000
+- assertVisible: "Open ${MERCHANT} transaction, .*${FIRST_CATEGORY}, -\\$${FIRST_SHARE_DISPLAY}"
+
+- openLink: "kwilt://money/category/${SECOND_CATEGORY_ID}"
+- extendedWaitUntil:
+    visible: ".*${SECOND_CATEGORY}"
+    timeout: 15000
+- assertVisible: "\\$${SECOND_CATEGORY_SPENT_DISPLAY}"
+- assertVisible: "${SECOND_CATEGORY_TRANSACTION_COUNT}"
+- assertVisible: "Open ${MERCHANT} transaction, .*, -\\$${SECOND_SHARE_DISPLAY}"
+
+- openLink: "kwilt://money"
+- extendedWaitUntil:
+    visible: "Summary"
+    timeout: 15000
+- assertVisible: "Open .*${FIRST_CATEGORY} category, \\$${FIRST_CATEGORY_SPENT_DISPLAY} spent of \\$${FIRST_CATEGORY_PLAN_DISPLAY}, .*"
+- assertVisible: "Open .*${SECOND_CATEGORY} category, \\$${SECOND_CATEGORY_SPENT_DISPLAY} spent of \\$${SECOND_CATEGORY_PLAN_DISPLAY}, .*"
+- takeScreenshot: "money-transaction-split-cross-surface"

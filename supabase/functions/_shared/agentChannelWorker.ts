@@ -77,7 +77,7 @@ export async function processAgentChannelJob(
       const result = await dependencies.execute({
         userId: job.userId,
         channel: job.channel,
-        requestId: job.attempts === 1 ? job.externalMessageId : `${job.externalMessageId}:retry:${job.attempts}`,
+        requestId: job.externalMessageId,
         prompt: job.prompt,
         threadId: context.threadId,
         phoneLinkId: job.phoneLinkId,

@@ -4,12 +4,8 @@ appId: com.andrewwatanabe.kwilt
 
 - launchApp
 
-# Open drawer, navigate to DevTools deterministically.
-- tapOn:
-    id: "nav.drawer.toggle"
-
-- tapOn:
-    id: "nav.drawer.item.DevTools"
+# The route is mounted only in development builds.
+- openLink: "kwilt://__dev/tools"
 
 - assertVisible:
     text: "Dev tools"

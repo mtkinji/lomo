@@ -10,6 +10,14 @@ const attachmentMigration = readFileSync(
   new URL('../supabase/migrations/20260722154051_unified_chat_text_attachments.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
+const multimodalAttachmentMigration = readFileSync(
+  new URL('../supabase/migrations/20260725043000_unified_chat_multimodal_attachments.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
+const artifactMigration = readFileSync(
+  new URL('../supabase/migrations/20260725044500_unified_chat_artifacts.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
 const transitionMigration = readFileSync(
   new URL('../supabase/migrations/20260722163951_unified_chat_atomic_transitions.sql', import.meta.url),
   'utf8',
@@ -256,6 +264,31 @@ test('persists bounded text attachments atomically under message ownership', () 
   assert.match(attachmentMigration, /insert into public\.kwilt_agent_message_attachments/);
   assert.match(attachmentMigration, /client_request_conflict/);
   assert.match(attachmentMigration, /revoke all on function public\.create_kwilt_agent_user_message[^;]+from public, anon/);
+});
+
+test('persists inspected multimodal provenance without binary attachment bytes', () => {
+  assert.match(multimodalAttachmentMigration, /add column kind text not null default 'text'/);
+  assert.match(multimodalAttachmentMigration, /inspection_status in \('ready', 'partial'\)/);
+  assert.match(multimodalAttachmentMigration, /kind = 'image'/);
+  assert.match(multimodalAttachmentMigration, /kind = 'pdf'/);
+  assert.match(multimodalAttachmentMigration, /v_attachment_total > 10000000/);
+  assert.match(multimodalAttachmentMigration, /v_text_total > 200000/);
+  assert.match(multimodalAttachmentMigration, /inspection_failure/);
+  assert.doesNotMatch(multimodalAttachmentMigration, /data_url|base64|binary_content|storage_path/);
+  assert.match(multimodalAttachmentMigration, /client_request_conflict/);
+  assert.match(multimodalAttachmentMigration, /revoke all on function public\.create_kwilt_agent_user_message[^;]+from public, anon/);
+});
+
+test('keeps editable assistant artifacts owner-scoped and distinct from mutation receipts', () => {
+  assert.match(artifactMigration, /create table public\.kwilt_agent_artifacts/);
+  assert.match(artifactMigration, /kind in \('document', 'checklist', 'table', 'code'\)/);
+  assert.match(artifactMigration, /unique \(run_id\)/);
+  assert.match(artifactMigration, /kwilt_agent_artifacts_owner_insert/);
+  assert.match(artifactMigration, /message\.role = 'assistant'/);
+  assert.match(artifactMigration, /kwilt_agent_artifacts_owner_update/);
+  assert.match(artifactMigration, /for update[\s\S]*with check[\s\S]*join public\.kwilt_agent_messages[\s\S]*message\.role = 'assistant'/i);
+  assert.match(artifactMigration, /version integer not null default 1 check \(version > 0\)/);
+  assert.doesNotMatch(artifactMigration, /^\s*(?:proposal_id|receipt_id|capability_id)\s/m);
 });
 
 test('persists legal run and proposal transitions atomically with ordered events', () => {
