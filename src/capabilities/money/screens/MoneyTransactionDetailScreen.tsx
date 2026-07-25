@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
@@ -13,11 +14,17 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
+import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
+import {
+  captureTransactionSplitOutcome,
+  captureTransactionSplitStarted,
+} from '../runtime/transactionTruthAnalytics';
 
 type RuleMatchMode = 'exact' | 'partial';
 
 export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactionDetail'>) {
+  const { capture } = useAnalytics();
   const {
     assignTransactionCategory,
     createCategory,
@@ -37,6 +44,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [newCategoryAmount, setNewCategoryAmount] = useState('100.00');
   const [pendingRuleCategory, setPendingRuleCategory] = useState<MoneyCategory | null>(null);
   const [splitEditorOpen, setSplitEditorOpen] = useState(false);
+  const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
   const [reviewError, setReviewError] = useState<string | null>(null);
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
@@ -128,7 +136,42 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       pending: transaction.pending,
       allocations,
     }));
-    if (changed) setSplitEditorOpen(false);
+    const session = splitSessionRef.current;
+    if (session) {
+      captureTransactionSplitOutcome(capture, changed ? 'saved' : 'save_failed', {
+        mode: session.mode,
+        allocationCount: allocations.length,
+        durationMs: Date.now() - session.startedAtMs,
+      });
+    }
+    if (changed) {
+      splitSessionRef.current = null;
+      setSplitEditorOpen(false);
+    }
+  };
+
+  const openSplitEditor = () => {
+    if (!transaction) return;
+    const mode: TransactionSplitMode = transaction.allocations?.length ? 'replace' : 'create';
+    splitSessionRef.current = { mode, startedAtMs: Date.now() };
+    captureTransactionSplitStarted(capture, {
+      mode,
+      existingAllocationCount: transaction.allocations?.length ?? 0,
+    });
+    setSplitEditorOpen(true);
+  };
+
+  const closeSplitEditor = (allocationCount: number) => {
+    const session = splitSessionRef.current;
+    if (session) {
+      captureTransactionSplitOutcome(capture, 'abandoned', {
+        mode: session.mode,
+        allocationCount,
+        durationMs: Date.now() - session.startedAtMs,
+      });
+    }
+    splitSessionRef.current = null;
+    setSplitEditorOpen(false);
   };
 
   if (!transaction) {
@@ -196,7 +239,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               </View>
             ) : null}
             {transaction.direction === 'outflow' && !transaction.pending ? (
-              <Button fullWidth variant="outline" disabled={saving} onPress={() => setSplitEditorOpen(true)}>
+              <Button fullWidth variant="outline" disabled={saving} onPress={openSplitEditor}>
                 {transaction.allocations?.length ? 'Edit split' : 'Split transaction'}
               </Button>
             ) : null}
@@ -301,7 +344,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
       <MoneyTransactionSplitDrawer
         categories={categories}
-        onClose={() => setSplitEditorOpen(false)}
+        onClose={closeSplitEditor}
         onSave={saveSplit}
         saving={saving}
         transaction={transaction}

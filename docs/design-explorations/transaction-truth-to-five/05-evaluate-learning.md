@@ -14,3 +14,8 @@
 - Merchant memory becomes less reliable after split exceptions.
 
 Privacy-preserving instrumentation may count split starts, saves, abandonment, and replacement; it must not include merchant, description, account, or category-label content.
+
+Implemented 2026-07-25: typed start, saved, save-failed, and abandoned events
+emit only create/replace mode, bounded allocation counts, and coarse duration
+buckets. The score-five evidence protocol lives in
+`docs/analytics-money-transaction-truth.md`.

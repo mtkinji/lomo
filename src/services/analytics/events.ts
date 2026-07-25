@@ -46,6 +46,14 @@ export const AnalyticsEvent = {
   AgentReturnedToCapability: 'agent_returned_to_capability',
   UnifiedShellFirstSurfaceUsable: 'unified_shell_first_surface_usable',
 
+  // Money transaction truth. Safe metadata only: create/replace mode, bounded
+  // allocation counts, and coarse duration buckets. Never send transaction,
+  // merchant, account, category, description, amount, or timestamp values.
+  MoneyTransactionSplitStarted: 'money_transaction_split_started',
+  MoneyTransactionSplitSaved: 'money_transaction_split_saved',
+  MoneyTransactionSplitSaveFailed: 'money_transaction_split_save_failed',
+  MoneyTransactionSplitAbandoned: 'money_transaction_split_abandoned',
+
   // Unified Chat agent reliability. Metadata only: request classes,
   // capability/tool ids, provider/outcome enums, booleans, and counts.
   // Never attach prompts, messages, tool arguments, titles, notes, or summaries.

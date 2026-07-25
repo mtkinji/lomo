@@ -18,12 +18,12 @@ appId: com.andrewwatanabe.kwilt
       visible: "Open navigation menu"
     commands:
       - tapOn: "Open navigation menu"
+      - tapOn: "Accounts"
+      - extendedWaitUntil:
+          visible: "Open navigation menu"
+          timeout: 15000
+      - tapOn: "Open navigation menu"
       - tapOn: "Transactions"
-- runFlow:
-    when:
-      visible: "Close navigation menu"
-    commands:
-      - tapOn: "Close navigation menu"
 
 - extendedWaitUntil:
     visible: "Transactions"

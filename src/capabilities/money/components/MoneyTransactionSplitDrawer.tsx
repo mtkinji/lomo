@@ -23,7 +23,7 @@ export function MoneyTransactionSplitDrawer({
   visible,
 }: {
   categories: MoneyCategory[];
-  onClose: () => void;
+  onClose: (allocationCount: number) => void;
   onSave: (allocations: TransactionAllocationInput[]) => Promise<void>;
   saving: boolean;
   transaction: MoneyTransaction;
@@ -69,7 +69,7 @@ export function MoneyTransactionSplitDrawer({
   };
 
   return (
-    <BottomDrawer visible={visible} onClose={onClose} snapPoints={['92%']} enableContentPanningGesture>
+    <BottomDrawer visible={visible} onClose={() => onClose(selectedIds.length)} snapPoints={['92%']} enableContentPanningGesture>
       <BottomDrawerScrollView
         contentContainerStyle={styles.content}
         keyboardDismissMode="interactive"
@@ -80,7 +80,7 @@ export function MoneyTransactionSplitDrawer({
             <Text style={styles.eyebrow}>MIXED PURCHASE</Text>
             <Text style={styles.title}>Split transaction</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close transaction split" onPress={onClose} style={styles.closeButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close transaction split" onPress={() => onClose(selectedIds.length)} style={styles.closeButton}>
             <Icon name="close" size={20} color={colors.textPrimary} />
           </Pressable>
         </View>
@@ -140,7 +140,7 @@ export function MoneyTransactionSplitDrawer({
         <Button disabled={!plan.valid || saving} fullWidth onPress={() => void onSave(plan.allocations)}>
           {saving ? 'Saving split…' : 'Save split'}
         </Button>
-        <Button fullWidth variant="ghost" onPress={onClose}>Cancel</Button>
+        <Button fullWidth variant="ghost" onPress={() => onClose(selectedIds.length)}>Cancel</Button>
       </BottomDrawerScrollView>
     </BottomDrawer>
   );

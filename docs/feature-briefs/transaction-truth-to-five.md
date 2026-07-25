@@ -69,3 +69,6 @@ showing that the workflow stays easy and trustworthy outside the development loo
   correction, reversal, and cross-surface reconciliation.
 - Observe the behavior through a statement cycle and representative household
   use, including whether splitting stays understandable without finance admin.
+
+The privacy-safe event schema, evidence window, thresholds, and qualitative
+household protocol are defined in `docs/analytics-money-transaction-truth.md`.
