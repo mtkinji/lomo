@@ -8,6 +8,7 @@ import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { PageHeader } from '../../../ui/layout/PageHeader';
+import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplitDrawer';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
@@ -24,6 +25,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     reviewTransactionMeaning,
     reviewingTransactionId,
     saveMerchantRule,
+    splitTransaction,
     savingCategory,
     snapshot,
   } = useMoneyData();
@@ -34,6 +36,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('100.00');
   const [pendingRuleCategory, setPendingRuleCategory] = useState<MoneyCategory | null>(null);
+  const [splitEditorOpen, setSplitEditorOpen] = useState(false);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
   const [reviewError, setReviewError] = useState<string | null>(null);
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
@@ -116,6 +119,18 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (saved) setPendingRuleCategory(null);
   };
 
+  const saveSplit = async (allocations: Parameters<typeof splitTransaction>[0]['allocations']) => {
+    if (!transaction) return;
+    const changed = await runReview(() => splitTransaction({
+      transactionId: transaction.id,
+      transactionAmountCents: transaction.amountCents,
+      direction: transaction.direction,
+      pending: transaction.pending,
+      allocations,
+    }));
+    if (changed) setSplitEditorOpen(false);
+  };
+
   if (!transaction) {
     return (
       <AppShell>
@@ -168,6 +183,22 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 <Icon name="checkCircle" size={16} color={colors.pine700} />
                 <Text style={styles.ruleReceiptText}>Future {transaction.merchantName} matches go to {currentCategory.name}</Text>
               </View>
+            ) : null}
+            {transaction.allocations?.length ? (
+              <View style={styles.splitReceipt}>
+                <Text style={styles.splitReceiptTitle}>Split across categories</Text>
+                {transaction.allocations.map((allocation) => (
+                  <View key={allocation.sourceCategoryId} style={styles.splitReceiptRow}>
+                    <Text style={styles.splitReceiptLabel}>{allocation.categoryName}</Text>
+                    <Text style={styles.splitReceiptAmount}>{formatMoney(allocation.amountCents, transaction.currencyCode)}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {transaction.direction === 'outflow' && !transaction.pending ? (
+              <Button fullWidth variant="outline" disabled={saving} onPress={() => setSplitEditorOpen(true)}>
+                {transaction.allocations?.length ? 'Edit split' : 'Split transaction'}
+              </Button>
             ) : null}
             {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
           </View>
@@ -267,6 +298,15 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           <Button fullWidth variant="ghost" onPress={() => setPendingRuleCategory(null)}>Not now</Button>
         </BottomDrawerScrollView>
       </BottomDrawer>
+
+      <MoneyTransactionSplitDrawer
+        categories={categories}
+        onClose={() => setSplitEditorOpen(false)}
+        onSave={saveSplit}
+        saving={saving}
+        transaction={transaction}
+        visible={splitEditorOpen}
+      />
     </>
   );
 }
@@ -312,6 +352,7 @@ function RuleModeButton({ active, label, onPress }: { active: boolean; label: st
 }
 
 function getCategoryRelationLabel(transaction: MoneyTransaction, category?: MoneyCategory): string | null {
+  if (transaction.allocations?.length) return 'Split across categories';
   if (category) return category.name;
   if (transaction.moneyMeaning === 'income') return 'Income';
   if (transaction.moneyMeaning === 'transfer') return 'Internal transfer';
@@ -388,6 +429,11 @@ const styles = StyleSheet.create({
   categoryPlaceholder: { color: colors.textSecondary },
   ruleReceipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
   ruleReceiptText: { flex: 1, color: colors.pine700, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, fontWeight: '500' },
+  splitReceipt: { gap: spacing.sm, padding: spacing.lg, borderWidth: 1, borderColor: colors.pine200, borderRadius: 12, backgroundColor: colors.pine50 },
+  splitReceiptTitle: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  splitReceiptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.lg },
+  splitReceiptLabel: { flex: 1, color: colors.textPrimary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
+  splitReceiptAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 64 },
   drawerHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
   drawerEyebrow: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },

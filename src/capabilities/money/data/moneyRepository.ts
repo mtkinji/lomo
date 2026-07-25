@@ -4,6 +4,10 @@ import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
 import { collectAllPages } from '../domain/living-plan-pagination';
 import {
+  buildTransactionAllocationPlan,
+  type TransactionAllocationInput,
+} from '../domain/transactionAllocation';
+import {
   projectMoneySnapshot,
   type MoneyAccountRow,
   type MoneyCategoryRow,
@@ -12,6 +16,7 @@ import {
   type MoneyRuleRow,
   type MoneySnapshot,
   type MoneyTransactionRow,
+  type MoneyTransactionAllocationRow,
 } from './moneySnapshot';
 import {
   buildTransactionMeaningReviewUpdate,
@@ -21,7 +26,7 @@ import {
   type TransactionReviewUpdate,
 } from './moneyMutations';
 
-type ReadResult = { data: unknown; error: { message?: string } | null };
+type ReadResult = { data: unknown; error: { code?: string; message?: string } | null };
 
 type MoneyReadQuery = PromiseLike<ReadResult> & {
   eq(column: string, value: unknown): MoneyReadQuery;
@@ -44,6 +49,13 @@ export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
   markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
+  splitTransaction(input: {
+    transactionId: string;
+    transactionAmountCents: number;
+    direction: 'inflow' | 'outflow';
+    pending: boolean;
+    allocations: TransactionAllocationInput[];
+  }): Promise<MoneySnapshot>;
   reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<MoneySnapshot>;
   saveMerchantRule(input: {
     transactionId: string;
@@ -70,7 +82,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     await requireSignedIn(client);
 
     const db = client as unknown as MoneyReadClient;
-    const [categories, plans, connections, accounts, rules, transactions] = await Promise.all([
+    const [categories, plans, connections, accounts, rules, allocations, transactions] = await Promise.all([
       readPart<MoneyCategoryRow[]>('categories',
         db
           .from('budget_categories')
@@ -106,6 +118,13 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
           .from('budget_transaction_match_rules')
           .select('id,budget_id,merchant_contains,merchant_match_mode,label,created_from_transaction_id')
           .order('created_at', { ascending: false })),
+      collectAllPages<MoneyTransactionAllocationRow>((from, to) =>
+        readOptionalAllocations(db
+          .from('budget_transaction_allocations')
+          .select('transaction_id,budget_id,amount_cents')
+          .order('transaction_id', { ascending: true })
+          .range(from, to)),
+      ),
       collectAllPages<MoneyTransactionRow>((from, to) =>
         readPart<MoneyTransactionRow[]>('transactions',
           environmentQuery(db
@@ -141,6 +160,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       connections,
       accounts: normalizeAccountRelations(accounts),
       rules,
+      allocations,
       transactions,
     });
   };
@@ -164,12 +184,57 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     return loadSnapshot();
   };
 
+  const replaceTransactionReview = async (
+    transactionIds: string[],
+    input: Parameters<typeof buildTransactionReviewUpdate>[0],
+  ): Promise<void> => {
+    const normalizedIds = [...new Set(transactionIds.map((id) => id.trim()).filter(Boolean))];
+    if (normalizedIds.length === 0) throw new Error('Choose a transaction to review.');
+    const update = buildTransactionReviewUpdate(input);
+    await requireSignedIn(client);
+    const db = client as unknown as MoneyReadClient;
+    const { error } = await db.rpc('replace_budget_transaction_review', {
+      p_transaction_ids: normalizedIds,
+      p_budget_id: update.budget_id,
+      p_excluded: update.budget_match_source === 'excluded',
+    });
+    if (!error) return;
+    if (!isMissingRpcError(error, 'replace_budget_transaction_review')) {
+      throw new Error(`Money could not save the transaction review: ${error.message || 'Unknown database error'}`);
+    }
+    await readPart<unknown[]>('transaction review', db
+      .from('budget_transactions')
+      .update(update)
+      .in('id', normalizedIds));
+  };
+
   return {
     loadSnapshot,
-    assignTransactionCategory: (transactionId, categoryId) =>
-      reviewTransaction(transactionId, buildTransactionReviewUpdate({ type: 'category', categoryId })),
-    markTransactionNotCounted: (transactionId) =>
-      reviewTransaction(transactionId, buildTransactionReviewUpdate({ type: 'not_counted' })),
+    async assignTransactionCategory(transactionId, categoryId) {
+      await replaceTransactionReview([transactionId], { type: 'category', categoryId });
+      return loadSnapshot();
+    },
+    async markTransactionNotCounted(transactionId) {
+      await replaceTransactionReview([transactionId], { type: 'not_counted' });
+      return loadSnapshot();
+    },
+    async splitTransaction(input) {
+      const transactionId = input.transactionId.trim();
+      if (!transactionId) throw new Error('Choose a transaction to split.');
+      const plan = buildTransactionAllocationPlan(input);
+      if (!plan.valid) throw new Error(plan.error ?? 'Choose a valid transaction split.');
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { error } = await db.rpc('replace_budget_transaction_allocations', {
+        p_transaction_id: transactionId,
+        p_allocations: plan.allocations.map((allocation) => ({
+          budget_id: allocation.categoryId,
+          amount_cents: allocation.amountCents,
+        })),
+      });
+      if (error) throw new Error(`Money could not save the transaction split: ${error.message || 'Unknown database error'}`);
+      return loadSnapshot();
+    },
     reviewTransactionMeaning: (transactionId, input) =>
       reviewTransaction(transactionId, buildTransactionMeaningReviewUpdate(input)),
     async saveMerchantRule(input) {
@@ -177,10 +242,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       const db = client as unknown as MoneyReadClient;
       const similarTransactionIds = [...new Set((input.similarTransactionIds ?? []).map((id) => id.trim()).filter(Boolean))];
       if (similarTransactionIds.length > 0) {
-        await readPart<unknown[]>('similar transaction review', db
-          .from('budget_transactions')
-          .update(buildTransactionReviewUpdate({ type: 'category', categoryId: input.categoryId }))
-          .in('id', similarTransactionIds));
+        await replaceTransactionReview(similarTransactionIds, { type: 'category', categoryId: input.categoryId });
       }
       await readPart<unknown[]>('merchant rule', db
         .from('budget_transaction_match_rules')
@@ -272,6 +334,19 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
   const { data, error } = await query;
   if (error) throw new Error(`Money could not read ${label}: ${error.message || 'Unknown database error'}`);
   return (data ?? []) as T;
+}
+
+async function readOptionalAllocations(query: PromiseLike<ReadResult>): Promise<MoneyTransactionAllocationRow[]> {
+  const { data, error } = await query;
+  if (!error) return (data ?? []) as MoneyTransactionAllocationRow[];
+  if (error.code === 'PGRST205' || error.message?.includes('budget_transaction_allocations')) return [];
+  throw new Error(`Money could not read transaction allocations: ${error.message || 'Unknown database error'}`);
+}
+
+function isMissingRpcError(error: NonNullable<ReadResult['error']>, name: string): boolean {
+  return error.code === 'PGRST202'
+    || error.message?.includes(`Could not find the function public.${name}`) === true
+    || error.message?.includes(name) === true && error.message?.includes('schema cache') === true;
 }
 
 function environmentQuery(query: MoneyReadQuery, column: string): MoneyReadQuery {

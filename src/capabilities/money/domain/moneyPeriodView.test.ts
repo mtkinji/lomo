@@ -99,6 +99,39 @@ describe('projectMoneyCategoryPeriodView', () => {
       .toBe('groceries');
   });
 
+  it('shows a split transaction once at this category share and includes it in historical totals', () => {
+    const splitSnapshot: MoneySnapshot = {
+      ...snapshot,
+      transactions: [
+        ...snapshot.transactions,
+        {
+          id: 'mixed-june', accountId: 'account', accountName: 'Checking', institutionName: 'Bank',
+          merchantName: 'Warehouse', amountCents: 9497, direction: 'outflow', date: '2026-06-20',
+          pending: false, currencyCode: 'USD', categoryId: null, categoryName: 'Split across categories',
+          reviewState: 'assigned', moneyMeaning: null,
+          allocations: [
+            {
+              categoryId: 'groceries', sourceCategoryId: 'category-1',
+              categoryName: 'Groceries', amountCents: 7000,
+            },
+            {
+              categoryId: 'shopping', sourceCategoryId: 'category-2',
+              categoryName: 'Shopping', amountCents: 2497,
+            },
+          ],
+        },
+      ],
+    };
+
+    const view = projectMoneyCategoryPeriodView(splitSnapshot, 'groceries', -1, new Date(2026, 6, 24));
+
+    expect(view?.category).toMatchObject({ spentCents: 27000, transactionCount: 2 });
+    expect(view?.transactions.map(({ id, amountCents }) => [id, amountCents])).toEqual([
+      ['june', 20000],
+      ['mixed-june', 7000],
+    ]);
+  });
+
   it('returns null when the category is not in the authoritative snapshot', () => {
     expect(projectMoneyCategoryPeriodView(snapshot, 'missing', 0, new Date(2026, 6, 24))).toBeNull();
   });

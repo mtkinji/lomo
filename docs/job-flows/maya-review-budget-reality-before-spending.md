@@ -98,16 +98,17 @@ replaced with evidence from the native Kwilt capability.
 | Bring in current activity | 3 | Shared-session repositories and Plaid connection/sync surfaces exist, but signed-device OAuth, relink, sync/relaunch, and production-provider proof remain. |
 | See reality before acting | 3 | Summary, detail, widgets, and Screen Time handoff provide the intended paths; widget and shield delivery are not yet proven on a signed device. |
 | Understand the evidence | 4 | Actual, planned, outside-plan, forecast range, confidence, and freshness are distinct in the native projection; same-account parity still needs device/TestFlight proof. |
-| Correct wrong assumptions | 4 | Transaction category/meaning review and plan correction paths rebuild authoritative state, with automated coverage; authenticated runtime correction remains a release gate. |
+| Correct wrong assumptions | 4 | Transaction category/meaning review, exact mixed-category allocation, and plan correction paths rebuild authoritative state. Authenticated simulator save, relaunch, correction, reversal, and database reconciliation pass; installed TestFlight proof remains. |
 | Make the intentional choice | 3 | Continue, plan-adjustment, temporary-open, and keep-blocked paths exist; the Screen Time choices still need physical-device proof. |
 | Trust and repeat the pattern | 2 | First-use guidance and reversible receipts exist, but there is no longitudinal household-use evidence and standalone retirement is not authorized. |
 
 ## Evidence Boundary
 
 Current scores are based on source inspection, automated contracts, successful
-local verification, and a successful generated iOS workspace build. They do not
-claim physical-device, installed TestFlight, live Plaid OAuth, widget refresh,
-or Screen Time enforcement proof.
+local verification, a successful generated iOS workspace build, and authenticated
+simulator proof for mixed-category transaction persistence and reconciliation.
+They do not claim physical-device, installed TestFlight, live Plaid OAuth, widget
+refresh, Screen Time enforcement, statement-cycle, or longitudinal household proof.
 
 ## Gaps
 

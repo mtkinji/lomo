@@ -42,7 +42,7 @@ export function MoneyCategoryMeterTile({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${category.name} category, ${percent} percent used`}
+      accessibilityLabel={`Open ${category.name} category, ${formatMoney(category.spentCents)} spent of ${formatMoney(category.plannedCents)}, ${percent} percent used`}
       onPress={onPress}
       style={({ pressed }) => [styles.pressable, style, pressed ? styles.pressed : null]}
     >

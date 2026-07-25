@@ -38,8 +38,9 @@ briefs:
   - transaction-freshness-trust
   - transaction-inventory-date-scope
   - transaction-rule-truth
+  - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-25
 ---
 
 # Money

@@ -1,0 +1,79 @@
+appId: com.andrewwatanabe.kwilt
+---
+# Runs one sample in the authenticated five-merchant evidence pass. The caller
+# supplies two exact amounts whose sum equals the posted outflow, then restores
+# the transaction's prior state after database readback.
+
+- stopApp
+- openLink: "${DEV_CLIENT_URL}"
+- waitForAnimationToEnd:
+    timeout: 10000
+- runFlow:
+    when:
+      visible: "Go back from .*"
+    commands:
+      - tapOn: "Go back from .*"
+- runFlow:
+    when:
+      visible: "Open navigation menu"
+    commands:
+      - tapOn: "Open navigation menu"
+      - tapOn: "Transactions"
+- runFlow:
+    when:
+      visible: "Close navigation menu"
+    commands:
+      - tapOn: "Close navigation menu"
+
+- extendedWaitUntil:
+    visible: "Transactions"
+    timeout: 15000
+
+- tapOn: ".*${TARGET_MERCHANT}.*"
+- extendedWaitUntil:
+    visible: "${TARGET_MERCHANT}"
+    timeout: 15000
+- assertVisible: "(?:Split transaction|Edit split)"
+- tapOn: "(?:Split transaction|Edit split)"
+- assertVisible: "MIXED PURCHASE"
+
+- tapOn: ".*${FIRST_CATEGORY} allocation amount"
+- eraseText: 20
+- inputText: "${FIRST_AMOUNT}"
+
+- tapOn: ".*${SECOND_CATEGORY} allocation amount"
+- eraseText: 20
+- inputText: "${SECOND_AMOUNT}"
+- tapOn: "Done editing allocation"
+
+- scrollUntilVisible:
+    element:
+      text: "Save split"
+    direction: DOWN
+
+- tapOn: "Save split"
+
+- extendedWaitUntil:
+    visible: "Split across categories"
+    timeout: 15000
+
+- assertVisible: ".*${FIRST_CATEGORY}"
+- assertVisible: ".*${SECOND_CATEGORY}"
+- assertVisible: "\\$${FIRST_DISPLAY_AMOUNT}"
+- assertVisible: "\\$${SECOND_DISPLAY_AMOUNT}"
+
+- stopApp
+- openLink: "${DEV_CLIENT_URL}"
+- waitForAnimationToEnd:
+    timeout: 10000
+
+- extendedWaitUntil:
+    visible: "${TARGET_MERCHANT}"
+    timeout: 15000
+
+- assertVisible: "Edit split"
+- assertVisible: "Split across categories"
+- assertVisible: ".*${FIRST_CATEGORY}"
+- assertVisible: ".*${SECOND_CATEGORY}"
+- assertVisible: "\\$${FIRST_DISPLAY_AMOUNT}"
+- assertVisible: "\\$${SECOND_DISPLAY_AMOUNT}"

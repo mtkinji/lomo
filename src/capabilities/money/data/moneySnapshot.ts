@@ -4,6 +4,7 @@ import {
   type MoneyForecastConfidence,
   type MoneyForecastMode,
 } from '../domain/moneyForecast';
+import { buildTransactionAllocationPlan } from '../domain/transactionAllocation';
 
 export type MoneyCategoryRow = {
   id: string;
@@ -72,6 +73,19 @@ export type MoneyTransactionRow = {
   personal_finance_category_confidence?: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
 };
 
+export type MoneyTransactionAllocationRow = {
+  transaction_id: string;
+  budget_id: string;
+  amount_cents: number;
+};
+
+export type MoneyTransactionAllocation = {
+  categoryId: string;
+  sourceCategoryId: string;
+  categoryName: string;
+  amountCents: number;
+};
+
 export type MoneyCategory = {
   id: string;
   sourceId: string;
@@ -117,6 +131,7 @@ export type MoneyTransaction = {
   reviewState: 'assigned' | 'needs_review' | 'not_counted';
   merchantRuleCategoryId?: string | null;
   moneyMeaning: MoneyTransactionRow['money_meaning'];
+  allocations?: MoneyTransactionAllocation[];
 };
 
 export type MoneyAccount = {
@@ -166,6 +181,7 @@ export type MoneySnapshotRows = {
   connections: MoneyConnectionRow[];
   accounts: MoneyAccountRow[];
   rules?: MoneyRuleRow[];
+  allocations?: MoneyTransactionAllocationRow[];
   transactions: MoneyTransactionRow[];
 };
 
@@ -186,10 +202,22 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
     if (category.legacy_budget_id) categoryByAlias.set(category.legacy_budget_id, category);
   });
 
+  const allocationsByTransactionId = buildValidAllocationsByTransactionId(
+    rows.transactions,
+    rows.allocations ?? [],
+    categoryByAlias,
+  );
+
   const accountById = new Map(rows.accounts.map((account) => [account.id, account]));
   const currentTransactions = rows.transactions.filter((transaction) => transaction.date.startsWith(monthKey));
   const transactions = rows.transactions
-    .map((transaction) => projectTransaction(transaction, accountById, categoryByAlias, rows.rules ?? []))
+    .map((transaction) => projectTransaction(
+      transaction,
+      accountById,
+      categoryByAlias,
+      rows.rules ?? [],
+      allocationsByTransactionId.get(transaction.id),
+    ))
     .sort((left, right) => right.date.localeCompare(left.date));
 
   const categories = rows.categories
@@ -200,9 +228,15 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
       const categoryTransactions = currentTransactions.filter(
         (transaction) => transaction.budget_id != null && categoryByAlias.get(transaction.budget_id)?.id === category.id,
       );
+      const allocatedTransactions = currentTransactions.flatMap((transaction) => {
+        const allocation = allocationsByTransactionId.get(transaction.id)
+          ?.find((candidate) => candidate.sourceCategoryId === category.id);
+        return allocation ? [{ transaction, amountCents: allocation.amountCents }] : [];
+      });
       const outflowCents = categoryTransactions
         .filter(isCountedOutflow)
-        .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0);
+        .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0)
+        + allocatedTransactions.reduce((sum, allocation) => sum + allocation.amountCents, 0);
       const creditCents = categoryTransactions
         .filter((transaction) => !transaction.pending && transaction.direction === 'inflow' && transaction.money_meaning === 'category_credit')
         .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0);
@@ -230,7 +264,10 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         spentCents,
         remainingCents: plannedCents - spentCents,
         percentUsed: plannedCents > 0 ? Math.round((spentCents / plannedCents) * 100) : 0,
-        transactionCount: categoryTransactions.length,
+        transactionCount: new Set([
+          ...categoryTransactions.map((transaction) => transaction.id),
+          ...allocatedTransactions.map(({ transaction }) => transaction.id),
+        ]).size,
         rolloverEnabled: plan?.rollover_enabled === true,
         forecastSettings: {
           mode: plan?.forecast_mode ?? 'paced',
@@ -274,10 +311,16 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
   const plannedCents = categories.reduce((sum, category) => sum + category.plannedCents, 0);
   const spentCents = categories.reduce((sum, category) => sum + category.spentCents, 0);
   const needsReviewCount = currentTransactions.filter(
-    (transaction) => reviewStateFor(transaction, categoryByAlias) === 'needs_review',
+    (transaction) => reviewStateFor(
+      transaction,
+      categoryByAlias,
+      allocationsByTransactionId.get(transaction.id),
+    ) === 'needs_review',
   ).length;
   const outsidePlanTransactions = currentTransactions.filter(
-    (transaction) => isCountedOutflow(transaction) && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
+    (transaction) => isCountedOutflow(transaction)
+      && !allocationsByTransactionId.has(transaction.id)
+      && (!transaction.budget_id || !categoryByAlias.has(transaction.budget_id)),
   );
   const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
   const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
@@ -328,11 +371,12 @@ function projectTransaction(
   accounts: Map<string, MoneyAccountRow>,
   categories: Map<string, MoneyCategoryRow>,
   rules: MoneyRuleRow[],
+  allocations?: MoneyTransactionAllocation[],
 ): MoneyTransaction {
   const account = transaction.financial_account_id ? accounts.get(transaction.financial_account_id) : undefined;
   const connection = normalizeConnection(account?.budget_financial_connections);
   const category = transaction.budget_id ? categories.get(transaction.budget_id) : undefined;
-  const reviewState = reviewStateFor(transaction, categories);
+  const reviewState = reviewStateFor(transaction, categories, allocations);
   const merchantRule = rules.find((rule) => merchantRuleMatches(rule, transaction.merchant_name?.trim() || transaction.name));
   const merchantRuleCategory = merchantRule ? categories.get(merchantRule.budget_id) : undefined;
 
@@ -356,13 +400,14 @@ function projectTransaction(
     pending: transaction.pending,
     currencyCode: transaction.iso_currency_code || 'USD',
     categoryId: category ? category.legacy_budget_id?.trim() || category.slug : null,
-    categoryName: category?.name.trim()
+    categoryName: allocations?.length ? 'Split across categories' : category?.name.trim()
       || (reviewState === 'not_counted' ? 'Not counted' : transaction.direction === 'inflow' ? 'Income or transfer' : 'Needs review'),
     reviewState,
     merchantRuleCategoryId: merchantRuleCategory
       ? merchantRuleCategory.legacy_budget_id?.trim() || merchantRuleCategory.slug
       : null,
     moneyMeaning: transaction.money_meaning,
+    ...(allocations?.length ? { allocations } : {}),
   };
 }
 
@@ -392,10 +437,55 @@ function partialMerchantKey(value: string): string {
 function reviewStateFor(
   transaction: MoneyTransactionRow,
   categories: Map<string, MoneyCategoryRow>,
+  allocations?: MoneyTransactionAllocation[],
 ): MoneyTransaction['reviewState'] {
+  if (allocations?.length) return 'assigned';
   if (transaction.budget_match_source === 'excluded' || transaction.money_meaning === 'not_counted') return 'not_counted';
   if (transaction.budget_id && categories.has(transaction.budget_id)) return 'assigned';
   return isCountedOutflow(transaction) ? 'needs_review' : 'not_counted';
+}
+
+function buildValidAllocationsByTransactionId(
+  transactions: MoneyTransactionRow[],
+  rows: MoneyTransactionAllocationRow[],
+  categories: Map<string, MoneyCategoryRow>,
+): Map<string, MoneyTransactionAllocation[]> {
+  const transactionById = new Map(transactions.map((transaction) => [transaction.id, transaction]));
+  const rowsByTransactionId = new Map<string, MoneyTransactionAllocationRow[]>();
+  rows.forEach((row) => {
+    const existing = rowsByTransactionId.get(row.transaction_id) ?? [];
+    existing.push(row);
+    rowsByTransactionId.set(row.transaction_id, existing);
+  });
+
+  const valid = new Map<string, MoneyTransactionAllocation[]>();
+  rowsByTransactionId.forEach((allocationRows, transactionId) => {
+    const transaction = transactionById.get(transactionId);
+    if (!transaction) return;
+    const resolved = allocationRows.map((row) => ({ row, category: categories.get(row.budget_id) }));
+    if (resolved.some(({ category }) => !category)) return;
+    const plan = buildTransactionAllocationPlan({
+      transactionAmountCents: validCents(transaction.amount_cents),
+      direction: transaction.direction,
+      pending: transaction.pending,
+      allocations: resolved.map(({ row, category }) => ({
+        categoryId: category!.id,
+        amountCents: row.amount_cents,
+      })),
+    });
+    if (!plan.valid) return;
+    valid.set(transactionId, resolved
+      .map(({ row, category }) => ({
+        categoryId: category!.legacy_budget_id?.trim() || category!.slug,
+        sourceCategoryId: category!.id,
+        categoryName: category!.name.trim() || category!.slug,
+        amountCents: validCents(row.amount_cents),
+        sortOrder: category!.sort_order,
+      }))
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map(({ sortOrder: _sortOrder, ...allocation }) => allocation));
+  });
+  return valid;
 }
 
 function normalizeConnection(connection: MoneyAccountRow['budget_financial_connections']) {
