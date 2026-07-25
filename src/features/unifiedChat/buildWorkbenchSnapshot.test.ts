@@ -88,6 +88,28 @@ describe('buildWorkbenchSnapshot', () => {
     ]);
   });
 
+  test('keeps Phone and background provenance in the same calm causal timeline', () => {
+    const baseRun = {
+      id: 'run-phone', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,
+      status: 'active' as const, errorCode: null, errorMessage: null, requestClass: 'general' as const,
+      participatingCapabilities: [], contextPolicy: { usePrivateContext: false, reason: 'server', clarification: null },
+      version: 1, stopRequestedAt: null, steerCount: 0, createdAt: '2026-07-21T11:00:01.000Z',
+      updatedAt: '2026-07-21T11:00:01.000Z', completedAt: null,
+    };
+    const phone = buildWorkbenchSnapshot({
+      ...aggregate, runs: [{ ...baseRun, originChannel: 'sms', initiator: 'user', triggerKind: 'user_message' }],
+    });
+    expect(phone.runs[0]?.events[0]).toMatchObject({ sequence: 0, label: 'Started by Phone Agent' });
+
+    const background = buildWorkbenchSnapshot({
+      ...aggregate, runs: [{
+        ...baseRun, id: 'run-background', originChannel: 'external', initiator: 'system',
+        triggerKind: 'background_analysis', triggerId: 'weekly:2026-31',
+      }],
+    });
+    expect(background.runs[0]?.events[0]).toMatchObject({ sequence: 0, label: 'Prepared in the background' });
+  });
+
   test('keeps a failed run inspectable without exposing internal error detail', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,

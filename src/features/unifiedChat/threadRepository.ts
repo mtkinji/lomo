@@ -36,7 +36,7 @@ const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,upda
 const MESSAGE_COLUMNS =
   'id,thread_id,role,body,feedback,created_at,updated_at,attachments:kwilt_agent_message_attachments(id,message_id,name,mime_type,size_bytes,content_text,created_at)';
 const RUN_COLUMNS =
-  'id,thread_id,user_message_id,assistant_message_id,status,error_code,error_message,created_at,updated_at,completed_at,request_class,participating_capabilities,context_policy,version,stop_requested_at,steer_count';
+  'id,thread_id,user_message_id,assistant_message_id,status,error_code,error_message,created_at,updated_at,completed_at,request_class,participating_capabilities,context_policy,version,stop_requested_at,steer_count,origin_channel,initiator,trigger_kind,trigger_id,parent_run_id';
 const PROPOSAL_COLUMNS =
   'id,thread_id,run_id,message_id,capability_id,title,body,status,version,created_at,updated_at';
 const PROPOSAL_OPERATION_COLUMNS =
@@ -200,6 +200,14 @@ function mapRun(row: DbRow): UnifiedChatRun {
     stopRequestedAt:
       typeof row.stop_requested_at === 'string' ? row.stop_requested_at : null,
     steerCount: typeof row.steer_count === 'number' && row.steer_count >= 0 ? row.steer_count : 0,
+    originChannel: row.origin_channel === 'sms' || row.origin_channel === 'phone' || row.origin_channel === 'desktop' || row.origin_channel === 'external'
+      ? row.origin_channel : 'mobile',
+    initiator: row.initiator === 'system' ? 'system' : 'user',
+    triggerKind: row.trigger_kind === 'reminder' || row.trigger_kind === 'recurring_kwilt_action' || row.trigger_kind === 'monitor' ||
+      row.trigger_kind === 'background_analysis' || row.trigger_kind === 'native_device_enforcement'
+      ? row.trigger_kind : 'user_message',
+    triggerId: typeof row.trigger_id === 'string' ? row.trigger_id : String(row.id),
+    parentRunId: typeof row.parent_run_id === 'string' ? row.parent_run_id : null,
   };
 }
 

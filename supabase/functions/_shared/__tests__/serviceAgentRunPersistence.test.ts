@@ -25,11 +25,29 @@ test('uses only service-scoped RPCs with the exact user identity', async () => {
     run, expectedVersion: 2, body: 'Hello', status: 'complete',
     participatingCapabilities: [], requestClass: 'general',
   });
-  expect(rpc).toHaveBeenNthCalledWith(1, 'enqueue_kwilt_agent_run', expect.objectContaining({ p_user_id: 'user-1' }));
+  expect(rpc).toHaveBeenNthCalledWith(1, 'enqueue_kwilt_agent_run_with_provenance', expect.objectContaining({
+    p_user_id: 'user-1', p_initiator: 'user', p_trigger_kind: 'user_message', p_trigger_id: 'SM1',
+  }));
   expect(rpc).toHaveBeenNthCalledWith(2, 'transition_kwilt_agent_channel_run', expect.objectContaining({
     p_user_id: 'user-1', p_from_status: 'queued', p_to_status: 'active',
   }));
   expect(rpc).toHaveBeenNthCalledWith(3, 'complete_kwilt_agent_run_with_message', expect.objectContaining({ p_user_id: 'user-1' }));
+});
+
+test('loads the persisted terminal answer for idempotent delivery recovery', async () => {
+  const rpc = jest.fn(async () => ({
+    data: { runId: 'run-1', status: 'partial', answer: 'Persisted bounded answer.' }, error: null,
+  }));
+  const persistence = createServiceAgentRunPersistence({
+    admin: { rpc, from: jest.fn() }, userId: 'user-1',
+  });
+  await expect(persistence.loadReplay({
+    threadId: 'thread-1', messageId: 'message-1', runId: 'run-1',
+    status: 'partial', version: 3, replayed: true,
+  })).resolves.toEqual({ status: 'partial', answer: 'Persisted bounded answer.' });
+  expect(rpc).toHaveBeenCalledWith('load_kwilt_agent_run_replay', {
+    p_user_id: 'user-1', p_run_id: 'run-1',
+  });
 });
 
 test('stages a cross-channel proposal through one owner-scoped idempotent RPC', async () => {

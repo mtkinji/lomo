@@ -1,4 +1,4 @@
-import type { AgentToolDefinition } from './types';
+import type { AgentToolDefinition } from './types.ts';
 
 const OBJECT_SCHEMA = { type: 'object', properties: {}, additionalProperties: false } as const;
 const ACTIVITY_FIELD_PROPERTIES = {

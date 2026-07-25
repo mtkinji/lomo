@@ -26,8 +26,27 @@ describe('server agent runtime channel contract', () => {
     })).toEqual({
       channel: 'sms', requestId: 'SM123', prompt: 'Plan tomorrow',
       threadId: '2a6f9844-7ee2-4a24-bbd0-ddd957cfcc46',
+      initiator: 'user', triggerKind: 'user_message', triggerId: 'SM123', parentRunId: null,
       channelContext: { phoneLinkId: 'link-1', externalMessageId: 'SM123', timeZone: 'America/Denver' },
     });
+  });
+
+  test('accepts bounded system trigger provenance and rejects incompatible provenance', () => {
+    const mod = loadModule();
+    expect(mod.normalizeAgentRunRequest({
+      channel: 'external', requestId: 'weekly-2026-31', prompt: 'Prepare weekly options',
+      initiator: 'system', triggerKind: 'background_analysis', triggerId: 'weekly-options:2026-31',
+      parentRunId: '0bd9ae8e-c740-4cca-a667-73121bc1efd1',
+    })).toMatchObject({
+      initiator: 'system', triggerKind: 'background_analysis', triggerId: 'weekly-options:2026-31',
+      parentRunId: '0bd9ae8e-c740-4cca-a667-73121bc1efd1',
+    });
+    expect(() => mod.normalizeAgentRunRequest({
+      channel: 'external', requestId: 'bad-1', prompt: 'Do it', initiator: 'user', triggerKind: 'monitor',
+    })).toThrow('invalid_trigger_provenance');
+    expect(() => mod.normalizeAgentRunRequest({
+      channel: 'external', requestId: 'bad-2', prompt: 'Do it', initiator: 'system', triggerKind: 'user_message',
+    })).toThrow('invalid_trigger_provenance');
   });
 
   test('drops invalid timezone context instead of letting a channel spoof date instructions', () => {

@@ -33,6 +33,10 @@ export type AgentRunPersistence = {
   enqueue: (request: CanonicalAgentRunRequest) => Promise<EnqueuedAgentRun>;
   start: (run: EnqueuedAgentRun, request: CanonicalAgentRunRequest) => Promise<number>;
   loadHistory: (threadId: string) => Promise<Array<{ role: 'user' | 'assistant'; content: string }>>;
+  loadReplay: (run: EnqueuedAgentRun) => Promise<{
+    answer: string;
+    status: 'complete' | 'partial';
+  }>;
   stageClientAction: (input: {
     run: EnqueuedAgentRun;
     callId: string;
@@ -65,7 +69,7 @@ export type AgentRunPersistence = {
 };
 
 export type AgentRunCoordinatorResult =
-  | { state: string; replayed: true; run: EnqueuedAgentRun }
+  | { state: 'complete' | 'partial'; replayed: true; run: EnqueuedAgentRun; answer: string }
   | { state: 'complete' | 'partial'; replayed: false; run: Record<string, unknown>; answer: string };
 
 function projectAuthoritativeServerAnswer({
@@ -152,7 +156,13 @@ export async function executeCanonicalAgentRun({
   authorizeTool?: (tool: (typeof SERVER_AGENT_TOOL_CATALOG)[number]) => boolean;
 }): Promise<AgentRunCoordinatorResult> {
   const enqueued = await persistence.enqueue(request);
-  if (enqueued.replayed) return { state: enqueued.status, replayed: true, run: enqueued };
+  if (enqueued.replayed) {
+    if (enqueued.status !== 'complete' && enqueued.status !== 'partial') {
+      throw new Error('run_replay_not_terminal');
+    }
+    const replay = await persistence.loadReplay(enqueued);
+    return { state: replay.status, replayed: true, run: enqueued, answer: replay.answer };
+  }
 
   let activeVersion = enqueued.version;
   try {

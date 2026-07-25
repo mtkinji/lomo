@@ -89,6 +89,19 @@ function projectRun(
           ...(event.detail ? { detail: event.detail } : {}),
         }))
     : fallbackEvents;
+  const sourceEvent = run.initiator === 'system'
+    ? {
+        id: `${run.id}:source`, sequence: 0, type: 'source' as const, status: 'complete' as const,
+        label: run.triggerKind === 'native_device_enforcement'
+          ? 'Waiting for this device'
+          : 'Prepared in the background',
+      }
+    : run.originChannel === 'sms' || run.originChannel === 'phone'
+      ? {
+          id: `${run.id}:source`, sequence: 0, type: 'source' as const, status: 'complete' as const,
+          label: 'Started by Phone Agent',
+        }
+      : null;
 
   return {
     id: run.id,
@@ -97,7 +110,7 @@ function projectRun(
     ...(run.assistantMessageId ? { assistantMessageId: run.assistantMessageId } : {}),
     status: run.status,
     canRetry,
-    events,
+    events: sourceEvent ? [sourceEvent, ...events] : events,
   };
 }
 

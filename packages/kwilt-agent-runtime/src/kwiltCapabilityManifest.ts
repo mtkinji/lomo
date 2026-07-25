@@ -1,6 +1,6 @@
-import type { AgentToolProvider } from './types';
-import { defineCapabilityManifest, type CapabilityManifestEntry } from './capabilityManifest';
-import { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts';
+import type { AgentToolProvider } from './types.ts';
+import { defineCapabilityManifest, type CapabilityManifestEntry } from './capabilityManifest.ts';
+import { KWILT_TOOL_CONTRACTS } from './kwiltToolContracts.ts';
 
 export type KwiltOperationOwner =
   | 'general'

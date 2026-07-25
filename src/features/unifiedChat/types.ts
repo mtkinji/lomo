@@ -71,6 +71,11 @@ export type UnifiedChatRun = {
   version: number;
   stopRequestedAt: string | null;
   steerCount: number;
+  originChannel?: 'mobile' | 'sms' | 'phone' | 'desktop' | 'external';
+  initiator?: 'user' | 'system';
+  triggerKind?: 'user_message' | 'reminder' | 'recurring_kwilt_action' | 'monitor' | 'background_analysis' | 'native_device_enforcement';
+  triggerId?: string;
+  parentRunId?: string | null;
 };
 
 export type UnifiedChatThreadAggregate = {

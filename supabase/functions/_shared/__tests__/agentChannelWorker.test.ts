@@ -57,6 +57,12 @@ test('resumes multipart delivery from its durable outbound checkpoint without re
   expect(deps.complete).toHaveBeenCalledWith('job-1', 'run-1', answer, ['SM-out-1', 'SM-out-1', 'SM-out-1']);
 });
 
+test('retries canonical execution with the original request id so completed work replays instead of duplicating', async () => {
+  const deps = dependencies({ execute: jest.fn(async () => { throw new Error('run_checkpoint_failed'); }) });
+  await processAgentChannelJob(claimed({ attempts: 2 }), deps);
+  expect(deps.execute).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'SM-in-1' }));
+});
+
 test('cancels before model or delivery when the verified phone link is no longer active', async () => {
   const deps = dependencies({
     loadContext: jest.fn(async () => ({

@@ -16,6 +16,7 @@ type PromptRow = {
   cadence_id: string | null;
   prompt_kind: string;
   body: string;
+  work_item_id: string | null;
 };
 
 type LinkRow = {
@@ -51,7 +52,7 @@ function requireCronSecret(req: Request): boolean {
   return Boolean(expected && match?.[1] === expected);
 }
 
-async function sendSms(to: string, body: string): Promise<{ ok: true; sid: string | null } | { ok: false }> {
+async function sendSms(to: string, body: string): Promise<{ ok: true; sid: string } | { ok: false }> {
   const accountSid = (Deno.env.get('TWILIO_ACCOUNT_SID') ?? '').trim();
   const token = (Deno.env.get('TWILIO_AUTH_TOKEN') ?? '').trim();
   const from = (Deno.env.get('TWILIO_FROM_NUMBER') ?? '').trim();
@@ -76,9 +77,10 @@ async function sendSms(to: string, body: string): Promise<{ ok: true; sid: strin
   const text = await res.text().catch(() => '');
   try {
     const parsed = JSON.parse(text) as { sid?: unknown };
-    return { ok: true, sid: typeof parsed.sid === 'string' ? parsed.sid : null };
+    const sid = typeof parsed.sid === 'string' ? parsed.sid.trim() : '';
+    return sid ? { ok: true, sid } : { ok: false };
   } catch {
-    return { ok: true, sid: null };
+    return { ok: false };
   }
 }
 
@@ -121,7 +123,7 @@ serve(async (req) => {
   const nowIso = new Date().toISOString();
   const { data: prompts, error } = await admin
     .from('kwilt_phone_agent_prompts')
-    .select('id, user_id, phone_link_id, activity_id, person_id, memory_item_id, event_id, cadence_id, prompt_kind, body')
+    .select('id, user_id, phone_link_id, activity_id, person_id, memory_item_id, event_id, cadence_id, prompt_kind, body, work_item_id')
     .in('state', ['pending', 'snoozed'])
     .lte('due_at', nowIso)
     .order('due_at', { ascending: true })
@@ -175,8 +177,63 @@ serve(async (req) => {
       continue;
     }
 
+    const { data: workItem, error: workItemError } = await admin.rpc('enqueue_kwilt_agent_work_item', {
+      p_user_id: prompt.user_id,
+      p_kind: 'reminder',
+      p_capability_id: 'phoneAgent',
+      p_idempotency_key: `phone-prompt:${prompt.id}`,
+      p_target_channel: 'sms',
+      p_prompt: prompt.body,
+      p_thread_id: null,
+      p_available_at: nowIso,
+    });
+    const work = workItem && typeof workItem === 'object' ? workItem as Record<string, unknown> : {};
+    const workItemId = typeof work.id === 'string' ? work.id : prompt.work_item_id;
+    if (workItemError || !workItemId) {
+      failed += 1;
+      continue;
+    }
+    await admin.from('kwilt_phone_agent_prompts').update({ work_item_id: workItemId, updated_at: nowIso }).eq('id', prompt.id);
+
+    if (work.state === 'completed' && typeof (work.evidence as Record<string, unknown> | undefined)?.outboundMessageId === 'string') {
+      const outboundMessageId = String((work.evidence as Record<string, unknown>).outboundMessageId);
+      await admin.from('kwilt_phone_agent_prompts').update({
+        state: 'sent', sent_at: nowIso, last_twilio_message_sid: outboundMessageId, updated_at: nowIso,
+      }).eq('id', prompt.id);
+      sent += 1;
+      continue;
+    }
+
+    const { error: claimError } = await admin.rpc('claim_kwilt_agent_work_item', { p_item_id: workItemId });
+    if (claimError) {
+      skipped += 1;
+      continue;
+    }
+
     const outcome = await sendSms(linkRow.phone_e164, prompt.body);
     if (!outcome.ok) {
+      failed += 1;
+      const attempts = typeof work.attempts === 'number' ? work.attempts + 1 : 1;
+      if (attempts < 3) {
+        await admin.rpc('retry_kwilt_agent_work_item', {
+          p_item_id: workItemId, p_delay_seconds: 30 * (2 ** (attempts - 1)), p_error_code: 'twilio_send_failed',
+        });
+      } else {
+        await admin.rpc('finish_kwilt_agent_work_item', {
+          p_item_id: workItemId, p_state: 'failed', p_evidence: { errorCode: 'twilio_send_failed' },
+          p_thread_id: null, p_run_id: null, p_proposal_id: null, p_client_action_id: null, p_receipt_id: null,
+        });
+      }
+      continue;
+    }
+
+    const { error: finishError } = await admin.rpc('finish_kwilt_agent_work_item', {
+      p_item_id: workItemId,
+      p_state: 'completed',
+      p_evidence: { deliveryCheckpointed: true, outboundMessageId: outcome.sid },
+      p_thread_id: null, p_run_id: null, p_proposal_id: null, p_client_action_id: null, p_receipt_id: null,
+    });
+    if (finishError) {
       failed += 1;
       continue;
     }

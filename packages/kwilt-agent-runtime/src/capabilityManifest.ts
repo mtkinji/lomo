@@ -1,4 +1,4 @@
-import type { AgentToolDefinition, AgentToolProvider } from './types';
+import type { AgentToolDefinition, AgentToolProvider } from './types.ts';
 
 export type CapabilityConfirmation = 'none' | 'explicit' | 'native';
 export type CapabilityCoverageState = 'live' | 'pending_provider' | 'confirmation_only' | 'excluded';
