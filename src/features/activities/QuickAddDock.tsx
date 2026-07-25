@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useMemo } from 'react';
 import type { RefObject } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, TextInput as RNTextInput, type TextInput } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../../theme';
 import { fonts } from '../../theme/typography';
 import { Icon } from '../../ui/Icon';
@@ -13,10 +12,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeNativeEasing } from '../../navigation/chromeMotion';
 import {
-  INVENTORY_CHROME_FADE_CONTROL_GAP_PX,
-  INVENTORY_CHROME_FADE_MAX_ALPHA,
-} from './inventoryChrome';
-import {
   DEFAULT_QUICK_ADD_AI_ACTIONS,
   type QuickAddAiAction,
   type QuickAddPlaceRecommendation,
@@ -25,6 +20,7 @@ import {
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 const QUICK_ADD_COMPOSER_SURFACE_RADIUS = 14;
+const QUICK_ADD_COLLAPSED_HORIZONTAL_INSET_PX = spacing.xl + spacing.sm;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -111,7 +107,7 @@ export function QuickAddDock({
   dismissAfterSubmit = true,
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
-  floatingHorizontalInsetPx = spacing.lg,
+  floatingHorizontalInsetPx = QUICK_ADD_COLLAPSED_HORIZONTAL_INSET_PX,
   placeReceipt,
   onDismissPlaceReceipt,
   onSetPlaceAlert,
@@ -239,42 +235,11 @@ export function QuickAddDock({
   const selectedAiActionCount = selectedAiActions.length;
   const aiActionSummary =
     selectedAiActionCount === 0 ? 'Off' : `${selectedAiActionCount} on`;
-  const measuredCollapsedSurfaceHeight = measuredCollapsedSurfaceHeightRef.current || QUICK_ADD_BAR_HEIGHT;
-  const footerFadeHeight =
-    measuredCollapsedSurfaceHeight + expandedCollapsedBottomOffsetRef.current + INVENTORY_CHROME_FADE_CONTROL_GAP_PX;
-  const footerFadeRampEnd = Math.min(
-    0.16,
-    Math.max(0.04, INVENTORY_CHROME_FADE_CONTROL_GAP_PX / Math.max(1, footerFadeHeight)),
-  );
-
   return (
     <>
       {/* Collapsed dock trigger (always mounted so we can open quickly). */}
       {placement === 'bottomDock' ? (
         <>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.footerFade,
-              {
-                height: footerFadeHeight,
-                transform: [{ translateY: collapsedDockTranslateY }],
-              },
-              isFocused ? styles.dockHidden : null,
-            ]}
-          >
-            <LinearGradient
-              colors={[
-                'rgba(255,255,255,0)',
-                `rgba(255,255,255,${INVENTORY_CHROME_FADE_MAX_ALPHA})`,
-                `rgba(255,255,255,${INVENTORY_CHROME_FADE_MAX_ALPHA})`,
-              ]}
-              {...({ locations: [0, footerFadeRampEnd, 1] } as any)}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={StyleSheet.absoluteFillObject}
-            />
-          </Animated.View>
           <Animated.View
             testID="quick-add-floating-dock"
             style={[
@@ -376,7 +341,7 @@ export function QuickAddDock({
             style={styles.editorSurface}
             bodyStyle={styles.editorBody}
           >
-            <View style={styles.composerCard}>
+            <View testID="quick-add-expanded-composer" style={styles.composerCard}>
                 <View style={[styles.composerInputRow, isInputExpanded ? styles.composerInputRowExpanded : null]}>
                   <View style={[styles.affordance, isInputExpanded ? styles.affordanceExpanded : null]}>
                     <View
@@ -710,14 +675,6 @@ function AiActionSwitch({
 }
 
 const styles = StyleSheet.create({
-  footerFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 45,
-    elevation: 45,
-  },
   floatingDock: {
     position: 'absolute',
     left: 0,
@@ -803,9 +760,9 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     borderRadius: 999,
     shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 8,
   },
   collapsedPressable: {
@@ -836,10 +793,8 @@ const styles = StyleSheet.create({
   composerCard: {
     width: '100%',
     columnGap: spacing.sm,
-    backgroundColor: colors.canvas,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: QUICK_ADD_COMPOSER_SURFACE_RADIUS + 2,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
@@ -1061,7 +1016,7 @@ const styles = StyleSheet.create({
   drawerContent: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: 0,
     backgroundColor: colors.canvas,
     overflow: 'visible',
   },

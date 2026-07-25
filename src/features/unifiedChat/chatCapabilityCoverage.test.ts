@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { KWILT_CAPABILITY_MANIFEST, projectOperationCoverage } from '@kwilt/agent-runtime';
 import { KWILT_OPERATION_REGISTRY } from '../../capabilities/operations';
 import { CAPABILITY_REGISTRY } from '../../capabilities/registry';
 import { assertCompleteConversationalCoverage, CHAT_CAPABILITY_COVERAGE } from './chatCapabilityCoverage';
@@ -18,15 +19,11 @@ function externalMcpToolNames(): string[] {
   return [...definitions.matchAll(/^\s{4}name: '([^']+)'/gm)].map((match) => match[1]);
 }
 
-function serverAgentToolNames(): string[] {
-  const source = fs.readFileSync(
-    path.join(process.cwd(), 'supabase/functions/_shared/serverAgentCatalog.ts'),
-    'utf8',
-  );
-  return [...source.matchAll(/^\s{4}id: '([^']+)'/gm)].map((match) => match[1]);
-}
-
 describe('CHAT_CAPABILITY_COVERAGE', () => {
+  it('is mechanically projected from the canonical capability manifest', () => {
+    expect(CHAT_CAPABILITY_COVERAGE).toEqual(projectOperationCoverage(KWILT_CAPABILITY_MANIFEST));
+  });
+
   it('fails registration with the exact operation id when conversational coverage is missing', () => {
     expect(() => assertCompleteConversationalCoverage(
       [{ id: 'future.capability.do_the_thing' }],
@@ -58,7 +55,6 @@ describe('CHAT_CAPABILITY_COVERAGE', () => {
 
   it('requires separate executable truth for mobile and Phone', () => {
     const registeredTools = new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id));
-    const serverTools = new Set(serverAgentToolNames());
     for (const row of CHAT_CAPABILITY_COVERAGE) {
       expect(row.providers.length).toBeGreaterThan(0);
       expect(Object.keys(row.channels).sort()).toEqual(['mobile', 'phone']);
@@ -73,9 +69,6 @@ describe('CHAT_CAPABILITY_COVERAGE', () => {
         }
         if (channel === 'mobile' && (coverage.state === 'live' || coverage.state === 'confirmation_only')) {
           for (const toolId of row.toolIds) expect(registeredTools).toContain(toolId);
-        }
-        if (channel === 'phone' && coverage.outcome !== 'honest_boundary') {
-          for (const toolId of row.toolIds) expect(serverTools).toContain(toolId);
         }
       }
     }

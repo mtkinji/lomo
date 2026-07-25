@@ -50,4 +50,22 @@ describe('buildKwiltChatVoicePrompt', () => {
       prompt.lastIndexOf('Prefers deep level of detail.'),
     );
   });
+
+  it('layers general competence before voice, privacy, capability, and coaching rules', () => {
+    const prompt = buildKwiltChatSystemPrompt();
+    const general = prompt.indexOf('Competent general assistant');
+    const voice = prompt.indexOf('Kwilt voice');
+    const privacy = prompt.indexOf('Privacy and action truth');
+    const capability = prompt.indexOf('Discovered capabilities');
+    const coaching = prompt.indexOf('Coaching posture');
+
+    expect(general).toBeGreaterThanOrEqual(0);
+    expect(voice).toBeGreaterThan(general);
+    expect(privacy).toBeGreaterThan(voice);
+    expect(capability).toBeGreaterThan(privacy);
+    expect(coaching).toBeGreaterThan(capability);
+    expect(prompt).toContain('Answer harmless ordinary questions directly');
+    expect(prompt).toContain('Never claim a Kwilt action succeeded from prose');
+    expect(prompt).toContain('Do not retrieve private Kwilt context');
+  });
 });

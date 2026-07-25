@@ -69,7 +69,7 @@ export function createServiceAgentRunPersistence({
 }): AgentRunPersistence {
   return {
     enqueue: async (request) => {
-      const { data, error } = await admin.rpc('enqueue_kwilt_agent_run', {
+      const { data, error } = await admin.rpc('enqueue_kwilt_agent_run_with_provenance', {
         p_thread_id: request.threadId,
         p_prompt: request.prompt,
         p_client_request_id: `${request.channel}:${request.requestId}`,
@@ -78,10 +78,24 @@ export function createServiceAgentRunPersistence({
         p_request_class: 'general',
         p_participating_capabilities: [],
         p_context_policy: { usePrivateContext: false, reason: 'server-routing-pending' },
+        p_initiator: request.initiator ?? 'user',
+        p_trigger_kind: request.triggerKind ?? 'user_message',
+        p_trigger_id: request.triggerId ?? request.requestId,
+        p_parent_run_id: request.parentRunId ?? null,
         p_user_id: userId,
       });
       if (error || !data) throw new Error('run_enqueue_failed');
       return mapEnqueued(data);
+    },
+    loadReplay: async (run) => {
+      const { data, error } = await admin.rpc('load_kwilt_agent_run_replay', {
+        p_user_id: userId, p_run_id: run.runId,
+      });
+      const row = record(data);
+      const answer = typeof row.answer === 'string' ? row.answer.trim() : '';
+      const status = row.status === 'partial' ? 'partial' : row.status === 'complete' ? 'complete' : null;
+      if (error || !answer || !status) throw new Error('run_replay_load_failed');
+      return { answer, status };
     },
     start: async (run, request) => {
       const { data, error } = await admin.rpc('transition_kwilt_agent_channel_run', {

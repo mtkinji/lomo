@@ -1,7 +1,19 @@
-import { discoverAgentTools } from '@kwilt/agent-runtime';
+import {
+  discoverAgentTools,
+  KWILT_CAPABILITY_MANIFEST,
+  projectAgentToolCatalog,
+} from '@kwilt/agent-runtime';
+import { MOBILE_TOOL_IMPLEMENTATIONS } from './mobileToolImplementations';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
 
 describe('UNIFIED_CHAT_TOOL_CATALOG', () => {
+  test('is mechanically projected from the canonical manifest and mobile implementations', () => {
+    expect(UNIFIED_CHAT_TOOL_CATALOG).toEqual(projectAgentToolCatalog(
+      KWILT_CAPABILITY_MANIFEST,
+      { runtime: 'mobile', implementations: MOBILE_TOOL_IMPLEMENTATIONS },
+    ));
+  });
+
   test('discovers the Plan read and recommendation tools without unrelated mutation tools', () => {
     expect(discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
       capabilityIds: ['plan'],

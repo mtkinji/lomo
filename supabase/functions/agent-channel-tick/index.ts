@@ -103,7 +103,6 @@ serve(async (req) => {
               || input.permissions.remember_relationships === true)
           ),
         });
-        if (!('answer' in result)) throw new Error(`channel_run_replayed_without_answer:${result.state}`);
         const run = record(result.run);
         const runId = requiredString(run, 'runId', 'run_id');
         const threadId = requiredString(run, 'threadId', 'thread_id');

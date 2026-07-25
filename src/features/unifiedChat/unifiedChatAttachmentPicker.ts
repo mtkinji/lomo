@@ -2,8 +2,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   MAX_UNIFIED_CHAT_ATTACHMENT_BYTES,
+  MAX_UNIFIED_CHAT_MEDIA_ATTACHMENT_BYTES,
+  normalizeUnifiedChatAttachmentDraft,
   normalizeUnifiedChatTextAttachment,
-  type UnifiedChatTextAttachment,
+  type UnifiedChatAttachment,
 } from './unifiedChatAttachmentPolicy';
 
 const TEXT_DOCUMENT_TYPES = [
@@ -17,31 +19,54 @@ const TEXT_DOCUMENT_TYPES = [
   'text/xml',
   'text/yaml',
 ];
+const SUPPORTED_DOCUMENT_TYPES = [
+  ...TEXT_DOCUMENT_TYPES,
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp',
+];
 
 function localAttachmentId(): string {
   return `chat-attachment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function pickUnifiedChatTextAttachment(): Promise<UnifiedChatTextAttachment | null> {
+function decodedBase64Bytes(payload: string): number {
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor(payload.length * 3 / 4) - padding);
+}
+
+export async function pickUnifiedChatAttachment(): Promise<UnifiedChatAttachment | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: TEXT_DOCUMENT_TYPES,
+    type: SUPPORTED_DOCUMENT_TYPES,
     multiple: false,
     copyToCacheDirectory: true,
   });
   if (result.canceled) return null;
   const asset = result.assets[0];
   if (!asset?.uri) return null;
-  if (typeof asset.size === 'number' && asset.size > MAX_UNIFIED_CHAT_ATTACHMENT_BYTES) {
-    throw new Error('Each Chat document must be 100 KB or smaller.');
+  const mimeType = asset.mimeType?.toLowerCase().split(';')[0].trim() ?? 'application/octet-stream';
+  const isText = TEXT_DOCUMENT_TYPES.includes(mimeType) || (!mimeType.startsWith('image/') && mimeType !== 'application/pdf');
+  const sizeLimit = isText ? MAX_UNIFIED_CHAT_ATTACHMENT_BYTES : MAX_UNIFIED_CHAT_MEDIA_ATTACHMENT_BYTES;
+  if (typeof asset.size === 'number' && asset.size > sizeLimit) {
+    throw new Error(isText
+      ? 'Each Chat document must be 100 KB or smaller.'
+      : 'Each Chat image or PDF must be 5 MB or smaller.');
   }
-  const content = await FileSystem.readAsStringAsync(asset.uri, {
-    encoding: FileSystem.EncodingType.UTF8,
+  if (isText) {
+    const content = await FileSystem.readAsStringAsync(asset.uri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+    return normalizeUnifiedChatTextAttachment({
+      id: localAttachmentId(), name: asset.name, mimeType,
+      sizeBytes: asset.size ?? content.length, content,
+    });
+  }
+  const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+    encoding: FileSystem.EncodingType.Base64,
   });
-  return normalizeUnifiedChatTextAttachment({
-    id: localAttachmentId(),
-    name: asset.name,
-    mimeType: asset.mimeType ?? 'text/plain',
-    sizeBytes: asset.size ?? content.length,
-    content,
+  return normalizeUnifiedChatAttachmentDraft({
+    id: localAttachmentId(), name: asset.name, mimeType,
+    sizeBytes: decodedBase64Bytes(base64), dataUrl: `data:${mimeType};base64,${base64}`,
   });
 }
+
+/** @deprecated Use pickUnifiedChatAttachment. */
+export const pickUnifiedChatTextAttachment = pickUnifiedChatAttachment;

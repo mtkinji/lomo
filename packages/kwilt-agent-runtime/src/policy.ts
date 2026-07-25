@@ -3,7 +3,7 @@ import type {
   AgentToolPolicyContext,
   AgentToolPolicyDecision,
   AgentToolProvider,
-} from './types';
+} from './types.ts';
 
 function firstAvailableProvider(
   tool: AgentToolDefinition,

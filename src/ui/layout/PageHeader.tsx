@@ -15,8 +15,9 @@ type PageHeaderProps = {
    * Visual style for the header content.
    * - default: standard canvas header styling.
    * - inverse: white/bright text and icons for use on dark/gradient surfaces (paywall, change plan, etc.).
+   * - conversation: quiet centered title with stable leading/trailing controls for Chat.
    */
-  variant?: 'default' | 'inverse';
+  variant?: 'default' | 'inverse' | 'conversation';
   /**
    * Optional leading icon that visually anchors the page.
    * For main tab screens we currently avoid this to reduce redundancy
@@ -138,120 +139,151 @@ export function PageHeader({
   const hasMenu = !!onPressMenu;
   const hasAvatar = !!onPressAvatar && !hasMenu;
   const hasStreakCapsule = typeof streakCount === 'number';
+  const isConversation = variant === 'conversation';
+
+  const leadingControl = hasBack ? (
+    <IconButton
+      accessibilityLabel={`Go back from ${title}`}
+      onPress={onPressBack}
+      variant="ghost"
+      style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
+    >
+      <Icon name="arrowLeft" size={20} color={iconColor} />
+    </IconButton>
+  ) : hasMenu ? (
+    <IconButton
+      accessibilityLabel="Open navigation menu"
+      testID="nav.drawer.toggle"
+      onPress={onPressMenu}
+      style={[
+        styles.headerIconButton,
+        styles.headerIconButtonGhost,
+        { width: headerActionSize, height: headerActionSize },
+      ]}
+    >
+      <MenuToggleIcon open={menuOpen} />
+    </IconButton>
+  ) : null;
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      <View style={styles.topRow}>
-        {/* Left side: back/menu button + title */}
-        <View style={styles.leftGroup}>
-          {hasBack ? (
-            <IconButton
-              accessibilityLabel={`Go back from ${title}`}
-              onPress={onPressBack}
-              variant="ghost"
-              style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
+    <View
+      testID="page.header"
+      style={[styles.container, isConversation ? styles.conversationContainer : null, containerStyle]}
+    >
+      {isConversation ? (
+        <View style={[styles.topRow, styles.conversationTopRow]}>
+          <View style={styles.conversationSide}>{leadingControl}</View>
+          <View style={styles.conversationTitleSlot}>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.conversationTitle, { color: titleColor }]}
             >
-              <Icon name="arrowLeft" size={20} color={iconColor} />
-            </IconButton>
-          ) : hasMenu ? (
-            <IconButton
-              accessibilityLabel="Open navigation menu"
-              testID="nav.drawer.toggle"
-              onPress={onPressMenu}
-              style={[
-                styles.headerIconButton,
-                styles.headerIconButtonGhost,
-                { width: headerActionSize, height: headerActionSize },
-              ]}
-            >
-              <MenuToggleIcon open={menuOpen} />
-            </IconButton>
-          ) : null}
-
-          <View style={styles.titleRow}>
-            {iconName && boxedTitle ? (
-              <View
-                style={[
-                  styles.titleBadge,
-                  {
-                    height: headerBadgeSize,
-                    borderRadius: headerBadgeRadius,
-                    backgroundColor: badgeColors.backgroundColor,
-                  },
-                ]}
-              >
-                <Icon name={iconName} size={20} color={badgeColors.iconColor} />
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={[styles.title, styles.titleInBadge, { color: badgeColors.iconColor }]}
-                >
-                  {title}
-                </Text>
-              </View>
-            ) : (
-              <>
-                {iconName ? (
-                  <ObjectTypeIconBadge
-                    iconName={iconName}
-                    tone={iconTone}
-                    size={20}
-                    badgeSize={headerBadgeSize}
-                  />
-                ) : null}
-                <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.title, { color: titleColor }]}>
-                  {title}
-                </Text>
-              </>
-            )}
-            {onPressInfo ? (
-              <IconButton
-                accessibilityLabel={`Learn about ${title.toLowerCase()}`}
-                onPress={onPressInfo}
-                variant="ghost"
-                style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
-              >
-                <Icon name="info" size={20} color={iconColor} />
-              </IconButton>
-            ) : null}
-            {moreMenu ?? null}
+              {title}
+            </Text>
+          </View>
+          <View
+            testID="page.header.trailing"
+            style={[styles.conversationSide, styles.conversationTrailing]}
+          >
+            {moreMenu ?? rightElement ?? null}
           </View>
         </View>
+      ) : (
+        <View style={styles.topRow}>
+          {/* Left side: back/menu button + title */}
+          <View style={styles.leftGroup}>
+            {leadingControl}
 
-        {/* Right side: rightElement/more → streak pill → avatar */}
-        <View style={styles.rightGroup}>
-          {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
-          {hasStreakCapsule ? (
-            <StreakCapsule
-              streakCount={streakCount}
-              showedUpToday={streakShowedUpToday}
-              shieldCount={shieldCount}
-              repairWindowActive={repairWindowActive}
-              onPress={onPressAvatar}
-            />
-          ) : null}
-          {hasAvatar ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open settings"
-              testID="nav.header.avatar"
-              onPress={onPressAvatar}
-              style={({ pressed }) => [
-                styles.headerAvatarButton,
-                { width: headerActionSize, height: headerActionSize },
-                pressed ? styles.headerAvatarButtonPressed : null,
-              ]}
-            >
-              <ProfileAvatar
-                name={avatarName}
-                avatarUrl={avatarUrl}
-                size={32}
-                borderRadius={16}
+            <View style={styles.titleRow}>
+              {iconName && boxedTitle ? (
+                <View
+                  style={[
+                    styles.titleBadge,
+                    {
+                      height: headerBadgeSize,
+                      borderRadius: headerBadgeRadius,
+                      backgroundColor: badgeColors.backgroundColor,
+                    },
+                  ]}
+                >
+                  <Icon name={iconName} size={20} color={badgeColors.iconColor} />
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={[styles.title, styles.titleInBadge, { color: badgeColors.iconColor }]}
+                  >
+                    {title}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {iconName ? (
+                    <ObjectTypeIconBadge
+                      iconName={iconName}
+                      tone={iconTone}
+                      size={20}
+                      badgeSize={headerBadgeSize}
+                    />
+                  ) : null}
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={[styles.title, { color: titleColor }]}
+                  >
+                    {title}
+                  </Text>
+                </>
+              )}
+              {onPressInfo ? (
+                <IconButton
+                  accessibilityLabel={`Learn about ${title.toLowerCase()}`}
+                  onPress={onPressInfo}
+                  variant="ghost"
+                  style={[styles.headerIconButton, { width: headerActionSize, height: headerActionSize }]}
+                >
+                  <Icon name="info" size={20} color={iconColor} />
+                </IconButton>
+              ) : null}
+              {moreMenu ?? null}
+            </View>
+          </View>
+
+          {/* Right side: rightElement/more → streak pill → avatar */}
+          <View style={styles.rightGroup}>
+            {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
+            {hasStreakCapsule ? (
+              <StreakCapsule
+                streakCount={streakCount}
+                showedUpToday={streakShowedUpToday}
+                shieldCount={shieldCount}
+                repairWindowActive={repairWindowActive}
+                onPress={onPressAvatar}
               />
-            </Pressable>
-          ) : null}
+            ) : null}
+            {hasAvatar ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open settings"
+                testID="nav.header.avatar"
+                onPress={onPressAvatar}
+                style={({ pressed }) => [
+                  styles.headerAvatarButton,
+                  { width: headerActionSize, height: headerActionSize },
+                  pressed ? styles.headerAvatarButtonPressed : null,
+                ]}
+              >
+                <ProfileAvatar
+                  name={avatarName}
+                  avatarUrl={avatarUrl}
+                  size={32}
+                  borderRadius={16}
+                />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
-      </View>
+      )}
       {children ? <View style={styles.childrenContainer}>{children}</View> : null}
     </View>
   );
@@ -262,6 +294,30 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
     paddingLeft: spacing.sm,
+  },
+  conversationContainer: {
+    paddingBottom: spacing.xs,
+  },
+  conversationTopRow: {
+    minHeight: 44,
+  },
+  conversationSide: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+  },
+  conversationTrailing: {
+    alignItems: 'flex-end',
+  },
+  conversationTitleSlot: {
+    flex: 1,
+    paddingRight: spacing.xs,
+  },
+  conversationTitle: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    textAlign: 'left',
   },
   headerIconButton: {
     width: 44,

@@ -1274,7 +1274,7 @@ export function ActivitiesScreen() {
 
   // The Option G shell has no bottom nav. Keep the collapsed pill low, but
   // leave enough breathing room to follow the iPhone's bottom-corner curve.
-  const quickAddCompactBottomOffsetPx = spacing.xl;
+  const quickAddCompactBottomOffsetPx = spacing.xl + spacing.sm;
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
     : quickAddCompactBottomOffsetPx;

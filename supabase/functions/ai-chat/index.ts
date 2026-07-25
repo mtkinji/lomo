@@ -2,6 +2,7 @@
 //
 // Routes:
 // - POST /v1/chat/completions
+// - POST /v1/responses (hosted web search or bounded Chat attachment inspection)
 // - POST /v1/images/generations
 //
 // Called via:
@@ -12,6 +13,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { resolveKwiltAiModel } from '../_shared/aiModelRouting.ts';
+import { validateKwiltAiRequestShape } from '../_shared/aiRequestValidation.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -111,19 +113,25 @@ function getImageActionsCost(): number {
   return 10;
 }
 
-function getMaxRequestBytes(): number {
-  const raw = Deno.env.get('KWILT_AI_MAX_REQUEST_BYTES');
+function getMaxRequestBytes(route?: string): number {
+  const multimodal = route === '/v1/responses';
+  const raw = Deno.env.get(multimodal
+    ? 'KWILT_AI_MULTIMODAL_MAX_REQUEST_BYTES'
+    : 'KWILT_AI_MAX_REQUEST_BYTES');
   const parsed = raw ? Number(raw) : NaN;
-  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  return 120_000;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.min(Math.floor(parsed), multimodal ? 15_000_000 : 1_000_000);
+  }
+  return multimodal ? 15_000_000 : 120_000;
 }
 
 function getMaxOutputTokens(route: string): number {
   // Clamp completion size to avoid runaway cost even when using "actions-only" quotas.
-  const raw = Deno.env.get(route === '/v1/chat/completions' ? 'KWILT_AI_MAX_OUTPUT_TOKENS' : 'KWILT_AI_MAX_IMAGE_TOKENS');
+  const isText = route === '/v1/chat/completions' || route === '/v1/responses';
+  const raw = Deno.env.get(isText ? 'KWILT_AI_MAX_OUTPUT_TOKENS' : 'KWILT_AI_MAX_IMAGE_TOKENS');
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  return route === '/v1/chat/completions' ? 1200 : 0;
+  return isText ? 1200 : 0;
 }
 
 function getSupabaseAdmin() {
@@ -259,40 +267,6 @@ function safeJsonParse(text: string): any | null {
   }
 }
 
-function validateRequestShape(route: string, parsed: any): { ok: true } | { ok: false; message: string } {
-  // Token-counting is non-trivial server-side without a tokenizer; we instead bound size/shape.
-  // This protects us from pathological payloads and accidental runaway context.
-  if (!parsed || typeof parsed !== 'object') return { ok: false, message: 'Invalid JSON body' };
-
-  if (route === '/v1/chat/completions') {
-    const msgs = parsed.messages;
-    if (!Array.isArray(msgs) || msgs.length < 1) return { ok: false, message: 'messages must be a non-empty array' };
-    if (msgs.length > 40) return { ok: false, message: 'messages too long' };
-    for (const m of msgs) {
-      if (!m || typeof m !== 'object') return { ok: false, message: 'invalid message' };
-      const role = m.role;
-      if (typeof role !== 'string') return { ok: false, message: 'message.role must be a string' };
-      const content = m.content;
-      if (typeof content === 'string' && content.length > 20_000) {
-        return { ok: false, message: 'message.content too large' };
-      }
-    }
-    return { ok: true };
-  }
-
-  if (route === '/v1/images/generations') {
-    // Minimal validation; clamp n later.
-    return { ok: true };
-  }
-
-  if (route === '/v1/commit') {
-    // Minimal shape: { actionsCost?: number }
-    return { ok: true };
-  }
-
-  return { ok: true };
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -308,7 +282,7 @@ serve(async (req) => {
   const idx = fullPath.indexOf(marker);
   const route = idx >= 0 ? fullPath.slice(idx + marker.length) : fullPath;
 
-  const isUpstreamRoute = route === '/v1/chat/completions' || route === '/v1/images/generations';
+  const isUpstreamRoute = route === '/v1/chat/completions' || route === '/v1/responses' || route === '/v1/images/generations';
   const isCommitRoute = route === '/v1/commit';
   if (!isUpstreamRoute && !isCommitRoute) {
     return json(404, { error: { message: 'Not found', code: 'not_found' } });
@@ -331,6 +305,9 @@ serve(async (req) => {
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
   const aiJob = (req.headers.get('x-kwilt-ai-job') ?? '').trim();
+  if (route === '/v1/responses' && aiJob !== 'current_information' && aiJob !== 'unified_chat_attachment') {
+    return json(400, { error: { message: 'Responses route requires an allowed job', code: 'bad_request' } });
+  }
   const isOnboarding = chatMode === 'firstTimeOnboarding';
   const isPreview = chatMode.startsWith('preview_');
   // Preview calls should not consume the user's monthly credits. We isolate them into a separate
@@ -348,7 +325,7 @@ serve(async (req) => {
   const onboardingCap = getOnboardingActionsCap();
 
   // Basic payload size guardrails (prevents accidental huge context).
-  const maxBytes = getMaxRequestBytes();
+  const maxBytes = getMaxRequestBytes(route);
   const contentLength = Number(req.headers.get('content-length') ?? '0');
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     return json(413, { error: { message: 'Request too large', code: 'bad_request' } });
@@ -367,7 +344,7 @@ serve(async (req) => {
   }
   model = typeof parsedBody?.model === 'string' ? parsedBody.model : null;
 
-  const shape = validateRequestShape(route, parsedBody);
+  const shape = validateKwiltAiRequestShape(route, parsedBody, aiJob);
   if (!shape.ok) {
     return json(400, { error: { message: shape.message, code: 'bad_request' } });
   }
@@ -561,6 +538,14 @@ serve(async (req) => {
       parsedBody.max_tokens = maxOut;
     }
   }
+  if (route === '/v1/responses') {
+    const maxOut = getMaxOutputTokens(route);
+    parsedBody.max_output_tokens = Math.min(
+      typeof parsedBody.max_output_tokens === 'number' ? parsedBody.max_output_tokens : maxOut,
+      maxOut,
+    );
+    parsedBody.store = false;
+  }
 
   // Clamp image params (safety; also prevents unexpected per-request cost spikes).
   if (route === '/v1/images/generations') {
@@ -591,12 +576,16 @@ serve(async (req) => {
   let promptTokens: number | null = null;
   let completionTokens: number | null = null;
   let totalTokens: number | null = null;
-  if (route === '/v1/chat/completions') {
+  if (route === '/v1/chat/completions' || route === '/v1/responses') {
     const respJson = safeJsonParse(upstreamText);
     const usage = respJson?.usage;
     if (usage && typeof usage === 'object') {
-      promptTokens = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : null;
-      completionTokens = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : null;
+      promptTokens = typeof usage.prompt_tokens === 'number'
+        ? usage.prompt_tokens
+        : typeof usage.input_tokens === 'number' ? usage.input_tokens : null;
+      completionTokens = typeof usage.completion_tokens === 'number'
+        ? usage.completion_tokens
+        : typeof usage.output_tokens === 'number' ? usage.output_tokens : null;
       totalTokens = typeof usage.total_tokens === 'number' ? usage.total_tokens : null;
     }
   }
@@ -638,4 +627,3 @@ serve(async (req) => {
     },
   });
 });
-

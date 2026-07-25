@@ -56,11 +56,13 @@ describe('CapabilityMenu', () => {
   });
 
   it('renders the accepted hierarchy without a close control', () => {
-    const { getByText, getByLabelText, queryByLabelText } = render(
+    const { getByText, getByLabelText, getByTestId, queryByLabelText, queryByText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
     );
 
     expect(getByText('Kwilt')).toBeTruthy();
+    const header = getByTestId('capability.menu.header');
+    expect(header.findByProps({ accessibilityLabel: 'Open profile and settings' })).toBeTruthy();
     expect(getByText('GOALS & PLANS')).toBeTruthy();
     expect(getByText('Goals')).toBeTruthy();
     expect(getByText('To-dos')).toBeTruthy();
@@ -73,7 +75,12 @@ describe('CapabilityMenu', () => {
     expect(getByText('Accounts')).toBeTruthy();
     expect(queryByLabelText('Money')).toBeNull();
     expect(getByText('CHATS')).toBeTruthy();
+    const footer = getByTestId('capability.menu.footer');
+    expect(footer.findByProps({ accessibilityLabel: 'Search Kwilt' })).toBeTruthy();
+    expect(footer.findByProps({ accessibilityLabel: 'Open chat' })).toBeTruthy();
+    expect(getByLabelText('Search Kwilt')).toBeTruthy();
     expect(getByLabelText('Open chat')).toBeTruthy();
+    expect(queryByText('Search')).toBeNull();
     expect(queryByLabelText(/close/i)).toBeNull();
   });
 

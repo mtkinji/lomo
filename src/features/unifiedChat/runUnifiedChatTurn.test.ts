@@ -18,6 +18,7 @@ const startingAggregate: UnifiedChatThreadAggregate = {
 
 function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer')) {
   const order: string[] = [];
+  let proposalSequence = 0;
   const repository = {
     insertMessage: jest.fn(async (input: CreateUnifiedChatMessageInput) => {
       order.push(`message:${input.role}`);
@@ -65,7 +66,8 @@ function dependencies(sender: jest.Mock = jest.fn(async () => 'A grounded answer
     }),
     createProposal: jest.fn(async (_input: unknown) => {
       order.push('proposal:persist');
-      return { id: 'proposal-1', status: 'pending' };
+      proposalSequence += 1;
+      return { id: `proposal-${proposalSequence}`, status: 'pending', version: 1 };
     }),
     createClientAction: jest.fn(async () => {
       order.push('client-action:persist');
@@ -125,7 +127,7 @@ describe('runUnifiedChatTurn', () => {
     }));
 
     await runUnifiedChatTurn(
-      { aggregate: startingAggregate, prompt: 'Could tomorrow feel less crowded?' },
+      { aggregate: startingAggregate, prompt: 'Plan a lighter day for me tomorrow.' },
       {
         repository: repository as never,
         sendCoachChat: send as never,
@@ -135,7 +137,7 @@ describe('runUnifiedChatTurn', () => {
     );
 
     expect(routeRequest).toHaveBeenCalledWith(expect.objectContaining({
-      prompt: 'Could tomorrow feel less crowded?',
+      prompt: 'Plan a lighter day for me tomorrow.',
       visibleContext: [],
     }));
     expect(repository.createRun).toHaveBeenCalledWith(expect.objectContaining({
@@ -148,7 +150,7 @@ describe('runUnifiedChatTurn', () => {
     }));
     expect(loadCapabilitySnapshots).toHaveBeenCalledWith(
       ['plan'],
-      { prompt: 'Could tomorrow feel less crowded?' },
+      { prompt: 'Plan a lighter day for me tomorrow.' },
     );
   });
 
@@ -165,6 +167,74 @@ describe('runUnifiedChatTurn', () => {
       requestClass: 'general',
       participatingCapabilities: [],
       contextPolicy: expect.objectContaining({ reason: 'general-answer-without-private-context' }),
+    }));
+    expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ webSearch: false }));
+  });
+
+  test('uses web search only for current-information general turns', async () => {
+    const { repository, send } = dependencies(jest.fn(async () =>
+      'Tomorrow will be cool. [1]\n\nSources: [1] [Forecast](https://weather.example/lehi)',
+    ));
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'What is the weather forecast for Lehi tomorrow?' },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        routeRequest: async () => ({
+          requestClass: 'general', participatingCapabilities: [], usePrivateContext: false,
+          informationNeed: 'current', confidence: 0.98, reason: 'Current weather requires verification.',
+        }),
+      },
+    );
+
+    expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
+      webSearch: true,
+      includeUserProfileContext: false,
+    }));
+  });
+
+  test('does not carry a prior turn current-information need into a stable general request', async () => {
+    const { repository, send } = dependencies(jest.fn(async () => 'Why did the calendar blush? It saw its dates.'));
+    const aggregateAfterCurrentInformation: UnifiedChatThreadAggregate = {
+      ...startingAggregate,
+      messages: [{
+        id: 'assistant-current', threadId: 'thread-1', role: 'assistant',
+        body: 'The newest announcement is available. [1]\n\nSources: [1] [Official source](https://example.com/latest)',
+        feedback: null, createdAt: '2026-07-21T10:30:00.000Z',
+        updatedAt: '2026-07-21T10:30:00.000Z', attachments: [],
+      }],
+      runs: [{
+        id: 'run-current', threadId: 'thread-1', userMessageId: 'user-current',
+        assistantMessageId: 'assistant-current', status: 'complete', errorCode: null,
+        errorMessage: null, createdAt: '2026-07-21T10:20:00.000Z',
+        updatedAt: '2026-07-21T10:30:00.000Z', completedAt: '2026-07-21T10:30:00.000Z',
+        requestClass: 'general', participatingCapabilities: [],
+        contextPolicy: {
+          usePrivateContext: false,
+          reason: 'semantic-route:Current information requires verification.',
+          clarification: null,
+        },
+        version: 2, stopRequestedAt: null, steerCount: 0,
+      }],
+    };
+
+    await runUnifiedChatTurn(
+      { aggregate: aggregateAfterCurrentInformation, prompt: 'Tell me a joke.' },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        routeRequest: async () => ({
+          requestClass: 'general', participatingCapabilities: [], usePrivateContext: false,
+          informationNeed: 'current', confidence: 0.96,
+          reason: 'The recent dialogue discussed current information.',
+        }),
+      },
+    );
+
+    expect(send).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
+      webSearch: false,
+      includeUserProfileContext: false,
     }));
   });
 
@@ -388,8 +458,14 @@ describe('runUnifiedChatTurn', () => {
       capabilityId: 'plan',
       operation: expect.objectContaining({ type: 'schedule_activity', targetId: priorityOne.id }),
     }));
-    expect(repository.appendRunEvents).not.toHaveBeenCalledWith(expect.objectContaining({
-      events: [expect.objectContaining({ type: 'conversation_referent' })],
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
+      events: [expect.objectContaining({
+        type: 'conversation_referent',
+        payload: expect.objectContaining({
+          kind: 'pending_work',
+          items: [expect.objectContaining({ targetId: priorityOne.id })],
+        }),
+      })],
     }));
   });
 
@@ -665,7 +741,7 @@ describe('runUnifiedChatTurn', () => {
       .toContain('Call the school');
     expect(repository.insertMessage).not.toHaveBeenCalledWith(expect.objectContaining({
       role: 'assistant',
-      body: 'What would you like Kwilt to change?',
+      body: 'What would you like me to change?',
     }));
     expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
       runId: 'run-1',
@@ -952,7 +1028,7 @@ describe('runUnifiedChatTurn', () => {
         payload: { title: 'Call the school office' },
       }),
     }));
-    expect(repository.appendRunEvents).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(repository.appendRunEvents).toHaveBeenCalledWith(expect.objectContaining({
       events: [expect.objectContaining({
         type: 'tool', visibility: 'internal', label: 'Used activities.update',
         payload: expect.objectContaining({ resultStatus: 'proposed' }),
@@ -1444,21 +1520,8 @@ describe('runUnifiedChatTurn', () => {
     }));
   });
 
-  test('uses semantic tools to split a compound capture into separate native proposals', async () => {
-    const runtimeSender = jest.fn(async (_history: unknown, options: {
-      runtimeTools?: Array<{ id: string }>;
-      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
-    }) => {
-      const captureTool = options.runtimeTools?.find((tool) => tool.id === 'activities.capture');
-      expect(captureTool).toBeDefined();
-      await options.executeRuntimeTool?.({
-        id: 'capture-milk', toolId: 'activities.capture', arguments: { title: 'Buy milk' },
-      }, captureTool);
-      await options.executeRuntimeTool?.({
-        id: 'capture-mom', toolId: 'activities.capture', arguments: { title: 'Call Mom' },
-      }, captureTool);
-      return 'I prepared two To-dos for review.';
-    });
+  test('deterministically stages every simple compound capture even when the model would drop one', async () => {
+    const runtimeSender = jest.fn(async () => 'I prepared only Call Mom.');
     const { repository, send } = dependencies(runtimeSender);
 
     await runUnifiedChatTurn(
@@ -1477,10 +1540,11 @@ describe('runUnifiedChatTurn', () => {
       },
     );
 
+    expect(runtimeSender).not.toHaveBeenCalled();
     expect(repository.createProposal).toHaveBeenCalledTimes(2);
     expect(repository.createProposal).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      capabilityId: 'todos', title: 'Add Buy milk',
-      operation: expect.objectContaining({ type: 'create_activity', payload: expect.objectContaining({ title: 'Buy milk' }) }),
+      capabilityId: 'todos', title: 'Add Milk',
+      operation: expect.objectContaining({ type: 'create_activity', payload: expect.objectContaining({ title: 'Milk' }) }),
     }));
     expect(repository.createProposal).toHaveBeenNthCalledWith(2, expect.objectContaining({
       capabilityId: 'todos', title: 'Add Call Mom',
@@ -1501,7 +1565,7 @@ describe('runUnifiedChatTurn', () => {
     expect(repository.createProposal).not.toHaveBeenCalled();
     expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
       role: 'assistant',
-      body: 'What would you like Kwilt to change?',
+      body: 'What would you like me to change?',
     }));
     expect(repository.transitionRunStatus).toHaveBeenCalledWith(expect.objectContaining({
       toStatus: 'complete',

@@ -15,6 +15,18 @@ describe('auto-apply create policy', () => {
     expect(findAutoApplyCreateProposal(aggregate, 'run-1')).toMatchObject({ id: 'proposal-1' });
   });
 
+  test('keeps every item reviewable when one turn stages multiple creates', () => {
+    const compound = {
+      ...aggregate,
+      proposals: [
+        aggregate.proposals![0],
+        { ...aggregate.proposals![0]!, id: 'proposal-2' },
+      ],
+    } as UnifiedChatThreadAggregate;
+
+    expect(findAutoApplyCreateProposal(compound, 'run-1')).toBeUndefined();
+  });
+
   test.each([
     { requestClass: 'general', operation: 'create_activity', status: 'pending' },
     { requestClass: 'capability_action', operation: 'update_activity', status: 'pending' },

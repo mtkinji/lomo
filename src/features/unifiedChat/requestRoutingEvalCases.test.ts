@@ -16,7 +16,12 @@ describe('REQUEST_ROUTING_EVAL_CASES', () => {
       prompt: fixture.prompt,
       deterministicPolicy,
       semanticRoute: fixture.semanticRoute,
-      previousPolicy: 'previousPolicy' in fixture ? fixture.previousPolicy : undefined,
+      previousPolicy: 'previousPolicy' in fixture
+        ? {
+            ...fixture.previousPolicy,
+            participatingCapabilities: [...fixture.previousPolicy.participatingCapabilities],
+          }
+        : undefined,
       previousAssistantMessage: 'previousAssistantMessage' in fixture
         ? fixture.previousAssistantMessage
         : undefined,
@@ -24,6 +29,9 @@ describe('REQUEST_ROUTING_EVAL_CASES', () => {
 
     expect(resolved.requestClass).toBe(fixture.expected.requestClass);
     expect(resolved.participatingCapabilities).toEqual(fixture.expected.participatingCapabilities);
+    expect(fixture.expected.requiresWebSearch).toBe(
+      fixture.productExpectation.expectedBehavior === 'current_information',
+    );
     expect(
       resolved.policyReason.startsWith('semantic-route:')
         ? 'semantic'
@@ -31,6 +39,43 @@ describe('REQUEST_ROUTING_EVAL_CASES', () => {
           ? 'conversation'
           : 'deterministic',
     ).toBe(fixture.expected.source);
+  });
+
+  it('defines the complete product contract for every standing evaluation case', () => {
+    const behaviors = new Set<string>();
+    for (const fixture of REQUEST_ROUTING_EVAL_CASES) {
+      const expectation = fixture.productExpectation;
+      behaviors.add(expectation.expectedBehavior);
+      expect(expectation.allowedContext).toBeDefined();
+      expect(expectation.allowedTools).toBeDefined();
+      expect(expectation.requiredOutcome).toBeTruthy();
+      expect(expectation.forbiddenFailures.length).toBeGreaterThan(0);
+    }
+    expect([...behaviors].sort()).toEqual([
+      'bounded',
+      'context_enhanced',
+      'current_information',
+      'general_purpose',
+      'kwilt_native',
+    ]);
+  });
+
+  it('covers every required trust-program evaluation category', () => {
+    expect(REQUEST_ROUTING_EVAL_CASES.map((fixture) => fixture.id)).toEqual(
+      expect.arrayContaining([
+        'plan-paraphrase',
+        'activity-plan-action',
+        'context-enhanced-general',
+        'general-knowledge',
+        'current-information',
+        'visible-context-follow-up',
+        'compound-todo-capture',
+        'money-transfer-boundary',
+        'medical-boundary',
+        'adversarial-native-bypass',
+        'ordinary-general-with-irrelevant-visible-context',
+      ]),
+    );
   });
 
   it('labels routed-but-unimplemented actions honestly', () => {

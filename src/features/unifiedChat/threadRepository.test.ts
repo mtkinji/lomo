@@ -369,6 +369,12 @@ describe('Unified Chat repository', () => {
       attachments: [{
         id: 'attachment-1', message_id: 'message-1', name: 'week.md',
         mime_type: 'text/markdown', size_bytes: 24, content: 'Monday: dentist',
+        kind: 'text', inspection_status: 'ready', inspection_failure: null,
+        created_at: messageRow.created_at,
+      }, {
+        id: 'attachment-2', message_id: 'message-1', name: 'schedule.png',
+        mime_type: 'image/png', size_bytes: 30_000, content: 'Visible: dentist Monday 9.',
+        kind: 'image', inspection_status: 'partial', inspection_failure: 'Bottom edge is cropped.',
         created_at: messageRow.created_at,
       }],
     };
@@ -383,12 +389,17 @@ describe('Unified Chat repository', () => {
       attachments: [{
         id: 'local-1', name: 'week.md', mimeType: 'text/markdown',
         sizeBytes: 24, content: 'Monday: dentist',
+      }, {
+        id: 'local-2', name: 'schedule.png', mimeType: 'image/png', sizeBytes: 30_000,
+        kind: 'image', status: 'partial', content: 'Visible: dentist Monday 9.',
+        failureReason: 'Bottom edge is cropped.',
       }],
     });
 
     expect(message.id).toBe('message-1');
     expect(message.attachments).toEqual([
-      expect.objectContaining({ id: 'attachment-1', name: 'week.md', content: 'Monday: dentist' }),
+      expect.objectContaining({ id: 'attachment-1', kind: 'text', status: 'ready' }),
+      expect.objectContaining({ id: 'attachment-2', kind: 'image', status: 'partial', failureReason: 'Bottom edge is cropped.' }),
     ]);
     expect(client.rpc).toHaveBeenCalledWith('create_kwilt_agent_user_message', {
       p_thread_id: 'thread-1',
@@ -396,7 +407,12 @@ describe('Unified Chat repository', () => {
       p_client_request_id: 'request-1',
       p_attachments: [{
         id: 'local-1', name: 'week.md', mime_type: 'text/markdown',
-        size_bytes: 24, content: 'Monday: dentist',
+        size_bytes: 24, kind: 'text', inspection_status: 'ready',
+        content: 'Monday: dentist', inspection_failure: null,
+      }, {
+        id: 'local-2', name: 'schedule.png', mime_type: 'image/png', size_bytes: 30_000,
+        kind: 'image', inspection_status: 'partial', content: 'Visible: dentist Monday 9.',
+        inspection_failure: 'Bottom edge is cropped.',
       }],
     });
   });
@@ -412,6 +428,31 @@ describe('Unified Chat repository', () => {
     });
     expect(client.rpc).toHaveBeenCalledWith('record_kwilt_agent_message_feedback', {
       p_message_id: 'message-1', p_sentiment: 'positive', p_reason: 'It used the right Goal.',
+    });
+  });
+
+  test('creates and optimistically edits a draft artifact without a capability receipt', async () => {
+    const artifactRow = {
+      id: 'artifact-1', thread_id: 'thread-1', run_id: 'run-1', message_id: 'assistant-1',
+      title: 'School email', kind: 'document', content: 'Hello', version: 1,
+      created_at: messageRow.created_at, updated_at: messageRow.updated_at,
+    };
+    const editedRow = { ...artifactRow, content: 'Hello Ms. Lee', version: 2 };
+    const { client, calls } = createClient([
+      { data: artifactRow, error: null }, { data: editedRow, error: null },
+    ]);
+    const repository = createUnifiedChatRepository(client as never);
+
+    await expect(repository.createArtifact({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'assistant-1',
+      title: 'School email', kind: 'document', content: 'Hello',
+    })).resolves.toMatchObject({ id: 'artifact-1', version: 1 });
+    await expect(repository.updateArtifact({
+      artifactId: 'artifact-1', expectedVersion: 1,
+      title: 'School email', content: 'Hello Ms. Lee',
+    })).resolves.toMatchObject({ content: 'Hello Ms. Lee', version: 2 });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_artifacts', method: 'eq', args: ['version', 1],
     });
   });
 
@@ -478,7 +519,7 @@ describe('Unified Chat repository', () => {
       status: 'complete',
       completed_at: '2026-07-21T12:00:00.000Z',
     };
-    const { client } = createClient([
+    const { client, calls } = createClient([
       { data: runRow, error: null },
       { data: completeRun, error: null },
     ]);
@@ -497,6 +538,15 @@ describe('Unified Chat repository', () => {
     }))
       .resolves.toMatchObject({ status: 'active' });
     expect(client.from).toHaveBeenCalledWith('kwilt_agent_runs');
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_runs',
+      method: 'insert',
+      args: [expect.objectContaining({
+        initiator: 'user',
+        trigger_kind: 'user_message',
+        trigger_id: expect.stringMatching(/^message-1:/),
+      })],
+    });
     await expect(repository.transitionRunStatus({
       runId: 'run-1', fromStatus: 'active', toStatus: 'complete', expectedVersion: 1,
       assistantMessageId: 'message-2',

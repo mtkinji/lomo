@@ -14,10 +14,20 @@ const commonGitDir = path.resolve(root, execFileSync('git', ['rev-parse', '--git
 const kwiltRepo = path.dirname(commonGitDir);
 const workspaceParent = path.dirname(kwiltRepo);
 const lane = path.basename(root);
+const matchingSiteLane = path.join(workspaceParent, 'kwilt-site', '.worktrees', lane);
+const kwiltSiteRoot = process.env.KWILT_SITE_ROOT
+  ? path.resolve(process.env.KWILT_SITE_ROOT)
+  : existsSync(matchingSiteLane)
+    ? matchingSiteLane
+    : path.join(workspaceParent, 'kwilt-site');
 const companions = [
   {
     name: 'kwilt-site',
-    fixture: path.join(workspaceParent, 'kwilt-site', '.worktrees', lane, 'protocol-fixtures/kwilt-unified-chat-v2.json'),
+    required: true,
+    root: kwiltSiteRoot,
+    fixture: path.join(kwiltSiteRoot, 'protocol-fixtures/kwilt-unified-chat-v2.json'),
+    renderer: path.join(kwiltSiteRoot, 'components', 'unified-chat', 'KwiltChatWorkbench.tsx'),
+    protocol: path.join(kwiltSiteRoot, 'lib', 'unifiedChatProtocol.ts'),
   },
   {
     name: 'Giraffed compatibility adapter',
@@ -28,11 +38,21 @@ const companions = [
 const requireCompanions = process.argv.includes('--require-companions');
 for (const companion of companions) {
   if (!existsSync(companion.fixture)) {
-    if (requireCompanions) throw new Error(`${companion.name} fixture is missing: ${companion.fixture}`);
+    if (companion.required || requireCompanions) throw new Error(`${companion.name} fixture is missing: ${companion.fixture}`);
     console.log(`skip ${companion.name}: companion checkout not present`);
     continue;
   }
   assert.deepEqual(JSON.parse(readFileSync(companion.fixture, 'utf8')), canonical, `${companion.name} fixture drifted`);
+  if (companion.renderer) {
+    assert.equal(existsSync(companion.renderer), true, `${companion.name} renderer is missing: ${companion.renderer}`);
+    const renderer = readFileSync(companion.renderer, 'utf8');
+    assert.match(renderer, /resolveWorkbenchTimeline\(snapshot\)/, `${companion.name} renderer does not consume the canonical timeline`);
+    assert.doesNotMatch(renderer, /snapshot\.evidence\.length|snapshot\.proposals\.map|snapshot\.receipts\.map/, `${companion.name} renderer still reconstructs chronology from artifact buckets`);
+    assert.equal(existsSync(companion.protocol), true, `${companion.name} protocol parser is missing`);
+    assert.match(readFileSync(companion.protocol, 'utf8'), /function isTimelineItem/, `${companion.name} protocol parser does not validate timeline items`);
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: companion.root, encoding: 'utf8' }).trim();
+    console.log(`ok ${companion.name} renderer ${sha}`);
+  }
   if (companion.adapter) {
     assert.match(readFileSync(companion.adapter, 'utf8'), /adaptKwiltV2HostMessage/);
   }
