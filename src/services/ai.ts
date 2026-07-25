@@ -42,6 +42,12 @@ import {
   parseCurrentInformationResponse,
 } from '../features/unifiedChat/webSearchResponse';
 import {
+  buildUnifiedChatAttachmentInspectionRequest,
+  parseUnifiedChatAttachmentInspectionResponse,
+  type UnifiedChatAttachmentInspectionResult,
+} from '../features/unifiedChat/unifiedChatAttachmentInspection';
+import type { UnifiedChatAttachment } from '../features/unifiedChat/unifiedChatAttachmentPolicy';
+import {
   type AgentLoopMessage,
   type AgentToolCall,
   type AgentToolDefinition,
@@ -3238,6 +3244,35 @@ export async function sendCoachChat(
   scheduleConversationSummaryMaintenance();
   scheduleOpeningTitleMaintenance(String(finalContent));
   return finalContent as string;
+}
+
+export async function inspectUnifiedChatAttachments(
+  attachments: readonly UnifiedChatAttachment[],
+  signal?: AbortSignal,
+): Promise<UnifiedChatAttachmentInspectionResult[]> {
+  const apiKey = resolveOpenAiApiKey();
+  if (!apiKey) throw new Error('AI proxy not configured');
+  const response = await fetchWithTimeout(
+    OPENAI_RESPONSES_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'x-kwilt-ai-job': 'unified_chat_attachment',
+      },
+      body: JSON.stringify(buildUnifiedChatAttachmentInspectionRequest(attachments)),
+      signal,
+    },
+    OPENAI_CHAT_TIMEOUT_MS,
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error = parseOpenAiError(errorText);
+    markOpenAiQuotaExceeded('attachment inspection', response.status, errorText, apiKey);
+    throw new Error(`Kwilt could not inspect that attachment: ${error.message}`);
+  }
+  return parseUnifiedChatAttachmentInspectionResponse(await response.json());
 }
 
 function buildDevMockCoachChatReply(messages: CoachChatTurn[], options?: CoachChatOptions): string {

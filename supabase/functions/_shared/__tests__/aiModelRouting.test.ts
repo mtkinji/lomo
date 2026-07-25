@@ -9,6 +9,7 @@ describe('resolveKwiltAiModel', () => {
     expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'goal_generation' })).toBe('gpt-4o');
     expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'deep_planning' })).toBe('gpt-5.2');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'current_information' })).toBe('gpt-5.2');
+    expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'unified_chat_attachment' })).toBe('gpt-5-mini');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'default_chat' })).toBeNull();
   });
 

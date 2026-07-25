@@ -88,6 +88,36 @@ export type UnifiedChatThreadAggregate = {
   receipts?: UnifiedChatMutationReceipt[];
   clientActions?: UnifiedChatClientAction[];
   contextRefs?: UnifiedChatContextRef[];
+  artifacts?: UnifiedChatArtifact[];
+};
+
+export type UnifiedChatArtifact = {
+  id: string;
+  threadId: string;
+  runId: string;
+  messageId: string;
+  title: string;
+  kind: 'document' | 'checklist' | 'table' | 'code';
+  content: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateUnifiedChatArtifactInput = {
+  threadId: string;
+  runId: string;
+  messageId: string;
+  title: string;
+  kind: UnifiedChatArtifact['kind'];
+  content: string;
+};
+
+export type UpdateUnifiedChatArtifactInput = {
+  artifactId: string;
+  expectedVersion: number;
+  title: string;
+  content: string;
 };
 
 export type UnifiedChatClientActionStatus =

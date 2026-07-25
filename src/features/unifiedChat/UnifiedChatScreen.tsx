@@ -43,6 +43,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useEntitlementsStore } from '../../store/useEntitlementsStore';
 import { canUseProTools } from '../../store/proToolsAccess';
 import { useActivityEnrichmentStore } from '../../store/useActivityEnrichmentStore';
+import { inspectUnifiedChatAttachments } from '../../services/ai';
 import { consumeQuickAddAiActionCredits } from '../activities/useQuickAddDockController';
 import { parseActivityMutationPatch } from './activityProposal';
 import { refreshCreatedActivityReceipt } from './activityProposalExecutor';
@@ -65,11 +66,14 @@ import {
   startUnifiedChatVoiceRecording,
   stopAndTranscribeUnifiedChatVoice,
 } from './unifiedChatVoice';
-import { pickUnifiedChatTextAttachment } from './unifiedChatAttachmentPicker';
+import { pickUnifiedChatAttachment } from './unifiedChatAttachmentPicker';
 import {
+  validateUnifiedChatAttachmentDraftSet,
+  isUnifiedChatAttachmentSetSendable,
   validateUnifiedChatAttachmentSet,
-  type UnifiedChatTextAttachment,
+  type UnifiedChatAttachment,
 } from './unifiedChatAttachmentPolicy';
+import { applyUnifiedChatAttachmentInspection } from './unifiedChatAttachmentInspection';
 import { HapticsService } from '../../services/HapticsService';
 import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
@@ -178,7 +182,7 @@ export function UnifiedChatScreen() {
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [attachments, setAttachments] = useState<UnifiedChatTextAttachment[]>([]);
+  const [attachments, setAttachments] = useState<UnifiedChatAttachment[]>([]);
   const [surfaceReady, setSurfaceReady] = useState(false);
   const [contextPickerVisible, setContextPickerVisible] = useState(false);
   const [contextCandidates, setContextCandidates] = useState<UnifiedChatAttachableContext[]>([]);
@@ -512,9 +516,26 @@ export function UnifiedChatScreen() {
       }
       if (command.type === 'attachment.pick') {
         try {
-          const picked = await pickUnifiedChatTextAttachment();
+          const picked = await pickUnifiedChatAttachment();
           if (!picked) return;
-          setAttachments((current) => validateUnifiedChatAttachmentSet([...current, picked]));
+          setAttachments((current) => validateUnifiedChatAttachmentDraftSet([...current, picked]));
+          if (picked.status === 'inspecting') {
+            try {
+              const inspection = await inspectUnifiedChatAttachments([picked]);
+              setAttachments((current) => current.some((item) => item.id === picked.id)
+                ? current.map((item) => item.id === picked.id
+                    ? applyUnifiedChatAttachmentInspection([item], inspection)[0]
+                    : item)
+                : current);
+            } catch (inspectionError) {
+              const reason = inspectionError instanceof Error
+                ? inspectionError.message
+                : 'Kwilt could not inspect that attachment.';
+              setAttachments((current) => current.map((item) => item.id === picked.id
+                ? { ...item, status: 'failed', content: '', failureReason: reason }
+                : item));
+            }
+          }
         } catch (attachmentError) {
           setError(attachmentError instanceof Error ? attachmentError.message : 'Kwilt could not attach that document.');
         }
@@ -847,6 +868,19 @@ export function UnifiedChatScreen() {
         }
         return;
       }
+      if (command.type === 'artifact.update' && aggregate) {
+        try {
+          await repository.updateArtifact({
+            artifactId: command.artifactId, expectedVersion: command.expectedVersion,
+            title: command.title, content: command.content,
+          });
+          setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+        } catch (artifactError) {
+          setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+          setError(artifactError instanceof Error ? artifactError.message : 'Kwilt could not save that draft.');
+        }
+        return;
+      }
       if (command.type === 'run.stop' && aggregate) {
         const run = aggregate.runs.find((item) => item.id === command.runId);
         if (!run || (run.status !== 'active' && run.status !== 'queued')) return;
@@ -866,6 +900,13 @@ export function UnifiedChatScreen() {
         return;
       }
       if (command.type !== 'run.send' && command.type !== 'run.retry' || !aggregate) return;
+
+      if (command.type === 'run.send' && !isUnifiedChatAttachmentSetSendable(attachments)) {
+        setError(attachments.some((item) => item.status === 'inspecting')
+          ? 'Wait for Kwilt to finish inspecting the attachment.'
+          : 'Remove or retry the attachment Kwilt could not inspect.');
+        return;
+      }
 
       const retryRun = command.type === 'run.retry'
         ? aggregate.runs.find((run) => run.id === command.runId && run.status === 'failed')

@@ -28,13 +28,16 @@ import type {
   CreateUnifiedChatClientActionInput,
   TransitionUnifiedChatClientActionInput,
   UnifiedChatClientAction,
+  UnifiedChatArtifact,
+  CreateUnifiedChatArtifactInput,
+  UpdateUnifiedChatArtifactInput,
 } from './types';
 import { isUnifiedChatCapabilityId } from './requestPolicy';
 import { validateUnifiedChatAttachmentSet } from './unifiedChatAttachmentPolicy';
 
 const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,updated_at';
 const MESSAGE_COLUMNS =
-  'id,thread_id,role,body,feedback,created_at,updated_at,attachments:kwilt_agent_message_attachments(id,message_id,name,mime_type,size_bytes,content_text,created_at)';
+  'id,thread_id,role,body,feedback,created_at,updated_at,attachments:kwilt_agent_message_attachments(id,message_id,name,mime_type,size_bytes,kind,inspection_status,inspection_failure,content_text,created_at)';
 const RUN_COLUMNS =
   'id,thread_id,user_message_id,assistant_message_id,status,error_code,error_message,created_at,updated_at,completed_at,request_class,participating_capabilities,context_policy,version,stop_requested_at,steer_count,origin_channel,initiator,trigger_kind,trigger_id,parent_run_id';
 const PROPOSAL_COLUMNS =
@@ -51,6 +54,8 @@ const CONTEXT_COLUMNS =
   'id,thread_id,capability_id,object_type,object_id,label,secondary_label,source,active,return_target,version';
 const CLIENT_ACTION_COLUMNS =
   'id,thread_id,run_id,message_id,capability_id,action_type,target_type,target_id,title,consequence_summary,payload,idempotency_key,status,result,error_code,error_message,version,presented_at,completed_at,created_at,updated_at';
+const ARTIFACT_COLUMNS =
+  'id,thread_id,run_id,message_id,title,kind,content,version,created_at,updated_at';
 
 type DbError = { message?: string; code?: string } | null;
 type DbRow = Record<string, unknown>;
@@ -109,6 +114,10 @@ function mapMessageAttachment(row: DbRow): UnifiedChatMessageAttachment | null {
     : typeof row.content_text === 'string' ? row.content_text : '';
   const sizeBytes = Number(row.size_bytes);
   if (!content || !Number.isFinite(sizeBytes) || sizeBytes <= 0) return null;
+  const kind = row.kind === 'image' || row.kind === 'pdf' ? row.kind : 'text';
+  const status = row.inspection_status === 'partial' ? 'partial' : 'ready';
+  const failureReason = typeof row.inspection_failure === 'string' && row.inspection_failure.trim()
+    ? row.inspection_failure.trim() : undefined;
   return {
     id: String(row.id),
     messageId: String(row.message_id),
@@ -116,6 +125,9 @@ function mapMessageAttachment(row: DbRow): UnifiedChatMessageAttachment | null {
     mimeType: String(row.mime_type),
     sizeBytes,
     content,
+    kind,
+    status,
+    ...(failureReason ? { failureReason } : {}),
     createdAt: String(row.created_at),
   };
 }
@@ -136,6 +148,18 @@ function mapMessage(row: DbRow): UnifiedChatMessage {
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
     attachments,
+  };
+}
+
+function mapArtifact(row: DbRow): UnifiedChatArtifact | null {
+  const kind = row.kind;
+  if (kind !== 'document' && kind !== 'checklist' && kind !== 'table' && kind !== 'code') return null;
+  if (!row.id || !row.thread_id || !row.run_id || !row.message_id || !row.title || typeof row.content !== 'string') return null;
+  return {
+    id: String(row.id), threadId: String(row.thread_id), runId: String(row.run_id),
+    messageId: String(row.message_id), title: String(row.title), kind, content: row.content,
+    version: typeof row.version === 'number' && row.version > 0 ? row.version : 1,
+    createdAt: String(row.created_at), updatedAt: String(row.updated_at),
   };
 }
 
@@ -590,6 +614,12 @@ export function createUnifiedChatRepository(
       if (!clientActionsUnavailable) {
         assertNoError(clientActionsResult.error, 'Unable to load pending device actions.');
       }
+      const artifactsResult = await client
+        .from('kwilt_agent_artifacts').select(ARTIFACT_COLUMNS)
+        .eq('thread_id', threadId).eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      const artifactsUnavailable = isMissingOptionalRelation(artifactsResult.error, 'kwilt_agent_artifacts');
+      if (!artifactsUnavailable) assertNoError(artifactsResult.error, 'Unable to load chat drafts.');
       const operationByProposal = new Map(
         operations.map(mapLoadedOperation).filter((operation): operation is UnifiedChatProposalOperation => Boolean(operation))
           .map((operation) => [operation.proposalId, operation]),
@@ -609,6 +639,8 @@ export function createUnifiedChatRepository(
         contextRefs: (contextResult.data ?? []).map(mapContextRef).filter((item): item is UnifiedChatContextRef => Boolean(item)),
         clientActions: (clientActionsUnavailable ? [] : clientActionsResult.data ?? []).map(mapClientAction)
           .filter((item): item is UnifiedChatClientAction => Boolean(item)),
+        artifacts: (artifactsUnavailable ? [] : artifactsResult.data ?? []).map(mapArtifact)
+          .filter((item): item is UnifiedChatArtifact => Boolean(item)),
       };
     },
 
@@ -740,7 +772,10 @@ export function createUnifiedChatRepository(
             name: attachment.name,
             mime_type: attachment.mimeType,
             size_bytes: attachment.sizeBytes,
+            kind: attachment.kind ?? 'text',
+            inspection_status: attachment.status ?? 'ready',
             content: attachment.content,
+            inspection_failure: attachment.failureReason ?? null,
           })),
         });
         assertNoError(error, 'Unable to save chat message.');
@@ -762,6 +797,40 @@ export function createUnifiedChatRepository(
       if (!data) throw new UnifiedChatRepositoryError('Message was not returned after save.');
       await touchThread(input.threadId, userId);
       return mapMessage(data);
+    },
+
+    async createArtifact(input: CreateUnifiedChatArtifactInput): Promise<UnifiedChatArtifact> {
+      const userId = await requireUserId();
+      const title = input.title.trim().slice(0, 120);
+      const content = input.content.replace(/\r\n?/g, '\n').trim();
+      if (!title || !content || content.length > 20_000) {
+        throw new UnifiedChatRepositoryError('That draft is empty or too large.');
+      }
+      const { data, error } = await client.from('kwilt_agent_artifacts').insert({
+        user_id: userId, thread_id: input.threadId, run_id: input.runId,
+        message_id: input.messageId, title, kind: input.kind, content,
+      }).select(ARTIFACT_COLUMNS).single();
+      assertNoError(error, 'Unable to save chat draft.');
+      const artifact = data ? mapArtifact(data) : null;
+      if (!artifact) throw new UnifiedChatRepositoryError('Chat draft was not returned after save.');
+      return artifact;
+    },
+
+    async updateArtifact(input: UpdateUnifiedChatArtifactInput): Promise<UnifiedChatArtifact> {
+      const userId = await requireUserId();
+      const title = input.title.trim().slice(0, 120);
+      const content = input.content.replace(/\r\n?/g, '\n').trim();
+      if (!title || !content || content.length > 20_000) {
+        throw new UnifiedChatRepositoryError('That draft is empty or too large.');
+      }
+      const { data, error } = await client.from('kwilt_agent_artifacts').update({
+        title, content, version: input.expectedVersion + 1, updated_at: new Date().toISOString(),
+      }).eq('id', input.artifactId).eq('user_id', userId).eq('version', input.expectedVersion)
+        .select(ARTIFACT_COLUMNS).maybeSingle();
+      assertNoError(error, 'Unable to update chat draft.');
+      const artifact = data ? mapArtifact(data) : null;
+      if (!artifact) throw new UnifiedChatRepositoryError('That draft changed before it could be saved.');
+      return artifact;
     },
 
     async setMessageFeedback(

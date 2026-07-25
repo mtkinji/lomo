@@ -7,6 +7,7 @@ export type KwiltAiJob =
   | 'conversation_summary'
   | 'lightweight_helper'
   | 'current_information'
+  | 'unified_chat_attachment'
   | 'default_chat';
 
 export type KwiltAiRoute = '/v1/chat/completions' | '/v1/images/generations' | '/v1/commit' | string;
@@ -21,6 +22,7 @@ const CHAT_MODEL_BY_JOB: Record<KwiltAiJob, string> = {
   lightweight_helper: 'gpt-4o-mini',
   default_chat: 'gpt-4o-mini',
   current_information: 'gpt-5.2',
+  unified_chat_attachment: 'gpt-5-mini',
 };
 
 export function normalizeKwiltAiJob(raw: unknown): KwiltAiJob {
@@ -36,7 +38,9 @@ export function resolveKwiltAiModel(params: {
 }): string | null {
   if (params.route === '/v1/images/generations') return 'gpt-image-1';
   if (params.route === '/v1/responses') {
-    return params.job === 'current_information' ? CHAT_MODEL_BY_JOB.current_information : null;
+    return params.job === 'current_information' || params.job === 'unified_chat_attachment'
+      ? CHAT_MODEL_BY_JOB[params.job]
+      : null;
   }
   if (params.route !== '/v1/chat/completions') return params.requestedModel ?? null;
 

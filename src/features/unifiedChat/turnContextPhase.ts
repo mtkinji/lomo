@@ -177,15 +177,22 @@ export async function authorizeUnifiedChatContextPhase(
       {
         sequence: 2,
         type: 'evidence',
-        status: context.coverage.sufficient ? 'complete' : 'warning',
+        status: input.turnAttachments.some((item) => item.status === 'partial')
+          ? 'warning'
+          : context.coverage.sufficient ? 'complete' : 'warning',
         visibility: 'user',
         label: input.turnAttachments.length > 0
-          ? `Read ${input.turnAttachments.length} attached ${input.turnAttachments.length === 1 ? 'document' : 'documents'}`
+          ? `Inspected ${input.turnAttachments.length} attached ${input.turnAttachments.length === 1 ? 'item' : 'items'}`
           : input.requestPolicy.usePrivateContext
             ? `Checked ${context.coverage.includedCount} relevant Kwilt ${context.coverage.includedCount === 1 ? 'record' : 'records'}`
             : 'No personal records needed',
         detail: input.turnAttachments.length > 0
-          ? `Used all ${input.turnAttachments.length} explicitly attached text ${input.turnAttachments.length === 1 ? 'document' : 'documents'} for this request only. ${context.coverage.note}`
+          ? [
+              `Used ${input.turnAttachments.length} explicitly attached ${input.turnAttachments.length === 1 ? 'item' : 'items'} for this request only.`,
+              ...input.turnAttachments.filter((item) => item.status === 'partial').map((item) =>
+                `${item.name} was only partially inspected: ${item.failureReason ?? 'some content could not be inspected'}.`),
+              context.coverage.note,
+            ].join(' ')
           : context.coverage.note,
       },
       {

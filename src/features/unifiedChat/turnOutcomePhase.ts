@@ -14,7 +14,7 @@ import { toLocalDateKey } from '../../services/plan/planDates';
 
 type OutcomeRepository = Pick<
   UnifiedChatRepository,
-  'insertMessage' | 'createProposal' | 'createClientAction' | 'appendRunEvents'
+  'insertMessage' | 'createProposal' | 'createClientAction' | 'appendRunEvents' | 'createArtifact'
 >;
 
 type ToolProvider = ExecutedUnifiedChatTurn['toolProvider'];
@@ -54,6 +54,7 @@ export type MaterializeUnifiedChatOutcomePhaseInput = {
   actionResponse: ActionResponse;
   toolProvider: ToolProvider;
   runtimeToolEvents: readonly AgentToolLoopEvent[];
+  artifactDraft?: ExecutedUnifiedChatTurn['artifactDraft'];
   requestPolicy: UnifiedChatRequestPolicy;
   snapshots: UnifiedChatCapabilitySnapshots;
   planConversationReferent: PlanPlacementConversationReferent | null;
@@ -91,6 +92,13 @@ export async function materializeUnifiedChatOutcomePhase(
     role: 'assistant',
     body: input.visibleBody,
   });
+  if (input.artifactDraft) {
+    input.setFailureCode('artifact_persistence_failed');
+    await input.repository.createArtifact({
+      threadId: input.threadId, runId: input.run.id, messageId: assistantMessage.id,
+      ...input.artifactDraft,
+    });
+  }
   const proposalIds: string[] = [];
   const pendingWorkReferentItems: PendingWorkConversationReferentItem[] = [];
   const receiptIds: string[] = [];

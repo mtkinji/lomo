@@ -123,6 +123,7 @@ function buildWorkbenchTimeline(
   const proposalsByRun = new Map<string, string[]>();
   const receiptsByRun = new Map<string, string[]>();
   const clientActionsByRun = new Map<string, string[]>();
+  const artifactsByRun = new Map<string, string[]>();
   const sourceProposalRun = new Map((aggregate.proposals ?? []).map((proposal) => [proposal.id, proposal.runId]));
 
   for (const evidence of snapshot.evidence) {
@@ -138,6 +139,9 @@ function buildWorkbenchTimeline(
   for (const action of snapshot.clientActions) {
     clientActionsByRun.set(action.runId, [...(clientActionsByRun.get(action.runId) ?? []), action.id]);
   }
+  for (const artifact of snapshot.artifacts) {
+    artifactsByRun.set(artifact.runId, [...(artifactsByRun.get(artifact.runId) ?? []), artifact.id]);
+  }
 
   type PendingTurn = {
     id: string;
@@ -152,6 +156,7 @@ function buildWorkbenchTimeline(
   const claimedProposalIds = new Set<string>();
   const claimedReceiptIds = new Set<string>();
   const claimedClientActionIds = new Set<string>();
+  const claimedArtifactIds = new Set<string>();
   const runGroups = new Map<string, AgentWorkbenchRun[]>();
 
   for (const run of snapshot.runs) {
@@ -215,6 +220,10 @@ function buildWorkbenchTimeline(
         items.push({ kind: 'client_action', id: actionId });
         claimedClientActionIds.add(actionId);
       }
+      for (const artifactId of artifactsByRun.get(run.id) ?? []) {
+        items.push({ kind: 'artifact', id: artifactId });
+        claimedArtifactIds.add(artifactId);
+      }
     }
 
     const firstSourceRun = sourceRuns[0];
@@ -244,7 +253,8 @@ function buildWorkbenchTimeline(
     snapshot.evidence.some((item) => !claimedEvidenceIds.has(item.id)) ||
     snapshot.proposals.some((item) => !claimedProposalIds.has(item.id)) ||
     snapshot.receipts.some((item) => !claimedReceiptIds.has(item.id)) ||
-    snapshot.clientActions.some((item) => !claimedClientActionIds.has(item.id));
+    snapshot.clientActions.some((item) => !claimedClientActionIds.has(item.id)) ||
+    snapshot.artifacts.some((item) => !claimedArtifactIds.has(item.id));
   if (hasOrphanedArtifact) return undefined;
 
   const baseTurns = [...pending]
@@ -399,7 +409,9 @@ export function buildWorkbenchSnapshot(
         name: attachment.name,
         mimeType: attachment.mimeType,
         sizeBytes: attachment.sizeBytes,
-        status: 'ready' as const,
+        kind: attachment.kind ?? 'text',
+        status: attachment.status ?? 'ready',
+        ...(attachment.failureReason ? { failureReason: attachment.failureReason } : {}),
       })),
     })),
     runs: aggregate.runs.map((run) => projectRun(
@@ -507,6 +519,11 @@ export function buildWorkbenchSnapshot(
       version: action.version,
       canContinue: action.status === 'pending_client_action' || action.status === 'presenting',
     })),
+    artifacts: (aggregate.artifacts ?? []).map((artifact) => ({
+      id: artifact.id, runId: artifact.runId, messageId: artifact.messageId,
+      title: artifact.title, kind: artifact.kind, content: artifact.content,
+      version: artifact.version, label: 'Draft' as const, editable: true as const,
+    })),
     composer: {
       prompt,
       state: hasActiveRun ? 'working' : 'ready',
@@ -515,7 +532,9 @@ export function buildWorkbenchSnapshot(
         name: attachment.name,
         mimeType: attachment.mimeType,
         sizeBytes: attachment.sizeBytes,
-        status: 'ready' as const,
+        kind: attachment.kind ?? 'text',
+        status: attachment.status ?? 'ready',
+        ...(attachment.failureReason ? { failureReason: attachment.failureReason } : {}),
       })),
       voice: presentation?.voice ?? { state: 'idle', elapsedSeconds: 0 },
     },

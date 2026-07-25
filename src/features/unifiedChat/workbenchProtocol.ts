@@ -13,7 +13,9 @@ export type AgentWorkbenchAttachment = {
   name: string;
   mimeType: string;
   sizeBytes: number;
-  status: 'ready';
+  kind: 'text' | 'image' | 'pdf';
+  status: 'inspecting' | 'ready' | 'partial' | 'failed';
+  failureReason?: string;
 };
 
 export type AgentWorkbenchMessage = {
@@ -50,6 +52,7 @@ export type AgentWorkbenchTimelineItem =
   | { kind: 'proposal'; id: string }
   | { kind: 'receipt'; id: string }
   | { kind: 'client_action'; id: string }
+  | { kind: 'artifact'; id: string }
   | {
       kind: 'correction';
       id: string;
@@ -138,6 +141,18 @@ export type AgentWorkbenchClientAction = {
   canContinue: boolean;
 };
 
+export type AgentWorkbenchArtifact = {
+  id: string;
+  runId: string;
+  messageId: string;
+  title: string;
+  kind: 'document' | 'checklist' | 'table' | 'code';
+  content: string;
+  version: number;
+  label: 'Draft';
+  editable: true;
+};
+
 export type AgentWorkbenchSnapshot = {
   product: {
     id: string;
@@ -161,6 +176,7 @@ export type AgentWorkbenchSnapshot = {
   proposals: AgentWorkbenchProposal[];
   receipts: AgentWorkbenchReceipt[];
   clientActions: AgentWorkbenchClientAction[];
+  artifacts: AgentWorkbenchArtifact[];
   /** Optional so protocol-v2 hosts can adopt coherent turns without breaking older surfaces. */
   timeline?: AgentWorkbenchTurn[];
   composer: {
@@ -211,6 +227,13 @@ export type SupportedAgentWorkbenchCommand =
     }
   | { type: 'receipt.undo'; receiptId: string }
   | { type: 'receipt.open'; receiptId: string }
+  | {
+      type: 'artifact.update';
+      artifactId: string;
+      expectedVersion: number;
+      title: string;
+      content: string;
+    }
   | { type: 'source.open'; url: string }
   | {
       type: 'client_action.decide';
@@ -355,6 +378,15 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
     case 'receipt.open':
       return hasText(value, 'receiptId')
         ? { type: value.type, receiptId: String(value.receiptId) }
+        : null;
+    case 'artifact.update':
+      return hasText(value, 'artifactId') && hasText(value, 'title') &&
+        typeof value.content === 'string' && value.content.trim().length > 0 && value.content.length <= 20_000 &&
+        typeof value.expectedVersion === 'number' && Number.isInteger(value.expectedVersion) && value.expectedVersion > 0
+        ? {
+            type: 'artifact.update', artifactId: String(value.artifactId),
+            expectedVersion: value.expectedVersion, title: String(value.title), content: value.content,
+          }
         : null;
     case 'source.open':
       if (!hasText(value, 'url')) return null;

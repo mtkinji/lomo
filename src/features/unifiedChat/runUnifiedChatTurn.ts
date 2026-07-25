@@ -62,6 +62,7 @@ type TurnRepository = Pick<
   | 'persistRunEvidence'
   | 'createProposal'
   | 'createClientAction'
+  | 'createArtifact'
   | 'decideProposal'
   | 'transitionClientAction'
   | 'transitionRunStatus'
@@ -354,7 +355,7 @@ export async function runUnifiedChatTurn(
       error: (message) => new UnifiedChatTurnError(message),
     });
     if (executionResult.kind === 'completed_early') return executionResult.aggregate;
-    const { visibleBody, actionResponse, toolProvider, runtimeToolEvents } = executionResult;
+    const { visibleBody, actionResponse, toolProvider, runtimeToolEvents, artifactDraft } = executionResult;
     const { assistantMessage, appControlOutcome } = await materializeUnifiedChatOutcomePhase({
       threadId: aggregate.thread.id,
       run,
@@ -362,6 +363,7 @@ export async function runUnifiedChatTurn(
       actionResponse,
       toolProvider,
       runtimeToolEvents,
+      artifactDraft,
       requestPolicy,
       snapshots,
       planConversationReferent,

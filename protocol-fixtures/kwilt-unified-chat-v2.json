@@ -50,6 +50,7 @@
         "name": "school-notes.txt",
         "mimeType": "text/plain",
         "sizeBytes": 42,
+        "kind": "text",
         "status": "ready"
       }]
     }],
@@ -70,6 +71,7 @@
     "proposals": [],
     "receipts": [],
     "clientActions": [],
+    "artifacts": [],
     "timeline": [{
       "id": "run:run-1",
       "sequence": 1,
@@ -87,6 +89,7 @@
         "name": "week-notes.md",
         "mimeType": "text/markdown",
         "sizeBytes": 84,
+        "kind": "text",
         "status": "ready"
       }],
       "voice": { "state": "idle", "elapsedSeconds": 0 }

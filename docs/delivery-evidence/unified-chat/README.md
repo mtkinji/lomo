@@ -17,6 +17,7 @@ A simulator pass and a signed physical-device pass are separate requirements. A 
 
 Current evidence:
 
+- [Multimodal inspection and editable draft artifacts](2026-07-24-multimodal-artifacts.md)
 - [General-purpose trust floor and live-model evaluation](2026-07-24-general-purpose-trust-floor.md)
 - [Canonical capability manifest and cross-channel projection proof](2026-07-24-canonical-capability-manifest.md)
 - [Turn-pipeline decomposition and automated proof](2026-07-24-turn-pipeline.md)

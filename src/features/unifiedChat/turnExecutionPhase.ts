@@ -27,6 +27,11 @@ import { GROUNDED_ANSWER_RESPONSE_FORMAT, formatGroundedAnswer, parseGroundedAns
 import { normalizeSuggestedThreadTitle } from './threadTitle';
 import { buildPlanPriorityChatBody } from './planPriorityChatPresentation';
 import { sanitizeVisibleAssistantText } from './visibleAssistantText';
+import {
+  ASSISTANT_ARTIFACT_RESPONSE_FORMAT,
+  parseAssistantArtifactResponse,
+  type UnifiedChatArtifactDraft,
+} from './assistantArtifact';
 
 type ExecutionRepository = Pick<
   UnifiedChatRepository,
@@ -152,6 +157,7 @@ export type ExecutedUnifiedChatTurn = {
   actionResponse: ActionResponse;
   toolProvider: ToolProvider;
   runtimeToolEvents: readonly AgentToolLoopEvent[];
+  artifactDraft: UnifiedChatArtifactDraft | null;
 };
 
 export type CompletedUnifiedChatTurn = {
@@ -257,6 +263,9 @@ export async function executeUnifiedChatTurnPhase(
     input.requestPolicy.participatingCapabilities.includes('todos') && !usesRuntimeToolLoop;
   const expectsGroundedAnswer = (input.requestPolicy.usePrivateContext || input.turnAttachments.length > 0) &&
     !expectsActivityProposal && !usesRuntimeToolLoop;
+  const expectsArtifactResponse = input.requestPolicy.requestClass === 'general' &&
+    !input.requiresWebSearch && !usesRuntimeToolLoop && !expectsGroundedAnswer &&
+    /\b(?:draft|write|compose|outline|checklist|table|template|email|letter|message|code|script)\b/i.test(input.prompt);
   input.setFailureCode('model_response_failed');
   const automaticTitlesAllowed = input.aggregate.thread.titleSource !== 'user';
   const suggestFromOpening = automaticTitlesAllowed &&
@@ -340,6 +349,8 @@ export async function executeUnifiedChatTurnPhase(
       ? { responseFormat: { ...ACTIVITY_ACTION_RESPONSE_FORMAT } }
       : expectsGroundedAnswer
         ? { responseFormat: { ...GROUNDED_ANSWER_RESPONSE_FORMAT } }
+        : expectsArtifactResponse
+          ? { responseFormat: { ...ASSISTANT_ARTIFACT_RESPONSE_FORMAT } }
         : {}),
     launchContextSummary: groundingSummary(
       input.requestPolicy,
@@ -415,6 +426,7 @@ export async function executeUnifiedChatTurnPhase(
       }
     : parsedActionResponse;
   const groundedAnswer = expectsGroundedAnswer ? parseGroundedAnswer(response) : null;
+  const artifactResponse = expectsArtifactResponse ? parseAssistantArtifactResponse(response) : null;
   if (expectsActivityProposal && !actionResponse) {
     input.setFailureCode('action_response_invalid');
     throw input.error('Kwilt could not prepare a safe To-do proposal.');
@@ -422,6 +434,10 @@ export async function executeUnifiedChatTurnPhase(
   if (expectsGroundedAnswer && !groundedAnswer) {
     input.setFailureCode('grounded_response_invalid');
     throw input.error('Kwilt could not separate its evidence and limits safely.');
+  }
+  if (expectsArtifactResponse && !artifactResponse) {
+    input.setFailureCode('artifact_response_invalid');
+    throw input.error('Kwilt could not prepare that draft safely.');
   }
   const planPriorityBody = input.requestPolicy.policyReason === 'day-plan-recommendation' && input.snapshots.plan
     ? buildPlanPriorityChatBody(input.snapshots.plan.recommendations)
@@ -434,7 +450,7 @@ export async function executeUnifiedChatTurnPhase(
       : null;
   const visibleBody = planPriorityBody ?? (groundedAnswer
     ? formatGroundedAnswer(groundedAnswer)
-    : sanitizeVisibleAssistantText(actionResponse?.answer ?? response));
+    : sanitizeVisibleAssistantText(actionResponse?.answer ?? artifactResponse?.answer ?? response));
   if (!visibleBody) {
     input.setFailureCode('visible_response_invalid');
     throw input.error('Kwilt did not produce a visible answer.');
@@ -446,5 +462,6 @@ export async function executeUnifiedChatTurnPhase(
     actionResponse,
     toolProvider,
     runtimeToolEvents,
+    artifactDraft: artifactResponse?.artifact ?? null,
   };
 }

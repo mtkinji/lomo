@@ -2,7 +2,7 @@
 //
 // Routes:
 // - POST /v1/chat/completions
-// - POST /v1/responses (web search only)
+// - POST /v1/responses (hosted web search or bounded Chat attachment inspection)
 // - POST /v1/images/generations
 //
 // Called via:
@@ -13,6 +13,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { resolveKwiltAiModel } from '../_shared/aiModelRouting.ts';
+import { validateKwiltAiRequestShape } from '../_shared/aiRequestValidation.ts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -112,11 +113,16 @@ function getImageActionsCost(): number {
   return 10;
 }
 
-function getMaxRequestBytes(): number {
-  const raw = Deno.env.get('KWILT_AI_MAX_REQUEST_BYTES');
+function getMaxRequestBytes(route?: string): number {
+  const multimodal = route === '/v1/responses';
+  const raw = Deno.env.get(multimodal
+    ? 'KWILT_AI_MULTIMODAL_MAX_REQUEST_BYTES'
+    : 'KWILT_AI_MAX_REQUEST_BYTES');
   const parsed = raw ? Number(raw) : NaN;
-  if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  return 120_000;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.min(Math.floor(parsed), multimodal ? 15_000_000 : 1_000_000);
+  }
+  return multimodal ? 15_000_000 : 120_000;
 }
 
 function getMaxOutputTokens(route: string): number {
@@ -261,53 +267,6 @@ function safeJsonParse(text: string): any | null {
   }
 }
 
-function validateRequestShape(route: string, parsed: any): { ok: true } | { ok: false; message: string } {
-  // Token-counting is non-trivial server-side without a tokenizer; we instead bound size/shape.
-  // This protects us from pathological payloads and accidental runaway context.
-  if (!parsed || typeof parsed !== 'object') return { ok: false, message: 'Invalid JSON body' };
-
-  if (route === '/v1/chat/completions') {
-    const msgs = parsed.messages;
-    if (!Array.isArray(msgs) || msgs.length < 1) return { ok: false, message: 'messages must be a non-empty array' };
-    if (msgs.length > 40) return { ok: false, message: 'messages too long' };
-    for (const m of msgs) {
-      if (!m || typeof m !== 'object') return { ok: false, message: 'invalid message' };
-      const role = m.role;
-      if (typeof role !== 'string') return { ok: false, message: 'message.role must be a string' };
-      const content = m.content;
-      if (typeof content === 'string' && content.length > 20_000) {
-        return { ok: false, message: 'message.content too large' };
-      }
-    }
-    return { ok: true };
-  }
-
-  if (route === '/v1/responses') {
-    if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 40) {
-      return { ok: false, message: 'input must be a bounded non-empty array' };
-    }
-    if (!Array.isArray(parsed.tools) || parsed.tools.length !== 1 || parsed.tools[0]?.type !== 'web_search') {
-      return { ok: false, message: 'responses route allows only hosted web_search' };
-    }
-    if (parsed.store === true || parsed.background === true) {
-      return { ok: false, message: 'stored and background responses are not allowed' };
-    }
-    return { ok: true };
-  }
-
-  if (route === '/v1/images/generations') {
-    // Minimal validation; clamp n later.
-    return { ok: true };
-  }
-
-  if (route === '/v1/commit') {
-    // Minimal shape: { actionsCost?: number }
-    return { ok: true };
-  }
-
-  return { ok: true };
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -346,8 +305,8 @@ serve(async (req) => {
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
   const aiJob = (req.headers.get('x-kwilt-ai-job') ?? '').trim();
-  if (route === '/v1/responses' && aiJob !== 'current_information') {
-    return json(400, { error: { message: 'Responses route requires current_information job', code: 'bad_request' } });
+  if (route === '/v1/responses' && aiJob !== 'current_information' && aiJob !== 'unified_chat_attachment') {
+    return json(400, { error: { message: 'Responses route requires an allowed job', code: 'bad_request' } });
   }
   const isOnboarding = chatMode === 'firstTimeOnboarding';
   const isPreview = chatMode.startsWith('preview_');
@@ -366,7 +325,7 @@ serve(async (req) => {
   const onboardingCap = getOnboardingActionsCap();
 
   // Basic payload size guardrails (prevents accidental huge context).
-  const maxBytes = getMaxRequestBytes();
+  const maxBytes = getMaxRequestBytes(route);
   const contentLength = Number(req.headers.get('content-length') ?? '0');
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     return json(413, { error: { message: 'Request too large', code: 'bad_request' } });
@@ -385,7 +344,7 @@ serve(async (req) => {
   }
   model = typeof parsedBody?.model === 'string' ? parsedBody.model : null;
 
-  const shape = validateRequestShape(route, parsedBody);
+  const shape = validateKwiltAiRequestShape(route, parsedBody, aiJob);
   if (!shape.ok) {
     return json(400, { error: { message: shape.message, code: 'bad_request' } });
   }
