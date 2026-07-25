@@ -1,0 +1,21 @@
+appId: com.andrewwatanabe.kwilt
+---
+- runFlow: smoke-devtools.yaml
+- scrollUntilVisible:
+    element:
+      id: "dev.guidedOverture.open"
+    direction: DOWN
+- tapOn:
+    id: "dev.guidedOverture.open"
+- assertVisible:
+    id: "guidedOverture.scene"
+- assertVisible: "Plan tomorrow around what matters"
+- tapOn:
+    id: "guidedOverture.next"
+- assertVisible: "Catch a bill before it surprises me"
+- tapOn:
+    id: "guidedOverture.back"
+- assertVisible: "Plan tomorrow around what matters"
+- tapOn:
+    id: "guidedOverture.start.plan-tomorrow"
+- assertVisible: "Let’s make tomorrow workable. What already has to happen?"

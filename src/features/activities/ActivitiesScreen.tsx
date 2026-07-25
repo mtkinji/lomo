@@ -1460,6 +1460,17 @@ export function ActivitiesScreen() {
   );
 
   React.useEffect(() => {
+    if (!route.params?.openQuickAdd) return;
+    setQuickAddFocused(true);
+    requestAnimationFrame(() => quickAddInputRef.current?.focus?.());
+    try {
+      navigation.setParams({ openQuickAdd: undefined });
+    } catch {
+      // Best-effort param cleanup. The focused dock is already open.
+    }
+  }, [navigation, quickAddInputRef, route.params?.openQuickAdd, setQuickAddFocused]);
+
+  React.useEffect(() => {
     quickAddFocusedRef.current = isQuickAddFocused;
   }, [isQuickAddFocused]);
 

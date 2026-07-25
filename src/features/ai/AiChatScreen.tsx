@@ -71,6 +71,10 @@ import { pickHeroForArc } from '../arcs/arcHeroSelector';
 import { ARC_HERO_LIBRARY } from '../arcs/arcHeroLibrary';
 import { hashStringToIndex } from '../arcs/thumbnailVisuals';
 import { ensureArcGuide } from '../arcs/arcGuidance';
+import {
+  buildGuidedOvertureAgentHandoff,
+  buildGuidedOvertureAgentHandoffForOfferId,
+} from '../guidedOverture/guidedOvertureModel';
 import type { LaunchContext } from '../../domain/workflows';
 import {
   extractActivityProposalFromAssistantMessage,
@@ -105,6 +109,8 @@ type AgentRouteParams = {
   mode?: ChatMode;
   launchContext?: LaunchContext;
   workspaceSnapshot?: string;
+  guidedOvertureOfferId?: string;
+  guidedOvertureSessionId?: number;
   workflowDefinitionId?: string;
   resumeDraft?: boolean;
   hidePromptSuggestions?: boolean;
@@ -399,6 +405,11 @@ export type AiChatPaneProps = {
    */
   launchContext?: string;
   /**
+   * Optional deterministic opening rendered as the first visible Agent turn.
+   * Used when an upstream guided experience has already established intent.
+   */
+  initialAssistantMessage?: string;
+  /**
    * When true (the default), arcCreation mode will attempt to hydrate any
    * saved draft for this thread so the user can resume where they left off.
    * When false, a new, clean conversation is started even if a draft exists.
@@ -551,6 +562,7 @@ export const AiChatPane = forwardRef(function AiChatPane(
   {
     mode,
     launchContext,
+    initialAssistantMessage,
     resumeDraft = true,
     onConfirmArc,
     onGoalCreated,
@@ -642,12 +654,20 @@ export const AiChatPane = forwardRef(function AiChatPane(
   const shouldShowAgeQuestion = false;
 
   const buildInitialMessages = (): ChatMessage[] => {
+    const openingMessage: ChatMessage | null = initialAssistantMessage?.trim()
+      ? {
+          id: 'assistant-guided-opening',
+          role: 'assistant',
+          content: initialAssistantMessage.trim(),
+        }
+      : null;
+
     // When there is no explicit mode or launch context and we are not
     // auto-bootstrapping an LLM reply, we start with an empty visible
     // transcript and stream the default intro copy separately so it appears
     // with the normal typing animation.
     if (!launchContext && !modeSystemPrompt && !shouldBootstrapAssistant) {
-      return [];
+      return openingMessage ? [openingMessage] : [];
     }
 
     const blocks: string[] = [];
@@ -677,31 +697,38 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
     const contextContent = blocks.join('\n\n');
 
-    const systemMessage: ChatMessage = {
-      id: 'system-launch-context',
-      role: 'system',
-      content: contextContent,
-    };
+    const initialContextMessages: ChatMessage[] = contextContent
+      ? [
+          {
+            id: 'system-launch-context',
+            role: 'system',
+            content: contextContent,
+          },
+        ]
+      : [];
+    const contextualOpening = openingMessage
+      ? [...initialContextMessages, openingMessage]
+      : initialContextMessages;
 
     // For first-time onboarding, we want the visible assistant copy to be
     // orchestrated per workflow step (via workflow presenters) instead of a
     // generic intro. We still keep the system message hidden in history so
     // the model has full context.
     if (isOnboardingMode) {
-      return [systemMessage];
+      return contextualOpening;
     }
 
     // For modes that bootstrap their first assistant reply automatically, we
     // do not seed any visible intro so the response comes directly from the
     // mode-specific system prompt.
     if (shouldBootstrapAssistant) {
-      return [systemMessage];
+      return contextualOpening;
     }
 
     // For non-bootstrap modes with a launch context or system prompt, we keep
     // the contextual system message hidden in history and stream the visible
     // intro separately so it still animates into the thread.
-    return [systemMessage];
+    return contextualOpening;
   };
 
   const initialMessages = buildInitialMessages();
@@ -4235,13 +4262,29 @@ export function AiChatScreen() {
       source: 'standaloneCoach',
       intent: 'freeCoach',
     };
+    const guidedOvertureHandoff = (() => {
+      const offerId = routeParams.guidedOvertureOfferId;
+      if (offerId === 'something-else') {
+        return buildGuidedOvertureAgentHandoff();
+      }
+      if (typeof offerId === 'string') {
+        return buildGuidedOvertureAgentHandoffForOfferId(offerId);
+      }
+      return undefined;
+    })();
     return (
       <AppShell>
         <AgentWorkspace
+          key={
+            routeParams.guidedOvertureSessionId
+              ? `guided-overture-${routeParams.guidedOvertureSessionId}`
+              : 'standalone-agent'
+          }
           mode={routeParams.mode}
           workflowDefinitionId={routeParams.workflowDefinitionId}
           launchContext={routeParams.launchContext ?? fallbackLaunchContext}
-          workspaceSnapshot={routeParams.workspaceSnapshot}
+          workspaceSnapshot={guidedOvertureHandoff?.workspaceSnapshot ?? routeParams.workspaceSnapshot}
+          initialAssistantMessage={guidedOvertureHandoff?.initialAssistantMessage}
           resumeDraft={routeParams.resumeDraft}
           hidePromptSuggestions={routeParams.hidePromptSuggestions}
           onDismiss={routeParams.capabilityContext ? returnFromCapabilityAgent : undefined}

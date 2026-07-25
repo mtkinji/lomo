@@ -7,7 +7,8 @@ type RootRouteName =
   | 'ArcsStack'
   | 'Money'
   | 'Settings'
-  | 'DevTools';
+  | 'DevTools'
+  | 'GuidedOvertureLab';
 
 type PersistedRouteLike = {
   key?: string;
@@ -179,7 +180,7 @@ export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteN
     'ArcsStack',
     'Money',
     'Settings',
-    ...(showDevTools ? (['DevTools'] as const) : []),
+    ...(showDevTools ? (['DevTools', 'GuidedOvertureLab'] as const) : []),
   ];
 }
 

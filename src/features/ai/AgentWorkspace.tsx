@@ -51,6 +51,8 @@ export type AgentWorkspaceProps = {
    * serialized LaunchContext so the model has richer context.
    */
   workspaceSnapshot?: string;
+  /** Deterministic opening when a prior guided surface already established intent. */
+  initialAssistantMessage?: string;
   /**
    * When provided in arcCreation mode, this callback is invoked when the user
    * confirms an Arc proposal inside the chat canvas.
@@ -194,6 +196,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
     workflowDefinitionId,
     workflowInstanceId,
     workspaceSnapshot,
+    initialAssistantMessage,
     onConfirmArc,
     resumeDraft,
     onStepComplete,
@@ -791,6 +794,7 @@ export function AgentWorkspace(props: AgentWorkspaceProps) {
         ref={chatPaneRef}
         mode={effectiveMode}
         launchContext={launchContextText}
+        initialAssistantMessage={initialAssistantMessage}
         resumeDraft={resumeDraft}
         hideBrandHeader={hideBrandHeader}
         hidePromptSuggestions={hidePromptSuggestions}
@@ -877,6 +881,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
 
 

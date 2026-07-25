@@ -101,12 +101,28 @@ describe('navigationPersistence', () => {
     ).toBe(false);
   });
 
-  test('allows DevTools when running a dev build', () => {
+  test('allows development-only lab routes when running a dev build', () => {
     expect(
-      shouldRestoreNavigationState(rootState(['MainTabs', 'Agent', 'ArcsStack', 'DevTools', 'Settings']), {
-        showDevTools: true,
-      }),
+      shouldRestoreNavigationState(
+        rootState([
+          'MainTabs',
+          'Agent',
+          'ArcsStack',
+          'DevTools',
+          'GuidedOvertureLab',
+          'Settings',
+        ]),
+        { showDevTools: true },
+      ),
     ).toBe(true);
+  });
+
+  test('rejects the Guided Overture lab route in production', () => {
+    expect(
+      shouldRestoreNavigationState(rootState(['MainTabs', 'GuidedOvertureLab', 'Settings']), {
+        showDevTools: false,
+      }),
+    ).toBe(false);
   });
 
   test('restores an existing v4 tab state with a nested To-do detail', async () => {
