@@ -45,4 +45,15 @@ describe('identity Arc prompt builder', () => {
     expect(withFeedback).toContain('The draft is too abstract and not grounded in ordinary behavior.');
     expect(withFeedback).toContain('directly addresses this feedback');
   });
+  it('preserves the FTUX Goal and Arc framing when requested', () => {
+    const prompt = buildIdentityArcGenerationPrompt({
+      inputsSummary: 'FTUX Goal+Arc Survey v3 structured response:\nTennis practice',
+      isFtuxGoalArcFlow: true,
+    });
+
+    expect(prompt).toContain('a 3-sentence, second-person description');
+    expect(prompt).toContain('For this FTUX Goal+Arc flow:');
+    expect(prompt).toContain('The Goal can be practical and near-term');
+    expect(prompt).toContain('the Arc should be more durable, memorable, and identity-based');
+  });
 });

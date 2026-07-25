@@ -87,8 +87,23 @@ Prioritize by compounding leverage per unit of risk:
   - Why: the focused-goal snapshot, metric summary, and refinement instructions form a prompt contract embedded in screen orchestration.
   - Result: `goalRefinementPrompt.ts` now owns target context, capped metric summaries, and required refinement instructions without unchecked casts, with focused tests.
 
-- [ ] Extract Goal share-preview URL policy
+- [x] Extract Goal share-preview URL policy
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: external share previews must reject blank, malformed, and device-local image URLs while retaining public HTTP(S) images.
-  - Ideal test: pin blank, malformed, local-scheme, HTTP, and HTTPS values.
+  - Result: `goalSharePreviewUrl.ts` now owns HTTP(S)-only image normalization with focused tests for blank, malformed, local-scheme, HTTP, and HTTPS values.
+
+- [x] Unify Goal invite referral URL mutation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
+  - Why: both share paths independently trim referral codes, preserve an existing `ref`, and append a fallback query parameter for malformed URLs.
+  - Result: `goalInviteReferralUrl.ts` now owns referral-code trimming, existing-ref preservation, URL encoding, and malformed-URL fallback, with focused tests for each contract edge.
+
+- [x] Unify Goal invite destination URL selection
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/goals/ShareGoalDrawer.tsx`
+  - Why: both invitation paths independently choose between landing, redirect, Expo Go, and native deep-link destinations before applying referral metadata.
+  - Result: `goalInviteDestinationUrl.ts` now owns human-tap and share-preview destination priority plus Expo Go handoff encoding, with focused tests for every destination combination.
+
+- [ ] Extract Goal partner access presentation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: current-user identity normalization, membership lookup, leave/remove permissions, and visible partner avatars form one access-sensitive view contract embedded in screen state.
+  - Ideal test: pin auth/profile identity aliases, owner/member permissions, self exclusion, blank IDs, and owner exclusion from partner avatars.
   - Risk: low

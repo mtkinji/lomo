@@ -170,6 +170,9 @@ import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDef
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
 import { mergeRefinedGoalProposal } from './goalProposalMerge';
 import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
+import { normalizeGoalSharePreviewImageUrl } from './goalSharePreviewUrl';
+import { selectGoalInviteDestinationUrls } from '../goals/goalInviteDestinationUrl';
+import { appendGoalInviteReferralCode } from '../goals/goalInviteReferralUrl';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -1144,18 +1147,7 @@ export function GoalDetailScreen() {
       if (!goal) return;
       capture(AnalyticsEvent.ShareInviteChannelSelected, { goalId: goal.id, channel: 'share_sheet' });
       const referralCode = await createReferralCode({ kind: 'shared_goal_invite' }).catch(() => '');
-      const goalImageUrl = (() => {
-        const raw = (displayThumbnailUrl ?? '').trim();
-        if (!raw) return undefined;
-        try {
-          const u = new URL(raw);
-          // Only include publicly fetchable URLs for OG previews (no file://, ph://, etc).
-          if (u.protocol !== 'https:' && u.protocol !== 'http:') return undefined;
-          return u.toString();
-        } catch {
-          return undefined;
-        }
-      })();
+      const goalImageUrl = normalizeGoalSharePreviewImageUrl(displayThumbnailUrl);
 
       const { inviteUrl, inviteRedirectUrl, inviteLandingUrl } = await createGoalInvite({
         goalId: goal.id,
@@ -1166,38 +1158,15 @@ export function GoalDetailScreen() {
       const code = extractInviteCode(inviteUrl);
       const open = buildInviteOpenUrl(code);
       const isExpoGo = Constants.appOwnership === 'expo';
-      const fallbackTapUrl = inviteRedirectUrl
-        ? isExpoGo
-          ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
-          : inviteRedirectUrl
-        : open.primary;
+      const { tapUrl: tapUrlBase, shareUrl: shareUrlBase } = selectGoalInviteDestinationUrls({
+        primaryOpenUrl: open.primary,
+        inviteRedirectUrl,
+        inviteLandingUrl,
+        isExpoGo,
+      });
 
-      // Share-sheet preview needs a URL that returns OG metadata. Our Edge Function does that.
-      // Note: this URL may not be a Universal Link host; that's ok for previews, and it still
-      // performs a best-effort kwilt:// handoff via HTML.
-      const shareUrlBase = inviteRedirectUrl ?? inviteLandingUrl ?? fallbackTapUrl;
-
-      // Tap/open URL for humans: prefer the public landing host (Universal Links) when available.
-      const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
-
-      const withRef = (rawUrl: string): string => {
-        const ref = referralCode.trim();
-        if (!rawUrl) return rawUrl;
-        if (!ref) return rawUrl;
-        try {
-          const u = new URL(rawUrl);
-          if (!(u.searchParams.get('ref') ?? '').trim()) {
-            u.searchParams.set('ref', ref);
-          }
-          return u.toString();
-        } catch {
-          const joiner = rawUrl.includes('?') ? '&' : '?';
-          return `${rawUrl}${joiner}ref=${encodeURIComponent(ref)}`;
-        }
-      };
-
-      const tapUrl = withRef(tapUrlBase);
-      const shareUrl = withRef(shareUrlBase);
+      const tapUrl = appendGoalInviteReferralCode(tapUrlBase, referralCode);
+      const shareUrl = appendGoalInviteReferralCode(shareUrlBase, referralCode);
 
       const title = `Join my shared goal in Kwilt: “${goal.title}”`;
       // Share sheets: on iOS we must share the URL as the primary item to get a rich preview card.

@@ -30,6 +30,8 @@ import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
 import { useToastStore } from '../../store/useToastStore';
 import { createReferralCode } from '../../services/referrals';
+import { selectGoalInviteDestinationUrls } from './goalInviteDestinationUrl';
+import { appendGoalInviteReferralCode } from './goalInviteReferralUrl';
 
 type Step = 'offer' | 'email' | 'sent';
 
@@ -102,28 +104,14 @@ export function ShareGoalDrawer(props: {
         const codeFromUrl = extractInviteCode(inviteUrl);
         setInviteCode(codeFromUrl);
         const open = buildInviteOpenUrl(codeFromUrl);
-        const fallbackTapUrl = inviteRedirectUrl
-          ? isExpoGo
-            ? `${inviteRedirectUrl}?exp=${encodeURIComponent(open.primary)}`
-            : inviteRedirectUrl
-          : open.primary;
-        const tapUrlBase = inviteLandingUrl ?? fallbackTapUrl;
+        const { tapUrl: tapUrlBase } = selectGoalInviteDestinationUrls({
+          primaryOpenUrl: open.primary,
+          inviteRedirectUrl,
+          inviteLandingUrl,
+          isExpoGo,
+        });
 
-        const ref = (code ?? '').trim();
-        const addRef = (raw: string): string => {
-          if (!raw || !ref) return raw;
-          try {
-            const u = new URL(raw);
-            if (!(u.searchParams.get('ref') ?? '').trim()) {
-              u.searchParams.set('ref', ref);
-            }
-            return u.toString();
-          } catch {
-            const j = raw.includes('?') ? '&' : '?';
-            return `${raw}${j}ref=${encodeURIComponent(ref)}`;
-          }
-        };
-        const tapU = addRef(tapUrlBase);
+        const tapU = appendGoalInviteReferralCode(tapUrlBase, code);
         setTapUrl(tapU);
         setAltUrl(open.alt);
 
