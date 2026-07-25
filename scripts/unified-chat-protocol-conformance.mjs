@@ -23,7 +23,9 @@ const kwiltSiteRoot = process.env.KWILT_SITE_ROOT
 const companions = [
   {
     name: 'kwilt-site',
-    required: true,
+    // A standalone Kwilt checkout (including CI) may not include the companion
+    // repository. An explicitly selected checkout remains a strict contract.
+    required: Boolean(process.env.KWILT_SITE_ROOT),
     root: kwiltSiteRoot,
     fixture: path.join(kwiltSiteRoot, 'protocol-fixtures/kwilt-unified-chat-v2.json'),
     renderer: path.join(kwiltSiteRoot, 'components', 'unified-chat', 'KwiltChatWorkbench.tsx'),
