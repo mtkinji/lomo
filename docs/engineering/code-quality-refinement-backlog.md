@@ -102,8 +102,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: both invitation paths independently choose between landing, redirect, Expo Go, and native deep-link destinations before applying referral metadata.
   - Result: `goalInviteDestinationUrl.ts` now owns human-tap and share-preview destination priority plus Expo Go handoff encoding, with focused tests for every destination combination.
 
-- [ ] Extract Goal partner access presentation
+- [x] Extract Goal partner access presentation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: current-user identity normalization, membership lookup, leave/remove permissions, and visible partner avatars form one access-sensitive view contract embedded in screen state.
-  - Ideal test: pin auth/profile identity aliases, owner/member permissions, self exclusion, blank IDs, and owner exclusion from partner avatars.
+  - Result: `goalPartnerAccessPresentation.ts` now owns identity alias normalization, current membership, owner/member actions, and header-avatar filtering, with focused tests preserving access and visibility edge cases.
+
+- [ ] Extract Goal partner prompt decision
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: focus, sharing state, transient sheets, activity progress, moment gating, and trigger precedence form a product rule embedded in an effect.
+  - Ideal test: pin shared/muted/transient suppression, blank goals, moment blocking, first-progress precedence, and first-to-do fallback.
   - Risk: low

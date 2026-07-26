@@ -164,7 +164,8 @@ import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
-import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
+import { sharedMemberRoleLabel } from './goalPartnerRoles';
+import { buildGoalPartnerAccessPresentation } from './goalPartnerAccessPresentation';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
@@ -837,32 +838,20 @@ export function GoalDetailScreen() {
     setMembersSheetVisible(true);
   }, []);
 
-  const currentUserIds = useMemo(
+  const {
+    currentUserIds,
+    canLeaveSharedGoal,
+    canRemoveGoalPartners,
+    headerPartnerAvatars,
+  } = useMemo(
     () =>
-      new Set(
-        [authIdentity?.userId, userProfile?.id]
-          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-          .map((id) => id.trim()),
-      ),
-    [authIdentity?.userId, userProfile?.id],
+      buildGoalPartnerAccessPresentation({
+        authUserId: authIdentity?.userId,
+        profileUserId: userProfile?.id,
+        sharedMembers,
+      }),
+    [authIdentity?.userId, sharedMembers, userProfile?.id],
   );
-
-  const currentMembership = useMemo(() => {
-    if (!Array.isArray(sharedMembers) || sharedMembers.length === 0) return null;
-    return sharedMembers.find((m) => currentUserIds.has(m.userId.trim())) ?? null;
-  }, [currentUserIds, sharedMembers]);
-
-  const canLeaveSharedGoal = useMemo(() => {
-    const me = currentMembership;
-    if (!me) return false;
-    return !isGoalOwnerRole(me.role);
-  }, [currentMembership]);
-
-  const canRemoveGoalPartners = useMemo(() => {
-    const me = currentMembership;
-    if (!me) return false;
-    return isGoalOwnerRole(me.role);
-  }, [currentMembership]);
 
   const handleRemovePartner = useCallback(
     (member: SharedMember) => {
@@ -927,18 +916,6 @@ export function GoalDetailScreen() {
       cancelled = true;
     };
   }, [goalId, isFocused]);
-
-  const headerPartnerAvatars = useMemo(() => {
-    if (!Array.isArray(sharedMembers) || sharedMembers.length <= 1) return [];
-    return sharedMembers
-      .filter((m) => {
-        const userId = m.userId.trim();
-        if (!userId) return false;
-        if (currentUserIds.has(userId)) return false;
-        return (m.role ?? '').toLowerCase() !== 'owner';
-      })
-      .map((m) => ({ id: m.userId, name: m.name ?? null, avatarUrl: m.avatarUrl ?? null }));
-  }, [currentUserIds, sharedMembers]);
 
   const partnerCircleKey = useMemo(() => {
     if (!Array.isArray(sharedMembers)) return 'solo';
