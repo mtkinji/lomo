@@ -160,7 +160,7 @@ git commit -m "feat(money): show typical spend on category detail"
 ### Task 4: Restore A Real Persisted Unsplash Cover
 
 **Files:**
-- Create: `supabase/migrations/20260727180445_add_budget_category_cover.sql`
+- Create: `supabase/migrations/20260727191420_add_budget_category_cover.sql`
 - Create: `src/capabilities/money/domain/moneyCategoryCover.ts`
 - Create: `src/capabilities/money/domain/moneyCategoryCover.test.ts`
 - Modify: `src/capabilities/money/data/moneySnapshot.ts`
@@ -192,7 +192,7 @@ Create the migration with:
 npx supabase migration new add_budget_category_cover
 ```
 
-Add `cover_image jsonb null` to `budget_categories` with an object/type/size check. In the same migration, add owner-scoped `public.set_budget_category_cover(p_category_id uuid, p_cover jsonb) returns jsonb`: require `auth.uid()`, update exactly one active category owned by that user, and return the confirmed category ID, cover payload, and timestamp. Set `search_path = public, pg_temp`, revoke public execute, and grant authenticated execute; no service-role bypass is introduced.
+Add `cover_image jsonb null` to `budget_categories` with an object/type/size check. In the same migration, add owner-scoped `public.set_budget_category_cover(p_category_id uuid, p_cover jsonb) returns jsonb`: require `auth.uid()`, update exactly one active category owned by that user, and return the confirmed category ID, cover payload, and timestamp. Set an empty `search_path` and schema-qualify all references, revoke public execute, and grant authenticated execute; no service-role bypass is introduced.
 
 - [x] **Step 3: Project and persist the exact metadata**
 
@@ -265,8 +265,8 @@ npm run verify:changed -- --run
 
 Check Housing with 12 eligible months, a category with fewer months, zero-spend current month, a split transaction month, reserve category, drawer headers, Unsplash search/select/remove, offline image failure, Dynamic Type, VoiceOver, and reduced motion. On the chart, verify long-press activation, horizontal and diagonal scrubbing, day snapping, tooltip bounds near both edges, one activation haptic signal, release/cancellation cleanup, and parent-scroll restoration.
 
-Partial proof on 2026-07-27: the authenticated iPhone 17 Pro simulator loaded Housing from this checkout and Metro port 8081, rendered the 12-month ghost line beside actual/forecast/plan evidence, and exposed the chart as an adjustable control with increment/decrement actions. The remaining gesture matrix, alternate category states, live cover save/remove, Dynamic Type, VoiceOver announcement, and reduced-motion passes remain unchecked; cover persistence also requires the linked migration to be applied first.
+Partial proof on 2026-07-27: the authenticated iPhone 17 Pro simulator loaded Housing from this checkout and Metro port 8081, rendered the 12-month ghost line beside actual/forecast/plan evidence, and exposed the chart as an adjustable control with increment/decrement actions. The linked cover migration was subsequently applied to the live Kwilt project as version `20260727191420`; the column, constraint, caller-scoped function, and authenticated-only execution grant were verified. Unsplash search also returned a valid landscape result with image and attribution metadata. All nine active categories currently have `cover_image = null`, so the gradient remains until the user explicitly selects a photo. The remaining gesture matrix, alternate category states, live cover select/remove, offline image failure, Dynamic Type, VoiceOver announcement, and reduced-motion passes remain unchecked.
 
 - [x] **Step 3: Keep proof boundaries explicit**
 
-Unit tests prove chart math and payload validation. Simulator proves layout and interactions. A configured Unsplash key/network proves live search. Linked Supabase migration, signed-device persistence, and installed TestFlight remain separate until exercised.
+Unit tests prove chart math and payload validation. Simulator proves layout and interactions. A configured Unsplash key/network proves live search. The linked Supabase migration is now deployed and schema-verified; an authenticated save/remove receipt, signed-device persistence, and installed TestFlight remain separate until exercised.

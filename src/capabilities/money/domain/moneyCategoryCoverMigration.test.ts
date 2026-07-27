@@ -3,7 +3,7 @@ import path from 'path';
 
 const migration = readFileSync(path.join(
   process.cwd(),
-  'supabase/migrations/20260727180445_add_budget_category_cover.sql',
+  'supabase/migrations/20260727191420_add_budget_category_cover.sql',
 ), 'utf8');
 
 describe('Money category cover migration', () => {
