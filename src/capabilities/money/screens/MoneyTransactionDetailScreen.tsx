@@ -14,6 +14,7 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
+import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
@@ -370,29 +371,64 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 }
 
 function PaymentSourceCard({ transaction }: { transaction: MoneyTransaction }) {
-  const isDeposit = transaction.direction === 'inflow';
+  const presentation = getPaymentSourcePresentation(transaction);
   const cardName = transaction.accountName.replace(/\b(visa|mastercard|amex|american express|card)\b/gi, '').replace(/\s+/g, ' ').trim() || transaction.accountName;
-  const palette = getPaymentSourcePalette(transaction.accountId ?? transaction.accountName);
   return (
     <View style={styles.sourceCard}>
       <View style={styles.sourceDescriptionBlock}>
         <Text style={styles.sourceDescriptionLabel}>Description</Text>
         <Text selectable numberOfLines={2} style={styles.sourceDescription}>{transaction.originalDescription ?? transaction.merchantName}</Text>
       </View>
-      {isDeposit ? (
-        <View style={styles.depositReceipt}>
-          <View style={styles.depositHeader}><View style={styles.depositIcon}><Icon name="landmark" size={16} color={colors.pine700} /></View><Text style={styles.depositTitle}>Deposit received</Text></View>
+      {presentation.kind === 'deposit' ? (
+        <View style={[styles.depositReceipt, { borderColor: presentation.palette.primary, backgroundColor: presentation.palette.soft }]}>
+          <View style={styles.depositHeader}><View style={styles.depositIcon}><Icon name="landmark" size={16} color={presentation.palette.primary} /></View><Text style={styles.depositTitle}>Deposit received</Text></View>
           <ReceiptRow label="From" value={transaction.merchantName} />
           <ReceiptRow label="To" value={transaction.institutionName || transaction.accountName} />
-          <ReceiptRow label="Rail" value={getTransferRailLabel(transaction)} />
+          <ReceiptRow label="Rail" value={presentation.railLabel} />
         </View>
+      ) : presentation.kind === 'credit_card' || presentation.kind === 'debit_card' ? (
+        <CardPaymentSource cardName={cardName} palette={presentation.palette} transaction={transaction} />
+      ) : presentation.kind === 'bank_account' ? (
+        <BankPaymentSource palette={presentation.palette} railLabel={presentation.railLabel} transaction={transaction} />
       ) : (
-        <View style={[styles.paymentCard, { backgroundColor: palette.background }]}>
-          <View style={styles.cardTopRow}><View style={[styles.cardChip, { backgroundColor: palette.chip }]} /><Icon name={getPaymentSourceKind(transaction) === 'Bank account' ? 'landmark' : 'creditCard'} size={16} color={colors.canvas} /></View>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.cardName}>{cardName}</Text>
-          <View style={styles.cardBottomRow}><Text numberOfLines={1} style={styles.cardInstitution}>{transaction.institutionName}</Text><Text style={styles.cardMask}>•••• {transaction.accountMask ?? '----'}</Text></View>
-        </View>
+        <GenericAccountSource palette={presentation.palette} transaction={transaction} />
       )}
+    </View>
+  );
+}
+
+function CardPaymentSource({ cardName, palette, transaction }: { cardName: string; palette: InstitutionPalette; transaction: MoneyTransaction }) {
+  return (
+    <View style={[styles.paymentCard, { backgroundColor: palette.primary }]}>
+      <View style={styles.cardTopRow}><View style={[styles.cardChip, { backgroundColor: palette.soft }]} /><Icon name="creditCard" size={16} color={palette.foreground} /></View>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={[styles.cardName, { color: palette.foreground }]}>{cardName}</Text>
+      <View style={styles.cardBottomRow}><Text numberOfLines={1} style={[styles.cardInstitution, { color: palette.foreground }]}>{transaction.institutionName}</Text><Text style={[styles.cardMask, { color: palette.foreground }]}>•••• {transaction.accountMask ?? '----'}</Text></View>
+    </View>
+  );
+}
+
+function BankPaymentSource({ palette, railLabel, transaction }: { palette: InstitutionPalette; railLabel: string; transaction: MoneyTransaction }) {
+  return (
+    <View style={[styles.bankReceipt, { borderColor: palette.primary, backgroundColor: palette.soft }]}>
+      <View style={[styles.bankIcon, { backgroundColor: palette.primary }]}><Icon name="landmark" size={18} color={palette.foreground} /></View>
+      <View style={styles.bankReceiptCopy}>
+        <Text numberOfLines={1} style={styles.bankAccountName}>{transaction.accountName}</Text>
+        <Text numberOfLines={1} style={styles.bankInstitution}>{transaction.institutionName}{transaction.accountMask ? ` · •••• ${transaction.accountMask}` : ''}</Text>
+        <Text style={[styles.bankRail, { color: palette.primary }]}>{railLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
+function GenericAccountSource({ palette, transaction }: { palette: InstitutionPalette; transaction: MoneyTransaction }) {
+  return (
+    <View style={[styles.bankReceipt, { borderColor: colors.cardBorder, backgroundColor: colors.gray50 }]}>
+      <View style={[styles.bankIcon, { backgroundColor: palette.primary }]}><Icon name="receipt" size={18} color={palette.foreground} /></View>
+      <View style={styles.bankReceiptCopy}>
+        <Text numberOfLines={1} style={styles.bankAccountName}>{transaction.accountName}</Text>
+        <Text numberOfLines={1} style={styles.bankInstitution}>{transaction.institutionName}{transaction.accountMask ? ` · •••• ${transaction.accountMask}` : ''}</Text>
+        <Text style={styles.genericAccountLabel}>Account activity</Text>
+      </View>
     </View>
   );
 }
@@ -424,30 +460,6 @@ function getCategoryRelationLabel(transaction: MoneyTransaction, category?: Mone
   return null;
 }
 
-function getPaymentSourceKind(transaction: MoneyTransaction): string {
-  const type = `${transaction.accountType ?? ''} ${transaction.accountSubtype ?? ''} ${transaction.accountName}`.toLowerCase();
-  if (type.includes('credit')) return 'Credit card';
-  if (type.includes('depository') || type.includes('checking') || type.includes('savings')) return 'Bank account';
-  return 'Card';
-}
-
-function getTransferRailLabel(transaction: MoneyTransaction): string {
-  const description = `${transaction.merchantName} ${transaction.originalDescription}`.toLowerCase();
-  if (description.includes('real time payment') || description.includes(' rtp ')) return 'Real-time payment';
-  if (description.includes('ach')) return 'ACH transfer';
-  if (description.includes('wire')) return 'Wire transfer';
-  return 'Bank transfer';
-}
-
-function getPaymentSourcePalette(seed: string): { background: string; chip: string } {
-  const palettes = [
-    { background: '#243B53', chip: '#D7E3EA' }, { background: '#365B4A', chip: '#DCE8D8' },
-    { background: '#5A3E6B', chip: '#E7D9F2' }, { background: '#6B4A35', chip: '#F0D8C4' },
-  ];
-  const hash = seed.split('').reduce((value, character) => ((value << 5) - value + character.charCodeAt(0)) | 0, 0);
-  return palettes[Math.abs(hash) % palettes.length] ?? palettes[0];
-}
-
 function getPartialRuleLabel(value: string): string {
   return value.toLowerCase().replace(/'s\b/g, '').replace(/#[0-9]+/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter((token) => token && !/^[0-9]+$/.test(token)).slice(0, 2).join(' ');
 }
@@ -477,6 +489,13 @@ const styles = StyleSheet.create({
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   cardInstitution: { flex: 1, color: colors.canvas, opacity: 0.82, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17 },
   cardMask: { color: colors.canvas, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, letterSpacing: 1.1 },
+  bankReceipt: { minHeight: 112, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, padding: spacing.lg, borderWidth: 1, borderRadius: 14 },
+  bankIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  bankReceiptCopy: { flex: 1, minWidth: 0, gap: 2 },
+  bankAccountName: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  bankInstitution: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  bankRail: { marginTop: spacing.sm, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  genericAccountLabel: { marginTop: spacing.sm, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   depositReceipt: { gap: spacing.sm, padding: spacing.lg, borderWidth: 1, borderColor: colors.pine200, borderRadius: 14, backgroundColor: colors.pine50 },
   depositHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
   depositIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.canvas },
