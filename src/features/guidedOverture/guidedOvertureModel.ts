@@ -45,13 +45,13 @@ const PORTFOLIO_OFFERS: readonly GuidedOvertureOffer[] = [
     },
   },
   {
-    id: 'catch-bill',
+    id: 'review-recent-spending',
     capabilityId: 'money',
-    taskLabel: 'Catch a bill before it surprises me',
-    resultLabel: 'The higher charge is flagged before it is due.',
-    sceneLabel: 'A quiet change becomes something you can act on.',
+    taskLabel: 'Know where I stand before I spend',
+    resultLabel: 'Current spending and the household plan become one clear decision.',
+    sceneLabel: 'Recent transactions become a trustworthy choice.',
     agentOpeningQuestion:
-      'Let’s catch the surprise before it lands. Which bill or charge are you worried about?',
+      'Let’s get a trustworthy read before you decide. What spending or plan change are you considering?',
     sceneKind: 'distill',
     coverageTag: 'understand',
     icon: 'trendUp',
