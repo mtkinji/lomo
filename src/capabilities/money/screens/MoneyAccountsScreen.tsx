@@ -19,6 +19,7 @@ import {
 } from '../components/MoneyInventoryListFrame';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { syncMoneyTransactions } from '../data/moneyPlaidApi';
+import { isMoneyPlaidError } from '../data/moneyPlaidErrors';
 import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
@@ -27,6 +28,7 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 
 type AccountFilter = 'all' | 'linked' | 'needs_review';
 type AccountSort = 'name' | 'transactions_high' | 'status';
+type ConnectionTone = 'neutral' | 'success' | 'error';
 
 const FILTER_OPTIONS: Array<{ value: AccountFilter; label: string }> = [
   { value: 'all', label: 'All accounts' },
@@ -45,6 +47,8 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
   const [sort, setSort] = useState<AccountSort>('name');
   const [connectionAction, setConnectionAction] = useState<'linking' | 'syncing' | null>(null);
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
+  const [connectionTone, setConnectionTone] = useState<ConnectionTone>('neutral');
+  const [canRetryConnection, setCanRetryConnection] = useState(false);
   const accounts = snapshot?.accounts ?? [];
   const visibleAccounts = useMemo(() => sortAccounts(accounts.filter((account) => (
     filter === 'all' || (filter === 'linked' ? account.transactionCount > 0 : account.transactionCount === 0)
@@ -53,6 +57,8 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
   const connectAccount = async () => {
     if (connectionAction) return;
     setConnectionAction('linking');
+    setConnectionTone('neutral');
+    setCanRetryConnection(false);
     setConnectionMessage('Opening a secure Plaid connection…');
     try {
       const result = await startMoneyPlaidLink();
@@ -62,9 +68,12 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
       }
       await reconcileGovernedPlanFoundation();
       await reconcileLivingPlan(getSupabaseClient(), 'account_scope_changed');
+      setConnectionTone('success');
       setConnectionMessage(`${result.exchange.institutionName} connected and synced.`);
     } catch (error) {
-      setConnectionMessage(error instanceof Error ? error.message : 'The account could not be connected.');
+      setConnectionTone('error');
+      setCanRetryConnection(true);
+      setConnectionMessage(isMoneyPlaidError(error) ? error.message : 'Kwilt could not start the bank connection. Try again.');
     } finally {
       setConnectionAction(null);
     }
@@ -73,14 +82,18 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
   const syncAccounts = async () => {
     if (connectionAction) return;
     setConnectionAction('syncing');
+    setConnectionTone('neutral');
+    setCanRetryConnection(false);
     setConnectionMessage('Checking…');
     try {
       const result = await syncMoneyTransactions(getSupabaseClient());
       await reconcileGovernedPlanFoundation();
       await reconcileLivingPlan(getSupabaseClient(), 'sync_evidence_changed');
+      setConnectionTone('success');
       setConnectionMessage(result.added > 0 ? `${result.added} new ${result.added === 1 ? 'transaction' : 'transactions'}` : 'Accounts are up to date');
     } catch (error) {
-      setConnectionMessage(error instanceof Error ? error.message : 'Unable to check right now');
+      setConnectionTone('error');
+      setConnectionMessage(isMoneyPlaidError(error) ? error.message : 'Kwilt could not check the accounts. Try again.');
     } finally {
       setConnectionAction(null);
     }
@@ -120,8 +133,18 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
       >
         <View style={styles.freshnessRow}>
           <Text numberOfLines={1} style={styles.freshnessText}>{formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}</Text>
-          {connectionMessage ? <Text numberOfLines={1} style={styles.activityCheckText}>{connectionMessage}</Text> : null}
         </View>
+        {connectionMessage ? (
+          <View accessibilityLiveRegion="polite" style={[styles.connectionStatus, connectionTone === 'error' ? styles.connectionStatusError : null]}>
+            <Icon name={connectionTone === 'error' ? 'warning' : connectionTone === 'success' ? 'check' : 'refresh'} size={15} color={connectionTone === 'error' ? colors.madder700 : colors.textSecondary} />
+            <Text style={[styles.connectionStatusText, connectionTone === 'error' ? styles.connectionStatusTextError : null]}>{connectionMessage}</Text>
+            {canRetryConnection && !connectionAction ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Try connecting the account again" hitSlop={8} onPress={() => void connectAccount()} style={({ pressed }) => [styles.retryButton, pressed ? styles.retryButtonPressed : null]}>
+                <Text style={styles.retryButtonText}>Try again</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
         {visibleAccounts.length > 0 ? visibleAccounts.map((account) => (
           <AccountInventoryRow key={account.id} account={account} onPress={() => navigation.navigate('MoneyTransactions', { accountId: account.id })} />
         )) : (
@@ -198,7 +221,13 @@ const styles = StyleSheet.create({
   iconButtonDisabled: { opacity: 0.35 },
   freshnessRow: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingBottom: spacing.xs },
   freshnessText: { flexShrink: 0, ...typography.bodyXs, color: colors.textSecondary },
-  activityCheckText: { flex: 1, ...typography.bodyXs, color: colors.textSecondary, textAlign: 'right' },
+  connectionStatus: { minHeight: 38, marginBottom: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: 8, backgroundColor: colors.gray50 },
+  connectionStatusError: { backgroundColor: colors.madder50 },
+  connectionStatusText: { flex: 1, ...typography.bodyXs, color: colors.textSecondary },
+  connectionStatusTextError: { color: colors.madder800 },
+  retryButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: spacing.xs, borderRadius: 6 },
+  retryButtonPressed: { backgroundColor: colors.madder100 },
+  retryButtonText: { ...typography.bodyXs, fontFamily: fonts.bold, color: colors.madder800 },
   row: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 8, backgroundColor: colors.card },
   rowPressed: { backgroundColor: colors.gray50 },
   accountGlyph: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pine50 },

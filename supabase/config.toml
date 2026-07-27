@@ -376,6 +376,9 @@ verify_jwt = false
 [functions.agent-channel-tick]
 verify_jwt = false
 
+[functions.create-plaid-link-token]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
