@@ -12,7 +12,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient() {
+function createClient(options: { updatedRowCount?: number; rpcResult?: unknown } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -48,6 +48,7 @@ function createClient() {
         },
         order: () => query,
         limit: () => query,
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
         range: (from: number, to: number) => {
           call.ranges.push([from, to]);
           return query;
@@ -55,13 +56,18 @@ function createClient() {
         then: (
           resolve: (value: { data: unknown[]; error: null }) => unknown,
           reject?: (reason: unknown) => unknown,
-        ) => Promise.resolve({ data: [], error: null }).then(resolve, reject),
+        ) => Promise.resolve({
+          data: call.update
+            ? Array.from({ length: options.updatedRowCount ?? 1 }, (_, index) => ({ id: `updated-${index + 1}`, category_id: `updated-${index + 1}` }))
+            : [],
+          error: null,
+        }).then(resolve, reject),
       };
       return query;
     },
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
-      return Promise.resolve({ data: 'groceries-a1b2c3d4', error: null });
+      return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: null });
     },
     functions: {
       invoke(name: string, options: { body: Record<string, unknown> }) {
@@ -81,6 +87,7 @@ describe('createMoneyRepository transaction review', () => {
 
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('funding_rhythm');
+    expect(calls.find((call) => call.table === 'budget_categories')?.selected).toContain('cover_image');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
@@ -100,11 +107,11 @@ describe('createMoneyRepository transaction review', () => {
     }));
   });
 
-  it('atomically replaces stale splits when assigning one category, then reloads', async () => {
+  it('atomically assigns one category and resolves without a snapshot reload', async () => {
     const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
 
-    const snapshot = await repository.assignTransactionCategory('transaction-1', 'category-1');
+    const result = await repository.assignTransactionCategory('transaction-1', 'category-1');
 
     expect(rpcCalls).toContainEqual({
       name: 'replace_budget_transaction_review',
@@ -114,9 +121,10 @@ describe('createMoneyRepository transaction review', () => {
         p_excluded: false,
       },
     });
-    expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
-    expect(snapshot).toMatchObject({ categories: [], transactions: [], accounts: [] });
-    expect(client.auth.getUser).toHaveBeenCalledTimes(2);
+    expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(0);
+    expect(calls.filter((call) => call.table === 'budget_transactions')).toHaveLength(0);
+    expect(result).toMatchObject({ transactionId: 'transaction-1', categorySourceId: 'category-1', meaning: null });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
   });
 
   it('persists an exact split through the atomic allocation RPC, then reloads', async () => {
@@ -182,6 +190,14 @@ describe('createMoneyRepository transaction review', () => {
         budget_match_source: 'corrected',
       },
     });
+  });
+
+  it('does not report a direct transaction review as confirmed when no row was updated', async () => {
+    const { client } = createClient({ updatedRowCount: 0 });
+
+    await expect(createMoneyRepository(client).reviewTransactionMeaning('missing-transaction', {
+      meaning: 'income',
+    })).rejects.toThrow('could not confirm the transaction review');
   });
 
   it('upserts one exact merchant rule before reloading the snapshot', async () => {
@@ -256,6 +272,34 @@ describe('createMoneyRepository transaction review', () => {
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
   });
 
+  it('persists exact cover metadata through the owner-scoped RPC and returns a receipt', async () => {
+    const cover = {
+      source: 'unsplash' as const, photoId: 'housing-photo',
+      imageUrl: 'https://images.unsplash.com/photo-housing', photographerName: 'Maya Rivera',
+      photographerUrl: 'https://unsplash.com/@maya', sourceUrl: 'https://unsplash.com/photos/housing-photo',
+      color: '#315545',
+    };
+    const { client, rpcCalls } = createClient({
+      rpcResult: { category_id: 'category-1', cover, updated_at: '2026-07-27T18:00:00.000Z' },
+    });
+
+    await expect(createMoneyRepository(client).updateCategoryCover('category-1', cover)).resolves.toEqual({
+      confirmedAt: '2026-07-27T18:00:00.000Z', categoryId: 'category-1', changes: { coverImage: cover },
+    });
+    expect(rpcCalls).toEqual([{ name: 'set_budget_category_cover', args: { p_category_id: 'category-1', p_cover: cover } }]);
+  });
+
+  it('rejects invalid cover metadata before any RPC call', async () => {
+    const { client, rpcCalls } = createClient();
+
+    await expect(createMoneyRepository(client).updateCategoryCover('category-1', {
+      source: 'unsplash', photoId: 'bad', imageUrl: 'https://example.com/photo',
+      photographerName: 'Maya', photographerUrl: 'https://unsplash.com/@maya',
+      sourceUrl: 'https://unsplash.com/photos/bad', color: null,
+    })).rejects.toThrow('Unsplash image');
+    expect(rpcCalls).toEqual([]);
+  });
+
   it('updates category identity and plan settings as separate authoritative writes', async () => {
     const first = createClient();
     await createMoneyRepository(first.client).renameCategory('category-1', '  Food at home ');
@@ -316,5 +360,15 @@ describe('createMoneyRepository transaction review', () => {
         expected_need_due_month: '2026-12',
       },
     });
+  });
+
+  it('does not report category writes as confirmed when no row was updated', async () => {
+    const first = createClient({ updatedRowCount: 0 });
+    await expect(createMoneyRepository(first.client).renameCategory('missing-category', 'Food'))
+      .rejects.toThrow('could not confirm the category name');
+
+    const second = createClient({ updatedRowCount: 0 });
+    await expect(createMoneyRepository(second.client).updateCategoryPlan('missing-category', { rolloverEnabled: true }))
+      .rejects.toThrow('could not confirm the category plan');
   });
 });

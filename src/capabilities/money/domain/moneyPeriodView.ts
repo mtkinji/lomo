@@ -23,6 +23,7 @@ export type MoneyCategoryPeriodView = {
   periodElapsedPercent: number;
   category: MoneyCategory;
   transactions: MoneyTransaction[];
+  historicalTransactions: MoneyTransaction[];
 };
 
 export function projectMoneyPeriodView(
@@ -81,6 +82,7 @@ export function projectMoneyCategoryPeriodView(
     snapshot.transactions.filter((transaction) => transaction.date.startsWith(monthKey)),
     sourceCategory,
   );
+  const historicalTransactions = projectMoneyTransactionsForCategory(snapshot.transactions, sourceCategory);
 
   return {
     monthOffset,
@@ -90,6 +92,7 @@ export function projectMoneyCategoryPeriodView(
     periodElapsedPercent: period.periodElapsedPercent,
     category,
     transactions,
+    historicalTransactions,
   };
 }
 

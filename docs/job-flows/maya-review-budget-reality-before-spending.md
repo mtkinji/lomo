@@ -3,7 +3,7 @@ id: job-flow-maya-review-budget-reality-before-spending
 audience: audience-aspirational-family-organizers
 persona: Maya
 hero_jtbd: jtbd-move-the-few-things-that-matter
-last_updated: 2026-07-24
+last_updated: 2026-07-27
 ---
 
 # Maya: Review Budget Reality Before Spending
@@ -74,9 +74,11 @@ replaced with evidence from the native Kwilt capability.
 4. Summary and category detail distinguish current spending, plan amounts,
    outside-plan activity, projections, forecast ranges, confidence, and sync
    freshness.
-5. Transaction review can correct category and money meaning; category workflows
-   can create, rename, resize, roll over, preview plan impact, apply automatic
-   plans, and show reversible receipts.
+5. Transaction review can correct category and money meaning with a visible
+   per-choice pending state and a confirmed local patch before broader refresh.
+   Category workflows can create, rename, resize, roll over, preview plan
+   impact, apply automatic plans, and show reversible receipts; governed plan
+   changes accept one atomic authoritative projection before closing.
 6. Category-specific app controls use Apple's opaque Screen Time picker and
    support always-review, pace, threshold, over-plan, and needs-review policies.
 7. A shield handoff opens the relevant category review. Maya can open selected
@@ -116,8 +118,13 @@ replaced with evidence from the native Kwilt capability.
 Current scores are based on source inspection, automated contracts, successful
 local verification, a successful generated iOS workspace build, and authenticated
 simulator proof for mixed-category transaction persistence and reconciliation.
-They do not claim physical-device, installed TestFlight, live Plaid OAuth, widget
-refresh, Screen Time enforcement, statement-cycle, or longitudinal household proof.
+The 2026-07-27 refinement additionally proves in the authenticated simulator
+that checking-account payments use an account-transfer surface, the category
+picker separates category assignment from Internal transfer and Outside the
+plan, and an unchanged settings save falls in the `under_250ms` telemetry
+bucket. It does not claim a repeated p50/p95 sample, physical-device haptics,
+installed TestFlight, live Plaid OAuth, widget refresh, Screen Time enforcement,
+statement-cycle, or longitudinal household proof.
 
 ## Gaps
 

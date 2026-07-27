@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
+import { validateMoneyCategoryCover, type MoneyCategoryCover } from '../domain/moneyCategoryCover';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
 import { CATEGORY_FUNDING_POLICY_VERSION, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import { collectAllPages } from '../domain/living-plan-pagination';
@@ -26,6 +27,7 @@ import {
   type TransactionMeaningReviewInput,
   type TransactionReviewUpdate,
 } from './moneyMutations';
+import { loadMoneyPlanProjection } from './moneyPlanProjection';
 
 type ReadResult = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -46,11 +48,33 @@ type MoneyReadClient = {
   rpc(name: string, args: Record<string, unknown>): PromiseLike<ReadResult>;
 };
 
+export type ConfirmedTransactionWrite = {
+  confirmedAt: string;
+  transactionId: string;
+  categorySourceId: string | null;
+  meaning: TransactionMeaningReviewInput['meaning'] | null;
+  reviewState: 'assigned' | 'not_counted';
+};
+
+export type ConfirmedCategoryWrite = {
+  confirmedAt: string;
+  categoryId: string;
+  changes: {
+    name?: string;
+    rolloverEnabled?: boolean;
+    forecastMode?: MoneyForecastMode;
+    manualProjectedSpendCents?: number | null;
+    scheduledAmountCents?: number | null;
+    scheduledDueDay?: number | null;
+    coverImage?: MoneyCategoryCover | null;
+  };
+};
+
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
   ensureGovernedPlanFoundation(): Promise<void>;
-  assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
-  markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
+  assignTransactionCategory(transactionId: string, categoryId: string): Promise<ConfirmedTransactionWrite>;
+  markTransactionNotCounted(transactionId: string): Promise<ConfirmedTransactionWrite>;
   splitTransaction(input: {
     transactionId: string;
     transactionAmountCents: number;
@@ -58,7 +82,7 @@ export interface MoneyRepository {
     pending: boolean;
     allocations: TransactionAllocationInput[];
   }): Promise<MoneySnapshot>;
-  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<MoneySnapshot>;
+  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<ConfirmedTransactionWrite>;
   saveMerchantRule(input: {
     transactionId: string;
     merchantName: string;
@@ -68,7 +92,8 @@ export interface MoneyRepository {
     similarTransactionIds?: string[];
   }): Promise<MoneySnapshot>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
-  renameCategory(categoryId: string, name: string): Promise<MoneySnapshot>;
+  renameCategory(categoryId: string, name: string): Promise<ConfirmedCategoryWrite>;
+  updateCategoryCover(categoryId: string, cover: MoneyCategoryCover | null): Promise<ConfirmedCategoryWrite>;
   updateCategoryPlan(categoryId: string, input: {
     budgetCents?: number;
     rolloverEnabled?: boolean;
@@ -79,7 +104,7 @@ export interface MoneyRepository {
     fundingRhythm?: CategoryFundingRhythm;
     expectedNeedCents?: number | null;
     expectedNeedDueMonth?: string | null;
-  }): Promise<MoneySnapshot>;
+  }): Promise<ConfirmedCategoryWrite>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -88,12 +113,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
     const db = client as unknown as MoneyReadClient;
     const [categories, plans, connections, accounts, rules, allocations, transactions] = await Promise.all([
-      readPart<MoneyCategoryRow[]>('categories',
-        db
-          .from('budget_categories')
-          .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
-          .eq('status', 'active')
-          .order('sort_order', { ascending: true })),
+      readCategoryRows(db),
       readPlanRows(db),
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
@@ -155,7 +175,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       ),
     ]);
 
-    return projectMoneySnapshot({
+    const snapshot = projectMoneySnapshot({
       categories,
       plans,
       connections,
@@ -164,25 +184,35 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       allocations,
       transactions,
     });
+    const projection = await loadMoneyPlanProjection(client, snapshot);
+    return projection?.snapshot ?? snapshot;
   };
 
   const reviewTransaction = async (
     transactionId: string,
     update: TransactionReviewUpdate,
-  ): Promise<MoneySnapshot> => {
+  ): Promise<ConfirmedTransactionWrite> => {
     const normalizedTransactionId = transactionId.trim();
     if (!normalizedTransactionId) throw new Error('Choose a transaction to review.');
     await requireSignedIn(client);
 
     const db = client as unknown as MoneyReadClient;
-    await readPart<unknown[]>(
+    const updatedRows = await readPart<Array<{ id: string }>>(
       'transaction review',
       db
         .from('budget_transactions')
         .update(update)
-        .eq('id', normalizedTransactionId),
+        .eq('id', normalizedTransactionId)
+        .select('id'),
     );
-    return loadSnapshot();
+    requireConfirmedRows('transaction review', updatedRows, 1);
+    return {
+      confirmedAt: new Date().toISOString(),
+      transactionId: normalizedTransactionId,
+      categorySourceId: update.budget_id,
+      meaning: update.money_meaning ?? null,
+      reviewState: update.budget_match_source === 'excluded' ? 'not_counted' : 'assigned',
+    };
   };
 
   const replaceTransactionReview = async (
@@ -203,10 +233,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     if (!isMissingRpcError(error, 'replace_budget_transaction_review')) {
       throw new Error(`Money could not save the transaction review: ${error.message || 'Unknown database error'}`);
     }
-    await readPart<unknown[]>('transaction review', db
+    const updatedRows = await readPart<Array<{ id: string }>>('transaction review', db
       .from('budget_transactions')
       .update(update)
-      .in('id', normalizedIds));
+      .in('id', normalizedIds)
+      .select('id'));
+    requireConfirmedRows('transaction review', updatedRows, normalizedIds.length);
   };
 
   return {
@@ -222,11 +254,23 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     },
     async assignTransactionCategory(transactionId, categoryId) {
       await replaceTransactionReview([transactionId], { type: 'category', categoryId });
-      return loadSnapshot();
+      return {
+        confirmedAt: new Date().toISOString(),
+        transactionId: transactionId.trim(),
+        categorySourceId: categoryId.trim(),
+        meaning: null,
+        reviewState: 'assigned',
+      };
     },
     async markTransactionNotCounted(transactionId) {
       await replaceTransactionReview([transactionId], { type: 'not_counted' });
-      return loadSnapshot();
+      return {
+        confirmedAt: new Date().toISOString(),
+        transactionId: transactionId.trim(),
+        categorySourceId: null,
+        meaning: 'not_counted',
+        reviewState: 'not_counted',
+      };
     },
     async splitTransaction(input) {
       const transactionId = input.transactionId.trim();
@@ -282,11 +326,35 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (!normalizedName) throw new Error('Enter a category name.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      await readPart<unknown[]>('category name', db
+      const updatedRows = await readPart<Array<{ id: string }>>('category name', db
         .from('budget_categories')
         .update({ name: normalizedName })
-        .eq('id', normalizedCategoryId));
-      return loadSnapshot();
+        .eq('id', normalizedCategoryId)
+        .select('id'));
+      requireConfirmedRows('category name', updatedRows, 1);
+      return {
+        confirmedAt: new Date().toISOString(),
+        categoryId: normalizedCategoryId,
+        changes: { name: normalizedName },
+      };
+    },
+    async updateCategoryCover(categoryId, cover) {
+      const normalizedCategoryId = categoryId.trim();
+      if (!normalizedCategoryId) throw new Error('Choose a category cover to update.');
+      const normalizedCover = validateMoneyCategoryCover(cover);
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { data, error } = await db.rpc('set_budget_category_cover', {
+        p_category_id: normalizedCategoryId,
+        p_cover: normalizedCover,
+      });
+      if (error) throw new Error(`Money could not save the category cover: ${error.message || 'Unknown database error'}`);
+      const receipt = requireCategoryCoverReceipt(data, normalizedCategoryId, normalizedCover);
+      return {
+        confirmedAt: receipt.confirmedAt,
+        categoryId: normalizedCategoryId,
+        changes: { coverImage: normalizedCover },
+      };
     },
     async updateCategoryPlan(categoryId, input) {
       const normalizedCategoryId = categoryId.trim();
@@ -342,11 +410,23 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (Object.keys(update).length === 0) throw new Error('Choose a category plan change.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      await readPart<unknown[]>('category plan', db
+      const updatedRows = await readPart<Array<{ category_id: string }>>('category plan', db
         .from('budget_plans')
         .update(update)
-        .eq('category_id', normalizedCategoryId));
-      return loadSnapshot();
+        .eq('category_id', normalizedCategoryId)
+        .select('category_id'));
+      requireConfirmedRows('category plan', updatedRows, 1);
+      return {
+        confirmedAt: new Date().toISOString(),
+        categoryId: normalizedCategoryId,
+        changes: {
+          ...(input.rolloverEnabled != null ? { rolloverEnabled: input.rolloverEnabled } : null),
+          ...(input.forecastMode != null ? { forecastMode: input.forecastMode } : null),
+          ...('manualProjectedSpendCents' in input ? { manualProjectedSpendCents: input.manualProjectedSpendCents ?? null } : null),
+          ...('scheduledAmountCents' in input ? { scheduledAmountCents: input.scheduledAmountCents ?? null } : null),
+          ...('scheduledDueDay' in input ? { scheduledDueDay: input.scheduledDueDay ?? null } : null),
+        },
+      };
     },
   };
 }
@@ -375,6 +455,29 @@ function validateNullableCents(value: number | null | undefined, label: string) 
   }
 }
 
+function requireCategoryCoverReceipt(
+  value: unknown,
+  categoryId: string,
+  cover: MoneyCategoryCover | null,
+): { confirmedAt: string } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Money could not confirm the category cover. Refresh and try again.');
+  }
+  const receipt = value as Record<string, unknown>;
+  const confirmedCover = validateMoneyCategoryCover(receipt.cover);
+  const confirmedAt = typeof receipt.updated_at === 'string' ? receipt.updated_at : '';
+  if (receipt.category_id !== categoryId || JSON.stringify(confirmedCover) !== JSON.stringify(cover) || !Number.isFinite(Date.parse(confirmedAt))) {
+    throw new Error('Money could not confirm the category cover. Refresh and try again.');
+  }
+  return { confirmedAt };
+}
+
+function requireConfirmedRows(label: string, rows: unknown[], expectedCount: number): void {
+  if (rows.length !== expectedCount) {
+    throw new Error(`Money could not confirm the ${label}. Refresh and try again.`);
+  }
+}
+
 async function requireSignedIn(client: SupabaseClient): Promise<string> {
   const { data: userData, error: userError } = await client.auth.getUser();
   if (userError) throw new Error(userError.message);
@@ -386,6 +489,29 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
   const { data, error } = await query;
   if (error) throw new Error(`Money could not read ${label}: ${error.message || 'Unknown database error'}`);
   return (data ?? []) as T;
+}
+
+async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
+  const withCover = await db
+    .from('budget_categories')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true });
+  if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];
+  if (!isMissingCoverColumnError(withCover.error)) {
+    throw new Error(`Money could not read categories: ${withCover.error.message || 'Unknown database error'}`);
+  }
+  return readPart<MoneyCategoryRow[]>('categories', db
+    .from('budget_categories')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true }));
+}
+
+function isMissingCoverColumnError(error: NonNullable<ReadResult['error']>): boolean {
+  return error.code === '42703'
+    || error.code === 'PGRST204'
+    || error.message?.includes('cover_image') === true;
 }
 
 async function readOptionalAllocations(query: PromiseLike<ReadResult>): Promise<MoneyTransactionAllocationRow[]> {

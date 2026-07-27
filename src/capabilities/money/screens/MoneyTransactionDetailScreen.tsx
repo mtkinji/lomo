@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
@@ -8,18 +8,23 @@ import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { AppShell } from '../../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplitDrawer';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
+import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
+import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
 import {
   captureTransactionSplitOutcome,
   captureTransactionSplitStarted,
 } from '../runtime/transactionTruthAnalytics';
+import { captureMoneyMutation, type MoneyMutationOperation } from '../runtime/moneyMutationTelemetry';
+import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 
 type RuleMatchMode = 'exact' | 'partial';
 
@@ -47,6 +52,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [pendingChoice, setPendingChoice] = useState<string | null>(null);
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
   const categories = snapshot?.categories ?? [];
   const currentCategory = transaction?.categoryId
@@ -60,22 +66,35 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     ? getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode)
     : [], [ruleMode, snapshot?.transactions, transaction]);
 
-  const runReview = async (mutation: () => Promise<void>) => {
+  const runReview = async (mutation: () => Promise<void>, operation?: MoneyMutationOperation) => {
+    const startedAtMs = Date.now();
     setReviewError(null);
     try {
       await mutation();
+      if (operation) {
+        captureMoneyMutation(capture, { operation, outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
+        signalMoneyMutationOutcome('succeeded');
+      }
       return true;
     } catch (error) {
       setReviewError(error instanceof Error ? error.message : 'This transaction could not be updated.');
+      if (operation) {
+        captureMoneyMutation(capture, { operation, outcome: 'failed', durationMs: Date.now() - startedAtMs });
+        signalMoneyMutationOutcome('failed');
+      }
       return false;
     }
   };
 
   const selectCategory = async (category: MoneyCategory) => {
     if (!transaction) return;
+    const choice = `category:${category.sourceId}`;
+    signalMoneyChoice();
+    setPendingChoice(choice);
     const changed = await runReview(() => transaction.direction === 'inflow'
       ? reviewTransactionMeaning(transaction.id, { meaning: 'category_credit', categoryId: category.sourceId })
-      : assignTransactionCategory(transaction.id, category.sourceId));
+      : assignTransactionCategory(transaction.id, category.sourceId), 'transaction_category');
+    setPendingChoice(null);
     if (!changed) return;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
@@ -86,7 +105,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
   const selectMeaning = async (meaning: 'income' | 'transfer' | 'not_counted') => {
     if (!transaction) return;
-    const changed = await runReview(() => reviewTransactionMeaning(transaction.id, { meaning }));
+    const choice = `meaning:${meaning}`;
+    signalMoneyChoice();
+    setPendingChoice(choice);
+    const changed = await runReview(() => transaction.direction === 'outflow' && meaning === 'not_counted'
+      ? markTransactionNotCounted(transaction.id)
+      : reviewTransactionMeaning(transaction.id, { meaning }), 'transaction_meaning');
+    setPendingChoice(null);
     if (changed) {
       setCategoryPickerOpen(false);
       setCategoryQuery('');
@@ -216,7 +241,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
             >
               <View style={styles.categoryFieldCopy}>
-                <View style={[styles.categoryDot, { backgroundColor: currentCategory?.accentColor ?? colors.gray300 }]} />
                 <Text numberOfLines={1} style={[styles.categoryFieldText, !relationLabel ? styles.categoryPlaceholder : null]}>{relationLabel ?? 'Choose category'}</Text>
               </View>
               <Icon name="chevronsUpDown" size={18} color={colors.textSecondary} />
@@ -250,44 +274,56 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
       <BottomDrawer visible={categoryPickerOpen} onClose={() => { setCategoryPickerOpen(false); setCreatingCategory(false); }} snapPoints={['78%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>CATEGORY</Text>
-              <Text style={styles.drawerTitle}>Where does this belong?</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close category picker" onPress={() => setCategoryPickerOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
-          <Input label="Search categories" value={categoryQuery} onChangeText={setCategoryQuery} />
-
-          {transaction.direction === 'inflow' ? (
-            <View style={styles.commandGroup}>
-              <CategoryCommand icon="arrowDown" label="Income" detail="Available to fund the plan" selected={transaction.moneyMeaning === 'income'} onPress={() => void selectMeaning('income')} />
-              <CategoryCommand icon="refresh" label="Internal transfer" detail="Money moved between your accounts" selected={transaction.moneyMeaning === 'transfer'} onPress={() => void selectMeaning('transfer')} />
-            </View>
-          ) : null}
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close category picker"
+            onClose={() => setCategoryPickerOpen(false)}
+            title="Where does this belong?"
+            titleVariant="lg"
+            variant="withClose"
+          />
+          <Input
+            accessibilityLabel="Search categories"
+            autoCapitalize="none"
+            elevation="flat"
+            leadingIcon="search"
+            placeholder="Search categories"
+            returnKeyType="search"
+            size="sm"
+            variant="filled"
+            value={categoryQuery}
+            onChangeText={setCategoryQuery}
+          />
 
           <View style={styles.categoryList}>
             {filteredCategories.map((category) => (
-              <Pressable key={category.sourceId} accessibilityRole="button" accessibilityLabel={`Choose ${category.name}`} disabled={saving} onPress={() => void selectCategory(category)} style={({ pressed }) => [styles.categoryRow, pressed ? styles.pressed : null]}>
-                <View style={[styles.categoryIcon, { backgroundColor: `${category.accentColor}18` }]}><View style={[styles.categoryDotLarge, { backgroundColor: category.accentColor }]} /></View>
+              <Pressable key={category.sourceId} accessibilityRole="button" accessibilityLabel={`Choose ${category.name}`} disabled={pendingChoice !== null} onPress={() => void selectCategory(category)} style={({ pressed }) => [styles.categoryRow, pressed ? styles.pressed : null]}>
                 <View style={styles.categoryRowCopy}>
                   <Text style={styles.categoryRowTitle}>{category.name}</Text>
                   <Text style={styles.categoryRowMeta}>{formatMoney(category.remainingCents)} left</Text>
                 </View>
-                {transaction.categoryId === category.id ? <Icon name="check" size={18} color={colors.pine700} /> : <Icon name="chevronRight" size={18} color={colors.gray400} />}
+                {pendingChoice === `category:${category.sourceId}` ? <ActivityIndicator color={colors.pine700} /> : transaction.categoryId === category.id ? <Icon name="check" size={18} color={colors.pine700} /> : <Icon name="chevronRight" size={18} color={colors.gray400} />}
               </Pressable>
             ))}
+            {filteredCategories.length === 0 ? (
+              <Text accessibilityLiveRegion="polite" style={styles.emptySearchText}>No categories match “{categoryQuery.trim()}”</Text>
+            ) : null}
           </View>
 
-          <CategoryCommand
-            icon="close"
-            label="No budget category"
-            detail="Keep this outside the monthly plan"
-            selected={transaction.reviewState === 'not_counted'}
-            onPress={() => void (transaction.direction === 'inflow' ? selectMeaning('not_counted') : runReview(() => markTransactionNotCounted(transaction.id)).then((changed) => changed && setCategoryPickerOpen(false)))}
-          />
+          <View style={styles.meaningSection}>
+            <Text style={styles.secondarySectionLabel}>OTHER MONEY MOVEMENT</Text>
+            {getTransactionMeaningOptions(transaction.direction).map((option) => (
+              <CategoryCommand
+                key={option.meaning}
+                detail={option.detail}
+                icon={getMeaningIcon(option.meaning)}
+                label={option.label}
+                selected={transaction.moneyMeaning === option.meaning || (option.meaning === 'not_counted' && transaction.reviewState === 'not_counted')}
+                disabled={pendingChoice !== null}
+                pending={pendingChoice === `meaning:${option.meaning}`}
+                onPress={() => void selectMeaning(option.meaning)}
+              />
+            ))}
+          </View>
 
           {creatingCategory ? (
             <View style={styles.createPanel}>
@@ -309,15 +345,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
       <BottomDrawer visible={Boolean(pendingRuleCategory)} onClose={() => setPendingRuleCategory(null)} snapPoints={['88%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>FUTURE MATCHES</Text>
-              <Text style={styles.drawerTitle}>Rule for {pendingRuleCategory?.name}</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close merchant rule" onPress={() => setPendingRuleCategory(null)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close merchant rule"
+            onClose={() => setPendingRuleCategory(null)}
+            title={`Rule for ${pendingRuleCategory?.name ?? 'category'}`}
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Text style={styles.drawerCopy}>Match future {transaction.merchantName} charges and update the visible matching transactions below.</Text>
           <View style={styles.ruleModeRow}>
             <RuleModeButton active={ruleMode === 'exact'} label="Exact match" onPress={() => setRuleMode('exact')} />
@@ -355,29 +389,64 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 }
 
 function PaymentSourceCard({ transaction }: { transaction: MoneyTransaction }) {
-  const isDeposit = transaction.direction === 'inflow';
+  const presentation = getPaymentSourcePresentation(transaction);
   const cardName = transaction.accountName.replace(/\b(visa|mastercard|amex|american express|card)\b/gi, '').replace(/\s+/g, ' ').trim() || transaction.accountName;
-  const palette = getPaymentSourcePalette(transaction.accountId ?? transaction.accountName);
   return (
     <View style={styles.sourceCard}>
       <View style={styles.sourceDescriptionBlock}>
         <Text style={styles.sourceDescriptionLabel}>Description</Text>
         <Text selectable numberOfLines={2} style={styles.sourceDescription}>{transaction.originalDescription ?? transaction.merchantName}</Text>
       </View>
-      {isDeposit ? (
-        <View style={styles.depositReceipt}>
-          <View style={styles.depositHeader}><View style={styles.depositIcon}><Icon name="landmark" size={16} color={colors.pine700} /></View><Text style={styles.depositTitle}>Deposit received</Text></View>
+      {presentation.kind === 'deposit' ? (
+        <View style={[styles.depositReceipt, { borderColor: presentation.palette.primary, backgroundColor: presentation.palette.soft }]}>
+          <View style={styles.depositHeader}><View style={styles.depositIcon}><Icon name="landmark" size={16} color={presentation.palette.primary} /></View><Text style={styles.depositTitle}>Deposit received</Text></View>
           <ReceiptRow label="From" value={transaction.merchantName} />
           <ReceiptRow label="To" value={transaction.institutionName || transaction.accountName} />
-          <ReceiptRow label="Rail" value={getTransferRailLabel(transaction)} />
+          <ReceiptRow label="Rail" value={presentation.railLabel} />
         </View>
+      ) : presentation.kind === 'credit_card' || presentation.kind === 'debit_card' ? (
+        <CardPaymentSource cardName={cardName} palette={presentation.palette} transaction={transaction} />
+      ) : presentation.kind === 'bank_account' ? (
+        <BankPaymentSource palette={presentation.palette} railLabel={presentation.railLabel} transaction={transaction} />
       ) : (
-        <View style={[styles.paymentCard, { backgroundColor: palette.background }]}>
-          <View style={styles.cardTopRow}><View style={[styles.cardChip, { backgroundColor: palette.chip }]} /><Icon name={getPaymentSourceKind(transaction) === 'Bank account' ? 'landmark' : 'creditCard'} size={16} color={colors.canvas} /></View>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={styles.cardName}>{cardName}</Text>
-          <View style={styles.cardBottomRow}><Text numberOfLines={1} style={styles.cardInstitution}>{transaction.institutionName}</Text><Text style={styles.cardMask}>•••• {transaction.accountMask ?? '----'}</Text></View>
-        </View>
+        <GenericAccountSource palette={presentation.palette} transaction={transaction} />
       )}
+    </View>
+  );
+}
+
+function CardPaymentSource({ cardName, palette, transaction }: { cardName: string; palette: InstitutionPalette; transaction: MoneyTransaction }) {
+  return (
+    <View style={[styles.paymentCard, { backgroundColor: palette.primary }]}>
+      <View style={styles.cardTopRow}><View style={[styles.cardChip, { backgroundColor: palette.soft }]} /><Icon name="creditCard" size={16} color={palette.foreground} /></View>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={[styles.cardName, { color: palette.foreground }]}>{cardName}</Text>
+      <View style={styles.cardBottomRow}><Text numberOfLines={1} style={[styles.cardInstitution, { color: palette.foreground }]}>{transaction.institutionName}</Text><Text style={[styles.cardMask, { color: palette.foreground }]}>•••• {transaction.accountMask ?? '----'}</Text></View>
+    </View>
+  );
+}
+
+function BankPaymentSource({ palette, railLabel, transaction }: { palette: InstitutionPalette; railLabel: string; transaction: MoneyTransaction }) {
+  return (
+    <View style={[styles.bankReceipt, { borderColor: palette.primary, backgroundColor: palette.soft }]}>
+      <View style={[styles.bankIcon, { backgroundColor: palette.primary }]}><Icon name="landmark" size={18} color={palette.foreground} /></View>
+      <View style={styles.bankReceiptCopy}>
+        <Text numberOfLines={1} style={styles.bankAccountName}>{transaction.accountName}</Text>
+        <Text numberOfLines={1} style={styles.bankInstitution}>{transaction.institutionName}{transaction.accountMask ? ` · •••• ${transaction.accountMask}` : ''}</Text>
+        <Text style={[styles.bankRail, { color: palette.primary }]}>{railLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
+function GenericAccountSource({ palette, transaction }: { palette: InstitutionPalette; transaction: MoneyTransaction }) {
+  return (
+    <View style={[styles.bankReceipt, { borderColor: colors.cardBorder, backgroundColor: colors.gray50 }]}>
+      <View style={[styles.bankIcon, { backgroundColor: palette.primary }]}><Icon name="receipt" size={18} color={palette.foreground} /></View>
+      <View style={styles.bankReceiptCopy}>
+        <Text numberOfLines={1} style={styles.bankAccountName}>{transaction.accountName}</Text>
+        <Text numberOfLines={1} style={styles.bankInstitution}>{transaction.institutionName}{transaction.accountMask ? ` · •••• ${transaction.accountMask}` : ''}</Text>
+        <Text style={styles.genericAccountLabel}>Account activity</Text>
+      </View>
     </View>
   );
 }
@@ -386,8 +455,14 @@ function ReceiptRow({ label, value }: { label: string; value: string }) {
   return <View style={styles.receiptRow}><Text style={styles.receiptLabel}>{label}</Text><Text numberOfLines={1} style={styles.receiptValue}>{value}</Text></View>;
 }
 
-function CategoryCommand({ detail, icon, label, onPress, selected }: { detail: string; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; selected: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+function CategoryCommand({ detail, disabled, icon, label, onPress, pending, selected }: { detail: string; disabled: boolean; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; pending: boolean; selected: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityHint={detail} accessibilityState={{ disabled, selected, busy: pending }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+}
+
+function getMeaningIcon(meaning: TransactionMeaningOption['meaning']): 'arrowDown' | 'refresh' | 'close' {
+  if (meaning === 'income') return 'arrowDown';
+  if (meaning === 'transfer') return 'refresh';
+  return 'close';
 }
 
 function RuleModeButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
@@ -399,32 +474,8 @@ function getCategoryRelationLabel(transaction: MoneyTransaction, category?: Mone
   if (category) return category.name;
   if (transaction.moneyMeaning === 'income') return 'Income';
   if (transaction.moneyMeaning === 'transfer') return 'Internal transfer';
-  if (transaction.reviewState === 'not_counted') return 'No budget category';
+  if (transaction.reviewState === 'not_counted' || transaction.moneyMeaning === 'not_counted') return 'Outside the plan';
   return null;
-}
-
-function getPaymentSourceKind(transaction: MoneyTransaction): string {
-  const type = `${transaction.accountType ?? ''} ${transaction.accountSubtype ?? ''} ${transaction.accountName}`.toLowerCase();
-  if (type.includes('credit')) return 'Credit card';
-  if (type.includes('depository') || type.includes('checking') || type.includes('savings')) return 'Bank account';
-  return 'Card';
-}
-
-function getTransferRailLabel(transaction: MoneyTransaction): string {
-  const description = `${transaction.merchantName} ${transaction.originalDescription}`.toLowerCase();
-  if (description.includes('real time payment') || description.includes(' rtp ')) return 'Real-time payment';
-  if (description.includes('ach')) return 'ACH transfer';
-  if (description.includes('wire')) return 'Wire transfer';
-  return 'Bank transfer';
-}
-
-function getPaymentSourcePalette(seed: string): { background: string; chip: string } {
-  const palettes = [
-    { background: '#243B53', chip: '#D7E3EA' }, { background: '#365B4A', chip: '#DCE8D8' },
-    { background: '#5A3E6B', chip: '#E7D9F2' }, { background: '#6B4A35', chip: '#F0D8C4' },
-  ];
-  const hash = seed.split('').reduce((value, character) => ((value << 5) - value + character.charCodeAt(0)) | 0, 0);
-  return palettes[Math.abs(hash) % palettes.length] ?? palettes[0];
 }
 
 function getPartialRuleLabel(value: string): string {
@@ -456,6 +507,13 @@ const styles = StyleSheet.create({
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   cardInstitution: { flex: 1, color: colors.canvas, opacity: 0.82, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17 },
   cardMask: { color: colors.canvas, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, letterSpacing: 1.1 },
+  bankReceipt: { minHeight: 112, flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, padding: spacing.lg, borderWidth: 1, borderRadius: 14 },
+  bankIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  bankReceiptCopy: { flex: 1, minWidth: 0, gap: 2 },
+  bankAccountName: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  bankInstitution: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  bankRail: { marginTop: spacing.sm, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  genericAccountLabel: { marginTop: spacing.sm, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   depositReceipt: { gap: spacing.sm, padding: spacing.lg, borderWidth: 1, borderColor: colors.pine200, borderRadius: 14, backgroundColor: colors.pine50 },
   depositHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
   depositIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.canvas },
@@ -466,8 +524,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.md, paddingBottom: spacing.xl },
   sectionLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.7 },
   categoryField: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, paddingHorizontal: spacing.lg, backgroundColor: colors.card },
-  categoryFieldCopy: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  categoryDot: { width: 10, height: 10, borderRadius: 999 },
+  categoryFieldCopy: { minWidth: 0, flex: 1 },
   categoryFieldText: { minWidth: 0, flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   categoryPlaceholder: { color: colors.textSecondary },
   ruleReceipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
@@ -478,12 +535,9 @@ const styles = StyleSheet.create({
   splitReceiptLabel: { flex: 1, color: colors.textPrimary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   splitReceiptAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 64 },
-  drawerHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  drawerEyebrow: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },
-  drawerTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 24, lineHeight: 29, fontWeight: '700' },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
-  closeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.gray100 },
-  commandGroup: { gap: spacing.xs },
+  meaningSection: { gap: spacing.xs },
+  secondarySectionLabel: { marginTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   commandRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   commandSelected: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
   commandIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.gray50 },
@@ -492,11 +546,10 @@ const styles = StyleSheet.create({
   commandDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   categoryList: { gap: 2 },
   categoryRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.cardBorder, paddingVertical: spacing.sm },
-  categoryIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
-  categoryDotLarge: { width: 13, height: 13, borderRadius: 999 },
   categoryRowCopy: { flex: 1, minWidth: 0 },
   categoryRowTitle: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, fontWeight: '500' },
   categoryRowMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  emptySearchText: { paddingVertical: spacing.md, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   createCommand: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.md },
   createCommandText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600' },
   createPanel: { gap: spacing.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 14, backgroundColor: colors.gray50 },

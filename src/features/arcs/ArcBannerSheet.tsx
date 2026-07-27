@@ -66,10 +66,23 @@ export type ArcBannerSheetProps = {
   presentation?: 'modal' | 'inline';
   hideBackdrop?: boolean;
   scrimToken?: ScrimToken;
+  /**
+   * Override the legacy "{objectLabel} Banner" heading for consumers whose
+   * product vocabulary uses "cover" instead.
+   */
+  title?: string;
+  /**
+   * Limit the established cover manager to sources the owning data model can
+   * persist. Defaults to Kwilt's complete Curated/Search/Upload system.
+   */
+  sourceTabs?: readonly HeroImageSourceTab[];
+  /** User-facing noun used by destructive confirmation copy. */
+  imageLabel?: string;
 };
 
-type HeroImageSourceTab = 'curated' | 'unsplash' | 'upload';
+export type HeroImageSourceTab = 'curated' | 'unsplash' | 'upload';
 const DEFAULT_SOURCE_TAB: HeroImageSourceTab = 'unsplash';
+const DEFAULT_SOURCE_TABS: readonly HeroImageSourceTab[] = ['curated', 'unsplash', 'upload'];
 
 function hashSearchQuery(value: string): string {
   let hash = 5381;
@@ -107,13 +120,19 @@ export function ArcBannerSheet({
   presentation,
   hideBackdrop,
   scrimToken,
+  title,
+  sourceTabs = DEFAULT_SOURCE_TABS,
+  imageLabel = 'banner image',
 }: ArcBannerSheetProps) {
   const shouldShowTopography = showTopography && !thumbnailUrl;
   const shouldShowGeoMosaic = showGeoMosaic && !thumbnailUrl;
   const showRefreshAction = !thumbnailUrl;
   const imageSearchObjectKind = objectKind ?? 'arc';
 
-  const defaultTab: HeroImageSourceTab = canUseUnsplash ? DEFAULT_SOURCE_TAB : 'curated';
+  const availableSourceTabs = sourceTabs.length > 0 ? sourceTabs : DEFAULT_SOURCE_TABS;
+  const defaultTab: HeroImageSourceTab = canUseUnsplash && availableSourceTabs.includes(DEFAULT_SOURCE_TAB)
+    ? DEFAULT_SOURCE_TAB
+    : availableSourceTabs[0] ?? 'curated';
   const [sourceTab, setSourceTab] = useState<HeroImageSourceTab>(defaultTab);
   const [unsplashQuery, setUnsplashQuery] = useState('');
   const [unsplashLoading, setUnsplashLoading] = useState(false);
@@ -336,7 +355,7 @@ export function ArcBannerSheet({
   const handleRemove = useCallback(() => {
     if (!hasHero || loading) return;
     const objectLower = objectLabel.toLowerCase();
-    Alert.alert('Remove banner image?', `This will remove the current image for this ${objectLower}.`, [
+    Alert.alert(`Remove ${imageLabel}?`, `This will remove the current image for this ${objectLower}.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -344,7 +363,7 @@ export function ArcBannerSheet({
         onPress: onRemove,
       },
     ]);
-  }, [hasHero, loading, objectLabel, onRemove]);
+  }, [hasHero, imageLabel, loading, objectLabel, onRemove]);
 
   return (
     <BottomDrawer
@@ -358,25 +377,30 @@ export function ArcBannerSheet({
       <View style={styles.heroModalContainer}>
         <View style={styles.modalContent}>
           <Heading style={[styles.modalTitle, { marginBottom: spacing.md }]}>
-            {objectLabel} Banner
+            {title ?? `${objectLabel} Banner`}
           </Heading>
-          <SegmentedControl<HeroImageSourceTab>
-            value={sourceTab}
-            onChange={(next) => {
-              if (next === 'unsplash' && !canUseUnsplash) {
-                onRequestUpgrade?.();
-                setSourceTab('curated');
-                return;
-              }
-              setSourceTab(next);
-            }}
-            options={[
-              { value: 'curated', label: 'Curated' },
-              { value: 'unsplash', label: canUseUnsplash ? 'Search' : 'Search · Pro' },
-              { value: 'upload', label: 'Upload' },
-            ]}
-            style={styles.heroModalSourceTabs}
-          />
+          {availableSourceTabs.length > 1 ? (
+            <SegmentedControl<HeroImageSourceTab>
+              value={sourceTab}
+              onChange={(next) => {
+                if (next === 'unsplash' && !canUseUnsplash) {
+                  onRequestUpgrade?.();
+                  setSourceTab(availableSourceTabs[0] ?? 'curated');
+                  return;
+                }
+                setSourceTab(next);
+              }}
+              options={availableSourceTabs.map((value) => ({
+                value,
+                label: value === 'curated'
+                  ? 'Curated'
+                  : value === 'unsplash'
+                    ? (canUseUnsplash ? 'Search' : 'Search · Pro')
+                    : 'Upload',
+              }))}
+              style={styles.heroModalSourceTabs}
+            />
+          ) : null}
 
           <View style={styles.heroModalCard}>
             <KeyboardAwareScrollView
@@ -486,7 +510,7 @@ export function ArcBannerSheet({
                   </View>
                 </View>
 
-                {(sourceTab === 'upload' || error) && (
+                {(sourceTab === 'upload' || (availableSourceTabs.length === 1 && hasHero) || error) && (
                   <View style={styles.heroModalControls}>
                     {sourceTab === 'upload' && (
                       <>
@@ -562,6 +586,21 @@ export function ArcBannerSheet({
                         </View>
                       </>
                     )}
+                    {sourceTab !== 'upload' && hasHero ? (
+                      <View style={styles.heroModalAction}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={loading}
+                          onPress={handleRemove}
+                          style={styles.heroModalActionButton}
+                          accessibilityLabel="Remove image"
+                        >
+                          <Icon name="trash" size={20} color={colors.destructive} />
+                        </Button>
+                        <Text style={[styles.heroModalActionLabel, { color: colors.destructive }]}>Remove</Text>
+                      </View>
+                    ) : null}
                     {error ? <Text style={styles.errorText}>{error}</Text> : null}
                   </View>
                 )}

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { FunctionsHttpError, type SupabaseClient } from '@supabase/supabase-js';
 import { createMoneyPlaidLinkToken, exchangeMoneyPlaidToken, syncMoneyTransactions } from './moneyPlaidApi';
 
 function clientWith(dataByFunction: Record<string, unknown>) {
@@ -34,5 +34,27 @@ describe('Money Plaid API', () => {
     });
     await expect(syncMoneyTransactions(client)).resolves.toMatchObject({ modified: 1 });
     expect(invoke).toHaveBeenCalledWith('sync-plaid-transactions', { body: {} });
+  });
+
+  it('preserves structured function diagnostics without leaking provider copy', async () => {
+    const response = new Response(JSON.stringify({
+      plaid: {
+        error_code: 'INSTITUTION_DOWN',
+        error_message: 'raw provider copy',
+        request_id: 'request-api',
+      },
+    }), { status: 503, headers: { 'content-type': 'application/json' } });
+    const client = {
+      functions: {
+        invoke: jest.fn(async () => ({ data: null, error: new FunctionsHttpError(response) })),
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(createMoneyPlaidLinkToken(client)).rejects.toMatchObject({
+      code: 'institution_unavailable',
+      diagnosticCode: 'INSTITUTION_DOWN',
+      requestId: 'request-api',
+      message: 'Your bank is temporarily unavailable. Try again in a few minutes.',
+    });
   });
 });

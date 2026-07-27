@@ -19,12 +19,18 @@ const snapshot = {
 describe('moneyDataReducer', () => {
   it('loads an initial snapshot', () => {
     const loading = moneyDataReducer(initialMoneyDataState, { type: 'load' });
-    expect(loading).toEqual({ status: 'loading', snapshot: null, error: null, refreshing: false });
+    expect(loading).toEqual({
+      status: 'loading', snapshot: null, error: null, refreshing: false, stale: false,
+      planVersionId: null, planReceiptId: null,
+    });
     expect(moneyDataReducer(loading, { type: 'success', snapshot })).toEqual({
       status: 'ready',
       snapshot,
       error: null,
       refreshing: false,
+      stale: false,
+      planVersionId: null,
+      planReceiptId: null,
     });
   });
 
@@ -40,6 +46,37 @@ describe('moneyDataReducer', () => {
       snapshot,
       error: 'Network unavailable',
       refreshing: false,
+      stale: false,
+      planVersionId: null,
+      planReceiptId: null,
     });
+  });
+
+  it('keeps a confirmed patch when a background refresh fails', () => {
+    const ready = moneyDataReducer(initialMoneyDataState, { type: 'success', snapshot });
+    const patched = moneyDataReducer(ready, {
+      type: 'confirmed_category_patch',
+      patch: { categorySourceId: 'missing', name: 'Confirmed' },
+    });
+    const failed = moneyDataReducer(patched, { type: 'background_failure', message: 'Refresh later' });
+
+    expect(failed.snapshot).toBe(snapshot);
+    expect(failed.status).toBe('ready');
+    expect(failed.stale).toBe(true);
+  });
+
+  it('accepts an authoritative governed-plan projection atomically', () => {
+    const ready = moneyDataReducer(initialMoneyDataState, { type: 'success', snapshot });
+    const projected = { ...snapshot, generatedAt: 'plan-projection' };
+    const result = moneyDataReducer(ready, {
+      type: 'authoritative_plan_projection',
+      snapshot: projected,
+      versionId: 'version-2',
+      receiptId: 'receipt-2',
+    });
+
+    expect(result.snapshot).toBe(projected);
+    expect(result.planVersionId).toBe('version-2');
+    expect(result.planReceiptId).toBe('receipt-2');
   });
 });

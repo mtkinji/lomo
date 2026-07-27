@@ -13,6 +13,7 @@ serves:
 briefs:
   - kwilt-money-capability-integration
   - money-progressive-activation
+  - money-category-ordering
   - accounts-inventory-shell
   - app-pause-sentence-builder
   - auto-budget-from-living-target

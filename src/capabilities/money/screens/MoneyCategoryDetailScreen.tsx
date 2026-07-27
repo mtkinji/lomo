@@ -1,8 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
@@ -16,8 +16,11 @@ import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { KwiltSwitch } from '../../../ui/KwiltSwitch';
 import { AppShell } from '../../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
+import { MoneyCategoryCover } from '../components/MoneyCategoryCover';
+import { MoneyCategoryCoverDrawer } from '../components/MoneyCategoryCoverDrawer';
 import { MoneyDetailMeter } from '../components/MoneyDetailMeter';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, formatMoneyFreshness, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
@@ -28,10 +31,13 @@ import type { MoneyForecastMode } from '../domain/moneyForecast';
 import type { MoneyStackParamList } from '../navigation/types';
 import { projectCategoryFunding, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliation';
+import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
+import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
 
 export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyCategoryDetail'>) {
+  const { capture } = useAnalytics();
   const insets = useSafeAreaInsets();
   const {
     pendingAppControlReviewCategoryId,
@@ -42,6 +48,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     savingCategory,
     snapshot,
     status,
+    updateCategoryCover,
     updateCategoryPlan,
   } = useMoneyData();
   const [monthOffset, setMonthOffset] = useState(route.params.monthOffset ?? 0);
@@ -60,6 +67,8 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [planImpact, setPlanImpact] = useState<LivingPlanOverridePreview | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [reviewReceipt, setReviewReceipt] = useState<'opened_for_now' | 'left_blocked' | null>(null);
+  const [chartScrubbing, setChartScrubbing] = useState(false);
+  const [coverDrawerOpen, setCoverDrawerOpen] = useState(false);
   const view = useMemo(() => snapshot
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
@@ -102,34 +111,46 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     }
   };
 
-  const saveMonthlyAmount = async () => {
+  const saveCategorySettings = async () => {
     if (!category) return;
+    const startedAtMs = Date.now();
     setCategoryError(null);
     try {
+      const name = parseCategoryName(categoryNameDraft);
       const budgetCents = parseMonthlyAmount(categoryAmountDraft);
       const expectedNeedCents = fundingRhythmDraft === 'reserve' ? parseOptionalMoney(expectedNeedDraft) : null;
       const dueMonth = fundingRhythmDraft === 'reserve' ? parseOptionalMonth(expectedNeedDueMonthDraft) : null;
       if ((expectedNeedCents == null) !== (dueMonth == null)) throw new Error('Enter both an expected amount and due month.');
-      const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
-        fundingRhythm: fundingRhythmDraft,
-        expectedNeedCents,
-        expectedNeedDueMonth: dueMonth,
-      });
-      if (preview && preview.outcome !== 'ready') {
-        if (preview.outcome !== 'no_op') {
-          setCategoryError('Kwilt needs current account evidence before it can check this amount against your living target.');
-          return;
+
+      const planChanged = budgetCents !== category.plannedCents
+        || fundingRhythmDraft !== category.fundingRhythm
+        || expectedNeedCents !== (category.expectedNeed?.amountCents ?? null)
+        || dueMonth !== (category.expectedNeed?.dueMonth ?? null);
+
+      if (planChanged) {
+        const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
+          fundingRhythm: fundingRhythmDraft,
+          expectedNeedCents,
+          expectedNeedDueMonth: dueMonth,
+        });
+        if (preview && preview.outcome !== 'ready' && preview.outcome !== 'no_op') {
+          throw new Error('Kwilt needs current account evidence before it can check this amount against your living target.');
         }
+        await updateCategoryPlan(category.sourceId, {
+          budgetCents,
+          fundingRhythm: fundingRhythmDraft,
+          expectedNeedCents,
+          expectedNeedDueMonth: dueMonth,
+        });
       }
-      await updateCategoryPlan(category.sourceId, {
-        budgetCents,
-        fundingRhythm: fundingRhythmDraft,
-        expectedNeedCents,
-        expectedNeedDueMonth: dueMonth,
-      });
+      if (name !== category.name) await renameCategory(category.sourceId, name);
       setSettingsOpen(false);
+      captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
+      signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setMutationError(error);
+      captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'failed', durationMs: Date.now() - startedAtMs });
+      signalMoneyMutationOutcome('failed');
     }
   };
 
@@ -163,6 +184,20 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     }
   };
 
+  const toggleRollover = async () => {
+    if (!category) return;
+    const nextValue = !category.rolloverEnabled;
+    signalMoneyToggle(nextValue);
+    setCategoryError(null);
+    try {
+      await updateCategoryPlan(category.sourceId, { rolloverEnabled: nextValue });
+      signalMoneyMutationOutcome('succeeded');
+    } catch (error) {
+      setMutationError(error);
+      signalMoneyMutationOutcome('failed');
+    }
+  };
+
   if (!view || !category) {
     return (
       <AppShell>
@@ -184,6 +219,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
+        <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
         <DetailMenuItem icon="edit" label="Category settings" onPress={() => setSettingsOpen(true)} />
         {category.fundingRhythm === 'monthly' ? <DetailMenuItem icon="gauge" label="Forecast settings" onPress={() => setForecastSettingsOpen(true)} /> : null}
         <DetailMenuItem icon="shield" label="App controls" onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })} />
@@ -200,17 +236,20 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           </View>
           <ScrollView
             contentInsetAdjustmentBehavior="never"
+            scrollEnabled={!chartScrubbing}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
           >
-            <CategoryCover categoryName={category.name} />
+            <MoneyCategoryCover cover={category.coverImage} />
             <MoneyDetailMeter
               category={category}
+              historicalTransactions={view.historicalTransactions}
               monthOffset={monthOffset}
               onForecastInfo={() => setForecastInfoOpen(true)}
               onNextMonth={() => setMonthOffset((value) => Math.min(12, value + 1))}
               onPreviousMonth={() => setMonthOffset((value) => Math.max(-24, value - 1))}
               onResetMonth={() => setMonthOffset(0)}
+              onScrubActiveChange={setChartScrubbing}
               periodElapsedPercent={view.periodElapsedPercent}
               periodEndIso={view.periodEndIso}
               periodLabel={view.periodLabel}
@@ -293,15 +332,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer visible={forecastInfoOpen} onClose={() => setForecastInfoOpen(false)} snapPoints={['42%']}>
         <View style={styles.drawerContent}>
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>FORECAST</Text>
-              <Text style={styles.drawerTitle}>How this estimate works</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close forecast details" onPress={() => setForecastInfoOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close forecast details"
+            onClose={() => setForecastInfoOpen(false)}
+            title="How this forecast works"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Text style={styles.drawerCopy}>{category.fundingRhythm === 'reserve'
             ? category.expectedNeed
               ? `Kwilt compares the reserve you can accumulate with ${formatMoney(category.expectedNeed.amountCents)} needed by ${formatDueMonth(category.expectedNeed.dueMonth)}.`
@@ -327,20 +364,18 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer visible={settingsOpen} onClose={() => setSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>CATEGORY</Text>
-              <Text style={styles.drawerTitle}>Category settings</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close category settings" onPress={() => setSettingsOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close category settings"
+            onClose={() => setSettingsOpen(false)}
+            title="Category settings"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Input editable={!savingCategory} label="Name" onChangeText={setCategoryNameDraft} value={categoryNameDraft} />
           <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
           <View style={styles.modeList}>
-            <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
-            <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
+            <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
+            <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
           </View>
           {fundingRhythmDraft === 'reserve' ? (
             <View style={styles.forecastInputs}>
@@ -358,7 +393,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               accessibilityLabel="Carry unused money forward"
               disabled={savingCategory}
               value={category.rolloverEnabled}
-              onPress={() => void updateCategoryPlan(category.sourceId, { rolloverEnabled: !category.rolloverEnabled }).catch(setMutationError)}
+              onPress={() => void toggleRollover()}
             />
           </View>
           )}
@@ -374,7 +409,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           <Button
             disabled={savingCategory}
             fullWidth
-            onPress={() => void renameCategory(category.sourceId, parseCategoryName(categoryNameDraft)).then(saveMonthlyAmount).catch(setMutationError)}
+            onPress={() => void saveCategorySettings()}
           >
             {savingCategory ? 'Saving…' : 'Save changes'}
           </Button>
@@ -386,15 +421,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer visible={forecastSettingsOpen} onClose={() => setForecastSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>FORECAST</Text>
-              <Text style={styles.drawerTitle}>Forecast settings</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close forecast settings" onPress={() => setForecastSettingsOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close forecast settings"
+            onClose={() => setForecastSettingsOpen(false)}
+            title="Forecast settings"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Text style={styles.drawerCopy}>Choose the evidence Kwilt should use for the month-end estimate. This changes the forecast, not transactions or the monthly limit.</Text>
           <View style={styles.modeList}>
             <ForecastModeRow active={forecastModeDraft === 'paced'} detail="Extend spending so far across the rest of the month." label="Spending pace" onPress={() => setForecastModeDraft('paced')} />
@@ -415,19 +448,16 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           <Button disabled={savingCategory} fullWidth onPress={() => void saveForecastSettings()}>{savingCategory ? 'Saving…' : 'Save forecast'}</Button>
         </BottomDrawerScrollView>
       </BottomDrawer>
-    </>
-  );
-}
 
-function CategoryCover({ categoryName }: { categoryName: string }) {
-  const uri = getCategoryCover(categoryName);
-  return (
-    <View style={styles.cover}>
-      {uri ? <Image source={{ uri }} resizeMode="cover" style={StyleSheet.absoluteFillObject} /> : (
-        <LinearGradient colors={[colors.pine50, colors.pine200, colors.pine700]} style={StyleSheet.absoluteFillObject} />
-      )}
-      <View style={styles.coverScrim} />
-    </View>
+      <MoneyCategoryCoverDrawer
+        categoryName={category.name}
+        currentCover={category.coverImage}
+        onClose={() => setCoverDrawerOpen(false)}
+        onSave={(cover) => updateCategoryCover(category.sourceId, cover)}
+        saving={savingCategory}
+        visible={coverDrawerOpen}
+      />
+    </>
   );
 }
 
@@ -454,7 +484,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return <View style={styles.fact}><Text style={styles.factLabel}>{label}</Text><Text numberOfLines={1} style={styles.factValue}>{value}</Text></View>;
 }
 
-function DetailMenuItem({ icon, label, onPress }: { icon: 'edit' | 'gauge' | 'shield'; label: string; onPress: () => void }) {
+function DetailMenuItem({ icon, label, onPress }: { icon: 'edit' | 'gauge' | 'image' | 'shield'; label: string; onPress: () => void }) {
   return <DropdownMenuItem accessibilityLabel={label} onPress={onPress}><View style={menuStyles.menuItemRow}><Icon name={icon} size={18} color={colors.textPrimary} /><Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text></View></DropdownMenuItem>;
 }
 
@@ -532,22 +562,11 @@ function fundingCoverageLabel(category: MoneyCategory): string {
   return `${formatMoney(coverage.shortfallCents)} short`;
 }
 
-function getCategoryCover(name: string): string | null {
-  const key = name.toLowerCase();
-  if (key.includes('grocer')) return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=82';
-  if (key.includes('restaurant') || key.includes('dining')) return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=82';
-  if (key.includes('gas') || key.includes('auto')) return 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1200&q=82';
-  if (key.includes('shop')) return 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=1200&q=82';
-  return null;
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   headerSurface: { paddingHorizontal: spacing.sm, backgroundColor: colors.canvas, zIndex: 2 },
   headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   content: { paddingBottom: 80, paddingHorizontal: spacing.xl, gap: spacing.xl },
-  cover: { height: 124, marginHorizontal: -spacing.xl, overflow: 'hidden', backgroundColor: colors.pine100 },
-  coverScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,40,32,0.08)' },
   activitySection: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
@@ -586,11 +605,7 @@ const styles = StyleSheet.create({
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
   drawerScrollContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 60 },
-  drawerHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  drawerEyebrow: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },
-  drawerTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 24, lineHeight: 29, fontWeight: '700' },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
-  closeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.gray100 },
   forecastFacts: { flexDirection: 'row', gap: spacing.sm },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder },
   toggleCopy: { flex: 1, gap: 2 },

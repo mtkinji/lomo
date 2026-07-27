@@ -103,6 +103,7 @@ describe('projectMoneyCategoryPeriodView', () => {
       category: { spentCents: 20000, remainingCents: 30000, transactionCount: 1 },
     });
     expect(view?.transactions.map((transaction) => transaction.id)).toEqual(['june']);
+    expect(view?.historicalTransactions.map((transaction) => transaction.id)).toEqual(['july', 'june']);
   });
 
   it('resolves either the public category id or authoritative source id', () => {
@@ -141,6 +142,7 @@ describe('projectMoneyCategoryPeriodView', () => {
       ['june', 20000],
       ['mixed-june', 7000],
     ]);
+    expect(view?.historicalTransactions.find(({ id }) => id === 'mixed-june')?.amountCents).toBe(7000);
   });
 
   it('returns null when the category is not in the authoritative snapshot', () => {
