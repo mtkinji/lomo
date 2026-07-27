@@ -107,8 +107,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: current-user identity normalization, membership lookup, leave/remove permissions, and visible partner avatars form one access-sensitive view contract embedded in screen state.
   - Result: `goalPartnerAccessPresentation.ts` now owns identity alias normalization, current membership, owner/member actions, and header-avatar filtering, with focused tests preserving access and visibility edge cases.
 
-- [ ] Extract Goal partner prompt decision
+- [x] Extract Goal partner prompt decision
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: focus, sharing state, transient sheets, activity progress, moment gating, and trigger precedence form a product rule embedded in an effect.
-  - Ideal test: pin shared/muted/transient suppression, blank goals, moment blocking, first-progress precedence, and first-to-do fallback.
+  - Result: `goalPartnerPromptDecision.ts` now owns suppression gates, lazy moment evaluation, progress-first trigger precedence, and first-to-do fallback, with focused tests for decision order and callback boundaries.
+
+- [ ] Extract Goal partner row presentation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: partner-row JSX recomputes normalized identity, role labels, current-user status, and remove-button eligibility inside composition.
+  - Ideal test: pin current-user aliases, owner/co-owner labels, owner removal suppression, member removal eligibility, and missing profile fields.
   - Risk: low
