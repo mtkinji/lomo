@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
-import { createMoneyRepository, type MoneyRepository } from './moneyRepository';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { createMoneyRepository, type ConfirmedCategoryWrite, type ConfirmedTransactionWrite, type MoneyRepository } from './moneyRepository';
 import type { TransactionMeaningReviewInput } from './moneyMutations';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
@@ -24,6 +24,7 @@ import {
   type LivingPlanOverridePreview,
 } from '../runtime/livingPlanReconciliation';
 import { initializeGovernedMoneyPlan } from '../runtime/moneyPlanLifecycle';
+import { loadMoneyPlanProjection } from './moneyPlanProjection';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
@@ -61,6 +62,7 @@ export function MoneyDataProvider({
   const [savingCategory, setSavingCategory] = useState(false);
   const [pendingAppControlReviewCategoryId, setPendingAppControlReviewCategoryId] = useState<string | null>(null);
   const resolvedRepository = useMemo(() => repository ?? createMoneyRepository(), [repository]);
+  const mutationVersionRef = useRef(0);
 
   const acceptSnapshot = useCallback((snapshot: Awaited<ReturnType<MoneyRepository['loadSnapshot']>>) => {
     dispatch({ type: 'success', snapshot });
@@ -68,11 +70,22 @@ export function MoneyDataProvider({
     void reconcileMoneyAppControls(snapshot);
   }, []);
 
+  const refreshInBackground = useCallback((version: number) => {
+    void resolvedRepository.loadSnapshot().then((snapshot) => {
+      if (mutationVersionRef.current !== version) return;
+      acceptSnapshot(snapshot);
+    }).catch(() => {
+      if (mutationVersionRef.current !== version) return;
+      dispatch({ type: 'background_failure', message: 'Saved. Money will refresh when the connection is available.' });
+    });
+  }, [acceptSnapshot, resolvedRepository]);
+
   const refresh = useCallback(async () => {
+    const version = ++mutationVersionRef.current;
     dispatch({ type: 'load' });
     try {
       const snapshot = await resolvedRepository.loadSnapshot();
-      acceptSnapshot(snapshot);
+      if (mutationVersionRef.current === version) acceptSnapshot(snapshot);
     } catch (error) {
       dispatch({
         type: 'failure',
@@ -125,14 +138,51 @@ export function MoneyDataProvider({
     };
   }, [state.snapshot]);
 
-  const reviewTransaction = useCallback(async (
+  const reviewBoundedTransaction = useCallback(async (
+    transactionId: string,
+    mutation: () => Promise<ConfirmedTransactionWrite>,
+  ) => {
+    setReviewingTransactionId(transactionId);
+    try {
+      const result = await mutation();
+      const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === result.categorySourceId);
+      const categoryName = result.meaning === 'income'
+        ? 'Income'
+        : result.meaning === 'transfer'
+          ? 'Internal transfer'
+          : result.meaning === 'not_counted'
+            ? 'Outside the plan'
+            : category?.name ?? 'Needs review';
+      dispatch({
+        type: 'confirmed_transaction_patch',
+        patch: {
+          transactionId: result.transactionId,
+          categoryId: category?.id ?? null,
+          categoryName,
+          reviewState: result.reviewState,
+          moneyMeaning: result.meaning,
+        },
+      });
+      const version = ++mutationVersionRef.current;
+      refreshInBackground(version);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The transaction could not be updated.';
+      dispatch({ type: 'failure', message });
+      throw error;
+    } finally {
+      setReviewingTransactionId(null);
+    }
+  }, [refreshInBackground, state.snapshot]);
+
+  const reviewBroadTransaction = useCallback(async (
     transactionId: string,
     mutation: () => ReturnType<MoneyRepository['loadSnapshot']>,
   ) => {
     setReviewingTransactionId(transactionId);
     try {
+      const version = ++mutationVersionRef.current;
       const snapshot = await mutation();
-      acceptSnapshot(snapshot);
+      if (mutationVersionRef.current === version) acceptSnapshot(snapshot);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The transaction could not be updated.';
       dispatch({ type: 'failure', message });
@@ -143,43 +193,43 @@ export function MoneyDataProvider({
   }, [acceptSnapshot]);
 
   const assignTransactionCategory = useCallback(
-    (transactionId: string, categoryId: string) => reviewTransaction(
+    (transactionId: string, categoryId: string) => reviewBoundedTransaction(
       transactionId,
       () => resolvedRepository.assignTransactionCategory(transactionId, categoryId),
     ),
-    [resolvedRepository, reviewTransaction],
+    [resolvedRepository, reviewBoundedTransaction],
   );
 
   const markTransactionNotCounted = useCallback(
-    (transactionId: string) => reviewTransaction(
+    (transactionId: string) => reviewBoundedTransaction(
       transactionId,
       () => resolvedRepository.markTransactionNotCounted(transactionId),
     ),
-    [resolvedRepository, reviewTransaction],
+    [resolvedRepository, reviewBoundedTransaction],
   );
 
   const splitTransaction = useCallback(
-    (input: Parameters<MoneyRepository['splitTransaction']>[0]) => reviewTransaction(
+    (input: Parameters<MoneyRepository['splitTransaction']>[0]) => reviewBroadTransaction(
       input.transactionId,
       () => resolvedRepository.splitTransaction(input),
     ),
-    [resolvedRepository, reviewTransaction],
+    [resolvedRepository, reviewBroadTransaction],
   );
 
   const reviewTransactionMeaning = useCallback(
-    (transactionId: string, input: TransactionMeaningReviewInput) => reviewTransaction(
+    (transactionId: string, input: TransactionMeaningReviewInput) => reviewBoundedTransaction(
       transactionId,
       () => resolvedRepository.reviewTransactionMeaning(transactionId, input),
     ),
-    [resolvedRepository, reviewTransaction],
+    [resolvedRepository, reviewBoundedTransaction],
   );
 
   const saveMerchantRule = useCallback(
-    (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewTransaction(
+    (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewBroadTransaction(
       input.transactionId,
       () => resolvedRepository.saveMerchantRule(input),
     ),
-    [resolvedRepository, reviewTransaction],
+    [resolvedRepository, reviewBroadTransaction],
   );
 
   const createCategory = useCallback(async (input: CategoryPlanInput) => {
@@ -199,11 +249,20 @@ export function MoneyDataProvider({
     }
   }, [acceptSnapshot, resolvedRepository]);
 
-  const applyCategoryMutation = useCallback(async (mutation: () => ReturnType<MoneyRepository['loadSnapshot']>) => {
+  const applyCategoryMutation = useCallback(async (mutation: () => Promise<ConfirmedCategoryWrite>) => {
     setSavingCategory(true);
     try {
-      const snapshot = await mutation();
-      acceptSnapshot(snapshot);
+      const result = await mutation();
+      dispatch({
+        type: 'confirmed_category_patch',
+        patch: {
+          categorySourceId: result.categoryId,
+          ...(result.changes.name != null ? { name: result.changes.name } : null),
+          ...(result.changes.rolloverEnabled != null ? { rolloverEnabled: result.changes.rolloverEnabled } : null),
+        },
+      });
+      const version = ++mutationVersionRef.current;
+      refreshInBackground(version);
     } catch (error) {
       dispatch({
         type: 'failure',
@@ -213,7 +272,7 @@ export function MoneyDataProvider({
     } finally {
       setSavingCategory(false);
     }
-  }, [acceptSnapshot]);
+  }, [refreshInBackground]);
 
   const previewCategoryPlanAmount = useCallback(async (
     categoryId: string,
@@ -267,7 +326,18 @@ export function MoneyDataProvider({
           if (result.outcome === 'blocked' || result.outcome === 'not_ready' || result.outcome === 'disabled') {
             throw new Error('Nothing changed because current account evidence is not ready to rebuild the plan safely.');
           }
-          acceptSnapshot(await resolvedRepository.loadSnapshot());
+          if (!state.snapshot) throw new Error('Money must finish loading before the plan can be updated.');
+          const projection = await loadMoneyPlanProjection(client, state.snapshot);
+          if (!projection) throw new Error('The updated Money plan is unavailable.');
+          ++mutationVersionRef.current;
+          dispatch({
+            type: 'authoritative_plan_projection',
+            snapshot: projection.snapshot,
+            versionId: projection.versionId,
+            receiptId: projection.receipt?.id ?? null,
+          });
+          void syncMoneyGlanceableState(projection.snapshot);
+          void reconcileMoneyAppControls(projection.snapshot);
           return;
         } finally {
           setSavingCategory(false);
@@ -275,7 +345,7 @@ export function MoneyDataProvider({
       }
     }
     await applyCategoryMutation(() => resolvedRepository.updateCategoryPlan(categoryId, input));
-  }, [acceptSnapshot, applyCategoryMutation, resolvedRepository, state.snapshot]);
+  }, [applyCategoryMutation, resolvedRepository, state.snapshot]);
 
   const reviewMoneyAppControl = useCallback(async (categoryId: string, outcome: MoneyAppControlReviewOutcome) => {
     if (!state.snapshot) throw new Error('Money must finish loading before this review can be recorded.');

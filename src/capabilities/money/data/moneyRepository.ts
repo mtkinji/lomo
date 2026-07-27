@@ -26,6 +26,7 @@ import {
   type TransactionMeaningReviewInput,
   type TransactionReviewUpdate,
 } from './moneyMutations';
+import { loadMoneyPlanProjection } from './moneyPlanProjection';
 
 type ReadResult = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -46,11 +47,32 @@ type MoneyReadClient = {
   rpc(name: string, args: Record<string, unknown>): PromiseLike<ReadResult>;
 };
 
+export type ConfirmedTransactionWrite = {
+  confirmedAt: string;
+  transactionId: string;
+  categorySourceId: string | null;
+  meaning: TransactionMeaningReviewInput['meaning'] | null;
+  reviewState: 'assigned' | 'not_counted';
+};
+
+export type ConfirmedCategoryWrite = {
+  confirmedAt: string;
+  categoryId: string;
+  changes: {
+    name?: string;
+    rolloverEnabled?: boolean;
+    forecastMode?: MoneyForecastMode;
+    manualProjectedSpendCents?: number | null;
+    scheduledAmountCents?: number | null;
+    scheduledDueDay?: number | null;
+  };
+};
+
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
   ensureGovernedPlanFoundation(): Promise<void>;
-  assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
-  markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
+  assignTransactionCategory(transactionId: string, categoryId: string): Promise<ConfirmedTransactionWrite>;
+  markTransactionNotCounted(transactionId: string): Promise<ConfirmedTransactionWrite>;
   splitTransaction(input: {
     transactionId: string;
     transactionAmountCents: number;
@@ -58,7 +80,7 @@ export interface MoneyRepository {
     pending: boolean;
     allocations: TransactionAllocationInput[];
   }): Promise<MoneySnapshot>;
-  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<MoneySnapshot>;
+  reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<ConfirmedTransactionWrite>;
   saveMerchantRule(input: {
     transactionId: string;
     merchantName: string;
@@ -68,7 +90,7 @@ export interface MoneyRepository {
     similarTransactionIds?: string[];
   }): Promise<MoneySnapshot>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
-  renameCategory(categoryId: string, name: string): Promise<MoneySnapshot>;
+  renameCategory(categoryId: string, name: string): Promise<ConfirmedCategoryWrite>;
   updateCategoryPlan(categoryId: string, input: {
     budgetCents?: number;
     rolloverEnabled?: boolean;
@@ -79,7 +101,7 @@ export interface MoneyRepository {
     fundingRhythm?: CategoryFundingRhythm;
     expectedNeedCents?: number | null;
     expectedNeedDueMonth?: string | null;
-  }): Promise<MoneySnapshot>;
+  }): Promise<ConfirmedCategoryWrite>;
 }
 
 export function createMoneyRepository(client: SupabaseClient = getSupabaseClient()): MoneyRepository {
@@ -155,7 +177,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       ),
     ]);
 
-    return projectMoneySnapshot({
+    const snapshot = projectMoneySnapshot({
       categories,
       plans,
       connections,
@@ -164,12 +186,14 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       allocations,
       transactions,
     });
+    const projection = await loadMoneyPlanProjection(client, snapshot);
+    return projection?.snapshot ?? snapshot;
   };
 
   const reviewTransaction = async (
     transactionId: string,
     update: TransactionReviewUpdate,
-  ): Promise<MoneySnapshot> => {
+  ): Promise<ConfirmedTransactionWrite> => {
     const normalizedTransactionId = transactionId.trim();
     if (!normalizedTransactionId) throw new Error('Choose a transaction to review.');
     await requireSignedIn(client);
@@ -182,7 +206,13 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         .update(update)
         .eq('id', normalizedTransactionId),
     );
-    return loadSnapshot();
+    return {
+      confirmedAt: new Date().toISOString(),
+      transactionId: normalizedTransactionId,
+      categorySourceId: update.budget_id,
+      meaning: update.money_meaning ?? null,
+      reviewState: update.budget_match_source === 'excluded' ? 'not_counted' : 'assigned',
+    };
   };
 
   const replaceTransactionReview = async (
@@ -222,11 +252,23 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     },
     async assignTransactionCategory(transactionId, categoryId) {
       await replaceTransactionReview([transactionId], { type: 'category', categoryId });
-      return loadSnapshot();
+      return {
+        confirmedAt: new Date().toISOString(),
+        transactionId: transactionId.trim(),
+        categorySourceId: categoryId.trim(),
+        meaning: null,
+        reviewState: 'assigned',
+      };
     },
     async markTransactionNotCounted(transactionId) {
       await replaceTransactionReview([transactionId], { type: 'not_counted' });
-      return loadSnapshot();
+      return {
+        confirmedAt: new Date().toISOString(),
+        transactionId: transactionId.trim(),
+        categorySourceId: null,
+        meaning: 'not_counted',
+        reviewState: 'not_counted',
+      };
     },
     async splitTransaction(input) {
       const transactionId = input.transactionId.trim();
@@ -286,7 +328,11 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         .from('budget_categories')
         .update({ name: normalizedName })
         .eq('id', normalizedCategoryId));
-      return loadSnapshot();
+      return {
+        confirmedAt: new Date().toISOString(),
+        categoryId: normalizedCategoryId,
+        changes: { name: normalizedName },
+      };
     },
     async updateCategoryPlan(categoryId, input) {
       const normalizedCategoryId = categoryId.trim();
@@ -346,7 +392,17 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         .from('budget_plans')
         .update(update)
         .eq('category_id', normalizedCategoryId));
-      return loadSnapshot();
+      return {
+        confirmedAt: new Date().toISOString(),
+        categoryId: normalizedCategoryId,
+        changes: {
+          ...(input.rolloverEnabled != null ? { rolloverEnabled: input.rolloverEnabled } : null),
+          ...(input.forecastMode != null ? { forecastMode: input.forecastMode } : null),
+          ...('manualProjectedSpendCents' in input ? { manualProjectedSpendCents: input.manualProjectedSpendCents ?? null } : null),
+          ...('scheduledAmountCents' in input ? { scheduledAmountCents: input.scheduledAmountCents ?? null } : null),
+          ...('scheduledDueDay' in input ? { scheduledDueDay: input.scheduledDueDay ?? null } : null),
+        },
+      };
     },
   };
 }

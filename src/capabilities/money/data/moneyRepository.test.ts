@@ -48,6 +48,7 @@ function createClient() {
         },
         order: () => query,
         limit: () => query,
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
         range: (from: number, to: number) => {
           call.ranges.push([from, to]);
           return query;
@@ -100,11 +101,11 @@ describe('createMoneyRepository transaction review', () => {
     }));
   });
 
-  it('atomically replaces stale splits when assigning one category, then reloads', async () => {
+  it('atomically assigns one category and resolves without a snapshot reload', async () => {
     const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
 
-    const snapshot = await repository.assignTransactionCategory('transaction-1', 'category-1');
+    const result = await repository.assignTransactionCategory('transaction-1', 'category-1');
 
     expect(rpcCalls).toContainEqual({
       name: 'replace_budget_transaction_review',
@@ -114,9 +115,10 @@ describe('createMoneyRepository transaction review', () => {
         p_excluded: false,
       },
     });
-    expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
-    expect(snapshot).toMatchObject({ categories: [], transactions: [], accounts: [] });
-    expect(client.auth.getUser).toHaveBeenCalledTimes(2);
+    expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(0);
+    expect(calls.filter((call) => call.table === 'budget_transactions')).toHaveLength(0);
+    expect(result).toMatchObject({ transactionId: 'transaction-1', categorySourceId: 'category-1', meaning: null });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
   });
 
   it('persists an exact split through the atomic allocation RPC, then reloads', async () => {
