@@ -79,7 +79,7 @@ git commit -m "refactor(money): simplify drawer headers"
 - Modify: `src/capabilities/money/domain/moneyPeriodView.ts`
 - Modify: `src/capabilities/money/domain/moneyPeriodView.test.ts`
 
-- [ ] **Step 1: Write failing historical-series tests**
+- [x] **Step 1: Write failing historical-series tests**
 
 Define:
 
@@ -99,15 +99,15 @@ export function buildHistoricalAverageSpendSeries(input: {
 
 Test front-loaded Housing, continuous Groceries, category credit subtraction, excluded transfers/pending rows, split projected amounts, 28/29/30/31-day interpolation, fewer than 12 eligible months, and rejection of the displayed month.
 
-- [ ] **Step 2: Port the proven algorithm**
+- [x] **Step 2: Port the proven algorithm**
 
 Use the retired source's `getHistoricalAverageSpendSeries` behavior as provenance, but adapt it to `MoneyTransaction` and existing UTC-safe day helpers. Generate one point for every day in the displayed period and average only eligible month series.
 
-- [ ] **Step 3: Expose full category history to detail**
+- [x] **Step 3: Expose full category history to detail**
 
 Add `historicalTransactions` to `MoneyCategoryPeriodView`. Populate it by calling `projectMoneyTransactionsForCategory(snapshot.transactions, sourceCategory)` and filtering to completed months in the pure helper—not in the screen.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 npx jest src/capabilities/money/domain/moneyDetailView.test.ts src/capabilities/money/domain/moneyPeriodView.test.ts --runInBand
