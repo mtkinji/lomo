@@ -15,7 +15,7 @@ describe('guidedOvertureModel', () => {
     expect(new Set(offers.map((offer) => offer.capabilityId)).size).toBe(offers.length);
     expect(offers.map((offer) => offer.taskLabel)).toEqual([
       'Plan tomorrow around what matters',
-      'Catch a bill before it surprises me',
+      'Know where I stand before I spend',
       'Turn a family photo into a story',
       'Pick a game everyone can play',
       'Invite someone to help me follow through',
@@ -118,13 +118,32 @@ describe('guidedOvertureModel', () => {
   });
 
   it('builds a contextual Agent opening for a selected task', () => {
-    const offer = getGuidedOvertureOffers('portfolio').find(({ id }) => id === 'catch-bill');
+    const offer = getGuidedOvertureOffers('portfolio').find(
+      ({ id }) => id === 'review-recent-spending',
+    );
 
     expect(buildGuidedOvertureAgentHandoff(offer)).toEqual({
       initialAssistantMessage:
-        'Let\u2019s catch the surprise before it lands. Which bill or charge are you worried about?',
-      workspaceSnapshot: expect.stringContaining('Selected Guided Overture task: Catch a bill before it surprises me'),
+        'Let\u2019s get a trustworthy read before you decide. What spending or plan change are you considering?',
+      workspaceSnapshot: expect.stringContaining(
+        'Selected Guided Overture task: Know where I stand before I spend',
+      ),
     });
+  });
+
+  it('keeps Money concept-only until its first trusted decision is proven', () => {
+    const offer = getGuidedOvertureOffers('portfolio').find(
+      ({ capabilityId }) => capabilityId === 'money',
+    );
+
+    expect(offer).toMatchObject({
+      id: 'review-recent-spending',
+      availability: 'concept',
+    });
+    expect(offer?.destination).toBeUndefined();
+    expect(offer?.firstValueContract).toBeUndefined();
+    expect(getGuidedOvertureOffers('live').some(({ capabilityId }) => capabilityId === 'money'))
+      .toBe(false);
   });
 
   it('builds a useful Agent opening when the person skips without choosing', () => {

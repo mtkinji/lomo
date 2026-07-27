@@ -7,7 +7,7 @@ personas: [Maya, Marcus, Nina, Sarah, Elena, David]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-move-the-few-things-that-matter, jtbd-see-who-im-becoming, jtbd-capture-and-find-meaning, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-ftux-goal-arc-onboarding, brief-object-creation-ux-system, brief-unified-chat-foundation]
+related_briefs: [brief-ftux-goal-arc-onboarding, brief-object-creation-ux-system, brief-unified-chat-foundation, brief-money-progressive-activation]
 owner: andrew
 last_updated: 2026-07-25
 ---
@@ -92,7 +92,7 @@ The overture uses inexpensive native composition rather than video:
 The Stage 1 v2 editorial composition is:
 
 1. Plan tomorrow around what matters.
-2. Catch a bill before it surprises me.
+2. Know where I stand before I spend.
 3. Turn a family photo into a story.
 4. Pick a game everyone can play.
 5. Invite someone to help me follow through.
