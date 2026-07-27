@@ -12,15 +12,16 @@ export function sanitizeVisibleAssistantText(input: string): string {
     .replace(INTERNAL_TAG_PATTERN, '')
     .replace(INTERNAL_OBJECT_ID_PAREN_PATTERN, '')
     .replace(/\r\n?/g, '\n')
-    .split(/\n{2,}/);
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph && !INTERNAL_SECTION_HEADING_PATTERN.test(paragraph));
+  const preserveSoleParagraph = paragraphs.length === 1;
   let sawPublicParagraph = false;
   const visible: string[] = [];
   for (const paragraph of paragraphs) {
-    const trimmed = paragraph.trim();
-    if (!trimmed || INTERNAL_SECTION_HEADING_PATTERN.test(trimmed)) continue;
-    if (!sawPublicParagraph && LEADING_INTERNAL_PARAGRAPH_PATTERN.test(trimmed)) continue;
+    if (!preserveSoleParagraph && !sawPublicParagraph && LEADING_INTERNAL_PARAGRAPH_PATTERN.test(paragraph)) continue;
     sawPublicParagraph = true;
-    visible.push(trimmed);
+    visible.push(paragraph);
   }
   return visible.join('\n\n').trim();
 }
