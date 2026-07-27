@@ -17,6 +17,7 @@ import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { KwiltSwitch } from '../../../ui/KwiltSwitch';
 import { AppShell } from '../../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
 import { MoneyDetailMeter } from '../components/MoneyDetailMeter';
@@ -323,15 +324,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer visible={forecastInfoOpen} onClose={() => setForecastInfoOpen(false)} snapPoints={['42%']}>
         <View style={styles.drawerContent}>
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>FORECAST</Text>
-              <Text style={styles.drawerTitle}>How this estimate works</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close forecast details" onPress={() => setForecastInfoOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close forecast details"
+            onClose={() => setForecastInfoOpen(false)}
+            title="How this forecast works"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Text style={styles.drawerCopy}>{category.fundingRhythm === 'reserve'
             ? category.expectedNeed
               ? `Kwilt compares the reserve you can accumulate with ${formatMoney(category.expectedNeed.amountCents)} needed by ${formatDueMonth(category.expectedNeed.dueMonth)}.`
@@ -357,15 +356,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer visible={settingsOpen} onClose={() => setSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>CATEGORY</Text>
-              <Text style={styles.drawerTitle}>Category settings</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close category settings" onPress={() => setSettingsOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close category settings"
+            onClose={() => setSettingsOpen(false)}
+            title="Category settings"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Input editable={!savingCategory} label="Name" onChangeText={setCategoryNameDraft} value={categoryNameDraft} />
           <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
           <View style={styles.modeList}>
@@ -416,15 +413,13 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
       <BottomDrawer visible={forecastSettingsOpen} onClose={() => setForecastSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>FORECAST</Text>
-              <Text style={styles.drawerTitle}>Forecast settings</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close forecast settings" onPress={() => setForecastSettingsOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close forecast settings"
+            onClose={() => setForecastSettingsOpen(false)}
+            title="Forecast settings"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Text style={styles.drawerCopy}>Choose the evidence Kwilt should use for the month-end estimate. This changes the forecast, not transactions or the monthly limit.</Text>
           <View style={styles.modeList}>
             <ForecastModeRow active={forecastModeDraft === 'paced'} detail="Extend spending so far across the rest of the month." label="Spending pace" onPress={() => setForecastModeDraft('paced')} />
@@ -616,11 +611,7 @@ const styles = StyleSheet.create({
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
   drawerScrollContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 60 },
-  drawerHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  drawerEyebrow: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },
-  drawerTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 24, lineHeight: 29, fontWeight: '700' },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
-  closeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.gray100 },
   forecastFacts: { flexDirection: 'row', gap: spacing.sm },
   toggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.cardBorder },
   toggleCopy: { flex: 1, gap: 2 },

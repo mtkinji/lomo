@@ -2,11 +2,23 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Do not dispatch subagents unless Andrew explicitly asks for parallel agent work. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restore the sophisticated historical comparison and working Unsplash cover behavior on category detail while simplifying Money drawer headers to one clear title.
+**Goal:** Restore the sophisticated historical comparison, press-and-scrub chart inspection, and working Unsplash cover behavior on category detail while simplifying Money drawer headers to one clear title.
 
-**Architecture:** Port the retired Money chart calculation into tested native Money domain helpers, using the current snapshot's category-projected transactions (including splits and category credits). Render the historical average as subordinate evidence beside the actual and forecast lines. Replace screen-local eyebrow/title stacks with the shared drawer header. Restore cover selection through Kwilt's existing Unsplash service and persist complete attribution metadata on the category; never depend on hard-coded name matching.
+**Architecture:** Port the retired Money chart calculation and direct-manipulation inspection into tested native Money helpers, using the current snapshot's category-projected transactions (including splits and category credits). Keep the current chart as the decision-oriented foundation, render the historical average as subordinate evidence beside the actual and forecast lines, and reveal daily detail only while the user scrubs. Replace screen-local eyebrow/title stacks with the shared drawer header. Restore cover selection through Kwilt's existing Unsplash service and persist complete attribution metadata on the category; never depend on hard-coded name matching.
 
 **Tech Stack:** React Native, `react-native-svg`, TypeScript, Jest, Supabase/Postgres, existing `src/services/unsplash.ts`, `BottomDrawerHeader`.
+
+## UI contract
+
+- **Job:** When reviewing a category, the user needs to compare this month's actual spending with the plan, likely month-end outcome, and trustworthy historical behavior so they can decide whether anything needs attention.
+- **Primary action:** Inspect the chart directly by pressing and dragging across the month.
+- **Must show:** Actual cumulative spend, planned capacity, forecast, current-day position, and a qualified historical average when evidence exists.
+- **Reveal later:** Exact selected date, cumulative spend through that date, and spending on that date appear only while scrubbing; forecast explanation and settings remain in their existing drawers.
+- **Must not add:** A second chart, a permanent tooltip, new forecast modes, historical behavior presented as advice, or decorative chart controls.
+- **Reuse map:** Existing `MoneyDetailMeter`, `react-native-svg`, `BottomDrawerHeader`, Money haptic policy, and Unsplash service.
+- **Behavior sources:** Current chart hierarchy, retired press-and-scrub interaction, the explicit decision to restore it, and the historical-line contract below.
+- **Required states:** No eligible history, partial history, zero current spend, over-plan spend, reserve category, scrub start/move/release, interrupted gesture, VoiceOver adjustment, image loading/error/empty, and offline cover search.
+- **Proof path:** Authenticated iPhone 17 Pro simulator through the current checkout and Metro port 8081; unit tests prove math and selection contracts, while simulator operation proves gesture ownership and layout.
 
 ---
 
@@ -19,6 +31,16 @@
 - Show no line with zero eligible months. With fewer than 12 eligible months, label the actual count (`4 mo avg`).
 - Typical history, planned capacity, and forecast remain visually and semantically distinct.
 
+## Scrub interaction contract
+
+- Long-press anywhere inside the plotted chart to activate inspection, then drag horizontally across the month.
+- Snap selection to a calendar day and show the date, cumulative spend through that day, and that day's net counted spend.
+- Never allow selection after the current day for the active month; completed months may be inspected through period end.
+- Temporarily disable the parent detail scroll while scrubbing, retain responder ownership during diagonal movement, and always restore scrolling on release, cancellation, or termination.
+- Keep the tooltip inside chart bounds. Dismiss it on release so the chart returns to its quiet default state.
+- Trigger one light selection haptic when scrubbing activates, not continuously while moving.
+- Expose the chart as adjustable to assistive technology, with increment/decrement moving one day at a time and announcing the same date and spend values.
+
 ### Task 1: Replace Eyebrow Stacks With Shared Single Headers
 
 **Files:**
@@ -27,11 +49,11 @@
 - Create: `src/capabilities/money/screens/MoneyTransactionDetailScreen.test.tsx`
 - Create: `src/capabilities/money/screens/MoneyCategoryDetailScreen.test.tsx`
 
-- [ ] **Step 1: Add failing header assertions**
+- [x] **Step 1: Add failing header assertions**
 
 The category picker must render one heading, `Where does this belong?`, and no `CATEGORY` eyebrow. Apply the same rule to touched Money drawers: `Rule for {category}`, `How this forecast works`, `Category settings`, and `Forecast settings`.
 
-- [ ] **Step 2: Use `BottomDrawerHeader`**
+- [x] **Step 2: Use `BottomDrawerHeader`**
 
 Replace local `drawerHeader`, `drawerEyebrow`, `drawerTitle`, and `closeButton` composition with:
 
@@ -41,7 +63,7 @@ Replace local `drawerHeader`, `drawerEyebrow`, `drawerTitle`, and `closeButton` 
 
 Preserve each existing accessibility label and drawer containment. Do not change category-picker semantics from the previous refinement.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 ```bash
 npx jest src/capabilities/money/screens/MoneyTransactionDetailScreen.test.tsx src/capabilities/money/screens/MoneyCategoryDetailScreen.test.tsx --runInBand
@@ -93,7 +115,7 @@ git add src/capabilities/money/domain
 git commit -m "feat(money): restore historical spend comparison"
 ```
 
-### Task 3: Render The Ghost Line Without Confusing Forecast Truth
+### Task 3: Render The Ghost Line And Restore Direct Chart Inspection
 
 **Files:**
 - Modify: `src/capabilities/money/components/MoneyDetailMeter.tsx`
@@ -109,16 +131,24 @@ Prove:
 - actual remains solid and forecast remains dashed;
 - label is `12 mo avg by today {amount}` or `{n} mo avg by today {amount}`;
 - reserve categories do not render a monthly-spend comparison.
+- scrub selection snaps to days, clamps to the observable period, and reports cumulative plus daily spend;
+- tooltip placement stays within measured chart bounds;
+- accessibility increment/decrement moves one day at a time;
+- activation emits one haptic signal and release/cancellation clears selection and restores parent scrolling.
 
 - [ ] **Step 2: Extend `MoneySpendChart`**
 
 Pass `historicalSeries` and render its path before actual so it remains visually subordinate. Keep only the current-day vertical guide and existing plan line. Interpolate the historical value at `elapsedPercent` for the label; do not call it “allowed,” “expected,” or “forecast.”
 
-- [ ] **Step 3: Add accessible chart summary**
+- [ ] **Step 3: Restore press-and-scrub inspection**
 
-The chart container's accessibility label must distinguish: `{actual} spent; {historical} typical by today; {projected} forecast by month end; {planned} planned`.
+Add a transparent responder layer over the SVG. Long-press starts inspection; horizontal movement selects the nearest inspectable day. Render a bounded tooltip with the selected date, cumulative spend, and that day's spend. Notify `MoneyCategoryDetailScreen` while scrubbing so its parent `ScrollView` uses `scrollEnabled={!chartScrubbing}`. Refuse responder termination during an active scrub, clear state on every exit path, and use the existing Money feedback policy for a single activation haptic.
 
-- [ ] **Step 4: Verify and commit**
+- [ ] **Step 4: Add accessible chart summary and adjustment**
+
+The chart container's accessibility label must distinguish: `{actual} spent; {historical} typical by today; {projected} forecast by month end; {planned} planned`. Give the inspection layer `accessibilityRole="adjustable"`; increment/decrement moves one day and announces the same selected-day facts as touch inspection.
+
+- [ ] **Step 5: Verify and commit**
 
 ```bash
 npx jest src/capabilities/money/components/MoneyDetailMeter.test.tsx src/capabilities/money/domain/moneyDetailView.test.ts --runInBand
@@ -232,7 +262,7 @@ npm run verify:changed -- --run
 
 - [ ] **Step 2: Run authenticated simulator proof**
 
-Check Housing with 12 eligible months, a category with fewer months, zero-spend current month, a split transaction month, reserve category, drawer headers, Unsplash search/select/remove, offline image failure, Dynamic Type, VoiceOver, and reduced motion.
+Check Housing with 12 eligible months, a category with fewer months, zero-spend current month, a split transaction month, reserve category, drawer headers, Unsplash search/select/remove, offline image failure, Dynamic Type, VoiceOver, and reduced motion. On the chart, verify long-press activation, horizontal and diagonal scrubbing, day snapping, tooltip bounds near both edges, one activation haptic signal, release/cancellation cleanup, and parent-scroll restoration.
 
 - [ ] **Step 3: Keep proof boundaries explicit**
 

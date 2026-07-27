@@ -8,6 +8,7 @@ import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { Input } from '../../../ui/Input';
 import { AppShell } from '../../../ui/layout/AppShell';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { MoneyTransactionSplitDrawer } from '../components/MoneyTransactionSplitDrawer';
 import { useMoneyData } from '../data/MoneyDataContext';
@@ -273,15 +274,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
       <BottomDrawer visible={categoryPickerOpen} onClose={() => { setCategoryPickerOpen(false); setCreatingCategory(false); }} snapPoints={['78%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>CATEGORY</Text>
-              <Text style={styles.drawerTitle}>Where does this belong?</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close category picker" onPress={() => setCategoryPickerOpen(false)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close category picker"
+            onClose={() => setCategoryPickerOpen(false)}
+            title="Where does this belong?"
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Input
             accessibilityLabel="Search categories"
             autoCapitalize="none"
@@ -346,15 +345,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
       <BottomDrawer visible={Boolean(pendingRuleCategory)} onClose={() => setPendingRuleCategory(null)} snapPoints={['88%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
-          <View style={styles.drawerHeader}>
-            <View>
-              <Text style={styles.drawerEyebrow}>FUTURE MATCHES</Text>
-              <Text style={styles.drawerTitle}>Rule for {pendingRuleCategory?.name}</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close merchant rule" onPress={() => setPendingRuleCategory(null)} style={styles.closeButton}>
-              <Icon name="close" size={20} color={colors.textPrimary} />
-            </Pressable>
-          </View>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close merchant rule"
+            onClose={() => setPendingRuleCategory(null)}
+            title={`Rule for ${pendingRuleCategory?.name ?? 'category'}`}
+            titleVariant="lg"
+            variant="withClose"
+          />
           <Text style={styles.drawerCopy}>Match future {transaction.merchantName} charges and update the visible matching transactions below.</Text>
           <View style={styles.ruleModeRow}>
             <RuleModeButton active={ruleMode === 'exact'} label="Exact match" onPress={() => setRuleMode('exact')} />
@@ -538,11 +535,7 @@ const styles = StyleSheet.create({
   splitReceiptLabel: { flex: 1, color: colors.textPrimary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   splitReceiptAmount: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600', fontVariant: ['tabular-nums'] },
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 64 },
-  drawerHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  drawerEyebrow: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', letterSpacing: 0.7 },
-  drawerTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 24, lineHeight: 29, fontWeight: '700' },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
-  closeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.gray100 },
   meaningSection: { gap: spacing.xs },
   secondarySectionLabel: { marginTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   commandRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
