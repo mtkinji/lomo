@@ -44,37 +44,44 @@ replaced with evidence from the native Kwilt capability.
 
 ## Job Flow
 
-1. Establish the household plan and the categories that matter.
-2. Bring connected-account activity into a current, inspectable money view.
-3. See the relevant category and whole-plan reality before spending or changing
+1. Recognize a Money promise that matches the spending or planning decision and
+   enter without learning Kwilt's capability taxonomy.
+2. Start or truthfully resume the minimum Money setup required for that decision.
+3. Establish the household plan and the categories that matter.
+4. Bring connected-account activity into a current, inspectable money view.
+5. See the relevant category and whole-plan reality before spending or changing
    the plan.
-4. Understand actual spending, planned capacity, outside-plan activity,
+6. Understand actual spending, planned capacity, outside-plan activity,
    forecast, freshness, and confidence in plain language.
-5. Correct transaction meaning or planning assumptions when the evidence is
+7. Correct transaction meaning or planning assumptions when the evidence is
    wrong or incomplete.
-6. Choose whether to continue, adjust the plan, or keep a spend-triggering app
+8. Choose whether to continue, adjust the plan, or keep a spend-triggering app
    blocked.
-7. See an authoritative result or receipt and trust the pattern enough to use it
+9. See an authoritative result or receipt and trust the pattern enough to use it
    again.
 
 ## Current Kwilt Flow
 
-1. Money is a native capability inside the shared Kwilt shell and session, with
+1. Guided Overture can present Money as a concept and preserve selected intent
+   in Agent; exact Money links open native Money. The canonical decision-shaped
+   offer and `MoneyFirstTrustedDecision` contract are documented but not yet a
+   production activation funnel.
+2. Money is a native capability inside the shared Kwilt shell and session, with
    Summary, Transactions, Accounts, category detail, transaction detail, and
    first-use setup.
-2. Authenticated Money repositories project existing `budget_*` data into one
+3. Authenticated Money repositories project existing `budget_*` data into one
    snapshot without substituting fixture financial values.
-3. Summary and category detail distinguish current spending, plan amounts,
+4. Summary and category detail distinguish current spending, plan amounts,
    outside-plan activity, projections, forecast ranges, confidence, and sync
    freshness.
-4. Transaction review can correct category and money meaning; category workflows
+5. Transaction review can correct category and money meaning; category workflows
    can create, rename, resize, roll over, preview plan impact, apply automatic
    plans, and show reversible receipts.
-5. Category-specific app controls use Apple's opaque Screen Time picker and
+6. Category-specific app controls use Apple's opaque Screen Time picker and
    support always-review, pace, threshold, over-plan, and needs-review policies.
-6. A shield handoff opens the relevant category review. Maya can open selected
+7. A shield handoff opens the relevant category review. Maya can open selected
    apps temporarily or keep them blocked, and Kwilt records that local review.
-7. Automated tests and an iOS workspace build cover these contracts. Signed
+8. Automated tests and an iOS workspace build cover these contracts. Signed
    physical-device Face ID, Plaid OAuth, widget, Screen Time, App Thinning, and
    installed TestFlight behavior remain unverified.
 
@@ -94,13 +101,15 @@ replaced with evidence from the native Kwilt capability.
 
 | Step | Score | Rationale |
 | --- | --- | --- |
+| Recognize and enter the Money job | 2 | Native destinations and a concept Guided Overture offer exist, but the production acquisition-to-activation path and task-specific experiment are not wired. |
+| Start or resume minimum setup | 2 | First-use setup and account connection surfaces exist, but shared capability adoption/resume state and exact campaign continuity are not implemented. |
 | Establish plan and categories | 4 | Native setup, category creation, plan changes, automatic planning, impact preview, receipts, and reversal exist; authenticated device acceptance remains. |
 | Bring in current activity | 3 | Shared-session repositories and Plaid connection/sync surfaces exist, but signed-device OAuth, relink, sync/relaunch, and production-provider proof remain. |
 | See reality before acting | 3 | Summary, detail, widgets, and Screen Time handoff provide the intended paths; widget and shield delivery are not yet proven on a signed device. |
 | Understand the evidence | 4 | Actual, planned, outside-plan, forecast range, confidence, and freshness are distinct in the native projection; same-account parity still needs device/TestFlight proof. |
 | Correct wrong assumptions | 4 | Transaction category/meaning review, exact mixed-category allocation, and plan correction paths rebuild authoritative state. Authenticated simulator save, relaunch, correction, reversal, and database reconciliation pass; installed TestFlight proof remains. |
 | Make the intentional choice | 3 | Continue, plan-adjustment, temporary-open, and keep-blocked paths exist; the Screen Time choices still need physical-device proof. |
-| Trust and repeat the pattern | 2 | First-use guidance and reversible receipts exist, but there is no longitudinal household-use evidence and standalone retirement is not authorized. |
+| Trust and repeat the pattern | 2 | First-use guidance and reversible receipts exist, but `MoneyFirstTrustedDecision`, return behavior, and longitudinal household-use evidence are not yet proven. |
 
 ## Evidence Boundary
 
@@ -112,6 +121,11 @@ refresh, Screen Time enforcement, statement-cycle, or longitudinal household pro
 
 ## Gaps
 
+- Wire exact Money campaign entry, capability-owned setup resume, and a
+  privacy-safe `MoneyFirstTrustedDecision` event without treating route arrival
+  or Plaid success as activation.
+- Promote the Guided Overture Money offer from concept to live only after its
+  native route, resume behavior, and decision outcomes pass runtime proof.
 - Prove same-account totals, corrections, plan changes, privacy, Plaid, widgets,
   and Screen Time on a signed physical device and installed TestFlight build.
 - Complete the Plaid relink/update backend contract.

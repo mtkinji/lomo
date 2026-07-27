@@ -24,7 +24,13 @@ export const GUIDED_OVERTURE_PERSONA_SCENARIOS: readonly GuidedOverturePersonaSc
     heroJtbd: 'jtbd-move-the-few-things-that-matter',
     startingPoint: 'unscoped-download',
     expectedEntry: 'guided-overture',
-    relevantOfferIds: ['plan-tomorrow', 'photo-story', 'pick-game', 'invite-support'],
+    relevantOfferIds: [
+      'plan-tomorrow',
+      'review-recent-spending',
+      'photo-story',
+      'pick-game',
+      'invite-support',
+    ],
     primaryRisk: 'The opening feels like project-management setup instead of ordinary family help.',
   },
   {
@@ -77,7 +83,7 @@ export const GUIDED_OVERTURE_PERSONA_SCENARIOS: readonly GuidedOverturePersonaSc
 export const GUIDED_OVERTURE_OUTCOME_COVERAGE = [
   { outcome: 'be more productive', offerIds: ['plan-tomorrow', 'sort-week'] },
   { outcome: 'be happier', offerIds: ['photo-story', 'pick-game'] },
-  { outcome: 'save money', offerIds: ['catch-bill'] },
+  { outcome: 'save money', offerIds: ['review-recent-spending'] },
   { outcome: 'connect with each other', offerIds: ['invite-support', 'pick-game'] },
   { outcome: 'bring an unlisted need', offerIds: ['sort-week'] },
 ] as const;
