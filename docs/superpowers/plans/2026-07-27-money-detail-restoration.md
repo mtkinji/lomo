@@ -253,7 +253,7 @@ git commit -m "fix(money): restore category cover images"
 
 ### Task 6: Finish And Prove The Detail Restoration
 
-- [ ] **Step 1: Run completion gates**
+- [x] **Step 1: Run completion gates**
 
 ```bash
 npm run product:lint
@@ -264,6 +264,8 @@ npm run verify:changed -- --run
 
 Check Housing with 12 eligible months, a category with fewer months, zero-spend current month, a split transaction month, reserve category, drawer headers, Unsplash search/select/remove, offline image failure, Dynamic Type, VoiceOver, and reduced motion. On the chart, verify long-press activation, horizontal and diagonal scrubbing, day snapping, tooltip bounds near both edges, one activation haptic signal, release/cancellation cleanup, and parent-scroll restoration.
 
-- [ ] **Step 3: Keep proof boundaries explicit**
+Partial proof on 2026-07-27: the authenticated iPhone 17 Pro simulator loaded Housing from this checkout and Metro port 8081, rendered the 12-month ghost line beside actual/forecast/plan evidence, and exposed the chart as an adjustable control with increment/decrement actions. The remaining gesture matrix, alternate category states, live cover save/remove, Dynamic Type, VoiceOver announcement, and reduced-motion passes remain unchecked; cover persistence also requires the linked migration to be applied first.
+
+- [x] **Step 3: Keep proof boundaries explicit**
 
 Unit tests prove chart math and payload validation. Simulator proves layout and interactions. A configured Unsplash key/network proves live search. Linked Supabase migration, signed-device persistence, and installed TestFlight remain separate until exercised.
