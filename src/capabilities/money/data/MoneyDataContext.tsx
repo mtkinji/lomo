@@ -16,15 +16,18 @@ import {
   subscribeToMoneyReviewHandoff,
 } from '../runtime/moneyAppControlForegroundSync';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
-import { getLivingPlanSettings, saveLivingPlanOverride } from './livingPlanRepository';
+import { getLivingPlanSettings } from './livingPlanRepository';
 import {
+  commitLivingPlanCategoryChange,
   previewLivingPlanOverride,
   reconcileLivingPlan,
   type LivingPlanOverridePreview,
 } from '../runtime/livingPlanReconciliation';
+import { initializeGovernedMoneyPlan } from '../runtime/moneyPlanLifecycle';
 
 type MoneyDataContextValue = MoneyDataState & {
   refresh: () => Promise<void>;
+  reconcileGovernedPlanFoundation: () => Promise<void>;
   reviewingTransactionId: string | null;
   assignTransactionCategory: (transactionId: string, categoryId: string) => Promise<void>;
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
@@ -35,7 +38,11 @@ type MoneyDataContextValue = MoneyDataState & {
   createCategory: (input: CategoryPlanInput) => Promise<string>;
   renameCategory: (categoryId: string, name: string) => Promise<void>;
   updateCategoryPlan: (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => Promise<void>;
-  previewCategoryPlanAmount: (categoryId: string, budgetCents: number) => Promise<LivingPlanOverridePreview | null>;
+  previewCategoryPlanAmount: (
+    categoryId: string,
+    budgetCents: number,
+    funding?: Parameters<typeof previewLivingPlanOverride>[3],
+  ) => Promise<LivingPlanOverridePreview | null>;
   pendingAppControlReviewCategoryId: string | null;
   reviewMoneyAppControl: (categoryId: string, outcome: MoneyAppControlReviewOutcome) => Promise<void>;
 };
@@ -74,9 +81,30 @@ export function MoneyDataProvider({
     }
   }, [acceptSnapshot, resolvedRepository]);
 
+  const initialize = useCallback(async () => {
+    dispatch({ type: 'load' });
+    try {
+      const snapshot = repository
+        ? await resolvedRepository.loadSnapshot()
+        : await initializeGovernedMoneyPlan(resolvedRepository, getSupabaseClient());
+      acceptSnapshot(snapshot);
+    } catch (error) {
+      dispatch({
+        type: 'failure',
+        message: error instanceof Error ? error.message : 'Money data could not be loaded.',
+      });
+    }
+  }, [acceptSnapshot, repository, resolvedRepository]);
+
+  const reconcileGovernedPlanFoundation = useCallback(async () => {
+    await resolvedRepository.ensureGovernedPlanFoundation();
+    const snapshot = await resolvedRepository.loadSnapshot();
+    acceptSnapshot(snapshot);
+  }, [acceptSnapshot, resolvedRepository]);
+
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void initialize();
+  }, [initialize]);
 
   useEffect(() => {
     if (!state.snapshot) return;
@@ -187,13 +215,17 @@ export function MoneyDataProvider({
     }
   }, [acceptSnapshot]);
 
-  const previewCategoryPlanAmount = useCallback(async (categoryId: string, budgetCents: number) => {
+  const previewCategoryPlanAmount = useCallback(async (
+    categoryId: string,
+    budgetCents: number,
+    funding?: Parameters<typeof previewLivingPlanOverride>[3],
+  ) => {
     const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
     if (!category) throw new Error('This category is no longer available.');
     const client = getSupabaseClient();
     const settings = await getLivingPlanSettings(client);
     if (!settings.promotionEnabled || !settings.target) return null;
-    return previewLivingPlanOverride(client, category.id, budgetCents);
+    return previewLivingPlanOverride(client, category.id, budgetCents, funding);
   }, [state.snapshot]);
 
   const renameCategory = useCallback(
@@ -208,16 +240,32 @@ export function MoneyDataProvider({
     input: Parameters<MoneyRepository['updateCategoryPlan']>[1],
   ) => {
     const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
-    if (input.budgetCents != null && category) {
+    const hasFundingChange = input.fundingRhythm != null
+      || 'expectedNeedCents' in input
+      || 'expectedNeedDueMonth' in input;
+    if ((input.budgetCents != null || hasFundingChange) && category) {
       const client = getSupabaseClient();
       const settings = await getLivingPlanSettings(client);
       if (settings.promotionEnabled && settings.target) {
         setSavingCategory(true);
         try {
-          await saveLivingPlanOverride(client, category.id, input.budgetCents);
-          const result = await reconcileLivingPlan(client, 'override_changed');
+          const fundingRhythm = input.fundingRhythm ?? category.fundingRhythm;
+          const expectedNeedCents = fundingRhythm === 'reserve'
+            ? ('expectedNeedCents' in input ? input.expectedNeedCents ?? null : category.expectedNeed?.amountCents ?? null)
+            : null;
+          const expectedNeedDueMonth = fundingRhythm === 'reserve'
+            ? ('expectedNeedDueMonth' in input ? input.expectedNeedDueMonth?.trim() || null : category.expectedNeed?.dueMonth ?? null)
+            : null;
+          const result = await commitLivingPlanCategoryChange(client, {
+            planCategoryId: category.sourceId,
+            allocationCategoryId: category.id,
+            amountCents: input.budgetCents ?? category.plannedCents,
+            fundingRhythm,
+            expectedNeedCents,
+            expectedNeedDueMonth,
+          });
           if (result.outcome === 'blocked' || result.outcome === 'not_ready' || result.outcome === 'disabled') {
-            throw new Error('Your amount preference was saved, but the plan did not change because current account evidence is not ready.');
+            throw new Error('Nothing changed because current account evidence is not ready to rebuild the plan safely.');
           }
           acceptSnapshot(await resolvedRepository.loadSnapshot());
           return;
@@ -241,6 +289,7 @@ export function MoneyDataProvider({
   const value = useMemo(() => ({
     ...state,
     refresh,
+    reconcileGovernedPlanFoundation,
     reviewingTransactionId,
     assignTransactionCategory,
     markTransactionNotCounted,
@@ -254,7 +303,7 @@ export function MoneyDataProvider({
     previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, splitTransaction, state, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, splitTransaction, state, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

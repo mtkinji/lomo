@@ -21,6 +21,7 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { syncMoneyTransactions } from '../data/moneyPlaidApi';
 import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
+import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 
@@ -39,7 +40,7 @@ const SORT_OPTIONS: Array<{ value: AccountSort; label: string }> = [
 ];
 
 export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyAccounts'>) {
-  const { snapshot, refresh } = useMoneyData();
+  const { snapshot, reconcileGovernedPlanFoundation } = useMoneyData();
   const [filter, setFilter] = useState<AccountFilter>('all');
   const [sort, setSort] = useState<AccountSort>('name');
   const [connectionAction, setConnectionAction] = useState<'linking' | 'syncing' | null>(null);
@@ -59,7 +60,8 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
         setConnectionMessage('Account connection closed without changes.');
         return;
       }
-      await refresh();
+      await reconcileGovernedPlanFoundation();
+      await reconcileLivingPlan(getSupabaseClient(), 'account_scope_changed');
       setConnectionMessage(`${result.exchange.institutionName} connected and synced.`);
     } catch (error) {
       setConnectionMessage(error instanceof Error ? error.message : 'The account could not be connected.');
@@ -74,7 +76,8 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
     setConnectionMessage('Checking…');
     try {
       const result = await syncMoneyTransactions(getSupabaseClient());
-      await refresh();
+      await reconcileGovernedPlanFoundation();
+      await reconcileLivingPlan(getSupabaseClient(), 'sync_evidence_changed');
       setConnectionMessage(result.added > 0 ? `${result.added} new ${result.added === 1 ? 'transaction' : 'transactions'}` : 'Accounts are up to date');
     } catch (error) {
       setConnectionMessage(error instanceof Error ? error.message : 'Unable to check right now');

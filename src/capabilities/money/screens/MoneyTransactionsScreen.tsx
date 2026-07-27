@@ -19,6 +19,7 @@ import {
 } from '../components/MoneyInventoryListFrame';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { syncMoneyTransactions } from '../data/moneyPlaidApi';
+import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { formatMoney, formatMoneyFreshness, type MoneyTransaction } from '../data/moneySnapshot';
 import { projectMoneyTransactionsForCategory } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
@@ -50,7 +51,7 @@ const DATE_OPTIONS: Array<{ value: DateScope; label: string }> = [
 ];
 
 export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactions'>) {
-  const { snapshot, refresh } = useMoneyData();
+  const { snapshot, reconcileGovernedPlanFoundation } = useMoneyData();
   const [dateScope, setDateScope] = useState<DateScope>('current_month');
   const [filter, setFilter] = useState<Filter>(route.params?.reviewState === 'needs_review' ? 'unmatched' : 'all');
   const [sort, setSort] = useState<Sort>('newest');
@@ -81,6 +82,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const accountLabel = accountId ? snapshot?.accounts.find((account) => account.id === accountId)?.name : null;
   const categoryLabel = selectedCategory?.name ?? null;
   const title = [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions';
+  const isScopedInventory = Boolean(accountId || categoryId);
 
   const selectDateScope = (next: DateScope) => {
     setDateScope(next);
@@ -95,7 +97,8 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
     setActivityMessage('Checking…');
     try {
       const result = await syncMoneyTransactions(getSupabaseClient());
-      await refresh();
+      await reconcileGovernedPlanFoundation();
+      await reconcileLivingPlan(getSupabaseClient(), 'sync_evidence_changed');
       setActivityMessage(result.added > 0 ? `${result.added} new ${result.added === 1 ? 'transaction' : 'transactions'}` : 'Up to date');
     } catch {
       setActivityMessage('Unable to check right now');
@@ -105,7 +108,10 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   };
 
   return (
-    <MoneyScreenFrame title={title}>
+    <MoneyScreenFrame
+      title={title}
+      onPressBack={isScopedInventory ? () => navigation.goBack() : undefined}
+    >
       <MoneyInventoryListFrame
         controls={(
           <MoneyInventoryControlGroup>

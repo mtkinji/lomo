@@ -1,5 +1,6 @@
 import type { MoneyCategory, MoneySnapshot, MoneyTransaction } from '../data/moneySnapshot';
 import { projectCategoryForecast } from './moneyForecast';
+import { projectCategoryFunding, projectReserveAvailabilityFromAnchor } from './categoryFunding';
 
 export type MoneyPeriodView = {
   monthOffset: number;
@@ -110,6 +111,7 @@ function projectCategoryForMonth(
     .filter((transaction) => transaction.direction === 'inflow' && transaction.moneyMeaning === 'category_credit')
     .reduce((total, transaction) => total + transaction.amountCents, 0);
   const spentCents = Math.max(0, outflowCents - creditCents);
+  const funding = projectFundingForSelectedPeriod(snapshot, category, monthKey, spentCents);
   const forecast = projectCategoryForecast({
     periodStartIso: `${monthKey}-01`,
     periodEndIso: toLocalDay(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)),
@@ -120,18 +122,84 @@ function projectCategoryForMonth(
     manualProjectedSpendCents: category.forecastSettings?.manualProjectedSpendCents,
     scheduledAmountCents: category.forecastSettings?.scheduledAmountCents,
     scheduledDueDay: category.forecastSettings?.scheduledDueDay,
+    fundingRhythm: category.fundingRhythm,
+    reserveAvailableCents: funding.availableCents,
+    fundingCoverage: funding.coverage,
   });
 
   return {
     ...category,
     spentCents,
-    remainingCents: category.plannedCents - spentCents,
+    remainingCents: funding.availableCents,
     percentUsed: category.plannedCents > 0
       ? Math.round((spentCents / category.plannedCents) * 100)
       : 0,
     transactionCount: transactions.length,
+    reserveAvailableCents: category.fundingRhythm === 'reserve' ? funding.availableCents : 0,
+    fundingCoverage: funding.coverage,
+    reserveAvailabilityKnown: funding.known,
     forecast,
   };
+}
+
+function projectFundingForSelectedPeriod(
+  snapshot: MoneySnapshot,
+  category: MoneyCategory,
+  monthKey: string,
+  currentPeriodSpendCents: number,
+) {
+  if (category.fundingRhythm !== 'reserve') {
+    return {
+      ...projectCategoryFunding({
+        rhythm: 'monthly',
+        monthlyContributionCents: category.plannedCents,
+        priorReserveCents: 0,
+        countedSpendCents: currentPeriodSpendCents,
+        periodId: monthKey,
+      }),
+      known: true,
+    };
+  }
+  const anchorPeriodId = category.reserveBalancePeriodId;
+  if (!anchorPeriodId || monthKey < anchorPeriodId) {
+    return {
+      ...projectCategoryFunding({
+        rhythm: 'reserve', monthlyContributionCents: 0, priorReserveCents: 0,
+        countedSpendCents: 0, periodId: monthKey,
+      }),
+      known: false,
+    };
+  }
+  const countedSpendSinceAnchorCents = projectMoneyTransactionsForCategory(
+    snapshot.transactions.filter((transaction) => {
+      const periodId = transaction.date.slice(0, 7);
+      return periodId >= anchorPeriodId && periodId <= monthKey && !transaction.pending;
+    }),
+    category,
+  ).reduce((total, transaction) => {
+    if (transaction.moneyMeaning === 'not_counted' || transaction.moneyMeaning === 'transfer') return total;
+    return transaction.direction === 'outflow'
+      ? total + transaction.amountCents
+      : transaction.moneyMeaning === 'category_credit'
+        ? total - transaction.amountCents
+        : total;
+  }, 0);
+  const availableCents = projectReserveAvailabilityFromAnchor({
+    anchorPeriodId,
+    anchorBalanceCents: category.reserveBalanceCents,
+    targetPeriodId: monthKey,
+    monthlyContributionCents: category.monthlyContributionCents,
+    countedSpendSinceAnchorCents: Math.max(0, countedSpendSinceAnchorCents),
+  });
+  const projected = projectCategoryFunding({
+    rhythm: 'reserve',
+    monthlyContributionCents: category.monthlyContributionCents,
+    priorReserveCents: availableCents == null ? 0 : availableCents - category.monthlyContributionCents + currentPeriodSpendCents,
+    countedSpendCents: currentPeriodSpendCents,
+    periodId: monthKey,
+    expectedNeed: category.expectedNeed,
+  });
+  return { ...projected, known: availableCents != null };
 }
 
 export function projectMoneyTransactionsForCategory(

@@ -12,6 +12,7 @@ describe('projectCategoryForecast', () => {
   it('keeps actual, expected pace, and paced projection distinct', () => {
     expect(projectCategoryForecast({ ...period, mode: 'paced' })).toEqual({
       mode: 'paced',
+      claim: 'monthly_range',
       confidence: 'medium',
       expectedSpendCents: 32_258,
       projectedSpendCents: 62_000,
@@ -19,6 +20,58 @@ describe('projectCategoryForecast', () => {
       projectionRangeHighCents: 68_200,
       projectedRemainingCents: 38_000,
       projectedOverageCents: 0,
+      status: 'steady',
+    });
+  });
+
+  it('uses expected-need coverage instead of straight-line pacing for a reserve', () => {
+    expect(projectCategoryForecast({
+      ...period,
+      fundingRhythm: 'reserve',
+      reserveAvailableCents: 35_000,
+      fundingCoverage: {
+        status: 'shortfall',
+        dueMonth: '2026-12',
+        needCents: 80_000,
+        projectedAvailableCents: 75_000,
+        shortfallCents: 5_000,
+        requiredMonthlyContributionCents: 11_000,
+        catchUpContributionCents: 1_000,
+      },
+    })).toEqual({
+      mode: 'paced',
+      claim: 'reserve_coverage',
+      confidence: 'high',
+      expectedSpendCents: 20_000,
+      projectedSpendCents: 20_000,
+      projectionRangeLowCents: 20_000,
+      projectionRangeHighCents: 20_000,
+      projectedRemainingCents: 35_000,
+      projectedOverageCents: 0,
+      status: 'watch',
+      reserveCoverage: {
+        status: 'shortfall',
+        dueMonth: '2026-12',
+        needCents: 80_000,
+        projectedAvailableCents: 75_000,
+        shortfallCents: 5_000,
+        requiredMonthlyContributionCents: 11_000,
+        catchUpContributionCents: 1_000,
+      },
+    });
+  });
+
+  it('keeps a reserve without an expected need at exposure-only confidence', () => {
+    expect(projectCategoryForecast({
+      ...period,
+      fundingRhythm: 'reserve',
+      reserveAvailableCents: 35_000,
+      fundingCoverage: { status: 'none' },
+    })).toMatchObject({
+      claim: 'exposure',
+      confidence: 'low',
+      projectedSpendCents: 20_000,
+      projectedRemainingCents: 35_000,
       status: 'steady',
     });
   });

@@ -24,6 +24,7 @@ briefs:
   - budget-unlock-bottom-guide
   - category-budget-planning
   - category-rollovers
+  - governed-household-money-plan
   - income-runway-detection
   - ios-budget-widgets
   - job-delivery-map

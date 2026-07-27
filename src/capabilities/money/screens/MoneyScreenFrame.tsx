@@ -14,10 +14,12 @@ import type { MoneyStackParamList } from '../navigation/types';
 export function MoneyScreenFrame({
   children,
   moreMenu,
+  onPressBack,
   title,
 }: {
   children: ReactNode;
   moreMenu?: ReactNode;
+  onPressBack?: () => void;
   title: string;
 }) {
   const { openMenu } = useCapabilityShell();
@@ -31,7 +33,12 @@ export function MoneyScreenFrame({
 
   return (
     <AppShell>
-      <PageHeader title={title} moreMenu={moreMenu} onPressMenu={openMenu} />
+      <PageHeader
+        title={title}
+        moreMenu={moreMenu}
+        onPressBack={onPressBack}
+        onPressMenu={onPressBack ? undefined : openMenu}
+      />
       {status === 'loading' && !snapshot ? (
         <View accessibilityLabel="Loading Money" style={styles.centered}>
           <ActivityIndicator color={colors.accent} />

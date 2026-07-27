@@ -302,4 +302,43 @@ describe('projectMoneySnapshot', () => {
       ],
     });
   });
+
+  it('projects reserve availability and expected-need coverage without adding the reserve balance to the monthly target', () => {
+    const snapshot = projectMoneySnapshot({
+      categories: [categories[1]],
+      plans: [{
+        category_id: 'category-fun-uuid',
+        base_budget_cents: 10000,
+        rollover_enabled: false,
+        funding_rhythm: 'reserve',
+        funding_policy_version: 'category-funding-v1',
+        starter_weight: 0.05,
+        reserve_balance_cents: 30000,
+        reserve_balance_period_id: '2026-08',
+        expected_need_cents: 80000,
+        expected_need_due_month: '2026-12',
+      }],
+      accounts: [],
+      connections: [],
+      transactions: [{
+        id: 'gift', financial_account_id: null, name: 'Gift', merchant_name: 'Gift shop',
+        amount_cents: 5000, direction: 'outflow', date: '2026-08-10', pending: false,
+        iso_currency_code: 'USD', budget_id: 'fun', money_meaning: null,
+      }],
+    }, new Date('2026-08-15T18:00:00.000Z'));
+
+    expect(snapshot.totals).toMatchObject({ plannedCents: 10000, spentCents: 5000 });
+    expect(snapshot.categories[0]).toMatchObject({
+      fundingRhythm: 'reserve',
+      monthlyContributionCents: 10000,
+      reserveAvailableCents: 35000,
+      remainingCents: 35000,
+      expectedNeed: { amountCents: 80000, dueMonth: '2026-12' },
+      fundingCoverage: {
+        status: 'shortfall',
+        projectedAvailableCents: 75000,
+        catchUpContributionCents: 1000,
+      },
+    });
+  });
 });

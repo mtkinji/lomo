@@ -33,6 +33,7 @@ export function MoneyDetailMeter({
 }) {
   const [chartWidth, setChartWidth] = useState(320);
   const forecast = category.forecast;
+  const isReserve = category.fundingRhythm === 'reserve';
   const projectedSpendCents = monthOffset === 0 ? forecast.projectedSpendCents : category.spentCents;
   const expectedSpendCents = Math.round(category.plannedCents * periodElapsedPercent / 100);
   const paceDeltaCents = category.spentCents - expectedSpendCents;
@@ -48,21 +49,35 @@ export function MoneyDetailMeter({
     <View style={styles.container}>
       <View style={styles.instrumentHeader}>
         <View style={styles.amountRow}>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={styles.amount}>{formatMoney(category.spentCents)}</Text>
-          <Text numberOfLines={1} style={styles.limit}>spent / {formatMoney(category.plannedCents)}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={styles.amount}>{formatMoney(isReserve ? category.reserveAvailableCents : category.spentCents)}</Text>
+          <Text numberOfLines={1} style={styles.limit}>{isReserve ? 'available' : `spent / ${formatMoney(category.plannedCents)}`}</Text>
         </View>
         <View style={styles.signalStack}>
-          <SignalLine
-            color={statusColor}
-            value={`${formatMoney(Math.abs(paceDeltaCents))} ${paceDeltaCents > 0 ? 'over' : 'under'}`}
-            label={`budget pace (${formatMoney(expectedSpendCents)} allowed by today)`}
-          />
-          <SignalLine
-            color={projectionColor}
-            value={formatMoney(projectedSpendCents)}
-            label={monthOffset === 0 ? `forecast by month end · ${formatForecastBasis(forecast.mode)}` : 'actual for completed month'}
-            onInfoPress={onForecastInfo}
-          />
+          {isReserve ? (
+            <>
+              <SignalLine color={statusColor} value={formatMoney(category.monthlyContributionCents)} label="monthly contribution" />
+              <SignalLine
+                color={statusColor}
+                value={reserveSignalValue(category)}
+                label={reserveSignalLabel(category)}
+                onInfoPress={onForecastInfo}
+              />
+            </>
+          ) : (
+            <>
+              <SignalLine
+                color={statusColor}
+                value={`${formatMoney(Math.abs(paceDeltaCents))} ${paceDeltaCents > 0 ? 'over' : 'under'}`}
+                label={`budget pace (${formatMoney(expectedSpendCents)} allowed by today)`}
+              />
+              <SignalLine
+                color={projectionColor}
+                value={formatMoney(projectedSpendCents)}
+                label={monthOffset === 0 ? `forecast by month end · ${formatForecastBasis(forecast.mode)}` : 'actual for completed month'}
+                onInfoPress={onForecastInfo}
+              />
+            </>
+          )}
         </View>
       </View>
 
@@ -79,23 +94,54 @@ export function MoneyDetailMeter({
         </Pressable>
       </View>
 
-      <View onLayout={(event) => setChartWidth(Math.max(240, Math.round(event.nativeEvent.layout.width)))} style={styles.chart}>
-        <MoneySpendChart
-          accentColor={statusColor}
-          budgetCents={category.plannedCents}
-          elapsedPercent={periodElapsedPercent}
-          height={184}
-          projectedSpendCents={projectedSpendCents}
-          series={series}
-          width={chartWidth}
-        />
-      </View>
-      <View style={styles.chartAxisRow}>
-        <Text style={styles.axisLabel}>{formatAxisDate(periodStartIso)}</Text>
-        <Text style={styles.axisLabel}>{formatAxisDate(periodEndIso)}</Text>
-      </View>
+      {isReserve ? (
+        <View style={styles.reserveExplanation}>
+          <Text style={styles.reserveExplanationTitle}>Availability carries across months</Text>
+          <Text style={styles.reserveExplanationCopy}>This reserve adds the same contribution each month and subtracts counted spending. Kwilt checks the accumulated amount against an expected need instead of pacing it as a monthly limit.</Text>
+        </View>
+      ) : (
+        <>
+          <View onLayout={(event) => setChartWidth(Math.max(240, Math.round(event.nativeEvent.layout.width)))} style={styles.chart}>
+            <MoneySpendChart
+              accentColor={statusColor}
+              budgetCents={category.plannedCents}
+              elapsedPercent={periodElapsedPercent}
+              height={184}
+              projectedSpendCents={projectedSpendCents}
+              series={series}
+              width={chartWidth}
+            />
+          </View>
+          <View style={styles.chartAxisRow}>
+            <Text style={styles.axisLabel}>{formatAxisDate(periodStartIso)}</Text>
+            <Text style={styles.axisLabel}>{formatAxisDate(periodEndIso)}</Text>
+          </View>
+        </>
+      )}
     </View>
   );
+}
+
+function reserveSignalValue(category: MoneyCategory): string {
+  if (!category.reserveAvailabilityKnown) return 'Not known';
+  const coverage = category.fundingCoverage;
+  if (coverage.status === 'none') return 'No need set';
+  if (coverage.status === 'covered') return 'Covered';
+  if (coverage.status === 'past_due') return 'Due month passed';
+  return `${formatMoney(coverage.shortfallCents)} short`;
+}
+
+function reserveSignalLabel(category: MoneyCategory): string {
+  const coverage = category.fundingCoverage;
+  if (coverage.status === 'none') return 'expected need is optional';
+  if (coverage.status === 'past_due') return 'update the expected need';
+  return `${formatMoney(coverage.needCents)} expected by ${formatMonth(coverage.dueMonth)}`;
+}
+
+function formatMonth(periodId: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(periodId);
+  if (!match) return periodId;
+  return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
 function SignalLine({ color, label, onInfoPress, value }: { color: string; label: string; onInfoPress?: () => void; value: string }) {
@@ -176,4 +222,7 @@ const styles = StyleSheet.create({
   chart: { height: 184, overflow: 'hidden' },
   chartAxisRow: { marginTop: -spacing.md, flexDirection: 'row', justifyContent: 'space-between' },
   axisLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
+  reserveExplanation: { gap: spacing.xs, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.pine50 },
+  reserveExplanationTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  reserveExplanationCopy: { ...typography.bodySm, color: colors.textSecondary },
 });

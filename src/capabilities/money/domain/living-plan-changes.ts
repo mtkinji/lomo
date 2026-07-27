@@ -12,6 +12,7 @@ export type LivingPlanTrigger =
   | 'account_scope_changed'
   | 'sync_evidence_changed'
   | 'target_changed'
+  | 'planning_basis_changed'
   | 'override_changed'
   | 'category_changed'
   | 'period_rollover'
@@ -73,8 +74,12 @@ export function compareLivingPlanVersions(input: {
       materialReasons.push('category_identity_changed');
       continue;
     }
-    if (before.amountCents === after.amountCents) continue;
+    const fundingChanged = before.fundingRhythm !== after.fundingRhythm
+      || before.priorReserveCents !== after.priorReserveCents
+      || JSON.stringify(before.expectedNeed) !== JSON.stringify(after.expectedNeed);
+    if (before.amountCents === after.amountCents && !fundingChanged) continue;
     changedCategoryIds.push(id);
+    if (fundingChanged) materialReasons.push('funding_policy_changed');
     if (before.fixedCents !== after.fixedCents) materialReasons.push('fixed_component_changed');
     const absolute = Math.abs(after.amountCents - before.amountCents);
     if (absolute >= 10000 || (absolute >= 2500 && percentDelta(before.amountCents, after.amountCents) >= 0.2)) {
@@ -90,7 +95,7 @@ function effectivePlanEqual(prior: LivingPlanVersion, candidate: LivingPlanCandi
   if (prior.allocations.length !== candidate.allocations.length) return false;
   return prior.allocations.every((before, index) => {
     const after = candidate.allocations[index];
-    return before.categoryId === after.categoryId && before.amountCents === after.amountCents && before.fixedCents === after.fixedCents && before.overrideCents === after.overrideCents && before.flexibleCents === after.flexibleCents && before.exposureCents === after.exposureCents && before.source === after.source;
+    return before.categoryId === after.categoryId && before.amountCents === after.amountCents && before.fixedCents === after.fixedCents && before.overrideCents === after.overrideCents && before.flexibleCents === after.flexibleCents && before.exposureCents === after.exposureCents && before.source === after.source && before.fundingRhythm === after.fundingRhythm && before.priorReserveCents === after.priorReserveCents && JSON.stringify(before.expectedNeed) === JSON.stringify(after.expectedNeed);
   });
 }
 
