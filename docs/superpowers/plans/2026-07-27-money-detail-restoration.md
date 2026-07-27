@@ -212,18 +212,19 @@ git add supabase/migrations src/capabilities/money/domain/moneyCategoryCover.ts 
 git commit -m "feat(money): persist category cover metadata"
 ```
 
-### Task 5: Add Cover Search, Attribution, And Failure Fallback
+### Task 5: Use Kwilt's Cover Manager With Money Persistence
 
 **Files:**
 - Create: `src/capabilities/money/components/MoneyCategoryCover.tsx`
-- Create: `src/capabilities/money/components/MoneyCategoryCoverDrawer.tsx`
+- Create: `src/capabilities/money/components/MoneyCategoryCoverDrawer.tsx` as a thin persistence adapter
 - Create: `src/capabilities/money/components/MoneyCategoryCover.test.tsx`
+- Modify: `src/features/arcs/ArcBannerSheet.tsx`
 - Modify: `src/capabilities/money/screens/MoneyCategoryDetailScreen.tsx`
 - Reuse unchanged: `src/services/unsplash.ts`
 
 - [x] **Step 1: Write failing UI tests**
 
-Cover persisted image rendering, image-load failure fallback, photographer/Unsplash links, `Edit cover` menu entry, category-name initial query, search loading/error/empty states, save, and remove.
+Cover persisted image rendering, image-load failure fallback, photographer/Unsplash links, `Edit cover` menu entry, category-name initial query, search loading/error/empty states, save, and remove. Assert that Money delegates search and result presentation to Kwilt's established `ArcBannerSheet` instead of implementing another image picker.
 
 - [x] **Step 2: Replace `getCategoryCover()`**
 
@@ -231,13 +232,7 @@ Delete the four hard-coded name checks. `MoneyCategoryCover` renders the persist
 
 - [x] **Step 3: Build explicit Unsplash selection**
 
-Open `MoneyCategoryCoverDrawer` from category detail's existing overflow menu as `Edit cover`. Search occurs only after the user opens/uses this surface, using:
-
-```ts
-searchUnsplashPhotos(query, { perPage: 12, orientation: 'landscape' })
-```
-
-Default the query to the category name, show result thumbnails, and persist the selected photo's regular URL plus attribution metadata. After confirmed persistence, call `trackUnsplashDownload(photo.id)` best-effort. Never expose the access key or raw API error.
+Open `MoneyCategoryCoverDrawer` from category detail's existing overflow menu as `Edit cover`, but keep that component as a thin adapter over `ArcBannerSheet`, the same cover manager used by Goals, Arcs, and To-dos. Extend the shared sheet with a Search-only configuration and category-specific title/removal vocabulary; preserve its preview, AI-assisted initial query with category-name fallback, 30-result masonry search, analytics, loading/error presentation, selection state, and floating Done action. Persist the selected photo's regular URL plus attribution metadata through Money's confirmed write. After confirmed persistence, call `trackUnsplashDownload(photo.id)` best-effort. Never expose the access key or raw API error.
 
 - [x] **Step 4: Add quiet attribution**
 
@@ -265,7 +260,7 @@ npm run verify:changed -- --run
 
 Check Housing with 12 eligible months, a category with fewer months, zero-spend current month, a split transaction month, reserve category, drawer headers, Unsplash search/select/remove, offline image failure, Dynamic Type, VoiceOver, and reduced motion. On the chart, verify long-press activation, horizontal and diagonal scrubbing, day snapping, tooltip bounds near both edges, one activation haptic signal, release/cancellation cleanup, and parent-scroll restoration.
 
-Partial proof on 2026-07-27: the authenticated iPhone 17 Pro simulator loaded Housing from this checkout and Metro port 8081, rendered the 12-month ghost line beside actual/forecast/plan evidence, and exposed the chart as an adjustable control with increment/decrement actions. The linked cover migration was subsequently applied to the live Kwilt project as version `20260727191420`; the column, constraint, caller-scoped function, and authenticated-only execution grant were verified. Unsplash search also returned a valid landscape result with image and attribution metadata. All nine active categories currently have `cover_image = null`, so the gradient remains until the user explicitly selects a photo. The remaining gesture matrix, alternate category states, live cover select/remove, offline image failure, Dynamic Type, VoiceOver announcement, and reduced-motion passes remain unchecked.
+Partial proof on 2026-07-27: the authenticated iPhone 17 Pro simulator loaded Housing from this checkout and Metro port 8081, rendered the 12-month ghost line beside actual/forecast/plan evidence, and exposed the chart as an adjustable control with increment/decrement actions. The linked cover migration was subsequently applied to the live Kwilt project as version `20260727191420`; the column, constraint, caller-scoped function, and authenticated-only execution grant were verified. The Entrepreneurship route rendered Kwilt's shared full-height cover manager with an AI-assisted query, 30 live Unsplash masonry results, preview, and Done action. Selecting a result persisted it, updated the preview, returned to detail, rendered the cover, and exposed linked photographer/Unsplash attribution; the exact temporary test photo was then cleared from the database to restore the user's original state. The remaining gesture matrix, alternate category states, in-app cover removal, offline image failure, Dynamic Type, VoiceOver announcement, and reduced-motion passes remain unchecked.
 
 - [x] **Step 3: Keep proof boundaries explicit**
 

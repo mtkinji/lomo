@@ -30,15 +30,22 @@ describe('Money category covers', () => {
     });
   });
 
-  it('keeps failure, attribution, search, and download-tracking behavior explicit', () => {
+  it('keeps failure, attribution, shared search, and download-tracking behavior explicit', () => {
     const coverSource = readFileSync(path.join(__dirname, 'MoneyCategoryCover.tsx'), 'utf8');
     const drawerSource = readFileSync(path.join(__dirname, 'MoneyCategoryCoverDrawer.tsx'), 'utf8');
+    const sharedSheetSource = readFileSync(path.join(
+      process.cwd(),
+      'src/features/arcs/ArcBannerSheet.tsx',
+    ), 'utf8');
 
     expect(coverSource).toContain('onError={() => setImageFailed(true)}');
     expect(coverSource).toContain('Cover image unavailable');
     expect(coverSource).toContain('Photo by');
-    expect(drawerSource).toContain("perPage: 12, orientation: 'landscape'");
-    expect(drawerSource).toContain('Cover search is unavailable. Try again.');
+    expect(drawerSource).toContain('<ArcBannerSheet');
+    expect(drawerSource).toContain("sourceTabs={['unsplash']}");
+    expect(drawerSource).toContain('title="Category cover"');
+    expect(sharedSheetSource).toContain('searchUnsplashPhotos(query, { perPage: 30, page: 1 })');
+    expect(sharedSheetSource).toContain('unsplashMasonryColumns');
     expect(drawerSource).toContain('trackUnsplashDownload(photo.id)');
   });
 });
