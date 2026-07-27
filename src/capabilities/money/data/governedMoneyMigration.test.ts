@@ -13,6 +13,10 @@ const explicitPolicyMigration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260727140359_make_governed_money_policies_auth_explicit.sql'),
   'utf8',
 );
+const trustedReconciliationMigration = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260727150101_move_governed_money_reconciliation_server_side.sql'),
+  'utf8',
+);
 
 describe('governed household Money migration', () => {
   const foundation = migration.slice(
@@ -55,5 +59,24 @@ describe('governed household Money migration', () => {
     expect(hardeningMigration).toContain('budget_held_living_plan_candidates');
     expect(explicitPolicyMigration.match(/auth\.jwt\(\)->>'is_anonymous'/g)).toHaveLength(9);
     expect(explicitPolicyMigration.match(/alter policy/g)).toHaveLength(7);
+  });
+
+  it('keeps governed transaction provenance behind a service-only reconciliation boundary', () => {
+    expect(trustedReconciliationMigration).toContain(
+      'create or replace function public.reconcile_governed_household_money_foundation(p_user_id uuid)',
+    );
+    expect(trustedReconciliationMigration).toContain('security invoker');
+    expect(trustedReconciliationMigration).toMatch(
+      /revoke execute on function public\.reconcile_governed_household_money_foundation\(uuid\)\s+from public, anon, authenticated;/,
+    );
+    expect(trustedReconciliationMigration).toMatch(
+      /grant execute on function public\.reconcile_governed_household_money_foundation\(uuid\)\s+to service_role;/,
+    );
+    expect(trustedReconciliationMigration).toMatch(
+      /revoke execute on function public\.ensure_governed_household_money_foundation\(\)\s+from authenticated;/,
+    );
+    expect(trustedReconciliationMigration).not.toMatch(
+      /grant update\s*\([^)]*budget_assignment_(?:source|policy_version|governed)/i,
+    );
   });
 });

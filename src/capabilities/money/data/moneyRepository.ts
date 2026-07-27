@@ -213,9 +213,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     loadSnapshot,
     async ensureGovernedPlanFoundation() {
       await requireSignedIn(client);
-      const db = client as unknown as MoneyReadClient;
-      const { error } = await db.rpc('ensure_governed_household_money_foundation', {});
-      if (error) throw new Error(`Money could not build the governed plan foundation: ${error.message || 'Unknown database error'}`);
+      const { error } = await client.functions.invoke('reconcile-governed-money', { body: {} });
+      if (error) {
+        throw new Error(
+          `Money could not build the governed plan foundation: ${error.message || 'Unknown server error'}`,
+        );
+      }
     },
     async assignTransactionCategory(transactionId, categoryId) {
       await replaceTransactionReview([transactionId], { type: 'category', categoryId });

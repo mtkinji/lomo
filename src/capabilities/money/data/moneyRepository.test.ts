@@ -15,6 +15,7 @@ type RecordedCall = {
 function createClient() {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
   const client = {
     auth: {
       getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
@@ -62,8 +63,14 @@ function createClient() {
       rpcCalls.push({ name, args });
       return Promise.resolve({ data: 'groceries-a1b2c3d4', error: null });
     },
+    functions: {
+      invoke(name: string, options: { body: Record<string, unknown> }) {
+        functionCalls.push({ name, body: options.body });
+        return Promise.resolve({ data: { outcome: 'reconciled_governed_foundation' }, error: null });
+      },
+    },
   };
-  return { client: client as unknown as SupabaseClient, calls, rpcCalls };
+  return { client: client as unknown as SupabaseClient, calls, rpcCalls, functionCalls };
 }
 
 describe('createMoneyRepository transaction review', () => {
@@ -79,15 +86,18 @@ describe('createMoneyRepository transaction review', () => {
       .toBe('transaction_id,budget_id,amount_cents');
   });
 
-  it('runs the owner-scoped governed foundation adapter without creating a parallel write path', async () => {
-    const { client, rpcCalls } = createClient();
+  it('requests governed reconciliation through the authenticated server boundary', async () => {
+    const { client, rpcCalls, functionCalls } = createClient();
 
     await createMoneyRepository(client).ensureGovernedPlanFoundation();
 
-    expect(rpcCalls).toContainEqual({
+    expect(functionCalls).toEqual([{
+      name: 'reconcile-governed-money',
+      body: {},
+    }]);
+    expect(rpcCalls).not.toContainEqual(expect.objectContaining({
       name: 'ensure_governed_household_money_foundation',
-      args: {},
-    });
+    }));
   });
 
   it('atomically replaces stale splits when assigning one category, then reloads', async () => {
