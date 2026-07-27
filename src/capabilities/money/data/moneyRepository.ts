@@ -199,13 +199,15 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     await requireSignedIn(client);
 
     const db = client as unknown as MoneyReadClient;
-    await readPart<unknown[]>(
+    const updatedRows = await readPart<Array<{ id: string }>>(
       'transaction review',
       db
         .from('budget_transactions')
         .update(update)
-        .eq('id', normalizedTransactionId),
+        .eq('id', normalizedTransactionId)
+        .select('id'),
     );
+    requireConfirmedRows('transaction review', updatedRows, 1);
     return {
       confirmedAt: new Date().toISOString(),
       transactionId: normalizedTransactionId,
@@ -233,10 +235,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     if (!isMissingRpcError(error, 'replace_budget_transaction_review')) {
       throw new Error(`Money could not save the transaction review: ${error.message || 'Unknown database error'}`);
     }
-    await readPart<unknown[]>('transaction review', db
+    const updatedRows = await readPart<Array<{ id: string }>>('transaction review', db
       .from('budget_transactions')
       .update(update)
-      .in('id', normalizedIds));
+      .in('id', normalizedIds)
+      .select('id'));
+    requireConfirmedRows('transaction review', updatedRows, normalizedIds.length);
   };
 
   return {
@@ -324,10 +328,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (!normalizedName) throw new Error('Enter a category name.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      await readPart<unknown[]>('category name', db
+      const updatedRows = await readPart<Array<{ id: string }>>('category name', db
         .from('budget_categories')
         .update({ name: normalizedName })
-        .eq('id', normalizedCategoryId));
+        .eq('id', normalizedCategoryId)
+        .select('id'));
+      requireConfirmedRows('category name', updatedRows, 1);
       return {
         confirmedAt: new Date().toISOString(),
         categoryId: normalizedCategoryId,
@@ -388,10 +394,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       if (Object.keys(update).length === 0) throw new Error('Choose a category plan change.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      await readPart<unknown[]>('category plan', db
+      const updatedRows = await readPart<Array<{ category_id: string }>>('category plan', db
         .from('budget_plans')
         .update(update)
-        .eq('category_id', normalizedCategoryId));
+        .eq('category_id', normalizedCategoryId)
+        .select('category_id'));
+      requireConfirmedRows('category plan', updatedRows, 1);
       return {
         confirmedAt: new Date().toISOString(),
         categoryId: normalizedCategoryId,
@@ -428,6 +436,12 @@ async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
 function validateNullableCents(value: number | null | undefined, label: string) {
   if (value != null && (!Number.isSafeInteger(value) || value < 0)) {
     throw new Error(`Enter a valid ${label}.`);
+  }
+}
+
+function requireConfirmedRows(label: string, rows: unknown[], expectedCount: number): void {
+  if (rows.length !== expectedCount) {
+    throw new Error(`Money could not confirm the ${label}. Refresh and try again.`);
   }
 }
 

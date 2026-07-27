@@ -87,6 +87,7 @@ export function MoneyDataProvider({
       const snapshot = await resolvedRepository.loadSnapshot();
       if (mutationVersionRef.current === version) acceptSnapshot(snapshot);
     } catch (error) {
+      if (mutationVersionRef.current !== version) return;
       dispatch({
         type: 'failure',
         message: error instanceof Error ? error.message : 'Money data could not be loaded.',
@@ -327,7 +328,8 @@ export function MoneyDataProvider({
             throw new Error('Nothing changed because current account evidence is not ready to rebuild the plan safely.');
           }
           if (!state.snapshot) throw new Error('Money must finish loading before the plan can be updated.');
-          const projection = await loadMoneyPlanProjection(client, state.snapshot);
+          if (!result.versionId) throw new Error('The updated Money plan did not return a confirmed version.');
+          const projection = await loadMoneyPlanProjection(client, state.snapshot, result.versionId);
           if (!projection) throw new Error('The updated Money plan is unavailable.');
           ++mutationVersionRef.current;
           dispatch({

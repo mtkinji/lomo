@@ -13,9 +13,13 @@ export type MoneyPlanProjection = {
 export async function loadMoneyPlanProjection(
   client: SupabaseClient,
   snapshot: MoneySnapshot,
+  expectedVersionId?: string,
 ): Promise<MoneyPlanProjection | null> {
   const active = await getActiveLivingPlan(client);
   if (!active) return null;
+  if (expectedVersionId && active.versionId !== expectedVersionId) {
+    throw new Error('The Money plan changed somewhere else. Refresh before making another change.');
+  }
   return projectMoneyPlanProjection(snapshot, active);
 }
 

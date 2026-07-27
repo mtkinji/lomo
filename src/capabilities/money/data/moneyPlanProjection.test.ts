@@ -1,7 +1,14 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LivingPlanAllocation } from '../domain/living-plan';
 import type { ActiveLivingPlan } from './livingPlanRepository';
+import { getActiveLivingPlan } from './livingPlanRepository';
 import type { MoneyCategory, MoneySnapshot } from './moneySnapshot';
-import { projectMoneyPlanProjection } from './moneyPlanProjection';
+import { loadMoneyPlanProjection, projectMoneyPlanProjection } from './moneyPlanProjection';
+
+jest.mock('./livingPlanRepository', () => ({
+  ...jest.requireActual('./livingPlanRepository'),
+  getActiveLivingPlan: jest.fn(),
+}));
 
 describe('projectMoneyPlanProjection', () => {
   it('atomically projects every authoritative allocation and receipt without transaction history', () => {
@@ -29,6 +36,13 @@ describe('projectMoneyPlanProjection', () => {
       { id: 'food', plannedCents: 25000 },
     ]);
     expect(result.snapshot.totals.plannedCents).toBe(60000);
+  });
+
+  it('rejects an active projection that is not the version returned by the commit', async () => {
+    jest.mocked(getActiveLivingPlan).mockResolvedValue({ versionId: 'version-other' } as ActiveLivingPlan);
+
+    await expect(loadMoneyPlanProjection({} as SupabaseClient, {} as MoneySnapshot, 'version-committed'))
+      .rejects.toThrow('changed somewhere else');
   });
 });
 

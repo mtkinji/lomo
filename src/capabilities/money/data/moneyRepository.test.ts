@@ -12,7 +12,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient() {
+function createClient(options: { updatedRowCount?: number } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -56,7 +56,12 @@ function createClient() {
         then: (
           resolve: (value: { data: unknown[]; error: null }) => unknown,
           reject?: (reason: unknown) => unknown,
-        ) => Promise.resolve({ data: [], error: null }).then(resolve, reject),
+        ) => Promise.resolve({
+          data: call.update
+            ? Array.from({ length: options.updatedRowCount ?? 1 }, (_, index) => ({ id: `updated-${index + 1}`, category_id: `updated-${index + 1}` }))
+            : [],
+          error: null,
+        }).then(resolve, reject),
       };
       return query;
     },
@@ -184,6 +189,14 @@ describe('createMoneyRepository transaction review', () => {
         budget_match_source: 'corrected',
       },
     });
+  });
+
+  it('does not report a direct transaction review as confirmed when no row was updated', async () => {
+    const { client } = createClient({ updatedRowCount: 0 });
+
+    await expect(createMoneyRepository(client).reviewTransactionMeaning('missing-transaction', {
+      meaning: 'income',
+    })).rejects.toThrow('could not confirm the transaction review');
   });
 
   it('upserts one exact merchant rule before reloading the snapshot', async () => {
@@ -318,5 +331,15 @@ describe('createMoneyRepository transaction review', () => {
         expected_need_due_month: '2026-12',
       },
     });
+  });
+
+  it('does not report category writes as confirmed when no row was updated', async () => {
+    const first = createClient({ updatedRowCount: 0 });
+    await expect(createMoneyRepository(first.client).renameCategory('missing-category', 'Food'))
+      .rejects.toThrow('could not confirm the category name');
+
+    const second = createClient({ updatedRowCount: 0 });
+    await expect(createMoneyRepository(second.client).updateCategoryPlan('missing-category', { rolloverEnabled: true }))
+      .rejects.toThrow('could not confirm the category plan');
   });
 });
