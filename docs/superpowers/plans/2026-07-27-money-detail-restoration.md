@@ -159,7 +159,7 @@ git commit -m "feat(money): show typical spend on category detail"
 ### Task 4: Restore A Real Persisted Unsplash Cover
 
 **Files:**
-- Create: `supabase/migrations/20260727201000_add_budget_category_cover.sql`
+- Create: `supabase/migrations/20260727180445_add_budget_category_cover.sql`
 - Create: `src/capabilities/money/domain/moneyCategoryCover.ts`
 - Create: `src/capabilities/money/domain/moneyCategoryCover.test.ts`
 - Modify: `src/capabilities/money/data/moneySnapshot.ts`
@@ -220,15 +220,15 @@ git commit -m "feat(money): persist category cover metadata"
 - Modify: `src/capabilities/money/screens/MoneyCategoryDetailScreen.tsx`
 - Reuse unchanged: `src/services/unsplash.ts`
 
-- [ ] **Step 1: Write failing UI tests**
+- [x] **Step 1: Write failing UI tests**
 
 Cover persisted image rendering, image-load failure fallback, photographer/Unsplash links, `Edit cover` menu entry, category-name initial query, search loading/error/empty states, save, and remove.
 
-- [ ] **Step 2: Replace `getCategoryCover()`**
+- [x] **Step 2: Replace `getCategoryCover()`**
 
 Delete the four hard-coded name checks. `MoneyCategoryCover` renders the persisted image with a gradient fallback. On `Image.onError`, keep the gradient visible and expose `Cover image unavailable` only to accessibility; do not leave a blurred empty band.
 
-- [ ] **Step 3: Build explicit Unsplash selection**
+- [x] **Step 3: Build explicit Unsplash selection**
 
 Open `MoneyCategoryCoverDrawer` from category detail's existing overflow menu as `Edit cover`. Search occurs only after the user opens/uses this surface, using:
 
@@ -238,11 +238,11 @@ searchUnsplashPhotos(query, { perPage: 12, orientation: 'landscape' })
 
 Default the query to the category name, show result thumbnails, and persist the selected photo's regular URL plus attribution metadata. After confirmed persistence, call `trackUnsplashDownload(photo.id)` best-effort. Never expose the access key or raw API error.
 
-- [ ] **Step 4: Add quiet attribution**
+- [x] **Step 4: Add quiet attribution**
 
 Overlay `Photo by {name} on Unsplash` at the lower edge of the cover with tappable referred URLs from `withUnsplashReferral`. The overlay remains readable over light images and is omitted for the gradient fallback.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 npx jest src/capabilities/money/components/MoneyCategoryCover.test.tsx src/capabilities/money/domain/moneyCategoryCover.test.ts --runInBand

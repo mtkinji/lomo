@@ -113,12 +113,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
     const db = client as unknown as MoneyReadClient;
     const [categories, plans, connections, accounts, rules, allocations, transactions] = await Promise.all([
-      readPart<MoneyCategoryRow[]>('categories',
-        db
-          .from('budget_categories')
-          .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
-          .eq('status', 'active')
-          .order('sort_order', { ascending: true })),
+      readCategoryRows(db),
       readPlanRows(db),
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
@@ -494,6 +489,29 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
   const { data, error } = await query;
   if (error) throw new Error(`Money could not read ${label}: ${error.message || 'Unknown database error'}`);
   return (data ?? []) as T;
+}
+
+async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
+  const withCover = await db
+    .from('budget_categories')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true });
+  if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];
+  if (!isMissingCoverColumnError(withCover.error)) {
+    throw new Error(`Money could not read categories: ${withCover.error.message || 'Unknown database error'}`);
+  }
+  return readPart<MoneyCategoryRow[]>('categories', db
+    .from('budget_categories')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
+    .eq('status', 'active')
+    .order('sort_order', { ascending: true }));
+}
+
+function isMissingCoverColumnError(error: NonNullable<ReadResult['error']>): boolean {
+  return error.code === '42703'
+    || error.code === 'PGRST204'
+    || error.message?.includes('cover_image') === true;
 }
 
 async function readOptionalAllocations(query: PromiseLike<ReadResult>): Promise<MoneyTransactionAllocationRow[]> {

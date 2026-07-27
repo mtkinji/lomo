@@ -1,7 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
@@ -20,6 +19,8 @@ import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
+import { MoneyCategoryCover } from '../components/MoneyCategoryCover';
+import { MoneyCategoryCoverDrawer } from '../components/MoneyCategoryCoverDrawer';
 import { MoneyDetailMeter } from '../components/MoneyDetailMeter';
 import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, formatMoneyFreshness, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
@@ -47,6 +48,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     savingCategory,
     snapshot,
     status,
+    updateCategoryCover,
     updateCategoryPlan,
   } = useMoneyData();
   const [monthOffset, setMonthOffset] = useState(route.params.monthOffset ?? 0);
@@ -66,6 +68,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [reviewReceipt, setReviewReceipt] = useState<'opened_for_now' | 'left_blocked' | null>(null);
   const [chartScrubbing, setChartScrubbing] = useState(false);
+  const [coverDrawerOpen, setCoverDrawerOpen] = useState(false);
   const view = useMemo(() => snapshot
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
@@ -216,6 +219,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
+        <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
         <DetailMenuItem icon="edit" label="Category settings" onPress={() => setSettingsOpen(true)} />
         {category.fundingRhythm === 'monthly' ? <DetailMenuItem icon="gauge" label="Forecast settings" onPress={() => setForecastSettingsOpen(true)} /> : null}
         <DetailMenuItem icon="shield" label="App controls" onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })} />
@@ -236,7 +240,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
           >
-            <CategoryCover categoryName={category.name} />
+            <MoneyCategoryCover cover={category.coverImage} />
             <MoneyDetailMeter
               category={category}
               historicalTransactions={view.historicalTransactions}
@@ -444,19 +448,16 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           <Button disabled={savingCategory} fullWidth onPress={() => void saveForecastSettings()}>{savingCategory ? 'Saving…' : 'Save forecast'}</Button>
         </BottomDrawerScrollView>
       </BottomDrawer>
-    </>
-  );
-}
 
-function CategoryCover({ categoryName }: { categoryName: string }) {
-  const uri = getCategoryCover(categoryName);
-  return (
-    <View style={styles.cover}>
-      {uri ? <Image source={{ uri }} resizeMode="cover" style={StyleSheet.absoluteFillObject} /> : (
-        <LinearGradient colors={[colors.pine50, colors.pine200, colors.pine700]} style={StyleSheet.absoluteFillObject} />
-      )}
-      <View style={styles.coverScrim} />
-    </View>
+      <MoneyCategoryCoverDrawer
+        categoryName={category.name}
+        currentCover={category.coverImage}
+        onClose={() => setCoverDrawerOpen(false)}
+        onSave={(cover) => updateCategoryCover(category.sourceId, cover)}
+        saving={savingCategory}
+        visible={coverDrawerOpen}
+      />
+    </>
   );
 }
 
@@ -483,7 +484,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return <View style={styles.fact}><Text style={styles.factLabel}>{label}</Text><Text numberOfLines={1} style={styles.factValue}>{value}</Text></View>;
 }
 
-function DetailMenuItem({ icon, label, onPress }: { icon: 'edit' | 'gauge' | 'shield'; label: string; onPress: () => void }) {
+function DetailMenuItem({ icon, label, onPress }: { icon: 'edit' | 'gauge' | 'image' | 'shield'; label: string; onPress: () => void }) {
   return <DropdownMenuItem accessibilityLabel={label} onPress={onPress}><View style={menuStyles.menuItemRow}><Icon name={icon} size={18} color={colors.textPrimary} /><Text style={menuStyles.menuItemText} {...menuItemTextProps}>{label}</Text></View></DropdownMenuItem>;
 }
 
@@ -561,22 +562,11 @@ function fundingCoverageLabel(category: MoneyCategory): string {
   return `${formatMoney(coverage.shortfallCents)} short`;
 }
 
-function getCategoryCover(name: string): string | null {
-  const key = name.toLowerCase();
-  if (key.includes('grocer')) return 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=82';
-  if (key.includes('restaurant') || key.includes('dining')) return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=82';
-  if (key.includes('gas') || key.includes('auto')) return 'https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1200&q=82';
-  if (key.includes('shop')) return 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=1200&q=82';
-  return null;
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   headerSurface: { paddingHorizontal: spacing.sm, backgroundColor: colors.canvas, zIndex: 2 },
   headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   content: { paddingBottom: 80, paddingHorizontal: spacing.xl, gap: spacing.xl },
-  cover: { height: 124, marginHorizontal: -spacing.xl, overflow: 'hidden', backgroundColor: colors.pine100 },
-  coverScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,40,32,0.08)' },
   activitySection: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },

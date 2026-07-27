@@ -13,4 +13,13 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
   });
+
+  it('uses persisted covers and exposes cover editing without category-name image guesses', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('label="Edit cover"');
+    expect(source).toContain('<MoneyCategoryCover cover={category.coverImage} />');
+    expect(source).toContain('<MoneyCategoryCoverDrawer');
+    expect(source).not.toContain('getCategoryCover(');
+  });
 });
