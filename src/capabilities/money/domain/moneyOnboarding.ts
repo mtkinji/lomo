@@ -8,7 +8,7 @@ export type MoneyOnboardingEvidence = {
 };
 
 export type MoneyOnboardingReconciliationResult = {
-  outcome: 'promoted' | 'no_op' | 'blocked' | 'disabled' | 'not_ready';
+  outcome: 'promoted' | 'no_op' | 'held' | 'blocked' | 'disabled' | 'not_ready';
   reason?: string;
   hasUsablePlan?: boolean;
 };
@@ -36,10 +36,13 @@ export function getMoneyOnboardingCompletionDecision(
   if (result.outcome === 'promoted' || result.outcome === 'no_op') return { complete: true };
   if (skippedAccountConnection && result.hasUsablePlan) return { complete: true };
   if (result.outcome === 'disabled') {
-    return { complete: false, message: 'Automatic plan setup is temporarily unavailable. Try again.' };
+    return { complete: false, message: 'Money plan setup is temporarily unavailable. Try again.' };
   }
   if (result.reason === 'blocked' || result.reason === 'sync_stale') {
     return { complete: false, message: 'Refresh your connected account, then build your plan again.' };
+  }
+  if (result.outcome === 'held') {
+    return { complete: false, message: 'Review and save the first Money plan before finishing setup.' };
   }
   return {
     complete: false,

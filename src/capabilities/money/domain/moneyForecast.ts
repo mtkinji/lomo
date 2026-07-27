@@ -4,6 +4,7 @@ export type MoneyForecastStatus = 'steady' | 'watch' | 'over';
 
 export type MoneyCategoryForecast = {
   mode: MoneyForecastMode;
+  claim: 'monthly_range' | 'reserve_coverage' | 'exposure';
   confidence: MoneyForecastConfidence;
   expectedSpendCents: number;
   projectedSpendCents: number;
@@ -12,6 +13,7 @@ export type MoneyCategoryForecast = {
   projectedRemainingCents: number;
   projectedOverageCents: number;
   status: MoneyForecastStatus;
+  reserveCoverage?: CategoryFundingCoverage;
 };
 
 export function projectCategoryForecast(input: {
@@ -24,10 +26,31 @@ export function projectCategoryForecast(input: {
   manualProjectedSpendCents?: number | null;
   scheduledAmountCents?: number | null;
   scheduledDueDay?: number | null;
+  fundingRhythm?: CategoryFundingRhythm;
+  reserveAvailableCents?: number;
+  fundingCoverage?: CategoryFundingCoverage;
 }): MoneyCategoryForecast {
   const plannedCents = cents(input.plannedCents);
   const spentCents = cents(input.spentCents);
   const mode = input.mode ?? 'paced';
+  if (input.fundingRhythm === 'reserve') {
+    const reserveAvailableCents = signedCents(input.reserveAvailableCents ?? 0);
+    const coverage = input.fundingCoverage ?? { status: 'none' };
+    const hasExpectedNeed = coverage.status !== 'none';
+    return {
+      mode,
+      claim: hasExpectedNeed ? 'reserve_coverage' : 'exposure',
+      confidence: hasExpectedNeed ? 'high' : 'low',
+      expectedSpendCents: spentCents,
+      projectedSpendCents: spentCents,
+      projectionRangeLowCents: spentCents,
+      projectionRangeHighCents: spentCents,
+      projectedRemainingCents: reserveAvailableCents,
+      projectedOverageCents: 0,
+      status: coverage.status === 'past_due' ? 'over' : coverage.status === 'shortfall' ? 'watch' : 'steady',
+      reserveCoverage: coverage,
+    };
+  }
   const periodStart = parseDay(input.periodStartIso);
   const periodEnd = parseDay(input.periodEndIso);
   const today = parseDay(input.todayIso);
@@ -76,6 +99,7 @@ export function projectCategoryForecast(input: {
 
   return {
     mode,
+    claim: 'monthly_range',
     confidence,
     expectedSpendCents,
     projectedSpendCents,
@@ -91,6 +115,10 @@ function cents(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
+function signedCents(value: number): number {
+  return Number.isFinite(value) ? Math.round(value) : 0;
+}
+
 function integerInRange(value: number | null | undefined, min: number, max: number): number | null {
   return Number.isInteger(value) && value != null && value >= min && value <= max ? value : null;
 }
@@ -104,3 +132,4 @@ function parseDay(value: string): Date | null {
 function daysBetween(start: Date, end: Date): number {
   return Math.floor((end.getTime() - start.getTime()) / 86_400_000);
 }
+import type { CategoryFundingCoverage, CategoryFundingRhythm } from './categoryFunding';

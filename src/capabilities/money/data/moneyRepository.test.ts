@@ -73,9 +73,21 @@ describe('createMoneyRepository transaction review', () => {
     await createMoneyRepository(client).loadSnapshot();
 
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
+    expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('funding_rhythm');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
+  });
+
+  it('runs the owner-scoped governed foundation adapter without creating a parallel write path', async () => {
+    const { client, rpcCalls } = createClient();
+
+    await createMoneyRepository(client).ensureGovernedPlanFoundation();
+
+    expect(rpcCalls).toContainEqual({
+      name: 'ensure_governed_household_money_foundation',
+      args: {},
+    });
   });
 
   it('atomically replaces stale splits when assigning one category, then reloads', async () => {
@@ -274,6 +286,24 @@ describe('createMoneyRepository transaction review', () => {
         manual_projected_spend_cents: null,
         scheduled_amount_cents: 18000,
         scheduled_due_day: 24,
+      },
+    });
+
+    const fifth = createClient();
+    await createMoneyRepository(fifth.client).updateCategoryPlan('category-1', {
+      fundingRhythm: 'reserve',
+      expectedNeedCents: 80000,
+      expectedNeedDueMonth: '2026-12',
+    });
+    expect(fifth.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_plans',
+      filters: [['category_id', 'category-1']],
+      update: {
+        funding_rhythm: 'reserve',
+        funding_policy_version: 'category-funding-v1',
+        rollover_enabled: false,
+        expected_need_cents: 80000,
+        expected_need_due_month: '2026-12',
       },
     });
   });

@@ -17,7 +17,7 @@ import { MoneyScreenFrame } from './MoneyScreenFrame';
 type SetupStep = 'welcome' | 'target' | 'account' | 'build' | 'complete';
 
 export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySetup'>) {
-  const { refresh, snapshot } = useMoneyData();
+  const { reconcileGovernedPlanFoundation, refresh, snapshot } = useMoneyData();
   const [step, setStep] = useState<SetupStep>('welcome');
   const [livingPercent, setLivingPercent] = useState(70);
   const [userId, setUserId] = useState<string | null>(null);
@@ -73,7 +73,7 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
       }
       setLinkedDuringSetup(true);
       setSkippedAccount(false);
-      await refresh();
+      await reconcileGovernedPlanFoundation();
       setMessage(`${result.exchange.institutionName} connected and synced.`);
       setStep('build');
     } catch (error) {
@@ -89,6 +89,7 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
     setMessage('Building your Money plan from current account evidence…');
     try {
       const client = getSupabaseClient();
+      await reconcileGovernedPlanFoundation();
       await saveLivingPlanPromotionEnabled(client, true);
       await saveLivingTargetIntent(client, target);
       const decision = getMoneyOnboardingCompletionDecision(await reconcileLivingPlan(client, 'initial_sync'), skippedAccount);
@@ -158,9 +159,9 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
         {step === 'complete' ? <>
           <Text variant="label" tone="secondary">Money is ready</Text>
           <Heading variant="lg">Your plan lives in Kwilt now.</Heading>
-          <Text tone="secondary">Review the summary, inspect automatic plan receipts, or adjust the living target whenever life changes.</Text>
+          <Text tone="secondary">Review the summary, inspect plan receipts, or adjust the living target whenever life changes.</Text>
           <Button fullWidth onPress={() => navigation.navigate('MoneySummary')} variant="primary">View Money summary</Button>
-          <Button fullWidth onPress={() => navigation.navigate('MoneyLivingPlan')} variant="outline">Review automatic plan</Button>
+          <Button fullWidth onPress={() => navigation.navigate('MoneyLivingPlan')} variant="outline">Review Money plan</Button>
         </> : null}
       </View>
 

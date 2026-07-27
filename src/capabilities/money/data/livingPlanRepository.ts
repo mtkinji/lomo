@@ -32,6 +32,7 @@ export type LivingPlanReceiptDetail = LivingPlanReceipt & {
 
 export type LivingPlanSettingsSnapshot = {
   target: LivingTargetIntent | null;
+  planningBasis: { monthlyBasisCents: number; provenance: 'user_set'; updatedAtIso: string } | null;
   promotionEnabled: boolean;
   active: ActiveLivingPlan | null;
   receipts: LivingPlanReceipt[];
@@ -39,9 +40,10 @@ export type LivingPlanSettingsSnapshot = {
 
 export async function getLivingPlanSettings(client: SupabaseClient): Promise<LivingPlanSettingsSnapshot> {
   const userId = await requireUserId(client);
-  const [targetResult, configResult, active, receiptResult] = await Promise.all([
+  const [targetResult, configResult, planningBasis, active, receiptResult] = await Promise.all([
     client.from('budget_living_target_intents').select('living_percent,provenance,updated_at').eq('user_id', userId).maybeSingle(),
     client.from('budget_living_plan_config').select('promotion_enabled').eq('user_id', userId).maybeSingle(),
+    getOptionalPlanningBasis(client, userId),
     getActiveLivingPlan(client),
     client.from('budget_living_plan_receipts').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20),
   ]);
@@ -53,10 +55,45 @@ export async function getLivingPlanSettings(client: SupabaseClient): Promise<Liv
       provenance: targetResult.data.provenance,
       updatedAtIso: targetResult.data.updated_at,
     } : null,
+    planningBasis,
     promotionEnabled: configResult.data?.promotion_enabled === true,
     active,
     receipts: (receiptResult.data ?? []).map(mapReceipt),
   };
+}
+
+export async function savePlanningBasisOverride(client: SupabaseClient, monthlyBasisCents: number): Promise<void> {
+  if (!Number.isSafeInteger(monthlyBasisCents) || monthlyBasisCents <= 0) {
+    throw new Error('Enter a valid monthly planning amount.');
+  }
+  const userId = await requireUserId(client);
+  const { error } = await client.from('budget_planning_basis_overrides').upsert({
+    user_id: userId,
+    monthly_basis_cents: monthlyBasisCents,
+    active: true,
+    provenance: 'user_set',
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (error) throw error;
+}
+
+export async function holdLivingPlanCandidate(client: SupabaseClient, input: {
+  activationPeriodId: string;
+  candidate: LivingPlanCandidate;
+  trigger: LivingPlanTrigger;
+  cause: string;
+}): Promise<void> {
+  const userId = await requireUserId(client);
+  const { error } = await client.from('budget_held_living_plan_candidates').upsert({
+    user_id: userId,
+    activation_period_id: input.activationPeriodId,
+    candidate: input.candidate,
+    trigger: input.trigger,
+    cause: input.cause,
+    evidence_hash: input.candidate.evidenceHash,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
+  if (error) throw error;
 }
 
 export async function saveLivingPlanPromotionEnabled(client: SupabaseClient, enabled: boolean): Promise<void> {
@@ -98,6 +135,11 @@ export async function getActiveLivingPlan(client: SupabaseClient): Promise<Activ
   const allocations: LivingPlanAllocation[] = (componentsResult.data ?? []).map((component) => ({
     categoryId: component.category_id, amountCents: Number(component.amount_cents), fixedCents: Number(component.fixed_cents),
     overrideCents: Number(component.override_cents), flexibleCents: Number(component.flexible_cents), exposureCents: Number(component.exposure_cents), source: component.source,
+    fundingRhythm: component.funding_rhythm === 'reserve' ? 'reserve' : 'monthly',
+    priorReserveCents: Number(component.prior_reserve_cents ?? 0),
+    expectedNeed: component.expected_need_cents != null && component.expected_need_due_month
+      ? { amountCents: Number(component.expected_need_cents), dueMonth: component.expected_need_due_month }
+      : null,
   }));
   return {
     versionId: row.id, predecessorVersionId: row.predecessor_version_id, periodId: row.period_id,
@@ -118,6 +160,45 @@ export async function promoteLivingPlan(client: SupabaseClient, input: {
     candidate: input.candidate,
     components: input.candidate.allocations,
     receipt: { trigger: input.trigger, outcome, cause: input.cause, changedCategoryIds: input.comparison.changedCategoryIds, materialReasons: input.comparison.materialReasons },
+  });
+  if (error) throw error;
+  return String(data);
+}
+
+export async function applyGovernedCategoryPlanChange(client: SupabaseClient, input: {
+  planCategoryId: string;
+  allocationCategoryId: string;
+  amountCents: number;
+  fundingRhythm: 'monthly' | 'reserve';
+  expectedNeedCents: number | null;
+  expectedNeedDueMonth: string | null;
+  expectedActiveVersionId: string | null;
+  candidate: LivingPlanCandidate;
+  comparison: LivingPlanComparison;
+  trigger: LivingPlanTrigger;
+  cause: string;
+}): Promise<string> {
+  const outcome = input.expectedActiveVersionId == null ? 'initial' : input.comparison.outcome;
+  if (outcome === 'no_op' || outcome === 'blocked') {
+    throw new Error(`Cannot commit a ${outcome} governed category plan.`);
+  }
+  const { data, error } = await client.rpc('apply_governed_category_plan_change', {
+    p_plan_category_id: input.planCategoryId,
+    p_allocation_category_id: input.allocationCategoryId,
+    p_budget_cents: input.amountCents,
+    p_funding_rhythm: input.fundingRhythm,
+    p_expected_need_cents: input.expectedNeedCents,
+    p_expected_need_due_month: input.expectedNeedDueMonth,
+    expected_active_version_id: input.expectedActiveVersionId,
+    candidate: input.candidate,
+    components: input.candidate.allocations,
+    receipt: {
+      trigger: input.trigger,
+      outcome,
+      cause: input.cause,
+      changedCategoryIds: input.comparison.changedCategoryIds,
+      materialReasons: input.comparison.materialReasons,
+    },
   });
   if (error) throw error;
   return String(data);
@@ -169,6 +250,29 @@ function mapReceipt(row: any): LivingPlanReceipt {
 
 function mapReceiptFacts(row: any): LivingPlanReceiptFacts {
   return { resourceBasisCents: Number(row.resource_basis_cents), targetCents: Number(row.target_cents), plannedCents: Number(row.planned_cents), unassignedCents: Number(row.unassigned_cents) };
+}
+
+async function getOptionalPlanningBasis(
+  client: SupabaseClient,
+  userId: string,
+): Promise<LivingPlanSettingsSnapshot['planningBasis']> {
+  const { data, error } = await client
+    .from('budget_planning_basis_overrides')
+    .select('monthly_basis_cents,provenance,updated_at')
+    .eq('user_id', userId)
+    .eq('active', true)
+    .maybeSingle();
+  if (error) {
+    const missing = error.code === 'PGRST205'
+      || error.message?.includes('budget_planning_basis_overrides');
+    if (missing) return null;
+    throw error;
+  }
+  return data ? {
+    monthlyBasisCents: Number(data.monthly_basis_cents),
+    provenance: 'user_set',
+    updatedAtIso: data.updated_at,
+  } : null;
 }
 
 async function requireUserId(client: SupabaseClient): Promise<string> {

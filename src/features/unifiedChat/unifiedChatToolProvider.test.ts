@@ -46,8 +46,12 @@ const snapshots = {
       id: 'groceries', sourceId: 'category-uuid', name: 'Groceries', description: null, accentColor: '#315545',
       plannedCents: 60000, spentCents: 10000, remainingCents: 50000, percentUsed: 17,
       transactionCount: 1, rolloverEnabled: false,
+      fundingRhythm: 'monthly' as const, fundingPolicyVersion: null, starterWeight: 0,
+      monthlyContributionCents: 60000, reserveAvailableCents: 0, reserveBalanceCents: 0,
+      reserveBalancePeriodId: null, reserveAvailabilityKnown: true,
+      expectedNeed: null, fundingCoverage: { status: 'none' as const },
       forecast: {
-        mode: 'paced' as const, confidence: 'medium' as const, expectedSpendCents: 20000,
+        mode: 'paced' as const, claim: 'monthly_range' as const, confidence: 'medium' as const, expectedSpendCents: 20000,
         projectedSpendCents: 30000, projectionRangeLowCents: 27000,
         projectionRangeHighCents: 33000, projectedRemainingCents: 30000,
         projectedOverageCents: 0, status: 'steady' as const,

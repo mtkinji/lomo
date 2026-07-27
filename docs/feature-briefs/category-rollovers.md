@@ -23,6 +23,8 @@ source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 
 Add optional per-category rollover so a monthly category can carry prior-month under- or overspend into the next month as budget math.
 
+This contract applies only to categories with a `monthly` funding rhythm. It is not the lumpy-spending reserve model. A `reserve` category carries accumulated availability by definition, receives a stable monthly contribution, and forecasts coverage of an optional expected need. Do not layer the monthly rollover toggle onto a reserve category.
+
 ## JTBD
 
 When Maya checks a category, she wants this month's room to reflect last month's real over/under amount, so that the meter answers the current spending decision without manual mental math.

@@ -1,5 +1,6 @@
 import type { LivingPlanCategoryInput } from './living-plan';
 import type { PlanningIncomeSourceInput } from './planning-income';
+import type { CategoryExpectedNeed, CategoryFundingRhythm } from './categoryFunding';
 
 export type LivingPlanEvidenceTransaction = {
   id: string; date: string; direction: 'inflow' | 'outflow'; amountCents: number; description: string;
@@ -9,12 +10,20 @@ export type LivingPlanEvidenceTransaction = {
 export type LivingPlanEvidenceInput = {
   nowIso: string; lastSyncedAtIso?: string | null; transactions: LivingPlanEvidenceTransaction[];
   forecastSettings: Array<{ budgetId: string; mode: string; scheduledAmountCents?: number | null }>;
-  existingPlanAmounts?: Array<{ categoryId: string; amountCents: number }>;
+  existingPlanAmounts?: Array<{
+    categoryId: string;
+    amountCents: number;
+    starterWeight?: number;
+    fundingRhythm?: CategoryFundingRhythm;
+    priorReserveCents?: number;
+    expectedNeed?: CategoryExpectedNeed | null;
+  }>;
   overrides: Array<{ categoryId: string; amountCents: number }>;
 };
 
 export type LivingPlanEvidence = {
   sourceInputs: PlanningIncomeSourceInput[]; categories: LivingPlanCategoryInput[]; evidenceHash: string; syncFresh: boolean;
+  evidenceConfidence: number;
 };
 
 export type CompletedCategorySpendingGuidepost = {
@@ -69,7 +78,15 @@ export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingP
     categories.set(override.categoryId, { ...categories.get(override.categoryId), categoryId: override.categoryId, overrideCents: nonnegative(override.amountCents) });
   }
   for (const existing of input.existingPlanAmounts ?? []) {
-    categories.set(existing.categoryId, { ...categories.get(existing.categoryId), categoryId: existing.categoryId, supportedFlexibleCents: nonnegative(existing.amountCents) });
+    categories.set(existing.categoryId, {
+      ...categories.get(existing.categoryId),
+      categoryId: existing.categoryId,
+      supportedFlexibleCents: nonnegative(existing.amountCents),
+      starterWeight: nonnegativeWeight(existing.starterWeight ?? 0),
+      fundingRhythm: existing.fundingRhythm ?? 'monthly',
+      priorReserveCents: nonnegative(existing.priorReserveCents ?? 0),
+      ...(existing.expectedNeed ? { expectedNeed: existing.expectedNeed } : {}),
+    });
   }
   const spendGroups = new Map<string, LivingPlanEvidenceTransaction[]>();
   for (const row of canonical.filter((item) => item.direction === 'outflow' && item.budgetId && item.moneyMeaning !== 'not_counted')) {
@@ -77,13 +94,33 @@ export function buildLivingPlanEvidence(input: LivingPlanEvidenceInput): LivingP
     group.push(row);
     spendGroups.set(row.budgetId!, group);
   }
+  const currentPeriodId = input.nowIso.slice(0, 7);
+  const completedPeriodIds = new Set<string>();
   for (const [categoryId, rows] of spendGroups) {
-    const values = monthlyTotals(rows);
-    categories.set(categoryId, { ...categories.get(categoryId), categoryId, supportedFlexibleCents: values.length >= 2 ? median(values) : (categories.get(categoryId)?.supportedFlexibleCents ?? 0), exposureCents: values.at(-1) ?? 0 });
+    const completedRows = rows.filter((row) => row.date.slice(0, 7) < currentPeriodId);
+    completedRows.forEach((row) => completedPeriodIds.add(row.date.slice(0, 7)));
+    const values = monthlyTotals(completedRows);
+    const currentExposure = rows
+      .filter((row) => row.date.slice(0, 7) === currentPeriodId)
+      .reduce((sum, row) => sum + nonnegative(row.amountCents), 0);
+    categories.set(categoryId, {
+      ...categories.get(categoryId),
+      categoryId,
+      supportedFlexibleCents: values.length >= 2
+        ? median(values)
+        : (categories.get(categoryId)?.supportedFlexibleCents ?? 0),
+      exposureCents: currentExposure,
+    });
   }
   const syncFresh = isFresh(input.lastSyncedAtIso, input.nowIso);
   const sortedCategories = [...categories.values()].sort((a, b) => a.categoryId.localeCompare(b.categoryId));
-  return { sourceInputs, categories: sortedCategories, syncFresh, evidenceHash: stableHash({ transactions: canonical.map(({ id, date, direction, amountCents, budgetId, moneyMeaning }) => ({ id, date, direction, amountCents, budgetId, moneyMeaning })).sort((a, b) => a.id.localeCompare(b.id)), forecastSettings: input.forecastSettings, overrides: input.overrides }) };
+  return {
+    sourceInputs,
+    categories: sortedCategories,
+    syncFresh,
+    evidenceConfidence: Math.min(1, completedPeriodIds.size / 6),
+    evidenceHash: stableHash({ transactions: canonical.map(({ id, date, direction, amountCents, budgetId, moneyMeaning }) => ({ id, date, direction, amountCents, budgetId, moneyMeaning })).sort((a, b) => a.id.localeCompare(b.id)), forecastSettings: input.forecastSettings, overrides: input.overrides }),
+  };
 }
 
 function monthlyTotals(rows: LivingPlanEvidenceTransaction[]): number[] {
@@ -93,6 +130,7 @@ function monthlyTotals(rows: LivingPlanEvidenceTransaction[]): number[] {
 }
 function normalizeSource(value: string): string { return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\b(direct|deposit|inc|llc|corp|company)\b/g, ' ').replace(/\s+/g, ' ').trim() || 'unknown'; }
 function nonnegative(value: number): number { return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0; }
+function nonnegativeWeight(value: number): number { return Number.isFinite(value) ? Math.max(0, value) : 0; }
 function median(values: number[]): number { const sorted = [...values].sort((a, b) => a - b); const middle = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[middle] : Math.round((sorted[middle - 1] + sorted[middle]) / 2); }
 function isFresh(lastSyncedAtIso: string | null | undefined, nowIso: string): boolean { if (!lastSyncedAtIso) return false; const age = new Date(nowIso).getTime() - new Date(lastSyncedAtIso).getTime(); return Number.isFinite(age) && age >= 0 && age <= 72 * 60 * 60 * 1000; }
 function stableHash(value: unknown): string { const source = JSON.stringify(value); let hash = 2166136261; for (let index = 0; index < source.length; index += 1) { hash ^= source.charCodeAt(index); hash = Math.imul(hash, 16777619); } return `e-${(hash >>> 0).toString(16).padStart(8, '0')}`; }

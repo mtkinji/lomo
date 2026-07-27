@@ -5,6 +5,13 @@ import {
   type MoneyForecastMode,
 } from '../domain/moneyForecast';
 import { buildTransactionAllocationPlan } from '../domain/transactionAllocation';
+import {
+  projectCategoryFunding,
+  projectReserveAvailabilityFromAnchor,
+  type CategoryExpectedNeed,
+  type CategoryFundingCoverage,
+  type CategoryFundingRhythm,
+} from '../domain/categoryFunding';
 
 export type MoneyCategoryRow = {
   id: string;
@@ -24,6 +31,13 @@ export type MoneyPlanRow = {
   manual_projected_spend_cents?: number | null;
   scheduled_amount_cents?: number | null;
   scheduled_due_day?: number | null;
+  funding_rhythm?: CategoryFundingRhythm | null;
+  funding_policy_version?: string | null;
+  starter_weight?: number | null;
+  reserve_balance_cents?: number | null;
+  reserve_balance_period_id?: string | null;
+  expected_need_cents?: number | null;
+  expected_need_due_month?: string | null;
 };
 
 export type MoneyConnectionRow = {
@@ -98,6 +112,16 @@ export type MoneyCategory = {
   percentUsed: number;
   transactionCount: number;
   rolloverEnabled: boolean;
+  fundingRhythm: CategoryFundingRhythm;
+  fundingPolicyVersion: string | null;
+  starterWeight: number;
+  monthlyContributionCents: number;
+  reserveAvailableCents: number;
+  reserveBalanceCents: number;
+  reserveBalancePeriodId: string | null;
+  reserveAvailabilityKnown: boolean;
+  expectedNeed: CategoryExpectedNeed | null;
+  fundingCoverage: CategoryFundingCoverage;
   forecastSettings?: {
     mode: MoneyForecastMode;
     manualProjectedSpendCents: number | null;
@@ -242,6 +266,43 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         .reduce((sum, transaction) => sum + validCents(transaction.amount_cents), 0);
       const spentCents = Math.max(0, outflowCents - creditCents);
       const plannedCents = validCents(plan?.base_budget_cents ?? 0);
+      const fundingRhythm: CategoryFundingRhythm = plan?.funding_rhythm === 'reserve' ? 'reserve' : 'monthly';
+      const expectedNeed = plan?.expected_need_cents != null && plan.expected_need_due_month
+        ? { amountCents: validCents(plan.expected_need_cents), dueMonth: plan.expected_need_due_month }
+        : null;
+      const reserveBalanceCents = validCents(plan?.reserve_balance_cents ?? 0);
+      const reserveBalancePeriodId = validPeriodId(plan?.reserve_balance_period_id)
+        ? plan!.reserve_balance_period_id!
+        : monthKey;
+      const countedSpendSinceAnchorCents = fundingRhythm === 'reserve'
+        ? countedCategorySpendBetween({
+            transactions: rows.transactions,
+            allocationsByTransactionId,
+            categoryByAlias,
+            categoryId: category.id,
+            startPeriodId: reserveBalancePeriodId,
+            endPeriodId: monthKey,
+          })
+        : spentCents;
+      const projectedReserveAvailable = fundingRhythm === 'reserve'
+        ? projectReserveAvailabilityFromAnchor({
+            anchorPeriodId: reserveBalancePeriodId,
+            anchorBalanceCents: reserveBalanceCents,
+            targetPeriodId: monthKey,
+            monthlyContributionCents: plannedCents,
+            countedSpendSinceAnchorCents,
+          })
+        : null;
+      const funding = projectCategoryFunding({
+        rhythm: fundingRhythm,
+        monthlyContributionCents: plannedCents,
+        priorReserveCents: projectedReserveAvailable == null
+          ? 0
+          : projectedReserveAvailable - plannedCents + spentCents,
+        countedSpendCents: spentCents,
+        periodId: monthKey,
+        expectedNeed,
+      });
       const forecast = projectCategoryForecast({
         periodStartIso,
         periodEndIso,
@@ -252,6 +313,9 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         manualProjectedSpendCents: plan?.manual_projected_spend_cents,
         scheduledAmountCents: plan?.scheduled_amount_cents,
         scheduledDueDay: plan?.scheduled_due_day,
+        fundingRhythm,
+        reserveAvailableCents: funding.availableCents,
+        fundingCoverage: funding.coverage,
       });
 
       return {
@@ -262,13 +326,23 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         accentColor: category.accent_color?.trim() || DEFAULT_ACCENT,
         plannedCents,
         spentCents,
-        remainingCents: plannedCents - spentCents,
+        remainingCents: funding.availableCents,
         percentUsed: plannedCents > 0 ? Math.round((spentCents / plannedCents) * 100) : 0,
         transactionCount: new Set([
           ...categoryTransactions.map((transaction) => transaction.id),
           ...allocatedTransactions.map(({ transaction }) => transaction.id),
         ]).size,
-        rolloverEnabled: plan?.rollover_enabled === true,
+        rolloverEnabled: fundingRhythm === 'monthly' && plan?.rollover_enabled === true,
+        fundingRhythm,
+        fundingPolicyVersion: plan?.funding_policy_version ?? null,
+        starterWeight: validWeight(plan?.starter_weight ?? 0),
+        monthlyContributionCents: plannedCents,
+        reserveAvailableCents: fundingRhythm === 'reserve' ? funding.availableCents : 0,
+        reserveBalanceCents,
+        reserveBalancePeriodId: fundingRhythm === 'reserve' ? reserveBalancePeriodId : null,
+        reserveAvailabilityKnown: true,
+        expectedNeed,
+        fundingCoverage: funding.coverage,
         forecastSettings: {
           mode: plan?.forecast_mode ?? 'paced',
           manualProjectedSpendCents: plan?.manual_projected_spend_cents ?? null,
@@ -503,6 +577,41 @@ function isCountedOutflow(transaction: MoneyTransactionRow): boolean {
 
 function validCents(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function validWeight(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function validPeriodId(value: string | null | undefined): boolean {
+  return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+function countedCategorySpendBetween(input: {
+  transactions: MoneyTransactionRow[];
+  allocationsByTransactionId: Map<string, MoneyTransactionAllocation[]>;
+  categoryByAlias: Map<string, MoneyCategoryRow>;
+  categoryId: string;
+  startPeriodId: string;
+  endPeriodId: string;
+}): number {
+  let outflowCents = 0;
+  let creditCents = 0;
+  input.transactions.forEach((transaction) => {
+    const periodId = transaction.date.slice(0, 7);
+    if (periodId < input.startPeriodId || periodId > input.endPeriodId) return;
+    const assignedCategory = transaction.budget_id ? input.categoryByAlias.get(transaction.budget_id) : null;
+    if (assignedCategory?.id === input.categoryId) {
+      if (isCountedOutflow(transaction)) outflowCents += validCents(transaction.amount_cents);
+      if (!transaction.pending && transaction.direction === 'inflow' && transaction.money_meaning === 'category_credit') {
+        creditCents += validCents(transaction.amount_cents);
+      }
+    }
+    const allocation = input.allocationsByTransactionId.get(transaction.id)
+      ?.find((candidate) => candidate.sourceCategoryId === input.categoryId);
+    if (allocation) outflowCents += allocation.amountCents;
+  });
+  return Math.max(0, outflowCents - creditCents);
 }
 
 function getMostRecentSync(connections: MoneyConnectionRow[], accounts: MoneyAccount[]): string | null {

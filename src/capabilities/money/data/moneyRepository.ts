@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
+import { CATEGORY_FUNDING_POLICY_VERSION, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import { collectAllPages } from '../domain/living-plan-pagination';
 import {
   buildTransactionAllocationPlan,
@@ -47,6 +48,7 @@ type MoneyReadClient = {
 
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
+  ensureGovernedPlanFoundation(): Promise<void>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<MoneySnapshot>;
   markTransactionNotCounted(transactionId: string): Promise<MoneySnapshot>;
   splitTransaction(input: {
@@ -74,6 +76,9 @@ export interface MoneyRepository {
     manualProjectedSpendCents?: number | null;
     scheduledAmountCents?: number | null;
     scheduledDueDay?: number | null;
+    fundingRhythm?: CategoryFundingRhythm;
+    expectedNeedCents?: number | null;
+    expectedNeedDueMonth?: string | null;
   }): Promise<MoneySnapshot>;
 }
 
@@ -89,11 +94,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
           .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
           .eq('status', 'active')
           .order('sort_order', { ascending: true })),
-      readPart<MoneyPlanRow[]>('plans',
-        db
-          .from('budget_plans')
-          .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day')
-          .eq('status', 'active')),
+      readPlanRows(db),
       readPart<MoneyConnectionRow[]>('connections',
         environmentQuery(db
           .from('budget_financial_connections')
@@ -210,6 +211,12 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
   return {
     loadSnapshot,
+    async ensureGovernedPlanFoundation() {
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { error } = await db.rpc('ensure_governed_household_money_foundation', {});
+      if (error) throw new Error(`Money could not build the governed plan foundation: ${error.message || 'Unknown database error'}`);
+    },
     async assignTransactionCategory(transactionId, categoryId) {
       await replaceTransactionReview([transactionId], { type: 'category', categoryId });
       return loadSnapshot();
@@ -305,6 +312,30 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         }
         update.scheduled_due_day = day ?? null;
       }
+      if (input.fundingRhythm != null) {
+        update.funding_rhythm = input.fundingRhythm;
+        update.funding_policy_version = CATEGORY_FUNDING_POLICY_VERSION;
+        if (input.fundingRhythm === 'reserve') update.rollover_enabled = false;
+        if (input.fundingRhythm === 'monthly') {
+          update.expected_need_cents = null;
+          update.expected_need_due_month = null;
+        }
+      }
+      if ('expectedNeedCents' in input || 'expectedNeedDueMonth' in input) {
+        const amount = input.expectedNeedCents;
+        const dueMonth = input.expectedNeedDueMonth?.trim() || null;
+        if ((amount == null) !== (dueMonth == null)) {
+          throw new Error('Enter both an expected amount and due month.');
+        }
+        if (amount != null && (!Number.isSafeInteger(amount) || amount <= 0)) {
+          throw new Error('Enter a valid expected amount.');
+        }
+        if (dueMonth != null && !/^\d{4}-(0[1-9]|1[0-2])$/.test(dueMonth)) {
+          throw new Error('Enter the due month as YYYY-MM.');
+        }
+        update.expected_need_cents = amount ?? null;
+        update.expected_need_due_month = dueMonth;
+      }
       if (Object.keys(update).length === 0) throw new Error('Choose a category plan change.');
       await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
@@ -315,6 +346,24 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       return loadSnapshot();
     },
   };
+}
+
+async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
+  const expanded = await db
+    .from('budget_plans')
+    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month')
+    .eq('status', 'active');
+  if (!expanded.error) return (expanded.data ?? []) as MoneyPlanRow[];
+  const missingFundingColumns = expanded.error.code === 'PGRST204'
+    || expanded.error.message?.includes('funding_rhythm')
+    || expanded.error.message?.includes('expected_need');
+  if (!missingFundingColumns) {
+    throw new Error(`Money could not read plans: ${expanded.error.message || 'Unknown database error'}`);
+  }
+  return readPart<MoneyPlanRow[]>('legacy plans', db
+    .from('budget_plans')
+    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day')
+    .eq('status', 'active'));
 }
 
 function validateNullableCents(value: number | null | undefined, label: string) {

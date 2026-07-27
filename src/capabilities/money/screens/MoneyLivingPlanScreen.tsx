@@ -1,35 +1,41 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import {
   SettingsDivider,
   SettingsGroup,
   SettingsPage,
   SettingsRow,
-  SettingsToggleRow,
 } from '../../../ui/SettingsSurface';
+import { Input } from '../../../ui/Input';
+import { Button } from '../../../ui/Button';
+import { spacing } from '../../../theme';
 import {
   getLivingPlanSettings,
-  saveLivingPlanPromotionEnabled,
+  savePlanningBasisOverride,
   saveLivingTargetIntent,
   type LivingPlanSettingsSnapshot,
 } from '../data/livingPlanRepository';
 import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
+import { parseMonthlyAmount } from '../domain/categoryPlanDraft';
 
 export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyLivingPlan'>) {
   const [state, setState] = useState<LivingPlanSettingsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [planningBasisDraft, setPlanningBasisDraft] = useState('');
   const client = getSupabaseClient();
 
   const load = useCallback(async () => {
     try {
-      setState(await getLivingPlanSettings(client));
+      const next = await getLivingPlanSettings(client);
+      setState(next);
+      setPlanningBasisDraft(next.planningBasis ? (next.planningBasis.monthlyBasisCents / 100).toFixed(2) : '');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Automatic plan settings could not be loaded.');
+      setStatus(error instanceof Error ? error.message : 'Money plan settings could not be loaded.');
     } finally {
       setLoading(false);
     }
@@ -47,12 +53,8 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
         provenance: 'settings',
         updatedAtIso: new Date().toISOString(),
       });
-      if (state?.promotionEnabled) {
-        const result = await reconcileLivingPlan(client, 'target_changed');
-        setStatus(reconciliationCopy(result));
-      } else {
-        setStatus(`Living target saved at ${livingPercent}%.`);
-      }
+      const result = await reconcileLivingPlan(client, 'target_changed');
+      setStatus(reconciliationCopy(result));
       await load();
     } catch (error) {
       Alert.alert('Unable to update living target', error instanceof Error ? error.message : 'Please try again.');
@@ -61,25 +63,17 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
     }
   };
 
-  const toggleAutomaticPlan = async () => {
+  const savePlanningBasis = async () => {
     if (saving) return;
-    const enabled = !state?.promotionEnabled;
     setSaving(true);
     setStatus(null);
     try {
-      await saveLivingPlanPromotionEnabled(client, enabled);
-      if (enabled) {
-        if (!state?.target) {
-          await saveLivingTargetIntent(client, { livingPercent: 80, provenance: 'settings', updatedAtIso: new Date().toISOString() });
-        }
-        const result = await reconcileLivingPlan(client, 'target_changed');
-        setStatus(reconciliationCopy(result));
-      } else {
-        setStatus('Automatic plan updates are off. Your current category amounts stay in place.');
-      }
+      await savePlanningBasisOverride(client, parseMonthlyAmount(planningBasisDraft));
+      const result = await reconcileLivingPlan(client, 'planning_basis_changed');
+      setStatus(reconciliationCopy(result));
       await load();
     } catch (error) {
-      Alert.alert('Unable to update automatic plans', error instanceof Error ? error.message : 'Please try again.');
+      Alert.alert('Unable to update planning amount', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSaving(false);
     }
@@ -87,7 +81,7 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
 
   const livingPercent = state?.target?.livingPercent ?? 80;
   return (
-    <SettingsPage onBack={() => navigation.goBack()} title="Automatic plan">
+    <SettingsPage onBack={() => navigation.goBack()} title="Money plan">
       <SettingsGroup
         footer="Your living target is the share of trustworthy monthly income available for category plans. Kwilt preserves fixed and user-set amounts first."
         title="Living target"
@@ -100,21 +94,20 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
       </SettingsGroup>
 
       <SettingsGroup
-        footer="When current connected-account evidence supports a change, Kwilt writes one versioned plan and a reversible receipt. Stale or missing evidence blocks promotion."
-        title="Updates"
+        footer="Set one stable monthly amount when connected accounts cannot support it—or when you want your own number to govern the plan. Current deposits will not change it."
+        title="Monthly planning amount"
       >
-        <SettingsToggleRow
-          disabled={loading || saving}
-          enabled={state?.promotionEnabled === true}
-          onPress={() => void toggleAutomaticPlan()}
-          title="Update category plans automatically"
-        />
-        {state?.active ? (
-          <>
-            <SettingsDivider />
-            <SettingsRow title="Active plan" value={`${state.active.livingPercent}% target`} />
-          </>
-        ) : null}
+        <View style={styles.inputBlock}>
+          <Input editable={!saving} keyboardType="decimal-pad" label="Monthly amount" onChangeText={setPlanningBasisDraft} value={planningBasisDraft} />
+          <Button disabled={saving || !planningBasisDraft.trim()} fullWidth onPress={() => void savePlanningBasis()}>{saving ? 'Saving…' : 'Use this amount'}</Button>
+        </View>
+      </SettingsGroup>
+
+      <SettingsGroup
+        footer="Activity updates now. Automatic contribution changes start next month. Changes you explicitly save apply now and create a receipt."
+        title="Plan timing"
+      >
+        <SettingsRow title="Current plan" value={state?.active ? `${state.active.livingPercent}% target` : loading ? 'Loading…' : 'Not ready'} />
       </SettingsGroup>
 
       {status ? <SettingsGroup footer={status}><SettingsRow title="Latest result" /></SettingsGroup> : null}
@@ -143,7 +136,12 @@ function ReceiptRow({ divider, onPress, title, value }: { divider: boolean; onPr
 function reconciliationCopy(result: Awaited<ReturnType<typeof reconcileLivingPlan>>): string {
   if (result.outcome === 'promoted') return 'Category plans were updated from current evidence. A receipt is ready.';
   if (result.outcome === 'no_op') return 'Current category plans already match the supported plan.';
+  if (result.outcome === 'held') return `Current money is up to date. Automatic contribution changes are ready for ${result.activationPeriodId}.`;
   if (result.outcome === 'blocked') return 'No plan changed because connected-account evidence is stale or incomplete.';
-  if (result.outcome === 'disabled') return 'Automatic plan updates are disabled.';
+  if (result.outcome === 'disabled') return 'Plan maintenance is temporarily paused. Your current plan stays in place.';
   return 'Kwilt needs a living target and enough connected-account history before it can build this plan.';
 }
+
+const styles = StyleSheet.create({
+  inputBlock: { gap: spacing.md, padding: spacing.md },
+});
