@@ -12,6 +12,7 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - kwilt-money-capability-integration
+  - money-progressive-activation
   - accounts-inventory-shell
   - app-pause-sentence-builder
   - auto-budget-from-living-target
@@ -41,7 +42,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-07-25
+last_reviewed: 2026-07-27
 ---
 
 # Money

@@ -5,6 +5,7 @@ import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../../services
 import { getInstallId } from '../../services/installId';
 import { getSupabasePublishableKey } from '../../utils/getEnv';
 import { recoverForegroundAudioRace } from './unifiedChatVoiceRecovery';
+import { normalizeUnifiedChatVoiceMetering } from './unifiedChatVoiceMetering';
 
 type ExpoAudio = (typeof import('expo-av'))['Audio'];
 let recording: InstanceType<ExpoAudio['Recording']> | null = null;
@@ -28,7 +29,9 @@ async function waitForForegroundAudioSession(): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, 100));
 }
 
-export async function startUnifiedChatVoiceRecording(): Promise<void> {
+export async function startUnifiedChatVoiceRecording(
+  onLevel?: (level: number) => void,
+): Promise<void> {
   if (recording) return;
   const Audio = await audio();
   const permission = await Audio.requestPermissionsAsync();
@@ -37,16 +40,28 @@ export async function startUnifiedChatVoiceRecording(): Promise<void> {
     await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
     const candidate = new Audio.Recording();
     await candidate.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+    candidate.setProgressUpdateInterval(100);
+    candidate.setOnRecordingStatusUpdate((status) => {
+      if (!status.isRecording || typeof status.metering !== 'number') return;
+      onLevel?.(normalizeUnifiedChatVoiceMetering(status.metering));
+    });
     return candidate;
   }, waitForForegroundAudioSession);
-  await next.startAsync();
-  recording = next;
+  try {
+    await next.startAsync();
+    recording = next;
+  } catch (error) {
+    next.setOnRecordingStatusUpdate(null);
+    await next.stopAndUnloadAsync().catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function cancelUnifiedChatVoiceRecording(): Promise<void> {
   const current = recording;
   recording = null;
   if (!current) return;
+  current.setOnRecordingStatusUpdate(null);
   await current.stopAndUnloadAsync().catch(() => undefined);
 }
 
@@ -54,6 +69,7 @@ export async function stopAndTranscribeUnifiedChatVoice(): Promise<string> {
   const current = recording;
   recording = null;
   if (!current) throw new Error('No voice recording is active.');
+  current.setOnRecordingStatusUpdate(null);
   await current.stopAndUnloadAsync();
   const uri = current.getURI();
   if (!uri) throw new Error('The recording could not be read.');

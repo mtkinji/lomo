@@ -22,6 +22,8 @@ export type HapticsEvent =
   | 'canvas.selection'
   | 'canvas.toggle.on'
   | 'canvas.toggle.off'
+  | 'canvas.recording.start'
+  | 'canvas.recording.stop'
   | 'canvas.step.complete'
   | 'canvas.step.undo'
   | 'canvas.primary.confirm'
@@ -173,6 +175,12 @@ async function fire(event: HapticsEvent): Promise<void> {
     case 'canvas.toggle.off':
       await h.selectionAsync();
       return;
+    case 'canvas.recording.start':
+      await h.impactAsync(h.ImpactFeedbackStyle.Light);
+      return;
+    case 'canvas.recording.stop':
+      await h.impactAsync(h.ImpactFeedbackStyle.Medium);
+      return;
     case 'canvas.step.complete':
       await h.impactAsync(h.ImpactFeedbackStyle.Light);
       return;
@@ -273,5 +281,4 @@ export const HapticsService = {
     }
   },
 };
-
 
