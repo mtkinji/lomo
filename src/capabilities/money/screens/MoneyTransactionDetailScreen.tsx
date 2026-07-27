@@ -14,6 +14,7 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
+import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
 import {
@@ -86,7 +87,9 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
   const selectMeaning = async (meaning: 'income' | 'transfer' | 'not_counted') => {
     if (!transaction) return;
-    const changed = await runReview(() => reviewTransactionMeaning(transaction.id, { meaning }));
+    const changed = await runReview(() => transaction.direction === 'outflow' && meaning === 'not_counted'
+      ? markTransactionNotCounted(transaction.id)
+      : reviewTransactionMeaning(transaction.id, { meaning }));
     if (changed) {
       setCategoryPickerOpen(false);
       setCategoryQuery('');
@@ -259,19 +262,22 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               <Icon name="close" size={20} color={colors.textPrimary} />
             </Pressable>
           </View>
-          <Input label="Search categories" value={categoryQuery} onChangeText={setCategoryQuery} />
-
-          {transaction.direction === 'inflow' ? (
-            <View style={styles.commandGroup}>
-              <CategoryCommand icon="arrowDown" label="Income" detail="Available to fund the plan" selected={transaction.moneyMeaning === 'income'} onPress={() => void selectMeaning('income')} />
-              <CategoryCommand icon="refresh" label="Internal transfer" detail="Money moved between your accounts" selected={transaction.moneyMeaning === 'transfer'} onPress={() => void selectMeaning('transfer')} />
-            </View>
-          ) : null}
+          <Input
+            accessibilityLabel="Search categories"
+            autoCapitalize="none"
+            elevation="flat"
+            leadingIcon="search"
+            placeholder="Search categories"
+            returnKeyType="search"
+            size="sm"
+            variant="filled"
+            value={categoryQuery}
+            onChangeText={setCategoryQuery}
+          />
 
           <View style={styles.categoryList}>
             {filteredCategories.map((category) => (
               <Pressable key={category.sourceId} accessibilityRole="button" accessibilityLabel={`Choose ${category.name}`} disabled={saving} onPress={() => void selectCategory(category)} style={({ pressed }) => [styles.categoryRow, pressed ? styles.pressed : null]}>
-                <View style={[styles.categoryIcon, { backgroundColor: `${category.accentColor}18` }]}><View style={[styles.categoryDotLarge, { backgroundColor: category.accentColor }]} /></View>
                 <View style={styles.categoryRowCopy}>
                   <Text style={styles.categoryRowTitle}>{category.name}</Text>
                   <Text style={styles.categoryRowMeta}>{formatMoney(category.remainingCents)} left</Text>
@@ -279,15 +285,24 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 {transaction.categoryId === category.id ? <Icon name="check" size={18} color={colors.pine700} /> : <Icon name="chevronRight" size={18} color={colors.gray400} />}
               </Pressable>
             ))}
+            {filteredCategories.length === 0 ? (
+              <Text accessibilityLiveRegion="polite" style={styles.emptySearchText}>No categories match “{categoryQuery.trim()}”</Text>
+            ) : null}
           </View>
 
-          <CategoryCommand
-            icon="close"
-            label="No budget category"
-            detail="Keep this outside the monthly plan"
-            selected={transaction.reviewState === 'not_counted'}
-            onPress={() => void (transaction.direction === 'inflow' ? selectMeaning('not_counted') : runReview(() => markTransactionNotCounted(transaction.id)).then((changed) => changed && setCategoryPickerOpen(false)))}
-          />
+          <View style={styles.meaningSection}>
+            <Text style={styles.secondarySectionLabel}>OTHER MONEY MOVEMENT</Text>
+            {getTransactionMeaningOptions(transaction.direction).map((option) => (
+              <CategoryCommand
+                key={option.meaning}
+                detail={option.detail}
+                icon={getMeaningIcon(option.meaning)}
+                label={option.label}
+                selected={transaction.moneyMeaning === option.meaning || (option.meaning === 'not_counted' && transaction.reviewState === 'not_counted')}
+                onPress={() => void selectMeaning(option.meaning)}
+              />
+            ))}
+          </View>
 
           {creatingCategory ? (
             <View style={styles.createPanel}>
@@ -387,7 +402,13 @@ function ReceiptRow({ label, value }: { label: string; value: string }) {
 }
 
 function CategoryCommand({ detail, icon, label, onPress, selected }: { detail: string; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; selected: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityHint={detail} accessibilityState={{ selected }} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+}
+
+function getMeaningIcon(meaning: TransactionMeaningOption['meaning']): 'arrowDown' | 'refresh' | 'close' {
+  if (meaning === 'income') return 'arrowDown';
+  if (meaning === 'transfer') return 'refresh';
+  return 'close';
 }
 
 function RuleModeButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
@@ -399,7 +420,7 @@ function getCategoryRelationLabel(transaction: MoneyTransaction, category?: Mone
   if (category) return category.name;
   if (transaction.moneyMeaning === 'income') return 'Income';
   if (transaction.moneyMeaning === 'transfer') return 'Internal transfer';
-  if (transaction.reviewState === 'not_counted') return 'No budget category';
+  if (transaction.reviewState === 'not_counted' || transaction.moneyMeaning === 'not_counted') return 'Outside the plan';
   return null;
 }
 
@@ -483,7 +504,8 @@ const styles = StyleSheet.create({
   drawerTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 24, lineHeight: 29, fontWeight: '700' },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
   closeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.gray100 },
-  commandGroup: { gap: spacing.xs },
+  meaningSection: { gap: spacing.xs },
+  secondarySectionLabel: { marginTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   commandRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   commandSelected: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
   commandIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.gray50 },
@@ -492,11 +514,10 @@ const styles = StyleSheet.create({
   commandDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   categoryList: { gap: 2 },
   categoryRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.cardBorder, paddingVertical: spacing.sm },
-  categoryIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
-  categoryDotLarge: { width: 13, height: 13, borderRadius: 999 },
   categoryRowCopy: { flex: 1, minWidth: 0 },
   categoryRowTitle: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, fontWeight: '500' },
   categoryRowMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  emptySearchText: { paddingVertical: spacing.md, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   createCommand: { minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.md },
   createCommandText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, fontWeight: '600' },
   createPanel: { gap: spacing.md, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 14, backgroundColor: colors.gray50 },
