@@ -131,6 +131,32 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain("state: 'transcribing'");
   });
 
+  test('dismisses text entry before starting voice recording', () => {
+    const voiceCommandBranch = screenSource.slice(
+      screenSource.indexOf("if (command.type === 'voice.toggle')"),
+      screenSource.indexOf("if (command.type === 'context.add'"),
+    );
+
+    expect(voiceCommandBranch).toContain('Keyboard.dismiss()');
+    expect(voiceCommandBranch).toContain(
+      "webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;')",
+    );
+    expect(voiceCommandBranch.indexOf('Keyboard.dismiss()')).toBeLessThan(
+      voiceCommandBranch.indexOf('await startUnifiedChatVoiceRecording'),
+    );
+  });
+
+  test('inserts transcription at the draft selection captured when recording starts', () => {
+    expect(screenSource).toContain('voiceInsertionRef.current = command.prompt === undefined');
+    expect(screenSource).toContain('insertUnifiedChatTranscriptAtSelection({');
+    expect(screenSource).toContain('insertion: voiceInsertionRef.current');
+  });
+
+  test('confirms successful recording start and stop with distinct native haptics', () => {
+    expect(screenSource).toContain("HapticsService.trigger('canvas.recording.start')");
+    expect(screenSource).toContain("HapticsService.trigger('canvas.recording.stop')");
+  });
+
   test('steers the exact active run into a durable resumed segment and retries without duplicating input', () => {
     expect(screenSource).toContain("command.type === 'run.steer'");
     expect(screenSource).toContain("disposition = { type: 'steer'");

@@ -35,6 +35,7 @@ describe('Unified Chat workbench protocol', () => {
     { type: 'composer.focus.change', focused: true },
     { type: 'composer.focus.change', focused: false },
     { type: 'voice.toggle' },
+    { type: 'voice.toggle', prompt: 'Call Mom tomorrow', selectionStart: 8, selectionEnd: 8 },
     { type: 'context.add' },
     { type: 'attachment.pick' },
     { type: 'attachment.remove', attachmentId: 'local-1' },
@@ -71,6 +72,20 @@ describe('Unified Chat workbench protocol', () => {
         }),
       ),
     ).toMatchObject({ type: 'surface.command', command });
+  });
+
+  test.each([
+    { type: 'voice.toggle', prompt: 'Draft', selectionStart: -1, selectionEnd: 0 },
+    { type: 'voice.toggle', prompt: 'Draft', selectionStart: 4, selectionEnd: 2 },
+    { type: 'voice.toggle', prompt: 'Draft', selectionStart: 0, selectionEnd: 6 },
+    { type: 'voice.toggle', prompt: 'Draft', selectionStart: 0 },
+  ])('rejects an invalid voice insertion range: %#', (command) => {
+    expect(parseAgentWorkbenchSurfaceMessage(JSON.stringify({
+      protocolVersion: 2,
+      type: 'surface.command',
+      requestId: 'voice-selection',
+      command,
+    }))).toBeNull();
   });
 
   test.each([
