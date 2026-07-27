@@ -240,7 +240,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
             >
               <View style={styles.categoryFieldCopy}>
-                <View style={[styles.categoryDot, { backgroundColor: currentCategory?.accentColor ?? colors.gray300 }]} />
                 <Text numberOfLines={1} style={[styles.categoryFieldText, !relationLabel ? styles.categoryPlaceholder : null]}>{relationLabel ?? 'Choose category'}</Text>
               </View>
               <Icon name="chevronsUpDown" size={18} color={colors.textSecondary} />
@@ -528,8 +527,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.md, paddingBottom: spacing.xl },
   sectionLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.7 },
   categoryField: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, paddingHorizontal: spacing.lg, backgroundColor: colors.card },
-  categoryFieldCopy: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  categoryDot: { width: 10, height: 10, borderRadius: 999 },
+  categoryFieldCopy: { minWidth: 0, flex: 1 },
   categoryFieldText: { minWidth: 0, flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   categoryPlaceholder: { color: colors.textSecondary },
   ruleReceipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
