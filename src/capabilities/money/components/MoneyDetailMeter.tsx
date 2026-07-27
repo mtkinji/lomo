@@ -196,8 +196,10 @@ function MoneySpendChart({ accentColor, budgetCents, elapsedPercent, height, his
   const x = (percent: number) => pad.left + plotWidth * Math.max(0, Math.min(100, percent)) / 100;
   const y = (value: number) => pad.top + plotHeight * (1 - Math.max(0, value) / maxValue);
   const actual = [{ xPercent: 0, valueCents: 0 }, ...series.filter((point) => point.xPercent <= elapsedPercent)];
-  const actualPath = actual.map((point, index) => `${index === 0 ? 'M' : 'L'} ${x(point.xPercent)} ${y(point.valueCents)}`).join(' ');
-  const historicalPath = historicalAverage.series.map((point, index) => `${index === 0 ? 'M' : 'L'} ${x(point.xPercent)} ${y(point.valueCents)}`).join(' ');
+  const actualPoints = actual.map((point) => ({ x: x(point.xPercent), y: y(point.valueCents) }));
+  const historicalPoints = historicalAverage.series.map((point) => ({ x: x(point.xPercent), y: y(point.valueCents) }));
+  const actualPath = buildMonotoneMoneyLinePath(actualPoints);
+  const historicalPath = buildNaturalMoneyLinePath(historicalPoints);
   const last = actual[actual.length - 1] ?? { xPercent: 0, valueCents: 0 };
   const projectionPath = `M ${x(last.xPercent)} ${y(last.valueCents)} L ${x(100)} ${y(projectedSpendCents)}`;
   const historicalNowCents = Math.round(interpolateSeriesValue(historicalAverage.series, elapsedPercent));
@@ -320,6 +322,86 @@ export type MoneyChartSelection = {
   valueCents: number;
   daySpendCents: number;
 };
+
+type MoneyLinePoint = { x: number; y: number };
+
+export function buildMonotoneMoneyLinePath(points: MoneyLinePoint[]): string {
+  const normalized = normalizeMoneyLinePoints(points);
+  if (normalized.length === 0) return '';
+  if (normalized.length === 1) return `M ${pathNumber(normalized[0].x)} ${pathNumber(normalized[0].y)}`;
+
+  const slopes = normalized.slice(0, -1).map((point, index) => {
+    const next = normalized[index + 1];
+    return (next.y - point.y) / (next.x - point.x);
+  });
+  const tangents = normalized.map((_, index) => {
+    if (index === 0) return slopes[0];
+    if (index === normalized.length - 1) return slopes[slopes.length - 1];
+    return (slopes[index - 1] + slopes[index]) / 2;
+  });
+
+  slopes.forEach((slope, index) => {
+    if (Math.abs(slope) < 0.000001) {
+      tangents[index] = 0;
+      tangents[index + 1] = 0;
+      return;
+    }
+    const leftRatio = tangents[index] / slope;
+    const rightRatio = tangents[index + 1] / slope;
+    const magnitude = Math.hypot(leftRatio, rightRatio);
+    if (magnitude <= 3) return;
+    const scale = 3 / magnitude;
+    tangents[index] = scale * leftRatio * slope;
+    tangents[index + 1] = scale * rightRatio * slope;
+  });
+
+  let path = `M ${pathNumber(normalized[0].x)} ${pathNumber(normalized[0].y)}`;
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    const point = normalized[index];
+    const next = normalized[index + 1];
+    const width = next.x - point.x;
+    path += ` C ${pathNumber(point.x + width / 3)} ${pathNumber(point.y + tangents[index] * width / 3)}`;
+    path += ` ${pathNumber(next.x - width / 3)} ${pathNumber(next.y - tangents[index + 1] * width / 3)}`;
+    path += ` ${pathNumber(next.x)} ${pathNumber(next.y)}`;
+  }
+  return path;
+}
+
+export function buildNaturalMoneyLinePath(points: MoneyLinePoint[]): string {
+  const normalized = normalizeMoneyLinePoints(points);
+  if (normalized.length === 0) return '';
+  if (normalized.length === 1) return `M ${pathNumber(normalized[0].x)} ${pathNumber(normalized[0].y)}`;
+
+  let path = `M ${pathNumber(normalized[0].x)} ${pathNumber(normalized[0].y)}`;
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    const previous = normalized[Math.max(0, index - 1)];
+    const point = normalized[index];
+    const next = normalized[index + 1];
+    const following = normalized[Math.min(normalized.length - 1, index + 2)];
+    path += ` C ${pathNumber(point.x + (next.x - previous.x) / 6)} ${pathNumber(point.y + (next.y - previous.y) / 6)}`;
+    path += ` ${pathNumber(next.x - (following.x - point.x) / 6)} ${pathNumber(next.y - (following.y - point.y) / 6)}`;
+    path += ` ${pathNumber(next.x)} ${pathNumber(next.y)}`;
+  }
+  return path;
+}
+
+function normalizeMoneyLinePoints(points: MoneyLinePoint[]): MoneyLinePoint[] {
+  const normalized: MoneyLinePoint[] = [];
+  points.forEach((point) => {
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+    const previous = normalized[normalized.length - 1];
+    if (previous && point.x <= previous.x) {
+      if (point.x === previous.x) normalized[normalized.length - 1] = point;
+      return;
+    }
+    normalized.push(point);
+  });
+  return normalized;
+}
+
+function pathNumber(value: number): string {
+  return String(Math.round(value * 1000) / 1000);
+}
 
 export function getMoneyChartSelection(input: {
   periodStartIso: string;

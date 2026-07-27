@@ -2,6 +2,8 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import {
   adjustMoneyChartSelectionPercent,
+  buildMonotoneMoneyLinePath,
+  buildNaturalMoneyLinePath,
   getBoundedMoneyChartTooltipPosition,
   getMoneyChartSelection,
 } from './MoneyDetailMeter';
@@ -66,6 +68,25 @@ describe('Money chart inspection', () => {
 });
 
 describe('MoneyDetailMeter chart presentation', () => {
+  it('uses curved geometry for actual and historical spend without moving the endpoints', () => {
+    const points = [{ x: 0, y: 100 }, { x: 50, y: 40 }, { x: 100, y: 60 }];
+
+    const actualPath = buildMonotoneMoneyLinePath(points);
+    const historicalPath = buildNaturalMoneyLinePath(points);
+
+    expect(actualPath).toMatch(/^M 0 100 C /);
+    expect(actualPath).toContain('100 60');
+    expect(actualPath).not.toContain(' L ');
+    expect(historicalPath).toMatch(/^M 0 100 C /);
+    expect(historicalPath).toContain('100 60');
+    expect(historicalPath).not.toContain(' L ');
+  });
+
+  it('keeps empty and single-point curve paths deterministic', () => {
+    expect(buildMonotoneMoneyLinePath([])).toBe('');
+    expect(buildNaturalMoneyLinePath([{ x: 8, y: 12 }])).toBe('M 8 12');
+  });
+
   it('keeps history subordinate and restores adjustable scrub interaction', () => {
     const source = readFileSync(path.join(__dirname, 'MoneyDetailMeter.tsx'), 'utf8');
 
@@ -75,5 +96,7 @@ describe('MoneyDetailMeter chart presentation', () => {
     expect(source).toContain('onLongPress={beginChartScrub}');
     expect(source).toContain('signalMoneyChoice();');
     expect(source).toContain('onScrubActiveChange(false)');
+    expect(source).toContain('buildMonotoneMoneyLinePath(actualPoints)');
+    expect(source).toContain('buildNaturalMoneyLinePath(historicalPoints)');
   });
 });
