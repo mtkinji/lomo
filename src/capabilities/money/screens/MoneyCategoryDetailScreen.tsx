@@ -65,6 +65,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [planImpact, setPlanImpact] = useState<LivingPlanOverridePreview | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [reviewReceipt, setReviewReceipt] = useState<'opened_for_now' | 'left_blocked' | null>(null);
+  const [chartScrubbing, setChartScrubbing] = useState(false);
   const view = useMemo(() => snapshot
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
@@ -231,17 +232,20 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           </View>
           <ScrollView
             contentInsetAdjustmentBehavior="never"
+            scrollEnabled={!chartScrubbing}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
           >
             <CategoryCover categoryName={category.name} />
             <MoneyDetailMeter
               category={category}
+              historicalTransactions={view.historicalTransactions}
               monthOffset={monthOffset}
               onForecastInfo={() => setForecastInfoOpen(true)}
               onNextMonth={() => setMonthOffset((value) => Math.min(12, value + 1))}
               onPreviousMonth={() => setMonthOffset((value) => Math.max(-24, value - 1))}
               onResetMonth={() => setMonthOffset(0)}
+              onScrubActiveChange={setChartScrubbing}
               periodElapsedPercent={view.periodElapsedPercent}
               periodEndIso={view.periodEndIso}
               periodLabel={view.periodLabel}

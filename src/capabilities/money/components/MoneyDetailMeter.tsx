@@ -1,18 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import type { AccessibilityActionEvent, GestureResponderEvent } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { Icon } from '../../../ui/Icon';
 import { formatMoney, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
-import { buildCumulativeSpendSeries } from '../domain/moneyDetailView';
+import { buildCumulativeSpendSeries, buildHistoricalAverageSpendSeries, type MoneySpendPoint } from '../domain/moneyDetailView';
+import { signalMoneyChoice } from '../runtime/moneyMutationFeedback';
 
 export function MoneyDetailMeter({
   category,
+  historicalTransactions,
   monthOffset,
   onForecastInfo,
   onNextMonth,
   onPreviousMonth,
   onResetMonth,
+  onScrubActiveChange,
   periodElapsedPercent,
   periodEndIso,
   periodLabel,
@@ -20,11 +24,13 @@ export function MoneyDetailMeter({
   transactions,
 }: {
   category: MoneyCategory;
+  historicalTransactions: MoneyTransaction[];
   monthOffset: number;
   onForecastInfo: () => void;
   onNextMonth: () => void;
   onPreviousMonth: () => void;
   onResetMonth: () => void;
+  onScrubActiveChange: (active: boolean) => void;
   periodElapsedPercent: number;
   periodEndIso: string;
   periodLabel: string;
@@ -44,6 +50,11 @@ export function MoneyDetailMeter({
       : colors.pine700;
   const projectionColor = projectedSpendCents > category.plannedCents ? colors.madder600 : colors.pine700;
   const series = useMemo(() => buildCumulativeSpendSeries(transactions, periodStartIso, periodEndIso), [periodEndIso, periodStartIso, transactions]);
+  const historicalAverage = useMemo(() => buildHistoricalAverageSpendSeries({
+    transactions: historicalTransactions,
+    periodStartIso,
+    periodEndIso,
+  }), [historicalTransactions, periodEndIso, periodStartIso]);
 
   return (
     <View style={styles.container}>
@@ -107,6 +118,10 @@ export function MoneyDetailMeter({
               budgetCents={category.plannedCents}
               elapsedPercent={periodElapsedPercent}
               height={184}
+              historicalAverage={historicalAverage}
+              onScrubActiveChange={onScrubActiveChange}
+              periodEndIso={periodEndIso}
+              periodStartIso={periodStartIso}
               projectedSpendCents={projectedSpendCents}
               series={series}
               width={chartWidth}
@@ -159,36 +174,255 @@ function SignalLine({ color, label, onInfoPress, value }: { color: string; label
   );
 }
 
-function MoneySpendChart({ accentColor, budgetCents, elapsedPercent, height, projectedSpendCents, series, width }: {
+function MoneySpendChart({ accentColor, budgetCents, elapsedPercent, height, historicalAverage, onScrubActiveChange, periodEndIso, periodStartIso, projectedSpendCents, series, width }: {
   accentColor: string;
   budgetCents: number;
   elapsedPercent: number;
   height: number;
+  historicalAverage: { monthsUsed: number; series: MoneySpendPoint[] };
+  onScrubActiveChange: (active: boolean) => void;
+  periodEndIso: string;
+  periodStartIso: string;
   projectedSpendCents: number;
-  series: Array<{ xPercent: number; valueCents: number }>;
+  series: MoneySpendPoint[];
   width: number;
 }) {
+  const scrubbingRef = useRef(false);
+  const [selection, setSelection] = useState<MoneyChartSelection | null>(null);
   const pad = { left: 8, right: 8, top: 18, bottom: 12 };
   const plotWidth = Math.max(1, width - pad.left - pad.right);
   const plotHeight = Math.max(1, height - pad.top - pad.bottom);
-  const maxValue = Math.max(100, budgetCents, projectedSpendCents, ...series.map((point) => point.valueCents)) * 1.1;
+  const maxValue = Math.max(100, budgetCents, projectedSpendCents, ...series.map((point) => point.valueCents), ...historicalAverage.series.map((point) => point.valueCents)) * 1.1;
   const x = (percent: number) => pad.left + plotWidth * Math.max(0, Math.min(100, percent)) / 100;
   const y = (value: number) => pad.top + plotHeight * (1 - Math.max(0, value) / maxValue);
   const actual = [{ xPercent: 0, valueCents: 0 }, ...series.filter((point) => point.xPercent <= elapsedPercent)];
   const actualPath = actual.map((point, index) => `${index === 0 ? 'M' : 'L'} ${x(point.xPercent)} ${y(point.valueCents)}`).join(' ');
+  const historicalPath = historicalAverage.series.map((point, index) => `${index === 0 ? 'M' : 'L'} ${x(point.xPercent)} ${y(point.valueCents)}`).join(' ');
   const last = actual[actual.length - 1] ?? { xPercent: 0, valueCents: 0 };
   const projectionPath = `M ${x(last.xPercent)} ${y(last.valueCents)} L ${x(100)} ${y(projectedSpendCents)}`;
+  const historicalNowCents = Math.round(interpolateSeriesValue(historicalAverage.series, elapsedPercent));
+  const accessibilitySummary = [
+    `${formatMoney(last.valueCents)} spent`,
+    historicalAverage.monthsUsed > 0 ? `${formatMoney(historicalNowCents)} typical by today` : null,
+    `${formatMoney(projectedSpendCents)} forecast by month end`,
+    `${formatMoney(budgetCents)} planned`,
+  ].filter(Boolean).join('; ');
+  const updateSelection = useCallback((locationX: number) => {
+    const requestedPercent = (locationX - pad.left) / plotWidth * 100;
+    setSelection(getMoneyChartSelection({
+      periodStartIso,
+      periodEndIso,
+      observablePercent: elapsedPercent,
+      requestedPercent,
+      series,
+    }));
+  }, [elapsedPercent, pad.left, periodEndIso, periodStartIso, plotWidth, series]);
+  const beginChartScrub = useCallback((event: GestureResponderEvent) => {
+    if (!scrubbingRef.current) {
+      scrubbingRef.current = true;
+      signalMoneyChoice();
+      onScrubActiveChange(true);
+    }
+    updateSelection(event.nativeEvent.locationX);
+  }, [onScrubActiveChange, updateSelection]);
+  const moveChartScrub = useCallback((event: GestureResponderEvent) => {
+    if (scrubbingRef.current) updateSelection(event.nativeEvent.locationX);
+  }, [updateSelection]);
+  const endChartScrub = useCallback(() => {
+    if (scrubbingRef.current) {
+      scrubbingRef.current = false;
+      onScrubActiveChange(false);
+    }
+    setSelection(null);
+  }, [onScrubActiveChange]);
+  const handleAccessibilityAction = useCallback((event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName !== 'increment' && event.nativeEvent.actionName !== 'decrement') return;
+    const requestedPercent = adjustMoneyChartSelectionPercent({
+      currentPercent: selection?.xPercent ?? 0,
+      direction: event.nativeEvent.actionName,
+      periodStartIso,
+      periodEndIso,
+      observablePercent: elapsedPercent,
+    });
+    setSelection(getMoneyChartSelection({
+      periodStartIso,
+      periodEndIso,
+      observablePercent: elapsedPercent,
+      requestedPercent,
+      series,
+    }));
+  }, [elapsedPercent, periodEndIso, periodStartIso, selection?.xPercent, series]);
+  const tooltipPosition = selection ? getBoundedMoneyChartTooltipPosition({
+    anchorX: x(selection.xPercent),
+    anchorY: y(selection.valueCents),
+    chartWidth: width,
+    chartHeight: height,
+    tooltipWidth: 132,
+    tooltipHeight: selection.daySpendCents === 0 ? 54 : 68,
+  }) : null;
 
   return (
-    <Svg width={width} height={height}>
-      <Line x1={pad.left} y1={y(budgetCents)} x2={width - pad.right} y2={y(budgetCents)} stroke={colors.gray300} strokeWidth={1} strokeDasharray="4 5" />
-      <Line x1={x(elapsedPercent)} y1={pad.top} x2={x(elapsedPercent)} y2={height - pad.bottom} stroke={colors.gray300} strokeWidth={1} strokeDasharray="2 5" />
-      {actualPath ? <Path d={actualPath} fill="none" stroke={accentColor} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
-      <Path d={projectionPath} fill="none" stroke={accentColor} strokeOpacity={0.45} strokeWidth={2} strokeDasharray="5 5" />
-      <Circle cx={x(last.xPercent)} cy={y(last.valueCents)} r={4} fill={accentColor} />
-      <Circle cx={x(100)} cy={y(projectedSpendCents)} r={3.5} fill={colors.canvas} stroke={accentColor} strokeWidth={2} />
-    </Svg>
+    <View style={{ width, height }}>
+      <Svg width={width} height={height}>
+        <Line x1={pad.left} y1={y(budgetCents)} x2={width - pad.right} y2={y(budgetCents)} stroke={colors.gray300} strokeWidth={1} strokeDasharray="4 5" />
+        <Line x1={x(elapsedPercent)} y1={pad.top} x2={x(elapsedPercent)} y2={height - pad.bottom} stroke={colors.gray300} strokeWidth={1} strokeDasharray="2 5" />
+        {historicalPath ? <Path d={historicalPath} fill="none" stroke={colors.gray300} strokeOpacity={0.45} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /> : null}
+        {actualPath ? <Path d={actualPath} fill="none" stroke={accentColor} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
+        <Path d={projectionPath} fill="none" stroke={accentColor} strokeOpacity={0.45} strokeWidth={2} strokeDasharray="5 5" />
+        <Circle cx={x(last.xPercent)} cy={y(last.valueCents)} r={4} fill={accentColor} />
+        <Circle cx={x(100)} cy={y(projectedSpendCents)} r={3.5} fill={colors.canvas} stroke={accentColor} strokeWidth={2} />
+        {selection ? (
+          <>
+            <Line x1={x(selection.xPercent)} y1={pad.top} x2={x(selection.xPercent)} y2={height - pad.bottom} stroke={colors.gray400} strokeWidth={1} />
+            <Circle cx={x(selection.xPercent)} cy={y(selection.valueCents)} r={4.5} fill={colors.canvas} stroke={accentColor} strokeWidth={2} />
+          </>
+        ) : null}
+      </Svg>
+      {historicalAverage.monthsUsed > 0 ? (
+        <Text pointerEvents="none" style={styles.historicalLabel}>
+          {historicalAverage.monthsUsed} mo avg by today {formatMoney(historicalNowCents)}
+        </Text>
+      ) : null}
+      <Pressable
+        accessibilityActions={[{ name: 'increment', label: 'Next day' }, { name: 'decrement', label: 'Previous day' }]}
+        accessibilityLabel={selection ? formatSelectionAccessibilityLabel(selection) : accessibilitySummary}
+        accessibilityRole="adjustable"
+        delayLongPress={180}
+        onAccessibilityAction={handleAccessibilityAction}
+        onLongPress={beginChartScrub}
+        onPressOut={endChartScrub}
+        {...({
+          onPressMove: moveChartScrub,
+          onResponderTerminate: endChartScrub,
+          onResponderTerminationRequest: () => !scrubbingRef.current,
+        } as {
+          onPressMove: (event: GestureResponderEvent) => void;
+          onResponderTerminate: () => void;
+          onResponderTerminationRequest: () => boolean;
+        })}
+        style={styles.chartScrubLayer}
+      />
+      {selection && tooltipPosition ? (
+        <View pointerEvents="none" style={[styles.chartTooltip, tooltipPosition]}>
+          <Text style={styles.chartTooltipDate}>{selection.dateLabel}</Text>
+          <Text style={styles.chartTooltipValue}>{formatMoney(selection.valueCents)} spent so far</Text>
+          {selection.daySpendCents !== 0 ? <Text style={styles.chartTooltipDelta}>{formatSignedMoney(selection.daySpendCents)} that day</Text> : null}
+        </View>
+      ) : null}
+    </View>
   );
+}
+
+export type MoneyChartSelection = {
+  dateIso: string;
+  dateLabel: string;
+  xPercent: number;
+  valueCents: number;
+  daySpendCents: number;
+};
+
+export function getMoneyChartSelection(input: {
+  periodStartIso: string;
+  periodEndIso: string;
+  observablePercent: number;
+  requestedPercent: number;
+  series: MoneySpendPoint[];
+}): MoneyChartSelection | null {
+  const periodStart = parseUtcDay(input.periodStartIso);
+  const periodEnd = parseUtcDay(input.periodEndIso);
+  if (!periodStart || !periodEnd || periodEnd <= periodStart) return null;
+  const dayCount = Math.round((periodEnd.getTime() - periodStart.getTime()) / 86_400_000) + 1;
+  const maxDayIndex = Math.max(0, Math.min(dayCount - 1, Math.round(clampPercent(input.observablePercent) / 100 * (dayCount - 1))));
+  const requestedDayIndex = Math.round(clampPercent(input.requestedPercent) / 100 * (dayCount - 1));
+  const dayIndex = Math.max(0, Math.min(maxDayIndex, requestedDayIndex));
+  const xPercent = roundChartPercent(dayIndex / Math.max(1, dayCount - 1) * 100);
+  const previousXPercent = dayIndex > 0 ? roundChartPercent((dayIndex - 1) / (dayCount - 1) * 100) : -1;
+  const valueCents = Math.round(getStepSeriesValue(input.series, xPercent));
+  const previousValueCents = dayIndex > 0 ? Math.round(getStepSeriesValue(input.series, previousXPercent)) : 0;
+  const date = new Date(periodStart.getTime() + dayIndex * 86_400_000);
+  return {
+    dateIso: date.toISOString().slice(0, 10),
+    dateLabel: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
+    xPercent,
+    valueCents,
+    daySpendCents: valueCents - previousValueCents,
+  };
+}
+
+export function adjustMoneyChartSelectionPercent(input: {
+  currentPercent: number;
+  direction: 'increment' | 'decrement';
+  periodStartIso: string;
+  periodEndIso: string;
+  observablePercent: number;
+}): number {
+  const start = parseUtcDay(input.periodStartIso);
+  const end = parseUtcDay(input.periodEndIso);
+  if (!start || !end || end <= start) return 0;
+  const dayCount = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  const maxDayIndex = Math.max(0, Math.min(dayCount - 1, Math.round(clampPercent(input.observablePercent) / 100 * (dayCount - 1))));
+  const currentDayIndex = Math.round(clampPercent(input.currentPercent) / 100 * (dayCount - 1));
+  const delta = input.direction === 'increment' ? 1 : -1;
+  const nextDayIndex = Math.max(0, Math.min(maxDayIndex, currentDayIndex + delta));
+  return roundChartPercent(nextDayIndex / Math.max(1, dayCount - 1) * 100);
+}
+
+export function getBoundedMoneyChartTooltipPosition(input: {
+  anchorX: number;
+  anchorY: number;
+  chartWidth: number;
+  chartHeight: number;
+  tooltipWidth: number;
+  tooltipHeight: number;
+}): { left: number; top: number } {
+  return {
+    left: Math.max(0, Math.min(input.chartWidth - input.tooltipWidth, input.anchorX + 10)),
+    top: Math.max(0, Math.min(input.chartHeight - input.tooltipHeight, input.anchorY - input.tooltipHeight - 8)),
+  };
+}
+
+function getStepSeriesValue(series: MoneySpendPoint[], xPercent: number): number {
+  let valueCents = 0;
+  series.forEach((point) => {
+    if (point.xPercent <= xPercent + 0.01) valueCents = point.valueCents;
+  });
+  return valueCents;
+}
+
+function interpolateSeriesValue(series: MoneySpendPoint[], xPercent: number): number {
+  if (series.length === 0) return 0;
+  if (xPercent <= series[0].xPercent) return series[0].valueCents;
+  for (let index = 1; index < series.length; index += 1) {
+    const right = series[index];
+    if (xPercent > right.xPercent) continue;
+    const left = series[index - 1];
+    const progress = (xPercent - left.xPercent) / Math.max(0.0001, right.xPercent - left.xPercent);
+    return left.valueCents + (right.valueCents - left.valueCents) * progress;
+  }
+  return series[series.length - 1].valueCents;
+}
+
+function parseUtcDay(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+}
+
+function roundChartPercent(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function formatSelectionAccessibilityLabel(selection: MoneyChartSelection): string {
+  return `${selection.dateLabel}, ${formatMoney(selection.valueCents)} spent so far, ${formatSignedMoney(selection.daySpendCents)} that day`;
+}
+
+function formatSignedMoney(valueCents: number): string {
+  if (valueCents === 0) return formatMoney(0);
+  return `${valueCents > 0 ? '+' : '-'}${formatMoney(Math.abs(valueCents))}`;
 }
 
 function formatForecastBasis(mode: MoneyCategory['forecast']['mode']): string {
@@ -220,6 +454,12 @@ const styles = StyleSheet.create({
   monthLabel: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   monthMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
   chart: { height: 184, overflow: 'hidden' },
+  historicalLabel: { position: 'absolute', top: 0, left: spacing.sm, color: colors.gray500, fontFamily: fonts.medium, fontSize: 10, lineHeight: 14, fontWeight: '500' },
+  chartScrubLayer: { ...StyleSheet.absoluteFillObject },
+  chartTooltip: { position: 'absolute', width: 132, gap: 1, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 10, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, backgroundColor: colors.card },
+  chartTooltipDate: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 10, lineHeight: 14, fontWeight: '500' },
+  chartTooltipValue: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600' },
+  chartTooltipDelta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
   chartAxisRow: { marginTop: -spacing.md, flexDirection: 'row', justifyContent: 'space-between' },
   axisLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 10, lineHeight: 14 },
   reserveExplanation: { gap: spacing.xs, padding: spacing.lg, borderRadius: 12, backgroundColor: colors.pine50 },

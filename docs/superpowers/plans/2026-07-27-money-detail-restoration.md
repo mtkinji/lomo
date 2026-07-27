@@ -122,7 +122,7 @@ git commit -m "feat(money): restore historical spend comparison"
 - Create: `src/capabilities/money/components/MoneyDetailMeter.test.tsx`
 - Modify: `src/capabilities/money/screens/MoneyCategoryDetailScreen.tsx`
 
-- [ ] **Step 1: Add failing chart-presentation tests**
+- [x] **Step 1: Add failing chart-presentation tests**
 
 Prove:
 
@@ -136,19 +136,19 @@ Prove:
 - accessibility increment/decrement moves one day at a time;
 - activation emits one haptic signal and release/cancellation clears selection and restores parent scrolling.
 
-- [ ] **Step 2: Extend `MoneySpendChart`**
+- [x] **Step 2: Extend `MoneySpendChart`**
 
 Pass `historicalSeries` and render its path before actual so it remains visually subordinate. Keep only the current-day vertical guide and existing plan line. Interpolate the historical value at `elapsedPercent` for the label; do not call it “allowed,” “expected,” or “forecast.”
 
-- [ ] **Step 3: Restore press-and-scrub inspection**
+- [x] **Step 3: Restore press-and-scrub inspection**
 
 Add a transparent responder layer over the SVG. Long-press starts inspection; horizontal movement selects the nearest inspectable day. Render a bounded tooltip with the selected date, cumulative spend, and that day's spend. Notify `MoneyCategoryDetailScreen` while scrubbing so its parent `ScrollView` uses `scrollEnabled={!chartScrubbing}`. Refuse responder termination during an active scrub, clear state on every exit path, and use the existing Money feedback policy for a single activation haptic.
 
-- [ ] **Step 4: Add accessible chart summary and adjustment**
+- [x] **Step 4: Add accessible chart summary and adjustment**
 
 The chart container's accessibility label must distinguish: `{actual} spent; {historical} typical by today; {projected} forecast by month end; {planned} planned`. Give the inspection layer `accessibilityRole="adjustable"`; increment/decrement moves one day and announces the same selected-day facts as touch inspection.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 npx jest src/capabilities/money/components/MoneyDetailMeter.test.tsx src/capabilities/money/domain/moneyDetailView.test.ts --runInBand
