@@ -164,7 +164,9 @@ import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
-import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
+import { sharedMemberRoleLabel } from './goalPartnerRoles';
+import { buildGoalPartnerAccessPresentation } from './goalPartnerAccessPresentation';
+import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
 import { selectFirstGoalPlanActivityId } from './goalFirstPlanActivity';
@@ -772,36 +774,20 @@ export function GoalDetailScreen() {
   }, [goalId, goalActivityCounts.completedCount, isSharedGoal]);
 
   useEffect(() => {
-    if (!isFocused || !goalId || isSharedGoal || sharingRemindersMuted) {
-      setShareCoachmarkVisible(false);
-      setActivePartnerPromptTrigger(null);
-      return;
-    }
-    if (showFirstGoalCelebration || shareDrawerVisible || membersSheetVisible) {
-      setShareCoachmarkVisible(false);
-      setActivePartnerPromptTrigger(null);
-      return;
-    }
-    if (goalActivityCounts.todoCount <= 0) {
-      // Blank goal: no prompt yet. Header userPlus remains available.
-      setShareCoachmarkVisible(false);
-      setActivePartnerPromptTrigger(null);
-      return;
-    }
-    const momentGate = shouldShowLowPriorityMomentNow('checkin_nudge');
-    if (!momentGate.ok) {
-      setShareCoachmarkVisible(false);
-      setActivePartnerPromptTrigger(null);
-      return;
-    }
-    const store = useCheckinNudgeStore.getState();
-    // Prefer the "first progress alone" trigger once it's eligible; it's the
-    // stronger moment for adding a partner. Otherwise fall back to the setup
-    // trigger fired by the first to-do/accepted plan.
-    const candidates: PartnerPromptTrigger[] = goalActivityCounts.completedCount > 0
-      ? ['first_progress_alone', 'first_todo_added']
-      : ['first_todo_added'];
-    const trigger = candidates.find((t) => store.shouldShowPartnerPrompt(goalId, t));
+    const trigger = selectGoalPartnerPromptTrigger({
+      goalId,
+      isFocused,
+      isSharedGoal,
+      sharingRemindersMuted,
+      showFirstGoalCelebration,
+      shareDrawerVisible,
+      membersSheetVisible,
+      todoCount: goalActivityCounts.todoCount,
+      completedCount: goalActivityCounts.completedCount,
+      isMomentAllowed: () => shouldShowLowPriorityMomentNow('checkin_nudge').ok,
+      shouldShowPrompt: (candidate) =>
+        useCheckinNudgeStore.getState().shouldShowPartnerPrompt(goalId, candidate),
+    });
     if (!trigger) {
       setShareCoachmarkVisible(false);
       setActivePartnerPromptTrigger(null);
@@ -837,32 +823,20 @@ export function GoalDetailScreen() {
     setMembersSheetVisible(true);
   }, []);
 
-  const currentUserIds = useMemo(
+  const {
+    currentUserIds,
+    canLeaveSharedGoal,
+    canRemoveGoalPartners,
+    headerPartnerAvatars,
+  } = useMemo(
     () =>
-      new Set(
-        [authIdentity?.userId, userProfile?.id]
-          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-          .map((id) => id.trim()),
-      ),
-    [authIdentity?.userId, userProfile?.id],
+      buildGoalPartnerAccessPresentation({
+        authUserId: authIdentity?.userId,
+        profileUserId: userProfile?.id,
+        sharedMembers,
+      }),
+    [authIdentity?.userId, sharedMembers, userProfile?.id],
   );
-
-  const currentMembership = useMemo(() => {
-    if (!Array.isArray(sharedMembers) || sharedMembers.length === 0) return null;
-    return sharedMembers.find((m) => currentUserIds.has(m.userId.trim())) ?? null;
-  }, [currentUserIds, sharedMembers]);
-
-  const canLeaveSharedGoal = useMemo(() => {
-    const me = currentMembership;
-    if (!me) return false;
-    return !isGoalOwnerRole(me.role);
-  }, [currentMembership]);
-
-  const canRemoveGoalPartners = useMemo(() => {
-    const me = currentMembership;
-    if (!me) return false;
-    return isGoalOwnerRole(me.role);
-  }, [currentMembership]);
 
   const handleRemovePartner = useCallback(
     (member: SharedMember) => {
@@ -927,18 +901,6 @@ export function GoalDetailScreen() {
       cancelled = true;
     };
   }, [goalId, isFocused]);
-
-  const headerPartnerAvatars = useMemo(() => {
-    if (!Array.isArray(sharedMembers) || sharedMembers.length <= 1) return [];
-    return sharedMembers
-      .filter((m) => {
-        const userId = m.userId.trim();
-        if (!userId) return false;
-        if (currentUserIds.has(userId)) return false;
-        return (m.role ?? '').toLowerCase() !== 'owner';
-      })
-      .map((m) => ({ id: m.userId, name: m.name ?? null, avatarUrl: m.avatarUrl ?? null }));
-  }, [currentUserIds, sharedMembers]);
 
   const partnerCircleKey = useMemo(() => {
     if (!Array.isArray(sharedMembers)) return 'solo';

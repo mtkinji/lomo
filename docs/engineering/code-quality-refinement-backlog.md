@@ -102,8 +102,18 @@ Prioritize by compounding leverage per unit of risk:
   - Why: both invitation paths independently choose between landing, redirect, Expo Go, and native deep-link destinations before applying referral metadata.
   - Result: `goalInviteDestinationUrl.ts` now owns human-tap and share-preview destination priority plus Expo Go handoff encoding, with focused tests for every destination combination.
 
-- [ ] Extract Goal partner access presentation
+- [x] Extract Goal partner access presentation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: current-user identity normalization, membership lookup, leave/remove permissions, and visible partner avatars form one access-sensitive view contract embedded in screen state.
-  - Ideal test: pin auth/profile identity aliases, owner/member permissions, self exclusion, blank IDs, and owner exclusion from partner avatars.
+  - Result: `goalPartnerAccessPresentation.ts` now owns identity alias normalization, current membership, owner/member actions, and header-avatar filtering, with focused tests preserving access and visibility edge cases.
+
+- [x] Extract Goal partner prompt decision
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: focus, sharing state, transient sheets, activity progress, moment gating, and trigger precedence form a product rule embedded in an effect.
+  - Result: `goalPartnerPromptDecision.ts` now owns suppression gates, lazy moment evaluation, progress-first trigger precedence, and first-to-do fallback, with focused tests for decision order and callback boundaries.
+
+- [ ] Extract Goal partner row presentation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: partner-row JSX recomputes normalized identity, role labels, current-user status, and remove-button eligibility inside composition.
+  - Ideal test: pin current-user aliases, owner/co-owner labels, owner removal suppression, member removal eligibility, and missing profile fields.
   - Risk: low
