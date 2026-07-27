@@ -186,6 +186,7 @@ export type AgentWorkbenchSnapshot = {
     voice: {
       state: 'idle' | 'recording' | 'transcribing' | 'unsupported' | 'error';
       elapsedSeconds: number;
+      levels?: number[];
       message?: string;
     };
   };
@@ -197,7 +198,8 @@ export type SupportedAgentWorkbenchCommand =
   | { type: 'context.add' }
   | { type: 'attachment.pick' }
   | { type: 'attachment.remove'; attachmentId: string }
-  | { type: 'voice.toggle' }
+  | { type: 'voice.toggle'; prompt?: undefined; selectionStart?: undefined; selectionEnd?: undefined }
+  | { type: 'voice.toggle'; prompt: string; selectionStart: number; selectionEnd: number }
   | { type: 'run.send'; prompt: string }
   | { type: 'run.stop'; runId: string }
   | { type: 'run.steer'; runId: string; prompt: string }
@@ -295,7 +297,18 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
         ? { type: 'composer.focus.change', focused: value.focused }
         : null;
     case 'voice.toggle':
-      return { type: 'voice.toggle' };
+      if (value.prompt === undefined && value.selectionStart === undefined && value.selectionEnd === undefined) {
+        return { type: 'voice.toggle' };
+      }
+      return typeof value.prompt === 'string' &&
+        typeof value.selectionStart === 'number' && Number.isInteger(value.selectionStart) &&
+        typeof value.selectionEnd === 'number' && Number.isInteger(value.selectionEnd) &&
+        value.selectionStart >= 0 && value.selectionEnd >= value.selectionStart && value.selectionEnd <= value.prompt.length
+        ? {
+            type: 'voice.toggle', prompt: value.prompt,
+            selectionStart: value.selectionStart, selectionEnd: value.selectionEnd,
+          }
+        : null;
     case 'context.add':
       return { type: 'context.add' };
     case 'attachment.pick':

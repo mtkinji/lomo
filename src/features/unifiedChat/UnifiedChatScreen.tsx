@@ -98,6 +98,11 @@ import { createRelationshipMemoryToolProvider } from '../../services/relationshi
 import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
 import { buildUnifiedChatReconciliationTelemetry } from './unifiedChatTelemetry';
+import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
+import {
+  insertUnifiedChatTranscriptAtSelection,
+  type UnifiedChatVoiceInsertion,
+} from './unifiedChatTranscriptInsertion';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -182,6 +187,7 @@ export function UnifiedChatScreen() {
   const [threads, setThreads] = useState<UnifiedChatThread[]>([]);
   const [aggregate, setAggregate] = useState<UnifiedChatThreadAggregate | null>(null);
   const [prompt, setPrompt] = useState('');
+  const voiceInsertionRef = useRef<UnifiedChatVoiceInsertion | null>(null);
   const [attachments, setAttachments] = useState<UnifiedChatAttachment[]>([]);
   const [surfaceReady, setSurfaceReady] = useState(false);
   const [contextPickerVisible, setContextPickerVisible] = useState(false);
@@ -193,8 +199,9 @@ export function UnifiedChatScreen() {
   const [voice, setVoice] = useState<{
     state: 'idle' | 'recording' | 'transcribing' | 'error';
     elapsedSeconds: number;
+    levels: number[];
     message?: string;
-  }>({ state: 'idle', elapsedSeconds: 0 });
+  }>({ state: 'idle', elapsedSeconds: 0, levels: [] });
 
   const clearVoiceTimer = useCallback(() => {
     if (voiceTimer.current) clearInterval(voiceTimer.current);
@@ -549,22 +556,46 @@ export function UnifiedChatScreen() {
         if (aggregate?.runs.some((run) => run.status === 'active' || run.status === 'queued') || voice.state === 'transcribing') return;
         if (voice.state === 'recording') {
           clearVoiceTimer();
-          setVoice((current) => ({ state: 'transcribing', elapsedSeconds: current.elapsedSeconds, message: 'Transcribing…' }));
+          void HapticsService.trigger('canvas.recording.stop');
+          setVoice((current) => ({
+            state: 'transcribing', elapsedSeconds: current.elapsedSeconds,
+            levels: current.levels, message: 'Transcribing…',
+          }));
           try {
             const transcript = await stopAndTranscribeUnifiedChatVoice();
-            setPrompt((current) => [current.trim(), transcript].filter(Boolean).join(current.trim() ? ' ' : ''));
-            setVoice({ state: 'idle', elapsedSeconds: 0 });
+            setPrompt((current) => insertUnifiedChatTranscriptAtSelection({
+              currentPrompt: current,
+              transcript,
+              insertion: voiceInsertionRef.current,
+            }));
+            voiceInsertionRef.current = null;
+            setVoice({ state: 'idle', elapsedSeconds: 0, levels: [] });
           } catch (voiceError) {
+            voiceInsertionRef.current = null;
             setVoice({
-              state: 'error', elapsedSeconds: 0,
+              state: 'error', elapsedSeconds: 0, levels: [],
               message: voiceError instanceof Error ? voiceError.message : 'Voice input failed.',
             });
           }
           return;
         }
+        voiceInsertionRef.current = command.prompt === undefined
+          ? null
+          : {
+              prompt: command.prompt,
+              selectionStart: command.selectionStart,
+              selectionEnd: command.selectionEnd,
+            };
+        Keyboard.dismiss();
+        webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;');
         try {
-          await startUnifiedChatVoiceRecording();
-          setVoice({ state: 'recording', elapsedSeconds: 0, message: 'Tap again when you’re done.' });
+          await startUnifiedChatVoiceRecording((level) => {
+            setVoice((current) => current.state === 'recording'
+              ? { ...current, levels: appendUnifiedChatVoiceLevel(current.levels, level) }
+              : current);
+          });
+          void HapticsService.trigger('canvas.recording.start');
+          setVoice({ state: 'recording', elapsedSeconds: 0, levels: [], message: 'Tap again when you’re done.' });
           clearVoiceTimer();
           voiceTimer.current = setInterval(() => {
             setVoice((current) => current.state === 'recording'
@@ -572,8 +603,9 @@ export function UnifiedChatScreen() {
               : current);
           }, 1000);
         } catch (voiceError) {
+          voiceInsertionRef.current = null;
           setVoice({
-            state: 'error', elapsedSeconds: 0,
+            state: 'error', elapsedSeconds: 0, levels: [],
             message: voiceError instanceof Error ? voiceError.message : 'Voice input failed.',
           });
         }

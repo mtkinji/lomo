@@ -13,7 +13,7 @@ serves:
 briefs:
   - guided-overture-onboarding
 status: shipping
-last_reviewed: 2026-07-25
+last_reviewed: 2026-07-27
 ---
 
 # guidedOverture
@@ -30,3 +30,6 @@ Helps an unscoped new person understand several concrete ways Kwilt can help, ch
 ## Notes
 
 The current customer-facing surface is an isolated development lab in `src/features/dev`. Production first-run assignment remains intentionally unwired until the research and live first-value gates pass.
+
+Money's decision-shaped offer remains concept-only until native setup resume and
+`MoneyFirstTrustedDecision` runtime proof satisfy the Money capability contract.

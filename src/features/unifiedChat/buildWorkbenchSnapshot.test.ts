@@ -58,6 +58,16 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.artifacts).toEqual([]);
   });
 
+  test('projects bounded live voice levels into the hosted composer', () => {
+    const snapshot = buildWorkbenchSnapshot(aggregate, '', {
+      voice: { state: 'recording', elapsedSeconds: 3, levels: [0, 0.25, 0.75, 1] },
+    });
+
+    expect(snapshot.composer.voice).toEqual({
+      state: 'recording', elapsedSeconds: 3, levels: [0, 0.25, 0.75, 1],
+    });
+  });
+
   test('keeps an editable draft artifact inside its producing turn and outside receipts', () => {
     const assistant = {
       id: 'message-assistant', threadId: 'thread-1', role: 'assistant' as const,
