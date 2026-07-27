@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
+import { validateMoneyCategoryCover, type MoneyCategoryCover } from '../domain/moneyCategoryCover';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
 import { CATEGORY_FUNDING_POLICY_VERSION, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import { collectAllPages } from '../domain/living-plan-pagination';
@@ -65,6 +66,7 @@ export type ConfirmedCategoryWrite = {
     manualProjectedSpendCents?: number | null;
     scheduledAmountCents?: number | null;
     scheduledDueDay?: number | null;
+    coverImage?: MoneyCategoryCover | null;
   };
 };
 
@@ -91,6 +93,7 @@ export interface MoneyRepository {
   }): Promise<MoneySnapshot>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
   renameCategory(categoryId: string, name: string): Promise<ConfirmedCategoryWrite>;
+  updateCategoryCover(categoryId: string, cover: MoneyCategoryCover | null): Promise<ConfirmedCategoryWrite>;
   updateCategoryPlan(categoryId: string, input: {
     budgetCents?: number;
     rolloverEnabled?: boolean;
@@ -113,7 +116,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       readPart<MoneyCategoryRow[]>('categories',
         db
           .from('budget_categories')
-          .select('id,slug,legacy_budget_id,name,description,accent_color,sort_order')
+          .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
           .eq('status', 'active')
           .order('sort_order', { ascending: true })),
       readPlanRows(db),
@@ -340,6 +343,24 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         changes: { name: normalizedName },
       };
     },
+    async updateCategoryCover(categoryId, cover) {
+      const normalizedCategoryId = categoryId.trim();
+      if (!normalizedCategoryId) throw new Error('Choose a category cover to update.');
+      const normalizedCover = validateMoneyCategoryCover(cover);
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const { data, error } = await db.rpc('set_budget_category_cover', {
+        p_category_id: normalizedCategoryId,
+        p_cover: normalizedCover,
+      });
+      if (error) throw new Error(`Money could not save the category cover: ${error.message || 'Unknown database error'}`);
+      const receipt = requireCategoryCoverReceipt(data, normalizedCategoryId, normalizedCover);
+      return {
+        confirmedAt: receipt.confirmedAt,
+        categoryId: normalizedCategoryId,
+        changes: { coverImage: normalizedCover },
+      };
+    },
     async updateCategoryPlan(categoryId, input) {
       const normalizedCategoryId = categoryId.trim();
       if (!normalizedCategoryId) throw new Error('Choose a category plan to update.');
@@ -437,6 +458,23 @@ function validateNullableCents(value: number | null | undefined, label: string) 
   if (value != null && (!Number.isSafeInteger(value) || value < 0)) {
     throw new Error(`Enter a valid ${label}.`);
   }
+}
+
+function requireCategoryCoverReceipt(
+  value: unknown,
+  categoryId: string,
+  cover: MoneyCategoryCover | null,
+): { confirmedAt: string } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Money could not confirm the category cover. Refresh and try again.');
+  }
+  const receipt = value as Record<string, unknown>;
+  const confirmedCover = validateMoneyCategoryCover(receipt.cover);
+  const confirmedAt = typeof receipt.updated_at === 'string' ? receipt.updated_at : '';
+  if (receipt.category_id !== categoryId || JSON.stringify(confirmedCover) !== JSON.stringify(cover) || !Number.isFinite(Date.parse(confirmedAt))) {
+    throw new Error('Money could not confirm the category cover. Refresh and try again.');
+  }
+  return { confirmedAt };
 }
 
 function requireConfirmedRows(label: string, rows: unknown[], expectedCount: number): void {

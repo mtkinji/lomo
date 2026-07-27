@@ -1,4 +1,5 @@
 import type { MoneySnapshot, MoneyTransaction } from './moneySnapshot';
+import type { MoneyCategoryCover } from '../domain/moneyCategoryCover';
 
 export type ConfirmedTransactionPatch = {
   transactionId: string;
@@ -12,6 +13,7 @@ export type ConfirmedCategoryPatch = {
   categorySourceId: string;
   name?: string;
   rolloverEnabled?: boolean;
+  coverImage?: MoneyCategoryCover | null;
 };
 
 export function applyConfirmedTransactionPatch(
@@ -55,6 +57,7 @@ export function applyConfirmedCategoryPatch(
           ...category,
           ...(patch.name != null ? { name: patch.name } : null),
           ...(patch.rolloverEnabled != null ? { rolloverEnabled: patch.rolloverEnabled } : null),
+          ...('coverImage' in patch ? { coverImage: patch.coverImage ?? null } : null),
         }
       : category),
   };

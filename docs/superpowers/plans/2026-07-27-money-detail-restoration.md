@@ -167,7 +167,7 @@ git commit -m "feat(money): show typical spend on category detail"
 - Modify: `src/capabilities/money/data/moneyRepository.ts`
 - Modify: `src/capabilities/money/data/moneyRepository.test.ts`
 
-- [ ] **Step 1: Write failing cover validation tests**
+- [x] **Step 1: Write failing cover validation tests**
 
 ```ts
 export type MoneyCategoryCover = {
@@ -183,7 +183,7 @@ export type MoneyCategoryCover = {
 
 Reject non-HTTPS URLs, non-Unsplash image/source hosts, empty IDs/names, unknown keys, and payloads over 4 KB. Accept `null` to remove a cover.
 
-- [ ] **Step 2: Add one constrained JSONB column**
+- [x] **Step 2: Add one constrained JSONB column**
 
 Create the migration with:
 
@@ -193,7 +193,7 @@ npx supabase migration new add_budget_category_cover
 
 Add `cover_image jsonb null` to `budget_categories` with an object/type/size check. In the same migration, add owner-scoped `public.set_budget_category_cover(p_category_id uuid, p_cover jsonb) returns jsonb`: require `auth.uid()`, update exactly one active category owned by that user, and return the confirmed category ID, cover payload, and timestamp. Set `search_path = public, pg_temp`, revoke public execute, and grant authenticated execute; no service-role bypass is introduced.
 
-- [ ] **Step 3: Project and persist the exact metadata**
+- [x] **Step 3: Project and persist the exact metadata**
 
 Select `cover_image` in `loadSnapshot`, validate it into `MoneyCategory.coverImage`, and add:
 
@@ -203,7 +203,7 @@ updateCategoryCover(categoryId: string, cover: MoneyCategoryCover | null): Promi
 
 Call the owner-scoped RPC and require an exact receipt. Extend `ConfirmedCategoryWrite.changes` with `coverImage?: MoneyCategoryCover | null`, patch the confirmed category locally, and refresh in the background.
 
-- [ ] **Step 4: Verify and commit the data slice**
+- [x] **Step 4: Verify and commit the data slice**
 
 ```bash
 npx jest src/capabilities/money/domain/moneyCategoryCover.test.ts src/capabilities/money/data/moneySnapshot.test.ts src/capabilities/money/data/moneyRepository.test.ts --runInBand

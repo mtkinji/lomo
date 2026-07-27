@@ -12,7 +12,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient(options: { updatedRowCount?: number } = {}) {
+function createClient(options: { updatedRowCount?: number; rpcResult?: unknown } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -67,7 +67,7 @@ function createClient(options: { updatedRowCount?: number } = {}) {
     },
     rpc(name: string, args: Record<string, unknown>) {
       rpcCalls.push({ name, args });
-      return Promise.resolve({ data: 'groceries-a1b2c3d4', error: null });
+      return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: null });
     },
     functions: {
       invoke(name: string, options: { body: Record<string, unknown> }) {
@@ -87,6 +87,7 @@ describe('createMoneyRepository transaction review', () => {
 
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('funding_rhythm');
+    expect(calls.find((call) => call.table === 'budget_categories')?.selected).toContain('cover_image');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
@@ -269,6 +270,34 @@ describe('createMoneyRepository transaction review', () => {
     }]);
     expect(result.categoryId).toBe('groceries-a1b2c3d4');
     expect(calls.filter((call) => call.table === 'budget_categories')).toHaveLength(1);
+  });
+
+  it('persists exact cover metadata through the owner-scoped RPC and returns a receipt', async () => {
+    const cover = {
+      source: 'unsplash' as const, photoId: 'housing-photo',
+      imageUrl: 'https://images.unsplash.com/photo-housing', photographerName: 'Maya Rivera',
+      photographerUrl: 'https://unsplash.com/@maya', sourceUrl: 'https://unsplash.com/photos/housing-photo',
+      color: '#315545',
+    };
+    const { client, rpcCalls } = createClient({
+      rpcResult: { category_id: 'category-1', cover, updated_at: '2026-07-27T18:00:00.000Z' },
+    });
+
+    await expect(createMoneyRepository(client).updateCategoryCover('category-1', cover)).resolves.toEqual({
+      confirmedAt: '2026-07-27T18:00:00.000Z', categoryId: 'category-1', changes: { coverImage: cover },
+    });
+    expect(rpcCalls).toEqual([{ name: 'set_budget_category_cover', args: { p_category_id: 'category-1', p_cover: cover } }]);
+  });
+
+  it('rejects invalid cover metadata before any RPC call', async () => {
+    const { client, rpcCalls } = createClient();
+
+    await expect(createMoneyRepository(client).updateCategoryCover('category-1', {
+      source: 'unsplash', photoId: 'bad', imageUrl: 'https://example.com/photo',
+      photographerName: 'Maya', photographerUrl: 'https://unsplash.com/@maya',
+      sourceUrl: 'https://unsplash.com/photos/bad', color: null,
+    })).rejects.toThrow('Unsplash image');
+    expect(rpcCalls).toEqual([]);
   });
 
   it('updates category identity and plan settings as separate authoritative writes', async () => {

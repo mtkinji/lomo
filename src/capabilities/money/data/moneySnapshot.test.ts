@@ -8,6 +8,12 @@ const categories = [
     name: 'Groceries',
     description: 'Food at home',
     accent_color: '#315545',
+    cover_image: {
+      source: 'unsplash', photoId: 'grocery-photo',
+      imageUrl: 'https://images.unsplash.com/photo-grocery', photographerName: 'Maya Rivera',
+      photographerUrl: 'https://unsplash.com/@maya', sourceUrl: 'https://unsplash.com/photos/grocery-photo',
+      color: '#315545',
+    },
     sort_order: 1,
   },
   {
@@ -135,6 +141,7 @@ describe('projectMoneySnapshot', () => {
       spentCents: 10000,
       plannedCents: 60000,
       transactionCount: 2,
+      coverImage: expect.objectContaining({ photoId: 'grocery-photo' }),
       forecastSettings: {
         mode: 'manual',
         manualProjectedSpendCents: 70000,

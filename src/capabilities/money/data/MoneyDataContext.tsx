@@ -38,6 +38,7 @@ type MoneyDataContextValue = MoneyDataState & {
   savingCategory: boolean;
   createCategory: (input: CategoryPlanInput) => Promise<string>;
   renameCategory: (categoryId: string, name: string) => Promise<void>;
+  updateCategoryCover: (categoryId: string, cover: Parameters<MoneyRepository['updateCategoryCover']>[1]) => Promise<void>;
   updateCategoryPlan: (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => Promise<void>;
   previewCategoryPlanAmount: (
     categoryId: string,
@@ -260,6 +261,7 @@ export function MoneyDataProvider({
           categorySourceId: result.categoryId,
           ...(result.changes.name != null ? { name: result.changes.name } : null),
           ...(result.changes.rolloverEnabled != null ? { rolloverEnabled: result.changes.rolloverEnabled } : null),
+          ...('coverImage' in result.changes ? { coverImage: result.changes.coverImage ?? null } : null),
         },
       });
       const version = ++mutationVersionRef.current;
@@ -291,6 +293,13 @@ export function MoneyDataProvider({
   const renameCategory = useCallback(
     (categoryId: string, name: string) => applyCategoryMutation(
       () => resolvedRepository.renameCategory(categoryId, name),
+    ),
+    [applyCategoryMutation, resolvedRepository],
+  );
+
+  const updateCategoryCover = useCallback(
+    (categoryId: string, cover: Parameters<MoneyRepository['updateCategoryCover']>[1]) => applyCategoryMutation(
+      () => resolvedRepository.updateCategoryCover(categoryId, cover),
     ),
     [applyCategoryMutation, resolvedRepository],
   );
@@ -371,6 +380,7 @@ export function MoneyDataProvider({
     savingCategory,
     createCategory,
     renameCategory,
+    updateCategoryCover,
     updateCategoryPlan,
     previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,

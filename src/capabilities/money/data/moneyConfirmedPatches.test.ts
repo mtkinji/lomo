@@ -50,10 +50,15 @@ describe('confirmed Money patches', () => {
   });
 
   it('limits a confirmed category patch to bounded identity and rollover fields', () => {
+    const cover = {
+      source: 'unsplash' as const, photoId: 'cover', imageUrl: 'https://images.unsplash.com/photo-cover',
+      photographerName: 'Maya', photographerUrl: 'https://unsplash.com/@maya',
+      sourceUrl: 'https://unsplash.com/photos/cover', color: null,
+    };
     const result = applyConfirmedCategoryPatch(snapshot, {
-      categorySourceId: 'category-uuid', name: 'Food at home', rolloverEnabled: true,
+      categorySourceId: 'category-uuid', name: 'Food at home', rolloverEnabled: true, coverImage: cover,
     });
 
-    expect(result.categories[0]).toMatchObject({ name: 'Food at home', rolloverEnabled: true, plannedCents: 10000 });
+    expect(result.categories[0]).toMatchObject({ name: 'Food at home', rolloverEnabled: true, coverImage: cover, plannedCents: 10000 });
   });
 });

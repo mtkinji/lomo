@@ -5,6 +5,7 @@ import {
   type MoneyForecastMode,
 } from '../domain/moneyForecast';
 import { buildTransactionAllocationPlan } from '../domain/transactionAllocation';
+import { parseMoneyCategoryCover, type MoneyCategoryCover } from '../domain/moneyCategoryCover';
 import {
   projectCategoryFunding,
   projectReserveAvailabilityFromAnchor,
@@ -20,6 +21,7 @@ export type MoneyCategoryRow = {
   name: string;
   description: string | null;
   accent_color: string | null;
+  cover_image?: unknown | null;
   sort_order: number;
 };
 
@@ -106,6 +108,7 @@ export type MoneyCategory = {
   name: string;
   description: string | null;
   accentColor: string;
+  coverImage?: MoneyCategoryCover | null;
   plannedCents: number;
   spentCents: number;
   remainingCents: number;
@@ -324,6 +327,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         name: category.name.trim() || category.slug,
         description: category.description?.trim() || null,
         accentColor: category.accent_color?.trim() || DEFAULT_ACCENT,
+        coverImage: parseMoneyCategoryCover(category.cover_image),
         plannedCents,
         spentCents,
         remainingCents: funding.availableCents,
