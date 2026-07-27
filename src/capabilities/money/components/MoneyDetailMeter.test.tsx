@@ -3,7 +3,6 @@ import path from 'path';
 import {
   adjustMoneyChartSelectionPercent,
   buildMonotoneMoneyLinePath,
-  buildNaturalMoneyLinePath,
   getBoundedMoneyChartTooltipPosition,
   getMoneyChartSelection,
 } from './MoneyDetailMeter';
@@ -72,7 +71,7 @@ describe('MoneyDetailMeter chart presentation', () => {
     const points = [{ x: 0, y: 100 }, { x: 50, y: 40 }, { x: 100, y: 60 }];
 
     const actualPath = buildMonotoneMoneyLinePath(points);
-    const historicalPath = buildNaturalMoneyLinePath(points);
+    const historicalPath = buildMonotoneMoneyLinePath(points);
 
     expect(actualPath).toMatch(/^M 0 100 C /);
     expect(actualPath).toContain('100 60');
@@ -84,7 +83,19 @@ describe('MoneyDetailMeter chart presentation', () => {
 
   it('keeps empty and single-point curve paths deterministic', () => {
     expect(buildMonotoneMoneyLinePath([])).toBe('');
-    expect(buildNaturalMoneyLinePath([{ x: 8, y: 12 }])).toBe('M 8 12');
+    expect(buildMonotoneMoneyLinePath([{ x: 8, y: 12 }])).toBe('M 8 12');
+  });
+
+  it('does not introduce a dip when cumulative values rise into a plateau', () => {
+    const path = buildMonotoneMoneyLinePath([
+      { x: 0, y: 100 },
+      { x: 50, y: 40 },
+      { x: 100, y: 40 },
+    ]);
+    const coordinates = path.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+    const yCoordinates = coordinates.filter((_, index) => index % 2 === 1);
+
+    expect(yCoordinates.every((value) => value >= 40 && value <= 100)).toBe(true);
   });
 
   it('keeps history subordinate and restores adjustable scrub interaction', () => {
@@ -97,6 +108,7 @@ describe('MoneyDetailMeter chart presentation', () => {
     expect(source).toContain('signalMoneyChoice();');
     expect(source).toContain('onScrubActiveChange(false)');
     expect(source).toContain('buildMonotoneMoneyLinePath(actualPoints)');
-    expect(source).toContain('buildNaturalMoneyLinePath(historicalPoints)');
+    expect(source).toContain('buildMonotoneMoneyLinePath(historicalPoints)');
+    expect(source).not.toContain('buildNaturalMoneyLinePath');
   });
 });

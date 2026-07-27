@@ -30,7 +30,7 @@
 - Respect split allocations by using the category-projected amount.
 - Show no line with zero eligible months. With fewer than 12 eligible months, label the actual count (`4 mo avg`).
 - Typical history, planned capacity, and forecast remain visually and semantically distinct.
-- Preserve the retired chart's gentle geometry: natural smoothing for the historical ghost, monotone-X smoothing for actual spend, and a straight dashed projection.
+- Preserve gentle geometry without inventing dips: monotone-X smoothing for both historical and actual spend, with a straight dashed projection.
 
 ## Scrub interaction contract
 

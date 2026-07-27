@@ -199,7 +199,7 @@ function MoneySpendChart({ accentColor, budgetCents, elapsedPercent, height, his
   const actualPoints = actual.map((point) => ({ x: x(point.xPercent), y: y(point.valueCents) }));
   const historicalPoints = historicalAverage.series.map((point) => ({ x: x(point.xPercent), y: y(point.valueCents) }));
   const actualPath = buildMonotoneMoneyLinePath(actualPoints);
-  const historicalPath = buildNaturalMoneyLinePath(historicalPoints);
+  const historicalPath = buildMonotoneMoneyLinePath(historicalPoints);
   const last = actual[actual.length - 1] ?? { xPercent: 0, valueCents: 0 };
   const projectionPath = `M ${x(last.xPercent)} ${y(last.valueCents)} L ${x(100)} ${y(projectedSpendCents)}`;
   const historicalNowCents = Math.round(interpolateSeriesValue(historicalAverage.series, elapsedPercent));
@@ -362,24 +362,6 @@ export function buildMonotoneMoneyLinePath(points: MoneyLinePoint[]): string {
     const width = next.x - point.x;
     path += ` C ${pathNumber(point.x + width / 3)} ${pathNumber(point.y + tangents[index] * width / 3)}`;
     path += ` ${pathNumber(next.x - width / 3)} ${pathNumber(next.y - tangents[index + 1] * width / 3)}`;
-    path += ` ${pathNumber(next.x)} ${pathNumber(next.y)}`;
-  }
-  return path;
-}
-
-export function buildNaturalMoneyLinePath(points: MoneyLinePoint[]): string {
-  const normalized = normalizeMoneyLinePoints(points);
-  if (normalized.length === 0) return '';
-  if (normalized.length === 1) return `M ${pathNumber(normalized[0].x)} ${pathNumber(normalized[0].y)}`;
-
-  let path = `M ${pathNumber(normalized[0].x)} ${pathNumber(normalized[0].y)}`;
-  for (let index = 0; index < normalized.length - 1; index += 1) {
-    const previous = normalized[Math.max(0, index - 1)];
-    const point = normalized[index];
-    const next = normalized[index + 1];
-    const following = normalized[Math.min(normalized.length - 1, index + 2)];
-    path += ` C ${pathNumber(point.x + (next.x - previous.x) / 6)} ${pathNumber(point.y + (next.y - previous.y) / 6)}`;
-    path += ` ${pathNumber(next.x - (following.x - point.x) / 6)} ${pathNumber(next.y - (following.y - point.y) / 6)}`;
     path += ` ${pathNumber(next.x)} ${pathNumber(next.y)}`;
   }
   return path;
