@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
@@ -28,10 +29,13 @@ import type { MoneyForecastMode } from '../domain/moneyForecast';
 import type { MoneyStackParamList } from '../navigation/types';
 import { projectCategoryFunding, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliation';
+import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
+import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
 
 export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyCategoryDetail'>) {
+  const { capture } = useAnalytics();
   const insets = useSafeAreaInsets();
   const {
     pendingAppControlReviewCategoryId,
@@ -102,34 +106,46 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     }
   };
 
-  const saveMonthlyAmount = async () => {
+  const saveCategorySettings = async () => {
     if (!category) return;
+    const startedAtMs = Date.now();
     setCategoryError(null);
     try {
+      const name = parseCategoryName(categoryNameDraft);
       const budgetCents = parseMonthlyAmount(categoryAmountDraft);
       const expectedNeedCents = fundingRhythmDraft === 'reserve' ? parseOptionalMoney(expectedNeedDraft) : null;
       const dueMonth = fundingRhythmDraft === 'reserve' ? parseOptionalMonth(expectedNeedDueMonthDraft) : null;
       if ((expectedNeedCents == null) !== (dueMonth == null)) throw new Error('Enter both an expected amount and due month.');
-      const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
-        fundingRhythm: fundingRhythmDraft,
-        expectedNeedCents,
-        expectedNeedDueMonth: dueMonth,
-      });
-      if (preview && preview.outcome !== 'ready') {
-        if (preview.outcome !== 'no_op') {
-          setCategoryError('Kwilt needs current account evidence before it can check this amount against your living target.');
-          return;
+
+      const planChanged = budgetCents !== category.plannedCents
+        || fundingRhythmDraft !== category.fundingRhythm
+        || expectedNeedCents !== (category.expectedNeed?.amountCents ?? null)
+        || dueMonth !== (category.expectedNeed?.dueMonth ?? null);
+
+      if (planChanged) {
+        const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
+          fundingRhythm: fundingRhythmDraft,
+          expectedNeedCents,
+          expectedNeedDueMonth: dueMonth,
+        });
+        if (preview && preview.outcome !== 'ready' && preview.outcome !== 'no_op') {
+          throw new Error('Kwilt needs current account evidence before it can check this amount against your living target.');
         }
+        await updateCategoryPlan(category.sourceId, {
+          budgetCents,
+          fundingRhythm: fundingRhythmDraft,
+          expectedNeedCents,
+          expectedNeedDueMonth: dueMonth,
+        });
       }
-      await updateCategoryPlan(category.sourceId, {
-        budgetCents,
-        fundingRhythm: fundingRhythmDraft,
-        expectedNeedCents,
-        expectedNeedDueMonth: dueMonth,
-      });
+      if (name !== category.name) await renameCategory(category.sourceId, name);
       setSettingsOpen(false);
+      captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
+      signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setMutationError(error);
+      captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'failed', durationMs: Date.now() - startedAtMs });
+      signalMoneyMutationOutcome('failed');
     }
   };
 
@@ -160,6 +176,20 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       setForecastSettingsOpen(false);
     } catch (error) {
       setMutationError(error);
+    }
+  };
+
+  const toggleRollover = async () => {
+    if (!category) return;
+    const nextValue = !category.rolloverEnabled;
+    signalMoneyToggle(nextValue);
+    setCategoryError(null);
+    try {
+      await updateCategoryPlan(category.sourceId, { rolloverEnabled: nextValue });
+      signalMoneyMutationOutcome('succeeded');
+    } catch (error) {
+      setMutationError(error);
+      signalMoneyMutationOutcome('failed');
     }
   };
 
@@ -339,8 +369,8 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           <Input editable={!savingCategory} label="Name" onChangeText={setCategoryNameDraft} value={categoryNameDraft} />
           <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
           <View style={styles.modeList}>
-            <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
-            <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
+            <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
+            <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
           </View>
           {fundingRhythmDraft === 'reserve' ? (
             <View style={styles.forecastInputs}>
@@ -358,7 +388,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               accessibilityLabel="Carry unused money forward"
               disabled={savingCategory}
               value={category.rolloverEnabled}
-              onPress={() => void updateCategoryPlan(category.sourceId, { rolloverEnabled: !category.rolloverEnabled }).catch(setMutationError)}
+              onPress={() => void toggleRollover()}
             />
           </View>
           )}
@@ -374,7 +404,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           <Button
             disabled={savingCategory}
             fullWidth
-            onPress={() => void renameCategory(category.sourceId, parseCategoryName(categoryNameDraft)).then(saveMonthlyAmount).catch(setMutationError)}
+            onPress={() => void saveCategorySettings()}
           >
             {savingCategory ? 'Saving…' : 'Save changes'}
           </Button>

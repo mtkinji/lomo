@@ -1,5 +1,4 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as Haptics from 'expo-haptics';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -11,6 +10,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { HapticsService } from '../../../services/HapticsService';
 import { colors, fonts, spacing } from '../../../theme';
 import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { Icon } from '../../../ui/Icon';
@@ -52,7 +52,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
     if (nextIndex < 0 || nextIndex >= periods.length) return;
     pagerRef.current?.scrollToIndex({ index: nextIndex, animated: true });
     setCurrentMonthIndex(nextIndex);
-    void Haptics.selectionAsync();
+    void HapticsService.trigger('canvas.selection');
   }, [periods.length]);
 
   const handleMomentumEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -60,7 +60,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
     const nextIndex = Math.max(0, Math.min(periods.length - 1, Math.round(event.nativeEvent.contentOffset.x / pagerWidth)));
     if (nextIndex !== currentMonthIndex) {
       setCurrentMonthIndex(nextIndex);
-      void Haptics.selectionAsync();
+      void HapticsService.trigger('canvas.selection');
     }
   }, [currentMonthIndex, pagerWidth, periods.length]);
 

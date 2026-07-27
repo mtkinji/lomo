@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
@@ -22,6 +22,8 @@ import {
   captureTransactionSplitOutcome,
   captureTransactionSplitStarted,
 } from '../runtime/transactionTruthAnalytics';
+import { captureMoneyMutation, type MoneyMutationOperation } from '../runtime/moneyMutationTelemetry';
+import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 
 type RuleMatchMode = 'exact' | 'partial';
 
@@ -49,6 +51,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [pendingChoice, setPendingChoice] = useState<string | null>(null);
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
   const categories = snapshot?.categories ?? [];
   const currentCategory = transaction?.categoryId
@@ -62,22 +65,35 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     ? getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode)
     : [], [ruleMode, snapshot?.transactions, transaction]);
 
-  const runReview = async (mutation: () => Promise<void>) => {
+  const runReview = async (mutation: () => Promise<void>, operation?: MoneyMutationOperation) => {
+    const startedAtMs = Date.now();
     setReviewError(null);
     try {
       await mutation();
+      if (operation) {
+        captureMoneyMutation(capture, { operation, outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
+        signalMoneyMutationOutcome('succeeded');
+      }
       return true;
     } catch (error) {
       setReviewError(error instanceof Error ? error.message : 'This transaction could not be updated.');
+      if (operation) {
+        captureMoneyMutation(capture, { operation, outcome: 'failed', durationMs: Date.now() - startedAtMs });
+        signalMoneyMutationOutcome('failed');
+      }
       return false;
     }
   };
 
   const selectCategory = async (category: MoneyCategory) => {
     if (!transaction) return;
+    const choice = `category:${category.sourceId}`;
+    signalMoneyChoice();
+    setPendingChoice(choice);
     const changed = await runReview(() => transaction.direction === 'inflow'
       ? reviewTransactionMeaning(transaction.id, { meaning: 'category_credit', categoryId: category.sourceId })
-      : assignTransactionCategory(transaction.id, category.sourceId));
+      : assignTransactionCategory(transaction.id, category.sourceId), 'transaction_category');
+    setPendingChoice(null);
     if (!changed) return;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
@@ -88,9 +104,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
   const selectMeaning = async (meaning: 'income' | 'transfer' | 'not_counted') => {
     if (!transaction) return;
+    const choice = `meaning:${meaning}`;
+    signalMoneyChoice();
+    setPendingChoice(choice);
     const changed = await runReview(() => transaction.direction === 'outflow' && meaning === 'not_counted'
       ? markTransactionNotCounted(transaction.id)
-      : reviewTransactionMeaning(transaction.id, { meaning }));
+      : reviewTransactionMeaning(transaction.id, { meaning }), 'transaction_meaning');
+    setPendingChoice(null);
     if (changed) {
       setCategoryPickerOpen(false);
       setCategoryQuery('');
@@ -278,12 +298,12 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
           <View style={styles.categoryList}>
             {filteredCategories.map((category) => (
-              <Pressable key={category.sourceId} accessibilityRole="button" accessibilityLabel={`Choose ${category.name}`} disabled={saving} onPress={() => void selectCategory(category)} style={({ pressed }) => [styles.categoryRow, pressed ? styles.pressed : null]}>
+              <Pressable key={category.sourceId} accessibilityRole="button" accessibilityLabel={`Choose ${category.name}`} disabled={pendingChoice !== null} onPress={() => void selectCategory(category)} style={({ pressed }) => [styles.categoryRow, pressed ? styles.pressed : null]}>
                 <View style={styles.categoryRowCopy}>
                   <Text style={styles.categoryRowTitle}>{category.name}</Text>
                   <Text style={styles.categoryRowMeta}>{formatMoney(category.remainingCents)} left</Text>
                 </View>
-                {transaction.categoryId === category.id ? <Icon name="check" size={18} color={colors.pine700} /> : <Icon name="chevronRight" size={18} color={colors.gray400} />}
+                {pendingChoice === `category:${category.sourceId}` ? <ActivityIndicator color={colors.pine700} /> : transaction.categoryId === category.id ? <Icon name="check" size={18} color={colors.pine700} /> : <Icon name="chevronRight" size={18} color={colors.gray400} />}
               </Pressable>
             ))}
             {filteredCategories.length === 0 ? (
@@ -300,6 +320,8 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 icon={getMeaningIcon(option.meaning)}
                 label={option.label}
                 selected={transaction.moneyMeaning === option.meaning || (option.meaning === 'not_counted' && transaction.reviewState === 'not_counted')}
+                disabled={pendingChoice !== null}
+                pending={pendingChoice === `meaning:${option.meaning}`}
                 onPress={() => void selectMeaning(option.meaning)}
               />
             ))}
@@ -437,8 +459,8 @@ function ReceiptRow({ label, value }: { label: string; value: string }) {
   return <View style={styles.receiptRow}><Text style={styles.receiptLabel}>{label}</Text><Text numberOfLines={1} style={styles.receiptValue}>{value}</Text></View>;
 }
 
-function CategoryCommand({ detail, icon, label, onPress, selected }: { detail: string; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; selected: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityHint={detail} accessibilityState={{ selected }} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+function CategoryCommand({ detail, disabled, icon, label, onPress, pending, selected }: { detail: string; disabled: boolean; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; pending: boolean; selected: boolean }) {
+  return <Pressable accessibilityRole="button" accessibilityHint={detail} accessibilityState={{ disabled, selected, busy: pending }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
 }
 
 function getMeaningIcon(meaning: TransactionMeaningOption['meaning']): 'arrowDown' | 'refresh' | 'close' {

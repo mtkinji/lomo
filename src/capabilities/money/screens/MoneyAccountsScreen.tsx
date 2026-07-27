@@ -23,6 +23,7 @@ import { isMoneyPlaidError } from '../data/moneyPlaidErrors';
 import { formatMoneyFreshness, type MoneyAccount } from '../data/moneySnapshot';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
+import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
 
@@ -56,6 +57,7 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
 
   const connectAccount = async () => {
     if (connectionAction) return;
+    signalMoneyChoice();
     setConnectionAction('linking');
     setConnectionTone('neutral');
     setCanRetryConnection(false);
@@ -70,10 +72,12 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
       await reconcileLivingPlan(getSupabaseClient(), 'account_scope_changed');
       setConnectionTone('success');
       setConnectionMessage(`${result.exchange.institutionName} connected and synced.`);
+      signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setConnectionTone('error');
       setCanRetryConnection(true);
       setConnectionMessage(isMoneyPlaidError(error) ? error.message : 'Kwilt could not start the bank connection. Try again.');
+      signalMoneyMutationOutcome('failed');
     } finally {
       setConnectionAction(null);
     }
@@ -81,6 +85,7 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
 
   const syncAccounts = async () => {
     if (connectionAction) return;
+    signalMoneyChoice();
     setConnectionAction('syncing');
     setConnectionTone('neutral');
     setCanRetryConnection(false);
@@ -91,9 +96,11 @@ export function MoneyAccountsScreen({ navigation }: NativeStackScreenProps<Money
       await reconcileLivingPlan(getSupabaseClient(), 'sync_evidence_changed');
       setConnectionTone('success');
       setConnectionMessage(result.added > 0 ? `${result.added} new ${result.added === 1 ? 'transaction' : 'transactions'}` : 'Accounts are up to date');
+      signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setConnectionTone('error');
       setConnectionMessage(isMoneyPlaidError(error) ? error.message : 'Kwilt could not check the accounts. Try again.');
+      signalMoneyMutationOutcome('failed');
     } finally {
       setConnectionAction(null);
     }

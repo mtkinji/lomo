@@ -53,6 +53,7 @@ export const AnalyticsEvent = {
   MoneyTransactionSplitSaved: 'money_transaction_split_saved',
   MoneyTransactionSplitSaveFailed: 'money_transaction_split_save_failed',
   MoneyTransactionSplitAbandoned: 'money_transaction_split_abandoned',
+  MoneyMutationCompleted: 'money_mutation_completed',
 
   // Unified Chat agent reliability. Metadata only: request classes,
   // capability/tool ids, provider/outcome enums, booleans, and counts.
