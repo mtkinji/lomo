@@ -10,7 +10,7 @@ export type CapabilityMenuDestinationId =
 
 export type CapabilityNavigationId = CapabilityId | CapabilityMenuDestinationId;
 
-export type CapabilityGroupId = 'goals-plans' | 'money';
+export type CapabilityGroupId = 'goals-plans' | 'money' | 'play';
 
 export type CapabilityAvailability = 'active' | 'preview' | 'hidden';
 
