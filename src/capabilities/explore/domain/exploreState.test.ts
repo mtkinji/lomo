@@ -18,7 +18,11 @@ const point = {
 
 describe('Explore state transitions', () => {
   it('starts, records, and completes an explicit adventure', () => {
-    const started = beginExploreSession(createEmptyExploreData(), 'session-1', point.recordedAt);
+    const started = beginExploreSession(createEmptyExploreData(), 'session-1', point.recordedAt, 'adventure');
+    expect(started.tracking).toEqual(expect.objectContaining({
+      policy: 'adventure',
+      phase: 'active',
+    }));
     const recorded = appendExplorePoint(started, point);
     const completed = completeExploreSession(recorded, '2026-07-27T18:10:00.000Z');
 
@@ -30,6 +34,7 @@ describe('Explore state transitions', () => {
       completedReason: 'manual',
     });
     expect(Object.keys(completed.exploredCells)).toHaveLength(1);
+    expect(completed.tracking.policy).toBeNull();
   });
 
   it('records visits as a relationship to one canonical Place', () => {

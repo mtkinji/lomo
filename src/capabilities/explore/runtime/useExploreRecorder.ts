@@ -3,10 +3,14 @@ import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useAppStore } from '../../../store/useAppStore';
+import { trackingPolicyForRecordingMode } from '../domain/exploreAdaptiveTracking';
 import { locationProfileForExploreMode } from '../domain/exploreRecordingMode';
 import type { ExplorePreferences } from '../domain/types';
-import { EXPLORE_BACKGROUND_TASK } from './exploreBackgroundTask';
-import { startExploreBackgroundUpdates, stopExploreBackgroundUpdates } from './exploreLocationUpdates';
+import {
+  isExploreLocationServiceStarted,
+  startExploreBackgroundUpdates,
+  stopExploreBackgroundUpdates,
+} from './exploreLocationUpdates';
 import { useExploreStore } from './useExploreStore';
 
 export type ExploreRecorderStatus =
@@ -40,6 +44,7 @@ export function useExploreRecorder() {
       altitudeM: location.coords.altitude,
       horizontalAccuracyM: location.coords.accuracy,
       altitudeAccuracyM: location.coords.altitudeAccuracy,
+      speedMps: location.coords.speed,
       recordedAt: new Date(location.timestamp).toISOString(),
     });
   }, [appendSample]);
@@ -81,7 +86,9 @@ export function useExploreRecorder() {
 
   const beginForegroundSession = useCallback(async (mode: ExplorePreferences['recording']) => {
     setStatus('locating');
-    if (!useExploreStore.getState().activeSession) startSession();
+    if (!useExploreStore.getState().activeSession) {
+      startSession(undefined, undefined, trackingPolicyForRecordingMode(mode));
+    }
     const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     consumeLocation(initial);
     await startForegroundWatcher(mode);
@@ -92,7 +99,8 @@ export function useExploreRecorder() {
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
     setStatus('locating');
-    if (!useExploreStore.getState().activeSession) startSession();
+    if (!useExploreStore.getState().activeSession) startSession(undefined, undefined, 'ambient');
+    else useExploreStore.getState().resumeTracking();
     const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     consumeLocation(initial);
     await startBackgroundUpdates('automatic');
@@ -158,12 +166,14 @@ export function useExploreRecorder() {
       } else if (nextState === 'active') {
         const currentMode = useExploreStore.getState().preferences.recording;
         if (currentMode === 'automatic') {
+          useExploreStore.getState().resumeTracking();
           void startBackgroundUpdates('automatic').then(() => setStatus('recording')).catch(() => setStatus('unavailable'));
           return;
         }
         void stopBackgroundUpdates().then(async () => {
           const state = useExploreStore.getState();
           if (state.activeSession) {
+            state.resumeTracking();
             await startForegroundWatcher(state.preferences.recording).catch(() => stop());
             setStatus('recording');
           } else {
@@ -187,18 +197,19 @@ export function useExploreRecorder() {
       const background = await Location.getBackgroundPermissionsAsync().catch(() => null);
       if (cancelled) return;
       backgroundAuthorizedRef.current = background?.status === 'granted';
-      const backgroundStarted = await Location.hasStartedLocationUpdatesAsync(EXPLORE_BACKGROUND_TASK).catch(() => false);
+      const backgroundStarted = await isExploreLocationServiceStarted();
       if (cancelled) return;
       if (
         state.preferences.recording === 'automatic' &&
         foreground?.status === 'granted' &&
         background?.status === 'granted'
       ) {
-        if (!backgroundStarted) await beginAutomaticRecording();
+        if (!backgroundStarted || state.tracking.phase === 'deep-sleep') await beginAutomaticRecording();
         else setStatus('recording');
       } else if (state.activeSession && backgroundStarted) {
         await stopBackgroundUpdates();
         if (cancelled) return;
+        state.resumeTracking();
         await startForegroundWatcher(state.preferences.recording);
         setStatus('recording');
       } else if (state.activeSession) {

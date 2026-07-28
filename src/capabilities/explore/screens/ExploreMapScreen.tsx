@@ -136,14 +136,9 @@ export function ExploreMapScreen() {
     return Object.values(places).filter((place) => visitedIds.has(place.id));
   }, [placeRelationships, places]);
   const recap = useMemo(() => pendingExploreRecap({
-    version: 3,
-    activeSession,
     sessions,
-    exploredCells,
     places,
-    placeRelationships,
-    preferences,
-  }), [activeSession, exploredCells, placeRelationships, places, preferences, sessions]);
+  }), [places, sessions]);
   const resolvingSession = sessions.find((session) => session.recapStatus === 'resolving') ?? null;
 
   useEffect(() => {

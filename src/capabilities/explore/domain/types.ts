@@ -7,6 +7,25 @@ export type ExploreCoordinate = {
   longitude: number;
 };
 
+export type ExploreTrackingPolicy = 'ambient' | 'adventure' | 'presence';
+export type ExploreTrackingPhase = 'active' | 'soft-sleep' | 'deep-sleep';
+export type ExploreMovementClass =
+  | 'unknown'
+  | 'stationary'
+  | 'pedestrian'
+  | 'cycling'
+  | 'vehicle'
+  | 'airplane';
+
+export type ExploreTrackingState = {
+  policy: ExploreTrackingPolicy | null;
+  phase: ExploreTrackingPhase;
+  movement: ExploreMovementClass;
+  stationarySince: string | null;
+  phaseChangedAt: string | null;
+  wakeAnchor: (ExploreCoordinate & { horizontalAccuracyM: number | null }) | null;
+};
+
 export type ExplorePoint = ExploreCoordinate & {
   id: string;
   altitudeM: number | null;
@@ -48,11 +67,12 @@ export type ExplorePreferences = {
 };
 
 export type ExploreData = {
-  version: 3;
+  version: 4;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;
   places: Record<string, Place>;
   placeRelationships: Record<string, UserPlaceRelationship>;
   preferences: ExplorePreferences;
+  tracking: ExploreTrackingState;
 };

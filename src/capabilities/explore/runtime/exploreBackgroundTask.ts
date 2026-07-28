@@ -4,12 +4,27 @@ import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { createEmptyExploreData, markExploreRecapNotified } from '../domain/exploreState';
 import { exploreRecapNotification } from '../domain/exploreRecap';
-import { prepareAutomaticBackgroundBatch } from '../domain/exploreRecordingMode';
+import { prepareExploreBackgroundBatch } from '../domain/exploreRecordingMode';
+import {
+  normalizeExploreTrackingState,
+  resumeExploreTracking,
+  trackingPolicyForRecordingMode,
+} from '../domain/exploreAdaptiveTracking';
 import type { ExploreData, ExploreSession } from '../domain/types';
 import { applyBackgroundSamples } from './exploreBackgroundPolicy';
+import {
+  enterExploreDeepSleep,
+  startExploreBackgroundUpdates,
+  stopExploreBackgroundUpdates,
+} from './exploreLocationUpdates';
 import { useExploreStore } from './useExploreStore';
+import {
+  EXPLORE_BACKGROUND_TASK,
+  EXPLORE_WAKE_REGION_ID,
+  EXPLORE_WAKE_TASK,
+} from './exploreLocationTaskNames';
 
-export const EXPLORE_BACKGROUND_TASK = 'kwilt-explore-background-location-v1';
+export { EXPLORE_BACKGROUND_TASK } from './exploreLocationTaskNames';
 const EXPLORE_STORAGE_KEY = 'kwilt-explore-v1';
 const APP_STORAGE_KEY = 'kwilt-store';
 
@@ -58,10 +73,17 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
       data: {
         ...defaults,
         ...persisted,
-        version: 3,
+        version: 4,
         activeSession: persisted.activeSession ? upgradeSession(persisted.activeSession) : null,
         sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
         preferences: { ...defaults.preferences, ...(persisted.preferences ?? {}) },
+        tracking: normalizeExploreTrackingState(
+          persisted.tracking,
+          persisted.activeSession
+            ? trackingPolicyForRecordingMode(persisted.preferences?.recording ?? defaults.preferences.recording)
+            : null,
+          persisted.activeSession?.startedAt ?? null,
+        ),
       },
     };
   } catch {
@@ -81,9 +103,10 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
     altitudeM: location.coords.altitude,
     horizontalAccuracyM: location.coords.accuracy,
     altitudeAccuracyM: location.coords.altitudeAccuracy,
+    speedMps: location.coords.speed,
     recordedAt: new Date(location.timestamp).toISOString(),
   }));
-  const preparedBatch = prepareAutomaticBackgroundBatch(
+  const preparedBatch = prepareExploreBackgroundBatch(
     persisted.data,
     samples[0],
     `automatic-${samples[0].recordedAt}`,
@@ -116,16 +139,52 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
         if (notificationId) next = markExploreRecapNotified(next, session.id, new Date().toISOString());
       }
     }
-    if (next.preferences.recording === 'manual') {
-      await Location.stopLocationUpdatesAsync(EXPLORE_BACKGROUND_TASK).catch(() => undefined);
-    }
   }
 
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 3 }
-    : { state: next, version: 3 };
+    ? { ...persisted.envelope, state: next, version: 4 }
+    : { state: next, version: 4 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-location' });
   }
+  if (result.trackingAction === 'deep-sleep' && next.tracking.wakeAnchor) {
+    await enterExploreDeepSleep(next.tracking.wakeAnchor).catch(() => undefined);
+  } else if (result.trackingAction === 'soft-sleep' || result.trackingAction === 'active') {
+    await startExploreBackgroundUpdates(
+      next.tracking.policy === 'ambient' ? 'automatic' : 'manual',
+      next.tracking.phase === 'soft-sleep' ? 'soft-sleep' : 'active',
+      next.tracking.movement,
+    ).catch(() => undefined);
+  }
+});
+
+TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
+  if (error) return;
+  const event = data as {
+    eventType?: Location.GeofencingEventType;
+    region?: Location.LocationRegion;
+  } | undefined;
+  if (
+    event?.eventType !== Location.GeofencingEventType.Exit ||
+    event.region?.identifier !== EXPLORE_WAKE_REGION_ID
+  ) return;
+  const persisted = parsePersistedExplore(await AsyncStorage.getItem(EXPLORE_STORAGE_KEY));
+  if (!persisted?.data.activeSession || !persisted.data.tracking.policy) {
+    await stopExploreBackgroundUpdates();
+    return;
+  }
+  const next: ExploreData = {
+    ...persisted.data,
+    tracking: resumeExploreTracking(persisted.data.tracking, new Date().toISOString()),
+  };
+  const envelope = 'state' in persisted.envelope
+    ? { ...persisted.envelope, state: next, version: 4 }
+    : { state: next, version: 4 };
+  await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
+  if (useExploreStore.persist.hasHydrated()) {
+    useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });
+  }
+  const recordingMode = next.tracking.policy === 'ambient' ? 'automatic' : 'manual';
+  await startExploreBackgroundUpdates(recordingMode, 'active', 'unknown').catch(() => undefined);
 });

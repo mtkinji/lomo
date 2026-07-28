@@ -1,54 +1,51 @@
-import { appendExplorePoint, completeExploreSession } from '../domain/exploreState';
-import { coordinateDistanceM } from '../domain/exploreGeometry';
+import { appendExplorePoint } from '../domain/exploreState';
+import {
+  shouldClearFogForMovement,
+  transitionExploreTracking,
+} from '../domain/exploreAdaptiveTracking';
 import { acceptExplorePoint, sanitizeLocationSample, type ExploreLocationSample } from '../domain/explorePointPolicy';
 import type { ExploreData } from '../domain/types';
 
-const STILLNESS_MS = 15 * 60_000;
-const STILLNESS_RADIUS_M = 30;
-const MAX_STILLNESS_ACCURACY_M = 35;
+export type ExploreTrackingAction = 'none' | 'active' | 'soft-sleep' | 'deep-sleep';
 
 export function applyBackgroundSamples(
   state: ExploreData,
   samples: ExploreLocationSample[],
-): { data: ExploreData; completedSessionId: string | null } {
-  if (!state.activeSession) return { data: state, completedSessionId: null };
+): { data: ExploreData; completedSessionId: string | null; trackingAction: ExploreTrackingAction } {
+  if (!state.activeSession) {
+    return { data: state, completedSessionId: null, trackingAction: 'none' };
+  }
   let next = state;
+  let trackingAction: ExploreTrackingAction = 'none';
   samples.forEach((sample, index) => {
     if (!next.activeSession) return;
     const sanitized = sanitizeLocationSample(sample);
-    const accurate = sanitized.horizontalAccuracyM !== null && sanitized.horizontalAccuracyM <= MAX_STILLNESS_ACCURACY_M;
-    const anchor = next.activeSession.backgroundStillnessAnchor;
-    const remainsStill = accurate && anchor && coordinateDistanceM(anchor, sanitized) <= STILLNESS_RADIUS_M;
+    const previous = next.activeSession.points.at(-1) ?? null;
+    const previousTracking = next.tracking;
+    const tracking = transitionExploreTracking(previousTracking, previous, sanitized);
+    if (tracking.phase !== previousTracking.phase) {
+      trackingAction = tracking.phase;
+    } else if (
+      tracking.phase === 'active' &&
+      tracking.movement !== previousTracking.movement
+    ) {
+      trackingAction = 'active';
+    }
     next = {
       ...next,
-      activeSession: {
-        ...next.activeSession,
-        backgroundStillnessAnchor: accurate
-          ? (remainsStill ? anchor : { latitude: sanitized.latitude, longitude: sanitized.longitude })
-          : null,
-        backgroundStillSince: accurate
-          ? (remainsStill ? next.activeSession.backgroundStillSince : sanitized.recordedAt)
-          : null,
-      },
+      tracking,
     };
-    const activeAfterStillnessUpdate = next.activeSession;
-    if (!activeAfterStillnessUpdate) return;
-    const previous = activeAfterStillnessUpdate.points.at(-1) ?? null;
+    if (!shouldClearFogForMovement(tracking.movement)) return;
     if (!acceptExplorePoint(previous, sanitized).accepted) return;
+    const { speedMps: _sampleSpeed, ...pointSample } = sanitized;
     next = appendExplorePoint(next, {
       id: `background-${sanitized.recordedAt}-${index}`,
-      ...sanitized,
+      ...pointSample,
     });
   });
-  const stillSince = next.activeSession?.backgroundStillSince;
-  const latestAt = samples.at(-1)?.recordedAt;
-  if (!next.activeSession || !stillSince || !latestAt || Date.parse(latestAt) - Date.parse(stillSince) < STILLNESS_MS) {
-    return { data: next, completedSessionId: null };
-  }
-  const sessionId = next.activeSession.id;
-  const endedAt = next.activeSession.points.at(-1)?.recordedAt ?? new Date().toISOString();
   return {
-    data: completeExploreSession(next, endedAt, 'background-stillness'),
-    completedSessionId: sessionId,
+    data: next,
+    completedSessionId: null,
+    trackingAction,
   };
 }

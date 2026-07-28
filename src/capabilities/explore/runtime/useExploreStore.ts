@@ -13,21 +13,31 @@ import {
 } from '../domain/exploreState';
 import { acceptExplorePoint, sanitizeLocationSample, type ExploreLocationSample } from '../domain/explorePointPolicy';
 import { canonicalPlaceForCandidate } from '../domain/exploreDiscovery';
+import {
+  classifyExploreMovement,
+  createExploreTrackingState,
+  normalizeExploreTrackingState,
+  resumeExploreTracking,
+  shouldClearFogForMovement,
+  trackingPolicyForRecordingMode,
+} from '../domain/exploreAdaptiveTracking';
 import type {
   ExploreData,
   ExplorePoint,
   ExplorePreferences,
   ExploreSession,
+  ExploreTrackingPolicy,
   Place,
   UserPlaceRelationship,
 } from '../domain/types';
 
 type ExploreStore = ExploreData & {
   lastPointDecision: string | null;
-  startSession: (startedAt?: string, id?: string) => void;
+  startSession: (startedAt?: string, id?: string, policy?: ExploreTrackingPolicy) => void;
   appendSample: (sample: ExploreLocationSample, id?: string) => boolean;
   stopSession: (endedAt?: string, reason?: ExploreData['sessions'][number]['completedReason']) => void;
   recoverInterruptedSession: () => void;
+  resumeTracking: (resumedAt?: string) => void;
   updatePreferences: (patch: Partial<ExplorePreferences>) => void;
   addPlaceVisit: (params: {
     place: Place;
@@ -61,6 +71,7 @@ function dataFromStore(state: ExploreStore): ExploreData {
     places: state.places,
     placeRelationships: state.placeRelationships,
     preferences: state.preferences,
+    tracking: state.tracking,
   };
 }
 
@@ -71,9 +82,13 @@ export const useExploreStore = create<ExploreStore>()(
     (set, get) => ({
       ...empty,
       lastPointDecision: null,
-      startSession: (startedAt = new Date().toISOString(), id = makeId('explore-session')) => {
+      startSession: (
+        startedAt = new Date().toISOString(),
+        id = makeId('explore-session'),
+        policy = trackingPolicyForRecordingMode(get().preferences.recording),
+      ) => {
         set((state) => ({
-          ...beginExploreSession(dataFromStore(state), id, startedAt),
+          ...beginExploreSession(dataFromStore(state), id, startedAt, policy),
           lastPointDecision: null,
         }));
       },
@@ -82,14 +97,21 @@ export const useExploreStore = create<ExploreStore>()(
         if (!state.activeSession) return false;
         const sanitized = sanitizeLocationSample(sample);
         const previous = state.activeSession.points[state.activeSession.points.length - 1] ?? null;
-        const decision = acceptExplorePoint(previous, sanitized);
-        if (!decision.accepted) {
-          set({ lastPointDecision: decision.reason });
+        const movement = classifyExploreMovement(previous, sanitized);
+        const tracking = { ...state.tracking, movement };
+        if (!shouldClearFogForMovement(movement)) {
+          set({ tracking, lastPointDecision: `movement-${movement}` });
           return false;
         }
-        const point: ExplorePoint = { id, ...sanitized };
+        const decision = acceptExplorePoint(previous, sanitized);
+        if (!decision.accepted) {
+          set({ tracking, lastPointDecision: decision.reason });
+          return false;
+        }
+        const { speedMps: _sampleSpeed, ...pointSample } = sanitized;
+        const point: ExplorePoint = { id, ...pointSample };
         set((current) => ({
-          ...appendExplorePoint(dataFromStore(current), point),
+          ...appendExplorePoint({ ...dataFromStore(current), tracking }, point),
           lastPointDecision: decision.reason,
         }));
         return true;
@@ -104,7 +126,11 @@ export const useExploreStore = create<ExploreStore>()(
         set((state) => {
           if (!state.activeSession) return state;
           if (state.activeSession.points.length === 0) {
-            return { activeSession: null, lastPointDecision: null };
+            return {
+              activeSession: null,
+              tracking: createExploreTrackingState(),
+              lastPointDecision: null,
+            };
           }
           const finalPoint = state.activeSession.points[state.activeSession.points.length - 1];
           return {
@@ -112,6 +138,11 @@ export const useExploreStore = create<ExploreStore>()(
             lastPointDecision: null,
           };
         });
+      },
+      resumeTracking: (resumedAt = new Date().toISOString()) => {
+        set((state) => state.tracking.policy
+          ? { tracking: resumeExploreTracking(state.tracking, resumedAt) }
+          : state);
       },
       updatePreferences: (patch) => {
         set((state) => ({ preferences: { ...state.preferences, ...patch } }));
@@ -249,7 +280,7 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
@@ -267,13 +298,20 @@ export const useExploreStore = create<ExploreStore>()(
           keepRecordingInBackground?: boolean;
         };
         const { keepRecordingInBackground: _legacyBackgroundToggle, ...preferences } = persistedPreferences;
+        const nextPreferences = { ...defaults.preferences, ...preferences };
+        const activeSession = persisted.activeSession ? upgradeSession(persisted.activeSession) : null;
         return {
           ...defaults,
           ...persisted,
-          version: 3,
-          activeSession: persisted.activeSession ? upgradeSession(persisted.activeSession) : null,
+          version: 4,
+          activeSession,
           sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
-          preferences: { ...defaults.preferences, ...preferences },
+          preferences: nextPreferences,
+          tracking: normalizeExploreTrackingState(
+            persisted.tracking,
+            activeSession ? trackingPolicyForRecordingMode(nextPreferences.recording) : null,
+            activeSession?.startedAt ?? null,
+          ),
         } as ExploreData;
       },
       partialize: (state) => dataFromStore(state),

@@ -62,7 +62,7 @@ Exploration Recap extends the existing Explore session and canonical Place relat
 
 1. Explore offers two recording modes: `Only when I start` and `Always Exploring`.
 2. Both modes continue through screen lock. Starting manually or choosing Always Exploring is the explicit action that requests background permission after foreground permission.
-3. Always Exploring uses an efficient location profile, automatically splits outings after sustained stillness, and can be paused from the main Explore action.
+3. Always Exploring adapts its location profile to motion and accuracy, sleeps after credible stillness, splits outings after a later movement gap, and can be paused from the main Explore action.
 4. Recording mode never changes family sharing. Location remains private unless the user separately shares it.
 5. On completion, Kwilt samples at most twelve well-spaced route points and reverse geocodes them sequentially in the foreground.
 6. Only distinctive named parks, trails, overlooks, summits, and landmarks become candidates; street-address-like results are ignored.
@@ -94,4 +94,4 @@ A multi-place outing returns as one calm, understandable recap; known Places do 
 
 ## Spec refinement
 
-The current increment implements deterministic placemark policy, persisted recap projection, manual and ambient recording modes, fixed efficient location profiles, and a background task. The approved adaptive Ambient, Adventure, and Presence policies are specified but not yet implemented. Simulator proof can cover mode and recap UI, but continuous background recording, wake reliability, and battery performance are not considered runtime-proven until a fresh native build is installed on a signed device.
+The current increment implements deterministic placemark policy, persisted recap projection, manual and ambient recording modes, adaptive motion-aware profiles, soft sleep, deep sleep behind a 200-meter exit wake region, and policy-specific outing boundaries. Presence has internal policy infrastructure only; authenticated family delivery is not implemented. Automated proof covers state transitions and native-service orchestration, but continuous locked-screen recording, wake reliability, route reconstruction, and battery performance are not considered runtime-proven until a fresh native build is installed and exercised on a signed device.

@@ -1,4 +1,4 @@
-import { locationProfileForExploreMode, prepareAutomaticBackgroundBatch, prepareAutomaticBackgroundSession } from './exploreRecordingMode';
+import { locationProfileForExploreMode, prepareExploreBackgroundBatch, prepareAutomaticBackgroundSession } from './exploreRecordingMode';
 import { appendExplorePoint, beginExploreSession, createEmptyExploreData } from './exploreState';
 
 const sample = (minute: number, latitude = 40.5) => ({
@@ -7,10 +7,10 @@ const sample = (minute: number, latitude = 40.5) => ({
 });
 
 describe('Explore recording modes', () => {
-  it('uses a lower-frequency, deferred profile while Always Exploring is locked', () => {
+  it('uses the initial Ambient profile while Always Exploring is locked', () => {
     expect(locationProfileForExploreMode('automatic', 'background')).toEqual({
-      accuracy: 'high', distanceIntervalM: 30, timeIntervalMs: 30_000,
-      deferredDistanceM: 60, deferredIntervalMs: 60_000, pausesAutomatically: true,
+      accuracy: 'high', distanceIntervalM: 30, timeIntervalMs: 60_000,
+      deferredDistanceM: 100, deferredIntervalMs: 120_000, pausesAutomatically: false,
     });
     expect(locationProfileForExploreMode('manual', 'foreground')).toEqual(expect.objectContaining({
       accuracy: 'high', distanceIntervalM: 12,
@@ -30,11 +30,21 @@ describe('Explore recording modes', () => {
 
   it('splits an ambient outing when OS pausing leaves a long stationary gap before movement resumes', () => {
     const empty = { ...createEmptyExploreData(), preferences: { ...createEmptyExploreData().preferences, recording: 'automatic' as const } };
-    let active = beginExploreSession(empty, 'old', sample(0).recordedAt);
+    let active = beginExploreSession(empty, 'old', sample(0).recordedAt, 'ambient');
     active = appendExplorePoint(active, { id: 'p', ...sample(0) });
-    const prepared = prepareAutomaticBackgroundBatch(active, sample(30, 40.501), 'new');
+    const prepared = prepareExploreBackgroundBatch(active, sample(30, 40.501), 'new');
     expect(prepared.completedSessionId).toBe('old');
     expect(prepared.data.sessions[0].completedReason).toBe('background-stillness');
     expect(prepared.data.activeSession?.id).toBe('new');
+  });
+
+  it('keeps an Adventure together across short breaks and splits after thirty minutes', () => {
+    let active = beginExploreSession(createEmptyExploreData(), 'old', sample(0).recordedAt, 'adventure');
+    active = appendExplorePoint(active, { id: 'p', ...sample(0) });
+    expect(prepareExploreBackgroundBatch(active, sample(20, 40.501), 'new').completedSessionId).toBeNull();
+    const prepared = prepareExploreBackgroundBatch(active, sample(30, 40.501), 'new');
+    expect(prepared.completedSessionId).toBe('old');
+    expect(prepared.data.activeSession?.id).toBe('new');
+    expect(prepared.data.tracking.policy).toBe('adventure');
   });
 });

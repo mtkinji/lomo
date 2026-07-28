@@ -1,16 +1,18 @@
 import { exploreCellForCoordinate, exploreCellsAlongSegment } from './exploreGeometry';
+import { createExploreTrackingState } from './exploreAdaptiveTracking';
 import { createDefaultExplorePreferences } from './explorePrivacy';
-import type { ExploreData, ExplorePoint, ExploreSession, Place, UserPlaceRelationship } from './types';
+import type { ExploreData, ExplorePoint, ExploreSession, ExploreTrackingPolicy, Place, UserPlaceRelationship } from './types';
 
 export function createEmptyExploreData(): ExploreData {
   return {
-    version: 3,
+    version: 4,
     activeSession: null,
     sessions: [],
     exploredCells: {},
     places: {},
     placeRelationships: {},
     preferences: createDefaultExplorePreferences(),
+    tracking: createExploreTrackingState(),
   };
 }
 
@@ -18,6 +20,7 @@ export function beginExploreSession(
   state: ExploreData,
   id: string,
   startedAt: string,
+  trackingPolicy: ExploreTrackingPolicy = 'adventure',
 ): ExploreData {
   return {
     ...state,
@@ -33,6 +36,7 @@ export function beginExploreSession(
       backgroundStillnessAnchor: null,
       backgroundStillSince: null,
     },
+    tracking: createExploreTrackingState(trackingPolicy, startedAt),
   };
 }
 
@@ -78,6 +82,7 @@ export function completeExploreSession(
     ...state,
     activeSession: null,
     sessions: [completed, ...state.sessions],
+    tracking: createExploreTrackingState(),
   };
 }
 

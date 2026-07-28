@@ -9,7 +9,10 @@ export type ExploreRecap = {
   places: Place[];
 };
 
-export function buildExploreRecap(state: ExploreData, sessionId: string): ExploreRecap | null {
+export function buildExploreRecap(
+  state: Pick<ExploreData, 'sessions' | 'places'>,
+  sessionId: string,
+): ExploreRecap | null {
   const session = state.sessions.find((candidate) => candidate.id === sessionId);
   if (!session?.endedAt || session.recapStatus === 'none') return null;
   return {
@@ -24,7 +27,7 @@ export function buildExploreRecap(state: ExploreData, sessionId: string): Explor
   };
 }
 
-export function pendingExploreRecap(state: ExploreData): ExploreRecap | null {
+export function pendingExploreRecap(state: Pick<ExploreData, 'sessions' | 'places'>): ExploreRecap | null {
   if (state.sessions.some((candidate) => candidate.recapStatus === 'resolving')) return null;
   const sessions = state.sessions
     .filter((candidate) => candidate.recapStatus === 'ready' && candidate.endedAt)

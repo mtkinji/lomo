@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
 import * as Location from 'expo-location';
-import { startExploreBackgroundUpdates, stopExploreBackgroundUpdates } from './exploreLocationUpdates';
+import {
+  isExploreLocationServiceStarted,
+  startExploreBackgroundUpdates,
+  stopExploreBackgroundUpdates,
+} from './exploreLocationUpdates';
 import { useExploreStore } from './useExploreStore';
-import { EXPLORE_BACKGROUND_TASK } from './exploreBackgroundTask';
 
 export function ExploreAlwaysOnRuntimeHost() {
   useEffect(() => {
@@ -13,13 +16,14 @@ export function ExploreAlwaysOnRuntimeHost() {
       const [foreground, background, started] = await Promise.all([
         Location.getForegroundPermissionsAsync().catch(() => null),
         Location.getBackgroundPermissionsAsync().catch(() => null),
-        Location.hasStartedLocationUpdatesAsync(EXPLORE_BACKGROUND_TASK).catch(() => false),
+        isExploreLocationServiceStarted(),
       ]);
       if (cancelled || foreground?.status !== 'granted' || background?.status !== 'granted') return;
       const current = useExploreStore.getState();
       if (current.preferences.recording !== 'automatic') return;
-      if (!current.activeSession) current.startSession();
-      if (!started) await startExploreBackgroundUpdates('automatic');
+      const needsSession = !current.activeSession;
+      if (needsSession) current.startSession(undefined, undefined, 'ambient');
+      if (!started || needsSession) await startExploreBackgroundUpdates('automatic');
     };
     if (useExploreStore.persist.hasHydrated()) void reconcile();
     const unsubscribe = useExploreStore.persist.onFinishHydration(() => { void reconcile(); });

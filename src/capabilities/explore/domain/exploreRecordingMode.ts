@@ -1,25 +1,26 @@
 import { coordinateDistanceM } from './exploreGeometry';
+import {
+  adaptiveLocationProfile,
+  shouldSplitExploreOuting,
+  trackingPolicyForRecordingMode,
+  type ExploreAdaptiveLocationProfile,
+} from './exploreAdaptiveTracking';
 import { beginExploreSession, completeExploreSession } from './exploreState';
 import type { ExploreData, ExplorePoint, ExplorePreferences } from './types';
 import type { ExploreLocationSample } from './explorePointPolicy';
 
-export type ExploreLocationProfile = {
-  accuracy: 'balanced' | 'high';
-  distanceIntervalM: number;
-  timeIntervalMs: number;
-  deferredDistanceM: number;
-  deferredIntervalMs: number;
-  pausesAutomatically: boolean;
-};
+export type ExploreLocationProfile = ExploreAdaptiveLocationProfile;
 
 export function locationProfileForExploreMode(
   mode: ExplorePreferences['recording'],
   appContext: 'foreground' | 'background',
 ): ExploreLocationProfile {
   if (appContext === 'background') {
-    return mode === 'automatic'
-      ? { accuracy: 'high', distanceIntervalM: 30, timeIntervalMs: 30_000, deferredDistanceM: 60, deferredIntervalMs: 60_000, pausesAutomatically: true }
-      : { accuracy: 'high', distanceIntervalM: 24, timeIntervalMs: 20_000, deferredDistanceM: 48, deferredIntervalMs: 45_000, pausesAutomatically: true };
+    return adaptiveLocationProfile(
+      trackingPolicyForRecordingMode(mode),
+      'active',
+      'unknown',
+    );
   }
   return mode === 'automatic'
     ? { accuracy: 'high', distanceIntervalM: 20, timeIntervalMs: 20_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false }
@@ -42,25 +43,23 @@ export function prepareAutomaticBackgroundSession(
   if (state.preferences.recording !== 'automatic' || state.activeSession) return state;
   const previous = lastCompletedPoint(state);
   if (previous && coordinateDistanceM(previous, sample) < 50) return state;
-  return beginExploreSession(state, sessionId, sample.recordedAt);
+  return beginExploreSession(state, sessionId, sample.recordedAt, 'ambient');
 }
 
-export function prepareAutomaticBackgroundBatch(
+export function prepareExploreBackgroundBatch(
   state: ExploreData,
   sample: ExploreLocationSample,
   sessionId: string,
 ): { data: ExploreData; completedSessionId: string | null } {
-  if (state.preferences.recording !== 'automatic') {
-    return { data: state, completedSessionId: null };
-  }
   const active = state.activeSession;
   const previous = active?.points.at(-1);
+  const policy = state.tracking.policy ?? trackingPolicyForRecordingMode(state.preferences.recording);
   if (active && previous) {
     const gapMs = Date.parse(sample.recordedAt) - Date.parse(previous.recordedAt);
-    if (gapMs >= 20 * 60_000 && coordinateDistanceM(previous, sample) >= 50) {
+    if (shouldSplitExploreOuting(policy, gapMs) && coordinateDistanceM(previous, sample) >= 50) {
       const completed = completeExploreSession(state, previous.recordedAt, 'background-stillness');
       return {
-        data: beginExploreSession(completed, sessionId, sample.recordedAt),
+        data: beginExploreSession(completed, sessionId, sample.recordedAt, policy),
         completedSessionId: active.id,
       };
     }
@@ -70,3 +69,5 @@ export function prepareAutomaticBackgroundBatch(
     completedSessionId: null,
   };
 }
+
+export const prepareAutomaticBackgroundBatch = prepareExploreBackgroundBatch;

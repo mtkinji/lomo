@@ -1,7 +1,9 @@
 import { coordinateDistanceM } from './exploreGeometry';
 import type { ExplorePoint } from './types';
 
-export type ExploreLocationSample = Omit<ExplorePoint, 'id'>;
+export type ExploreLocationSample = Omit<ExplorePoint, 'id'> & {
+  speedMps?: number | null;
+};
 
 export type ExplorePointDecision =
   | { accepted: true; reason: 'first-point' | 'moved' }

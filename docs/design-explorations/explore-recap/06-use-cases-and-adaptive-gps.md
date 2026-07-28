@@ -118,4 +118,6 @@ Cheap wake signals are coarser than active GPS. Region exits may be delayed by s
 
 ## Implementation status
 
-The current branch implements Ambient and Adventure as `Always Exploring` and `Only when I start`, with fixed efficient profiles, automatic stillness handling, and combined recaps. The three-policy adaptive state machine, deep-sleep wake condition, motion classification, and Presence freshness behavior are approved design work but are not yet implemented or signed-device proven.
+The current branch implements Ambient and Adventure as `Always Exploring` and `Only when I start`. It persists the adaptive tracking phase, changes sampling for pedestrian, cycling, vehicle, airplane-like, inaccurate, and stationary evidence, enters soft sleep, and replaces precise updates with a 200-meter exit wake region in deep sleep. A later meaningful movement can resume the same active intent or split a new internal outing after the policy's movement-gap threshold.
+
+Presence exists only as internal policy infrastructure. Authenticated family delivery, sharing controls, and viewer freshness remain future work. The adaptive behavior is covered by deterministic tests but is not signed-device proven; wake delay, route gaps, battery, thermal behavior, and OS relaunch behavior still require the release matrix.
