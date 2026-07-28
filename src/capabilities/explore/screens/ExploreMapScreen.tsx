@@ -8,17 +8,19 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import MapView, { Marker, Polygon, Polyline, type Region } from 'react-native-maps';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
-import { Button } from '../../../ui/Button';
+import { Button, IconButton } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
+import { PageHeader } from '../../../ui/layout/PageHeader';
 import { Text } from '../../../ui/Typography';
 import { buildAltitudeSegments } from '../domain/exploreElevation';
-import { buildFogHole } from '../domain/exploreGeometry';
+import { buildFogHole, EXPLORE_REVEAL_RADIUS_M } from '../domain/exploreGeometry';
 import { pendingExploreRecap } from '../domain/exploreRecap';
 import type { ExplorePoint, ExploreSharingLevel, Place } from '../domain/types';
 import { useExploreRecorder } from '../runtime/useExploreRecorder';
@@ -69,26 +71,6 @@ function fogRingForRegion(region: Region) {
   ];
 }
 
-function recorderLabel(
-  status: ReturnType<typeof useExploreRecorder>['status'],
-  recordingMode: 'manual' | 'automatic',
-): string {
-  switch (status) {
-    case 'requesting-permission':
-      return 'Asking for location…';
-    case 'locating':
-      return 'Finding your path…';
-    case 'recording':
-      return 'Exploring now';
-    case 'permission-denied':
-      return 'Location is off';
-    case 'unavailable':
-      return 'Location unavailable';
-    default:
-      return recordingMode === 'automatic' ? 'Always exploring' : 'Private until you start';
-  }
-}
-
 export function ExploreMapScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
@@ -123,13 +105,17 @@ export function ExploreMapScreen() {
   const fogHoles = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
-    return Object.values(exploredCells)
+    const visibleCells = Object.values(exploredCells)
       .filter((cell) =>
         Math.abs(cell.center.latitude - visibleRegion.latitude) <= latitudeRadius &&
         Math.abs(cell.center.longitude - visibleRegion.longitude) <= longitudeRadius,
       )
-      .slice(-700)
-      .map((cell) => buildFogHole(cell.center));
+      .slice(-700);
+    return {
+      core: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
+      mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 10)),
+      veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 22)),
+    };
   }, [exploredCells, visibleRegion]);
   const savedPlaces = useMemo(() => {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));
@@ -183,6 +169,7 @@ export function ExploreMapScreen() {
 
   return (
     <View style={styles.root}>
+      <StatusBar style="dark" />
       <MapView
         ref={mapRef}
         testID="explore.map"
@@ -196,9 +183,29 @@ export function ExploreMapScreen() {
         onRegionChangeComplete={setVisibleRegion}
       >
         <Polygon
+          testID="explore.fog.veil"
+          accessible={false}
           coordinates={fogRing}
-          holes={fogHoles}
-          fillColor="rgba(18, 25, 22, 0.78)"
+          holes={fogHoles.veil}
+          fillColor="rgba(235, 240, 237, 0.20)"
+          strokeColor="rgba(18, 25, 22, 0)"
+          strokeWidth={0}
+        />
+        <Polygon
+          testID="explore.fog.mist"
+          accessible={false}
+          coordinates={fogRing}
+          holes={fogHoles.mist}
+          fillColor="rgba(107, 121, 113, 0.18)"
+          strokeColor="rgba(18, 25, 22, 0)"
+          strokeWidth={0}
+        />
+        <Polygon
+          testID="explore.fog.core"
+          accessible={false}
+          coordinates={fogRing}
+          holes={fogHoles.core}
+          fillColor="rgba(22, 31, 27, 0.34)"
           strokeColor="rgba(18, 25, 22, 0)"
           strokeWidth={0}
         />
@@ -225,27 +232,21 @@ export function ExploreMapScreen() {
         ))}
       </MapView>
 
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open navigation menu"
-          onPress={openMenu}
-          style={({ pressed }) => [styles.roundButton, pressed ? styles.pressed : null]}
-        >
-          <Icon name="menu" size={20} color={colors.sumi900} />
-        </Pressable>
-        <View style={styles.titlePill}>
-          <Text style={styles.title}>Explore</Text>
-          <Text style={styles.status}>{recorderLabel(recorder.status, preferences.recording)}</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Explore layers and privacy"
-          onPress={() => setLayersVisible(true)}
-          style={({ pressed }) => [styles.roundButton, pressed ? styles.pressed : null]}
-        >
-          <Icon name="layers" size={20} color={colors.sumi900} />
-        </Pressable>
+      <View style={[styles.headerSurface, { paddingTop: insets.top }]} pointerEvents="box-none">
+        <PageHeader
+          title="Explore"
+          onPressMenu={openMenu}
+          containerStyle={styles.mapPageHeader}
+          rightElement={
+            <IconButton
+              accessibilityLabel="Explore layers and privacy"
+              variant="ghost"
+              onPress={() => setLayersVisible(true)}
+            >
+              <Icon name="layers" size={20} color={colors.textPrimary} />
+            </IconButton>
+          }
+        />
       </View>
 
       {points.length === 0 ? (
@@ -254,8 +255,8 @@ export function ExploreMapScreen() {
           <Text style={styles.emptyTitle}>The world is still waiting.</Text>
           <Text style={styles.emptyCopy}>
             {preferences.recording === 'automatic'
-              ? 'Move through the world to clear a 100-foot path through the fog.'
-              : 'Start exploring to clear a 100-foot path through the fog.'}
+              ? 'Your map stays private. Move through the world to clear a 100-foot path through the fog.'
+              : 'Your map stays private. Start exploring to clear a 100-foot path through the fog.'}
           </Text>
         </View>
       ) : null}
@@ -517,42 +518,26 @@ function RecordingModeOption({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sumi900 },
-  header: {
+  headerSurface: {
     position: 'absolute',
     top: 0,
-    left: spacing.md,
-    right: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  roundButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(250,249,245,0.94)',
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: 'rgba(250, 249, 245, 0.94)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(38, 47, 42, 0.14)',
     shadowColor: colors.sumi900,
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
-  titlePill: {
-    flex: 1,
-    maxWidth: 220,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(250,249,245,0.94)',
+  mapPageHeader: {
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
+    paddingLeft: 0,
   },
-  title: { ...typography.body, fontFamily: fonts.medium, color: colors.sumi900 },
-  status: { ...typography.bodyXs, color: colors.textSecondary, marginTop: 1 },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   emptyCard: {
     position: 'absolute',
     left: spacing.xl,

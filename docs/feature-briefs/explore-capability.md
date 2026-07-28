@@ -44,7 +44,7 @@ When my family moves through the world, I want Kwilt to preserve where we explor
 
 ## Design
 
-Explore is a feature-flagged named capability in the global menu. Its first functional release provides foreground-only adventure recording, a dark polygon fog with approximately 30.48-meter clearings, altitude-colored route segments, versioned local persistence, a restrained layer control, and a canonical Place/person-Place visit model.
+Explore is a feature-flagged named capability in the global menu. Its first functional release provides adventure recording, a pale layered fog field with feathered approximately 30.48-meter clearings, altitude-colored route segments, versioned local persistence, a restrained map-options control, and a canonical Place/person-Place visit model.
 
 Recording, sharing, and viewing are independent:
 
@@ -58,10 +58,10 @@ The first release implements recording and viewing locally. It models sharing bu
 
 - Job: When I am heading out, I need to start an exploration session and see the world reveal, so the outing becomes a meaningful retained map.
 - Primary action: Start Exploring / Stop.
-- Must show: map, fog, current recording state, personal trail, layer entry point.
+- Must show: standard Kwilt page header, map, visibly atmospheric fog, current recording state, personal trail, and map-options entry point.
 - Reveal later: privacy controls, prior adventures, and Place visits.
 - Must not add: dashboard, completion percentage, leaderboard, streak, public feed, or background promise.
-- Reuse map: capability shell, menu header affordance, MapKit MapView, Button/Icon primitives, BottomDrawer.
+- Reuse map: capability shell, PageHeader, MapKit MapView, Button/Icon primitives, BottomDrawer.
 - Behavior sources: 100-foot reveal and altitude trail are explicit user decisions; private default and permission timing come from Kwilt trust contracts.
 - Required states: permission not requested, denied, locating, recording, stopped/empty, persisted route, and family unavailable.
 - Proof path: global menu to Explore on an iPhone simulator, start with simulated location, receive movement, stop, relaunch, and inspect retained map.
