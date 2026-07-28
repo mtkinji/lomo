@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, spacing, typography } from '../../theme';
+import { colors, floatingControl, fonts, spacing, typography } from '../../theme';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -159,7 +159,11 @@ export function ActivityNextActionDock({
     >
       <View style={styles.dockShadow}>
         <View ref={targetRef} collapsable={false} style={styles.dock}>
-          <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFillObject} />
+          <BlurView
+            intensity={floatingControl.material.intensity}
+            tint={floatingControl.material.tint}
+            style={StyleSheet.absoluteFillObject}
+          />
           <View pointerEvents="none" style={styles.dockTint} />
           <ActivityNextActionInlineContent
             recommendedAction={recommendedAction}
@@ -190,25 +194,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dockShadow: {
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    ...floatingControl.shadow,
   },
   dock: {
     minHeight: 58,
     borderRadius: 99,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.76)',
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    backgroundColor: floatingControl.material.backgroundColor,
     flexDirection: 'row',
     alignItems: 'center',
   },
   dockTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.36)',
+    backgroundColor: floatingControl.material.overlayColor,
   },
   primaryAction: {
     minHeight: 56,

@@ -379,8 +379,6 @@ export function ActivityDetailRefresh(props: any) {
       : undefined;
   // Activities always have a mapped hero artwork fallback; keep this boolean explicit for future overrides.
   const heroEnabled = Boolean(heroImageSource);
-  const headerPillMaterialVariant = heroEnabled ? 'default' : 'onLight';
-
   // ---------------------------------------------------------------------------
   // Goals-like hero behavior (parallax + fade out as you scroll up).
   // Keep smaller than Goals (Goal hero = 240px).
@@ -410,12 +408,6 @@ export function ActivityDetailRefresh(props: any) {
     extrapolate: 'clamp',
   });
 
-  const headerActionPillOpacity = scrollY.interpolate({
-    inputRange: [0, 44],
-    // Keep the frosted pill material present on scroll so controls don't read washed out.
-    outputRange: [1, 0.82],
-    extrapolate: 'clamp',
-  });
   // Use SUMI for darker ink on light surfaces (consistent with our warm neutral palette).
   const headerInk = colors.sumi;
 
@@ -466,9 +458,8 @@ export function ActivityDetailRefresh(props: any) {
       {!breadcrumbsEnabled ? (
         <ObjectPageHeader
           barHeight={OBJECT_PAGE_HEADER_BAR_HEIGHT}
-          backgroundOpacity={headerBgOpacity}
           backgroundColor={colors.canvas}
-          actionPillOpacity={headerActionPillOpacity}
+          showFullWidthBackground={false}
           safeAreaTopInset={resolvedSafeAreaTopInsetPx}
           horizontalPadding={PAGE_GUTTER_X}
           blurBackground={false}
@@ -477,8 +468,7 @@ export function ActivityDetailRefresh(props: any) {
             <HeaderActionPill
               onPress={handleBackToActivities}
               accessibilityLabel="Back to To-dos"
-              materialOpacity={headerActionPillOpacity}
-              materialVariant={headerPillMaterialVariant}
+              materialVariant="floatingWhite"
             >
               <Icon name="arrowLeft" size={20} color={headerInk} />
             </HeaderActionPill>
@@ -501,8 +491,7 @@ export function ActivityDetailRefresh(props: any) {
                   <HeaderActionPill
                     onPress={handleToggleActivityImportance}
                     accessibilityLabel={activity?.priority === 1 ? 'Remove star from to-do' : 'Star this to-do'}
-                    materialOpacity={headerActionPillOpacity}
-                    materialVariant={headerPillMaterialVariant}
+                    materialVariant="floatingWhite"
                   >
                     <Icon
                       name={activity?.priority === 1 ? 'starFilled' : 'star'}
@@ -515,8 +504,7 @@ export function ActivityDetailRefresh(props: any) {
                       <View pointerEvents="none">
                         <HeaderActionPill
                           accessibilityLabel="To-do actions"
-                          materialOpacity={headerActionPillOpacity}
-                          materialVariant={headerPillMaterialVariant}
+                          materialVariant="floatingWhite"
                         >
                           <Icon name="more" size={18} color={headerInk} />
                         </HeaderActionPill>

@@ -353,28 +353,6 @@ export function GoalDetailScreen() {
     platform: 'ios',
   });
 
-  // Header background should be fully opaque exactly when the sheet top reaches the header
-  // so it cleanly hides whatever is underneath.
-  const headerBackgroundOpacity = scrollY.interpolate({
-    inputRange: [
-      Math.max(0, headerTransitionStartScrollY - SHEET_HEADER_TRANSITION_RANGE_PX),
-      headerTransitionStartScrollY,
-    ],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  // Keep a separate progress for pill material (so we can still ease it after the
-  // header has already become opaque).
-  const headerPillProgress = scrollY.interpolate({
-    inputRange: [
-      headerTransitionStartScrollY,
-      headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX,
-    ],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
   // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
   // bottom of the fixed header (the start of the header transition).
   const HERO_FADE_LEAD_PX = 160;
@@ -391,13 +369,6 @@ export function GoalDetailScreen() {
   const heroOpacity = scrollY.interpolate({
     inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
     outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-
-  const headerActionPillOpacity = headerPillProgress.interpolate({
-    inputRange: [0, 1],
-    // Keep a faint pill even once the header is solid so the actions feel consistent.
-    outputRange: [1, 0.2],
     extrapolate: 'clamp',
   });
 
@@ -2567,14 +2538,13 @@ export function GoalDetailScreen() {
           <View style={{ flex: 1 }}>
             <ObjectPageHeader
               barHeight={GOAL_HEADER_HEIGHT}
-              backgroundOpacity={headerBackgroundOpacity}
-              actionPillOpacity={headerActionPillOpacity}
+              showFullWidthBackground={false}
               left={
                 <HeaderActionPill
                   size={HEADER_ACTION_PILL_SIZE}
                   onPress={handleBack}
                   accessibilityLabel="Back"
-                  materialOpacity={headerActionPillOpacity}
+                  materialVariant="floatingWhite"
                 >
                   <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
                 </HeaderActionPill>
@@ -2616,7 +2586,7 @@ export function GoalDetailScreen() {
                   <View ref={shareButtonRef} collapsable={false}>
                     <HeaderActionPill
                       accessibilityLabel="Share goal"
-                      materialOpacity={headerActionPillOpacity}
+                      materialVariant="floatingWhite"
                       size={HEADER_ACTION_PILL_SIZE}
                       onPress={handleShareGoal}
                       style={styles.headerShareInvitePill}
@@ -2629,7 +2599,7 @@ export function GoalDetailScreen() {
                       <View pointerEvents="none">
                         <HeaderActionPill
                           accessibilityLabel="Goal actions"
-                          materialOpacity={headerActionPillOpacity}
+                          materialVariant="floatingWhite"
                           size={HEADER_ACTION_PILL_SIZE}
                         >
                           <Icon name="more" size={22} color={colors.textPrimary} />

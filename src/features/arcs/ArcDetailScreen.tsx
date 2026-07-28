@@ -272,25 +272,6 @@ export function ArcDetailScreen() {
       ? measuredHeaderTransitionStartScrollY
       : estimatedHeaderTransitionStartScrollY;
 
-  // Header background should be fully opaque exactly when the sheet top reaches the header
-  // so it cleanly hides whatever is underneath.
-  const headerBackgroundOpacity = scrollY.interpolate({
-    inputRange: [
-      Math.max(0, headerTransitionStartScrollY - SHEET_HEADER_TRANSITION_RANGE_PX),
-      headerTransitionStartScrollY,
-    ],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  // Keep a separate progress for pill material (so we can still ease it after the
-  // header has already become opaque).
-  const headerPillProgress = scrollY.interpolate({
-    inputRange: [headerTransitionStartScrollY, headerTransitionStartScrollY + SHEET_HEADER_TRANSITION_RANGE_PX],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
   // Fade the hero out so it reaches 0 opacity exactly when the sheet top touches the
   // bottom of the fixed header (the start of the header transition).
   //
@@ -313,12 +294,6 @@ export function ArcDetailScreen() {
   const heroOpacity = scrollY.interpolate({
     inputRange: [0, heroFadeStartScrollY, heroFadeEndScrollY],
     outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-  const headerActionPillOpacity = headerPillProgress.interpolate({
-    inputRange: [0, 1],
-    // Keep a faint pill even once the header is solid so the actions feel consistent.
-    outputRange: [1, 0.2],
     extrapolate: 'clamp',
   });
   // The hero is inside the scroll content, so it already moves at 1x scroll speed.
@@ -985,13 +960,12 @@ export function ArcDetailScreen() {
       <View style={styles.screen}>
           <ObjectPageHeader
             barHeight={ARC_HEADER_HEIGHT}
-            backgroundOpacity={headerBackgroundOpacity}
-            actionPillOpacity={headerActionPillOpacity}
+            showFullWidthBackground={false}
             left={
               <HeaderActionPill
                 onPress={handleBackToArcs}
                 accessibilityLabel="Back to Arcs"
-                materialOpacity={headerActionPillOpacity}
+                materialVariant="floatingWhite"
               >
                   <Icon name="arrowLeft" size={20} color={colors.textPrimary} />
               </HeaderActionPill>
@@ -1003,7 +977,7 @@ export function ArcDetailScreen() {
                     handleShareArc().catch(() => undefined);
                   }}
                   accessibilityLabel="Share arc"
-                  materialOpacity={headerActionPillOpacity}
+                  materialVariant="floatingWhite"
                 >
                   <Icon name="share" size={18} color={colors.textPrimary} />
                 </HeaderActionPill>
@@ -1012,7 +986,7 @@ export function ArcDetailScreen() {
                     <View pointerEvents="none">
                       <HeaderActionPill
                         accessibilityLabel="Arc actions"
-                        materialOpacity={headerActionPillOpacity}
+                        materialVariant="floatingWhite"
                       >
                         <Icon name="more" size={18} color={colors.textPrimary} />
                       </HeaderActionPill>

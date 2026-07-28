@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { blurs } from '../../theme/overlays';
+import { blurs, floatingControl } from '../../theme/overlays';
 import { colors, spacing } from '../../theme';
 import { HStack } from '../primitives';
 
@@ -97,6 +97,12 @@ export type ObjectPageHeaderProps = {
    * action pill blur). Defaults to false to preserve existing Arc/Goal headers.
    */
   blurBackground?: boolean;
+  /**
+   * When false, the fixed control row remains in place without rendering a
+   * full-width canvas/blur surface behind it. Use this for immersive object
+   * pages whose individual action pills provide their own legibility.
+   */
+  showFullWidthBackground?: boolean;
 };
 
 export function ObjectPageHeader({
@@ -114,6 +120,7 @@ export function ObjectPageHeader({
   safeAreaTopInset,
   horizontalPadding = spacing.xl,
   blurBackground = false,
+  showFullWidthBackground = true,
 }: ObjectPageHeaderProps) {
   const insets = useSafeAreaInsets();
   const resolvedTopInset = typeof safeAreaTopInset === 'number' ? safeAreaTopInset : insets.top;
@@ -154,7 +161,7 @@ export function ObjectPageHeader({
           )}
         </Animated.View>
       ) : null}
-      {blurBackground ? (
+      {showFullWidthBackground && blurBackground ? (
         <Animated.View
           pointerEvents="none"
           style={[StyleSheet.absoluteFillObject, { opacity: resolvedBgOpacity as any }]}
@@ -167,16 +174,18 @@ export function ObjectPageHeader({
           <View style={styles.headerBlurTint} />
         </Animated.View>
       ) : null}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.fixedHeaderBackground,
-          {
-            opacity: resolvedBgOpacity as any,
-            backgroundColor: blurBackground ? 'transparent' : backgroundColor,
-          },
-        ]}
-      />
+      {showFullWidthBackground ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.fixedHeaderBackground,
+            {
+              opacity: resolvedBgOpacity as any,
+              backgroundColor: blurBackground ? 'transparent' : backgroundColor,
+            },
+          ]}
+        />
+      ) : null}
       <View
         style={[
           styles.fixedHeaderRow,
@@ -209,8 +218,10 @@ export type HeaderActionPillProps = {
    * Which material token to use for the frosted background.
    * - default: tuned for dark/hero imagery (lighter border).
    * - onLight: tuned for white canvas (darker border so the pill reads).
+   * - floatingWhite: nearly opaque white with minimal blur, a white edge, and
+   *   a compact shadow for controls that float across artwork and page content.
    */
-  materialVariant?: 'default' | 'onLight';
+  materialVariant?: 'default' | 'onLight' | 'floatingWhite';
   /**
    * Diameter of the circular pill in px.
    * Defaults to 36 (Arc header).
@@ -247,7 +258,13 @@ export function HeaderActionPill({
   disabled,
 }: HeaderActionPillProps) {
   const resolvedOpacity = materialOpacity ?? new Animated.Value(1);
-  const materialToken = materialVariant === 'onLight' ? blurs.headerActionOnLight : blurs.headerAction;
+  const materialToken =
+    materialVariant === 'onLight'
+      ? blurs.headerActionOnLight
+      : materialVariant === 'floatingWhite'
+        ? floatingControl.material
+        : blurs.headerAction;
+  const isFloatingWhite = materialVariant === 'floatingWhite';
 
   return (
     <AnimatedPressable
@@ -255,6 +272,7 @@ export function HeaderActionPill({
         styles.headerActionCircle,
         { width: size, height: size, borderRadius: size / 2 },
         { borderColor: materialToken.borderColor },
+        isFloatingWhite ? styles.headerActionCircleFloatingWhite : null,
         style,
       ]}
       onPress={onPress}
@@ -268,7 +286,10 @@ export function HeaderActionPill({
       {material ? (
         <Animated.View
           pointerEvents="none"
-          style={[styles.headerActionCircleBg, { opacity: resolvedOpacity as any }]}
+          style={[
+            styles.headerActionCircleBg,
+            { borderRadius: size / 2, opacity: resolvedOpacity as any },
+          ]}
         >
           <BlurView
             intensity={materialToken.intensity}
@@ -411,10 +432,17 @@ const styles = StyleSheet.create({
   },
   headerActionCircleBg: {
     ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
   },
   headerActionCircleTint: {
     ...StyleSheet.absoluteFillObject,
     // backgroundColor set via `materialVariant` (default/onLight) at render-time.
+  },
+  headerActionCircleFloatingWhite: {
+    overflow: 'visible',
+    backgroundColor: floatingControl.material.backgroundColor,
+    borderWidth: floatingControl.material.borderWidth,
+    ...floatingControl.shadow,
   },
   headerActionGroupPill: {
     overflow: 'hidden',
@@ -434,5 +462,3 @@ const styles = StyleSheet.create({
     backgroundColor: blurs.headerAction.overlayColor,
   },
 });
-
-
