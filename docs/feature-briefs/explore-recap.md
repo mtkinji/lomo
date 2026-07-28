@@ -70,6 +70,18 @@ Exploration Recap extends the existing Explore session and canonical Place relat
 8. Unseen automatic outings combine into one recap. A background completion may schedule one generic local notification until that recap is seen, never one notification per Place or outing.
 9. Tapping a recap notification opens Explore, where the persisted pending recap appears.
 
+### Adaptive GPS policy
+
+The approved policy is documented in [Explore Use Cases And Adaptive GPS Policy](../design-explorations/explore-recap/06-use-cases-and-adaptive-gps.md).
+
+- `Always Exploring` selects Ambient: soft sleep after two credible stationary minutes, deep sleep after five, and a new outing after a movement gap beyond ten minutes.
+- `Start Exploring` selects Adventure: soft sleep after three credible stationary minutes, deep sleep after approximately fifteen, and one outing across pauses up to approximately thirty minutes.
+- Explicit live family sharing will select Presence: coarse stationary updates with visible freshness. Presence is not part of the local-only implementation.
+- Speed, accuracy, and stop-and-go motion modify sampling inside a policy; they do not create user-facing GPS settings.
+- Fog clearing remains a fixed roughly 100-foot radius. Altitude may color the route but never expands revealed territory.
+- Poor or implausible location evidence freezes fog clearing rather than inventing territory.
+- Explore is not emergency or guaranteed location infrastructure.
+
 ## Success signal
 
 A multi-place outing returns as one calm, understandable recap; known Places do not repeat; no precise Place identity appears on the lock screen by default; and the route remains useful when no credible named Place is resolved.
@@ -77,8 +89,9 @@ A multi-place outing returns as one calm, understandable recap; known Places do 
 ## Open questions
 
 - Real-world Apple placemark precision across parks, trail systems, overlooks, and summits.
-- Whether fifteen minutes of credible stillness is a reliable automatic-close threshold.
+- Whether low-power Ambient wake can preserve departures within a useful route-gap tolerance.
+- Whether Adventure deep sleep should remain at fifteen minutes after signed-device hike, queue, and stop-and-go testing.
 
 ## Spec refinement
 
-This increment implements the deterministic policy, foreground placemark resolution, persisted recap projection, manual and ambient recording modes, and efficient background task. Simulator proof can cover the mode and recap UI, but continuous background recording and battery performance are not considered runtime-proven until a fresh native build is installed on a signed device.
+The current increment implements deterministic placemark policy, persisted recap projection, manual and ambient recording modes, fixed efficient location profiles, and a background task. The approved adaptive Ambient, Adventure, and Presence policies are specified but not yet implemented. Simulator proof can cover mode and recap UI, but continuous background recording, wake reliability, and battery performance are not considered runtime-proven until a fresh native build is installed on a signed device.

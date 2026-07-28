@@ -10,7 +10,7 @@ Today, the user cannot keep the phone away and receive a batched Place story aft
 
 After this release, the user can stop one outing, let Kwilt resolve a bounded set of named placemarks, and review all new Places together.
 
-Still intentionally not supported: ambient all-day tracking, remote family delivery, or guaranteed recognition of every real-world POI.
+Still intentionally not supported: remote family delivery, emergency-grade tracking, or guaranteed recognition of every real-world POI.
 
 ## User Experience
 
@@ -37,6 +37,9 @@ Can be thin:
 Intentionally excluded:
 
 - server writes, family sync, analytics containing location, and per-place notifications.
+- user-facing battery presets and altitude-based fog scaling.
+
+The first adaptive-GPS learning slice should implement Ambient and Adventure from [Explore Use Cases And Adaptive GPS Policy](06-use-cases-and-adaptive-gps.md). Presence remains future work until authenticated family delivery exists.
 
 ## Release Channel
 
@@ -56,4 +59,4 @@ Disable the feature flag or return recording to `Only when I start`. State remai
 
 ## Permanent Product Threshold
 
-A signed-device outing records through screen lock, produces a useful multi-place recap, avoids false drive-by collections, and sends no duplicate notification.
+A signed-device matrix covering ordinary errands, deliberate walking, long stationary dwell, stop-and-go travel, and a multi-hour outing preserves recognizable routes at an acceptable battery cost, produces useful recaps, avoids false fog and drive-by collections, and sends no duplicate notification.

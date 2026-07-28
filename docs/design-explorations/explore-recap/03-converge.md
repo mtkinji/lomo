@@ -4,6 +4,8 @@
 
 Two intentional recording modes feeding one recap system. `Only when I start` records a bounded outing; `Always Exploring` records efficiently, automatically segments outings, and batches everything unseen into one recap. Both continue with the screen locked after explicit permission.
 
+The approved battery direction is three invisible internal policies: Ambient for Always Exploring, Adventure for manually started outings, and Presence for explicitly enabled live family sharing. Speed, accuracy, and stillness modify those policies without exposing a fidelity-settings matrix. The full use-case rationale and timing contract live in [Explore Use Cases And Adaptive GPS Policy](06-use-cases-and-adaptive-gps.md).
+
 ## Capability delta
 
 Today, a user must look at Kwilt during the outing and manually name Places.
@@ -19,6 +21,8 @@ Still intentionally unsupported: implicit family sharing, unrestricted placemark
 - One bottom drawer, one Done action, and direct remove controls only when correction is needed.
 - No per-place notification setting; one Explore Recaps switch controls the entire delivery behavior.
 - No fidelity matrix; recording mode determines an appropriate battery profile.
+- No altitude-based fog scaling; altitude may color the route, but trusted movement always clears the same roughly 100-foot radius.
+- Battery state and outing state remain separate so sleeping precise GPS does not necessarily end the user's outing.
 
 ## Activation
 
@@ -26,4 +30,4 @@ The recap appears after Stop or an automatic outing boundary. Starting manually 
 
 ## Bet
 
-We are betting that one quiet recap makes Explore feel more magical and less administrative than either per-place alerts or manual collection. If placemark confidence is poor, keep the recap but revert automatic collection to suggested visits.
+We are betting that one quiet recap and intent-aware location policy make Explore feel magical without turning it into battery configuration or a location dashboard. If adaptive sleep creates visible route loss, preserve the simple recording choices and keep precise tracking awake longer for Adventure.
