@@ -1,11 +1,12 @@
 import { createPlaidLinkSession, type LinkExit, type LinkSuccess } from 'react-native-plaid-link-sdk';
+import { Platform } from 'react-native';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import { createMoneyPlaidLinkToken, exchangeMoneyPlaidToken } from '../data/moneyPlaidApi';
 import type { MoneyPlaidLinkResult } from './moneyPlaidLinkTypes';
 
 export async function startMoneyPlaidLink(): Promise<MoneyPlaidLinkResult> {
   const client = getSupabaseClient();
-  const token = await createMoneyPlaidLinkToken(client);
+  const token = await createMoneyPlaidLinkToken(client, Platform.OS === 'android' ? 'android' : 'ios');
 
   return new Promise<MoneyPlaidLinkResult>((resolve, reject) => {
     let settled = false;

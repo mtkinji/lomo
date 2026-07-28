@@ -200,8 +200,8 @@ describe('createMoneyRepository transaction review', () => {
     })).rejects.toThrow('could not confirm the transaction review');
   });
 
-  it('upserts one exact merchant rule before reloading the snapshot', async () => {
-    const { client, calls } = createClient();
+  it('atomically saves one exact merchant rule and applies it to all matching history before reloading', async () => {
+    const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
 
     await repository.saveMerchantRule({
@@ -211,21 +211,21 @@ describe('createMoneyRepository transaction review', () => {
       categoryName: 'Groceries',
     });
 
-    expect(calls.find((call) => call.upsert)).toMatchObject({
-      table: 'budget_transaction_match_rules',
-      onConflict: 'user_id,merchant_contains,merchant_match_mode',
-      upsert: {
-        user_id: 'user-1',
-        budget_id: 'category-1',
-        merchant_contains: 'costco 01234',
-        merchant_match_mode: 'exact',
-        created_from_transaction_id: 'transaction-1',
+    expect(rpcCalls).toContainEqual({
+      name: 'upsert_budget_transaction_match_rule',
+      args: {
+        p_transaction_id: 'transaction-1',
+        p_budget_id: 'category-1',
+        p_merchant_contains: 'costco 01234',
+        p_match_mode: 'exact',
+        p_label: 'Groceries merchant rule',
       },
     });
-    expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(2);
+    expect(calls.filter((call) => call.upsert)).toHaveLength(0);
+    expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(1);
   });
 
-  it('can correct visible similar rows and save a partial future-match rule before one reload', async () => {
+  it('does not send visible transaction ids when saving a partial rule', async () => {
     const { client, calls, rpcCalls } = createClient();
     const repository = createMoneyRepository(client);
 
@@ -235,21 +235,20 @@ describe('createMoneyRepository transaction review', () => {
       categoryId: 'category-1',
       categoryName: 'Groceries',
       matchMode: 'partial',
-      similarTransactionIds: ['transaction-2', 'transaction-3'],
     });
 
     expect(rpcCalls).toContainEqual({
-      name: 'replace_budget_transaction_review',
+      name: 'upsert_budget_transaction_match_rule',
       args: {
-        p_transaction_ids: ['transaction-2', 'transaction-3'],
         p_budget_id: 'category-1',
-        p_excluded: false,
+        p_label: 'Groceries merchant rule',
+        p_match_mode: 'partial',
+        p_merchant_contains: 'trader joe',
+        p_transaction_id: 'transaction-1',
       },
     });
-    expect(calls.find((call) => call.upsert)?.upsert).toMatchObject({
-      merchant_contains: 'trader joe',
-      merchant_match_mode: 'partial',
-    });
+    expect(rpcCalls).not.toContainEqual(expect.objectContaining({ name: 'replace_budget_transaction_review' }));
+    expect(calls.filter((call) => call.upsert)).toHaveLength(0);
   });
 
   it('creates a category and plan atomically through the verified RPC, then reloads', async () => {

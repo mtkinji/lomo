@@ -11,8 +11,8 @@ describe('Money Plaid API', () => {
     const { client, invoke } = clientWith({
       'create-plaid-link-token': { link_token: 'link-sandbox-1', expiration: '2026-07-24T00:00:00Z' },
     });
-    await expect(createMoneyPlaidLinkToken(client)).resolves.toMatchObject({ link_token: 'link-sandbox-1' });
-    expect(invoke).toHaveBeenCalledWith('create-plaid-link-token', { body: {} });
+    await expect(createMoneyPlaidLinkToken(client, 'ios')).resolves.toMatchObject({ link_token: 'link-sandbox-1' });
+    expect(invoke).toHaveBeenCalledWith('create-plaid-link-token', { body: { platform: 'ios' } });
   });
 
   it('exchanges only the public token and bounded Link metadata', async () => {
@@ -50,7 +50,7 @@ describe('Money Plaid API', () => {
       },
     } as unknown as SupabaseClient;
 
-    await expect(createMoneyPlaidLinkToken(client)).rejects.toMatchObject({
+    await expect(createMoneyPlaidLinkToken(client, 'ios')).rejects.toMatchObject({
       code: 'institution_unavailable',
       diagnosticCode: 'INSTITUTION_DOWN',
       requestId: 'request-api',

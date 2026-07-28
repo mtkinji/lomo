@@ -38,8 +38,6 @@ import {
 import { registerHealthDailySyncTask } from './src/services/health/healthBackgroundTask';
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
-import './src/capabilities/explore/runtime/exploreBackgroundTask';
-import { ExploreAlwaysOnRuntimeHost } from './src/capabilities/explore/runtime/ExploreAlwaysOnRuntimeHost';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
@@ -60,6 +58,7 @@ import { FocusSessionRuntimeHost } from './src/features/activities/FocusSessionR
 import { startGlanceableStateSync } from './src/services/appleEcosystem/glanceableStateSync';
 import { startSpotlightIndexSync } from './src/services/appleEcosystem/spotlightSync';
 import { checkUserHasSyncedData, startDomainSync } from './src/services/sync/domainSync';
+import { probeReturningUserWithRetry } from './src/services/sync/returningUserProbe';
 import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
@@ -448,20 +447,17 @@ export default function App() {
 
     let cancelled = false;
     (async () => {
-      for (let i = 0; i < 3; i += 1) {
-        const hasSyncedData = await checkUserHasSyncedData(authIdentity.userId);
-        if (cancelled) return;
-        if (hasSyncedData) {
-          setIsReturningUser(true);
-          // If FTUE briefly started due earlier assumptions, close it before permissions flow.
-          dismissFirstTimeFlow();
-          setShowReturningUserFlow(true);
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 250 * (i + 1)));
-      }
+      const hasSyncedData = await probeReturningUserWithRetry(() =>
+        checkUserHasSyncedData(authIdentity.userId));
       if (cancelled) return;
-      setIsReturningUser(false);
+      if (!hasSyncedData) {
+        setIsReturningUser(false);
+        return;
+      }
+      setIsReturningUser(true);
+      // If FTUE briefly started due earlier assumptions, close it before permissions flow.
+      dismissFirstTimeFlow();
+      setShowReturningUserFlow(true);
     })().catch(() => {
       if (cancelled) return;
       setIsReturningUser(false);
@@ -617,7 +613,6 @@ export default function App() {
           <Logo size={1} style={styles.logoPreload} />
           {content}
           <FocusSessionRuntimeHost />
-          {authIdentity ? <ExploreAlwaysOnRuntimeHost /> : null}
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

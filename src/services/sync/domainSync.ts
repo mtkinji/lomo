@@ -9,6 +9,7 @@ import {
   agentProfileProjectionSignature,
   buildAgentProfileProjectionRow,
 } from './agentProfileProjection';
+import { hasAnySyncedData } from './returningUserProbe';
 
 type DomainTable = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
 
@@ -730,44 +731,27 @@ export async function retryDomainPull(): Promise<void> {
 export async function checkUserHasSyncedData(userId: string): Promise<boolean> {
   try {
     const supabase = getSupabaseClient();
-    
-    // Check for any non-deleted arcs first (most likely to exist)
-    const { data: arcs, error: arcsError } = await supabase
-      .from('kwilt_arcs')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_deleted', false)
-      .limit(1);
-    
-    if (!arcsError && arcs && arcs.length > 0) {
-      return true;
-    }
 
-    // Check for goals
-    const { data: goals, error: goalsError } = await supabase
-      .from('kwilt_goals')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_deleted', false)
-      .limit(1);
-    
-    if (!goalsError && goals && goals.length > 0) {
-      return true;
-    }
-
-    // Check for activities
-    const { data: activities, error: activitiesError } = await supabase
-      .from('kwilt_activities')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_deleted', false)
-      .limit(1);
-    
-    if (!activitiesError && activities && activities.length > 0) {
-      return true;
-    }
-
-    return false;
+    return await hasAnySyncedData([
+      () => supabase
+        .from('kwilt_arcs')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .limit(1),
+      () => supabase
+        .from('kwilt_goals')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .limit(1),
+      () => supabase
+        .from('kwilt_activities')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .limit(1),
+    ]);
   } catch (e) {
     if (__DEV__) {
       // eslint-disable-next-line no-console

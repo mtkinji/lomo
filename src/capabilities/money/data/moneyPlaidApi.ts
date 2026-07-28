@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeMoneyPlaidError } from './moneyPlaidErrors';
 
 export type MoneyPlaidLinkToken = { link_token: string; expiration?: string; request_id?: string };
+export type MoneyPlaidLinkPlatform = 'ios' | 'android';
 export type MoneyPlaidSyncResult = {
   connectionId: string;
   transactionCount: number;
@@ -16,8 +17,13 @@ export type MoneyPlaidExchangeResult = {
   sync: MoneyPlaidSyncResult;
 };
 
-export async function createMoneyPlaidLinkToken(client: SupabaseClient): Promise<MoneyPlaidLinkToken> {
-  const { data, error } = await client.functions.invoke<MoneyPlaidLinkToken>('create-plaid-link-token', { body: {} });
+export async function createMoneyPlaidLinkToken(
+  client: SupabaseClient,
+  platform: MoneyPlaidLinkPlatform,
+): Promise<MoneyPlaidLinkToken> {
+  const { data, error } = await client.functions.invoke<MoneyPlaidLinkToken>('create-plaid-link-token', {
+    body: { platform },
+  });
   if (error) throw await normalizeMoneyPlaidError(error, 'link_token');
   if (!data?.link_token) throw new Error('Plaid did not return a Link token.');
   return data;
