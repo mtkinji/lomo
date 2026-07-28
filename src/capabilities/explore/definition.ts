@@ -3,11 +3,12 @@ import type { CapabilityDefinition } from '../types';
 export const exploreCapabilityDefinition = {
   id: 'explore',
   label: 'Explore',
-  group: null,
+  group: 'play',
   icon: 'map',
   availability: 'active',
   rootRoute: { root: 'Explore', screen: 'ExploreMap' },
   deepLinks: ['kwilt://explore'],
+  settings: [{ id: 'explore', label: 'Explore', route: 'SettingsExplore' }],
   permissions: ['location'],
   agent: {
     surfaces: ['inventory'],

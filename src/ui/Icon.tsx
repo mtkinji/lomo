@@ -154,6 +154,7 @@ const iconMap = {
   pin: { library: 'lucide', icon: MapPin },
   map: { library: 'lucide', icon: MapIcon },
   locate: { library: 'lucide', icon: Crosshair },
+  navigation: { library: 'ion', name: 'navigate' },
   panelLeft: { library: 'lucide', icon: PanelLeft },
   menu: { library: 'lucide', icon: Menu },
   briefcase: { library: 'lucide', icon: Briefcase },

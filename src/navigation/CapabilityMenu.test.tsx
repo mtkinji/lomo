@@ -74,6 +74,7 @@ describe('CapabilityMenu', () => {
     expect(getByText('Transactions')).toBeTruthy();
     expect(getByText('Accounts')).toBeTruthy();
     expect(queryByLabelText('Money')).toBeNull();
+    expect(getByText('PLAY')).toBeTruthy();
     expect(getByText('CHATS')).toBeTruthy();
     const footer = getByTestId('capability.menu.footer');
     expect(footer.findByProps({ accessibilityLabel: 'Search Kwilt' })).toBeTruthy();
@@ -116,6 +117,7 @@ describe('CapabilityMenu', () => {
       />,
     );
     expect(enabled.getByLabelText('Explore').props.accessibilityState).toEqual({ selected: true });
+    expect(enabled.getByLabelText('Collapse Play')).toBeTruthy();
     fireEvent.press(enabled.getByLabelText('Explore'));
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('explore');
   });

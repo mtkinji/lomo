@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   rightElement: {},
 });
 
-function MenuToggleIcon({ open }: { open: boolean }) {
+export function MenuToggleIcon({ open }: { open: boolean }) {
   const stroke = getMenuToggleStroke(open);
 
   return (
