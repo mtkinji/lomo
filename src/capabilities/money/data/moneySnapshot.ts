@@ -82,7 +82,7 @@ export type MoneyTransactionRow = {
   pending: boolean;
   iso_currency_code: string;
   budget_id: string | null;
-  budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | null;
+  budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | 'merchant_rule' | null;
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
   personal_finance_category_primary?: string | null;
   personal_finance_category_detailed?: string | null;

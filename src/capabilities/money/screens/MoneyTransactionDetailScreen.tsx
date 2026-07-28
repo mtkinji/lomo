@@ -40,6 +40,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     splitTransaction,
     savingCategory,
     snapshot,
+    status,
   } = useMoneyData();
   const transaction = snapshot?.transactions.find((candidate) => candidate.id === route.params.transactionId);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -147,7 +148,6 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       categoryId: pendingRuleCategory.sourceId,
       categoryName: pendingRuleCategory.name,
       matchMode: ruleMode,
-      similarTransactionIds: similarRows.map((row) => row.id),
     }));
     if (saved) setPendingRuleCategory(null);
   };
@@ -204,8 +204,8 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       <AppShell>
         <PageHeader title="Transaction" onPressBack={() => navigation.goBack()} />
         <View style={styles.unavailable}>
-          <Text style={styles.emptyTitle}>This transaction is unavailable</Text>
-          <Text style={styles.emptyCopy}>It may have changed since the last successful Money sync.</Text>
+          <Text style={styles.emptyTitle}>{status === 'loading' ? 'Loading transaction…' : 'This transaction is unavailable'}</Text>
+          <Text style={styles.emptyCopy}>{status === 'loading' ? 'Loading the latest Money details.' : 'It may have changed since the last successful Money sync.'}</Text>
         </View>
       </AppShell>
     );
@@ -243,7 +243,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               <View style={styles.categoryFieldCopy}>
                 <Text numberOfLines={1} style={[styles.categoryFieldText, !relationLabel ? styles.categoryPlaceholder : null]}>{relationLabel ?? 'Choose category'}</Text>
               </View>
-              <Icon name="chevronsUpDown" size={18} color={colors.textSecondary} />
+              <Icon name="chevronDown" size={18} color={colors.textSecondary} />
             </Pressable>
             {transaction.merchantRuleCategoryId && currentCategory?.id === transaction.merchantRuleCategoryId ? (
               <View style={styles.ruleReceipt}>
@@ -352,7 +352,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             titleVariant="lg"
             variant="withClose"
           />
-          <Text style={styles.drawerCopy}>Match future {transaction.merchantName} charges and update the visible matching transactions below.</Text>
+          <Text style={styles.drawerCopy}>Apply this category across your full transaction history and to future {transaction.merchantName} charges.</Text>
           <View style={styles.ruleModeRow}>
             <RuleModeButton active={ruleMode === 'exact'} label="Exact match" onPress={() => setRuleMode('exact')} />
             <RuleModeButton active={ruleMode === 'partial'} label="Partial match" onPress={() => setRuleMode('partial')} />
@@ -362,7 +362,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
             <Text style={styles.matchPreviewValue}>{ruleMode === 'exact' ? transaction.merchantName : getPartialRuleLabel(transaction.merchantName)}</Text>
           </View>
           <View style={styles.similarSection}>
-            <Text style={styles.similarTitle}>{similarRows.length} existing {similarRows.length === 1 ? 'transaction' : 'transactions'} will change</Text>
+            <Text style={styles.similarTitle}>Matching transaction examples</Text>
             {similarRows.slice(0, 6).map((row) => (
               <View key={row.id} style={styles.similarRow}>
                 <View style={styles.similarCopy}><Text numberOfLines={1} style={styles.similarMerchant}>{row.merchantName}</Text><Text style={styles.similarMeta}>{formatTransactionDate(row.date)} · {row.categoryName}</Text></View>
