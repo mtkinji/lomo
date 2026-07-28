@@ -7,7 +7,7 @@ last_updated: 2026-07-27
 
 ## What the user said
 
-> Build a private-first family exploration capability in Kwilt: moving through the real world clears a roughly 100-foot fog-of-war radius, trails change color with altitude, visited named places become part of the same Places system, and each person controls recording, sharing, and viewing.
+> Build a private-first family exploration capability in Kwilt: moving through the real world clears a 65-foot core through a much softer fog boundary, trails change color with altitude, visited named places become part of the same Places system, and each person controls recording, sharing, and viewing.
 
 ## Restated in user voice
 

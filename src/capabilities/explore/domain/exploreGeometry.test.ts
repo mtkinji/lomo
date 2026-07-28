@@ -1,14 +1,19 @@
 import {
+  EXPLORE_FEATHER_REFERENCE_RADIUS_M,
   EXPLORE_REVEAL_RADIUS_M,
   buildFogHole,
+  destinationCoordinate,
   exploreCellsAlongSegment,
   coordinateDistanceM,
   exploreCellForCoordinate,
+  isCoordinateExplored,
 } from './exploreGeometry';
 
 describe('Explore geometry', () => {
-  it('uses an approximately 100 foot reveal radius', () => {
-    expect(EXPLORE_REVEAL_RADIUS_M).toBeCloseTo(30.48, 2);
+  it('keeps a 65-foot clear core and a separate 100-foot feather reference', () => {
+    expect(EXPLORE_REVEAL_RADIUS_M).toBeCloseTo(65 * 0.3048, 3);
+    expect(EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(100 * 0.3048, 3);
+    expect(EXPLORE_REVEAL_RADIUS_M / EXPLORE_FEATHER_REFERENCE_RADIUS_M).toBeCloseTo(0.65, 3);
   });
 
   it('creates a stable coarse cell for nearby points', () => {
@@ -46,5 +51,15 @@ describe('Explore geometry', () => {
     expect(cells.length).toBeGreaterThanOrEqual(5);
     expect(Math.max(...cells.slice(1).map((cell, index) => coordinateDistanceM(cells[index].center, cell.center))))
       .toBeLessThanOrEqual(40);
+  });
+
+  it('reveals only coordinates inside the permanent explored corridor', () => {
+    const center = { latitude: 40.58526, longitude: -105.08442 };
+    const exploredCells = [{ id: 'cell', center }];
+
+    expect(isCoordinateExplored(center, exploredCells)).toBe(true);
+    expect(isCoordinateExplored(destinationCoordinate(center, 15, 90), exploredCells)).toBe(true);
+    expect(isCoordinateExplored(destinationCoordinate(center, 25, 90), exploredCells)).toBe(false);
+    expect(isCoordinateExplored(center, [])).toBe(false);
   });
 });

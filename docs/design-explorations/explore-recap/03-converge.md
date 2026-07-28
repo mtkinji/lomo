@@ -21,7 +21,7 @@ Still intentionally unsupported: implicit family sharing, unrestricted placemark
 - One bottom drawer, one Done action, and direct remove controls only when correction is needed.
 - No per-place notification setting; one Explore Recaps switch controls the entire delivery behavior.
 - No fidelity matrix; recording mode determines an appropriate battery profile.
-- No altitude-based fog scaling; altitude may color the route, but trusted movement always clears the same roughly 100-foot radius.
+- No altitude-based fog scaling; altitude may color the route, but trusted movement always clears the same 65-foot core with the same independently scaled feather.
 - Battery state and outing state remain separate so sleeping precise GPS does not necessarily end the user's outing.
 
 ## Activation

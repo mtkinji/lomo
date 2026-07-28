@@ -6,9 +6,12 @@ export function createDefaultExplorePreferences(): ExplorePreferences {
     sharing: 'private',
     showMyPath: true,
     showFamilyTerritory: false,
+    showFog: true,
+    mapStyle: 'hybrid',
     visibleMemberIds: [],
     recapNotifications: true,
     showPlaceNamesOnLockScreen: false,
+    onboardingCompleted: false,
   };
 }
 

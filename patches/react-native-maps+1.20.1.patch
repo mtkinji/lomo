@@ -1,0 +1,472 @@
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.h b/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
+index 5aa5fed..6b8bc5c 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
+@@ -47,6 +47,14 @@ extern const NSInteger AIRMapMaxZoomLevel;
+ @property (nonatomic, assign) CGPoint compassOffset;
+ @property (nonatomic, assign) UIEdgeInsets mapPadding;
+
++// Kwilt Explore's native Silver Mist overlay. Coordinates are persisted
++// explored-cell centers; the two radii stay independent so tightening the
++// clear corridor never collapses the approved atmospheric feather.
++@property (nonatomic, assign) BOOL fogEnabled;
++@property (nonatomic, strong) NSArray *fogCoordinates;
++@property (nonatomic, assign) CLLocationDistance fogClearRadiusMeters;
++@property (nonatomic, assign) CLLocationDistance fogFeatherReferenceRadiusMeters;
++
+ @property (nonatomic, assign) CLLocationCoordinate2D pendingCenter;
+ @property (nonatomic, assign) MKCoordinateSpan pendingSpan;
+
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
+index 07a4638..387cf22 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
+@@ -20,6 +20,7 @@
+ #import "AIRMapWMSTile.h"
+ #import "AIRMapLocalTile.h"
+ #import "AIRMapOverlay.h"
++#import "AIRMapMetalFogView.h"
+
+ const NSTimeInterval AIRMapRegionChangeObserveInterval = 0.1;
+ const CGFloat AIRMapZoomBoundBuffer = 0.01;
+@@ -43,6 +44,7 @@ @interface AIRMap ()
+
+ - (void)updateScrollEnabled;
+ - (void)updateZoomEnabled;
++- (void)ensureMetalFogView;
+
+ @end
+
+@@ -62,6 +64,12 @@ @implementation AIRMap
+     // Implementation based on RCTTextField, another component with indirect children
+     // https://github.com/facebook/react-native/blob/v0.16.0/Libraries/Text/RCTTextField.m#L20
+     NSMutableArray<UIView *> *_reactSubviews;
++    AIRMapMetalFogView *_metalFogView;
++    UIView *_metalFogFallbackView;
++    BOOL _fogEnabled;
++    NSArray *_fogCoordinates;
++    CLLocationDistance _fogClearRadiusMeters;
++    CLLocationDistance _fogFeatherReferenceRadiusMeters;
+ }
+
+ - (instancetype)init
+@@ -89,10 +97,81 @@ - (instancetype)init
+         self.maxZoomLevel = AIRMapMaxZoomLevel;
+         self.compassOffset = CGPointMake(0, 0);
+         self.legacyZoomConstraintsEnabled = YES;
++        _fogClearRadiusMeters = 19.812;
++        _fogFeatherReferenceRadiusMeters = 30.48;
+     }
+     return self;
+ }
+
++- (void)ensureMetalFogView
++{
++    if (_metalFogView || _metalFogFallbackView) return;
++    _metalFogView = [[AIRMapMetalFogView alloc] initWithMap:self];
++    if (_metalFogView) {
++        _metalFogView.exploredCoordinates = _fogCoordinates ?: @[];
++        _metalFogView.clearRadiusMeters = _fogClearRadiusMeters;
++        _metalFogView.featherReferenceRadiusMeters = _fogFeatherReferenceRadiusMeters;
++        [self addSubview:_metalFogView];
++        return;
++    }
++
++    // Concealment is the privacy invariant. If Metal cannot initialize, fail
++    // closed with an opaque mist instead of exposing unexplored map labels.
++    _metalFogFallbackView = [[UIView alloc] initWithFrame:self.bounds];
++    _metalFogFallbackView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    _metalFogFallbackView.backgroundColor = [UIColor colorWithRed:0.88 green:0.90 blue:0.90 alpha:1.0];
++    _metalFogFallbackView.userInteractionEnabled = NO;
++    _metalFogFallbackView.accessibilityElementsHidden = YES;
++    [self addSubview:_metalFogFallbackView];
++}
++
++- (BOOL)fogEnabled
++{
++    return _fogEnabled;
++}
++
++- (void)setFogEnabled:(BOOL)fogEnabled
++{
++    _fogEnabled = fogEnabled;
++    if (fogEnabled) [self ensureMetalFogView];
++    _metalFogView.hidden = !fogEnabled;
++    _metalFogView.paused = !fogEnabled;
++    _metalFogFallbackView.hidden = !fogEnabled;
++}
++
++- (NSArray *)fogCoordinates
++{
++    return _fogCoordinates;
++}
++
++- (void)setFogCoordinates:(NSArray *)fogCoordinates
++{
++    _fogCoordinates = [fogCoordinates copy] ?: @[];
++    _metalFogView.exploredCoordinates = _fogCoordinates;
++}
++
++- (CLLocationDistance)fogClearRadiusMeters
++{
++    return _fogClearRadiusMeters;
++}
++
++- (void)setFogClearRadiusMeters:(CLLocationDistance)fogClearRadiusMeters
++{
++    _fogClearRadiusMeters = MAX(1, fogClearRadiusMeters);
++    _metalFogView.clearRadiusMeters = _fogClearRadiusMeters;
++}
++
++- (CLLocationDistance)fogFeatherReferenceRadiusMeters
++{
++    return _fogFeatherReferenceRadiusMeters;
++}
++
++- (void)setFogFeatherReferenceRadiusMeters:(CLLocationDistance)fogFeatherReferenceRadiusMeters
++{
++    _fogFeatherReferenceRadiusMeters = MAX(1, fogFeatherReferenceRadiusMeters);
++    _metalFogView.featherReferenceRadiusMeters = _fogFeatherReferenceRadiusMeters;
++}
++
+ -(void)addSubview:(UIView *)view {
+     if([view isKindOfClass:[AIRMapMarker class]]) {
+         [self addAnnotation:(id <MKAnnotation>)view];
+@@ -707,6 +786,17 @@ - (void)layoutSubviews {
+     [super layoutSubviews];
+     [self cacheViewIfNeeded];
+
++    if (_metalFogView) {
++        _metalFogView.frame = self.bounds;
++        [_metalFogView invalidateGeography];
++        [self bringSubviewToFront:_metalFogView];
++    }
++    if (_metalFogFallbackView) {
++        _metalFogFallbackView.frame = self.bounds;
++        [self bringSubviewToFront:_metalFogFallbackView];
++    }
++    if (_legalLabel) [self bringSubviewToFront:_legalLabel];
++
+     if (self.overlayCompassButton == nil) {
+         for (UIView *subview in self.subviews) {
+             if (![NSStringFromClass(subview.class) isEqualToString:@"MKPassThroughStackView"]) continue;
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
+index 8bd7907..7dd68ab 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
+@@ -110,6 +110,10 @@ - (UIView *)view
+ RCT_EXPORT_VIEW_PROPERTY(legalLabelInsets, UIEdgeInsets)
+ RCT_EXPORT_VIEW_PROPERTY(mapPadding, UIEdgeInsets)
+ RCT_EXPORT_VIEW_PROPERTY(mapType, MKMapType)
++RCT_EXPORT_VIEW_PROPERTY(fogEnabled, BOOL)
++RCT_EXPORT_VIEW_PROPERTY(fogCoordinates, AIRMapCoordinateArray)
++RCT_EXPORT_VIEW_PROPERTY(fogClearRadiusMeters, CLLocationDistance)
++RCT_EXPORT_VIEW_PROPERTY(fogFeatherReferenceRadiusMeters, CLLocationDistance)
+ RCT_EXPORT_VIEW_PROPERTY(cameraZoomRange, NSDictionary)
+ RCT_EXPORT_VIEW_PROPERTY(onMapReady, RCTBubblingEventBlock)
+ RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h
+new file mode 100644
+index 0000000..14a1b7d
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h
+@@ -0,0 +1,17 @@
++#import <MetalKit/MetalKit.h>
++#import <CoreLocation/CoreLocation.h>
++
++@class AIRMap;
++@class AIRMapCoordinate;
++
++@interface AIRMapMetalFogView : MTKView <MTKViewDelegate>
++
++@property (nonatomic, weak) AIRMap *map;
++@property (nonatomic, copy) NSArray<AIRMapCoordinate *> *exploredCoordinates;
++@property (nonatomic, assign) CLLocationDistance clearRadiusMeters;
++@property (nonatomic, assign) CLLocationDistance featherReferenceRadiusMeters;
++
++- (instancetype)initWithMap:(AIRMap *)map;
++- (void)invalidateGeography;
++
++@end
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m
+new file mode 100644
+index 0000000..9019a9c
+--- /dev/null
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m
+@@ -0,0 +1,276 @@
++#import "AIRMapMetalFogView.h"
++
++#import "AIRMap.h"
++#import "AIRMapCoordinate.h"
++#import <MapKit/MapKit.h>
++#import <QuartzCore/QuartzCore.h>
++#import <simd/simd.h>
++
++static const NSUInteger AIRMapFogMaximumPointCount = 256;
++
++typedef struct {
++    vector_float2 viewportSize;
++    vector_float2 noiseOrigin;
++    float mapPointsPerPixel;
++    float time;
++    float clearRadius;
++    float featherReferenceRadius;
++    uint32_t pointCount;
++    uint32_t padding;
++} AIRMapFogUniforms;
++
++static NSString *AIRMapSilverMistShaderSource(void)
++{
++    return @"#include <metal_stdlib>\n"
++    "using namespace metal;\n"
++    "struct FogUniforms {\n"
++    "  float2 viewportSize; float2 noiseOrigin; float mapPointsPerPixel; float time;\n"
++    "  float clearRadius; float featherReferenceRadius; uint pointCount; uint padding;\n"
++    "};\n"
++    "vertex float4 fogVertex(uint id [[vertex_id]]) {\n"
++    "  const float2 p[3] = {float2(-1,-1), float2(3,-1), float2(-1,3)};\n"
++    "  return float4(p[id], 0, 1);\n"
++    "}\n"
++    "float hash21(float2 p) { p=fract(p*float2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }\n"
++    "float valueNoise(float2 p) {\n"
++    "  float2 c=floor(p), l=fract(p), e=l*l*(3.0-2.0*l);\n"
++    "  float a=hash21(c), b=hash21(c+float2(1,0)), d=hash21(c+float2(0,1)), f=hash21(c+float2(1,1));\n"
++    "  return mix(mix(a,b,e.x),mix(d,f,e.x),e.y);\n"
++    "}\n"
++    "float softFbm(float2 p) {\n"
++    "  float v=0.0, a=0.58; float2x2 r=float2x2(0.86,-0.51,0.51,0.86);\n"
++    "  for(uint o=0;o<3;o++){v+=a*valueNoise(p);p=r*p*1.94+11.3;a*=0.46;} return v;\n"
++    "}\n"
++    "float segmentDistance(float2 point, float2 start, float2 end) {\n"
++    "  float2 segment=end-start; float denominator=max(dot(segment,segment),0.0001);\n"
++    "  float projection=clamp(dot(point-start,segment)/denominator,0.0,1.0);\n"
++    "  return length(point-(start+projection*segment));\n"
++    "}\n"
++    "float exploredDistance(float2 pixel, constant float2 *points, uint count, float maxJoinDistance) {\n"
++    "  float result=100000.0;\n"
++    "  for(uint i=0;i<256;i++){\n"
++    "    if(i>=count)break; result=min(result,distance(pixel,points[i]));\n"
++    "    if(i+1<count && distance(points[i],points[i+1])<=maxJoinDistance){result=min(result,segmentDistance(pixel,points[i],points[i+1]));}\n"
++    "  }\n"
++    "  return result;\n"
++    "}\n"
++    "fragment float4 fogFragment(float4 position [[position]], constant FogUniforms &u [[buffer(0)]], constant float2 *points [[buffer(1)]]) {\n"
++    "  float2 pixel=position.xy; float2 world=u.noiseOrigin+pixel*u.mapPointsPerPixel;\n"
++    "  float fogWorldScale=max(620.0,u.mapPointsPerPixel*430.0); float2 broad=world/fogWorldScale;\n"
++    "  float2 broadDrift=float2(u.time*0.038,u.time*-0.021);\n"
++    "  float2 distantDrift=float2(u.time*0.014,u.time*0.009);\n"
++    "  float2 nearDrift=float2(u.time*-0.072,u.time*0.041);\n"
++    "  float2 warp=float2(softFbm(broad*0.64+broadDrift*0.44),softFbm(broad*0.64+31.7-broadDrift*0.31));\n"
++    "  float cloud=softFbm(broad*1.18+warp*1.35+broadDrift);\n"
++    "  float middle=softFbm(broad*3.15+nearDrift*0.58+warp*0.24+61.3);\n"
++    "  float distant=softFbm(broad*0.72+distantDrift+8.4);\n"
++    "  float near=softFbm(broad*1.62+nearDrift+warp*0.52);\n"
++    "  float ribbons=softFbm(float2(broad.x*0.48,broad.y*1.72)+distantDrift*1.7);\n"
++    "  float mist=smoothstep(0.20,0.84,cloud*0.66+ribbons*0.34);\n"
++    "  float3 fogColor=float3(0.88,0.90,0.90);\n"
++    "  fogColor+=(distant-0.5)*0.125+(mist-0.5)*0.165+(near-0.5)*0.078+(middle-0.5)*0.048;\n"
++    "  float distanceToExplored=exploredDistance(pixel,points,u.pointCount,u.clearRadius*1.75);\n"
++    "  float broadEdge=softFbm(broad*2.25+distantDrift*0.34+19.2)-0.5;\n"
++    "  float fineEdge=softFbm(broad*5.1+nearDrift*0.46+43.8)-0.5;\n"
++    "  float blob=softFbm(broad*1.34+distantDrift*0.18+73.1);\n"
++    "  float transition=u.featherReferenceRadius*mix(1.50,2.25,blob);\n"
++    "  float outside=max(0.0,distanceToExplored-u.clearRadius);\n"
++    "  float opaqueWidth=clamp(transition*(1.0+broadEdge*0.26+fineEdge*0.09),u.featherReferenceRadius*1.40,u.featherReferenceRadius*2.25);\n"
++    "  float distantWidth=clamp(transition*(1.18+broadEdge*0.46-fineEdge*0.16),u.featherReferenceRadius*1.65,u.featherReferenceRadius*2.55);\n"
++    "  float nearWidth=clamp(transition*(0.98-broadEdge*0.24+fineEdge*0.48),u.featherReferenceRadius*1.35,u.featherReferenceRadius*2.35);\n"
++    "  float filamentNoise=softFbm(broad*6.60+nearDrift*1.55+97.4);\n"
++    "  float filamentWidth=clamp(transition*mix(0.80,1.76,filamentNoise),u.featherReferenceRadius*1.40,u.featherReferenceRadius*2.80);\n"
++    "  float opaqueLayer=pow(clamp(outside/opaqueWidth,0.0,1.0),1.55);\n"
++    "  float distantVeil=pow(clamp(outside/distantWidth,0.0,1.0),1.18);\n"
++    "  float nearWisp=pow(clamp(outside/nearWidth,0.0,1.0),1.75);\n"
++    "  float filamentWisp=pow(clamp(outside/filamentWidth,0.0,1.0),2.0);\n"
++    "  float edgeDensity=smoothstep(0.28,0.78,near*0.68+middle*0.32);\n"
++    "  float alpha=1.0-(1.0-opaqueLayer)*(1.0-distantVeil*mix(0.10,0.25,distant))*(1.0-nearWisp*mix(0.04,0.22,edgeDensity))*(1.0-filamentWisp*mix(0.02,0.16,smoothstep(0.30,0.74,filamentNoise)));\n"
++    "  return float4(clamp(fogColor,0.0,1.0),clamp(alpha,0.0,1.0));\n"
++    "}\n";
++}
++
++@interface AIRMapMetalFogView ()
++@property (nonatomic, strong) id<MTLCommandQueue> fogCommandQueue;
++@property (nonatomic, strong) id<MTLRenderPipelineState> fogPipeline;
++@property (nonatomic, strong) NSData *visiblePointData;
++@property (nonatomic, assign) vector_float2 noiseOrigin;
++@property (nonatomic, assign) float mapPointsPerPixel;
++@property (nonatomic, assign) float clearRadiusPixels;
++@property (nonatomic, assign) float featherReferenceRadiusPixels;
++@property (nonatomic, assign) CFTimeInterval animationStartedAt;
++@property (nonatomic, assign) MKMapRect lastVisibleMapRect;
++@property (nonatomic, assign) CGSize lastDrawableSize;
++@property (nonatomic, assign) BOOL geographyInvalid;
++@property (nonatomic, assign) MKMapPoint noiseAnchor;
++@property (nonatomic, assign) BOOL hasNoiseAnchor;
++@end
++
++@implementation AIRMapMetalFogView
++
++- (instancetype)initWithMap:(AIRMap *)map
++{
++    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
++    if (!device || !(self = [super initWithFrame:map.bounds device:device])) return nil;
++
++    _map = map;
++    _clearRadiusMeters = 19.812;
++    _featherReferenceRadiusMeters = 30.48;
++    _visiblePointData = [NSData data];
++    _animationStartedAt = CACurrentMediaTime();
++    _geographyInvalid = YES;
++
++    self.delegate = self;
++    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    self.backgroundColor = UIColor.clearColor;
++    self.clearColor = MTLClearColorMake(0, 0, 0, 0);
++    self.opaque = NO;
++    self.userInteractionEnabled = NO;
++    self.accessibilityElementsHidden = YES;
++    self.isAccessibilityElement = NO;
++    self.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
++    self.preferredFramesPerSecond = 30;
++    self.paused = NO;
++    self.enableSetNeedsDisplay = NO;
++
++    NSError *libraryError = nil;
++    id<MTLLibrary> library = [device newLibraryWithSource:AIRMapSilverMistShaderSource() options:nil error:&libraryError];
++    id<MTLFunction> vertex = [library newFunctionWithName:@"fogVertex"];
++    id<MTLFunction> fragment = [library newFunctionWithName:@"fogFragment"];
++    if (!library || !vertex || !fragment) {
++        NSLog(@"[Kwilt Explore] Unable to compile Silver Mist shader: %@", libraryError);
++        return nil;
++    }
++
++    MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
++    descriptor.vertexFunction = vertex;
++    descriptor.fragmentFunction = fragment;
++    descriptor.colorAttachments[0].pixelFormat = self.colorPixelFormat;
++    descriptor.colorAttachments[0].blendingEnabled = YES;
++    descriptor.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorSourceAlpha;
++    descriptor.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
++    descriptor.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorOne;
++    descriptor.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOneMinusSourceAlpha;
++
++    NSError *pipelineError = nil;
++    _fogPipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&pipelineError];
++    _fogCommandQueue = [device newCommandQueue];
++    if (!_fogPipeline || !_fogCommandQueue) {
++        NSLog(@"[Kwilt Explore] Unable to create Silver Mist pipeline: %@", pipelineError);
++        return nil;
++    }
++    return self;
++}
++
++- (void)setExploredCoordinates:(NSArray<AIRMapCoordinate *> *)exploredCoordinates
++{
++    _exploredCoordinates = [exploredCoordinates copy] ?: @[];
++    [self invalidateGeography];
++}
++
++- (void)setClearRadiusMeters:(CLLocationDistance)clearRadiusMeters
++{
++    _clearRadiusMeters = MAX(1, clearRadiusMeters);
++    [self invalidateGeography];
++}
++
++- (void)setFeatherReferenceRadiusMeters:(CLLocationDistance)featherReferenceRadiusMeters
++{
++    _featherReferenceRadiusMeters = MAX(1, featherReferenceRadiusMeters);
++    [self invalidateGeography];
++}
++
++- (void)invalidateGeography
++{
++    self.geographyInvalid = YES;
++}
++
++- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size
++{
++    self.geographyInvalid = YES;
++}
++
++- (void)updateGeographyIfNeeded
++{
++    AIRMap *map = self.map;
++    if (!map || self.bounds.size.width <= 0 || self.drawableSize.width <= 0) return;
++    if (!self.geographyInvalid && MKMapRectEqualToRect(self.lastVisibleMapRect, map.visibleMapRect) && CGSizeEqualToSize(self.lastDrawableSize, self.drawableSize)) return;
++
++    self.lastVisibleMapRect = map.visibleMapRect;
++    self.lastDrawableSize = self.drawableSize;
++    self.geographyInvalid = NO;
++
++    CGFloat pixelScale = self.drawableSize.width / self.bounds.size.width;
++    double mapPointsPerPixel = map.visibleMapRect.size.width / self.drawableSize.width;
++    CLLocationDegrees latitude = map.region.center.latitude;
++    double metersPerMapPoint = MKMetersPerMapPointAtLatitude(latitude);
++    self.mapPointsPerPixel = (float)mapPointsPerPixel;
++    self.clearRadiusPixels = (float)(self.clearRadiusMeters / metersPerMapPoint / mapPointsPerPixel);
++    self.featherReferenceRadiusPixels = (float)(self.featherReferenceRadiusMeters / metersPerMapPoint / mapPointsPerPixel);
++
++    if (!self.hasNoiseAnchor) {
++        self.noiseAnchor = map.visibleMapRect.origin;
++        self.hasNoiseAnchor = YES;
++    }
++    self.noiseOrigin = (vector_float2){
++        (float)(map.visibleMapRect.origin.x - self.noiseAnchor.x),
++        (float)(map.visibleMapRect.origin.y - self.noiseAnchor.y)
++    };
++
++    CGFloat margin = self.clearRadiusPixels + self.featherReferenceRadiusPixels * 3.0;
++    NSMutableArray<NSData *> *visiblePoints = [NSMutableArray array];
++    for (AIRMapCoordinate *coordinate in self.exploredCoordinates) {
++        CGPoint point = [map convertCoordinate:coordinate.coordinate toPointToView:map];
++        vector_float2 pixel = {(float)(point.x * pixelScale), (float)(point.y * pixelScale)};
++        if (pixel.x < -margin || pixel.y < -margin || pixel.x > self.drawableSize.width + margin || pixel.y > self.drawableSize.height + margin) continue;
++        [visiblePoints addObject:[NSData dataWithBytes:&pixel length:sizeof(pixel)]];
++    }
++
++    NSUInteger selectedCount = MIN(visiblePoints.count, AIRMapFogMaximumPointCount);
++    NSMutableData *pointData = [NSMutableData dataWithLength:selectedCount * sizeof(vector_float2)];
++    vector_float2 *destination = pointData.mutableBytes;
++    for (NSUInteger index = 0; index < selectedCount; index++) {
++        NSUInteger sourceIndex = selectedCount == visiblePoints.count
++            ? index
++            : (NSUInteger)floor((double)index * (double)(visiblePoints.count - 1) / (double)MAX(1, selectedCount - 1));
++        [visiblePoints[sourceIndex] getBytes:&destination[index] length:sizeof(vector_float2)];
++    }
++    self.visiblePointData = pointData;
++}
++
++- (void)drawInMTKView:(MTKView *)view
++{
++    [self updateGeographyIfNeeded];
++    MTLRenderPassDescriptor *pass = view.currentRenderPassDescriptor;
++    id<CAMetalDrawable> drawable = view.currentDrawable;
++    if (!pass || !drawable || !self.fogPipeline || !self.fogCommandQueue) return;
++
++    id<MTLCommandBuffer> commandBuffer = [self.fogCommandQueue commandBuffer];
++    id<MTLRenderCommandEncoder> encoder = [commandBuffer renderCommandEncoderWithDescriptor:pass];
++    NSUInteger pointCount = self.visiblePointData.length / sizeof(vector_float2);
++    AIRMapFogUniforms uniforms = {
++        .viewportSize = {(float)view.drawableSize.width, (float)view.drawableSize.height},
++        .noiseOrigin = self.noiseOrigin,
++        .mapPointsPerPixel = self.mapPointsPerPixel,
++        .time = (float)(CACurrentMediaTime() - self.animationStartedAt),
++        .clearRadius = self.clearRadiusPixels,
++        .featherReferenceRadius = self.featherReferenceRadiusPixels,
++        .pointCount = (uint32_t)pointCount,
++        .padding = 0,
++    };
++
++    [encoder setRenderPipelineState:self.fogPipeline];
++    [encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:0];
++    if (pointCount > 0) {
++        [encoder setFragmentBytes:self.visiblePointData.bytes length:self.visiblePointData.length atIndex:1];
++    } else {
++        vector_float2 emptyPoint = {0, 0};
++        [encoder setFragmentBytes:&emptyPoint length:sizeof(emptyPoint) atIndex:1];
++    }
++    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
++    [encoder endEncoding];
++    [commandBuffer presentDrawable:drawable];
++    [commandBuffer commit];
++}
++
++@end
