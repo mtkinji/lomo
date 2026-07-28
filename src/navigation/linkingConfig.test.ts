@@ -43,6 +43,12 @@ function parse(path: string): LeafRoute | null {
 }
 
 describe('linkingConfig', () => {
+  test('kwilt://explore resolves to the Explore capability map', () => {
+    const leaf = parse('explore');
+    expect(leaf?.name).toBe('ExploreMap');
+    expect(leaf?.path).toEqual(['Explore', 'ExploreMap']);
+  });
+
   describe('Money capability deep links', () => {
     test.each([
       ['money', 'MoneySummary', ['Money', 'MoneySummary'], undefined],

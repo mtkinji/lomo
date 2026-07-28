@@ -30,6 +30,10 @@ export type CapabilityNavigationTarget =
   | {
       name: 'Money';
       params: { screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' };
+    }
+  | {
+      name: 'Explore';
+      params: { screen: 'ExploreMap' };
     };
 
 export function resolveCapabilityNavigation(id: CapabilityNavigationId): CapabilityNavigationTarget {
@@ -39,6 +43,9 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
 
   if (rootRoute.root === 'Money') {
     return { name: 'Money', params: { screen: rootRoute.screen } };
+  }
+  if (rootRoute.root === 'Explore') {
+    return { name: 'Explore', params: { screen: rootRoute.screen } };
   }
 
   switch (rootRoute.tab) {

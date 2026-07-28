@@ -121,6 +121,9 @@ import { createUnifiedChatRepository } from '../features/unifiedChat/threadRepos
 import type { UnifiedChatThread } from '../features/unifiedChat/types';
 import { MoneyNavigator } from '../capabilities/money/navigation/MoneyNavigator';
 import type { MoneyStackParamList } from '../capabilities/money/navigation/types';
+import { ExploreNavigator } from '../capabilities/explore/navigation/ExploreNavigator';
+import type { ExploreStackParamList } from '../capabilities/explore/navigation/types';
+import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 
 export type RootDrawerParamList = {
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
@@ -132,6 +135,7 @@ export type RootDrawerParamList = {
    */
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
+  Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
@@ -665,6 +669,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               component={MoneyCapabilityHost}
               options={{ title: 'Money', drawerItemStyle: { display: 'none' } }}
             />
+            <Drawer.Screen
+              name="Explore"
+              component={ExploreCapabilityHost}
+              options={{ title: 'Explore', drawerItemStyle: { display: 'none' } }}
+            />
             {showDevTools ? (
               <>
                 <Drawer.Screen
@@ -865,6 +874,14 @@ function MoneyCapabilityHost() {
   );
 }
 
+function ExploreCapabilityHost() {
+  return (
+    <CapabilityShellProvider>
+      <ExploreNavigator />
+    </CapabilityShellProvider>
+  );
+}
+
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
@@ -992,6 +1009,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { capture } = useAnalytics();
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
+  const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1171,6 +1189,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
           rootNavigationRef.navigate('UnifiedChat', launchContext ? { launchContext } : undefined);
           coverMenu();
         }}
+        exploreEnabled={exploreEnabled}
       />
     </View>
   );

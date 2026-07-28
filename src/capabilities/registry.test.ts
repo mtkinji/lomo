@@ -15,6 +15,7 @@ describe('capability registry', () => {
       'arcs',
       'chapters',
       'money',
+      'explore',
     ]);
   });
 
@@ -46,6 +47,16 @@ describe('capability registry', () => {
       label: 'Money',
       group: 'money',
       rootRoute: { root: 'Money', screen: 'MoneySummary' },
+      availability: 'active',
+    });
+  });
+
+  it('registers Explore as a direct named capability', () => {
+    expect(getCapability('explore')).toMatchObject({
+      id: 'explore',
+      label: 'Explore',
+      group: null,
+      rootRoute: { root: 'Explore', screen: 'ExploreMap' },
       availability: 'active',
     });
   });
@@ -87,6 +98,7 @@ describe('capability registry', () => {
       ['arcs', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreArcs' }],
       ['chapters', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreChapters' }],
       ['money', { root: 'Money', screen: 'MoneySummary' }],
+      ['explore', { root: 'Explore', screen: 'ExploreMap' }],
     ]);
   });
 });
