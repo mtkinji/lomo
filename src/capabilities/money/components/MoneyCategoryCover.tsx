@@ -52,8 +52,7 @@ export function MoneyCategoryCover({ cover }: { cover?: MoneyCategoryCoverValue 
 
 const styles = StyleSheet.create({
   cover: {
-    height: 124,
-    marginHorizontal: -spacing.xl,
+    height: 168,
     overflow: 'hidden',
     backgroundColor: colors.pine100,
   },

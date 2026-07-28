@@ -26,6 +26,7 @@ describe('immersive object page headers', () => {
     '../../features/arcs/ArcDetailScreen.tsx',
     '../../features/arcs/GoalDetailScreen.tsx',
     '../../features/activities/ActivityDetailRefresh.tsx',
+    '../../capabilities/money/screens/MoneyCategoryDetailScreen.tsx',
   ])('keeps fixed action pills without a full-width header surface in %s', (relativePath) => {
     const source = readFileSync(path.join(__dirname, relativePath), 'utf8');
     const objectHeader = source.match(/<ObjectPageHeader[\s\S]*?\/>/)?.[0] ?? '';
