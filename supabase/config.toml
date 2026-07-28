@@ -379,6 +379,9 @@ verify_jwt = false
 [functions.create-plaid-link-token]
 verify_jwt = true
 
+[functions.secrets-expiry-monitor]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
