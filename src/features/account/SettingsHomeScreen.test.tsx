@@ -90,9 +90,16 @@ describe('SettingsHomeScreen planning group', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
 
     expect(getByText('Planning')).toBeTruthy();
+    expect(getByText('Family')).toBeTruthy();
     expect(getByText('Integrations')).toBeTruthy();
     expect(getByText('Personalization')).toBeTruthy();
     expect(getByText('Account')).toBeTruthy();
+  });
+
+  it('opens the canonical Household settings surface', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Household'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsHousehold');
   });
 
   it('keeps incomplete destinations hidden and removes non-settings dashboards', () => {

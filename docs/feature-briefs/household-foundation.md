@@ -1,7 +1,7 @@
 ---
 id: brief-household-foundation
 title: Household Foundation
-status: draft
+status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -128,5 +128,11 @@ The job-flow score does not increase on infrastructure alone; it becomes eligibl
 ## Open questions
 
 - What recovery process applies if the sole household owner loses account access?
-- Should a second adult be caregiver by default or require explicit capability grants during invitation?
 - Which capabilities, beyond To-dos and Screen Time, are ready to declare a child-participation and deactivation contract?
+
+## Accepted implementation decisions
+
+- An invited adult joins as a caregiver but receives no child-capability grants automatically. The owner grants authority for a named capability and child explicitly.
+- The first production slice supports `todos` and `screen-time` as catalog entries, while their child-facing content and device effects remain separate checkpoints.
+- Household creation remains just in time: the first dependent profile or caregiver invitation creates the Household and owner membership in the same server-authorized operation.
+- Direct table writes remain unavailable to app clients. Authority-changing actions go through narrowly scoped authenticated RPCs and append an audit event.

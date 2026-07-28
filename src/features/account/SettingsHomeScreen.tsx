@@ -51,6 +51,13 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     ],
   },
   {
+    id: 'family',
+    title: 'Family',
+    entries: [
+      { id: 'household', title: 'Household', route: 'SettingsHousehold' },
+    ],
+  },
+  {
     id: 'integrations',
     title: 'Integrations',
     entries: [

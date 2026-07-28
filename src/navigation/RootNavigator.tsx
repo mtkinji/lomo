@@ -43,6 +43,7 @@ import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
@@ -318,6 +319,7 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
+  SettingsHousehold: undefined;
   SettingsMoneyPrivacy: undefined;
   SettingsMoneyHousehold: undefined;
   SettingsWeeklyChapters: undefined;
@@ -925,6 +927,7 @@ function SettingsStackNavigator() {
         name="SettingsScreenTimeProtection"
         component={ScreenTimeProtectionSettingsScreen}
       />
+      <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyHousehold" component={MoneyHouseholdSettingsScreen} />
       <SettingsStack.Screen
