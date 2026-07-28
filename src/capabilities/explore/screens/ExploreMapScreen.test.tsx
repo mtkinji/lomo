@@ -62,6 +62,8 @@ describe('ExploreMapScreen', () => {
         sharing: 'private',
         showMyPath: true,
         showFamilyTerritory: false,
+        keepRecordingInBackground: false,
+        recapNotifications: true,
       });
     });
   });
@@ -100,5 +102,23 @@ describe('ExploreMapScreen', () => {
       expect.objectContaining({ latitudeDelta: 0.018, longitudeDelta: 0.018 }),
       450,
     );
+    expect(screen.getByText('You uncovered 3 new Places.')).toBeTruthy();
+    expect(screen.getAllByText('Spring Canyon Park').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Foothills Trail').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Harmony Overlook').length).toBeGreaterThan(0);
+    fireEvent.press(screen.getByText('Done'));
+    expect(useExploreStore.getState().sessions[0].recapStatus).toBe('seen');
+  });
+
+  it('exposes background recording and one recap notification as separate controls', () => {
+    const screen = render(<ExploreMapScreen />);
+    fireEvent.press(screen.getByLabelText('Explore layers and privacy'));
+
+    fireEvent(screen.getByLabelText('Screen-locked recording'), 'valueChange', true);
+    fireEvent(screen.getByLabelText('One recap notification'), 'valueChange', false);
+    expect(useExploreStore.getState().preferences).toEqual(expect.objectContaining({
+      keepRecordingInBackground: true,
+      recapNotifications: false,
+    }));
   });
 });

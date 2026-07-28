@@ -38,6 +38,7 @@ import {
 import { registerHealthDailySyncTask } from './src/services/health/healthBackgroundTask';
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
+import './src/capabilities/explore/runtime/exploreBackgroundTask';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';

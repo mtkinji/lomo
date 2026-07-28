@@ -52,6 +52,7 @@ type NotificationData =
   | { type: 'setupNextStep'; reason: 'no_goals' | 'no_activities' }
   | { type: 'screenTimeSetupOffer'; setupIntent: ScreenTimeSetupIntent }
   | { type: 'locationOffer'; activityId: string; event?: 'enter' | 'exit' }
+  | { type: 'exploreRecap'; sessionId: string }
   | { type: 'focusSession'; activityId: string; sessionId?: string }
   | { type: 'streak' }
   | { type: 'reactivation' };
@@ -1850,6 +1851,12 @@ function attachNotificationResponseListener() {
         });
         break;
       }
+      case 'exploreRecap': {
+        const sessionId = (data as { sessionId?: string }).sessionId;
+        if (!sessionId) return;
+        navigateWhenReady('Explore', { screen: 'ExploreMap' });
+        break;
+      }
       case 'goalNudge': {
         const goalId = (data as { goalId?: string }).goalId;
         if (!goalId) return;
@@ -2003,6 +2010,9 @@ async function captureLastNotificationOpenIfAny() {
           : null,
       opened_context: 'cold_start_or_resume',
     });
+    if (data.type === 'exploreRecap' && (data as { sessionId?: string }).sessionId) {
+      navigateWhenReady('Explore', { screen: 'ExploreMap' });
+    }
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to read last notification response', error);

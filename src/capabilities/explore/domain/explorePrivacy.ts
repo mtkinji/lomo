@@ -7,6 +7,9 @@ export function createDefaultExplorePreferences(): ExplorePreferences {
     showMyPath: true,
     showFamilyTerritory: false,
     visibleMemberIds: [],
+    keepRecordingInBackground: false,
+    recapNotifications: true,
+    showPlaceNamesOnLockScreen: false,
   };
 }
 

@@ -19,8 +19,10 @@ import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
 import { Text } from '../../../ui/Typography';
 import { buildAltitudeSegments } from '../domain/exploreElevation';
 import { buildFogHole } from '../domain/exploreGeometry';
+import { pendingExploreRecap } from '../domain/exploreRecap';
 import type { ExplorePoint, ExploreSharingLevel, Place } from '../domain/types';
 import { useExploreRecorder } from '../runtime/useExploreRecorder';
+import { useExploreRecapResolver } from '../runtime/useExploreRecapResolver';
 import { useExploreStore } from '../runtime/useExploreStore';
 
 const DEFAULT_REGION: Region = {
@@ -89,6 +91,7 @@ export function ExploreMapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const { openMenu } = useCapabilityShell();
   const authIdentity = useAppStore((state) => state.authIdentity);
+  const localUserId = authIdentity?.userId?.trim() || 'local-user';
   const sessions = useExploreStore((state) => state.sessions);
   const activeSession = useExploreStore((state) => state.activeSession);
   const exploredCells = useExploreStore((state) => state.exploredCells);
@@ -99,7 +102,10 @@ export function ExploreMapScreen() {
   const addPlaceVisit = useExploreStore((state) => state.addPlaceVisit);
   const clearHistory = useExploreStore((state) => state.clearHistory);
   const loadPreviewAdventure = useExploreStore((state) => state.loadPreviewAdventure);
+  const markRecapSeen = useExploreStore((state) => state.markRecapSeen);
+  const removeDiscoveredPlace = useExploreStore((state) => state.removeDiscoveredPlace);
   const recorder = useExploreRecorder();
+  useExploreRecapResolver(localUserId);
   const [layersVisible, setLayersVisible] = useState(false);
   const [collectingPlace, setCollectingPlace] = useState(false);
   const [placeName, setPlaceName] = useState('');
@@ -126,11 +132,25 @@ export function ExploreMapScreen() {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));
     return Object.values(places).filter((place) => visitedIds.has(place.id));
   }, [placeRelationships, places]);
+  const recap = useMemo(() => pendingExploreRecap({
+    version: 2,
+    activeSession,
+    sessions,
+    exploredCells,
+    places,
+    placeRelationships,
+    preferences,
+  }), [activeSession, exploredCells, placeRelationships, places, preferences, sessions]);
+  const resolvingSession = sessions.find((session) => session.recapStatus === 'resolving') ?? null;
 
   useEffect(() => {
     if (!latestPoint) return;
     mapRef.current?.animateToRegion(regionAround(latestPoint), 450);
   }, [latestPoint]);
+
+  useEffect(() => {
+    if (recap) setLayersVisible(false);
+  }, [recap]);
 
   const collectCurrentPlace = () => {
     const name = placeName.trim();
@@ -145,7 +165,7 @@ export function ExploreMapScreen() {
     };
     addPlaceVisit({
       place,
-      userId: authIdentity?.userId?.trim() || 'local-user',
+      userId: localUserId,
       visitedAt: latestPoint.recordedAt,
     });
     setPlaceName('');
@@ -274,6 +294,20 @@ export function ExploreMapScreen() {
             <Text style={styles.familyNote}>No family exploration has been synced. Nothing is shared from this build.</Text>
           ) : null}
 
+          <Text style={styles.sectionLabel}>WHILE EXPLORING</Text>
+          <SettingRow
+            label="Screen-locked recording"
+            detail="Continue only during an Explore outing you start"
+            value={preferences.keepRecordingInBackground}
+            onValueChange={(keepRecordingInBackground) => updatePreferences({ keepRecordingInBackground })}
+          />
+          <SettingRow
+            label="One recap notification"
+            detail="Only if an outing finishes away; honors Notification settings"
+            value={preferences.recapNotifications}
+            onValueChange={(recapNotifications) => updatePreferences({ recapNotifications })}
+          />
+
           <Text style={styles.sectionLabel}>WHAT I SHARE</Text>
           <View style={styles.sharingGrid}>
             {SHARING_OPTIONS.map((option) => {
@@ -336,8 +370,75 @@ export function ExploreMapScreen() {
           ) : null}
         </BottomDrawerScrollView>
       </BottomDrawer>
+
+      <BottomDrawer
+        visible={Boolean(recap)}
+        onClose={() => recap && markRecapSeen(recap.sessionId)}
+        snapPoints={['58%']}
+      >
+        {recap ? (
+          <BottomDrawerScrollView
+            contentContainerStyle={[styles.recapContent, { paddingBottom: insets.bottom + spacing.lg }]}
+          >
+            <BottomDrawerHeader title="Exploration Recap" variant="minimal" />
+            <View style={styles.recapHero}>
+              <View style={styles.recapIcon}>
+                <Icon name="map" size={24} color={colors.pine800} />
+              </View>
+              <Text style={styles.recapTitle}>
+                {recap.places.length
+                  ? `You uncovered ${recap.places.length} new ${recap.places.length === 1 ? 'Place' : 'Places'}.`
+                  : 'Your path is part of the map.'}
+              </Text>
+              <Text style={styles.recapDetail}>
+                {recap.pointCount} route points · {formatRecapDuration(recap.startedAt, recap.endedAt)}
+              </Text>
+            </View>
+            {recap.places.length ? (
+              <View style={styles.recapPlaces}>
+                {recap.places.map((place, index) => (
+                  <View key={place.id} style={styles.recapPlaceRow}>
+                    <View style={styles.recapPlaceNumber}><Text style={styles.recapPlaceNumberText}>{index + 1}</Text></View>
+                    <Text style={styles.recapPlaceName}>{place.name}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${place.name} from this recap`}
+                      hitSlop={8}
+                      onPress={() => removeDiscoveredPlace(recap.sessionId, place.id, localUserId)}
+                      style={({ pressed }) => pressed ? styles.pressed : null}
+                    >
+                      <Icon name="close" size={18} color={colors.textSecondary} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.recapEmpty}>No confidently named Place was found, so Kwilt kept the route without guessing.</Text>
+            )}
+            <Button testID="explore.recap.done" size="lg" onPress={() => markRecapSeen(recap.sessionId)}>Done</Button>
+          </BottomDrawerScrollView>
+        ) : null}
+      </BottomDrawer>
+
+      <BottomDrawer visible={Boolean(resolvingSession) && !recap} onClose={() => undefined} snapPoints={['32%']}>
+        <View style={[styles.resolvingContent, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={styles.recapIcon}>
+            <Icon name="pin" size={24} color={colors.pine800} />
+          </View>
+          <Text style={styles.recapTitle}>Finishing your recap…</Text>
+          <Text style={styles.recapEmpty}>Checking a few points on your route for confidently named Places.</Text>
+        </View>
+      </BottomDrawer>
     </View>
   );
+}
+
+function formatRecapDuration(startedAt: string, endedAt: string): string {
+  const minutes = Math.max(1, Math.round((Date.parse(endedAt) - Date.parse(startedAt)) / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
 }
 
 function SettingRow({
@@ -439,4 +540,16 @@ const styles = StyleSheet.create({
   collectForm: { gap: spacing.sm },
   placeInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.bodySm },
   collectActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
+  recapContent: { paddingHorizontal: spacing.lg, gap: spacing.lg },
+  recapHero: { alignItems: 'center' },
+  recapIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pine50 },
+  recapTitle: { ...typography.titleSm, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.md },
+  recapDetail: { ...typography.bodySm, color: colors.textSecondary, marginTop: spacing.xs },
+  recapPlaces: { gap: spacing.xs },
+  recapPlaceRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  recapPlaceNumber: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.turmeric100 },
+  recapPlaceNumberText: { ...typography.bodyXs, fontFamily: fonts.medium, color: colors.sumi900 },
+  recapPlaceName: { ...typography.body, flex: 1, color: colors.textPrimary },
+  recapEmpty: { ...typography.bodySm, color: colors.textSecondary, textAlign: 'center', lineHeight: 21 },
+  resolvingContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, alignItems: 'center', gap: spacing.sm },
 });

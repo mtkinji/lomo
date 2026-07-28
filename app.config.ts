@@ -179,16 +179,16 @@ const config = {
       NSSupportsLiveActivities: true,
       // Allow `Linking.canOpenURL('ms-outlook://...')` to detect Outlook installs.
       LSApplicationQueriesSchemes: ['ms-outlook'],
-      // Needed for soundscapes to continue playing when the screen locks.
-      // Location offers use region monitoring/geofences, not continuous background location.
-      UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
+      // Needed for soundscapes and explicitly started Explore outings to continue when locked.
+      // Location offers still use region monitoring/geofences, not continuous background location.
+      UIBackgroundModes: ['audio', 'fetch', 'remote-notification', 'location'],
       // Location offers (geofence enter/exit) permission strings.
       NSLocationWhenInUseUsageDescription:
         'Kwilt uses your location when you start Explore and to set up to-do places and maps.',
       NSLocationAlwaysUsageDescription:
-        'Kwilt uses your location in the background only for optional arrive/leave nudges you turn on for a to-do.',
+        'Kwilt uses your location in the background only while an Explore outing you started is active or for optional arrive/leave nudges you turn on for a to-do.',
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        'Kwilt uses your location in the background to nudge you when you arrive or leave a place for a to-do.',
+        'Kwilt can keep an Explore outing you started on your private map while the screen is locked, and can nudge you for optional to-do places.',
       // ExpoCalendar: required usage strings. Without these, iOS can crash at runtime
       // when the Calendar module initializes.
       NSCalendarsFullAccessUsageDescription:
@@ -256,7 +256,16 @@ const config = {
     ],
     'expo-notifications',
     'expo-localization',
-    'expo-location',
+    [
+      'expo-location',
+      {
+        isIosBackgroundLocationEnabled: true,
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        locationAlwaysAndWhenInUsePermission:
+          'Kwilt keeps recording only while an Explore outing you started is active, so your route can continue when the screen is locked.',
+      },
+    ],
     [
       'expo-local-authentication',
       {

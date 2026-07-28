@@ -23,7 +23,12 @@ describe('Explore state transitions', () => {
     const completed = completeExploreSession(recorded, '2026-07-27T18:10:00.000Z');
 
     expect(completed.activeSession).toBeNull();
-    expect(completed.sessions[0]).toMatchObject({ id: 'session-1', points: [point] });
+    expect(completed.sessions[0]).toMatchObject({
+      id: 'session-1',
+      points: [point],
+      recapStatus: 'resolving',
+      completedReason: 'manual',
+    });
     expect(Object.keys(completed.exploredCells)).toHaveLength(1);
   });
 

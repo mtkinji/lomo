@@ -27,6 +27,12 @@ export type ExploreSession = {
   startedAt: string;
   endedAt: string | null;
   points: ExplorePoint[];
+  discoveredPlaceIds: string[];
+  recapStatus: 'none' | 'resolving' | 'ready' | 'seen';
+  completedReason: 'manual' | 'background-stillness' | 'interrupted' | null;
+  recapNotificationSentAt: string | null;
+  backgroundStillnessAnchor: ExploreCoordinate | null;
+  backgroundStillSince: string | null;
 };
 
 export type ExploreSharingLevel = 'private' | 'territory' | 'completed-paths' | 'live';
@@ -37,10 +43,13 @@ export type ExplorePreferences = {
   showMyPath: boolean;
   showFamilyTerritory: boolean;
   visibleMemberIds: string[];
+  keepRecordingInBackground: boolean;
+  recapNotifications: boolean;
+  showPlaceNamesOnLockScreen: boolean;
 };
 
 export type ExploreData = {
-  version: 1;
+  version: 2;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;
