@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { colors, spacing, typography, fonts } from '../theme';
+import { colors, floatingControl, spacing, typography, fonts } from '../theme';
 import { HStack, VStack } from './primitives';
 import { Icon, type IconName } from './Icon';
 import Svg, { Circle } from 'react-native-svg';
@@ -633,7 +633,11 @@ export function ActionDock({
             collapsable={false}
             style={[styles.dock, hasLeftContent ? styles.leftContentDock : null]}
           >
-            <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFillObject} />
+            <BlurView
+              intensity={floatingControl.material.intensity}
+              tint={floatingControl.material.tint}
+              style={StyleSheet.absoluteFillObject}
+            />
             <View pointerEvents="none" style={styles.dockTint} />
             {hasLeftContent ? (
               leftContent
@@ -697,7 +701,11 @@ export function ActionDock({
                 ]}
               >
                 {/* Decorative layers (do not affect tap target or layout). */}
-                <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFillObject} />
+                <BlurView
+                  intensity={floatingControl.material.intensity}
+                  tint={floatingControl.material.tint}
+                  style={StyleSheet.absoluteFillObject}
+                />
                 <View pointerEvents="none" style={styles.dockTint} />
                 {effectiveBgColor ? (
                   <AnimatedView
@@ -797,11 +805,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   dockShadow: {
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    ...floatingControl.shadow,
   },
   leftContentDockShadow: {
     maxWidth: 292,
@@ -812,16 +816,16 @@ const styles = StyleSheet.create({
   dock: {
     borderRadius: DOCK_RADIUS,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    backgroundColor: floatingControl.material.backgroundColor,
   },
   leftContentDock: {
     minHeight: RIGHT_ITEM_SIZE,
   },
   dockTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: floatingControl.material.overlayColor,
   },
   row: {
     paddingHorizontal: DOCK_PADDING_X,
@@ -839,9 +843,9 @@ const styles = StyleSheet.create({
     height: RIGHT_ITEM_SIZE,
     borderRadius: RIGHT_ITEM_SIZE / 2,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    backgroundColor: floatingControl.material.backgroundColor,
     alignItems: 'center',
     justifyContent: 'center',
   },

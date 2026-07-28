@@ -84,4 +84,25 @@ export const blurs = {
   },
 } as const;
 
-
+/**
+ * One paper-like material for persistent controls floating above page content.
+ * Circles and capsules share the exact surface and elevation; their size and
+ * grouping—not a second material recipe—establish hierarchy.
+ */
+export const floatingControl = {
+  material: {
+    intensity: 20,
+    tint: 'light' as const,
+    backgroundColor: 'rgba(255,255,255,0.76)',
+    overlayColor: 'rgba(255,255,255,0.50)',
+    borderColor: '#FFFFFF',
+    borderWidth: 1,
+  },
+  shadow: {
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+} as const;
