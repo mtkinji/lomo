@@ -343,11 +343,34 @@ export async function signInWithProvider(provider: AuthProvider): Promise<Sessio
     const cb = new URL(result.url);
     authCode = (cb.searchParams.get('code') ?? '').trim();
     if (!authCode) {
+      const fragmentParams = new URLSearchParams(cb.hash.replace(/^#/, ''));
+      const callbackError = (cb.searchParams.get('error') ?? fragmentParams.get('error') ?? '').trim();
+      const callbackErrorCode = (
+        cb.searchParams.get('error_code') ??
+        fragmentParams.get('error_code') ??
+        ''
+      ).trim();
+
+      if (__DEV__ && (callbackError || callbackErrorCode)) {
+        // Keep provider diagnostics available to developers without exposing the
+        // full callback URL or internal OAuth details in the sign-in UI.
+        // eslint-disable-next-line no-console
+        console.warn('[auth] OAuth provider callback failed:', {
+          provider,
+          error: callbackError || undefined,
+          errorCode: callbackErrorCode || undefined,
+        });
+      }
+
+      if (callbackError.toLowerCase() === 'access_denied') {
+        throw new Error('Sign-in cancelled');
+      }
+
+      const providerName = provider === 'apple' ? 'Apple' : 'Google';
+      const alternateProvider = provider === 'apple' ? 'Google' : 'Apple';
       throw new Error(
-        `Auth callback missing code. Got: ${result.url}\n\n` +
-          `If this keeps happening in Expo Go, confirm Supabase Auth → URL Configuration:\n` +
-          `- Site URL is set to ${redirectTo}\n` +
-          `- Redirect URLs includes ${redirectTo}`,
+        `${providerName} sign-in is temporarily unavailable. ` +
+          `Please try again, or continue with ${alternateProvider}.`,
       );
     }
   } catch (e: any) {
@@ -460,5 +483,4 @@ export async function ensureSignedInWithPrompt(
     });
   }
 }
-
 

@@ -34,7 +34,10 @@ jest.mock('../../store/useAuthPromptStore', () => ({
   },
 }));
 
-import { getSession, isInvalidRefreshTokenError } from './auth';
+import { getSession, isInvalidRefreshTokenError, signInWithProvider } from './auth';
+import * as WebBrowser from 'expo-web-browser';
+
+const mockOpenAuthSessionAsync = WebBrowser.openAuthSessionAsync as jest.Mock;
 
 describe('auth invalid refresh recovery', () => {
   beforeEach(() => {
@@ -84,5 +87,35 @@ describe('auth invalid refresh recovery', () => {
     expect(isInvalidRefreshTokenError({ message: 'refresh token invalid' })).toBe(true);
     expect(isInvalidRefreshTokenError({ message: 'other failure' })).toBe(false);
     expect(isInvalidRefreshTokenError(null)).toBe(false);
+  });
+});
+
+describe('OAuth callback failures', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('turns an Apple provider callback failure into a safe retry message', async () => {
+    mockGetSupabaseClient.mockReturnValue({
+      auth: {
+        signInWithOAuth: jest.fn(async () => ({
+          data: { url: 'https://auth.kwilt.app/auth/v1/authorize?provider=apple' },
+          error: null,
+        })),
+      },
+    });
+    mockOpenAuthSessionAsync.mockResolvedValue({
+      type: 'success',
+      url:
+        'kwilt://auth/callback?' +
+        'error=server_error&error_code=unexpected_failure&' +
+        'error_description=Unable+to+exchange+external+code%3A+cacb' +
+        '#error=server_error&error_code=unexpected_failure&' +
+        'error_description=Unable+to+exchange+external+code%253A+cacb&sb=opaque',
+    });
+
+    await expect(signInWithProvider('apple')).rejects.toThrow(
+      'Apple sign-in is temporarily unavailable. Please try again, or continue with Google.',
+    );
   });
 });

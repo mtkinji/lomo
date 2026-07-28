@@ -867,6 +867,32 @@ describe('CAN-SPAM postal address footer (Phase 7 of email-system-ga-plan.md)', 
   });
 });
 
+describe('secret expiry alerts', () => {
+  it('renders a missing provider expiry as an actionable metadata alert', () => {
+    const { buildSecretExpiryAlertEmail } = loadTemplates();
+    const out = buildSecretExpiryAlertEmail({
+      environment: 'prod',
+      items: [
+        {
+          displayName: 'Microsoft Calendar OAuth client secret',
+          secretKey: 'MICROSOFT_CALENDAR_CLIENT_SECRET',
+          provider: 'microsoft',
+          expiresAtIso: null,
+          daysUntilExpiry: null,
+          ownerEmail: null,
+          rotationUrl: 'https://entra.microsoft.com/',
+          notes: 'Set the exact expiry from Entra.',
+          severity: 'unknown',
+        },
+      ],
+    });
+
+    expect(out.subject).toContain('expiry metadata missing');
+    expect(out.text).toContain('UNKNOWN (set the provider-side expiry date)');
+    expect(out.html).toContain('Unknown — set expiry metadata');
+  });
+});
+
 describe('CI guard: emailTemplates.ts source hygiene (Phase 3.5)', () => {
   // Relative to repo root (jest cwd is the repo root via npm test).
   const SOURCE = path.resolve(__dirname, '..', 'emailTemplates.ts');

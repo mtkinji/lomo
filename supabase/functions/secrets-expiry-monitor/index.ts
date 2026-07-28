@@ -13,10 +13,18 @@
 // - KWILT_SECRET_MONITOR_EMAIL_FROM (optional; fallback INVITE_EMAIL_FROM; then no-reply@kwilt.app)
 // - KWILT_SECRET_MONITOR_FROM_NAME (optional; default "Kwilt")
 // - KWILT_SECRET_MONITOR_ENVIRONMENT (optional; default "prod")
+// - KWILT_SECRET_MONITOR_CRON_SECRET (required bearer credential)
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { buildSecretExpiryAlertEmail } from '../_shared/emailTemplates.ts';
+import {
+  APPLE_AUTH_SECRET_KEY,
+  classifySecretExpiry,
+  isSecretMonitorAuthorized,
+  parseAppleRotationRecord,
+  type SecretExpirySeverity,
+} from '../_shared/secretExpiryMonitor.ts';
 
 type DbRow = {
   id: string;
@@ -31,7 +39,7 @@ type DbRow = {
   notes: string | null;
   is_active: boolean;
   last_notified_at: string | null;
-  last_notified_severity: 'warning' | 'expired' | null;
+  last_notified_severity: SecretExpirySeverity | null;
 };
 
 type AlertItem = {
@@ -39,12 +47,12 @@ type AlertItem = {
   displayName: string;
   secretKey: string;
   provider: string | null;
-  expiresAtIso: string;
-  daysUntilExpiry: number;
+  expiresAtIso: string | null;
+  daysUntilExpiry: number | null;
   ownerEmail: string | null;
   rotationUrl: string | null;
   notes: string | null;
-  severity: 'warning' | 'expired';
+  severity: SecretExpirySeverity;
 };
 
 function csvList(raw: string | null | undefined): string[] {
@@ -68,9 +76,9 @@ function clampInt(raw: unknown, fallback: number) {
 }
 
 function shouldNotify(params: {
-  severity: 'warning' | 'expired';
+  severity: SecretExpirySeverity;
   lastNotifiedAtIso: string | null;
-  lastNotifiedSeverity: 'warning' | 'expired' | null;
+  lastNotifiedSeverity: SecretExpirySeverity | null;
   nowMs: number;
 }) {
   const { severity, lastNotifiedAtIso, lastNotifiedSeverity, nowMs } = params;
@@ -84,7 +92,7 @@ function shouldNotify(params: {
   if (!Number.isFinite(lastMs)) return true;
 
   // Throttle repeats.
-  const minHours = severity === 'expired' ? 12 : 24;
+  const minHours = severity === 'expired' ? 12 : severity === 'unknown' ? 7 * 24 : 24;
   return nowMs - lastMs >= minHours * 60 * 60 * 1000;
 }
 
@@ -127,6 +135,14 @@ serve(async (req) => {
     });
   }
 
+  const cronSecret = (Deno.env.get('KWILT_SECRET_MONITOR_CRON_SECRET') ?? '').trim();
+  if (!isSecretMonitorAuthorized(req, cronSecret)) {
+    return new Response(JSON.stringify({ error: { message: 'Unauthorized' } }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const admin = getSupabaseAdmin();
   if (!admin) {
     return new Response(JSON.stringify({ error: { message: 'Supabase not configured' } }), {
@@ -136,6 +152,49 @@ serve(async (req) => {
   }
 
   const env = (Deno.env.get('KWILT_SECRET_MONITOR_ENVIRONMENT') ?? 'prod').trim() || 'prod';
+
+  if (req.method === 'POST') {
+    const body = await req.json().catch(() => null);
+    if ((body as { action?: unknown } | null)?.action === 'record_rotation') {
+      const record = parseAppleRotationRecord(body);
+      if (!record) {
+        return new Response(JSON.stringify({ error: { message: 'Invalid rotation record' } }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const nowIso = new Date().toISOString();
+      const { error } = await admin.from('kwilt_secret_expirations').upsert(
+        {
+          display_name: 'Supabase Apple OAuth client secret',
+          secret_key: APPLE_AUTH_SECRET_KEY,
+          provider: 'apple',
+          environment: env,
+          expires_at: record.expiresAt,
+          alert_days_before: 45,
+          rotation_url: 'https://supabase.com/dashboard/project/sqxwjtorodqjdfnuvprf/auth/providers',
+          notes: 'Automatically rotated monthly by GitHub Actions.',
+          is_active: true,
+          last_notified_at: null,
+          last_notified_severity: null,
+          updated_at: nowIso,
+        },
+        { onConflict: 'secret_key,environment' },
+      );
+      if (error) {
+        return new Response(JSON.stringify({ error: { message: 'Unable to record rotation' } }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ ok: true, recorded: true, expiresAt: record.expiresAt }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   const resendKey = (Deno.env.get('RESEND_API_KEY') ?? '').trim();
   const fromEmail = (
@@ -190,15 +249,9 @@ serve(async (req) => {
   const candidates: AlertItem[] = [];
   for (const r of rows) {
     const expiresAtIso = typeof r.expires_at === 'string' ? r.expires_at : null;
-    if (!expiresAtIso) continue;
-    const expiresMs = Date.parse(expiresAtIso);
-    if (!Number.isFinite(expiresMs)) continue;
-
-    const daysUntil = Math.floor((expiresMs - nowMs) / (24 * 60 * 60 * 1000));
     const alertDays = Math.max(0, clampInt(r.alert_days_before, 30));
-
-    const severity: 'warning' | 'expired' | null =
-      expiresMs <= nowMs ? 'expired' : daysUntil <= alertDays ? 'warning' : null;
+    const classification = classifySecretExpiry(expiresAtIso, alertDays, nowMs);
+    const { severity } = classification;
     if (!severity) continue;
 
     if (
@@ -206,7 +259,11 @@ serve(async (req) => {
         severity,
         lastNotifiedAtIso: typeof r.last_notified_at === 'string' ? r.last_notified_at : null,
         lastNotifiedSeverity:
-          r.last_notified_severity === 'warning' || r.last_notified_severity === 'expired' ? r.last_notified_severity : null,
+          r.last_notified_severity === 'unknown' ||
+          r.last_notified_severity === 'warning' ||
+          r.last_notified_severity === 'expired'
+            ? r.last_notified_severity
+            : null,
         nowMs,
       })
     ) {
@@ -215,8 +272,8 @@ serve(async (req) => {
         displayName: r.display_name,
         secretKey: r.secret_key,
         provider: r.provider ?? null,
-        expiresAtIso,
-        daysUntilExpiry: daysUntil,
+        expiresAtIso: classification.expiresAtIso,
+        daysUntilExpiry: classification.daysUntilExpiry,
         ownerEmail: r.owner_email ?? null,
         rotationUrl: r.rotation_url ?? null,
         notes: r.notes ?? null,
@@ -279,4 +336,3 @@ serve(async (req) => {
     headers: { 'Content-Type': 'application/json' },
   });
 });
-
