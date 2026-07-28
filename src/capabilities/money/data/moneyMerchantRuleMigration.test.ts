@@ -1,0 +1,44 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const migration = [
+  'supabase/migrations/20260728051325_merchant_rules_apply_all_transactions.sql',
+  'supabase/migrations/20260728052054_ensure_merchant_rule_backfill_on_rule_write.sql',
+].map((path) => readFileSync(resolve(process.cwd(), path), 'utf8')).join('\n').toLowerCase();
+
+describe('Money merchant rule persistence migration', () => {
+  it('atomically saves a rule and reapplies it across matching history', () => {
+    expect(migration).toContain('function public.upsert_budget_transaction_match_rule');
+    expect(migration).toContain('v_user_id uuid := (select auth.uid())');
+    expect(migration).toContain("budget_match_source = 'merchant_rule'");
+    expect(migration).toContain('from public.budget_transaction_match_rules rule');
+    expect(migration).toContain('get diagnostics v_applied_count = row_count');
+    expect(migration).toContain('security invoker');
+    expect(migration).not.toContain('security definer');
+  });
+
+  it('applies saved rules when future transactions are inserted or their merchant changes', () => {
+    expect(migration).toContain('function public.apply_budget_transaction_match_rule_to_row');
+    expect(migration).toContain('before insert or update of merchant_name, name, user_id');
+    expect(migration).toContain('execute function public.apply_budget_transaction_match_rule_to_row()');
+  });
+
+  it('backfills complete history even when an older app writes the rule table directly', () => {
+    expect(migration).toContain('function public.apply_budget_transaction_match_rule_to_history');
+    expect(migration).toContain('after insert or update of budget_id, merchant_contains, merchant_match_mode');
+    expect(migration).toContain('execute function public.apply_budget_transaction_match_rule_to_history()');
+  });
+
+  it('keeps explicit exclusions, transfers, category credits, and splits as stronger row-level overrides', () => {
+    expect(migration).toContain("budget_match_source = 'excluded'");
+    expect(migration).toContain("money_meaning in ('transfer', 'not_counted', 'category_credit')");
+    expect(migration).toContain('from public.budget_transaction_allocations allocation');
+  });
+
+  it('limits the public RPC to authenticated users', () => {
+    expect(migration).toContain('revoke execute on function public.upsert_budget_transaction_match_rule');
+    expect(migration).toContain('from public, anon');
+    expect(migration).toContain('grant execute on function public.upsert_budget_transaction_match_rule');
+    expect(migration).toContain('to authenticated');
+  });
+});

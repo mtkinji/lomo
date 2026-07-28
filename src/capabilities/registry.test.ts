@@ -51,11 +51,11 @@ describe('capability registry', () => {
     });
   });
 
-  it('registers Explore as a direct named capability', () => {
+  it('registers Explore in the Play group', () => {
     expect(getCapability('explore')).toMatchObject({
       id: 'explore',
       label: 'Explore',
-      group: null,
+      group: 'play',
       rootRoute: { root: 'Explore', screen: 'ExploreMap' },
       availability: 'active',
     });

@@ -55,19 +55,23 @@ export type ExploreSession = {
 };
 
 export type ExploreSharingLevel = 'private' | 'territory' | 'completed-paths' | 'live';
+export type ExploreMapStyle = 'standard' | 'satellite' | 'hybrid';
 
 export type ExplorePreferences = {
   recording: 'manual' | 'automatic';
   sharing: ExploreSharingLevel;
   showMyPath: boolean;
   showFamilyTerritory: boolean;
+  showFog: boolean;
+  mapStyle: ExploreMapStyle;
   visibleMemberIds: string[];
   recapNotifications: boolean;
   showPlaceNamesOnLockScreen: boolean;
+  onboardingCompleted: boolean;
 };
 
 export type ExploreData = {
-  version: 4;
+  version: 6;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;

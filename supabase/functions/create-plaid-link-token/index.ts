@@ -5,6 +5,7 @@ import {
   plaidBaseUrls,
 } from '../_shared/plaid.ts';
 import { getAuthenticatedUser, isAuthenticationError } from '../_shared/supabase.ts';
+import { buildPlaidPlatformFields, resolvePlaidLinkPlatform } from './plaidLinkRequest.ts';
 
 function getRequiredEnv(name: string) {
   const value = Deno.env.get(name);
@@ -30,6 +31,11 @@ Deno.serve(async (request) => {
 
   try {
     const { user } = await getAuthenticatedUser(request);
+    const body = await request.json().catch(() => ({}));
+    const platform = resolvePlaidLinkPlatform(
+      body && typeof body === 'object' && 'platform' in body ? body.platform : undefined,
+      request.headers.get('user-agent'),
+    );
     const clientId = getRequiredEnv('PLAID_CLIENT_ID');
     const secret = getRequiredEnv('PLAID_SECRET');
     assertPlaidEnvironmentAllowedForSupabase();
@@ -62,8 +68,7 @@ Deno.serve(async (request) => {
       transactions: {
         days_requested: daysRequested,
       },
-      ...(redirectUri ? { redirect_uri: redirectUri } : {}),
-      ...(androidPackageName ? { android_package_name: androidPackageName } : {}),
+      ...buildPlaidPlatformFields({ platform, redirectUri, androidPackageName }),
     };
 
     const plaidResponse = await fetch(`${plaidBaseUrls[environment]}/link/token/create`, {

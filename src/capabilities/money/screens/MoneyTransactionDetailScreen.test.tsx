@@ -12,4 +12,11 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
   });
+
+  it('does not report a restored transaction as unavailable while Money is still loading', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('snapshot,\n    status,');
+    expect(source).toContain("status === 'loading' ? 'Loading transaction…' : 'This transaction is unavailable'");
+  });
 });

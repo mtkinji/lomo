@@ -280,7 +280,7 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 4,
+      version: 6,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
@@ -298,12 +298,23 @@ export const useExploreStore = create<ExploreStore>()(
           keepRecordingInBackground?: boolean;
         };
         const { keepRecordingInBackground: _legacyBackgroundToggle, ...preferences } = persistedPreferences;
-        const nextPreferences = { ...defaults.preferences, ...preferences };
+        const hadPersistedHistory = Boolean(
+          persisted.activeSession?.points?.length ||
+          persisted.sessions?.some((session) => session.points?.length) ||
+          Object.keys(persisted.exploredCells ?? {}).length,
+        );
+        const nextPreferences = {
+          ...defaults.preferences,
+          ...preferences,
+          onboardingCompleted: typeof preferences.onboardingCompleted === 'boolean'
+            ? preferences.onboardingCompleted
+            : hadPersistedHistory,
+        };
         const activeSession = persisted.activeSession ? upgradeSession(persisted.activeSession) : null;
         return {
           ...defaults,
           ...persisted,
-          version: 4,
+          version: 6,
           activeSession,
           sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
           preferences: nextPreferences,

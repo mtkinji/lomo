@@ -2,7 +2,14 @@
 
 ## Learning questions
 
-- Does the 100-foot reveal feel like discovering territory rather than merely logging GPS?
+- Does **See where you’ve been. Explore where you haven’t.** communicate both the personal-history value and the invitation to future discovery?
+- Does one stationary clearing provide enough first-use value to make the recording-mode choice understandable?
+- Do people choose automatic recording because they understand the benefit, rather than because the UI pressures them?
+- Does removing navigation and search during first use make the introduction feel focused rather than trapped?
+- Does the compact single-heading choice drawer explain the automatic/manual distinction without requiring a paragraph?
+- Do the entering controls make the shift from introduction to usable map legible, including with reduced motion enabled?
+
+- Does the 65-foot clear core and long feather feel like discovering territory rather than merely logging GPS?
 - Is the altitude color readable and meaningful without becoming a score?
 - Do users understand recording, sharing, and viewing as separate controls?
 - Does explicit session recording create enough value before background tracking exists?

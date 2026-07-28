@@ -1,6 +1,7 @@
 import type { ExploreCoordinate, ExploredCell } from './types';
 
-export const EXPLORE_REVEAL_RADIUS_M = 30.48;
+export const EXPLORE_REVEAL_RADIUS_M = 65 * 0.3048;
+export const EXPLORE_FEATHER_REFERENCE_RADIUS_M = 100 * 0.3048;
 export const EXPLORE_CELL_SIZE_M = 24;
 
 const EARTH_RADIUS_M = 6_371_000;
@@ -92,4 +93,12 @@ export function buildFogHole(
     destinationCoordinate(center, radiusM, 360 - (index * 360) / safeSegments),
   );
   return [...ring, ring[0]];
+}
+
+export function isCoordinateExplored(
+  coordinate: ExploreCoordinate,
+  exploredCells: Array<Pick<ExploredCell, 'center'>>,
+  revealRadiusM: number = EXPLORE_REVEAL_RADIUS_M,
+): boolean {
+  return exploredCells.some((cell) => coordinateDistanceM(coordinate, cell.center) <= revealRadiusM);
 }

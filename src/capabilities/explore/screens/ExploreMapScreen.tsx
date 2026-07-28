@@ -1,28 +1,54 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import {
-  Alert,
+  AccessibilityInfo,
+  Animated,
+  Platform,
   Pressable,
   StyleSheet,
-  Switch,
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { BlurView } from 'expo-blur';
 import MapView, { Marker, Polygon, Polyline, type Region } from 'react-native-maps';
 import { useCapabilityShell } from '../../../navigation/CapabilityShellContext';
+import type { RootDrawerParamList } from '../../../navigation/RootNavigator';
 import { useAppStore } from '../../../store/useAppStore';
 import { colors, fonts, spacing, typography } from '../../../theme';
+import { floatingControl } from '../../../theme/overlays';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
-import { Button, IconButton } from '../../../ui/Button';
+import { Button } from '../../../ui/Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../ui/DropdownMenu';
 import { Icon } from '../../../ui/Icon';
+import { KwiltSwitch } from '../../../ui/KwiltSwitch';
+import { SegmentedControl } from '../../../ui/SegmentedControl';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
-import { PageHeader } from '../../../ui/layout/PageHeader';
+import { HeaderActionPill, ObjectPageHeader } from '../../../ui/layout/ObjectPageHeader';
+import { MenuToggleIcon } from '../../../ui/layout/PageHeader';
+import {
+  RESTING_COMPOSER_HEIGHT_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../../ui/layout/restingComposerMetrics';
 import { Text } from '../../../ui/Typography';
 import { buildAltitudeSegments } from '../domain/exploreElevation';
-import { buildFogHole, EXPLORE_REVEAL_RADIUS_M } from '../domain/exploreGeometry';
+import {
+  buildFogHole,
+  EXPLORE_FEATHER_REFERENCE_RADIUS_M,
+  EXPLORE_REVEAL_RADIUS_M,
+  isCoordinateExplored,
+} from '../domain/exploreGeometry';
 import { pendingExploreRecap } from '../domain/exploreRecap';
-import type { ExplorePoint, ExploreSharingLevel, Place } from '../domain/types';
+import type { ExplorePoint, ExplorePreferences, Place } from '../domain/types';
+import type { ExploreStackParamList } from '../navigation/types';
 import { useExploreRecorder } from '../runtime/useExploreRecorder';
 import { useExploreRecapResolver } from '../runtime/useExploreRecapResolver';
 import { useExploreStore } from '../runtime/useExploreStore';
@@ -34,24 +60,24 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 42,
 };
 
-const SHARING_OPTIONS: Array<{ value: ExploreSharingLevel; label: string; detail: string }> = [
-  { value: 'private', label: 'Private', detail: 'Only you' },
-  { value: 'territory', label: 'Territory', detail: 'Cleared areas' },
-  { value: 'completed-paths', label: 'Paths', detail: 'Finished adventures' },
-  { value: 'live', label: 'Live', detail: 'Current location' },
-];
-
-function pointsInDisplayOrder(sessions: ReturnType<typeof useExploreStore.getState>['sessions'], active: ReturnType<typeof useExploreStore.getState>['activeSession']): ExplorePoint[] {
-  const completed = [...sessions].reverse().flatMap((session) => session.points);
-  return active ? [...completed, ...active.points] : completed;
+function pointGroupsInDisplayOrder(
+  sessions: ReturnType<typeof useExploreStore.getState>['sessions'],
+  active: ReturnType<typeof useExploreStore.getState>['activeSession'],
+): ExplorePoint[][] {
+  const completed = [...sessions].reverse().map((session) => session.points);
+  return active ? [...completed, active.points] : completed;
 }
 
-function regionAround(point: ExplorePoint): Region {
+function regionAround(
+  point: Pick<ExplorePoint, 'latitude' | 'longitude'>,
+  verticalOffsetRatio = 0,
+): Region {
+  const latitudeDelta = 0.0045;
   return {
-    latitude: point.latitude,
+    latitude: point.latitude - latitudeDelta * verticalOffsetRatio,
     longitude: point.longitude,
-    latitudeDelta: 0.018,
-    longitudeDelta: 0.018,
+    latitudeDelta,
+    longitudeDelta: 0.0045,
   };
 }
 
@@ -74,6 +100,7 @@ function fogRingForRegion(region: Region) {
 export function ExploreMapScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView | null>(null);
+  const navigation = useNavigation<NavigationProp<ExploreStackParamList>>();
   const { openMenu } = useCapabilityShell();
   const authIdentity = useAppStore((state) => state.authIdentity);
   const localUserId = authIdentity?.userId?.trim() || 'local-user';
@@ -85,56 +112,108 @@ export function ExploreMapScreen() {
   const preferences = useExploreStore((state) => state.preferences);
   const updatePreferences = useExploreStore((state) => state.updatePreferences);
   const addPlaceVisit = useExploreStore((state) => state.addPlaceVisit);
-  const clearHistory = useExploreStore((state) => state.clearHistory);
-  const loadPreviewAdventure = useExploreStore((state) => state.loadPreviewAdventure);
   const markRecapsSeen = useExploreStore((state) => state.markRecapsSeen);
   const removeDiscoveredPlaceFromRecaps = useExploreStore((state) => state.removeDiscoveredPlaceFromRecaps);
   const recorder = useExploreRecorder();
   useExploreRecapResolver(localUserId);
-  const [layersVisible, setLayersVisible] = useState(false);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [collectingPlace, setCollectingPlace] = useState(false);
   const [placeName, setPlaceName] = useState('');
+  const [reduceMotion, setReduceMotion] = useState(false);
 
-  const points = useMemo(() => pointsInDisplayOrder(sessions, activeSession), [activeSession, sessions]);
+  const pointGroups = useMemo(
+    () => pointGroupsInDisplayOrder(sessions, activeSession),
+    [activeSession, sessions],
+  );
+  const points = useMemo(() => pointGroups.flat(), [pointGroups]);
   const latestPoint = points[points.length - 1] ?? null;
   const [visibleRegion, setVisibleRegion] = useState<Region>(() =>
     latestPoint ? regionAround(latestPoint) : DEFAULT_REGION,
   );
-  const altitudeSegments = useMemo(() => buildAltitudeSegments(points), [points]);
-  const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
-  const fogHoles = useMemo(() => {
+  const altitudeSegments = useMemo(
+    () => pointGroups.flatMap((group) => buildAltitudeSegments(group)),
+    [pointGroups],
+  );
+  const visibleCells = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
-    const visibleCells = Object.values(exploredCells)
+    return Object.values(exploredCells)
       .filter((cell) =>
         Math.abs(cell.center.latitude - visibleRegion.latitude) <= latitudeRadius &&
         Math.abs(cell.center.longitude - visibleRegion.longitude) <= longitudeRadius,
       )
       .slice(-700);
-    return {
-      core: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
-      mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 10)),
-      veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 22)),
-    };
   }, [exploredCells, visibleRegion]);
+  const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
+  const fogHoles = useMemo(() => {
+    return {
+      core: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
+      mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 30)),
+      veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
+    };
+  }, [visibleCells]);
+  const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
+      fogEnabled: preferences.showFog,
+      fogCoordinates: preferences.showFog ? visibleCells.map((cell) => cell.center) : [],
+      fogClearRadiusMeters: EXPLORE_REVEAL_RADIUS_M,
+      fogFeatherReferenceRadiusMeters: EXPLORE_FEATHER_REFERENCE_RADIUS_M,
+    } as unknown as ComponentProps<typeof MapView>) : {}, [preferences.showFog, visibleCells]);
+  const exploredCellValues = useMemo(() => Object.values(exploredCells), [exploredCells]);
   const savedPlaces = useMemo(() => {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));
     return Object.values(places).filter((place) => visitedIds.has(place.id));
   }, [placeRelationships, places]);
+  const mapPlaces = useMemo(
+    () => savedPlaces.filter((place) => isCoordinateExplored(place, exploredCellValues)),
+    [exploredCellValues, savedPlaces],
+  );
+  const filteredPlaces = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return savedPlaces;
+    return savedPlaces.filter((place) => place.name.toLocaleLowerCase().includes(query));
+  }, [savedPlaces, searchQuery]);
   const recap = useMemo(() => pendingExploreRecap({
     sessions,
     places,
   }), [places, sessions]);
   const resolvingSession = sessions.find((session) => session.recapStatus === 'resolving') ?? null;
+  const needsOnboarding = !preferences.onboardingCompleted;
+  const hasFirstClearing = points.length > 0;
+  const showWelcome = needsOnboarding && !hasFirstClearing;
+  const awaitingOnboardingChoice = needsOnboarding && hasFirstClearing;
+  const controlsProgress = useRef(new Animated.Value(needsOnboarding ? 0 : 1)).current;
+
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (mounted && enabled) setReduceMotion(true);
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (needsOnboarding) {
+      controlsProgress.setValue(0);
+      return;
+    }
+    Animated.timing(controlsProgress, {
+      toValue: 1,
+      duration: reduceMotion ? 0 : 320,
+      useNativeDriver: true,
+    }).start();
+  }, [controlsProgress, needsOnboarding, reduceMotion]);
 
   useEffect(() => {
     if (!latestPoint) return;
-    mapRef.current?.animateToRegion(regionAround(latestPoint), 450);
-  }, [latestPoint]);
-
-  useEffect(() => {
-    if (recap) setLayersVisible(false);
-  }, [recap]);
+    mapRef.current?.animateToRegion(regionAround(latestPoint, needsOnboarding ? 0.18 : 0), 450);
+  }, [latestPoint, needsOnboarding]);
 
   const collectCurrentPlace = () => {
     const name = placeName.trim();
@@ -156,15 +235,32 @@ export function ExploreMapScreen() {
     setCollectingPlace(false);
   };
 
-  const confirmClear = () => {
-    Alert.alert(
-      'Clear Explore history?',
-      'This removes local adventures, explored territory, and collected Place visits from this device.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear history', style: 'destructive', onPress: clearHistory },
-      ],
-    );
+  const centerMap = (coordinate: Pick<ExplorePoint, 'latitude' | 'longitude'>) => {
+    mapRef.current?.animateToRegion(regionAround(coordinate), 450);
+  };
+
+  const centerOnCurrentLocation = async () => {
+    const coordinate = await recorder.locate();
+    if (coordinate) centerMap(coordinate);
+  };
+
+  const showPlaceOnMap = (place: Place) => {
+    setSearchVisible(false);
+    setSearchQuery('');
+    centerMap(place);
+  };
+
+  const finishOnboarding = async (mode: ExplorePreferences['recording']) => {
+    const changed = await recorder.setRecordingMode(mode);
+    if (!changed) return;
+    updatePreferences({ onboardingCompleted: true });
+  };
+
+  const openExploreSettings = () => {
+    navigation.getParent<NavigationProp<RootDrawerParamList>>()?.navigate('Settings', {
+      screen: 'SettingsExplore',
+      params: { entrySurface: 'explore-map' },
+    });
   };
 
   return (
@@ -174,41 +270,49 @@ export function ExploreMapScreen() {
         ref={mapRef}
         testID="explore.map"
         style={StyleSheet.absoluteFill}
-        mapType="standard"
-        initialRegion={latestPoint ? regionAround(latestPoint) : DEFAULT_REGION}
+        mapType={preferences.mapStyle}
+        initialRegion={latestPoint ? regionAround(latestPoint, needsOnboarding ? 0.18 : 0) : DEFAULT_REGION}
         showsUserLocation={recorder.status === 'recording'}
         showsMyLocationButton={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        {...metalFogMapProps}
         onRegionChangeComplete={setVisibleRegion}
       >
+        {Platform.OS !== 'ios' && preferences.showFog ? <>
         <Polygon
           testID="explore.fog.veil"
           accessible={false}
+          zIndex={1000}
           coordinates={fogRing}
           holes={fogHoles.veil}
-          fillColor="rgba(235, 240, 237, 0.20)"
+          fillColor="rgba(232, 237, 233, 0.35)"
           strokeColor="rgba(18, 25, 22, 0)"
           strokeWidth={0}
         />
         <Polygon
           testID="explore.fog.mist"
           accessible={false}
+          zIndex={1000}
           coordinates={fogRing}
           holes={fogHoles.mist}
-          fillColor="rgba(107, 121, 113, 0.18)"
+          fillColor="rgba(208, 216, 211, 0.62)"
           strokeColor="rgba(18, 25, 22, 0)"
           strokeWidth={0}
         />
         <Polygon
           testID="explore.fog.core"
           accessible={false}
+          zIndex={1000}
           coordinates={fogRing}
           holes={fogHoles.core}
-          fillColor="rgba(22, 31, 27, 0.34)"
+          fillColor="#D8DEDA"
           strokeColor="rgba(18, 25, 22, 0)"
           strokeWidth={0}
         />
+        </> : null}
         {preferences.showMyPath
           ? altitudeSegments.map((segment, index) => (
               <Polyline
@@ -221,7 +325,7 @@ export function ExploreMapScreen() {
               />
             ))
           : null}
-        {savedPlaces.map((place) => (
+        {mapPlaces.map((place) => (
           <Marker
             key={place.id}
             coordinate={place}
@@ -232,129 +336,258 @@ export function ExploreMapScreen() {
         ))}
       </MapView>
 
-      <View style={[styles.headerSurface, { paddingTop: insets.top }]} pointerEvents="box-none">
-        <PageHeader
-          title="Explore"
-          onPressMenu={openMenu}
-          containerStyle={styles.mapPageHeader}
-          rightElement={
-            <IconButton
-              accessibilityLabel="Explore layers and privacy"
-              variant="ghost"
-              onPress={() => setLayersVisible(true)}
-            >
-              <Icon name="layers" size={20} color={colors.textPrimary} />
-            </IconButton>
-          }
-        />
-      </View>
+      {!needsOnboarding ? (
+        <Animated.View
+          testID="explore.topControls"
+          pointerEvents="box-none"
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            opacity: controlsProgress,
+            transform: [{
+              translateY: controlsProgress.interpolate({ inputRange: [0, 1], outputRange: [-28, 0] }),
+            }],
+          }}
+        >
+          <ObjectPageHeader
+            barHeight={56}
+            showFullWidthBackground={false}
+            horizontalPadding={spacing.lg}
+            left={
+              <HeaderActionPill
+                accessibilityLabel="Open navigation menu"
+                materialVariant="floatingWhite"
+                size={44}
+                onPress={openMenu}
+              >
+                <MenuToggleIcon open={false} />
+              </HeaderActionPill>
+            }
+            right={
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Explore options"
+                    style={({ pressed }) => [styles.mapMenuButton, pressed ? styles.pressed : null]}
+                  >
+                    <BlurView
+                      pointerEvents="none"
+                      intensity={floatingControl.material.intensity}
+                      tint={floatingControl.material.tint}
+                      style={StyleSheet.absoluteFillObject}
+                    >
+                      <View pointerEvents="none" style={styles.floatingControlTint} />
+                    </BlurView>
+                    <Icon testID="explore.actions.icon" name="more" size={22} color={colors.textPrimary} />
+                  </Pressable>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
+                  <DropdownMenuLabel>Map style</DropdownMenuLabel>
+                  <SegmentedControl
+                    value={preferences.mapStyle}
+                    onChange={(mapStyle) => updatePreferences({ mapStyle })}
+                    options={[
+                      { value: 'standard', label: 'Standard' },
+                      { value: 'hybrid', label: 'Hybrid' },
+                      { value: 'satellite', label: 'Satellite' },
+                    ]}
+                    size="compact"
+                    style={styles.mapStyleControl}
+                    testIDPrefix="explore.mapStyle"
+                  />
+                  <DropdownMenuSeparator />
+                  <MapToggleMenuItem
+                    label="Fog"
+                    selected={preferences.showFog}
+                    onPress={() => updatePreferences({ showFog: !preferences.showFog })}
+                  />
+                  <MapToggleMenuItem
+                    label="My path"
+                    selected={preferences.showMyPath}
+                    onPress={() => updatePreferences({ showMyPath: !preferences.showMyPath })}
+                  />
+                  <MapToggleMenuItem
+                    label="Family territory"
+                    selected={preferences.showFamilyTerritory}
+                    onPress={() => updatePreferences({ showFamilyTerritory: !preferences.showFamilyTerritory })}
+                  />
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem accessibilityLabel="Explore settings" onPress={openExploreSettings}>
+                    <Icon name="settings" size={18} color={colors.textPrimary} />
+                    <Text style={styles.mapMenuLabel}>Explore Settings</Text>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            }
+          />
+        </Animated.View>
+      ) : null}
 
-      {points.length === 0 ? (
+      {showWelcome ? (
+        <View
+          testID="explore.onboarding.introduction"
+          accessibilityViewIsModal
+          style={[
+            styles.onboardingStage,
+            { paddingTop: insets.top + 92, paddingBottom: insets.bottom + 52 },
+          ]}
+        >
+          <View style={styles.onboardingWelcomeCopy}>
+            <Text style={styles.onboardingWelcomeTitle}>See where you’ve been. Explore where you haven’t.</Text>
+            <Text style={styles.onboardingWelcomeBody}>Build a private history of the places and paths you travel.</Text>
+          </View>
+          <View style={styles.onboardingWelcomeAction}>
+            {recorder.message ? <Text style={styles.message}>{recorder.message}</Text> : null}
+            <Button
+              testID="explore.recording.toggle"
+              accessibilityLabel="Begin exploring"
+              variant="primary"
+              size="lg"
+              disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
+              onPress={recorder.beginOnboarding}
+              style={styles.primaryAction}
+            >
+              {recorder.status === 'locating' ? 'Finding you…' : 'Begin Exploring'}
+            </Button>
+          </View>
+        </View>
+      ) : preferences.onboardingCompleted && points.length === 0 ? (
         <View pointerEvents="none" style={styles.emptyCard}>
           <Icon name="map" size={22} color={colors.pine700} />
           <Text style={styles.emptyTitle}>The world is still waiting.</Text>
           <Text style={styles.emptyCopy}>
             {preferences.recording === 'automatic'
-              ? 'Your map stays private. Move through the world to clear a 100-foot path through the fog.'
-              : 'Your map stays private. Start exploring to clear a 100-foot path through the fog.'}
+              ? 'Your map stays private. Move through the world to clear a path through the fog.'
+              : 'Your map stays private. Start exploring to clear a path through the fog.'}
           </Text>
         </View>
       ) : null}
 
-      <View style={[styles.actionDock, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+      {!needsOnboarding ? <Animated.View
+        testID="explore.actionDock"
+        style={[
+          styles.actionDock,
+          {
+            paddingBottom: insets.bottom,
+            opacity: controlsProgress,
+            transform: [{
+              translateY: controlsProgress.interpolate({ inputRange: [0, 1], outputRange: [32, 0] }),
+            }],
+          },
+        ]}
+      >
         {recorder.message ? <Text style={styles.message}>{recorder.message}</Text> : null}
-        <Button
+        {preferences.recording === 'manual' ? <Button
           testID="explore.recording.toggle"
-          accessibilityLabel={preferences.recording === 'automatic'
-            ? 'Pause always exploring'
-            : recorder.active ? 'Stop exploring' : 'Start exploring'}
-          variant={preferences.recording === 'automatic' || recorder.active ? 'inverse' : 'primary'}
+          accessibilityLabel={recorder.active ? 'Stop exploring' : 'Start exploring'}
+          variant={recorder.active ? 'inverse' : 'primary'}
           size="lg"
           disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
-          onPress={preferences.recording === 'automatic'
-            ? () => { void recorder.setRecordingMode('manual'); }
-            : recorder.active ? recorder.stop : recorder.start}
+          onPress={recorder.active ? recorder.stop : recorder.start}
           style={styles.primaryAction}
         >
-          {preferences.recording === 'automatic'
-            ? 'Pause Exploring'
-            : recorder.active ? 'Stop' : recorder.status === 'locating' ? 'Finding you…' : 'Start Exploring'}
-        </Button>
-      </View>
+          {recorder.active ? 'Stop' : recorder.status === 'locating' ? 'Finding you…' : 'Start Exploring'}
+        </Button> : null}
+        <View testID="explore.mapToolsRow" style={styles.mapToolsRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search visited Places"
+            onPress={() => setSearchVisible(true)}
+            style={({ pressed }) => [styles.placeSearchControl, pressed ? styles.pressed : null]}
+          >
+            <BlurView
+              pointerEvents="none"
+              intensity={floatingControl.material.intensity}
+              tint={floatingControl.material.tint}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View pointerEvents="none" style={styles.floatingControlTint} />
+            <Icon name="search" size={20} color={colors.textPrimary} />
+            <Text numberOfLines={1} style={styles.placeSearchLabel}>
+              {savedPlaces.length ? 'Search visited Places' : 'Visited Places'}
+            </Text>
+          </Pressable>
+          <HeaderActionPill
+            accessibilityLabel="Center on current location"
+            materialVariant="floatingWhite"
+            size={RESTING_COMPOSER_HEIGHT_PX}
+            disabled={recorder.status === 'locating'}
+            onPress={() => { void centerOnCurrentLocation(); }}
+          >
+            <Icon name="navigation" size={23} color={colors.pine700} />
+          </HeaderActionPill>
+        </View>
+      </Animated.View> : null}
 
-      <BottomDrawer visible={layersVisible} onClose={() => setLayersVisible(false)} snapPoints={['78%']}>
-        <BottomDrawerScrollView contentContainerStyle={[styles.drawerContent, { paddingBottom: insets.bottom + spacing.xl }]} keyboardShouldPersistTaps="handled">
-          <BottomDrawerHeader title="Explore" variant="minimal" />
-
-          <Text style={styles.sectionLabel}>ON THIS MAP</Text>
-          <SettingRow
-            label="My path"
-            detail="Your exact altitude-colored trail"
-            value={preferences.showMyPath}
-            onValueChange={(showMyPath) => updatePreferences({ showMyPath })}
-          />
-          <SettingRow
-            label="Family territory"
-            detail="Areas contributed by opted-in family members"
-            value={preferences.showFamilyTerritory}
-            onValueChange={(showFamilyTerritory) => updatePreferences({ showFamilyTerritory })}
-          />
-          {preferences.showFamilyTerritory ? (
-            <Text style={styles.familyNote}>No family exploration has been synced. Nothing is shared from this build.</Text>
-          ) : null}
-
-          <Text style={styles.sectionLabel}>WHILE EXPLORING</Text>
+      <BottomDrawer
+        visible={awaitingOnboardingChoice}
+        onClose={() => undefined}
+        dismissable={false}
+        snapPoints={['43%']}
+      >
+        <BottomDrawerScrollView
+          contentContainerStyle={[styles.onboardingContent, { paddingBottom: insets.bottom + spacing.xl }]}
+        >
+          <BottomDrawerHeader title="How should Explore remember your travels?" variant="minimal" />
+          {recorder.message ? <Text style={styles.onboardingMessage}>{recorder.message}</Text> : null}
           <RecordingModeOption
-            label="Always Exploring"
-            detail="Quietly clears your private map as you move; uses more battery"
-            selected={preferences.recording === 'automatic'}
-            onPress={() => { void recorder.setRecordingMode('automatic'); }}
+            label="Explore automatically"
+            detail="Recommended · Works while the app is closed"
+            selected={false}
+            onPress={() => { void finishOnboarding('automatic'); }}
           />
           <RecordingModeOption
             label="Only when I start"
-            detail="Continues with the screen locked until you stop"
-            selected={preferences.recording === 'manual'}
-            onPress={() => { void recorder.setRecordingMode('manual'); }}
+            detail="Only records outings you begin"
+            selected={false}
+            onPress={() => { void finishOnboarding('manual'); }}
           />
-          <SettingRow
-            label="One recap notification"
-            detail="Only if an outing finishes away; honors Notification settings"
-            value={preferences.recapNotifications}
-            onValueChange={(recapNotifications) => updatePreferences({ recapNotifications })}
-          />
+          <Text style={styles.familyNote}>Private until you choose to share.</Text>
+        </BottomDrawerScrollView>
+      </BottomDrawer>
 
-          <Text style={styles.sectionLabel}>WHAT I SHARE</Text>
-          <View style={styles.sharingGrid}>
-            {SHARING_OPTIONS.map((option) => {
-              const selected = preferences.sharing === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Share ${option.label}`}
-                  accessibilityState={{ selected }}
-                  onPress={() => updatePreferences({ sharing: option.value })}
-                  style={({ pressed }) => [
-                    styles.sharingOption,
-                    selected ? styles.sharingOptionSelected : null,
-                    pressed ? styles.pressed : null,
-                  ]}
-                >
-                  <Text style={[styles.sharingLabel, selected ? styles.sharingLabelSelected : null]}>{option.label}</Text>
-                  <Text style={styles.sharingDetail}>{option.detail}</Text>
-                </Pressable>
-              );
-            })}
+      <BottomDrawer visible={searchVisible} onClose={() => setSearchVisible(false)} snapPoints={['48%']}>
+        <BottomDrawerScrollView
+          contentContainerStyle={[styles.searchDrawerContent, { paddingBottom: insets.bottom + spacing.xl }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <BottomDrawerHeader title="Visited Places" variant="minimal" />
+          <View style={styles.placeSearchField}>
+            <Icon name="search" size={19} color={colors.textSecondary} />
+            <TextInput
+              accessibilityLabel="Search Places"
+              autoFocus
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search places you’ve visited"
+              placeholderTextColor={colors.textSecondary}
+              returnKeyType="search"
+              style={styles.placeSearchInput}
+            />
           </View>
-          <Text style={styles.familyNote}>Your choice is saved locally. Family delivery is not enabled yet.</Text>
-
-          <Text style={styles.sectionLabel}>PLACES</Text>
-          {savedPlaces.length ? savedPlaces.map((place) => (
-            <View key={place.id} style={styles.placeRow}>
-              <Icon name="pin" size={17} color={colors.pine700} />
-              <Text style={styles.placeName}>{place.name}</Text>
+          {filteredPlaces.length ? (
+            <View style={styles.searchResults}>
+              {filteredPlaces.map((place) => (
+                <Pressable
+                  key={place.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${place.name} on map`}
+                  onPress={() => showPlaceOnMap(place)}
+                  style={({ pressed }) => [styles.searchResultRow, pressed ? styles.pressed : null]}
+                >
+                  <View style={styles.searchResultIcon}>
+                    <Icon name="pin" size={18} color={colors.pine700} />
+                  </View>
+                  <Text style={styles.searchResultName}>{place.name}</Text>
+                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                </Pressable>
+              ))}
             </View>
-          )) : <Text style={styles.familyNote}>Places you confirm here will remain part of the same Places system.</Text>}
+          ) : (
+            <Text style={styles.searchEmpty}>
+              {savedPlaces.length ? 'No visited Places match that search.' : 'Places will appear here after you discover or collect them.'}
+            </Text>
+          )}
           {collectingPlace ? (
             <View style={styles.collectForm}>
               <TextInput
@@ -376,13 +609,6 @@ export function ExploreMapScreen() {
               Collect current Place
             </Button>
           )}
-
-          {__DEV__ ? (
-            <Button variant="secondary" size="sm" onPress={loadPreviewAdventure}>Load preview walk</Button>
-          ) : null}
-          {points.length || savedPlaces.length ? (
-            <Button variant="destructive" size="sm" onPress={confirmClear}>Clear Explore history</Button>
-          ) : null}
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -456,31 +682,24 @@ function formatRecapDuration(startedAt: string, endedAt: string): string {
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
 }
 
-function SettingRow({
-  label,
-  detail,
-  value,
-  onValueChange,
-}: {
+function MapToggleMenuItem({ label, onPress, selected }: {
   label: string;
-  detail: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
+  onPress: () => void;
+  selected: boolean;
 }) {
   return (
-    <View style={styles.settingRow}>
-      <View style={styles.settingCopy}>
-        <Text style={styles.settingLabel}>{label}</Text>
-        <Text style={styles.settingDetail}>{detail}</Text>
+    <DropdownMenuItem
+      accessibilityLabel={label}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: selected }}
+      closeOnPress={false}
+      onPress={onPress}
+    >
+      <Text style={[styles.mapMenuLabel, styles.mapMenuToggleLabel]}>{label}</Text>
+      <View pointerEvents="none">
+        <KwiltSwitch accessible={false} value={selected} onPress={onPress} />
       </View>
-      <Switch
-        accessibilityLabel={label}
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: colors.gray300, true: colors.pine300 }}
-        thumbColor={value ? colors.pine800 : colors.gray50}
-      />
-    </View>
+    </DropdownMenuItem>
   );
 }
 
@@ -518,26 +737,30 @@ function RecordingModeOption({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.sumi900 },
-  headerSurface: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: 'rgba(250, 249, 245, 0.94)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(38, 47, 42, 0.14)',
-    shadowColor: colors.sumi900,
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  mapPageHeader: {
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    paddingLeft: 0,
-  },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+  onboardingStage: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+  },
+  onboardingWelcomeCopy: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  onboardingWelcomeTitle: {
+    ...typography.titleSm,
+    color: colors.sumi900,
+    textAlign: 'center',
+  },
+  onboardingWelcomeBody: {
+    ...typography.bodySm,
+    maxWidth: 310,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  onboardingWelcomeAction: { gap: spacing.sm },
   emptyCard: {
     position: 'absolute',
     left: spacing.xl,
@@ -550,12 +773,92 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { ...typography.body, fontFamily: fonts.medium, color: colors.sumi900, marginTop: spacing.sm },
   emptyCopy: { ...typography.bodySm, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs },
-  actionDock: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 0 },
+  onboardingContent: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  onboardingMessage: { ...typography.bodyXs, color: colors.turmeric800, lineHeight: 18 },
+  actionDock: {
+    position: 'absolute',
+    left: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    right: RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+    bottom: 0,
+    gap: spacing.sm,
+  },
+  mapToolsRow: {
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  placeSearchControl: {
+    flex: 1,
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    borderRadius: RESTING_COMPOSER_HEIGHT_PX / 2,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    backgroundColor: floatingControl.material.backgroundColor,
+    shadowColor: colors.sumi900,
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  floatingControlTint: { ...StyleSheet.absoluteFillObject, backgroundColor: floatingControl.material.overlayColor },
+  placeSearchLabel: { ...typography.bodySm, flex: 1, color: colors.textPrimary },
+  mapMenuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    backgroundColor: floatingControl.material.backgroundColor,
+    shadowColor: colors.sumi900,
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
   primaryAction: { width: '100%', shadowColor: colors.sumi900, shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  message: { ...typography.bodyXs, color: colors.gray50, textAlign: 'center', marginBottom: spacing.sm, textShadowColor: colors.sumi900, textShadowRadius: 4 },
-  drawerContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
-  sectionLabel: { ...typography.label, color: colors.textSecondary, marginTop: spacing.sm },
-  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, minHeight: 58 },
+  message: {
+    ...typography.bodyXs,
+    alignSelf: 'center',
+    maxWidth: '92%',
+    color: colors.gray50,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 14,
+    backgroundColor: 'rgba(20, 25, 22, 0.76)',
+  },
+  searchDrawerContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  placeSearchField: {
+    minHeight: 48,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.fieldFill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  placeSearchInput: { ...typography.body, flex: 1, color: colors.textPrimary, paddingVertical: spacing.sm },
+  searchResults: { gap: spacing.xs },
+  searchResultRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  searchResultIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pine50 },
+  searchResultName: { ...typography.body, flex: 1, color: colors.textPrimary },
+  searchEmpty: { ...typography.bodySm, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing.xl },
+  mapMenuLabel: { ...typography.bodySm, color: colors.textPrimary },
+  mapStyleControl: {
+    alignSelf: 'stretch',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  mapMenuToggleLabel: { flex: 1 },
   settingCopy: { flex: 1 },
   settingLabel: { ...typography.bodySm, fontFamily: fonts.medium, color: colors.textPrimary },
   settingDetail: { ...typography.bodyXs, color: colors.textSecondary, marginTop: 2 },
@@ -564,14 +867,6 @@ const styles = StyleSheet.create({
   recordingDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.gray400 },
   recordingDotSelected: { borderWidth: 5, borderColor: colors.pine700, backgroundColor: colors.gray50 },
   familyNote: { ...typography.bodyXs, color: colors.textSecondary, lineHeight: 18 },
-  sharingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  sharingOption: { width: '48%', padding: spacing.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
-  sharingOptionSelected: { borderColor: colors.pine700, backgroundColor: colors.pine50 },
-  sharingLabel: { ...typography.bodySm, fontFamily: fonts.medium, color: colors.textPrimary },
-  sharingLabelSelected: { color: colors.pine900 },
-  sharingDetail: { ...typography.bodyXs, color: colors.textSecondary, marginTop: 2 },
-  placeRow: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  placeName: { ...typography.bodySm, color: colors.textPrimary },
   collectForm: { gap: spacing.sm },
   placeInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.bodySm },
   collectActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },

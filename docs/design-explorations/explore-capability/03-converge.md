@@ -2,7 +2,7 @@
 
 ## Chosen alternative
 
-**Explicit adventures with family-ready layers.** Explore is a full-screen map capability. Starting an adventure requests foreground location, clears approximately 30.48 meters around accepted points, colors route segments by elevation, and persists the result locally. A layers control distinguishes My Path, Family Territory, and individual member visibility; unavailable family data is explained rather than simulated.
+**Explicit adventures with family-ready layers.** Explore is a full-screen map capability. Starting an adventure requests foreground location, clears a 19.812-meter core around accepted points, returns through an independently scaled atmospheric feather, colors route segments by elevation, and persists the result locally. A layers control distinguishes My Path, Family Territory, and individual member visibility; unavailable family data is explained rather than simulated.
 
 ## Capability delta
 
@@ -12,7 +12,7 @@ After this release, the user can:
 
 - open Explore from the global capability menu;
 - explicitly start and stop an adventure;
-- see accepted GPS points clear a 100-foot fog radius;
+- see accepted GPS points clear a 65-foot core through a long, wispy fog boundary;
 - see route color reflect altitude;
 - reopen the app and retain explored territory and completed adventures;
 - inspect recording, sharing, and viewing controls without conflating them;
@@ -35,7 +35,9 @@ Still intentionally unsupported:
 
 ## Activation path
 
-Explore is visible only when the `explore-capability` feature flag is enabled; development builds default it on for proof. The first permission prompt occurs only after the user taps Start Exploring.
+Explore is visible only when the `explore-capability` feature flag is enabled; development builds default it on for proof. A new user first sees only fog, a short personal-history proposition, and **Begin Exploring** inside one modal-like introduction. All navigation and map utilities stay out of the first-use hierarchy. Tapping **Begin Exploring** requests foreground location and creates one real stationary clearing. A compact, single-heading drawer then recommends automatic recording or offers deliberate outings. Background permission follows the explicit automatic choice rather than app launch or the initial foreground request. After the choice, the normal controls enter from the top and bottom; automatic recording does not occupy the map with a persistent Pause action.
+
+This sequence makes the person’s exploration history—not Kwilt or the map—the hero. It also provides a complete first-use result while the person remains in one place.
 
 ## Stated bet
 

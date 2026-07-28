@@ -12,6 +12,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui
 import { KWILT_BOTTOM_BAR_RESERVED_HEIGHT_PX } from '../../navigation/kwiltBottomBarMetrics';
 import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeNativeEasing } from '../../navigation/chromeMotion';
 import {
+  RESTING_COMPOSER_HEIGHT_PX,
+  RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+} from '../../ui/layout/restingComposerMetrics';
+import {
   DEFAULT_QUICK_ADD_AI_ACTIONS,
   type QuickAddAiAction,
   type QuickAddPlaceRecommendation,
@@ -20,7 +24,6 @@ import {
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
 const QUICK_ADD_COMPOSER_SURFACE_RADIUS = 14;
-const QUICK_ADD_COLLAPSED_HORIZONTAL_INSET_PX = spacing.xl + spacing.sm;
 
 // Fallback visible height (above the keyboard) used before we have a measurement.
 const QUICK_ADD_VISIBLE_ABOVE_KEYBOARD_FALLBACK_PX = 140;
@@ -107,7 +110,7 @@ export function QuickAddDock({
   dismissAfterSubmit = true,
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
-  floatingHorizontalInsetPx = QUICK_ADD_COLLAPSED_HORIZONTAL_INSET_PX,
+  floatingHorizontalInsetPx = RESTING_COMPOSER_HORIZONTAL_INSET_PX,
   placeReceipt,
   onDismissPlaceReceipt,
   onSetPlaceAlert,
@@ -769,7 +772,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   collapsedRowContent: {
-    minHeight: 48,
+    minHeight: RESTING_COMPOSER_HEIGHT_PX,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },

@@ -89,7 +89,6 @@ export interface MoneyRepository {
     categoryId: string;
     categoryName: string;
     matchMode?: 'exact' | 'partial';
-    similarTransactionIds?: string[];
   }): Promise<MoneySnapshot>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
   renameCategory(categoryId: string, name: string): Promise<ConfirmedCategoryWrite>;
@@ -294,15 +293,15 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     async saveMerchantRule(input) {
       const userId = await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
-      const similarTransactionIds = [...new Set((input.similarTransactionIds ?? []).map((id) => id.trim()).filter(Boolean))];
-      if (similarTransactionIds.length > 0) {
-        await replaceTransactionReview(similarTransactionIds, { type: 'category', categoryId: input.categoryId });
-      }
-      await readPart<unknown[]>('merchant rule', db
-        .from('budget_transaction_match_rules')
-        .upsert(buildMerchantRuleUpsert({ userId, ...input }), {
-          onConflict: 'user_id,merchant_contains,merchant_match_mode',
-        }));
+      const rule = buildMerchantRuleUpsert({ userId, ...input });
+      const { error } = await db.rpc('upsert_budget_transaction_match_rule', {
+        p_transaction_id: rule.created_from_transaction_id,
+        p_budget_id: rule.budget_id,
+        p_merchant_contains: rule.merchant_contains,
+        p_match_mode: rule.merchant_match_mode,
+        p_label: rule.label,
+      });
+      if (error) throw new Error(`Money could not save the merchant rule: ${error.message || 'Unknown database error'}`);
       return loadSnapshot();
     },
     async createCategory(input) {
