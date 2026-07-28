@@ -23,6 +23,7 @@ Kwilt evaluates that rule on one child's physical iPhone or iPad, explains the c
 - Assign a private Activity to a household member, thereby sharing that Activity with them.
 - Show a dependent child an assigned Activity without exposing the creator's private To-dos.
 - Link two independent caregiver accounts to one child Screen Time policy.
+- Choose Screen Time and To-dos for one child without activating them for every child in the Household.
 - Enroll a child device under Kwilt's parental Family Controls authorization.
 - Combine an Activity occurrence, time window, and foreground-usage cap in one enforceable rule.
 - Know whether a remote policy decision reached and changed the child device.
@@ -32,6 +33,7 @@ Kwilt evaluates that rule on one child's physical iPhone or iPad, explains the c
 - Assign one Activity to the dependent child, with the assignment acting as the explicit household privacy boundary.
 - Create one private household with Andrew and Blaire as independently authenticated caregivers.
 - Add one dependent child profile without requiring the child to have an email address.
+- Activate Screen Time for that child and activate To-dos only when responsibility criteria are included.
 - Enroll one physical child device using Apple's guardian-authorized `.child` Family Controls flow.
 - Create and activate one Family Access Rule for one selected app/category group.
 - Let the child complete today's required Activities, become eligible during the allowed window, and consume a real foreground-usage cap.
@@ -58,7 +60,7 @@ From **Settings > Household**, Andrew creates a private household and invites Bl
 
 ### 2. They add one child
 
-Andrew or Blaire creates a dependent child profile with a first name/display name. The profile is a household participant, not a full authenticated adult account and not an Apple Account mirror.
+Andrew or Blaire creates a dependent child profile with a first name/display name. The profile is a household participant, not a full authenticated adult account and not an Apple Account mirror. They then activate Screen Time for this child. To-dos is activated only because this learning release uses assigned responsibilities; other child-capable domains remain off.
 
 ### 3. They enroll the child device
 
@@ -120,6 +122,7 @@ The child may request **Use now**, **More time today**, or **Something is wrong*
 
 - Andrew and Blaire use independent authenticated accounts.
 - One private household, two active caregivers, one dependent child profile, and explicit Screen Time capability/child scope.
+- A server-authorized child capability activation for Screen Time and, when responsibility criteria are used, To-dos; test fixtures prove the same activation does not leak to a sibling profile.
 - Server authorization on every household, rule, request, exception, and device mutation.
 - Child-visible caregiver list and caregiver-controlled release semantics.
 
@@ -184,6 +187,7 @@ The child may request **Use now**, **More time today**, or **Something is wrong*
 - Push notifications for normal rule transitions.
 - Family-plan pricing, App Store Family Sharing activation, subscription migration, or paywall redesign.
 - Broad household adoption by Money, Meals, Goals, or other capabilities during this release.
+- A Household-wide switch that copies the learning child's capability set to siblings.
 - Automatic conversion of a child profile into an authenticated child account.
 
 ## Release Channel
@@ -222,6 +226,7 @@ This plan does not authorize implementation, production migration, entitlement s
 - Existing `.individual` Screen Time records are not migrated or reinterpreted.
 - The caregiver release flow must work before the household begins the seven-day test: stop Device Activity monitoring, clear all Kwilt Managed Settings stores, revoke child authorization when appropriate, retire the install, and receive a cleanup receipt.
 - Disabling the server flag does not itself remove local restrictions. It initiates or requires a deliberate safe-release path so rollback cannot create either an accidental bypass or a zombie shield.
+- Deactivating Screen Time for the child enters `pending_cleanup`; the capability remains visible with truthful status until the managed device acknowledges cleanup.
 - If the new app version must be withdrawn, the installed child build retains a local caregiver-authenticated recovery path.
 - Family-use data can be deleted by household without affecting unrelated Goals, Activities, or existing individual Screen Time settings.
 

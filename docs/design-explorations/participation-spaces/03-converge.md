@@ -42,6 +42,12 @@ A direct relationship between a Person and a Space. It may be core, dependent, o
 
 A role preset is a friendly starting bundle such as caregiver. Effective grants are the server-enforced authority, scoped to capability, object, person, or child. Relationship words never grant access by themselves.
 
+### Child capability activation
+
+A child capability activation records that an authorized caregiver has made one named capability part of one child's Kwilt experience. It is scoped by Space, child, and capability. It is not the caregiver's authority grant, a paid entitlement, a data-sharing grant, or proof that a physical device finished setup.
+
+New optional capabilities start inactive for a dependent child. A caregiver activates them child by child from the child's Household settings or from an intentional capability setup flow. The child's menu, Agent tools, notifications, and background work include only activated and ready capabilities. Dependencies are explicit: chore-gated Screen Time may require To-dos for that child, but schedule-only Screen Time does not silently turn on To-dos.
+
 ### Owner, author, and responsible person
 
 An owner principal holds the authoritative artifact. An author contributed it. A responsible person should see and act on it. Assignment changes responsibility, not ownership or authorship.
@@ -66,8 +72,9 @@ Personal purchase, Apple-shared receipt, Space sponsorship, and internal grants 
 4. **Collaboration UI is contextual.** Solo users do not see empty Space, assignment, or permission administration. “Assigned to” appears only when another eligible person exists or the user invokes sharing.
 5. **The first person creates the first Space just in time.** Adding a household person atomically creates and names the Space; onboarding does not require an empty household setup.
 6. **Access is explained in capability language.** “Can respond to Charlie's Screen Time requests” is preferable to a generic permission matrix.
-7. **People see the aftermath before consequential changes.** Move, live share, leave, removal, stewardship transfer, and billing transfer each preview what changes and what does not.
-8. **Offline state is honest.** Content actions may queue where safe; authority changes require server acknowledgement.
+7. **Child capabilities are composed per child.** A caregiver sees a plain list for Charlie, changes one capability at a time, and previews setup or cleanup consequences. No Household-wide child default widens access silently.
+8. **People see the aftermath before consequential changes.** Move, live share, leave, removal, stewardship transfer, capability activation, and billing transfer each preview what changes and what does not.
+9. **Offline state is honest.** Content actions may queue where safe; authority and capability-activation changes require server acknowledgement.
 
 ## Explicitly rejected
 
@@ -75,6 +82,7 @@ Personal purchase, Apple-shared receipt, Space sponsorship, and internal grants 
 - nested Spaces or inherited family-circle permissions;
 - a generic social graph or people feed;
 - universal household visibility for all capabilities;
+- household membership, a child role, or family payment automatically activating every child capability;
 - automatic Space creation after repeated shares;
 - creating a Space for one accountability relationship;
 - roles as the sole authorization mechanism;
@@ -106,7 +114,7 @@ Kwilt may suggest the next rung after repeated behavior, but it never converts o
 
 The architecture is broad; the learning sequence should remain narrow:
 
-1. **Household foundation:** stable Person/dependent identity, just-in-time Space creation, invitation, stewardship, grants, audit, and exit basics.
+1. **Household foundation:** stable Person/dependent identity, just-in-time Space creation, invitation, stewardship, child-scoped capability activation, grants, audit, and exit basics.
 2. **Activity assignment:** one authoritative Activity, responsibility projections, recurrence occurrences, and offline completion receipts.
 3. **Chores:** a purpose-specific recurring-Activity experience, not a second task model.
 4. **Managed child Screen Time:** Apple authorization, one device-policy authority, rule evaluation, quiet exception handling, and signed-device evidence.

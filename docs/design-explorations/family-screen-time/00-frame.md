@@ -73,15 +73,17 @@ Constraint posture: `Extend the system`
 
 ### Corrected control model
 
-The product needs two relationships, not one overloaded `isChild` flag:
+The product needs three independent facts, not one overloaded `isChild` flag:
 
 1. **Kwilt household relationship** — who belongs to this household and what they may do: owner, caregiver, or child participant.
-2. **Apple device authorization** — which physical child device is actually authorized for Kwilt parental controls through Apple Family Sharing.
+2. **Child capability activation** — which Kwilt capabilities an authorized caregiver has activated for this specific child.
+3. **Apple device authorization** — which physical child device is actually authorized for Kwilt parental controls through Apple Family Sharing.
 
 The likely topology is:
 
 ```text
 Caregiver Kwilt app
+  -> activates Screen Time for one named child
   -> defines household policy / handles true exceptions
   -> syncs authoritative policy and grants through Kwilt
 
@@ -92,11 +94,12 @@ Child Kwilt app on each managed device
   -> explains the current state and offers the next valid action
 ```
 
-Installing Kwilt on both devices is therefore necessary for the proposed experience, but the child device is not controlled merely because its Kwilt account is flagged as a child. It must also be enrolled and authorized through Apple's family-control flow. Conversely, Apple Family Sharing should not silently determine all Kwilt household permissions: caregiver rights, family data access, and billing remain explicit Kwilt roles.
+Installing Kwilt on both devices is therefore necessary for the proposed experience, but the child device is not controlled merely because its Kwilt account is flagged as a child or because the family paid for the capability. Screen Time must be activated for that child, and the device must be enrolled and authorized through Apple's family-control flow. Conversely, Apple Family Sharing should not silently determine all Kwilt household permissions: caregiver rights, child capability activation, family data access, and billing remain explicit Kwilt facts.
 
 ### Constraints to preserve
 
 - Both Andrew and Blaire can participate as caregivers; the system must not create one permanent approval bottleneck.
+- Caregivers can activate Screen Time, To-dos, and future child-capable domains independently for each child; Household membership never turns on every capability.
 - The child can understand current access, the reason for a restriction, remaining/earned access, and the next allowed action without asking a parent to interpret it.
 - The child's Screen Time app/category choices remain privacy-preserving; Kwilt should not build a surveillance feed.
 - Safety-sensitive policy changes, household membership, and new device enrollment require caregiver authority.

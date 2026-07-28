@@ -281,7 +281,7 @@ This is the platform trust anchor for **who may authorize control of the device*
 
 **Recommended commercial model**
 
-Treat Screen Time as a household capability purchased once, not as a child-by-child subscription. App Store Family Sharing can remove purchase friction for independently signed-in family members, but the Kwilt backend should grant capability access through an active household plan. A StoreKit entitlement answers **is this Apple account entitled to paid Kwilt?** A Kwilt household permission answers **what may this person do for which child?**
+Treat Screen Time as a household capability purchased once, not as a child-by-child subscription. App Store Family Sharing can remove purchase friction for independently signed-in family members, while an active Kwilt household plan makes the capability commercially eligible. Eligibility does not activate it for a child. A StoreKit or Kwilt entitlement answers **may this Household use paid Screen Time?** A child capability activation answers **is Screen Time part of this child's Kwilt experience?** A caregiver grant answers **what may this person do for which child?**
 
 Before enabling it, verify the current App Store Connect products and sandbox-test purchase, restore, sharing delay, revocation, Apple-family departure, Kwilt-household departure, and RevenueCat webhook behavior. Do not allow loss of a shared purchase receipt to silently remove active device restrictions; it may stop future premium policy changes, but safe enforcement/release needs an explicit transition.
 
@@ -447,6 +447,9 @@ households
     authenticated adult member OR dependent child profile
   household_member_scopes
     which children/capabilities a caregiver may govern
+
+  child_capability_activations
+    which capabilities are active for each child, independent of siblings and payment
 
 dependent_profiles
   optional linked auth user as the child grows

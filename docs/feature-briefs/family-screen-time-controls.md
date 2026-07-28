@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-screen-time-controls-contextual-setup]
 owner: andrew
-last_updated: 2026-07-23
+last_updated: 2026-07-28
 ---
 
 # Family Screen Time Controls
@@ -47,9 +47,12 @@ When a child reaches for entertainment, the family wants the device to follow th
 ### Relationship boundaries
 
 - Kwilt Household governs owner/caregiver/child participation and capability authority.
+- Household Foundation governs whether Screen Time is activated for this named child. A sibling's activation is independent.
 - Apple Family Controls `.child` authorization governs whether the physical device can be managed.
 - App Store Family Sharing governs neither Kwilt authority nor policy delivery.
 - Adult `.individual` Screen Time remains a separate mode and feature brief.
+
+Screen Time activation, caregiver authority, commercial entitlement, and managed-device readiness are separate states. Family Screen Time appears in the child's Kwilt experience only when activated for that child. If a rule references assigned Activities, To-dos must also be explicitly active for that child; a schedule-only rule has no To-dos dependency.
 
 ### Managed-device contract
 
@@ -57,6 +60,7 @@ When a child reaches for entertainment, the family wants the device to follow th
 - Record authorization and capability state without exposing Apple's opaque selection tokens outside their required device boundary.
 - Maintain desired policy version, last applied version, enforcement state, and reconcile receipts separately.
 - Caregiver-authenticated release clears shields/monitoring and acknowledges cleanup.
+- Deactivation remains pending and visible until that cleanup receipt arrives; removing a menu item or entitlement never counts as device release.
 - Sign-out, unlink, reinstall, clock changes, missed pushes, and offline use have explicit safe behavior.
 
 ### Rule progression

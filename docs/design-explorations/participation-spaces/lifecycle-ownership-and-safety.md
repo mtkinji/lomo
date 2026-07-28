@@ -13,13 +13,29 @@ It is a product contract, not a database schema. Each capability may add stricte
 | Participation | How is this person connected to this Space? | Core member, dependent, or narrowly invited participant |
 | Role preset | What understandable starting bundle did we offer? | Caregiver |
 | Grant | What may this person actually see or do? | Approve Screen Time for Charlie only |
+| Child capability activation | Which Kwilt domains are part of this child's experience? | Screen Time and To-dos are active for Charlie; Money is not |
 | Owner principal | Which Person or Space holds the authoritative artifact? | The Watanabes owns its shared meal plan |
 | Author | Who contributed this version or event? | Ruth added the recipe notes |
 | Responsibility | Whose personal action layer should include this? | Charlie is responsible for unloading the dishwasher |
 | Share mode | Is this an independent copy or one live source? | Maya copied Ruth's recipe, or joins its live version |
 | Entitlement source | Why is this paid capability available? | Personal purchase or Space sponsorship |
 
-Assignment changes responsibility and the assignee's permitted action surface. It does not silently transfer ownership. Payment changes entitlement. It does not silently change participation or grants.
+Assignment changes responsibility and the assignee's permitted action surface. It does not silently transfer ownership. Payment changes entitlement. It does not silently change participation, grants, or child capability activation. A caregiver grant says who may administer a capability; child activation says whether that capability is available to that child.
+
+## Child-scoped capability activation
+
+Optional child capabilities are inactive by default and activated independently for each child by an authorized caregiver. The durable record is scoped to Space, child Person, and capability, with status, actor, timestamp, and any pending setup or cleanup state.
+
+- Activating a capability for one child does not activate it for siblings.
+- Household membership and the `child` role make a person eligible for child experiences; they do not populate the child's capability menu.
+- A caregiver needs an appropriate child/capability grant to activate, configure, or deactivate it.
+- A commercial entitlement may make activation eligible but never performs it.
+- Each capability declares prerequisites, the child-visible data it introduces, its notification/background behavior, and its deactivation aftermath.
+- Dependencies require a caregiver preview and confirmation. A capability cannot silently widen the child's experience by turning on another domain.
+- The child can see which capabilities are active and who manages them. Whether a child may request activation is capability-specific and does not grant self-activation.
+- Platform-essential account, privacy, safety, help, and release/recovery surfaces cannot be removed through the optional capability list.
+
+Activation is server-authorized and may enter `pending_setup` before it becomes `active`. Deactivation may enter `pending_cleanup`; Screen Time, for example, remains visibly pending until the managed device stops monitoring, clears Kwilt shields, and acknowledges cleanup. The UI must never hide a capability while its safety-sensitive effects remain active.
 
 ## Ownership and authorship
 
@@ -131,6 +147,9 @@ This common contract makes the architecture coherent; it does not make every dom
 4. its leave/removal behavior;
 5. its offline read and mutation behavior;
 6. its export, copy, and deletion behavior; and
-7. which audit events are retained and visible to whom.
+7. which audit events are retained and visible to whom;
+8. whether it supports dependent children and which caregiver may activate it;
+9. its activation prerequisites and child-visible surface; and
+10. its deactivation, retained-data, and device-cleanup behavior.
 
 Stories and memories also need subject privacy, legacy, living/deceased-person, and consent rules. Money needs shared-truth, export, and regulatory rules. Those are capability contracts built on this model, not reasons to create a different people system.
