@@ -3,7 +3,7 @@ import type { CapabilityDefinition } from '../types';
 export const exploreCapabilityDefinition = {
   id: 'explore',
   label: 'Explore',
-  group: 'play',
+  group: 'fun',
   icon: 'map',
   availability: 'active',
   rootRoute: { root: 'Explore', screen: 'ExploreMap' },

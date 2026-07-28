@@ -51,11 +51,11 @@ describe('capability registry', () => {
     });
   });
 
-  it('registers Explore in the Play group', () => {
+  it('registers Explore in the Fun group', () => {
     expect(getCapability('explore')).toMatchObject({
       id: 'explore',
       label: 'Explore',
-      group: 'play',
+      group: 'fun',
       rootRoute: { root: 'Explore', screen: 'ExploreMap' },
       availability: 'active',
     });

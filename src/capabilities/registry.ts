@@ -12,7 +12,7 @@ import { exploreCapabilityDefinition } from './explore/definition';
 export const CAPABILITY_GROUPS = [
   { id: 'goals-plans', label: 'Goals & Plans' },
   { id: 'money', label: 'Money' },
-  { id: 'play', label: 'Play' },
+  { id: 'fun', label: 'Fun' },
 ] as const satisfies readonly CapabilityGroupDefinition[];
 
 const currentKwiltAgentContract = {
