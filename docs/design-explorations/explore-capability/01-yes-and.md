@@ -2,7 +2,7 @@
 
 ## Original idea
 
-Kwilt turns real-world movement into a private-first family exploration game, clearing a roughly 100-foot corridor through fog while coloring the route by elevation.
+Kwilt turns real-world movement into a private-first family exploration game, clearing a 65-foot core through fog with a long, wispy transition while coloring the route by elevation.
 
 ## Adjacencies
 

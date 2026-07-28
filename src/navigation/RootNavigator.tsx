@@ -123,6 +123,7 @@ import { MoneyNavigator } from '../capabilities/money/navigation/MoneyNavigator'
 import type { MoneyStackParamList } from '../capabilities/money/navigation/types';
 import { ExploreNavigator } from '../capabilities/explore/navigation/ExploreNavigator';
 import type { ExploreStackParamList } from '../capabilities/explore/navigation/types';
+import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 
 export type RootDrawerParamList = {
@@ -305,6 +306,7 @@ export type ActivitiesStackParamList = {
 
 export type SettingsStackParamList = {
   SettingsHome: undefined;
+  SettingsExplore: { entrySurface?: 'explore-map' } | undefined;
   SettingsAppearance: undefined;
   SettingsProfile: { openAccountDeletion?: boolean } | undefined;
   SettingsAiModel: undefined;
@@ -902,6 +904,7 @@ function SettingsStackNavigator() {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
+      <SettingsStack.Screen name="SettingsExplore" component={ExploreSettingsScreen} />
       <SettingsStack.Screen
         name="SettingsAppearance"
         component={AppearanceSettingsScreen}

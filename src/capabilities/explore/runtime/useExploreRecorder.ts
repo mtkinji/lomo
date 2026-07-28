@@ -30,6 +30,7 @@ export function useExploreRecorder() {
   const [message, setMessage] = useState<string | null>(null);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const backgroundAuthorizedRef = useRef(false);
+  const permissionPromptActiveRef = useRef(false);
   const startSession = useExploreStore((state) => state.startSession);
   const appendSample = useExploreStore((state) => state.appendSample);
   const stopSession = useExploreStore((state) => state.stopSession);
@@ -67,22 +68,36 @@ export function useExploreRecorder() {
     await startExploreBackgroundUpdates(mode ?? useExploreStore.getState().preferences.recording);
   }, []);
 
-  const requestRecordingPermissions = useCallback(async (): Promise<boolean> => {
+  const requestForegroundPermission = useCallback(async (): Promise<boolean> => {
     const foreground = await Location.requestForegroundPermissionsAsync();
-    if (foreground.status !== 'granted') {
-      setStatus('permission-denied');
-      setMessage('Location stays off. Allow it in Settings when you want to explore.');
-      return false;
+    if (foreground.status === 'granted') return true;
+    setStatus('permission-denied');
+    setMessage('Location stays off. Allow it in Settings when you want to explore.');
+    return false;
+  }, []);
+
+  const requestRecordingPermissions = useCallback(async (): Promise<{
+    foregroundGranted: boolean;
+    backgroundGranted: boolean;
+  }> => {
+    const foregroundGranted = await requestForegroundPermission();
+    if (!foregroundGranted) return { foregroundGranted: false, backgroundGranted: false };
+    permissionPromptActiveRef.current = true;
+    let background: Location.LocationPermissionResponse;
+    try {
+      background = await Location.requestBackgroundPermissionsAsync();
+    } finally {
+      permissionPromptActiveRef.current = false;
     }
-    const background = await Location.requestBackgroundPermissionsAsync();
-    backgroundAuthorizedRef.current = background.status === 'granted';
-    if (background.status !== 'granted') {
+    const backgroundGranted = background.status === 'granted';
+    backgroundAuthorizedRef.current = backgroundGranted;
+    if (!backgroundGranted) {
       setMessage('Allow Always Location so Explore can continue when the screen is locked.');
     } else if (useExploreStore.getState().preferences.recapNotifications && globalNotificationsEnabled) {
       await Notifications.requestPermissionsAsync().catch(() => undefined);
     }
-    return true;
-  }, [globalNotificationsEnabled]);
+    return { foregroundGranted: true, backgroundGranted };
+  }, [globalNotificationsEnabled, requestForegroundPermission]);
 
   const beginForegroundSession = useCallback(async (mode: ExplorePreferences['recording']) => {
     setStatus('locating');
@@ -123,8 +138,8 @@ export function useExploreRecorder() {
     setMessage(null);
     setStatus('requesting-permission');
     try {
-      const permitted = await requestRecordingPermissions();
-      if (!permitted) return;
+      const permission = await requestRecordingPermissions();
+      if (!permission.foregroundGranted) return;
       await beginForegroundSession('manual');
     } catch {
       if (useExploreStore.getState().activeSession) stopSession();
@@ -133,29 +148,73 @@ export function useExploreRecorder() {
     }
   }, [beginForegroundSession, requestRecordingPermissions, stopSession]);
 
-  const setRecordingMode = useCallback(async (mode: ExplorePreferences['recording']) => {
+  const beginOnboarding = useCallback(async () => {
+    if (subscriptionRef.current) return;
+    setMessage(null);
+    setStatus('requesting-permission');
+    try {
+      const permitted = await requestForegroundPermission();
+      if (!permitted) return;
+      await beginForegroundSession('manual');
+    } catch {
+      if (useExploreStore.getState().activeSession) stopSession();
+      setStatus('unavailable');
+      setMessage('Kwilt could not start your Explore history. Try again when location is available.');
+    }
+  }, [beginForegroundSession, requestForegroundPermission, stopSession]);
+
+  const setRecordingMode = useCallback(async (mode: ExplorePreferences['recording']): Promise<boolean> => {
     if (mode === 'manual') {
       const wasAutomatic = useExploreStore.getState().preferences.recording === 'automatic';
       updatePreferences({ recording: 'manual' });
       if (wasAutomatic) stop();
-      return;
+      return true;
     }
     setMessage(null);
     setStatus('requesting-permission');
     try {
-      const permitted = await requestRecordingPermissions();
-      if (!permitted || !backgroundAuthorizedRef.current) return;
+      const permission = await requestRecordingPermissions();
+      if (!permission.foregroundGranted || !permission.backgroundGranted) return false;
       updatePreferences({ recording: 'automatic' });
       await beginAutomaticRecording();
+      return true;
     } catch {
       setStatus('unavailable');
       setMessage('Kwilt could not enable Always Exploring. Try again when location is available.');
+      return false;
     }
   }, [beginAutomaticRecording, requestRecordingPermissions, stop, updatePreferences]);
+
+  const locate = useCallback(async (): Promise<{ latitude: number; longitude: number } | null> => {
+    setMessage(null);
+    setStatus('locating');
+    try {
+      let foreground = await Location.getForegroundPermissionsAsync();
+      if (foreground.status !== 'granted') {
+        foreground = await Location.requestForegroundPermissionsAsync();
+      }
+      if (foreground.status !== 'granted') {
+        setStatus('permission-denied');
+        setMessage('Location stays off. Allow it in Settings when you want to center the map.');
+        return null;
+      }
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setStatus(useExploreStore.getState().activeSession ? 'recording' : 'idle');
+      return {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+    } catch {
+      setStatus('unavailable');
+      setMessage('Kwilt could not find your current location. Try again when location is available.');
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active' && subscriptionRef.current) {
+        if (permissionPromptActiveRef.current) return;
         subscriptionRef.current.remove();
         subscriptionRef.current = null;
         if (backgroundAuthorizedRef.current) {
@@ -235,8 +294,10 @@ export function useExploreRecorder() {
     active: Boolean(activeSession) && status === 'recording',
     status,
     message,
+    beginOnboarding,
     start,
     stop: () => stop(),
+    locate,
     setRecordingMode,
   };
 }

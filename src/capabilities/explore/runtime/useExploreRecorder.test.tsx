@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
+import { AppState } from 'react-native';
 import { useExploreStore } from './useExploreStore';
 import { useExploreRecorder } from './useExploreRecorder';
 
@@ -48,6 +49,32 @@ describe('useExploreRecorder recording modes', () => {
     expect(useExploreStore.getState().activeSession).not.toBeNull();
   });
 
+  it('creates the first stationary clearing with foreground permission only', async () => {
+    const { result } = renderHook(() => useExploreRecorder());
+    await act(async () => result.current.beginOnboarding());
+
+    expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(Location.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: Location.Accuracy.High });
+    expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
+    expect(useExploreStore.getState().activeSession?.points).toHaveLength(1);
+  });
+
+  it('locates once for map recentering without requesting background access or recording a point', async () => {
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    const { result } = renderHook(() => useExploreRecorder());
+
+    let coordinate: { latitude: number; longitude: number } | null = null;
+    await act(async () => {
+      coordinate = await result.current.locate();
+    });
+
+    expect(coordinate).toEqual({ latitude: 40.5, longitude: -105.1 });
+    expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: Location.Accuracy.High });
+    expect(Location.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(useExploreStore.getState().activeSession).toBeNull();
+  });
+
   it('does not clear foreground fog from airplane-like movement', async () => {
     const { result } = renderHook(() => useExploreRecorder());
     await act(async () => result.current.start());
@@ -89,6 +116,35 @@ describe('useExploreRecorder recording modes', () => {
     await act(async () => result.current.setRecordingMode('manual'));
     await waitFor(() => expect(useExploreStore.getState().preferences.recording).toBe('manual'));
     expect(useExploreStore.getState().activeSession).toBeNull();
+  });
+
+  it('keeps the current outing alive while the Always Location system prompt makes the app inactive', async () => {
+    let appStateListener: ((state: string) => void) | null = null;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+      appStateListener = listener as (state: string) => void;
+      return { remove: jest.fn() };
+    });
+    let resolveBackgroundPermission: ((value: { status: string }) => void) | null = null;
+    (Location.requestBackgroundPermissionsAsync as jest.Mock).mockImplementationOnce(() => new Promise((resolve) => {
+      resolveBackgroundPermission = resolve;
+    }));
+
+    const { result } = renderHook(() => useExploreRecorder());
+    await act(async () => result.current.beginOnboarding());
+    let automaticPromise: Promise<boolean> | null = null;
+    await act(async () => {
+      automaticPromise = result.current.setRecordingMode('automatic');
+      await Promise.resolve();
+    });
+
+    act(() => appStateListener?.('inactive'));
+
+    expect(useExploreStore.getState().activeSession).not.toBeNull();
+
+    await act(async () => {
+      resolveBackgroundPermission?.({ status: 'granted' });
+      await automaticPromise;
+    });
   });
 
   it('wakes a deep-sleep Ambient session when Explore is opened', async () => {

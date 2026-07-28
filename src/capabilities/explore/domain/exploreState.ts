@@ -5,7 +5,7 @@ import type { ExploreData, ExplorePoint, ExploreSession, ExploreTrackingPolicy, 
 
 export function createEmptyExploreData(): ExploreData {
   return {
-    version: 4,
+    version: 6,
     activeSession: null,
     sessions: [],
     exploredCells: {},

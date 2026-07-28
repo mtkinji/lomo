@@ -73,7 +73,7 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
       data: {
         ...defaults,
         ...persisted,
-        version: 4,
+        version: 6,
         activeSession: persisted.activeSession ? upgradeSession(persisted.activeSession) : null,
         sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
         preferences: { ...defaults.preferences, ...(persisted.preferences ?? {}) },
@@ -142,8 +142,8 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   }
 
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 4 }
-    : { state: next, version: 4 };
+    ? { ...persisted.envelope, state: next, version: 6 }
+    : { state: next, version: 6 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-location' });
@@ -179,8 +179,8 @@ TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
     tracking: resumeExploreTracking(persisted.data.tracking, new Date().toISOString()),
   };
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 4 }
-    : { state: next, version: 4 };
+    ? { ...persisted.envelope, state: next, version: 6 }
+    : { state: next, version: 6 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });

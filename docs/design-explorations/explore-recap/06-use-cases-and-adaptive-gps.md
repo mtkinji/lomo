@@ -4,7 +4,7 @@
 
 Explore uses three internal location policies: Ambient, Adventure, and Presence. People do not choose a battery or fidelity preset. Their explicit action selects the broad intent, and motion, speed, accuracy, and stillness adapt the location profile inside that intent.
 
-Fog clearing remains a fixed roughly 100-foot radius around the trusted path. Altitude colors the route and may appear in recaps, but never changes reveal distance. This keeps coverage predictable at home, at sea level, in the mountains, and while traveling.
+Fog clearing keeps a fixed 65-foot fully clear core around the trusted path. The surrounding Silver Mist uses a separate 100-foot reference to produce a roughly 150-225-foot organic transition before unknown territory becomes fully opaque. Altitude colors the route and may appear in recaps, but never changes either reveal distance. This keeps coverage predictable at home, at sea level, in the mountains, and while traveling.
 
 ## Fun use cases
 
