@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-family-screen-time-controls]
 owner: andrew
-last_updated: 2026-07-23
+last_updated: 2026-07-28
 ---
 
 # Household Foundation
@@ -50,6 +50,7 @@ When family members need to coordinate inside Kwilt, Maya wants to invite the ri
 - **Household member** — a participant identity inside the household.
 - **Auth binding** — optional link from a member to an authenticated Kwilt user.
 - **Dependent profile** — a member without required email/auth identity.
+- **Child capability activation** — one named capability's lifecycle for one dependent child.
 - **Capability grant** — named authority for a member over a capability and optional dependent scope.
 - **Invitation** — expiring, auditable path for an authenticated adult to join.
 
@@ -59,9 +60,24 @@ When family members need to coordinate inside Kwilt, Maya wants to invite the ri
 | --- | --- |
 | Owner | Household lifecycle, adult invitations, role/grant administration, dependent profiles |
 | Caregiver | Granted family-capability administration for named children; no billing or ownership transfer by default |
-| Child | Use child-facing capability experiences; no household administration |
+| Child | Use only the child-facing capabilities activated for this child; no household administration |
 
 Role does not automatically grant access to capability data. A caregiver must also hold the relevant capability/child grant. Billing owner, Apple family organizer, Kwilt household owner, and device authorizer remain separate facts.
+
+### Child-by-child capability activation
+
+An authorized caregiver chooses capabilities independently for each child from **Settings > Household > [Child] > Capabilities**. Optional capabilities start off for a new dependent profile and appear in the child's Kwilt menu only after that child's activation reaches `active`.
+
+The activation contract is distinct from authority and payment:
+
+- **Caregiver grant:** Andrew may manage Screen Time for Riley.
+- **Child activation:** Screen Time is active for Riley.
+- **Entitlement:** the Household is commercially eligible for Screen Time.
+- **Readiness:** Riley's device completed the required Apple authorization and policy handshake.
+
+The first Household slice may expose only capabilities with an accepted child-participation contract. Activating one capability never activates siblings or dependencies silently. If Screen Time later references assigned responsibilities, the caregiver must explicitly activate To-dos for that child; schedule-only Screen Time remains possible without that dependency.
+
+Deactivation previews what disappears, what data remains, and whether cleanup is required. Content capabilities may deactivate immediately after server acknowledgement. Device-enforced capabilities such as Screen Time remain **Turning off** until the child device confirms that monitoring and restrictions were removed.
 
 ### Privacy contract
 
@@ -77,6 +93,8 @@ Kwilt does not create an empty Household during ordinary onboarding. The owner s
 
 Add or invite first person → household and owner membership are created → invited adult accepts with an independent account or dependent profile becomes available → grant named capability authority → optionally bind devices.
 
+For a dependent child, profile creation is followed by an explicit capability choice. Creating the profile alone does not activate To-dos, Screen Time, Agent, Money, Games, Stories, or future capabilities.
+
 Accepting an invitation joins the inviter's existing Household. Apple Family Sharing never silently creates or populates a Kwilt Household; the systems have different identity, consent, authority, and data-access meanings.
 
 Removal and household deletion require explicit dependent-data and managed-device cleanup. Authority-changing operations require a server round trip; offline clients may display last-known state but not claim a role change succeeded.
@@ -86,12 +104,13 @@ Removal and household deletion require explicit dependent-data and managed-devic
 - Stable household and member IDs independent of auth provider IDs.
 - Membership status and role history.
 - Capability grants scoped to household, capability, and optionally child/member.
+- Child capability activations scoped to household, child member, and capability, with `inactive`, `pending_setup`, `active`, `pending_cleanup`, and `blocked` lifecycle states.
 - Server-enforced mutation authorization and negative RLS coverage.
-- Append-only invitation, grant, role, removal, and release audit events.
+- Append-only invitation, grant, role, child-capability activation, removal, and release audit events.
 
 ## Success signal
 
-Andrew and Blaire can establish one household and one child profile with independent accounts, correctly explain their authority, and confirm that no personal capability data became visible merely because they joined.
+Andrew and Blaire can establish one household and child profiles with independent accounts, activate different capabilities for each child, correctly explain their authority, and confirm that no personal capability data or capability access appeared merely because someone joined.
 
 The job-flow score does not increase on infrastructure alone; it becomes eligible to move when Assignment or another household capability creates useful participation.
 
@@ -100,6 +119,7 @@ The job-flow score does not increase on infrastructure alone; it becomes eligibl
 - Shared login credentials.
 - A public family graph or discovery.
 - Automatic adoption by every Kwilt capability.
+- A Household-wide switch that activates the same capability set for every child.
 - An empty Household as a required onboarding milestone.
 - Subscription sharing or App Store Family Sharing behavior.
 - Managed-device enforcement.
@@ -107,6 +127,6 @@ The job-flow score does not increase on infrastructure alone; it becomes eligibl
 
 ## Open questions
 
-- Can an owner grant caregiver authority for one child but not another in the first release?
 - What recovery process applies if the sole household owner loses account access?
 - Should a second adult be caregiver by default or require explicit capability grants during invitation?
+- Which capabilities, beyond To-dos and Screen Time, are ready to declare a child-participation and deactivation contract?

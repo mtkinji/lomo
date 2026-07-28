@@ -58,6 +58,19 @@ Kwilt
 
 Group labels organize comprehension and expansion in the global menu; they are not extra product destinations unless they have a durable user job of their own.
 
+### Child capability composition
+
+Kwilt's public capability hierarchy is not an all-or-nothing bundle for a dependent child. An authorized caregiver chooses which child-capable domains are active for each child independently. Activating Screen Time for Riley does not activate Money, Games, Agent, Stories, or every other capability for Riley, and it does not activate Screen Time for another child in the same Household.
+
+Four facts remain separate:
+
+1. **Product availability** — whether the installed Kwilt build contains and supports the capability.
+2. **Commercial entitlement** — whether the person or Household is allowed to use a paid capability.
+3. **Child capability activation** — whether an authorized caregiver has made that capability part of this child's Kwilt experience.
+4. **Capability readiness** — whether required setup, permissions, data, and device support are complete.
+
+The child's global menu and Agent/tool surface derive from the intersection of those facts. Household membership, a paid family plan, or a role name never activates every capability by implication. Platform-essential account, privacy, safety, help, and release/recovery surfaces remain reachable regardless of optional capability activation.
+
 ### Navigation baseline
 
 Option G is the accepted global-navigation baseline:
@@ -133,12 +146,19 @@ export type CapabilityDefinition = {
   deepLinks: readonly string[];
   settings?: readonly CapabilitySettingsDestination[];
   permissions?: readonly CapabilityPermission[];
+  childParticipation?: {
+    mode: 'not_supported' | 'caregiver_activatable' | 'always_available';
+    prerequisites?: readonly CapabilityId[];
+    deactivation: 'immediate' | 'managed_cleanup';
+  };
   agent: CapabilityAgentContract;
   lifecycle: CapabilityLifecycleContract;
 };
 ```
 
-The contract owns navigation metadata, agent context, lifecycle boundaries, permission declarations, settings contribution, and analytics identity. Screen components continue to own their internal navigation and visual treatment.
+The contract owns navigation metadata, agent context, lifecycle boundaries, permission declarations, settings contribution, child-participation posture, and analytics identity. Screen components continue to own their internal navigation and visual treatment.
+
+`caregiver_activatable` means the capability starts unavailable to a new child until an authorized caregiver activates it for that child. Prerequisites are explicit and previewed; one capability may not silently activate another. Deactivation is also capability-owned: a simple content capability may stop appearing immediately, while Screen Time requires managed device cleanup before it can truthfully become inactive.
 
 ### Single-owner infrastructure
 

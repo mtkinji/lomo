@@ -17,7 +17,7 @@ These briefs are the specs. Kwilt should not create a parallel `docs/specs/` tax
 
 The program introduces three system primitives, not four:
 
-1. **Household** — private membership, roles, dependent profiles, and capability-scoped authority.
+1. **Household** — private membership, roles, dependent profiles, child-scoped capability activation, and capability-scoped caregiver authority.
 2. **Activity participation** — assigning one Activity to a household member is the explicit sharing boundary.
 3. **Family access policy and device enforcement** — versioned rules applied and acknowledged by a managed child device.
 
@@ -56,6 +56,7 @@ Accept:
 
 - vocabulary and object boundaries;
 - role and capability-authority matrix;
+- distinction among child capability activation, caregiver authority, commercial entitlement, and device readiness;
 - private-by-default data policy;
 - the progressive-disclosure UX contract in [UX Review: Household Assignment in To-dos](./ux-review-household-assignments.md);
 - dependent-profile identity model;
@@ -71,7 +72,7 @@ Exit evidence:
 
 ### Checkpoint 1 — Household foundation
 
-Deliver one private household with two independently authenticated caregivers and one dependent child profile. Do not share Activities or control a device yet.
+Deliver one private household with two independently authenticated caregivers and dependent child profiles. Do not share Activities or control a device yet. Establish the child-by-child capability-activation contract before any capability consumes it.
 
 Activation is just in time: adding or inviting the first other person creates the Household and owner membership atomically. Ordinary personal onboarding does not create an empty Household.
 
@@ -80,8 +81,10 @@ The checkpoint is useful because the family can establish who belongs and who ma
 Exit evidence:
 
 - Create household, invite/accept caregiver, add dependent child, remove/release member.
+- Activate a supported capability for one child without activating it for a sibling; capability content and device effects may remain stubbed at this checkpoint.
 - Server-authorized role mutations and negative RLS tests.
 - Household membership grants no implicit access to personal Goals, Activities, Money, or other capability data.
+- Household membership, child role, and family payment grant no implicit child capability activation.
 - Offline clients can retain a last-known roster for explanation but cannot make authority-changing mutations offline.
 
 Stop/go question:
@@ -189,6 +192,7 @@ Exit evidence:
 | Contract | Owning brief | Consumers |
 | --- | --- | --- |
 | Household identity, membership, roles, dependent profiles | Household Foundation | Assignment, Chores, Screen Time, future family capabilities |
+| Child-by-child capability activation and lifecycle | Household Foundation | Every child-capable domain and the global shell |
 | Activity creator/assignee, sharing boundary, completion events | Household Activity Assignment | Chores, Screen Time |
 | Recurrence occurrences, review policy, child chores projection | Chores as Recurring Assigned Activities | Screen Time |
 | Managed devices, rules, enforcement, exceptions, receipts | Family Screen Time Controls | Screen Time capability |
@@ -201,6 +205,7 @@ Each implementation plan must trace its tests back to these contracts:
 
 - **Privacy:** membership alone reveals no personal capability data.
 - **Authority:** roles and capability grants are server-enforced, not inferred from client UI.
+- **Activation:** child capability state is independently scoped by household, child, and capability; siblings, roles, and payment do not widen it.
 - **Identity:** household member/profile identity is distinct from auth identity and Apple Family Sharing identity.
 - **Offline:** local completion and enforcement state have bounded, deterministic behavior.
 - **Reconciliation:** commands are idempotent; desired state, applied state, and receipts remain distinct.
@@ -225,5 +230,5 @@ The recommended next design challenge is therefore Household Foundation followed
 - A generic role table reused for every kind of collaboration.
 - A new Chore object or duplicate completion store.
 - Rewards, allowance, points, leaderboards, surveillance, or behavior scoring.
-- Multiple children/rules/devices before the one-family learning path is dependable.
+- Multiple managed children/rules/devices before the one-family learning path is dependable. The Household model and contract tests still prove that capability activation is child-specific.
 - App Store Family Sharing as a substitute for Kwilt household identity or authority.

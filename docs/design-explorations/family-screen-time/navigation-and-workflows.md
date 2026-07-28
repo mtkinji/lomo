@@ -5,7 +5,7 @@
 Family Screen Time uses three existing Kwilt ownership levels rather than creating a parental-controls mini-app:
 
 1. **Screen Time capability** — daily state, child access, family rules, requests, and actionable delivery truth.
-2. **Global Settings > Household** — people, roles, invitations, child profiles, managed devices, and release.
+2. **Global Settings > Household** — people, roles, invitations, child-by-child capability activation, managed devices, and release.
 3. **To-dos capability** — canonical assigned Activities used as responsibility criteria. This depends on the proposed [Activity Assignment Dependency](./activity-assignment-dependency.md); today's personal owner-scoped Activities cannot yet fill this role.
 
 This follows the accepted shell and settings contracts:
@@ -35,12 +35,29 @@ Kwilt side sheet
     │   ├── People & roles
     │   ├── Invitations
     │   └── [Child]
+    │       ├── Capabilities
     │       ├── Screen Time caregivers
     │       └── Managed devices
     └── Screen Time Controls            existing personal/self-control settings
 ```
 
 The learning release may register Screen Time as a direct allowlisted capability before the future **Family & Home** group is ready. It should not add an empty group solely for one hidden test capability.
+
+## Child capability activation
+
+**Settings > Household > [Child] > Capabilities** is the durable parent-owned composition surface. It lists only capabilities with a declared child-participation contract and shows each as **Off**, **Set up**, **On**, **Turning off**, or **Needs attention**. The caregiver changes one child and one capability at a time; there is no Household-wide **Enable for all children** control in the first system.
+
+Activation controls what appears in that child's side sheet, Agent/tool surface, notifications, and background lifecycle. It does not itself share caregiver data. Each activated capability still applies its own privacy and content contract.
+
+For the learning release:
+
+- **Screen Time** can be activated for the managed child.
+- **To-dos** is activated only if the family uses assigned responsibilities as rule criteria.
+- Schedule-only Screen Time does not require To-dos.
+- Capabilities without an accepted child contract do not appear as disabled promotional rows.
+- Account, privacy, safety, help, and device-release paths remain available regardless of the optional capability set.
+
+Starting family setup from Screen Time deep-links to the named child's Screen Time activation and continues through required device setup. It does not toggle Screen Time for siblings. Turning Screen Time off remains **Turning off** until device cleanup is acknowledged.
 
 ## Why Screen Time is not only a Settings row
 
@@ -132,6 +149,7 @@ SettingsHome
 ├── SettingsHousehold
 │   ├── SettingsHouseholdInvite
 │   └── SettingsHouseholdMember(memberId)
+│       ├── SettingsChildCapabilities
 │       └── SettingsManagedDevice(deviceId?)
 └── SettingsScreenTimeProtection          existing individual mode
 ```
@@ -180,6 +198,7 @@ Side sheet -> Screen Time
   -> Settings > Household
   -> Create household
   -> Add child profile
+  -> Activate Screen Time for this child
   -> Set up child device
 ```
 
@@ -197,6 +216,8 @@ Open Kwilt enrollment link/code
 ```
 
 After readiness, both devices return to the caregiver's Screen Time capability and open the starter rule composer. Setup does not finish on a generic Settings success page.
+
+If Andrew later adds another child, that child starts with a separate empty optional-capability set. Riley's Screen Time activation, rules, and device binding are not copied automatically.
 
 ## Workflow 2: Add Blaire as co-caregiver
 
