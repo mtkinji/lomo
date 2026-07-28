@@ -22,4 +22,17 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('<MoneyCategoryCoverDrawer');
     expect(source).not.toContain('getCategoryCover(');
   });
+
+  it('uses the shared floating object header and compact scroll-linked cover treatment', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('const CATEGORY_HERO_HEIGHT = 168;');
+    expect(source).toContain('<ObjectPageHeader');
+    expect(source).toContain('showFullWidthBackground={false}');
+    expect(source.match(/materialVariant="floatingWhite"/g)).toHaveLength(2);
+    expect(source).toContain('heroParallaxTranslateY');
+    expect(source).toContain('heroOpacity');
+    expect(source).toContain('style={styles.categoryTitle}>{category.name}</Text>');
+    expect(source).not.toContain('styles.headerSurface');
+  });
 });

@@ -1,6 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
 import { colors, fonts, spacing, typography } from '../../../theme';
@@ -17,7 +19,14 @@ import { Input } from '../../../ui/Input';
 import { KwiltSwitch } from '../../../ui/KwiltSwitch';
 import { AppShell } from '../../../ui/layout/AppShell';
 import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
+import {
+  HeaderActionPill,
+  ObjectPageHeader,
+  OBJECT_PAGE_HEADER_BAR_HEIGHT,
+} from '../../../ui/layout/ObjectPageHeader';
 import { PageHeader } from '../../../ui/layout/PageHeader';
+import { HStack } from '../../../ui/primitives';
+import { useScrollLinkedStatusBarStyle } from '../../../ui/hooks/useScrollLinkedStatusBarStyle';
 import { menuItemTextProps, menuStyles } from '../../../ui/menuStyles';
 import { MoneyCategoryCover } from '../components/MoneyCategoryCover';
 import { MoneyCategoryCoverDrawer } from '../components/MoneyCategoryCoverDrawer';
@@ -35,10 +44,15 @@ import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
 import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
+const CATEGORY_HERO_HEIGHT = 168;
+const CATEGORY_HEADER_PILL_SIZE = 44;
+const CATEGORY_HEADER_BAR_HEIGHT = OBJECT_PAGE_HEADER_BAR_HEIGHT + 8;
 
 export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyCategoryDetail'>) {
   const { capture } = useAnalytics();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const {
     pendingAppControlReviewCategoryId,
     previewCategoryPlanAmount,
@@ -76,6 +90,22 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const groups = useMemo(() => groupMoneyTransactionsByDate(
     (view?.transactions ?? []).slice(0, ACTIVITY_INLINE_LIMIT),
   ), [view?.transactions]);
+  const headerTotalHeight = insets.top + CATEGORY_HEADER_BAR_HEIGHT;
+  const heroFadeEnd = Math.max(1, CATEGORY_HERO_HEIGHT - headerTotalHeight);
+  const heroFadeStart = Math.max(0, heroFadeEnd - 40);
+  const heroOpacity = scrollY.interpolate({
+    inputRange: [0, heroFadeStart, heroFadeEnd],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+  const heroParallaxTranslateY = Animated.multiply(scrollY, 0.35);
+  const statusBarStyle = useScrollLinkedStatusBarStyle(scrollY, heroFadeEnd, {
+    enabled: isFocused,
+    initialStyle: 'light',
+    inactiveStyle: 'dark',
+    hysteresisPx: 8,
+    platform: 'ios',
+  });
 
   useEffect(() => {
     if (!category) return;
@@ -213,10 +243,16 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
 
   const moreMenu = (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${category.name} actions`} style={styles.headerButton}>
-          <Icon name="more" size={21} color={colors.textPrimary} />
-        </Pressable>
+      <DropdownMenuTrigger accessibilityLabel={`${category.name} actions`}>
+        <View pointerEvents="none">
+          <HeaderActionPill
+            accessibilityLabel={`${category.name} actions`}
+            materialVariant="floatingWhite"
+            size={CATEGORY_HEADER_PILL_SIZE}
+          >
+            <Icon name="more" size={22} color={colors.textPrimary} />
+          </HeaderActionPill>
+        </View>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
         <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
@@ -230,32 +266,62 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   return (
     <>
       <AppShell fullBleedCanvas>
+        <StatusBar style={statusBarStyle} animated />
         <View style={styles.screen}>
-          <View style={[styles.headerSurface, { paddingTop: insets.top }]}> 
-            <PageHeader title={category.name} onPressBack={() => navigation.goBack()} moreMenu={moreMenu} />
-          </View>
-          <ScrollView
+          <ObjectPageHeader
+            barHeight={CATEGORY_HEADER_BAR_HEIGHT}
+            horizontalPadding={spacing.xl}
+            showFullWidthBackground={false}
+            left={(
+              <HeaderActionPill
+                accessibilityLabel="Back to budget summary"
+                materialVariant="floatingWhite"
+                onPress={() => navigation.goBack()}
+                size={CATEGORY_HEADER_PILL_SIZE}
+              >
+                <Icon name="arrowLeft" size={22} color={colors.textPrimary} />
+              </HeaderActionPill>
+            )}
+            right={<HStack alignItems="center" space="sm">{moreMenu}</HStack>}
+          />
+          <Animated.ScrollView
             contentInsetAdjustmentBehavior="never"
             scrollEnabled={!chartScrubbing}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+              useNativeDriver: true,
+            })}
+            scrollEventThrottle={16}
           >
-            <MoneyCategoryCover cover={category.coverImage} />
-            <MoneyDetailMeter
-              category={category}
-              historicalTransactions={view.historicalTransactions}
-              monthOffset={monthOffset}
-              onForecastInfo={() => setForecastInfoOpen(true)}
-              onNextMonth={() => setMonthOffset((value) => Math.min(12, value + 1))}
-              onPreviousMonth={() => setMonthOffset((value) => Math.max(-24, value - 1))}
-              onResetMonth={() => setMonthOffset(0)}
-              onScrubActiveChange={setChartScrubbing}
-              periodElapsedPercent={view.periodElapsedPercent}
-              periodEndIso={view.periodEndIso}
-              periodLabel={view.periodLabel}
-              periodStartIso={view.periodStartIso}
-              transactions={view.transactions}
-            />
+            <View style={styles.heroClip}>
+              <Animated.View
+                style={[
+                  styles.heroArtwork,
+                  { opacity: heroOpacity, transform: [{ translateY: heroParallaxTranslateY }] },
+                ]}
+              >
+                <MoneyCategoryCover cover={category.coverImage} />
+              </Animated.View>
+            </View>
+            <View style={styles.summarySection}>
+              <Text accessibilityRole="header" style={styles.categoryTitle}>{category.name}</Text>
+              <MoneyDetailMeter
+                category={category}
+                historicalTransactions={view.historicalTransactions}
+                monthOffset={monthOffset}
+                onForecastInfo={() => setForecastInfoOpen(true)}
+                onNextMonth={() => setMonthOffset((value) => Math.min(12, value + 1))}
+                onPreviousMonth={() => setMonthOffset((value) => Math.max(-24, value - 1))}
+                onResetMonth={() => setMonthOffset(0)}
+                onScrubActiveChange={setChartScrubbing}
+                periodElapsedPercent={view.periodElapsedPercent}
+                periodEndIso={view.periodEndIso}
+                periodLabel={view.periodLabel}
+                periodStartIso={view.periodStartIso}
+                transactions={view.transactions}
+              />
+            </View>
 
             {pendingAppControlReviewCategoryId === category.sourceId ? (
               <View style={styles.reviewCard}>
@@ -326,7 +392,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 <Fact label="Funding" value={category.fundingRhythm === 'reserve' ? 'Reserve' : 'Monthly'} />
               </View>
             </View>
-          </ScrollView>
+          </Animated.ScrollView>
         </View>
       </AppShell>
 
@@ -564,9 +630,11 @@ function fundingCoverageLabel(category: MoneyCategory): string {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  headerSurface: { paddingHorizontal: spacing.sm, backgroundColor: colors.canvas, zIndex: 2 },
-  headerButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   content: { paddingBottom: 80, paddingHorizontal: spacing.xl, gap: spacing.xl },
+  heroClip: { height: CATEGORY_HERO_HEIGHT, marginHorizontal: -spacing.xl, overflow: 'hidden' },
+  heroArtwork: { ...StyleSheet.absoluteFillObject },
+  summarySection: { gap: spacing.md },
+  categoryTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, fontWeight: '700' },
   activitySection: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
