@@ -12,7 +12,7 @@ briefs:
   - explore-capability
   - explore-recap
 status: shipping
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-28
 ---
 
 # explore
@@ -27,4 +27,4 @@ Turns explicitly recorded real-world movement into a private, persistent map of 
 
 ## Notes
 
-Explore remains local-only. Background recording is separately enabled and limited to an explicitly started session; remote family delivery remains unavailable until its trust and infrastructure contracts are implemented.
+Explore remains local-only. Both manual outings and the explicit Always Exploring mode continue through screen lock using an efficient background profile; recording mode never changes sharing, and remote family delivery remains unavailable until its trust and infrastructure contracts are implemented.

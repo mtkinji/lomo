@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-capture-and-find-meaning, jtbd-trust-this-app-with-my-life]
 related_briefs: [explore-capability, geolocation-activity-offers]
 owner: andrew
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Exploration Recap
@@ -51,7 +51,7 @@ Exploration Recap extends the existing Explore session and canonical Place relat
 - Job: When an outing ends, understand what was newly discovered without reviewing every GPS event.
 - Primary action: Done.
 - Must show: outing context and newly collected Place names in route order.
-- Reveal later: correction/removal and privacy/background preferences.
+- Reveal later: correction/removal, recording mode, and notification preference.
 - Must not add: inbox, dashboard, points, badges, per-place alerts, forced confirmation, or public sharing.
 - Reuse map: Explore MapView, BottomDrawer, BottomDrawerHeader, Button, Icon, Typography, and SettingRow.
 - Behavior sources: one recap, first-visit dedupe, hidden lock-screen names, and family opt-in are explicit user decisions.
@@ -60,13 +60,15 @@ Exploration Recap extends the existing Explore session and canonical Place relat
 
 ### Behavior contract
 
-1. An explicit Explore session silently accumulates route points.
-2. Background continuation is separately enabled and requests background permission only after foreground permission.
-3. On completion, Kwilt samples at most twelve well-spaced route points and reverse geocodes them sequentially in the foreground.
-4. Only distinctive named parks, trails, overlooks, summits, and landmarks become candidates; street-address-like results are ignored.
-5. Canonical Place ids are normalized and spatially bounded. Previously visited Places do not reappear as discoveries.
-6. One recap is shown per session. A background completion may schedule one generic local notification, never one notification per Place.
-7. Tapping a recap notification opens Explore, where the persisted pending recap appears.
+1. Explore offers two recording modes: `Only when I start` and `Always Exploring`.
+2. Both modes continue through screen lock. Starting manually or choosing Always Exploring is the explicit action that requests background permission after foreground permission.
+3. Always Exploring uses an efficient location profile, automatically splits outings after sustained stillness, and can be paused from the main Explore action.
+4. Recording mode never changes family sharing. Location remains private unless the user separately shares it.
+5. On completion, Kwilt samples at most twelve well-spaced route points and reverse geocodes them sequentially in the foreground.
+6. Only distinctive named parks, trails, overlooks, summits, and landmarks become candidates; street-address-like results are ignored.
+7. Canonical Place ids are normalized and spatially bounded. Previously visited Places do not reappear as discoveries.
+8. Unseen automatic outings combine into one recap. A background completion may schedule one generic local notification until that recap is seen, never one notification per Place or outing.
+9. Tapping a recap notification opens Explore, where the persisted pending recap appears.
 
 ## Success signal
 
@@ -79,4 +81,4 @@ A multi-place outing returns as one calm, understandable recap; known Places do 
 
 ## Spec refinement
 
-This increment implements the deterministic policy, foreground placemark resolution, persisted recap projection, and optional background task. Simulator proof can cover the recap and notification policy, but background recording is not considered runtime-proven until a fresh native build is installed on a signed device or dedicated Simulator runtime.
+This increment implements the deterministic policy, foreground placemark resolution, persisted recap projection, manual and ambient recording modes, and efficient background task. Simulator proof can cover the mode and recap UI, but continuous background recording and battery performance are not considered runtime-proven until a fresh native build is installed on a signed device.

@@ -1,6 +1,6 @@
 ---
 title: "Frame: Exploration Recap"
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Frame: Exploration Recap
@@ -39,7 +39,7 @@ Maya is present with her family during a walk or outing. She wants the memory af
 Constraint posture: `Extend the system`
 
 - Explore already owns explicit sessions, route points, canonical Places, visit relationships, privacy settings, and a bottom drawer.
-- Expo Location can continue an explicitly started session in a background task when native configuration and permission allow it.
+- Expo Location can continue manual or explicitly enabled ambient recording in a background task when native configuration and permission allow it.
 - Apple-backed reverse geocoding exposes placemark names, but it is resource-consuming and should run after the route returns to the foreground.
 - Expo Notifications can deliver one local recap and route back to Explore.
 
@@ -54,7 +54,7 @@ How might we help Maya stay present during an outing and receive one trustworthy
 - Remote family recap delivery.
 - Public sharing, badges, streaks, points, or competitive discovery.
 - Claiming every Apple placemark is a meaningful visit.
-- Silent always-on location collection outside an explicitly started Explore session.
+- Location collection without the user explicitly choosing Always Exploring or starting an outing.
 
 ## Open question
 

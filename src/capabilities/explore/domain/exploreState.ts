@@ -1,10 +1,10 @@
-import { exploreCellForCoordinate } from './exploreGeometry';
+import { exploreCellForCoordinate, exploreCellsAlongSegment } from './exploreGeometry';
 import { createDefaultExplorePreferences } from './explorePrivacy';
 import type { ExploreData, ExplorePoint, ExploreSession, Place, UserPlaceRelationship } from './types';
 
 export function createEmptyExploreData(): ExploreData {
   return {
-    version: 2,
+    version: 3,
     activeSession: null,
     sessions: [],
     exploredCells: {},
@@ -38,23 +38,27 @@ export function beginExploreSession(
 
 export function appendExplorePoint(state: ExploreData, point: ExplorePoint): ExploreData {
   if (!state.activeSession) return state;
-  const cell = exploreCellForCoordinate(point);
-  const currentCell = state.exploredCells[cell.id];
+  const previousPoint = state.activeSession.points.at(-1);
+  const cells = previousPoint
+    ? exploreCellsAlongSegment(previousPoint, point)
+    : [exploreCellForCoordinate(point)];
+  const exploredCells = { ...state.exploredCells };
+  cells.forEach((cell) => {
+    const currentCell = exploredCells[cell.id];
+    exploredCells[cell.id] = {
+      id: cell.id,
+      center: cell.center,
+      firstExploredAt: currentCell?.firstExploredAt ?? point.recordedAt,
+      lastExploredAt: point.recordedAt,
+    };
+  });
   return {
     ...state,
     activeSession: {
       ...state.activeSession,
       points: [...state.activeSession.points, point],
     },
-    exploredCells: {
-      ...state.exploredCells,
-      [cell.id]: {
-        id: cell.id,
-        center: cell.center,
-        firstExploredAt: currentCell?.firstExploredAt ?? point.recordedAt,
-        lastExploredAt: point.recordedAt,
-      },
-    },
+    exploredCells,
   };
 }
 

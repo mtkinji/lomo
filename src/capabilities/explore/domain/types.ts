@@ -43,13 +43,12 @@ export type ExplorePreferences = {
   showMyPath: boolean;
   showFamilyTerritory: boolean;
   visibleMemberIds: string[];
-  keepRecordingInBackground: boolean;
   recapNotifications: boolean;
   showPlaceNamesOnLockScreen: boolean;
 };
 
 export type ExploreData = {
-  version: 2;
+  version: 3;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;

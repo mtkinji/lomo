@@ -39,6 +39,7 @@ import { registerHealthDailySyncTask } from './src/services/health/healthBackgro
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import './src/capabilities/explore/runtime/exploreBackgroundTask';
+import { ExploreAlwaysOnRuntimeHost } from './src/capabilities/explore/runtime/ExploreAlwaysOnRuntimeHost';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
@@ -616,6 +617,7 @@ export default function App() {
           <Logo size={1} style={styles.logoPreload} />
           {content}
           <FocusSessionRuntimeHost />
+          {authIdentity ? <ExploreAlwaysOnRuntimeHost /> : null}
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

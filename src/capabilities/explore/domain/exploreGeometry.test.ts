@@ -1,6 +1,7 @@
 import {
   EXPLORE_REVEAL_RADIUS_M,
   buildFogHole,
+  exploreCellsAlongSegment,
   coordinateDistanceM,
   exploreCellForCoordinate,
 } from './exploreGeometry';
@@ -35,5 +36,15 @@ describe('Explore geometry', () => {
     expect(hole).toHaveLength(17);
     expect(hole[0]).toEqual(hole[hole.length - 1]);
     expect(coordinateDistanceM(center, hole[0])).toBeCloseTo(EXPLORE_REVEAL_RADIUS_M, 0);
+  });
+
+  it('fills a continuous cell corridor between efficient location samples', () => {
+    const cells = exploreCellsAlongSegment(
+      { latitude: 40.58526, longitude: -105.08442 },
+      { latitude: 40.58616, longitude: -105.08442 },
+    );
+    expect(cells.length).toBeGreaterThanOrEqual(5);
+    expect(Math.max(...cells.slice(1).map((cell, index) => coordinateDistanceM(cells[index].center, cell.center))))
+      .toBeLessThanOrEqual(40);
   });
 });

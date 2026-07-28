@@ -37,8 +37,10 @@ type ExploreStore = ExploreData & {
   }) => void;
   resolveSessionPlaces: (sessionId: string, places: Place[], userId: string) => void;
   markRecapSeen: (sessionId: string) => void;
+  markRecapsSeen: (sessionIds: string[]) => void;
   markRecapNotified: (sessionId: string, sentAt?: string) => void;
   removeDiscoveredPlace: (sessionId: string, placeId: string, userId: string) => void;
+  removeDiscoveredPlaceFromRecaps: (sessionIds: string[], placeId: string, userId: string) => void;
   clearHistory: () => void;
   loadPreviewAdventure: () => void;
 };
@@ -153,6 +155,16 @@ export const useExploreStore = create<ExploreStore>()(
           lastPointDecision: state.lastPointDecision,
         }));
       },
+      markRecapsSeen: (sessionIds) => {
+        set((state) => {
+          const selected = new Set(sessionIds);
+          let next = dataFromStore(state);
+          selected.forEach((sessionId) => {
+            next = markExploreRecapSeen(next, sessionId);
+          });
+          return { ...next, lastPointDecision: state.lastPointDecision };
+        });
+      },
       markRecapNotified: (sessionId, sentAt = new Date().toISOString()) => {
         set((state) => ({
           ...markExploreRecapNotified(dataFromStore(state), sessionId, sentAt),
@@ -171,6 +183,24 @@ export const useExploreStore = create<ExploreStore>()(
             placeRelationships: nextRelationships,
             places: nextPlaces,
             sessions: state.sessions.map((session) => session.id === sessionId
+              ? { ...session, discoveredPlaceIds: session.discoveredPlaceIds.filter((id) => id !== placeId) }
+              : session),
+          };
+        });
+      },
+      removeDiscoveredPlaceFromRecaps: (sessionIds, placeId, userId) => {
+        set((state) => {
+          const relationshipId = `${userId}:${placeId}`;
+          const nextRelationships = { ...state.placeRelationships };
+          delete nextRelationships[relationshipId];
+          const placeStillUsed = Object.values(nextRelationships).some((relationship) => relationship.placeId === placeId);
+          const nextPlaces = { ...state.places };
+          if (!placeStillUsed) delete nextPlaces[placeId];
+          const selected = new Set(sessionIds);
+          return {
+            placeRelationships: nextRelationships,
+            places: nextPlaces,
+            sessions: state.sessions.map((session) => selected.has(session.id)
               ? { ...session, discoveredPlaceIds: session.discoveredPlaceIds.filter((id) => id !== placeId) }
               : session),
           };
@@ -219,7 +249,7 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
@@ -233,13 +263,17 @@ export const useExploreStore = create<ExploreStore>()(
           backgroundStillnessAnchor: session?.backgroundStillnessAnchor ?? null,
           backgroundStillSince: session?.backgroundStillSince ?? null,
         });
+        const persistedPreferences = (persisted.preferences ?? {}) as Partial<ExplorePreferences> & {
+          keepRecordingInBackground?: boolean;
+        };
+        const { keepRecordingInBackground: _legacyBackgroundToggle, ...preferences } = persistedPreferences;
         return {
           ...defaults,
           ...persisted,
-          version: 2,
+          version: 3,
           activeSession: persisted.activeSession ? upgradeSession(persisted.activeSession) : null,
           sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
-          preferences: { ...defaults.preferences, ...(persisted.preferences ?? {}) },
+          preferences: { ...defaults.preferences, ...preferences },
         } as ExploreData;
       },
       partialize: (state) => dataFromStore(state),

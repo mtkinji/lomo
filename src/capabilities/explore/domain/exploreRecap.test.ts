@@ -1,4 +1,4 @@
-import { buildExploreRecap, exploreRecapNotification } from './exploreRecap';
+import { buildExploreRecap, exploreRecapNotification, pendingExploreRecap } from './exploreRecap';
 import { createEmptyExploreData, beginExploreSession, appendExplorePoint, completeExploreSession, finalizeExploreRecap, recordPlaceVisit } from './exploreState';
 
 const routePoint = {
@@ -43,5 +43,30 @@ describe('Exploration Recap', () => {
       sessionId: 'session-1', completedReason: 'manual', recapNotificationSentAt: null,
       enabled: true, showPlaceNamesOnLockScreen: false, placeNames: [],
     })).toBeNull();
+  });
+
+  it('does not send another outing notification before the combined recap is seen', () => {
+    expect(exploreRecapNotification({
+      sessionId: 'session-2', completedReason: 'background-stillness', recapNotificationSentAt: null,
+      enabled: true, showPlaceNamesOnLockScreen: false, placeNames: [], unseenRecapAlreadyNotified: true,
+    })).toBeNull();
+  });
+
+  it('combines all ready unseen outings into one recap between glances', () => {
+    const first = { id: 's1', startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
+    const second = { ...first, id: 's2', startedAt: '2026-07-28T12:00:00.000Z', endedAt: '2026-07-28T12:15:00.000Z' };
+    const state = { ...createEmptyExploreData(), sessions: [second, first] };
+    expect(pendingExploreRecap(state)).toEqual(expect.objectContaining({
+      sessionIds: ['s1', 's2'],
+      pointCount: 2,
+      startedAt: first.startedAt,
+      endedAt: second.endedAt,
+    }));
+  });
+
+  it('waits for every unseen outing to finish resolving before showing the combined recap', () => {
+    const ready = { id: 's1', startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
+    const resolving = { ...ready, id: 's2', recapStatus: 'resolving' as const };
+    expect(pendingExploreRecap({ ...createEmptyExploreData(), sessions: [resolving, ready] })).toBeNull();
   });
 });

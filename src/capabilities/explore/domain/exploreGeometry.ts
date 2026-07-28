@@ -41,6 +41,22 @@ export function exploreCellForCoordinate(coordinate: ExploreCoordinate): Pick<Ex
   };
 }
 
+export function exploreCellsAlongSegment(
+  from: ExploreCoordinate,
+  to: ExploreCoordinate,
+): Array<Pick<ExploredCell, 'id' | 'center'>> {
+  const distanceM = coordinateDistanceM(from, to);
+  const segmentCount = Math.max(1, Math.ceil(distanceM / EXPLORE_CELL_SIZE_M));
+  const cells = Array.from({ length: segmentCount + 1 }, (_, index) => {
+    const progress = index / segmentCount;
+    return exploreCellForCoordinate({
+      latitude: from.latitude + (to.latitude - from.latitude) * progress,
+      longitude: from.longitude + (to.longitude - from.longitude) * progress,
+    });
+  });
+  return [...new Map(cells.map((cell) => [cell.id, cell])).values()];
+}
+
 export function destinationCoordinate(
   center: ExploreCoordinate,
   distanceM: number,

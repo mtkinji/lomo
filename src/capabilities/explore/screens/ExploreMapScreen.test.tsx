@@ -12,6 +12,7 @@ const mockRecorder = {
   message: null as string | null,
   start: mockStart,
   stop: mockStop,
+  setRecordingMode: jest.fn(),
 };
 
 jest.mock('../../../navigation/CapabilityShellContext', () => ({
@@ -62,7 +63,7 @@ describe('ExploreMapScreen', () => {
         sharing: 'private',
         showMyPath: true,
         showFamilyTerritory: false,
-        keepRecordingInBackground: false,
+        recording: 'manual',
         recapNotifications: true,
       });
     });
@@ -110,15 +111,23 @@ describe('ExploreMapScreen', () => {
     expect(useExploreStore.getState().sessions[0].recapStatus).toBe('seen');
   });
 
-  it('exposes background recording and one recap notification as separate controls', () => {
+  it('offers Always Exploring or manual outings without coupling either to sharing', () => {
     const screen = render(<ExploreMapScreen />);
     fireEvent.press(screen.getByLabelText('Explore layers and privacy'));
 
-    fireEvent(screen.getByLabelText('Screen-locked recording'), 'valueChange', true);
+    fireEvent.press(screen.getByLabelText('Always Exploring'));
     fireEvent(screen.getByLabelText('One recap notification'), 'valueChange', false);
-    expect(useExploreStore.getState().preferences).toEqual(expect.objectContaining({
-      keepRecordingInBackground: true,
-      recapNotifications: false,
-    }));
+    expect(mockRecorder.setRecordingMode).toHaveBeenCalledWith('automatic');
+    expect(useExploreStore.getState().preferences.sharing).toBe('private');
+    expect(useExploreStore.getState().preferences.recapNotifications).toBe(false);
+  });
+
+  it('makes pausing ambient recording the main map action', () => {
+    act(() => useExploreStore.getState().updatePreferences({ recording: 'automatic' }));
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByText('Always exploring')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Pause always exploring'));
+    expect(mockRecorder.setRecordingMode).toHaveBeenCalledWith('manual');
   });
 });

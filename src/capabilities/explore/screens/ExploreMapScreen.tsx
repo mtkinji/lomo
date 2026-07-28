@@ -69,7 +69,10 @@ function fogRingForRegion(region: Region) {
   ];
 }
 
-function recorderLabel(status: ReturnType<typeof useExploreRecorder>['status']): string {
+function recorderLabel(
+  status: ReturnType<typeof useExploreRecorder>['status'],
+  recordingMode: 'manual' | 'automatic',
+): string {
   switch (status) {
     case 'requesting-permission':
       return 'Asking for location…';
@@ -82,7 +85,7 @@ function recorderLabel(status: ReturnType<typeof useExploreRecorder>['status']):
     case 'unavailable':
       return 'Location unavailable';
     default:
-      return 'Private until you start';
+      return recordingMode === 'automatic' ? 'Always exploring' : 'Private until you start';
   }
 }
 
@@ -102,8 +105,8 @@ export function ExploreMapScreen() {
   const addPlaceVisit = useExploreStore((state) => state.addPlaceVisit);
   const clearHistory = useExploreStore((state) => state.clearHistory);
   const loadPreviewAdventure = useExploreStore((state) => state.loadPreviewAdventure);
-  const markRecapSeen = useExploreStore((state) => state.markRecapSeen);
-  const removeDiscoveredPlace = useExploreStore((state) => state.removeDiscoveredPlace);
+  const markRecapsSeen = useExploreStore((state) => state.markRecapsSeen);
+  const removeDiscoveredPlaceFromRecaps = useExploreStore((state) => state.removeDiscoveredPlaceFromRecaps);
   const recorder = useExploreRecorder();
   useExploreRecapResolver(localUserId);
   const [layersVisible, setLayersVisible] = useState(false);
@@ -133,7 +136,7 @@ export function ExploreMapScreen() {
     return Object.values(places).filter((place) => visitedIds.has(place.id));
   }, [placeRelationships, places]);
   const recap = useMemo(() => pendingExploreRecap({
-    version: 2,
+    version: 3,
     activeSession,
     sessions,
     exploredCells,
@@ -238,7 +241,7 @@ export function ExploreMapScreen() {
         </Pressable>
         <View style={styles.titlePill}>
           <Text style={styles.title}>Explore</Text>
-          <Text style={styles.status}>{recorderLabel(recorder.status)}</Text>
+          <Text style={styles.status}>{recorderLabel(recorder.status, preferences.recording)}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -254,7 +257,11 @@ export function ExploreMapScreen() {
         <View pointerEvents="none" style={styles.emptyCard}>
           <Icon name="map" size={22} color={colors.pine700} />
           <Text style={styles.emptyTitle}>The world is still waiting.</Text>
-          <Text style={styles.emptyCopy}>Start exploring to clear a 100-foot path through the fog.</Text>
+          <Text style={styles.emptyCopy}>
+            {preferences.recording === 'automatic'
+              ? 'Move through the world to clear a 100-foot path through the fog.'
+              : 'Start exploring to clear a 100-foot path through the fog.'}
+          </Text>
         </View>
       ) : null}
 
@@ -262,14 +269,20 @@ export function ExploreMapScreen() {
         {recorder.message ? <Text style={styles.message}>{recorder.message}</Text> : null}
         <Button
           testID="explore.recording.toggle"
-          accessibilityLabel={recorder.active ? 'Stop exploring' : 'Start exploring'}
-          variant={recorder.active ? 'inverse' : 'primary'}
+          accessibilityLabel={preferences.recording === 'automatic'
+            ? 'Pause always exploring'
+            : recorder.active ? 'Stop exploring' : 'Start exploring'}
+          variant={preferences.recording === 'automatic' || recorder.active ? 'inverse' : 'primary'}
           size="lg"
           disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
-          onPress={recorder.active ? recorder.stop : recorder.start}
+          onPress={preferences.recording === 'automatic'
+            ? () => { void recorder.setRecordingMode('manual'); }
+            : recorder.active ? recorder.stop : recorder.start}
           style={styles.primaryAction}
         >
-          {recorder.active ? 'Stop' : recorder.status === 'locating' ? 'Finding you…' : 'Start Exploring'}
+          {preferences.recording === 'automatic'
+            ? 'Pause Exploring'
+            : recorder.active ? 'Stop' : recorder.status === 'locating' ? 'Finding you…' : 'Start Exploring'}
         </Button>
       </View>
 
@@ -295,11 +308,17 @@ export function ExploreMapScreen() {
           ) : null}
 
           <Text style={styles.sectionLabel}>WHILE EXPLORING</Text>
-          <SettingRow
-            label="Screen-locked recording"
-            detail="Continue only during an Explore outing you start"
-            value={preferences.keepRecordingInBackground}
-            onValueChange={(keepRecordingInBackground) => updatePreferences({ keepRecordingInBackground })}
+          <RecordingModeOption
+            label="Always Exploring"
+            detail="Quietly clears your private map as you move; uses more battery"
+            selected={preferences.recording === 'automatic'}
+            onPress={() => { void recorder.setRecordingMode('automatic'); }}
+          />
+          <RecordingModeOption
+            label="Only when I start"
+            detail="Continues with the screen locked until you stop"
+            selected={preferences.recording === 'manual'}
+            onPress={() => { void recorder.setRecordingMode('manual'); }}
           />
           <SettingRow
             label="One recap notification"
@@ -373,7 +392,7 @@ export function ExploreMapScreen() {
 
       <BottomDrawer
         visible={Boolean(recap)}
-        onClose={() => recap && markRecapSeen(recap.sessionId)}
+        onClose={() => recap && markRecapsSeen(recap.sessionIds)}
         snapPoints={['58%']}
       >
         {recap ? (
@@ -404,7 +423,7 @@ export function ExploreMapScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Remove ${place.name} from this recap`}
                       hitSlop={8}
-                      onPress={() => removeDiscoveredPlace(recap.sessionId, place.id, localUserId)}
+                      onPress={() => removeDiscoveredPlaceFromRecaps(recap.sessionIds, place.id, localUserId)}
                       style={({ pressed }) => pressed ? styles.pressed : null}
                     >
                       <Icon name="close" size={18} color={colors.textSecondary} />
@@ -415,7 +434,7 @@ export function ExploreMapScreen() {
             ) : (
               <Text style={styles.recapEmpty}>No confidently named Place was found, so Kwilt kept the route without guessing.</Text>
             )}
-            <Button testID="explore.recap.done" size="lg" onPress={() => markRecapSeen(recap.sessionId)}>Done</Button>
+            <Button testID="explore.recap.done" size="lg" onPress={() => markRecapsSeen(recap.sessionIds)}>Done</Button>
           </BottomDrawerScrollView>
         ) : null}
       </BottomDrawer>
@@ -466,6 +485,38 @@ function SettingRow({
         thumbColor={value ? colors.pine800 : colors.gray50}
       />
     </View>
+  );
+}
+
+function RecordingModeOption({
+  label,
+  detail,
+  selected,
+  onPress,
+}: {
+  label: string;
+  detail: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.recordingMode,
+        selected ? styles.recordingModeSelected : null,
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={[styles.recordingDot, selected ? styles.recordingDotSelected : null]} />
+      <View style={styles.settingCopy}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        <Text style={styles.settingDetail}>{detail}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -528,6 +579,10 @@ const styles = StyleSheet.create({
   settingCopy: { flex: 1 },
   settingLabel: { ...typography.bodySm, fontFamily: fonts.medium, color: colors.textPrimary },
   settingDetail: { ...typography.bodyXs, color: colors.textSecondary, marginTop: 2 },
+  recordingMode: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  recordingModeSelected: { borderColor: colors.pine700, backgroundColor: colors.pine50 },
+  recordingDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.gray400 },
+  recordingDotSelected: { borderWidth: 5, borderColor: colors.pine700, backgroundColor: colors.gray50 },
   familyNote: { ...typography.bodyXs, color: colors.textSecondary, lineHeight: 18 },
   sharingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   sharingOption: { width: '48%', padding: spacing.md, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },

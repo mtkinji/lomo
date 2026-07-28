@@ -8,7 +8,6 @@ describe('Explore privacy projections', () => {
       showMyPath: true,
       showFamilyTerritory: false,
       visibleMemberIds: [],
-      keepRecordingInBackground: false,
       recapNotifications: true,
       showPlaceNamesOnLockScreen: false,
     });
