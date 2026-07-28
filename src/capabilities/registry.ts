@@ -7,6 +7,7 @@ import type {
   CapabilityRouteTarget,
 } from './types';
 import { moneyCapabilityDefinition } from './money/definition';
+import { exploreCapabilityDefinition } from './explore/definition';
 
 export const CAPABILITY_GROUPS = [
   { id: 'goals-plans', label: 'Goals & Plans' },
@@ -75,6 +76,7 @@ export const CAPABILITY_REGISTRY = [
     ['kwilt://chapters'],
   ),
   moneyCapabilityDefinition,
+  exploreCapabilityDefinition,
 ] as const satisfies readonly CapabilityDefinition[];
 
 function currentCapabilityMenuDestination(
@@ -93,7 +95,7 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['goals', 'todos', 'plan', 'arcs', 'chapters'] as const).map(
+  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'explore'] as const).map(
     currentCapabilityMenuDestination,
   ),
   {

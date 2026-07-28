@@ -26,6 +26,7 @@ type CapabilityMenuProps = {
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onOpenChat: () => void;
+  exploreEnabled?: boolean;
 };
 
 export type CapabilityMenuChat = {
@@ -50,6 +51,7 @@ export function CapabilityMenu({
   onOpenSearch,
   onOpenSettings,
   onOpenChat,
+  exploreEnabled = false,
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -67,6 +69,7 @@ export function CapabilityMenu({
   const renderCapability = (id: CapabilityMenuDestinationId) => {
     const capability = CAPABILITY_MENU_REGISTRY.find((candidate) => candidate.id === id);
     if (!capability || capability.availability !== 'active') return null;
+    if (capability.id === 'explore' && !exploreEnabled) return null;
     const selected = activeCapabilityId === capability.id;
 
     return (

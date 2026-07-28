@@ -184,7 +184,7 @@ const config = {
       UIBackgroundModes: ['audio', 'fetch', 'remote-notification'],
       // Location offers (geofence enter/exit) permission strings.
       NSLocationWhenInUseUsageDescription:
-        'Kwilt uses your location to set up to-do places and show maps.',
+        'Kwilt uses your location when you start Explore and to set up to-do places and maps.',
       NSLocationAlwaysUsageDescription:
         'Kwilt uses your location in the background only for optional arrive/leave nudges you turn on for a to-do.',
       NSLocationAlwaysAndWhenInUseUsageDescription:

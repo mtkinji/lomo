@@ -143,6 +143,11 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         MoneyTransactionDetail: 'money/transaction/:transactionId',
       },
     },
+    Explore: {
+      screens: {
+        ExploreMap: 'explore',
+      },
+    },
     Settings: {
       screens: {
         SettingsHome: 'settings',

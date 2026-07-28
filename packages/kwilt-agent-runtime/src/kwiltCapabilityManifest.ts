@@ -12,6 +12,7 @@ export type KwiltOperationOwner =
   | 'plan'
   | 'chapters'
   | 'money'
+  | 'explore'
   | 'account'
   | 'screenTime'
   | 'notifications'
@@ -69,7 +70,7 @@ function ownerForOperation(id: string): KwiltOperationOwner {
   if (id.startsWith('channel.')) return 'channels';
   const owner = id.split('.')[0];
   if (owner === 'general' || owner === 'relationships' || owner === 'profile' || owner === 'arcs' ||
-      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'account' ||
+      owner === 'goals' || owner === 'plan' || owner === 'chapters' || owner === 'money' || owner === 'explore' || owner === 'account' ||
       owner === 'notifications') {
     return owner;
   }
@@ -374,6 +375,8 @@ const CAPABILITY_ROWS = [
   bounded('confirmation_only', { id: 'money.privacy.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Money privacy lock changes require native device-authentication review. Chat cannot prompt for or bypass Face ID, Touch ID, or passcode.', moneyPrivacyProof),
   bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),
   bounded('confirmation_only', { id: 'money.connection.sync', providers: ['device', 'server'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Manual Plaid sync starts only from native Money; Phone and Chat do not receive client-side financial credentials.', moneyConnectionProof),
+
+  bounded('pending_provider', { id: 'explore.open', providers: ['device'], consequence: 'low', confirmation: 'native', toolIds: [], sourceRefs: ['capability:explore'] }, 'Explore is available from the native capability menu and kwilt://explore, but Chat does not yet receive or control precise location history.'),
 
   bounded('pending_provider', { id: 'screen_time.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['screen_time.configure'], sourceRefs: [] }, 'Cross-device child controls are not implemented. Current Screen Time Protection manages only selected apps on this device; Chat must report that boundary without opening the wrong settings surface.', deviceHandoffProof),
   bounded('confirmation_only', { id: 'notifications.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: ['notifications.configure'], sourceRefs: [] }, 'Chat stages a durable handoff; notification permission and scheduling remain device-owned.', deviceHandoffProof),

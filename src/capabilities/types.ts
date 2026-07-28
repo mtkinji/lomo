@@ -1,6 +1,6 @@
 import type { IconName } from '../ui/Icon';
 
-export type CapabilityId = 'goals' | 'todos' | 'plan' | 'arcs' | 'chapters' | 'money';
+export type CapabilityId = 'goals' | 'todos' | 'plan' | 'arcs' | 'chapters' | 'money' | 'explore';
 
 export type CapabilityMenuDestinationId =
   | Exclude<CapabilityId, 'money'>
@@ -19,7 +19,8 @@ export type CapabilityRouteTarget =
   | { root: 'MainTabs'; tab: 'ActivitiesTab'; screen: 'ActivitiesList' }
   | { root: 'MainTabs'; tab: 'PlanTab' }
   | { root: 'MainTabs'; tab: 'MoreTab'; screen: 'MoreArcs' | 'MoreChapters' }
-  | { root: 'Money'; screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' };
+  | { root: 'Money'; screen: 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts' }
+  | { root: 'Explore'; screen: 'ExploreMap' };
 
 export type CapabilitySettingsDestination = {
   id: string;

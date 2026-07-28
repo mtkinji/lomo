@@ -65,6 +65,7 @@ import ListOrdered from 'lucide-react-native/dist/cjs/icons/list-ordered';
 import Lock from 'lucide-react-native/dist/cjs/icons/lock';
 import Mail from 'lucide-react-native/dist/cjs/icons/mail';
 import MapPin from 'lucide-react-native/dist/cjs/icons/map-pin';
+import MapIcon from 'lucide-react-native/dist/cjs/icons/map';
 import Maximize2 from 'lucide-react-native/dist/cjs/icons/maximize-2';
 import Menu from 'lucide-react-native/dist/cjs/icons/menu';
 import MessageCircle from 'lucide-react-native/dist/cjs/icons/message-circle';
@@ -151,6 +152,7 @@ const iconMap = {
   bell: { library: 'lucide', icon: Bell },
   phone: { library: 'lucide', icon: Phone },
   pin: { library: 'lucide', icon: MapPin },
+  map: { library: 'lucide', icon: MapIcon },
   locate: { library: 'lucide', icon: Crosshair },
   panelLeft: { library: 'lucide', icon: PanelLeft },
   menu: { library: 'lucide', icon: Menu },

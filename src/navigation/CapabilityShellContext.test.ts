@@ -20,6 +20,7 @@ describe('deriveActiveCapabilityId', () => {
     [['MainTabs', 'MoreTab', 'MoreChapterDetail'], 'chapters'],
     [['ArcsStack', 'ArcsList'], 'arcs'],
     [['Money', 'MoneySummary'], 'money'],
+    [['Explore', 'ExploreMap'], 'explore'],
   ] as const)('derives %s as %s', (routeNames, expected) => {
     expect(deriveActiveCapabilityId(state(...routeNames))).toBe(expected);
   });
@@ -35,6 +36,7 @@ describe('deriveActiveCapabilityId', () => {
     [['Money', 'MoneyTransactions'], 'money-transactions'],
     [['Money', 'MoneyAccounts'], 'money-accounts'],
     [['Money', 'MoneyCategoryDetail'], 'money-summary'],
+    [['Explore', 'ExploreMap'], 'explore'],
   ] as const)('derives %s as the active global destination %s', (routeNames, expected) => {
     expect(deriveActiveCapabilityDestinationId(state(...routeNames))).toBe(expected);
   });

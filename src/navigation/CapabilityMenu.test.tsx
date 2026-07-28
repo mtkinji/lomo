@@ -99,6 +99,27 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
   });
 
+  it('shows Explore only when its feature flag is enabled', () => {
+    const hidden = render(
+      <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,
+    );
+    expect(hidden.queryByLabelText('Explore')).toBeNull();
+    hidden.unmount();
+
+    const enabled = render(
+      <CapabilityMenu
+        activeCapabilityId="explore"
+        displayName="Andy"
+        chats={chats}
+        exploreEnabled
+        {...handlers}
+      />,
+    );
+    expect(enabled.getByLabelText('Explore').props.accessibilityState).toEqual({ selected: true });
+    fireEvent.press(enabled.getByLabelText('Explore'));
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('explore');
+  });
+
   it('collapses and expands a capability group', () => {
     const { getByLabelText, queryByText, getByText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
