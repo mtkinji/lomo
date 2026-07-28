@@ -855,12 +855,12 @@ export function buildSecretExpiryAlertEmail(params: {
     displayName: string;
     secretKey: string;
     provider: string | null;
-    expiresAtIso: string;
-    daysUntilExpiry: number;
+    expiresAtIso: string | null;
+    daysUntilExpiry: number | null;
     ownerEmail: string | null;
     rotationUrl: string | null;
     notes: string | null;
-    severity: 'warning' | 'expired';
+    severity: 'unknown' | 'warning' | 'expired';
   }>;
 }): EmailContent {
   const { primaryColor } = getBrandConfig();
@@ -870,16 +870,22 @@ export function buildSecretExpiryAlertEmail(params: {
   const subject =
     items.some((i) => i.severity === 'expired')
       ? `[Kwilt] Secrets expired (${env})`
+      : items.some((i) => i.severity === 'unknown')
+        ? `[Kwilt] Secret expiry metadata missing (${env})`
       : `[Kwilt] Secrets expiring soon (${env})`;
 
   const lines = items
     .slice()
-    .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry)
+    .sort((a, b) => (a.daysUntilExpiry ?? Number.NEGATIVE_INFINITY) - (b.daysUntilExpiry ?? Number.NEGATIVE_INFINITY))
     .map((i) => {
+      const knownExpiresAt = i.expiresAtIso ?? '';
+      const knownDaysUntilExpiry = i.daysUntilExpiry ?? 0;
       const when =
-        i.severity === 'expired'
-          ? `EXPIRED (${formatDateShort(i.expiresAtIso)})`
-          : `in ${i.daysUntilExpiry} day${i.daysUntilExpiry === 1 ? '' : 's'} (${formatDateShort(i.expiresAtIso)})`;
+        i.severity === 'unknown'
+          ? 'UNKNOWN (set the provider-side expiry date)'
+          : i.severity === 'expired'
+          ? `EXPIRED (${formatDateShort(knownExpiresAt)})`
+          : `in ${knownDaysUntilExpiry} day${knownDaysUntilExpiry === 1 ? '' : 's'} (${formatDateShort(knownExpiresAt)})`;
       const provider = i.provider ? ` [${i.provider}]` : '';
       return `- ${i.displayName}${provider}\n  key: ${i.secretKey}\n  expires: ${when}${
         i.ownerEmail ? `\n  owner: ${i.ownerEmail}` : ''
@@ -893,13 +899,17 @@ export function buildSecretExpiryAlertEmail(params: {
 
   const rowsHtml = items
     .slice()
-    .sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry)
+    .sort((a, b) => (a.daysUntilExpiry ?? Number.NEGATIVE_INFINITY) - (b.daysUntilExpiry ?? Number.NEGATIVE_INFINITY))
     .map((i) => {
+      const knownExpiresAt = i.expiresAtIso ?? '';
+      const knownDaysUntilExpiry = i.daysUntilExpiry ?? 0;
       const when =
-        i.severity === 'expired'
-          ? `${escapeHtml(formatDateShort(i.expiresAtIso))}`
-          : `${escapeHtml(String(i.daysUntilExpiry))} day${i.daysUntilExpiry === 1 ? '' : 's'} (${escapeHtml(
-              formatDateShort(i.expiresAtIso),
+        i.severity === 'unknown'
+          ? 'Unknown — set expiry metadata'
+          : i.severity === 'expired'
+          ? `${escapeHtml(formatDateShort(knownExpiresAt))}`
+          : `${escapeHtml(String(knownDaysUntilExpiry))} day${knownDaysUntilExpiry === 1 ? '' : 's'} (${escapeHtml(
+              formatDateShort(knownExpiresAt),
             )})`;
       const rotate = i.rotationUrl
         ? `<a href="${escapeHtml(i.rotationUrl)}" style="color:${escapeHtml(primaryColor)};">Rotate</a>`
@@ -930,7 +940,7 @@ export function buildSecretExpiryAlertEmail(params: {
     preheader: subject,
     bodyHtml: `
       <p style="margin:0 0 12px;">
-        One or more <strong>provider-side secrets</strong> are expired or expiring soon for <strong>${escapeHtml(env)}</strong>.
+        One or more <strong>provider-side credentials</strong> are expired, expiring soon, or missing required expiry metadata for <strong>${escapeHtml(env)}</strong>.
       </p>
       <div style="margin:0 0 14px;">
         <span style="display:inline-block;background:${escapeHtml(primaryColor)};color:#ffffff;padding:8px 12px;border-radius:999px;font-weight:900;font-size:12px;">
