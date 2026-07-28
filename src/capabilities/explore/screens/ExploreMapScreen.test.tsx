@@ -72,12 +72,22 @@ describe('ExploreMapScreen', () => {
   it('renders the private empty state and starts only from an explicit action', () => {
     const screen = render(<ExploreMapScreen />);
 
+    expect(screen.getByTestId('page.header')).toBeTruthy();
+    expect(screen.getByTestId('nav.drawer.toggle')).toBeTruthy();
     expect(screen.getByText('The world is still waiting.')).toBeTruthy();
-    expect(screen.getByText('Private until you start')).toBeTruthy();
+    expect(screen.getByText('Your map stays private. Start exploring to clear a 100-foot path through the fog.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Start exploring'));
     expect(mockStart).toHaveBeenCalledTimes(1);
     fireEvent.press(screen.getByLabelText('Open navigation menu'));
     expect(mockOpenMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders unexplored territory as layered fog instead of one uniform scrim', () => {
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByTestId('explore.fog.veil').props.accessible).toBe(false);
+    expect(screen.getByTestId('explore.fog.mist').props.accessible).toBe(false);
+    expect(screen.getByTestId('explore.fog.core').props.accessible).toBe(false);
   });
 
   it('keeps sharing and viewing separate and states the family-sync boundary', () => {
@@ -126,7 +136,7 @@ describe('ExploreMapScreen', () => {
     act(() => useExploreStore.getState().updatePreferences({ recording: 'automatic' }));
     const screen = render(<ExploreMapScreen />);
 
-    expect(screen.getByText('Always exploring')).toBeTruthy();
+    expect(screen.getByText('Pause Exploring')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Pause always exploring'));
     expect(mockRecorder.setRecordingMode).toHaveBeenCalledWith('manual');
   });
