@@ -43,6 +43,7 @@ import { UnifiedChatScreen } from '../features/unifiedChat/UnifiedChatScreen';
 import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../features/unifiedChat/launchContext';
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
+import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
@@ -57,6 +58,7 @@ import { PhoneAgentSettingsScreen } from '../features/account/PhoneAgentSettings
 import { ConnectedToolsScreen } from '../features/account/ConnectedToolsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { SharingSettingsScreen } from '../features/account/SharingSettingsScreen';
+import { JoinFriendInviteScreen } from '../features/friends/JoinFriendInviteScreen';
 import { ExecutionTargetsSettingsScreen } from '../features/account/ExecutionTargetsSettingsScreen';
 import { DestinationsLibraryScreen } from '../features/account/DestinationsLibraryScreen';
 import { DestinationDetailScreen } from '../features/account/DestinationDetailScreen';
@@ -101,6 +103,7 @@ import type {
   ActivitiesListRouteParams,
   ActivitiesWidgetRouteParams,
   JoinSharedGoalRouteParams,
+  JoinFriendInviteRouteParams,
 } from './routeParams';
 import type { LaunchContext } from '../domain/workflows';
 import type { CapabilityAgentContext, ChatMode } from '../features/ai/workflowRegistry';
@@ -318,12 +321,14 @@ export type SettingsStackParamList = {
         returnToActivityId?: string;
       }
     | undefined;
+  SettingsHousehold: undefined;
   SettingsMoneyPrivacy: undefined;
   SettingsMoneyHousehold: undefined;
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
   SettingsSharing: undefined;
+  SettingsJoinFriend: JoinFriendInviteRouteParams;
   SettingsLegalPrivacy: undefined;
   SettingsHaptics: undefined;
   SettingsWidgets: undefined;
@@ -925,6 +930,7 @@ function SettingsStackNavigator() {
         name="SettingsScreenTimeProtection"
         component={ScreenTimeProtectionSettingsScreen}
       />
+      <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyHousehold" component={MoneyHouseholdSettingsScreen} />
       <SettingsStack.Screen
@@ -942,6 +948,10 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsSharing"
         component={SharingSettingsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsJoinFriend"
+        component={JoinFriendInviteScreen}
       />
       <SettingsStack.Screen
         name="SettingsLegalPrivacy"

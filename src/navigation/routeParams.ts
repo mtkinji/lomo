@@ -132,3 +132,7 @@ export type ActivitiesWidgetRouteParams = {
 export type JoinSharedGoalRouteParams = {
   inviteCode: string;
 };
+
+export type JoinFriendInviteRouteParams = {
+  inviteCode: string;
+};

@@ -31,6 +31,8 @@ export type ExplorePoint = ExploreCoordinate & {
   altitudeM: number | null;
   horizontalAccuracyM: number | null;
   altitudeAccuracyM: number | null;
+  speedMps: number | null;
+  courseDeg: number | null;
   recordedAt: string;
 };
 
@@ -63,15 +65,17 @@ export type ExplorePreferences = {
   showMyPath: boolean;
   showFamilyTerritory: boolean;
   showFog: boolean;
+  showPlaces: boolean;
   mapStyle: ExploreMapStyle;
   visibleMemberIds: string[];
   recapNotifications: boolean;
   showPlaceNamesOnLockScreen: boolean;
   onboardingCompleted: boolean;
+  firstPlaceGuideDismissed: boolean;
 };
 
 export type ExploreData = {
-  version: 6;
+  version: 8;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;

@@ -9,9 +9,16 @@ import {
   finalizeExploreRecap,
   markExploreRecapNotified,
   markExploreRecapSeen,
+  rebuildExploreTerritory,
   recordPlaceVisit,
 } from '../domain/exploreState';
-import { acceptExplorePoint, sanitizeLocationSample, type ExploreLocationSample } from '../domain/explorePointPolicy';
+import {
+  acceptExplorePoint,
+  explorePointFromSample,
+  normalizeCourseDeg,
+  sanitizeLocationSample,
+  type ExploreLocationSample,
+} from '../domain/explorePointPolicy';
 import { canonicalPlaceForCandidate } from '../domain/exploreDiscovery';
 import {
   classifyExploreMovement,
@@ -108,8 +115,7 @@ export const useExploreStore = create<ExploreStore>()(
           set({ tracking, lastPointDecision: decision.reason });
           return false;
         }
-        const { speedMps: _sampleSpeed, ...pointSample } = sanitized;
-        const point: ExplorePoint = { id, ...pointSample };
+        const point = explorePointFromSample(id, sanitized);
         set((current) => ({
           ...appendExplorePoint({ ...dataFromStore(current), tracking }, point),
           lastPointDecision: decision.reason,
@@ -255,6 +261,8 @@ export const useExploreStore = create<ExploreStore>()(
           altitudeM: 1518 + index * 22,
           horizontalAccuracyM: 6,
           altitudeAccuracyM: 5,
+          speedMps: null,
+          courseDeg: null,
           recordedAt: new Date(Date.parse(startedAt) + index * 40_000).toISOString(),
         }));
         points.forEach((point) => {
@@ -280,13 +288,20 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 6,
+      version: 8,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
         const defaults = createEmptyExploreData();
         const upgradeSession = (session: Partial<ExploreSession>) => ({
           ...session,
+          points: Array.isArray(session?.points) ? session.points.map((point) => ({
+            ...point,
+            speedMps: typeof point.speedMps === 'number' && Number.isFinite(point.speedMps) && point.speedMps >= 0
+              ? point.speedMps
+              : null,
+            courseDeg: normalizeCourseDeg(point.courseDeg),
+          })) : [],
           discoveredPlaceIds: Array.isArray(session?.discoveredPlaceIds) ? session.discoveredPlaceIds : [],
           recapStatus: session?.recapStatus ?? (session?.endedAt && session?.points?.length ? 'seen' : 'none'),
           completedReason: session?.completedReason ?? (session?.endedAt ? 'interrupted' : null),
@@ -311,10 +326,10 @@ export const useExploreStore = create<ExploreStore>()(
             : hadPersistedHistory,
         };
         const activeSession = persisted.activeSession ? upgradeSession(persisted.activeSession) : null;
-        return {
+        return rebuildExploreTerritory({
           ...defaults,
           ...persisted,
-          version: 6,
+          version: 8,
           activeSession,
           sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
           preferences: nextPreferences,
@@ -323,7 +338,7 @@ export const useExploreStore = create<ExploreStore>()(
             activeSession ? trackingPolicyForRecordingMode(nextPreferences.recording) : null,
             activeSession?.startedAt ?? null,
           ),
-        } as ExploreData;
+        } as ExploreData);
       },
       partialize: (state) => dataFromStore(state),
     },

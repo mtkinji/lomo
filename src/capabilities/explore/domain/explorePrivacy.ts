@@ -7,11 +7,13 @@ export function createDefaultExplorePreferences(): ExplorePreferences {
     showMyPath: true,
     showFamilyTerritory: false,
     showFog: true,
+    showPlaces: true,
     mapStyle: 'hybrid',
     visibleMemberIds: [],
     recapNotifications: true,
     showPlaceNamesOnLockScreen: false,
     onboardingCompleted: false,
+    firstPlaceGuideDismissed: false,
   };
 }
 

@@ -3,6 +3,7 @@ import { appendExplorePoint, beginExploreSession, createEmptyExploreData } from 
 
 const sample = (minute: number, latitude = 40.5) => ({
   latitude, longitude: -105.1, altitudeM: 1500, horizontalAccuracyM: 12, altitudeAccuracyM: 8,
+  speedMps: null, courseDeg: null,
   recordedAt: new Date(Date.parse('2026-07-28T12:00:00.000Z') + minute * 60_000).toISOString(),
 });
 
@@ -13,7 +14,7 @@ describe('Explore recording modes', () => {
       deferredDistanceM: 100, deferredIntervalMs: 120_000, pausesAutomatically: false,
     });
     expect(locationProfileForExploreMode('manual', 'foreground')).toEqual(expect.objectContaining({
-      accuracy: 'high', distanceIntervalM: 12,
+      accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000,
     }));
   });
 

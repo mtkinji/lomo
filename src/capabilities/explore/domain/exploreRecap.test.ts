@@ -3,7 +3,8 @@ import { createEmptyExploreData, beginExploreSession, appendExplorePoint, comple
 
 const routePoint = {
   id: 'point-1', latitude: 40.5, longitude: -105.1, altitudeM: 1500,
-  horizontalAccuracyM: 6, altitudeAccuracyM: 5, recordedAt: '2026-07-27T18:00:00.000Z',
+  horizontalAccuracyM: 6, altitudeAccuracyM: 5, speedMps: null, courseDeg: null,
+  recordedAt: '2026-07-27T18:00:00.000Z',
 };
 
 describe('Exploration Recap', () => {

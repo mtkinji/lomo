@@ -20,6 +20,11 @@ function copyForReason(reason: AuthPromptReason): { title: string; body: string 
         title: 'Sign in to continue',
         body: 'Sign in to claim your Arc draft and continue in the app.',
       };
+    case 'friend':
+      return {
+        title: 'Sign in to connect',
+        body: 'Sign in so Kwilt can confirm that this Friend invitation belongs to you.',
+      };
     case 'upload_attachment':
       return { title: 'Sign in required', body: 'Sign in to upload attachments and keep access safe.' };
     case 'admin':
@@ -190,5 +195,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
-
 

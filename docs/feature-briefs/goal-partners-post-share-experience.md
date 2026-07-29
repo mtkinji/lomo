@@ -7,7 +7,7 @@ personas: [David]
 hero_jtbd: jtbd-invite-the-right-people-in
 job_flow: job-flow-david-invite-the-right-people-in
 serves: [jtbd-invite-the-right-people-in, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life]
-related_briefs: [growth-evangelism-shared-goals]
+related_briefs: [growth-evangelism-shared-goals, brief-recipient-sharing-growth-loop]
 owner: andrew
 last_updated: 2026-05-13
 ---
@@ -82,7 +82,7 @@ The next iteration replaces the manual "check-in composer first" model with an a
 - **Pending draft affordance is goal-local.** A small amber badge attaches to the 44px Partners button frame on the goal header when an unsent draft exists. The Check-ins tab in the Partners sheet renders a `Ready to send` / `Draft check-in` / `A few wins collected` card above the feed with `Send`, `Edit`, `Skip` actions and item-level remove controls when editing.
 - **Partner notifications.** Owner reminders and partner send notifications are separate systems. Partners only get notified when the user explicitly sends. Default cap: one partner notification per goal per day, with batching across goals when notification infrastructure supports it.
 - **Partner response paths.** App-member partners respond in-app with authenticated identity. Invited web/guest partners can cheer or send a short reply from the invite landing page without installing, via the public `share-web-cheer` and `share-web-reply` Supabase functions. Provenance (`webCheer: true` / `webReply: true` plus optional `senderName`) is preserved through the feed.
-- **Partner conversion ladder.** Invited partners get value first: cheer the latest check-in, optionally send a short reply, optionally add a name, then see a contextual install/open CTA. Attribution (`inviteCode`, `ref`, `goalId`) flows from invite open through install/open so we can measure the full loop into shared-goal activation and the partner's own first goal.
+- **Partner conversion ladder.** Invited partners get value first: cheer the latest check-in, optionally send a short reply, optionally add a name, then see a contextual install/open CTA. Operational invite and handoff tokens preserve context, but they never enter behavioral analytics. Measurement follows the aggregate, privacy-safe contract in `brief-recipient-sharing-growth-loop`.
 - **The manual composer is a fallback.** It stays available in the Check-ins tab as a text-first editor for cases when there is no triggering completion to draft from.
 
 ## Implementation Surface
@@ -92,4 +92,4 @@ The next iteration replaces the manual "check-in composer first" model with an a
 - `src/features/goals/PendingCheckinDraftCard.tsx` is the recovery card in the Check-ins tab.
 - `src/features/goals/GoalFeedSection.tsx` renders user-authored check-ins as the hero feed item; automatic `progress_made` events drop to a quieter system row.
 - `supabase/functions/share-web-reply/index.ts` is the new public reply endpoint paired with the existing `share-web-cheer` function.
-- `kwilt-site/components/share/ShareResponseForm.tsx` and the `/api/share-reply` Next.js route handle the no-install reply path; the invite landing page now previews the latest check-in text and emits `invite_landing_viewed`, `invite_landing_action_selected`, and `invite_landing_install_cta_selected` for the conversion ladder.
+- `kwilt-site/components/share/ShareResponseForm.tsx` and the `/api/share-reply` Next.js route handle the no-install reply path; the invite landing page emits privacy-safe stage and result events for the conversion ladder. Invite codes, names, Goal identifiers/titles, and response content are prohibited analytics properties.
