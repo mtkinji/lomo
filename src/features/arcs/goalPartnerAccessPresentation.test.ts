@@ -25,6 +25,20 @@ describe('buildGoalPartnerAccessPresentation', () => {
     expect(result.currentMembership).toBe(currentMembership);
     expect(result.canLeaveSharedGoal).toBe(false);
     expect(result.canRemoveGoalPartners).toBe(true);
+    expect(result.partnerRows).toEqual([
+      expect.objectContaining({
+        member: expect.objectContaining({ userId: 'owner-user' }),
+        isCurrentUser: false,
+        roleLabel: 'Owner',
+        canRemoveMember: false,
+      }),
+      expect.objectContaining({
+        member: currentMembership,
+        isCurrentUser: true,
+        roleLabel: 'Owner',
+        canRemoveMember: false,
+      }),
+    ]);
   });
 
   it('allows a non-owner member to leave but not remove partners', () => {
@@ -74,6 +88,48 @@ describe('buildGoalPartnerAccessPresentation', () => {
     expect(result.headerPartnerAvatars).toEqual([
       { id: ' partner-1 ', name: 'Pat', avatarUrl: null },
       { id: 'co-owner', name: null, avatarUrl: 'https://example.com/partner.png' },
+    ]);
+  });
+
+  it('builds removable partner rows with stable profile fallbacks', () => {
+    const unnamedPartner = member({
+      userId: 'partner-user',
+      name: null,
+      avatarUrl: null,
+    });
+    const otherCoOwner = member({ userId: 'co-owner', role: 'co_owner', name: 'Casey' });
+
+    const result = buildGoalPartnerAccessPresentation({
+      authUserId: 'owner-user',
+      profileUserId: null,
+      sharedMembers: [
+        member({ userId: 'owner-user', role: 'owner', name: 'Owner' }),
+        unnamedPartner,
+        otherCoOwner,
+      ],
+    });
+
+    expect(result.partnerRows.slice(1)).toEqual([
+      {
+        member: unnamedPartner,
+        isCurrentUser: false,
+        roleLabel: 'Partner',
+        canRemoveMember: true,
+        avatarName: undefined,
+        avatarUrl: undefined,
+        displayName: 'Member',
+        removeAccessibilityLabel: 'Remove partner',
+      },
+      {
+        member: otherCoOwner,
+        isCurrentUser: false,
+        roleLabel: 'Partner',
+        canRemoveMember: true,
+        avatarName: 'Casey',
+        avatarUrl: 'https://example.com/partner.png',
+        displayName: 'Casey',
+        removeAccessibilityLabel: 'Remove Casey',
+      },
     ]);
   });
 });

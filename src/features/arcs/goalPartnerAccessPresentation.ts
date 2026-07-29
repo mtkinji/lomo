@@ -1,10 +1,21 @@
 import type { SharedMember } from '../../services/sharedGoals';
-import { isGoalOwnerRole } from './goalPartnerRoles';
+import { isGoalOwnerRole, sharedMemberRoleLabel } from './goalPartnerRoles';
 
 export type GoalPartnerAvatar = {
   id: string;
   name: string | null;
   avatarUrl: string | null;
+};
+
+export type GoalPartnerRowPresentation = {
+  member: SharedMember;
+  isCurrentUser: boolean;
+  roleLabel: string;
+  canRemoveMember: boolean;
+  avatarName: string | undefined;
+  avatarUrl: string | undefined;
+  displayName: string;
+  removeAccessibilityLabel: string;
 };
 
 export type GoalPartnerAccessPresentation = {
@@ -13,6 +24,7 @@ export type GoalPartnerAccessPresentation = {
   canLeaveSharedGoal: boolean;
   canRemoveGoalPartners: boolean;
   headerPartnerAvatars: GoalPartnerAvatar[];
+  partnerRows: GoalPartnerRowPresentation[];
 };
 
 type GoalPartnerAccessPresentationInput = {
@@ -20,6 +32,30 @@ type GoalPartnerAccessPresentationInput = {
   profileUserId: string | null | undefined;
   sharedMembers: SharedMember[] | null | undefined;
 };
+
+export function buildGoalPartnerRowPresentation({
+  member,
+  currentUserIds,
+  canRemoveGoalPartners,
+}: {
+  member: SharedMember;
+  currentUserIds: Set<string>;
+  canRemoveGoalPartners: boolean;
+}): GoalPartnerRowPresentation {
+  const isCurrentUser = currentUserIds.has(member.userId.trim());
+  const isExplicitOwner = (member.role ?? '').toLowerCase() === 'owner';
+
+  return {
+    member,
+    isCurrentUser,
+    roleLabel: sharedMemberRoleLabel(member, currentUserIds),
+    canRemoveMember: canRemoveGoalPartners && !isCurrentUser && !isExplicitOwner,
+    avatarName: member.name ?? undefined,
+    avatarUrl: member.avatarUrl ?? undefined,
+    displayName: member.name ?? 'Member',
+    removeAccessibilityLabel: `Remove ${member.name ?? 'partner'}`,
+  };
+}
 
 export function buildGoalPartnerAccessPresentation({
   authUserId,
@@ -36,6 +72,13 @@ export function buildGoalPartnerAccessPresentation({
   const currentMembership =
     members.find((member) => currentUserIds.has(member.userId.trim())) ?? null;
   const hasOwnerAccess = currentMembership ? isGoalOwnerRole(currentMembership.role) : false;
+  const partnerRows = members.map((member) =>
+    buildGoalPartnerRowPresentation({
+      member,
+      currentUserIds,
+      canRemoveGoalPartners: hasOwnerAccess,
+    }),
+  );
 
   let headerPartnerAvatars: GoalPartnerAvatar[] = [];
   if (members.length > 1) {
@@ -58,5 +101,6 @@ export function buildGoalPartnerAccessPresentation({
     canLeaveSharedGoal: currentMembership !== null && !hasOwnerAccess,
     canRemoveGoalPartners: hasOwnerAccess,
     headerPartnerAvatars,
+    partnerRows,
   };
 }

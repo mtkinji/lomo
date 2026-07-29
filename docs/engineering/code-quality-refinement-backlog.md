@@ -112,8 +112,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: focus, sharing state, transient sheets, activity progress, moment gating, and trigger precedence form a product rule embedded in an effect.
   - Result: `goalPartnerPromptDecision.ts` now owns suppression gates, lazy moment evaluation, progress-first trigger precedence, and first-to-do fallback, with focused tests for decision order and callback boundaries.
 
-- [ ] Extract Goal partner row presentation
+- [x] Extract Goal partner row presentation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: partner-row JSX recomputes normalized identity, role labels, current-user status, and remove-button eligibility inside composition.
-  - Ideal test: pin current-user aliases, owner/co-owner labels, owner removal suppression, member removal eligibility, and missing profile fields.
+  - Result: `goalPartnerAccessPresentation.ts` now returns tested partner-row models with identity, role, removal eligibility, avatar, display-name, and accessibility-label fields consumed directly by the screen.
+
+- [ ] Unify Goal partner removal guard
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/arcs/goalPartnerAccessPresentation.ts`
+  - Why: row presentation blocks removing the current user or explicit owner, while the mutation handler independently repeats only part of that access policy.
+  - Ideal test: pin no-owner-access, current-user, explicit-owner, partner, and co-owner targets through one reusable predicate.
   - Risk: low
