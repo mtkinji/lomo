@@ -1,6 +1,7 @@
 import type { MoneySnapshot } from './moneySnapshot';
 import {
   applyConfirmedCategoryPatch,
+  applyConfirmedMerchantRulePatch,
   applyConfirmedTransactionPatch,
 } from './moneyConfirmedPatches';
 
@@ -60,5 +61,19 @@ describe('confirmed Money patches', () => {
     });
 
     expect(result.categories[0]).toMatchObject({ name: 'Food at home', rolloverEnabled: true, coverImage: cover, plannedCents: 10000 });
+  });
+
+  it('marks the source transaction rule as confirmed without projecting unverified history', () => {
+    const result = applyConfirmedMerchantRulePatch(snapshot, {
+      transactionId: 'transaction-1',
+      categoryId: 'groceries',
+    });
+
+    expect(result.transactions[0]).toMatchObject({
+      id: 'transaction-1',
+      merchantRuleCategoryId: 'groceries',
+    });
+    expect(result.totals).toEqual(snapshot.totals);
+    expect(result.categories).toBe(snapshot.categories);
   });
 });

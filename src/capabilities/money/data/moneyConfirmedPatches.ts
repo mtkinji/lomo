@@ -16,6 +16,11 @@ export type ConfirmedCategoryPatch = {
   coverImage?: MoneyCategoryCover | null;
 };
 
+export type ConfirmedMerchantRulePatch = {
+  transactionId: string;
+  categoryId: string | null;
+};
+
 export function applyConfirmedTransactionPatch(
   snapshot: MoneySnapshot,
   patch: ConfirmedTransactionPatch,
@@ -60,5 +65,21 @@ export function applyConfirmedCategoryPatch(
           ...('coverImage' in patch ? { coverImage: patch.coverImage ?? null } : null),
         }
       : category),
+  };
+}
+
+export function applyConfirmedMerchantRulePatch(
+  snapshot: MoneySnapshot,
+  patch: ConfirmedMerchantRulePatch,
+): MoneySnapshot {
+  if (!patch.categoryId || !snapshot.transactions.some((transaction) => transaction.id === patch.transactionId)) {
+    return snapshot;
+  }
+  return {
+    ...snapshot,
+    generatedAt: new Date().toISOString(),
+    transactions: snapshot.transactions.map((transaction) => transaction.id === patch.transactionId
+      ? { ...transaction, merchantRuleCategoryId: patch.categoryId }
+      : transaction),
   };
 }

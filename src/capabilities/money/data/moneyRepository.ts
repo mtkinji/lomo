@@ -70,6 +70,16 @@ export type ConfirmedCategoryWrite = {
   };
 };
 
+export type ConfirmedMerchantRuleWrite = {
+  confirmedAt: string;
+  ruleId: string;
+  transactionId: string;
+  appliedTransactionCount: number;
+  merchantKey: string;
+  matchMode: 'exact' | 'partial';
+  categorySourceId: string;
+};
+
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
   ensureGovernedPlanFoundation(): Promise<void>;
@@ -89,7 +99,7 @@ export interface MoneyRepository {
     categoryId: string;
     categoryName: string;
     matchMode?: 'exact' | 'partial';
-  }): Promise<MoneySnapshot>;
+  }): Promise<ConfirmedMerchantRuleWrite>;
   createCategory(input: CategoryPlanInput): Promise<{ categoryId: string; snapshot: MoneySnapshot }>;
   renameCategory(categoryId: string, name: string): Promise<ConfirmedCategoryWrite>;
   updateCategoryCover(categoryId: string, cover: MoneyCategoryCover | null): Promise<ConfirmedCategoryWrite>;
@@ -294,7 +304,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
       const userId = await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;
       const rule = buildMerchantRuleUpsert({ userId, ...input });
-      const { error } = await db.rpc('upsert_budget_transaction_match_rule', {
+      const { data, error } = await db.rpc('upsert_budget_transaction_match_rule', {
         p_transaction_id: rule.created_from_transaction_id,
         p_budget_id: rule.budget_id,
         p_merchant_contains: rule.merchant_contains,
@@ -302,7 +312,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         p_label: rule.label,
       });
       if (error) throw new Error(`Money could not save the merchant rule: ${error.message || 'Unknown database error'}`);
-      return loadSnapshot();
+      return parseMerchantRuleReceipt(data, rule.created_from_transaction_id);
     },
     async createCategory(input) {
       await requireSignedIn(client);
@@ -427,6 +437,37 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         },
       };
     },
+  };
+}
+
+function parseMerchantRuleReceipt(data: unknown, transactionId: string): ConfirmedMerchantRuleWrite {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('Money saved the merchant rule without a valid confirmation receipt.');
+  }
+  const receipt = data as Record<string, unknown>;
+  const ruleId = typeof receipt.ruleId === 'string' ? receipt.ruleId.trim() : '';
+  const merchantKey = typeof receipt.merchantKey === 'string' ? receipt.merchantKey.trim() : '';
+  const categorySourceId = typeof receipt.categoryId === 'string' ? receipt.categoryId.trim() : '';
+  const matchMode = receipt.matchMode;
+  const appliedTransactionCount = receipt.appliedTransactionCount;
+  if (
+    !ruleId
+    || !merchantKey
+    || !categorySourceId
+    || (matchMode !== 'exact' && matchMode !== 'partial')
+    || !Number.isInteger(appliedTransactionCount)
+    || (appliedTransactionCount as number) < 0
+  ) {
+    throw new Error('Money saved the merchant rule without a valid confirmation receipt.');
+  }
+  return {
+    confirmedAt: new Date().toISOString(),
+    ruleId,
+    transactionId,
+    appliedTransactionCount: appliedTransactionCount as number,
+    merchantKey,
+    matchMode,
+    categorySourceId,
   };
 }
 
