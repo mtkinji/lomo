@@ -78,6 +78,7 @@ const MONEY_STACK_SCHEMA: ChildSchema = {
 const SETTINGS_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'SettingsHome',
+    'SettingsGames',
     'SettingsAppearance',
     'SettingsProfile',
     'SettingsAiModel',

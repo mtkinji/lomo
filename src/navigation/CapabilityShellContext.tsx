@@ -35,6 +35,7 @@ export function deriveActiveCapabilityId(
   const names = focusedRouteNames(state);
   if (names[0] === 'Money') return 'money';
   if (names[0] === 'Explore') return 'explore';
+  if (names[0] === 'Games') return 'games';
   if (names[0] === 'ArcsStack') return 'arcs';
   if (names[0] !== 'MainTabs') return null;
 
@@ -63,6 +64,7 @@ export function deriveActiveCapabilityDestinationId(
     return 'money-summary';
   }
   if (names[0] === 'Explore') return 'explore';
+  if (names[0] === 'Games') return 'games';
 
   return deriveActiveCapabilityId(state) as CapabilityMenuDestinationId | null;
 }

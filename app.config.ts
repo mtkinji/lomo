@@ -120,8 +120,8 @@ envFiles.forEach((file) => {
 
 const config = {
   name: 'Kwilt',
-  // Custom URL scheme for deep links like `kwilt://activity/<id>?openFocus=1`.
-  scheme: 'kwilt',
+  // Custom URL schemes for current Kwilt links and installed Kwilt Games invites.
+  scheme: ['kwilt', 'kwiltgames'],
   // Ensure this project is owned/billed under the Kwilt organization in Expo.
   // (You still need to transfer the existing project in the Expo dashboard.)
   owner: 'kwilt',
@@ -129,7 +129,9 @@ const config = {
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
   version: '1.0.97',
-  orientation: 'portrait',
+  // Games temporarily unlocks orientation for shared-table play and restores
+  // portrait when leaving an active table.
+  orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
   notification: {
@@ -172,7 +174,7 @@ const config = {
     appExtensions: iosAppExtensions.length > 0 ? iosAppExtensions : undefined,
     // Universal Links (deep link from https://go.kwilt.app/* and https://kwilt.app/*).
     // Requires `apple-app-site-association` to be served from those domains.
-    associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app', 'applinks:app.kwilt.app'],
+    associatedDomains: ['applinks:go.kwilt.app', 'applinks:kwilt.app', 'applinks:app.kwilt.app', 'applinks:games.kwilt.app'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       // Enable Live Activities for Focus countdown (ActivityKit).
@@ -205,6 +207,9 @@ const config = {
         'Kwilt does not write Apple Health data.',
       NSMicrophoneUsageDescription:
         'Kwilt uses the microphone so you can record an audio note and attach it to a to-do.',
+      NSLocalNetworkUsageDescription:
+        'Kwilt uses your local network only while you open or join a nearby private game table.',
+      NSBonjourServices: ['_kwilt-table._tcp'],
     },
   },
   android: {
@@ -236,6 +241,7 @@ const config = {
           { scheme: 'https', host: 'go.kwilt.app', pathPrefix: '/r/' },
           { scheme: 'https', host: 'kwilt.app', pathPrefix: '/i/' },
           { scheme: 'https', host: 'kwilt.app', pathPrefix: '/r/' },
+          { scheme: 'https', host: 'games.kwilt.app', pathPrefix: '/join/' },
         ],
       },
     ],
@@ -245,6 +251,13 @@ const config = {
   },
   plugins: [
     'expo-font',
+    [
+      'expo-audio',
+      {
+        microphonePermission: false,
+        recordAudioAndroid: false,
+      },
+    ],
     [
       'expo-image-picker',
       {

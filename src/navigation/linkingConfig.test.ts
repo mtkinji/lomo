@@ -1,7 +1,7 @@
 import { getStateFromPath } from '@react-navigation/core';
 import type { PartialState, NavigationState } from '@react-navigation/native';
 
-import { linkingConfig } from './linkingConfig';
+import { linkingConfig, normalizeKwiltGamesUrl } from './linkingConfig';
 
 type AnyState = PartialState<NavigationState> | NavigationState | undefined;
 
@@ -43,6 +43,28 @@ function parse(path: string): LeafRoute | null {
 }
 
 describe('linkingConfig', () => {
+  test('kwilt://games resolves to the Games capability shelf', () => {
+    const leaf = parse('games');
+    expect(leaf?.name).toBe('GamesShelf');
+    expect(leaf?.path).toEqual(['Games', 'GamesShelf']);
+  });
+
+  test.each([
+    ['games/tumble/farkle', 'GamesTumble', { mode: 'farkle' }],
+    ['games/play/common-thread', 'GamesConnection', { gameId: 'common-thread' }],
+    ['games/join/ABCD12', 'GamesJoin', { token: 'ABCD12' }],
+    ['games/room/room-1', 'GamesRemote', { sessionId: 'room-1' }],
+  ] as const)('resolves Games path %s', (path, routeName, params) => {
+    const leaf = parse(path);
+    expect(leaf?.name).toBe(routeName);
+    expect(leaf?.params).toEqual(params);
+  });
+
+  test('normalizes standalone and universal Games invites into the Kwilt capability path', () => {
+    expect(normalizeKwiltGamesUrl('kwiltgames://join/private-token')).toBe('kwilt://games/join/private-token');
+    expect(normalizeKwiltGamesUrl('https://games.kwilt.app/join/private-token')).toBe('kwilt://games/join/private-token');
+  });
+
   test('kwilt://explore resolves to the Explore capability map', () => {
     const leaf = parse('explore');
     expect(leaf?.name).toBe('ExploreMap');
@@ -120,6 +142,12 @@ describe('linkingConfig', () => {
       const leaf = parse('settings');
       expect(leaf?.name).toBe('SettingsHome');
       expect(leaf?.path).toEqual(['Settings', 'SettingsHome']);
+    });
+
+    test('kwilt://settings/games resolves to Games player settings', () => {
+      const leaf = parse('settings/games');
+      expect(leaf?.name).toBe('SettingsGames');
+      expect(leaf?.path).toEqual(['Settings', 'SettingsGames']);
     });
 
     test('kwilt://settings/money-privacy resolves to Money privacy settings', () => {

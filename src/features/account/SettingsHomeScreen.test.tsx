@@ -124,6 +124,12 @@ describe('SettingsHomeScreen planning group', () => {
     expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsWeeklyChapters');
   });
 
+  it('navigates to Games player settings from Personalization', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Games'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsGames');
+  });
+
   it('navigates to Legal & privacy from the root Settings menu', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Legal & privacy'));

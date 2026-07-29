@@ -1,0 +1,25 @@
+export const gamesTheme = {
+  colors: {
+    ink: '#201D18',
+    cream: '#F4EDDD',
+    paper: '#FFF9ED',
+    felt: '#124C3D',
+    feltLight: '#1B6650',
+    feltDark: '#092F27',
+    coral: '#FF684B',
+    coralDark: '#A93621',
+    turmeric: '#F8CF52',
+    turmericDark: '#B18B24',
+    wood: '#74472D',
+    woodLight: '#A36B42',
+    white: '#FFFFFF',
+    danger: '#C53F2B',
+  },
+  spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 },
+  radius: { sm: 10, md: 16, lg: 24, pill: 999 },
+  type: {
+    utility: 'Urbanist_700Bold',
+    body: 'Urbanist_500Medium',
+    display: 'Urbanist_800ExtraBold',
+  },
+} as const;

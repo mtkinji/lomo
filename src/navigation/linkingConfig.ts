@@ -25,9 +25,21 @@ import type { RootDrawerParamList } from './RootNavigator';
  */
 export const LINKING_PREFIXES = [
   'kwilt://',
+  'kwiltgames://',
   'https://go.kwilt.app',
   'https://kwilt.app',
+  'https://games.kwilt.app',
 ] as const;
+
+export function normalizeKwiltGamesUrl(url: string) {
+  if (url.startsWith('kwiltgames://join/')) {
+    return `kwilt://games/join/${url.slice('kwiltgames://join/'.length)}`;
+  }
+  if (url.startsWith('https://games.kwilt.app/join/')) {
+    return `kwilt://games/join/${url.slice('https://games.kwilt.app/join/'.length)}`;
+  }
+  return url;
+}
 
 export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
   screens: {
@@ -148,10 +160,21 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
         ExploreMap: 'explore',
       },
     },
+    Games: {
+      screens: {
+        GamesShelf: 'games',
+        GamesTumble: 'games/tumble/:mode?',
+        GamesConnection: 'games/play/:gameId',
+        GamesJoin: 'games/join/:token?',
+        GamesRemote: 'games/room/:sessionId',
+        GamesAccount: 'games/account',
+      },
+    },
     Settings: {
       screens: {
         SettingsHome: 'settings',
         SettingsExplore: 'settings/explore',
+        SettingsGames: 'settings/games',
         // Trial-expiry and Pro-grant emails deep-link into the Manage
         // Subscription screen, so paying users land on the right place.
         SettingsManageSubscription: {

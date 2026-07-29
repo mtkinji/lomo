@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { moneyCapabilityDefinition } from './money/definition';
 import { exploreCapabilityDefinition } from './explore/definition';
+import { gamesCapabilityDefinition } from './games/definition';
 
 export const CAPABILITY_GROUPS = [
   { id: 'goals-plans', label: 'Goals & Plans' },
@@ -78,6 +79,7 @@ export const CAPABILITY_REGISTRY = [
   ),
   moneyCapabilityDefinition,
   exploreCapabilityDefinition,
+  gamesCapabilityDefinition,
 ] as const satisfies readonly CapabilityDefinition[];
 
 function currentCapabilityMenuDestination(
@@ -96,7 +98,7 @@ function currentCapabilityMenuDestination(
 }
 
 export const CAPABILITY_MENU_REGISTRY = [
-  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'explore'] as const).map(
+  ...(['goals', 'todos', 'plan', 'arcs', 'chapters', 'explore', 'games'] as const).map(
     currentCapabilityMenuDestination,
   ),
   {

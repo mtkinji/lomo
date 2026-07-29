@@ -122,6 +122,17 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('explore');
   });
 
+  it('always shows Games under Fun independently of the Explore feature flag', () => {
+    const { getByLabelText } = render(
+      <CapabilityMenu activeCapabilityId="games" displayName="Andy" chats={chats} {...handlers} />,
+    );
+
+    expect(getByLabelText('Collapse Fun')).toBeTruthy();
+    expect(getByLabelText('Games').props.accessibilityState).toEqual({ selected: true });
+    fireEvent.press(getByLabelText('Games'));
+    expect(handlers.onSelectCapability).toHaveBeenCalledWith('games');
+  });
+
   it('collapses and expands a capability group', () => {
     const { getByLabelText, queryByText, getByText } = render(
       <CapabilityMenu activeCapabilityId="todos" displayName="Andy" chats={chats} {...handlers} />,
