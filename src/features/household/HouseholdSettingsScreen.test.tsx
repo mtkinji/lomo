@@ -64,7 +64,8 @@ describe('HouseholdSettingsScreen', () => {
 
   it('creates the Household just in time when the first child is added', async () => {
     const { getByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
-    await waitFor(() => expect(getByText('Not set up yet')).toBeTruthy());
+    await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
+    fireEvent.press(getByText('Add a child'));
     fireEvent.changeText(getByLabelText('Child name'), 'Riley');
     fireEvent.press(getByText('Add child'));
 
@@ -74,6 +75,21 @@ describe('HouseholdSettingsScreen', () => {
       ownerDisplayName: 'Andrew',
     }));
     expect(await waitFor(() => getByText('Riley'))).toBeTruthy();
+  });
+
+  it('reveals only the household setup path the user chooses', async () => {
+    const { getByLabelText, getByText, queryByLabelText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+    await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
+
+    expect(queryByLabelText('Child name')).toBeNull();
+    expect(queryByLabelText('Caregiver email')).toBeNull();
+    expect(queryByLabelText('Caregiver invite code')).toBeNull();
+
+    fireEvent.press(getByText('Join a household'));
+
+    expect(getByLabelText('Caregiver invite code')).toBeTruthy();
+    expect(queryByLabelText('Child name')).toBeNull();
+    expect(queryByLabelText('Caregiver email')).toBeNull();
   });
 
   it('activates Screen Time for only the selected child', async () => {

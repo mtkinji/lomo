@@ -1,10 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { useAppStore } from '../../store/useAppStore';
+import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
+import { Icon, type IconName } from '../../ui/Icon';
 import { Input } from '../../ui/Input';
 import {
   SettingsDivider,
@@ -32,6 +34,37 @@ const CAPABILITIES: readonly { id: ChildCapabilityId; name: string }[] = [
 ];
 
 const enabledStates = new Set<ChildCapabilityState>(['active', 'pending_setup', 'blocked']);
+type EntryMode = 'child' | 'caregiver' | 'join';
+
+function HouseholdAction({
+  description,
+  icon,
+  onPress,
+  title,
+}: {
+  description: string;
+  icon: IconName;
+  onPress: () => void;
+  title: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => [styles.action, pressed ? styles.pressed : null]}
+    >
+      <View style={styles.actionIcon}>
+        <Icon color={colors.quiltBlue600} name={icon} size={19} />
+      </View>
+      <View style={styles.actionCopy}>
+        <Text style={styles.actionTitle}>{title}</Text>
+        <Text style={styles.actionDescription}>{description}</Text>
+      </View>
+      <Icon color={colors.muted} name="chevronRight" size={18} />
+    </Pressable>
+  );
+}
 
 function stateDescription(state: ChildCapabilityState | undefined): string {
   switch (state) {
@@ -50,6 +83,7 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
+  const [entryMode, setEntryMode] = useState<EntryMode | null>(null);
   const [loading, setLoading] = useState(Boolean(authIdentity));
   const [mutationKey, setMutationKey] = useState<string | null>(null);
 
@@ -73,13 +107,15 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
 
   useEffect(() => { void load(); }, [load]);
 
-  const runMutation = async (key: string, action: () => Promise<HouseholdSnapshot>) => {
-    if (mutationKey) return;
+  const runMutation = async (key: string, action: () => Promise<HouseholdSnapshot>): Promise<boolean> => {
+    if (mutationKey) return false;
     setMutationKey(key);
     try {
       setSnapshot(await action());
+      return true;
     } catch (error) {
       Alert.alert('Household change did not save', error instanceof Error ? error.message : 'Please try again.');
+      return false;
     } finally {
       setMutationKey(null);
     }
@@ -88,12 +124,15 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
   const addChild = async () => {
     if (!client || !childName.trim()) return;
     const name = childName.trim();
-    await runMutation('add-child', () => addDependentChild(client, {
+    const saved = await runMutation('add-child', () => addDependentChild(client, {
       householdId: snapshot?.household?.id ?? null,
       displayName: name,
       ownerDisplayName: authIdentity?.name || 'Kwilter',
     }));
-    setChildName('');
+    if (saved) {
+      setChildName('');
+      setEntryMode(null);
+    }
   };
 
   const createInvite = async () => {
@@ -108,6 +147,7 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
       setInviteCode(invite.code);
       setInviteEmail('');
       await load();
+      setEntryMode(null);
     } catch (error) {
       Alert.alert('Unable to create invitation', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -117,12 +157,119 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
 
   const joinHousehold = async () => {
     if (!client || !joinCode.trim()) return;
-    await runMutation('join', () => acceptCaregiverInvite(client, {
+    const saved = await runMutation('join', () => acceptCaregiverInvite(client, {
       code: joinCode,
       displayName: authIdentity?.name || 'Caregiver',
     }));
-    setJoinCode('');
+    if (saved) {
+      setJoinCode('');
+      setEntryMode(null);
+    }
   };
+
+  const entryForm = entryMode ? (
+    <View style={styles.formCard}>
+      <View style={styles.formHeading}>
+        <View style={styles.formCopy}>
+          <Text style={styles.formTitle}>
+            {entryMode === 'child' ? 'Add a child' : entryMode === 'caregiver' ? 'Invite a caregiver' : 'Join a household'}
+          </Text>
+          <Text style={styles.formDescription}>
+            {entryMode === 'child'
+              ? 'You’ll choose their Kwilt capabilities separately.'
+              : entryMode === 'caregiver'
+                ? 'They’ll join with no access to a child’s capabilities.'
+                : 'Enter the code from your family organizer.'}
+          </Text>
+        </View>
+        <Button accessibilityLabel="Cancel household action" iconButtonSize={32} onPress={() => setEntryMode(null)} variant="ghost">
+          <Icon color={colors.textSecondary} name="close" size={18} />
+        </Button>
+      </View>
+
+      {entryMode === 'child' ? (
+        <Input
+          accessibilityLabel="Child name"
+          elevation="flat"
+          onChangeText={setChildName}
+          placeholder="Child’s name"
+          value={childName}
+          variant="outline"
+        />
+      ) : null}
+      {entryMode === 'caregiver' ? (
+        <Input
+          accessibilityLabel="Caregiver email"
+          autoCapitalize="none"
+          elevation="flat"
+          keyboardType="email-address"
+          onChangeText={setInviteEmail}
+          placeholder="Email (optional)"
+          value={inviteEmail}
+          variant="outline"
+        />
+      ) : null}
+      {entryMode === 'join' ? (
+        <Input
+          accessibilityLabel="Caregiver invite code"
+          autoCapitalize="characters"
+          elevation="flat"
+          onChangeText={setJoinCode}
+          placeholder="Invite code"
+          value={joinCode}
+          variant="outline"
+        />
+      ) : null}
+
+      <Button
+        disabled={entryMode === 'child' ? !childName.trim() || Boolean(mutationKey) : entryMode === 'join' ? !joinCode.trim() || Boolean(mutationKey) : Boolean(mutationKey)}
+        fullWidth
+        onPress={() => {
+          if (entryMode === 'child') void addChild();
+          if (entryMode === 'caregiver') void createInvite();
+          if (entryMode === 'join') void joinHousehold();
+        }}
+        variant="primary"
+      >
+        {entryMode === 'child'
+          ? mutationKey === 'add-child' ? 'Adding…' : 'Add child'
+          : entryMode === 'caregiver'
+            ? mutationKey === 'invite' ? 'Creating…' : 'Create invite code'
+            : mutationKey === 'join' ? 'Joining…' : 'Join household'}
+      </Button>
+    </View>
+  ) : null;
+
+  const actionList = (
+    <View style={styles.actionCard}>
+      {isOwner ? (
+        <HouseholdAction
+          description="Create a profile just for them"
+          icon="userPlus"
+          onPress={() => setEntryMode('child')}
+          title="Add a child"
+        />
+      ) : null}
+      {isOwner ? <View style={styles.actionDivider} /> : null}
+      {isOwner ? (
+        <HouseholdAction
+          description="They’ll use their own Kwilt account"
+          icon="mail"
+          onPress={() => setEntryMode('caregiver')}
+          title="Invite a caregiver"
+        />
+      ) : null}
+      {!snapshot?.household ? <View style={styles.actionDivider} /> : null}
+      {!snapshot?.household ? (
+        <HouseholdAction
+          description="Use a code from your family organizer"
+          icon="users"
+          onPress={() => setEntryMode('join')}
+          title="Join a household"
+        />
+      ) : null}
+    </View>
+  );
 
   if (!authIdentity) {
     return (
@@ -136,45 +283,31 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
 
   return (
     <SettingsPage onBack={() => navigation.goBack()} title="Household">
-      <SettingsGroup
-        footer="Household membership shares the family roster—not personal Goals, Activities, Money, chats, or other private content."
-        title="Your family"
-      >
-        <SettingsRow title="Household" value={loading ? 'Loading…' : snapshot?.household?.name ?? 'Not set up yet'} />
-        {snapshot?.household ? (
-          <>
-            <SettingsDivider />
-            <SettingsRow title="Your role" value={currentMember?.role ?? 'Member'} />
-          </>
-        ) : null}
-      </SettingsGroup>
-
-      {isOwner ? (
-        <SettingsGroup
-          footer="Adding the first child creates your private Household automatically. Capabilities stay off until you choose them for that child."
-          title="Add a child"
-        >
-          <View>
-            <Input accessibilityLabel="Child name" label="Name" onChangeText={setChildName} value={childName} />
-            <Button disabled={!childName.trim() || Boolean(mutationKey)} fullWidth onPress={() => void addChild()}>
-              {mutationKey === 'add-child' ? 'Adding…' : 'Add child'}
-            </Button>
-          </View>
-        </SettingsGroup>
-      ) : null}
-
       {!snapshot?.household ? (
-        <SettingsGroup
-          footer="Use the code from your family organizer. You will join as a caregiver without automatic access to any child's capabilities."
-          title="Join a household"
-        >
-          <View>
-            <Input autoCapitalize="characters" accessibilityLabel="Caregiver invite code" label="Invite code" onChangeText={setJoinCode} value={joinCode} />
-            <Button disabled={!joinCode.trim() || Boolean(mutationKey)} fullWidth onPress={() => void joinHousehold()}>
-              {mutationKey === 'join' ? 'Joining…' : 'Join household'}
-            </Button>
+        <View style={styles.setupIntro}>
+          <View style={styles.heroIcon}>
+            <Icon color={colors.quiltBlue600} name="users" size={25} />
           </View>
+          <Text style={styles.setupTitle}>{loading ? 'Finding your household…' : 'Start with your people'}</Text>
+          <Text style={styles.setupDescription}>
+            Bring the people you coordinate with into Kwilt. You can decide what each child uses later.
+          </Text>
+          <View style={styles.privacyNote}>
+            <Icon color={colors.quiltBlue600} name="shield" size={16} />
+            <Text style={styles.privacyText}>Only your family roster is shared. The rest of Kwilt stays private.</Text>
+          </View>
+        </View>
+      ) : (
+        <SettingsGroup title="Your family">
+          <SettingsRow title={snapshot.household.name} value={currentMember?.role ?? 'Member'} />
         </SettingsGroup>
+      )}
+
+      {!loading ? (
+        <View style={styles.entrySection}>
+          {entryMode ? entryForm : actionList}
+          {inviteCode ? <Text selectable style={styles.inviteCode}>Invite code: {inviteCode}</Text> : null}
+        </View>
       ) : null}
 
       {children.map((child) => (
@@ -248,20 +381,130 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
         </SettingsGroup>
       ))}
 
-      {isOwner ? (
-        <SettingsGroup
-          footer="An invited caregiver joins with no child-capability authority. You grant that separately for each child and capability."
-          title="Invite a caregiver"
-        >
-          <View>
-            <Input autoCapitalize="none" keyboardType="email-address" label="Email (optional)" onChangeText={setInviteEmail} value={inviteEmail} />
-            <Button disabled={Boolean(mutationKey)} fullWidth onPress={() => void createInvite()}>
-              {mutationKey === 'invite' ? 'Creating…' : 'Create invite code'}
-            </Button>
-            {inviteCode ? <Text selectable>Invite code: {inviteCode}</Text> : null}
-          </View>
-        </SettingsGroup>
-      ) : null}
     </SettingsPage>
   );
 }
+
+const styles = StyleSheet.create({
+  setupIntro: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  heroIcon: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 26,
+    backgroundColor: colors.quiltBlue100,
+    marginBottom: spacing.lg,
+  },
+  setupTitle: {
+    ...typography.titleMd,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  setupDescription: {
+    ...typography.bodySm,
+    maxWidth: 330,
+    marginTop: spacing.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  privacyNote: {
+    maxWidth: 330,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: colors.quiltBlue50,
+  },
+  privacyText: {
+    ...typography.bodyXs,
+    flex: 1,
+    color: colors.textSecondary,
+  },
+  entrySection: {
+    gap: spacing.sm,
+  },
+  actionCard: {
+    overflow: 'hidden',
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  action: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  actionIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: colors.gray100,
+  },
+  actionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  actionTitle: {
+    color: colors.textPrimary,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  actionDescription: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  actionDivider: {
+    marginLeft: 64,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.cardBorder,
+  },
+  formCard: {
+    gap: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  formHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  formCopy: {
+    flex: 1,
+  },
+  formTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  formDescription: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  inviteCode: {
+    ...typography.bodySm,
+    paddingHorizontal: spacing.md,
+    color: colors.textPrimary,
+  },
+  pressed: {
+    opacity: 0.68,
+  },
+});
