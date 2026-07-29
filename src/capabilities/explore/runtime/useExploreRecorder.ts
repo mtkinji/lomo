@@ -46,6 +46,7 @@ export function useExploreRecorder() {
       horizontalAccuracyM: location.coords.accuracy,
       altitudeAccuracyM: location.coords.altitudeAccuracy,
       speedMps: location.coords.speed,
+      courseDeg: location.coords.heading,
       recordedAt: new Date(location.timestamp).toISOString(),
     });
   }, [appendSample]);

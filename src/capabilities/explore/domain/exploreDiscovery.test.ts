@@ -8,6 +8,8 @@ const point = (index: number): ExplorePoint => ({
   altitudeM: 1500,
   horizontalAccuracyM: 6,
   altitudeAccuracyM: 5,
+  speedMps: null,
+  courseDeg: null,
   recordedAt: new Date(Date.parse('2026-07-27T18:00:00.000Z') + index * 60_000).toISOString(),
 });
 

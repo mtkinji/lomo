@@ -19,6 +19,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { floatingControl } from '../../../theme/overlays';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
+import { BottomGuide } from '../../../ui/BottomGuide';
 import { Button } from '../../../ui/Button';
 import {
   DropdownMenu,
@@ -165,8 +166,10 @@ export function ExploreMapScreen() {
     return Object.values(places).filter((place) => visitedIds.has(place.id));
   }, [placeRelationships, places]);
   const mapPlaces = useMemo(
-    () => savedPlaces.filter((place) => isCoordinateExplored(place, exploredCellValues)),
-    [exploredCellValues, savedPlaces],
+    () => preferences.showPlaces
+      ? savedPlaces.filter((place) => isCoordinateExplored(place, exploredCellValues))
+      : [],
+    [exploredCellValues, preferences.showPlaces, savedPlaces],
   );
   const filteredPlaces = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
@@ -182,6 +185,14 @@ export function ExploreMapScreen() {
   const hasFirstClearing = points.length > 0;
   const showWelcome = needsOnboarding && !hasFirstClearing;
   const awaitingOnboardingChoice = needsOnboarding && hasFirstClearing;
+  const showFirstPlaceGuide = preferences.onboardingCompleted &&
+    hasFirstClearing &&
+    !preferences.firstPlaceGuideDismissed &&
+    savedPlaces.length === 0 &&
+    !collectingPlace &&
+    !searchVisible &&
+    !recap &&
+    !resolvingSession;
   const controlsProgress = useRef(new Animated.Value(needsOnboarding ? 0 : 1)).current;
 
   useEffect(() => {
@@ -231,6 +242,20 @@ export function ExploreMapScreen() {
       userId: localUserId,
       visitedAt: latestPoint.recordedAt,
     });
+    setPlaceName('');
+    setCollectingPlace(false);
+  };
+
+  const dismissFirstPlaceGuide = () => {
+    updatePreferences({ firstPlaceGuideDismissed: true });
+  };
+
+  const openPlaceNaming = () => {
+    dismissFirstPlaceGuide();
+    setCollectingPlace(true);
+  };
+
+  const closePlaceNaming = () => {
     setPlaceName('');
     setCollectingPlace(false);
   };
@@ -397,6 +422,11 @@ export function ExploreMapScreen() {
                   />
                   <DropdownMenuSeparator />
                   <MapToggleMenuItem
+                    label="Places"
+                    selected={preferences.showPlaces}
+                    onPress={() => updatePreferences({ showPlaces: !preferences.showPlaces })}
+                  />
+                  <MapToggleMenuItem
                     label="Fog"
                     selected={preferences.showFog}
                     onPress={() => updatePreferences({ showFog: !preferences.showFog })}
@@ -488,6 +518,45 @@ export function ExploreMapScreen() {
         >
           {recorder.active ? 'Stop' : recorder.status === 'locating' ? 'Finding you…' : 'Start Exploring'}
         </Button> : null}
+        <View style={styles.hereControlsAnchor}>
+          <View testID="explore.hereControls" style={styles.hereControls}>
+            <BlurView
+              pointerEvents="none"
+              intensity={floatingControl.material.intensity}
+              tint={floatingControl.material.tint}
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View pointerEvents="none" style={styles.floatingControlTint} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Name current Place"
+              accessibilityState={{ disabled: !latestPoint }}
+              disabled={!latestPoint}
+              onPress={openPlaceNaming}
+              style={({ pressed }) => [
+                styles.hereControlButton,
+                !latestPoint ? styles.controlDisabled : null,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Icon name="pin" size={22} color={colors.pine700} />
+              <View pointerEvents="none" style={styles.pinPlusBadge}>
+                <Icon name="plus" size={10} color={colors.pine800} />
+              </View>
+            </Pressable>
+            <View style={styles.hereControlDivider} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Center on current location"
+              accessibilityState={{ disabled: recorder.status === 'locating' }}
+              disabled={recorder.status === 'locating'}
+              onPress={() => { void centerOnCurrentLocation(); }}
+              style={({ pressed }) => [styles.hereControlButton, pressed ? styles.pressed : null]}
+            >
+              <Icon name="navigation" size={22} color={colors.pine700} />
+            </Pressable>
+          </View>
+        </View>
         <View testID="explore.mapToolsRow" style={styles.mapToolsRow}>
           <Pressable
             accessibilityRole="button"
@@ -507,17 +576,28 @@ export function ExploreMapScreen() {
               {savedPlaces.length ? 'Search visited Places' : 'Visited Places'}
             </Text>
           </Pressable>
-          <HeaderActionPill
-            accessibilityLabel="Center on current location"
-            materialVariant="floatingWhite"
-            size={RESTING_COMPOSER_HEIGHT_PX}
-            disabled={recorder.status === 'locating'}
-            onPress={() => { void centerOnCurrentLocation(); }}
-          >
-            <Icon name="navigation" size={23} color={colors.pine700} />
-          </HeaderActionPill>
         </View>
       </Animated.View> : null}
+
+      <BottomGuide
+        visible={showFirstPlaceGuide}
+        onClose={dismissFirstPlaceGuide}
+        scrim="none"
+        dynamicSizing
+      >
+        <View style={styles.firstPlaceGuideContent}>
+          <View style={styles.firstPlaceGuideCopy}>
+            <Text style={styles.firstPlaceGuideTitle}>Start with this Place</Text>
+            <Text style={styles.firstPlaceGuideBody}>
+              Give this clearing a name—Home, a park, anywhere worth finding again. Use ••• to show or hide map layers.
+            </Text>
+          </View>
+          <View style={styles.firstPlaceGuideActions}>
+            <Button variant="ghost" size="sm" onPress={dismissFirstPlaceGuide}>Not now</Button>
+            <Button size="sm" onPress={openPlaceNaming}>Name this Place</Button>
+          </View>
+        </View>
+      </BottomGuide>
 
       <BottomDrawer
         visible={awaitingOnboardingChoice}
@@ -588,27 +668,30 @@ export function ExploreMapScreen() {
               {savedPlaces.length ? 'No visited Places match that search.' : 'Places will appear here after you discover or collect them.'}
             </Text>
           )}
-          {collectingPlace ? (
-            <View style={styles.collectForm}>
-              <TextInput
-                accessibilityLabel="Place name"
-                autoFocus
-                value={placeName}
-                onChangeText={setPlaceName}
-                placeholder="Park, trail, overlook…"
-                placeholderTextColor={colors.textSecondary}
-                style={styles.placeInput}
-              />
-              <View style={styles.collectActions}>
-                <Button variant="ghost" size="sm" onPress={() => setCollectingPlace(false)}>Cancel</Button>
-                <Button size="sm" disabled={!placeName.trim() || !latestPoint} onPress={collectCurrentPlace}>Collect Place</Button>
-              </View>
-            </View>
-          ) : (
-            <Button variant="secondary" size="sm" disabled={!latestPoint} onPress={() => setCollectingPlace(true)}>
-              Collect current Place
-            </Button>
-          )}
+        </BottomDrawerScrollView>
+      </BottomDrawer>
+
+      <BottomDrawer visible={collectingPlace} onClose={closePlaceNaming} snapPoints={['34%']}>
+        <BottomDrawerScrollView
+          contentContainerStyle={[styles.placeNamingContent, { paddingBottom: insets.bottom + spacing.xl }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <BottomDrawerHeader title="Name this Place" variant="minimal" />
+          <TextInput
+            accessibilityLabel="Place name"
+            autoFocus
+            value={placeName}
+            onChangeText={setPlaceName}
+            placeholder="Home, park, trail…"
+            placeholderTextColor={colors.textSecondary}
+            returnKeyType="done"
+            onSubmitEditing={collectCurrentPlace}
+            style={styles.placeInput}
+          />
+          <View style={styles.collectActions}>
+            <Button variant="ghost" size="sm" onPress={closePlaceNaming}>Cancel</Button>
+            <Button size="sm" disabled={!placeName.trim() || !latestPoint} onPress={collectCurrentPlace}>Save Place</Button>
+          </View>
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -784,12 +867,50 @@ const styles = StyleSheet.create({
   },
   mapToolsRow: {
     height: RESTING_COMPOSER_HEIGHT_PX,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+  },
+  hereControlsAnchor: {
+    alignItems: 'flex-end',
+  },
+  hereControls: {
+    width: RESTING_COMPOSER_HEIGHT_PX,
+    height: RESTING_COMPOSER_HEIGHT_PX * 2,
+    borderRadius: RESTING_COMPOSER_HEIGHT_PX / 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    borderWidth: floatingControl.material.borderWidth,
+    borderColor: floatingControl.material.borderColor,
+    backgroundColor: floatingControl.material.backgroundColor,
+    shadowColor: colors.sumi900,
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  hereControlButton: {
+    width: RESTING_COMPOSER_HEIGHT_PX,
+    height: RESTING_COMPOSER_HEIGHT_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hereControlDivider: {
+    width: 28,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  controlDisabled: { opacity: 0.42 },
+  pinPlusBadge: {
+    position: 'absolute',
+    right: 8,
+    top: 7,
+    width: 15,
+    height: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.gray50,
   },
   placeSearchControl: {
-    flex: 1,
+    width: '100%',
     height: RESTING_COMPOSER_HEIGHT_PX,
     borderRadius: RESTING_COMPOSER_HEIGHT_PX / 2,
     overflow: 'hidden',
@@ -867,7 +988,12 @@ const styles = StyleSheet.create({
   recordingDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.gray400 },
   recordingDotSelected: { borderWidth: 5, borderColor: colors.pine700, backgroundColor: colors.gray50 },
   familyNote: { ...typography.bodyXs, color: colors.textSecondary, lineHeight: 18 },
-  collectForm: { gap: spacing.sm },
+  firstPlaceGuideContent: { gap: spacing.lg, paddingBottom: spacing.lg },
+  firstPlaceGuideCopy: { gap: spacing.xs },
+  firstPlaceGuideTitle: { ...typography.titleSm, color: colors.textPrimary },
+  firstPlaceGuideBody: { ...typography.bodySm, color: colors.textSecondary, lineHeight: 21 },
+  firstPlaceGuideActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
+  placeNamingContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
   placeInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.bodySm },
   collectActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
   recapContent: { paddingHorizontal: spacing.lg, gap: spacing.lg },

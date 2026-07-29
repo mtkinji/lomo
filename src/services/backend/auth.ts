@@ -399,6 +399,7 @@ export async function ensureSignedInWithPrompt(
     | 'share_goal_email'
     | 'join_goal'
     | 'claim_arc_draft'
+    | 'friend'
     | 'follow'
     | 'upload_attachment'
     | 'admin'
@@ -483,4 +484,3 @@ export async function ensureSignedInWithPrompt(
     });
   }
 }
-

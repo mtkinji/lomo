@@ -56,7 +56,7 @@ These rules apply to every Kwilt-family app.
    Do not use bright accent colors for core text.
 
 5. **Treat color as meaning, not decoration.**  
-   A product color identifies an app. A signal color indicates aliveness or attention. A status color communicates state. Do not let those roles collapse into one color.
+   A product color identifies an app. A signal color indicates aliveness or attention. A status color communicates state. Do not let those roles collapse into one color. Apply the canonical [semantic-color gate](semantic-color.md) before introducing any non-neutral color in product UI.
 
 6. **Stay calm by default.**  
    No neon text, red shame states, urgency styling, streak guilt, dashboard noise, or gamified celebration as the base posture.

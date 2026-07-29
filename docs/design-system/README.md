@@ -6,6 +6,7 @@ Kwilt's design system is the foundation for product surfaces across the Kwilt fa
 
 - [Storybook](storybook.md): the primary review surface for tokens, component candidates, variants, and promotion decisions.
 - [Brand family architecture](brand-family-architecture.md): suite-level naming, app identity, color roles, icon rules, launch lockups, and cross-app UI principles.
+- [Semantic color](semantic-color.md): the required meaning gate for every non-neutral color used in product UI.
 - [Foundation propagation](foundation-propagation.md): how shared token and component changes reach consuming apps.
 - [Component inventory](component-inventory.md): first picking list for canonical shared components.
 - [Illustration guidance](illustration-guidance.md): Goals illustration roles, style rules, and promotion posture.

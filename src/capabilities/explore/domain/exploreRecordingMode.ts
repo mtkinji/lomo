@@ -24,7 +24,7 @@ export function locationProfileForExploreMode(
   }
   return mode === 'automatic'
     ? { accuracy: 'high', distanceIntervalM: 20, timeIntervalMs: 20_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false }
-    : { accuracy: 'high', distanceIntervalM: 12, timeIntervalMs: 10_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false };
+    : { accuracy: 'high', distanceIntervalM: 6, timeIntervalMs: 1_000, deferredDistanceM: 0, deferredIntervalMs: 0, pausesAutomatically: false };
 }
 
 function lastCompletedPoint(state: ExploreData): ExplorePoint | null {

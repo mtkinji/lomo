@@ -9,6 +9,7 @@ import { colors, fonts, spacing, typography } from '../../theme';
 import { Icon } from '../../ui/Icon';
 import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 import { useSharingSettingsStore, type SharingReminderFrequency } from '../../store/useSharingSettingsStore';
+import { FriendshipSettingsSection } from '../friends/FriendshipSettingsSection';
 
 const FREQUENCY_OPTIONS: Array<{ value: SharingReminderFrequency; label: string; description: string }> = [
   { value: 'default', label: 'Default', description: 'Gentle reminders when a goal needs attention.' },
@@ -27,8 +28,12 @@ export function SharingSettingsScreen() {
     <AppShell>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <PageHeader title="Sharing" onPressBack={() => navigation.goBack()}>
-          <Text style={styles.body}>Control accountability reminders and shared-goal notifications.</Text>
+          <Text style={styles.body}>Manage the people you can choose and the reminders attached to explicit shares.</Text>
         </PageHeader>
+
+        <FriendshipSettingsSection />
+
+        <Text style={styles.sectionLabel}>Reminders</Text>
 
         <Card style={styles.card}>
           <VStack space="md">
@@ -102,9 +107,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: spacing.md,
     backgroundColor: colors.shell,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   optionRowSelected: {
-    backgroundColor: colors.pine100,
+    backgroundColor: colors.shellAlt,
+    borderColor: colors.border,
   },
   optionTitle: {
     ...typography.body,
@@ -129,5 +137,12 @@ const styles = StyleSheet.create({
   },
   switchThumbOn: {
     transform: [{ translateX: 20 }],
+  },
+  sectionLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
 });

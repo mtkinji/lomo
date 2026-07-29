@@ -1,11 +1,11 @@
 /**
  * Friendships service.
  *
- * Manages bi-directional friend relationships separate from shared-goal memberships.
- * Friends can see each other's milestones and send congratulations (Phase 4+).
+ * Manages mutual Friend relationships separately from every content membership.
+ * Friendship grants no Goal, milestone, feed, Household, or capability access.
  *
  * Key design decisions:
- * - Bi-directional: Both users must accept to establish friendship
+ * - Two-party consent: inviter sends a link/request and the recipient accepts
  * - Invite-only: No public search/discovery (preserves privacy)
  * - Uses existing kwilt_invites infrastructure for invite codes
  *
@@ -44,7 +44,8 @@ async function buildEdgeHeaders(requireAuth: boolean): Promise<Headers> {
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type FriendshipStatus = 'pending' | 'active' | 'blocked';
+export type FriendshipStatus = 'pending' | 'active' | 'ended' | 'blocked';
+export type FriendshipAction = 'accept' | 'decline' | 'end' | 'block';
 
 export type Friend = {
   id: string; // friendship row ID
@@ -143,13 +144,16 @@ export async function createFriendInvite(
 export type AcceptFriendInviteResult = {
   success: boolean;
   friendshipId?: string;
+  status?: 'active';
+  replayed?: boolean;
   error?: string;
 };
 
 /**
  * Accept a friend invite by code.
  *
- * Creates a pending friendship that the inviter can then accept.
+ * Activates the relationship after recipient acceptance. Deliberately sending
+ * the link was the inviter's affirmative action; no third confirmation exists.
  */
 export async function acceptFriendInvite(code: string): Promise<AcceptFriendInviteResult> {
   const base = getEdgeFunctionUrl('friend-invite-accept');
@@ -180,6 +184,8 @@ export async function acceptFriendInvite(code: string): Promise<AcceptFriendInvi
     return {
       success: true,
       friendshipId: data.friendshipId,
+      status: data.status === 'active' ? 'active' : undefined,
+      replayed: data.replayed === true,
     };
   } catch (err) {
     console.warn('[friendships] Error accepting invite:', err);
@@ -188,77 +194,55 @@ export async function acceptFriendInvite(code: string): Promise<AcceptFriendInvi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Accept/confirm friend request
+// Server-authorized friendship transitions
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Accept a pending friend request (makes the friendship active).
- *
- * This is called by the recipient of a friend request to confirm the friendship.
- */
-export async function acceptFriendRequest(friendshipId: string): Promise<boolean> {
+async function transitionFriendship(
+  friendshipId: string,
+  action: FriendshipAction,
+): Promise<boolean> {
   const supabase = getSupabaseClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    console.warn('[friendships] Not signed in');
-    return false;
-  }
-
-  // Update the friendship to active
-  const { error } = await supabase
-    .from('kwilt_friendships')
-    .update({
-      status: 'active',
-      accepted_at: new Date().toISOString(),
-    })
-    .eq('id', friendshipId)
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .eq('status', 'pending');
+  const { error } = await supabase.rpc('transition_kwilt_friendship', {
+    p_friendship_id: friendshipId,
+    p_action: action,
+  });
 
   if (error) {
-    console.warn('[friendships] Failed to accept request:', error.message);
+    console.warn(`[friendships] Failed to ${action} relationship:`, error.message);
     return false;
   }
 
   return true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Decline/block friend
-// ─────────────────────────────────────────────────────────────────────────────
+export const acceptFriendRequest = (friendshipId: string) =>
+  transitionFriendship(friendshipId, 'accept');
+export const declineFriendRequest = (friendshipId: string) =>
+  transitionFriendship(friendshipId, 'decline');
+export const endFriendship = (friendshipId: string) =>
+  transitionFriendship(friendshipId, 'end');
+export const blockFriendship = (friendshipId: string) =>
+  transitionFriendship(friendshipId, 'block');
 
-/**
- * Decline a pending friend request or block an existing friend.
- */
-export async function declineOrBlockFriend(friendshipId: string): Promise<boolean> {
-  const supabase = getSupabaseClient();
+type FriendshipProjectionRow = {
+  friendship_id: string;
+  friend_user_id: string;
+  relationship_status: 'pending' | 'active';
+  initiated_by_me: boolean;
+  incoming_request: boolean;
+  created_at: string;
+  accepted_at: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+};
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return false;
-  }
-
-  const { error } = await supabase
-    .from('kwilt_friendships')
-    .update({ status: 'blocked' })
-    .eq('id', friendshipId)
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
-
+async function loadFriendshipProjection(): Promise<FriendshipProjectionRow[]> {
+  const { data, error } = await getSupabaseClient().rpc('get_kwilt_friendships');
   if (error) {
-    console.warn('[friendships] Failed to decline/block:', error.message);
-    return false;
+    console.warn('[friendships] Failed to load safe relationship projection:', error.message);
+    return [];
   }
-
-  return true;
+  return Array.isArray(data) ? (data as FriendshipProjectionRow[]) : [];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -276,73 +260,22 @@ export type ListFriendsParams = {
  * List the current user's friends.
  */
 export async function listFriends(params: ListFriendsParams = {}): Promise<Friend[]> {
-  const supabase = getSupabaseClient();
   const status = params.status ?? 'active';
   const limit = params.limit ?? 50;
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return [];
-  }
-
-  let query = supabase
-    .from('kwilt_friendships')
-    .select('id, user_a, user_b, status, initiated_by, created_at, accepted_at')
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (status !== 'all') {
-    query = query.eq('status', status);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.warn('[friendships] Failed to list friends:', error.message);
-    return [];
-  }
-
-  // Map to Friend type and fetch profile info
-  const friendships = (data ?? []).map((row) => {
-    const friendUserId = row.user_a === user.id ? row.user_b : row.user_a;
-    return {
-      id: row.id,
-      friendUserId,
-      status: row.status as FriendshipStatus,
-      initiatedByMe: row.initiated_by === user.id,
+  const rows = await loadFriendshipProjection();
+  return rows
+    .filter((row) => status === 'all' || row.relationship_status === status)
+    .slice(0, limit)
+    .map((row) => ({
+      id: row.friendship_id,
+      friendUserId: row.friend_user_id,
+      status: row.relationship_status,
+      initiatedByMe: row.initiated_by_me,
       createdAt: row.created_at,
       acceptedAt: row.accepted_at,
-      name: null as string | null,
-      avatarUrl: null as string | null,
-    };
-  });
-
-  // Fetch profile info for friends
-  if (friendships.length > 0) {
-    const friendIds = friendships.map((f) => f.friendUserId);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_url')
-      .in('id', friendIds);
-
-    if (profiles) {
-      const profileMap = new Map(profiles.map((p) => [p.id, p]));
-      for (const friend of friendships) {
-        const profile = profileMap.get(friend.friendUserId);
-        if (profile) {
-          friend.name = profile.display_name;
-          friend.avatarUrl = profile.avatar_url;
-        }
-      }
-    }
-  }
-
-  return friendships;
+      name: row.display_name,
+      avatarUrl: row.avatar_url,
+    }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -353,63 +286,16 @@ export async function listFriends(params: ListFriendsParams = {}): Promise<Frien
  * Get pending friend requests sent TO the current user (not by them).
  */
 export async function getPendingFriendRequests(): Promise<PendingFriendRequest[]> {
-  const supabase = getSupabaseClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return [];
-  }
-
-  // Get pending friendships where current user is NOT the initiator
-  const { data, error } = await supabase
-    .from('kwilt_friendships')
-    .select('id, user_a, user_b, initiated_by, created_at')
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .eq('status', 'pending')
-    .neq('initiated_by', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.warn('[friendships] Failed to get pending requests:', error.message);
-    return [];
-  }
-
-  // Map and fetch profile info
-  const requests = (data ?? []).map((row) => {
-    const fromUserId = row.initiated_by;
-    return {
-      friendshipId: row.id,
-      fromUserId,
-      fromUserName: null as string | null,
-      fromUserAvatarUrl: null as string | null,
+  const rows = await loadFriendshipProjection();
+  return rows
+    .filter((row) => row.relationship_status === 'pending' && row.incoming_request)
+    .map((row) => ({
+      friendshipId: row.friendship_id,
+      fromUserId: row.friend_user_id,
+      fromUserName: row.display_name,
+      fromUserAvatarUrl: row.avatar_url,
       createdAt: row.created_at,
-    };
-  });
-
-  if (requests.length > 0) {
-    const userIds = requests.map((r) => r.fromUserId);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_url')
-      .in('id', userIds);
-
-    if (profiles) {
-      const profileMap = new Map(profiles.map((p) => [p.id, p]));
-      for (const request of requests) {
-        const profile = profileMap.get(request.fromUserId);
-        if (profile) {
-          request.fromUserName = profile.display_name;
-          request.fromUserAvatarUrl = profile.avatar_url;
-        }
-      }
-    }
-  }
-
-  return requests;
+    }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -420,59 +306,14 @@ export async function getPendingFriendRequests(): Promise<PendingFriendRequest[]
  * Get the count of active friends.
  */
 export async function getFriendCount(): Promise<number> {
-  const supabase = getSupabaseClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return 0;
-  }
-
-  const { count, error } = await supabase
-    .from('kwilt_friendships')
-    .select('*', { count: 'exact', head: true })
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .eq('status', 'active');
-
-  if (error) {
-    console.warn('[friendships] Failed to count friends:', error.message);
-    return 0;
-  }
-
-  return count ?? 0;
+  return (await listFriends()).length;
 }
 
 /**
  * Get the count of pending friend requests (incoming).
  */
 export async function getPendingRequestCount(): Promise<number> {
-  const supabase = getSupabaseClient();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return 0;
-  }
-
-  const { count, error } = await supabase
-    .from('kwilt_friendships')
-    .select('*', { count: 'exact', head: true })
-    .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-    .eq('status', 'pending')
-    .neq('initiated_by', user.id);
-
-  if (error) {
-    console.warn('[friendships] Failed to count pending requests:', error.message);
-    return 0;
-  }
-
-  return count ?? 0;
+  return (await getPendingFriendRequests()).length;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -486,4 +327,3 @@ export function buildFriendInviteUrl(code: string): string {
   // Use the same URL pattern as goal invites
   return `https://kwilt.app/friend/${code}`;
 }
-

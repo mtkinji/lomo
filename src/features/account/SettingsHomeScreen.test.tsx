@@ -90,9 +90,27 @@ describe('SettingsHomeScreen planning group', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
 
     expect(getByText('Planning')).toBeTruthy();
+    expect(getByText('People')).toBeTruthy();
     expect(getByText('Integrations')).toBeTruthy();
     expect(getByText('Personalization')).toBeTruthy();
     expect(getByText('Account')).toBeTruthy();
+  });
+
+  it('opens the canonical Household settings surface', () => {
+    const { getByText } = renderWithProviders(<SettingsHomeScreen />);
+    fireEvent.press(getByText('Household'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsHousehold');
+  });
+
+  it('keeps Household and Sharing together under People without retaining Family', () => {
+    const { getByText, getAllByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(queryByText('Family')).toBeNull();
+    expect(getByText('Household')).toBeTruthy();
+    expect(getAllByText('Sharing')).toHaveLength(1);
+
+    fireEvent.press(getByText('Sharing'));
+    expect(navModule.__navMocks.navigate).toHaveBeenCalledWith('SettingsSharing');
   });
 
   it('keeps incomplete destinations hidden and removes non-settings dashboards', () => {

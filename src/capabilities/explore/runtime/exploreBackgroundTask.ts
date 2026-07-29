@@ -2,9 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
-import { createEmptyExploreData, markExploreRecapNotified } from '../domain/exploreState';
+import { createEmptyExploreData, markExploreRecapNotified, rebuildExploreTerritory } from '../domain/exploreState';
 import { exploreRecapNotification } from '../domain/exploreRecap';
 import { prepareExploreBackgroundBatch } from '../domain/exploreRecordingMode';
+import { normalizeCourseDeg } from '../domain/explorePointPolicy';
 import {
   normalizeExploreTrackingState,
   resumeExploreTracking,
@@ -48,7 +49,13 @@ function upgradeSession(session: Partial<ExploreSession>): ExploreSession {
     id: session.id ?? 'unknown-session',
     startedAt: session.startedAt ?? new Date().toISOString(),
     endedAt: session.endedAt ?? null,
-    points: Array.isArray(session.points) ? session.points : [],
+    points: Array.isArray(session.points) ? session.points.map((point) => ({
+      ...point,
+      speedMps: typeof point.speedMps === 'number' && Number.isFinite(point.speedMps) && point.speedMps >= 0
+        ? point.speedMps
+        : null,
+      courseDeg: normalizeCourseDeg(point.courseDeg),
+    })) : [],
     discoveredPlaceIds: Array.isArray(session.discoveredPlaceIds) ? session.discoveredPlaceIds : [],
     recapStatus: session.recapStatus ?? 'none',
     completedReason: session.completedReason ?? null,
@@ -68,12 +75,10 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
     const envelope = parsed as PersistEnvelope;
     const persisted = (envelope.state ?? envelope) as Partial<ExploreData>;
     const defaults = createEmptyExploreData();
-    return {
-      envelope,
-      data: {
+    const data = {
         ...defaults,
         ...persisted,
-        version: 6,
+        version: 8,
         activeSession: persisted.activeSession ? upgradeSession(persisted.activeSession) : null,
         sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
         preferences: { ...defaults.preferences, ...(persisted.preferences ?? {}) },
@@ -84,7 +89,12 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
             : null,
           persisted.activeSession?.startedAt ?? null,
         ),
-      },
+      } as ExploreData;
+    return {
+      envelope,
+      data: (envelope.version ?? persisted.version ?? 0) < 7
+        ? rebuildExploreTerritory(data)
+        : data,
     };
   } catch {
     return null;
@@ -104,6 +114,7 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
     horizontalAccuracyM: location.coords.accuracy,
     altitudeAccuracyM: location.coords.altitudeAccuracy,
     speedMps: location.coords.speed,
+    courseDeg: location.coords.heading,
     recordedAt: new Date(location.timestamp).toISOString(),
   }));
   const preparedBatch = prepareExploreBackgroundBatch(
@@ -142,8 +153,8 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   }
 
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 6 }
-    : { state: next, version: 6 };
+    ? { ...persisted.envelope, state: next, version: 8 }
+    : { state: next, version: 8 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-location' });
@@ -179,8 +190,8 @@ TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
     tracking: resumeExploreTracking(persisted.data.tracking, new Date().toISOString()),
   };
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 6 }
-    : { state: next, version: 6 };
+    ? { ...persisted.envelope, state: next, version: 8 }
+    : { state: next, version: 8 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });

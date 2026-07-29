@@ -191,6 +191,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
           path: 'settings/connections',
         },
         SettingsMoneyPrivacy: 'settings/money-privacy',
+        SettingsJoinFriend: 'friend/:inviteCode',
       },
     },
   },

@@ -84,6 +84,7 @@ const SETTINGS_STACK_SCHEMA: ChildSchema = {
     'SettingsAiModel',
     'SettingsNotifications',
     'SettingsScreenTimeProtection',
+    'SettingsHousehold',
     'SettingsMoneyPrivacy',
     'SettingsMoneyHousehold',
     'SettingsWeeklyChapters',

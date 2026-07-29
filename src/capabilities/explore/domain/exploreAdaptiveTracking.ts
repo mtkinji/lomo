@@ -239,10 +239,10 @@ export function adaptiveLocationProfile(
   if (movement === 'vehicle') {
     return {
       accuracy: 'high',
-      distanceIntervalM: 200,
-      timeIntervalMs: 120_000,
-      deferredDistanceM: 500,
-      deferredIntervalMs: 300_000,
+      distanceIntervalM: 6,
+      timeIntervalMs: 1_000,
+      deferredDistanceM: 60,
+      deferredIntervalMs: 15_000,
       pausesAutomatically: false,
     };
   }

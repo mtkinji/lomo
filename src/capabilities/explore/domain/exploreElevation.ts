@@ -1,4 +1,5 @@
 import type { ExploreCoordinate } from './types';
+import { isExploreTraceContinuous } from './exploreGeometry';
 
 type AltitudePoint = ExploreCoordinate & { altitudeM: number | null };
 
@@ -40,17 +41,18 @@ export function altitudeColor(altitudeM: number | null): string {
 }
 
 export function buildAltitudeSegments<T extends AltitudePoint>(points: readonly T[]) {
-  return points.slice(1).map((point, index) => {
+  return points.slice(1).flatMap((point, index) => {
     const previous = points[index];
+    if (!isExploreTraceContinuous(previous, point)) return [];
     const knownAltitudes = [previous.altitudeM, point.altitudeM].filter(
       (altitude): altitude is number => typeof altitude === 'number',
     );
     const segmentAltitude = knownAltitudes.length
       ? knownAltitudes.reduce((sum, altitude) => sum + altitude, 0) / knownAltitudes.length
       : null;
-    return {
+    return [{
       coordinates: [previous, point] as [T, T],
       color: altitudeColor(segmentAltitude),
-    };
+    }];
   });
 }

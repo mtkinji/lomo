@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { beginExploreSession, createEmptyExploreData } from '../domain/exploreState';
+import { appendExplorePoint, beginExploreSession, createEmptyExploreData } from '../domain/exploreState';
 import {
   enterExploreDeepSleep,
   startExploreBackgroundUpdates,
@@ -103,5 +103,70 @@ describe('Explore background tasks', () => {
       wakeAnchor: null,
     }));
     expect(startExploreBackgroundUpdates).toHaveBeenCalledWith('automatic', 'active', 'unknown');
+  });
+
+  it('upgrades legacy route points with explicit null motion metadata', async () => {
+    const startedAt = '2026-07-28T12:00:00.000Z';
+    let state = beginExploreSession(createEmptyExploreData(), 'ambient-1', startedAt, 'ambient');
+    state = appendExplorePoint(state, {
+      id: 'legacy-point',
+      latitude: 40.5,
+      longitude: -105.1,
+      altitudeM: 1500,
+      horizontalAccuracyM: 8,
+      altitudeAccuracyM: 6,
+      speedMps: null,
+      courseDeg: null,
+      recordedAt: startedAt,
+    });
+    state.tracking = {
+      ...state.tracking,
+      phase: 'deep-sleep',
+      movement: 'stationary',
+      stationarySince: startedAt,
+      wakeAnchor: { latitude: 40.5, longitude: -105.1, horizontalAccuracyM: 8 },
+    };
+    const legacyState = JSON.parse(JSON.stringify(state));
+    delete legacyState.activeSession.points[0].speedMps;
+    delete legacyState.activeSession.points[0].courseDeg;
+    await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state: legacyState, version: 7 }));
+
+    await mockTasks[EXPLORE_WAKE_TASK]({
+      data: {
+        eventType: Location.GeofencingEventType.Exit,
+        region: { identifier: EXPLORE_WAKE_REGION_ID },
+      },
+    });
+
+    const upgraded = await storedState();
+    expect(upgraded.version).toBe(8);
+    expect(upgraded.activeSession.points[0]).toEqual(expect.objectContaining({
+      speedMps: null,
+      courseDeg: null,
+    }));
+  });
+
+  it('preserves GPS speed and course from a background observation', async () => {
+    const startedAt = '2026-07-28T12:00:00.000Z';
+    const state = beginExploreSession(createEmptyExploreData(), 'ambient-1', startedAt, 'ambient');
+    await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state, version: 8 }));
+
+    await mockTasks[EXPLORE_BACKGROUND_TASK]({ data: { locations: [{
+      coords: {
+        latitude: 40.5,
+        longitude: -105.1,
+        altitude: 1500,
+        accuracy: 8,
+        altitudeAccuracy: 6,
+        speed: 11.176,
+        heading: 88,
+      },
+      timestamp: Date.parse(startedAt),
+    }] } });
+
+    expect((await storedState()).activeSession.points[0]).toEqual(expect.objectContaining({
+      speedMps: 11.176,
+      courseDeg: 88,
+    }));
   });
 });

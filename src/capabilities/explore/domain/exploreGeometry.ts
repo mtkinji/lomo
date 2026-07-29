@@ -3,6 +3,7 @@ import type { ExploreCoordinate, ExploredCell } from './types';
 export const EXPLORE_REVEAL_RADIUS_M = 65 * 0.3048;
 export const EXPLORE_FEATHER_REFERENCE_RADIUS_M = 100 * 0.3048;
 export const EXPLORE_CELL_SIZE_M = 24;
+export const MAX_CONTINUOUS_TRACE_GAP_M = 60;
 
 const EARTH_RADIUS_M = 6_371_000;
 const METERS_PER_LATITUDE_DEGREE = 111_320;
@@ -56,6 +57,23 @@ export function exploreCellsAlongSegment(
     });
   });
   return [...new Map(cells.map((cell) => [cell.id, cell])).values()];
+}
+
+export function isExploreTraceContinuous(
+  from: ExploreCoordinate,
+  to: ExploreCoordinate,
+): boolean {
+  return coordinateDistanceM(from, to) <= MAX_CONTINUOUS_TRACE_GAP_M;
+}
+
+export function exploreCellsForRecordedStep(
+  from: ExploreCoordinate | null,
+  to: ExploreCoordinate,
+): Array<Pick<ExploredCell, 'id' | 'center'>> {
+  if (!from || !isExploreTraceContinuous(from, to)) {
+    return [exploreCellForCoordinate(to)];
+  }
+  return exploreCellsAlongSegment(from, to);
 }
 
 export function destinationCoordinate(

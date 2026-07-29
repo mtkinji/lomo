@@ -92,9 +92,10 @@ Presence remains a future authenticated sharing capability. The local Explore re
 
 ## Movement and quality modifiers
 
-- Walking or running: use approximately 25-35-meter route spacing.
-- Cycling or skiing: use approximately 50-80-meter route spacing.
-- Vehicle, boat, or train: use approximately 150-250-meter spacing and longer delivery batches.
+- Active vehicle movement: request approximately 6-meter observations, then retain straight-line points using a 0.8-second speed horizon clamped to 6-22 meters.
+- Trustworthy course change: retain a point around each 10 degrees of change above approximately 3 m/s so corners, switchbacks, and roundabouts become denser without a separate compass watcher.
+- Walking, running, cycling, and skiing: preserve the existing intent-plus-movement profiles in this tranche; use the same course-aware retention when observations are available.
+- Background movement: defer delivery separately from observation spacing so the native location manager can batch points without erasing turn geometry.
 - Repeated stop-and-go movement: delay deep sleep so traffic lights and queues do not cause flapping.
 - Poor horizontal accuracy: stop clearing fog rather than reveal false territory.
 - Long home- or work-like dwell: favor deep sleep.
@@ -112,12 +113,14 @@ Cheap wake signals are coarser than active GPS. Region exits may be delayed by s
 - Do not add user-facing battery or activity presets.
 - Do not infer sharing from a recording mode or movement class.
 - Do not clear fog from weak or implausible samples.
+- Keep coordinate, timestamp, accuracy, speed, and course as canonical recorded evidence; never replace them with inferred road geometry.
+- Treat later map matching as an optional, separately cached presentation that requires a provider/privacy decision and can fall back to the recorded path.
 - Do not scale reveal distance by altitude.
 - Do not claim emergency-grade or guaranteed location delivery.
 - Keep raw route, Place identity, and visit timestamps out of analytics.
 
 ## Implementation status
 
-The current branch implements Ambient and Adventure as `Always Exploring` and `Only when I start`. It persists the adaptive tracking phase, changes sampling for pedestrian, cycling, vehicle, airplane-like, inaccurate, and stationary evidence, enters soft sleep, and replaces precise updates with a 200-meter exit wake region in deep sleep. A later meaningful movement can resume the same active intent or split a new internal outing after the policy's movement-gap threshold.
+The current branch implements Ambient and Adventure as `Always Exploring` and `Only when I start`. It persists the adaptive tracking phase, changes sampling for pedestrian, cycling, vehicle, airplane-like, inaccurate, and stationary evidence, enters soft sleep, and replaces precise updates with a 200-meter exit wake region in deep sleep. The speed- and turn-aware tranche adds dense active vehicle observations, adaptive straight-line retention, GPS-course retention, and canonical speed/course persistence. A later meaningful movement can resume the same active intent or split a new internal outing after the policy's movement-gap threshold.
 
 Presence exists only as internal policy infrastructure. Authenticated family delivery, sharing controls, and viewer freshness remain future work. The adaptive behavior is covered by deterministic tests but is not signed-device proven; wake delay, route gaps, battery, thermal behavior, and OS relaunch behavior still require the release matrix.
