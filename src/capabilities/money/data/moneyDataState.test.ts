@@ -65,6 +65,22 @@ describe('moneyDataReducer', () => {
     expect(failed.stale).toBe(true);
   });
 
+  it('accepts a confirmed merchant-rule receipt while marking broader Money truth stale', () => {
+    const withTransaction = {
+      ...snapshot,
+      transactions: [{ id: 'transaction-1', merchantRuleCategoryId: null }],
+    } as typeof snapshot;
+    const ready = moneyDataReducer(initialMoneyDataState, { type: 'success', snapshot: withTransaction });
+    const patched = moneyDataReducer(ready, {
+      type: 'confirmed_merchant_rule_patch',
+      patch: { transactionId: 'transaction-1', categoryId: 'groceries' },
+    } as never);
+
+    expect(patched.snapshot?.transactions[0]).toMatchObject({ merchantRuleCategoryId: 'groceries' });
+    expect(patched.status).toBe('ready');
+    expect(patched.stale).toBe(true);
+  });
+
   it('accepts an authoritative governed-plan projection atomically', () => {
     const ready = moneyDataReducer(initialMoneyDataState, { type: 'success', snapshot });
     const projected = { ...snapshot, generatedAt: 'plan-projection' };
