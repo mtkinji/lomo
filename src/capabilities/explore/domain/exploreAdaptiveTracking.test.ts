@@ -21,6 +21,8 @@ const point = (minute: number, latitude = 40.5): ExplorePoint => ({
   altitudeM: 1500,
   horizontalAccuracyM: 8,
   altitudeAccuracyM: 6,
+  speedMps: null,
+  courseDeg: null,
   recordedAt: at(minute),
 });
 
@@ -97,7 +99,11 @@ describe('Explore adaptive tracking', () => {
       accuracy: 'high', distanceIntervalM: 25, deferredIntervalMs: 90_000,
     }));
     expect(adaptiveLocationProfile('ambient', 'active', 'vehicle')).toEqual(expect.objectContaining({
-      distanceIntervalM: 200, deferredIntervalMs: 300_000,
+      accuracy: 'high',
+      distanceIntervalM: 6,
+      timeIntervalMs: 1_000,
+      deferredDistanceM: 60,
+      deferredIntervalMs: 15_000,
     }));
     expect(adaptiveLocationProfile('ambient', 'soft-sleep', 'stationary')).toEqual(expect.objectContaining({
       accuracy: 'balanced', distanceIntervalM: 75, timeIntervalMs: 120_000,

@@ -3,7 +3,12 @@ import {
   shouldClearFogForMovement,
   transitionExploreTracking,
 } from '../domain/exploreAdaptiveTracking';
-import { acceptExplorePoint, sanitizeLocationSample, type ExploreLocationSample } from '../domain/explorePointPolicy';
+import {
+  acceptExplorePoint,
+  explorePointFromSample,
+  sanitizeLocationSample,
+  type ExploreLocationSample,
+} from '../domain/explorePointPolicy';
 import type { ExploreData } from '../domain/types';
 
 export type ExploreTrackingAction = 'none' | 'active' | 'soft-sleep' | 'deep-sleep';
@@ -37,11 +42,10 @@ export function applyBackgroundSamples(
     };
     if (!shouldClearFogForMovement(tracking.movement)) return;
     if (!acceptExplorePoint(previous, sanitized).accepted) return;
-    const { speedMps: _sampleSpeed, ...pointSample } = sanitized;
-    next = appendExplorePoint(next, {
-      id: `background-${sanitized.recordedAt}-${index}`,
-      ...pointSample,
-    });
+    next = appendExplorePoint(next, explorePointFromSample(
+      `background-${sanitized.recordedAt}-${index}`,
+      sanitized,
+    ));
   });
   return {
     data: next,

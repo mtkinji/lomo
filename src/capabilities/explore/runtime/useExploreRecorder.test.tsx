@@ -43,7 +43,7 @@ describe('useExploreRecorder recording modes', () => {
     expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
     expect(Location.requestBackgroundPermissionsAsync).toHaveBeenCalledTimes(1);
     expect(Location.watchPositionAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ accuracy: Location.Accuracy.High, distanceInterval: 12, timeInterval: 10_000 }),
+      expect.objectContaining({ accuracy: Location.Accuracy.High, distanceInterval: 6, timeInterval: 1_000 }),
       expect.any(Function),
     );
     expect(useExploreStore.getState().activeSession).not.toBeNull();
@@ -58,6 +58,29 @@ describe('useExploreRecorder recording modes', () => {
     expect(Location.getCurrentPositionAsync).toHaveBeenCalledWith({ accuracy: Location.Accuracy.High });
     expect(Location.watchPositionAsync).toHaveBeenCalledTimes(1);
     expect(useExploreStore.getState().activeSession?.points).toHaveLength(1);
+  });
+
+  it('preserves GPS speed and course with a foreground observation', async () => {
+    (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValueOnce({
+      coords: {
+        latitude: 40.5,
+        longitude: -105.1,
+        altitude: 1500,
+        accuracy: 8,
+        altitudeAccuracy: 6,
+        speed: 11.176,
+        heading: 92,
+      },
+      timestamp: Date.parse('2026-07-28T12:00:00.000Z'),
+    });
+    const { result } = renderHook(() => useExploreRecorder());
+
+    await act(async () => result.current.beginOnboarding());
+
+    expect(useExploreStore.getState().activeSession?.points[0]).toEqual(expect.objectContaining({
+      speedMps: 11.176,
+      courseDeg: 92,
+    }));
   });
 
   it('locates once for map recentering without requesting background access or recording a point', async () => {

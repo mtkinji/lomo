@@ -5,8 +5,7 @@
 //
 // Notes:
 // - Requires Authorization: Bearer <supabase access token>
-// - Creates or updates a friendship between inviter and accepter
-// - Friendships are stored with user_a < user_b for deduplication
+// - Delegates the complete state transition to one authenticated atomic RPC
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -31,12 +30,13 @@ function json(status: number, body: JsonValue, headers?: Record<string, string>)
   });
 }
 
-function getSupabaseAdmin() {
+function getSupabaseForUser(token: string) {
   const url = Deno.env.get('SUPABASE_URL');
-  const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!url || !serviceRole) return null;
-  return createClient(url, serviceRole, {
+  const publishableKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!url || !publishableKey) return null;
+  return createClient(url, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   });
 }
 
@@ -55,19 +55,18 @@ serve(async (req) => {
     return json(405, { error: { message: 'Method not allowed', code: 'method_not_allowed' } });
   }
 
-  const admin = getSupabaseAdmin();
-  if (!admin) {
-    return json(503, { error: { message: 'Friend service unavailable', code: 'provider_unavailable' } });
-  }
-
   const token = requireBearerToken(req);
   if (!token) {
     return json(401, { error: { message: 'Missing Authorization bearer token', code: 'unauthorized' } });
   }
 
-  const { data: userData, error: userErr } = await admin.auth.getUser(token);
-  const accepterId = userData?.user?.id ?? null;
-  if (userErr || !accepterId) {
+  const supabase = getSupabaseForUser(token);
+  if (!supabase) {
+    return json(503, { error: { message: 'Friend service unavailable', code: 'provider_unavailable' } });
+  }
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData?.user?.id) {
     return json(401, { error: { message: 'Invalid auth token', code: 'unauthorized' } });
   }
 
@@ -79,101 +78,34 @@ serve(async (req) => {
     return json(400, { error: { message: 'Missing invite code', code: 'bad_request' } });
   }
 
-  // Look up the invite
-  const { data: invite, error: inviteErr } = await admin
-    .from('kwilt_invites')
-    .select('id, entity_type, entity_id, created_by, expires_at, max_uses, uses, payload')
-    .eq('code', code)
-    .eq('entity_type', 'friendship')
-    .maybeSingle();
-
-  if (inviteErr || !invite) {
-    return json(404, { error: { message: 'Invite not found', code: 'not_found' } });
-  }
-
-  // Validate invite
-  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-    return json(410, { error: { message: 'Invite has expired', code: 'expired' } });
-  }
-
-  if (invite.uses >= invite.max_uses) {
-    return json(410, { error: { message: 'Invite has been used', code: 'exhausted' } });
-  }
-
-  // entity_id is the inviter's user ID
-  const inviterId = invite.entity_id;
-
-  // Can't friend yourself
-  if (inviterId === accepterId) {
-    return json(400, { error: { message: "You can't add yourself as a friend", code: 'self_friend' } });
-  }
-
-  // Normalize user pair (smaller UUID first)
-  const userA = inviterId < accepterId ? inviterId : accepterId;
-  const userB = inviterId < accepterId ? accepterId : inviterId;
-
-  // Check for existing friendship
-  const { data: existing } = await admin
-    .from('kwilt_friendships')
-    .select('id, status')
-    .eq('user_a', userA)
-    .eq('user_b', userB)
-    .maybeSingle();
-
-  let friendshipId: string;
-  let status: string;
-
-  if (existing) {
-    // Friendship already exists
-    if (existing.status === 'active') {
-      return json(200, {
-        friendshipId: existing.id,
-        status: 'already_friends',
-        message: 'You are already friends!',
-      });
+  const { data, error } = await supabase.rpc('accept_kwilt_friend_invite', { p_code: code });
+  if (error) {
+    const safe = String(error.message ?? '').toLowerCase();
+    if (safe.includes('invite_expired')) {
+      return json(410, { error: { message: 'This invite has expired', code: 'expired' } });
     }
-
-    if (existing.status === 'blocked') {
-      return json(403, { error: { message: 'Unable to add this friend', code: 'blocked' } });
+    if (safe.includes('invite_exhausted')) {
+      return json(410, { error: { message: 'This invite is no longer available', code: 'exhausted' } });
     }
-
-    // Pending - just return the existing friendship
-    friendshipId = existing.id;
-    status = 'pending';
-  } else {
-    // Create new friendship (pending until inviter confirms)
-    // Actually, since the inviter created the invite, we can make it active immediately
-    const { data: newFriendship, error: createErr } = await admin
-      .from('kwilt_friendships')
-      .insert({
-        user_a: userA,
-        user_b: userB,
-        status: 'active', // Active immediately since inviter explicitly shared the link
-        initiated_by: inviterId,
-        accepted_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (createErr || !newFriendship) {
-      console.error('Failed to create friendship:', createErr);
-      return json(500, { error: { message: 'Failed to create friendship', code: 'server_error' } });
+    if (safe.includes('invite_not_found')) {
+      return json(404, { error: { message: 'Invite not found', code: 'not_found' } });
     }
-
-    friendshipId = newFriendship.id;
-    status = 'active';
+    if (safe.includes('self_friend_not_allowed')) {
+      return json(400, { error: { message: "You can't accept your own invite", code: 'self_friend' } });
+    }
+    if (safe.includes('invite_unavailable')) {
+      return json(403, { error: { message: 'This invite is unavailable', code: 'unavailable' } });
+    }
+    return json(400, { error: { message: 'Unable to accept this invite', code: 'accept_failed' } });
   }
 
-  // Increment invite uses
-  await admin
-    .from('kwilt_invites')
-    .update({ uses: invite.uses + 1 })
-    .eq('id', invite.id);
+  const result = data && typeof data === 'object' && !Array.isArray(data)
+    ? data as Record<string, JsonValue>
+    : {};
 
   return json(200, {
-    friendshipId,
-    status,
-    message: status === 'active' ? 'You are now friends!' : 'Friend request sent',
+    friendshipId: typeof result.friendshipId === 'string' ? result.friendshipId : null,
+    status: 'active',
+    replayed: result.replayed === true,
   });
 });
-

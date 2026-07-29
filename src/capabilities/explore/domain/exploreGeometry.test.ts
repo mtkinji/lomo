@@ -4,6 +4,7 @@ import {
   buildFogHole,
   destinationCoordinate,
   exploreCellsAlongSegment,
+  exploreCellsForRecordedStep,
   coordinateDistanceM,
   exploreCellForCoordinate,
   isCoordinateExplored,
@@ -51,6 +52,15 @@ describe('Explore geometry', () => {
     expect(cells.length).toBeGreaterThanOrEqual(5);
     expect(Math.max(...cells.slice(1).map((cell, index) => coordinateDistanceM(cells[index].center, cell.center))))
       .toBeLessThanOrEqual(40);
+  });
+
+  it('does not invent a corridor across a long uncertain gap', () => {
+    const from = { latitude: 40.58526, longitude: -105.08442 };
+    const to = destinationCoordinate(from, 120, 35);
+
+    expect(exploreCellsForRecordedStep(from, to)).toEqual([
+      exploreCellForCoordinate(to),
+    ]);
   });
 
   it('reveals only coordinates inside the permanent explored corridor', () => {

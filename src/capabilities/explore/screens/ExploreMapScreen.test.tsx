@@ -126,10 +126,12 @@ describe('ExploreMapScreen', () => {
         showMyPath: true,
         showFamilyTerritory: false,
         showFog: true,
+        showPlaces: true,
         mapStyle: 'hybrid',
         recording: 'manual',
         recapNotifications: true,
         onboardingCompleted: true,
+        firstPlaceGuideDismissed: true,
       });
     });
   });
@@ -152,7 +154,10 @@ describe('ExploreMapScreen', () => {
 
   it('turns the stationary first clearing into an explicit recording-mode choice', async () => {
     act(() => {
-      useExploreStore.getState().updatePreferences({ onboardingCompleted: false });
+      useExploreStore.getState().updatePreferences({
+        onboardingCompleted: false,
+        firstPlaceGuideDismissed: false,
+      });
       useExploreStore.getState().startSession('2026-07-28T12:00:00.000Z', 'first-clearing');
       useExploreStore.getState().appendSample({
         latitude: 40.55,
@@ -186,6 +191,12 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByLabelText('Open navigation menu')).toBeTruthy();
     expect(screen.getByLabelText('Explore options')).toBeTruthy();
     expect(screen.getByLabelText('Search visited Places')).toBeTruthy();
+    expect(screen.getByText('Start with this Place')).toBeTruthy();
+    expect(screen.getByText(/Give this clearing a name/)).toBeTruthy();
+    expect(screen.getByText(/show or hide map layers/)).toBeTruthy();
+    fireEvent.press(screen.getByText('Not now'));
+    expect(useExploreStore.getState().preferences.firstPlaceGuideDismissed).toBe(true);
+    expect(screen.queryByText('Start with this Place')).toBeNull();
   });
 
   it('renders the private empty state and starts only from an explicit action', () => {
@@ -239,12 +250,63 @@ describe('ExploreMapScreen', () => {
     expect(StyleSheet.flatten(screen.getByLabelText('Search visited Places').props.style)).toMatchObject({
       height: 48,
     });
+    expect(StyleSheet.flatten(screen.getByTestId('explore.hereControls').props.style)).toMatchObject({
+      width: 48,
+      height: 96,
+    });
 
     const renderedOrder = JSON.stringify(screen.toJSON());
     const primaryIndex = renderedOrder.indexOf('explore.recording.toggle');
     const utilityIndex = renderedOrder.indexOf('explore.mapToolsRow');
     expect(primaryIndex).toBeGreaterThanOrEqual(0);
     expect(utilityIndex).toBeGreaterThan(primaryIndex);
+  });
+
+  it('names the current clearing from the persistent Here control', () => {
+    act(() => {
+      useExploreStore.getState().startSession('2026-07-28T12:00:00.000Z', 'first-clearing');
+      useExploreStore.getState().appendSample({
+        latitude: 40.55,
+        longitude: -105.12,
+        altitudeM: 1500,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: '2026-07-28T12:00:00.000Z',
+      }, 'first-point');
+    });
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByLabelText('Name current Place')).toBeTruthy();
+    expect(screen.getByLabelText('Center on current location')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Name current Place'));
+    expect(screen.getByText('Name this Place')).toBeTruthy();
+    fireEvent.changeText(screen.getByLabelText('Place name'), 'Home');
+    fireEvent.press(screen.getByText('Save Place'));
+
+    expect(Object.values(useExploreStore.getState().places)).toEqual([
+      expect.objectContaining({ name: 'Home', source: 'user' }),
+    ]);
+    expect(screen.queryByText('Name this Place')).toBeNull();
+    expect(screen.getAllByTestId('mock.marker', { includeHiddenElements: true })).toHaveLength(1);
+
+    fireEvent.press(screen.getByLabelText('Search visited Places'));
+    expect(screen.getByText('Home')).toBeTruthy();
+    expect(screen.queryByText('Collect current Place')).toBeNull();
+  });
+
+  it('hides collected markers without removing Places from search', () => {
+    act(() => useExploreStore.getState().loadPreviewAdventure());
+    const screen = render(<ExploreMapScreen />);
+    fireEvent.press(screen.getByText('Done'));
+    expect(screen.getAllByTestId('mock.marker', { includeHiddenElements: true }).length).toBeGreaterThan(0);
+
+    fireEvent.press(screen.getByLabelText('Explore options'));
+    fireEvent.press(screen.getByLabelText('Places'));
+
+    expect(useExploreStore.getState().preferences.showPlaces).toBe(false);
+    expect(screen.queryAllByTestId('mock.marker', { includeHiddenElements: true })).toHaveLength(0);
+    fireEvent.press(screen.getByLabelText('Search visited Places'));
+    expect(screen.getByText('Spring Canyon Park')).toBeTruthy();
   });
 
   it('does not render a collected Place marker outside explored territory', () => {
@@ -277,9 +339,10 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByText('Hybrid')).toBeTruthy();
     expect(screen.getByText('Standard')).toBeTruthy();
     expect(screen.getByLabelText('Fog')).toBeTruthy();
+    expect(screen.getByLabelText('Places')).toBeTruthy();
     expect(screen.getByLabelText('My path')).toBeTruthy();
     expect(screen.getByLabelText('Family territory')).toBeTruthy();
-    expect(screen.getAllByTestId('mock.kwiltSwitch')).toHaveLength(3);
+    expect(screen.getAllByTestId('mock.kwiltSwitch')).toHaveLength(4);
     fireEvent.press(screen.getByTestId('explore.mapStyle.standard'));
     expect(useExploreStore.getState().preferences.mapStyle).toBe('standard');
     fireEvent.press(screen.getByLabelText('Explore settings'));
@@ -321,8 +384,8 @@ describe('ExploreMapScreen', () => {
         recordedAt: '2026-07-28T12:00:00.000Z',
       }, 'completed-point-1');
       store.appendSample({
-        latitude: 40.551,
-        longitude: -105.121,
+        latitude: 40.5503,
+        longitude: -105.1203,
         altitudeM: 1510,
         horizontalAccuracyM: 8,
         altitudeAccuracyM: 6,
@@ -339,8 +402,8 @@ describe('ExploreMapScreen', () => {
         recordedAt: '2026-07-28T13:00:00.000Z',
       }, 'active-point-1');
       store.appendSample({
-        latitude: 40.561,
-        longitude: -105.131,
+        latitude: 40.5603,
+        longitude: -105.1303,
         altitudeM: 1530,
         horizontalAccuracyM: 8,
         altitudeAccuracyM: 6,

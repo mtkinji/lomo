@@ -51,10 +51,11 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     ],
   },
   {
-    id: 'family',
-    title: 'Family',
+    id: 'people',
+    title: 'People',
     entries: [
       { id: 'household', title: 'Household', route: 'SettingsHousehold' },
+      { id: 'sharing', title: 'Sharing', route: 'SettingsSharing' },
     ],
   },
   {
@@ -78,7 +79,6 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         route: 'SettingsScreenTimeProtection',
       },
       { id: 'weekly_chapters', title: 'Weekly Chapters', route: 'SettingsWeeklyChapters' },
-      { id: 'sharing', title: 'Sharing', route: 'SettingsSharing' },
     ],
   },
 ];

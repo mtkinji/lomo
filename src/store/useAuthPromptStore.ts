@@ -5,6 +5,7 @@ export type AuthPromptReason =
   | 'share_goal_email'
   | 'join_goal'
   | 'claim_arc_draft'
+  | 'friend'
   | 'follow'
   | 'upload_attachment'
   | 'admin'
@@ -70,5 +71,4 @@ export const useAuthPromptStore = create<AuthPromptState>((set, get) => ({
 
   setBusy: (busy) => set({ busy }),
 }));
-
 

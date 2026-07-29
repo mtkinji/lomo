@@ -68,7 +68,10 @@ describe('Explore location service orchestration', () => {
     expect(Location.startLocationUpdatesAsync).toHaveBeenLastCalledWith(
       EXPLORE_BACKGROUND_TASK,
       expect.objectContaining({
-        distanceInterval: 200,
+        distanceInterval: 6,
+        timeInterval: 1_000,
+        deferredUpdatesDistance: 60,
+        deferredUpdatesInterval: 15_000,
         activityType: Location.ActivityType.OtherNavigation,
       }),
     );
