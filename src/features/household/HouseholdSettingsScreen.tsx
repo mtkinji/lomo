@@ -55,7 +55,7 @@ function HouseholdAction({
       style={({ pressed }) => [styles.action, pressed ? styles.pressed : null]}
     >
       <View style={styles.actionIcon}>
-        <Icon color={colors.quiltBlue600} name={icon} size={19} />
+        <Icon color={colors.textSecondary} name={icon} size={19} />
       </View>
       <View style={styles.actionCopy}>
         <Text style={styles.actionTitle}>{title}</Text>
@@ -286,14 +286,14 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
       {!snapshot?.household ? (
         <View style={styles.setupIntro}>
           <View style={styles.heroIcon}>
-            <Icon color={colors.quiltBlue600} name="users" size={25} />
+            <Icon color={colors.textPrimary} name="users" size={25} />
           </View>
           <Text style={styles.setupTitle}>{loading ? 'Finding your household…' : 'Start with your people'}</Text>
           <Text style={styles.setupDescription}>
             Bring the people you coordinate with into Kwilt. You can decide what each child uses later.
           </Text>
           <View style={styles.privacyNote}>
-            <Icon color={colors.quiltBlue600} name="shield" size={16} />
+            <Icon color={colors.textSecondary} name="shield" size={16} />
             <Text style={styles.privacyText}>Only your family roster is shared. The rest of Kwilt stays private.</Text>
           </View>
         </View>
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 26,
-    backgroundColor: colors.quiltBlue100,
+    backgroundColor: colors.gray100,
     marginBottom: spacing.lg,
   },
   setupTitle: {
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: 12,
-    backgroundColor: colors.quiltBlue50,
+    backgroundColor: colors.gray100,
   },
   privacyText: {
     ...typography.bodyXs,
