@@ -195,6 +195,7 @@ export type AgentWorkbenchSnapshot = {
 export type SupportedAgentWorkbenchCommand =
   | { type: 'composer.change'; prompt: string }
   | { type: 'composer.focus.change'; focused: boolean }
+  | { type: 'timeline.jump.latest' }
   | { type: 'context.add' }
   | { type: 'attachment.pick' }
   | { type: 'attachment.remove'; attachmentId: string }
@@ -311,6 +312,8 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
         : null;
     case 'context.add':
       return { type: 'context.add' };
+    case 'timeline.jump.latest':
+      return { type: 'timeline.jump.latest' };
     case 'attachment.pick':
       return { type: 'attachment.pick' };
     case 'attachment.remove':

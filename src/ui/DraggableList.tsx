@@ -329,6 +329,7 @@ export type DraggableListProps<T extends { id: string }> = {
   onMomentumScrollBegin?: (event: DraggableScrollEvent) => void;
   onMomentumScrollEnd?: (event: DraggableScrollEvent) => void;
   onScrollOffsetChange?: (offsetY: number) => void;
+  scrollToTopRequestId?: number;
 };
 
 export function DraggableList<T extends { id: string }>({
@@ -348,6 +349,7 @@ export function DraggableList<T extends { id: string }>({
   onMomentumScrollBegin,
   onMomentumScrollEnd,
   onScrollOffsetChange,
+  scrollToTopRequestId,
 }: DraggableListProps<T>) {
   const triggerDragHaptic = React.useCallback(() => {
     void HapticsService.trigger('canvas.selection');
@@ -398,6 +400,21 @@ export function DraggableList<T extends { id: string }>({
   const scrollY = useSharedValue(0);
   const containerHeight = useSharedValue(0);
   const containerTop = useSharedValue(0);
+  const lastScrollToTopRequestIdRef = React.useRef(scrollToTopRequestId);
+
+  React.useEffect(() => {
+    if (
+      typeof scrollToTopRequestId !== 'number' ||
+      scrollToTopRequestId === lastScrollToTopRequestIdRef.current
+    ) {
+      return;
+    }
+
+    lastScrollToTopRequestIdRef.current = scrollToTopRequestId;
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+  }, [scrollRef, scrollToTopRequestId]);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {

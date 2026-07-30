@@ -20,6 +20,8 @@ import {
   type QuickAddAiAction,
   type QuickAddPlaceRecommendation,
 } from './useQuickAddDockController';
+import { FloatingControlSurface } from './FloatingControlSurface';
+import { HapticsService } from '../../services/HapticsService';
 
 const QUICK_ADD_BAR_HEIGHT = 64;
 const QUICK_ADD_DOCK_FLOATING_GAP_PX = spacing.sm;
@@ -87,6 +89,10 @@ type QuickAddDockProps = {
   collapsedBottomOffsetPx?: number;
   /** Outer horizontal inset for the collapsed floating dock. Defaults to the screen gutter. */
   floatingHorizontalInsetPx?: number;
+  /** Optional trailing inset when a sibling affordance sits beside the collapsed dock. */
+  floatingRightInsetPx?: number;
+  /** Adds the tighter settled-state contact shadow to the collapsed floating surface. */
+  collapsedSurfaceProminent?: boolean;
   placeReceipt?: QuickAddPlaceRecommendation | null;
   onDismissPlaceReceipt?: () => void;
   onSetPlaceAlert?: () => void;
@@ -111,6 +117,8 @@ export function QuickAddDock({
   onReservedHeightChange,
   collapsedBottomOffsetPx: collapsedBottomOffsetPxProp,
   floatingHorizontalInsetPx = RESTING_COMPOSER_HORIZONTAL_INSET_PX,
+  floatingRightInsetPx,
+  collapsedSurfaceProminent = true,
   placeReceipt,
   onDismissPlaceReceipt,
   onSetPlaceAlert,
@@ -249,9 +257,14 @@ export function QuickAddDock({
               styles.floatingDock,
               {
                 bottom: expandedCollapsedBottomOffsetRef.current,
-                paddingHorizontal: floatingHorizontalInsetPx,
                 transform: [{ translateY: collapsedDockTranslateY }],
               },
+              floatingRightInsetPx == null
+                ? { paddingHorizontal: floatingHorizontalInsetPx }
+                : {
+                    paddingLeft: floatingHorizontalInsetPx,
+                    paddingRight: floatingRightInsetPx,
+                  },
               isFocused ? styles.dockHidden : null,
             ]}
           >
@@ -273,12 +286,17 @@ export function QuickAddDock({
                   onReview={onReviewPlaceReceipt}
                 />
               ) : null}
-              <View testID="quick-add-collapsed-surface" style={styles.collapsedInputShell}>
+              <FloatingControlSurface
+                testID="quick-add-collapsed-surface"
+                borderRadius={999}
+                isProminent={collapsedSurfaceProminent}
+                style={styles.collapsedInputShell}
+              >
                 <CollapsedQuickAddTrigger
                   placeholder={placeholder}
                   onPress={() => setIsFocused(true)}
                 />
-              </View>
+              </FloatingControlSurface>
             </View>
           </Animated.View>
         </>
@@ -594,12 +612,17 @@ function CollapsedQuickAddTrigger({
   placeholder: string;
   onPress: () => void;
 }) {
+  const handlePress = React.useCallback(() => {
+    void HapticsService.trigger('canvas.selection');
+    onPress();
+  }, [onPress]);
+
   return (
     <Pressable
       testID="e2e.activities.quickAdd.open"
       accessibilityRole="button"
       accessibilityLabel={placeholder}
-      onPress={onPress}
+      onPress={handlePress}
       style={styles.collapsedPressable}
     >
       <HStack
@@ -758,15 +781,6 @@ const styles = StyleSheet.create({
   },
   collapsedInputShell: {
     width: '100%',
-    backgroundColor: colors.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.cardBorder,
-    borderRadius: 999,
-    shadowColor: '#000',
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 8,
   },
   collapsedPressable: {
     width: '100%',

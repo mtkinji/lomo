@@ -44,6 +44,11 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain("command.focused ? 'canvas.toggle.on' : 'canvas.toggle.off'");
   });
 
+  test('gives the embedded jump-to-latest control native selection feedback', () => {
+    expect(screenSource).toContain("command.type === 'timeline.jump.latest'");
+    expect(screenSource).toContain("HapticsService.trigger('canvas.selection')");
+  });
+
   test('dismisses the embedded keyboard before revealing the navigation menu', () => {
     expect(screenSource).toContain('Keyboard.dismiss()');
     expect(screenSource).toContain('webViewRef.current?.injectJavaScript');

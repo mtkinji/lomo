@@ -521,6 +521,10 @@ export function UnifiedChatScreen() {
         setPrompt(command.prompt);
         return;
       }
+      if (command.type === 'timeline.jump.latest') {
+        void HapticsService.trigger('canvas.selection');
+        return;
+      }
       if (command.type === 'attachment.pick') {
         try {
           const picked = await pickUnifiedChatAttachment();

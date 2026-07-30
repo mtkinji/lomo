@@ -58,7 +58,12 @@ jest.mock('../../ui/DropdownMenu', () => {
   };
 });
 
+jest.mock('../../services/HapticsService', () => ({
+  HapticsService: { trigger: jest.fn(async () => undefined) },
+}));
+
 import { renderWithProviders } from '../../test/renderWithProviders';
+import { HapticsService } from '../../services/HapticsService';
 import { QuickAddDock } from './QuickAddDock';
 
 function QuickAddHarness() {
@@ -80,6 +85,31 @@ function QuickAddHarness() {
 }
 
 describe('QuickAddDock', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('gives the collapsed capture action light press feedback', () => {
+    const setIsFocused = jest.fn();
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={setIsFocused}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    fireEvent.press(getByTestId('e2e.activities.quickAdd.open'));
+
+    expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.selection');
+    expect(setIsFocused).toHaveBeenCalledWith(true);
+  });
+
   it('keeps an inferred place question attached to the collapsed dock', () => {
     const onSetPlaceAlert = jest.fn();
     const onReviewPlaceReceipt = jest.fn();
@@ -194,6 +224,28 @@ describe('QuickAddDock', () => {
 
     expect(StyleSheet.flatten(getByTestId('quick-add-floating-dock').props.style)).toMatchObject({
       paddingHorizontal: 32,
+    });
+  });
+
+  it('allows a sibling affordance to reserve space on the right', () => {
+    const { getByTestId } = renderWithProviders(
+      <QuickAddDock
+        placement="bottomDock"
+        floatingHorizontalInsetPx={32}
+        floatingRightInsetPx={88}
+        value=""
+        onChangeText={jest.fn()}
+        inputRef={React.createRef<TextInput | null>()}
+        isFocused={false}
+        setIsFocused={jest.fn()}
+        onSubmit={jest.fn()}
+        onCollapse={jest.fn()}
+      />,
+    );
+
+    expect(StyleSheet.flatten(getByTestId('quick-add-floating-dock').props.style)).toMatchObject({
+      paddingLeft: 32,
+      paddingRight: 88,
     });
   });
 

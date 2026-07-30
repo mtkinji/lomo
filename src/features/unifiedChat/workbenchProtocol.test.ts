@@ -34,6 +34,7 @@ describe('Unified Chat workbench protocol', () => {
     { type: 'composer.change', prompt: 'New draft' },
     { type: 'composer.focus.change', focused: true },
     { type: 'composer.focus.change', focused: false },
+    { type: 'timeline.jump.latest' },
     { type: 'voice.toggle' },
     { type: 'voice.toggle', prompt: 'Call Mom tomorrow', selectionStart: 8, selectionEnd: 8 },
     { type: 'context.add' },
