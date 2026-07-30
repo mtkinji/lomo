@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawer } from '../../ui/BottomDrawer';
+import { KwiltSwitch } from '../../ui/KwiltSwitch';
 import { HStack, Text, VStack } from '../../ui/primitives';
-import type { SettingsStackParamList } from '../../navigation/RootNavigator';
+import type { RootDrawerParamList, SettingsStackParamList } from '../../navigation/RootNavigator';
 import { colors, spacing, typography } from '../../theme';
 import { useAppStore } from '../../store/useAppStore';
 import {
@@ -26,6 +28,21 @@ import {
 import { reconcileScreenTimeRestrictions } from '../../services/screenTimeProtectionRuntime';
 import { useAnalytics } from '../../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../../services/analytics/events';
+import { getSupabaseClient } from '../../services/backend/supabaseClient';
+import { useMoneyAppControlSettings } from '../../capabilities/money/runtime/moneyAppControlStorage';
+import {
+  SettingsDivider,
+  SettingsGroup,
+  SettingsRow,
+} from '../../ui/SettingsSurface';
+import {
+  getHouseholdSnapshot,
+  type HouseholdSnapshot,
+} from '../household/data/household';
+import {
+  buildFamilyScreenTimeOverviewRows,
+  buildMoneyScreenTimeOverview,
+} from './screenTimeOverview';
 
 type Nav = NativeStackNavigationProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
 type Route = RouteProp<SettingsStackParamList, 'SettingsScreenTimeProtection'>;
@@ -181,9 +198,14 @@ function setupStepCopy(params: {
 export function ScreenTimeProtectionSettingsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
+  const rootNavigation = navigation.getParent<NavigationProp<RootDrawerParamList>>();
   const { capture } = useAnalytics();
+  const authIdentity = useAppStore((state) => state.authIdentity);
   const settings = useAppStore((state) => state.screenTimeProtection);
   const setSettings = useAppStore((state) => state.setScreenTimeProtection);
+  const moneyAppControls = useMoneyAppControlSettings();
+  const [householdSnapshot, setHouseholdSnapshot] = useState<HouseholdSnapshot | null>(null);
+  const [householdLoadState, setHouseholdLoadState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [setupStep, setSetupStep] = useState<SetupStep>('idle');
   const startedKeyRef = useRef<string | null>(null);
 
@@ -203,9 +225,18 @@ export function ScreenTimeProtectionSettingsScreen() {
   const anyRuleEnabled = focusEnabled || meaningfulFirstEnabled;
   const setupCompleted = isApproved && hasTargets && anyRuleEnabled;
   const [setupPhase, setSetupPhase] = useState<SetupPhase>(() => (setupCompleted ? 'manage' : 'intro'));
+  const previousAuthorizationApprovedRef = useRef(isApproved);
   const [ruleDraft, setRuleDraft] = useState<RuleDraft>(() =>
     initialRuleDraft({ focusEnabled, meaningfulFirstEnabled, setupIntent }),
   );
+
+  useEffect(() => {
+    const wasAuthorizationApproved = previousAuthorizationApprovedRef.current;
+    previousAuthorizationApprovedRef.current = isApproved;
+    if (wasAuthorizationApproved && !isApproved && setupPhase === 'manage') {
+      setSetupPhase('intro');
+    }
+  }, [isApproved, setupPhase]);
 
   useEffect(() => {
     if (setupPhase !== 'rules') return;
@@ -242,6 +273,30 @@ export function ScreenTimeProtectionSettingsScreen() {
     useCallback(() => {
       syncAuthorization();
     }, [syncAuthorization]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!authIdentity?.userId) {
+        setHouseholdSnapshot(null);
+        setHouseholdLoadState('idle');
+        return undefined;
+      }
+      setHouseholdLoadState('loading');
+      void getHouseholdSnapshot(getSupabaseClient())
+        .then((snapshot) => {
+          if (cancelled) return;
+          setHouseholdSnapshot(snapshot);
+          setHouseholdLoadState('loaded');
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setHouseholdSnapshot(null);
+          setHouseholdLoadState('error');
+        });
+      return () => { cancelled = true; };
+    }, [authIdentity?.userId]),
   );
 
   const handleRequestPermission = async () => {
@@ -456,7 +511,21 @@ export function ScreenTimeProtectionSettingsScreen() {
       ? 'Edit selection'
       : setupPhase === 'done'
         ? 'Change apps'
-        : null;
+      : null;
+  const familyRows = buildFamilyScreenTimeOverviewRows(householdSnapshot);
+  const moneyOverview = buildMoneyScreenTimeOverview(moneyAppControls.settings);
+
+  const openMoneyAppControls = () => {
+    if (!moneyOverview || !rootNavigation) return;
+    if (moneyOverview.activePolicyIds.length === 1) {
+      rootNavigation.navigate('Money', {
+        screen: 'MoneyAppControl',
+        params: { categoryId: moneyOverview.activePolicyIds[0] },
+      });
+      return;
+    }
+    rootNavigation.navigate('Money', { screen: 'MoneySummary' });
+  };
 
   const handleSetupPrimaryPress = () => {
     if (setupPhase === 'intro') {
@@ -500,6 +569,7 @@ export function ScreenTimeProtectionSettingsScreen() {
 
   const managementContent = (
     <>
+      <Text style={styles.sectionLabel}>My Screen Time</Text>
       <View style={styles.managementHero}>
         <HStack alignItems="center" space="sm">
           <View style={styles.iconWrap}>
@@ -558,6 +628,50 @@ export function ScreenTimeProtectionSettingsScreen() {
           ) : null}
         </VStack>
       </View>
+
+      {householdLoadState === 'loading' ? (
+        <SettingsGroup title="Family">
+          <SettingsRow disabled title="Household" value="Loading…" />
+        </SettingsGroup>
+      ) : householdLoadState === 'error' ? (
+        <SettingsGroup title="Family">
+          <SettingsRow
+            onPress={() => navigation.navigate('SettingsHousehold')}
+            title="Household"
+            value="Unavailable"
+          />
+        </SettingsGroup>
+      ) : familyRows.length > 0 ? (
+        <SettingsGroup title="Family">
+          {familyRows.map((row, index) => (
+            <Fragment key={row.childMembershipId}>
+              {index > 0 ? <SettingsDivider /> : null}
+              <SettingsRow
+                onPress={() => navigation.navigate('SettingsFamilyScreenTime', {
+                  childMembershipId: row.childMembershipId,
+                  childDisplayName: row.displayName,
+                })}
+                title={row.displayName}
+                value={row.value}
+              />
+            </Fragment>
+          ))}
+        </SettingsGroup>
+      ) : null}
+
+      {!moneyAppControls.loaded ? (
+        <SettingsGroup title="Money">
+          <SettingsRow disabled title="Money app controls" value="Loading…" />
+        </SettingsGroup>
+      ) : moneyOverview ? (
+        <SettingsGroup title="Money">
+          <SettingsRow
+            onPress={openMoneyAppControls}
+            title="Money app controls"
+            value={moneyOverview.value}
+          />
+        </SettingsGroup>
+      ) : null}
     </>
   );
 
@@ -603,14 +717,12 @@ export function ScreenTimeProtectionSettingsScreen() {
                     subtitle="Complete a to-do, record progress, or finish Focus."
                     value={ruleDraft.realStep}
                     onValueChange={(value) => setRuleDraft((current) => ({ ...current, realStep: value }))}
-                    tone="ftue"
                   />
                   <RuleDraftRow
                     title="Focus"
                     subtitle="Block selected apps while Focus is running."
                     value={ruleDraft.focusSession}
                     onValueChange={(value) => setRuleDraft((current) => ({ ...current, focusSession: value }))}
-                    tone="ftue"
                   />
                 </View>
               ) : null}
@@ -663,7 +775,7 @@ export function ScreenTimeProtectionSettingsScreen() {
   return (
     <AppShell>
       <View style={styles.screen}>
-        <PageHeader title="Screen Time Controls" onPressBack={() => navigation.goBack()} />
+        <PageHeader title="Screen Time" onPressBack={() => navigation.goBack()} />
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {managementContent}
         </ScrollView>
@@ -699,25 +811,34 @@ function RuleDraftRow(props: {
   subtitle: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
-  tone?: 'default' | 'ftue';
 }) {
-  const isFtue = props.tone === 'ftue';
   return (
-    <View style={[styles.ruleDraftRow, isFtue ? styles.ftueRuleDraftRow : null]}>
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={props.title}
+      accessibilityState={{ checked: props.value }}
+      onPress={() => props.onValueChange(!props.value)}
+      style={({ pressed }) => [
+        styles.ruleDraftRow,
+        styles.ftueRuleDraftRow,
+        props.value ? styles.ftueRuleDraftRowSelected : null,
+        pressed ? styles.ruleDraftRowPressed : null,
+      ]}
+    >
       <VStack flex={1} space={0}>
-        <Text style={[styles.rowTitle, isFtue ? styles.ftueRuleTitle : null]}>{props.title}</Text>
-        <Text style={[styles.rowSubtitle, isFtue ? styles.ftueRuleSubtitle : null]}>{props.subtitle}</Text>
+        <Text style={[styles.rowTitle, styles.ftueRuleTitle]}>{props.title}</Text>
+        <Text style={[styles.rowSubtitle, styles.ftueRuleSubtitle]}>{props.subtitle}</Text>
       </VStack>
-      <Switch
-        value={props.value}
-        onValueChange={props.onValueChange}
-        trackColor={{
-          false: isFtue ? 'rgba(250,247,237,0.18)' : colors.shellAlt,
-          true: isFtue ? colors.parchment : colors.pine700,
-        }}
-        thumbColor={isFtue ? colors.pine700 : colors.canvas}
-      />
-    </View>
+      <View pointerEvents="none">
+        <KwiltSwitch
+          accessible={false}
+          accessibilityLabel={props.title}
+          onPress={() => props.onValueChange(!props.value)}
+          tone="inverse"
+          value={props.value}
+        />
+      </View>
+    </Pressable>
   );
 }
 
@@ -776,6 +897,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing['2xl'],
     gap: spacing.md,
+  },
+  sectionLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
   },
   setupDrawerSheet: {
     backgroundColor: colors.pine700,
@@ -1028,8 +1155,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
   },
   ftueRuleDraftRow: {
-    borderColor: 'rgba(250,247,237,0.18)',
+    borderColor: 'rgba(250,247,237,0.32)',
     backgroundColor: 'rgba(250,247,237,0.10)',
+  },
+  ftueRuleDraftRowSelected: {
+    borderColor: 'rgba(250,247,237,0.72)',
+    backgroundColor: 'rgba(250,247,237,0.16)',
+  },
+  ruleDraftRowPressed: {
+    opacity: 0.78,
   },
   ftueRuleTitle: {
     color: colors.parchment,

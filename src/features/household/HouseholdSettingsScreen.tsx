@@ -71,10 +71,10 @@ function HouseholdAction({
 
 function stateDescription(state: ChildCapabilityState | undefined): string {
   switch (state) {
-    case 'pending_setup': return 'Needs device setup';
-    case 'pending_cleanup': return 'Turning off';
+    case 'pending_setup': return 'Set up';
+    case 'pending_cleanup': return 'Applying';
     case 'blocked': return 'Needs attention';
-    case 'active': return 'Active';
+    case 'active': return 'On';
     default: return 'Off';
   }
 }
@@ -453,6 +453,19 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
                   title={capability.name}
                 />
                 <Text style={{ paddingHorizontal: 16, paddingBottom: 10 }}>{mutationKey === key ? 'Saving…' : stateDescription(state)}</Text>
+                {capability.id === 'screen-time' && state && enabledStates.has(state) ? (
+                  <>
+                    <SettingsDivider />
+                    <SettingsRow
+                      onPress={() => navigation.navigate('SettingsFamilyScreenTime', {
+                        childMembershipId: child.id,
+                        childDisplayName: child.displayName,
+                      })}
+                      title={`${child.displayName}'s Screen Time`}
+                      value={stateDescription(state)}
+                    />
+                  </>
+                ) : null}
                 {index < CAPABILITIES.length - 1 ? <SettingsDivider /> : null}
               </Fragment>
             );

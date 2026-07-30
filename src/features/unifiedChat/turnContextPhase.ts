@@ -39,6 +39,11 @@ export async function loadDefaultCapabilitySnapshots(
   const money = capabilities.includes('money')
     ? await (await import('../../capabilities/money/data/moneyRepository')).createMoneyRepository().loadSnapshot()
     : undefined;
+  const screenTime = capabilities.includes('screenTime')
+    ? await (await import('./loadFamilyScreenTimeChatSnapshot')).loadFamilyScreenTimeChatSnapshot(
+        (await import('../../services/backend/supabaseClient')).getSupabaseClient(),
+      )
+    : undefined;
   const targetDate = resolvePlanTargetDate(
     new Date(),
     /\btomorrow\b/i.test(request.prompt) ? 'tomorrow' : 'today',
@@ -84,6 +89,7 @@ export async function loadDefaultCapabilitySnapshots(
     },
     money,
     plan,
+    screenTime,
   };
 }
 

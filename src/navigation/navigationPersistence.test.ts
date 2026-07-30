@@ -145,6 +145,28 @@ describe('navigationPersistence', () => {
     });
   });
 
+  test('restores the exact child Family Screen Time setup', async () => {
+    const settings = nestedState('stack', 'SettingsFamilyScreenTime', [
+      route('SettingsHome'),
+      route('SettingsHousehold'),
+      route('SettingsFamilyScreenTime', undefined, {
+        childMembershipId: 'child-1',
+        childDisplayName: 'Riley',
+      }),
+    ]);
+    const root = nestedState('drawer', 'Settings', [
+      route('MainTabs'),
+      route('Settings', settings),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredSettings = restored.routes[restored.index].state!;
+    expect(restoredSettings.routes[restoredSettings.index]).toMatchObject({
+      name: 'SettingsFamilyScreenTime',
+      params: { childMembershipId: 'child-1', childDisplayName: 'Riley' },
+    });
+  });
+
   test('rejects dev-only DevTools state in production', () => {
     expect(
       shouldRestoreNavigationState(rootState(['MainTabs', 'Agent', 'ArcsStack', 'DevTools', 'Settings']), {

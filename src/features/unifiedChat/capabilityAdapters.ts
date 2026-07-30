@@ -11,6 +11,7 @@ import type { UnifiedChatCapabilityId } from './requestPolicy';
 import type { PlanRecommendationResult } from './planRecommendationTool';
 import type { CalendarRef } from '../../services/plan/calendarApi';
 import { formatMoney, type MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
+import type { FamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
 
 export type GoalsChatSnapshot = { goals: readonly Goal[]; arcIds?: readonly string[] };
 export type ArcsChatSnapshot = { arcs: readonly Arc[] };
@@ -31,6 +32,14 @@ export type AccountChatSnapshot = {
   };
 };
 export type MoneyChatSnapshot = MoneySnapshot;
+export type ScreenTimeChatSnapshot = {
+  children: ReadonlyArray<{
+    membershipId: string;
+    displayName: string;
+    canManage: boolean;
+    policy: FamilyScreenTimeSnapshot;
+  }>;
+};
 
 export type UnifiedChatCapabilitySnapshots = {
   arcs?: ArcsChatSnapshot;
@@ -41,6 +50,7 @@ export type UnifiedChatCapabilitySnapshots = {
   profile?: ProfileChatSnapshot;
   account?: AccountChatSnapshot;
   money?: MoneyChatSnapshot;
+  screenTime?: ScreenTimeChatSnapshot;
 };
 
 const GOAL_OPERATIONS = ['create_goal', 'update_goal', 'delete_goal'] as const;
@@ -407,6 +417,131 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
   },
 };
 
+function familyScreenTimeEvidence(
+  child: ScreenTimeChatSnapshot['children'][number],
+): CapabilityEvidenceSource {
+  const { policy } = child;
+  const savedLabels = policy.selections.filter((selection) => selection.status === 'active').map((selection) => selection.label);
+  const deviceReady = policy.devices.some((device) => (
+    device.readiness === 'ready' && device.authorizationStatus === 'authorized'
+  ));
+  const applied = policy.latestDeviceReceipt?.policyVersion === policy.desiredPolicyVersion
+    && policy.latestDeviceReceipt.outcome === 'applied';
+  const delivery = !deviceReady ? 'Needs device setup' : applied ? 'Applied' : 'Applying';
+  return {
+    capabilityId: 'screenTime',
+    object: {
+      type: 'family_screen_time_child',
+      id: child.membershipId,
+      label: `${child.displayName}'s Screen Time`,
+      secondaryLabel: delivery,
+    },
+    searchableText: compact([
+      'family child screen time app block allow enable disable',
+      child.displayName,
+      savedLabels.join(' '),
+    ]),
+    summary: compact([
+      `Child: ${child.displayName}`,
+      `Saved selections: ${savedLabels.length > 0 ? savedLabels.join(', ') : 'none'}`,
+      `Standing agreements: ${policy.agreements.filter((agreement) => agreement.active).length}`,
+      `Temporary controls: ${policy.activeOverrides.length}`,
+      `Pending requests: ${policy.pendingRequests.length}`,
+      `Delivery: ${delivery}`,
+      `Desired policy version: ${policy.desiredPolicyVersion}`,
+    ]),
+    authority: 'authoritative',
+    observedAt: policy.latestDeviceReceipt?.occurredAt ?? null,
+  };
+}
+
+export const screenTimeChatAdapter: CapabilityChatAdapter<ScreenTimeChatSnapshot> = {
+  capabilityId: 'screenTime',
+  context: { dataClassification: 'private_kwilt_data', readOnly: false },
+  evidence: {
+    list: ({ children }) => children.filter((child) => child.canManage).map(familyScreenTimeEvidence),
+  },
+  proposal: { operationKinds: [] },
+  apply: { operationKinds: [] },
+  receipt: { reloadAuthoritativeObject: true },
+  undo: { operationKinds: [] },
+  return: {
+    targetFor: (object) => ({
+      capabilityId: 'screenTime',
+      object: { type: object.type, id: object.id },
+      label: object.label,
+      route: {
+        name: 'Settings',
+        params: {
+          screen: 'SettingsFamilyScreenTime',
+          params: { childMembershipId: object.id, childDisplayName: object.label.replace(/'s Screen Time$/, '') },
+        },
+      },
+    }),
+  },
+};
+
+export type ScreenTimeTargetResolution =
+  | {
+      status: 'resolved';
+      targets: Array<{ childMembershipId: string; selectionId: string; expectedVersion: number }>;
+    }
+  | {
+      status: 'needs_input';
+      reason: 'child_not_found' | 'ambiguous_child' | 'ambiguous_selection';
+      candidates: string[];
+    }
+  | {
+      status: 'needs_native_selection';
+      children: Array<{ childMembershipId: string; displayName: string; suggestedLabel: string }>;
+    };
+
+const normalizedScreenTimeLabel = (value: string) => value.trim().toLocaleLowerCase();
+
+export function resolveScreenTimeTargets(
+  snapshot: ScreenTimeChatSnapshot,
+  input: { childNames: readonly string[]; selectionLabel: string },
+): ScreenTimeTargetResolution {
+  const manageable = snapshot.children.filter((child) => child.canManage);
+  const targets: Array<{ childMembershipId: string; selectionId: string; expectedVersion: number }> = [];
+  const nativeSelection: Array<{ childMembershipId: string; displayName: string; suggestedLabel: string }> = [];
+  for (const requestedName of input.childNames) {
+    const matches = manageable.filter((child) => (
+      normalizedScreenTimeLabel(child.displayName) === normalizedScreenTimeLabel(requestedName)
+    ));
+    if (matches.length === 0) {
+      return { status: 'needs_input', reason: 'child_not_found', candidates: manageable.map((child) => child.displayName) };
+    }
+    if (matches.length > 1) {
+      return { status: 'needs_input', reason: 'ambiguous_child', candidates: matches.map((child) => child.displayName) };
+    }
+    const child = matches[0];
+    const selections = child.policy.selections.filter((selection) => (
+      selection.status === 'active'
+      && normalizedScreenTimeLabel(selection.label) === normalizedScreenTimeLabel(input.selectionLabel)
+    ));
+    if (selections.length > 1) {
+      return { status: 'needs_input', reason: 'ambiguous_selection', candidates: selections.map((selection) => selection.label) };
+    }
+    if (selections.length === 0) {
+      nativeSelection.push({
+        childMembershipId: child.membershipId,
+        displayName: child.displayName,
+        suggestedLabel: input.selectionLabel.trim(),
+      });
+    } else {
+      targets.push({
+        childMembershipId: child.membershipId,
+        selectionId: selections[0].id,
+        expectedVersion: child.policy.desiredPolicyVersion,
+      });
+    }
+  }
+  return nativeSelection.length > 0
+    ? { status: 'needs_native_selection', children: nativeSelection }
+    : { status: 'resolved', targets };
+}
+
 export const chaptersChatAdapter: CapabilityChatAdapter<ChaptersChatSnapshot> = {
   capabilityId: 'chapters',
   context: { dataClassification: 'private_kwilt_data', readOnly: false },
@@ -469,6 +604,9 @@ export function collectCapabilityEvidence({
     ...(selected.has('chapters') ? chaptersChatAdapter.evidence.list(snapshots.chapters) : []),
     ...(selected.has('profile') && snapshots.profile ? profileChatAdapter.evidence.list(snapshots.profile) : []),
     ...(selected.has('money') && snapshots.money ? moneyChatAdapter.evidence.list(snapshots.money) : []),
+    ...(selected.has('screenTime') && snapshots.screenTime
+      ? screenTimeChatAdapter.evidence.list(snapshots.screenTime)
+      : []),
     ...(selected.has('account') && snapshots.account ? [{
       capabilityId: 'account' as const,
       object: { type: 'show_up_status', id: 'current', label: 'Show-up status' },
@@ -498,5 +636,6 @@ export function resolveUnifiedChatObjectReturn(
   if (object.type === 'chapter') return chaptersChatAdapter.return.targetFor(object);
   if (object.type === 'profile') return profileChatAdapter.return.targetFor(object);
   if (object.type === 'money_category') return moneyChatAdapter.return.targetFor(object);
+  if (object.type === 'family_screen_time_child') return screenTimeChatAdapter.return.targetFor(object);
   return null;
 }

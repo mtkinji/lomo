@@ -3,6 +3,7 @@ import {
   buildUnifiedChatReconciliationTelemetry,
   buildUnifiedChatRouteTelemetry,
   buildUnifiedChatToolTelemetry,
+  buildFamilyScreenTimeDecisionTelemetry,
 } from './unifiedChatTelemetry';
 
 test('route telemetry contains only bounded routing metadata', () => {
@@ -57,4 +58,26 @@ test('reconciliation telemetry reports only capability outcomes and counts', () 
     .flatMap((record) => Object.keys(record))).toEqual(expect.not.arrayContaining([
     'thread_id', 'receipt_id', 'proposal_id', 'title', 'prompt', 'message',
   ]));
+});
+
+test('family Screen Time decision telemetry excludes child, app, expiry, and message content', () => {
+  const record = buildFamilyScreenTimeDecisionTelemetry({
+    id: 'proposal-1', threadId: 'thread-1', runId: 'run-1', messageId: null,
+    capabilityId: 'screenTime', title: 'Block Brawl Stars', body: 'Charlie · until 1 PM',
+    status: 'pending', version: 1, createdAt: 'created', updatedAt: 'updated',
+    operation: {
+      id: 'operation-1', proposalId: 'proposal-1', capabilityId: 'screenTime',
+      type: 'block_family_screen_time_selection', targetId: null, summary: 'Block Brawl Stars',
+      idempotencyKey: 'one', sequence: 1,
+      payload: {
+        targets: [{ childMembershipId: 'charlie', selectionId: 'opaque-selection', expectedVersion: 7 }],
+        timeBasis: 'wall_clock', expiresAt: '2026-07-30T13:00:00.000Z',
+      },
+    },
+  }, 'approve', 'saved');
+  expect(record).toEqual({
+    capability_id: 'screenTime', operation_type: 'block_family_screen_time_selection',
+    decision: 'approve', target_count: 1, time_basis: 'wall_clock', outcome: 'saved',
+  });
+  expect(JSON.stringify(record)).not.toMatch(/charlie|brawl|opaque|expires|message/i);
 });

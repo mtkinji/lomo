@@ -8,9 +8,9 @@ hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-review-budget-reality-before-spending
 job_step: choose-intentional-access
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending]
-related_briefs: [brief-budget-reality-gate, brief-lane-gate-onboarding, brief-ios-budget-widgets]
+related_briefs: [brief-budget-reality-gate, brief-lane-gate-onboarding, brief-ios-budget-widgets, brief-screen-time-controls-contextual-setup, brief-family-screen-time-controls]
 owner: andrew
-last_updated: 2026-07-02
+last_updated: 2026-07-30
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -18,6 +18,8 @@ source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 > **Money source note:** Promoted from frozen standalone Money product documentation. Preserve its product reasoning, but verify route, implementation, delivery, and release claims against `src/capabilities/money/` and current runtime evidence.
 
 # Screen Time Controls
+
+> **System ownership:** This imported brief defines Money-owned Screen Time agreements. The Money category remains the canonical policy editor; shared authorization, selection, enforcement, receipt, conflict, and overview rules are governed by the canonical [Screen Time Control Plane](../architecture/screen-time-control-plane.md).
 
 ## Context
 
@@ -46,7 +48,7 @@ Supporting jobs:
 
 ## Product Behavior
 
-Screen Time Controls live in Settings.
+Money Screen Time controls live with the category whose budget evidence powers the restriction. **Settings > Screen Time** may summarize active Money policies and route to their categories, but it does not duplicate the category editor.
 
 The user can:
 

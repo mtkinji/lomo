@@ -585,6 +585,24 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.receipts).toEqual([]);
   });
 
+  test('keeps family Screen Time policy and device delivery truth separate', () => {
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      receipts: [{
+        id: 'receipt-screen-time', proposalId: 'proposal-screen-time', operationId: 'operation-screen-time',
+        capabilityId: 'screenTime', idempotencyKey: 'chat:screen-time:1', status: 'applied',
+        resultingObjectType: 'family_screen_time_override_batch', resultingObjectId: 'chat:screen-time:1',
+        resultState: { policyState: 'saved', deviceState: 'device_required', targetCount: 1 },
+        returnTarget: { capabilityId: 'screenTime' }, undoOperation: null, canUndo: false,
+        appliedAt: '2026-07-30T10:05:00.000Z', undoneAt: null,
+      }],
+    });
+
+    expect(snapshot.receipts).toEqual([expect.objectContaining({
+      summary: 'Saved · Child device setup needed', canUndo: false,
+    })]);
+  });
+
   test('sanitizes assistant-visible text again at the outbound bridge', () => {
     const snapshot = buildWorkbenchSnapshot({
       ...aggregate,

@@ -6,6 +6,7 @@ import {
   getInventoryChromeDragStartEffect,
   getInventoryChromeScrollEffect,
   getInventoryChromeSettleEffect,
+  getScrollToTopVisibility,
   getTopInventoryFadeGeometry,
 } from './inventoryChrome';
 
@@ -287,5 +288,46 @@ describe('inventory chrome behavior', () => {
   it('lets the quick-add dock own the To-dos list bottom fade', () => {
     expect(doesQuickAddOwnInventoryBottomFade({ isKanbanLayout: false })).toBe(true);
     expect(doesQuickAddOwnInventoryBottomFade({ isKanbanLayout: true })).toBe(false);
+  });
+
+  it('reveals scroll to top after one-third viewport and hides it again near the top', () => {
+    expect(
+      getScrollToTopVisibility({
+        y: 263,
+        viewportHeight: 800,
+        currentlyVisible: false,
+      }),
+    ).toBe(false);
+    expect(
+      getScrollToTopVisibility({
+        y: 264,
+        viewportHeight: 800,
+        currentlyVisible: false,
+      }),
+    ).toBe(true);
+    expect(
+      getScrollToTopVisibility({
+        y: 400,
+        viewportHeight: 800,
+        currentlyVisible: true,
+      }),
+    ).toBe(true);
+    expect(
+      getScrollToTopVisibility({
+        y: 199,
+        viewportHeight: 800,
+        currentlyVisible: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not show scroll to top before the list has a measurable viewport', () => {
+    expect(
+      getScrollToTopVisibility({
+        y: 1200,
+        viewportHeight: 0,
+        currentlyVisible: false,
+      }),
+    ).toBe(false);
   });
 });

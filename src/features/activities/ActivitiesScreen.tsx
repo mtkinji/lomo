@@ -136,10 +136,14 @@ import { INVENTORY_CHROME_ANIMATION_MS, inventoryChromeReanimatedEasing } from '
 import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
+import { InventoryDockAffordances, INVENTORY_DOCK_BUTTON_GAP_PX, INVENTORY_DOCK_BUTTON_SIZE_PX } from './InventoryDockAffordances';
+import { openActivitiesInventorySearch, scrollActiveInventoryToTop } from './inventoryDockActions';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
+import { ActivityDueDateEditor, useActivityDueDateEditor } from './ActivityDueDateEditor';
+import { ActivityDurationEditor, useActivityDurationEditor } from './ActivityDurationEditor';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { RepeatInfoMenu } from './RepeatInfoMenu';
@@ -148,6 +152,8 @@ import { openPaywallInterstitial, openPaywallPurchaseEntry } from '../../service
 import { retryDomainPull } from '../../services/sync/domainSync';
 // (removed) in-list "AI pick / Quick add" offer now that Plan owns primary scheduling.
 import { PaywallContent } from '../paywall/PaywallDrawer';
+import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingComposerMetrics';
+import { useFloatingControlElevation } from './useFloatingControlElevation';
 
 const KANBAN_CARD_FIELDS: Array<{
   id: string;
@@ -224,6 +230,7 @@ import {
   groupActivitiesForList,
   isGroupingApplied,
   setCollapsedGroupKey,
+  type ActivityListGroup,
 } from './activityGrouping';
 import {
   buildActivityTagGroupFilter,
@@ -237,6 +244,7 @@ import {
   getInventoryChromeDragStartEffect,
   getInventoryChromeScrollEffect,
   getInventoryChromeSettleEffect,
+  getScrollToTopVisibility,
   getTopInventoryFadeGeometry,
 } from './inventoryChrome';
 
@@ -391,7 +399,8 @@ export function ActivitiesScreen() {
   const viewsButtonRef = React.useRef<View | null>(null);
   const filterButtonRef = React.useRef<View | null>(null);
   const sortButtonRef = React.useRef<View | null>(null);
-
+  const { ref: dueDateEditorRef, open: openActivityDueDate } = useActivityDueDateEditor();
+  const { ref: durationEditorRef, open: openActivityDuration } = useActivityDurationEditor();
   const [filterDrawerVisible, setFilterDrawerVisible] = React.useState(false);
   const [groupingDrawerVisible, setGroupingDrawerVisible] = React.useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = React.useState(false);
@@ -1128,6 +1137,14 @@ export function ActivitiesScreen() {
   const [inventoryHeaderVisible, setInventoryHeaderVisibleTarget] = React.useState(true);
   const [inventoryViewportHeight, setInventoryViewportHeight] = React.useState(0);
   const [inventoryContentHeight, setInventoryContentHeight] = React.useState(0);
+  const [scrollToTopVisible, setScrollToTopVisible] = React.useState(false);
+  const [manualScrollToTopRequestId, setManualScrollToTopRequestId] = React.useState(0);
+  const {
+    isProminent: floatingControlsProminent,
+    markScrolling: markFloatingControlsScrolling,
+    markSettled: markFloatingControlsSettled,
+    reset: resetFloatingControlElevation,
+  } = useFloatingControlElevation();
   const lastInventoryScrollYRef = React.useRef(0);
   const lastRawInventoryScrollYRef = React.useRef(0);
   const upwardScrollIntentRef = React.useRef(0);
@@ -1233,19 +1250,23 @@ export function ActivitiesScreen() {
     setHeaderCollapsedForA11yIfNeeded,
   ]);
 
-  const resetInventoryChrome = React.useCallback(() => {
+  const resetInventoryChrome = React.useCallback((preserveInventoryPosition = false) => {
     setInventoryHeaderVisibleTarget(true);
     setHeaderCollapsedForA11y(false);
     headerVisibleRef.current = true;
-    lastInventoryScrollYRef.current = 0;
-    lastRawInventoryScrollYRef.current = 0;
+    if (!preserveInventoryPosition) {
+      lastInventoryScrollYRef.current = 0;
+      lastRawInventoryScrollYRef.current = 0;
+      setScrollToTopVisible(false);
+    }
     upwardScrollIntentRef.current = 0;
     inventoryScrollPhaseRef.current = 'idle';
     lastInventoryScrollDirectionRef.current = null;
     momentumRevealAllowedRef.current = false;
     suppressRevealUntilNextDragRef.current = false;
+    resetFloatingControlElevation();
     setChromeVisibility(INVENTORY_CHROME_SURFACE, 'shown');
-  }, [setChromeVisibility]);
+  }, [resetFloatingControlElevation, setChromeVisibility]);
 
   // (removed) Suggested/AI-pick card logic (Plan now owns primary scheduling flow)
 
@@ -1278,6 +1299,9 @@ export function ActivitiesScreen() {
   const quickAddDockBottomOffsetPx = isKanbanLayout
     ? 0
     : quickAddCompactBottomOffsetPx;
+  const inventoryDockRightInsetPx = RESTING_COMPOSER_HORIZONTAL_INSET_PX;
+  const quickAddDockRightInsetPx = inventoryDockRightInsetPx
+    + INVENTORY_DOCK_BUTTON_SIZE_PX + INVENTORY_DOCK_BUTTON_GAP_PX;
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
@@ -1489,7 +1513,7 @@ export function ActivitiesScreen() {
   React.useEffect(() => {
     setChromeInteractionLock(INVENTORY_CHROME_SURFACE, quickAddChromeLocked);
     if (quickAddChromeLocked) {
-      resetInventoryChrome();
+      resetInventoryChrome(true);
     }
     return () => setChromeInteractionLock(INVENTORY_CHROME_SURFACE, false);
   }, [quickAddChromeLocked, resetInventoryChrome, setChromeInteractionLock]);
@@ -1522,6 +1546,7 @@ export function ActivitiesScreen() {
   }, [isKanbanLayout, setChromeBottomFadeSuppressed]);
 
   const canvasScrollRef = React.useRef<FlatList<Activity> | null>(null);
+  const groupedScrollRef = React.useRef<FlatList<ActivityListGroup> | null>(null);
   const pendingScrollToActivityIdRef = React.useRef<string | null>(null);
   const { keyboardHeight, lastKnownKeyboardHeight } = useKeyboardHeight();
 
@@ -1852,6 +1877,7 @@ export function ActivitiesScreen() {
   ), [inventoryContentHeight, inventoryViewportHeight]);
 
   const handleInventoryScrollBeginDrag = React.useCallback(() => {
+    markFloatingControlsScrolling();
     inventoryScrollPhaseRef.current = 'dragging';
     lastInventoryScrollDirectionRef.current = null;
     momentumRevealAllowedRef.current = false;
@@ -1869,6 +1895,7 @@ export function ActivitiesScreen() {
     setInventoryHeaderVisible(effect.visible);
   }, [
     notifyChromeScrollIntent,
+    markFloatingControlsScrolling,
     quickAddChromeLocked,
     setInventoryHeaderVisible,
     shouldAutoHideInventoryChrome,
@@ -1876,6 +1903,17 @@ export function ActivitiesScreen() {
 
   const handleInventoryScrollOffset = React.useCallback(
     (rawY: number) => {
+      if (Math.abs(rawY - lastRawInventoryScrollYRef.current) > 0.5) {
+        markFloatingControlsScrolling();
+      }
+      setScrollToTopVisible((currentlyVisible) =>
+        getScrollToTopVisibility({
+          y: rawY,
+          viewportHeight: inventoryViewportHeight,
+          currentlyVisible,
+        }),
+      );
+
       const rawStillMovingDown = rawY >= lastRawInventoryScrollYRef.current - 0.5;
       const result = getInventoryChromeScrollEffect({
         y: rawY,
@@ -1908,6 +1946,8 @@ export function ActivitiesScreen() {
     },
     [
       getInventoryMaxScrollY,
+      inventoryViewportHeight,
+      markFloatingControlsScrolling,
       notifyChromeScrollIntent,
       quickAddChromeLocked,
       setInventoryHeaderVisible,
@@ -1919,11 +1959,26 @@ export function ActivitiesScreen() {
     handleInventoryScrollOffset(event.nativeEvent.contentOffset.y ?? 0);
   }, [handleInventoryScrollOffset]);
 
+  const handleSearchPress = React.useCallback(() => {
+    openActivitiesInventorySearch(useAppStore.getState().openGlobalSearch);
+  }, []);
+
+  const handleScrollToTopPress = React.useCallback(() => {
+    scrollActiveInventoryToTop({
+      groupingApplied,
+      manualOrderEffective: isManualOrderEffective,
+      scrollGrouped: () => groupedScrollRef.current?.scrollToOffset({ offset: 0, animated: true }),
+      requestManual: () => setManualScrollToTopRequestId((current) => current + 1),
+      scrollStandard: () => canvasScrollRef.current?.scrollToOffset({ offset: 0, animated: true }),
+    });
+  }, [groupingApplied, isManualOrderEffective]);
+
   const handleInventoryMomentumScrollBegin = React.useCallback(() => {
+    markFloatingControlsScrolling();
     inventoryScrollPhaseRef.current = 'momentum';
     momentumRevealAllowedRef.current = lastInventoryScrollDirectionRef.current === 'up';
     suppressRevealUntilNextDragRef.current = lastInventoryScrollDirectionRef.current === 'down';
-  }, []);
+  }, [markFloatingControlsScrolling]);
 
   const applyInventoryScrollSettle = React.useCallback((event: InventoryScrollEvent, final: boolean) => {
     const result = getInventoryChromeSettleEffect({
@@ -1958,14 +2013,16 @@ export function ActivitiesScreen() {
   ]);
 
   const handleInventoryScrollEndDrag = React.useCallback((event: InventoryScrollEvent) => {
+    markFloatingControlsSettled();
     inventoryScrollPhaseRef.current = 'idle';
     suppressRevealUntilNextDragRef.current = lastInventoryScrollDirectionRef.current === 'down';
     applyInventoryScrollSettle(event, false);
-  }, [applyInventoryScrollSettle]);
+  }, [applyInventoryScrollSettle, markFloatingControlsSettled]);
 
   const handleInventoryMomentumScrollEnd = React.useCallback((event: InventoryScrollEvent) => {
+    markFloatingControlsSettled();
     applyInventoryScrollSettle(event, true);
-  }, [applyInventoryScrollSettle]);
+  }, [applyInventoryScrollSettle, markFloatingControlsSettled]);
 
   const setQuickAddDueDateByOffsetDays = React.useCallback((offsetDays: number) => {
     const date = new Date();
@@ -2906,6 +2963,8 @@ export function ActivitiesScreen() {
                       size="small"
                       onPress={() => setKanbanCardFieldsDrawerVisible(true)}
                       testID="e2e.activities.toolbar.cardFields"
+                      style={styles.toolbarIconButton}
+                      hitSlop={4}
                       accessibilityLabel="Card fields"
                     >
                       <Icon name="eye" size={14} color={colors.textPrimary} />
@@ -2921,7 +2980,11 @@ export function ActivitiesScreen() {
                           size="small"
                           onPress={() => setFilterDrawerVisible(true)}
                           testID="e2e.activities.toolbar.filter"
-                          style={filterCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                          style={[
+                            styles.toolbarIconButton,
+                            filterCount > 0 ? styles.toolbarCountButtonActive : undefined,
+                          ]}
+                          hitSlop={4}
                           accessibilityLabel={
                             filterCount > 0
                               ? `Filter activities (${filterCount})`
@@ -2945,6 +3008,7 @@ export function ActivitiesScreen() {
                       testID="e2e.activities.toolbar.filter"
                       accessibilityRole="button"
                       accessibilityLabel="Filter to-dos (Pro)"
+                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
                       }
@@ -2957,6 +3021,7 @@ export function ActivitiesScreen() {
                           size="small"
                           pointerEvents="none"
                           accessible={false}
+                          style={styles.toolbarIconButton}
                         >
                           <Icon name="funnel" size={14} color={colors.textPrimary} />
                         </Button>
@@ -2975,7 +3040,11 @@ export function ActivitiesScreen() {
                       size="small"
                       onPress={() => setGroupingDrawerVisible(true)}
                       testID="e2e.activities.toolbar.grouping"
-                      style={appliedGroupingCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                      style={[
+                        styles.toolbarIconButton,
+                        appliedGroupingCount > 0 ? styles.toolbarCountButtonActive : undefined,
+                      ]}
+                      hitSlop={4}
                       accessibilityLabel={
                         appliedGroupingCount > 0
                           ? `Grouping: ${getActivityGroupingLabel(activeGrouping)}`
@@ -2998,6 +3067,7 @@ export function ActivitiesScreen() {
                       testID="e2e.activities.toolbar.grouping"
                       accessibilityRole="button"
                       accessibilityLabel="Group to-dos (Pro)"
+                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
@@ -3008,6 +3078,7 @@ export function ActivitiesScreen() {
                           size="small"
                           pointerEvents="none"
                           accessible={false}
+                          style={styles.toolbarIconButton}
                         >
                           <Icon name="layers" size={14} color={colors.textPrimary} />
                         </Button>
@@ -3028,7 +3099,11 @@ export function ActivitiesScreen() {
                           size="small"
                           onPress={() => setSortDrawerVisible(true)}
                           testID="e2e.activities.toolbar.sort"
-                          style={appliedSortCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                          style={[
+                            styles.toolbarIconButton,
+                            appliedSortCount > 0 ? styles.toolbarCountButtonActive : undefined,
+                          ]}
+                          hitSlop={4}
                           accessibilityLabel={
                             appliedSortCount > 0
                               ? `Sort activities (${appliedSortCount})`
@@ -3052,6 +3127,7 @@ export function ActivitiesScreen() {
                       testID="e2e.activities.toolbar.sort"
                       accessibilityRole="button"
                       accessibilityLabel="Sort to-dos (Pro)"
+                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
@@ -3064,6 +3140,7 @@ export function ActivitiesScreen() {
                           size="small"
                           pointerEvents="none"
                           accessible={false}
+                          style={styles.toolbarIconButton}
                         >
                           <Icon name="sort" size={14} color={colors.textPrimary} />
                         </Button>
@@ -3119,6 +3196,7 @@ export function ActivitiesScreen() {
         />
       ) : groupingApplied ? (
         <CanvasFlatListWithRef
+          ref={groupedScrollRef}
           style={styles.scroll}
           onLayout={handleInventoryListLayout}
           onContentSizeChange={handleInventoryContentSizeChange}
@@ -3152,6 +3230,8 @@ export function ActivitiesScreen() {
               onTogglePriority={handleTogglePriorityOne}
               onStartFocus={openActivityFocus}
               onSchedule={openActivitySchedule}
+              onEditDueDate={openActivityDueDate}
+              onEditDuration={openActivityDuration}
               onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
               onDeleteActivity={(activity) => handleDeleteActivity(activity)}
               isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
@@ -3194,6 +3274,7 @@ export function ActivitiesScreen() {
           onMomentumScrollBegin={handleInventoryMomentumScrollBegin}
           onMomentumScrollEnd={handleInventoryMomentumScrollEnd}
           onScrollOffsetChange={handleInventoryScrollOffset}
+          scrollToTopRequestId={manualScrollToTopRequestId}
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
@@ -3240,6 +3321,8 @@ export function ActivitiesScreen() {
                 onTogglePriority={handleTogglePriorityOne}
                 onStartFocus={openActivityFocus}
                 onSchedule={openActivitySchedule}
+                onEditDueDate={openActivityDueDate}
+                onEditDuration={openActivityDuration}
                 onPressActivity={navigateToActivityDetail}
                 onDeleteActivity={handleDeleteActivity}
               />
@@ -3341,6 +3424,8 @@ export function ActivitiesScreen() {
                 onTogglePriority={handleTogglePriorityOne}
                 onStartFocus={openActivityFocus}
                 onSchedule={openActivitySchedule}
+                onEditDueDate={openActivityDueDate}
+                onEditDuration={openActivityDuration}
                 onPressActivity={navigateToActivityDetail}
                 onDeleteActivity={handleDeleteActivity}
               />
@@ -3388,6 +3473,8 @@ export function ActivitiesScreen() {
           onLockedAiActionPress={handleLockedQuickAddAiActionPress}
           onReservedHeightChange={setQuickAddReservedHeight}
           collapsedBottomOffsetPx={quickAddDockBottomOffsetPx}
+          floatingRightInsetPx={quickAddDockRightInsetPx}
+          collapsedSurfaceProminent={floatingControlsProminent}
           placeReceipt={pendingQuickAddLocationRecommendation}
           onDismissPlaceReceipt={() => setPendingQuickAddLocationRecommendation(null)}
           onSetPlaceAlert={() => void handleUseQuickAddLocationTrigger()}
@@ -3397,6 +3484,16 @@ export function ActivitiesScreen() {
             setPendingQuickAddLocationRecommendation(null);
             navigateToActivityDetail(pending.activityId);
           }}
+        />
+      )}
+      {!isKanbanLayout && !isQuickAddFocused && hasAnyStoredActivities && (
+        <InventoryDockAffordances
+          bottomOffsetPx={quickAddDockBottomOffsetPx}
+          rightInsetPx={inventoryDockRightInsetPx}
+          showScrollToTop={scrollToTopVisible}
+          isProminent={floatingControlsProminent}
+          onSearchPress={handleSearchPress}
+          onScrollToTopPress={handleScrollToTopPress}
         />
       )}
       <BottomGuide
@@ -3423,6 +3520,8 @@ export function ActivitiesScreen() {
           </Button>
         </HStack>
       </BottomGuide>
+      <ActivityDueDateEditor ref={dueDateEditorRef} />
+      <ActivityDurationEditor ref={durationEditorRef} />
       <BottomDrawer
         visible={quickAddReminderSheetVisible}
         onClose={() => closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false))}

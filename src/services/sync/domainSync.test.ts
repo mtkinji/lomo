@@ -14,6 +14,7 @@ const NOW_ISO = new Date('2026-01-15T12:00:00.000Z').toISOString();
 type TableName = 'kwilt_arcs' | 'kwilt_goals' | 'kwilt_activities';
 type SelectResult = { data: any[] | null; error: any | null };
 type QueuedSelectResult = SelectResult | 'hang';
+type UpsertResult = { data: unknown[]; error: null };
 
 const mockSelectQueues: Record<TableName, QueuedSelectResult[]> = {
   kwilt_arcs: [],
@@ -28,6 +29,13 @@ const mockRealtimeHandlers: Array<{
 }> = [];
 const mockRemoveChannel = jest.fn();
 const mockUpserts: Array<{ table: string; rows: unknown; options: unknown }> = [];
+const mockUpsertQueues: Record<string, Array<Promise<UpsertResult>>> = {};
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => { resolve = nextResolve; });
+  return { promise, resolve };
+}
 
 const defaultEmptyResult = (): SelectResult => ({ data: [], error: null });
 
@@ -55,9 +63,11 @@ jest.mock('../backend/supabaseClient', () => ({
       })),
       upsert: jest.fn((rows: unknown, options: unknown) => {
         mockUpserts.push({ table, rows, options });
+        const result = mockUpsertQueues[table]?.shift()
+          ?? Promise.resolve({ data: [], error: null });
         return ({
         select: jest.fn(() => ({
-          throwOnError: jest.fn(() => Promise.resolve({ data: [], error: null })),
+          throwOnError: jest.fn(() => result),
         })),
       });
       }),
@@ -192,6 +202,7 @@ describe('domainSync account transitions', () => {
     mockRealtimeHandlers.length = 0;
     mockRemoveChannel.mockClear();
     mockUpserts.length = 0;
+    Object.keys(mockUpsertQueues).forEach((table) => delete mockUpsertQueues[table]);
   });
 
   afterEach(() => {
@@ -308,6 +319,51 @@ describe('domainSync account transitions', () => {
     expect(second.rows).toEqual(expect.objectContaining({
       full_name: 'Andy', profile_updated_at: '2026-01-15T12:01:00.000Z',
     }));
+  });
+
+  it('pushes the newest activity edit after an older write completes', async () => {
+    queueRemote({});
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+
+    await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
+    await waitForStore(() => mockUpserts.some((entry) => entry.table === 'kwilt_agent_profile_projections'));
+    mockUpserts.length = 0;
+
+    // Consume the initial remote-merge suppression before exercising overlapping writes.
+    useAppStore.setState({ activities: [activity({ id: 'overlapping-act', title: 'Priming edit' })] });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const firstWrite = deferred<UpsertResult>();
+    mockUpsertQueues.kwilt_activities = [firstWrite.promise];
+    const firstEdit = activity({
+      id: 'overlapping-act',
+      title: 'First edit',
+      updatedAt: '2026-01-15T12:01:00.000Z',
+    });
+    useAppStore.setState({ activities: [firstEdit] });
+
+    await waitForStore(() => mockUpserts.filter((entry) => entry.table === 'kwilt_activities').length === 1);
+    const latestEdit = {
+      ...firstEdit,
+      title: 'Latest edit',
+      updatedAt: '2026-01-15T12:02:00.000Z',
+    };
+    useAppStore.setState({ activities: [latestEdit] });
+    expect(useAppStore.getState().activities[0]?.title).toBe('Latest edit');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(useAppStore.getState().activities[0]?.title).toBe('Latest edit');
+
+    firstWrite.resolve({ data: [], error: null });
+
+    await waitForStore(() => mockUpserts.filter((entry) => entry.table === 'kwilt_activities').length === 2);
+    const writes = mockUpserts.filter((entry) => entry.table === 'kwilt_activities');
+    expect(writes[0].rows).toEqual([
+      expect.objectContaining({ data: expect.objectContaining({ title: 'First edit' }) }),
+    ]);
+    expect(writes[1].rows).toEqual([
+      expect.objectContaining({ data: expect.objectContaining({ title: 'Latest edit' }) }),
+    ]);
   });
 
   it('no local cache + remote table error does not mark empty data as hydrated', async () => {

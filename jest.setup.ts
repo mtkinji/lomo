@@ -29,6 +29,7 @@ jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
   // Reanimated's mock omits a few helpers used in our codebase; provide safe defaults.
   Reanimated.default.call = () => undefined;
+  Reanimated.useReducedMotion = () => false;
   return Reanimated;
 });
 
@@ -105,5 +106,4 @@ jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: jest.fn(async () => undefined),
   SchedulableTriggerInputTypes: { DATE: 'date', CALENDAR: 'calendar', TIME_INTERVAL: 'timeInterval' },
 }));
-
 
