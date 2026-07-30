@@ -164,7 +164,6 @@ import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
-import { sharedMemberRoleLabel } from './goalPartnerRoles';
 import { buildGoalPartnerAccessPresentation } from './goalPartnerAccessPresentation';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
@@ -799,6 +798,7 @@ export function GoalDetailScreen() {
     canLeaveSharedGoal,
     canRemoveGoalPartners,
     headerPartnerAvatars,
+    partnerRows,
   } = useMemo(
     () =>
       buildGoalPartnerAccessPresentation({
@@ -3335,29 +3335,25 @@ export function GoalDetailScreen() {
               ) : Array.isArray(sharedMembers) && sharedMembers.length > 0 ? (
                 isSharedGoal ? (
                   <VStack space="sm" style={{ marginTop: spacing.sm }}>
-                    {sharedMembers.map((m) => {
-                      const userId = m.userId.trim();
-                      const isCurrentUser = currentUserIds.has(userId);
-                      const roleLabel = sharedMemberRoleLabel(m, currentUserIds);
-                      const canRemoveMember =
-                        canRemoveGoalPartners && !isCurrentUser && (m.role ?? '').toLowerCase() !== 'owner';
+                    {partnerRows.map((row) => {
+                      const m = row.member;
                       const isRemoving = removingPartnerUserId === m.userId;
                       return (
                         <HStack key={m.userId} alignItems="center" space="sm" style={styles.memberRow}>
                           <ProfileAvatar
-                            name={m.name ?? undefined}
-                            avatarUrl={m.avatarUrl ?? undefined}
+                            name={row.avatarName}
+                            avatarUrl={row.avatarUrl}
                             size={36}
                             borderRadius={18}
                           />
                           <VStack flex={1} space="xs">
-                            <Text style={styles.memberName}>{m.name ?? 'Member'}</Text>
-                            <Text style={styles.memberMeta}>{roleLabel}</Text>
+                            <Text style={styles.memberName}>{row.displayName}</Text>
+                            <Text style={styles.memberMeta}>{row.roleLabel}</Text>
                           </VStack>
-                          {canRemoveMember ? (
+                          {row.canRemoveMember ? (
                             <Pressable
                               accessibilityRole="button"
-                              accessibilityLabel={`Remove ${m.name ?? 'partner'}`}
+                              accessibilityLabel={row.removeAccessibilityLabel}
                               disabled={Boolean(removingPartnerUserId)}
                               onPress={() => handleRemovePartner(m)}
                               style={[
