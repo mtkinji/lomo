@@ -293,6 +293,8 @@ Sources: [Apple Family Controls](https://developer.apple.com/documentation/Famil
 | --- | --- | --- |
 | Parent surface + child surface | Authority and daily-use needs are different | Role confusion or two unrelated products |
 | Family code / invite enrollment | Child devices need a low-friction join path | Code treated as permanent authority rather than bootstrap proof |
+| Explicit nearby-device discovery | Two signed-in people with both phones present need a faster invitation handoff | Ambient child discovery, background presence, or proximity mistaken for identity |
+| QR / share-link invitation | Families need reliable in-person and remote fallbacks | Each transport invents a different membership or consent contract |
 | Accepted account relationship | Separate identities need explicit, revocable linkage | Relationship confused with device enrollment or universal data access |
 | Capability-scoped parental settings | Caregivers need authority over a bounded experience | A parent role silently grants access to the child's entire account |
 | Child-visible governance | The managed person should know who controls what | Controls become invisible surveillance or unexplained restrictions |

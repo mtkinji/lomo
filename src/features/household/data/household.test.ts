@@ -1,9 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   acceptCaregiverInvite,
+  acceptHouseholdMemberInvite,
   addDependentChild,
   createCaregiverInvite,
+  createHouseholdMemberInvite,
   getHouseholdSnapshot,
+  previewHouseholdInvite,
   removeHouseholdMember,
   setCaregiverCapabilityGrant,
   setChildCapabilityActivation,
@@ -80,6 +83,70 @@ describe('Household data boundary', () => {
     });
     expect(rpc).toHaveBeenNthCalledWith(3, 'accept_kwilt_household_invite', { p_code: 'ABC123', p_display_name: 'Blaire' });
     expect(rpc).toHaveBeenNthCalledWith(4, 'remove_kwilt_household_member', { p_membership_id: 'caregiver-1' });
+  });
+
+  it('creates, previews, and accepts a child account invitation', async () => {
+    const { client, rpc } = clientReturning();
+    rpc
+      .mockResolvedValueOnce({
+        data: { code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'child' },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          householdName: 'My household',
+          inviterDisplayName: 'Andrew',
+          role: 'child',
+          expiresAt: '2026-08-05T00:00:00Z',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: snapshot, error: null });
+
+    await expect(createHouseholdMemberInvite(client, {
+      householdId: null,
+      role: 'child',
+      invitedEmail: ' Charlie@Example.com ',
+      ownerDisplayName: ' Andrew ',
+    })).resolves.toEqual({ code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'child' });
+    await expect(previewHouseholdInvite(client, ' ab12cd ')).resolves.toEqual({
+      householdName: 'My household',
+      inviterDisplayName: 'Andrew',
+      role: 'child',
+      expiresAt: '2026-08-05T00:00:00Z',
+    });
+    await acceptHouseholdMemberInvite(client, { code: ' ab12cd ', displayName: ' Charlie ' });
+
+    expect(rpc).toHaveBeenNthCalledWith(1, 'create_kwilt_household_member_invite', {
+      p_household_id: null,
+      p_invited_role: 'child',
+      p_invited_email: 'charlie@example.com',
+      p_owner_display_name: 'Andrew',
+    });
+    expect(rpc).toHaveBeenNthCalledWith(2, 'preview_kwilt_household_invite', {
+      p_code: 'AB12CD',
+    });
+    expect(rpc).toHaveBeenNthCalledWith(3, 'accept_kwilt_household_member_invite', {
+      p_code: 'AB12CD',
+      p_display_name: 'Charlie',
+    });
+  });
+
+  it('rejects malformed role-aware invitation responses', async () => {
+    const malformedInvite = clientReturning({
+      code: 'AB12CD', expiresAt: '2026-08-05T00:00:00Z', role: 'owner',
+    });
+    await expect(createHouseholdMemberInvite(malformedInvite.client, {
+      householdId: null,
+      role: 'child',
+      ownerDisplayName: 'Andrew',
+    })).rejects.toThrow('Invalid Household invitation');
+
+    const malformedPreview = clientReturning({
+      householdName: 'My household', inviterDisplayName: 'Andrew', role: 'child',
+    });
+    await expect(previewHouseholdInvite(malformedPreview.client, 'AB12CD'))
+      .rejects.toThrow('Invalid Household invitation preview');
   });
 
   it('throws the server message and rejects malformed snapshots', async () => {
