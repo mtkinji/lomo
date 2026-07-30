@@ -25,6 +25,8 @@ type ActivityInventoryRowProps = {
   onTogglePriority: (activityId: string) => void;
   onStartFocus: (activityId: string) => void;
   onSchedule: (activityId: string) => void;
+  onEditDueDate: (activityId: string) => void;
+  onEditDuration: (activityId: string) => void;
   onPressActivity: (activityId: string) => void;
   onDeleteActivity: (activity: Activity) => void;
 };
@@ -57,6 +59,8 @@ export const ActivityInventoryRow = React.memo(function ActivityInventoryRow({
   onTogglePriority,
   onStartFocus,
   onSchedule,
+  onEditDueDate,
+  onEditDuration,
   onPressActivity,
   onDeleteActivity,
 }: ActivityInventoryRowProps) {
@@ -82,6 +86,26 @@ export const ActivityInventoryRow = React.memo(function ActivityInventoryRow({
         meta={meta}
         estimateMeta={estimateMeta}
         metaTone={metaTone}
+        onMetaPress={
+          !isDragging && activity.scheduledDate
+            ? () => onEditDueDate(activity.id)
+            : undefined
+        }
+        metaAccessibilityLabel={
+          !isDragging && activity.scheduledDate && meta
+            ? `Edit due date for ${activity.title}, currently ${meta}`
+            : undefined
+        }
+        onEstimatePress={
+          !isDragging && estimateMeta
+            ? () => onEditDuration(activity.id)
+            : undefined
+        }
+        estimateAccessibilityLabel={
+          !isDragging && estimateMeta
+            ? `Edit duration for ${activity.title}, currently ${estimateMeta}`
+            : undefined
+        }
         priorityIndicator={priorityIndicator}
         metaLoading={metaLoading}
         isCompleted={activity.status === 'done'}

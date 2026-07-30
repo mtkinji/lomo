@@ -44,6 +44,15 @@ type ActivityListItemProps = {
    */
   metaTone?: ActivityMetaTone;
   /**
+   * Optional direct-edit action for the visible timing metadata. Only provide
+   * this when the metadata has a single, unambiguous source such as a due date.
+   */
+  onMetaPress?: () => void;
+  metaAccessibilityLabel?: string;
+  /** Optional direct-edit action for the visible duration estimate. */
+  onEstimatePress?: () => void;
+  estimateAccessibilityLabel?: string;
+  /**
    * Optional notes/body preview shown only in `variant="full"`.
    */
   notes?: string;
@@ -139,6 +148,10 @@ export function ActivityListItem({
   meta,
   estimateMeta,
   metaTone,
+  onMetaPress,
+  metaAccessibilityLabel,
+  onEstimatePress,
+  estimateAccessibilityLabel,
   notes,
   priorityIndicator,
   metaLoading = false,
@@ -463,30 +476,69 @@ export function ActivityListItem({
                   </DropdownMenu>
                 ) : null}
                 {meta ? (
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.meta,
-                      metaTone ? styles.metaPill : null,
-                      metaTone === 'urgent' ? styles.metaPillUrgent : null,
-                      metaTone === 'today' ? styles.metaPillToday : null,
-                      metaTone === 'tomorrow' ? styles.metaPillTomorrow : null,
-                      metaTone === 'future' ? styles.metaPillFuture : null,
-                      !metaTone ? { color: metaColor } : null,
-                    ]}
-                  >
-                    {meta}
-                  </Text>
+                  onMetaPress ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={metaAccessibilityLabel ?? `Edit timing, currently ${meta}`}
+                      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                      onPress={onMetaPress}
+                      style={({ pressed }) => pressed ? styles.metaPressablePressed : null}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.meta,
+                          metaTone ? styles.metaPill : null,
+                          metaTone === 'urgent' ? styles.metaPillUrgent : null,
+                          metaTone === 'today' ? styles.metaPillToday : null,
+                          metaTone === 'tomorrow' ? styles.metaPillTomorrow : null,
+                          metaTone === 'future' ? styles.metaPillFuture : null,
+                          !metaTone ? { color: metaColor } : null,
+                        ]}
+                      >
+                        {meta}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.meta,
+                        metaTone ? styles.metaPill : null,
+                        metaTone === 'urgent' ? styles.metaPillUrgent : null,
+                        metaTone === 'today' ? styles.metaPillToday : null,
+                        metaTone === 'tomorrow' ? styles.metaPillTomorrow : null,
+                        metaTone === 'future' ? styles.metaPillFuture : null,
+                        !metaTone ? { color: metaColor } : null,
+                      ]}
+                    >
+                      {meta}
+                    </Text>
+                  )
                 ) : null}
                 {estimateMeta ? (
-                  <Text numberOfLines={1} style={styles.estimateMeta}>
-                    {estimateMeta}
-                  </Text>
+                  onEstimatePress ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={estimateAccessibilityLabel ?? `Edit duration, currently ${estimateMeta}`}
+                      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                      onPress={onEstimatePress}
+                      style={({ pressed }) => pressed ? styles.metaPressablePressed : null}
+                    >
+                      <Text numberOfLines={1} style={[styles.estimateMeta, styles.estimatePill]}>
+                        {estimateMeta}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text numberOfLines={1} style={styles.estimateMeta}>
+                      {estimateMeta}
+                    </Text>
+                  )
                 ) : null}
                 {showStarredMeta ? (
                   <Icon
                     name="starFilled"
-                    size={12}
+                    size={14}
                     color={colors.turmeric}
                   />
                 ) : null}
@@ -526,6 +578,22 @@ export function ActivityListItem({
       delayLongPress={300}
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityActions={[
+        ...(onMetaPress ? [{ name: 'editDueDate', label: 'Edit due date' }] : []),
+        ...(onEstimatePress ? [{ name: 'editDuration', label: 'Edit duration' }] : []),
+      ]}
+      onAccessibilityAction={
+        onMetaPress || onEstimatePress
+          ? (event) => {
+              if (event.nativeEvent.actionName === 'editDueDate') {
+                onMetaPress?.();
+              }
+              if (event.nativeEvent.actionName === 'editDuration') {
+                onEstimatePress?.();
+              }
+            }
+          : undefined
+      }
       style={styles.pressable}
     >
       {content}
@@ -618,6 +686,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.primaryForeground,
   },
+  metaPressablePressed: {
+    opacity: 0.72,
+  },
   card: {
     marginHorizontal: 0,
     marginVertical: 0,
@@ -707,7 +778,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   metaPill: {
-    minHeight: 18,
+    minHeight: 20,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -748,8 +819,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 0,
   },
+  estimatePill: {
+    minHeight: 20,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.gray200,
+    backgroundColor: colors.canvas,
+    paddingHorizontal: spacing.xs,
+    overflow: 'hidden',
+  },
   priorityIndicator: {
-    minHeight: 18,
+    minHeight: 20,
     borderRadius: 4,
     paddingHorizontal: spacing.xs,
     flexShrink: 0,

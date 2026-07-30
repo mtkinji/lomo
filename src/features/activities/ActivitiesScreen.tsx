@@ -140,6 +140,8 @@ import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
 import { AiAutofillBadge } from '../../ui/AiAutofillBadge';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
+import { ActivityDueDateEditor, useActivityDueDateEditor } from './ActivityDueDateEditor';
+import { ActivityDurationEditor, useActivityDurationEditor } from './ActivityDurationEditor';
 import { suggestActivityTagsWithAi } from '../../services/ai';
 import { findActivityCoverImageWithAI } from './activityCoverImage';
 import { RepeatInfoMenu } from './RepeatInfoMenu';
@@ -391,7 +393,8 @@ export function ActivitiesScreen() {
   const viewsButtonRef = React.useRef<View | null>(null);
   const filterButtonRef = React.useRef<View | null>(null);
   const sortButtonRef = React.useRef<View | null>(null);
-
+  const { ref: dueDateEditorRef, open: openActivityDueDate } = useActivityDueDateEditor();
+  const { ref: durationEditorRef, open: openActivityDuration } = useActivityDurationEditor();
   const [filterDrawerVisible, setFilterDrawerVisible] = React.useState(false);
   const [groupingDrawerVisible, setGroupingDrawerVisible] = React.useState(false);
   const [sortDrawerVisible, setSortDrawerVisible] = React.useState(false);
@@ -2906,6 +2909,8 @@ export function ActivitiesScreen() {
                       size="small"
                       onPress={() => setKanbanCardFieldsDrawerVisible(true)}
                       testID="e2e.activities.toolbar.cardFields"
+                      style={styles.toolbarIconButton}
+                      hitSlop={4}
                       accessibilityLabel="Card fields"
                     >
                       <Icon name="eye" size={14} color={colors.textPrimary} />
@@ -2921,7 +2926,11 @@ export function ActivitiesScreen() {
                           size="small"
                           onPress={() => setFilterDrawerVisible(true)}
                           testID="e2e.activities.toolbar.filter"
-                          style={filterCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                          style={[
+                            styles.toolbarIconButton,
+                            filterCount > 0 ? styles.toolbarCountButtonActive : undefined,
+                          ]}
+                          hitSlop={4}
                           accessibilityLabel={
                             filterCount > 0
                               ? `Filter activities (${filterCount})`
@@ -2945,6 +2954,7 @@ export function ActivitiesScreen() {
                       testID="e2e.activities.toolbar.filter"
                       accessibilityRole="button"
                       accessibilityLabel="Filter to-dos (Pro)"
+                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_filter' })
                       }
@@ -2957,6 +2967,7 @@ export function ActivitiesScreen() {
                           size="small"
                           pointerEvents="none"
                           accessible={false}
+                          style={styles.toolbarIconButton}
                         >
                           <Icon name="funnel" size={14} color={colors.textPrimary} />
                         </Button>
@@ -2975,7 +2986,11 @@ export function ActivitiesScreen() {
                       size="small"
                       onPress={() => setGroupingDrawerVisible(true)}
                       testID="e2e.activities.toolbar.grouping"
-                      style={appliedGroupingCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                      style={[
+                        styles.toolbarIconButton,
+                        appliedGroupingCount > 0 ? styles.toolbarCountButtonActive : undefined,
+                      ]}
+                      hitSlop={4}
                       accessibilityLabel={
                         appliedGroupingCount > 0
                           ? `Grouping: ${getActivityGroupingLabel(activeGrouping)}`
@@ -2998,6 +3013,7 @@ export function ActivitiesScreen() {
                       testID="e2e.activities.toolbar.grouping"
                       accessibilityRole="button"
                       accessibilityLabel="Group to-dos (Pro)"
+                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
@@ -3008,6 +3024,7 @@ export function ActivitiesScreen() {
                           size="small"
                           pointerEvents="none"
                           accessible={false}
+                          style={styles.toolbarIconButton}
                         >
                           <Icon name="layers" size={14} color={colors.textPrimary} />
                         </Button>
@@ -3028,7 +3045,11 @@ export function ActivitiesScreen() {
                           size="small"
                           onPress={() => setSortDrawerVisible(true)}
                           testID="e2e.activities.toolbar.sort"
-                          style={appliedSortCount > 0 ? styles.toolbarCountButtonActive : undefined}
+                          style={[
+                            styles.toolbarIconButton,
+                            appliedSortCount > 0 ? styles.toolbarCountButtonActive : undefined,
+                          ]}
+                          hitSlop={4}
                           accessibilityLabel={
                             appliedSortCount > 0
                               ? `Sort activities (${appliedSortCount})`
@@ -3052,6 +3073,7 @@ export function ActivitiesScreen() {
                       testID="e2e.activities.toolbar.sort"
                       accessibilityRole="button"
                       accessibilityLabel="Sort to-dos (Pro)"
+                      hitSlop={4}
                       onPress={() =>
                         openPaywallInterstitial({ reason: 'pro_only_views_filters', source: 'activity_sort' })
                       }
@@ -3064,6 +3086,7 @@ export function ActivitiesScreen() {
                           size="small"
                           pointerEvents="none"
                           accessible={false}
+                          style={styles.toolbarIconButton}
                         >
                           <Icon name="sort" size={14} color={colors.textPrimary} />
                         </Button>
@@ -3152,6 +3175,8 @@ export function ActivitiesScreen() {
               onTogglePriority={handleTogglePriorityOne}
               onStartFocus={openActivityFocus}
               onSchedule={openActivitySchedule}
+              onEditDueDate={openActivityDueDate}
+              onEditDuration={openActivityDuration}
               onPressActivity={(activityId) => navigateToActivityDetail(activityId)}
               onDeleteActivity={(activity) => handleDeleteActivity(activity)}
               isMetaLoading={(activityId) => enrichingActivityIds.has(activityId)}
@@ -3240,6 +3265,8 @@ export function ActivitiesScreen() {
                 onTogglePriority={handleTogglePriorityOne}
                 onStartFocus={openActivityFocus}
                 onSchedule={openActivitySchedule}
+                onEditDueDate={openActivityDueDate}
+                onEditDuration={openActivityDuration}
                 onPressActivity={navigateToActivityDetail}
                 onDeleteActivity={handleDeleteActivity}
               />
@@ -3341,6 +3368,8 @@ export function ActivitiesScreen() {
                 onTogglePriority={handleTogglePriorityOne}
                 onStartFocus={openActivityFocus}
                 onSchedule={openActivitySchedule}
+                onEditDueDate={openActivityDueDate}
+                onEditDuration={openActivityDuration}
                 onPressActivity={navigateToActivityDetail}
                 onDeleteActivity={handleDeleteActivity}
               />
@@ -3423,6 +3452,8 @@ export function ActivitiesScreen() {
           </Button>
         </HStack>
       </BottomGuide>
+      <ActivityDueDateEditor ref={dueDateEditorRef} />
+      <ActivityDurationEditor ref={durationEditorRef} />
       <BottomDrawer
         visible={quickAddReminderSheetVisible}
         onClose={() => closeQuickAddToolDrawer(() => setQuickAddReminderSheetVisible(false))}
