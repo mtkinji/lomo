@@ -51,6 +51,7 @@ let realtimePullQueued = false;
 let activeUser: SyncUser | null = null;
 let pushTimeout: ReturnType<typeof setTimeout> | null = null;
 let pushInFlight = false;
+let pushQueued = false;
 let suppressNextPush = false;
 let disabledReason: string | null = null;
 
@@ -335,16 +336,28 @@ function markDomainPullError(e: unknown, opts: { keepHydrated: boolean }): void 
   } as any);
 }
 
-function seedPrevIdsFromStore(): void {
-  const s = useAppStore.getState();
-  prevArcIds = new Set((s.arcs ?? []).map((a) => a.id));
-  prevGoalIds = new Set((s.goals ?? []).map((g) => g.id));
-  prevActivityIds = new Set((s.activities ?? []).map((a) => a.id));
-  prevArcSignatures = new Map((s.arcs ?? []).map((item) => [item.id, getDomainItemSignature(item)]));
-  prevGoalSignatures = new Map((s.goals ?? []).map((item) => [item.id, getDomainItemSignature(item)]));
+function seedPrevIdsFromSnapshot(snapshot: {
+  arcs: Arc[];
+  goals: Goal[];
+  activities: Activity[];
+}): void {
+  prevArcIds = new Set(snapshot.arcs.map((a) => a.id));
+  prevGoalIds = new Set(snapshot.goals.map((g) => g.id));
+  prevActivityIds = new Set(snapshot.activities.map((a) => a.id));
+  prevArcSignatures = new Map(snapshot.arcs.map((item) => [item.id, getDomainItemSignature(item)]));
+  prevGoalSignatures = new Map(snapshot.goals.map((item) => [item.id, getDomainItemSignature(item)]));
   prevActivitySignatures = new Map(
-    (s.activities ?? []).map((item) => [item.id, getDomainItemSignature(item)]),
+    snapshot.activities.map((item) => [item.id, getDomainItemSignature(item)]),
   );
+}
+
+function seedPrevIdsFromStore(): void {
+  const state = useAppStore.getState();
+  seedPrevIdsFromSnapshot({
+    arcs: state.arcs ?? [],
+    goals: state.goals ?? [],
+    activities: state.activities ?? [],
+  });
 }
 
 function buildUpsertRows<T extends { id: string }>(user: SyncUser, items: T[], extra?: Record<string, any>) {
@@ -380,8 +393,13 @@ async function pushNow(): Promise<void> {
   // Only push once domain objects have hydrated from the separate domain storage.
   if (useAppStore.getState().domainHydrated !== true) return;
 
-  if (pushInFlight) return;
+  if (pushInFlight) {
+    pushQueued = true;
+    return;
+  }
   pushInFlight = true;
+  pushQueued = false;
+  const pushGeneration = enableGeneration;
   try {
     const supabase = getSupabaseClient();
     const state = useAppStore.getState();
@@ -422,9 +440,10 @@ async function pushNow(): Promise<void> {
       const row = buildAgentProfileProjectionRow({ userId: user.userId, profile: state.userProfile });
       await supabase.from('kwilt_agent_profile_projections').upsert(row, { onConflict: 'user_id' })
         .select('user_id').throwOnError();
-      prevProfileProjectionSignature = profileProjectionSignature;
     }
-    seedPrevIdsFromStore();
+    if (pushGeneration !== enableGeneration || activeUser?.userId !== user.userId) return;
+    prevProfileProjectionSignature = profileProjectionSignature;
+    seedPrevIdsFromSnapshot({ arcs, goals, activities });
   } catch (e) {
     if (__DEV__) {
       if (maybeDisableIfSchemaCacheMissingTable(e)) return;
@@ -433,6 +452,10 @@ async function pushNow(): Promise<void> {
     }
   } finally {
     pushInFlight = false;
+    if (pushQueued) {
+      pushQueued = false;
+      schedulePush();
+    }
   }
 }
 
@@ -625,6 +648,7 @@ async function enableForUser(user: SyncUser): Promise<void> {
 
 function disable(): void {
   activeUser = null;
+  pushQueued = false;
   stopRealtimeSubscription();
   stopDomainSub?.();
   stopDomainSub = null;
