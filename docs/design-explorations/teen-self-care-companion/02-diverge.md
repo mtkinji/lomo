@@ -1,5 +1,7 @@
 # Diverge: Where And How The Companion Lives
 
+> **Placement correction after review:** Kwilt has Chat and capabilities, not a routed Home. Alternatives and recommendations below that depend on Home/Today are superseded. The surviving direction is a dedicated Pet capability, with Chat as a contextual entry and explanation surface.
+
 ## Question
 
 The ecosystem metaphor is premature until the interaction contract is clear. Where does Charlie encounter the companion, what can Charlie do with it, and why would Charlie return?
@@ -64,7 +66,7 @@ The companion primarily lives in an iOS Home Screen or Lock Screen widget. Its p
 - Environment implication: only a tiny scene is possible; the ecosystem would be mostly implied.
 - Anti-pattern check: passes if it remains calm and never uses guilt notifications or streak-loss warnings.
 
-## Provisional recommendation
+## Superseded provisional recommendation
 
 Start with **The Home Window plus Responsive Companion moments**. This is not yet full convergence; it is the smallest coherent interaction hypothesis:
 
@@ -100,6 +102,6 @@ The companion should **appear in Chat but not become the chatbot**. It may be ex
 
 The capability also does not need a permanent global-menu entry in the learning release. It can register as a real capability while remaining a Home- and Chat-reached preview surface. A top-level menu destination should be earned only if users intentionally return to visit it.
 
-## Review question
+## Review resolution
 
-Should the learning release treat the companion as a **real but quietly reached capability**—owned independently, encountered on Home and in Chat, and opened into a small native visit surface—without giving it a permanent global-menu entry yet?
+The learning release treats Pet as a real, user-visible capability that appears in the capability menu only after **Settings > Labs > Pet** is enabled. Pet owns the persistent creature and its visit surface. Chat may surface a typed Pet event and hand the user into the capability, but Pet does not appear repeatedly as a timeline character. Home-based alternatives are rejected because they do not match Kwilt's actual navigation model.

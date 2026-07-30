@@ -1,4 +1,4 @@
-# Frame: Teen Self-Care Companion
+# Frame: Pixel Pet
 
 ## What the user said
 
@@ -57,7 +57,7 @@ Constraint posture: `Extend the system`
 
 Current system facts:
 
-- Existing surface: Home/Today, Activities, Goals, Arcs, Household child capabilities, Screen Time agreements, and lightweight completion celebrations.
+- Existing surfaces: Chat, the capability menu, To-dos, Focus sessions, Goals, Arcs, Household child capabilities, Screen Time agreements, and lightweight completion celebrations. Kwilt does not have a routed Home surface.
 - Existing user flow: a real action can already be captured or completed and linked to longer-term becoming.
 - Existing domain/data model: Activities remain the canonical action/completion record; Goals and Arcs carry intention and identity; Household and capability grants carry family authority.
 - Existing technical affordances: static illustrations, emoji, simple shape/icon composition, semantic haptics, sound, and lightweight motion are already available without a character-animation pipeline.
@@ -92,6 +92,6 @@ How might we help Charlie feel that one small act of self-care changed something
 - Bespoke frame-by-frame character animation.
 - Automatic Screen Time rewards or restrictions based on care completion.
 
-## Open question
+## Direction chosen after framing
 
-Resolved by Charlie's idea: the creature lives in its own small ecosystem. The ecosystem, rather than increasingly elaborate character animation, becomes the primary expression of care and change.
+The creature is a deliberately pixel-based Pet intended eventually to live in a dedicated, Labs-enabled capability. Before changing the app, the interaction and art system will be tested in a standalone, phone-shaped site prototype. Chat may eventually explain a Pet event or offer a handoff, but the Pet does not recur through the timeline and does not become the chatbot. A small display habitat gives the Pet a place to live without committing the concept to a navigable ecosystem.
