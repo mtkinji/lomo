@@ -8,6 +8,7 @@ import type { ArcProposalOperation } from './arcProposal';
 import type { ProfileProposalOperation } from './profileProposal';
 import type { ChapterProposalOperation } from './chapterProposal';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
+import type { ScreenTimeProposalOperation } from './screenTimeProposal';
 
 export type UnifiedChatThreadStatus = 'active' | 'archived';
 export type UnifiedChatThreadTitleSource = 'default' | 'generated' | 'user';
@@ -232,7 +233,7 @@ export type UnifiedChatMutationReceipt = {
   id: string;
   proposalId: string;
   operationId: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime';
   idempotencyKey: string;
   status: 'reserved' | 'applied' | 'failed' | 'undone';
   resultingObjectType: string | null;
@@ -274,7 +275,7 @@ export type TransitionUnifiedChatRunInput = {
 };
 
 export type PersistUnifiedChatMutationReceiptInput = {
-  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters';
+  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime';
   threadId: string;
   proposalId: string;
   operationId: string;
@@ -398,6 +399,12 @@ export type PlanRemoveActivityPayload = {
 };
 
 export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
+  | {
+      capabilityId: 'screenTime';
+      type: ScreenTimeProposalOperation['type'];
+      targetId: null;
+      payload: ScreenTimeProposalOperation['payload'];
+    }
   | {
       capabilityId: 'relationships';
       type: 'remember_relationship' | 'correct_relationship' | 'forget_relationship';
@@ -531,6 +538,10 @@ type UnifiedChatProposalBase = {
 
 export type UnifiedChatProposal = UnifiedChatProposalBase & (
   | {
+      capabilityId: 'screenTime';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'screenTime' }>;
+    }
+  | {
       capabilityId: 'relationships';
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'relationships' }>;
     }
@@ -577,6 +588,12 @@ type CreatePlanProposalOperationInput = (
 ) & { summary: string; idempotencyKey: string };
 
 export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase & (
+  | {
+      capabilityId: 'screenTime';
+      operation: ScreenTimeProposalOperation & {
+        summary: string; idempotencyKey: string; expectedUpdatedAt?: null;
+      };
+    }
   | {
       capabilityId: 'chapters';
       operation: ChapterProposalOperation & { summary: string; idempotencyKey: string };

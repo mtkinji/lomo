@@ -78,6 +78,8 @@ import { HapticsService } from '../../services/HapticsService';
 import { extractInspectableSourceUrls } from './webSearchResponse';
 import { executePlanProposalDecision } from './executePlanProposalDecision';
 import { executeGoalProposalDecision } from './executeGoalProposalDecision';
+import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
+import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
 import { executePlanProposalBatch } from './executePlanProposalBatch';
 import { recoverPlanMutations } from './recoverPlanMutations';
@@ -97,7 +99,7 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
 import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
-import { buildUnifiedChatReconciliationTelemetry } from './unifiedChatTelemetry';
+import { buildFamilyScreenTimeDecisionTelemetry, buildUnifiedChatReconciliationTelemetry } from './unifiedChatTelemetry';
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import {
   insertUnifiedChatTranscriptAtSelection,
@@ -744,6 +746,33 @@ export function UnifiedChatScreen() {
       if (command.type === 'proposal.decide' && aggregate) {
         const proposal = (aggregate.proposals ?? []).find((item) => item.id === command.proposalId);
         if (!proposal || proposal.version !== command.expectedVersion) return;
+        if (proposal.capabilityId === 'screenTime') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Screen Time change.');
+            return;
+          }
+          setError(null);
+          track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatProposalDecided,
+            buildFamilyScreenTimeDecisionTelemetry(proposal, command.action));
+          try {
+            await executeScreenTimeProposalDecision({
+              proposal, action: command.action, repository, client: getSupabaseClient(),
+            });
+            track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatPolicyOutcome,
+              buildFamilyScreenTimeDecisionTelemetry(
+                proposal, command.action, command.action === 'approve' ? 'saved' : 'not_applied',
+              ));
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            track(posthogClient, AnalyticsEvent.FamilyScreenTimeChatPolicyOutcome,
+              buildFamilyScreenTimeDecisionTelemetry(proposal, command.action, 'failed'));
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error
+              ? decisionError.message
+              : 'Kwilt could not save that Screen Time change.');
+          }
+          return;
+        }
         if (proposal.capabilityId === 'plan') {
           if (command.action === 'edit') {
             setError('Change the timing in Plan after adding it.');

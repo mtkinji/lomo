@@ -1,6 +1,7 @@
 import type { AgentToolLoopEvent } from '@kwilt/agent-runtime';
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
 import type { UnifiedChatThreadAggregate } from './types';
+import type { UnifiedChatProposal } from './types';
 
 export type UnifiedChatTelemetryProperties = Record<
   string,
@@ -66,4 +67,19 @@ export function buildUnifiedChatReconciliationTelemetry(
     receipt_count: record.count,
     trigger: 'thread_load',
   }));
+}
+
+export function buildFamilyScreenTimeDecisionTelemetry(
+  proposal: Extract<UnifiedChatProposal, { capabilityId: 'screenTime' }>,
+  action: 'edit' | 'reject' | 'defer' | 'approve',
+  outcome?: 'saved' | 'failed' | 'not_applied',
+): UnifiedChatTelemetryProperties {
+  return {
+    capability_id: 'screenTime',
+    operation_type: proposal.operation.type,
+    decision: action,
+    target_count: proposal.operation.payload.targets.length,
+    time_basis: proposal.operation.payload.timeBasis,
+    ...(outcome ? { outcome } : {}),
+  };
 }

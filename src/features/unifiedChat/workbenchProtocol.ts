@@ -93,7 +93,7 @@ export type AgentWorkbenchProposal = {
   id: string;
   runId: string;
   messageId?: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime';
   title: string;
   body: string;
   status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
@@ -105,7 +105,8 @@ export type AgentWorkbenchProposal = {
       'reorder_activity_steps' | 'schedule_activity' | 'schedule_activity_chunk' | 'reschedule_activity' |
       'remove_activity_from_plan' | 'create_goal' | 'update_goal' | 'delete_goal' |
       'create_arc' | 'update_arc' | 'delete_arc' | 'update_profile' | 'update_chapter_note' |
-      'remember_relationship' | 'correct_relationship' | 'forget_relationship';
+      'remember_relationship' | 'correct_relationship' | 'forget_relationship' |
+      'block_family_screen_time_selection' | 'allow_family_screen_time_selection';
     targetId?: string;
     summary: string;
     fields: Record<string, unknown>;

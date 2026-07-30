@@ -216,7 +216,7 @@ export function classifyUnifiedChatRequest({
     return {
       requestClass: 'native_control',
       participatingCapabilities: ['screenTime'],
-      usePrivateContext: false,
+      usePrivateContext: true,
       clarification: null,
       policyReason: 'native-capability-authorization-required',
     };

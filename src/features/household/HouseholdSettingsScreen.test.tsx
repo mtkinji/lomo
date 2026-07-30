@@ -52,7 +52,7 @@ const familySnapshot: HouseholdSnapshot = {
 };
 
 const screenProps = {
-  navigation: { goBack: jest.fn() },
+  navigation: { goBack: jest.fn(), navigate: jest.fn() },
   route: { key: 'household', name: 'SettingsHousehold' },
 } as any;
 
@@ -76,6 +76,7 @@ describe('HouseholdSettingsScreen', () => {
       expiresAt: '2026-08-05T00:00:00Z',
     });
     mockAcceptHouseholdMemberInvite.mockReset().mockResolvedValue(familySnapshot);
+    screenProps.navigation.navigate.mockReset();
   });
 
   it('creates the Household just in time when the first child is added', async () => {
@@ -161,6 +162,27 @@ describe('HouseholdSettingsScreen', () => {
       enabled: true,
     }));
     expect(mockSetChildCapabilityActivation).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the selected child Screen Time setup after activation', async () => {
+    mockGetHouseholdSnapshot.mockResolvedValue({
+      ...familySnapshot,
+      activations: [{
+        childMembershipId: 'child-1',
+        capabilityId: 'screen-time',
+        state: 'pending_setup',
+      }],
+    });
+    const { getAllByText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+
+    await waitFor(() => expect(getByText("Riley's Screen Time")).toBeTruthy());
+    expect(getAllByText('Set up').length).toBeGreaterThan(0);
+    fireEvent.press(getByText("Riley's Screen Time"));
+
+    expect(screenProps.navigation.navigate).toHaveBeenCalledWith('SettingsFamilyScreenTime', {
+      childMembershipId: 'child-1',
+      childDisplayName: 'Riley',
+    });
   });
 
   it('grants one caregiver authority for one child and capability', async () => {

@@ -51,6 +51,28 @@ export function resolveClientActionOpenInstruction(
           params: { setupIntent: 'settings_discovery', entrySurface: 'settings' },
         },
       };
+    case 'open_family_screen_time_setup': {
+      const childDisplayName = typeof action.payload.childDisplayName === 'string'
+        ? action.payload.childDisplayName.trim()
+        : '';
+      const setupStep = action.payload.setupStep === 'selection' || action.payload.setupStep === 'release'
+        ? action.payload.setupStep
+        : 'device';
+      if (!action.targetId || !childDisplayName) return null;
+      return {
+        kind: 'navigate', name: 'Settings', params: {
+          screen: 'SettingsFamilyScreenTime', params: {
+            childMembershipId: action.targetId,
+            childDisplayName,
+            setupStep,
+            ...(typeof action.payload.suggestedLabel === 'string'
+              ? { suggestedLabel: action.payload.suggestedLabel }
+              : {}),
+            clientActionId: action.id,
+          },
+        },
+      };
+    }
     case 'configure_notifications':
       return { kind: 'navigate', name: 'Settings', params: { screen: 'SettingsNotifications' } };
     case 'open_account_settings':

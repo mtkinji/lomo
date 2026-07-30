@@ -53,10 +53,12 @@ Kwilt
 ├── Games
 ├── Stories & Memories
 ├── Home & Meals
-└── Screen Time
+└── Screen Time                              cross-capability control platform; not a menu destination
 ```
 
 Group labels organize comprehension and expansion in the global menu; they are not extra product destinations unless they have a durable user job of their own.
+
+Screen Time is a named capability for product comprehension, entitlement, onboarding, help, analytics, and system ownership, but it is not a stable place of work in global navigation. Personal agreements are managed through **Settings > Screen Time**, Money agreements remain with their category, and family agreements remain with the named child in Household. See the canonical [Screen Time Control Plane](screen-time-control-plane.md).
 
 ### Child capability composition
 

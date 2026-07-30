@@ -8,6 +8,7 @@ export type KwiltSwitchProps = {
   disabled?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  tone?: 'default' | 'inverse';
   value: boolean;
 };
 
@@ -19,6 +20,7 @@ export function KwiltSwitch({
   disabled = false,
   onPress,
   style,
+  tone = 'default',
   value,
 }: KwiltSwitchProps) {
   const animation = useRef(new Animated.Value(value ? 1 : 0)).current;
@@ -28,11 +30,21 @@ export function KwiltSwitch({
   });
   const trackBackgroundColor = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#DDE1DC', colors.pine700],
+    outputRange: tone === 'inverse'
+      ? ['rgba(250,247,237,0.14)', colors.parchment]
+      : ['#DDE1DC', colors.pine700],
   });
   const trackBorderColor = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#C9CEC8', colors.pine700],
+    outputRange: tone === 'inverse'
+      ? ['rgba(250,247,237,0.72)', colors.parchment]
+      : ['#C9CEC8', colors.pine700],
+  });
+  const thumbBackgroundColor = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: tone === 'inverse'
+      ? [colors.parchment, colors.pine700]
+      : [colors.canvas, colors.canvas],
   });
 
   useEffect(() => {
@@ -54,7 +66,12 @@ export function KwiltSwitch({
         },
       ]}
     >
-      <Animated.View style={[styles.thumb, { transform: [{ translateX: thumbTranslateX }] }]} />
+      <Animated.View
+        style={[
+          styles.thumb,
+          { backgroundColor: thumbBackgroundColor, transform: [{ translateX: thumbTranslateX }] },
+        ]}
+      />
     </Animated.View>
   );
 

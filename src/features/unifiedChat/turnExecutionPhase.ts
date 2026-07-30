@@ -21,7 +21,7 @@ import { transitionRun } from './runStateMachine';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
 import { createUnifiedChatToolProvider } from './unifiedChatToolProvider';
 import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
-import { inferredGoalTargetDate, directRecurringReminder, directScreenTimeControl } from './directAppControl';
+import { inferredGoalTargetDate, directRecurringReminder } from './directAppControl';
 import { ACTIVITY_ACTION_RESPONSE_FORMAT, parseActivityActionResponse } from './activityProposal';
 import { GROUNDED_ANSWER_RESPONSE_FORMAT, formatGroundedAnswer, parseGroundedAnswer } from './groundedAnswer';
 import { normalizeSuggestedThreadTitle } from './threadTitle';
@@ -46,6 +46,7 @@ function groundingSummary(
   requestPolicy: UnifiedChatRequestPolicy,
   context: BuiltRunContext,
   attachments: readonly UnifiedChatTextAttachment[],
+  snapshots: UnifiedChatCapabilitySnapshots,
   planConversationReferent?: PlanPlacementConversationReferent | null,
   pendingWorkConversationReferent?: PendingWorkConversationReferent | null,
 ): string {
@@ -69,6 +70,11 @@ function groundingSummary(
     if (participatingCapabilities.includes('goals')) {
       parts.push(
         'When the user asks for a new Goal and also describes a daily follow-through habit, call goals.create once with the bounded Goal targetDate and a followUpActivity containing only its title and daily repeat rule. Do not invent an Arc or call activities.capture before the reviewed Goal exists. After approval, Kwilt will offer the Activity using the authoritative created Goal id.',
+      );
+    }
+    if (participatingCapabilities.includes('screenTime')) {
+      parts.push(
+        'For direct family Screen Time controls, resolve the child and saved selection only from the authorized machine references below. Use screen_time.override.block or screen_time.override.allow with an exact future expiresAt and all resolved targets in one proposal. If the named app has no saved selection for that child, call screen_time.selection.open for that exact child instead of guessing. Use screen_time.device.setup.open when the user asks to connect a child device. Never use screen_time.configure for a direct app request. An allow affects only Kwilt family restrictions and may not override Apple or other controls. Never claim the child device changed until a device receipt says applied.',
       );
     }
   }
@@ -108,6 +114,23 @@ function groundingSummary(
           'Machine ids are tool-only and must never appear in visible prose. Plan times and candidate placements are already expressed for this device context; preserve their offset and ask for a clearer clock time when needed, not the user’s time zone.',
         );
       }
+    }
+    if (participatingCapabilities.includes('screenTime') && snapshots.screenTime) {
+      const references = snapshots.screenTime.children.filter((child) => child.canManage).map((child) => ({
+        childMembershipId: child.membershipId,
+        displayName: child.displayName,
+        expectedVersion: child.policy.desiredPolicyVersion,
+        deviceReady: child.policy.devices.some((device) => (
+          device.readiness === 'ready' && device.authorizationStatus === 'authorized'
+        )),
+        selections: child.policy.selections.filter((selection) => selection.status === 'active').map((selection) => ({
+          selectionId: selection.id,
+          label: selection.label,
+        })),
+      }));
+      parts.push(
+        `Screen Time machine references (tool-only; never show ids in visible prose): ${JSON.stringify(references)}`,
+      );
     }
   } else {
     parts.push('Do not use private Kwilt capability context for this request.');
@@ -274,22 +297,16 @@ export async function executeUnifiedChatTurnPhase(
   const directReminder = input.requestPolicy.participatingCapabilities.includes('todos')
     ? directRecurringReminder(input.prompt)
     : null;
-  const directScreenTime = input.requestPolicy.requestClass === 'native_control' &&
-    input.requestPolicy.participatingCapabilities.includes('screenTime')
-    ? directScreenTimeControl(input.prompt)
-    : null;
   const directTool = directReminder || directCompoundTitles
     ? runtimeTools.find((tool) => tool.id === 'activities.capture')
-    : directScreenTime
-      ? runtimeTools.find((tool) => tool.id === 'screen_time.configure')
-      : undefined;
+    : undefined;
   let directResponse: string | null = null;
-  if ((directReminder || directCompoundTitles || directScreenTime) && !directTool) {
+  if ((directReminder || directCompoundTitles) && !directTool) {
     throw input.error('Kwilt could not load the capability needed for that request.');
   }
   if (directTool) {
     const directArguments = directCompoundTitles?.map((title) => ({ title })) ?? [
-      directReminder ?? directScreenTime ?? {},
+      directReminder ?? {},
     ];
     const results: AgentToolExecutionResult[] = [];
     const events: AgentToolLoopEvent[] = [];
@@ -312,9 +329,7 @@ export async function executeUnifiedChatTurnPhase(
     }
     runtimeToolEvents = events;
     const result = results[0];
-    if (result.status === 'unavailable' && directScreenTime) {
-      directResponse = `Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change ${directScreenTime.appName} on ${directScreenTime.childName}'s device.`;
-    } else if (results.some((item) => item.status !== 'proposed' && item.status !== 'pending_client_action')) {
+    if (results.some((item) => item.status !== 'proposed' && item.status !== 'pending_client_action')) {
       input.setFailureCode('direct_app_control_failed');
       throw input.error(
         result.status === 'needs_input'
@@ -326,7 +341,7 @@ export async function executeUnifiedChatTurnPhase(
         ? `I prepared ${directCompoundTitles.length} To-dos for review.`
         : directReminder
           ? `I prepared a recurring “${directReminder.title}” reminder for review.`
-          : `I prepared ${directScreenTime?.appName ?? 'that app'} access for ${directScreenTime?.childName ?? 'that child'} for native review.`;
+          : 'I prepared that change for review.';
     }
   }
   const response = directResponse ?? await input.sendCoachChat(input.history, {
@@ -357,6 +372,7 @@ export async function executeUnifiedChatTurnPhase(
         input.requestPolicy,
         input.context,
         input.turnAttachments,
+        input.snapshots,
         input.planConversationReferent,
         pendingWorkConversationReferent,
       ),

@@ -36,3 +36,18 @@ test('Goal check-in opens the existing native approval sheet', () => {
     },
   });
 });
+
+test('family Screen Time setup opens the exact child and requested native step', () => {
+  expect(resolveClientActionOpenInstruction({
+    ...action('open_family_screen_time_setup', 'child-charlie'),
+    capabilityId: 'screenTime', targetType: 'family_screen_time_child',
+    payload: { childDisplayName: 'Charlie', setupStep: 'selection', suggestedLabel: 'YouTube' },
+  })).toEqual({
+    kind: 'navigate', name: 'Settings', params: {
+      screen: 'SettingsFamilyScreenTime', params: {
+        childMembershipId: 'child-charlie', childDisplayName: 'Charlie',
+        setupStep: 'selection', suggestedLabel: 'YouTube', clientActionId: 'action-1',
+      },
+    },
+  });
+});

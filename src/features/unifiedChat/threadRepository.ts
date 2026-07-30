@@ -33,6 +33,7 @@ import type {
   UpdateUnifiedChatArtifactInput,
 } from './types';
 import { isUnifiedChatCapabilityId } from './requestPolicy';
+import { parseStoredScreenTimeProposalOperation } from './screenTimeProposal';
 import { validateUnifiedChatAttachmentSet } from './unifiedChatAttachmentPolicy';
 
 const THREAD_COLUMNS = 'id,title,title_source,status,archived_at,created_at,updated_at';
@@ -284,6 +285,18 @@ function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
     ? row.payload as Record<string, unknown>
     : {};
   if (
+    row.capability_id === 'screenTime' && row.target_id == null &&
+    (row.operation_type === 'block_family_screen_time_selection' ||
+      row.operation_type === 'allow_family_screen_time_selection')
+  ) {
+    const operation = parseStoredScreenTimeProposalOperation({
+      type: row.operation_type,
+      targetId: null,
+      payload,
+    });
+    return operation ? { ...base, capabilityId: 'screenTime', ...operation } : null;
+  }
+  if (
     row.capability_id === 'relationships' &&
     (row.operation_type === 'remember_relationship' || row.operation_type === 'correct_relationship' ||
       row.operation_type === 'forget_relationship') &&
@@ -445,7 +458,7 @@ function mapProposal(row: DbRow, operation: UnifiedChatProposalOperation): Unifi
 function mapReceipt(row: DbRow): UnifiedChatMutationReceipt | null {
   if (row.capability_id !== 'todos' && row.capability_id !== 'plan' && row.capability_id !== 'goals' &&
       row.capability_id !== 'arcs' && row.capability_id !== 'profile' && row.capability_id !== 'chapters' &&
-      row.capability_id !== 'relationships') return null;
+      row.capability_id !== 'relationships' && row.capability_id !== 'screenTime') return null;
   const status = row.status === 'reserved' || row.status === 'undone' || row.status === 'failed'
     ? row.status
     : 'applied';
@@ -953,17 +966,20 @@ export function createUnifiedChatRepository(
           proposal_id: proposalId,
           capability_id: input.capabilityId,
           operation_type: input.operation.type,
-          target_type: input.capabilityId === 'arcs' ? 'arc'
+          target_type: input.capabilityId === 'screenTime' ? 'family_screen_time_override'
+            : input.capabilityId === 'arcs' ? 'arc'
             : input.capabilityId === 'goals' ? 'goal'
               : input.capabilityId === 'profile' ? 'profile'
                 : input.capabilityId === 'chapters' ? 'chapter'
                   : 'activity',
           target_id: input.operation.targetId,
           summary: input.operation.summary,
-          payload: {
-            ...input.operation.payload,
-            expectedUpdatedAt: input.operation.expectedUpdatedAt,
-          },
+          payload: input.capabilityId === 'screenTime'
+            ? input.operation.payload
+            : {
+                ...input.operation.payload,
+                expectedUpdatedAt: input.operation.expectedUpdatedAt,
+              },
           idempotency_key: input.operation.idempotencyKey,
           sequence: 1,
         })

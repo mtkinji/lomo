@@ -169,6 +169,32 @@ const RELATIONSHIP_FORGET_SCHEMA = {
   required: ['recordType', 'recordId', 'expectedUpdatedAt'],
   additionalProperties: false,
 } as const;
+const SCREEN_TIME_TARGET_SCHEMA = {
+  type: 'object',
+  properties: {
+    childMembershipId: { type: 'string', minLength: 1 },
+    selectionId: { type: 'string', minLength: 1 },
+    expectedVersion: { type: 'integer', minimum: 0 },
+  },
+  required: ['childMembershipId', 'selectionId', 'expectedVersion'],
+  additionalProperties: false,
+} as const;
+const SCREEN_TIME_AGREEMENT_RULE_SCHEMA = {
+  type: 'object',
+  properties: {
+    weekdays: { type: 'array', minItems: 1, maxItems: 7, items: { type: 'integer', minimum: 0, maximum: 6 } },
+    startMinute: { type: 'integer', minimum: 0, maximum: 1439 },
+    endMinute: { type: 'integer', minimum: 1, maximum: 1440 },
+    dailyLimitMinutes: { type: ['integer', 'null'], minimum: 1, maximum: 1440 },
+  },
+  required: ['weekdays', 'startMinute', 'endMinute', 'dailyLimitMinutes'],
+  additionalProperties: false,
+} as const;
+const SCREEN_TIME_OVERRIDE_PROPERTIES = {
+  targets: { type: 'array', minItems: 1, maxItems: 20, items: SCREEN_TIME_TARGET_SCHEMA },
+  expiresAt: { type: 'string', format: 'date-time' },
+  timeBasis: { type: 'string', enum: ['wall_clock'] },
+} as const;
 
 export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
@@ -200,6 +226,134 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     purpose: 'Forget one identified relationship memory, event, or cadence using its current version and retain exact receipt undo.',
     providers: ['server'], effect: 'write', consequence: 'low', reversible: true,
     confirmation: 'none', canDeferToClient: false, inputSchema: RELATIONSHIP_FORGET_SCHEMA, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.read', version: 1, capabilityId: 'screenTime',
+    purpose: 'Read authorized child Screen Time agreements, saved selection labels, active overrides, requests, and delivery state without usage history or Apple tokens.',
+    providers: ['device'], effect: 'read', consequence: 'low', reversible: true,
+    confirmation: 'none', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipIds: { type: 'array', maxItems: 20, items: { type: 'string', minLength: 1 } },
+      }, additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.agreement.create', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage a new standing Screen Time agreement for one authorized child and saved native selection.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipId: { type: 'string', minLength: 1 },
+        selectionId: { type: 'string', minLength: 1 },
+        expectedVersion: { type: 'integer', enum: [0] },
+        rule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+      }, required: ['childMembershipId', 'selectionId', 'expectedVersion', 'rule'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.agreement.update', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage an exact update to one standing child Screen Time agreement using its current version.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipId: { type: 'string', minLength: 1 }, agreementId: { type: 'string', minLength: 1 },
+        selectionId: { type: 'string', minLength: 1 }, expectedVersion: { type: 'integer', minimum: 1 },
+        rule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+      }, required: ['childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', 'rule'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.agreement.deactivate', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage deactivation of one standing child Screen Time agreement without claiming device cleanup has completed.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipId: { type: 'string', minLength: 1 }, agreementId: { type: 'string', minLength: 1 },
+        selectionId: { type: 'string', minLength: 1 }, expectedVersion: { type: 'integer', minimum: 1 },
+        currentRule: SCREEN_TIME_AGREEMENT_RULE_SCHEMA,
+      }, required: ['childMembershipId', 'agreementId', 'selectionId', 'expectedVersion', 'currentRule'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.override.block', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage one atomic wall-clock block for saved selections on one or more authorized child devices.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: SCREEN_TIME_OVERRIDE_PROPERTIES,
+      required: ['targets', 'expiresAt', 'timeBasis'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.override.allow', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage one atomic wall-clock allowance through named Kwilt family restrictions for saved selections on one or more children.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: SCREEN_TIME_OVERRIDE_PROPERTIES,
+      required: ['targets', 'expiresAt', 'timeBasis'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.override.cancel', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage cancellation of one active temporary Screen Time override and recompile remaining claims.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipId: { type: 'string', minLength: 1 }, overrideId: { type: 'string', minLength: 1 },
+        expectedVersion: { type: 'integer', minimum: 1 },
+      }, required: ['childMembershipId', 'overrideId', 'expectedVersion'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.request.decide', version: 1, capabilityId: 'screenTime',
+    purpose: 'Stage approval or denial of one pending child request; approval creates the same bounded allow override as a caregiver command.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipId: { type: 'string', minLength: 1 }, requestId: { type: 'string', minLength: 1 },
+        decision: { type: 'string', enum: ['approved', 'denied'] },
+        allowMinutes: { type: ['integer', 'null'], minimum: 1, maximum: 1440 },
+        expectedVersion: { type: 'integer', minimum: 0 },
+      }, required: ['childMembershipId', 'requestId', 'decision', 'allowMinutes', 'expectedVersion'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.selection.open', version: 1, capabilityId: 'screenTime',
+    purpose: 'Open the native Apple app-selection flow for one child when a caregiver label has no saved selection.',
+    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        childMembershipId: { type: 'string', minLength: 1 }, suggestedLabel: { type: ['string', 'null'], maxLength: 80 },
+      }, required: ['childMembershipId', 'suggestedLabel'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.device.setup.open', version: 1, capabilityId: 'screenTime',
+    purpose: 'Open native child-device setup and Apple authorization without claiming the device is ready.',
+    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: { childMembershipId: { type: 'string', minLength: 1 } },
+      required: ['childMembershipId'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'screen_time.device.release.open', version: 1, capabilityId: 'screenTime',
+    purpose: 'Open native child-device release review without claiming shields have been removed.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: { childMembershipId: { type: 'string', minLength: 1 } },
+      required: ['childMembershipId'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
   },
   {
     id: 'screen_time.configure', version: 1, capabilityId: 'screenTime',

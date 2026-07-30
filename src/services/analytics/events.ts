@@ -65,6 +65,8 @@ export const AnalyticsEvent = {
   UnifiedChatProviderOutcome: 'unified_chat_provider_outcome',
   UnifiedChatReconciled: 'unified_chat_reconciled',
   UnifiedChatNextTurnCorrection: 'unified_chat_next_turn_correction',
+  FamilyScreenTimeChatProposalDecided: 'family_screen_time_chat_proposal_decided',
+  FamilyScreenTimeChatPolicyOutcome: 'family_screen_time_chat_policy_outcome',
 
   // Phone Agent SMS beta. Server-side callers must only attach safe metadata:
   // channel, action type, prompt kind, object kind, and booleans.
@@ -207,6 +209,14 @@ export const AnalyticsEvent = {
   ScreenTimeSetupAbandoned: 'screen_time_setup_abandoned',
   ScreenTimeSetupNotificationScheduled: 'screen_time_setup_notification_scheduled',
   ScreenTimeSetupNotificationOpened: 'screen_time_setup_notification_opened',
+
+  // Family Screen Time learning flow. Child membership IDs and bounded state
+  // enums only; never Apple tokens, app identities, content, location, or usage.
+  FamilyScreenTimeViewed: 'family_screen_time_viewed',
+  FamilyScreenTimeSetupOpened: 'family_screen_time_setup_opened',
+  FamilyScreenTimeAgreementActivated: 'family_screen_time_agreement_activated',
+  FamilyScreenTimePolicyApplied: 'family_screen_time_policy_applied',
+  FamilyScreenTimePolicyFailed: 'family_screen_time_policy_failed',
 
   // Chapters (see docs/chapters-plan.md Phase 1.1).
   //

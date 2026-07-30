@@ -44,8 +44,8 @@ describe('classifyUnifiedChatRequest', () => {
     ["Actually, Lily's birthday is October 14.", 'capability_action', true, ['relationships']],
     ["Forget Lily's birthday.", 'capability_action', true, ['relationships']],
     ['Move my unfinished errands to Saturday morning.', 'capability_action', true, ['todos', 'plan']],
-    ['Block games until reading is done.', 'native_control', false, ['screenTime']],
-    ['Turn on Brawl Stars for Charlie.', 'native_control', false, ['screenTime']],
+    ['Block games until reading is done.', 'native_control', true, ['screenTime']],
+    ['Turn on Brawl Stars for Charlie.', 'native_control', true, ['screenTime']],
     ['Can you diagnose this chest pain?', 'better_served_elsewhere', false, []],
   ] as const)(
     'classifies %s as %s',

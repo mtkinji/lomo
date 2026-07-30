@@ -1,6 +1,6 @@
 import { Alert, ScrollView, StyleSheet, View, Pressable, TextInput, Switch } from 'react-native';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppShell } from '../../ui/layout/AppShell';
 import { PageHeader } from '../../ui/layout/PageHeader';
@@ -50,6 +50,7 @@ import {
   celebrateAllActivitiesDone,
   celebrateStreakSaved,
 } from '../../store/useCelebrationStore';
+import { FamilyScreenTimeDevControls } from '../household/screenTime/FamilyScreenTimeDevControls';
 
 type DevToolSectionId = 'seed' | 'preview' | 'simulate' | 'experiments' | 'diagnostics';
 
@@ -130,6 +131,7 @@ export function DevToolsScreen() {
   if (!__DEV__) return null;
 
   const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const route = useRoute<RouteProp<RootDrawerParamList, 'DevTools'>>();
   const insets = useSafeAreaInsets();
   const isFlowActive = useFirstTimeUxStore((state) => state.isFlowActive);
   const triggerCount = useFirstTimeUxStore((state) => state.triggerCount);
@@ -184,6 +186,7 @@ export function DevToolsScreen() {
   const devOverrideIsPro = useEntitlementsStore((state) => state.devOverrideIsPro);
   const devSetIsPro = useEntitlementsStore((state) => state.devSetIsPro);
   const devClearProOverride = useEntitlementsStore((state) => state.devClearProOverride);
+  const authUserId = useAppStore((state) => state.authIdentity?.userId ?? 'signed-out');
 
   const [chatHistory, setChatHistory] = useState<DevCoachChatLogEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -1245,10 +1248,17 @@ export function DevToolsScreen() {
           <DevToolSection
             title="Simulate state"
             description="Override tier, paywalls, and AI credit states."
-            count={9}
+            count={route.params?.familyScreenTimeChild ? 10 : 9}
             expanded={expandedSections.simulate}
             onToggle={() => toggleSection('simulate')}
           >
+            {route.params?.familyScreenTimeChild ? (
+              <FamilyScreenTimeDevControls
+                childDisplayName={route.params.familyScreenTimeChild.childDisplayName}
+                childMembershipId={route.params.familyScreenTimeChild.childMembershipId}
+                userId={authUserId}
+              />
+            ) : null}
             <View style={styles.card}>
               <Text style={styles.cardEyebrow}>Monetization (dev)</Text>
               <Text style={styles.cardBody}>

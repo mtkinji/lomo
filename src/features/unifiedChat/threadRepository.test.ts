@@ -935,6 +935,45 @@ describe('Unified Chat repository', () => {
     });
   });
 
+  test('persists and maps a family Screen Time override without inventing an activity target', async () => {
+    const proposalRow = {
+      id: 'proposal-screen-time', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
+      capability_id: 'screenTime', title: 'Block Brawl Stars', body: 'Charlie · until 1:00 PM',
+      status: 'pending', version: 1, created_at: '2026-07-30T10:00:00.000Z', updated_at: '2026-07-30T10:00:00.000Z',
+    };
+    const payload = {
+      targets: [{ childMembershipId: 'charlie', selectionId: 'selection-charlie', expectedVersion: 7 }],
+      timeBasis: 'wall_clock' as const, expiresAt: '2026-07-30T13:00:00.000Z',
+    };
+    const operationRow = {
+      id: 'operation-screen-time', proposal_id: 'proposal-screen-time', capability_id: 'screenTime',
+      operation_type: 'block_family_screen_time_selection', target_type: 'family_screen_time_override', target_id: null,
+      summary: 'Block Brawl Stars', payload, idempotency_key: 'unified-chat:run-1:screen-time:1', sequence: 1,
+    };
+    const { client, calls } = createClient([
+      { data: proposalRow, error: null }, { data: operationRow, error: null },
+    ]);
+    const repository = createUnifiedChatRepository(client as never);
+
+    await expect(repository.createProposal({
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'screenTime',
+      title: proposalRow.title, body: proposalRow.body, permissionPolicy: { requiresExplicitApproval: true },
+      operation: {
+        type: 'block_family_screen_time_selection', targetId: null, payload,
+        summary: operationRow.summary, idempotencyKey: operationRow.idempotency_key,
+      },
+    })).resolves.toMatchObject({
+      capabilityId: 'screenTime', operation: { type: 'block_family_screen_time_selection', payload },
+    });
+    expect(calls).toContainEqual({
+      table: 'kwilt_agent_proposal_operations', method: 'insert',
+      args: [expect.objectContaining({
+        capability_id: 'screenTime', operation_type: 'block_family_screen_time_selection',
+        target_type: 'family_screen_time_override', target_id: null, payload,
+      })],
+    });
+  });
+
   test('persists and optimistically advances a pending device action', async () => {
     const pendingRow = {
       id: 'client-action-1', thread_id: 'thread-1', run_id: 'run-1', message_id: 'message-2',
