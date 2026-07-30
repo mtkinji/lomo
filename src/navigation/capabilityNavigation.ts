@@ -1,6 +1,8 @@
 import { getCapability, getCapabilityMenuDestination } from '../capabilities/registry';
 import type { CapabilityNavigationId } from '../capabilities/types';
 
+export const ROOT_DRAWER_BACK_BEHAVIOR = 'history' as const;
+
 export type CapabilityNavigationTarget =
   | {
       name: 'MainTabs';
@@ -34,6 +36,10 @@ export type CapabilityNavigationTarget =
   | {
       name: 'Explore';
       params: { screen: 'ExploreMap' };
+    }
+  | {
+      name: 'Games';
+      params: { screen: 'GamesShelf' };
     };
 
 export function resolveCapabilityNavigation(id: CapabilityNavigationId): CapabilityNavigationTarget {
@@ -46,6 +52,9 @@ export function resolveCapabilityNavigation(id: CapabilityNavigationId): Capabil
   }
   if (rootRoute.root === 'Explore') {
     return { name: 'Explore', params: { screen: rootRoute.screen } };
+  }
+  if (rootRoute.root === 'Games') {
+    return { name: 'Games', params: { screen: rootRoute.screen } };
   }
 
   switch (rootRoute.tab) {

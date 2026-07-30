@@ -174,6 +174,7 @@ export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
   languageCase('money.connection.connect', 'Connect my bank account to Money.'),
   languageCase('money.connection.sync', 'Sync my connected bank accounts now.'),
   languageCase('explore.open', undefined, 'Explore opens from the native capability menu; Chat does not receive or control precise location history.'),
+  languageCase('games.open', undefined, 'Games opens from the native capability menu; Chat does not yet start sessions, seat players, or act on game state.'),
   languageCase('account.show_up_status', 'How is my show-up streak doing?'),
   languageCase('account.settings.open', 'Open my account settings.'),
   languageCase('account.subscription.manage', 'Let me manage my subscription.'),

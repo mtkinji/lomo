@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-nearby-table",
+  "version": "0.1.0",
+  "description": "Foreground-only nearby Kwilt table discovery for Apple devices",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

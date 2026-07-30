@@ -193,7 +193,10 @@ export function getAuthRuntimeDiagnostics(): AuthRuntimeDiagnostics {
   const easBuildProfile = easBuildProfileRaw || undefined;
   const authBrandOrigin = getAuthBrandOrigin();
   const supabaseUrl = getSupabaseUrl();
-  const redirectScheme = (((Constants as any)?.expoConfig as any)?.scheme ?? ((Constants as any)?.manifest2 as any)?.extra?.scheme ?? 'kwilt')
+  const configuredScheme = ((Constants as any)?.expoConfig as any)?.scheme
+    ?? ((Constants as any)?.manifest2 as any)?.extra?.scheme
+    ?? 'kwilt';
+  const redirectScheme = (Array.isArray(configuredScheme) ? configuredScheme[0] : configuredScheme)
     ?.toString?.()
     ?.trim?.() || 'kwilt';
   const warnings: string[] = [];
@@ -229,5 +232,4 @@ export function getAuthRuntimeDiagnostics(): AuthRuntimeDiagnostics {
     warnings,
   };
 }
-
 

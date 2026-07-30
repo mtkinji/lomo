@@ -72,6 +72,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     title: 'Personalization',
     entries: [
       { id: 'explore', title: 'Explore', route: 'SettingsExplore' },
+      { id: 'games', title: 'Games', route: 'SettingsGames' },
       { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
       {
         id: 'screen_time_protection',
