@@ -75,6 +75,31 @@ Start with **The Home Window plus Responsive Companion moments**. This is not ye
 
 The first learning release does not need a navigable ecosystem, dedicated tab, decoration mode, store, inventory, or parent-facing state. It needs only enough environment to make the companion feel situated and changing. A real habitat should be earned by evidence that users want to visit, not assumed because the metaphor sounds rich.
 
+## Cross-cutting synthesis: capability owner, distributed presence
+
+"The companion is its own capability" and "the companion appears in Chat" answer different questions and can be combined.
+
+The **Companion capability** should own:
+
+- companion identity and chosen name;
+- visual/cosmetic state and the small amount of habitat state;
+- deterministic rules that translate authorized Kwilt evidence into reactions or discoveries;
+- teen opt-in, privacy, family-sharing boundaries, lifecycle, export, and deletion;
+- its native visit/open surface and structured presentation model.
+
+It should not own Activities, Goals, Arcs, Chapters, Screen Time rules, or family authority. Those capabilities remain authoritative and may provide bounded evidence after a real action or receipt.
+
+**Chat** can then become one presentation and interaction channel:
+
+- “How is my companion?” reads the capability-owned state and renders a compact visual card.
+- After a real Activity completion, Chat may render the capability-owned response: “Your walk opened a path beside the water.”
+- “Show me its world” performs a native handoff to the exact companion surface.
+- A reflection may offer one bounded choice that the capability records, such as which place the companion explores next.
+
+The companion should **appear in Chat but not become the chatbot**. It may be expressive and visually present, but it should not pretend to be sentient, claim emotional dependence, privately author advice, or send guilt messages. Kwilt remains the speaker; the companion is a capability-owned visual response.
+
+The capability also does not need a permanent global-menu entry in the learning release. It can register as a real capability while remaining a Home- and Chat-reached preview surface. A top-level menu destination should be earned only if users intentionally return to visit it.
+
 ## Review question
 
-Is the desired relationship primarily **"I see my pet when I open Kwilt and it responds to what I do"**, or **"I intentionally go visit my pet because spending time in its world is part of the reward"**?
+Should the learning release treat the companion as a **real but quietly reached capability**—owned independently, encountered on Home and in Chat, and opened into a small native visit surface—without giving it a permanent global-menu entry yet?
