@@ -13,6 +13,7 @@ import {
   isAudioCategory,
   parseEbur128Summary,
   parseSilenceSummary,
+  parseVolumeDetectSummary,
 } from './audio-audit-lib.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -78,8 +79,22 @@ function measure(file, durationSeconds) {
     '-af', 'silencedetect=noise=-60dB:d=0.01',
     '-f', 'null', '-',
   ]);
+  const ebuMeasurement = parseEbur128Summary(loudness.stderr);
+  let integratedLufs = ebuMeasurement.integratedLufs;
+  let loudnessBasis = 'lufs';
+  if (durationSeconds < 0.4 || integratedLufs <= -69) {
+    const rms = run(ffmpegPath, [
+      '-hide_banner', '-nostats', '-i', file,
+      '-af', 'volumedetect',
+      '-f', 'null', '-',
+    ]);
+    integratedLufs = parseVolumeDetectSummary(rms.stderr).meanVolumeDbfs;
+    loudnessBasis = 'rms';
+  }
   return {
-    ...parseEbur128Summary(loudness.stderr),
+    integratedLufs,
+    truePeakDbtp: ebuMeasurement.truePeakDbtp,
+    loudnessBasis,
     ...parseSilenceSummary(silence.stderr, durationSeconds),
   };
 }
@@ -104,6 +119,7 @@ const report = await Promise.all(files.map(async (file) => {
     category,
     ...metadata,
     integratedLufs: round(measurement.integratedLufs, 1),
+    loudnessBasis: measurement.loudnessBasis,
     truePeakDbtp: round(measurement.truePeakDbtp, 1),
     leadingSilenceMs: Math.round(measurement.leadingSilenceSeconds * 1_000),
     trailingSilenceMs: Math.round(measurement.trailingSilenceSeconds * 1_000),
@@ -114,7 +130,7 @@ const report = await Promise.all(files.map(async (file) => {
 for (const item of report) {
   const status = item.passes ? 'PASS' : 'REVIEW';
   console.log(`${status.padEnd(6)} ${item.path}`);
-  console.log(`       ${item.category ?? 'uncategorized'} | ${item.durationSeconds.toFixed(3)} s | ${item.sampleRateHz} Hz | ${item.channels} ch | ${item.integratedLufs} LUFS | ${item.truePeakDbtp} dBTP | lead ${item.leadingSilenceMs} ms | tail ${item.trailingSilenceMs} ms`);
+  console.log(`       ${item.category ?? 'uncategorized'} | ${item.durationSeconds.toFixed(3)} s | ${item.sampleRateHz} Hz | ${item.channels} ch | ${item.integratedLufs} ${item.loudnessBasis === 'rms' ? 'dBFS RMS' : 'LUFS'} | ${item.truePeakDbtp} dBTP | lead ${item.leadingSilenceMs} ms | tail ${item.trailingSilenceMs} ms`);
   item.failures.forEach((failure) => console.log(`       - ${failure}`));
 }
 

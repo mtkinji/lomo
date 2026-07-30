@@ -6,7 +6,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ffmpegPath from 'ffmpeg-static';
 import policyData from '../../src/capabilities/games/audio/audioGainPolicy.json' with { type: 'json' };
-import { inferAudioCategory, isAudioCategory, parseLoudnormAnalysis } from './audio-audit-lib.mjs';
+import {
+  inferAudioCategory,
+  isAudioCategory,
+  parseEbur128Summary,
+  parseLoudnormAnalysis,
+  parseVolumeDetectSummary,
+  shortCueGainDb,
+} from './audio-audit-lib.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -73,12 +80,38 @@ for (const inputArg of options.inputs) {
     '-af', `${trimFilter},${loudnormFilter(policy)}`,
     '-f', 'null', '-',
   ]);
-  const analysis = parseLoudnormAnalysis(firstPass.stderr);
+  let analysis = null;
+  let shortCueGain = null;
+  try {
+    analysis = parseLoudnormAnalysis(firstPass.stderr);
+  } catch (error) {
+    if (!String(error?.message).includes('incomplete loudnorm analysis')) throw error;
+    const shortCuePeakPass = run([
+      '-hide_banner', '-nostats', '-i', input,
+      '-af', `${trimFilter},ebur128=peak=true`,
+      '-f', 'null', '-',
+    ]);
+    const shortCueVolumePass = run([
+      '-hide_banner', '-nostats', '-i', input,
+      '-af', `${trimFilter},volumedetect`,
+      '-f', 'null', '-',
+    ]);
+    const peakMeasurement = parseEbur128Summary(shortCuePeakPass.stderr);
+    const volumeMeasurement = parseVolumeDetectSummary(shortCueVolumePass.stderr);
+    shortCueGain = shortCueGainDb({
+      integratedLufs: volumeMeasurement.meanVolumeDbfs,
+      truePeakDbtp: peakMeasurement.truePeakDbtp,
+      targetLufs: policy.targetLufs,
+      truePeakCeilingDbtp: policy.truePeakCeilingDbtp,
+    });
+  }
   const extension = path.extname(input).toLowerCase();
   const output = path.join(outputDir, path.basename(input));
   run([
     '-hide_banner', '-nostats', '-y', '-i', input,
-    '-af', `${trimFilter},${loudnormFilter(policy, analysis)}`,
+    '-af', shortCueGain === null
+      ? `${trimFilter},${loudnormFilter(policy, analysis)}`
+      : `${trimFilter},volume=${shortCueGain}dB`,
     ...outputCodecArgs(extension),
     output,
   ]);

@@ -45,6 +45,28 @@ export function parseLoudnormAnalysis(stderr) {
   return analysis;
 }
 
+export function parseVolumeDetectSummary(stderr) {
+  const meanMatch = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?)\s+dB/);
+  const maxMatch = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?)\s+dB/);
+  const meanVolumeDbfs = Number(meanMatch?.[1]);
+  const maxVolumeDbfs = Number(maxMatch?.[1]);
+  if (!Number.isFinite(meanVolumeDbfs) || !Number.isFinite(maxVolumeDbfs)) {
+    throw new Error('FFmpeg did not emit a complete volume-detect summary');
+  }
+  return { meanVolumeDbfs, maxVolumeDbfs };
+}
+
+export function shortCueGainDb({ integratedLufs, truePeakDbtp, targetLufs, truePeakCeilingDbtp }) {
+  const values = [integratedLufs, truePeakDbtp, targetLufs, truePeakCeilingDbtp];
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new Error('Short-cue gain requires finite loudness and true-peak measurements');
+  }
+  return Number(Math.min(
+    targetLufs - integratedLufs,
+    truePeakCeilingDbtp - truePeakDbtp,
+  ).toFixed(2));
+}
+
 export function parseSilenceSummary(stderr, durationSeconds) {
   const starts = [...stderr.matchAll(/silence_start:\s*(\d+(?:\.\d+)?)/g)].map((match) => Number(match[1]));
   const ends = [...stderr.matchAll(/silence_end:\s*(\d+(?:\.\d+)?)/g)].map((match) => Number(match[1]));

@@ -7,6 +7,8 @@ import {
   parseEbur128Summary,
   parseLoudnormAnalysis,
   parseSilenceSummary,
+  parseVolumeDetectSummary,
+  shortCueGainDb,
 } from './audio-audit-lib.mjs';
 
 test('parses the final EBU R128 summary instead of an earlier interval', () => {
@@ -97,4 +99,27 @@ test('extracts the final loudnorm analysis block for deterministic second-pass m
     inputThresh: -25.2,
     targetOffset: -0.03,
   });
+});
+
+test('uses loudness gain for a short cue without exceeding its true-peak ceiling', () => {
+  assert.equal(shortCueGainDb({
+    integratedLufs: -26,
+    truePeakDbtp: -8.3,
+    targetLufs: -22,
+    truePeakCeilingDbtp: -3,
+  }), 4);
+
+  assert.equal(shortCueGainDb({
+    integratedLufs: -31,
+    truePeakDbtp: -4,
+    targetLufs: -22,
+    truePeakCeilingDbtp: -3,
+  }), 1);
+});
+
+test('parses RMS and sample peak for cues shorter than the EBU gating window', () => {
+  assert.deepEqual(parseVolumeDetectSummary(`
+    [Parsed_volumedetect_0] mean_volume: -25.7 dB
+    [Parsed_volumedetect_0] max_volume: -8.3 dB
+  `), { meanVolumeDbfs: -25.7, maxVolumeDbfs: -8.3 });
 });
