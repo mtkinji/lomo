@@ -54,18 +54,29 @@ describe('navigationPersistence', () => {
     jest.useRealTimers();
   });
 
-  test('allows every registered production drawer route, including both chat systems', () => {
+  test('allows every registered production drawer route', () => {
     expect(getAllowedPersistedRootRoutes(false)).toEqual([
       'MainTabs',
       'Agent',
       'UnifiedChat',
       'ArcsStack',
       'Money',
+      'Explore',
+      'Games',
       'Settings',
     ]);
     expect(
       shouldRestoreNavigationState(
-        rootState(['MainTabs', 'Agent', 'UnifiedChat', 'ArcsStack', 'Money', 'Settings']),
+        rootState([
+          'MainTabs',
+          'Agent',
+          'UnifiedChat',
+          'ArcsStack',
+          'Money',
+          'Explore',
+          'Games',
+          'Settings',
+        ]),
         { showDevTools: false },
       ),
     ).toBe(true);
@@ -91,6 +102,47 @@ describe('navigationPersistence', () => {
       params: { transactionId: 'transaction-1' },
     });
     expect(restoredMoney.routes.map(({ name }) => name)).not.toContain('LegacyMoneyScreen');
+  });
+
+  test('restores the exact Games screen that was open', async () => {
+    const games = nestedState('stack', 'GamesRemote', [
+      route('GamesShelf'),
+      route('GamesRemote', undefined, { sessionId: 'session-1', tableCode: 'ABCD' }),
+    ]);
+    const root = nestedState('drawer', 'Games', [
+      route('MainTabs'),
+      route('Explore'),
+      route('Games', games),
+      route('Settings'),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredGames = restored.routes[restored.index].state!;
+    expect(restored.routes[restored.index].name).toBe('Games');
+    expect(restoredGames.routes[restoredGames.index]).toMatchObject({
+      name: 'GamesRemote',
+      params: { sessionId: 'session-1', tableCode: 'ABCD' },
+    });
+  });
+
+  test('restores Explore settings instead of falling back to Settings home', async () => {
+    const settings = nestedState('stack', 'SettingsExplore', [
+      route('SettingsHome'),
+      route('SettingsExplore', undefined, { entrySurface: 'explore-map' }),
+    ]);
+    const root = nestedState('drawer', 'Settings', [
+      route('MainTabs'),
+      route('Explore'),
+      route('Games'),
+      route('Settings', settings),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredSettings = restored.routes[restored.index].state!;
+    expect(restoredSettings.routes[restoredSettings.index]).toMatchObject({
+      name: 'SettingsExplore',
+      params: { entrySurface: 'explore-map' },
+    });
   });
 
   test('rejects dev-only DevTools state in production', () => {

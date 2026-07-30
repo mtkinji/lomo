@@ -11,6 +11,9 @@ const mockSetChildCapabilityActivation = jest.fn();
 const mockSetCaregiverCapabilityGrant = jest.fn();
 const mockCreateCaregiverInvite = jest.fn();
 const mockAcceptCaregiverInvite = jest.fn();
+const mockCreateHouseholdMemberInvite = jest.fn();
+const mockPreviewHouseholdInvite = jest.fn();
+const mockAcceptHouseholdMemberInvite = jest.fn();
 
 jest.mock('../../services/backend/supabaseClient', () => ({
   getSupabaseClient: () => ({ rpc: jest.fn() }),
@@ -23,6 +26,9 @@ jest.mock('./data/household', () => ({
   setCaregiverCapabilityGrant: (...args: unknown[]) => mockSetCaregiverCapabilityGrant(...args),
   createCaregiverInvite: (...args: unknown[]) => mockCreateCaregiverInvite(...args),
   acceptCaregiverInvite: (...args: unknown[]) => mockAcceptCaregiverInvite(...args),
+  createHouseholdMemberInvite: (...args: unknown[]) => mockCreateHouseholdMemberInvite(...args),
+  previewHouseholdInvite: (...args: unknown[]) => mockPreviewHouseholdInvite(...args),
+  acceptHouseholdMemberInvite: (...args: unknown[]) => mockAcceptHouseholdMemberInvite(...args),
 }));
 
 const emptySnapshot: HouseholdSnapshot = {
@@ -60,12 +66,23 @@ describe('HouseholdSettingsScreen', () => {
     mockSetCaregiverCapabilityGrant.mockReset().mockResolvedValue(familySnapshot);
     mockCreateCaregiverInvite.mockReset().mockResolvedValue({ code: 'ABC123', expiresAt: '2026-08-04T00:00:00Z' });
     mockAcceptCaregiverInvite.mockReset().mockResolvedValue(familySnapshot);
+    mockCreateHouseholdMemberInvite.mockReset().mockResolvedValue({
+      code: 'CHILD12', expiresAt: '2026-08-05T00:00:00Z', role: 'child',
+    });
+    mockPreviewHouseholdInvite.mockReset().mockResolvedValue({
+      householdName: 'My household',
+      inviterDisplayName: 'Andrew',
+      role: 'child',
+      expiresAt: '2026-08-05T00:00:00Z',
+    });
+    mockAcceptHouseholdMemberInvite.mockReset().mockResolvedValue(familySnapshot);
   });
 
   it('creates the Household just in time when the first child is added', async () => {
     const { getByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
     await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
     fireEvent.press(getByText('Add a child'));
+    fireEvent.press(getByText('Create a profile'));
     fireEvent.changeText(getByLabelText('Child name'), 'Riley');
     fireEvent.press(getByText('Add child'));
 
@@ -77,17 +94,56 @@ describe('HouseholdSettingsScreen', () => {
     expect(await waitFor(() => getByText('Riley'))).toBeTruthy();
   });
 
+  it('invites a child who already uses Kwilt without creating a profile', async () => {
+    const { getByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+    await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
+
+    fireEvent.press(getByText('Add a child'));
+    fireEvent.press(getByText('Already uses Kwilt'));
+    fireEvent.changeText(getByLabelText('Child account email'), 'charlie@example.com');
+    fireEvent.press(getByText('Create invitation'));
+
+    await waitFor(() => expect(mockCreateHouseholdMemberInvite).toHaveBeenCalledWith(expect.anything(), {
+      householdId: null,
+      role: 'child',
+      invitedEmail: 'charlie@example.com',
+      ownerDisplayName: 'Andrew',
+    }));
+    expect(mockAddDependentChild).not.toHaveBeenCalled();
+    expect(getByText('Child invitation code: CHILD12')).toBeTruthy();
+  });
+
+  it('reviews a child invitation before joining the Household', async () => {
+    const { getByLabelText, getByText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
+    await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
+
+    fireEvent.press(getByText('Join a household'));
+    fireEvent.changeText(getByLabelText('Household invitation code'), 'child12');
+    fireEvent.press(getByText('Review invitation'));
+
+    await waitFor(() => expect(getByText('Andrew invited you')).toBeTruthy());
+    expect(getByText('Join My household as a child.')).toBeTruthy();
+    expect(mockAcceptHouseholdMemberInvite).not.toHaveBeenCalled();
+
+    fireEvent.press(getByText('Join household'));
+
+    await waitFor(() => expect(mockAcceptHouseholdMemberInvite).toHaveBeenCalledWith(expect.anything(), {
+      code: 'child12',
+      displayName: 'Andrew',
+    }));
+  });
+
   it('reveals only the household setup path the user chooses', async () => {
     const { getByLabelText, getByText, queryByLabelText } = renderWithProviders(<HouseholdSettingsScreen {...screenProps} />);
     await waitFor(() => expect(getByText('Start with your people')).toBeTruthy());
 
     expect(queryByLabelText('Child name')).toBeNull();
     expect(queryByLabelText('Caregiver email')).toBeNull();
-    expect(queryByLabelText('Caregiver invite code')).toBeNull();
+    expect(queryByLabelText('Household invitation code')).toBeNull();
 
     fireEvent.press(getByText('Join a household'));
 
-    expect(getByLabelText('Caregiver invite code')).toBeTruthy();
+    expect(getByLabelText('Household invitation code')).toBeTruthy();
     expect(queryByLabelText('Child name')).toBeNull();
     expect(queryByLabelText('Caregiver email')).toBeNull();
   });

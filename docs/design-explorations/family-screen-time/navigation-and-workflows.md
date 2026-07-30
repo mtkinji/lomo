@@ -196,17 +196,25 @@ Side sheet -> Screen Time
   -> Family Screen Time empty state
   -> Set up for a child
   -> Settings > Household
-  -> Create household
-  -> Add child profile
+  -> Add a child
+     -> Already uses Kwilt
+        -> Find nearby Kwilt devices / Scan QR / Send invitation
+        -> Charlie reviews and accepts as a child in his Kwilt account
+     -> Does not use Kwilt yet
+        -> Create dependent child profile
   -> Activate Screen Time for this child
   -> Set up child device
 ```
+
+When both phones are together, Andrew and Charlie may each turn on **Find nearby Kwilt devices**. Discovery is foreground-only and temporary. The phones exchange an ephemeral pairing session, show the same confirmation phrase, and require confirmation on both devices before Charlie sees the normal authenticated Household invitation. The mode publishes no background presence or public child directory and falls back to QR, short code, or a shared link if discovery or permissions fail.
+
+All connection methods converge on one server invitation contract. The transport does not create the Household relationship: Charlie's authenticated acceptance does. If Andrew creates a dependent profile instead, Kwilt may later offer **Connect Charlie's account**, but it must never merge profiles from a matching name or email without explicit acceptance.
 
 On the child device, with a caregiver present:
 
 ```text
 Open Kwilt enrollment link/code
-  -> Confirm child profile
+  -> Confirm the joined child member
   -> Apple guardian `.child` authorization
   -> Choose governed apps/categories
   -> Require automatic date and time

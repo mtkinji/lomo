@@ -17,14 +17,17 @@ import {
 } from '../../ui/SettingsSurface';
 import { Text } from '../../ui/primitives';
 import {
-  acceptCaregiverInvite,
+  acceptHouseholdMemberInvite,
   addDependentChild,
-  createCaregiverInvite,
+  createHouseholdMemberInvite,
   getHouseholdSnapshot,
+  previewHouseholdInvite,
   setCaregiverCapabilityGrant,
   setChildCapabilityActivation,
   type ChildCapabilityId,
   type ChildCapabilityState,
+  type HouseholdInvitation,
+  type HouseholdInvitationPreview,
   type HouseholdSnapshot,
 } from './data/household';
 
@@ -34,7 +37,7 @@ const CAPABILITIES: readonly { id: ChildCapabilityId; name: string }[] = [
 ];
 
 const enabledStates = new Set<ChildCapabilityState>(['active', 'pending_setup', 'blocked']);
-type EntryMode = 'child' | 'caregiver' | 'join';
+type EntryMode = 'child-choice' | 'child-account' | 'child-profile' | 'caregiver' | 'join';
 
 function HouseholdAction({
   description,
@@ -80,9 +83,11 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
   const authIdentity = useAppStore((state) => state.authIdentity);
   const [snapshot, setSnapshot] = useState<HouseholdSnapshot | null>(null);
   const [childName, setChildName] = useState('');
+  const [childEmail, setChildEmail] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [inviteReceipt, setInviteReceipt] = useState<HouseholdInvitation | null>(null);
   const [joinCode, setJoinCode] = useState('');
+  const [invitePreview, setInvitePreview] = useState<HouseholdInvitationPreview | null>(null);
   const [entryMode, setEntryMode] = useState<EntryMode | null>(null);
   const [loading, setLoading] = useState(Boolean(authIdentity));
   const [mutationKey, setMutationKey] = useState<string | null>(null);
@@ -139,12 +144,13 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
     if (!client || mutationKey) return;
     setMutationKey('invite');
     try {
-      const invite = await createCaregiverInvite(client, {
+      const invite = await createHouseholdMemberInvite(client, {
         householdId: snapshot?.household?.id ?? null,
+        role: 'caregiver',
         invitedEmail: inviteEmail,
         ownerDisplayName: authIdentity?.name || 'Kwilter',
       });
-      setInviteCode(invite.code);
+      setInviteReceipt(invite);
       setInviteEmail('');
       await load();
       setEntryMode(null);
@@ -155,45 +161,125 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
     }
   };
 
+  const createChildAccountInvite = async () => {
+    if (!client || mutationKey || !childEmail.trim()) return;
+    setMutationKey('child-invite');
+    try {
+      const invite = await createHouseholdMemberInvite(client, {
+        householdId: snapshot?.household?.id ?? null,
+        role: 'child',
+        invitedEmail: childEmail,
+        ownerDisplayName: authIdentity?.name || 'Kwilter',
+      });
+      setInviteReceipt(invite);
+      setChildEmail('');
+      await load();
+      setEntryMode(null);
+    } catch (error) {
+      Alert.alert('Unable to create invitation', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
+  const reviewInvitation = async () => {
+    if (!client || mutationKey || !joinCode.trim()) return;
+    setMutationKey('preview-invite');
+    try {
+      setInvitePreview(await previewHouseholdInvite(client, joinCode));
+    } catch (error) {
+      Alert.alert('Unable to review invitation', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setMutationKey(null);
+    }
+  };
+
   const joinHousehold = async () => {
     if (!client || !joinCode.trim()) return;
-    const saved = await runMutation('join', () => acceptCaregiverInvite(client, {
+    if (!invitePreview) return;
+    const saved = await runMutation('join', () => acceptHouseholdMemberInvite(client, {
       code: joinCode,
-      displayName: authIdentity?.name || 'Caregiver',
+      displayName: authIdentity?.name || (invitePreview.role === 'child' ? 'Child' : 'Caregiver'),
     }));
     if (saved) {
       setJoinCode('');
+      setInvitePreview(null);
       setEntryMode(null);
     }
   };
+
+  const entryTitle = entryMode === 'child-choice'
+    ? 'Add a child'
+    : entryMode === 'child-account'
+      ? 'Invite their account'
+      : entryMode === 'child-profile'
+        ? 'Create a child profile'
+        : entryMode === 'caregiver'
+          ? 'Invite a caregiver'
+          : 'Join a household';
+
+  const entryDescription = entryMode === 'child-choice'
+    ? 'Connect the account they already use, or create a profile for them.'
+    : entryMode === 'child-account'
+      ? 'They’ll review and accept this invitation in their own Kwilt account.'
+      : entryMode === 'child-profile'
+        ? 'Use this when they do not have their own Kwilt account yet.'
+        : entryMode === 'caregiver'
+          ? 'They’ll join with no access to a child’s capabilities.'
+          : invitePreview
+            ? 'Review the relationship before joining.'
+            : 'Enter the code from your family organizer.';
 
   const entryForm = entryMode ? (
     <View style={styles.formCard}>
       <View style={styles.formHeading}>
         <View style={styles.formCopy}>
           <Text style={styles.formTitle}>
-            {entryMode === 'child' ? 'Add a child' : entryMode === 'caregiver' ? 'Invite a caregiver' : 'Join a household'}
+            {entryTitle}
           </Text>
-          <Text style={styles.formDescription}>
-            {entryMode === 'child'
-              ? 'You’ll choose their Kwilt capabilities separately.'
-              : entryMode === 'caregiver'
-                ? 'They’ll join with no access to a child’s capabilities.'
-                : 'Enter the code from your family organizer.'}
-          </Text>
+          <Text style={styles.formDescription}>{entryDescription}</Text>
         </View>
         <Button accessibilityLabel="Cancel household action" iconButtonSize={32} onPress={() => setEntryMode(null)} variant="ghost">
           <Icon color={colors.textSecondary} name="close" size={18} />
         </Button>
       </View>
 
-      {entryMode === 'child' ? (
+      {entryMode === 'child-choice' ? (
+        <View style={styles.choiceCard}>
+          <HouseholdAction
+            description="Invite the account they already use"
+            icon="mail"
+            onPress={() => setEntryMode('child-account')}
+            title="Already uses Kwilt"
+          />
+          <View style={styles.actionDivider} />
+          <HouseholdAction
+            description="Set them up without an account"
+            icon="userPlus"
+            onPress={() => setEntryMode('child-profile')}
+            title="Create a profile"
+          />
+        </View>
+      ) : null}
+      {entryMode === 'child-profile' ? (
         <Input
           accessibilityLabel="Child name"
           elevation="flat"
           onChangeText={setChildName}
           placeholder="Child’s name"
           value={childName}
+          variant="outline"
+        />
+      ) : null}
+      {entryMode === 'child-account' ? (
+        <Input
+          accessibilityLabel="Child account email"
+          autoCapitalize="none"
+          elevation="flat"
+          keyboardType="email-address"
+          onChangeText={setChildEmail}
+          placeholder="Their Kwilt email"
+          value={childEmail}
           variant="outline"
         />
       ) : null}
@@ -209,9 +295,9 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
           variant="outline"
         />
       ) : null}
-      {entryMode === 'join' ? (
+      {entryMode === 'join' && !invitePreview ? (
         <Input
-          accessibilityLabel="Caregiver invite code"
+          accessibilityLabel="Household invitation code"
           autoCapitalize="characters"
           elevation="flat"
           onChangeText={setJoinCode}
@@ -221,22 +307,48 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
         />
       ) : null}
 
-      <Button
-        disabled={entryMode === 'child' ? !childName.trim() || Boolean(mutationKey) : entryMode === 'join' ? !joinCode.trim() || Boolean(mutationKey) : Boolean(mutationKey)}
-        fullWidth
-        onPress={() => {
-          if (entryMode === 'child') void addChild();
-          if (entryMode === 'caregiver') void createInvite();
-          if (entryMode === 'join') void joinHousehold();
-        }}
-        variant="primary"
-      >
-        {entryMode === 'child'
-          ? mutationKey === 'add-child' ? 'Adding…' : 'Add child'
-          : entryMode === 'caregiver'
-            ? mutationKey === 'invite' ? 'Creating…' : 'Create invite code'
-            : mutationKey === 'join' ? 'Joining…' : 'Join household'}
-      </Button>
+      {entryMode === 'join' && invitePreview ? (
+        <View style={styles.reviewCard}>
+          <Text style={styles.reviewTitle}>{invitePreview.inviterDisplayName} invited you</Text>
+          <Text style={styles.reviewDescription}>
+            {`Join ${invitePreview.householdName} as a ${invitePreview.role}.`}
+          </Text>
+          <Text style={styles.reviewPrivacy}>
+            Household membership shares the family roster, not your private Goals, chats, Money, or Activities. Screen Time requires separate device setup.
+          </Text>
+        </View>
+      ) : null}
+
+      {entryMode !== 'child-choice' ? (
+        <Button
+          disabled={entryMode === 'child-profile'
+            ? !childName.trim() || Boolean(mutationKey)
+            : entryMode === 'child-account'
+              ? !childEmail.trim() || Boolean(mutationKey)
+              : entryMode === 'join'
+                ? !joinCode.trim() || Boolean(mutationKey)
+                : Boolean(mutationKey)}
+          fullWidth
+          onPress={() => {
+            if (entryMode === 'child-profile') void addChild();
+            if (entryMode === 'child-account') void createChildAccountInvite();
+            if (entryMode === 'caregiver') void createInvite();
+            if (entryMode === 'join' && invitePreview) void joinHousehold();
+            if (entryMode === 'join' && !invitePreview) void reviewInvitation();
+          }}
+          variant="primary"
+        >
+          {entryMode === 'child-profile'
+            ? mutationKey === 'add-child' ? 'Adding…' : 'Add child'
+            : entryMode === 'child-account'
+              ? mutationKey === 'child-invite' ? 'Creating…' : 'Create invitation'
+              : entryMode === 'caregiver'
+                ? mutationKey === 'invite' ? 'Creating…' : 'Create invitation'
+                : invitePreview
+                  ? mutationKey === 'join' ? 'Joining…' : 'Join household'
+                  : mutationKey === 'preview-invite' ? 'Reviewing…' : 'Review invitation'}
+        </Button>
+      ) : null}
     </View>
   ) : null;
 
@@ -244,9 +356,9 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
     <View style={styles.actionCard}>
       {isOwner ? (
         <HouseholdAction
-          description="Create a profile just for them"
+          description="Connect their account or create a profile"
           icon="userPlus"
-          onPress={() => setEntryMode('child')}
+          onPress={() => setEntryMode('child-choice')}
           title="Add a child"
         />
       ) : null}
@@ -306,7 +418,11 @@ export function HouseholdSettingsScreen({ navigation }: NativeStackScreenProps<S
       {!loading ? (
         <View style={styles.entrySection}>
           {entryMode ? entryForm : actionList}
-          {inviteCode ? <Text selectable style={styles.inviteCode}>Invite code: {inviteCode}</Text> : null}
+          {inviteReceipt ? (
+            <Text selectable style={styles.inviteCode}>
+              {`${inviteReceipt.role === 'child' ? 'Child' : 'Caregiver'} invitation code: ${inviteReceipt.code}`}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -438,6 +554,13 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     backgroundColor: colors.card,
   },
+  choiceCard: {
+    overflow: 'hidden',
+    marginHorizontal: -spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.cardBorder,
+  },
   action: {
     minHeight: 72,
     flexDirection: 'row',
@@ -498,6 +621,24 @@ const styles = StyleSheet.create({
     ...typography.bodySm,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  reviewCard: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 14,
+    backgroundColor: colors.gray100,
+  },
+  reviewTitle: {
+    ...typography.titleSm,
+    color: colors.textPrimary,
+  },
+  reviewDescription: {
+    ...typography.bodySm,
+    color: colors.textPrimary,
+  },
+  reviewPrivacy: {
+    ...typography.bodyXs,
+    color: colors.textSecondary,
   },
   inviteCode: {
     ...typography.bodySm,
