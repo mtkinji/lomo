@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -14,7 +15,12 @@ import {
   Inter_800ExtraBold,
   Inter_900Black,
 } from '@expo-google-fonts/inter';
-import { Urbanist_900Black } from '@expo-google-fonts/urbanist';
+import {
+  Urbanist_500Medium,
+  Urbanist_700Bold,
+  Urbanist_800ExtraBold,
+  Urbanist_900Black,
+} from '@expo-google-fonts/urbanist';
 import { PostHogProvider } from 'posthog-react-native';
 import { RootNavigator, RootNavigatorWithPostHog } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
@@ -85,8 +91,15 @@ export default function App() {
     Inter_700Bold,
     Inter_800ExtraBold,
     Inter_900Black,
+    Urbanist_500Medium,
+    Urbanist_700Bold,
+    Urbanist_800ExtraBold,
     Urbanist_900Black,
   });
+
+  useEffect(() => {
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => undefined);
+  }, []);
 
   const arcsCount = useAppStore((state) => state.arcs.length);
   const goalsCount = useAppStore((state) => state.goals.length);

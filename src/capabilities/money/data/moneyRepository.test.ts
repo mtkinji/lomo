@@ -200,11 +200,19 @@ describe('createMoneyRepository transaction review', () => {
     })).rejects.toThrow('could not confirm the transaction review');
   });
 
-  it('atomically saves one exact merchant rule and applies it to all matching history before reloading', async () => {
-    const { client, calls, rpcCalls } = createClient();
+  it('returns the confirmed merchant-rule receipt without reloading the Money snapshot', async () => {
+    const { client, calls, rpcCalls } = createClient({
+      rpcResult: {
+        ruleId: 'rule-1',
+        appliedTransactionCount: 12,
+        merchantKey: 'costco 01234',
+        matchMode: 'exact',
+        categoryId: 'category-1',
+      },
+    });
     const repository = createMoneyRepository(client);
 
-    await repository.saveMerchantRule({
+    const result = await repository.saveMerchantRule({
       transactionId: 'transaction-1',
       merchantName: 'COSTCO #01234',
       categoryId: 'category-1',
@@ -222,11 +230,28 @@ describe('createMoneyRepository transaction review', () => {
       },
     });
     expect(calls.filter((call) => call.upsert)).toHaveLength(0);
-    expect(calls.filter((call) => call.table === 'budget_transaction_match_rules')).toHaveLength(1);
+    expect(calls).toHaveLength(0);
+    expect(result).toEqual({
+      confirmedAt: expect.any(String),
+      ruleId: 'rule-1',
+      transactionId: 'transaction-1',
+      appliedTransactionCount: 12,
+      merchantKey: 'costco 01234',
+      matchMode: 'exact',
+      categorySourceId: 'category-1',
+    });
   });
 
   it('does not send visible transaction ids when saving a partial rule', async () => {
-    const { client, calls, rpcCalls } = createClient();
+    const { client, calls, rpcCalls } = createClient({
+      rpcResult: {
+        ruleId: 'rule-2',
+        appliedTransactionCount: 4,
+        merchantKey: 'trader joe',
+        matchMode: 'partial',
+        categoryId: 'category-1',
+      },
+    });
     const repository = createMoneyRepository(client);
 
     await repository.saveMerchantRule({

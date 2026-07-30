@@ -1,8 +1,10 @@
 import type { MoneySnapshot } from './moneySnapshot';
 import {
   applyConfirmedCategoryPatch,
+  applyConfirmedMerchantRulePatch,
   applyConfirmedTransactionPatch,
   type ConfirmedCategoryPatch,
+  type ConfirmedMerchantRulePatch,
   type ConfirmedTransactionPatch,
 } from './moneyConfirmedPatches';
 
@@ -21,6 +23,7 @@ export type MoneyDataAction =
   | { type: 'success'; snapshot: MoneySnapshot }
   | { type: 'failure'; message: string }
   | { type: 'confirmed_transaction_patch'; patch: ConfirmedTransactionPatch }
+  | { type: 'confirmed_merchant_rule_patch'; patch: ConfirmedMerchantRulePatch }
   | { type: 'confirmed_category_patch'; patch: ConfirmedCategoryPatch }
   | { type: 'authoritative_plan_projection'; snapshot: MoneySnapshot; versionId: string; receiptId: string | null }
   | { type: 'background_failure'; message: string };
@@ -50,6 +53,10 @@ export function moneyDataReducer(state: MoneyDataState, action: MoneyDataAction)
     case 'confirmed_transaction_patch':
       return state.snapshot
         ? { ...state, status: 'ready', snapshot: applyConfirmedTransactionPatch(state.snapshot, action.patch), error: null, refreshing: false, stale: true }
+        : state;
+    case 'confirmed_merchant_rule_patch':
+      return state.snapshot
+        ? { ...state, status: 'ready', snapshot: applyConfirmedMerchantRulePatch(state.snapshot, action.patch), error: null, refreshing: false, stale: true }
         : state;
     case 'confirmed_category_patch':
       return state.snapshot

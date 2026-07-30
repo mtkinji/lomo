@@ -12,6 +12,7 @@ supporting_jtbds:
   - jtbd-capture-and-find-meaning
   - jtbd-trust-this-app-with-my-life
   - jtbd-invite-the-right-people-in
+  - jtbd-help-us-enjoy-being-together
 last_updated: 2026-07-24
 ---
 
@@ -33,6 +34,7 @@ Kwilt can help Maya turn everyday family intentions into visible, doable action:
 - Feel more organized without becoming a productivity hobbyist.
 - Understand household money before spending or changing the plan, without
   becoming the household finance administrator.
+- Turn a few unstructured minutes into something the family willingly does together.
 
 ## What Would Make This Feel Wrong
 
@@ -43,6 +45,7 @@ Kwilt can help Maya turn everyday family intentions into visible, doable action:
 - Financial views that blur actual spending, planned capacity, forecasts, or
   stale evidence.
 - Spending restrictions that feel punitive, hidden, or difficult to reverse.
+- Games that require accounts, household administration, or rules setup before play.
 
 ## Demand Hierarchy
 
@@ -59,6 +62,7 @@ Supporting JTBDs:
 - `jtbd-capture-and-find-meaning` - capture needs to stay easy because family life is interruptive and in motion.
 - `jtbd-trust-this-app-with-my-life` - family adoption depends on the app feeling calm, transparent, and reliable.
 - `jtbd-invite-the-right-people-in` - family use raises the need for shared context without oversharing or surveillance.
+- `jtbd-help-us-enjoy-being-together` - shared play should make family connection easier to begin, nearby or at a distance.
 
 Feature-level descent:
 - To-do organization, priority, scheduling, and recommendation work descend from `jtbd-move-the-few-things-that-matter`.
@@ -66,6 +70,7 @@ Feature-level descent:
   `jtbd-review-budget-reality-before-spending`, under
   `jtbd-put-intention-before-impulse`.
 - Shared family adoption and household coordination descend from `jtbd-invite-the-right-people-in` when other family members participate.
+- Games descends from `jtbd-help-us-enjoy-being-together`; connection is the job, not a reward for completing work.
 - AI prioritization and auto-scheduling must satisfy `jtbd-trust-this-app-with-my-life`.
 
 ## Common Active JTBDs
@@ -77,6 +82,7 @@ Feature-level descent:
 - `jtbd-capture-and-find-meaning`
 - `jtbd-trust-this-app-with-my-life`
 - `jtbd-invite-the-right-people-in`
+- `jtbd-help-us-enjoy-being-together`
 
 ## Evidence In The Product
 

@@ -37,6 +37,7 @@ import Code from 'lucide-react-native/dist/cjs/icons/code';
 import Columns3 from 'lucide-react-native/dist/cjs/icons/columns-3';
 import Compass from 'lucide-react-native/dist/cjs/icons/compass';
 import Crosshair from 'lucide-react-native/dist/cjs/icons/crosshair';
+import Dices from 'lucide-react-native/dist/cjs/icons/dices';
 import CreditCard from 'lucide-react-native/dist/cjs/icons/credit-card';
 import Ellipsis from 'lucide-react-native/dist/cjs/icons/ellipsis';
 import ExternalLink from 'lucide-react-native/dist/cjs/icons/external-link';
@@ -153,6 +154,7 @@ const iconMap = {
   phone: { library: 'lucide', icon: Phone },
   pin: { library: 'lucide', icon: MapPin },
   map: { library: 'lucide', icon: MapIcon },
+  dices: { library: 'lucide', icon: Dices },
   locate: { library: 'lucide', icon: Crosshair },
   navigation: { library: 'ion', name: 'navigate' },
   panelLeft: { library: 'lucide', icon: PanelLeft },

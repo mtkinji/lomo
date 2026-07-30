@@ -1,5 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { createMoneyRepository, type ConfirmedCategoryWrite, type ConfirmedTransactionWrite, type MoneyRepository } from './moneyRepository';
+import {
+  createMoneyRepository,
+  type ConfirmedCategoryWrite,
+  type ConfirmedMerchantRuleWrite,
+  type ConfirmedTransactionWrite,
+  type MoneyRepository,
+} from './moneyRepository';
 import type { TransactionMeaningReviewInput } from './moneyMutations';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { initialMoneyDataState, moneyDataReducer, type MoneyDataState } from './moneyDataState';
@@ -194,6 +200,32 @@ export function MoneyDataProvider({
     }
   }, [acceptSnapshot]);
 
+  const reviewMerchantRule = useCallback(async (
+    transactionId: string,
+    mutation: () => Promise<ConfirmedMerchantRuleWrite>,
+  ) => {
+    setReviewingTransactionId(transactionId);
+    try {
+      const result = await mutation();
+      const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === result.categorySourceId);
+      dispatch({
+        type: 'confirmed_merchant_rule_patch',
+        patch: {
+          transactionId: result.transactionId,
+          categoryId: category?.id ?? null,
+        },
+      });
+      const version = ++mutationVersionRef.current;
+      refreshInBackground(version);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The merchant rule could not be saved.';
+      dispatch({ type: 'failure', message });
+      throw error;
+    } finally {
+      setReviewingTransactionId(null);
+    }
+  }, [refreshInBackground, state.snapshot]);
+
   const assignTransactionCategory = useCallback(
     (transactionId: string, categoryId: string) => reviewBoundedTransaction(
       transactionId,
@@ -227,11 +259,11 @@ export function MoneyDataProvider({
   );
 
   const saveMerchantRule = useCallback(
-    (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewBroadTransaction(
+    (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewMerchantRule(
       input.transactionId,
       () => resolvedRepository.saveMerchantRule(input),
     ),
-    [resolvedRepository, reviewBroadTransaction],
+    [resolvedRepository, reviewMerchantRule],
   );
 
   const createCategory = useCallback(async (input: CategoryPlanInput) => {

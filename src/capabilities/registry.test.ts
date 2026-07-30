@@ -16,6 +16,7 @@ describe('capability registry', () => {
       'chapters',
       'money',
       'explore',
+      'games',
     ]);
   });
 
@@ -61,6 +62,19 @@ describe('capability registry', () => {
     });
   });
 
+  it('registers Games as one destination in the Fun group', () => {
+    expect(getCapability('games')).toMatchObject({
+      id: 'games',
+      label: 'Games',
+      group: 'fun',
+      rootRoute: { root: 'Games', screen: 'GamesShelf' },
+      availability: 'active',
+    });
+    expect(CAPABILITY_MENU_REGISTRY.filter(({ ownerId }) => ownerId === 'games')).toHaveLength(1);
+    expect(CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'fun').map(({ id }) => id))
+      .toEqual(['explore', 'games']);
+  });
+
   it('exposes each established Money place directly in the global capability menu', () => {
     expect(
       CAPABILITY_MENU_REGISTRY.filter(({ group }) => group === 'money').map(
@@ -99,6 +113,7 @@ describe('capability registry', () => {
       ['chapters', { root: 'MainTabs', tab: 'MoreTab', screen: 'MoreChapters' }],
       ['money', { root: 'Money', screen: 'MoneySummary' }],
       ['explore', { root: 'Explore', screen: 'ExploreMap' }],
+      ['games', { root: 'Games', screen: 'GamesShelf' }],
     ]);
   });
 });

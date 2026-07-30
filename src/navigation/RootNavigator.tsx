@@ -93,7 +93,7 @@ import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
 import { ChapterAlignScreen } from '../features/chapters/ChapterAlignScreen';
 import { ChapterDigestSettingsScreen } from '../features/chapters/ChapterDigestSettingsScreen';
-import { LINKING_PREFIXES, linkingConfig } from './linkingConfig';
+import { LINKING_PREFIXES, linkingConfig, normalizeKwiltGamesUrl } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
 import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
 import { resolvePersistedNavigationState } from './navigationPersistence';
@@ -112,7 +112,10 @@ import {
   CapabilityShellProvider,
   deriveActiveCapabilityDestinationId,
 } from './CapabilityShellContext';
-import { resolveCapabilityNavigation } from './capabilityNavigation';
+import {
+  ROOT_DRAWER_BACK_BEHAVIOR,
+  resolveCapabilityNavigation,
+} from './capabilityNavigation';
 import { markRootNavigationReady } from '../services/performance/startupTelemetry';
 import {
   CapabilityMenuStateProvider,
@@ -126,6 +129,9 @@ import { MoneyNavigator } from '../capabilities/money/navigation/MoneyNavigator'
 import type { MoneyStackParamList } from '../capabilities/money/navigation/types';
 import { ExploreNavigator } from '../capabilities/explore/navigation/ExploreNavigator';
 import type { ExploreStackParamList } from '../capabilities/explore/navigation/types';
+import { GamesNavigator } from '../capabilities/games/navigation/GamesNavigator';
+import { GamesPlayerSettingsScreen } from '../capabilities/games/settings/GamesPlayerSettingsScreen';
+import type { GamesStackParamList } from '../capabilities/games/navigation/types';
 import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSettingsScreen';
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 
@@ -140,6 +146,7 @@ export type RootDrawerParamList = {
   ArcsStack: NavigatorScreenParams<ArcsStackParamList> | undefined;
   Money: NavigatorScreenParams<MoneyStackParamList> | undefined;
   Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
+  Games: NavigatorScreenParams<GamesStackParamList> | undefined;
   /**
    * Hidden (no nav surface entry). Kept to preserve `kwilt://agent` deep links and
    * allow programmatic launches even though the "Agent" tab has been removed.
@@ -310,6 +317,7 @@ export type ActivitiesStackParamList = {
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   SettingsExplore: { entrySurface?: 'explore-map' } | undefined;
+  SettingsGames: undefined;
   SettingsAppearance: undefined;
   SettingsProfile: { openAccountDeletion?: boolean } | undefined;
   SettingsAiModel: undefined;
@@ -574,6 +582,14 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
   const linking: LinkingOptions<RootDrawerParamList> = {
     prefixes: [...LINKING_PREFIXES],
     config: linkingConfig,
+    getInitialURL: async () => {
+      const url = await Linking.getInitialURL();
+      return url ? normalizeKwiltGamesUrl(url) : null;
+    },
+    subscribe: (listener) => {
+      const subscription = Linking.addEventListener('url', ({ url }) => listener(normalizeKwiltGamesUrl(url)));
+      return () => subscription.remove();
+    },
   };
 
   return (
@@ -640,6 +656,7 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
           menu={<KwiltCapabilityMenuHost navigationState={currentNavigationState} />}
         >
           <Drawer.Navigator
+            backBehavior={ROOT_DRAWER_BACK_BEHAVIOR}
             drawerContent={() => null}
             screenOptions={{
               headerShown: false,
@@ -680,6 +697,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
               name="Explore"
               component={ExploreCapabilityHost}
               options={{ title: 'Explore', drawerItemStyle: { display: 'none' } }}
+            />
+            <Drawer.Screen
+              name="Games"
+              component={GamesCapabilityHost}
+              options={{ title: 'Games', drawerItemStyle: { display: 'none' } }}
             />
             {showDevTools ? (
               <>
@@ -889,6 +911,14 @@ function ExploreCapabilityHost() {
   );
 }
 
+function GamesCapabilityHost() {
+  return (
+    <CapabilityShellProvider>
+      <GamesNavigator />
+    </CapabilityShellProvider>
+  );
+}
+
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
@@ -910,6 +940,7 @@ function SettingsStackNavigator() {
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
       <SettingsStack.Screen name="SettingsHome" component={SettingsHomeScreen} />
       <SettingsStack.Screen name="SettingsExplore" component={ExploreSettingsScreen} />
+      <SettingsStack.Screen name="SettingsGames" component={GamesPlayerSettingsScreen} />
       <SettingsStack.Screen
         name="SettingsAppearance"
         component={AppearanceSettingsScreen}
