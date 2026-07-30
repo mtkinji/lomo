@@ -6,6 +6,8 @@ type RootRouteName =
   | 'UnifiedChat'
   | 'ArcsStack'
   | 'Money'
+  | 'Explore'
+  | 'Games'
   | 'Settings'
   | 'DevTools'
   | 'GuidedOvertureLab';
@@ -75,9 +77,27 @@ const MONEY_STACK_SCHEMA: ChildSchema = {
   fallback: 'MoneySummary',
 };
 
+const EXPLORE_STACK_SCHEMA: ChildSchema = {
+  allowed: ['ExploreMap'],
+  fallback: 'ExploreMap',
+};
+
+const GAMES_STACK_SCHEMA: ChildSchema = {
+  allowed: [
+    'GamesShelf',
+    'GamesTumble',
+    'GamesConnection',
+    'GamesJoin',
+    'GamesRemote',
+    'GamesAccount',
+  ],
+  fallback: 'GamesShelf',
+};
+
 const SETTINGS_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'SettingsHome',
+    'SettingsExplore',
     'SettingsGames',
     'SettingsAppearance',
     'SettingsProfile',
@@ -116,6 +136,8 @@ function childSchemaForRoute(routeName: string): ChildSchema | null {
   if (routeName === 'MoreTab') return MORE_STACK_SCHEMA;
   if (routeName === 'MoreArcs' || routeName === 'ArcsStack') return ARCS_STACK_SCHEMA;
   if (routeName === 'Money') return MONEY_STACK_SCHEMA;
+  if (routeName === 'Explore') return EXPLORE_STACK_SCHEMA;
+  if (routeName === 'Games') return GAMES_STACK_SCHEMA;
   if (routeName === 'Settings') return SETTINGS_STACK_SCHEMA;
   return null;
 }
@@ -181,6 +203,8 @@ export function getAllowedPersistedRootRoutes(showDevTools: boolean): RootRouteN
     'UnifiedChat',
     'ArcsStack',
     'Money',
+    'Explore',
+    'Games',
     'Settings',
     ...(showDevTools ? (['DevTools', 'GuidedOvertureLab'] as const) : []),
   ];
