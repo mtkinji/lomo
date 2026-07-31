@@ -114,13 +114,22 @@ export function MoneyDataProvider({
         ? await resolvedRepository.loadSnapshot()
         : await initializeGovernedMoneyPlan(resolvedRepository, getSupabaseClient());
       acceptSnapshot(snapshot);
+      if (typeof resolvedRepository.classifyUnresolvedTransactions === 'function') {
+        void resolvedRepository.classifyUnresolvedTransactions().then((result) => {
+          if (result.assignedCount <= 0) return;
+          const version = ++mutationVersionRef.current;
+          refreshInBackground(version);
+        }).catch(() => {
+          // Optional background classification never changes visible Money status.
+        });
+      }
     } catch (error) {
       dispatch({
         type: 'failure',
         message: error instanceof Error ? error.message : 'Money data could not be loaded.',
       });
     }
-  }, [acceptSnapshot, repository, resolvedRepository]);
+  }, [acceptSnapshot, refreshInBackground, repository, resolvedRepository]);
 
   const reconcileGovernedPlanFoundation = useCallback(async () => {
     await resolvedRepository.ensureGovernedPlanFoundation();

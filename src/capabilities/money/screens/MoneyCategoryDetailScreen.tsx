@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
@@ -42,6 +43,7 @@ import type { MoneyStackParamList } from '../navigation/types';
 import { projectCategoryFunding, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliation';
 import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
+import { buildMoneyRebalanceChangesOpenedProps, buildMoneyRebalanceOutcomeProps, buildMoneyRebalancePreviewViewedProps } from '../runtime/moneyPlanLimitAnalytics';
 import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
@@ -94,6 +96,10 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       ? projectMoneyRebalanceAnswer(planImpact, category.id)
       : null
   ), [category, planImpact]);
+  useEffect(() => {
+    if (!rebalanceAnswer) return;
+    capture(AnalyticsEvent.MoneyRebalancePreviewViewed, buildMoneyRebalancePreviewViewedProps({ answer: rebalanceAnswer }));
+  }, [capture, rebalanceAnswer]);
   const groups = useMemo(() => groupMoneyTransactionsByDate(
     (view?.transactions ?? []).slice(0, ACTIVITY_INLINE_LIMIT),
   ), [view?.transactions]);
@@ -184,10 +190,14 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       }
       if (name !== category.name) await renameCategory(category.sourceId, name);
       setSettingsOpen(false);
+      if (rebalanceAnswer) capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
       captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
       signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setMutationError(error);
+      if (rebalanceAnswer && error instanceof Error && error.message.includes('changed since you reviewed')) {
+        capture(AnalyticsEvent.MoneyRebalanceStaleRejected, buildMoneyRebalanceOutcomeProps({ outcome: 'stale_rejected', answerState: rebalanceAnswer.state }));
+      }
       captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'failed', durationMs: Date.now() - startedAtMs });
       signalMoneyMutationOutcome('failed');
     }
@@ -480,7 +490,10 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               livingLimitCents={planImpact.after.targetCents}
               categories={snapshot?.categories ?? []}
               expanded={showPlanChanges}
-              onToggle={() => setShowPlanChanges((value) => !value)}
+              onToggle={() => setShowPlanChanges((value) => {
+                if (!value) capture(AnalyticsEvent.MoneyRebalanceChangesOpened, buildMoneyRebalanceChangesOpenedProps({ changedCount: rebalanceAnswer.changedCategories.length }));
+                return !value;
+              })}
             />
           ) : null}
           {categoryError ? <Text style={styles.errorText}>{categoryError}</Text> : null}

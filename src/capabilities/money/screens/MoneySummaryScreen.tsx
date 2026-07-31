@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   type NativeScrollEvent,
@@ -11,6 +11,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { HapticsService } from '../../../services/HapticsService';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 import { useFeatureFlag } from '../../../services/analytics/useFeatureFlag';
 import { colors, fonts, spacing } from '../../../theme';
 import { BottomDrawer } from '../../../ui/BottomDrawer';
@@ -32,12 +34,14 @@ import { MoneyCategoryMeterTile } from '../components/MoneyCategoryMeterTile';
 import { MoneyPlanLimitAnswer } from '../components/MoneyPlanLimitAnswer';
 import type { MoneyPlanLimitAnswer as LivingLimitAnswer } from '../domain/moneyPlanLimitAnswer';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+import { buildMoneyBudgetAnswerViewedProps, buildMoneyBudgetExplanationOpenedProps, buildMoneyBudgetRecoveryInvokedProps } from '../runtime/moneyPlanLimitAnalytics';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
   const { snapshot } = useMoneyData();
+  const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
   const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
@@ -92,6 +96,11 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
 
   const livingLimitAnswer = livingLimitEnabled ? snapshot?.livingLimitAnswer ?? null : null;
   const destinationTitle = livingLimitEnabled ? 'Budget' : 'Summary';
+
+  useEffect(() => {
+    if (!livingLimitAnswer || currentMonthIndex !== INITIAL_MONTH_INDEX) return;
+    capture(AnalyticsEvent.MoneyBudgetAnswerViewed, buildMoneyBudgetAnswerViewedProps({ answer: livingLimitAnswer, periodRelation: 'current' }));
+  }, [capture, currentMonthIndex, livingLimitAnswer]);
 
   return (
     <>
@@ -150,8 +159,14 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
                 period={item}
                 freshness={formatMoneyFreshness(snapshot.lastSyncedAt)}
                 answer={item.monthOffset === 0 ? livingLimitAnswer : null}
-                onExplain={() => setLimitExplanationOpen(true)}
-                onReview={(reviewTransactionIds) => navigation.navigate('MoneyTransactions', { reviewTransactionIds })}
+                onExplain={() => {
+                  if (livingLimitAnswer) capture(AnalyticsEvent.MoneyBudgetExplanationOpened, buildMoneyBudgetExplanationOpenedProps({ answer: livingLimitAnswer, surface: 'budget' }));
+                  setLimitExplanationOpen(true);
+                }}
+                onReview={(reviewTransactionIds) => {
+                  capture(AnalyticsEvent.MoneyBudgetRecoveryInvoked, buildMoneyBudgetRecoveryInvokedProps({ reason: livingLimitAnswer?.state === 'insufficient_meaning' ? 'insufficient_meaning' : 'needs_meaning' }));
+                  navigation.navigate('MoneyTransactions', { reviewTransactionIds });
+                }}
                 onOpenCategory={(categoryId) => navigation.navigate('MoneyCategoryDetail', { categoryId, monthOffset: item.monthOffset })}
               />
             )}

@@ -84,7 +84,7 @@ export type MoneyTransactionRow = {
   iso_currency_code: string;
   budget_id: string | null;
   budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | 'merchant_rule' | null;
-  budget_assignment_source?: 'provider_policy' | 'merchant_rule' | null;
+  budget_assignment_source?: 'provider_policy' | 'merchant_rule' | 'ai_classifier' | null;
   budget_assignment_policy_version?: string | null;
   budget_assignment_governed?: boolean | null;
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
@@ -493,9 +493,15 @@ function projectTransaction(
     merchantRuleCategoryId: merchantRuleCategory
       ? merchantRuleCategory.legacy_budget_id?.trim() || merchantRuleCategory.slug
       : null,
-    assignmentSource: transaction.budget_assignment_source ?? null,
-    assignmentPolicyVersion: transaction.budget_assignment_policy_version ?? null,
-    assignmentGoverned: transaction.budget_assignment_governed === true,
+    assignmentSource: transaction.budget_match_source === 'corrected' || transaction.budget_match_source === 'confirmed' || transaction.budget_match_source === 'excluded'
+      ? null
+      : transaction.budget_assignment_source ?? null,
+    assignmentPolicyVersion: transaction.budget_match_source === 'corrected' || transaction.budget_match_source === 'confirmed' || transaction.budget_match_source === 'excluded'
+      ? null
+      : transaction.budget_assignment_policy_version ?? null,
+    assignmentGoverned: transaction.budget_match_source === 'corrected' || transaction.budget_match_source === 'confirmed' || transaction.budget_match_source === 'excluded'
+      ? false
+      : transaction.budget_assignment_governed === true,
     moneyMeaning: transaction.money_meaning,
     ...(allocations?.length ? { allocations } : {}),
   };

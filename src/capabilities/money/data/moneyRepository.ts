@@ -82,6 +82,7 @@ export type ConfirmedMerchantRuleWrite = {
 
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
+  classifyUnresolvedTransactions(): Promise<{ consideredCount: number; assignedCount: number; unresolvedCount: number }>;
   ensureGovernedPlanFoundation(): Promise<void>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<ConfirmedTransactionWrite>;
   markTransactionNotCounted(transactionId: string): Promise<ConfirmedTransactionWrite>;
@@ -255,6 +256,19 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
   return {
     loadSnapshot,
+    async classifyUnresolvedTransactions() {
+      await requireSignedIn(client);
+      const { data, error } = await client.functions.invoke('classify-money-transactions', { body: {} });
+      if (error) throw new Error(`Money could not classify transactions: ${error.message || 'Unknown server error'}`);
+      const result = data as Record<string, unknown> | null;
+      const consideredCount = Number(result?.consideredCount);
+      const assignedCount = Number(result?.assignedCount);
+      const unresolvedCount = Number(result?.unresolvedCount);
+      if (![consideredCount, assignedCount, unresolvedCount].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+        throw new Error('Money received an invalid classification receipt.');
+      }
+      return { consideredCount, assignedCount, unresolvedCount };
+    },
     async ensureGovernedPlanFoundation() {
       await requireSignedIn(client);
       const { error } = await client.functions.invoke('reconcile-governed-money', { body: {} });

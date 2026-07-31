@@ -12,7 +12,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient(options: { updatedRowCount?: number; rpcResult?: unknown } = {}) {
+function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; functionResult?: unknown } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -70,9 +70,9 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown }
       return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: null });
     },
     functions: {
-      invoke(name: string, options: { body: Record<string, unknown> }) {
-        functionCalls.push({ name, body: options.body });
-        return Promise.resolve({ data: { outcome: 'reconciled_governed_foundation' }, error: null });
+      invoke(name: string, invokeOptions: { body: Record<string, unknown> }) {
+        functionCalls.push({ name, body: invokeOptions.body });
+        return Promise.resolve({ data: options.functionResult ?? { outcome: 'reconciled_governed_foundation' }, error: null });
       },
     },
   };
@@ -108,6 +108,17 @@ describe('createMoneyRepository transaction review', () => {
     expect(rpcCalls).not.toContainEqual(expect.objectContaining({
       name: 'ensure_governed_household_money_foundation',
     }));
+  });
+
+  it('requests unresolved classification through an authenticated optional background boundary', async () => {
+    const { client, functionCalls } = createClient({
+      functionResult: { consideredCount: 3, assignedCount: 2, unresolvedCount: 1 },
+    });
+
+    await expect(createMoneyRepository(client).classifyUnresolvedTransactions()).resolves.toEqual({
+      consideredCount: 3, assignedCount: 2, unresolvedCount: 1,
+    });
+    expect(functionCalls).toContainEqual({ name: 'classify-money-transactions', body: {} });
   });
 
   it('atomically assigns one category and resolves without a snapshot reload', async () => {
