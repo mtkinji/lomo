@@ -45,6 +45,14 @@ jest.mock('./recommendations/nextStep', () => ({
   hasAnyActivitiesScheduledForToday: jest.fn(() => false),
 }));
 
+jest.mock('../capabilities/money/runtime/moneySavedCheckStorage', () => ({
+  moneySavedCheckStorage: { recordOpened: jest.fn(async () => undefined) },
+}));
+
+jest.mock('./backend/supabaseClient', () => ({
+  getSupabaseClient: () => ({ auth: { getUser: jest.fn(async () => ({ data: { user: { id: 'user-money' } }, error: null })) } }),
+}));
+
 import { useAppStore } from '../store/useAppStore';
 import { useToastStore } from '../store/useToastStore';
 import { navigateWhenReady } from '../navigation/rootNavigationRef';
@@ -52,6 +60,8 @@ import { loadSystemNudgeLedger } from './notifications/NotificationDeliveryLedge
 import { NotificationService } from './NotificationService';
 import { getSuggestedNextStep } from './recommendations/nextStep';
 import { DEFAULT_SCREEN_TIME_PROTECTION_SETTINGS } from './screenTimeProtection';
+import { createWeeklyMoneySavedCheck } from '../capabilities/money/domain/moneySavedCheck';
+import { moneySavedCheckStorage } from '../capabilities/money/runtime/moneySavedCheckStorage';
 
 function setStoreState(overrides: any = {}) {
   (useAppStore.getState as jest.Mock).mockReturnValue({
@@ -701,10 +711,78 @@ describe('NotificationService focus-session cleanup', () => {
           trigger: {},
         },
       ])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{
+        identifier: 'money-weekly-1',
+        content: { data: { type: 'moneyCheck', savedCheckId: 'money-limit' } },
+        trigger: {},
+      }]);
 
     await NotificationService.init();
 
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('focus-stale-1');
+
+    const listener = (Notifications.addNotificationResponseReceivedListener as jest.Mock).mock.calls[0]?.[0];
+    listener({
+      actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',
+      notification: { request: {
+        identifier: 'money-weekly-1',
+        content: { data: { type: 'moneyCheck', savedCheckId: 'money-limit' } },
+      } },
+    });
+    expect(navigateWhenReady).toHaveBeenCalledWith('Money', { screen: 'MoneySummary' });
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(moneySavedCheckStorage.recordOpened).toHaveBeenCalledWith('user-money', expect.any(String));
+  });
+});
+
+describe('NotificationService private weekly Money check', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setStoreState();
+  });
+
+  it('replaces the prior schedule with private copy and a weekly local trigger', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('money-weekly-2');
+    const check = {
+      ...createWeeklyMoneySavedCheck({ nowIso: '2026-07-31T12:00:00.000Z', timezone: 'America/Denver' }),
+      notificationId: 'money-weekly-1',
+    };
+
+    await expect(NotificationService.scheduleMoneyCheck(check)).resolves.toBe('money-weekly-2');
+
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('money-weekly-1');
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith({
+      content: {
+        title: 'Your weekly Money check is ready',
+        body: 'Open Kwilt to see the current answer.',
+        data: { type: 'moneyCheck', savedCheckId: 'money-limit' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        weekday: 6,
+        hour: 9,
+        minute: 0,
+        repeats: true,
+      },
+    });
+    expect(JSON.stringify((Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0]))
+      .not.toMatch(/cents|percent|category|account|merchant|70%/i);
+  });
+
+  it('does not schedule after notification permission is denied', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
+    const check = createWeeklyMoneySavedCheck({ nowIso: '2026-07-31T12:00:00.000Z', timezone: 'America/Denver' });
+
+    await expect(NotificationService.scheduleMoneyCheck(check)).resolves.toBeNull();
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('cancels the exact saved Money check', async () => {
+    await NotificationService.cancelMoneyCheck('money-weekly-2');
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('money-weekly-2');
   });
 });
