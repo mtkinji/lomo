@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "input": "/Users/andrewwatanabe/Kwilt/.worktrees/pixel-pet-site-prototype/prototypes/pixel-pets/public/leafling-evolution-forms-v1.png",
+  "output": "/Users/andrewwatanabe/Kwilt/.worktrees/pixel-pet-site-prototype/prototypes/pixel-pets/public/leafling-evolution-forms-v1.png",
+  "chroma_key": "#FF00FF",
+  "algorithm": "edge-local-chroma-spill-suppression",
+  "strength": 1,
+  "edge_radius": 5,
+  "spill_tolerance": 0.15,
+  "minimum_saturation": 0.1,
+  "changed_pixels": 4141,
+  "decontaminated_pixels": 4046,
+  "spill_suppressed_pixels": 4141,
+  "rejected_pixels": 0,
+  "changed_by_cell": {
+    "r0c1": 2409,
+    "r0c0": 1732
+  },
+  "alpha_preserved": true
+}

@@ -46,7 +46,7 @@ When I complete one thing that helps life feel better, I want a small creature I
 
 ### Prototype-first validation
 
-Before Pet changes the Kwilt app, test the concept as a separately deployed, mobile-first site prototype. The site includes all five selectable Pets, naming, palette choice, local persistence, simulated To-do and Focus receipts, the one-care-moment-per-day rule, nonverbal sound and motion, accelerated time, and one evolution after five care days.
+Before Pet changes the Kwilt app, test the concept as a separately deployed, mobile-first site prototype. The site includes a deeply proven Leafling before multiplying species, naming, palette choice, local persistence, simulated To-do and Focus receipts, the one-care-moment-per-day rule, nonverbal sound and motion, accelerated time, and two visible evolutions.
 
 The site does not connect to Kwilt accounts or production data. Prototype controls make it possible to replay reactions, advance days, reset, and switch Pets rapidly. These controls are visibly separated from the intended consumer experience.
 
@@ -92,7 +92,7 @@ Care days accumulate and never subtract. A missed day cannot make the Pet hungry
 - Tap or drag an available meal to its bowl.
 - See one recent source-class receipt without private Activity text.
 - Occasionally choose between two cosmetic directions such as rest, explore, or play.
-- Reach a first evolution after five distinct care days.
+- Grow from baby to young after three distinct care days, then to guardian after eight.
 
 Pet interactions use world coordinates rather than screen coordinates. The habitat is wider than the camera, so the same behavior and state model can travel between iPhone, web, and desktop renderers. The consumer surface has no joystick, zoom buttons, camera settings, meters, inventory, or permanent tutorial furniture; direct manipulation is the interface. Prototype-only controls remain in the separate engine inspector.
 
@@ -104,7 +104,7 @@ Pet sounds have their own setting. Equivalent visual and semantic-haptic feedbac
 
 ### Evolution and asset boundary
 
-The first Labs version has a young and first-evolution form for each type: ten core designs total. Most behaviors use two-to-four-frame reusable loops for idle, greet, eat, sleep, discover, and evolve, plus code-driven position, scale, blink, palette, and particle effects. Mature forms, branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
+The first Labs version targets baby, young, and guardian forms for each type: fifteen core designs total if the Leafling proof earns a five-species release. Each form preserves species identity while changing its silhouette and body plan. Behaviors use compact authored vocabularies for idle, greet, care, sleep, discover, and evolve, plus code-driven position, lift, rotation, camera, palette, and particles. Branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
 
 The engine study may compose an existing clip with code-driven travel, lift, rotation, camera follow, or attention to prove whether an interaction deserves bespoke art. A dedicated walk/run gait or rollover row is commissioned only when the behavior proves valuable and the composite motion no longer meets the quality bar. This keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
@@ -135,7 +135,7 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 ## Open questions
 
 - Are five choices enough, and do all five attract real preference?
-- Is five care days the right threshold for the first evolution?
+- Do three and eight care moments make both evolutions reachable without making growth feel disposable?
 - Does a meal metaphor feel natural, or should the care object vary by pet?
 - How much habitat change is needed before the persistent display feels alive?
 - Do weather-caused behaviors make the habitat feel like a world rather than a decorated screen?
@@ -146,5 +146,5 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 - Does code-driven travel feel believable enough for the first learning release, or is a dedicated gait the next required asset?
 - Do teens prefer sounds by default, or should Pet begin muted?
 - Does contextual Chat clarify Pet events without making Pet feel distributed through the timeline?
-- Is one evolved form sufficient for lasting attachment, or does evidence justify a user-chosen branch?
+- Are three linear forms sufficient for lasting attachment, or does evidence justify a later user-chosen branch?
 - After playing with the standalone site, do participants ask to connect real Kwilt actions without being prompted?

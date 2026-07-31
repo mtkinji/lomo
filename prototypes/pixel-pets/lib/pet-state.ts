@@ -7,7 +7,7 @@ export type PetKind =
 
 export type PetPalette = "moss" | "lagoon" | "ember" | "clay" | "sky";
 export type MeaningfulAction = "todo" | "focus" | "play";
-export type PetStage = "young" | "evolved";
+export type PetStage = "baby" | "young" | "guardian";
 export type PetReaction =
   | "idle"
   | "greet"
@@ -46,7 +46,7 @@ export function createPetState(
     caredPrototypeDay: null,
     careAvailable: false,
     pendingSource: null,
-    stage: "young",
+    stage: "baby",
     reaction: "greet",
     lastReceipt: "A new little life has arrived.",
     soundEnabled: true,
@@ -89,7 +89,12 @@ export function giveCare(state: PetState): PetState {
   if (!state.careAvailable) return state;
 
   const careDays = state.careDays + 1;
-  const evolvedNow = state.stage === "young" && careDays >= 5;
+  const stage: PetStage = careDays >= 8
+    ? "guardian"
+    : careDays >= 3
+      ? "young"
+      : "baby";
+  const evolvedNow = stage !== state.stage;
 
   return {
     ...state,
@@ -97,10 +102,12 @@ export function giveCare(state: PetState): PetState {
     caredPrototypeDay: state.prototypeDay,
     careAvailable: false,
     pendingSource: null,
-    stage: evolvedNow ? "evolved" : state.stage,
+    stage,
     reaction: evolvedNow ? "evolve" : "eat",
     lastReceipt: evolvedNow
-      ? `${state.name} grew into a new form.`
+      ? stage === "guardian"
+        ? `${state.name} grew into a Guardian Leafling.`
+        : `${state.name} grew into a young Leafling.`
       : `${state.name} is cozy and cared for today.`,
   };
 }

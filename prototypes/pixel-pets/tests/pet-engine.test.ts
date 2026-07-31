@@ -6,11 +6,14 @@ import {
   MOTION_CLIPS,
   clipForMotion,
   resolveGroundCue,
+  resolveRequestedClip,
   type EngineMotion,
 } from "../lib/pet-engine.ts";
 import {
   LEAFLING_MANIFEST,
   LEAFLING_PRESENTATION,
+  LEAFLING_STAGE_MANIFESTS,
+  leaflingManifestForStage,
 } from "../lib/leafling.ts";
 import { resolvePetFrame } from "../lib/pet-runtime.ts";
 
@@ -25,8 +28,26 @@ test("the reference engine keeps a low ground plane for a roaming-scale Pet", ()
     columns: 8,
     rows: 7,
   });
-  assert.deepEqual(LEAFLING_PRESENTATION.stages.young, { width: 44, height: 44 });
-  assert.deepEqual(LEAFLING_PRESENTATION.stages.evolved, { width: 52, height: 52 });
+  assert.deepEqual(LEAFLING_PRESENTATION.stages.baby, { width: 38, height: 38 });
+  assert.deepEqual(LEAFLING_PRESENTATION.stages.young, { width: 46, height: 46 });
+  assert.deepEqual(LEAFLING_PRESENTATION.stages.guardian, { width: 62, height: 62 });
+});
+
+test("each evolution stage resolves to its own authored animation vocabulary", () => {
+  assert.equal(leaflingManifestForStage("young"), LEAFLING_MANIFEST);
+  assert.equal(leaflingManifestForStage("baby").atlas.src, "/leafling-stage-atlas-v1.png");
+  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v1.png");
+
+  for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
+    assert.deepEqual(Object.keys(manifest.clips), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve"]);
+    for (const clip of Object.values(manifest.clips)) {
+      for (const authoredFrame of clip.frames) {
+        assert.ok(authoredFrame.cell.column < manifest.atlas.columns, `${stage} frame column must exist`);
+        assert.ok(authoredFrame.cell.row < manifest.atlas.rows, `${stage} frame row must exist`);
+        assert.deepEqual(authoredFrame.anchor, { x: 64, y: 120 });
+      }
+    }
+  }
 });
 
 test("ground cues stay inside the terrain instead of becoming a floating disk", () => {
@@ -126,6 +147,12 @@ test("prototype reactions resolve to their own authored clips", () => {
   const motions = Object.keys(MOTION_CLIPS) as EngineMotion[];
   assert.deepEqual(motions, ["idle", "blink", "greet", "care", "discover", "sleep", "evolve"]);
   motions.forEach((motion) => assert.equal(clipForMotion(motion), motion));
+});
+
+test("an explicit inspector preview wins over spontaneous world attention", () => {
+  assert.equal(resolveRequestedClip("blink", "discover", false, true), "blink");
+  assert.equal(resolveRequestedClip("blink", "discover", false, false), "discover");
+  assert.equal(resolveRequestedClip("blink", "discover", true, false), "blink");
 });
 
 test("reduced motion preserves authored expressions while removing travel", () => {

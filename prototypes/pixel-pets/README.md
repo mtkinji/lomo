@@ -7,7 +7,7 @@ The prototype lets a tester:
 - inspect seven independently authored Leafling animation clips;
 - pause and step through the exact atlas cells used by the renderer;
 - observe planted, resting, and airborne ground-contact states;
-- compare the 44px young and 52px evolved game-character scales;
+- compare 38px baby, 46px young, and 62px guardian game-character scales;
 - see a one-time sleep transition resolve into a curled breathing loop;
 - tap the world to walk, run, and jump while a wider camera follows;
 - pinch from a full habitat view to a temporary 2.25x close-up;
@@ -23,14 +23,16 @@ The prototype lets a tester:
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
 - hear and mute nonverbal sounds;
-- accelerate time and reach a first evolution after five care days.
+- accelerate time through a young form after three care moments and a guardian form after eight.
 
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
 coordinates, camera follow, transient zoom, weather response, shared-focus state,
 and autonomous behavior targets.
-The same snapshot contract can also carry masked anatomy layers, allowing the
-Canvas adapter to change Leafling's eyes without redrawing or moving its body.
+The same snapshot contract carries both masked anatomy layers and stage-specific
+animation manifests. The young Leafling can change its eyes without redrawing
+or moving its body; baby and guardian use compact authored key-pose vocabularies
+with non-linear limited-animation timing.
 Canvas 2D is the current renderer adapter. It places Leafling low in the scene,
 draws contact cues inside the terrain rather than as a separate platform, and
 leaves open world space for future locomotion. Native and desktop renderers can

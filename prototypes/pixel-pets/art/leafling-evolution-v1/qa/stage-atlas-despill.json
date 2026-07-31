@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "input": "/Users/andrewwatanabe/Kwilt/.worktrees/pixel-pet-site-prototype/prototypes/pixel-pets/public/leafling-stage-atlas-v1.png",
+  "output": "/Users/andrewwatanabe/Kwilt/.worktrees/pixel-pet-site-prototype/prototypes/pixel-pets/public/leafling-stage-atlas-v1.png",
+  "chroma_key": "#FF00FF",
+  "algorithm": "edge-local-chroma-spill-suppression",
+  "strength": 1,
+  "edge_radius": 5,
+  "spill_tolerance": 0.15,
+  "minimum_saturation": 0.1,
+  "changed_pixels": 15817,
+  "decontaminated_pixels": 15227,
+  "spill_suppressed_pixels": 15817,
+  "rejected_pixels": 0,
+  "changed_by_cell": {
+    "r0c0": 2951,
+    "r0c2": 2772,
+    "r0c1": 2754,
+    "r0c3": 2177,
+    "r0c4": 1178,
+    "r1c0": 830,
+    "r1c2": 766,
+    "r1c1": 746,
+    "r1c3": 705,
+    "r1c4": 519,
+    "r0c5": 273,
+    "r1c5": 146
+  },
+  "alpha_preserved": true
+}

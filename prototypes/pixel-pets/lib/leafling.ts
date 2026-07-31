@@ -163,10 +163,115 @@ export const LEAFLING_MANIFEST = {
   },
 } satisfies PetAnimationManifest;
 
+function stageFrame(
+  column: number,
+  row: number,
+  duration: number,
+  options: Partial<Omit<PetAnimationFrame, "cell" | "duration" | "anchor">> = {},
+): PetAnimationFrame {
+  return frame(column, row, duration, options);
+}
+
+function createStageManifest(row: number): PetAnimationManifest {
+  return {
+    atlas: {
+      src: "/leafling-stage-atlas-v1.png",
+      frameWidth: 128,
+      frameHeight: 128,
+      columns: 8,
+      rows: 2,
+    },
+    fallbackClip: "idle",
+    clips: {
+      idle: {
+        loop: true,
+        frames: [
+          stageFrame(0, row, 720, { role: "hold" }),
+          stageFrame(1, row, 150, { events: ["inhale"], role: "key" }),
+          stageFrame(0, row, 520, { events: ["exhale"], role: "recovery" }),
+          stageFrame(3, row, 260, { events: ["attend"], role: "accent" }),
+          stageFrame(0, row, 760, { role: "hold" }),
+        ],
+      },
+      blink: {
+        loop: true,
+        frames: [
+          stageFrame(0, row, 1200, { role: "hold" }),
+          stageFrame(2, row, 34, { events: ["blink-start", "eyes-closed"], role: "accent" }),
+          stageFrame(0, row, 66, { events: ["blink-open"], role: "recovery" }),
+          stageFrame(0, row, 1450, { role: "hold" }),
+        ],
+      },
+      greet: {
+        loop: false,
+        frames: [
+          stageFrame(0, row, 260, { events: ["notice"], role: "hold" }),
+          stageFrame(3, row, 90, { events: ["anticipate"], role: "key" }),
+          stageFrame(4, row, 75, { contact: "airborne", transform: { x: 0, y: -9 }, events: ["airborne"], role: "inbetween", shadow: { width: 38, opacity: 0.13 } }),
+          stageFrame(4, row, 145, { contact: "airborne", transform: { x: 0, y: -17 }, events: ["apex", "chirp"], role: "accent", shadow: { width: 26, opacity: 0.09 } }),
+          stageFrame(4, row, 70, { contact: "airborne", transform: { x: 0, y: -7 }, role: "inbetween", shadow: { width: 40, opacity: 0.14 } }),
+          stageFrame(0, row, 110, { events: ["land"], role: "recovery" }),
+          stageFrame(0, row, 420, { events: ["settle"], role: "hold" }),
+        ],
+      },
+      care: {
+        loop: false,
+        frames: [
+          stageFrame(0, row, 260, { events: ["notice-care"], role: "hold" }),
+          stageFrame(5, row, 130, { events: ["nuzzle"], role: "key" }),
+          stageFrame(4, row, 180, { events: ["content"], role: "accent" }),
+          stageFrame(0, row, 380, { events: ["settle"], role: "recovery" }),
+        ],
+      },
+      discover: {
+        loop: false,
+        frames: [
+          stageFrame(0, row, 260, { role: "hold" }),
+          stageFrame(3, row, 110, { events: ["ears-lead", "eyes-follow"], role: "key" }),
+          stageFrame(3, row, 260, { events: ["inspect"], role: "accent" }),
+          stageFrame(0, row, 360, { events: ["settle"], role: "recovery" }),
+        ],
+      },
+      sleep: {
+        loop: true,
+        loopFrom: 3,
+        frames: [
+          stageFrame(0, row, 260, { events: ["drowsy"], role: "hold" }),
+          stageFrame(5, row, 220, { contact: "resting", events: ["lower"], role: "key" }),
+          stageFrame(6, row, 280, { contact: "resting", events: ["curl"], role: "inbetween" }),
+          stageFrame(7, row, 560, { contact: "resting", events: ["asleep", "sleep-inhale"], role: "accent" }),
+          stageFrame(7, row, 620, { contact: "resting", events: ["sleep-exhale"], role: "hold" }),
+        ],
+      },
+      evolve: {
+        loop: false,
+        frames: [
+          stageFrame(0, row, 240, { events: ["arrive"], role: "hold" }),
+          stageFrame(3, row, 100, { events: ["recognize"], role: "key" }),
+          stageFrame(4, row, 170, { contact: "airborne", transform: { x: 0, y: -13 }, events: ["open"], role: "accent", shadow: { width: 30, opacity: 0.1 } }),
+          stageFrame(0, row, 120, { events: ["land"], role: "recovery" }),
+          stageFrame(0, row, 520, { events: ["proud"], role: "hold" }),
+        ],
+      },
+    },
+  };
+}
+
+export const LEAFLING_STAGE_MANIFESTS = {
+  baby: createStageManifest(0),
+  young: LEAFLING_MANIFEST,
+  guardian: createStageManifest(1),
+} satisfies Record<PetStage, PetAnimationManifest>;
+
+export function leaflingManifestForStage(stage: PetStage): PetAnimationManifest {
+  return LEAFLING_STAGE_MANIFESTS[stage];
+}
+
 export const LEAFLING_PRESENTATION = {
   stages: {
-    young: { width: 44, height: 44 },
-    evolved: { width: 52, height: 52 },
+    baby: { width: 38, height: 38 },
+    young: { width: 46, height: 46 },
+    guardian: { width: 62, height: 62 },
   } satisfies Record<PetStage, { width: number; height: number }>,
   channels: [
     { id: "tail", bounds: { x: 86, y: 48, width: 38, height: 68 } },

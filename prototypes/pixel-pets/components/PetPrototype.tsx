@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
 import { createPetWorldState, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
-import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
+import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
   advancePrototypeDay,
@@ -20,7 +20,7 @@ import {
   withReaction,
 } from "@/lib/pet-state";
 
-const STORAGE_KEY = "kwilt-pixel-pet-engine-proof-v3";
+const STORAGE_KEY = "kwilt-pixel-pet-engine-proof-v4";
 
 const PALETTES: Array<{ id: PetPalette; label: string }> = [
   { id: "moss", label: "Moss" },
@@ -132,10 +132,10 @@ export function PetPrototype() {
     }, delay);
   }, []);
 
-  const settleAfterMotion = useCallback((motion: EngineMotion, hold = 220) => {
-    const clip = LEAFLING_MANIFEST.clips[clipForMotion(motion)];
+  const settleAfterMotion = useCallback((motion: EngineMotion, stage: PetStage = state.stage, hold = 220) => {
+    const clip = leaflingManifestForStage(stage).clips[clipForMotion(motion)];
     if (!clip.loop) settle(clipDuration(clip) + hold);
-  }, [settle]);
+  }, [settle, state.stage]);
 
   useEffect(() => {
     if (!world.focus.completed || focusCompletionHandled.current) return;
@@ -160,7 +160,7 @@ export function PetPrototype() {
     setState(next);
     playPetSound(next.reaction, next.soundEnabled);
     nudge();
-    settleAfterMotion(REACTION_MOTION[next.reaction]);
+    settleAfterMotion(REACTION_MOTION[next.reaction], next.stage);
   }
 
   function advanceDay() {
@@ -196,13 +196,19 @@ export function PetPrototype() {
   const currentMotion = previewMotion ?? REACTION_MOTION[state.reaction];
   const currentClip = clipForMotion(currentMotion);
   const renderedClip = frame?.clip ?? currentClip;
-  const currentAnimation = LEAFLING_MANIFEST.clips[renderedClip] as PetAnimationClip;
   const currentStage = previewStage ?? state.stage;
-  const currentScale = LEAFLING_PRESENTATION.stages[currentStage].width / LEAFLING_MANIFEST.atlas.frameWidth;
+  const currentManifest = leaflingManifestForStage(currentStage);
+  const currentAnimation = currentManifest.clips[renderedClip] as PetAnimationClip;
+  const currentScale = LEAFLING_PRESENTATION.stages[currentStage].width / currentManifest.atlas.frameWidth;
   const currentGroundCue = frame
     ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
     : null;
-  const momentsToGrow = Math.max(0, 5 - state.careDays);
+  const nextGrowthThreshold = state.stage === "baby" ? 3 : state.stage === "young" ? 8 : null;
+  const momentsToGrow = nextGrowthThreshold === null ? 0 : Math.max(0, nextGrowthThreshold - state.careDays);
+  const growthTitle = state.stage === "guardian" ? "Guardian form reached" : "Growing together";
+  const growthDetail = state.stage === "guardian"
+    ? `${state.careDays} moments remembered`
+    : `${momentsToGrow} until ${state.stage === "baby" ? "young form" : "guardian form"}`;
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const currentStatus = useMemo(() => {
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
@@ -245,15 +251,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 06</span>
-        <h1>The world<br />touches back.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 07</span>
+        <h1>Small roots.<br />Tall canopy.</h1>
         <p>
-          Sun, wind, and rain are no longer scenery. They move through Leafling’s tiny world, change its attention, and give it somewhere meaningful to go.
+          Leafling now grows through three truly different bodies. The same eyes, instincts, and authored motion language persist from tiny seedling to forest guardian.
         </p>
         <dl className="engine-facts">
-          <div><dt>Weather</dt><dd>sun · wind · rain</dd></div>
-          <div><dt>Response</dt><dd>seek → shelter</dd></div>
-          <div><dt>Ritual</dt><dd>focus together</dd></div>
+          <div><dt>Forms</dt><dd>baby · young · guardian</dd></div>
+          <div><dt>Growth</dt><dd>3 · 8 care moments</dd></div>
+          <div><dt>Identity</dt><dd>same eyes · new silhouette</dd></div>
         </dl>
       </header>
 
@@ -282,6 +288,7 @@ export function PetPrototype() {
             paused={paused}
             manualElapsed={manualElapsed}
             showRig={showRig}
+            previewing={previewMotion !== null}
             worldCommand={worldCommand}
             onFrame={handleFrame}
             onWorldFrame={handleWorldFrame}
@@ -322,11 +329,11 @@ export function PetPrototype() {
 
         <div className="growth-memory">
           <div className="memory-copy">
-            <span>{state.stage === "evolved" ? "First evolution reached" : "Growing together"}</span>
-            <small>{state.stage === "evolved" ? `${state.careDays} moments remembered` : `${momentsToGrow} until something new`}</small>
+            <span>{growthTitle}</span>
+            <small>{growthDetail}</small>
           </div>
-          <div className="memory-dots" aria-label={`${Math.min(state.careDays, 5)} of 5 care moments`}>
-            {[0, 1, 2, 3, 4].map((index) => <span key={index} className={index < state.careDays ? "remembered" : ""} />)}
+          <div className="memory-dots" aria-label={`${Math.min(state.careDays, 8)} of 8 care moments`}>
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => <span key={index} className={index < state.careDays ? "remembered" : ""} />)}
           </div>
         </div>
       </section>
@@ -401,8 +408,9 @@ export function PetPrototype() {
         <section className="inspector-section">
           <div className="inspector-label"><span>Form</span><output>{currentStage}</output></div>
           <div className="segmented-control">
+            <button type="button" className={currentStage === "baby" ? "active" : ""} onClick={() => setPreviewStage("baby")}>Baby</button>
             <button type="button" className={currentStage === "young" ? "active" : ""} onClick={() => setPreviewStage("young")}>Young</button>
-            <button type="button" className={currentStage === "evolved" ? "active" : ""} onClick={() => setPreviewStage("evolved")}>Evolved</button>
+            <button type="button" className={currentStage === "guardian" ? "active" : ""} onClick={() => setPreviewStage("guardian")}>Guardian</button>
           </div>
         </section>
 

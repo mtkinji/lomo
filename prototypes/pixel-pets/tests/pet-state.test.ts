@@ -33,17 +33,32 @@ test("care is recorded once per day and cannot be ground repeatedly", () => {
   assert.deepEqual(duplicate, cared);
 });
 
-test("five distinct care days create the first evolution", () => {
+test("three distinct care days grow a baby into a young Leafling", () => {
   let state = createPetState("glowmoth", "Luma", "ember");
 
-  for (let day = 1; day <= 5; day += 1) {
+  for (let day = 1; day <= 3; day += 1) {
     state = giveCare(completeMeaningfulAction(state, "todo"));
-    if (day < 5) state = advancePrototypeDay(state);
+    if (day < 3) state = advancePrototypeDay(state);
   }
 
-  assert.equal(state.careDays, 5);
-  assert.equal(state.stage, "evolved");
+  assert.equal(state.careDays, 3);
+  assert.equal(state.stage, "young");
   assert.equal(state.reaction, "evolve");
+  assert.match(state.lastReceipt, /young Leafling/i);
+});
+
+test("eight distinct care days grow a young Leafling into a guardian", () => {
+  let state = createPetState("leafling", "Moss", "moss");
+
+  for (let day = 1; day <= 8; day += 1) {
+    state = giveCare(completeMeaningfulAction(state, "focus"));
+    if (day < 8) state = advancePrototypeDay(state);
+  }
+
+  assert.equal(state.careDays, 8);
+  assert.equal(state.stage, "guardian");
+  assert.equal(state.reaction, "evolve");
+  assert.match(state.lastReceipt, /Guardian Leafling/i);
 });
 
 test("advancing through quiet days never removes care or evolution", () => {
@@ -52,7 +67,7 @@ test("advancing through quiet days never removes care or evolution", () => {
   state = advancePrototypeDay(advancePrototypeDay(advancePrototypeDay(state)));
 
   assert.equal(state.careDays, 1);
-  assert.equal(state.stage, "young");
+  assert.equal(state.stage, "baby");
   assert.equal(state.careAvailable, false);
   assert.match(state.lastReceipt, /quiet new day/i);
 });

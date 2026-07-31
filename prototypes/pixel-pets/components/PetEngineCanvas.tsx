@@ -6,6 +6,7 @@ import {
   ENGINE_SCENE,
   clipForMotion,
   resolveGroundCue,
+  resolveRequestedClip,
   type EngineMotion,
 } from "@/lib/pet-engine";
 import {
@@ -24,8 +25,8 @@ import {
   type PetWorldState,
   type WorldPoint,
 } from "@/lib/pet-world";
-import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
-import { resolvePetFrame, type PetFrameSnapshot } from "@/lib/pet-runtime";
+import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
+import { resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
@@ -41,6 +42,7 @@ interface PetEngineCanvasProps {
   paused?: boolean;
   manualElapsed?: number;
   showRig?: boolean;
+  previewing?: boolean;
   worldCommand?: PetWorldCommand | null;
   onFrame?: (snapshot: PetFrameSnapshot) => void;
   onWorldFrame?: (world: PetWorldState) => void;
@@ -330,6 +332,7 @@ function drawHabitat(
 function renderScene(
   context: CanvasRenderingContext2D,
   sprite: HTMLImageElement,
+  manifest: PetAnimationManifest,
   paletteId: PetPalette,
   stage: PetStage,
   motion: EngineMotion,
@@ -342,10 +345,10 @@ function renderScene(
   drawHabitat(context, palette, motion, snapshot.progress, world);
 
   const size = LEAFLING_PRESENTATION.stages[stage];
-  const scaleX = size.width / LEAFLING_MANIFEST.atlas.frameWidth;
-  const scaleY = size.height / LEAFLING_MANIFEST.atlas.frameHeight;
-  const sourceX = snapshot.cell.column * LEAFLING_MANIFEST.atlas.frameWidth;
-  const sourceY = snapshot.cell.row * LEAFLING_MANIFEST.atlas.frameHeight;
+  const scaleX = size.width / manifest.atlas.frameWidth;
+  const scaleY = size.height / manifest.atlas.frameHeight;
+  const sourceX = snapshot.cell.column * manifest.atlas.frameWidth;
+  const sourceY = snapshot.cell.row * manifest.atlas.frameHeight;
   const destinationX = -snapshot.anchor.x * scaleX + snapshot.transform.x;
   const destinationY = -snapshot.anchor.y * scaleY + snapshot.transform.y;
   const groundCue = resolveGroundCue(snapshot.contact, snapshot.shadow.width, snapshot.shadow.opacity, scaleX);
@@ -379,8 +382,8 @@ function renderScene(
     sprite,
     sourceX,
     sourceY,
-    LEAFLING_MANIFEST.atlas.frameWidth,
-    LEAFLING_MANIFEST.atlas.frameHeight,
+    manifest.atlas.frameWidth,
+    manifest.atlas.frameHeight,
     Math.round(destinationX),
     Math.round(destinationY),
     size.width,
@@ -404,10 +407,10 @@ function renderScene(
     context.clip();
     context.drawImage(
       sprite,
-      layer.cell.column * LEAFLING_MANIFEST.atlas.frameWidth,
-      layer.cell.row * LEAFLING_MANIFEST.atlas.frameHeight,
-      LEAFLING_MANIFEST.atlas.frameWidth,
-      LEAFLING_MANIFEST.atlas.frameHeight,
+      layer.cell.column * manifest.atlas.frameWidth,
+      layer.cell.row * manifest.atlas.frameHeight,
+      manifest.atlas.frameWidth,
+      manifest.atlas.frameHeight,
       Math.round(destinationX + layer.offset.x * scaleX),
       Math.round(destinationY + layer.offset.y * scaleY),
       size.width,
@@ -443,6 +446,7 @@ export function PetEngineCanvas({
   paused = false,
   manualElapsed = 0,
   showRig = false,
+  previewing = false,
   worldCommand,
   onFrame,
   onWorldFrame,
@@ -459,6 +463,7 @@ export function PetEngineCanvas({
   const lastWorldReportRef = useRef(0);
   const nextInsectRef = useRef(1800);
   const callbackRef = useRef({ onFrame, onWorldFrame, onWorldInteraction });
+  const manifest = leaflingManifestForStage(stage);
 
   useEffect(() => {
     callbackRef.current = { onFrame, onWorldFrame, onWorldInteraction };
@@ -520,7 +525,12 @@ export function PetEngineCanvas({
       if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action);
 
       const worldClip = clipForWorldAction(worldRef.current.action);
-      const requestedClip = worldRef.current.action === "idle" ? clipForMotion(motion) : worldClip;
+      const requestedClip = resolveRequestedClip(
+        clipForMotion(motion),
+        worldClip,
+        worldRef.current.action === "idle",
+        previewing,
+      );
       if (requestedClip !== activeClip) {
         activeClip = requestedClip;
         clipStartedAt = time;
@@ -529,8 +539,8 @@ export function PetEngineCanvas({
       const elapsed = worldRef.current.action === "rollover"
         ? resolveRolloverPose(worldRef.current.actionElapsed).clipElapsed
         : paused ? manualElapsed : time - clipStartedAt;
-      const snapshot = resolvePetFrame(LEAFLING_MANIFEST, requestedClip, elapsed, reducedMotion);
-      renderScene(context, sprite, palette, stage, motion, snapshot, showRig, worldRef.current);
+      const snapshot = resolvePetFrame(manifest, requestedClip, elapsed, reducedMotion);
+      renderScene(context, sprite, manifest, palette, stage, motion, snapshot, showRig, worldRef.current);
 
       const frameKey = `${snapshot.clip}:${snapshot.frameIndex}`;
       if (frameKey !== lastFrameRef.current) {
@@ -545,13 +555,13 @@ export function PetEngineCanvas({
     };
 
     sprite.onload = () => draw(performance.now());
-    sprite.src = LEAFLING_MANIFEST.atlas.src;
+    sprite.src = manifest.atlas.src;
     return () => {
       disposed = true;
       cancelAnimationFrame(animationId);
       sprite.onload = null;
     };
-  }, [manualElapsed, motion, palette, paused, reducedMotion, showRig, stage]);
+  }, [manualElapsed, manifest, motion, palette, paused, previewing, reducedMotion, showRig, stage]);
 
   function pointFromEvent(event: PointerEvent<HTMLDivElement>): WorldPoint {
     const bounds = event.currentTarget.getBoundingClientRect();

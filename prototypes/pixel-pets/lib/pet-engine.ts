@@ -50,3 +50,12 @@ export const MOTION_CLIPS: Record<EngineMotion, AuthoredClip> = {
 export function clipForMotion(motion: EngineMotion): AuthoredClip {
   return MOTION_CLIPS[motion];
 }
+
+export function resolveRequestedClip(
+  motionClip: string,
+  worldClip: string,
+  worldIsIdle: boolean,
+  previewing: boolean,
+): string {
+  return previewing || worldIsIdle ? motionClip : worldClip;
+}

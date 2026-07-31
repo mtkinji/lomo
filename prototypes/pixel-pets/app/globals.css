@@ -560,10 +560,12 @@ summary:focus-visible {
 .transport-row,
 .segmented-control {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 7px;
   margin-top: 8px;
 }
+
+.transport-row { grid-template-columns: 1fr 1fr; }
+.segmented-control { grid-template-columns: repeat(3, 1fr); }
 
 .text-control {
   padding: 0;
