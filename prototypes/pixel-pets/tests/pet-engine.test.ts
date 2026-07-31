@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -19,14 +20,14 @@ import { resolvePetFrame } from "../lib/pet-runtime.ts";
 
 test("the reference engine keeps a low ground plane for a roaming-scale Pet", () => {
   assert.deepEqual(ENGINE_SCENE, { width: 160, height: 240, groundY: 208 });
-  assert.equal(LEAFLING_MANIFEST.atlas.frameWidth, 128);
+  assert.equal(LEAFLING_MANIFEST.atlas.frameWidth, 160);
   assert.equal(LEAFLING_MANIFEST.atlas.frameHeight, 128);
   assert.deepEqual(LEAFLING_MANIFEST.atlas, {
-    src: "/leafling-motion-atlas-v3.png",
-    frameWidth: 128,
+    src: "/leafling-motion-atlas-v4.png",
+    frameWidth: 160,
     frameHeight: 128,
     columns: 8,
-    rows: 7,
+    rows: 9,
   });
   assert.deepEqual(LEAFLING_PRESENTATION.stages.baby, { width: 38, height: 38 });
   assert.deepEqual(LEAFLING_PRESENTATION.stages.young, { width: 46, height: 46 });
@@ -35,23 +36,36 @@ test("the reference engine keeps a low ground plane for a roaming-scale Pet", ()
 
 test("each evolution stage resolves to its own authored animation vocabulary", () => {
   assert.equal(leaflingManifestForStage("young"), LEAFLING_MANIFEST);
-  assert.equal(leaflingManifestForStage("baby").atlas.src, "/leafling-stage-atlas-v1.png");
-  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v1.png");
+  assert.equal(leaflingManifestForStage("baby").atlas.src, "/leafling-stage-atlas-v2.png");
+  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v2.png");
 
   for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
-    assert.deepEqual(Object.keys(manifest.clips), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve"]);
+    assert.deepEqual(Object.keys(manifest.clips), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run"]);
+    assert.equal(manifest.clips.walk.loop, true);
+    assert.equal(manifest.clips.run.loop, true);
+    assert.equal(manifest.clips.walk.frames.length, 8);
+    assert.equal(manifest.clips.run.frames.length, 8);
     for (const clip of Object.values(manifest.clips)) {
       for (const authoredFrame of clip.frames) {
         assert.ok(authoredFrame.cell.column < manifest.atlas.columns, `${stage} frame column must exist`);
         assert.ok(authoredFrame.cell.row < manifest.atlas.rows, `${stage} frame row must exist`);
-        assert.deepEqual(authoredFrame.anchor, { x: 64, y: 120 });
+        assert.deepEqual(authoredFrame.anchor, { x: 80, y: 120 });
       }
     }
   }
 });
 
+test("locomotion sources are normalized to the renderer's screen-right contract", async () => {
+  const report = JSON.parse(await readFile(new URL("../art/leafling-locomotion-v1/qa/assembly.json", import.meta.url), "utf8"));
+  const guardianWalk = report.rows.find((row: { stage: string; motion: string }) => row.stage === "guardian" && row.motion === "walk");
+
+  assert.equal(guardianWalk.canonical_facing, "screen-right");
+  assert.equal(guardianWalk.mirrored_from_source, true);
+  assert.ok(report.rows.every((row: { canonical_facing: string }) => row.canonical_facing === "screen-right"));
+});
+
 test("ground cues stay inside the terrain instead of becoming a floating disk", () => {
-  const scale = LEAFLING_PRESENTATION.stages.young.width / LEAFLING_MANIFEST.atlas.frameWidth;
+  const scale = LEAFLING_PRESENTATION.stages.young.height / LEAFLING_MANIFEST.atlas.frameHeight;
 
   assert.deepEqual(resolveGroundCue("planted", 64, 0.2, scale), {
     width: 4,
@@ -75,7 +89,7 @@ test("ground cues stay inside the terrain instead of becoming a floating disk", 
 
 test("every behavior owns a complete authored animation row", () => {
   const clips = Object.entries(LEAFLING_MANIFEST.clips);
-  assert.deepEqual(clips.map(([id]) => id), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve"]);
+  assert.deepEqual(clips.map(([id]) => id), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run"]);
   clips.forEach(([id, clip], row) => {
     assert.equal(clip.frames.length, 8, `${id} needs eight authored poses`);
     assert.deepEqual(new Set(clip.frames.map((frame) => frame.cell.row)), new Set([row]));
@@ -91,7 +105,7 @@ test("every Leafling frame occupies a valid atlas cell", () => {
       assert.ok(frame.duration > 0);
       assert.ok(frame.cell.column >= 0 && frame.cell.column < LEAFLING_MANIFEST.atlas.columns);
       assert.ok(frame.cell.row >= 0 && frame.cell.row < LEAFLING_MANIFEST.atlas.rows);
-      assert.deepEqual(frame.anchor, { x: 64, y: 120 });
+      assert.deepEqual(frame.anchor, { x: 80, y: 120 });
     }
   }
 });
@@ -103,6 +117,8 @@ test("physical clips declare believable contact changes", () => {
   assert.ok(LEAFLING_MANIFEST.clips.greet.frames.some((frame) => frame.contact === "airborne"));
   assert.equal(LEAFLING_MANIFEST.clips.greet.frames[6].contact, "planted");
   assert.equal(LEAFLING_MANIFEST.clips.evolve.frames[7].contact, "planted");
+  assert.ok(LEAFLING_MANIFEST.clips.walk.frames.every((frame) => frame.contact === "planted"));
+  assert.ok(LEAFLING_MANIFEST.clips.run.frames.some((frame) => frame.contact === "airborne"));
 });
 
 test("blink uses anime cadence and changes only the eye channel", () => {

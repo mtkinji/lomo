@@ -1,0 +1,837 @@
+{
+  "cell": [
+    160,
+    128
+  ],
+  "baseline": 120,
+  "rows": [
+    {
+      "stage": "young",
+      "motion": "walk",
+      "scale": 0.465,
+      "source_size": [
+        2172,
+        724
+      ],
+      "source_vertical_span": [
+        281,
+        524
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            34,
+            283,
+            280,
+            524
+          ],
+          "destination": [
+            23,
+            8,
+            114,
+            112
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            321,
+            284,
+            533,
+            523
+          ],
+          "destination": [
+            30,
+            8,
+            99,
+            111
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            580,
+            284,
+            821,
+            524
+          ],
+          "destination": [
+            24,
+            8,
+            112,
+            112
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            848,
+            281,
+            1093,
+            524
+          ],
+          "destination": [
+            23,
+            7,
+            114,
+            113
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1133,
+            281,
+            1351,
+            523
+          ],
+          "destination": [
+            30,
+            7,
+            101,
+            113
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1395,
+            285,
+            1603,
+            523
+          ],
+          "destination": [
+            32,
+            9,
+            97,
+            111
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1639,
+            290,
+            1878,
+            523
+          ],
+          "destination": [
+            24,
+            11,
+            111,
+            108
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1903,
+            287,
+            2126,
+            522
+          ],
+          "destination": [
+            28,
+            10,
+            104,
+            109
+          ]
+        }
+      ]
+    },
+    {
+      "stage": "young",
+      "motion": "run",
+      "scale": 0.465,
+      "source_size": [
+        2172,
+        724
+      ],
+      "source_vertical_span": [
+        296,
+        510
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            42,
+            331,
+            221,
+            508
+          ],
+          "destination": [
+            38,
+            37,
+            83,
+            82
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            285,
+            330,
+            501,
+            508
+          ],
+          "destination": [
+            30,
+            36,
+            100,
+            83
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            551,
+            296,
+            819,
+            475
+          ],
+          "destination": [
+            18,
+            20,
+            125,
+            83
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            851,
+            318,
+            1098,
+            499
+          ],
+          "destination": [
+            22,
+            31,
+            115,
+            84
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1139,
+            338,
+            1341,
+            510
+          ],
+          "destination": [
+            33,
+            40,
+            94,
+            80
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1386,
+            334,
+            1625,
+            510
+          ],
+          "destination": [
+            24,
+            38,
+            111,
+            82
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1669,
+            306,
+            1859,
+            490
+          ],
+          "destination": [
+            36,
+            25,
+            88,
+            86
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1924,
+            337,
+            2109,
+            510
+          ],
+          "destination": [
+            37,
+            40,
+            86,
+            80
+          ]
+        }
+      ]
+    },
+    {
+      "stage": "baby",
+      "motion": "walk",
+      "scale": 0.5,
+      "source_size": [
+        1935,
+        813
+      ],
+      "source_vertical_span": [
+        312,
+        533
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            41,
+            312,
+            224,
+            531
+          ],
+          "destination": [
+            34,
+            10,
+            92,
+            110
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            272,
+            312,
+            449,
+            530
+          ],
+          "destination": [
+            36,
+            10,
+            88,
+            109
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            493,
+            316,
+            680,
+            533
+          ],
+          "destination": [
+            33,
+            12,
+            94,
+            108
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            728,
+            316,
+            921,
+            533
+          ],
+          "destination": [
+            32,
+            12,
+            96,
+            108
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            972,
+            316,
+            1154,
+            533
+          ],
+          "destination": [
+            34,
+            12,
+            91,
+            108
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1200,
+            314,
+            1383,
+            531
+          ],
+          "destination": [
+            34,
+            10,
+            92,
+            108
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1428,
+            318,
+            1629,
+            533
+          ],
+          "destination": [
+            30,
+            12,
+            100,
+            108
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1681,
+            313,
+            1858,
+            531
+          ],
+          "destination": [
+            36,
+            10,
+            88,
+            109
+          ]
+        }
+      ]
+    },
+    {
+      "stage": "baby",
+      "motion": "run",
+      "scale": 0.5,
+      "source_size": [
+        1935,
+        813
+      ],
+      "source_vertical_span": [
+        316,
+        532
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            25,
+            353,
+            223,
+            532
+          ],
+          "destination": [
+            30,
+            30,
+            99,
+            90
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            265,
+            340,
+            477,
+            530
+          ],
+          "destination": [
+            27,
+            24,
+            106,
+            95
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            527,
+            316,
+            759,
+            499
+          ],
+          "destination": [
+            22,
+            12,
+            116,
+            92
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            792,
+            332,
+            998,
+            517
+          ],
+          "destination": [
+            28,
+            20,
+            103,
+            92
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1034,
+            371,
+            1238,
+            532
+          ],
+          "destination": [
+            29,
+            40,
+            102,
+            80
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1279,
+            363,
+            1479,
+            529
+          ],
+          "destination": [
+            30,
+            36,
+            100,
+            83
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1520,
+            335,
+            1678,
+            510
+          ],
+          "destination": [
+            40,
+            22,
+            79,
+            88
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1703,
+            359,
+            1902,
+            532
+          ],
+          "destination": [
+            30,
+            34,
+            100,
+            86
+          ]
+        }
+      ]
+    },
+    {
+      "stage": "guardian",
+      "motion": "walk",
+      "scale": 0.475,
+      "source_size": [
+        2172,
+        724
+      ],
+      "source_vertical_span": [
+        243,
+        488
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": true,
+      "row_shift": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            53,
+            243,
+            275,
+            485
+          ],
+          "destination": [
+            28,
+            4,
+            105,
+            115
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            309,
+            244,
+            542,
+            487
+          ],
+          "destination": [
+            24,
+            4,
+            111,
+            115
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            583,
+            245,
+            803,
+            488
+          ],
+          "destination": [
+            28,
+            5,
+            104,
+            115
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            846,
+            249,
+            1076,
+            488
+          ],
+          "destination": [
+            26,
+            6,
+            109,
+            114
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1110,
+            251,
+            1344,
+            488
+          ],
+          "destination": [
+            24,
+            7,
+            111,
+            113
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1386,
+            246,
+            1597,
+            488
+          ],
+          "destination": [
+            30,
+            5,
+            100,
+            115
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1629,
+            246,
+            1844,
+            488
+          ],
+          "destination": [
+            29,
+            5,
+            102,
+            115
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1899,
+            247,
+            2127,
+            488
+          ],
+          "destination": [
+            26,
+            6,
+            108,
+            114
+          ]
+        }
+      ]
+    },
+    {
+      "stage": "guardian",
+      "motion": "run",
+      "scale": 0.475,
+      "source_size": [
+        1935,
+        813
+      ],
+      "source_vertical_span": [
+        272,
+        530
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 3,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            13,
+            305,
+            251,
+            523
+          ],
+          "destination": [
+            24,
+            16,
+            113,
+            104
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            269,
+            292,
+            488,
+            522
+          ],
+          "destination": [
+            28,
+            10,
+            104,
+            109
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            485,
+            272,
+            801,
+            467
+          ],
+          "destination": [
+            5,
+            0,
+            150,
+            93
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            807,
+            291,
+            1054,
+            488
+          ],
+          "destination": [
+            22,
+            9,
+            117,
+            94
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1069,
+            321,
+            1284,
+            530
+          ],
+          "destination": [
+            29,
+            24,
+            102,
+            99
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1321,
+            302,
+            1517,
+            512
+          ],
+          "destination": [
+            34,
+            15,
+            93,
+            100
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1536,
+            305,
+            1700,
+            505
+          ],
+          "destination": [
+            41,
+            16,
+            78,
+            95
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1707,
+            336,
+            1919,
+            530
+          ],
+          "destination": [
+            30,
+            31,
+            101,
+            92
+          ]
+        }
+      ]
+    }
+  ]
+}

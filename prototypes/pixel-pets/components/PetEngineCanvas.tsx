@@ -345,8 +345,10 @@ function renderScene(
   drawHabitat(context, palette, motion, snapshot.progress, world);
 
   const size = LEAFLING_PRESENTATION.stages[stage];
-  const scaleX = size.width / manifest.atlas.frameWidth;
-  const scaleY = size.height / manifest.atlas.frameHeight;
+  const scaleX = size.height / manifest.atlas.frameHeight;
+  const scaleY = scaleX;
+  const destinationWidth = manifest.atlas.frameWidth * scaleX;
+  const destinationHeight = manifest.atlas.frameHeight * scaleY;
   const sourceX = snapshot.cell.column * manifest.atlas.frameWidth;
   const sourceY = snapshot.cell.row * manifest.atlas.frameHeight;
   const destinationX = -snapshot.anchor.x * scaleX + snapshot.transform.x;
@@ -386,8 +388,8 @@ function renderScene(
     manifest.atlas.frameHeight,
     Math.round(destinationX),
     Math.round(destinationY),
-    size.width,
-    size.height,
+    destinationWidth,
+    destinationHeight,
   );
 
   for (const layer of snapshot.layers) {
@@ -413,8 +415,8 @@ function renderScene(
       manifest.atlas.frameHeight,
       Math.round(destinationX + layer.offset.x * scaleX),
       Math.round(destinationY + layer.offset.y * scaleY),
-      size.width,
-      size.height,
+      destinationWidth,
+      destinationHeight,
     );
     context.restore();
   }

@@ -251,15 +251,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 07</span>
-        <h1>Small roots.<br />Tall canopy.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 08</span>
+        <h1>Every step<br />has weight.</h1>
         <p>
-          Leafling now grows through three truly different bodies. The same eyes, instincts, and authored motion language persist from tiny seedling to forest guardian.
+          Leafling no longer slides through the meadow. Every form now walks and runs with its own authored footfalls, compression, flight, and contact.
         </p>
         <dl className="engine-facts">
-          <div><dt>Forms</dt><dd>baby · young · guardian</dd></div>
-          <div><dt>Growth</dt><dd>3 · 8 care moments</dd></div>
-          <div><dt>Identity</dt><dd>same eyes · new silhouette</dd></div>
+          <div><dt>Gaits</dt><dd>walk · run</dd></div>
+          <div><dt>Cycle</dt><dd>8 authored keys</dd></div>
+          <div><dt>Control</dt><dd>tap · travel · follow</dd></div>
         </dl>
       </header>
 

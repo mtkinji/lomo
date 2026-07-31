@@ -16,7 +16,7 @@ Leafling now has three linear forms:
 - **Young:** the established agile Leafling with the deepest layered animation rig. Arrives after three distinct care days.
 - **Guardian:** taller stance, leaf mantle, branch crown, and plume tail. Arrives after eight distinct care days.
 
-Every form owns the same semantic clips: idle, blink, greet, care, discover, sleep, and evolve. Baby and guardian use eight authored vocabulary drawings remixed through non-linear timing, contact, and code-driven transforms. Young keeps the full seven-row motion atlas and eye-only blink layer. Weather, world coordinates, direct touch, camera, Focus, and care state remain renderer-neutral and do not branch by form.
+Every form owns the same semantic clips: idle, blink, greet, care, discover, sleep, evolve, walk, and run. Baby and guardian use eight authored vocabulary drawings remixed through non-linear timing for expressive clips, plus dedicated eight-drawing travel rows. Young keeps the deepest expressive atlas and eye-only blink layer, now extended with dedicated travel. Weather, world coordinates, direct touch, camera, Focus, and care state remain renderer-neutral and do not branch by form.
 
 ## Limited-animation rule
 
@@ -32,7 +32,7 @@ More fidelity does not mean uniform frame rate. Holds establish personality; bri
 
 ## Portable asset boundary
 
-The engine consumes transparent 128 × 128 atlas cells with a shared ground anchor at `(64, 120)`. A stage manifest selects its atlas, clip timing, contacts, events, and display size. Canvas 2D is only the current adapter; native Skia, web canvas, and desktop renderers can resolve the same state and frames.
+The engine consumes transparent 160 × 128 atlas cells with a shared ground anchor at `(80, 120)`. The wider cell lets a quadruped fully extend during a run without distorting or shrinking the drawing. A stage manifest selects its atlas, clip timing, contacts, events, and display size. Canvas 2D is only the current adapter; native Skia, web canvas, and desktop renderers can resolve the same state and frames.
 
 ## Stated bet
 
@@ -41,7 +41,7 @@ We're betting that three recognizable life stages create more anticipation and a
 ## Acceptance evidence
 
 - Baby, young, and guardian are recognizable as one species at actual iPhone game scale.
-- Each form can idle, blink, greet, receive care, discover, curl to sleep, and perform an evolution beat.
+- Each form can idle, blink, greet, receive care, discover, curl to sleep, perform an evolution beat, walk, and run.
 - Baby and guardian remain grounded through sleep, weather shelter, movement, and rollover composition.
 - Blink timing is quick and non-linear, and manual animation preview cannot be stolen by a spontaneous insect response.
 - Three- and eight-care thresholds are deterministic; quiet days preserve both progress and form.

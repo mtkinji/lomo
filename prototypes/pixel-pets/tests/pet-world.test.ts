@@ -6,6 +6,7 @@ import {
   applyWorldIntent,
   createPetWorldState,
   beginCompanionFocus,
+  clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
   resolveRolloverPose,
@@ -13,6 +14,14 @@ import {
   spawnInsect,
   stepPetWorld,
 } from "../lib/pet-world.ts";
+
+test("world travel requests authored locomotion instead of an idle fallback", () => {
+  assert.equal(clipForWorldAction("walk"), "walk");
+  assert.equal(clipForWorldAction("run"), "run");
+  assert.equal(clipForWorldAction("seek-shelter"), "walk");
+  assert.equal(clipForWorldAction("bask"), "walk");
+  assert.equal(clipForWorldAction("jump"), "greet");
+});
 
 test("rain changes the world into a shelter-seeking behavior", () => {
   const raining = setWorldWeather(createPetWorldState(), "rain");
@@ -98,6 +107,7 @@ test("a distant ground tap produces real locomotion and camera follow", () => {
   assert.ok(after.petX > start.petX);
   assert.equal(after.facing, 1);
   assert.ok(after.cameraX > start.cameraX);
+  assert.equal(after.poseY, 0, "the authored gait owns vertical weight transfer");
 });
 
 test("high taps jump toward the finger and return safely to idle", () => {

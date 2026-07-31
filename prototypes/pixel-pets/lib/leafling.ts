@@ -20,10 +20,10 @@ export interface LeaflingAuthoringChannel {
   bounds: { x: number; y: number; width: number; height: number };
 }
 
-const GROUND_ANCHOR = { x: 64, y: 120 };
+const GROUND_ANCHOR = { x: 80, y: 120 };
 const BLINK_MASKS = [
-  { shape: "ellipse" as const, x: 25, y: 47, width: 21, height: 25 },
-  { shape: "ellipse" as const, x: 49, y: 45, width: 24, height: 27 },
+  { shape: "ellipse" as const, x: 41, y: 47, width: 21, height: 25 },
+  { shape: "ellipse" as const, x: 65, y: 45, width: 24, height: 27 },
 ];
 
 function blinkFrame(
@@ -60,11 +60,11 @@ function frame(
 
 export const LEAFLING_MANIFEST = {
   atlas: {
-    src: "/leafling-motion-atlas-v3.png",
-    frameWidth: 128,
+    src: "/leafling-motion-atlas-v4.png",
+    frameWidth: 160,
     frameHeight: 128,
     columns: 8,
-    rows: 7,
+    rows: 9,
   },
   fallbackClip: "idle",
   clips: {
@@ -160,6 +160,14 @@ export const LEAFLING_MANIFEST = {
         frame(7, 6, 480, { events: ["proud"], role: "hold" }),
       ],
     },
+    walk: {
+      loop: true,
+      frames: gaitFrames(7, "walk"),
+    },
+    run: {
+      loop: true,
+      frames: gaitFrames(8, "run"),
+    },
   },
 } satisfies PetAnimationManifest;
 
@@ -172,14 +180,33 @@ function stageFrame(
   return frame(column, row, duration, options);
 }
 
-function createStageManifest(row: number): PetAnimationManifest {
+function gaitFrames(row: number, motion: "walk" | "run"): PetAnimationFrame[] {
+  const durations = motion === "walk"
+    ? [120, 90, 100, 105, 120, 90, 100, 105]
+    : [70, 45, 65, 55, 70, 50, 65, 55];
+  const airborne = motion === "run" ? new Set([1, 2, 5, 6]) : new Set<number>();
+  const events = motion === "walk"
+    ? [["step-left"], [], ["pass"], [], ["step-right"], [], ["pass"], []]
+    : [["push"], ["flight"], ["reach"], ["contact"], ["push"], ["flight"], ["reach"], ["contact"]];
+
+  return durations.map((duration, column) => frame(column, row, duration, {
+    contact: airborne.has(column) ? "airborne" : "planted",
+    events: events[column],
+    role: column === 0 || column === 4 ? "key" : column === 3 || column === 7 ? "accent" : "inbetween",
+    shadow: airborne.has(column)
+      ? { width: motion === "run" ? 38 : 56, opacity: 0.12 }
+      : { width: motion === "run" ? 64 : 58, opacity: 0.2 },
+  }));
+}
+
+function createStageManifest(row: number, walkRow: number, runRow: number): PetAnimationManifest {
   return {
     atlas: {
-      src: "/leafling-stage-atlas-v1.png",
-      frameWidth: 128,
+      src: "/leafling-stage-atlas-v2.png",
+      frameWidth: 160,
       frameHeight: 128,
       columns: 8,
-      rows: 2,
+      rows: 6,
     },
     fallbackClip: "idle",
     clips: {
@@ -253,14 +280,22 @@ function createStageManifest(row: number): PetAnimationManifest {
           stageFrame(0, row, 520, { events: ["proud"], role: "hold" }),
         ],
       },
+      walk: {
+        loop: true,
+        frames: gaitFrames(walkRow, "walk"),
+      },
+      run: {
+        loop: true,
+        frames: gaitFrames(runRow, "run"),
+      },
     },
   };
 }
 
 export const LEAFLING_STAGE_MANIFESTS = {
-  baby: createStageManifest(0),
+  baby: createStageManifest(0, 2, 3),
   young: LEAFLING_MANIFEST,
-  guardian: createStageManifest(1),
+  guardian: createStageManifest(1, 4, 5),
 } satisfies Record<PetStage, PetAnimationManifest>;
 
 export function leaflingManifestForStage(stage: PetStage): PetAnimationManifest {
@@ -274,13 +309,13 @@ export const LEAFLING_PRESENTATION = {
     guardian: { width: 62, height: 62 },
   } satisfies Record<PetStage, { width: number; height: number }>,
   channels: [
-    { id: "tail", bounds: { x: 86, y: 48, width: 38, height: 68 } },
-    { id: "body", bounds: { x: 32, y: 60, width: 68, height: 60 } },
-    { id: "feet", bounds: { x: 38, y: 105, width: 56, height: 15 } },
-    { id: "head", bounds: { x: 25, y: 25, width: 80, height: 74 } },
-    { id: "ears", bounds: { x: 18, y: 4, width: 96, height: 60 } },
-    { id: "face", bounds: { x: 36, y: 46, width: 58, height: 45 } },
-    { id: "eyes", bounds: { x: 44, y: 54, width: 40, height: 17 } },
-    { id: "markings", bounds: { x: 44, y: 30, width: 44, height: 84 } },
+    { id: "tail", bounds: { x: 102, y: 48, width: 38, height: 68 } },
+    { id: "body", bounds: { x: 48, y: 60, width: 68, height: 60 } },
+    { id: "feet", bounds: { x: 54, y: 105, width: 56, height: 15 } },
+    { id: "head", bounds: { x: 41, y: 25, width: 80, height: 74 } },
+    { id: "ears", bounds: { x: 34, y: 4, width: 96, height: 60 } },
+    { id: "face", bounds: { x: 52, y: 46, width: 58, height: 45 } },
+    { id: "eyes", bounds: { x: 60, y: 54, width: 40, height: 17 } },
+    { id: "markings", bounds: { x: 60, y: 30, width: 44, height: 84 } },
   ] satisfies LeaflingAuthoringChannel[],
 } as const;

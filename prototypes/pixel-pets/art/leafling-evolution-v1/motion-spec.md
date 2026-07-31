@@ -6,12 +6,14 @@ All forms preserve Leafling's cream face, amber eyes, leaf ears, green-and-gold 
 
 ## Atlas contract
 
-- Runtime atlas: `public/leafling-stage-atlas-v1.png`
-- Cell: 128 × 128 pixels
-- Layout: eight columns × two rows
+- Runtime atlas: `public/leafling-stage-atlas-v2.png`
+- Cell: 160 × 128 pixels
+- Layout: eight columns × six rows
 - Row 0: baby vocabulary
 - Row 1: guardian vocabulary
-- Ground anchor: `(64, 120)` in every cell
+- Rows 2–3: baby walk and run
+- Rows 4–5: guardian walk and run
+- Ground anchor: `(80, 120)` in every cell
 - Runtime sizes: baby 38 × 38, young 46 × 46, guardian 62 × 62
 
 ## Vocabulary columns

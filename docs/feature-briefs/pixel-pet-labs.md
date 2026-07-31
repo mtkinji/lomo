@@ -104,9 +104,9 @@ Pet sounds have their own setting. Equivalent visual and semantic-haptic feedbac
 
 ### Evolution and asset boundary
 
-The first Labs version targets baby, young, and guardian forms for each type: fifteen core designs total if the Leafling proof earns a five-species release. Each form preserves species identity while changing its silhouette and body plan. Behaviors use compact authored vocabularies for idle, greet, care, sleep, discover, and evolve, plus code-driven position, lift, rotation, camera, palette, and particles. Branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
+The first Labs version targets baby, young, and guardian forms for each type: fifteen core designs total if the Leafling proof earns a five-species release. Each form preserves species identity while changing its silhouette and body plan. Behaviors use compact authored vocabularies for idle, greet, care, sleep, discover, and evolve; the Leafling proof now also gives every form a dedicated eight-drawing walk and run cycle. Branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
 
-The engine study may compose an existing clip with code-driven travel, lift, rotation, camera follow, or attention to prove whether an interaction deserves bespoke art. A dedicated walk/run gait or rollover row is commissioned only when the behavior proves valuable and the composite motion no longer meets the quality bar. This keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
+The engine still owns position, lift, rotation, camera follow, palette, and particles, but no longer fakes ordinary travel with a bobbing idle sprite. A dedicated walk/run gait is now proven necessary because direct touch made sliding immediately visible. Rollover remains a composed study until evidence justifies its own row. This keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
 Animation follows an anime-inspired limited-motion language rather than uniform interpolation. Each drawing is authored as a hold, key, in-between, accent, or recovery. Small involuntary actions use the smallest participating anatomy channel: a blink moves only the eyelids over a locked body pose. Expressive actions spend additional drawings around changes in direction, contact, and expression, then hold the strongest readable pose. The goal is deliberate 8–12-drawing character acting, not high-frame-rate feature-film smoothness.
 
@@ -143,7 +143,6 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 - Does pinch-to-close-up create affection, or does it mostly interfere with taps?
 - How often can insects visit before their movement becomes distracting or predictable?
 - Does rollover feel like a delightful learned trick, and does it justify a dedicated animation row?
-- Does code-driven travel feel believable enough for the first learning release, or is a dedicated gait the next required asset?
 - Do teens prefer sounds by default, or should Pet begin muted?
 - Does contextual Chat clarify Pet events without making Pet feel distributed through the timeline?
 - Are three linear forms sufficient for lasting attachment, or does evidence justify a later user-chosen branch?

@@ -324,7 +324,7 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
       next.facing = distance < 0 ? -1 : 1;
       if (state.action !== "seek-shelter" && state.action !== "bask") next.action = running ? "run" : "walk";
-      next.poseY = -Math.abs(Math.sin((state.actionElapsed + dt) / (running ? 85 : 125))) * (running ? 2 : 1);
+      next.poseY = 0;
     }
   } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask") {
     next.poseY = 0;
@@ -350,10 +350,12 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" {
+export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" {
+  if (action === "walk" || action === "run") return action;
+  if (action === "bask" || action === "seek-shelter") return "walk";
+  if (action === "jump") return "greet";
   if (action === "pounce" || action === "greet") return "greet";
   if (action === "track") return "discover";
   if (action === "rollover" || action === "shelter" || action === "focus") return "sleep";
-  if (action === "bask" || action === "seek-shelter") return "discover";
   return "idle";
 }
