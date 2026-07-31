@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PetEngineCanvas } from "./PetEngineCanvas";
-import { clipForMotion, type EngineMotion } from "@/lib/pet-engine";
-import { LEAFLING_MANIFEST } from "@/lib/leafling";
+import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
+import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
 import { clipDuration, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
   advancePrototypeDay,
@@ -180,6 +180,10 @@ export function PetPrototype() {
   const currentClip = clipForMotion(currentMotion);
   const currentAnimation = LEAFLING_MANIFEST.clips[currentClip] as PetAnimationClip;
   const currentStage = previewStage ?? state.stage;
+  const currentScale = LEAFLING_PRESENTATION.stages[currentStage].width / LEAFLING_MANIFEST.atlas.frameWidth;
+  const currentGroundCue = frame
+    ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
+    : null;
   const momentsToGrow = Math.max(0, 5 - state.careDays);
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const currentStatus = useMemo(() => {
@@ -201,15 +205,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 02</span>
-        <h1>A tiny creature.<br />With real weight.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 03</span>
+        <h1>A tiny creature.<br />A world to roam.</h1>
         <p>
-          Seven physical performances share one grounded animation runtime designed to travel across iPhone, web, and desktop.
+          Leafling now lives at game-character scale, low in a world with room for walking, running, pouncing, and reaching.
         </p>
         <dl className="engine-facts">
-          <div><dt>Ground</dt><dd>y = 176</dd></div>
-          <div><dt>Atlas</dt><dd>8 × 7 cells</dd></div>
-          <div><dt>Clips</dt><dd>7 authored</dd></div>
+          <div><dt>Ground</dt><dd>y = 208</dd></div>
+          <div><dt>Pet</dt><dd>44 → 52 px</dd></div>
+          <div><dt>Camera</dt><dd>160 × 240</dd></div>
         </dl>
       </header>
 
@@ -307,7 +311,7 @@ export function PetPrototype() {
             <div className="inspector-label"><span>Frame offset</span><output>{frame ? `${frame.transform.x}, ${frame.transform.y}` : "—"}</output></div>
             <div className="inspector-label"><span>Ground contact</span><output>{frame?.contact ?? "—"}</output></div>
             <div className="inspector-label"><span>Ground anchor</span><output>{frame ? `${frame.anchor.x}, ${frame.anchor.y}` : "—"}</output></div>
-            <div className="inspector-label"><span>Contact shadow</span><output>{frame ? `${frame.shadow.width}px · ${Math.round(frame.shadow.opacity * 100)}%` : "—"}</output></div>
+            <div className="inspector-label"><span>Ground cue</span><output>{currentGroundCue ? `${currentGroundCue.width}px · terrain` : "—"}</output></div>
             <div className="inspector-label"><span>Playback rule</span><output>{currentAnimation.loopFrom ? `intro → loop ${currentAnimation.loopFrom + 1}–8` : currentAnimation.loop ? "loop" : "one-shot"}</output></div>
             <div className="inspector-label"><span>Frame event</span><output>{frame?.events.join(" · ") || "—"}</output></div>
             <div className="inspector-label"><span>Renderer</span><output>Canvas 2D</output></div>

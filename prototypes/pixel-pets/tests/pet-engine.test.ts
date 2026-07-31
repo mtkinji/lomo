@@ -5,6 +5,7 @@ import {
   ENGINE_SCENE,
   MOTION_CLIPS,
   clipForMotion,
+  resolveGroundCue,
   type EngineMotion,
 } from "../lib/pet-engine.ts";
 import {
@@ -13,8 +14,8 @@ import {
 } from "../lib/leafling.ts";
 import { resolvePetFrame } from "../lib/pet-runtime.ts";
 
-test("the reference engine uses a portrait iPhone-scale logical scene", () => {
-  assert.deepEqual(ENGINE_SCENE, { width: 160, height: 240, groundY: 176 });
+test("the reference engine keeps a low ground plane for a roaming-scale Pet", () => {
+  assert.deepEqual(ENGINE_SCENE, { width: 160, height: 240, groundY: 208 });
   assert.equal(LEAFLING_MANIFEST.atlas.frameWidth, 128);
   assert.equal(LEAFLING_MANIFEST.atlas.frameHeight, 128);
   assert.deepEqual(LEAFLING_MANIFEST.atlas, {
@@ -24,8 +25,31 @@ test("the reference engine uses a portrait iPhone-scale logical scene", () => {
     columns: 8,
     rows: 7,
   });
-  assert.ok(LEAFLING_PRESENTATION.stages.young.width >= 116);
-  assert.ok(LEAFLING_PRESENTATION.stages.evolved.width > LEAFLING_PRESENTATION.stages.young.width);
+  assert.deepEqual(LEAFLING_PRESENTATION.stages.young, { width: 44, height: 44 });
+  assert.deepEqual(LEAFLING_PRESENTATION.stages.evolved, { width: 52, height: 52 });
+});
+
+test("ground cues stay inside the terrain instead of becoming a floating disk", () => {
+  const scale = LEAFLING_PRESENTATION.stages.young.width / LEAFLING_MANIFEST.atlas.frameWidth;
+
+  assert.deepEqual(resolveGroundCue("planted", 64, 0.2, scale), {
+    width: 4,
+    height: 1,
+    yOffset: 1,
+    opacity: 0.14,
+  });
+  assert.deepEqual(resolveGroundCue("resting", 94, 0.25, scale), {
+    width: 11,
+    height: 1,
+    yOffset: 1,
+    opacity: 0.16,
+  });
+  assert.deepEqual(resolveGroundCue("airborne", 40, 0.14, scale), {
+    width: 6,
+    height: 1,
+    yOffset: 1,
+    opacity: 0.14,
+  });
 });
 
 test("every behavior owns a complete authored animation row", () => {

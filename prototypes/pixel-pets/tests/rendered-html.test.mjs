@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 02 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 03 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -47,8 +47,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 02 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 02/);
+  assert.match(layout, /Pet Engine Study 03 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 03/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Finish Focus/);
@@ -56,6 +56,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /Portable Pet runtime output/);
   assert.match(prototype, /Ground contact/);
   assert.match(prototype, /Ground anchor/);
+  assert.match(prototype, /Ground cue/);
   assert.match(prototype, /Canvas 2D/);
   assert.match(engine, /width: 160, height: 240/);
   assert.match(engine, /MOTION_CLIPS/);

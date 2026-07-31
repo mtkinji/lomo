@@ -143,8 +143,8 @@ export const LEAFLING_MANIFEST = {
 
 export const LEAFLING_PRESENTATION = {
   stages: {
-    young: { width: 128, height: 128 },
-    evolved: { width: 140, height: 140 },
+    young: { width: 44, height: 44 },
+    evolved: { width: 52, height: 52 },
   } satisfies Record<PetStage, { width: number; height: number }>,
   channels: [
     { id: "tail", bounds: { x: 86, y: 48, width: 38, height: 68 } },

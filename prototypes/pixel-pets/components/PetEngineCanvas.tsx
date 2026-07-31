@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import {
   ENGINE_SCENE,
   clipForMotion,
+  resolveGroundCue,
   type EngineMotion,
 } from "@/lib/pet-engine";
 import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
@@ -49,6 +50,7 @@ function drawHabitat(
   motion: EngineMotion,
   progress: number,
 ) {
+  const groundY = ENGINE_SCENE.groundY;
   context.fillStyle = palette.sky;
   context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
   context.fillStyle = palette.skyLight;
@@ -64,31 +66,31 @@ function drawHabitat(
   context.fillRect(124, 26, 25, 9);
 
   context.fillStyle = palette.ground;
-  context.fillRect(0, 176, 160, 64);
+  context.fillRect(0, groundY, ENGINE_SCENE.width, ENGINE_SCENE.height - groundY);
   context.fillStyle = palette.groundDark;
-  context.fillRect(0, 176, 160, 5);
-  context.fillRect(0, 194, 28, 4);
-  context.fillRect(39, 188, 34, 3);
-  context.fillRect(116, 204, 44, 4);
+  context.fillRect(0, groundY, ENGINE_SCENE.width, 3);
+  context.fillRect(0, groundY + 18, 28, 4);
+  context.fillRect(39, groundY + 12, 34, 3);
+  context.fillRect(116, groundY + 28, 44, 4);
 
   context.fillStyle = palette.leaf;
-  context.fillRect(13, 157, 4, 24);
-  context.fillRect(9, 162, 4, 8);
-  context.fillRect(17, 153, 5, 9);
-  context.fillRect(143, 161, 4, 20);
-  context.fillRect(138, 165, 5, 8);
-  context.fillRect(147, 157, 5, 9);
+  context.fillRect(13, groundY - 19, 4, 22);
+  context.fillRect(9, groundY - 14, 4, 8);
+  context.fillRect(17, groundY - 23, 5, 9);
+  context.fillRect(143, groundY - 15, 4, 18);
+  context.fillRect(138, groundY - 11, 5, 8);
+  context.fillRect(147, groundY - 19, 5, 9);
   context.fillStyle = palette.deep;
-  context.fillRect(123, 170, 19, 7);
-  context.fillRect(128, 166, 11, 4);
+  context.fillRect(123, groundY - 6, 19, 7);
+  context.fillRect(128, groundY - 10, 11, 4);
 
   if (motion === "care") {
-    const berryY = 147 + Math.round(Math.min(progress * 2, 1) * 14);
+    const berryY = groundY - 28 + Math.round(Math.min(progress * 2, 1) * 23);
     context.fillStyle = "#d8615f";
-    context.fillRect(76, berryY, 6, 6);
-    context.fillRect(82, berryY + 2, 4, 4);
+    context.fillRect(78, berryY, 3, 3);
+    context.fillRect(81, berryY + 1, 2, 2);
     context.fillStyle = palette.leaf;
-    context.fillRect(80, berryY - 3, 3, 4);
+    context.fillRect(80, berryY - 2, 2, 2);
   }
 
 }
@@ -115,12 +117,16 @@ function renderScene(
   const sourceX = snapshot.cell.column * LEAFLING_MANIFEST.atlas.frameWidth;
   const sourceY = snapshot.cell.row * LEAFLING_MANIFEST.atlas.frameHeight;
 
-  const shadowWidth = Math.round(snapshot.shadow.width * scaleX);
+  const groundCue = resolveGroundCue(snapshot.contact, snapshot.shadow.width, snapshot.shadow.opacity, scaleX);
   context.save();
-  context.globalAlpha = snapshot.shadow.opacity;
+  context.globalAlpha = groundCue.opacity;
   context.fillStyle = palette.outline;
-  context.fillRect(Math.round(worldAnchorX - shadowWidth / 2), ENGINE_SCENE.groundY - 2, shadowWidth, 4);
-  context.fillRect(Math.round(worldAnchorX - shadowWidth * 0.34), ENGINE_SCENE.groundY + 2, Math.round(shadowWidth * 0.68), 2);
+  context.fillRect(
+    Math.round(worldAnchorX - groundCue.width / 2),
+    ENGINE_SCENE.groundY + groundCue.yOffset,
+    groundCue.width,
+    groundCue.height,
+  );
   context.restore();
 
   context.imageSmoothingEnabled = false;
