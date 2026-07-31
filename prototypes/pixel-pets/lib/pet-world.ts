@@ -387,7 +387,15 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
 
   const desiredCamera = clampCameraX(next.petX, next.zoom);
   const follow = Math.min(1, dt / 280);
-  next.cameraX = clampCameraX(state.cameraX + (desiredCamera - state.cameraX) * follow, next.zoom);
+  let cameraX = clampCameraX(state.cameraX + (desiredCamera - state.cameraX) * follow, next.zoom);
+  const petDelta = next.petX - state.petX;
+  const screenDelta = (next.petX - cameraX) - (state.petX - state.cameraX);
+  // A camera catching a slower gait must never turn forward travel into a
+  // screen-space moonwalk. Let the habitat scroll while the Pet holds position.
+  if (petDelta !== 0 && screenDelta * Math.sign(petDelta) < 0) {
+    cameraX = clampCameraX(next.petX - (state.petX - state.cameraX), next.zoom);
+  }
+  next.cameraX = cameraX;
   return next;
 }
 

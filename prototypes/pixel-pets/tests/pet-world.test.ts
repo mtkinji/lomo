@@ -142,6 +142,33 @@ test("a distant ground tap produces real locomotion and camera follow", () => {
   assert.equal(after.poseY, 0, "the authored gait owns vertical weight transfer");
 });
 
+test("camera follow never makes forward locomotion move backward on screen", () => {
+  const movingRight = {
+    ...createPetWorldState(),
+    petX: 300,
+    cameraX: 285.5,
+    action: "run" as const,
+    targetX: 350,
+    facing: 1 as const,
+  };
+  const movingLeft = {
+    ...createPetWorldState(),
+    petX: 180,
+    cameraX: 194.5,
+    action: "run" as const,
+    targetX: 130,
+    facing: -1 as const,
+  };
+
+  const rightScreenX = movingRight.petX - movingRight.cameraX;
+  const leftScreenX = movingLeft.petX - movingLeft.cameraX;
+  const afterRight = stepPetWorld(movingRight, 16, false);
+  const afterLeft = stepPetWorld(movingLeft, 16, false);
+
+  assert.ok(afterRight.petX - afterRight.cameraX >= rightScreenX, "right-facing travel cannot slide left");
+  assert.ok(afterLeft.petX - afterLeft.cameraX <= leftScreenX, "left-facing travel cannot slide right");
+});
+
 test("high taps jump toward the finger and return safely to idle", () => {
   const start = applyWorldIntent(createPetWorldState(), { kind: "jump", worldX: 300 });
   const airborne = stepPetWorld(start, 300, false);
