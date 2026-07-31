@@ -28,6 +28,7 @@ import {
   previewLivingPlanOverride,
   reconcileLivingPlan,
   type LivingPlanOverridePreview,
+  type ReadyLivingPlanOverridePreview,
 } from '../runtime/livingPlanReconciliation';
 import { initializeGovernedMoneyPlan } from '../runtime/moneyPlanLifecycle';
 import { loadMoneyPlanProjection } from './moneyPlanProjection';
@@ -45,7 +46,11 @@ type MoneyDataContextValue = MoneyDataState & {
   createCategory: (input: CategoryPlanInput) => Promise<string>;
   renameCategory: (categoryId: string, name: string) => Promise<void>;
   updateCategoryCover: (categoryId: string, cover: Parameters<MoneyRepository['updateCategoryCover']>[1]) => Promise<void>;
-  updateCategoryPlan: (categoryId: string, input: Parameters<MoneyRepository['updateCategoryPlan']>[1]) => Promise<void>;
+  updateCategoryPlan: (
+    categoryId: string,
+    input: Parameters<MoneyRepository['updateCategoryPlan']>[1],
+    preview?: ReadyLivingPlanOverridePreview,
+  ) => Promise<void>;
   previewCategoryPlanAmount: (
     categoryId: string,
     budgetCents: number,
@@ -339,6 +344,7 @@ export function MoneyDataProvider({
   const updateCategoryPlan = useCallback(async (
     categoryId: string,
     input: Parameters<MoneyRepository['updateCategoryPlan']>[1],
+    preview?: ReadyLivingPlanOverridePreview,
   ) => {
     const category = state.snapshot?.categories.find((candidate) => candidate.sourceId === categoryId || candidate.id === categoryId);
     const hasFundingChange = input.fundingRhythm != null
@@ -357,6 +363,15 @@ export function MoneyDataProvider({
           const expectedNeedDueMonth = fundingRhythm === 'reserve'
             ? ('expectedNeedDueMonth' in input ? input.expectedNeedDueMonth?.trim() || null : category.expectedNeed?.dueMonth ?? null)
             : null;
+          const reviewedPreview = preview ?? await previewLivingPlanOverride(
+            client,
+            category.id,
+            input.budgetCents ?? category.plannedCents,
+            { fundingRhythm, expectedNeedCents, expectedNeedDueMonth },
+          );
+          if (reviewedPreview.outcome !== 'ready') {
+            throw new Error('Nothing changed because the Money plan could not safely preview this category change.');
+          }
           const result = await commitLivingPlanCategoryChange(client, {
             planCategoryId: category.sourceId,
             allocationCategoryId: category.id,
@@ -364,6 +379,7 @@ export function MoneyDataProvider({
             fundingRhythm,
             expectedNeedCents,
             expectedNeedDueMonth,
+            preview: reviewedPreview,
           });
           if (result.outcome === 'blocked' || result.outcome === 'not_ready' || result.outcome === 'disabled') {
             throw new Error('Nothing changed because current account evidence is not ready to rebuild the plan safely.');

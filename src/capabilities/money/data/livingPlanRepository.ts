@@ -161,7 +161,12 @@ export async function promoteLivingPlan(client: SupabaseClient, input: {
     components: input.candidate.allocations,
     receipt: { trigger: input.trigger, outcome, cause: input.cause, changedCategoryIds: input.comparison.changedCategoryIds, materialReasons: input.comparison.materialReasons },
   });
-  if (error) throw error;
+  if (error) {
+    if (error.message?.toLowerCase().includes('active living plan changed')) {
+      throw new Error('The Money plan changed since you reviewed it. Review the change again.');
+    }
+    throw error;
+  }
   return String(data);
 }
 
@@ -200,7 +205,12 @@ export async function applyGovernedCategoryPlanChange(client: SupabaseClient, in
       materialReasons: input.comparison.materialReasons,
     },
   });
-  if (error) throw error;
+  if (error) {
+    if (error.message?.toLowerCase().includes('active living plan changed')) {
+      throw new Error('The Money plan changed since you reviewed it. Review the change again.');
+    }
+    throw error;
+  }
   return String(data);
 }
 

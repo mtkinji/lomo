@@ -35,4 +35,15 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).toContain('style={styles.categoryTitle}>{category.name}</Text>');
     expect(source).not.toContain('styles.headerSurface');
   });
+
+  it('shows one plain rebalance consequence and commits the preview that was displayed', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('<RebalanceConsequence');
+    expect(source).toContain('This stays within your ${livingPercent}% living limit');
+    expect(source).toContain('preview?.outcome === \'ready\' ? preview : undefined');
+    expect(source).toContain("accessibilityLabel={expanded ? 'Hide changes' : 'See changes'}");
+    expect(source).not.toContain('styles.impactBox');
+    expect(source).not.toContain('impactBox:');
+  });
 });

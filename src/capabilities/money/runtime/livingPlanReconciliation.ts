@@ -1,18 +1,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildLivingPlanEvidence, getCompletedCategorySpendingGuidepost, type CompletedCategorySpendingGuidepost, type LivingPlanEvidenceTransaction } from '../domain/living-plan-evidence';
 import { collectAllPages } from '../domain/living-plan-pagination';
-import { projectLivingPlanCandidate, type LivingPlanAllocation } from '../domain/living-plan';
+import { projectLivingPlanCandidate, type LivingPlanAllocation, type LivingPlanCandidate } from '../domain/living-plan';
 import type { LivingPlanAdjustmentFacts } from '../domain/living-plan-adjustment';
-import { compareLivingPlanVersions, getLivingPlanAllocationChanges, type LivingPlanAllocationChange, type LivingPlanTrigger } from '../domain/living-plan-changes';
+import { compareLivingPlanVersions, getLivingPlanAllocationChanges, type LivingPlanAllocationChange, type LivingPlanComparison, type LivingPlanTrigger } from '../domain/living-plan-changes';
 import { classifyPlanningIncomeSource } from '../domain/planning-income';
 import { applyGovernedCategoryPlanChange, getActiveLivingPlan, holdLivingPlanCandidate, promoteLivingPlan } from '../data/livingPlanRepository';
 import { decideLivingPlanActivation } from '../domain/living-plan-promotion';
 
 export type LivingPlanReconciliationResult = { outcome: 'promoted' | 'held' | 'no_op' | 'blocked' | 'disabled' | 'not_ready'; versionId?: string; activationPeriodId?: string; reason?: string; hasUsablePlan?: boolean };
-export type LivingPlanOverridePreview =
-  | {
-      outcome: 'ready' | 'no_op';
+export type ReadyLivingPlanOverridePreview = {
+      outcome: 'ready';
+      expectedActiveVersionId: string | null;
+      candidateHash: string;
+      candidate: LivingPlanCandidate;
+      comparison: LivingPlanComparison;
       cause?: string;
+      changes: LivingPlanAllocationChange[];
+      before: LivingPlanAdjustmentFacts | null;
+      after: LivingPlanAdjustmentFacts;
+      recentSpending: CompletedCategorySpendingGuidepost | null;
+      currentSource: LivingPlanAllocation['source'] | null;
+      protectedAmountsUnchanged: boolean;
+    };
+
+export type LivingPlanOverridePreview =
+  | ReadyLivingPlanOverridePreview
+  | {
+      outcome: 'no_op';
       changes: LivingPlanAllocationChange[];
       before: LivingPlanAdjustmentFacts | null;
       after: LivingPlanAdjustmentFacts;
@@ -44,7 +59,7 @@ export async function previewLivingPlanOverride(
   funding?: Omit<LivingPlanPlanChangePreview, 'categoryId' | 'amountCents'>,
 ): Promise<LivingPlanOverridePreview> {
   const result = await evaluateLivingPlan(client, 'override_changed', { categoryId, amountCents, ...funding });
-  return { changes: [], ...result } as LivingPlanOverridePreview;
+  return result as LivingPlanOverridePreview;
 }
 
 export async function commitLivingPlanCategoryChange(client: SupabaseClient, input: {
@@ -54,33 +69,42 @@ export async function commitLivingPlanCategoryChange(client: SupabaseClient, inp
   fundingRhythm: 'monthly' | 'reserve';
   expectedNeedCents: number | null;
   expectedNeedDueMonth: string | null;
+  preview: ReadyLivingPlanOverridePreview;
 }): Promise<LivingPlanReconciliationResult> {
-  return evaluateLivingPlan(
-    client,
-    'category_changed',
-    {
-      categoryId: input.allocationCategoryId,
-      amountCents: input.amountCents,
-      fundingRhythm: input.fundingRhythm,
-      expectedNeedCents: input.expectedNeedCents,
-      expectedNeedDueMonth: input.expectedNeedDueMonth,
-    },
-    input,
-  ) as Promise<LivingPlanReconciliationResult>;
+  if (input.preview.candidateHash !== input.preview.candidate.candidateHash) {
+    throw new Error('The reviewed Money plan is no longer valid. Review the change again.');
+  }
+  const reviewedAllocation = input.preview.candidate.allocations.find(
+    (allocation) => allocation.categoryId === input.allocationCategoryId,
+  );
+  if (!reviewedAllocation
+    || reviewedAllocation.amountCents !== input.amountCents
+    || reviewedAllocation.fundingRhythm !== input.fundingRhythm
+    || reviewedAllocation.expectedNeed?.amountCents !== (input.expectedNeedCents ?? undefined)
+    || reviewedAllocation.expectedNeed?.dueMonth !== (input.expectedNeedDueMonth ?? undefined)) {
+    throw new Error('The category change no longer matches the reviewed Money plan. Review it again.');
+  }
+  const cause = causeFor('category_changed', input.preview.comparison.changedCategoryIds.length);
+  const versionId = await applyGovernedCategoryPlanChange(client, {
+    planCategoryId: input.planCategoryId,
+    allocationCategoryId: input.allocationCategoryId,
+    amountCents: input.amountCents,
+    fundingRhythm: input.fundingRhythm,
+    expectedNeedCents: input.expectedNeedCents,
+    expectedNeedDueMonth: input.expectedNeedDueMonth,
+    expectedActiveVersionId: input.preview.expectedActiveVersionId,
+    candidate: input.preview.candidate,
+    comparison: input.preview.comparison,
+    trigger: 'category_changed',
+    cause,
+  });
+  return { outcome: 'promoted', versionId };
 }
 
 async function evaluateLivingPlan(
   client: SupabaseClient,
   trigger: LivingPlanTrigger,
   hypotheticalOverride?: LivingPlanPlanChangePreview,
-  committedCategoryChange?: {
-    planCategoryId: string;
-    allocationCategoryId: string;
-    amountCents: number;
-    fundingRhythm: 'monthly' | 'reserve';
-    expectedNeedCents: number | null;
-    expectedNeedDueMonth: string | null;
-  },
 ): Promise<LivingPlanReconciliationResult | LivingPlanOverridePreview> {
   const { data: auth, error: authError } = await client.auth.getUser();
   if (authError) throw authError;
@@ -181,27 +205,20 @@ async function evaluateLivingPlan(
     }),
     currentSource: active?.allocations.find((row) => row.categoryId === hypotheticalOverride.categoryId)?.source ?? null,
   } : null;
-  if (comparison.outcome === 'no_op') return committedCategoryChange
-    ? { outcome: 'no_op' }
-    : hypotheticalOverride ? { outcome: 'no_op', changes: [], ...previewFacts! } : { outcome: 'no_op' };
+  if (comparison.outcome === 'no_op') return hypotheticalOverride
+    ? { outcome: 'no_op', changes: [], ...previewFacts! }
+    : { outcome: 'no_op' };
   if (hypotheticalOverride) {
-    if (committedCategoryChange) {
-      const cause = causeFor(trigger, comparison.changedCategoryIds.length);
-      const versionId = await applyGovernedCategoryPlanChange(client, {
-        ...committedCategoryChange,
-        expectedActiveVersionId: active?.versionId ?? null,
-        candidate,
-        comparison,
-        trigger,
-        cause,
-      });
-      return { outcome: 'promoted', versionId };
-    }
     return {
       outcome: 'ready',
+      expectedActiveVersionId: active?.versionId ?? null,
+      candidateHash: candidate.candidateHash,
+      candidate,
+      comparison,
       cause: causeFor(trigger, comparison.changedCategoryIds.length),
       changes: getLivingPlanAllocationChanges(active, candidate, comparison.changedCategoryIds),
       ...previewFacts!,
+      protectedAmountsUnchanged: protectedAmountsUnchanged(active, candidate),
     };
   }
   const cause = causeFor(trigger, comparison.changedCategoryIds.length);
@@ -227,6 +244,14 @@ async function evaluateLivingPlan(
     if (message.toLowerCase().includes('promotion disabled')) return { outcome: 'disabled', reason: message };
     throw error;
   }
+}
+
+function protectedAmountsUnchanged(active: { allocations: LivingPlanAllocation[] } | null, candidate: LivingPlanCandidate): boolean {
+  if (!active) return true;
+  const candidateByCategoryId = new Map(candidate.allocations.map((allocation) => [allocation.categoryId, allocation]));
+  return active.allocations
+    .filter((allocation) => allocation.fixedCents > 0 || allocation.overrideCents > 0)
+    .every((allocation) => candidateByCategoryId.get(allocation.categoryId)?.amountCents === allocation.amountCents);
 }
 
 function toAdjustmentFacts(plan: {

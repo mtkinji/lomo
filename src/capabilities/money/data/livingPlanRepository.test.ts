@@ -64,6 +64,25 @@ describe('living plan governed persistence', () => {
     }));
   });
 
+  it('turns an active-version conflict into a review-again error', async () => {
+    const candidate = {
+      periodId: '2026-07', livingPercent: 80, allocatorVersion: 'living-plan-v2', evidenceHash: 'evidence-1',
+      candidateHash: 'candidate-1', status: 'ready', resourceBasisCents: 500_000, targetCents: 400_000,
+      plannedCents: 400_000, unassignedCents: 0, overTargetCents: 0, allocations: [],
+    } satisfies LivingPlanCandidate;
+    const client = {
+      rpc: jest.fn(async () => ({ data: null, error: { message: 'active living plan changed' } })),
+    } as unknown as SupabaseClient;
+
+    await expect(applyGovernedCategoryPlanChange(client, {
+      planCategoryId: '00000000-0000-0000-0000-000000000001', allocationCategoryId: 'food',
+      amountCents: 75_000, fundingRhythm: 'monthly', expectedNeedCents: null, expectedNeedDueMonth: null,
+      expectedActiveVersionId: 'version-1', candidate,
+      comparison: { outcome: 'material', materialReasons: ['allocation_changed'], changedCategoryIds: ['food'], reversible: true },
+      trigger: 'category_changed', cause: 'Changed.',
+    })).rejects.toThrow('changed since you reviewed');
+  });
+
   it('saves one user-governed planning basis', async () => {
     const { client, calls } = createClient();
 
