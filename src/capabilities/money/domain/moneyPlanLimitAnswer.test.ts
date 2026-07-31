@@ -1,7 +1,7 @@
 import type { ActiveLivingPlan } from '../data/livingPlanRepository';
 import type { MoneyPlanLimitEvidence } from '../data/moneyPlanLimitEvidence';
 import type { MoneyEconomicRoleReconciliation } from './moneyEconomicRole';
-import { projectMoneyPlanLimitAnswer } from './moneyPlanLimitAnswer';
+import { formatMoneyPlanLimitAnswer, projectMoneyPlanLimitAnswer } from './moneyPlanLimitAnswer';
 
 const evidence: MoneyPlanLimitEvidence = {
   resourceBasisKind: 'detected_income',
@@ -53,6 +53,29 @@ describe('projectMoneyPlanLimitAnswer', () => {
     });
     expect(answer.state).toBe('supported');
     expect(answer.headlineAmountCents).toBe(34296);
+  });
+
+  it('formats the same direct, non-advisory answer for every surface', () => {
+    const answer = projectMoneyPlanLimitAnswer({ active: active(), evidence, reconciliation: reconciliation(), freshness: 'fresh' });
+
+    expect(formatMoneyPlanLimitAnswer(answer)).toEqual({
+      headline: '$343 left for flexible spending',
+      support: 'Within your 70% living limit of $3,500.',
+    });
+  });
+
+  it('formats an honest refusal without inventing a zero-dollar basis', () => {
+    const answer = projectMoneyPlanLimitAnswer({
+      active: active(),
+      evidence: { ...evidence, resourceBasisKind: 'unknown' },
+      reconciliation: reconciliation(),
+      freshness: 'fresh',
+    });
+
+    expect(formatMoneyPlanLimitAnswer(answer)).toEqual({
+      headline: 'Kwilt needs your monthly income',
+      support: 'Your dollar living limit is not available yet.',
+    });
   });
 
   it.each([

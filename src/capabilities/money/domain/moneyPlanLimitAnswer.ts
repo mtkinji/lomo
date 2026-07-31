@@ -1,6 +1,7 @@
 import type { MoneyPlanLimitEvidence } from '../data/moneyPlanLimitEvidence';
 import type { ActiveLivingPlan } from '../data/livingPlanRepository';
 import type { MoneyEconomicRoleReconciliation } from './moneyEconomicRole';
+import { formatMoney } from '../data/moneySnapshot';
 
 export const MONEY_PLAN_LIMIT_POLICY_VERSION = 'money-plan-limit-v1';
 
@@ -49,6 +50,43 @@ export type MoneyPlanLimitAnswer = {
   recoveryAction: 'refresh' | 'review_income' | 'review_meaning' | null;
   reviewTransactionIds: string[];
 };
+
+export type FormattedMoneyPlanLimitAnswer = {
+  headline: string;
+  support: string;
+};
+
+export function formatMoneyPlanLimitAnswer(answer: MoneyPlanLimitAnswer): FormattedMoneyPlanLimitAnswer {
+  const percent = answer.facts.livingPercent;
+  const limit = answer.limitLine
+    ? `Within your ${percent}% living limit of ${formatMoney(answer.limitLine.livingLimitCents)}.`
+    : 'Your dollar living limit is not available yet.';
+  switch (answer.state) {
+    case 'supported':
+      return { headline: `${formatMoney(roundToDollar(answer.headlineAmountCents ?? 0))} left for flexible spending`, support: limit };
+    case 'estimated':
+      return { headline: `About ${formatMoney(roundToTenDollars(answer.headlineAmountCents ?? 0))} left for flexible spending`, support: limit };
+    case 'no_flexible_room':
+      return { headline: `Your protected plan uses the full ${percent}% living limit`, support: limit };
+    case 'over_limit':
+      return { headline: `Your plan is ${formatMoney(answer.headlineAmountCents ?? 0)} over its ${percent}% living limit`, support: limit };
+    case 'over_flexible_room':
+      return { headline: `Flexible spending is ${formatMoney(answer.headlineAmountCents ?? 0)} beyond the room in your living limit`, support: limit };
+    case 'unassigned':
+      return { headline: `${formatMoney(answer.headlineAmountCents ?? 0)} of your living limit is not assigned yet`, support: limit };
+    case 'stale':
+      return { headline: 'Your spending answer needs a refresh', support: freshnessLine(answer.facts.resourceBasisUpdatedAtIso) };
+    case 'needs_one_answer':
+      return {
+        headline: 'Kwilt needs one answer',
+        support: `${countWord(answer.reviewTransactionIds.length)} ${answer.reviewTransactionIds.length === 1 ? 'purchase could' : 'purchases could'} change what is left inside your ${percent}% living limit.`,
+      };
+    case 'insufficient_meaning':
+      return { headline: 'Kwilt needs more transaction detail', support: `Review uncertain purchases before relying on your ${percent}% living limit.` };
+    case 'missing_income_basis':
+      return { headline: 'Kwilt needs your monthly income', support: 'Your dollar living limit is not available yet.' };
+  }
+}
 
 export function projectMoneyPlanCapacity(input: {
   livingLimitCents: number;
@@ -190,4 +228,23 @@ function reviewIdsForZeroCrossing(
 
 function validCents(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function freshnessLine(value: string | null): string {
+  if (!value || !Number.isFinite(Date.parse(value))) return 'Refresh connected accounts to calculate it again.';
+  return `Last supported by data from ${new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`;
+}
+
+function roundToTenDollars(cents: number): number {
+  return Math.round(cents / 1000) * 1000;
+}
+
+function roundToDollar(cents: number): number {
+  return Math.round(cents / 100) * 100;
+}
+
+function countWord(count: number): string {
+  if (count === 1) return 'One';
+  if (count === 2) return 'Two';
+  return String(count);
 }

@@ -11,6 +11,7 @@ import type { UnifiedChatCapabilityId } from './requestPolicy';
 import type { PlanRecommendationResult } from './planRecommendationTool';
 import type { CalendarRef } from '../../services/plan/calendarApi';
 import { formatMoney, type MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
+import { formatMoneyPlanLimitAnswer } from '../../capabilities/money/domain/moneyPlanLimitAnswer';
 import type { FamilyScreenTimeSnapshot } from '../household/screenTime/data/familyScreenTime';
 
 export type GoalsChatSnapshot = { goals: readonly Goal[]; arcIds?: readonly string[] };
@@ -368,7 +369,9 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
   capabilityId: 'money',
   context: { dataClassification: 'private_kwilt_data', readOnly: true },
   evidence: {
-    list: (snapshot) => snapshot.categories.map((category) => ({
+    list: (snapshot) => [
+      ...(snapshot.livingLimitAnswer ? [moneyPlanLimitEvidence(snapshot)] : []),
+      ...snapshot.categories.map((category): CapabilityEvidenceSource => ({
       capabilityId: 'money',
       object: {
         type: 'money_category',
@@ -398,7 +401,8 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
       ]),
       authority: 'authoritative' as const,
       observedAt: snapshot.lastSyncedAt ?? snapshot.generatedAt,
-    })),
+      })),
+    ],
   },
   proposal: { operationKinds: [] },
   apply: { operationKinds: [] },
@@ -409,13 +413,48 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
       capabilityId: 'money',
       object: { type: object.type, id: object.id },
       label: object.label,
-      route: {
+      route: object.type === 'money_plan_limit' ? {
+        name: 'Money',
+        params: { screen: 'MoneySummary' },
+      } : {
         name: 'Money',
         params: { screen: 'MoneyCategoryDetail', params: { categoryId: object.id } },
       },
     }),
   },
 };
+
+function moneyPlanLimitEvidence(snapshot: MoneyChatSnapshot): CapabilityEvidenceSource {
+  const answer = snapshot.livingLimitAnswer!;
+  const formatted = formatMoneyPlanLimitAnswer(answer);
+  return {
+    capabilityId: 'money',
+    object: { type: 'money_plan_limit', id: 'current', label: 'Current Budget answer' },
+    searchableText: compact(['money budget income spending living limit flexible spending current plan', formatted.headline, formatted.support]),
+    summary: compact([formatted.headline, formatted.support]),
+    authority: 'authoritative',
+    observedAt: snapshot.lastSyncedAt ?? snapshot.generatedAt,
+  };
+}
+
+export function projectMoneyPlanLimitForChat(snapshot: MoneyChatSnapshot) {
+  const answer = snapshot.livingLimitAnswer;
+  if (!answer) return null;
+  const formatted = formatMoneyPlanLimitAnswer(answer);
+  return {
+    state: answer.state,
+    livingPercent: answer.facts.livingPercent,
+    incomeBasisCents: answer.facts.resourceBasisCents,
+    livingLimitCents: answer.facts.livingLimitCents,
+    plannedCents: answer.facts.plannedCents,
+    flexibleRoomCents: answer.facts.flexibleRoomCents,
+    confidence: answer.facts.confidence,
+    freshness: answer.facts.freshness,
+    observedAt: snapshot.lastSyncedAt ?? snapshot.generatedAt,
+    answer: compact([formatted.headline, formatted.support]),
+    returnTarget: { name: 'Money' as const, params: { screen: 'MoneySummary' as const } },
+  };
+}
 
 function familyScreenTimeEvidence(
   child: ScreenTimeChatSnapshot['children'][number],

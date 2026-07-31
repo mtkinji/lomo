@@ -6,6 +6,18 @@ import {
 } from './requestPolicy';
 
 describe('classifyUnifiedChatRequest', () => {
+  test.each([
+    'Am I within my income spending limit?',
+    'Does my budget still fit the 70% living limit?',
+    'Does my plan still fit the 70% limit?',
+  ])('routes a Money limit question to Money without day-Plan context: %s', (prompt) => {
+    expect(classifyUnifiedChatRequest({ prompt })).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+    });
+  });
+
   test('treats asking what to add to tomorrow as a recommendation, not authorization', () => {
     expect(classifyUnifiedChatRequest({
       prompt: 'What should I add to my plan tomorrow?',
