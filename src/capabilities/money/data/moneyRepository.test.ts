@@ -88,6 +88,9 @@ describe('createMoneyRepository transaction review', () => {
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('funding_rhythm');
     expect(calls.find((call) => call.table === 'budget_categories')?.selected).toContain('cover_image');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_source');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_policy_version');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_governed');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
