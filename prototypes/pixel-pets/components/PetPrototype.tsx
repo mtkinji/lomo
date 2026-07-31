@@ -99,6 +99,7 @@ export function PetPrototype() {
   const [worldMessage, setWorldMessage] = useState<{ title: string; detail: string } | null>(null);
   const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
   const reactionTimer = useRef<number | null>(null);
+  const focusCompletionHandled = useRef(false);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -136,6 +137,16 @@ export function PetPrototype() {
     if (!clip.loop) settle(clipDuration(clip) + hold);
   }, [settle]);
 
+  useEffect(() => {
+    if (!world.focus.completed || focusCompletionHandled.current) return;
+    focusCompletionHandled.current = true;
+    const next = completeMeaningfulAction(state, "focus");
+    setState(next);
+    playPetSound("discover", next.soundEnabled);
+    nudge();
+    settleAfterMotion("discover");
+  }, [settleAfterMotion, state, world.focus.completed]);
+
   function complete(source: MeaningfulAction) {
     const next = completeMeaningfulAction(state, source);
     setState(next);
@@ -156,6 +167,18 @@ export function PetPrototype() {
     const next = advancePrototypeDay(state);
     setState(next);
     playPetSound("sleep", next.soundEnabled);
+  }
+
+  function focusTogether() {
+    focusCompletionHandled.current = false;
+    commandWorld("focus");
+    setWorldMessage({ title: `Focusing with ${state.name}`, detail: "The little world is settling with you for fifteen quiet seconds." });
+  }
+
+  function playTogether() {
+    complete("play");
+    commandWorld("play");
+    setWorldMessage({ title: "A shared spark", detail: "Playing together stirred the breeze and brought a tiny visitor." });
   }
 
   function preview(motion: EngineMotion) {
@@ -182,8 +205,8 @@ export function PetPrototype() {
   const momentsToGrow = Math.max(0, 5 - state.careDays);
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const currentStatus = useMemo(() => {
-    if (worldMessage) return worldMessage;
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
+    if (worldMessage) return worldMessage;
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
   }, [dayHasCare, state.careAvailable, state.lastReceipt, worldMessage]);
@@ -198,6 +221,10 @@ export function PetPrototype() {
       jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
       pounce: { title: "Couldn’t resist", detail: "That tiny visitor looked interesting." },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
+      "seek-shelter": { title: "Weather coming", detail: `${state.name} knows where the old tree keeps the ground dry.` },
+      shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
+      bask: { title: "Following the warmth", detail: `${state.name} found the sunny part of the meadow.` },
+      focus: { title: "Quiet company", detail: `${state.name} is focusing beside you.` },
     };
     setWorldMessage(messages[action] ?? null);
   }, [state.name]);
@@ -218,15 +245,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 05</span>
-        <h1>Every drawing<br />has a job.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 06</span>
+        <h1>The world<br />touches back.</h1>
         <p>
-          Leafling holds a readable pose until something truly needs to move. Fast in-betweens, clear accents, and quiet holds give limited animation more life than equal timing ever could.
+          Sun, wind, and rain are no longer scenery. They move through Leafling’s tiny world, change its attention, and give it somewhere meaningful to go.
         </p>
         <dl className="engine-facts">
-          <div><dt>Blink</dt><dd>184 ms</dd></div>
-          <div><dt>Cadence</dt><dd>hold → accent</dd></div>
-          <div><dt>Channels</dt><dd>eyes · body</dd></div>
+          <div><dt>Weather</dt><dd>sun · wind · rain</dd></div>
+          <div><dt>Response</dt><dd>seek → shelter</dd></div>
+          <div><dt>Ritual</dt><dd>focus together</dd></div>
         </dl>
       </header>
 
@@ -234,7 +261,7 @@ export function PetPrototype() {
         <header className="capability-header">
           <div>
             <span className="device-label">Day {state.prototypeDay}</span>
-            <strong>{state.name}</strong>
+            <strong>{state.name}</strong><span className="weather-label">{world.weather}</span>
           </div>
           <button
             type="button"
@@ -261,7 +288,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             label={`${state.name}'s interactive world. Tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
-          <span className="scene-instructions" aria-hidden="true">tap · pinch · swipe</span>
+          <span className="scene-instructions" aria-hidden="true">tap · pinch · swipe · weather</span>
           <span className="scene-resolution" aria-hidden="true">x {Math.round(world.cameraX)} · {world.zoom.toFixed(2)}×</span>
         </div>
 
@@ -275,15 +302,21 @@ export function PetPrototype() {
           </div>
         </div>
 
-        {state.careAvailable ? (
+        {world.focus.active ? (
+          <div className="focus-session" aria-live="polite">
+            <span className="focus-orb" aria-hidden="true" />
+            <div><strong>Focusing together</strong><small>{Math.ceil(world.focus.remainingMs / 1000)} seconds · Leafling will stay with you</small></div>
+          </div>
+        ) : state.careAvailable ? (
           <button className="care-button" type="button" onClick={care}>
             <span className="pixel-berry" aria-hidden="true" />
             Give today’s care
           </button>
         ) : (
-          <div className="action-pair" aria-label="Simulate a meaningful Kwilt action">
+          <div className="action-pair three-actions" aria-label="Simulate a meaningful Kwilt action">
             <button type="button" onClick={() => complete("todo")}><span aria-hidden="true">✓</span>Complete a To-do</button>
-            <button type="button" onClick={() => complete("focus")}><span aria-hidden="true">◎</span>Finish Focus</button>
+            <button type="button" onClick={focusTogether}><span aria-hidden="true">◎</span>Focus together</button>
+            <button type="button" onClick={playTogether}><span aria-hidden="true">✦</span>Play together</button>
           </div>
         )}
 
@@ -314,11 +347,18 @@ export function PetPrototype() {
             <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
             <button type="button" onClick={() => commandWorld("center")}>Reset camera</button>
           </div>
+          <div className="weather-controls" aria-label="Weather study controls">
+            <button type="button" className={world.weather === "sunny" ? "active" : ""} onClick={() => commandWorld("sunny")}>Sun</button>
+            <button type="button" className={world.weather === "breeze" ? "active" : ""} onClick={() => commandWorld("breeze")}>Wind</button>
+            <button type="button" className={world.weather === "rain" ? "active" : ""} onClick={() => commandWorld("rain")}>Rain</button>
+          </div>
           <div className="world-readout" aria-label="Portable world runtime output">
             <span>Pet x <strong>{Math.round(world.petX)}</strong></span>
             <span>Camera x <strong>{Math.round(world.cameraX)}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Visitor <strong>{world.insect.active ? "active" : "quiet"}</strong></span>
+            <span>Weather <strong>{world.weather}</strong></span>
+            <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
           </div>
         </section>
 

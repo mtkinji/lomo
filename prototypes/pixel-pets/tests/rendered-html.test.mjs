@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 05 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 06 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -48,11 +48,13 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 05 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 05/);
+  assert.match(layout, /Pet Engine Study 06 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 06/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
-  assert.match(prototype, /Finish Focus/);
+  assert.match(prototype, /Focus together/);
+  assert.match(prototype, /Play together/);
+  assert.match(prototype, /Weather study controls/);
   assert.match(prototype, /Advance one day/);
   assert.match(prototype, /Portable Pet runtime output/);
   assert.match(prototype, /Ground contact/);
@@ -65,6 +67,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(engine, /MOTION_CLIPS/);
   assert.match(world, /stepPetWorld/);
   assert.match(world, /spawnInsect/);
+  assert.match(world, /setWorldWeather/);
+  assert.match(world, /beginCompanionFocus/);
   assert.match(runtime, /resolvePetFrame/);
   assert.match(runtime, /nextFrameElapsed/);
   assert.match(runtime, /PetFrameLayer/);

@@ -112,6 +112,10 @@ Animation follows an anime-inspired limited-motion language rather than uniform 
 
 The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. Environmental visitors are transient behavior targets, not collectible currency or another progress system.
 
+Weather is behavior, not a wallpaper swap. Wind moves foliage, loose leaves, and the Pet's grounded silhouette. Rain changes light and terrain, then gives the Pet a reason to seek shelter and curl beneath a tree. Sun creates a warm destination in the meadow. The portable world snapshot owns weather, intensity, elapsed time, and the Pet's response so iPhone, web, and desktop renderers can express the same event with platform-appropriate drawing.
+
+Focus together is the first shared ritual. Starting it brings the Pet to the shelter tree and quiets the scene for a short prototype session. Completion creates the same bounded source-class receipt as an ordinary Focus session; it does not add a second streak or parallel task system. A completed family/friend game can likewise create the day's one care moment while causing a playful world response such as breeze and a visitor.
+
 ### Chat and notifications
 
 The first family test sends no routine Pet notification. A later optional discovery notification may open contextual Chat with **Visit**, **Later**, and **Quiet Pet updates**. It may celebrate something already earned; it may not announce hunger, sadness, streak loss, or that the Pet misses the user.
@@ -134,6 +138,8 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 - Is five care days the right threshold for the first evolution?
 - Does a meal metaphor feel natural, or should the care object vary by pet?
 - How much habitat change is needed before the persistent display feels alive?
+- Do weather-caused behaviors make the habitat feel like a world rather than a decorated screen?
+- Does focusing beside the resting Pet improve attention, or does the animation become distracting?
 - Does pinch-to-close-up create affection, or does it mostly interfere with taps?
 - How often can insects visit before their movement becomes distracting or predictable?
 - Does rollover feel like a delightful learned trick, and does it justify a dedicated animation row?

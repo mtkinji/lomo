@@ -166,6 +166,22 @@ summary:focus-visible {
   letter-spacing: -0.025em;
 }
 
+.weather-label {
+  display: inline-flex;
+  margin-left: 9px;
+  padding: 3px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 999px;
+  color: var(--accent-dark);
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.51rem;
+  font-weight: 720;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  vertical-align: 3px;
+}
+
 .sound-button {
   width: 42px;
   height: 42px;
@@ -315,6 +331,38 @@ summary:focus-visible {
   padding: 16px 18px;
 }
 
+.action-pair.three-actions { grid-template-columns: repeat(3, 1fr); }
+.action-pair.three-actions button { min-height: 52px; padding: 6px; font-size: 0.64rem; line-height: 1.2; }
+.action-pair.three-actions span { display: block; margin: 0 0 3px; }
+
+.focus-session {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  gap: 13px;
+  margin: 15px 18px;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, var(--line));
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 78%, white), var(--panel));
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--accent-soft) 72%, transparent);
+}
+
+.focus-session strong,
+.focus-session small { display: block; }
+.focus-session strong { font-size: 0.74rem; }
+.focus-session small { margin-top: 4px; color: var(--muted); font-size: 0.61rem; line-height: 1.4; }
+
+.focus-orb {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  border: 3px solid var(--accent-soft);
+  border-top-color: var(--accent-dark);
+  border-radius: 50%;
+  animation: focus-breathe 2.4s ease-in-out infinite;
+}
+
 .action-pair button,
 .control-grid button,
 .transport-row button,
@@ -447,6 +495,30 @@ summary:focus-visible {
   gap: 6px;
 }
 
+.weather-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.weather-controls button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.59rem;
+  font-weight: 680;
+}
+
+.weather-controls button:hover,
+.weather-controls button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 68%, transparent);
+}
+
 .world-controls button {
   min-height: 40px;
   padding: 6px;
@@ -547,6 +619,11 @@ summary:focus-visible {
   50% { transform: translateY(-8px); }
 }
 
+@keyframes focus-breathe {
+  0%, 100% { transform: scale(0.9); opacity: 0.72; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
 @media (max-width: 1080px) {
   .engine-lab {
     grid-template-columns: minmax(330px, 390px) minmax(300px, 360px);
@@ -603,4 +680,5 @@ summary:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .loading-pixel { animation: none; }
+  .focus-orb { animation: none; }
 }

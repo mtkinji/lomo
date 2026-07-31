@@ -11,11 +11,13 @@ import {
 import {
   PET_WORLD,
   applyWorldIntent,
+  beginCompanionFocus,
   clipForWorldAction,
   createPetWorldState,
   resolveRolloverPose,
   resolveTapIntent,
   setWorldZoom,
+  setWorldWeather,
   spawnInsect,
   stepPetWorld,
   type PetWorldAction,
@@ -28,7 +30,7 @@ import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "firefly" | "rollover" | "center";
+  type: "firefly" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "play";
 };
 
 interface PetEngineCanvasProps {
@@ -101,6 +103,102 @@ function drawGrassTuft(context: CanvasRenderingContext2D, x: number, y: number) 
   context.fillRect(x + 1, y - 4, 2, 1);
 }
 
+function drawShelterTree(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  x: number,
+  groundY: number,
+  sway: number,
+) {
+  context.save();
+  context.translate(x, groundY);
+  context.fillStyle = palette.outline;
+  context.fillRect(-6, -66, 12, 67);
+  context.fillStyle = palette.deep;
+  context.fillRect(-3, -64, 6, 64);
+  context.fillStyle = palette.groundDark;
+  context.fillRect(0, -57, 3, 47);
+  context.fillRect(-15, -2, 31, 3);
+
+  context.translate(0, -65);
+  context.rotate((sway * Math.PI) / 180);
+  context.fillStyle = palette.outline;
+  context.fillRect(-33, -28, 64, 34);
+  context.fillRect(-24, -39, 45, 48);
+  context.fillRect(-12, -47, 27, 55);
+  context.fillStyle = palette.leaf;
+  context.fillRect(-31, -25, 58, 28);
+  context.fillRect(-22, -36, 39, 39);
+  context.fillRect(-10, -44, 21, 45);
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-23, -30, 15, 8);
+  context.fillRect(2, -38, 12, 11);
+  context.fillRect(13, -20, 11, 8);
+  context.fillStyle = palette.cream;
+  context.globalAlpha = 0.42;
+  context.fillRect(-4, -31, 5, 4);
+  context.fillRect(8, -17, 4, 3);
+  context.restore();
+}
+
+function drawWeather(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  foreground: boolean,
+) {
+  if (world.weather === "rain") {
+    context.save();
+    context.globalAlpha = foreground ? 0.5 : 0.28;
+    context.strokeStyle = foreground ? palette.skyLight : palette.deep;
+    context.lineWidth = foreground ? 1 : 0.75;
+    const offset = (world.weatherElapsed * 0.08) % 26;
+    for (let x = foreground ? -12 : 2; x < ENGINE_SCENE.width + 20; x += foreground ? 17 : 23) {
+      const y = (x * 7 + offset * 3) % 238;
+      context.beginPath();
+      context.moveTo(x + offset * 0.18, y - 8);
+      context.lineTo(x - 2 + offset * 0.18, y);
+      context.stroke();
+    }
+    if (foreground) {
+      context.fillStyle = palette.skyLight;
+      context.globalAlpha = 0.32;
+      context.fillRect(18, 213, 26, 2);
+      context.fillRect(132, 221, 18, 2);
+    }
+    context.restore();
+  }
+
+  if (world.weather === "breeze" && foreground) {
+    context.save();
+    context.globalAlpha = 0.66;
+    for (let index = 0; index < 8; index += 1) {
+      const travel = (world.weatherElapsed * (0.018 + index * 0.001) + index * 31) % 210;
+      const x = travel - 24;
+      const y = 58 + ((index * 29) % 102) + Math.sin(world.weatherElapsed / 240 + index) * 8;
+      context.fillStyle = index % 3 === 0 ? palette.bloom : index % 2 === 0 ? palette.leafLight : palette.cream;
+      context.fillRect(Math.round(x), Math.round(y), 3, 2);
+      context.fillRect(Math.round(x + 2), Math.round(y + 1), 2, 1);
+    }
+    context.restore();
+  }
+
+  if (world.weather === "sunny" && foreground) {
+    context.save();
+    const pulse = 0.05 + (Math.sin(world.weatherElapsed / 900) + 1) * 0.025;
+    context.globalAlpha = pulse;
+    context.fillStyle = palette.bloom;
+    context.beginPath();
+    context.moveTo(112, 0);
+    context.lineTo(160, 0);
+    context.lineTo(160, 154);
+    context.lineTo(137, 168);
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+}
+
 function drawHabitat(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -116,12 +214,25 @@ function drawHabitat(
   context.fillStyle = palette.skyDeep;
   context.fillRect(0, 112, ENGINE_SCENE.width, 96);
 
-  context.fillStyle = palette.bloom;
-  context.fillRect(125, 34, 7, 7);
-  context.fillRect(127, 30, 3, 15);
-  context.fillRect(121, 36, 15, 3);
-  context.fillStyle = palette.skyLight;
-  context.fillRect(128, 35, 2, 2);
+  if (world.weather === "rain") {
+    context.fillStyle = "rgba(39, 58, 66, 0.18)";
+    context.fillRect(0, 0, ENGINE_SCENE.width, groundY);
+    context.fillStyle = palette.skyLight;
+    context.globalAlpha = 0.72;
+    context.fillRect(0, 31, 58, 13);
+    context.fillRect(43, 24, 78, 19);
+    context.fillRect(103, 34, 57, 13);
+    context.globalAlpha = 1;
+  }
+
+  if (world.weather !== "rain") {
+    context.fillStyle = palette.bloom;
+    context.fillRect(125, 34, 7, 7);
+    context.fillRect(127, 30, 3, 15);
+    context.fillRect(121, 36, 15, 3);
+    context.fillStyle = palette.skyLight;
+    context.fillRect(128, 35, 2, 2);
+  }
 
   context.save();
   context.translate(ENGINE_SCENE.width / 2, 0);
@@ -175,6 +286,8 @@ function drawHabitat(
     context.fillRect(x + 2, groundY - 20, 2, 5);
   }
 
+  drawShelterTree(context, palette, PET_WORLD.treeShelterX, groundY, world.weatherSway * 0.7);
+
   for (let x = 64; x < PET_WORLD.width; x += 132) {
     context.fillStyle = palette.outline;
     context.fillRect(x + 2, groundY - 6, 13, 6);
@@ -211,6 +324,7 @@ function drawHabitat(
   }
 
   context.restore();
+  drawWeather(context, palette, world, false);
 }
 
 function renderScene(
@@ -251,6 +365,9 @@ function renderScene(
   context.save();
   worldTransform(context, world);
   context.translate(world.petX, ENGINE_SCENE.groundY + world.poseY);
+  if (world.weatherSway !== 0 && snapshot.contact !== "airborne") {
+    context.rotate((world.weatherSway * Math.PI) / 180);
+  }
   if (world.rotation !== 0) {
     context.translate(0, -size.height * 0.42);
     context.rotate((world.rotation * world.facing * Math.PI) / 180);
@@ -315,6 +432,7 @@ function renderScene(
     });
   }
   context.restore();
+  drawWeather(context, palette, world, true);
 }
 
 export function PetEngineCanvas({
@@ -354,6 +472,15 @@ export function PetEngineCanvas({
     }
     if (worldCommand.type === "center") {
       worldRef.current = setWorldZoom({ ...worldRef.current, cameraX: worldRef.current.petX }, 1);
+    }
+    if (worldCommand.type === "sunny" || worldCommand.type === "breeze" || worldCommand.type === "rain") {
+      worldRef.current = setWorldWeather(worldRef.current, worldCommand.type);
+    }
+    if (worldCommand.type === "focus") {
+      worldRef.current = beginCompanionFocus(worldRef.current, 15000);
+    }
+    if (worldCommand.type === "play") {
+      worldRef.current = spawnInsect(setWorldWeather(worldRef.current, "breeze"));
     }
     callbackRef.current.onWorldInteraction?.(worldRef.current.action);
   }, [worldCommand]);

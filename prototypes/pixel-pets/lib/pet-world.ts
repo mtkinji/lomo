@@ -8,9 +8,13 @@ export const PET_WORLD = {
   jumpDuration: 850,
   pounceDuration: 720,
   rolloverDuration: 1200,
+  treeShelterX: 112,
+  sunPatchX: 366,
+  maxWeatherSway: 2.2,
 } as const;
 
-export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "rollover";
+export type PetWeather = "sunny" | "breeze" | "rain";
+export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "rollover" | "seek-shelter" | "shelter" | "bask" | "focus";
 
 export interface WorldPoint {
   x: number;
@@ -42,6 +46,14 @@ export interface PetWorldState {
   targetX: number | null;
   poseY: number;
   rotation: number;
+  weather: PetWeather;
+  weatherElapsed: number;
+  weatherSway: number;
+  focus: {
+    active: boolean;
+    remainingMs: number;
+    completed: boolean;
+  };
   insect: WorldInsect;
 }
 
@@ -56,7 +68,58 @@ export function createPetWorldState(): PetWorldState {
     targetX: null,
     poseY: 0,
     rotation: 0,
+    weather: "sunny",
+    weatherElapsed: 0,
+    weatherSway: 0,
+    focus: { active: false, remainingMs: 0, completed: false },
     insect: { active: false, x: 0, y: 0, originY: 0, direction: 1, ageMs: 0 },
+  };
+}
+
+export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetWorldState {
+  if (weather === "rain") {
+    return {
+      ...state,
+      weather,
+      weatherElapsed: 0,
+      action: "seek-shelter",
+      actionElapsed: 0,
+      targetX: PET_WORLD.treeShelterX,
+      facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
+    };
+  }
+
+  if (weather === "sunny") {
+    return {
+      ...state,
+      weather,
+      weatherElapsed: 0,
+      action: "bask",
+      actionElapsed: 0,
+      targetX: PET_WORLD.sunPatchX,
+      facing: PET_WORLD.sunPatchX < state.petX ? -1 : 1,
+    };
+  }
+
+  return {
+    ...state,
+    weather,
+    weatherElapsed: 0,
+    weatherSway: 0,
+    action: "track",
+    actionElapsed: 0,
+    targetX: null,
+  };
+}
+
+export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): PetWorldState {
+  return {
+    ...state,
+    action: "seek-shelter",
+    actionElapsed: 0,
+    targetX: PET_WORLD.treeShelterX,
+    facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
+    focus: { active: true, remainingMs: Math.max(1, durationMs), completed: false },
   };
 }
 
@@ -146,7 +209,33 @@ function moveToward(value: number, target: number, distance: number) {
 
 export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMotion: boolean): PetWorldState {
   const dt = Math.max(0, elapsedMs);
-  let next: PetWorldState = { ...state, actionElapsed: state.actionElapsed + dt };
+  const weatherElapsed = state.weatherElapsed + dt;
+  const weatherSway = state.weather === "breeze"
+    ? Math.sin(weatherElapsed / 230) * PET_WORLD.maxWeatherSway
+    : state.weather === "rain"
+      ? Math.sin(weatherElapsed / 170) * 0.7
+      : 0;
+  let next: PetWorldState = {
+    ...state,
+    actionElapsed: state.actionElapsed + dt,
+    weatherElapsed,
+    weatherSway: reducedMotion ? 0 : weatherSway,
+  };
+
+  if (state.focus.active) {
+    const remainingMs = Math.max(0, state.focus.remainingMs - dt);
+    next.focus = { active: remainingMs > 0, remainingMs, completed: remainingMs === 0 };
+    if (remainingMs === 0) {
+      next = {
+        ...next,
+        action: "greet",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+  }
 
   if (state.insect.active) {
     const ageMs = state.insect.ageMs + dt;
@@ -162,6 +251,30 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
   }
 
   if (reducedMotion) {
+    if (state.action === "seek-shelter") {
+      return {
+        ...next,
+        petX: PET_WORLD.treeShelterX,
+        cameraX: clampCameraX(PET_WORLD.treeShelterX, next.zoom),
+        action: state.focus.active ? "focus" : "shelter",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (state.action === "bask") {
+      return {
+        ...next,
+        petX: PET_WORLD.sunPatchX,
+        cameraX: clampCameraX(PET_WORLD.sunPatchX, next.zoom),
+        action: "bask",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
     if (next.actionElapsed >= Math.min(300, PET_WORLD.rolloverDuration)) return finishAction({ ...next, poseY: 0, rotation: 0 });
     return { ...next, poseY: 0, rotation: 0 };
   }
@@ -190,15 +303,32 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
     }
   } else if (state.targetX !== null) {
     const distance = state.targetX - state.petX;
-    if (Math.abs(distance) <= 2) next = finishAction({ ...next, petX: state.targetX });
+    if (Math.abs(distance) <= 2) {
+      if (state.action === "seek-shelter") {
+        next = {
+          ...next,
+          petX: state.targetX,
+          targetX: null,
+          action: state.focus.active ? "focus" : "shelter",
+          actionElapsed: 0,
+          poseY: 0,
+          rotation: 0,
+        };
+      } else if (state.action === "bask") {
+        next = { ...next, petX: state.targetX, targetX: null, action: "bask", actionElapsed: 0, poseY: 0 };
+      } else next = finishAction({ ...next, petX: state.targetX });
+    }
     else {
-      const running = Math.abs(distance) > 52;
-      const speed = running ? 0.052 : 0.024;
+      const running = state.action !== "seek-shelter" && state.action !== "bask" && Math.abs(distance) > 52;
+      const speed = running ? 0.052 : state.action === "seek-shelter" ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
       next.facing = distance < 0 ? -1 : 1;
-      next.action = running ? "run" : "walk";
+      if (state.action !== "seek-shelter" && state.action !== "bask") next.action = running ? "run" : "walk";
       next.poseY = -Math.abs(Math.sin((state.actionElapsed + dt) / (running ? 85 : 125))) * (running ? 2 : 1);
     }
+  } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask") {
+    next.poseY = 0;
+    next.rotation = 0;
   } else if (next.insect.active) {
     const insectDistance = next.insect.x - state.petX;
     next.facing = insectDistance < 0 ? -1 : 1;
@@ -223,6 +353,7 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
 export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" {
   if (action === "pounce" || action === "greet") return "greet";
   if (action === "track") return "discover";
-  if (action === "rollover") return "sleep";
+  if (action === "rollover" || action === "shelter" || action === "focus") return "sleep";
+  if (action === "bask" || action === "seek-shelter") return "discover";
   return "idle";
 }

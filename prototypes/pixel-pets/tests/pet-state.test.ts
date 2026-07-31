@@ -56,3 +56,12 @@ test("advancing through quiet days never removes care or evolution", () => {
   assert.equal(state.careAvailable, false);
   assert.match(state.lastReceipt, /quiet new day/i);
 });
+
+test("playing together can prepare the same bounded daily care moment", () => {
+  const initial = createPetState("leafling", "Moss", "moss");
+  const afterPlay = completeMeaningfulAction(initial, "play");
+
+  assert.equal(afterPlay.careAvailable, true);
+  assert.equal(afterPlay.pendingSource, "play");
+  assert.match(afterPlay.lastReceipt, /playing together/i);
+});

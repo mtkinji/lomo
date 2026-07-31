@@ -15,6 +15,10 @@ The prototype lets a tester:
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
 - inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
 - see a face-only 184 ms blink composed over a locked full-body key pose;
+- move through sun, wind, and rain that affect both the habitat and Leafling;
+- watch Leafling seek the old tree and curl up when rain reaches the meadow;
+- start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
+- let a Play-together receipt stir the breeze and invite a small visitor;
 - simulate a completed To-do or Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
@@ -23,7 +27,8 @@ The prototype lets a tester:
 
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
-coordinates, camera follow, transient zoom, and autonomous behavior targets.
+coordinates, camera follow, transient zoom, weather response, shared-focus state,
+and autonomous behavior targets.
 The same snapshot contract can also carry masked anatomy layers, allowing the
 Canvas adapter to change Leafling's eyes without redrawing or moving its body.
 Canvas 2D is the current renderer adapter. It places Leafling low in the scene,

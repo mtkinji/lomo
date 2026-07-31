@@ -6,7 +6,7 @@ export type PetKind =
   | "cloudwing";
 
 export type PetPalette = "moss" | "lagoon" | "ember" | "clay" | "sky";
-export type MeaningfulAction = "todo" | "focus";
+export type MeaningfulAction = "todo" | "focus" | "play";
 export type PetStage = "young" | "evolved";
 export type PetReaction =
   | "idle"
@@ -59,25 +59,29 @@ export function completeMeaningfulAction(
   source: MeaningfulAction,
 ): PetState {
   if (state.careAvailable || state.caredPrototypeDay === state.prototypeDay) {
+    const noticedReceipt: Record<MeaningfulAction, string> = {
+      focus: `${state.name} noticed that Focus session too.`,
+      todo: `${state.name} noticed that To-do too.`,
+      play: `${state.name} noticed you playing together too.`,
+    };
     return {
       ...state,
       reaction: "discover",
-      lastReceipt:
-        source === "focus"
-          ? `${state.name} noticed that Focus session too.`
-          : `${state.name} noticed that To-do too.`,
+      lastReceipt: noticedReceipt[source],
     };
   }
 
+  const availableReceipt: Record<MeaningfulAction, string> = {
+    focus: "A Focus session made one care moment available.",
+    todo: "A completed To-do made one care moment available.",
+    play: "Playing together made one care moment available.",
+  };
   return {
     ...state,
     careAvailable: true,
     pendingSource: source,
     reaction: "discover",
-    lastReceipt:
-      source === "focus"
-        ? "A Focus session made one care moment available."
-        : "A completed To-do made one care moment available.",
+    lastReceipt: availableReceipt[source],
   };
 }
 

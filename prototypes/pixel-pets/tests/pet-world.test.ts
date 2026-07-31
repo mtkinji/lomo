@@ -5,12 +5,73 @@ import {
   PET_WORLD,
   applyWorldIntent,
   createPetWorldState,
+  beginCompanionFocus,
+  setWorldWeather,
   resolveTapIntent,
   resolveRolloverPose,
   setWorldZoom,
   spawnInsect,
   stepPetWorld,
 } from "../lib/pet-world.ts";
+
+test("rain changes the world into a shelter-seeking behavior", () => {
+  const raining = setWorldWeather(createPetWorldState(), "rain");
+
+  assert.equal(raining.weather, "rain");
+  assert.equal(raining.action, "seek-shelter");
+  assert.equal(raining.targetX, PET_WORLD.treeShelterX);
+
+  let sheltered = raining;
+  for (let step = 0; step < 20; step += 1) sheltered = stepPetWorld(sheltered, 250, false);
+
+  assert.equal(sheltered.action, "shelter");
+  assert.ok(Math.abs(sheltered.petX - PET_WORLD.treeShelterX) <= 2);
+});
+
+test("a passing insect cannot pull the Pet out of rain shelter", () => {
+  const sheltered = {
+    ...spawnInsect(createPetWorldState(), { x: PET_WORLD.treeShelterX + 8, y: 170 }),
+    petX: PET_WORLD.treeShelterX,
+    cameraX: PET_WORLD.treeShelterX,
+    weather: "rain" as const,
+    action: "shelter" as const,
+  };
+  const after = stepPetWorld(sheltered, 120, false);
+
+  assert.equal(after.action, "shelter");
+  assert.equal(after.petX, PET_WORLD.treeShelterX);
+});
+
+test("wind has a bounded grounded sway instead of lifting the Pet", () => {
+  const breezy = setWorldWeather(createPetWorldState(), "breeze");
+  const after = stepPetWorld(breezy, 420, false);
+
+  assert.equal(after.weather, "breeze");
+  assert.ok(Math.abs(after.weatherSway) > 0.2);
+  assert.ok(Math.abs(after.weatherSway) <= PET_WORLD.maxWeatherSway);
+  assert.equal(after.poseY, 0);
+});
+
+test("reduced motion preserves weather meaning by settling directly into shelter", () => {
+  const raining = setWorldWeather(createPetWorldState(), "rain");
+  const after = stepPetWorld(raining, 400, true);
+
+  assert.equal(after.action, "shelter");
+  assert.equal(after.petX, PET_WORLD.treeShelterX);
+  assert.equal(after.weatherSway, 0);
+});
+
+test("focus together settles under the tree and completes without inventing a streak", () => {
+  let focusing = beginCompanionFocus(createPetWorldState(), 1200);
+  assert.equal(focusing.focus.remainingMs, 1200);
+  assert.equal(focusing.targetX, PET_WORLD.treeShelterX);
+
+  for (let step = 0; step < 8; step += 1) focusing = stepPetWorld(focusing, 250, false);
+
+  assert.equal(focusing.focus.active, false);
+  assert.equal(focusing.focus.completed, true);
+  assert.equal(focusing.action, "greet");
+});
 
 test("screen taps resolve into world-space attention and travel intents", () => {
   const world = createPetWorldState();
