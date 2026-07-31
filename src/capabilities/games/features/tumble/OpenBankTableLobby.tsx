@@ -82,8 +82,12 @@ export function OpenBankTableLobby({ room, userId, reload, joinedTableCode }: { 
     {isHost ? <View style={styles.inviteArea}>
       <View style={styles.qrWrap}>{inviteUrl ? <QRCode value={inviteUrl} size={154} color={gamesTheme.colors.ink} backgroundColor={gamesTheme.colors.paper} /> : <Text style={styles.loading}>Opening the table…</Text>}</View>
       <View style={styles.inviteCopy}>
-        {tableMark ? <View style={styles.nearby}><Radio size={16} color={gamesTheme.colors.felt} /><Text style={styles.nearbyText}>{tableMark} · nearby</Text></View> : null}
-        <Text style={styles.scanCopy}>Scan once per phone or open Kwilt and tap Join a game.</Text>
+        {tableMark ? <View style={styles.nearby}>
+          <Radio size={18} color={gamesTheme.colors.felt} />
+          <View style={styles.nearbyCopy}><Text style={styles.nearbyTitle}>Open nearby</Text><Text style={styles.nearbyText}>People in Kwilt can find this table while this screen is open.</Text></View>
+          <Text style={styles.nearbyMark}>{tableMark}</Text>
+        </View> : null}
+        <Text style={styles.scanCopy}>Each phone can scan this code instead.</Text>
         {invite ? <><Text style={styles.codeLabel}>TABLE CODE</Text><Text selectable style={styles.code}>{invite.code.slice(0, 3)}-{invite.code.slice(3)}</Text></> : null}
         {inviteUrl ? <Pressable accessibilityRole="button" onPress={() => void Share.share({ message: `Join our Bank table: ${inviteUrl}`, url: inviteUrl })} style={styles.share}><Share2 size={16} color={gamesTheme.colors.ink} /><Text style={styles.shareText}>Share</Text></Pressable> : null}
       </View>
@@ -119,8 +123,11 @@ const styles = StyleSheet.create({
   qrWrap: { width: 164, height: 164, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: gamesTheme.colors.paper },
   loading: { fontFamily: gamesTheme.type.body, fontSize: 12, color: 'rgba(32,29,24,0.5)' },
   inviteCopy: { width: '100%', alignItems: 'center', gap: 5 },
-  nearby: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nearbyText: { fontFamily: gamesTheme.type.utility, fontSize: 11, color: gamesTheme.colors.felt },
+  nearby: { width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 16, backgroundColor: 'rgba(86,139,113,0.1)' },
+  nearbyCopy: { flex: 1, gap: 2 },
+  nearbyTitle: { fontFamily: gamesTheme.type.display, fontSize: 15, color: gamesTheme.colors.ink },
+  nearbyText: { fontFamily: gamesTheme.type.body, fontSize: 11, lineHeight: 15, color: 'rgba(32,29,24,0.58)' },
+  nearbyMark: { fontFamily: gamesTheme.type.utility, fontSize: 10, color: gamesTheme.colors.felt },
   scanCopy: { maxWidth: 280, textAlign: 'center', fontFamily: gamesTheme.type.body, fontSize: 12, lineHeight: 17, color: 'rgba(32,29,24,0.58)' },
   codeLabel: { marginTop: 2, fontFamily: gamesTheme.type.utility, fontSize: 8, letterSpacing: 1.3, color: 'rgba(32,29,24,0.45)' },
   code: { fontFamily: gamesTheme.type.display, fontSize: 22, letterSpacing: 2, color: gamesTheme.colors.ink },

@@ -29,11 +29,21 @@ jest.mock('@/src/capabilities/games/nearby/nearbyTables', () => ({
 const mockClaim = claimRemoteBankTableInvite as jest.Mock;
 const mockBrowse = browseNearbyTables as jest.Mock;
 const mockReplace = router.replace as jest.Mock;
+let mockProfile: { displayName: string } | null = { displayName: 'Olive' };
+
+jest.mock('@/src/capabilities/games/shell/AuthProvider', () => ({
+  useAuth: () => ({ session: { user: { id: 'user-1', is_anonymous: false, user_metadata: { full_name: 'Olive' } } } }),
+}));
+jest.mock('@/src/capabilities/games/platform/auth', () => ({ permanentUserId: () => 'user-1' }));
+jest.mock('@/src/capabilities/games/players/useGamePlayerProfile', () => ({
+  useGamePlayerProfile: () => ({ profile: mockProfile, loading: false }),
+}));
 
 describe('JoinTableScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockBottomDrawerProps = null;
+    mockProfile = { displayName: 'Olive' };
     mockBrowse.mockImplementation(async (onChange: (tables: { code: string; game: 'bank' }[]) => void) => {
       onChange([{ code: 'W7K4JP', game: 'bank' }]);
       return jest.fn();
@@ -52,6 +62,34 @@ describe('JoinTableScreen', () => {
     expect(screen.getByLabelText(`Join Slanguage table ${tableMarkForCode('ABC123')}`)).toBeTruthy();
   });
 
+  it('makes nearby search, its host dependency, and its privacy boundary explicit', async () => {
+    mockBrowse.mockResolvedValue(jest.fn());
+    const screen = render(<JoinTableDrawer visible onClose={jest.fn()} />);
+
+    expect(screen.getByText('Find a table nearby')).toBeTruthy();
+    expect(screen.getByText('Searching while this sheet is open. Other players can’t see you.')).toBeTruthy();
+    expect(screen.getByText('Looking for open tables…')).toBeTruthy();
+    expect(screen.getByText('Ask the host to open a table in Kwilt.')).toBeTruthy();
+    expect(screen.getByText('HAVE A CODE?')).toBeTruthy();
+  });
+
+  it('prefills the signed-in Games player name', async () => {
+    const screen = render(<JoinTableDrawer visible onClose={jest.fn()} />);
+
+    await waitFor(() => expect(screen.getByDisplayValue('Olive')).toBeTruthy());
+  });
+
+  it('explains the missing name instead of silently disabling a nearby table', async () => {
+    mockProfile = null;
+    const screen = render(<JoinTableDrawer visible onClose={jest.fn()} />);
+    await act(async () => undefined);
+
+    fireEvent.press(await screen.findByLabelText(`Join Bank table ${tableMarkForCode('W7K4JP')}`));
+
+    expect(screen.getByText('Add your name to join this table.')).toBeTruthy();
+    expect(mockClaim).not.toHaveBeenCalled();
+  });
+
   it('opens compactly with an expanded snap available', () => {
     render(<JoinTableDrawer visible onClose={jest.fn()} />);
     expect(mockBottomDrawerProps?.snapPoints).toEqual(['72%', '92%']);
@@ -63,7 +101,6 @@ describe('JoinTableScreen', () => {
     const screen = render(<JoinTableDrawer visible onClose={jest.fn()} />);
     await act(async () => undefined);
 
-    fireEvent.changeText(screen.getByLabelText('Your player name'), 'Olive');
     fireEvent.press(await screen.findByLabelText(`Join Bank table ${tableMarkForCode('W7K4JP')}`));
 
     await waitFor(() => expect(mockClaim).toHaveBeenCalledWith({ shortCode: 'W7K4JP', displayName: 'Olive' }));

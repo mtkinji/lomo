@@ -10,6 +10,7 @@ serves:
   - jtbd-put-intention-before-impulse
   - jtbd-carry-intentions-into-action
   - jtbd-trust-this-app-with-my-life
+  - jtbd-get-help-without-retelling-my-life
 briefs:
   - kwilt-money-capability-integration
   - money-progressive-activation
@@ -32,6 +33,8 @@ briefs:
   - lane-gate-onboarding
   - live-better-goal-crossover
   - model-strategy-and-tradeoffs
+  - money-living-limit-answer
+  - multimodal-money-answers
   - plaid-transaction-backed-meter
   - prediction-trust-contract
   - screen-time-controls
@@ -43,7 +46,7 @@ briefs:
   - transaction-rule-truth
   - transaction-truth-to-five
 status: shipping
-last_reviewed: 2026-07-27
+last_reviewed: 2026-07-31
 ---
 
 # Money
