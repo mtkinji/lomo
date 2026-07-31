@@ -3,28 +3,42 @@ import test from "node:test";
 
 import {
   ENGINE_SCENE,
-  LEAFLING_RIG,
+  LEAFLING_ATLAS,
   animationFrameAt,
+  spriteFrameForSnapshot,
   type EngineMotion,
 } from "../lib/pet-engine.ts";
 
 test("the reference engine uses a portrait iPhone-scale logical scene", () => {
   assert.deepEqual(ENGINE_SCENE, { width: 160, height: 240 });
-  assert.ok(LEAFLING_RIG.young.bounds.width >= 48);
-  assert.ok(LEAFLING_RIG.young.bounds.height >= 48);
-  assert.ok(LEAFLING_RIG.evolved.bounds.width > LEAFLING_RIG.young.bounds.width);
-  assert.ok(LEAFLING_RIG.evolved.bounds.height > LEAFLING_RIG.young.bounds.height);
+  assert.equal(LEAFLING_ATLAS.frameWidth, 112);
+  assert.equal(LEAFLING_ATLAS.frameCount, 4);
+  assert.ok(LEAFLING_ATLAS.stages.young.width >= 100);
+  assert.ok(LEAFLING_ATLAS.stages.evolved.width > LEAFLING_ATLAS.stages.young.width);
+  assert.ok(LEAFLING_ATLAS.stages.evolved.height > LEAFLING_ATLAS.stages.young.height);
 });
 
 test("the reference Pet exposes independently animated anatomy", () => {
   assert.deepEqual(
-    LEAFLING_RIG.layers.map((layer) => layer.id),
+    LEAFLING_ATLAS.channels.map((channel) => channel.id),
     ["tail", "body", "feet", "head", "ears", "face", "eyes", "markings"],
   );
 
-  for (const layer of LEAFLING_RIG.layers) {
-    assert.ok(layer.pixels.length > 0, `${layer.id} needs visible pixels`);
-    assert.ok(layer.anchor.x >= 0 && layer.anchor.y >= 0);
+  for (const channel of LEAFLING_ATLAS.channels) {
+    assert.ok(channel.bounds.width > 0, `${channel.id} needs width`);
+    assert.ok(channel.bounds.height > 0, `${channel.id} needs height`);
+    assert.ok(channel.bounds.x >= 0 && channel.bounds.y >= 0);
+  }
+});
+
+test("every motion resolves to a valid authored sprite frame", () => {
+  const motions: EngineMotion[] = ["idle", "blink", "greet", "care", "discover", "sleep", "evolve"];
+
+  for (const motion of motions) {
+    const snapshot = animationFrameAt(motion, 360, false);
+    const spriteFrame = spriteFrameForSnapshot(snapshot);
+    assert.ok(spriteFrame >= 0);
+    assert.ok(spriteFrame < LEAFLING_ATLAS.frameCount);
   }
 });
 
@@ -63,4 +77,3 @@ test("reduced motion preserves expression while removing travel", () => {
   assert.equal(reduced.layers.body.y, 0);
   assert.equal(reduced.layers.eyes.frame, animated.layers.eyes.frame);
 });
-

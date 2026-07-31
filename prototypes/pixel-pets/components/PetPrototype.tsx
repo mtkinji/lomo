@@ -196,11 +196,11 @@ export function PetPrototype() {
         <span className="eyebrow">Kwilt Lab · Pet Engine Study 01</span>
         <h1>A tiny creature.<br />A real system.</h1>
         <p>
-          Leafling is the reference Pet for a higher-fidelity, layered animation engine designed to scale to a full iPhone capability.
+          Leafling is an authored sprite character inside a higher-fidelity animation engine designed to scale to a full iPhone capability.
         </p>
         <dl className="engine-facts">
           <div><dt>Scene</dt><dd>160 × 240</dd></div>
-          <div><dt>Pet</dt><dd>48–64 px</dd></div>
+          <div><dt>Pet</dt><dd>104–124 px</dd></div>
           <div><dt>Motion</dt><dd>Integer pixels</dd></div>
         </dl>
       </header>
@@ -296,7 +296,7 @@ export function PetPrototype() {
 
         <section className="inspector-section anatomy-section">
           <div className="inspector-label"><span>Anatomy</span><button type="button" className="text-control" onClick={() => setShowRig((value) => !value)}>{showRig ? "Hide rig" : "Show rig"}</button></div>
-          <div className="layer-list" aria-label="Independently animated Pet layers">
+          <div className="layer-list" aria-label="Pet animation authoring channels">
             {["Tail", "Body", "Feet", "Head", "Ears", "Face", "Eyes", "Markings"].map((layer) => <span key={layer}>{layer}</span>)}
           </div>
         </section>
@@ -310,8 +310,8 @@ export function PetPrototype() {
         </section>
 
         <section className="inspector-section">
-          <div className="inspector-label"><span>Palette</span><output>{state.palette}</output></div>
-          <div className="palette-picker" aria-label="Pet palette">
+          <div className="inspector-label"><span>Habitat palette</span><output>{state.palette}</output></div>
+          <div className="palette-picker" aria-label="Habitat palette">
             {PALETTES.map((option) => (
               <button key={option.id} type="button" className={`palette-dot palette-${option.id} ${state.palette === option.id ? "selected" : ""}`} aria-label={option.label} aria-pressed={state.palette === option.id} onClick={() => setState({ ...state, palette: option.id })} />
             ))}

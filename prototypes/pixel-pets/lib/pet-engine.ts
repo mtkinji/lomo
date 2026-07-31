@@ -21,34 +21,6 @@ export type LayerId =
   | "eyes"
   | "markings";
 
-export type PetColor =
-  | "outline"
-  | "deep"
-  | "main"
-  | "mid"
-  | "light"
-  | "leaf"
-  | "leafLight"
-  | "cream"
-  | "cheek"
-  | "white";
-
-export interface PixelRun {
-  x: number;
-  y: number;
-  width: number;
-  height?: number;
-  color: PetColor;
-}
-
-export interface RigLayer {
-  id: LayerId;
-  anchor: { x: number; y: number };
-  pixels: PixelRun[];
-  evolvedPixels?: PixelRun[];
-  variants?: PixelRun[][];
-}
-
 export interface LayerPose {
   x: number;
   y: number;
@@ -63,122 +35,35 @@ export interface AnimationSnapshot {
   layers: Record<LayerId, LayerPose>;
 }
 
-const run = (
-  x: number,
-  y: number,
-  width: number,
-  color: PetColor,
-  height = 1,
-): PixelRun => ({ x, y, width, height, color });
-
-function roundedRows(
-  widths: number[],
-  centerX: number,
-  startY: number,
-  color: PetColor,
-): PixelRun[] {
-  return widths.map((width, index) =>
-    run(Math.round(centerX - width / 2), startY + index, width, color),
-  );
+export interface AtlasChannel {
+  id: LayerId;
+  bounds: { x: number; y: number; width: number; height: number };
 }
 
-const youngBody = [
-  ...roundedRows([22, 28, 32, 36, 38, 40, 40, 40, 38, 36, 32, 28, 22], 28, 27, "outline"),
-  ...roundedRows([20, 26, 30, 32, 34, 36, 36, 34, 32, 28, 22], 28, 29, "main"),
-  run(17, 30, 12, "light", 2),
-  run(36, 35, 7, "deep", 4),
-  run(20, 40, 18, "mid", 2),
-];
-
-const evolvedBody = [
-  ...roundedRows([28, 36, 42, 46, 48, 50, 50, 50, 48, 44, 40, 34, 28], 30, 29, "outline"),
-  ...roundedRows([26, 34, 40, 42, 44, 46, 46, 44, 42, 38, 32], 30, 31, "main"),
-  run(15, 33, 16, "light", 3),
-  run(42, 38, 8, "deep", 5),
-  run(20, 44, 22, "mid", 2),
-];
-
-const youngHead = [
-  ...roundedRows([24, 32, 38, 42, 44, 44, 44, 44, 42, 40, 36, 30, 22], 28, 10, "outline"),
-  ...roundedRows([22, 30, 36, 38, 40, 40, 40, 38, 36, 32, 26], 28, 12, "main"),
-  run(14, 14, 15, "light", 3),
-  run(37, 17, 7, "deep", 5),
-];
-
-const evolvedHead = [
-  ...roundedRows([30, 40, 46, 50, 52, 52, 52, 52, 50, 48, 44, 38, 30], 30, 8, "outline"),
-  ...roundedRows([28, 38, 44, 46, 48, 48, 48, 46, 44, 40, 34], 30, 10, "main"),
-  run(11, 12, 19, "light", 3),
-  run(43, 15, 8, "deep", 6),
-];
-
-const openEyes = [
-  run(19, 21, 6, "outline", 7),
-  run(36, 21, 6, "outline", 7),
-  run(21, 22, 2, "white", 2),
-  run(38, 22, 2, "white", 2),
-];
-
-const blinkEyes = [run(19, 25, 6, "outline", 2), run(36, 25, 6, "outline", 2)];
-const lookEyes = [
-  run(19, 21, 6, "outline", 7),
-  run(36, 21, 6, "outline", 7),
-  run(22, 22, 2, "white", 2),
-  run(39, 22, 2, "white", 2),
-];
-
-export const LEAFLING_RIG = {
-  young: { bounds: { width: 50, height: 52 } },
-  evolved: { bounds: { width: 60, height: 64 } },
-  layers: [
-    {
-      id: "tail",
-      anchor: { x: 36, y: 28 },
-      pixels: [
-        run(0, 13, 17, "outline", 5), run(11, 8, 14, "outline", 7), run(19, 1, 10, "outline", 9),
-        run(2, 14, 14, "leaf", 3), run(12, 10, 12, "leaf", 4), run(20, 3, 7, "leafLight", 5),
-      ],
-      evolvedPixels: [
-        run(0, 18, 22, "outline", 6), run(15, 10, 18, "outline", 10), run(27, 0, 14, "outline", 13),
-        run(2, 20, 18, "leaf", 3), run(16, 12, 15, "leaf", 6), run(29, 2, 10, "leafLight", 8),
-      ],
-    },
-    { id: "body", anchor: { x: 0, y: 0 }, pixels: youngBody, evolvedPixels: evolvedBody },
-    {
-      id: "feet",
-      anchor: { x: 0, y: 43 },
-      pixels: [run(5, 0, 13, "outline", 5), run(31, 0, 13, "outline", 5), run(7, 1, 10, "deep", 3), run(33, 1, 10, "deep", 3)],
-      evolvedPixels: [run(3, 0, 16, "outline", 6), run(37, 0, 16, "outline", 6), run(6, 1, 12, "deep", 4), run(39, 1, 12, "deep", 4)],
-    },
-    { id: "head", anchor: { x: 0, y: 0 }, pixels: youngHead, evolvedPixels: evolvedHead },
-    {
-      id: "ears",
-      anchor: { x: 0, y: 0 },
-      pixels: [
-        run(5, 8, 12, "outline", 5), run(8, 3, 12, "outline", 5), run(12, 0, 8, "outline", 5),
-        run(37, 8, 12, "outline", 5), run(34, 3, 12, "outline", 5), run(34, 0, 8, "outline", 5),
-        run(8, 8, 10, "leaf", 3), run(11, 4, 8, "leafLight", 3), run(37, 8, 9, "leaf", 3), run(35, 4, 8, "leafLight", 3),
-      ],
-      evolvedPixels: [
-        run(0, 12, 18, "outline", 6), run(5, 5, 17, "outline", 7), run(12, 0, 11, "outline", 7),
-        run(42, 12, 18, "outline", 6), run(38, 5, 17, "outline", 7), run(37, 0, 11, "outline", 7),
-        run(3, 13, 14, "leaf", 3), run(8, 7, 12, "leafLight", 4), run(43, 13, 14, "leaf", 3), run(40, 7, 12, "leafLight", 4),
-      ],
-    },
-    {
-      id: "face",
-      anchor: { x: 0, y: 0 },
-      pixels: [run(17, 29, 24, "cream", 8), run(20, 31, 18, "light", 5), run(27, 34, 5, "outline", 2), run(13, 30, 4, "cheek", 3), run(41, 30, 4, "cheek", 3)],
-      evolvedPixels: [run(17, 29, 28, "cream", 9), run(21, 31, 20, "light", 6), run(29, 35, 5, "outline", 2), run(12, 31, 5, "cheek", 3), run(45, 31, 5, "cheek", 3)],
-    },
-    { id: "eyes", anchor: { x: 0, y: 0 }, pixels: openEyes, variants: [openEyes, blinkEyes, lookEyes] },
-    {
-      id: "markings",
-      anchor: { x: 0, y: 0 },
-      pixels: [run(26, 4, 4, "leafLight", 5), run(23, 7, 10, "leaf", 3), run(27, 1, 3, "outline", 3)],
-      evolvedPixels: [run(28, 1, 5, "leafLight", 7), run(23, 6, 15, "leaf", 4), run(29, 0, 3, "outline", 4), run(17, 8, 5, "leafLight", 4), run(39, 8, 5, "leafLight", 4)],
-    },
-  ] satisfies RigLayer[],
+/**
+ * One authored character atlas is the visual source of truth. Channels describe
+ * the places an animator may redraw between frames; they do not assemble the Pet
+ * from geometric primitives at runtime.
+ */
+export const LEAFLING_ATLAS = {
+  src: "/leafling-idle-strip.png",
+  frameWidth: 112,
+  frameHeight: 112,
+  frameCount: 4,
+  stages: {
+    young: { width: 104, height: 104 },
+    evolved: { width: 124, height: 124 },
+  } satisfies Record<PetStage, { width: number; height: number }>,
+  channels: [
+    { id: "tail", bounds: { x: 76, y: 43, width: 34, height: 57 } },
+    { id: "body", bounds: { x: 28, y: 52, width: 60, height: 55 } },
+    { id: "feet", bounds: { x: 33, y: 94, width: 51, height: 14 } },
+    { id: "head", bounds: { x: 22, y: 24, width: 70, height: 65 } },
+    { id: "ears", bounds: { x: 17, y: 4, width: 84, height: 52 } },
+    { id: "face", bounds: { x: 31, y: 42, width: 52, height: 39 } },
+    { id: "eyes", bounds: { x: 39, y: 49, width: 35, height: 15 } },
+    { id: "markings", bounds: { x: 39, y: 27, width: 37, height: 72 } },
+  ] satisfies AtlasChannel[],
 } as const;
 
 interface MotionFrame {
@@ -250,6 +135,16 @@ const MOTIONS: Record<EngineMotion, { loop: boolean; frames: MotionFrame[] }> = 
 
 const LAYER_IDS: LayerId[] = ["tail", "body", "feet", "head", "ears", "face", "eyes", "markings"];
 
+const SPRITE_FRAMES: Record<EngineMotion, number[]> = {
+  idle: [0, 1, 2, 0],
+  blink: [0, 2, 0],
+  greet: [0, 1, 3, 1, 0],
+  care: [3, 2, 0, 2, 3],
+  discover: [0, 3, 1, 3],
+  sleep: [2, 2],
+  evolve: [0, 1, 2, 3, 3],
+};
+
 export function animationFrameAt(
   motion: EngineMotion,
   elapsedMs: number,
@@ -292,8 +187,6 @@ export function animationFrameAt(
   };
 }
 
-export function pixelsForLayer(layer: RigLayer, stage: PetStage, variant: number): PixelRun[] {
-  if (layer.id === "eyes" && layer.variants?.[variant]) return layer.variants[variant];
-  if (stage === "evolved" && layer.evolvedPixels) return layer.evolvedPixels;
-  return layer.pixels;
+export function spriteFrameForSnapshot(snapshot: AnimationSnapshot): number {
+  return SPRITE_FRAMES[snapshot.motion][snapshot.frame] ?? 0;
 }
