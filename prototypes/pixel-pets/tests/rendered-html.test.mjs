@@ -34,12 +34,14 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
-test("removes starter infrastructure and exposes the reference engine study", async () => {
-  const [page, layout, prototype, engine, canvas] = await Promise.all([
+test("removes starter infrastructure and exposes the portable engine study", async () => {
+  const [page, layout, prototype, engine, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-engine.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-runtime.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/leafling.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/PetEngineCanvas.tsx", import.meta.url), "utf8"),
   ]);
 
@@ -51,7 +53,15 @@ test("removes starter infrastructure and exposes the reference engine study", as
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Finish Focus/);
   assert.match(prototype, /Advance one day/);
+  assert.match(prototype, /Portable Pet runtime output/);
+  assert.match(prototype, /Canvas 2D/);
   assert.match(engine, /width: 160, height: 240/);
-  assert.match(engine, /"tail", "body", "feet", "head", "ears", "face", "eyes", "markings"/);
+  assert.match(engine, /MOTION_CLIPS/);
+  assert.match(runtime, /resolvePetFrame/);
+  assert.match(leafling, /leafling-atlas\.png/);
+  assert.match(leafling, /"tail"/);
+  assert.match(leafling, /idle/);
+  assert.match(leafling, /greet/);
   assert.match(canvas, /imageSmoothingEnabled = false/);
+  assert.match(canvas, /resolvePetFrame/);
 });

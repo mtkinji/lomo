@@ -384,6 +384,25 @@ summary:focus-visible {
   text-transform: capitalize;
 }
 
+.runtime-contract {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 13px 12px 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 247, 0.38);
+}
+
+.runtime-contract .inspector-label {
+  margin-bottom: 7px;
+  font-size: 0.62rem;
+  letter-spacing: 0;
+}
+
+.runtime-contract .inspector-label output {
+  font-size: 0.58rem;
+}
+
 .motion-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

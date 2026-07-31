@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PetEngineCanvas } from "./PetEngineCanvas";
-import type { AnimationSnapshot, EngineMotion } from "@/lib/pet-engine";
+import { clipForMotion, type EngineMotion } from "@/lib/pet-engine";
+import { LEAFLING_MANIFEST } from "@/lib/leafling";
+import type { PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
@@ -91,7 +93,7 @@ export function PetPrototype() {
   const [paused, setPaused] = useState(false);
   const [manualElapsed, setManualElapsed] = useState(0);
   const [showRig, setShowRig] = useState(false);
-  const [frame, setFrame] = useState<AnimationSnapshot | null>(null);
+  const [frame, setFrame] = useState<PetFrameSnapshot | null>(null);
   const reactionTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -171,6 +173,7 @@ export function PetPrototype() {
   }
 
   const currentMotion = previewMotion ?? REACTION_MOTION[state.reaction];
+  const currentClip = clipForMotion(currentMotion);
   const currentStage = previewStage ?? state.stage;
   const momentsToGrow = Math.max(0, 5 - state.careDays);
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
@@ -179,7 +182,7 @@ export function PetPrototype() {
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
   }, [dayHasCare, state.careAvailable, state.lastReceipt]);
-  const handleFrame = useCallback((snapshot: AnimationSnapshot) => setFrame(snapshot), []);
+  const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
 
   if (!hydrated) {
     return (
@@ -196,12 +199,12 @@ export function PetPrototype() {
         <span className="eyebrow">Kwilt Lab · Pet Engine Study 01</span>
         <h1>A tiny creature.<br />A real system.</h1>
         <p>
-          Leafling is an authored sprite character inside a higher-fidelity animation engine designed to scale to a full iPhone capability.
+          Leafling is an authored sprite character running through a portable animation runtime designed to travel across iPhone, web, and desktop.
         </p>
         <dl className="engine-facts">
           <div><dt>Scene</dt><dd>160 × 240</dd></div>
-          <div><dt>Pet</dt><dd>104–124 px</dd></div>
-          <div><dt>Motion</dt><dd>Integer pixels</dd></div>
+          <div><dt>Atlas</dt><dd>8 × 2 cells</dd></div>
+          <div><dt>Renderer</dt><dd>Canvas 2D</dd></div>
         </dl>
       </header>
 
@@ -280,7 +283,7 @@ export function PetPrototype() {
         </div>
 
         <section className="inspector-section">
-          <div className="inspector-label"><span>Animation</span><output>{currentMotion} · {frame ? `${frame.frame + 1}/${frame.frameCount}` : "—"}</output></div>
+          <div className="inspector-label"><span>Playback</span><output>{currentClip} · {frame ? `${frame.frameIndex + 1}/${frame.frameCount}` : "—"}</output></div>
           <div className="motion-grid">
             {MOTIONS.map((motion) => (
               <button key={motion.id} type="button" className={currentMotion === motion.id ? "active" : ""} onClick={() => preview(motion.id)}>
@@ -291,6 +294,15 @@ export function PetPrototype() {
           <div className="transport-row">
             <button type="button" onClick={() => setPaused((value) => !value)}>{paused ? "Play" : "Pause"}</button>
             <button type="button" onClick={() => { setPaused(true); setManualElapsed((value) => value + 160); }}>Step frame</button>
+          </div>
+          <div className="runtime-contract" aria-label="Portable Pet runtime output">
+            <div className="inspector-label"><span>Behavior request</span><output>{currentMotion}</output></div>
+            <div className="inspector-label"><span>Authored clip</span><output>{currentClip}{currentClip !== currentMotion ? " · mapped" : ""}</output></div>
+            <div className="inspector-label"><span>Atlas cell</span><output>{frame ? `${frame.cell.column}, ${frame.cell.row}` : "—"}</output></div>
+            <div className="inspector-label"><span>Frame offset</span><output>{frame ? `${frame.transform.x}, ${frame.transform.y}` : "—"}</output></div>
+            <div className="inspector-label"><span>Playback rule</span><output>{LEAFLING_MANIFEST.clips[currentClip].loop ? "loop" : "one-shot"}</output></div>
+            <div className="inspector-label"><span>Frame event</span><output>{frame?.events.join(" · ") || "—"}</output></div>
+            <div className="inspector-label"><span>Renderer</span><output>Canvas 2D</output></div>
           </div>
         </section>
 

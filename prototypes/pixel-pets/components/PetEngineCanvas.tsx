@@ -4,12 +4,11 @@ import { useEffect, useRef } from "react";
 
 import {
   ENGINE_SCENE,
-  LEAFLING_ATLAS,
-  animationFrameAt,
-  spriteFrameForSnapshot,
-  type AnimationSnapshot,
+  clipForMotion,
   type EngineMotion,
 } from "@/lib/pet-engine";
+import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
+import { resolvePetFrame, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 interface PetEngineCanvasProps {
@@ -20,7 +19,7 @@ interface PetEngineCanvasProps {
   paused?: boolean;
   manualElapsed?: number;
   showRig?: boolean;
-  onFrame?: (snapshot: AnimationSnapshot) => void;
+  onFrame?: (snapshot: PetFrameSnapshot) => void;
   onPet?: () => void;
   label: string;
 }
@@ -118,18 +117,19 @@ function renderScene(
   sprite: HTMLImageElement,
   paletteId: PetPalette,
   stage: PetStage,
-  snapshot: AnimationSnapshot,
+  motion: EngineMotion,
+  snapshot: PetFrameSnapshot,
   showRig: boolean,
 ) {
   const palette = PALETTES[paletteId];
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
-  drawHabitat(context, palette, snapshot.motion, snapshot.progress);
+  drawHabitat(context, palette, motion, snapshot.progress);
 
-  const size = LEAFLING_ATLAS.stages[stage];
-  const bodyTravel = snapshot.layers.body.y;
-  const destinationX = Math.round((ENGINE_SCENE.width - size.width) / 2);
-  const destinationY = 174 - size.height + bodyTravel;
-  const sourceX = spriteFrameForSnapshot(snapshot) * LEAFLING_ATLAS.frameWidth;
+  const size = LEAFLING_PRESENTATION.stages[stage];
+  const destinationX = Math.round((ENGINE_SCENE.width - size.width) / 2) + snapshot.transform.x;
+  const destinationY = 174 - size.height + snapshot.transform.y;
+  const sourceX = snapshot.cell.column * LEAFLING_MANIFEST.atlas.frameWidth;
+  const sourceY = snapshot.cell.row * LEAFLING_MANIFEST.atlas.frameHeight;
 
   context.fillStyle = "rgba(30, 42, 34, 0.22)";
   const shadowWidth = stage === "evolved" ? 92 : 78;
@@ -140,9 +140,9 @@ function renderScene(
   context.drawImage(
     sprite,
     sourceX,
-    0,
-    LEAFLING_ATLAS.frameWidth,
-    LEAFLING_ATLAS.frameHeight,
+    sourceY,
+    LEAFLING_MANIFEST.atlas.frameWidth,
+    LEAFLING_MANIFEST.atlas.frameHeight,
     destinationX,
     destinationY,
     size.width,
@@ -151,9 +151,9 @@ function renderScene(
 
   if (!showRig) return;
   const colors = ["#e14f62", "#316ee8", "#be4ee6", "#f08a34", "#2eaa7b", "#c55a92", "#111111", "#7d6c24"];
-  const scaleX = size.width / LEAFLING_ATLAS.frameWidth;
-  const scaleY = size.height / LEAFLING_ATLAS.frameHeight;
-  LEAFLING_ATLAS.channels.forEach((channel, index) => {
+  const scaleX = size.width / LEAFLING_MANIFEST.atlas.frameWidth;
+  const scaleY = size.height / LEAFLING_MANIFEST.atlas.frameHeight;
+  LEAFLING_PRESENTATION.channels.forEach((channel, index) => {
     const bounds = channel.bounds;
     const color = colors[index % colors.length];
     context.strokeStyle = color;
@@ -207,21 +207,21 @@ export function PetEngineCanvas({
     let animationId = 0;
     let disposed = false;
     const sprite = new Image();
-    sprite.src = LEAFLING_ATLAS.src;
 
     const draw = (time: number) => {
       if (disposed) return;
       const elapsed = paused ? manualElapsed : time - startRef.current;
-      const snapshot = animationFrameAt(motion, elapsed, reducedMotion);
-      renderScene(context, sprite, palette, stage, snapshot, showRig);
-      if (snapshot.frame !== lastFrameRef.current) {
-        lastFrameRef.current = snapshot.frame;
+      const snapshot = resolvePetFrame(LEAFLING_MANIFEST, clipForMotion(motion), elapsed, reducedMotion);
+      renderScene(context, sprite, palette, stage, motion, snapshot, showRig);
+      if (snapshot.frameIndex !== lastFrameRef.current) {
+        lastFrameRef.current = snapshot.frameIndex;
         onFrame?.(snapshot);
       }
       if (!paused) animationId = requestAnimationFrame(draw);
     };
 
     sprite.onload = () => draw(performance.now());
+    sprite.src = LEAFLING_MANIFEST.atlas.src;
     return () => {
       disposed = true;
       cancelAnimationFrame(animationId);
