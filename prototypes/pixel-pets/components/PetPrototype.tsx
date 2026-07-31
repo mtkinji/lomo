@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PetEngineCanvas } from "./PetEngineCanvas";
 import { clipForMotion, type EngineMotion } from "@/lib/pet-engine";
 import { LEAFLING_MANIFEST } from "@/lib/leafling";
-import type { PetFrameSnapshot } from "@/lib/pet-runtime";
+import { clipDuration, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
@@ -19,7 +19,7 @@ import {
   withReaction,
 } from "@/lib/pet-state";
 
-const STORAGE_KEY = "kwilt-pixel-pet-engine-proof-v2";
+const STORAGE_KEY = "kwilt-pixel-pet-engine-proof-v3";
 
 const PALETTES: Array<{ id: PetPalette; label: string }> = [
   { id: "moss", label: "Moss" },
@@ -127,6 +127,11 @@ export function PetPrototype() {
     }, delay);
   }, []);
 
+  const settleAfterMotion = useCallback((motion: EngineMotion, hold = 220) => {
+    const clip = LEAFLING_MANIFEST.clips[clipForMotion(motion)];
+    if (!clip.loop) settle(clipDuration(clip) + hold);
+  }, [settle]);
+
   function react(reaction: PetReaction, receipt = state.lastReceipt) {
     setPreviewMotion(null);
     setPaused(false);
@@ -134,7 +139,7 @@ export function PetPrototype() {
     setState(withReaction(state, reaction, receipt));
     playPetSound(reaction, state.soundEnabled);
     nudge();
-    settle(reaction === "evolve" ? 2100 : 1300);
+    settleAfterMotion(REACTION_MOTION[reaction]);
   }
 
   function complete(source: MeaningfulAction) {
@@ -142,7 +147,7 @@ export function PetPrototype() {
     setState(next);
     playPetSound("discover", next.soundEnabled);
     nudge();
-    settle();
+    settleAfterMotion("discover");
   }
 
   function care() {
@@ -150,14 +155,13 @@ export function PetPrototype() {
     setState(next);
     playPetSound(next.reaction, next.soundEnabled);
     nudge();
-    settle(next.reaction === "evolve" ? 2300 : 1600);
+    settleAfterMotion(REACTION_MOTION[next.reaction]);
   }
 
   function advanceDay() {
     const next = advancePrototypeDay(state);
     setState(next);
     playPetSound("sleep", next.soundEnabled);
-    settle();
   }
 
   function preview(motion: EngineMotion) {
@@ -169,11 +173,12 @@ export function PetPrototype() {
       const soundReaction: PetReaction = motion === "care" ? "eat" : motion;
       playPetSound(soundReaction, state.soundEnabled);
     }
-    settle(motion === "sleep" ? 2200 : motion === "evolve" ? 2400 : 1500);
+    settleAfterMotion(motion);
   }
 
   const currentMotion = previewMotion ?? REACTION_MOTION[state.reaction];
   const currentClip = clipForMotion(currentMotion);
+  const currentAnimation = LEAFLING_MANIFEST.clips[currentClip] as PetAnimationClip;
   const currentStage = previewStage ?? state.stage;
   const momentsToGrow = Math.max(0, 5 - state.careDays);
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
@@ -196,15 +201,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 01</span>
-        <h1>A tiny creature.<br />A real system.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 02</span>
+        <h1>A tiny creature.<br />With real weight.</h1>
         <p>
-          Leafling is an authored sprite character running through a portable animation runtime designed to travel across iPhone, web, and desktop.
+          Seven physical performances share one grounded animation runtime designed to travel across iPhone, web, and desktop.
         </p>
         <dl className="engine-facts">
-          <div><dt>Scene</dt><dd>160 × 240</dd></div>
-          <div><dt>Atlas</dt><dd>8 × 2 cells</dd></div>
-          <div><dt>Renderer</dt><dd>Canvas 2D</dd></div>
+          <div><dt>Ground</dt><dd>y = 176</dd></div>
+          <div><dt>Atlas</dt><dd>8 × 7 cells</dd></div>
+          <div><dt>Clips</dt><dd>7 authored</dd></div>
         </dl>
       </header>
 
@@ -300,7 +305,10 @@ export function PetPrototype() {
             <div className="inspector-label"><span>Authored clip</span><output>{currentClip}{currentClip !== currentMotion ? " · mapped" : ""}</output></div>
             <div className="inspector-label"><span>Atlas cell</span><output>{frame ? `${frame.cell.column}, ${frame.cell.row}` : "—"}</output></div>
             <div className="inspector-label"><span>Frame offset</span><output>{frame ? `${frame.transform.x}, ${frame.transform.y}` : "—"}</output></div>
-            <div className="inspector-label"><span>Playback rule</span><output>{LEAFLING_MANIFEST.clips[currentClip].loop ? "loop" : "one-shot"}</output></div>
+            <div className="inspector-label"><span>Ground contact</span><output>{frame?.contact ?? "—"}</output></div>
+            <div className="inspector-label"><span>Ground anchor</span><output>{frame ? `${frame.anchor.x}, ${frame.anchor.y}` : "—"}</output></div>
+            <div className="inspector-label"><span>Contact shadow</span><output>{frame ? `${frame.shadow.width}px · ${Math.round(frame.shadow.opacity * 100)}%` : "—"}</output></div>
+            <div className="inspector-label"><span>Playback rule</span><output>{currentAnimation.loopFrom ? `intro → loop ${currentAnimation.loopFrom + 1}–8` : currentAnimation.loop ? "loop" : "one-shot"}</output></div>
             <div className="inspector-label"><span>Frame event</span><output>{frame?.events.join(" · ") || "—"}</output></div>
             <div className="inspector-label"><span>Renderer</span><output>Canvas 2D</output></div>
           </div>

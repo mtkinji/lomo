@@ -91,25 +91,6 @@ function drawHabitat(
     context.fillRect(80, berryY - 3, 3, 4);
   }
 
-  if (["greet", "discover", "evolve"].includes(motion)) {
-    const rise = Math.round(progress * 14);
-    context.fillStyle = motion === "evolve" ? "#f7dc73" : palette.cream;
-    context.fillRect(112, 102 - rise, 4, 4);
-    context.fillRect(119, 91 - rise, 3, 3);
-    context.fillRect(105, 87 - rise, 2, 2);
-    if (motion === "evolve") {
-      context.fillRect(43, 102 - rise, 4, 4);
-      context.fillRect(35, 90 - rise, 2, 2);
-    }
-  }
-
-  if (motion === "sleep") {
-    context.fillStyle = palette.outline;
-    context.font = "bold 9px monospace";
-    context.fillText("z", 116, 118);
-    context.font = "bold 6px monospace";
-    context.fillText("z", 124, 108);
-  }
 }
 
 function renderScene(
@@ -126,15 +107,21 @@ function renderScene(
   drawHabitat(context, palette, motion, snapshot.progress);
 
   const size = LEAFLING_PRESENTATION.stages[stage];
-  const destinationX = Math.round((ENGINE_SCENE.width - size.width) / 2) + snapshot.transform.x;
-  const destinationY = 174 - size.height + snapshot.transform.y;
+  const scaleX = size.width / LEAFLING_MANIFEST.atlas.frameWidth;
+  const scaleY = size.height / LEAFLING_MANIFEST.atlas.frameHeight;
+  const worldAnchorX = ENGINE_SCENE.width / 2;
+  const destinationX = Math.round(worldAnchorX - snapshot.anchor.x * scaleX + snapshot.transform.x);
+  const destinationY = Math.round(ENGINE_SCENE.groundY - snapshot.anchor.y * scaleY + snapshot.transform.y);
   const sourceX = snapshot.cell.column * LEAFLING_MANIFEST.atlas.frameWidth;
   const sourceY = snapshot.cell.row * LEAFLING_MANIFEST.atlas.frameHeight;
 
-  context.fillStyle = "rgba(30, 42, 34, 0.22)";
-  const shadowWidth = stage === "evolved" ? 92 : 78;
-  context.fillRect(Math.round((160 - shadowWidth) / 2), 174, shadowWidth, 5);
-  context.fillRect(Math.round((160 - shadowWidth + 22) / 2), 179, shadowWidth - 22, 3);
+  const shadowWidth = Math.round(snapshot.shadow.width * scaleX);
+  context.save();
+  context.globalAlpha = snapshot.shadow.opacity;
+  context.fillStyle = palette.outline;
+  context.fillRect(Math.round(worldAnchorX - shadowWidth / 2), ENGINE_SCENE.groundY - 2, shadowWidth, 4);
+  context.fillRect(Math.round(worldAnchorX - shadowWidth * 0.34), ENGINE_SCENE.groundY + 2, Math.round(shadowWidth * 0.68), 2);
+  context.restore();
 
   context.imageSmoothingEnabled = false;
   context.drawImage(
@@ -151,8 +138,6 @@ function renderScene(
 
   if (!showRig) return;
   const colors = ["#e14f62", "#316ee8", "#be4ee6", "#f08a34", "#2eaa7b", "#c55a92", "#111111", "#7d6c24"];
-  const scaleX = size.width / LEAFLING_MANIFEST.atlas.frameWidth;
-  const scaleY = size.height / LEAFLING_MANIFEST.atlas.frameHeight;
   LEAFLING_PRESENTATION.channels.forEach((channel, index) => {
     const bounds = channel.bounds;
     const color = colors[index % colors.length];

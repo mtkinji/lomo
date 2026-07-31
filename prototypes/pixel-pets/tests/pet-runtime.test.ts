@@ -19,7 +19,13 @@ const manifest: PetAnimationManifest = {
     idle: {
       loop: true,
       frames: [
-        { cell: { column: 0, row: 0 }, duration: 240 },
+        {
+          cell: { column: 0, row: 0 },
+          duration: 240,
+          anchor: { x: 56, y: 108 },
+          contact: "planted",
+          shadow: { width: 58, opacity: 0.2 },
+        },
         { cell: { column: 1, row: 0 }, duration: 120 },
       ],
     },
@@ -27,8 +33,24 @@ const manifest: PetAnimationManifest = {
       loop: false,
       frames: [
         { cell: { column: 0, row: 1 }, duration: 100 },
-        { cell: { column: 1, row: 1 }, duration: 100, transform: { x: 0, y: -4 } },
+        {
+          cell: { column: 1, row: 1 },
+          duration: 100,
+          transform: { x: 0, y: -4 },
+          contact: "airborne",
+          shadow: { width: 26, opacity: 0.1 },
+        },
         { cell: { column: 2, row: 1 }, duration: 100, events: ["chirp"], transform: { x: 2, y: -6 } },
+      ],
+    },
+    sleep: {
+      loop: true,
+      loopFrom: 2,
+      frames: [
+        { cell: { column: 0, row: 0 }, duration: 100 },
+        { cell: { column: 1, row: 0 }, duration: 100 },
+        { cell: { column: 0, row: 1 }, duration: 100, contact: "resting" },
+        { cell: { column: 1, row: 1 }, duration: 100, contact: "resting" },
       ],
     },
   },
@@ -44,6 +66,9 @@ test("resolves a renderer-neutral atlas cell at the start of a clip", () => {
     completed: false,
     events: [],
     transform: { x: 0, y: 0 },
+    anchor: { x: 56, y: 108 },
+    contact: "planted",
+    shadow: { width: 58, opacity: 0.2 },
   });
 });
 
@@ -57,6 +82,25 @@ test("clamps one-shot clips and reports completion", () => {
   const snapshot = resolvePetFrame(manifest, "greet", 9999, false);
   assert.equal(snapshot.frameIndex, 2);
   assert.equal(snapshot.completed, true);
+});
+
+test("plays an intro once and then loops only the authored resting phase", () => {
+  assert.equal(resolvePetFrame(manifest, "sleep", 50, false).frameIndex, 0);
+  assert.equal(resolvePetFrame(manifest, "sleep", 250, false).frameIndex, 2);
+  assert.equal(resolvePetFrame(manifest, "sleep", 450, false).frameIndex, 2);
+  assert.equal(resolvePetFrame(manifest, "sleep", 550, false).frameIndex, 3);
+  assert.equal(resolvePetFrame(manifest, "sleep", 650, false).frameIndex, 2);
+});
+
+test("carries authored ground contact through the renderer-neutral snapshot", () => {
+  const grounded = resolvePetFrame(manifest, "idle", 0, false);
+  const airborne = resolvePetFrame(manifest, "greet", 150, false);
+
+  assert.deepEqual(grounded.anchor, { x: 56, y: 108 });
+  assert.equal(grounded.contact, "planted");
+  assert.deepEqual(grounded.shadow, { width: 58, opacity: 0.2 });
+  assert.equal(airborne.contact, "airborne");
+  assert.deepEqual(airborne.shadow, { width: 26, opacity: 0.1 });
 });
 
 test("emits frame markers and preserves expression under reduced motion", () => {

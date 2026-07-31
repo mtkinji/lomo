@@ -1,15 +1,23 @@
-# Little Lives — Pixel Pet Lab
+# Leafling — Grounded Pet Engine Study
 
-A standalone, mobile-first learning prototype for Kwilt's Pixel Pet concept.
+A standalone, mobile-first learning prototype for Kwilt's portable Pixel Pet animation system.
 
 The prototype lets a tester:
 
-- choose and name one of five distinct pixel Pets;
+- inspect seven independently authored Leafling animation clips;
+- pause and step through the exact atlas cells used by the renderer;
+- observe planted, resting, and airborne ground-contact states;
+- see a one-time sleep transition resolve into a curled breathing loop;
 - simulate a completed To-do or Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
-- hear and mute species-specific nonverbal sounds;
+- hear and mute nonverbal sounds;
 - accelerate time and reach a first evolution after five care days.
+
+The pure TypeScript runtime owns clip timing, loop windows, frame events,
+ground anchors, contact states, movement offsets, and contact-shadow metadata.
+Canvas 2D is the current renderer adapter; native and desktop renderers can
+consume the same frame snapshots.
 
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.

@@ -1,4 +1,4 @@
-export const ENGINE_SCENE = { width: 160, height: 240 } as const;
+export const ENGINE_SCENE = { width: 160, height: 240, groundY: 176 } as const;
 
 export type EngineMotion =
   | "idle"
@@ -9,16 +9,16 @@ export type EngineMotion =
   | "sleep"
   | "evolve";
 
-export type AuthoredClip = "idle" | "greet";
+export type AuthoredClip = EngineMotion;
 
 export const MOTION_CLIPS: Record<EngineMotion, AuthoredClip> = {
   idle: "idle",
-  blink: "idle",
+  blink: "blink",
   greet: "greet",
-  care: "greet",
-  discover: "greet",
-  sleep: "idle",
-  evolve: "greet",
+  care: "care",
+  discover: "discover",
+  sleep: "sleep",
+  evolve: "evolve",
 };
 
 export function clipForMotion(motion: EngineMotion): AuthoredClip {
