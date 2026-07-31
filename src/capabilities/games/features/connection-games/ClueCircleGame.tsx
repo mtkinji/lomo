@@ -7,6 +7,8 @@ import { GameButton } from '@/src/capabilities/games/ui/GameButton';
 import { clueModes, clueTargets } from '@/src/capabilities/games/domain/connectionPrompts';
 import { advanceClueRound, CLUE_TARGETS_PER_PLAYER, nextPromptIndex, type ClueRoundState } from '@/src/capabilities/games/domain/connectionGames';
 import { PlayCard } from './ConnectionGameFrame';
+import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
+import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 
 export function ClueCircleGame({ players }: { players: string[] }) {
   const [targetIndex, setTargetIndex] = useState(0);
@@ -16,6 +18,8 @@ export function ClueCircleGame({ players }: { players: string[] }) {
   const [motionAvailable, setMotionAvailable] = useState(false);
   const lastMotion = useRef(0);
   const finder = players[round.finderIndex];
+  const soundEnabled = useGamesSettingsStore((state) => state.soundEnabled);
+  useGameMusic(round.phase === 'playing' ? 'game.clue-circle' : null, soundEnabled);
 
   useEffect(() => { void DeviceMotion.isAvailableAsync().then(setMotionAvailable); }, []);
   const recordTarget = useCallback((correct: boolean) => {

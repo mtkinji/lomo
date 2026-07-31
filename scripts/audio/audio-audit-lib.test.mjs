@@ -41,6 +41,7 @@ test('infers current repository asset categories', () => {
   assert.equal(inferAudioCategory('assets/audio/sfx/mark-complete.wav'), 'ui.outcome');
   assert.equal(inferAudioCategory('assets/audio/soundscapes/Focus Flow State.mp3'), 'focus.music');
   assert.equal(inferAudioCategory('assets/games/dice-roll.mp3'), 'game.mechanic');
+  assert.equal(inferAudioCategory('assets/games/bank-coin-gather-1.mp3'), 'game.mechanic');
   assert.equal(inferAudioCategory('assets/games/success-hawk.mp3'), 'game.signature');
 });
 

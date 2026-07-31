@@ -89,7 +89,7 @@ export function inferAudioCategory(filePath) {
   if (normalized.endsWith('/mark-complete.wav')) return 'ui.outcome';
   if (normalized.includes('/games/music/')) return 'game.music';
   if (/\/pattern-(coral|pine|gold|sky|violet|rose|success|miss)\./.test(normalized)) return 'game.pattern';
-  if (/\/dice-roll(?:-\d+)?\./.test(normalized) || /\/bank-(lock-in|doubles-hit|seven-release)\./.test(normalized)) {
+  if (/\/dice-roll(?:-\d+)?\./.test(normalized) || /\/bank-(lock-in|doubles-hit|seven-release|coin-gather(?:-\d+)?)\./.test(normalized)) {
     return 'game.mechanic';
   }
   if (/\/(success-|failure-|bank-bust|doubles-celebration)/.test(normalized)) return 'game.signature';
