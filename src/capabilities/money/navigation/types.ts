@@ -7,6 +7,7 @@ export type MoneyStackParamList = {
     monthEnd?: string;
     monthLabel?: string;
     reviewState?: 'needs_review' | 'not_counted';
+    reviewTransactionIds?: string[];
   } | undefined;
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
