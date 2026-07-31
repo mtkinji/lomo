@@ -37,16 +37,20 @@ export function MoneyWeeklyCheckRow({
   const enable = async (current: MoneySavedCheck | null) => {
     if (saving) return;
     setSaving(true);
+    let scheduledId: string | null = null;
     try {
       const nowIso = now().toISOString();
       const candidate = current
         ? updateMoneySavedCheck(current, { active: true, updatedAtIso: nowIso })
         : createWeeklyMoneySavedCheck({ nowIso, timezone });
-      const notificationId = await NotificationService.scheduleMoneyCheck(candidate);
-      if (!notificationId) return;
-      const saved = updateMoneySavedCheck(candidate, { notificationId, updatedAtIso: nowIso });
+      scheduledId = await NotificationService.scheduleMoneyCheck(candidate);
+      if (!scheduledId) return;
+      const saved = updateMoneySavedCheck(candidate, { notificationId: scheduledId, updatedAtIso: nowIso });
       await moneySavedCheckStorage.save(userId, saved);
       setCheck(saved);
+    } catch {
+      if (scheduledId) await NotificationService.cancelMoneyCheck(scheduledId);
+      Alert.alert('Weekly check not saved', 'Kwilt could not save this check. Nothing was scheduled.');
     } finally {
       setSaving(false);
     }

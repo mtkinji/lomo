@@ -55,6 +55,19 @@ describe('MoneyWeeklyCheckRow', () => {
     expect(view.getByText('Off')).toBeTruthy();
   });
 
+  it('cancels the new notification if local check persistence fails', async () => {
+    (moneySavedCheckStorage.save as jest.Mock).mockRejectedValue(new Error('storage unavailable'));
+    const alert = jest.spyOn(Alert, 'alert');
+    const view = renderWithProviders(<MoneyWeeklyCheckRow userId="user-a" timezone="America/Denver" />);
+    await waitFor(() => expect(view.getByText('Off')).toBeTruthy());
+    fireEvent.press(view.getByLabelText('Weekly Budget check'));
+    const buttons = alert.mock.calls[0][2] ?? [];
+    await act(async () => { await buttons.find((button) => button.text === 'Turn on')?.onPress?.(); });
+
+    expect(NotificationService.cancelMoneyCheck).toHaveBeenCalledWith('notification-1');
+    expect(view.getByText('Off')).toBeTruthy();
+  });
+
   it('makes pause and removal discoverable without permanent extra rows', async () => {
     const check = {
       ...createWeeklyMoneySavedCheck({ nowIso: '2026-07-31T12:00:00.000Z', timezone: 'America/Denver' }),

@@ -326,6 +326,7 @@ async function cancelMoneyCheckInternal(notificationId?: string | null): Promise
 }
 
 async function scheduleMoneyCheckInternal(check: MoneySavedCheck): Promise<string | null> {
+  if (!check.active) return null;
   const permitted = await ensurePermissionWithRationaleInternal('money');
   if (!permitted) return null;
   await cancelMoneyCheckInternal(check.notificationId);

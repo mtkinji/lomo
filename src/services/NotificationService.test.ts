@@ -781,6 +781,16 @@ describe('NotificationService private weekly Money check', () => {
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
+  it('does not schedule an inactive saved check', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    const check = {
+      ...createWeeklyMoneySavedCheck({ nowIso: '2026-07-31T12:00:00.000Z', timezone: 'America/Denver' }),
+      active: false,
+    };
+    await expect(NotificationService.scheduleMoneyCheck(check)).resolves.toBeNull();
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
   it('cancels the exact saved Money check', async () => {
     await NotificationService.cancelMoneyCheck('money-weekly-2');
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('money-weekly-2');
