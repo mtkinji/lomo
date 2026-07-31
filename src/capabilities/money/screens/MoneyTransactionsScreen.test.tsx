@@ -101,6 +101,11 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
     expect(screen.getByText('Corner Market')).toBeTruthy();
     expect(screen.queryByText('Coffee Shop')).toBeNull();
     expect(screen.getByLabelText('Go back from Review purchases')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText(/Open Corner Market transaction/));
+    expect(navigation.navigate).toHaveBeenCalledWith('MoneyTransactionDetail', {
+      transactionId: 'review-me',
+      economicRoleReview: true,
+    });
   });
 });
 

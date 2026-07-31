@@ -2,10 +2,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { getSupabaseClient } from '../../../services/backend/supabaseClient';
+import { useFeatureFlag } from '../../../services/analytics/useFeatureFlag';
 import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Heading, Text } from '../../../ui/Typography';
 import { useMoneyData } from '../data/MoneyDataContext';
+import { formatMoney } from '../data/moneySnapshot';
 import { getLivingPlanSettings, saveLivingPlanPromotionEnabled, saveLivingTargetIntent } from '../data/livingPlanRepository';
 import { buildMoneyOnboardingTarget, getMoneyOnboardingCompletionDecision, shouldOfferMoneyOnboarding } from '../domain/moneyOnboarding';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
@@ -18,6 +20,7 @@ type SetupStep = 'welcome' | 'target' | 'account' | 'build' | 'complete';
 
 export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySetup'>) {
   const { reconcileGovernedPlanFoundation, refresh, snapshot } = useMoneyData();
+  const livingLimitEnabled = useFeatureFlag('money-living-limit-answer', __DEV__);
   const [step, setStep] = useState<SetupStep>('welcome');
   const [livingPercent, setLivingPercent] = useState(70);
   const [userId, setUserId] = useState<string | null>(null);
@@ -159,8 +162,10 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
         {step === 'complete' ? <>
           <Text variant="label" tone="secondary">Money is ready</Text>
           <Heading variant="lg">Your plan lives in Kwilt now.</Heading>
-          <Text tone="secondary">Review the summary, inspect plan receipts, or adjust the living target whenever life changes.</Text>
-          <Button fullWidth onPress={() => navigation.navigate('MoneySummary')} variant="primary">View Money summary</Button>
+          <Text tone="secondary">{livingLimitEnabled && snapshot?.livingLimitAnswer?.limitLine
+            ? `Your ${snapshot.livingLimitAnswer.limitLine.livingPercent}% living limit is ${formatMoney(snapshot.livingLimitAnswer.limitLine.livingLimitCents)}.`
+            : 'Review your plan, inspect receipts, or adjust the living target whenever life changes.'}</Text>
+          <Button fullWidth onPress={() => navigation.navigate('MoneySummary')} variant="primary">{livingLimitEnabled ? 'View Budget' : 'View Money summary'}</Button>
           <Button fullWidth onPress={() => navigation.navigate('MoneyLivingPlan')} variant="outline">Review Money plan</Button>
         </> : null}
       </View>

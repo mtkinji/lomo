@@ -27,6 +27,7 @@ type CapabilityMenuProps = {
   onOpenSettings: () => void;
   onOpenChat: () => void;
   exploreEnabled?: boolean;
+  moneyLivingLimitEnabled?: boolean;
 };
 
 export type CapabilityMenuChat = {
@@ -52,6 +53,7 @@ export function CapabilityMenu({
   onOpenSettings,
   onOpenChat,
   exploreEnabled = false,
+  moneyLivingLimitEnabled = false,
 }: CapabilityMenuProps) {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<CapabilityGroupId>>(
     () => new Set(CAPABILITY_GROUPS.map(({ id }) => id)),
@@ -71,12 +73,13 @@ export function CapabilityMenu({
     if (!capability || capability.availability !== 'active') return null;
     if (capability.id === 'explore' && !exploreEnabled) return null;
     const selected = activeCapabilityId === capability.id;
+    const label = capability.id === 'money-summary' && moneyLivingLimitEnabled ? 'Budget' : capability.label;
 
     return (
       <Pressable
         key={capability.id}
         accessibilityRole="button"
-        accessibilityLabel={capability.label}
+        accessibilityLabel={label}
         accessibilityState={{ selected }}
         testID={`capability.menu.${capability.id}`}
         onPress={() => onSelectCapability(capability.id)}
@@ -92,7 +95,7 @@ export function CapabilityMenu({
           color={selected ? colors.gray700 : colors.textSecondary}
         />
         <Text style={[styles.capabilityLabel, selected && styles.capabilityLabelSelected]}>
-          {capability.label}
+          {label}
         </Text>
       </Pressable>
     );

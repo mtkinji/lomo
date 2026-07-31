@@ -1071,6 +1071,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
   const { coverMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
   const exploreEnabled = useFeatureFlag('explore-capability', __DEV__);
+  const moneyLivingLimitEnabled = useFeatureFlag('money-living-limit-answer', __DEV__);
   const chatRepository = useMemo(() => createUnifiedChatRepository(), []);
   const [chatThreads, setChatThreads] = useState<UnifiedChatThread[]>([]);
   const [chatsLoading, setChatsLoading] = useState(false);
@@ -1202,6 +1203,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         chatsError={chatsError}
         displayName={displayName}
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
+        moneyLivingLimitEnabled={moneyLivingLimitEnabled}
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, {

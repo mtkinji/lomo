@@ -27,6 +27,7 @@ import { captureMoneyMutation, type MoneyMutationOperation } from '../runtime/mo
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 
 type RuleMatchMode = 'exact' | 'partial';
+type CategoryPickerMode = 'all' | 'flexible' | 'protected';
 
 export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactionDetail'>) {
   const { capture } = useAnalytics();
@@ -36,6 +37,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     markTransactionNotCounted,
     reviewTransactionMeaning,
     reviewingTransactionId,
+    refresh,
     saveMerchantRule,
     splitTransaction,
     savingCategory,
@@ -44,6 +46,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   } = useMoneyData();
   const transaction = snapshot?.transactions.find((candidate) => candidate.id === route.params.transactionId);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [categoryPickerMode, setCategoryPickerMode] = useState<CategoryPickerMode>('all');
   const [categoryQuery, setCategoryQuery] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -61,8 +64,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     : undefined;
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase();
-    return query ? categories.filter((category) => category.name.toLowerCase().includes(query)) : categories;
-  }, [categories, categoryQuery]);
+    const scoped = categoryPickerMode === 'protected'
+      ? categories.filter((category) => category.planRole === 'protected')
+      : categoryPickerMode === 'flexible'
+        ? [...categories].sort((left, right) => Number(right.planRole === 'flexible') - Number(left.planRole === 'flexible'))
+        : categories;
+    return query ? scoped.filter((category) => category.name.toLowerCase().includes(query)) : scoped;
+  }, [categories, categoryPickerMode, categoryQuery]);
   const similarRows = useMemo(() => transaction
     ? getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode)
     : [], [ruleMode, snapshot?.transactions, transaction]);
@@ -99,6 +107,11 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (!changed) return;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
+    if (route.params.economicRoleReview) {
+      await refresh();
+      navigation.popTo('MoneySummary');
+      return;
+    }
     if (transaction.direction === 'outflow' && transaction.merchantRuleCategoryId !== category.id) {
       setPendingRuleCategory(category);
     }
@@ -116,7 +129,16 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (changed) {
       setCategoryPickerOpen(false);
       setCategoryQuery('');
+      if (route.params.economicRoleReview) {
+        await refresh();
+        navigation.popTo('MoneySummary');
+      }
     }
+  };
+
+  const openEconomicRolePicker = (mode: Extract<CategoryPickerMode, 'flexible' | 'protected'>) => {
+    setCategoryPickerMode(mode);
+    setCategoryPickerOpen(true);
   };
 
   const createAndSelectCategory = async () => {
@@ -231,13 +253,22 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
           <PaymentSourceCard transaction={transaction} />
 
+          {route.params.economicRoleReview ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>How should this affect your plan?</Text>
+              <Button fullWidth variant="outline" disabled={saving} onPress={() => openEconomicRolePicker('flexible')}>Flexible spending</Button>
+              <Button fullWidth variant="outline" disabled={saving} onPress={() => openEconomicRolePicker('protected')}>A protected bill or reserve</Button>
+              <Button fullWidth variant="outline" disabled={saving} onPress={() => void selectMeaning('not_counted')}>Outside the plan</Button>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Category</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={relationLabel ? `Change category from ${relationLabel}` : 'Choose category'}
               disabled={saving}
-              onPress={() => setCategoryPickerOpen(true)}
+              onPress={() => { setCategoryPickerMode('all'); setCategoryPickerOpen(true); }}
               style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
             >
               <View style={styles.categoryFieldCopy}>
@@ -277,7 +308,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category picker"
             onClose={() => setCategoryPickerOpen(false)}
-            title="Where does this belong?"
+            title={categoryPickerMode === 'protected' ? 'Choose a protected category' : categoryPickerMode === 'flexible' ? 'Choose a flexible category' : 'Where does this belong?'}
             titleVariant="lg"
             variant="withClose"
           />

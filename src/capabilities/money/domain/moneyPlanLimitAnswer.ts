@@ -50,6 +50,19 @@ export type MoneyPlanLimitAnswer = {
   reviewTransactionIds: string[];
 };
 
+export function projectMoneyPlanCapacity(input: {
+  livingLimitCents: number;
+  allocations: Array<{ amountCents: number; fixedCents: number; overrideCents: number }>;
+}): { protectedPlanCents: number; flexibleCapacityCents: number } {
+  const protectedPlanCents = input.allocations
+    .filter((allocation) => allocation.fixedCents > 0 || allocation.overrideCents > 0)
+    .reduce((sum, allocation) => sum + validCents(allocation.amountCents), 0);
+  return {
+    protectedPlanCents,
+    flexibleCapacityCents: Math.max(0, validCents(input.livingLimitCents) - protectedPlanCents),
+  };
+}
+
 export function projectMoneyPlanLimitAnswer(input: {
   active: ActiveLivingPlan;
   evidence: MoneyPlanLimitEvidence;
@@ -59,14 +72,11 @@ export function projectMoneyPlanLimitAnswer(input: {
   const { active, evidence, reconciliation, freshness } = input;
   const hasIncomeBasis = active.resourceBasisCents > 0 && evidence.resourceBasisKind !== 'unknown';
   const livingLimitCents = hasIncomeBasis ? active.targetCents : null;
-  const protectedPlanCents = hasIncomeBasis
-    ? active.allocations
-      .filter((allocation) => allocation.fixedCents > 0 || allocation.overrideCents > 0)
-      .reduce((sum, allocation) => sum + validCents(allocation.amountCents), 0)
-    : null;
-  const flexibleCapacityCents = livingLimitCents == null || protectedPlanCents == null
+  const capacity = livingLimitCents == null
     ? null
-    : Math.max(0, livingLimitCents - protectedPlanCents);
+    : projectMoneyPlanCapacity({ livingLimitCents, allocations: active.allocations });
+  const protectedPlanCents = capacity?.protectedPlanCents ?? null;
+  const flexibleCapacityCents = capacity?.flexibleCapacityCents ?? null;
   const countedFlexibleSpendCents = hasIncomeBasis
     ? reconciliation.totals.flexibleSpendingCents
     : null;

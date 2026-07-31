@@ -136,6 +136,7 @@ export type MoneyCategory = {
     scheduledDueDay: number | null;
   };
   forecast: MoneyCategoryForecast;
+  planRole?: 'protected' | 'flexible';
 };
 
 export type MoneyTransaction = {

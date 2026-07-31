@@ -50,6 +50,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
+    expect(screen.getByText('Budget')).toBeTruthy();
     expect(screen.getByText('$343 left for flexible spending')).toBeTruthy();
     expect(screen.queryByText('$1,017.04 / $3,360 (30%)')).toBeNull();
     expect(screen.getAllByText('Saved transaction history').length).toBeGreaterThan(0);

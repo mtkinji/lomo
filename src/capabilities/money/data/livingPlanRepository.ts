@@ -3,6 +3,7 @@ import type { LivingPlanCandidate, LivingPlanAllocation } from '../domain/living
 import type { LivingPlanComparison, LivingPlanTrigger } from '../domain/living-plan-changes';
 import type { LivingTargetIntent } from '../domain/living-target';
 import type { LivingPlanReceiptFacts } from '../domain/living-plan-receipt';
+import { projectMoneyPlanCapacity } from '../domain/moneyPlanLimitAnswer';
 
 export type ActiveLivingPlan = LivingPlanCandidate & {
   versionId: string;
@@ -228,8 +229,8 @@ export async function getLivingPlanReceiptDetail(client: SupabaseClient, receipt
   if (pointerError) throw pointerError;
   const versionIds = [receiptRow.prior_version_id, receiptRow.plan_version_id].filter(Boolean);
   const [componentResult, versionResult] = await Promise.all([
-    client.from('budget_living_plan_components').select('plan_version_id,category_id,amount_cents').in('plan_version_id', versionIds),
-    client.from('budget_living_plan_versions').select('id,resource_basis_cents,target_cents,planned_cents,unassigned_cents').in('id', versionIds),
+    client.from('budget_living_plan_components').select('plan_version_id,category_id,amount_cents,fixed_cents,override_cents').in('plan_version_id', versionIds),
+    client.from('budget_living_plan_versions').select('id,candidate_hash,living_percent,resource_basis_cents,target_cents,planned_cents,unassigned_cents,over_target_cents').in('id', versionIds),
   ]);
   const { data: rows, error: rowsError } = componentResult;
   if (rowsError) throw rowsError;
@@ -237,7 +238,10 @@ export async function getLivingPlanReceiptDetail(client: SupabaseClient, receipt
   const before = new Map((rows ?? []).filter((row) => row.plan_version_id === receiptRow.prior_version_id).map((row) => [row.category_id, Number(row.amount_cents)]));
   const after = new Map((rows ?? []).filter((row) => row.plan_version_id === receiptRow.plan_version_id).map((row) => [row.category_id, Number(row.amount_cents)]));
   const ids = receiptRow.changed_category_ids?.length ? receiptRow.changed_category_ids : [...new Set([...before.keys(), ...after.keys()])].filter((id) => before.get(id) !== after.get(id));
-  const factsById = new Map((versionResult.data ?? []).map((row) => [row.id, mapReceiptFacts(row)]));
+  const factsById = new Map((versionResult.data ?? []).map((row) => [
+    row.id,
+    mapReceiptFacts(row, (rows ?? []).filter((component) => component.plan_version_id === row.id)),
+  ]));
   const afterFacts = factsById.get(receiptRow.plan_version_id);
   if (!afterFacts) throw new Error('The updated budget plan is unavailable.');
   return { ...mapReceipt(receiptRow), activeVersionId: pointer.plan_version_id, before: receiptRow.prior_version_id ? factsById.get(receiptRow.prior_version_id) ?? null : null, after: afterFacts, changed: ids.map((categoryId: string) => ({ categoryId, beforeCents: before.get(categoryId) ?? null, afterCents: after.get(categoryId) ?? null })), reversible: receiptRow.outcome === 'material' && pointer.plan_version_id === receiptRow.plan_version_id && Boolean(receiptRow.prior_version_id) };
@@ -258,8 +262,26 @@ function mapReceipt(row: any): LivingPlanReceipt {
   return { id: row.id, planVersionId: row.plan_version_id, priorVersionId: row.prior_version_id, trigger: row.trigger, outcome: row.outcome, cause: row.cause, changedCategoryIds: row.changed_category_ids ?? [], materialReasons: row.material_reasons ?? [], seenAtIso: row.seen_at };
 }
 
-function mapReceiptFacts(row: any): LivingPlanReceiptFacts {
-  return { resourceBasisCents: Number(row.resource_basis_cents), targetCents: Number(row.target_cents), plannedCents: Number(row.planned_cents), unassignedCents: Number(row.unassigned_cents) };
+function mapReceiptFacts(row: any, components: any[]): LivingPlanReceiptFacts {
+  const targetCents = Number(row.target_cents);
+  const capacity = projectMoneyPlanCapacity({
+    livingLimitCents: targetCents,
+    allocations: components.map((component) => ({
+      amountCents: Number(component.amount_cents),
+      fixedCents: Number(component.fixed_cents),
+      overrideCents: Number(component.override_cents),
+    })),
+  });
+  return {
+    candidateHash: String(row.candidate_hash),
+    livingPercent: Number(row.living_percent),
+    resourceBasisCents: Number(row.resource_basis_cents),
+    targetCents,
+    plannedCents: Number(row.planned_cents),
+    unassignedCents: Number(row.unassigned_cents),
+    overTargetCents: Number(row.over_target_cents),
+    ...capacity,
+  };
 }
 
 async function getOptionalPlanningBasis(

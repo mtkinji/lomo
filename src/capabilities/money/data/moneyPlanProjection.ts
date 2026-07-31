@@ -70,6 +70,7 @@ export function projectMoneyPlanProjection(
     });
     return {
       ...category,
+      planRole: allocation.fixedCents > 0 || allocation.overrideCents > 0 ? 'protected' : 'flexible',
       plannedCents: allocation.amountCents,
       remainingCents: funding.availableCents,
       percentUsed: allocation.amountCents > 0 ? Math.round(category.spentCents / allocation.amountCents * 100) : 0,

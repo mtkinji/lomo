@@ -74,7 +74,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
   const summaryMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Pressable accessibilityRole="button" accessibilityLabel="Summary options" style={styles.headerMoreButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${livingLimitEnabled ? 'Budget' : 'Summary'} options`} style={styles.headerMoreButton}>
           <Icon name="more" size={22} color={colors.textPrimary} />
         </Pressable>
       </DropdownMenuTrigger>
@@ -91,10 +91,11 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
   );
 
   const livingLimitAnswer = livingLimitEnabled ? snapshot?.livingLimitAnswer ?? null : null;
+  const destinationTitle = livingLimitEnabled ? 'Budget' : 'Summary';
 
   return (
     <>
-    <MoneyScreenFrame moreMenu={summaryMenu} title="Summary">
+    <MoneyScreenFrame moreMenu={summaryMenu} title={destinationTitle}>
       {snapshot && currentPeriod ? (
         <View
           style={styles.monthSwipeSurface}

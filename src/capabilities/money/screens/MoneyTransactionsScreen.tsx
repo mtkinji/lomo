@@ -152,7 +152,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
           <View key={group.label} style={styles.dateGroup}>
             <Text style={styles.dateGroupHeader}>{group.label}</Text>
             <View style={styles.dateGroupRows}>
-              {group.rows.map((transaction) => <TransactionInventoryRow key={transaction.id} transaction={transaction} onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id })} />)}
+              {group.rows.map((transaction) => <TransactionInventoryRow key={transaction.id} transaction={transaction} onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, economicRoleReview: Boolean(reviewTransactionIds) })} />)}
             </View>
           </View>
         )) : (

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   applyGovernedCategoryPlanChange,
+  getLivingPlanReceiptDetail,
   holdLivingPlanCandidate,
   savePlanningBasisOverride,
 } from './livingPlanRepository';
@@ -81,6 +82,53 @@ describe('living plan governed persistence', () => {
       comparison: { outcome: 'material', materialReasons: ['allocation_changed'], changedCategoryIds: ['food'], reversible: true },
       trigger: 'category_changed', cause: 'Changed.',
     })).rejects.toThrow('changed since you reviewed');
+  });
+
+  it('reconstructs the committed limit facts and category values from receipt versions', async () => {
+    const selected = new Map<string, string>();
+    const results: Record<string, { data: unknown; error: null }> = {
+      budget_living_plan_receipts: { data: {
+        id: 'receipt-1', user_id: 'user-1', plan_version_id: 'version-2', prior_version_id: 'version-1',
+        trigger: 'category_changed', outcome: 'material', cause: 'Changed.', changed_category_ids: ['food'],
+        material_reasons: ['allocation_changed'], seen_at: null,
+      }, error: null },
+      budget_active_living_plans: { data: { plan_version_id: 'version-2' }, error: null },
+      budget_living_plan_components: { data: [
+        { plan_version_id: 'version-1', category_id: 'home', amount_cents: 200000, fixed_cents: 200000, override_cents: 0 },
+        { plan_version_id: 'version-1', category_id: 'food', amount_cents: 140000, fixed_cents: 0, override_cents: 0 },
+        { plan_version_id: 'version-2', category_id: 'home', amount_cents: 200000, fixed_cents: 200000, override_cents: 0 },
+        { plan_version_id: 'version-2', category_id: 'food', amount_cents: 150000, fixed_cents: 0, override_cents: 0 },
+      ], error: null },
+      budget_living_plan_versions: { data: [
+        { id: 'version-1', candidate_hash: 'candidate-1', living_percent: 70, resource_basis_cents: 500000, target_cents: 350000, planned_cents: 340000, unassigned_cents: 10000, over_target_cents: 0 },
+        { id: 'version-2', candidate_hash: 'candidate-2', living_percent: 70, resource_basis_cents: 500000, target_cents: 350000, planned_cents: 350000, unassigned_cents: 0, over_target_cents: 0 },
+      ], error: null },
+    };
+    const client = {
+      auth: { getUser: jest.fn(async () => ({ data: { user: { id: 'user-1' } }, error: null })) },
+      from(table: string) {
+        const result = results[table];
+        const query = {
+          select(columns: string) { selected.set(table, columns); return query; },
+          eq() { return query; },
+          in() { return query; },
+          single: () => Promise.resolve(result),
+          then: (resolve: (value: typeof result) => unknown, reject?: (reason: unknown) => unknown) => Promise.resolve(result).then(resolve, reject),
+        };
+        return query;
+      },
+    } as unknown as SupabaseClient;
+
+    const detail = await getLivingPlanReceiptDetail(client, 'receipt-1');
+
+    expect(selected.get('budget_living_plan_versions')).toContain('candidate_hash');
+    expect(selected.get('budget_living_plan_components')).toContain('fixed_cents');
+    expect(detail.after).toEqual({
+      candidateHash: 'candidate-2', livingPercent: 70, resourceBasisCents: 500000, targetCents: 350000,
+      plannedCents: 350000, unassignedCents: 0, overTargetCents: 0,
+      protectedPlanCents: 200000, flexibleCapacityCents: 150000,
+    });
+    expect(detail.changed).toEqual([{ categoryId: 'food', beforeCents: 140000, afterCents: 150000 }]);
   });
 
   it('saves one user-governed planning basis', async () => {
