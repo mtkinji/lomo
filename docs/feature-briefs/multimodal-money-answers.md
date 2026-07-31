@@ -9,7 +9,7 @@ job_flow: job-flow-maya-review-budget-reality-before-spending
 serves: [jtbd-review-budget-reality-before-spending, jtbd-carry-intentions-into-action, jtbd-trust-this-app-with-my-life, jtbd-get-help-without-retelling-my-life]
 related_briefs: [brief-budget-amount-adjustment, brief-auto-budget-from-living-target, brief-unified-chat, brief-notifications-v1-5]
 owner: andrew
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Multimodal Money Answers
@@ -119,6 +119,8 @@ not rebalance or change the target conversationally.
 
 After a useful answer, the user may choose one typed saved-check kind:
 `current_plan_within_income_limit`. The first release offers one weekly cadence.
+It is Friday at 9:00 AM in local device time; the user can turn it on, pause it,
+resume it, or remove it from one row in Money Plan.
 Management lives in Money Plan so the check is visible, pausable, and removable
 without creating a general automation destination or a Chat mutation.
 
