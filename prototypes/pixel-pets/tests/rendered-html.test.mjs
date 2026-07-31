@@ -29,25 +29,29 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Little Lives — Pixel Pet Lab<\/title>/i);
-  assert.match(html, /Waking up a little world/);
+  assert.match(html, /<title>Pet Engine Study 01 — Kwilt Lab<\/title>/i);
+  assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
-test("removes starter preview infrastructure and exposes all five pets", async () => {
-  const [page, layout, prototype] = await Promise.all([
+test("removes starter infrastructure and exposes the reference engine study", async () => {
+  const [page, layout, prototype, engine, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-engine.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/PetEngineCanvas.tsx", import.meta.url), "utf8"),
   ]);
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Little Lives — Pixel Pet Lab/);
-  for (const pet of ["leafling", "ripplefin", "glowmoth", "pebbleback", "cloudwing"]) {
-    assert.match(prototype, new RegExp(`kind: "${pet}"`));
-  }
+  assert.match(layout, /Pet Engine Study 01 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 01/);
+  assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Finish Focus/);
   assert.match(prototype, /Advance one day/);
+  assert.match(engine, /width: 160, height: 240/);
+  assert.match(engine, /"tail", "body", "feet", "head", "ears", "face", "eyes", "markings"/);
+  assert.match(canvas, /imageSmoothingEnabled = false/);
 });

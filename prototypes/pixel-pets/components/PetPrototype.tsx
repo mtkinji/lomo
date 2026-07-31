@@ -1,65 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { PixelPet } from "./PixelPet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { PetEngineCanvas } from "./PetEngineCanvas";
+import type { AnimationSnapshot, EngineMotion } from "@/lib/pet-engine";
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
   createPetState,
   giveCare,
   type MeaningfulAction,
-  type PetKind,
   type PetPalette,
   type PetReaction,
+  type PetStage,
   type PetState,
   withReaction,
 } from "@/lib/pet-state";
 
-const STORAGE_KEY = "kwilt-pixel-pet-prototype-v1";
-
-const PETS: Array<{
-  kind: PetKind;
-  name: string;
-  nature: string;
-  description: string;
-  defaultName: string;
-}> = [
-  {
-    kind: "leafling",
-    name: "Leafling",
-    nature: "Curious · grounded",
-    description: "A mossy trail-finder who notices every new sprout.",
-    defaultName: "Moss",
-  },
-  {
-    kind: "ripplefin",
-    name: "Ripplefin",
-    nature: "Playful · easygoing",
-    description: "A pond-skimmer who turns little moments into ripples.",
-    defaultName: "Bloop",
-  },
-  {
-    kind: "glowmoth",
-    name: "Glowmoth",
-    nature: "Gentle · observant",
-    description: "A quiet lantern who finds light in ordinary days.",
-    defaultName: "Luma",
-  },
-  {
-    kind: "pebbleback",
-    name: "Pebbleback",
-    nature: "Patient · dependable",
-    description: "A sturdy wanderer who knows growth can take its time.",
-    defaultName: "Pip",
-  },
-  {
-    kind: "cloudwing",
-    name: "Cloudwing",
-    nature: "Brave · buoyant",
-    description: "A pocket-sized flyer always ready for the next breeze.",
-    defaultName: "Wisp",
-  },
-];
+const STORAGE_KEY = "kwilt-pixel-pet-engine-proof-v2";
 
 const PALETTES: Array<{ id: PetPalette; label: string }> = [
   { id: "moss", label: "Moss" },
@@ -69,24 +27,33 @@ const PALETTES: Array<{ id: PetPalette; label: string }> = [
   { id: "sky", label: "Sky" },
 ];
 
-const FREQUENCIES: Record<PetKind, number> = {
-  leafling: 392,
-  ripplefin: 294,
-  glowmoth: 523,
-  pebbleback: 220,
-  cloudwing: 659,
+const MOTIONS: Array<{ id: EngineMotion; label: string }> = [
+  { id: "idle", label: "Idle" },
+  { id: "blink", label: "Blink" },
+  { id: "greet", label: "Greet" },
+  { id: "care", label: "Care" },
+  { id: "discover", label: "Discover" },
+  { id: "sleep", label: "Sleep" },
+  { id: "evolve", label: "Evolve" },
+];
+
+const REACTION_MOTION: Record<PetReaction, EngineMotion> = {
+  idle: "idle",
+  greet: "greet",
+  eat: "care",
+  discover: "discover",
+  sleep: "sleep",
+  evolve: "evolve",
 };
 
-function playPetSound(kind: PetKind, reaction: PetReaction, enabled: boolean) {
+function playPetSound(reaction: PetReaction, enabled: boolean) {
   if (!enabled || typeof window === "undefined") return;
-
   const AudioContextClass = window.AudioContext;
   if (!AudioContextClass) return;
 
   const context = new AudioContextClass();
   const oscillator = context.createOscillator();
   const gain = context.createGain();
-  const base = FREQUENCIES[kind];
   const offsets: Record<PetReaction, number> = {
     idle: 0,
     greet: 80,
@@ -96,15 +63,14 @@ function playPetSound(kind: PetKind, reaction: PetReaction, enabled: boolean) {
     evolve: 260,
   };
 
-  oscillator.type = kind === "pebbleback" ? "triangle" : kind === "glowmoth" ? "sine" : "square";
-  oscillator.frequency.setValueAtTime(base + offsets[reaction], context.currentTime);
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(392 + offsets[reaction], context.currentTime);
+  oscillator.frequency.setValueAtTime(437 + offsets[reaction], context.currentTime + 0.08);
   if (reaction === "evolve") {
-    oscillator.frequency.exponentialRampToValueAtTime(base * 2, context.currentTime + 0.42);
-  } else {
-    oscillator.frequency.setValueAtTime(base + offsets[reaction] + 45, context.currentTime + 0.08);
+    oscillator.frequency.exponentialRampToValueAtTime(784, context.currentTime + 0.42);
   }
   gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.055, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.02);
   gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + (reaction === "evolve" ? 0.58 : 0.22));
   oscillator.connect(gain);
   gain.connect(context.destination);
@@ -114,17 +80,18 @@ function playPetSound(kind: PetKind, reaction: PetReaction, enabled: boolean) {
 }
 
 function nudge() {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    navigator.vibrate(18);
-  }
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(18);
 }
 
 export function PetPrototype() {
   const [hydrated, setHydrated] = useState(false);
-  const [state, setState] = useState<PetState | null>(null);
-  const [selectedKind, setSelectedKind] = useState<PetKind>("leafling");
-  const [petName, setPetName] = useState("Moss");
-  const [palette, setPalette] = useState<PetPalette>("moss");
+  const [state, setState] = useState<PetState>(() => createPetState("leafling", "Moss", "moss"));
+  const [previewMotion, setPreviewMotion] = useState<EngineMotion | null>(null);
+  const [previewStage, setPreviewStage] = useState<PetStage | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [manualElapsed, setManualElapsed] = useState(0);
+  const [showRig, setShowRig] = useState(false);
+  const [frame, setFrame] = useState<AnimationSnapshot | null>(null);
   const reactionTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -141,177 +108,105 @@ export function PetPrototype() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (state) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    else window.localStorage.removeItem(STORAGE_KEY);
+    if (hydrated) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [hydrated, state]);
 
-  useEffect(() => {
-    return () => {
-      if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
-    };
+  useEffect(() => () => {
+    if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
   }, []);
 
-  const petDefinition = useMemo(
-    () => PETS.find((pet) => pet.kind === (state?.kind ?? selectedKind)) ?? PETS[0],
-    [selectedKind, state?.kind],
-  );
-
-  function settleReaction(delay = 1200) {
+  const settle = useCallback((delay = 1250) => {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
     reactionTimer.current = window.setTimeout(() => {
-      setState((current) => (current ? withReaction(current, "idle") : current));
+      setPreviewMotion(null);
+      setPaused(false);
+      setManualElapsed(0);
+      setState((current) => withReaction(current, "idle"));
     }, delay);
-  }
+  }, []);
 
-  function hatch() {
-    const next = createPetState(selectedKind, petName, palette);
-    setState(next);
-    playPetSound(next.kind, "greet", next.soundEnabled);
+  function react(reaction: PetReaction, receipt = state.lastReceipt) {
+    setPreviewMotion(null);
+    setPaused(false);
+    setManualElapsed(0);
+    setState(withReaction(state, reaction, receipt));
+    playPetSound(reaction, state.soundEnabled);
     nudge();
-    settleReaction();
-  }
-
-  function react(reaction: PetReaction, receipt?: string) {
-    if (!state) return;
-    const next = withReaction(state, reaction, receipt);
-    setState(next);
-    playPetSound(next.kind, reaction, next.soundEnabled);
-    nudge();
-    settleReaction(reaction === "evolve" ? 2200 : 1200);
+    settle(reaction === "evolve" ? 2100 : 1300);
   }
 
   function complete(source: MeaningfulAction) {
-    if (!state) return;
     const next = completeMeaningfulAction(state, source);
     setState(next);
-    playPetSound(next.kind, "discover", next.soundEnabled);
+    playPetSound("discover", next.soundEnabled);
     nudge();
-    settleReaction();
+    settle();
   }
 
   function care() {
-    if (!state) return;
     const next = giveCare(state);
     setState(next);
-    playPetSound(next.kind, next.reaction, next.soundEnabled);
+    playPetSound(next.reaction, next.soundEnabled);
     nudge();
-    settleReaction(next.reaction === "evolve" ? 2400 : 1500);
+    settle(next.reaction === "evolve" ? 2300 : 1600);
   }
 
   function advanceDay() {
-    if (!state) return;
     const next = advancePrototypeDay(state);
     setState(next);
-    playPetSound(next.kind, "sleep", next.soundEnabled);
-    settleReaction();
+    playPetSound("sleep", next.soundEnabled);
+    settle();
   }
 
-  function switchPet() {
-    if (!state) return;
-    setSelectedKind(state.kind);
-    setPetName(state.name);
-    setPalette(state.palette);
-    setState(null);
+  function preview(motion: EngineMotion) {
+    if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
+    setPreviewMotion(motion);
+    setPaused(false);
+    setManualElapsed(0);
+    if (motion !== "idle" && motion !== "blink") {
+      const soundReaction: PetReaction = motion === "care" ? "eat" : motion;
+      playPetSound(soundReaction, state.soundEnabled);
+    }
+    settle(motion === "sleep" ? 2200 : motion === "evolve" ? 2400 : 1500);
   }
+
+  const currentMotion = previewMotion ?? REACTION_MOTION[state.reaction];
+  const currentStage = previewStage ?? state.stage;
+  const momentsToGrow = Math.max(0, 5 - state.careDays);
+  const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
+  const currentStatus = useMemo(() => {
+    if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
+    if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
+    return { title: "Quietly keeping you company", detail: state.lastReceipt };
+  }, [dayHasCare, state.careAvailable, state.lastReceipt]);
+  const handleFrame = useCallback((snapshot: AnimationSnapshot) => setFrame(snapshot), []);
 
   if (!hydrated) {
     return (
       <main className="prototype-shell loading-shell" aria-live="polite">
         <span className="loading-pixel" />
-        <p>Waking up a little world…</p>
+        <p>Starting the Pet engine…</p>
       </main>
     );
   }
-
-  if (!state) {
-    return (
-      <main className="prototype-shell selection-shell">
-        <header className="lab-header">
-          <span className="eyebrow">Kwilt Lab · Pixel Pet prototype</span>
-          <h1>Who will grow beside you?</h1>
-          <p>Choose the tiny creature you’d like to care for. No choice changes the rules—only the personality.</p>
-        </header>
-
-        <section className="pet-picker" aria-label="Choose a Pixel Pet">
-          {PETS.map((pet) => {
-            const selected = selectedKind === pet.kind;
-            return (
-              <button
-                key={pet.kind}
-                type="button"
-                className={`pet-choice ${selected ? "selected" : ""}`}
-                aria-pressed={selected}
-                onClick={() => {
-                  setSelectedKind(pet.kind);
-                  setPetName(pet.defaultName);
-                }}
-              >
-                <span className="choice-stage" data-palette={palette}>
-                  <PixelPet kind={pet.kind} stage="young" compact label={pet.name} />
-                </span>
-                <strong>{pet.name}</strong>
-                <small>{pet.nature}</small>
-              </button>
-            );
-          })}
-        </section>
-
-        <section className="adoption-card">
-          <div className="selected-pet-copy">
-            <span>{petDefinition.name}</span>
-            <p>{petDefinition.description}</p>
-          </div>
-
-          <label className="name-field">
-            <span>Name your Pet</span>
-            <input
-              value={petName}
-              maxLength={14}
-              onChange={(event) => setPetName(event.target.value)}
-              placeholder={petDefinition.defaultName}
-            />
-          </label>
-
-          <fieldset className="palette-picker">
-            <legend>Choose its little world</legend>
-            <div>
-              {PALETTES.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`palette-dot palette-${option.id} ${palette === option.id ? "selected" : ""}`}
-                  aria-label={option.label}
-                  aria-pressed={palette === option.id}
-                  onClick={() => setPalette(option.id)}
-                />
-              ))}
-            </div>
-          </fieldset>
-
-          <button className="primary-button" type="button" onClick={hatch}>
-            Meet {petName.trim() || petDefinition.defaultName}
-          </button>
-        </section>
-      </main>
-    );
-  }
-
-  const momentsToGrow = Math.max(0, 5 - state.careDays);
-  const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
 
   return (
-    <main className="prototype-shell habitat-shell" data-palette={state.palette}>
-      <div className="prototype-context">
-        <span className="eyebrow">Kwilt Lab · Live prototype</span>
-        <h1>A little life shaped by showing up.</h1>
+    <main className="engine-lab" data-palette={state.palette}>
+      <header className="engine-intro">
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 01</span>
+        <h1>A tiny creature.<br />A real system.</h1>
         <p>
-          This world responds to meaningful moments. It never gets sick, sad, or smaller when life gets quiet.
+          Leafling is the reference Pet for a higher-fidelity, layered animation engine designed to scale to a full iPhone capability.
         </p>
-      </div>
+        <dl className="engine-facts">
+          <div><dt>Scene</dt><dd>160 × 240</dd></div>
+          <div><dt>Pet</dt><dd>48–64 px</dd></div>
+          <div><dt>Motion</dt><dd>Integer pixels</dd></div>
+        </dl>
+      </header>
 
-      <section className="pet-device" aria-label={`${state.name}'s little world`}>
-        <header className="device-header">
+      <section className="capability-frame" aria-label={`${state.name}'s Pet capability`}>
+        <header className="capability-header">
           <div>
             <span className="device-label">Day {state.prototypeDay}</span>
             <strong>{state.name}</strong>
@@ -326,25 +221,20 @@ export function PetPrototype() {
           </button>
         </header>
 
-        <div className={`habitat reaction-${state.reaction}`}>
-          <span className="habitat-sun" />
-          <span className="habitat-cloud cloud-one" />
-          <span className="habitat-cloud cloud-two" />
-          <span className="habitat-plant plant-one" />
-          <span className="habitat-plant plant-two" />
-          <span className="habitat-rock" />
-          <span className="habitat-ground" />
-          <span className="reaction-mark" aria-hidden="true">
-            {state.reaction === "sleep" ? "z" : state.reaction === "discover" ? "!" : state.reaction === "evolve" ? "✦" : "♥"}
-          </span>
-          <PixelPet
-            kind={state.kind}
-            stage={state.stage}
-            reaction={state.reaction}
+        <div className="scene-frame">
+          <PetEngineCanvas
+            stage={currentStage}
+            palette={state.palette}
+            motion={currentMotion}
             reducedMotion={state.reducedMotion}
-            onInteract={() => react("greet", `${state.name} is glad you stopped by.`)}
+            paused={paused}
+            manualElapsed={manualElapsed}
+            showRig={showRig}
+            onFrame={handleFrame}
+            onPet={() => react("greet", `${state.name} noticed you.`)}
             label={`Pet ${state.name}`}
           />
+          <span className="scene-resolution" aria-hidden="true">160 × 240</span>
         </div>
 
         <div className="pet-message" aria-live="polite">
@@ -352,14 +242,8 @@ export function PetPrototype() {
             {state.careAvailable ? "✦" : "·"}
           </span>
           <div>
-            <strong>
-              {state.careAvailable
-                ? "A care moment is ready"
-                : dayHasCare
-                  ? "Cozy and cared for"
-                  : "Quietly keeping you company"}
-            </strong>
-            <p>{state.lastReceipt}</p>
+            <strong>{currentStatus.title}</strong>
+            <p>{currentStatus.detail}</p>
           </div>
         </div>
 
@@ -370,50 +254,79 @@ export function PetPrototype() {
           </button>
         ) : (
           <div className="action-pair" aria-label="Simulate a meaningful Kwilt action">
-            <button type="button" onClick={() => complete("todo")}>
-              <span aria-hidden="true">✓</span>
-              Complete a To-do
-            </button>
-            <button type="button" onClick={() => complete("focus")}>
-              <span aria-hidden="true">◎</span>
-              Finish Focus
-            </button>
+            <button type="button" onClick={() => complete("todo")}><span aria-hidden="true">✓</span>Complete a To-do</button>
+            <button type="button" onClick={() => complete("focus")}><span aria-hidden="true">◎</span>Finish Focus</button>
           </div>
         )}
 
         <div className="growth-memory">
           <div className="memory-copy">
             <span>{state.stage === "evolved" ? "First evolution reached" : "Growing together"}</span>
-            <small>
-              {state.stage === "evolved"
-                ? `${state.careDays} care moments remembered`
-                : `${momentsToGrow} ${momentsToGrow === 1 ? "moment" : "moments"} until something new`}
-            </small>
+            <small>{state.stage === "evolved" ? `${state.careDays} moments remembered` : `${momentsToGrow} until something new`}</small>
           </div>
           <div className="memory-dots" aria-label={`${Math.min(state.careDays, 5)} of 5 care moments`}>
-            {[0, 1, 2, 3, 4].map((index) => (
-              <span key={index} className={index < state.careDays ? "remembered" : ""} />
-            ))}
+            {[0, 1, 2, 3, 4].map((index) => <span key={index} className={index < state.careDays ? "remembered" : ""} />)}
           </div>
         </div>
       </section>
 
-      <details className="prototype-controls">
-        <summary>Prototype controls</summary>
-        <p>These shortcuts compress time for testing. They are not part of the future Pet experience.</p>
-        <div className="control-grid">
-          <button type="button" onClick={advanceDay}>Advance one day</button>
-          <button type="button" onClick={() => react("discover", `${state.name} found a tiny keepsake.`)}>Replay discovery</button>
-          <button type="button" onClick={() => react("sleep", `${state.name} found a comfortable place to rest.`)}>Try sleep</button>
-          <button type="button" onClick={() => setState({ ...state, reducedMotion: !state.reducedMotion })}>
-            {state.reducedMotion ? "Enable motion" : "Reduce motion"}
-          </button>
-          <button type="button" onClick={switchPet}>Switch Pet</button>
-          <button type="button" className="danger-control" onClick={() => setState(createPetState(state.kind, state.name, state.palette))}>
-            Reset this Pet
-          </button>
+      <aside className="engine-inspector" aria-label="Pet engine inspector">
+        <div className="inspector-heading">
+          <div>
+            <span className="eyebrow">Engine inspector</span>
+            <h2>Open the machine</h2>
+          </div>
+          <span className={`engine-status ${paused ? "paused" : ""}`}>{paused ? "Paused" : "Running"}</span>
         </div>
-      </details>
+
+        <section className="inspector-section">
+          <div className="inspector-label"><span>Animation</span><output>{currentMotion} · {frame ? `${frame.frame + 1}/${frame.frameCount}` : "—"}</output></div>
+          <div className="motion-grid">
+            {MOTIONS.map((motion) => (
+              <button key={motion.id} type="button" className={currentMotion === motion.id ? "active" : ""} onClick={() => preview(motion.id)}>
+                {motion.label}
+              </button>
+            ))}
+          </div>
+          <div className="transport-row">
+            <button type="button" onClick={() => setPaused((value) => !value)}>{paused ? "Play" : "Pause"}</button>
+            <button type="button" onClick={() => { setPaused(true); setManualElapsed((value) => value + 160); }}>Step frame</button>
+          </div>
+        </section>
+
+        <section className="inspector-section anatomy-section">
+          <div className="inspector-label"><span>Anatomy</span><button type="button" className="text-control" onClick={() => setShowRig((value) => !value)}>{showRig ? "Hide rig" : "Show rig"}</button></div>
+          <div className="layer-list" aria-label="Independently animated Pet layers">
+            {["Tail", "Body", "Feet", "Head", "Ears", "Face", "Eyes", "Markings"].map((layer) => <span key={layer}>{layer}</span>)}
+          </div>
+        </section>
+
+        <section className="inspector-section">
+          <div className="inspector-label"><span>Form</span><output>{currentStage}</output></div>
+          <div className="segmented-control">
+            <button type="button" className={currentStage === "young" ? "active" : ""} onClick={() => setPreviewStage("young")}>Young</button>
+            <button type="button" className={currentStage === "evolved" ? "active" : ""} onClick={() => setPreviewStage("evolved")}>Evolved</button>
+          </div>
+        </section>
+
+        <section className="inspector-section">
+          <div className="inspector-label"><span>Palette</span><output>{state.palette}</output></div>
+          <div className="palette-picker" aria-label="Pet palette">
+            {PALETTES.map((option) => (
+              <button key={option.id} type="button" className={`palette-dot palette-${option.id} ${state.palette === option.id ? "selected" : ""}`} aria-label={option.label} aria-pressed={state.palette === option.id} onClick={() => setState({ ...state, palette: option.id })} />
+            ))}
+          </div>
+        </section>
+
+        <details className="prototype-controls">
+          <summary>Time and accessibility</summary>
+          <div className="control-grid">
+            <button type="button" onClick={advanceDay}>Advance one day</button>
+            <button type="button" onClick={() => setState({ ...state, reducedMotion: !state.reducedMotion })}>{state.reducedMotion ? "Enable motion" : "Reduce motion"}</button>
+            <button type="button" onClick={() => { setPreviewStage(null); setState(createPetState("leafling", "Moss", state.palette)); }}>Reset care loop</button>
+          </div>
+        </details>
+      </aside>
     </main>
   );
 }
