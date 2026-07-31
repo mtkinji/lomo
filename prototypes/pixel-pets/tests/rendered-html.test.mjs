@@ -29,17 +29,18 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 03 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 04 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, engine, world, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-engine.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-world.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/leafling.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/PetEngineCanvas.tsx", import.meta.url), "utf8"),
@@ -47,8 +48,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 03 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 03/);
+  assert.match(layout, /Pet Engine Study 04 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 04/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Finish Focus/);
@@ -60,6 +61,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /Canvas 2D/);
   assert.match(engine, /width: 160, height: 240/);
   assert.match(engine, /MOTION_CLIPS/);
+  assert.match(world, /stepPetWorld/);
+  assert.match(world, /spawnInsect/);
   assert.match(runtime, /resolvePetFrame/);
   assert.match(leafling, /leafling-motion-atlas-v3\.png/);
   assert.match(leafling, /"tail"/);
@@ -67,5 +70,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(leafling, /greet/);
   assert.match(canvas, /imageSmoothingEnabled = false/);
   assert.match(canvas, /resolvePetFrame/);
-  assert.match(canvas, /ENGINE_SCENE\.groundY - snapshot\.anchor\.y/);
+  assert.match(canvas, /-snapshot\.anchor\.y \* scaleY/);
+  assert.match(canvas, /onPointerDown/);
+  assert.match(canvas, /setWorldZoom/);
 });

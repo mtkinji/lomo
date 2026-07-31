@@ -9,6 +9,10 @@ The prototype lets a tester:
 - observe planted, resting, and airborne ground-contact states;
 - compare the 44px young and 52px evolved game-character scales;
 - see a one-time sleep transition resolve into a curled breathing loop;
+- tap the world to walk, run, and jump while a wider camera follows;
+- pinch from a full habitat view to a temporary 2.25x close-up;
+- watch autonomous fireflies recruit attention and provoke a pounce;
+- swipe across Leafling to curl, roll over on the ground, and uncurl;
 - simulate a completed To-do or Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
@@ -16,7 +20,8 @@ The prototype lets a tester:
 - accelerate time and reach a first evolution after five care days.
 
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
-ground anchors, contact states, movement offsets, and contact-cue metadata.
+ground anchors, contact states, movement offsets, contact-cue metadata, world
+coordinates, camera follow, transient zoom, and autonomous behavior targets.
 Canvas 2D is the current renderer adapter. It places Leafling low in the scene,
 draws contact cues inside the terrain rather than as a separate platform, and
 leaves open world space for future locomotion. Native and desktop renderers can

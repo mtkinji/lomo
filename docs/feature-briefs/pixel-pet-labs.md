@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-carry-intentions-into-action, jtbd-put-intention-before-impulse, jtbd-see-who-im-becoming, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-chores-as-recurring-activities]
 owner: andrew
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Pixel Pet Labs
@@ -84,11 +84,17 @@ Care days accumulate and never subtract. A missed day cannot make the Pet hungry
 ### Interaction vocabulary
 
 - Visit the persistent Pet.
-- Tap or swipe once for a nonverbal reaction.
+- Tap near the Pet for a nonverbal greeting.
+- Tap elsewhere on the ground and the Pet walks or runs there while the camera follows.
+- Tap high and the Pet jumps toward the touch; swipe across the Pet and it curls up and rolls over.
+- Pinch between a full-world view and a temporary close-up. Zoom is camera state, not a saved preference or a consumer-facing control.
+- Notice occasional insects moving through the habitat. The Pet may track, approach, or pounce near them without requiring user action.
 - Tap or drag an available meal to its bowl.
 - See one recent source-class receipt without private Activity text.
 - Occasionally choose between two cosmetic directions such as rest, explore, or play.
 - Reach a first evolution after five distinct care days.
+
+Pet interactions use world coordinates rather than screen coordinates. The habitat is wider than the camera, so the same behavior and state model can travel between iPhone, web, and desktop renderers. The consumer surface has no joystick, zoom buttons, camera settings, meters, inventory, or permanent tutorial furniture; direct manipulation is the interface. Prototype-only controls remain in the separate engine inspector.
 
 ### Voice and sound
 
@@ -99,6 +105,10 @@ Pet sounds have their own setting. Equivalent visual and semantic-haptic feedbac
 ### Evolution and asset boundary
 
 The first Labs version has a young and first-evolution form for each type: ten core designs total. Most behaviors use two-to-four-frame reusable loops for idle, greet, eat, sleep, discover, and evolve, plus code-driven position, scale, blink, palette, and particle effects. Mature forms, branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
+
+The engine study may compose an existing clip with code-driven travel, lift, rotation, camera follow, or attention to prove whether an interaction deserves bespoke art. A dedicated walk/run gait or rollover row is commissioned only when the behavior proves valuable and the composite motion no longer meets the quality bar. This keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
+
+The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. Environmental visitors are transient behavior targets, not collectible currency or another progress system.
 
 ### Chat and notifications
 
@@ -122,6 +132,10 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 - Is five care days the right threshold for the first evolution?
 - Does a meal metaphor feel natural, or should the care object vary by pet?
 - How much habitat change is needed before the persistent display feels alive?
+- Does pinch-to-close-up create affection, or does it mostly interfere with taps?
+- How often can insects visit before their movement becomes distracting or predictable?
+- Does rollover feel like a delightful learned trick, and does it justify a dedicated animation row?
+- Does code-driven travel feel believable enough for the first learning release, or is a dedicated gait the next required asset?
 - Do teens prefer sounds by default, or should Pet begin muted?
 - Does contextual Chat clarify Pet events without making Pet feel distributed through the timeline?
 - Is one evolved form sufficient for lasting attachment, or does evidence justify a user-chosen branch?

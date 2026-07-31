@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { PetEngineCanvas } from "./PetEngineCanvas";
+import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
+import { createPetWorldState, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
 import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
 import { clipDuration, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
@@ -94,6 +95,9 @@ export function PetPrototype() {
   const [manualElapsed, setManualElapsed] = useState(0);
   const [showRig, setShowRig] = useState(false);
   const [frame, setFrame] = useState<PetFrameSnapshot | null>(null);
+  const [world, setWorld] = useState<PetWorldState>(() => createPetWorldState());
+  const [worldMessage, setWorldMessage] = useState<{ title: string; detail: string } | null>(null);
+  const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
   const reactionTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -132,16 +136,6 @@ export function PetPrototype() {
     if (!clip.loop) settle(clipDuration(clip) + hold);
   }, [settle]);
 
-  function react(reaction: PetReaction, receipt = state.lastReceipt) {
-    setPreviewMotion(null);
-    setPaused(false);
-    setManualElapsed(0);
-    setState(withReaction(state, reaction, receipt));
-    playPetSound(reaction, state.soundEnabled);
-    nudge();
-    settleAfterMotion(REACTION_MOTION[reaction]);
-  }
-
   function complete(source: MeaningfulAction) {
     const next = completeMeaningfulAction(state, source);
     setState(next);
@@ -178,7 +172,8 @@ export function PetPrototype() {
 
   const currentMotion = previewMotion ?? REACTION_MOTION[state.reaction];
   const currentClip = clipForMotion(currentMotion);
-  const currentAnimation = LEAFLING_MANIFEST.clips[currentClip] as PetAnimationClip;
+  const renderedClip = frame?.clip ?? currentClip;
+  const currentAnimation = LEAFLING_MANIFEST.clips[renderedClip] as PetAnimationClip;
   const currentStage = previewStage ?? state.stage;
   const currentScale = LEAFLING_PRESENTATION.stages[currentStage].width / LEAFLING_MANIFEST.atlas.frameWidth;
   const currentGroundCue = frame
@@ -187,11 +182,29 @@ export function PetPrototype() {
   const momentsToGrow = Math.max(0, 5 - state.careDays);
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const currentStatus = useMemo(() => {
+    if (worldMessage) return worldMessage;
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
-  }, [dayHasCare, state.careAvailable, state.lastReceipt]);
+  }, [dayHasCare, state.careAvailable, state.lastReceipt, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
+  const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
+  const handleWorldInteraction = useCallback((action: PetWorldAction) => {
+    const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
+      greet: { title: "A little hello", detail: `${state.name} noticed you.` },
+      track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
+      walk: { title: "Off we go", detail: `${state.name} is padding over.` },
+      run: { title: "Coming fast", detail: `${state.name} is racing over.` },
+      jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
+      pounce: { title: "Couldn’t resist", detail: "That tiny visitor looked interesting." },
+      rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
+    };
+    setWorldMessage(messages[action] ?? null);
+  }, [state.name]);
+
+  function commandWorld(type: PetWorldCommand["type"]) {
+    setWorldCommand((current) => ({ serial: (current?.serial ?? 0) + 1, type }));
+  }
 
   if (!hydrated) {
     return (
@@ -205,15 +218,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 03</span>
-        <h1>A tiny creature.<br />A world to roam.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 04</span>
+        <h1>The world<br />notices back.</h1>
         <p>
-          Leafling now lives at game-character scale, low in a world with room for walking, running, pouncing, and reaching.
+          Touch becomes a place. Leafling can travel, follow tiny visitors, reach toward you, roll over, and come closer without leaving the same portable world model.
         </p>
         <dl className="engine-facts">
-          <div><dt>Ground</dt><dd>y = 208</dd></div>
-          <div><dt>Pet</dt><dd>44 → 52 px</dd></div>
-          <div><dt>Camera</dt><dd>160 × 240</dd></div>
+          <div><dt>World</dt><dd>480 px</dd></div>
+          <div><dt>Camera</dt><dd>1 → 2.25×</dd></div>
+          <div><dt>Input</dt><dd>tap · pinch · swipe</dd></div>
         </dl>
       </header>
 
@@ -242,11 +255,14 @@ export function PetPrototype() {
             paused={paused}
             manualElapsed={manualElapsed}
             showRig={showRig}
+            worldCommand={worldCommand}
             onFrame={handleFrame}
-            onPet={() => react("greet", `${state.name} noticed you.`)}
-            label={`Pet ${state.name}`}
+            onWorldFrame={handleWorldFrame}
+            onWorldInteraction={handleWorldInteraction}
+            label={`${state.name}'s interactive world. Tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
-          <span className="scene-resolution" aria-hidden="true">160 × 240</span>
+          <span className="scene-instructions" aria-hidden="true">tap · pinch · swipe</span>
+          <span className="scene-resolution" aria-hidden="true">x {Math.round(world.cameraX)} · {world.zoom.toFixed(2)}×</span>
         </div>
 
         <div className="pet-message" aria-live="polite">
@@ -292,7 +308,22 @@ export function PetPrototype() {
         </div>
 
         <section className="inspector-section">
-          <div className="inspector-label"><span>Playback</span><output>{currentClip} · {frame ? `${frame.frameIndex + 1}/${frame.frameCount}` : "—"}</output></div>
+          <div className="inspector-label"><span>World interaction</span><output>{world.action}</output></div>
+          <div className="world-controls">
+            <button type="button" onClick={() => commandWorld("firefly")}>Release firefly</button>
+            <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
+            <button type="button" onClick={() => commandWorld("center")}>Reset camera</button>
+          </div>
+          <div className="world-readout" aria-label="Portable world runtime output">
+            <span>Pet x <strong>{Math.round(world.petX)}</strong></span>
+            <span>Camera x <strong>{Math.round(world.cameraX)}</strong></span>
+            <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
+            <span>Visitor <strong>{world.insect.active ? "active" : "quiet"}</strong></span>
+          </div>
+        </section>
+
+        <section className="inspector-section">
+          <div className="inspector-label"><span>Playback</span><output>{renderedClip} · {frame ? `${frame.frameIndex + 1}/${frame.frameCount}` : "—"}</output></div>
           <div className="motion-grid">
             {MOTIONS.map((motion) => (
               <button key={motion.id} type="button" className={currentMotion === motion.id ? "active" : ""} onClick={() => preview(motion.id)}>
@@ -305,8 +336,8 @@ export function PetPrototype() {
             <button type="button" onClick={() => { setPaused(true); setManualElapsed((value) => value + 160); }}>Step frame</button>
           </div>
           <div className="runtime-contract" aria-label="Portable Pet runtime output">
-            <div className="inspector-label"><span>Behavior request</span><output>{currentMotion}</output></div>
-            <div className="inspector-label"><span>Authored clip</span><output>{currentClip}{currentClip !== currentMotion ? " · mapped" : ""}</output></div>
+            <div className="inspector-label"><span>Behavior request</span><output>{world.action === "idle" ? currentMotion : world.action}</output></div>
+            <div className="inspector-label"><span>Authored clip</span><output>{renderedClip}{renderedClip !== (world.action === "idle" ? currentMotion : world.action) ? " · composed" : ""}</output></div>
             <div className="inspector-label"><span>Atlas cell</span><output>{frame ? `${frame.cell.column}, ${frame.cell.row}` : "—"}</output></div>
             <div className="inspector-label"><span>Frame offset</span><output>{frame ? `${frame.transform.x}, ${frame.transform.y}` : "—"}</output></div>
             <div className="inspector-label"><span>Ground contact</span><output>{frame?.contact ?? "—"}</output></div>
