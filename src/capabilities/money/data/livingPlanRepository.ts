@@ -258,11 +258,39 @@ export async function saveLivingPlanOverride(client: SupabaseClient, categoryId:
   if (error) throw error;
 }
 
-function mapReceipt(row: any): LivingPlanReceipt {
+type LivingPlanReceiptRow = {
+  id: string;
+  plan_version_id: string;
+  prior_version_id: string | null;
+  trigger: string;
+  outcome: LivingPlanReceipt['outcome'];
+  cause: string;
+  changed_category_ids: string[] | null;
+  material_reasons: string[] | null;
+  seen_at: string | null;
+};
+
+type LivingPlanReceiptFactsRow = {
+  candidate_hash: string;
+  living_percent: number;
+  resource_basis_cents: number;
+  target_cents: number;
+  planned_cents: number;
+  unassigned_cents: number;
+  over_target_cents: number;
+};
+
+type LivingPlanReceiptComponentRow = {
+  amount_cents: number;
+  fixed_cents: number;
+  override_cents: number;
+};
+
+function mapReceipt(row: LivingPlanReceiptRow): LivingPlanReceipt {
   return { id: row.id, planVersionId: row.plan_version_id, priorVersionId: row.prior_version_id, trigger: row.trigger, outcome: row.outcome, cause: row.cause, changedCategoryIds: row.changed_category_ids ?? [], materialReasons: row.material_reasons ?? [], seenAtIso: row.seen_at };
 }
 
-function mapReceiptFacts(row: any, components: any[]): LivingPlanReceiptFacts {
+function mapReceiptFacts(row: LivingPlanReceiptFactsRow, components: LivingPlanReceiptComponentRow[]): LivingPlanReceiptFacts {
   const targetCents = Number(row.target_cents);
   const capacity = projectMoneyPlanCapacity({
     livingLimitCents: targetCents,
