@@ -295,7 +295,7 @@ export function PetPrototype() {
         </section>
 
         <section className="inspector-section anatomy-section">
-          <div className="inspector-label"><span>Anatomy</span><button type="button" className="text-control" onClick={() => setShowRig((value) => !value)}>{showRig ? "Hide rig" : "Show rig"}</button></div>
+          <div className="inspector-label"><span>Authoring channels</span><button type="button" className="text-control" onClick={() => setShowRig((value) => !value)}>{showRig ? "Hide rig" : "Show rig"}</button></div>
           <div className="layer-list" aria-label="Pet animation authoring channels">
             {["Tail", "Body", "Feet", "Head", "Ears", "Face", "Eyes", "Markings"].map((layer) => <span key={layer}>{layer}</span>)}
           </div>
