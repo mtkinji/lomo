@@ -917,6 +917,88 @@ summary:focus-visible {
   opacity: 0.8;
 }
 
+/* True low-resolution sprite renderer. The older anatomy rules above remain
+   inert because PixelPet no longer renders vector-like body parts. */
+.pixel-pet {
+  --pixel-size: 7px;
+  --pet-accent: #e89b91;
+  display: grid;
+  width: calc(18 * var(--pixel-size));
+  height: calc(18 * var(--pixel-size));
+  place-items: center;
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+
+.pixel-pet.pet-compact {
+  --pixel-size: 4px;
+  width: calc(18 * var(--pixel-size));
+  height: calc(18 * var(--pixel-size));
+  transform: none;
+  animation: sprite-idle-compact 1.65s steps(2, jump-none) infinite;
+}
+
+.sprite-grid {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(var(--sprite-size), var(--pixel-size));
+  grid-template-rows: repeat(var(--sprite-size), var(--pixel-size));
+  width: calc(var(--sprite-size) * var(--pixel-size));
+  height: calc(var(--sprite-size) * var(--pixel-size));
+  image-rendering: pixelated;
+}
+
+.sprite-pixel {
+  display: block;
+  width: var(--pixel-size);
+  height: var(--pixel-size);
+}
+
+.sprite-pixel.transparent { background: transparent; }
+.sprite-pixel.color-1 { background: var(--pet-dark); }
+.sprite-pixel.color-2 { background: var(--pet-main); }
+.sprite-pixel.color-3 { background: var(--pet-light); }
+.sprite-pixel.color-4 { background: var(--pet-accent); }
+.sprite-pixel.color-5 { background: #fffdf1; }
+
+.sprite-shadow {
+  position: absolute;
+  z-index: 1;
+  bottom: 3px;
+  left: 50%;
+  width: calc(12 * var(--pixel-size));
+  height: calc(2 * var(--pixel-size));
+  background: rgba(41, 45, 37, 0.2);
+  transform: translateX(-50%);
+  clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%);
+}
+
+.sprite-spark {
+  position: absolute;
+  z-index: 9;
+  color: #fff6a5;
+  font-family: var(--font-geist-mono), monospace;
+  opacity: 0;
+}
+
+.sprite-spark-one { top: -3px; right: -4px; font-size: 22px; }
+.sprite-spark-two { top: 20px; right: -8px; font-size: 30px; }
+
+.pet-leafling { --pet-accent: #e39678; }
+.pet-ripplefin { --pet-accent: #d490b5; }
+.pet-glowmoth { --pet-accent: #f7c64e; }
+.pet-pebbleback { --pet-accent: #df936d; }
+.pet-cloudwing { --pet-accent: #e3a858; }
+
+.stage-evolved.pet-compact {
+  transform: none;
+}
+
+.stage-evolved .sprite-grid {
+  filter: saturate(1.08);
+}
+
 .reaction-greet { animation: pet-greet 720ms steps(4, jump-none) infinite; }
 .reaction-eat { animation: pet-eat 700ms steps(4, jump-none) infinite; }
 .reaction-discover { animation: pet-discover 760ms steps(4, jump-none) infinite; }
@@ -925,6 +1007,8 @@ summary:focus-visible {
 .reaction-evolve .pet-spark { animation: sparkle 900ms steps(3, jump-none) infinite; }
 .reaction-discover .pet-spark-one { animation: sparkle 900ms steps(3, jump-none) infinite; }
 .reaction-eat .pet-head { animation: head-nibble 350ms steps(2, jump-none) infinite; }
+.reaction-evolve .sprite-spark { animation: sparkle 900ms steps(3, jump-none) infinite; }
+.reaction-discover .sprite-spark-one { animation: sparkle 900ms steps(3, jump-none) infinite; }
 
 .motion-reduced,
 .motion-reduced * {
@@ -946,6 +1030,7 @@ summary:focus-visible {
 @keyframes loading-hop { 50% { transform: translateY(-12px); } }
 @keyframes pet-idle { 50% { transform: translateY(-5px); } }
 @keyframes pet-idle-compact { 50% { transform: scale(0.62) translateY(-7px); } }
+@keyframes sprite-idle-compact { 50% { transform: translateY(-3px); } }
 @keyframes pet-blink { 0%, 46%, 50%, 100% { transform: scaleY(1); } 48% { transform: scaleY(0.16); } }
 @keyframes pet-greet { 0%, 100% { transform: rotate(0); } 35% { transform: rotate(-4deg) translateY(-7px); } 70% { transform: rotate(4deg); } }
 @keyframes pet-eat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px) scaleY(0.96); } }

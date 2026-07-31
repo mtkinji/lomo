@@ -1,3 +1,4 @@
+import { PET_SPRITES, SPRITE_SIZE } from "@/lib/pet-sprites";
 import type { PetKind, PetReaction, PetStage } from "@/lib/pet-state";
 
 interface PixelPetProps {
@@ -19,32 +20,28 @@ export function PixelPet({
   onInteract,
   label,
 }: PixelPetProps) {
+  const rows = PET_SPRITES[kind][stage];
   const content = (
     <span
       className={`pixel-pet pet-${kind} stage-${stage} reaction-${reaction} ${compact ? "pet-compact" : ""} ${reducedMotion ? "motion-reduced" : ""}`}
       aria-hidden="true"
     >
-      <span className="pet-shadow" />
-      <span className="pet-tail" />
-      <span className="pet-wing pet-wing-left" />
-      <span className="pet-wing pet-wing-right" />
-      <span className="pet-shell" />
-      <span className="pet-body" />
-      <span className="pet-head">
-        <span className="pet-ear pet-ear-left" />
-        <span className="pet-ear pet-ear-right" />
-        <span className="pet-antenna pet-antenna-left" />
-        <span className="pet-antenna pet-antenna-right" />
-        <span className="pet-eye pet-eye-left" />
-        <span className="pet-eye pet-eye-right" />
-        <span className="pet-beak" />
-        <span className="pet-cheek pet-cheek-left" />
-        <span className="pet-cheek pet-cheek-right" />
+      <span className="sprite-shadow" />
+      <span
+        className="sprite-grid"
+        style={{ "--sprite-size": SPRITE_SIZE } as React.CSSProperties}
+      >
+        {rows.flatMap((row, rowIndex) =>
+          [...row].map((color, columnIndex) => (
+            <span
+              key={`${rowIndex}-${columnIndex}`}
+              className={color === "." ? "sprite-pixel transparent" : `sprite-pixel color-${color}`}
+            />
+          )),
+        )}
       </span>
-      <span className="pet-foot pet-foot-left" />
-      <span className="pet-foot pet-foot-right" />
-      <span className="pet-spark pet-spark-one">✦</span>
-      <span className="pet-spark pet-spark-two">·</span>
+      <span className="sprite-spark sprite-spark-one">✦</span>
+      <span className="sprite-spark sprite-spark-two">·</span>
     </span>
   );
 

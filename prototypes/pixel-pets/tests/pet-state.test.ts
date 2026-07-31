@@ -7,6 +7,20 @@ import {
   createPetState,
   giveCare,
 } from "../lib/pet-state.ts";
+import { PET_SPRITES, SPRITE_SIZE } from "../lib/pet-sprites.ts";
+
+test("every Pet uses a true fixed-resolution sprite grid for both stages", () => {
+  for (const stages of Object.values(PET_SPRITES)) {
+    assert.notDeepEqual(stages.young, stages.evolved);
+    for (const rows of Object.values(stages)) {
+      assert.equal(rows.length, SPRITE_SIZE);
+      for (const row of rows) {
+        assert.equal(row.length, SPRITE_SIZE);
+        assert.match(row, /^[.12345]+$/);
+      }
+    }
+  }
+});
 
 test("only the first meaningful action of a prototype day prepares care", () => {
   const initial = createPetState("leafling", "Moss", "moss");
