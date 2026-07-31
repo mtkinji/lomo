@@ -84,6 +84,32 @@ test("physical clips declare believable contact changes", () => {
   assert.equal(LEAFLING_MANIFEST.clips.evolve.frames[7].contact, "planted");
 });
 
+test("blink uses anime cadence and changes only the eye channel", () => {
+  const blink = LEAFLING_MANIFEST.clips.blink;
+  const blinkActionDuration = blink.frames.slice(1, 6).reduce((sum, frame) => sum + frame.duration, 0);
+
+  assert.ok(blink.frames[0].duration >= 900, "open eyes need a held key pose");
+  assert.ok(blink.frames[7].duration >= 1200, "the loop needs breathing room before another blink");
+  assert.ok(blinkActionDuration <= 200, "the eyelid action itself should be involuntary and quick");
+  assert.deepEqual(new Set(blink.frames.map((frame) => `${frame.cell.column},${frame.cell.row}`)), new Set(["0,1"]));
+  assert.ok(blink.frames.slice(1, 6).every((frame) => frame.layers?.length === 1));
+  assert.ok(blink.frames.slice(1, 6).every((frame) => frame.layers?.[0].masks.every((mask) => mask.shape === "ellipse")));
+});
+
+test("expressive actions distinguish holds, in-betweens, accents, and recovery", () => {
+  for (const clipId of ["greet", "care", "discover", "evolve"] as const) {
+    const frames = LEAFLING_MANIFEST.clips[clipId].frames;
+    const roles = new Set(frames.map((frame) => frame.role));
+    const durations = frames.map((frame) => frame.duration);
+
+    assert.ok(roles.has("hold"), `${clipId} needs a readable held key pose`);
+    assert.ok(roles.has("inbetween"), `${clipId} needs fast connective drawings`);
+    assert.ok(roles.has("accent"), `${clipId} needs a clear action accent`);
+    assert.ok(roles.has("recovery"), `${clipId} needs authored follow-through`);
+    assert.ok(Math.max(...durations) / Math.min(...durations) >= 3, `${clipId} timing should not be linear`);
+  }
+});
+
 test("the reference Pet declares stable animation authoring channels", () => {
   assert.deepEqual(
     LEAFLING_PRESENTATION.channels.map((channel) => channel.id),

@@ -6,7 +6,7 @@ import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
 import { createPetWorldState, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
 import { LEAFLING_MANIFEST, LEAFLING_PRESENTATION } from "@/lib/leafling";
-import { clipDuration, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
+import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
@@ -218,15 +218,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 04</span>
-        <h1>The world<br />notices back.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 05</span>
+        <h1>Every drawing<br />has a job.</h1>
         <p>
-          Touch becomes a place. Leafling can travel, follow tiny visitors, reach toward you, roll over, and come closer without leaving the same portable world model.
+          Leafling holds a readable pose until something truly needs to move. Fast in-betweens, clear accents, and quiet holds give limited animation more life than equal timing ever could.
         </p>
         <dl className="engine-facts">
-          <div><dt>World</dt><dd>480 px</dd></div>
-          <div><dt>Camera</dt><dd>1 → 2.25×</dd></div>
-          <div><dt>Input</dt><dd>tap · pinch · swipe</dd></div>
+          <div><dt>Blink</dt><dd>184 ms</dd></div>
+          <div><dt>Cadence</dt><dd>hold → accent</dd></div>
+          <div><dt>Channels</dt><dd>eyes · body</dd></div>
         </dl>
       </header>
 
@@ -333,12 +333,14 @@ export function PetPrototype() {
           </div>
           <div className="transport-row">
             <button type="button" onClick={() => setPaused((value) => !value)}>{paused ? "Play" : "Pause"}</button>
-            <button type="button" onClick={() => { setPaused(true); setManualElapsed((value) => value + 160); }}>Step frame</button>
+            <button type="button" onClick={() => { setPaused(true); setManualElapsed((value) => nextFrameElapsed(currentAnimation, value)); }}>Step drawing</button>
           </div>
           <div className="runtime-contract" aria-label="Portable Pet runtime output">
             <div className="inspector-label"><span>Behavior request</span><output>{world.action === "idle" ? currentMotion : world.action}</output></div>
             <div className="inspector-label"><span>Authored clip</span><output>{renderedClip}{renderedClip !== (world.action === "idle" ? currentMotion : world.action) ? " · composed" : ""}</output></div>
             <div className="inspector-label"><span>Atlas cell</span><output>{frame ? `${frame.cell.column}, ${frame.cell.row}` : "—"}</output></div>
+            <div className="inspector-label"><span>Drawing role</span><output>{frame?.role ?? "—"}</output></div>
+            <div className="inspector-label"><span>Anatomy layers</span><output>{frame?.layers.length ? `Eyes · ${frame.layers.length}` : "Base pose"}</output></div>
             <div className="inspector-label"><span>Frame offset</span><output>{frame ? `${frame.transform.x}, ${frame.transform.y}` : "—"}</output></div>
             <div className="inspector-label"><span>Ground contact</span><output>{frame?.contact ?? "—"}</output></div>
             <div className="inspector-label"><span>Ground anchor</span><output>{frame ? `${frame.anchor.x}, ${frame.anchor.y}` : "—"}</output></div>

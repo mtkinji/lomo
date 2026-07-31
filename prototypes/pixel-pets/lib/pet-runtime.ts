@@ -15,6 +15,22 @@ export interface PetFrameShadow {
   opacity: number;
 }
 
+export interface PetFrameLayerMask {
+  shape: "ellipse";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PetFrameLayer {
+  cell: AtlasCell;
+  offset: PetFrameTransform;
+  masks: PetFrameLayerMask[];
+}
+
+export type PetMotionRole = "hold" | "key" | "inbetween" | "accent" | "recovery";
+
 export interface PetAnimationFrame {
   cell: AtlasCell;
   duration: number;
@@ -23,6 +39,8 @@ export interface PetAnimationFrame {
   anchor?: PetFrameTransform;
   contact?: PetGroundContact;
   shadow?: PetFrameShadow;
+  layers?: PetFrameLayer[];
+  role?: PetMotionRole;
 }
 
 export interface PetAnimationClip {
@@ -55,6 +73,8 @@ export interface PetFrameSnapshot {
   anchor: PetFrameTransform;
   contact: PetGroundContact;
   shadow: PetFrameShadow;
+  layers: PetFrameLayer[];
+  role: PetMotionRole;
 }
 
 const REST_TRANSFORM: PetFrameTransform = { x: 0, y: 0 };
@@ -67,6 +87,19 @@ const DEFAULT_SHADOWS: Record<PetGroundContact, PetFrameShadow> = {
 
 export function clipDuration(clip: PetAnimationClip): number {
   return clip.frames.reduce((sum, frame) => sum + frame.duration, 0);
+}
+
+export function nextFrameElapsed(clip: PetAnimationClip, elapsedMs: number): number {
+  const total = clipDuration(clip);
+  if (total <= 0) return Math.max(0, elapsedMs);
+  const elapsed = Math.max(0, elapsedMs);
+  const playhead = clip.loop ? elapsed % total : Math.min(elapsed, total);
+  let cursor = 0;
+  for (const frame of clip.frames) {
+    cursor += frame.duration;
+    if (cursor > playhead) return elapsed + (cursor - playhead);
+  }
+  return clip.loop ? elapsed + clip.frames[0].duration : total;
 }
 
 export function resolvePetFrame(
@@ -132,5 +165,7 @@ export function resolvePetFrame(
     },
     contact,
     shadow: frame.shadow ?? DEFAULT_SHADOWS[contact],
+    layers: frame.layers ?? [],
+    role: frame.role ?? "key",
   };
 }

@@ -13,6 +13,8 @@ The prototype lets a tester:
 - pinch from a full habitat view to a temporary 2.25x close-up;
 - watch autonomous fireflies recruit attention and provoke a pounce;
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
+- inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
+- see a face-only 184 ms blink composed over a locked full-body key pose;
 - simulate a completed To-do or Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
@@ -22,6 +24,8 @@ The prototype lets a tester:
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
 coordinates, camera follow, transient zoom, and autonomous behavior targets.
+The same snapshot contract can also carry masked anatomy layers, allowing the
+Canvas adapter to change Leafling's eyes without redrawing or moving its body.
 Canvas 2D is the current renderer adapter. It places Leafling low in the scene,
 draws contact cues inside the terrain rather than as a separate platform, and
 leaves open world space for future locomotion. Native and desktop renderers can

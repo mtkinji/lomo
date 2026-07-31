@@ -12,12 +12,21 @@ Leafling is a small leaf-and-fur creature with the alert ears, cream face, large
 - Motion is authored through silhouette and pose. No floating symbols, motion lines, dust, cast shadows, floor patches, scenery, text, or frame guides belong in the sprite.
 - Every row contains exactly eight separated poses, left to right, on a perfectly flat `#ff00ff` chroma background.
 
+## Limited-animation language
+
+- The renderer may run at display refresh rate, but drawings are intentionally held. Leafling should feel anime-directed, not continuously interpolated.
+- Each drawing has one job: `hold`, `key`, `inbetween`, `accent`, or `recovery`.
+- In-betweens move quickly. Key expressions and action accents remain long enough to read. Recovery gets its own follow-through instead of returning at a constant rate.
+- Extra drawings belong where motion changes direction, accelerates, lands, or changes expression. Do not add drawings merely to make every interval equal.
+- Micro-actions use the smallest participating anatomy channel. A blink moves eyelids only; it does not recruit the head, ears, torso, paws, or tail.
+- Larger actions may cascade from eyes or ears through head, torso, leaves, and tail, with the ground anchor remaining authoritative.
+
 ## Runtime rows
 
 | Row | Behavior | Playback | Contact story |
 | --- | --- | --- | --- |
 | 0 | Idle | loop | Four paws remain planted while breath and attention move above them. |
-| 1 | Blink | loop | Paws stay planted; eyelids close and reopen with tiny ear follow-through. |
+| 1 | Blink | loop | The approved base pose remains locked; only the eye channel closes and reopens over 184 ms between long open-eye holds. |
 | 2 | Greet | one-shot | Notice, crouch, hop, land, compress, recover. |
 | 3 | Care | one-shot | Notice food, lower weight, nibble, chew, pleased recovery. |
 | 4 | Discover | one-shot | Ears lead, head turns, torso leans, then settles over the same paws. |

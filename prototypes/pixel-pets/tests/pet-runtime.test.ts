@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  nextFrameElapsed,
   resolvePetFrame,
   type PetAnimationManifest,
 } from "../lib/pet-runtime.ts";
@@ -69,7 +70,45 @@ test("resolves a renderer-neutral atlas cell at the start of a clip", () => {
     anchor: { x: 56, y: 108 },
     contact: "planted",
     shadow: { width: 58, opacity: 0.2 },
+    layers: [],
+    role: "key",
   });
+});
+
+test("steps to the next authored drawing instead of a fixed millisecond jump", () => {
+  const clip = manifest.clips.idle;
+  assert.equal(nextFrameElapsed(clip, 0), 240);
+  assert.equal(nextFrameElapsed(clip, 240), 360);
+  assert.equal(nextFrameElapsed(clip, 360), 600);
+});
+
+test("carries renderer-neutral anatomy layers without moving the base pose", () => {
+  const layeredManifest: PetAnimationManifest = {
+    ...manifest,
+    clips: {
+      ...manifest.clips,
+      blink: {
+        loop: true,
+        frames: [{
+          cell: { column: 0, row: 0 },
+          duration: 40,
+          layers: [{
+            cell: { column: 1, row: 0 },
+            offset: { x: -1, y: -2 },
+            masks: [{ shape: "ellipse", x: 24, y: 42, width: 18, height: 16 }],
+          }],
+        }],
+      },
+    },
+  };
+
+  const snapshot = resolvePetFrame(layeredManifest, "blink", 0, false);
+  assert.deepEqual(snapshot.cell, { column: 0, row: 0 });
+  assert.deepEqual(snapshot.layers, [{
+    cell: { column: 1, row: 0 },
+    offset: { x: -1, y: -2 },
+    masks: [{ shape: "ellipse", x: 24, y: 42, width: 18, height: 16 }],
+  }]);
 });
 
 test("uses authored frame durations and loops without renderer knowledge", () => {

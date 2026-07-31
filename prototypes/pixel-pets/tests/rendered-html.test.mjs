@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 04 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 05 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -48,8 +48,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 04 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 04/);
+  assert.match(layout, /Pet Engine Study 05 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 05/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Finish Focus/);
@@ -58,12 +58,16 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /Ground contact/);
   assert.match(prototype, /Ground anchor/);
   assert.match(prototype, /Ground cue/);
+  assert.match(prototype, /Drawing role/);
+  assert.match(prototype, /Anatomy layers/);
   assert.match(prototype, /Canvas 2D/);
   assert.match(engine, /width: 160, height: 240/);
   assert.match(engine, /MOTION_CLIPS/);
   assert.match(world, /stepPetWorld/);
   assert.match(world, /spawnInsect/);
   assert.match(runtime, /resolvePetFrame/);
+  assert.match(runtime, /nextFrameElapsed/);
+  assert.match(runtime, /PetFrameLayer/);
   assert.match(leafling, /leafling-motion-atlas-v3\.png/);
   assert.match(leafling, /"tail"/);
   assert.match(leafling, /idle/);
@@ -73,4 +77,5 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(canvas, /-snapshot\.anchor\.y \* scaleY/);
   assert.match(canvas, /onPointerDown/);
   assert.match(canvas, /setWorldZoom/);
+  assert.match(canvas, /layer\.masks/);
 });

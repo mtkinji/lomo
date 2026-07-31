@@ -1,6 +1,7 @@
 import type {
   PetAnimationFrame,
   PetAnimationManifest,
+  PetMotionRole,
 } from "./pet-runtime";
 import type { PetStage } from "./pet-state";
 
@@ -20,6 +21,27 @@ export interface LeaflingAuthoringChannel {
 }
 
 const GROUND_ANCHOR = { x: 64, y: 120 };
+const BLINK_MASKS = [
+  { shape: "ellipse" as const, x: 25, y: 47, width: 21, height: 25 },
+  { shape: "ellipse" as const, x: 49, y: 45, width: 24, height: 27 },
+];
+
+function blinkFrame(
+  duration: number,
+  layer?: { column: number; x: number; y: number },
+  events?: string[],
+  role: PetMotionRole = "inbetween",
+): PetAnimationFrame {
+  return frame(0, 1, duration, {
+    events,
+    role,
+    layers: layer ? [{
+      cell: { column: layer.column, row: 1 },
+      offset: { x: layer.x, y: layer.y },
+      masks: BLINK_MASKS,
+    }] : [],
+  });
+}
 
 function frame(
   column: number,
@@ -62,53 +84,53 @@ export const LEAFLING_MANIFEST = {
     blink: {
       loop: true,
       frames: [
-        frame(0, 1, 360),
-        frame(1, 1, 80),
-        frame(2, 1, 70),
-        frame(3, 1, 100, { events: ["eyes-closed"] }),
-        frame(4, 1, 90),
-        frame(5, 1, 80),
-        frame(6, 1, 140, { events: ["ear-rebound"] }),
-        frame(7, 1, 360),
+        blinkFrame(1100, undefined, undefined, "hold"),
+        blinkFrame(28, { column: 1, x: -1, y: -2 }, ["blink-start"], "key"),
+        blinkFrame(32, { column: 2, x: 1, y: -7 }),
+        blinkFrame(48, { column: 3, x: 3, y: -11 }, ["eyes-closed"], "accent"),
+        blinkFrame(36, { column: 5, x: 1, y: -8 }),
+        blinkFrame(40, { column: 6, x: -1, y: -1 }, undefined, "recovery"),
+        blinkFrame(80, undefined, ["blink-open"], "recovery"),
+        blinkFrame(1400, undefined, undefined, "hold"),
       ],
     },
     greet: {
       loop: false,
       frames: [
-        frame(0, 2, 180, { events: ["notice"] }),
-        frame(1, 2, 140, { events: ["anticipate"], shadow: { width: 72, opacity: 0.24 } }),
-        frame(2, 2, 130, { shadow: { width: 78, opacity: 0.25 } }),
-        frame(3, 2, 120, { contact: "airborne", transform: { x: 0, y: -10 }, events: ["airborne"], shadow: { width: 42, opacity: 0.14 } }),
-        frame(4, 2, 150, { contact: "airborne", transform: { x: 0, y: -18 }, events: ["apex", "chirp"], shadow: { width: 28, opacity: 0.1 } }),
-        frame(5, 2, 130, { contact: "airborne", transform: { x: 0, y: -9 }, shadow: { width: 40, opacity: 0.14 } }),
-        frame(6, 2, 160, { events: ["land"], shadow: { width: 82, opacity: 0.27 } }),
-        frame(7, 2, 340, { events: ["settle"] }),
+        frame(0, 2, 280, { events: ["notice"], role: "hold" }),
+        frame(1, 2, 90, { events: ["anticipate"], role: "key", shadow: { width: 72, opacity: 0.24 } }),
+        frame(2, 2, 70, { role: "inbetween", shadow: { width: 78, opacity: 0.25 } }),
+        frame(3, 2, 60, { contact: "airborne", transform: { x: 0, y: -10 }, events: ["airborne"], role: "inbetween", shadow: { width: 42, opacity: 0.14 } }),
+        frame(4, 2, 130, { contact: "airborne", transform: { x: 0, y: -18 }, events: ["apex", "chirp"], role: "accent", shadow: { width: 28, opacity: 0.1 } }),
+        frame(5, 2, 65, { contact: "airborne", transform: { x: 0, y: -9 }, role: "inbetween", shadow: { width: 40, opacity: 0.14 } }),
+        frame(6, 2, 90, { events: ["land"], role: "recovery", shadow: { width: 82, opacity: 0.27 } }),
+        frame(7, 2, 420, { events: ["settle"], role: "hold" }),
       ],
     },
     care: {
       loop: false,
       frames: [
-        frame(0, 3, 180, { events: ["notice-care"] }),
-        frame(1, 3, 140),
-        frame(2, 3, 160, { shadow: { width: 72, opacity: 0.23 } }),
-        frame(3, 3, 150, { events: ["nibble"] }),
-        frame(4, 3, 150, { events: ["nibble"] }),
-        frame(5, 3, 180, { events: ["chew"] }),
-        frame(6, 3, 190, { events: ["content"] }),
-        frame(7, 3, 320, { events: ["settle"] }),
+        frame(0, 3, 260, { events: ["notice-care"], role: "hold" }),
+        frame(1, 3, 90, { role: "key" }),
+        frame(2, 3, 70, { role: "inbetween", shadow: { width: 72, opacity: 0.23 } }),
+        frame(3, 3, 110, { events: ["nibble"], role: "accent" }),
+        frame(4, 3, 70, { events: ["nibble"], role: "inbetween" }),
+        frame(5, 3, 160, { events: ["chew"], role: "accent" }),
+        frame(6, 3, 220, { events: ["content"], role: "recovery" }),
+        frame(7, 3, 420, { events: ["settle"], role: "hold" }),
       ],
     },
     discover: {
       loop: false,
       frames: [
-        frame(0, 4, 180),
-        frame(1, 4, 120, { events: ["ears-lead"] }),
-        frame(2, 4, 130, { events: ["eyes-follow"] }),
-        frame(3, 4, 150, { events: ["head-turn"] }),
-        frame(4, 4, 160, { events: ["lean"] }),
-        frame(5, 4, 180, { events: ["inspect"] }),
-        frame(6, 4, 180),
-        frame(7, 4, 320, { events: ["settle"] }),
+        frame(0, 4, 260, { role: "hold" }),
+        frame(1, 4, 70, { events: ["ears-lead"], role: "key" }),
+        frame(2, 4, 70, { events: ["eyes-follow"], role: "inbetween" }),
+        frame(3, 4, 110, { events: ["head-turn"], role: "key" }),
+        frame(4, 4, 80, { events: ["lean"], role: "inbetween" }),
+        frame(5, 4, 240, { events: ["inspect"], role: "accent" }),
+        frame(6, 4, 100, { role: "recovery" }),
+        frame(7, 4, 380, { events: ["settle"], role: "hold" }),
       ],
     },
     sleep: {
@@ -128,14 +150,14 @@ export const LEAFLING_MANIFEST = {
     evolve: {
       loop: false,
       frames: [
-        frame(0, 6, 180, { events: ["brace"] }),
-        frame(1, 6, 160, { events: ["anticipate"], shadow: { width: 72, opacity: 0.24 } }),
-        frame(2, 6, 160, { shadow: { width: 78, opacity: 0.26 } }),
-        frame(3, 6, 140, { contact: "airborne", transform: { x: 0, y: -8 }, events: ["rise"], shadow: { width: 44, opacity: 0.14 } }),
-        frame(4, 6, 170, { contact: "airborne", transform: { x: 0, y: -16 }, events: ["open"], shadow: { width: 30, opacity: 0.1 } }),
-        frame(5, 6, 140, { contact: "airborne", transform: { x: 0, y: -8 }, shadow: { width: 42, opacity: 0.14 } }),
-        frame(6, 6, 180, { events: ["land"], shadow: { width: 86, opacity: 0.28 } }),
-        frame(7, 6, 420, { events: ["proud"] }),
+        frame(0, 6, 260, { events: ["brace"], role: "hold" }),
+        frame(1, 6, 90, { events: ["anticipate"], role: "key", shadow: { width: 72, opacity: 0.24 } }),
+        frame(2, 6, 70, { role: "inbetween", shadow: { width: 78, opacity: 0.26 } }),
+        frame(3, 6, 60, { contact: "airborne", transform: { x: 0, y: -8 }, events: ["rise"], role: "inbetween", shadow: { width: 44, opacity: 0.14 } }),
+        frame(4, 6, 180, { contact: "airborne", transform: { x: 0, y: -16 }, events: ["open"], role: "accent", shadow: { width: 30, opacity: 0.1 } }),
+        frame(5, 6, 65, { contact: "airborne", transform: { x: 0, y: -8 }, role: "inbetween", shadow: { width: 42, opacity: 0.14 } }),
+        frame(6, 6, 100, { events: ["land"], role: "recovery", shadow: { width: 86, opacity: 0.28 } }),
+        frame(7, 6, 480, { events: ["proud"], role: "hold" }),
       ],
     },
   },

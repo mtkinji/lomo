@@ -232,6 +232,8 @@ function renderScene(
   const scaleY = size.height / LEAFLING_MANIFEST.atlas.frameHeight;
   const sourceX = snapshot.cell.column * LEAFLING_MANIFEST.atlas.frameWidth;
   const sourceY = snapshot.cell.row * LEAFLING_MANIFEST.atlas.frameHeight;
+  const destinationX = -snapshot.anchor.x * scaleX + snapshot.transform.x;
+  const destinationY = -snapshot.anchor.y * scaleY + snapshot.transform.y;
   const groundCue = resolveGroundCue(snapshot.contact, snapshot.shadow.width, snapshot.shadow.opacity, scaleX);
 
   context.save();
@@ -262,11 +264,40 @@ function renderScene(
     sourceY,
     LEAFLING_MANIFEST.atlas.frameWidth,
     LEAFLING_MANIFEST.atlas.frameHeight,
-    Math.round(-snapshot.anchor.x * scaleX + snapshot.transform.x),
-    Math.round(-snapshot.anchor.y * scaleY + snapshot.transform.y),
+    Math.round(destinationX),
+    Math.round(destinationY),
     size.width,
     size.height,
   );
+
+  for (const layer of snapshot.layers) {
+    context.save();
+    context.beginPath();
+    for (const mask of layer.masks) {
+      context.ellipse(
+        destinationX + (mask.x + mask.width / 2) * scaleX,
+        destinationY + (mask.y + mask.height / 2) * scaleY,
+        (mask.width * scaleX) / 2,
+        (mask.height * scaleY) / 2,
+        0,
+        0,
+        Math.PI * 2,
+      );
+    }
+    context.clip();
+    context.drawImage(
+      sprite,
+      layer.cell.column * LEAFLING_MANIFEST.atlas.frameWidth,
+      layer.cell.row * LEAFLING_MANIFEST.atlas.frameHeight,
+      LEAFLING_MANIFEST.atlas.frameWidth,
+      LEAFLING_MANIFEST.atlas.frameHeight,
+      Math.round(destinationX + layer.offset.x * scaleX),
+      Math.round(destinationY + layer.offset.y * scaleY),
+      size.width,
+      size.height,
+    );
+    context.restore();
+  }
 
   if (showRig) {
     const colors = ["#e14f62", "#316ee8", "#be4ee6", "#f08a34", "#2eaa7b", "#c55a92", "#111111", "#7d6c24"];

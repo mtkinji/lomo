@@ -108,6 +108,8 @@ The first Labs version has a young and first-evolution form for each type: ten c
 
 The engine study may compose an existing clip with code-driven travel, lift, rotation, camera follow, or attention to prove whether an interaction deserves bespoke art. A dedicated walk/run gait or rollover row is commissioned only when the behavior proves valuable and the composite motion no longer meets the quality bar. This keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
+Animation follows an anime-inspired limited-motion language rather than uniform interpolation. Each drawing is authored as a hold, key, in-between, accent, or recovery. Small involuntary actions use the smallest participating anatomy channel: a blink moves only the eyelids over a locked body pose. Expressive actions spend additional drawings around changes in direction, contact, and expression, then hold the strongest readable pose. The goal is deliberate 8–12-drawing character acting, not high-frame-rate feature-film smoothness.
+
 The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. Environmental visitors are transient behavior targets, not collectible currency or another progress system.
 
 ### Chat and notifications
