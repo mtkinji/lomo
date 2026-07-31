@@ -17,6 +17,8 @@ The prototype lets a tester:
 - see a face-only 184 ms blink composed over a locked full-body key pose;
 - move through sun, wind, and rain that affect both the habitat and Leafling;
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
+- watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
+- travel through layered clouds, mountain ranges, distant pines, canopy, terrain, and foreground grass at different camera depths;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - simulate a completed To-do or Focus session;
@@ -28,7 +30,7 @@ The prototype lets a tester:
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
 coordinates, camera follow, transient zoom, weather response, shared-focus state,
-and autonomous behavior targets.
+autonomous behavior targets, and the directed sun-to-shade sequence.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
 or moving its body; all three forms now own distinct eight-drawing walk and run

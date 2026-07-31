@@ -234,33 +234,6 @@ summary:focus-visible {
   image-rendering: crisp-edges;
 }
 
-.scene-resolution {
-  position: absolute;
-  right: 9px;
-  bottom: 8px;
-  padding: 4px 6px;
-  color: rgba(255, 255, 255, 0.82);
-  background: rgba(31, 35, 31, 0.46);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.52rem;
-  letter-spacing: 0.04em;
-}
-
-.scene-instructions {
-  position: absolute;
-  top: 9px;
-  left: 10px;
-  padding: 4px 6px;
-  color: color-mix(in srgb, var(--accent-dark) 82%, black);
-  background: color-mix(in srgb, var(--panel) 62%, transparent);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.5rem;
-  font-weight: 720;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
 .pet-message {
   display: grid;
   grid-template-columns: 28px 1fr;

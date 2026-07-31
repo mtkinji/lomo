@@ -22,7 +22,7 @@ Build the directed living world. Weather events have three coordinated layers:
 - **Creature acting:** attention, grounded secondary motion, travel, shelter, rest, or play.
 - **Meaningful response:** the user can touch the world, focus beside the Pet, or let a real Kwilt completion change what happens next.
 
-The first proof includes sun, breeze, and rain; an old shelter tree; rain-driven shelter seeking; grounded wind sway; a short Focus-together ritual; and a Play-together receipt that stirs the world. Weather controls remain in the engine inspector. The consumer interaction remains direct manipulation plus contextual Kwilt actions.
+The first proof includes sun, breeze, and rain; an old shelter tree; rain-driven shelter seeking; grounded wind sway; a short Focus-together ritual; and a Play-together receipt that stirs the world. Study 09 adds a directed sunny sequence: Leafling follows a warm patch, basks, decides it has had enough, returns to the old tree, and curls in the shade. Weather controls remain in the engine inspector. The consumer interaction remains direct manipulation plus contextual Kwilt actions.
 
 ## Reductive decisions
 
@@ -34,7 +34,7 @@ The first proof includes sun, breeze, and rain; an old shelter tree; rain-driven
 
 ## Portable contract
 
-The renderer-neutral world state owns weather kind, elapsed weather time, bounded ground sway, shelter destination, Focus countdown, and completion. Canvas draws the current study; future native, web, or desktop renderers consume the same semantics without depending on Canvas pixels.
+The renderer-neutral world state owns weather kind, elapsed weather time, bounded ground sway, sun and shelter destinations, bask timing, shade choice, Focus countdown, and completion. Canvas draws the current study; future native, web, or desktop renderers consume the same semantics without depending on Canvas pixels.
 
 ## Stated bet
 
@@ -44,7 +44,7 @@ We're betting that one environmental event becomes emotionally meaningful when t
 
 - Rain visibly changes sky, rainfall, and terrain and causes Leafling to travel to the tree and curl up.
 - Breeze moves foliage and loose leaves while Leafling stays anchored to the ground.
-- Sun creates a distinct warm destination and atmosphere.
+- Sun creates a distinct warm destination and atmosphere, then gives Leafling a reason to choose shade without a temperature meter or user obligation.
 - Focus together visibly settles the world, counts down, and resolves through the existing daily care receipt.
 - Playing together creates a bounded care receipt and an immediate playful ecosystem response.
 - Touch roaming, jumping, rollover, insects, zoom, reduced motion, and shame-free care continue to work.

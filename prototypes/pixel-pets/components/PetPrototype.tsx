@@ -199,7 +199,7 @@ export function PetPrototype() {
   const currentStage = previewStage ?? state.stage;
   const currentManifest = leaflingManifestForStage(currentStage);
   const currentAnimation = currentManifest.clips[renderedClip] as PetAnimationClip;
-  const currentScale = LEAFLING_PRESENTATION.stages[currentStage].width / currentManifest.atlas.frameWidth;
+  const currentScale = LEAFLING_PRESENTATION.stages[currentStage].height / currentManifest.atlas.frameHeight;
   const currentGroundCue = frame
     ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
     : null;
@@ -229,7 +229,10 @@ export function PetPrototype() {
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
       "seek-shelter": { title: "Weather coming", detail: `${state.name} knows where the old tree keeps the ground dry.` },
       shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
-      bask: { title: "Following the warmth", detail: `${state.name} found the sunny part of the meadow.` },
+      "seek-sun": { title: "Following the warmth", detail: `${state.name} noticed the sunny part of the meadow.` },
+      bask: { title: "Warm leaves", detail: `${state.name} is soaking up a little sun.` },
+      "seek-shade": { title: "Warm enough", detail: `${state.name} is heading back to the old tree.` },
+      shade: { title: "Cool under the canopy", detail: `${state.name} curled up where the leaves make shade.` },
       focus: { title: "Quiet company", detail: `${state.name} is focusing beside you.` },
     };
     setWorldMessage(messages[action] ?? null);
@@ -251,15 +254,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 08</span>
-        <h1>Every step<br />has weight.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 09</span>
+        <h1>The weather<br />has a point.</h1>
         <p>
-          Leafling no longer slides through the meadow. Every form now walks and runs with its own authored footfalls, compression, flight, and contact.
+          Light, wind, and rain now change the whole habitat. Leafling follows warmth, decides when it has had enough, and curls beneath the old tree.
         </p>
         <dl className="engine-facts">
-          <div><dt>Gaits</dt><dd>walk · run</dd></div>
-          <div><dt>Cycle</dt><dd>8 authored keys</dd></div>
-          <div><dt>Control</dt><dd>tap · travel · follow</dd></div>
+          <div><dt>Depth</dt><dd>sky · range · canopy</dd></div>
+          <div><dt>Sun</dt><dd>warm · seek shade</dd></div>
+          <div><dt>Weather</dt><dd>light · wind · rain</dd></div>
         </dl>
       </header>
 
@@ -295,8 +298,6 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             label={`${state.name}'s interactive world. Tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
-          <span className="scene-instructions" aria-hidden="true">tap · pinch · swipe · weather</span>
-          <span className="scene-resolution" aria-hidden="true">x {Math.round(world.cameraX)} · {world.zoom.toFixed(2)}×</span>
         </div>
 
         <div className="pet-message" aria-live="polite">

@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 08 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 09 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -48,8 +48,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 08 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 08/);
+  assert.match(layout, /Pet Engine Study 09 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 09/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Focus together/);

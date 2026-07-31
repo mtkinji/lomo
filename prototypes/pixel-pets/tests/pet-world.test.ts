@@ -19,8 +19,40 @@ test("world travel requests authored locomotion instead of an idle fallback", ()
   assert.equal(clipForWorldAction("walk"), "walk");
   assert.equal(clipForWorldAction("run"), "run");
   assert.equal(clipForWorldAction("seek-shelter"), "walk");
-  assert.equal(clipForWorldAction("bask"), "walk");
+  assert.equal(clipForWorldAction("seek-sun"), "walk");
+  assert.equal(clipForWorldAction("seek-shade"), "walk");
+  assert.equal(clipForWorldAction("bask"), "idle");
+  assert.equal(clipForWorldAction("shade"), "sleep");
   assert.equal(clipForWorldAction("jump"), "greet");
+});
+
+test("sun warms Leafling before it chooses the old tree's shade", () => {
+  let sunny = setWorldWeather(createPetWorldState(), "sunny");
+  assert.equal(sunny.action, "seek-sun");
+  assert.equal(sunny.targetX, PET_WORLD.sunPatchX);
+
+  for (let step = 0; step < 24; step += 1) sunny = stepPetWorld(sunny, 250, false);
+  assert.equal(sunny.action, "bask");
+  assert.ok(Math.abs(sunny.petX - PET_WORLD.sunPatchX) <= 2);
+
+  sunny = stepPetWorld(sunny, PET_WORLD.sunBaskDuration, false);
+  assert.equal(sunny.action, "seek-shade");
+  assert.equal(sunny.targetX, PET_WORLD.treeShelterX);
+
+  for (let step = 0; step < 36; step += 1) sunny = stepPetWorld(sunny, 250, false);
+  assert.equal(sunny.action, "shade");
+  assert.ok(Math.abs(sunny.petX - PET_WORLD.treeShelterX) <= 2);
+});
+
+test("reduced motion preserves the sunny heat-to-shade story without travel", () => {
+  const seekingSun = setWorldWeather(createPetWorldState(), "sunny");
+  const basking = stepPetWorld(seekingSun, 400, true);
+  const shaded = stepPetWorld(basking, PET_WORLD.sunBaskDuration, true);
+
+  assert.equal(basking.action, "bask");
+  assert.equal(basking.petX, PET_WORLD.sunPatchX);
+  assert.equal(shaded.action, "shade");
+  assert.equal(shaded.petX, PET_WORLD.treeShelterX);
 });
 
 test("rain changes the world into a shelter-seeking behavior", () => {

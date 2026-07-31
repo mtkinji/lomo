@@ -10,11 +10,12 @@ export const PET_WORLD = {
   rolloverDuration: 1200,
   treeShelterX: 112,
   sunPatchX: 366,
+  sunBaskDuration: 5600,
   maxWeatherSway: 2.2,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
-export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "rollover" | "seek-shelter" | "shelter" | "bask" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 
 export interface WorldPoint {
   x: number;
@@ -94,7 +95,7 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
       ...state,
       weather,
       weatherElapsed: 0,
-      action: "bask",
+      action: "seek-sun",
       actionElapsed: 0,
       targetX: PET_WORLD.sunPatchX,
       facing: PET_WORLD.sunPatchX < state.petX ? -1 : 1,
@@ -263,7 +264,7 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
         rotation: 0,
       };
     }
-    if (state.action === "bask") {
+    if (state.action === "seek-sun") {
       return {
         ...next,
         petX: PET_WORLD.sunPatchX,
@@ -275,11 +276,48 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
         rotation: 0,
       };
     }
+    if (state.action === "bask") {
+      if (next.actionElapsed >= PET_WORLD.sunBaskDuration) {
+        return {
+          ...next,
+          petX: PET_WORLD.treeShelterX,
+          cameraX: clampCameraX(PET_WORLD.treeShelterX, next.zoom),
+          action: "shade",
+          actionElapsed: 0,
+          targetX: null,
+          poseY: 0,
+          rotation: 0,
+        };
+      }
+      return { ...next, poseY: 0, rotation: 0 };
+    }
+    if (state.action === "seek-shade") {
+      return {
+        ...next,
+        petX: PET_WORLD.treeShelterX,
+        cameraX: clampCameraX(PET_WORLD.treeShelterX, next.zoom),
+        action: "shade",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
     if (next.actionElapsed >= Math.min(300, PET_WORLD.rolloverDuration)) return finishAction({ ...next, poseY: 0, rotation: 0 });
     return { ...next, poseY: 0, rotation: 0 };
   }
 
-  if (state.action === "rollover") {
+  if (state.action === "bask" && state.weather === "sunny" && next.actionElapsed >= PET_WORLD.sunBaskDuration) {
+    next = {
+      ...next,
+      action: "seek-shade",
+      actionElapsed: 0,
+      targetX: PET_WORLD.treeShelterX,
+      facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
+      poseY: 0,
+      rotation: 0,
+    };
+  } else if (state.action === "rollover") {
     if (next.actionElapsed >= PET_WORLD.rolloverDuration) next = finishAction(next);
     else {
       const pose = resolveRolloverPose(next.actionElapsed);
@@ -314,19 +352,22 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
           poseY: 0,
           rotation: 0,
         };
-      } else if (state.action === "bask") {
+      } else if (state.action === "seek-sun") {
         next = { ...next, petX: state.targetX, targetX: null, action: "bask", actionElapsed: 0, poseY: 0 };
+      } else if (state.action === "seek-shade") {
+        next = { ...next, petX: state.targetX, targetX: null, action: "shade", actionElapsed: 0, poseY: 0 };
       } else next = finishAction({ ...next, petX: state.targetX });
     }
     else {
-      const running = state.action !== "seek-shelter" && state.action !== "bask" && Math.abs(distance) > 52;
-      const speed = running ? 0.052 : state.action === "seek-shelter" ? 0.032 : 0.024;
+      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade";
+      const running = !directedWalk && Math.abs(distance) > 52;
+      const speed = running ? 0.052 : directedWalk ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
       next.facing = distance < 0 ? -1 : 1;
-      if (state.action !== "seek-shelter" && state.action !== "bask") next.action = running ? "run" : "walk";
+      if (!directedWalk) next.action = running ? "run" : "walk";
       next.poseY = 0;
     }
-  } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask") {
+  } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask" || state.action === "shade") {
     next.poseY = 0;
     next.rotation = 0;
   } else if (next.insect.active) {
@@ -352,10 +393,11 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
 
 export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" {
   if (action === "walk" || action === "run") return action;
-  if (action === "bask" || action === "seek-shelter") return "walk";
+  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade") return "walk";
+  if (action === "bask") return "idle";
   if (action === "jump") return "greet";
   if (action === "pounce" || action === "greet") return "greet";
   if (action === "track") return "discover";
-  if (action === "rollover" || action === "shelter" || action === "focus") return "sleep";
+  if (action === "rollover" || action === "shelter" || action === "shade" || action === "focus") return "sleep";
   return "idle";
 }

@@ -105,6 +105,75 @@ function drawGrassTuft(context: CanvasRenderingContext2D, x: number, y: number) 
   context.fillRect(x + 1, y - 4, 2, 1);
 }
 
+function drawPixelCloud(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  palette: HabitatPalette,
+  rain: boolean,
+) {
+  const unit = Math.max(2, Math.round(width / 12));
+  context.fillStyle = rain ? palette.deep : palette.skyLight;
+  context.fillRect(x + unit, y + unit * 2, width - unit * 2, unit * 2);
+  context.fillRect(x + unit * 3, y + unit, width - unit * 6, unit * 3);
+  context.fillRect(x + unit * 5, y, width - unit * 9, unit * 4);
+  context.fillStyle = rain ? palette.outline : palette.cream;
+  context.globalAlpha = rain ? 0.22 : 0.46;
+  context.fillRect(x + unit * 2, y + unit * 2, width - unit * 5, unit);
+  context.globalAlpha = 1;
+}
+
+function drawDistantPines(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  startX: number,
+  endX: number,
+  baseline: number,
+) {
+  context.fillStyle = palette.deep;
+  context.globalAlpha = 0.46;
+  for (let x = startX; x < endX; x += 17) {
+    const height = 11 + Math.abs((x * 7) % 14);
+    context.fillRect(x, baseline - height, 2, height);
+    context.fillRect(x - 3, baseline - height + 5, 8, 2);
+    context.fillRect(x - 5, baseline - height + 9, 12, 2);
+    context.fillRect(x - 7, baseline - height + 13, 16, 2);
+  }
+  context.globalAlpha = 1;
+}
+
+function drawWorldPlant(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  x: number,
+  groundY: number,
+  height: number,
+  sway: number,
+  bloom = false,
+) {
+  context.save();
+  context.translate(x, groundY);
+  context.rotate((sway * Math.PI) / 180);
+  context.fillStyle = palette.deep;
+  context.fillRect(0, -height, 1, height);
+  context.fillStyle = palette.leaf;
+  context.fillRect(-4, -height + 5, 4, 2);
+  context.fillRect(1, -height + 9, 5, 2);
+  context.fillRect(-3, -height + 13, 3, 2);
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-3, -height + 5, 2, 1);
+  context.fillRect(2, -height + 9, 2, 1);
+  if (bloom) {
+    context.fillStyle = palette.bloom;
+    context.fillRect(-2, -height - 2, 5, 3);
+    context.fillRect(0, -height - 4, 2, 7);
+    context.fillStyle = palette.cream;
+    context.fillRect(0, -height - 1, 1, 1);
+  }
+  context.restore();
+}
+
 function drawShelterTree(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -114,32 +183,85 @@ function drawShelterTree(
 ) {
   context.save();
   context.translate(x, groundY);
-  context.fillStyle = palette.outline;
-  context.fillRect(-6, -66, 12, 67);
-  context.fillStyle = palette.deep;
-  context.fillRect(-3, -64, 6, 64);
-  context.fillStyle = palette.groundDark;
-  context.fillRect(0, -57, 3, 47);
-  context.fillRect(-15, -2, 31, 3);
 
-  context.translate(0, -65);
-  context.rotate((sway * Math.PI) / 180);
+  // Root shadow is embedded in the terrain, never a separate platform.
+  context.fillStyle = palette.groundDark;
+  context.globalAlpha = 0.52;
+  context.fillRect(-40, 1, 80, 3);
+  context.fillRect(-31, 4, 61, 2);
+  context.globalAlpha = 1;
+
+  // Ancient stepped trunk and roots.
   context.fillStyle = palette.outline;
-  context.fillRect(-33, -28, 64, 34);
-  context.fillRect(-24, -39, 45, 48);
-  context.fillRect(-12, -47, 27, 55);
+  context.fillRect(-10, -67, 20, 68);
+  context.fillRect(-7, -83, 14, 18);
+  context.fillRect(-16, -4, 32, 5);
+  context.fillRect(-23, -2, 12, 3);
+  context.fillRect(11, -2, 17, 3);
+  context.fillRect(-14, -57, 9, 11);
+  context.fillRect(6, -63, 11, 9);
+  context.fillStyle = palette.deep;
+  context.fillRect(-7, -65, 14, 63);
+  context.fillRect(-4, -80, 9, 17);
+  context.fillRect(-13, -54, 7, 7);
+  context.fillRect(7, -60, 8, 5);
+  context.fillStyle = palette.groundDark;
+  context.fillRect(-5, -59, 4, 51);
+  context.fillRect(3, -71, 3, 34);
+  context.fillRect(-11, -48, 3, 27);
+  context.fillRect(-19, -1, 18, 2);
+  context.fillRect(5, -1, 21, 2);
+  context.fillStyle = palette.groundLight;
+  context.globalAlpha = 0.5;
+  context.fillRect(0, -61, 2, 18);
+  context.fillRect(-4, -34, 2, 9);
+  context.globalAlpha = 1;
+
+  context.translate(0, -78);
+  context.rotate((sway * Math.PI) / 180);
+
+  // One broad canopy assembled from layered pixel clusters.
+  context.fillStyle = palette.outline;
+  context.fillRect(-42, -24, 82, 29);
+  context.fillRect(-34, -35, 67, 44);
+  context.fillRect(-21, -44, 43, 55);
+  context.fillRect(-49, -12, 24, 17);
+  context.fillRect(28, -17, 19, 20);
   context.fillStyle = palette.leaf;
-  context.fillRect(-31, -25, 58, 28);
-  context.fillRect(-22, -36, 39, 39);
-  context.fillRect(-10, -44, 21, 45);
+  context.fillRect(-39, -21, 76, 23);
+  context.fillRect(-31, -32, 61, 35);
+  context.fillRect(-18, -41, 37, 46);
+  context.fillRect(-46, -9, 20, 11);
+  context.fillRect(29, -14, 15, 14);
+  context.fillStyle = palette.deep;
+  context.fillRect(-33, -16, 19, 10);
+  context.fillRect(8, -29, 18, 12);
+  context.fillRect(21, -10, 14, 8);
+  context.fillRect(-13, -37, 12, 9);
   context.fillStyle = palette.leafLight;
-  context.fillRect(-23, -30, 15, 8);
-  context.fillRect(2, -38, 12, 11);
-  context.fillRect(13, -20, 11, 8);
+  context.fillRect(-27, -28, 16, 7);
+  context.fillRect(-9, -35, 13, 6);
+  context.fillRect(8, -38, 10, 8);
+  context.fillRect(19, -23, 13, 7);
+  context.fillRect(-39, -8, 12, 5);
+  context.fillRect(33, -9, 8, 5);
   context.fillStyle = palette.cream;
-  context.globalAlpha = 0.42;
-  context.fillRect(-4, -31, 5, 4);
-  context.fillRect(8, -17, 4, 3);
+  context.globalAlpha = 0.36;
+  context.fillRect(-24, -26, 5, 3);
+  context.fillRect(-4, -34, 4, 3);
+  context.fillRect(12, -36, 4, 3);
+  context.fillRect(24, -21, 4, 3);
+  context.globalAlpha = 1;
+
+  // Hanging vines make the canopy feel inhabited and clarify shelter depth.
+  context.fillStyle = palette.deep;
+  context.fillRect(-34, 1, 1, 13);
+  context.fillRect(34, -1, 1, 18);
+  context.fillRect(20, 2, 1, 10);
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-36, 8, 3, 2);
+  context.fillRect(34, 10, 3, 2);
+  context.fillRect(18, 7, 3, 2);
   context.restore();
 }
 
@@ -164,9 +286,14 @@ function drawWeather(
     }
     if (foreground) {
       context.fillStyle = palette.skyLight;
-      context.globalAlpha = 0.32;
-      context.fillRect(18, 213, 26, 2);
-      context.fillRect(132, 221, 18, 2);
+      context.globalAlpha = 0.42;
+      const ripple = Math.floor(world.weatherElapsed / 180) % 10;
+      context.fillRect(14 - ripple / 2, 214, 18 + ripple, 1);
+      context.fillRect(102 - ripple / 3, 224, 12 + ripple, 1);
+      context.fillRect(139 - ripple / 4, 218, 8 + ripple / 2, 1);
+      context.fillStyle = palette.deep;
+      context.globalAlpha = 0.18;
+      context.fillRect(0, 207, ENGINE_SCENE.width, 4);
     }
     context.restore();
   }
@@ -187,14 +314,15 @@ function drawWeather(
 
   if (world.weather === "sunny" && foreground) {
     context.save();
-    const pulse = 0.05 + (Math.sin(world.weatherElapsed / 900) + 1) * 0.025;
+    const pulse = 0.055 + (Math.sin(world.weatherElapsed / 900) + 1) * 0.02;
+    const sunPatchScreenX = ENGINE_SCENE.width / 2 + (PET_WORLD.sunPatchX - world.cameraX) * world.zoom;
     context.globalAlpha = pulse;
     context.fillStyle = palette.bloom;
     context.beginPath();
-    context.moveTo(112, 0);
-    context.lineTo(160, 0);
-    context.lineTo(160, 154);
-    context.lineTo(137, 168);
+    context.moveTo(Math.max(84, sunPatchScreenX - 19), 0);
+    context.lineTo(Math.min(166, sunPatchScreenX + 11), 0);
+    context.lineTo(Math.min(174, sunPatchScreenX + 31), 208);
+    context.lineTo(Math.max(-14, sunPatchScreenX - 31), 208);
     context.closePath();
     context.fill();
     context.restore();
@@ -209,100 +337,138 @@ function drawHabitat(
   world: PetWorldState,
 ) {
   const groundY = ENGINE_SCENE.groundY;
-  context.fillStyle = palette.sky;
-  context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+
+  // Sky is built from broad color bands so it gains depth without losing the
+  // crisp pixel language of the creature.
   context.fillStyle = palette.skyLight;
-  context.fillRect(0, 0, ENGINE_SCENE.width, 24);
+  context.fillRect(0, 0, ENGINE_SCENE.width, 58);
+  context.fillStyle = palette.sky;
+  context.fillRect(0, 58, ENGINE_SCENE.width, 71);
   context.fillStyle = palette.skyDeep;
-  context.fillRect(0, 112, ENGINE_SCENE.width, 96);
+  context.fillRect(0, 129, ENGINE_SCENE.width, groundY - 129);
 
   if (world.weather === "rain") {
-    context.fillStyle = "rgba(39, 58, 66, 0.18)";
+    context.fillStyle = "rgba(31, 49, 55, 0.22)";
     context.fillRect(0, 0, ENGINE_SCENE.width, groundY);
+  }
+
+  // Celestial light belongs to the sunny destination, so camera travel subtly
+  // changes its relationship to the meadow instead of pinning it to the UI.
+  if (world.weather !== "rain") {
+    const sunX = 126 + (PET_WORLD.sunPatchX - world.cameraX) * 0.035;
+    context.fillStyle = palette.bloom;
+    context.globalAlpha = world.weather === "sunny" ? 0.94 : 0.62;
+    context.fillRect(Math.round(sunX - 5), 28, 11, 11);
+    context.fillRect(Math.round(sunX - 2), 23, 5, 21);
+    context.fillRect(Math.round(sunX - 10), 31, 21, 5);
     context.fillStyle = palette.skyLight;
-    context.globalAlpha = 0.72;
-    context.fillRect(0, 31, 58, 13);
-    context.fillRect(43, 24, 78, 19);
-    context.fillRect(103, 34, 57, 13);
+    context.fillRect(Math.round(sunX - 1), 31, 3, 3);
     context.globalAlpha = 1;
   }
 
-  if (world.weather !== "rain") {
-    context.fillStyle = palette.bloom;
-    context.fillRect(125, 34, 7, 7);
-    context.fillRect(127, 30, 3, 15);
-    context.fillRect(121, 36, 15, 3);
-    context.fillStyle = palette.skyLight;
-    context.fillRect(128, 35, 2, 2);
+  // Slow clouds: independent atmospheric motion layered behind the terrain.
+  context.save();
+  const cloudDrift = world.weather === "breeze" ? world.weatherElapsed * 0.003 : world.weatherElapsed * 0.00035;
+  context.translate(80 - world.cameraX * 0.055 - cloudDrift, 0);
+  for (let x = -90; x < PET_WORLD.width + 180; x += 154) {
+    drawPixelCloud(context, x, 48 + Math.abs((x / 11) % 29), 34 + Math.abs(x % 15), palette, world.weather === "rain");
   }
+  context.restore();
+
+  // Two mountain planes and a pine line create actual parallax as the camera
+  // follows Leafling through the wider world.
+  context.save();
+  context.translate(80 - world.cameraX * 0.08, 0);
+  context.fillStyle = palette.sky;
+  context.globalAlpha = 0.78;
+  for (let x = -120; x < PET_WORLD.width + 180; x += 128) drawPixelHill(context, x, 174, 118, 51 + Math.abs(x % 21));
+  context.globalAlpha = 1;
+  context.restore();
 
   context.save();
-  context.translate(ENGINE_SCENE.width / 2, 0);
-  context.translate(-world.cameraX * 0.12, 0);
-  context.fillStyle = palette.sky;
-  for (let x = -80; x < PET_WORLD.width + 120; x += 118) drawPixelHill(context, x, 164, 102, 34 + (x % 3) * 4);
+  context.translate(80 - world.cameraX * 0.19, 0);
   context.fillStyle = palette.deep;
-  for (let x = -30; x < PET_WORLD.width + 80; x += 29) {
-    context.fillRect(x, 154 - (x % 4), 1, 10 + (x % 4));
-    context.fillRect(x - 2, 156 - (x % 3), 5, 2);
-  }
-  context.fillStyle = palette.skyLight;
-  context.fillRect(34, 44, 19, 3);
-  context.fillRect(39, 41, 10, 3);
-  context.fillRect(196, 67, 24, 3);
-  context.fillRect(202, 64, 12, 3);
-  context.fillRect(356, 34, 17, 3);
-  context.fillRect(360, 31, 9, 3);
+  context.globalAlpha = world.weather === "rain" ? 0.34 : 0.25;
+  for (let x = -80; x < PET_WORLD.width + 160; x += 91) drawPixelHill(context, x, 188, 86, 28 + Math.abs(x % 17));
+  context.globalAlpha = 1;
+  drawDistantPines(context, palette, -100, PET_WORLD.width + 150, 190);
   context.restore();
 
   context.save();
   worldTransform(context, world);
 
+  // Terrain has an inset edge, roots, and scattered strata rather than a flat
+  // two-tone slab. Every cue remains inside the ground plane.
   context.fillStyle = palette.ground;
   context.fillRect(0, groundY, PET_WORLD.width, ENGINE_SCENE.height - groundY + 30);
   context.fillStyle = palette.groundLight;
-  context.fillRect(0, groundY + 3, PET_WORLD.width, 4);
+  context.fillRect(0, groundY + 3, PET_WORLD.width, 3);
   context.fillStyle = palette.groundDark;
-  context.fillRect(0, groundY, PET_WORLD.width, 3);
+  context.fillRect(0, groundY, PET_WORLD.width, 2);
+  context.fillStyle = palette.leaf;
+  context.fillRect(0, groundY - 2, PET_WORLD.width, 2);
 
-  for (let x = 8; x < PET_WORLD.width; x += 47) {
-    context.fillRect(x, groundY + 17 + ((x / 47) % 3) * 3, 22, 3);
+  // Persistent cool shade and a weather-dependent pool of warm light make the
+  // two behavioral destinations visually legible without labels or meters.
+  context.fillStyle = palette.outline;
+  context.globalAlpha = 0.19;
+  context.fillRect(PET_WORLD.treeShelterX - 43, groundY + 2, 86, 3);
+  context.fillRect(PET_WORLD.treeShelterX - 31, groundY + 5, 61, 2);
+  context.globalAlpha = 1;
+  if (world.weather === "sunny") {
+    context.fillStyle = palette.bloom;
+    context.globalAlpha = 0.28;
+    context.fillRect(PET_WORLD.sunPatchX - 37, groundY - 1, 74, 4);
+    context.fillRect(PET_WORLD.sunPatchX - 27, groundY + 3, 54, 3);
+    context.fillRect(PET_WORLD.sunPatchX - 17, groundY + 6, 34, 2);
+    context.globalAlpha = 1;
   }
 
   context.fillStyle = palette.groundDark;
-  for (let x = 14; x < PET_WORLD.width; x += 23) drawGrassTuft(context, x, groundY);
+  for (let x = 8; x < PET_WORLD.width; x += 43) {
+    context.fillRect(x, groundY + 15 + ((x / 43) % 3) * 4, 18 + (x % 9), 2);
+    context.fillRect(x + 11, groundY + 27 + (x % 7), 9, 1);
+  }
+
+  context.fillStyle = palette.groundDark;
+  for (let x = 12; x < PET_WORLD.width; x += 17) drawGrassTuft(context, x, groundY);
   context.fillStyle = palette.groundLight;
-  for (let x = 7; x < PET_WORLD.width; x += 31) {
+  for (let x = 7; x < PET_WORLD.width; x += 29) {
     context.fillRect(x, groundY + 10 + (x % 11), 2, 1);
     context.fillRect(x + 8, groundY + 29 + (x % 7), 3, 1);
   }
 
-  for (let x = 28; x < PET_WORLD.width; x += 86) {
-    context.fillStyle = palette.deep;
-    context.fillRect(x, groundY - 12, 2, 15);
-    context.fillStyle = palette.leaf;
-    context.fillRect(x - 4, groundY - 16, 5, 5);
-    context.fillRect(x + 1, groundY - 22, 5, 9);
-    context.fillRect(x - 7, groundY - 11, 6, 4);
-    context.fillStyle = palette.leafLight;
-    context.fillRect(x + 2, groundY - 20, 2, 5);
+  for (let x = 31; x < PET_WORLD.width; x += 73) {
+    drawWorldPlant(
+      context,
+      palette,
+      x,
+      groundY,
+      14 + Math.abs(x % 9),
+      world.weatherSway * (0.75 + (x % 3) * 0.12),
+      x % 2 === 1,
+    );
   }
 
   drawShelterTree(context, palette, PET_WORLD.treeShelterX, groundY, world.weatherSway * 0.7);
 
-  for (let x = 64; x < PET_WORLD.width; x += 132) {
+  // Distinct rock and flower clusters recur with variation but never become
+  // collectibles or an inventory layer.
+  for (let x = 61; x < PET_WORLD.width; x += 109) {
     context.fillStyle = palette.outline;
-    context.fillRect(x + 2, groundY - 6, 13, 6);
-    context.fillRect(x, groundY - 3, 18, 3);
+    context.fillRect(x + 2, groundY - 7, 15, 7);
+    context.fillRect(x, groundY - 3, 21, 3);
     context.fillStyle = palette.deep;
-    context.fillRect(x + 5, groundY - 8, 8, 3);
+    context.fillRect(x + 6, groundY - 9, 9, 4);
+    context.fillRect(x + 14, groundY - 5, 5, 3);
     context.fillStyle = palette.groundLight;
-    context.fillRect(x + 7, groundY - 7, 3, 1);
+    context.fillRect(x + 8, groundY - 8, 4, 1);
     context.fillStyle = palette.bloom;
-    context.fillRect(x + 25, groundY - 5, 2, 3);
-    context.fillRect(x + 22, groundY - 7, 2, 2);
+    context.fillRect(x + 27, groundY - 6, 3, 3);
+    context.fillRect(x + 23, groundY - 9, 3, 3);
     context.fillStyle = palette.deep;
-    context.fillRect(x + 23, groundY - 5, 1, 5);
+    context.fillRect(x + 24, groundY - 6, 1, 6);
+    context.fillRect(x + 28, groundY - 4, 1, 4);
   }
 
   if (motion === "care") {
@@ -327,6 +493,29 @@ function drawHabitat(
 
   context.restore();
   drawWeather(context, palette, world, false);
+}
+
+function drawNearForeground(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+) {
+  context.save();
+  worldTransform(context, world);
+  context.fillStyle = palette.deep;
+  context.globalAlpha = 0.82;
+  for (let x = 5; x < PET_WORLD.width; x += 19) {
+    const bend = Math.round(world.weatherSway * (1 + (x % 4) * 0.15));
+    context.fillRect(x, ENGINE_SCENE.groundY - 4, 1, 5);
+    context.fillRect(x + bend, ENGINE_SCENE.groundY - 6 - (x % 3), 1, 3 + (x % 3));
+    if (x % 3 === 0) context.fillRect(x - 2 + bend, ENGINE_SCENE.groundY - 4, 3, 1);
+  }
+  context.fillStyle = palette.leafLight;
+  context.globalAlpha = 0.44;
+  for (let x = 17; x < PET_WORLD.width; x += 47) {
+    context.fillRect(x, ENGINE_SCENE.groundY - 2, 4, 1);
+  }
+  context.restore();
 }
 
 function renderScene(
@@ -437,6 +626,7 @@ function renderScene(
     });
   }
   context.restore();
+  drawNearForeground(context, palette, world);
   drawWeather(context, palette, world, true);
 }
 
