@@ -11,8 +11,9 @@ serves:
 briefs:
   - kwilt-games-capability-integration
   - nearby-game-join
+  - bank-roll-pacing
 status: shipping
-last_reviewed: 2026-07-30
+last_reviewed: 2026-07-31
 ---
 
 # Games
