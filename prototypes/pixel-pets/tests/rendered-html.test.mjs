@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 26 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 27 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -53,10 +53,12 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 26 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 26/);
-  assert.match(prototype, /A little life,<br \/>growing beside yours\./i);
-  assert.match(prototype, /Do something real, give Moss one care moment/);
+  assert.match(layout, /Pet Engine Study 27 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 27/);
+  assert.match(prototype, /Something real<br \/>takes root here\./i);
+  assert.match(prototype, /Complete something real and stay for the little answer/);
+  assert.match(prototype, /Let the little world answer/);
+  assert.match(prototype, /worldAnswering/);
   assert.match(prototype, /Let the next morning arrive/);
   assert.match(prototype, /Advance prototype time · nothing is lost/);
   assert.match(prototype, /resolvePrototypeDayPhase/);
@@ -106,6 +108,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /setWorldWeather/);
   assert.match(world, /weatherPhase/);
   assert.match(world, /weatherIntensity/);
+  assert.match(world, /weatherResponsePending/);
   assert.match(world, /weather-notice/);
   assert.match(world, /wind-brace/);
   assert.match(world, /rain-flinch/);

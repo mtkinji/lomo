@@ -44,6 +44,7 @@ The prototype lets a tester:
 - keep weather prediction and frame-by-frame physics on one immutable flight profile so environmental play remains legible and portable;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do, Focus session, or Play-together moment and watch each leave a distinct persistent habitat trace;
+- let each meaningful action own one complete notice-and-response vignette before care appears, even when ambient weather was already arriving;
 - leave and return to the same four bounded, privacy-safe life echoes in an otherwise calm fresh world;
 - simulate a completed Focus session;
 - give one care moment per prototype day;

@@ -131,6 +131,17 @@ uses real elapsed days and omits this accelerator. Neither surface permits
 repeated care, interruption of an evolution handoff, a daily reward, or loss
 from absence.
 
+A meaningful Kwilt action owns one complete visible answer before care becomes
+available to press. Its life echo preempts autonomous direction and may cancel
+a still-pending instinctive Pet response from weather that was already
+arriving; the atmospheric layer may continue settling, but it cannot redirect
+the Pet mid-vignette or queue a second mandatory performance. While Moss is
+noticing, approaching, or responding to the new echo, the capability shows the
+live world-language and a passive settling affordance instead of generic
+care-ready copy. Care appears only after the bounded answer is grounded and
+quiet. This is scene priority, not a reward delay, action score, or second
+progress model.
+
 The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
 Camera direction uses the same portable semantic boundary. Quiet, travel,

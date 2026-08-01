@@ -144,6 +144,28 @@ test("a completed intention opens one world memory that Moss notices and admires
   assert.equal(blooming.blooms[0].growth, 1);
 });
 
+test("a life echo owns the scene even as arriving weather settles", () => {
+  let world = setWorldWeather(createPetWorldState(), "sunny");
+  world = stepPetWorld(world, PET_WORLD.weatherArrivalDuration / 2, false);
+  world = plantLifeEcho(world, "todo", world.petX + 48);
+
+  world = stepPetWorld(world, PET_WORLD.weatherArrivalDuration / 2, false);
+
+  assert.equal(world.weatherPhase, "settled");
+  assert.equal(world.action, "bloom-notice");
+  assert.equal(world.weatherResponsePending, false);
+
+  for (let step = 0; step < 40 && world.action !== "idle"; step += 1) {
+    world = stepPetWorld(world, 200, false);
+  }
+  assert.equal(world.action, "idle");
+  assert.equal(world.weatherResponsePending, false);
+
+  world = stepPetWorld(world, 16, false);
+  assert.equal(world.action, "idle");
+  assert.equal(world.weatherResponsePending, false);
+});
+
 test("doing, focusing, and playing create distinct traces in one memory system", () => {
   let world = createPetWorldState();
   world = plantLifeEcho(world, "todo", 286);
@@ -167,6 +189,7 @@ test("shared play keeps its breeze and visitor while planting a paired memory", 
   assert.equal(playing.visitor.active, true);
   assert.equal(playing.visitor.kind, "firefly");
   assert.equal(playing.action, "track");
+  assert.equal(playing.weatherResponsePending, false);
   assert.deepEqual(playing.blooms.map((memory) => memory.source), ["play"]);
 });
 

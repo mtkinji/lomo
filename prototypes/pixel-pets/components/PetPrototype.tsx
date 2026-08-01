@@ -300,13 +300,25 @@ export function PetPrototype() {
     : `${momentsToGrow} until ${state.stage === "baby" ? "young form" : "guardian form"}`;
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const dayPhase = resolvePrototypeDayPhase(state);
+  const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
+  const playAnswering = world.visitor.active || ["track", "pounce", "aerial-pounce"].includes(world.action);
+  const worldAnswering = state.careAvailable && (
+    (state.pendingSource === "todo" && bloomAnswering)
+    || (state.pendingSource === "focus" && bloomAnswering)
+    || (state.pendingSource === "play" && playAnswering)
+  );
+  const worldAnswerDetail = state.pendingSource === "focus"
+    ? `${state.name} is noticing the still light your Focus left behind.`
+    : state.pendingSource === "play"
+      ? `${state.name} is following the little spark that play brought in.`
+      : `${state.name} is going to see what took root.`;
   const currentStatus = useMemo(() => {
-    if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
     if (state.reaction === "evolve") return {
       title: state.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes",
       detail: state.lastReceipt,
     };
     if (worldMessage) return worldMessage;
+    if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
   }, [dayHasCare, state.careAvailable, state.lastReceipt, state.reaction, state.stage, worldMessage]);
@@ -386,15 +398,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 26</span>
-        <h1>A little life,<br />growing beside yours.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 27</span>
+        <h1>Something real<br />takes root here.</h1>
         <p>
-          Do something real, give Moss one care moment, then let the next morning arrive. Three cared-for days reveal Young; eight reveal Guardian.
+          Complete something real and stay for the little answer. Moss notices what changed before today’s care becomes yours to give.
         </p>
         <dl className="engine-facts">
-          <div><dt>Do</dt><dd>changes the meadow</dd></div>
+          <div><dt>Do</dt><dd>leaves a living echo</dd></div>
+          <div><dt>Watch</dt><dd>Moss notices first</dd></div>
           <div><dt>Care</dt><dd>happens once today</dd></div>
-          <div><dt>Tomorrow</dt><dd>loses nothing</dd></div>
         </dl>
       </header>
 
@@ -451,6 +463,14 @@ export function PetPrototype() {
             <div>
               <strong>{world.action === "focus" ? "Quietly focusing together" : "Settling under the old tree"}</strong>
               <small>{world.action === "focus" ? `${state.name} is curled beneath the old tree` : `${state.name} is padding to a quiet place`} · {Math.ceil(world.focus.remainingMs / 1000)} seconds</small>
+            </div>
+          </div>
+        ) : worldAnswering ? (
+          <div className="focus-session world-answering" aria-live="polite">
+            <span className="answering-sprout" aria-hidden="true" />
+            <div>
+              <strong>Let the little world answer</strong>
+              <small>{worldAnswerDetail}</small>
             </div>
           </div>
         ) : dayPhase === "care-ready" ? (
@@ -530,6 +550,7 @@ export function PetPrototype() {
             <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
+            <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>

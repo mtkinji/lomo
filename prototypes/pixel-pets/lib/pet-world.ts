@@ -120,6 +120,7 @@ export interface PetWorldState {
   rotation: number;
   weather: PetWeather;
   weatherPhase: PetWeatherPhase;
+  weatherResponsePending: boolean;
   weatherIntensity: number;
   weatherElapsed: number;
   weatherSway: number;
@@ -203,6 +204,7 @@ export function createPetWorldState(): PetWorldState {
     rotation: 0,
     weather: "sunny",
     weatherPhase: "settled",
+    weatherResponsePending: false,
     weatherIntensity: 1,
     weatherElapsed: 0,
     weatherSway: 0,
@@ -230,6 +232,7 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
     ...state,
     weather,
     weatherPhase: "arriving",
+    weatherResponsePending: true,
     weatherIntensity: 0,
     weatherElapsed: 0,
     weatherSway: 0,
@@ -251,6 +254,14 @@ export function nextWeatherKind(weather: PetWeather): PetWeather {
   if (weather === "sunny") return "breeze";
   if (weather === "breeze") return "rain";
   return "sunny";
+}
+
+function canBeginWeatherResponse(state: PetWorldState) {
+  return !state.focus.active
+    && !state.visitor.active
+    && state.hand.phase === "quiet"
+    && state.playLeaf.phase === "perched"
+    && ["idle", "greet", "track", "weather-notice"].includes(state.action);
 }
 
 export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): PetWorldState {
@@ -287,6 +298,7 @@ export function plantLifeEcho(
     ...state,
     action: "bloom-notice",
     actionElapsed: 0,
+    weatherResponsePending: false,
     targetX: x,
     facing: faceToward(state.petX, x, state.facing),
     poseY: 0,
@@ -741,7 +753,8 @@ export function spawnVisitor(
 }
 
 export function beginSharedPlayEcho(state: PetWorldState, stage: PetStage): PetWorldState {
-  const world = spawnVisitor(setWorldWeather(plantLifeEcho(state, "play"), "breeze"), stage);
+  const breeze = setWorldWeather(plantLifeEcho(state, "play"), "breeze");
+  const world = spawnVisitor({ ...breeze, weatherResponsePending: false }, stage);
   return { ...world, action: "track", actionElapsed: 0, targetX: null };
 }
 
@@ -810,10 +823,9 @@ export function stepPetWorld(
       : clamp(weatherElapsed / PET_WORLD.weatherArrivalDuration, 0, 1)
     : state.weatherIntensity;
   const weatherPhase: PetWeatherPhase = weatherIntensity >= 1 ? "settled" : state.weatherPhase;
-  const weatherResponseStarted = arrivingWeather
+  const weatherResponseStarted = state.weatherResponsePending
     && weatherPhase === "settled"
-    && !state.focus.active
-    && state.hand.phase === "quiet";
+    && canBeginWeatherResponse(state);
   const focusAtFrame = state.focus.active
     ? {
         ...state.focus,
@@ -855,6 +867,7 @@ export function stepPetWorld(
   }
 
   if (weatherResponseStarted) {
+    next.weatherResponsePending = false;
     if (state.weather === "rain") {
       next = {
         ...next,

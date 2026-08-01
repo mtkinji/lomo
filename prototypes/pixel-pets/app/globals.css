@@ -335,6 +335,38 @@ summary:focus-visible {
 .morning-copy small { margin-top: 3px; color: var(--muted); font-size: 0.6rem; font-weight: 560; }
 
 .day-settling { min-height: 62px; }
+.world-answering {
+  min-height: 66px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 88%, white), var(--panel));
+}
+.answering-sprout {
+  position: relative;
+  width: 20px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+.answering-sprout::before {
+  position: absolute;
+  left: 9px;
+  bottom: 1px;
+  width: 2px;
+  height: 16px;
+  background: var(--accent-dark);
+  content: "";
+}
+.answering-sprout::after {
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  width: 10px;
+  height: 8px;
+  border-radius: 9px 1px 9px 1px;
+  background: var(--accent);
+  box-shadow: 7px 7px 0 -1px color-mix(in srgb, var(--accent) 72%, white);
+  content: "";
+  animation: answer-sprout 1.5s ease-in-out infinite;
+  transform-origin: 8px 11px;
+}
 .settling-leaves {
   width: 20px;
   flex: 0 0 auto;
@@ -347,6 +379,11 @@ summary:focus-visible {
 @keyframes settle-leaf {
   0%, 100% { transform: translateY(-2px) rotate(-8deg); opacity: 0.62; }
   50% { transform: translateY(3px) rotate(8deg); opacity: 1; }
+}
+
+@keyframes answer-sprout {
+  0%, 100% { transform: rotate(-5deg) scale(0.94); }
+  50% { transform: rotate(4deg) scale(1); }
 }
 
 .action-pair {
@@ -708,5 +745,6 @@ summary:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .loading-pixel { animation: none; }
   .focus-orb,
-  .settling-leaves { animation: none; }
+  .settling-leaves,
+  .answering-sprout::after { animation: none; }
 }
