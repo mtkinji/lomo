@@ -50,6 +50,11 @@ import {
   type WorldPoint,
 } from "@/lib/pet-world";
 import { createWindLeaf, isWindLeafHit } from "@/lib/pet-plaything";
+import {
+  resolveHabitatPerformanceIntensity,
+  resolveHabitatPerformance,
+  type HabitatPerformanceSnapshot,
+} from "@/lib/pet-habitat-performance";
 import { resolveVisitorPerformance, type VisitorPerformanceSnapshot } from "@/lib/pet-visitor-performance";
 import {
   createLivingDayDirector,
@@ -1147,6 +1152,118 @@ function habitatImageReady(image: HTMLImageElement) {
   return image.complete && image.naturalWidth > 0;
 }
 
+function drawCanopyCluster(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  x: number,
+  y: number,
+  shiftX: number,
+  shiftY: number,
+  scale = 1,
+) {
+  const px = Math.round(x + shiftX);
+  const py = Math.round(y + shiftY);
+  context.fillStyle = palette.deep;
+  context.fillRect(px - 4 * scale, py - 2 * scale, 9 * scale, 4 * scale);
+  context.fillRect(px - 2 * scale, py - 4 * scale, 5 * scale, 8 * scale);
+  context.fillStyle = palette.leaf;
+  context.fillRect(px - 3 * scale, py - 3 * scale, 6 * scale, 3 * scale);
+  context.fillRect(px, py - 1 * scale, 5 * scale, 3 * scale);
+  context.fillStyle = palette.leafLight;
+  context.fillRect(px - 2 * scale, py - 3 * scale, 3 * scale, 2 * scale);
+  context.fillStyle = palette.bloom;
+  context.globalAlpha *= 0.5;
+  context.fillRect(px + 2 * scale, py - 2 * scale, scale, scale);
+}
+
+function drawAuthoredHabitatPerformance(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  performance: HabitatPerformanceSnapshot,
+) {
+  const lead = performance.canopyLead;
+  const follow = performance.canopyFollow;
+  const drop = performance.canopyDrop;
+
+  context.save();
+  context.globalAlpha = 0.72;
+  drawCanopyCluster(context, palette, PET_WORLD.treeShelterX - 70, 107, lead * 0.9, drop, 1);
+  context.globalAlpha = 0.68;
+  drawCanopyCluster(context, palette, PET_WORLD.treeShelterX - 49, 80, lead * 0.72, drop * 0.8, 1);
+  context.globalAlpha = 0.62;
+  drawCanopyCluster(context, palette, PET_WORLD.treeShelterX - 20, 66, follow * 0.58, drop * 0.65, 1);
+  context.globalAlpha = 0.58;
+  drawCanopyCluster(context, palette, PET_WORLD.treeShelterX + 12, 84, follow * 0.76, drop * 0.82, 1);
+  context.restore();
+
+  const vines = [
+    { x: PET_WORLD.treeShelterX - 48, y: 113, length: 31, phase: 0.82 },
+    { x: PET_WORLD.treeShelterX - 25, y: 105, length: 23, phase: 1.08 },
+    { x: PET_WORLD.treeShelterX + 22, y: 101, length: 19, phase: 0.66 },
+  ];
+  context.save();
+  context.fillStyle = palette.deep;
+  context.globalAlpha = performance.material === "wet" ? 0.86 : 0.7;
+  for (const vine of vines) {
+    const bend = performance.vineLag * vine.phase;
+    for (let segment = 0; segment < vine.length; segment += 3) {
+      const progress = segment / vine.length;
+      const x = Math.round(vine.x + bend * progress * progress);
+      const y = Math.round(vine.y + segment + performance.canopyDrop * progress);
+      context.fillRect(x, y, segment % 6 === 0 ? 2 : 1, 3);
+    }
+    context.fillStyle = palette.leafLight;
+    context.fillRect(
+      Math.round(vine.x + bend),
+      Math.round(vine.y + vine.length + performance.canopyDrop),
+      3,
+      2,
+    );
+    context.fillStyle = palette.deep;
+  }
+  context.restore();
+
+  if (performance.dapple > 0.08) {
+    context.save();
+    context.fillStyle = palette.bloom;
+    context.globalAlpha = performance.dapple * 0.22;
+    context.fillRect(PET_WORLD.treeShelterX - 52, ENGINE_SCENE.groundY - 3, 18, 2);
+    context.fillRect(PET_WORLD.treeShelterX - 19, ENGINE_SCENE.groundY - 1, 11, 2);
+    context.fillRect(PET_WORLD.treeShelterX + 9, ENGINE_SCENE.groundY - 4, 15, 2);
+    context.restore();
+  }
+
+  if (performance.drip > 0.2) {
+    context.save();
+    context.fillStyle = palette.skyDeep;
+    context.globalAlpha = 0.4 + performance.drip * 0.34;
+    const dripOffset = performance.frame % 2 === 0 ? 0 : 5;
+    for (const [x, y] of [[-62, 119], [-39, 102], [-8, 92], [22, 104]] as const) {
+      context.fillRect(
+        Math.round(PET_WORLD.treeShelterX + x + performance.canopyLead * 0.35),
+        y + dripOffset,
+        1,
+        2 + Math.round(performance.drip * 2),
+      );
+    }
+    context.restore();
+  }
+
+  if (performance.looseLeaf > 0.18) {
+    context.save();
+    context.fillStyle = palette.leafLight;
+    context.globalAlpha = Math.min(0.72, performance.looseLeaf);
+    const travel = performance.role === "accent" ? 0 : 7;
+    context.fillRect(
+      Math.round(PET_WORLD.treeShelterX - 61 + performance.canopyLead * 1.4 + travel),
+      115 + travel,
+      3,
+      2,
+    );
+    context.restore();
+  }
+}
+
 function drawAuthoredHabitat(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -1154,6 +1271,7 @@ function drawAuthoredHabitat(
   progress: number,
   world: PetWorldState,
   habitat: HabitatImages,
+  habitatPerformance: HabitatPerformanceSnapshot,
   reducedMotion: boolean,
 ) {
   if (!habitatImageReady(habitat.backdrop) || !habitatImageReady(habitat.shelterTree)) {
@@ -1181,16 +1299,15 @@ function drawAuthoredHabitat(
 
   context.save();
   worldTransform(context, world);
-  context.translate(PET_WORLD.treeShelterX, ENGINE_SCENE.groundY);
-  context.rotate((world.weatherSway * 0.32 * Math.PI) / 180);
   context.imageSmoothingEnabled = false;
   context.drawImage(
     habitat.shelterTree,
-    -LEAFLING_HABITAT.shelterTree.anchor.x,
-    -LEAFLING_HABITAT.shelterTree.anchor.y,
+    PET_WORLD.treeShelterX - LEAFLING_HABITAT.shelterTree.anchor.x,
+    ENGINE_SCENE.groundY - LEAFLING_HABITAT.shelterTree.anchor.y,
     LEAFLING_HABITAT.shelterTree.size.width,
     LEAFLING_HABITAT.shelterTree.size.height,
   );
+  drawAuthoredHabitatPerformance(context, palette, habitatPerformance);
   context.restore();
 
   context.save();
@@ -1233,6 +1350,7 @@ function drawNearForeground(
   world: PetWorldState,
   habitat: HabitatImages,
   guardianWake: GuardianWakePresentation,
+  habitatPerformance: HabitatPerformanceSnapshot,
 ) {
   const hasAuthoredForeground = habitatImageReady(habitat.foreground);
   if (hasAuthoredForeground) {
@@ -1263,7 +1381,8 @@ function drawNearForeground(
         )
       : 0;
     const wakeBend = wakeDirection * Math.round(wakeBand * guardianWake.intensity * 8);
-    const bend = Math.round(world.weatherSway * (1 + (x % 4) * 0.15)) + wakeBend;
+    const materialBend = habitatPerformance.grassLean * (0.78 + (x % 4) * 0.11);
+    const bend = Math.round(materialBend) + wakeBend;
     context.fillRect(x, ENGINE_SCENE.groundY - 4, 1, 5);
     context.fillRect(x + bend, ENGINE_SCENE.groundY - 6 - (x % 3), 1, 3 + (x % 3));
     if (x % 3 === 0) context.fillRect(x - 2 + bend, ENGINE_SCENE.groundY - 4, 3, 1);
@@ -1483,8 +1602,14 @@ function renderScene(
 ) {
   const palette = PALETTES[paletteId];
   const guardianWake = resolveGuardianWakePresentation(world, reducedMotion);
+  const habitatPerformance = resolveHabitatPerformance(
+    world.weather,
+    resolveHabitatPerformanceIntensity(world.weatherIntensity, focusAtmosphere.hush),
+    world.weatherElapsed,
+    reducedMotion,
+  );
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
-  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat, reducedMotion);
+  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat, habitatPerformance, reducedMotion);
   drawGuardianWake(context, palette, world, guardianWake);
   drawCareEchoInvitation(context, palette, world, careEchoSource);
   drawFocusStillness(context, palette, world, focusAtmosphere);
@@ -1542,7 +1667,7 @@ function renderScene(
     showRig,
   );
   drawAfterRainSplash(context, world, reducedMotion);
-  drawNearForeground(context, palette, world, habitat, guardianWake);
+  drawNearForeground(context, palette, world, habitat, guardianWake, habitatPerformance);
   drawWeather(context, palette, world, true);
   drawDaylight(context, palette, world);
 }

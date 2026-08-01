@@ -122,6 +122,14 @@ the current adapter. It places Leafling low in the scene, draws contact cues
 inside the terrain rather than as a separate platform, and layers weather over
 the same authored place. Native, web, and desktop renderers can consume the
 same world coordinates, habitat assets, and frame snapshots.
+The habitat now also owns one renderer-neutral material-performance snapshot.
+The authored shelter tree remains a planted mass while foreground grass leads
+a gust, canopy accents follow, trailing vines recover last, rain adds downward
+weight and drips, and sun favors restrained dapple. The browser adapter draws
+those flexible accents over the stable illustration; Reduce Motion resolves one
+time-invariant pose rather than merely slowing the same oscillation. Shared
+Focus attenuates the same presentation intensity, so habitat acting cannot
+bypass the existing stillness authority.
 Weather now uses one portable directed-episode grammar: arrive, notice, respond,
 and settle. The Canvas adapter fades the whole event into the authored habitat,
 adds moving foreground vegetation, and keeps touch live while the world changes.

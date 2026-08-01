@@ -29,19 +29,20 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 35 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 36 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, evolution, habitat, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, engine, evolution, habitat, habitatPerformance, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-engine.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-evolution.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-habitat.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-habitat-performance.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-world.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-life-director.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-plaything.ts", import.meta.url), "utf8"),
@@ -53,12 +54,13 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 35 — Kwilt Lab/);
-  assert.match(layout, /og-study-35\.png/);
-  assert.match(prototype, /Pet Engine Study 35/);
-  assert.match(prototype, /Everything alive\.<br \/>Has acting\./i);
-  assert.match(prototype, /crawler carry weight, a firefly breathe light, and a sky moth bank/i);
+  assert.match(layout, /Pet Engine Study 36 — Kwilt Lab/);
+  assert.match(layout, /og-study-36\.png/);
+  assert.match(prototype, /Pet Engine Study 36/);
+  assert.match(prototype, /The world breathes\.<br \/>In layers\./i);
+  assert.match(prototype, /Roots hold\. Grass answers first\. The canopy follows/i);
   assert.match(prototype, /Visitor acting/);
+  assert.match(prototype, /Habitat acting/);
   assert.match(prototype, /data-testid="world-action-output"/);
   assert.match(prototype, /data-testid="attention-output"/);
   assert.match(prototype, /shouldShowSceneNarration/);
@@ -132,6 +134,10 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(habitat, /leafling-shelter-tree-v1\.png/);
   assert.match(habitat, /leafling-meadow-foreground-v1\.png/);
   assert.match(habitat, /weatherBakedIn: false/);
+  assert.match(habitatPerformance, /trunkRotation: 0/);
+  assert.match(habitatPerformance, /grassLean/);
+  assert.match(habitatPerformance, /vineLag/);
+  assert.match(canvas, /drawAuthoredHabitatPerformance/);
   assert.match(world, /stepPetWorld/);
   assert.match(world, /spawnVisitor/);
   assert.match(world, /sky-moth/);

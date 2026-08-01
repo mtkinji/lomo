@@ -17,6 +17,11 @@ import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling"
 import { createLivingDayDirector, type LivingDayDirectorState } from "@/lib/pet-life-director";
 import { VISITOR_PERFORMANCE_CLIPS, resolveVisitorPerformance } from "@/lib/pet-visitor-performance";
 import {
+  HABITAT_PERFORMANCE_CLIPS,
+  resolveHabitatPerformance,
+  resolveHabitatPerformanceIntensity,
+} from "@/lib/pet-habitat-performance";
+import {
   resolveWorldInteractionMessage,
   shouldShowSceneNarration,
 } from "@/lib/pet-world-message";
@@ -305,6 +310,12 @@ export function PetPrototype() {
   const visitorPerformance = world.visitor.active
     ? resolveVisitorPerformance(world.visitor, world.weather, state.reducedMotion)
     : null;
+  const habitatPerformance = resolveHabitatPerformance(
+    world.weather,
+    resolveHabitatPerformanceIntensity(world.weatherIntensity, focusAtmosphere.hush),
+    world.weatherElapsed,
+    state.reducedMotion,
+  );
   const growthTitle = state.stage === "guardian"
     ? "Guardian form"
     : state.stage === "young"
@@ -456,15 +467,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 35</span>
-        <h1>Everything alive.<br />Has acting.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 36</span>
+        <h1>The world breathes.<br />In layers.</h1>
         <p>
-          Watch a crawler carry weight, a firefly breathe light, and a sky moth bank before Moss gives chase.
+          Roots hold. Grass answers first. The canopy follows, and the smallest vines arrive last.
         </p>
         <dl className="engine-facts">
-          <div><dt>Body</dt><dd>carries weight</dd></div>
-          <div><dt>Wings</dt><dd>hold and strike</dd></div>
-          <div><dt>Weather</dt><dd>changes material</dd></div>
+          <div><dt>Roots</dt><dd>stay planted</dd></div>
+          <div><dt>Grass</dt><dd>feels it first</dd></div>
+          <div><dt>Canopy</dt><dd>follows through</dd></div>
         </dl>
       </header>
 
@@ -631,6 +642,7 @@ export function PetPrototype() {
             <span>Leaf position <strong>{Math.round(world.playLeaf.x)}, {Math.round(world.playLeaf.y)}</strong></span>
             <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
+            <span>Habitat acting <strong>{habitatPerformance.role} · {habitatPerformance.material} · {habitatPerformance.frame + 1}/{HABITAT_PERFORMANCE_CLIPS[world.weather].frames.length}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
             <span>Guardian wake <strong>{world.guardianWake.phase === "quiet" ? "quiet" : `${world.guardianWake.phase} · ${Math.round(world.guardianWake.x)}`}</strong></span>
