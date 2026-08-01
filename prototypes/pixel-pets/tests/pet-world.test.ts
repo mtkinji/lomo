@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   PET_WORLD,
   applyWorldIntent,
+  beginPetEvening,
+  beginPetMorning,
   beginWindLeafInvitation,
   createPetWorldState,
   dragWorldWindLeaf,
@@ -33,6 +35,56 @@ import {
   tossWorldWindLeaf,
   releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
+
+test("evening is a directed journey from golden light to the old tree", () => {
+  const busy = spawnVisitor(plantLifeEcho(createPetWorldState(), "todo", 318), "young");
+  const evening = beginPetEvening({ ...busy, petX: 336 });
+
+  assert.equal(evening.daylight.phase, "golden");
+  assert.equal(evening.daylight.eveningActive, true);
+  assert.equal(evening.action, "seek-rest");
+  assert.equal(evening.targetX, PET_WORLD.treeShelterX);
+  assert.equal(evening.facing, -1);
+  assert.equal(evening.visitor.active, false);
+  assert.equal(evening.playLeaf.phase, "perched");
+});
+
+test("daylight advances deterministically through dusk into night", () => {
+  let world = beginPetEvening(createPetWorldState());
+
+  world = stepPetWorld(world, PET_WORLD.goldenDuration, false, "young");
+  assert.equal(world.daylight.phase, "dusk");
+  world = stepPetWorld(world, PET_WORLD.duskDuration, false, "young");
+  assert.equal(world.daylight.phase, "night");
+});
+
+test("an evening curl remains asleep and grounded after the finite sleep clip", () => {
+  let world = beginPetEvening({ ...createPetWorldState(), petX: PET_WORLD.treeShelterX });
+  world = stepPetWorld(world, 1, true, "young");
+  assert.equal(world.action, "rest");
+  world = stepPetWorld(world, PET_WORLD.treeRestDuration + 1000, true, "young");
+
+  assert.equal(world.action, "night-rest");
+  assert.equal(world.petX, PET_WORLD.treeShelterX);
+  assert.equal(world.poseY, 0);
+  assert.equal(clipForWorldAction(world.action), "sleep");
+  assert.equal(stepPetWorld(world, 9000, false, "young").action, "night-rest");
+});
+
+test("morning wakes Moss through dawn and restores the clear day", () => {
+  let world = beginPetMorning({
+    ...beginPetEvening(createPetWorldState()),
+    action: "night-rest",
+    daylight: { phase: "night", elapsedMs: 0, eveningActive: true },
+  });
+
+  assert.equal(world.daylight.phase, "dawn");
+  assert.equal(world.daylight.eveningActive, false);
+  assert.equal(world.action, "greet");
+  world = stepPetWorld(world, PET_WORLD.dawnDuration, false, "young");
+  assert.equal(world.daylight.phase, "day");
+  assert.equal(world.weather, "sunny");
+});
 
 test("care touch resolves only the newest matching life echo", () => {
   let world = createPetWorldState();

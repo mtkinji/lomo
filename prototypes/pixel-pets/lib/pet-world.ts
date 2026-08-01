@@ -36,6 +36,9 @@ export const PET_WORLD = {
   memoryNoticeDuration: 720,
   memoryHoldDuration: 2200,
   treeRestDuration: 4800,
+  goldenDuration: 3200,
+  duskDuration: 3400,
+  dawnDuration: 2200,
   bloomApproachDistance: 12,
   maxBlooms: 4,
   cameraLookAhead: 14,
@@ -57,8 +60,9 @@ export const PET_WORLD = {
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
+export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
 
@@ -130,6 +134,11 @@ export interface PetWorldState {
   weatherIntensity: number;
   weatherElapsed: number;
   weatherSway: number;
+  daylight: {
+    phase: PetDaylightPhase;
+    elapsedMs: number;
+    eveningActive: boolean;
+  };
   focus: {
     active: boolean;
     durationMs: number;
@@ -214,6 +223,7 @@ export function createPetWorldState(): PetWorldState {
     weatherIntensity: 1,
     weatherElapsed: 0,
     weatherSway: 0,
+    daylight: { phase: "day", elapsedMs: 0, eveningActive: false },
     focus: { active: false, durationMs: 0, elapsedMs: 0, remainingMs: 0, completed: false },
     visitor: {
       active: false,
@@ -396,6 +406,56 @@ export function beginTreeRest(state: PetWorldState): PetWorldState {
     hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
   };
+}
+
+export function beginPetEvening(state: PetWorldState): PetWorldState {
+  return {
+    ...beginTreeRest(state),
+    weatherResponsePending: false,
+    daylight: { phase: "golden", elapsedMs: 0, eveningActive: true },
+  };
+}
+
+export function beginPetMorning(state: PetWorldState): PetWorldState {
+  return {
+    ...state,
+    action: "greet",
+    actionElapsed: 0,
+    targetX: null,
+    poseY: 0,
+    rotation: 0,
+    weather: "sunny",
+    weatherPhase: "settled",
+    weatherResponsePending: false,
+    weatherIntensity: 1,
+    weatherElapsed: 0,
+    weatherSway: 0,
+    daylight: { phase: "dawn", elapsedMs: 0, eveningActive: false },
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
+    playLeaf: createWindLeaf(),
+  };
+}
+
+function stepDaylight(
+  daylight: PetWorldState["daylight"],
+  elapsedMs: number,
+): PetWorldState["daylight"] {
+  let phase = daylight.phase;
+  let remaining = daylight.elapsedMs + elapsedMs;
+  if (phase === "golden" && remaining >= PET_WORLD.goldenDuration) {
+    remaining -= PET_WORLD.goldenDuration;
+    phase = "dusk";
+  }
+  if (phase === "dusk" && remaining >= PET_WORLD.duskDuration) {
+    remaining -= PET_WORLD.duskDuration;
+    phase = "night";
+  }
+  if (phase === "dawn" && remaining >= PET_WORLD.dawnDuration) {
+    remaining -= PET_WORLD.dawnDuration;
+    phase = "day";
+  }
+  return { ...daylight, phase, elapsedMs: remaining };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -753,6 +813,7 @@ export function tossWorldWindLeaf(
 }
 
 export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): PetWorldState {
+  if (state.daylight.eveningActive) return state;
   const facing = intent.worldX < state.petX ? -1 : 1;
   if (intent.kind === "move") {
     return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, hand: quietWorldHand(), playLeaf: createWindLeaf() };
@@ -896,6 +957,7 @@ export function stepPetWorld(
     weatherIntensity,
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
+    daylight: stepDaylight(state.daylight, dt),
     hand: state.hand.phase === "quiet"
       ? state.hand
       : { ...state.hand, ageMs: state.hand.ageMs + dt },
@@ -1113,9 +1175,14 @@ export function stepPetWorld(
       };
     }
     if (state.action === "rest") {
-      if (next.actionElapsed >= Math.min(900, PET_WORLD.treeRestDuration)) return finishAction(next);
+      if (next.actionElapsed >= Math.min(900, PET_WORLD.treeRestDuration)) {
+        return state.daylight.eveningActive
+          ? { ...next, action: "night-rest", actionElapsed: 0, poseY: 0, rotation: 0 }
+          : finishAction(next);
+      }
       return { ...next, poseY: 0, rotation: 0 };
     }
+    if (state.action === "night-rest") return { ...next, poseY: 0, rotation: 0, targetX: null };
     if (weatherResponseStarted && state.weather === "rain") {
       return {
         ...next,
@@ -1349,11 +1416,18 @@ export function stepPetWorld(
       next.rotation = 0;
     }
   } else if (state.action === "rest") {
-    if (next.actionElapsed >= PET_WORLD.treeRestDuration) next = finishAction(next);
+    if (next.actionElapsed >= PET_WORLD.treeRestDuration) {
+      next = state.daylight.eveningActive
+        ? { ...next, action: "night-rest", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 }
+        : finishAction(next);
+    }
     else {
       next.poseY = 0;
       next.rotation = 0;
     }
+  } else if (state.action === "night-rest") {
+    next.poseY = 0;
+    next.rotation = 0;
   } else if (state.action === "bask" && state.weather === "sunny" && next.actionElapsed >= PET_WORLD.sunBaskDuration) {
     next = {
       ...next,
@@ -1504,7 +1578,7 @@ export function stepPetWorld(
       if (!directedWalk) next.action = running ? "run" : "walk";
       next.poseY = 0;
     }
-  } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask" || state.action === "shade" || state.action === "rest") {
+  } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask" || state.action === "shade" || state.action === "rest" || state.action === "night-rest") {
     next.poseY = 0;
     next.rotation = 0;
   } else if (next.visitor.active && !next.visitor.engaged) {
@@ -1572,6 +1646,6 @@ export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "
   if (action === "weather-notice") return "weather-notice";
   if (action === "wind-brace") return "wind-brace";
   if (action === "rain-flinch") return "rain-flinch";
-  if (action === "shelter" || action === "shade" || action === "focus" || action === "rest") return "sleep";
+  if (action === "shelter" || action === "shade" || action === "focus" || action === "rest" || action === "night-rest") return "sleep";
   return "idle";
 }

@@ -15,6 +15,8 @@ import {
   PET_WORLD,
   applyWorldIntent,
   beginCompanionFocus,
+  beginPetEvening,
+  beginPetMorning,
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
@@ -57,7 +59,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "reset";
+  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -1219,6 +1221,63 @@ function renderScene(
   );
   drawNearForeground(context, palette, world, habitat);
   drawWeather(context, palette, world, true);
+  drawDaylight(context, palette, world);
+}
+
+function drawDaylight(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+) {
+  const { phase, elapsedMs } = world.daylight;
+  if (phase === "day") return;
+  const goldenProgress = Math.min(1, elapsedMs / PET_WORLD.goldenDuration);
+  const duskProgress = Math.min(1, elapsedMs / PET_WORLD.duskDuration);
+  const dawnProgress = Math.min(1, elapsedMs / PET_WORLD.dawnDuration);
+  const nightAmount = phase === "night"
+    ? 1
+    : phase === "dusk"
+      ? 0.28 + duskProgress * 0.72
+      : phase === "dawn"
+        ? 1 - dawnProgress
+        : goldenProgress * 0.22;
+
+  context.save();
+  if (phase === "golden") {
+    context.fillStyle = `rgba(244, 157, 67, ${0.08 + goldenProgress * 0.1})`;
+    context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+    const glow = context.createRadialGradient(136, 55, 4, 136, 55, 92);
+    glow.addColorStop(0, "rgba(255, 225, 132, 0.34)");
+    glow.addColorStop(1, "rgba(255, 185, 92, 0)");
+    context.fillStyle = glow;
+    context.fillRect(0, 0, ENGINE_SCENE.width, 170);
+  } else {
+    context.fillStyle = `rgba(22, 28, 70, ${0.16 + nightAmount * 0.48})`;
+    context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+  }
+
+  if (nightAmount > 0.36) {
+    const skyAlpha = Math.min(1, (nightAmount - 0.36) / 0.64);
+    context.globalAlpha = skyAlpha;
+    context.fillStyle = "#f7efbd";
+    context.fillRect(20, 54, 9, 9);
+    context.fillStyle = "rgba(22, 28, 70, 0.92)";
+    context.fillRect(16, 50, 9, 9);
+    context.fillStyle = "#fff4c7";
+    [[18, 29], [42, 18], [71, 38], [98, 16], [147, 52], [115, 69], [28, 74]].forEach(([x, y], index) => {
+      const twinkle = index % 3 === 0 && !world.daylight.eveningActive ? 2 : 1;
+      context.fillRect(x, y, twinkle, twinkle);
+    });
+    context.fillStyle = palette.leafLight;
+    for (let index = 0; index < 4; index += 1) {
+      const age = world.weatherElapsed / (720 + index * 90);
+      const x = 24 + index * 36 + Math.sin(age + index * 2.1) * 8;
+      const y = 128 + Math.cos(age * 1.4 + index) * 14;
+      context.globalAlpha = skyAlpha * (0.38 + (Math.sin(age * 3) + 1) * 0.22);
+      context.fillRect(Math.round(x), Math.round(y), 2, 2);
+    }
+  }
+  context.restore();
 }
 
 export function PetEngineCanvas({
@@ -1310,6 +1369,12 @@ export function PetEngineCanvas({
     }
     if (worldCommand.type === "play" && !worldRef.current.focus.active) {
       worldRef.current = beginSharedPlayEcho(worldRef.current, stageRef.current);
+    }
+    if (worldCommand.type === "evening") {
+      worldRef.current = beginPetEvening(worldRef.current);
+    }
+    if (worldCommand.type === "morning") {
+      worldRef.current = beginPetMorning(worldRef.current);
     }
 
     callbackRef.current.onWorldFrame?.(worldRef.current);

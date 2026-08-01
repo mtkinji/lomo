@@ -235,6 +235,7 @@ export function PetPrototype() {
       ? { title: next.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes", detail: next.lastReceipt }
       : { title: "Today is cared for", detail: next.lastReceipt });
     playPetCue(next.reaction, next.stage);
+    commandWorld("evening");
     nudge();
     settleAfterMotion(REACTION_MOTION[next.reaction], next.stage);
   }
@@ -242,7 +243,7 @@ export function PetPrototype() {
   function advanceDay() {
     const next = advancePrototypeDay(state);
     setState(next);
-    commandWorld("sunny");
+    commandWorld("morning");
     setWorldMessage({ title: "A new morning", detail: `${state.name} wakes to a fresh day. Nothing was lost overnight.` });
     playPetCue("greet", next.stage);
     nudge();
@@ -415,15 +416,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 29</span>
-        <h1>Touch what<br />changed.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 30</span>
+        <h1>Let the day<br />exhale.</h1>
         <p>
-          Do one real thing, watch Moss find its trace in the meadow, then complete the care moment by touching that exact change.
+          Do one real thing, touch what changed, then watch Moss find the old tree as the whole meadow becomes night.
         </p>
         <dl className="engine-facts">
           <div><dt>Do</dt><dd>changes the meadow</dd></div>
           <div><dt>Notice</dt><dd>belongs to Moss</dd></div>
-          <div><dt>Touch</dt><dd>completes the care</dd></div>
+          <div><dt>Rest</dt><dd>gives the day an ending</dd></div>
         </dl>
       </header>
 
@@ -517,7 +518,7 @@ export function PetPrototype() {
               <small>{state.reaction === "evolve" ? "The old and new forms are completing one grounded handoff." : `${state.name} is finishing today’s care before morning.`}</small>
             </div>
           </div>
-          ) : dayPhase === "day-complete" ? (
+          ) : dayPhase === "day-complete" && world.daylight.phase === "night" && world.action === "night-rest" ? (
           <button className="care-button next-morning-button" type="button" onClick={advanceDay}>
             <span className="morning-orb" aria-hidden="true" />
             <span className="morning-copy">
@@ -525,6 +526,14 @@ export function PetPrototype() {
               <small>Advance prototype time · nothing is lost</small>
             </span>
           </button>
+          ) : dayPhase === "day-complete" ? (
+          <div className="focus-session day-settling" aria-live="polite">
+            <span className="settling-leaves evening-moon" aria-hidden="true">☾</span>
+            <div>
+              <strong>{world.action === "seek-rest" ? `${state.name} is finding the old tree` : "The meadow is becoming evening"}</strong>
+              <small>Golden light, a grounded curl, then one quiet night.</small>
+            </div>
+          </div>
           ) : (
           <div className="action-pair three-actions" aria-label="Simulate a meaningful Kwilt action">
             <button type="button" onClick={() => complete("todo")}><span aria-hidden="true">✓</span>Complete a To-do</button>
@@ -578,6 +587,7 @@ export function PetPrototype() {
             <span>Leaf position <strong>{Math.round(world.playLeaf.x)}, {Math.round(world.playLeaf.y)}</strong></span>
             <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
+            <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
