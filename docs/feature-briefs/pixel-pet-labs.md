@@ -121,6 +121,16 @@ The first Labs version targets baby, young, and guardian forms for each type: fi
 
 Evolution happens inside the persistent habitat rather than replacing it with a reward screen. The previous form recognizes the change, leaf-light gathers inward, old and new bodies briefly overlap through a renderer-neutral handoff, and the new form grows to its authored size before landing on the same ground. Autonomous travel and visitors yield during the ceremony. Reduce Motion preserves the old-to-new meaning with a stable dissolve and no orbit or scale pulse. The ceremony celebrates accumulated care but introduces no level banner, rarity, item, currency, loss, or second progression model.
 
+The standalone learning release makes the complete daily rhythm playable without
+weakening that boundary. Its capability surface resolves one explicit phase:
+choose a meaningful action, receive one care opportunity, let care or evolution
+settle, then allow the next prototype morning. The accelerated-morning action
+replaces otherwise inert action choices only after the day is complete and says
+plainly that prototype time is advancing and nothing is lost. Production Pet
+uses real elapsed days and omits this accelerator. Neither surface permits
+repeated care, interruption of an evolution handoff, a daily reward, or loss
+from absence.
+
 The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
 Camera direction uses the same portable semantic boundary. Quiet, travel,

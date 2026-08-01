@@ -50,6 +50,7 @@ The prototype lets a tester:
 - return after quiet days without loss or punishment;
 - hear and mute nonverbal sounds;
 - accelerate time through a young form after three care moments and a guardian form after eight;
+- complete that accelerated action → care → next-morning rhythm entirely inside the capability, with no dead action controls and no inspector dependency;
 - watch both thresholds as an in-world, previous-form-to-new-form evolution ceremony;
 - inspect recognition, gathering, two-body handoff, and grounded arrival phases;
 - preserve the same transformation meaning under Reduce Motion with a stable dissolve.

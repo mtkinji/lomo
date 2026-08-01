@@ -6,7 +6,24 @@ import {
   completeMeaningfulAction,
   createPetState,
   giveCare,
+  resolvePrototypeDayPhase,
+  withReaction,
 } from "../lib/pet-state.ts";
+
+test("the capability exposes one honest phase for each part of the daily rhythm", () => {
+  const initial = createPetState("leafling", "Moss", "moss");
+  const ready = completeMeaningfulAction(initial, "todo");
+  const settling = giveCare(ready);
+  const complete = withReaction(settling, "idle");
+  const tomorrow = advancePrototypeDay(complete);
+
+  assert.equal(resolvePrototypeDayPhase(initial), "choose-action");
+  assert.equal(resolvePrototypeDayPhase(ready), "care-ready");
+  assert.equal(resolvePrototypeDayPhase(settling), "care-settling");
+  assert.equal(resolvePrototypeDayPhase(complete), "day-complete");
+  assert.equal(resolvePrototypeDayPhase(tomorrow), "choose-action");
+  assert.equal(tomorrow.reaction, "greet", "a new morning should welcome rather than strand Moss asleep");
+});
 test("only the first meaningful action of a prototype day prepares care", () => {
   const initial = createPetState("leafling", "Moss", "moss");
   const afterTodo = completeMeaningfulAction(initial, "todo");
@@ -69,7 +86,7 @@ test("advancing through quiet days never removes care or evolution", () => {
   assert.equal(state.careDays, 1);
   assert.equal(state.stage, "baby");
   assert.equal(state.careAvailable, false);
-  assert.match(state.lastReceipt, /quiet new day/i);
+  assert.match(state.lastReceipt, /new morning.*nothing was lost/i);
 });
 
 test("playing together can prepare the same bounded daily care moment", () => {

@@ -32,6 +32,18 @@ export interface PetState {
   reducedMotion: boolean;
 }
 
+export type PrototypeDayPhase =
+  | "choose-action"
+  | "care-ready"
+  | "care-settling"
+  | "day-complete";
+
+export function resolvePrototypeDayPhase(state: PetState): PrototypeDayPhase {
+  if (state.careAvailable) return "care-ready";
+  if (state.caredPrototypeDay !== state.prototypeDay) return "choose-action";
+  return state.reaction === "idle" ? "day-complete" : "care-settling";
+}
+
 export function createPetState(
   kind: PetKind,
   name: string,
@@ -118,8 +130,8 @@ export function advancePrototypeDay(state: PetState): PetState {
     prototypeDay: state.prototypeDay + 1,
     careAvailable: false,
     pendingSource: null,
-    reaction: "sleep",
-    lastReceipt: `A quiet new day for ${state.name}. Nothing was lost.`,
+    reaction: "greet",
+    lastReceipt: `A new morning for ${state.name}. Nothing was lost overnight.`,
   };
 }
 

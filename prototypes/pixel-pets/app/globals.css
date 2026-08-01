@@ -297,6 +297,58 @@ summary:focus-visible {
   box-shadow: 6px 0 #d8615f, 3px -5px var(--accent);
 }
 
+.next-morning-button {
+  justify-content: flex-start;
+  padding: 11px 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--line));
+  color: var(--ink);
+  background:
+    linear-gradient(105deg, color-mix(in srgb, var(--accent-soft) 76%, white), var(--panel));
+  text-align: left;
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--accent-soft) 72%, transparent);
+}
+
+.morning-orb {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #f2c451;
+  box-shadow: 0 0 0 5px color-mix(in srgb, #f2c451 18%, transparent);
+}
+
+.morning-orb::after {
+  position: absolute;
+  right: -8px;
+  bottom: -3px;
+  width: 15px;
+  height: 6px;
+  border-radius: 7px 7px 2px 2px;
+  background: var(--accent);
+  content: "";
+}
+
+.morning-copy strong,
+.morning-copy small { display: block; }
+.morning-copy strong { font-size: 0.74rem; }
+.morning-copy small { margin-top: 3px; color: var(--muted); font-size: 0.6rem; font-weight: 560; }
+
+.day-settling { min-height: 62px; }
+.settling-leaves {
+  width: 20px;
+  flex: 0 0 auto;
+  color: var(--accent-dark);
+  font-size: 1rem;
+  text-align: center;
+  animation: settle-leaf 1.8s ease-in-out infinite;
+}
+
+@keyframes settle-leaf {
+  0%, 100% { transform: translateY(-2px) rotate(-8deg); opacity: 0.62; }
+  50% { transform: translateY(3px) rotate(8deg); opacity: 1; }
+}
+
 .action-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -655,5 +707,6 @@ summary:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .loading-pixel { animation: none; }
-  .focus-orb { animation: none; }
+  .focus-orb,
+  .settling-leaves { animation: none; }
 }

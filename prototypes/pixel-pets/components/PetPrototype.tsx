@@ -22,6 +22,7 @@ import {
   completeMeaningfulAction,
   createPetState,
   giveCare,
+  resolvePrototypeDayPhase,
   type MeaningfulAction,
   type PetPalette,
   type PetReaction,
@@ -229,6 +230,9 @@ export function PetPrototype() {
   function care() {
     const next = giveCare(state);
     setState(next);
+    setWorldMessage(next.reaction === "evolve"
+      ? { title: next.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes", detail: next.lastReceipt }
+      : { title: "Today is cared for", detail: next.lastReceipt });
     playPetCue(next.reaction, next.stage);
     nudge();
     settleAfterMotion(REACTION_MOTION[next.reaction], next.stage);
@@ -237,7 +241,11 @@ export function PetPrototype() {
   function advanceDay() {
     const next = advancePrototypeDay(state);
     setState(next);
-    playPetCue("sleep", next.stage);
+    commandWorld("sunny");
+    setWorldMessage({ title: "A new morning", detail: `${state.name} wakes to a fresh day. Nothing was lost overnight.` });
+    playPetCue("greet", next.stage);
+    nudge();
+    settleAfterMotion("greet", next.stage);
   }
 
   function focusTogether() {
@@ -291,6 +299,7 @@ export function PetPrototype() {
     ? `${state.careDays} moments remembered`
     : `${momentsToGrow} until ${state.stage === "baby" ? "young form" : "guardian form"}`;
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
+  const dayPhase = resolvePrototypeDayPhase(state);
   const currentStatus = useMemo(() => {
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
     if (state.reaction === "evolve") return {
@@ -377,15 +386,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 25</span>
-        <h1>The sky opens<br />as Moss grows.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 26</span>
+        <h1>A little life,<br />growing beside yours.</h1>
         <p>
-          Draw one finger upward through the meadow. Baby stays low, Young learns to bound, and Guardian reaches the open air.
+          Do something real, give Moss one care moment, then let the next morning arrive. Three cared-for days reveal Young; eight reveal Guardian.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>owns the low world</dd></div>
-          <div><dt>Young</dt><dd>unlocks the bound</dd></div>
-          <div><dt>Guardian</dt><dd>opens the sky</dd></div>
+          <div><dt>Do</dt><dd>changes the meadow</dd></div>
+          <div><dt>Care</dt><dd>happens once today</dd></div>
+          <div><dt>Tomorrow</dt><dd>loses nothing</dd></div>
         </dl>
       </header>
 
@@ -444,10 +453,26 @@ export function PetPrototype() {
               <small>{world.action === "focus" ? `${state.name} is curled beneath the old tree` : `${state.name} is padding to a quiet place`} · {Math.ceil(world.focus.remainingMs / 1000)} seconds</small>
             </div>
           </div>
-        ) : state.careAvailable ? (
+        ) : dayPhase === "care-ready" ? (
           <button className="care-button" type="button" onClick={care}>
             <span className="pixel-berry" aria-hidden="true" />
             Give today’s care
+          </button>
+        ) : dayPhase === "care-settling" ? (
+          <div className="focus-session day-settling" aria-live="polite">
+            <span className="settling-leaves" aria-hidden="true">✦</span>
+            <div>
+              <strong>{state.reaction === "evolve" ? `Let ${state.name} arrive` : "Let this moment settle"}</strong>
+              <small>{state.reaction === "evolve" ? "The old and new forms are completing one grounded handoff." : `${state.name} is finishing today’s care before morning.`}</small>
+            </div>
+          </div>
+        ) : dayPhase === "day-complete" ? (
+          <button className="care-button next-morning-button" type="button" onClick={advanceDay}>
+            <span className="morning-orb" aria-hidden="true" />
+            <span className="morning-copy">
+              <strong>Let the next morning arrive</strong>
+              <small>Advance prototype time · nothing is lost</small>
+            </span>
           </button>
         ) : (
           <div className="action-pair three-actions" aria-label="Simulate a meaningful Kwilt action">
