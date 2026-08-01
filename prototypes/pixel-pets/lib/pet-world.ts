@@ -136,6 +136,54 @@ export interface AfterRainSplashPresentation {
   spread: number;
 }
 
+export interface AfterRainPlayProfile {
+  clip: "care" | "pounce" | "aerial";
+  contactAt: number;
+  visualEnd: number;
+  duration: number;
+  baseSpread: number;
+  maxSpread: number;
+  droplets: number;
+  releasesWake: boolean;
+}
+
+const AFTER_RAIN_PLAY: Record<PetStage, AfterRainPlayProfile> = {
+  baby: {
+    clip: "care",
+    contactAt: 360,
+    visualEnd: 680,
+    duration: 950,
+    baseSpread: 7,
+    maxSpread: 16,
+    droplets: 4,
+    releasesWake: false,
+  },
+  young: {
+    clip: "pounce",
+    contactAt: PET_WORLD.puddleSplashContactAt,
+    visualEnd: PET_WORLD.puddleSplashVisualEnd,
+    duration: PET_WORLD.puddleSplashDuration,
+    baseSpread: 11,
+    maxSpread: 26,
+    droplets: 10,
+    releasesWake: false,
+  },
+  guardian: {
+    clip: "aerial",
+    contactAt: PET_WORLD.handAerialContactAt,
+    visualEnd: 880,
+    duration: PET_WORLD.aerialPounceDuration,
+    baseSpread: 18,
+    maxSpread: 42,
+    droplets: 16,
+    releasesWake: true,
+  },
+};
+
+export function resolveAfterRainPlayProfile(stage: PetStage): AfterRainPlayProfile {
+  return AFTER_RAIN_PLAY[stage];
+}
+
 export interface GuardianWakePresentation {
   visible: boolean;
   mode: GuardianWakePhase;
@@ -559,22 +607,24 @@ export function beginAfterRainSplash(state: PetWorldState): PetWorldState {
 export function resolveAfterRainSplashPresentation(
   state: PetWorldState,
   reducedMotion: boolean,
+  stage: PetStage = "young",
 ): AfterRainSplashPresentation {
+  const profile = resolveAfterRainPlayProfile(stage);
   if (state.action !== "puddle-splash") {
     return { visible: false, animated: false, progress: 0, lift: 0, spread: 0 };
   }
   if (reducedMotion) {
-    return { visible: true, animated: false, progress: 0, lift: 0, spread: 11 };
+    return { visible: true, animated: false, progress: 0, lift: 0, spread: profile.baseSpread };
   }
   if (
-    state.actionElapsed < PET_WORLD.puddleSplashContactAt
-    || state.actionElapsed >= PET_WORLD.puddleSplashVisualEnd
+    state.actionElapsed < profile.contactAt
+    || state.actionElapsed >= profile.visualEnd
   ) {
     return { visible: false, animated: true, progress: 0, lift: 0, spread: 0 };
   }
   const progress = clamp(
-    (state.actionElapsed - PET_WORLD.puddleSplashContactAt)
-      / (PET_WORLD.puddleSplashVisualEnd - PET_WORLD.puddleSplashContactAt),
+    (state.actionElapsed - profile.contactAt)
+      / (profile.visualEnd - profile.contactAt),
     0,
     1,
   );
@@ -583,7 +633,7 @@ export function resolveAfterRainSplashPresentation(
     animated: true,
     progress,
     lift: 1 - progress,
-    spread: Math.round(11 + progress * 15),
+    spread: Math.round(profile.baseSpread + progress * (profile.maxSpread - profile.baseSpread)),
   };
 }
 
@@ -2054,7 +2104,8 @@ export function stepPetWorld(
       };
     }
     if (state.action === "puddle-splash") {
-      if (next.actionElapsed >= Math.min(300, PET_WORLD.puddleSplashDuration)) {
+      const profile = resolveAfterRainPlayProfile(stage);
+      if (next.actionElapsed >= Math.min(300, profile.duration)) {
         return {
           ...next,
           action: "greet",
@@ -2412,7 +2463,17 @@ export function stepPetWorld(
       next.rotation = 0;
     }
   } else if (state.action === "puddle-splash") {
-    if (next.actionElapsed >= PET_WORLD.puddleSplashDuration) {
+    const profile = resolveAfterRainPlayProfile(stage);
+    const reachedContact = state.actionElapsed < profile.contactAt && next.actionElapsed >= profile.contactAt;
+    if (profile.releasesWake && reachedContact && !reducedMotion) {
+      next.guardianWake = {
+        phase: "released",
+        x: state.afterRain.x,
+        elapsedMs: 0,
+        facing: state.facing,
+      };
+    }
+    if (next.actionElapsed >= profile.duration) {
       next = {
         ...next,
         action: "greet",
@@ -2840,7 +2901,8 @@ export function clipForWorldAction(action: PetWorldAction, reducedMotion = false
   if (action === "admire-bloom" || action === "remember" || action === "leaf-catch") return "care";
   if (action === "bask") return "sun-bask";
   if (action === "aerial-pounce" || action === "leaf-aerial") return "aerial";
-  if (action === "leaf-pounce" || action === "puddle-splash") return "pounce";
+  if (action === "puddle-splash") return resolveAfterRainPlayProfile(stage).clip;
+  if (action === "leaf-pounce") return "pounce";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "affection") return "affection";
   if (action === "greet" || action === "hand-found") return "greet";

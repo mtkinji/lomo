@@ -22,20 +22,20 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
   const base = new URL(`${protocol}://${host}`);
   const description =
-    "Watch Moss turn before committing to a grounded stalk, low spring, or high aerial vault as the reachable meadow rises with maturity.";
+    "Touch one after-rain puddle and watch Baby investigate, Young pounce, or Guardian vault into a powerful meadow landing.";
 
   return {
     metadataBase: base,
-    title: "Pet Engine Study 52 — Kwilt Lab",
+    title: "Pet Engine Study 53 — Kwilt Lab",
     description,
     openGraph: {
-      title: "The reachable world rises with Moss.",
+      title: "The same puddle grows with Moss.",
       description,
       images: [{ url: new URL("/og-study-34.png", base), width: 1728, height: 910 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "The reachable world rises with Moss.",
+      title: "The same puddle grows with Moss.",
       description,
       images: [new URL("/og-study-34.png", base)],
     },

@@ -32,6 +32,7 @@ The prototype lets a tester:
 - watch baby curl in a sunny patch while Guardian holds a longer, more deliberate brace and bask;
 - let occasional deterministic weather episodes emerge while the world is otherwise quiet;
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
+- touch the one bright puddle left by a real rain-to-sun clearing and feel the same place answer each form differently: Baby investigates, Young pounces, and Guardian vaults into a wide spray and finite meadow wake;
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
 - touch the old tree as real world geography: Baby explores its roots, Young springs to a low bough, and Guardian vaults to the highest stable canopy perch before one committed return;
@@ -220,6 +221,15 @@ encounter establishes a directional body line before travel. Facing, launch
 position, target side, and outward visitor escape then remain committed through
 landing, and added lift returns to zero on the exact authored contact frame, so
 no correct chase can read as a backward jump or floating landing.
+
+After-rain play uses the same portable boundary. One stage profile owns the
+approved clip, authored contact time, spray window, physical spread, recovery,
+and whether the landing releases a meadow wake. Baby keeps its face and paws
+close to the terrain, Young answers with one compact spring, and Guardian uses
+the existing aerial performance before a single weighty contact at the puddle.
+The Canvas adapter draws water only after that contact; it never uses sprite
+size to infer maturity. Reduce Motion preserves one grounded contact tableau
+without droplets, aerial travel, or a moving terrain wake.
 
 ## Local use
 

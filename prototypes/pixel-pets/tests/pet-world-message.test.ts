@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   resolveWorldInteractionMessage,
+  shouldClearSceneNarration,
   shouldShowSceneNarration,
 } from "../lib/pet-world-message.ts";
 
@@ -38,7 +39,6 @@ test("only causal world events receive visible scene narration", () => {
     "leaf-catch",
     "puddle-notice",
     "puddle-invite",
-    "puddle-splash",
   ] as const;
   const selfExplanatory = [
     "idle",
@@ -67,6 +67,7 @@ test("only causal world events receive visible scene narration", () => {
     "memory-notice",
     "seek-memory",
     "remember",
+    "puddle-splash",
   ] as const;
 
   for (const action of narrated) {
@@ -80,4 +81,14 @@ test("only causal world events receive visible scene narration", () => {
 test("rain shelter travel may be narrated but Focus travel stays in the capability dock", () => {
   assert.equal(shouldShowSceneNarration("seek-shelter", { focusActive: false }), true);
   assert.equal(shouldShowSceneNarration("seek-shelter", { focusActive: true }), false);
+});
+
+test("committed puddle play immediately clears earlier scene narration", () => {
+  assert.equal(
+    shouldClearSceneNarration("puddle-splash", {
+      rainGuestOwnsScene: false,
+      wildlifeOwnsScene: false,
+    }),
+    true,
+  );
 });

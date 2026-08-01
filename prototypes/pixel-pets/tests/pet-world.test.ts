@@ -38,6 +38,7 @@ import {
   plantLifeEcho,
   resolveCareEchoHit,
   resolveAfterRainHit,
+  resolveAfterRainPlayProfile,
   resolveAfterRainSplashPresentation,
   resolveGuardianWakePresentation,
   restorePetWorldMemory,
@@ -276,6 +277,74 @@ test("after-rain spray begins at paw contact, peaks there, and ends with the aut
     PET_WORLD.puddleSplashDuration,
     PET_WORLD.puddleSplashVisualEnd + PET_WORLD.puddleSplashRecoveryHold,
   );
+});
+
+test("the same puddle reveals a larger physical vocabulary as Moss matures", () => {
+  const baby = resolveAfterRainPlayProfile("baby");
+  const young = resolveAfterRainPlayProfile("young");
+  const guardian = resolveAfterRainPlayProfile("guardian");
+
+  assert.equal(baby.clip, "care");
+  assert.equal(young.clip, "pounce");
+  assert.equal(guardian.clip, "aerial");
+  assert.ok(baby.contactAt < young.contactAt);
+  assert.ok(young.contactAt < guardian.contactAt);
+  assert.ok(baby.baseSpread < young.baseSpread);
+  assert.ok(young.baseSpread < guardian.baseSpread);
+  assert.equal(baby.releasesWake, false);
+  assert.equal(young.releasesWake, false);
+  assert.equal(guardian.releasesWake, true);
+  assert.equal(clipForWorldAction("puddle-splash", false, "baby"), "care");
+  assert.equal(clipForWorldAction("puddle-splash", false, "young"), "pounce");
+  assert.equal(clipForWorldAction("puddle-splash", false, "guardian"), "aerial");
+});
+
+test("each form releases water on its own authored contact frame", () => {
+  const base = { ...createPetWorldState(), action: "puddle-splash" as const };
+
+  for (const stage of ["baby", "young", "guardian"] as const) {
+    const profile = resolveAfterRainPlayProfile(stage);
+    const before = resolveAfterRainSplashPresentation(
+      { ...base, actionElapsed: profile.contactAt - 1 },
+      false,
+      stage,
+    );
+    const contact = resolveAfterRainSplashPresentation(
+      { ...base, actionElapsed: profile.contactAt },
+      false,
+      stage,
+    );
+    const finished = resolveAfterRainSplashPresentation(
+      { ...base, actionElapsed: profile.visualEnd },
+      false,
+      stage,
+    );
+
+    assert.equal(before.visible, false, `${stage} water cannot anticipate physical contact`);
+    assert.equal(contact.visible, true, `${stage} should release water on contact`);
+    assert.equal(contact.spread, profile.baseSpread);
+    assert.equal(finished.visible, false, `${stage} spray should end with its authored action`);
+  }
+});
+
+test("only Guardian's after-rain landing releases one meadow wake", () => {
+  const makeSplash = () => ({
+    ...createPetWorldState(),
+    action: "puddle-splash" as const,
+    actionElapsed: 0,
+    afterRain: { phase: "engaged" as const, x: 284, elapsedMs: 0 },
+  });
+
+  const youngProfile = resolveAfterRainPlayProfile("young");
+  const young = stepPetWorld(makeSplash(), youngProfile.contactAt + 1, false, "young");
+  assert.equal(young.guardianWake.phase, "quiet");
+
+  const guardianProfile = resolveAfterRainPlayProfile("guardian");
+  const guardian = stepPetWorld(makeSplash(), guardianProfile.contactAt + 1, false, "guardian");
+  assert.equal(guardian.guardianWake.phase, "released");
+  assert.equal(guardian.guardianWake.x, 284);
+  const later = stepPetWorld(guardian, 16, false, "guardian");
+  assert.equal(later.guardianWake.elapsedMs, 16, "the landing wake should continue rather than restart");
 });
 
 test("Reduce Motion presents one static contact mark instead of animated spray", () => {

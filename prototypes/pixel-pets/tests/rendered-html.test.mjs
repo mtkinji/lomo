@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 52 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 53 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,13 +55,16 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 52 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 53 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 52/);
-  assert.match(prototype, /The reachable world<br \/>rises with Moss\./i);
-  assert.match(prototype, /Baby<\/dt><dd>ground crawler/i);
-  assert.match(prototype, /Young<\/dt><dd>low firefly/i);
-  assert.match(prototype, /Guardian<\/dt><dd>high sky moth/i);
+  assert.match(prototype, /Pet Engine Study 53/);
+  assert.match(prototype, /The same puddle<br \/>grows with Moss\./i);
+  assert.match(prototype, /Baby<\/dt><dd>nose &amp; paws/i);
+  assert.match(prototype, /Young<\/dt><dd>playful spring/i);
+  assert.match(prototype, /Guardian<\/dt><dd>aerial landing/i);
+  assert.match(prototype, /Meet the rain-light/);
+  assert.match(prototype, /commandWorld\("after-rain"\)/);
+  assert.match(canvas, /worldCommand\.type === "after-rain"/);
   assert.match(prototype, /Choose where quiet begins/);
   assert.match(prototype, /The full \$\{Math\.ceil\(world\.focus\.durationMs \/ 1000\)\} seconds begin/);
   assert.match(world, /chooseCompanionFocusPlace/);

@@ -16,7 +16,6 @@ const CAUSAL_SCENE_NARRATION_ACTIONS = new Set<PetWorldAction>([
   "leaf-catch",
   "puddle-notice",
   "puddle-invite",
-  "puddle-splash",
 ]);
 
 export function shouldShowSceneNarration(
@@ -25,6 +24,13 @@ export function shouldShowSceneNarration(
 ): boolean {
   if (action === "seek-shelter") return !context.focusActive;
   return CAUSAL_SCENE_NARRATION_ACTIONS.has(action);
+}
+
+export function shouldClearSceneNarration(
+  action: PetWorldAction,
+  context: { rainGuestOwnsScene: boolean; wildlifeOwnsScene: boolean },
+): boolean {
+  return action === "puddle-splash" || context.rainGuestOwnsScene || context.wildlifeOwnsScene;
 }
 
 export function resolveWorldInteractionMessage(

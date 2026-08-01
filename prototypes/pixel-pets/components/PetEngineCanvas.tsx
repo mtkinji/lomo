@@ -42,6 +42,7 @@ import {
   resolveCareEchoHit,
   resolveAfterRainHit,
   resolveAfterRainSplashPresentation,
+  resolveAfterRainPlayProfile,
   resolveGuardianWakePresentation,
   resolveTapIntent,
   resolveTreePlayHit,
@@ -82,7 +83,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "tree-play" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  type: "visitor" | "tree-play" | "after-rain" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -916,8 +917,10 @@ function drawAfterRainSplash(
   context: CanvasRenderingContext2D,
   world: PetWorldState,
   reducedMotion: boolean,
+  stage: PetStage,
 ) {
-  const splash = resolveAfterRainSplashPresentation(world, reducedMotion);
+  const profile = resolveAfterRainPlayProfile(stage);
+  const splash = resolveAfterRainSplashPresentation(world, reducedMotion, stage);
   if (!splash.visible) return;
   const { progress, lift, spread } = splash;
   context.save();
@@ -933,7 +936,7 @@ function drawAfterRainSplash(
     context.restore();
     return;
   }
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index < profile.droplets; index += 1) {
     const side = index % 2 === 0 ? -1 : 1;
     const distance = 5 + Math.floor(index / 2) * 5;
     const x = side * Math.round(distance + progress * (5 + index));
@@ -1763,7 +1766,7 @@ function renderScene(
     context.restore();
   }
   drawAffectionContact(context, palette, stage, world, reducedMotion);
-  drawAfterRainSplash(context, world, reducedMotion);
+  drawAfterRainSplash(context, world, reducedMotion, stage);
   drawNearForeground(context, palette, world, habitat, guardianWake, habitatPerformance);
   drawWeather(context, palette, world, true);
   drawDaylight(context, palette, world);
@@ -1895,6 +1898,9 @@ export function PetEngineCanvas({
     }
     if (worldCommand.type === "tree-play") {
       worldRef.current = beginTreePlay(worldRef.current, stageRef.current);
+    }
+    if (worldCommand.type === "after-rain") {
+      worldRef.current = beginAfterRainSplash(worldRef.current);
     }
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });

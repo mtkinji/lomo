@@ -9,6 +9,7 @@ import {
   beginPetReunion,
   createPetWorldState,
   resolveFocusAtmosphere,
+  resolveAfterRainPlayProfile,
   restorePetWorldMemory,
   serializePetWorldMemory,
   type PetWorldAction,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/pet-habitat-performance";
 import {
   resolveWorldInteractionMessage,
+  shouldClearSceneNarration,
   shouldShowSceneNarration,
 } from "@/lib/pet-world-message";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
@@ -317,6 +319,7 @@ export function PetPrototype() {
     ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
     : null;
   const focusAtmosphere = resolveFocusAtmosphere(world.focus, state.reducedMotion);
+  const afterRainPlay = resolveAfterRainPlayProfile(currentStage);
   const soundscapeMix = currentSoundscapeMix();
   const visitorPerformance = world.visitor.active
     ? resolveVisitorPerformance(world.visitor, world.weather, state.reducedMotion)
@@ -348,6 +351,8 @@ export function PetPrototype() {
   const playAnswering = world.visitor.active || ["track", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
   const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
   const treePerchActive = world.action === "tree-perch" && world.treePlay?.active;
+  const afterRainPlayable = world.afterRain.phase === "shimmer"
+    && ["puddle-notice", "puddle-invite", "idle"].includes(world.action);
   const worldAnswering = state.careAvailable && (
     (state.pendingSource === "todo" && bloomAnswering)
     || (state.pendingSource === "focus" && bloomAnswering)
@@ -421,7 +426,7 @@ export function PetPrototype() {
       "pounce",
       "aerial-pounce",
     ].includes(action);
-    if (rainGuestOwnsScene || wildlifeOwnsScene) clearSceneNarration();
+    if (shouldClearSceneNarration(action, { rainGuestOwnsScene, wildlifeOwnsScene })) clearSceneNarration();
     if (action === "affection") {
       playPetCue("greet", currentStage);
       nudge();
@@ -492,7 +497,14 @@ export function PetPrototype() {
       "puddle-notice": { title: "The rain left a glint", detail: `${state.name} noticed that the meadow is still holding a little sky.` },
       "puddle-invite": { title: "Something to splash", detail: `Rain gathered the sky into one bright place at ${state.name}’s feet.` },
       "seek-puddle": { title: "Couldn’t resist", detail: `${state.name} is finding the wet ground before committing.` },
-      "puddle-splash": { title: "After the rain", detail: "One grounded pounce sent the clearing light everywhere." },
+      "puddle-splash": {
+        title: "After the rain",
+        detail: currentStage === "baby"
+          ? `${state.name} tested the little sky with nose and paws.`
+          : currentStage === "young"
+            ? "One delighted spring sent the clearing light everywhere."
+            : `${state.name} met the puddle from above, and the whole meadow felt the landing.`,
+      },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
       shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
       "seek-sun": { title: "Following the warmth", detail: `${state.name} noticed the sunny part of the meadow.` },
@@ -537,15 +549,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 52</span>
-        <h1>The reachable world<br />rises with Moss.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 53</span>
+        <h1>The same puddle<br />grows with Moss.</h1>
         <p>
-          Moss sees the visitor, turns, and commits along one honest action line—ground curiosity becomes a spring, then a high aerial vault.
+          Rain leaves one bright piece of sky in the meadow. Touch it and Baby investigates, Young springs, or Guardian arrives from above.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>ground crawler</dd></div>
-          <div><dt>Young</dt><dd>low firefly</dd></div>
-          <div><dt>Guardian</dt><dd>high sky moth</dd></div>
+          <div><dt>Baby</dt><dd>nose &amp; paws</dd></div>
+          <div><dt>Young</dt><dd>playful spring</dd></div>
+          <div><dt>Guardian</dt><dd>aerial landing</dd></div>
         </dl>
       </header>
 
@@ -627,6 +639,19 @@ export function PetPrototype() {
               <small>Touch the meadow · {currentStage === "guardian" ? "the whole clearing is within reach" : "Young Moss can reach nearby ground"}</small>
             </div>
           </div>
+          ) : afterRainPlayable ? (
+          <button
+            className="care-button care-invitation puddle-invitation"
+            type="button"
+            onClick={() => commandWorld("after-rain")}
+            aria-label={`Meet the rain-light. ${state.name} will answer this puddle in the way this form can.`}
+          >
+            <span className="echo-touch-mark echo-touch-focus" aria-hidden="true" />
+            <span className="care-invitation-copy">
+              <strong>Meet the rain-light</strong>
+              <small>{currentStage === "baby" ? "A cautious hello" : currentStage === "young" ? "One playful spring" : "The whole meadow may feel this"}</small>
+            </span>
+          </button>
           ) : worldAnswering ? (
           <div className="focus-session world-answering" aria-live="polite">
             <span className="answering-sprout" aria-hidden="true" />
@@ -745,6 +770,7 @@ export function PetPrototype() {
             <span>Habitat acting <strong>{habitatPerformance.role} · {habitatPerformance.material} · {habitatPerformance.frame + 1}/{HABITAT_PERFORMANCE_CLIPS[world.weather].frames.length}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
+            <span>Puddle play <strong>{afterRainPlay.clip} · {afterRainPlay.baseSpread}px{afterRainPlay.releasesWake ? " · meadow wake" : ""}</strong></span>
             <span>Rain guest <strong>{world.rainGuest.phase === "quiet" ? "quiet" : `${world.rainGuest.phase} · ${Math.round(world.rainGuest.x)}, ${Math.round(world.rainGuest.y)}`}</strong></span>
             <span>Guardian wake <strong>{world.guardianWake.phase === "quiet" ? "quiet" : `${world.guardianWake.phase} · ${Math.round(world.guardianWake.x)}`}</strong></span>
             <span>Old tree <strong>{world.treePlay?.active ? `${world.treePlay.stage} · ${world.action} · ${Math.round(world.poseY)}` : "touchable · quiet"}</strong></span>
