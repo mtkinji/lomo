@@ -26,7 +26,8 @@ The prototype lets a tester:
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
 - watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
 - let a Play-together receipt stir the breeze and invite a small visitor;
-- simulate a completed To-do or Focus session;
+- complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
+- simulate a completed Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
 - hear and mute nonverbal sounds;
@@ -74,6 +75,12 @@ Each stage manifest also owns the same four semantic weather clips with
 stage-specific pose selection and timing. These are deliberate limited-animation
 edits of approved drawings; the Canvas adapter no longer rotates the complete
 Pet sprite to impersonate wind acting.
+Meaningful progress now uses the same portable directed-episode grammar. A
+To-do receipt contains only its capability source; it plants no score, title,
+currency, or collectible. The world opens one bounded bloom, Leafling notices,
+walks over using its authored gait, and admires it through the existing care
+performance. Up to three blooms persist as scenery while weather, direct touch,
+Focus, Play, and evolution continue to operate through the same world state.
 
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.

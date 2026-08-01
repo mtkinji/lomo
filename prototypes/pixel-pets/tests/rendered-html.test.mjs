@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 14 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 15 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -50,10 +50,9 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 14 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 14/);
-  assert.match(prototype, /The weather moves/);
-  assert.match(prototype, /through Moss/);
+  assert.match(layout, /Pet Engine Study 15 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 15/);
+  assert.match(prototype, /The meadow remembers/);
   assert.match(prototype, /Evolution phase/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
@@ -85,6 +84,9 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /weather-notice/);
   assert.match(world, /wind-brace/);
   assert.match(world, /rain-flinch/);
+  assert.match(world, /plantProgressBloom/);
+  assert.match(world, /bloom-notice/);
+  assert.match(world, /admire-bloom/);
   assert.match(leafling, /sun-bask/);
   assert.match(world, /beginCompanionFocus/);
   assert.match(runtime, /resolvePetFrame/);
@@ -112,6 +114,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(canvas, /onPointerDown/);
   assert.match(canvas, /setWorldZoom/);
   assert.match(canvas, /nextWeatherKind/);
+  assert.match(canvas, /drawProgressBlooms/);
+  assert.match(canvas, /plantProgressBloom/);
   assert.doesNotMatch(canvas, /context\.rotate\(\(world\.weatherSway \* Math\.PI\)/);
   assert.match(canvas, /layer\.masks/);
 });

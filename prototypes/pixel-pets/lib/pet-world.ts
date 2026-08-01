@@ -17,13 +17,18 @@ export const PET_WORLD = {
   weatherArrivalDuration: 1200,
   windBraceDuration: 1680,
   rainFlinchDuration: 920,
+  bloomOpenDuration: 900,
+  bloomNoticeDuration: 900,
+  bloomAdmireDuration: 1400,
+  bloomApproachDistance: 12,
+  maxBlooms: 3,
   cameraLookAhead: 14,
   maxWeatherSway: 2.2,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
-export type PetWorldAction = "idle" | "greet" | "track" | "weather-notice" | "wind-brace" | "rain-flinch" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
 export interface WorldPoint {
@@ -49,6 +54,13 @@ export interface WorldVisitor {
   engagedAgeMs: number;
 }
 
+export interface WorldBloom {
+  id: number;
+  x: number;
+  growth: number;
+  source: "todo";
+}
+
 export interface PetWorldState {
   petX: number;
   cameraX: number;
@@ -72,6 +84,7 @@ export interface PetWorldState {
     completed: boolean;
   };
   visitor: WorldVisitor;
+  blooms: WorldBloom[];
 }
 
 const VISITOR_BEHAVIOR = {
@@ -142,6 +155,7 @@ export function createPetWorldState(): PetWorldState {
       engaged: false,
       engagedAgeMs: 0,
     },
+    blooms: [],
   };
 }
 
@@ -184,6 +198,25 @@ export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): P
   };
 }
 
+export function plantProgressBloom(state: PetWorldState, requestedX?: number): PetWorldState {
+  const nextId = state.blooms.reduce((highest, bloom) => Math.max(highest, bloom.id), 0) + 1;
+  const placementOffsets = [56, -70, 92, -96] as const;
+  const x = clampWorldX(requestedX ?? state.petX + placementOffsets[(nextId - 1) % placementOffsets.length]);
+  const bloom: WorldBloom = { id: nextId, x, growth: 0, source: "todo" };
+
+  return {
+    ...state,
+    action: "bloom-notice",
+    actionElapsed: 0,
+    targetX: x,
+    facing: faceToward(state.petX, x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
+  };
+}
+
 export function resolveFocusAtmosphere(
   focus: PetWorldState["focus"],
   reducedMotion: boolean,
@@ -213,7 +246,8 @@ export function resolveCameraTargetX(state: PetWorldState) {
     || state.action === "run"
     || state.action === "seek-shelter"
     || state.action === "seek-sun"
-    || state.action === "seek-shade";
+    || state.action === "seek-shade"
+    || state.action === "seek-bloom";
   const lookAhead = directed ? PET_WORLD.cameraLookAhead * state.facing : 0;
   return clampCameraX(state.petX + lookAhead, state.zoom);
 }
@@ -347,6 +381,10 @@ export function stepPetWorld(
     weatherIntensity,
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
+    blooms: state.blooms.map((bloom) => ({
+      ...bloom,
+      growth: reducedMotion ? 1 : clamp(bloom.growth + dt / PET_WORLD.bloomOpenDuration, 0, 1),
+    })),
   };
 
   if (weatherResponseStarted) {
@@ -428,6 +466,20 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (state.action === "bloom-notice" || state.action === "seek-bloom") {
+      return {
+        ...next,
+        action: "admire-bloom",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (state.action === "admire-bloom") {
+      if (next.actionElapsed >= Math.min(300, PET_WORLD.bloomAdmireDuration)) return finishAction(next);
+      return { ...next, poseY: 0, rotation: 0 };
+    }
     if (weatherResponseStarted && state.weather === "rain") {
       return {
         ...next,
@@ -514,6 +566,29 @@ export function stepPetWorld(
   if (weatherResponseStarted) {
     next.poseY = 0;
     next.rotation = 0;
+  } else if (state.action === "bloom-notice") {
+    if (next.actionElapsed >= PET_WORLD.bloomNoticeDuration) {
+      const bloomX = state.targetX ?? state.petX;
+      const approachX = clampWorldX(bloomX - faceToward(state.petX, bloomX, state.facing) * PET_WORLD.bloomApproachDistance);
+      next = {
+        ...next,
+        action: "seek-bloom",
+        actionElapsed: 0,
+        targetX: approachX,
+        facing: faceToward(state.petX, bloomX, state.facing),
+        poseY: 0,
+        rotation: 0,
+      };
+    } else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
+  } else if (state.action === "admire-bloom") {
+    if (next.actionElapsed >= PET_WORLD.bloomAdmireDuration) next = finishAction(next);
+    else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
   } else if (state.action === "bask" && state.weather === "sunny" && next.actionElapsed >= PET_WORLD.sunBaskDuration) {
     next = {
       ...next,
@@ -590,10 +665,22 @@ export function stepPetWorld(
         next = { ...next, petX: state.targetX, targetX: null, action: "bask", actionElapsed: 0, poseY: 0 };
       } else if (state.action === "seek-shade") {
         next = { ...next, petX: state.targetX, targetX: null, action: "shade", actionElapsed: 0, poseY: 0 };
+      } else if (state.action === "seek-bloom") {
+        const bloomX = next.blooms.at(-1)?.x ?? state.targetX;
+        next = {
+          ...next,
+          petX: state.targetX,
+          targetX: null,
+          action: "admire-bloom",
+          actionElapsed: 0,
+          facing: faceToward(state.targetX, bloomX, state.facing),
+          poseY: 0,
+          rotation: 0,
+        };
       } else next = finishAction({ ...next, petX: state.targetX });
     }
     else {
-      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade";
+      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom";
       const running = !directedWalk && Math.abs(distance) > 52;
       const speed = running ? 0.052 : directedWalk ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
@@ -642,9 +729,11 @@ export function stepPetWorld(
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
+export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
   if (action === "walk" || action === "run") return action;
-  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade") return "walk";
+  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom") return "walk";
+  if (action === "bloom-notice") return "discover";
+  if (action === "admire-bloom") return "care";
   if (action === "bask") return "sun-bask";
   if (action === "aerial-pounce") return "aerial";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;

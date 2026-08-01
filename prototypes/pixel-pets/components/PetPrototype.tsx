@@ -167,6 +167,7 @@ export function PetPrototype() {
   function complete(source: MeaningfulAction) {
     const next = completeMeaningfulAction(state, source);
     setState(next);
+    if (source === "todo") commandWorld("bloom");
     playPetSound("discover", next.soundEnabled);
     nudge();
     settleAfterMotion("discover");
@@ -255,6 +256,9 @@ export function PetPrototype() {
       "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
       "rain-flinch": { title: "First drops", detail: `${state.name} shakes once, then looks for cover.` },
+      "bloom-notice": { title: "Something took root", detail: `${state.name} noticed the meadow answer.` },
+      "seek-bloom": { title: "Going to see", detail: `${state.name} is padding toward the new bloom.` },
+      "admire-bloom": { title: "The meadow remembers", detail: "One real thing moved forward, and the little world kept it beautifully." },
       walk: { title: "Off we go", detail: `${state.name} is padding over.` },
       run: { title: "Coming fast", detail: `${state.name} is racing over.` },
       jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
@@ -288,15 +292,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 14</span>
-        <h1>The weather moves<br />through Moss.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 15</span>
+        <h1>The meadow remembers<br />what moved.</h1>
         <p>
-          Ears read the air. Paws brace. Leaves recover. Moss acts inside the weather before choosing where to go.
+          Complete one real intention. A bud opens, Moss notices, and the tiny world keeps the memory without turning life into points.
         </p>
         <dl className="engine-facts">
-          <div><dt>Acting</dt><dd>posture · face · recovery</dd></div>
-          <div><dt>Forms</dt><dd>baby · young · guardian</dd></div>
-          <div><dt>System</dt><dd>semantic clips · portable</dd></div>
+          <div><dt>To-do</dt><dd>opens · notice · admire</dd></div>
+          <div><dt>Meaning</dt><dd>memory · not payment</dd></div>
+          <div><dt>Privacy</dt><dd>source only · no title</dd></div>
         </dl>
       </header>
 
@@ -408,6 +412,7 @@ export function PetPrototype() {
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
+            <span>Bloom <strong>{world.blooms.length === 0 ? "quiet" : world.blooms.at(-1)?.growth === 1 ? "remembered" : "opening"}</strong></span>
           </div>
         </section>
 

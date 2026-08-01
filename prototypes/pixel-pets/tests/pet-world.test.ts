@@ -11,6 +11,7 @@ import {
   resolveTapIntent,
   resolveFocusAtmosphere,
   nextWeatherKind,
+  plantProgressBloom,
   resolveCameraTargetX,
   setWorldZoom,
   spawnVisitor,
@@ -31,6 +32,66 @@ test("world travel requests authored locomotion instead of an idle fallback", ()
   assert.equal(clipForWorldAction("weather-notice"), "weather-notice");
   assert.equal(clipForWorldAction("wind-brace"), "wind-brace");
   assert.equal(clipForWorldAction("rain-flinch"), "rain-flinch");
+  assert.equal(clipForWorldAction("bloom-notice"), "discover");
+  assert.equal(clipForWorldAction("seek-bloom"), "walk");
+  assert.equal(clipForWorldAction("admire-bloom"), "care");
+});
+
+test("a completed intention opens one world memory that Moss notices and admires", () => {
+  const initial = createPetWorldState();
+  let blooming = plantProgressBloom(initial);
+  const bloom = blooming.blooms[0];
+
+  assert.equal(blooming.action, "bloom-notice");
+  assert.equal(blooming.targetX, bloom.x);
+  assert.equal(bloom.growth, 0);
+  assert.ok(bloom.x >= PET_WORLD.minX && bloom.x <= PET_WORLD.maxX);
+
+  blooming = stepPetWorld(blooming, PET_WORLD.bloomOpenDuration / 2, false);
+  assert.ok(blooming.blooms[0].growth > 0.45 && blooming.blooms[0].growth < 0.55);
+  assert.equal(blooming.action, "bloom-notice");
+
+  blooming = stepPetWorld(blooming, PET_WORLD.bloomNoticeDuration, false);
+  assert.equal(blooming.action, "seek-bloom");
+
+  for (let step = 0; step < 20 && blooming.action === "seek-bloom"; step += 1) {
+    blooming = stepPetWorld(blooming, 250, false);
+  }
+  assert.equal(blooming.action, "admire-bloom");
+  assert.ok(Math.abs(blooming.petX - bloom.x) >= PET_WORLD.bloomApproachDistance - 2);
+  assert.ok(Math.abs(blooming.petX - bloom.x) <= PET_WORLD.bloomApproachDistance + 2);
+  assert.equal(blooming.facing, bloom.x < blooming.petX ? -1 : 1);
+
+  blooming = stepPetWorld(blooming, PET_WORLD.bloomAdmireDuration, false);
+  assert.equal(blooming.action, "idle");
+  assert.equal(blooming.blooms[0].growth, 1);
+});
+
+test("habitat memories stay bounded and survive direct play plus Focus priority", () => {
+  let world = createPetWorldState();
+  for (let index = 0; index < 4; index += 1) world = plantProgressBloom(world);
+
+  assert.equal(world.blooms.length, 3);
+  assert.deepEqual(world.blooms.map((bloom) => bloom.id), [2, 3, 4]);
+  assert.equal(new Set(world.blooms.map((bloom) => bloom.x)).size, 3);
+
+  const touched = applyWorldIntent(world, { kind: "jump", worldX: world.petX + 20 });
+  assert.equal(touched.action, "jump");
+  assert.deepEqual(touched.blooms, world.blooms);
+
+  const focused = beginCompanionFocus(touched, 1200);
+  assert.equal(focused.action, "seek-shelter");
+  assert.deepEqual(focused.blooms, world.blooms);
+});
+
+test("Reduce Motion opens the memory in place without staged travel", () => {
+  const planted = plantProgressBloom(createPetWorldState());
+  const after = stepPetWorld(planted, 16, true);
+
+  assert.equal(after.action, "admire-bloom");
+  assert.equal(after.petX, planted.petX);
+  assert.equal(after.targetX, null);
+  assert.equal(after.blooms[0].growth, 1);
 });
 
 test("weather arrives as a noticed event before it changes the Pet's behavior", () => {
