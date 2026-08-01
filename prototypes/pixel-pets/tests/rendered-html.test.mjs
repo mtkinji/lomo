@@ -80,6 +80,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(runtime, /PetFrameLayer/);
   assert.match(leafling, /leafling-motion-atlas-v5\.png/);
   assert.match(leafling, /leafling-stage-atlas-v3\.png/);
+  assert.match(leafling, /leafling-stage-atlas-v4\.png/);
   assert.match(leafling, /leaflingManifestForStage/);
   assert.match(leafling, /"tail"/);
   assert.match(leafling, /idle/);

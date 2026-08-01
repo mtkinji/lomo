@@ -9,7 +9,7 @@ export const PET_WORLD = {
   maxZoom: 2.25,
   jumpDuration: 850,
   pounceDuration: 720,
-  aerialPounceDuration: 980,
+  aerialPounceDuration: 965,
   rolloverDuration: 1200,
   treeShelterX: 112,
   sunPatchX: 366,
@@ -480,7 +480,12 @@ export function stepPetWorld(
       next.action = behavior.action;
       next.actionElapsed = 0;
       next.targetX = interceptX;
-      next.visitor = { ...next.visitor, engaged: true, engagedAgeMs: 0 };
+      next.visitor = {
+        ...next.visitor,
+        direction: next.facing,
+        engaged: true,
+        engagedAgeMs: 0,
+      };
     } else if (Math.abs(visitorDistance) <= behavior.attentionDistance) {
       next.action = "track";
       if (state.action !== "track") next.actionElapsed = 0;
@@ -503,11 +508,11 @@ export function stepPetWorld(
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" | "jump" | "pounce" | "rollover" {
+export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" {
   if (action === "walk" || action === "run") return action;
   if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade") return "walk";
   if (action === "bask") return "idle";
-  if (action === "aerial-pounce") return "jump";
+  if (action === "aerial-pounce") return "aerial";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "greet") return "greet";
   if (action === "track") return "discover";

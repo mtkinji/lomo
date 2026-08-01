@@ -237,6 +237,31 @@ function interactionFrames(row: number, motion: "jump" | "pounce" | "rollover"):
   }));
 }
 
+function aerialFrames(row: number): PetAnimationFrame[] {
+  const durations = [180, 70, 55, 65, 75, 150, 110, 260];
+  const events = ["sightline", "coil", "launch", "rise", "bank", "reach", "land", "settle"];
+  const lifts = [0, 0, -10, -28, -38, -45, 0, 0];
+  const airborne = new Set([2, 3, 4, 5]);
+
+  return durations.map((duration, column) => frame(column, row, duration, {
+    contact: airborne.has(column) ? "airborne" : "planted",
+    events: [events[column]],
+    role: column === 0
+      ? "hold"
+      : column === 1 || column === 2
+        ? "key"
+        : column === 5
+          ? "accent"
+          : column >= 6
+            ? "recovery"
+            : "inbetween",
+    transform: { x: 0, y: lifts[column] },
+    shadow: airborne.has(column)
+      ? { width: column === 5 ? 24 : 32, opacity: column === 5 ? 0.08 : 0.1 }
+      : { width: column === 6 ? 82 : 68, opacity: column === 6 ? 0.24 : 0.2 },
+  }));
+}
+
 function createStageManifest(
   row: number,
   walkRow: number,
@@ -244,115 +269,126 @@ function createStageManifest(
   jumpRow: number,
   pounceRow: number,
   rolloverRow: number,
+  aerialRow?: number,
 ): PetAnimationManifest {
+  const clips = {
+    idle: {
+      loop: true,
+      frames: [
+        stageFrame(0, row, 720, { role: "hold" }),
+        stageFrame(1, row, 150, { events: ["inhale"], role: "key" }),
+        stageFrame(0, row, 520, { events: ["exhale"], role: "recovery" }),
+        stageFrame(3, row, 260, { events: ["attend"], role: "accent" }),
+        stageFrame(0, row, 760, { role: "hold" }),
+      ],
+    },
+    blink: {
+      loop: true,
+      frames: [
+        stageFrame(0, row, 1200, { role: "hold" }),
+        stageFrame(2, row, 34, { events: ["blink-start", "eyes-closed"], role: "accent" }),
+        stageFrame(0, row, 66, { events: ["blink-open"], role: "recovery" }),
+        stageFrame(0, row, 1450, { role: "hold" }),
+      ],
+    },
+    greet: {
+      loop: false,
+      frames: [
+        stageFrame(0, row, 260, { events: ["notice"], role: "hold" }),
+        stageFrame(3, row, 90, { events: ["anticipate"], role: "key" }),
+        stageFrame(4, row, 75, { contact: "airborne", transform: { x: 0, y: -9 }, events: ["airborne"], role: "inbetween", shadow: { width: 38, opacity: 0.13 } }),
+        stageFrame(4, row, 145, { contact: "airborne", transform: { x: 0, y: -17 }, events: ["apex", "chirp"], role: "accent", shadow: { width: 26, opacity: 0.09 } }),
+        stageFrame(4, row, 70, { contact: "airborne", transform: { x: 0, y: -7 }, role: "inbetween", shadow: { width: 40, opacity: 0.14 } }),
+        stageFrame(0, row, 110, { events: ["land"], role: "recovery" }),
+        stageFrame(0, row, 420, { events: ["settle"], role: "hold" }),
+      ],
+    },
+    care: {
+      loop: false,
+      frames: [
+        stageFrame(0, row, 260, { events: ["notice-care"], role: "hold" }),
+        stageFrame(5, row, 130, { events: ["nuzzle"], role: "key" }),
+        stageFrame(4, row, 180, { events: ["content"], role: "accent" }),
+        stageFrame(0, row, 380, { events: ["settle"], role: "recovery" }),
+      ],
+    },
+    discover: {
+      loop: false,
+      frames: [
+        stageFrame(0, row, 260, { role: "hold" }),
+        stageFrame(3, row, 110, { events: ["ears-lead", "eyes-follow"], role: "key" }),
+        stageFrame(3, row, 260, { events: ["inspect"], role: "accent" }),
+        stageFrame(0, row, 360, { events: ["settle"], role: "recovery" }),
+      ],
+    },
+    sleep: {
+      loop: true,
+      loopFrom: 3,
+      frames: [
+        stageFrame(0, row, 260, { events: ["drowsy"], role: "hold" }),
+        stageFrame(5, row, 220, { contact: "resting", events: ["lower"], role: "key" }),
+        stageFrame(6, row, 280, { contact: "resting", events: ["curl"], role: "inbetween" }),
+        stageFrame(7, row, 560, { contact: "resting", events: ["asleep", "sleep-inhale"], role: "accent" }),
+        stageFrame(7, row, 620, { contact: "resting", events: ["sleep-exhale"], role: "hold" }),
+      ],
+    },
+    evolve: {
+      loop: false,
+      frames: [
+        stageFrame(0, row, 240, { events: ["arrive"], role: "hold" }),
+        stageFrame(3, row, 100, { events: ["recognize"], role: "key" }),
+        stageFrame(4, row, 170, { contact: "airborne", transform: { x: 0, y: -13 }, events: ["open"], role: "accent", shadow: { width: 30, opacity: 0.1 } }),
+        stageFrame(0, row, 120, { events: ["land"], role: "recovery" }),
+        stageFrame(0, row, 520, { events: ["proud"], role: "hold" }),
+      ],
+    },
+    walk: {
+      loop: true,
+      frames: gaitFrames(walkRow, "walk"),
+    },
+    run: {
+      loop: true,
+      frames: gaitFrames(runRow, "run"),
+    },
+    jump: {
+      loop: false,
+      frames: interactionFrames(jumpRow, "jump"),
+    },
+    pounce: {
+      loop: false,
+      frames: interactionFrames(pounceRow, "pounce"),
+    },
+    rollover: {
+      loop: false,
+      frames: interactionFrames(rolloverRow, "rollover"),
+    },
+  };
+  if (aerialRow !== undefined) {
+    Object.assign(clips, {
+      aerial: {
+        loop: false,
+        frames: aerialFrames(aerialRow),
+      },
+    });
+  }
+
   return {
     atlas: {
-      src: "/leafling-stage-atlas-v3.png",
+      src: aerialRow === undefined ? "/leafling-stage-atlas-v3.png" : "/leafling-stage-atlas-v4.png",
       frameWidth: 160,
       frameHeight: 128,
       columns: 8,
-      rows: 12,
+      rows: aerialRow === undefined ? 12 : 13,
     },
     fallbackClip: "idle",
-    clips: {
-      idle: {
-        loop: true,
-        frames: [
-          stageFrame(0, row, 720, { role: "hold" }),
-          stageFrame(1, row, 150, { events: ["inhale"], role: "key" }),
-          stageFrame(0, row, 520, { events: ["exhale"], role: "recovery" }),
-          stageFrame(3, row, 260, { events: ["attend"], role: "accent" }),
-          stageFrame(0, row, 760, { role: "hold" }),
-        ],
-      },
-      blink: {
-        loop: true,
-        frames: [
-          stageFrame(0, row, 1200, { role: "hold" }),
-          stageFrame(2, row, 34, { events: ["blink-start", "eyes-closed"], role: "accent" }),
-          stageFrame(0, row, 66, { events: ["blink-open"], role: "recovery" }),
-          stageFrame(0, row, 1450, { role: "hold" }),
-        ],
-      },
-      greet: {
-        loop: false,
-        frames: [
-          stageFrame(0, row, 260, { events: ["notice"], role: "hold" }),
-          stageFrame(3, row, 90, { events: ["anticipate"], role: "key" }),
-          stageFrame(4, row, 75, { contact: "airborne", transform: { x: 0, y: -9 }, events: ["airborne"], role: "inbetween", shadow: { width: 38, opacity: 0.13 } }),
-          stageFrame(4, row, 145, { contact: "airborne", transform: { x: 0, y: -17 }, events: ["apex", "chirp"], role: "accent", shadow: { width: 26, opacity: 0.09 } }),
-          stageFrame(4, row, 70, { contact: "airborne", transform: { x: 0, y: -7 }, role: "inbetween", shadow: { width: 40, opacity: 0.14 } }),
-          stageFrame(0, row, 110, { events: ["land"], role: "recovery" }),
-          stageFrame(0, row, 420, { events: ["settle"], role: "hold" }),
-        ],
-      },
-      care: {
-        loop: false,
-        frames: [
-          stageFrame(0, row, 260, { events: ["notice-care"], role: "hold" }),
-          stageFrame(5, row, 130, { events: ["nuzzle"], role: "key" }),
-          stageFrame(4, row, 180, { events: ["content"], role: "accent" }),
-          stageFrame(0, row, 380, { events: ["settle"], role: "recovery" }),
-        ],
-      },
-      discover: {
-        loop: false,
-        frames: [
-          stageFrame(0, row, 260, { role: "hold" }),
-          stageFrame(3, row, 110, { events: ["ears-lead", "eyes-follow"], role: "key" }),
-          stageFrame(3, row, 260, { events: ["inspect"], role: "accent" }),
-          stageFrame(0, row, 360, { events: ["settle"], role: "recovery" }),
-        ],
-      },
-      sleep: {
-        loop: true,
-        loopFrom: 3,
-        frames: [
-          stageFrame(0, row, 260, { events: ["drowsy"], role: "hold" }),
-          stageFrame(5, row, 220, { contact: "resting", events: ["lower"], role: "key" }),
-          stageFrame(6, row, 280, { contact: "resting", events: ["curl"], role: "inbetween" }),
-          stageFrame(7, row, 560, { contact: "resting", events: ["asleep", "sleep-inhale"], role: "accent" }),
-          stageFrame(7, row, 620, { contact: "resting", events: ["sleep-exhale"], role: "hold" }),
-        ],
-      },
-      evolve: {
-        loop: false,
-        frames: [
-          stageFrame(0, row, 240, { events: ["arrive"], role: "hold" }),
-          stageFrame(3, row, 100, { events: ["recognize"], role: "key" }),
-          stageFrame(4, row, 170, { contact: "airborne", transform: { x: 0, y: -13 }, events: ["open"], role: "accent", shadow: { width: 30, opacity: 0.1 } }),
-          stageFrame(0, row, 120, { events: ["land"], role: "recovery" }),
-          stageFrame(0, row, 520, { events: ["proud"], role: "hold" }),
-        ],
-      },
-      walk: {
-        loop: true,
-        frames: gaitFrames(walkRow, "walk"),
-      },
-      run: {
-        loop: true,
-        frames: gaitFrames(runRow, "run"),
-      },
-      jump: {
-        loop: false,
-        frames: interactionFrames(jumpRow, "jump"),
-      },
-      pounce: {
-        loop: false,
-        frames: interactionFrames(pounceRow, "pounce"),
-      },
-      rollover: {
-        loop: false,
-        frames: interactionFrames(rolloverRow, "rollover"),
-      },
-    },
+    clips,
   };
 }
 
 export const LEAFLING_STAGE_MANIFESTS = {
   baby: createStageManifest(0, 2, 3, 6, 7, 8),
   young: LEAFLING_MANIFEST,
-  guardian: createStageManifest(1, 4, 5, 9, 10, 11),
+  guardian: createStageManifest(1, 4, 5, 9, 10, 11, 12),
 } satisfies Record<PetStage, PetAnimationManifest>;
 
 export function leaflingManifestForStage(stage: PetStage): PetAnimationManifest {

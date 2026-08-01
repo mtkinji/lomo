@@ -347,7 +347,7 @@ function drawVisitor(
   context.translate(Math.round(visitor.x), Math.round(visitor.y));
   context.scale(visitor.direction, 1);
   context.globalAlpha = visitor.engaged
-    ? Math.max(0.5, 1 - visitor.engagedAgeMs / 1500)
+    ? Math.max(0.85, 1 - visitor.engagedAgeMs / 2600)
     : 1;
 
   if (visitor.kind === "crawler") {
@@ -375,20 +375,45 @@ function drawVisitor(
     context.fillRect(0, 2, 1, 1);
   } else {
     const wingLift = Math.floor(visitor.ageMs / 105) % 2;
+    const leftWingY = -wingLift;
+    const rightWingY = wingLift;
     context.fillStyle = palette.outline;
-    context.fillRect(-1, -3, 3, 7);
-    context.fillRect(2, -4, 1, 2);
-    context.fillRect(3, -5, 1, 2);
-    context.fillRect(-7, -4 - wingLift, 6, 5);
-    context.fillRect(2, -4 + wingLift, 7, 5);
-    context.fillStyle = palette.cream;
-    context.fillRect(-6, -3 - wingLift, 5, 3);
-    context.fillRect(3, -3 + wingLift, 5, 3);
+    context.fillRect(-1, -7, 3, 14);
+    context.fillRect(-2, -9, 5, 4);
+    context.fillRect(-4, -11, 1, 3);
+    context.fillRect(4, -11, 1, 3);
+    context.fillRect(-5, -7 + leftWingY, 4, 1);
+    context.fillRect(-8, -6 + leftWingY, 7, 1);
+    context.fillRect(-11, -5 + leftWingY, 10, 2);
+    context.fillRect(-13, -3 + leftWingY, 12, 2);
+    context.fillRect(-10, -1 + leftWingY, 9, 2);
+    context.fillRect(-8, 1 + leftWingY, 7, 2);
+    context.fillRect(-5, 3 + leftWingY, 4, 2);
+    context.fillRect(2, -7 + rightWingY, 4, 1);
+    context.fillRect(2, -6 + rightWingY, 7, 1);
+    context.fillRect(2, -5 + rightWingY, 10, 2);
+    context.fillRect(2, -3 + rightWingY, 12, 2);
+    context.fillRect(2, -1 + rightWingY, 9, 2);
+    context.fillRect(2, 1 + rightWingY, 7, 2);
+    context.fillRect(2, 3 + rightWingY, 4, 2);
     context.fillStyle = palette.bloom;
-    context.fillRect(-4, -2 - wingLift, 2, 2);
-    context.fillRect(5, -2 + wingLift, 2, 2);
+    context.fillRect(-7, -5 + leftWingY, 6, 1);
+    context.fillRect(-10, -4 + leftWingY, 9, 2);
+    context.fillRect(-11, -2 + leftWingY, 10, 1);
+    context.fillRect(-8, -1 + leftWingY, 7, 2);
+    context.fillRect(-6, 1 + leftWingY, 5, 2);
+    context.fillRect(2, -5 + rightWingY, 6, 1);
+    context.fillRect(2, -4 + rightWingY, 9, 2);
+    context.fillRect(2, -2 + rightWingY, 11, 1);
+    context.fillRect(2, -1 + rightWingY, 8, 2);
+    context.fillRect(2, 1 + rightWingY, 6, 2);
+    context.fillStyle = palette.cream;
+    context.fillRect(-8, -3 + leftWingY, 3, 2);
+    context.fillRect(6, -3 + rightWingY, 3, 2);
+    context.fillRect(-5, 1 + leftWingY, 2, 1);
+    context.fillRect(4, 1 + rightWingY, 2, 1);
     context.fillStyle = palette.leafLight;
-    context.fillRect(0, -2, 1, 4);
+    context.fillRect(0, -5, 1, 9);
   }
   context.restore();
 }

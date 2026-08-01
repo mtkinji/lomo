@@ -37,10 +37,13 @@ test("the reference engine keeps a low ground plane for a roaming-scale Pet", ()
 test("each evolution stage resolves to its own authored animation vocabulary", () => {
   assert.equal(leaflingManifestForStage("young"), LEAFLING_MANIFEST);
   assert.equal(leaflingManifestForStage("baby").atlas.src, "/leafling-stage-atlas-v3.png");
-  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v3.png");
+  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v4.png");
 
   for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
-    assert.deepEqual(Object.keys(manifest.clips), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"]);
+    const expectedClips = stage === "guardian"
+      ? ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "aerial"]
+      : ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"];
+    assert.deepEqual(Object.keys(manifest.clips), expectedClips);
     assert.equal(manifest.clips.walk.loop, true);
     assert.equal(manifest.clips.run.loop, true);
     assert.equal(manifest.clips.walk.frames.length, 8);
@@ -55,6 +58,23 @@ test("each evolution stage resolves to its own authored animation vocabulary", (
   }
 });
 
+test("Guardian owns a distinct acrobatic sky vocabulary", () => {
+  const aerial = leaflingManifestForStage("guardian").clips.aerial;
+
+  assert.equal(aerial.loop, false);
+  assert.equal(aerial.frames.length, 8);
+  assert.deepEqual(new Set(aerial.frames.map((frame) => frame.cell.row)), new Set([12]));
+  assert.deepEqual(
+    aerial.frames.map((frame) => frame.events?.[0]),
+    ["sightline", "coil", "launch", "rise", "bank", "reach", "land", "settle"],
+  );
+  assert.ok(aerial.frames[5].transform?.y && aerial.frames[5].transform.y <= -40);
+  assert.equal(aerial.frames[5].role, "accent", "the directional reach owns the held apex");
+  assert.equal(aerial.frames[6].contact, "planted");
+  assert.ok(!("aerial" in leaflingManifestForStage("baby").clips));
+  assert.ok(!("aerial" in leaflingManifestForStage("young").clips));
+});
+
 test("locomotion sources are normalized to the renderer's screen-right contract", async () => {
   const report = JSON.parse(await readFile(new URL("../art/leafling-locomotion-v1/qa/assembly.json", import.meta.url), "utf8"));
   const guardianWalk = report.rows.find((row: { stage: string; motion: string }) => row.stage === "guardian" && row.motion === "walk");
@@ -62,6 +82,25 @@ test("locomotion sources are normalized to the renderer's screen-right contract"
   assert.equal(guardianWalk.canonical_facing, "screen-right");
   assert.equal(guardianWalk.mirrored_from_source, true);
   assert.ok(report.rows.every((row: { canonical_facing: string }) => row.canonical_facing === "screen-right"));
+});
+
+test("the Guardian aerial row assembles without clipping or neighboring-pose debris", async () => {
+  const report = JSON.parse(await readFile(new URL("../art/leafling-aerial-v1/qa/assembly.json", import.meta.url), "utf8"));
+
+  assert.equal(report.atlas, "public/leafling-stage-atlas-v4.png");
+  assert.equal(report.atlas_row, 12);
+  assert.equal(report.canonical_facing, "screen-right");
+  assert.equal(report.frames.length, 8);
+  for (const frame of report.frames) {
+    const [x, y, width, height] = frame.destination;
+    assert.ok(x >= 0 && y >= 0, `frame ${frame.frame} must stay inside the top-left cell edges`);
+    assert.ok(x + width <= 160, `frame ${frame.frame} must stay inside the right cell edge`);
+    assert.ok(y + height <= 128, `frame ${frame.frame} must stay inside the bottom cell edge`);
+  }
+  assert.ok(
+    report.frames.some((frame: { removed_intruding_pixels: number }) => frame.removed_intruding_pixels > 0),
+    "assembly should record deterministic removal of overlapping neighboring poses",
+  );
 });
 
 test("ground cues stay inside the terrain instead of becoming a floating disk", () => {
@@ -124,6 +163,7 @@ test("physical clips declare believable contact changes", () => {
   assert.ok(LEAFLING_MANIFEST.clips.pounce.frames.some((frame) => frame.contact === "airborne"));
   assert.equal(LEAFLING_MANIFEST.clips.pounce.frames[5].contact, "planted");
   assert.ok(LEAFLING_MANIFEST.clips.rollover.frames.slice(1, 7).every((frame) => frame.contact === "resting"));
+  assert.ok(leaflingManifestForStage("guardian").clips.aerial.frames.slice(2, 6).every((frame) => frame.contact === "airborne"));
 });
 
 test("blink uses anime cadence and changes only the eye channel", () => {

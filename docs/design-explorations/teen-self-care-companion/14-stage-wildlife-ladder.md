@@ -33,9 +33,10 @@ kind of attention.
 
 Baby notices a small crawler at paw height, young Leafling chases a firefly at
 body height, and Guardian reads a large sky moth much higher in the canopy.
-Each visitor has its own path and one stage-appropriate response. This uses the
-existing authored pounce and jump acting while making evolution legible through
-what the creature can perceive and attempt.
+Each visitor has its own path and one stage-appropriate response. Baby and young
+reuse their authored pounce vocabulary; Guardian gains a dedicated aerial row
+so evolution is legible through what the creature can perceive and physically
+attempt.
 
 ### Timing game
 
@@ -52,8 +53,9 @@ Choose the **stage-specific wildlife ladder**.
   makes one compact ground pounce.
 - Young: a firefly bobs through the meadow. Leafling predicts its short flight
   and makes one elastic pounce.
-- Guardian: a broad sky moth rides the upper air. Leafling tracks upward and
-  performs its authored high reaching leap.
+- Guardian: a broad sky moth rides the upper air. Leafling reads the path,
+  coils, launches, banks with its tail, opens into a held directional reach,
+  and lands with weight.
 
 The visitor is never caught, collected, harmed, or converted into value. It
 evades after one encounter and leaves the scene. The next encounter arrives
@@ -68,6 +70,8 @@ later, preserving surprise and preventing oscillating left-right pursuit.
   but never predicts through the Pet's body to the opposite visible side.
 - Facing locks to that intercept before the first launch drawing.
 - Pounce and aerial-pounce preserve that facing through contact and recovery.
+- At commitment the visitor turns outward on the chosen side, preventing it
+  from crossing behind the Pet and reversing the visible relationship mid-shot.
 - The visitor exits after one response; it cannot provoke a second reverse
   launch.
 - Artwork continues to own body height, anticipation, aerial silhouette,
@@ -82,9 +86,10 @@ notices. The engine inspector can invite the current stage's visitor directly
 for rapid family critique.
 
 The bet is that a change in *possible behavior* will make evolution feel more
-meaningful than a larger sprite alone. If the Guardian still does not feel more
-capable, the next investment should be a new authored aerial-acrobatics row,
-not more visitor types or reward systems.
+meaningful than a larger sprite alone. The dedicated Guardian row is the first
+proof: the bank is a fast connective drawing, while the directionally clear
+reach owns the held apex. Further investment should deepen stage-specific body
+vocabulary, not add visitor inventories or reward systems.
 
 ## Acceptance evidence
 
@@ -92,8 +97,8 @@ not more visitor types or reward systems.
 - The Pet faces the predicted intercept before launch in both directions.
 - Baby receives a ground crawler, young receives a firefly, and Guardian
   receives a high sky moth.
-- Baby and young use their authored pounce; Guardian uses its authored high
-  jump as an aerial-pounce.
+- Baby and young use their authored pounce; Guardian uses a dedicated authored
+  aerial-acrobatics row with four airborne drawings.
 - Every encounter ends once and returns to a calm world.
 - Rain shelter, Focus together, direct taps, Reduce Motion, and ordinary travel
   retain priority over wildlife.

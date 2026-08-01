@@ -210,12 +210,15 @@ test("a crossing firefly keeps its intercept on the visible side and cannot prov
   const launched = stepPetWorld(start, 80, false);
   const fromRight = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
   const launchedFromRight = stepPetWorld(fromRight, 80, false);
+  const pursuit = stepPetWorld(launched, 260, false);
   const recovered = stepPetWorld(launched, PET_WORLD.pounceDuration, false);
 
   assert.equal(launched.action, "pounce");
   assert.equal(launched.facing, -1, "the Pet first faces the firefly that is still visibly left");
   assert.ok((launched.targetX ?? 0) < launched.petX, "prediction cannot pass through the Pet's body");
   assert.equal(launched.visitor.engaged, true);
+  assert.equal(launched.visitor.direction, -1, "the firefly evades outward on the committed side");
+  assert.ok(pursuit.visitor.x < pursuit.petX, "the visible visitor cannot cross behind the Pet during pursuit");
   assert.equal(launched.poseY, 0, "the authored pounce row owns body lift");
   assert.equal(launchedFromRight.facing, 1, "the mirrored case faces the visible firefly on the right");
   assert.ok((launchedFromRight.targetX ?? 0) > launchedFromRight.petX);
@@ -230,8 +233,9 @@ test("guardian tracks a high sky moth with its aerial vocabulary", () => {
   assert.equal(after.visitor.kind, "sky-moth");
   assert.ok(after.visitor.y < 130);
   assert.equal(after.action, "aerial-pounce");
-  assert.equal(clipForWorldAction(after.action), "jump");
+  assert.equal(clipForWorldAction(after.action), "aerial");
   assert.equal(after.facing, 1, "the Guardian faces the sky moth that is still visibly right");
+  assert.equal(after.visitor.direction, 1, "the sky moth escapes farther into the chosen side of the shot");
 });
 
 test("rollover is a finite grounded performance", () => {

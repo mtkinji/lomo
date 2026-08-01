@@ -386,7 +386,7 @@ export function PetPrototype() {
             <span>Camera x <strong>{Math.round(world.cameraX)}</strong></span>
             <span>Facing <strong>{world.facing === -1 ? "left" : "right"}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
-            <span>Visitor <strong>{world.visitor.active ? world.visitor.kind : "quiet"}</strong></span>
+            <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
           </div>

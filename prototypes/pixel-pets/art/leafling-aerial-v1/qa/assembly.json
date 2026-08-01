@@ -1,0 +1,157 @@
+{
+  "cell": [
+    160,
+    128
+  ],
+  "baseline": 120,
+  "scale": 0.4,
+  "atlas": "public/leafling-stage-atlas-v4.png",
+  "atlas_row": 12,
+  "canonical_facing": "screen-right",
+  "frames": [
+    {
+      "frame": 0,
+      "source": "guardian-jump",
+      "source_frame": 0,
+      "source_box": [
+        39,
+        343,
+        239,
+        600
+      ],
+      "destination": [
+        40,
+        17,
+        80,
+        103
+      ],
+      "removed_intruding_pixels": 0
+    },
+    {
+      "frame": 1,
+      "source": "guardian-aerial",
+      "source_frame": 1,
+      "source_box": [
+        268,
+        391,
+        451,
+        550
+      ],
+      "destination": [
+        44,
+        56,
+        73,
+        64
+      ],
+      "removed_intruding_pixels": 0
+    },
+    {
+      "frame": 2,
+      "source": "guardian-aerial",
+      "source_frame": 2,
+      "source_box": [
+        510,
+        250,
+        718,
+        537
+      ],
+      "destination": [
+        38,
+        5,
+        83,
+        115
+      ],
+      "removed_intruding_pixels": 0
+    },
+    {
+      "frame": 3,
+      "source": "guardian-aerial",
+      "source_frame": 0,
+      "source_box": [
+        25,
+        231,
+        256,
+        524
+      ],
+      "destination": [
+        34,
+        3,
+        92,
+        117
+      ],
+      "removed_intruding_pixels": 0
+    },
+    {
+      "frame": 4,
+      "source": "guardian-aerial",
+      "source_frame": 4,
+      "source_box": [
+        975,
+        259,
+        1168,
+        530
+      ],
+      "destination": [
+        42,
+        12,
+        77,
+        108
+      ],
+      "removed_intruding_pixels": 0
+    },
+    {
+      "frame": 5,
+      "source": "guardian-aerial",
+      "source_frame": 5,
+      "source_box": [
+        1207,
+        243,
+        1482,
+        503
+      ],
+      "destination": [
+        25,
+        16,
+        110,
+        104
+      ],
+      "removed_intruding_pixels": 755
+    },
+    {
+      "frame": 6,
+      "source": "guardian-aerial",
+      "source_frame": 6,
+      "source_box": [
+        1464,
+        327,
+        1670,
+        549
+      ],
+      "destination": [
+        39,
+        31,
+        82,
+        89
+      ],
+      "removed_intruding_pixels": 251
+    },
+    {
+      "frame": 7,
+      "source": "guardian-aerial",
+      "source_frame": 7,
+      "source_box": [
+        1694,
+        307,
+        1899,
+        535
+      ],
+      "destination": [
+        39,
+        29,
+        82,
+        91
+      ],
+      "removed_intruding_pixels": 1
+    }
+  ]
+}
