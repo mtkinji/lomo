@@ -18,7 +18,7 @@ import {
   resolveTapIntent,
   setWorldZoom,
   setWorldWeather,
-  spawnInsect,
+  spawnVisitor,
   stepPetWorld,
   type PetWorldAction,
   type PetWorldState,
@@ -31,7 +31,7 @@ import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "firefly" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "play";
+  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "play";
 };
 
 interface PetEngineCanvasProps {
@@ -335,6 +335,64 @@ function drawWeather(
   }
 }
 
+function drawVisitor(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+) {
+  if (!world.visitor.active) return;
+  const visitor = world.visitor;
+
+  context.save();
+  context.translate(Math.round(visitor.x), Math.round(visitor.y));
+  context.scale(visitor.direction, 1);
+  context.globalAlpha = visitor.engaged
+    ? Math.max(0.5, 1 - visitor.engagedAgeMs / 1500)
+    : 1;
+
+  if (visitor.kind === "crawler") {
+    const step = Math.floor(visitor.ageMs / 110) % 2;
+    context.fillStyle = palette.outline;
+    context.fillRect(-4, -2, 7, 3);
+    context.fillRect(3, -1, 2, 2);
+    context.fillRect(-3, 1, 1, 1 + step);
+    context.fillRect(0, 1, 1, 2 - step);
+    context.fillRect(3, 1, 1, 1 + step);
+    context.fillRect(4, -3, 1, 2);
+    context.fillRect(5, -4, 1, 2);
+    context.fillStyle = palette.leafLight;
+    context.fillRect(-3, -1, 5, 2);
+    context.fillStyle = palette.bloom;
+    context.fillRect(3, -1, 1, 1);
+  } else if (visitor.kind === "firefly") {
+    const wing = Math.floor(visitor.ageMs / 90) % 2;
+    context.fillStyle = palette.cream;
+    context.fillRect(-3, -wing, 2, 2);
+    context.fillRect(3, wing, 2, 2);
+    context.fillStyle = palette.bloom;
+    context.fillRect(-1, -1, 3, 3);
+    context.fillStyle = palette.outline;
+    context.fillRect(0, 2, 1, 1);
+  } else {
+    const wingLift = Math.floor(visitor.ageMs / 105) % 2;
+    context.fillStyle = palette.outline;
+    context.fillRect(-1, -3, 3, 7);
+    context.fillRect(2, -4, 1, 2);
+    context.fillRect(3, -5, 1, 2);
+    context.fillRect(-7, -4 - wingLift, 6, 5);
+    context.fillRect(2, -4 + wingLift, 7, 5);
+    context.fillStyle = palette.cream;
+    context.fillRect(-6, -3 - wingLift, 5, 3);
+    context.fillRect(3, -3 + wingLift, 5, 3);
+    context.fillStyle = palette.bloom;
+    context.fillRect(-4, -2 - wingLift, 2, 2);
+    context.fillRect(5, -2 + wingLift, 2, 2);
+    context.fillStyle = palette.leafLight;
+    context.fillRect(0, -2, 1, 4);
+  }
+  context.restore();
+}
+
 function drawProceduralHabitat(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -486,16 +544,7 @@ function drawProceduralHabitat(
     context.fillRect(world.petX, berryY - 2, 2, 2);
   }
 
-  if (world.insect.active) {
-    const wing = Math.floor(world.insect.ageMs / 90) % 2;
-    context.fillStyle = palette.cream;
-    context.fillRect(Math.round(world.insect.x) - 2, Math.round(world.insect.y) - wing, 2, 2);
-    context.fillRect(Math.round(world.insect.x) + 2, Math.round(world.insect.y) + wing, 2, 2);
-    context.fillStyle = palette.bloom;
-    context.fillRect(Math.round(world.insect.x), Math.round(world.insect.y), 2, 2);
-    context.fillStyle = palette.outline;
-    context.fillRect(Math.round(world.insect.x), Math.round(world.insect.y) + 2, 1, 1);
-  }
+  drawVisitor(context, palette, world);
 
   context.restore();
   drawWeather(context, palette, world, false);
@@ -570,17 +619,7 @@ function drawAuthoredHabitat(
     context.fillRect(world.petX, berryY - 2, 2, 2);
   }
 
-  if (world.insect.active) {
-    const wing = Math.floor(world.insect.ageMs / 90) % 2;
-    context.globalAlpha = 1;
-    context.fillStyle = palette.cream;
-    context.fillRect(Math.round(world.insect.x) - 2, Math.round(world.insect.y) - wing, 2, 2);
-    context.fillRect(Math.round(world.insect.x) + 2, Math.round(world.insect.y) + wing, 2, 2);
-    context.fillStyle = palette.bloom;
-    context.fillRect(Math.round(world.insect.x), Math.round(world.insect.y), 2, 2);
-    context.fillStyle = palette.outline;
-    context.fillRect(Math.round(world.insect.x), Math.round(world.insect.y) + 2, 1, 1);
-  }
+  drawVisitor(context, palette, world);
   context.restore();
 
   drawWeather(context, palette, world, false);
@@ -761,9 +800,15 @@ export function PetEngineCanvas({
   const gestureMovedRef = useRef(false);
   const lastFrameRef = useRef("");
   const lastWorldReportRef = useRef(0);
-  const nextInsectRef = useRef(1800);
+  const worldClockRef = useRef(0);
+  const nextVisitorRef = useRef(1800);
+  const stageRef = useRef(stage);
   const callbackRef = useRef({ onFrame, onWorldFrame, onWorldInteraction });
   const manifest = leaflingManifestForStage(stage);
+
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 
   useEffect(() => {
     callbackRef.current = { onFrame, onWorldFrame, onWorldInteraction };
@@ -771,7 +816,10 @@ export function PetEngineCanvas({
 
   useEffect(() => {
     if (!worldCommand) return;
-    if (worldCommand.type === "firefly") worldRef.current = spawnInsect(worldRef.current);
+    if (worldCommand.type === "visitor") {
+      worldRef.current = spawnVisitor(worldRef.current, stageRef.current);
+      nextVisitorRef.current = worldClockRef.current + 7800;
+    }
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
     }
@@ -785,7 +833,8 @@ export function PetEngineCanvas({
       worldRef.current = beginCompanionFocus(worldRef.current, 15000);
     }
     if (worldCommand.type === "play") {
-      worldRef.current = spawnInsect(setWorldWeather(worldRef.current, "breeze"));
+      worldRef.current = spawnVisitor(setWorldWeather(worldRef.current, "breeze"), stageRef.current);
+      nextVisitorRef.current = worldClockRef.current + 7800;
     }
     callbackRef.current.onWorldInteraction?.(worldRef.current.action);
   }, [worldCommand]);
@@ -807,7 +856,6 @@ export function PetEngineCanvas({
     let previousTime = performance.now();
     let clipStartedAt = previousTime;
     let activeClip = "";
-    let worldClock = 0;
     const sprite = new Image();
     const habitat: HabitatImages = {
       backdrop: new Image(),
@@ -822,13 +870,13 @@ export function PetEngineCanvas({
       if (disposed) return;
       const dt = paused ? 0 : Math.min(64, Math.max(0, time - previousTime));
       previousTime = time;
-      worldClock += dt;
+      worldClockRef.current += dt;
 
       const beforeAction = worldRef.current.action;
       if (!paused) worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
-      if (!worldRef.current.insect.active && worldClock >= nextInsectRef.current) {
-        worldRef.current = spawnInsect(worldRef.current);
-        nextInsectRef.current = worldClock + 7800;
+      if (!worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
+        worldRef.current = spawnVisitor(worldRef.current, stage);
+        nextVisitorRef.current = worldClockRef.current + 7800;
       }
       if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action);
 

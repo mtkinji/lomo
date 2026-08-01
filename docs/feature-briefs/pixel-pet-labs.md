@@ -88,7 +88,7 @@ Care days accumulate and never subtract. A missed day cannot make the Pet hungry
 - Tap elsewhere on the ground and the Pet walks or runs there while the camera follows.
 - Tap high and the Pet jumps toward the touch; swipe across the Pet and it curls up and rolls over.
 - Pinch between a full-world view and a temporary close-up. Zoom is camera state, not a saved preference or a consumer-facing control.
-- Notice occasional insects moving through the habitat. The Pet may track, approach, or pounce near them without requiring user action.
+- Notice occasional stage-specific wildlife moving through the habitat. Baby notices a crawler at paw height, young follows a meadow firefly, and guardian attempts one high aerial interception of a sky moth. Each encounter predicts one intercept, faces before launch, and ends without capture, collection, or repeated pursuit.
 - Tap or drag an available meal to its bowl.
 - See one recent source-class receipt without private Activity text.
 - Occasionally choose between two cosmetic directions such as rest, explore, or play.
@@ -113,6 +113,8 @@ Animation follows an anime-inspired limited-motion language rather than uniform 
 The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. The Leafling proof uses a versioned, renderer-neutral habitat pack: an authored far panorama, a root-anchored shelter-tree sprite, and a transparent near-meadow layer. Canvas, native, web, and desktop adapters can preserve the same layer order and world coordinates while expressing weather appropriately. Environmental visitors are transient behavior targets, not collectible currency or another progress system.
 
 Weather is behavior, not a wallpaper swap. Wind moves foliage, loose leaves, and the Pet's grounded silhouette. Rain changes light and terrain, then gives the Pet a reason to seek shelter and curl beneath a tree. Sun creates a warm destination in the meadow; after a readable basking hold, the Pet chooses the old tree's shade and curls without exposing heat as a meter or need. The portable world snapshot owns weather, intensity, elapsed time, destinations, and the Pet's response so iPhone, web, and desktop renderers can express the same event with platform-appropriate drawing.
+
+Wildlife makes growth physical rather than merely visual. The portable behavior engine selects a transient visitor by evolution stage: ground crawler for baby, firefly for young, and high sky moth for guardian. Acquisition predicts one directionally stable intercept before starting an authored clip, but the prediction can never pass through the Pet and make it turn away from a visitor that remains visibly on the other side. The visitor evades after one interaction so the Pet never oscillates across it or appears to launch backward. These are living-world moments, not collectibles, prey, combat, or rewards.
 
 Focus together is the first shared ritual. Starting it brings the Pet to the shelter tree and quiets the scene for a short prototype session. Completion creates the same bounded source-class receipt as an ordinary Focus session; it does not add a second streak or parallel task system. A completed family/friend game can likewise create the day's one care moment while causing a playful world response such as breeze and a visitor.
 
@@ -141,7 +143,8 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 - Do weather-caused behaviors make the habitat feel like a world rather than a decorated screen?
 - Does focusing beside the resting Pet improve attention, or does the animation become distracting?
 - Does pinch-to-close-up create affection, or does it mostly interfere with taps?
-- How often can insects visit before their movement becomes distracting or predictable?
+- How often can stage-specific wildlife visit before its movement becomes distracting or predictable?
+- Does the crawler/firefly/sky-moth ladder make evolution feel like new capability, or does Guardian need a dedicated aerial-acrobatics row beyond its current high jump?
 - Does rollover feel like a delightful learned trick, and does it justify a dedicated animation row?
 - Do teens prefer sounds by default, or should Pet begin muted?
 - Does contextual Chat clarify Pet events without making Pet feel distributed through the timeline?

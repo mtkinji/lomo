@@ -212,6 +212,11 @@ export function PetPrototype() {
   const currentClip = clipForMotion(currentMotion);
   const renderedClip = frame?.clip ?? currentClip;
   const currentStage = previewStage ?? state.stage;
+  const visitorLabel = currentStage === "baby"
+    ? "moss crawler"
+    : currentStage === "young"
+      ? "firefly"
+      : "sky moth";
   const currentManifest = leaflingManifestForStage(currentStage);
   const currentAnimation = currentManifest.clips[renderedClip] as PetAnimationClip;
   const currentScale = LEAFLING_PRESENTATION.stages[currentStage].height / currentManifest.atlas.frameHeight;
@@ -241,6 +246,7 @@ export function PetPrototype() {
       run: { title: "Coming fast", detail: `${state.name} is racing over.` },
       jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
       pounce: { title: "Couldn’t resist", detail: "That tiny visitor looked interesting." },
+      "aerial-pounce": { title: "Above the meadow", detail: `${state.name} read the sky moth’s path and reached high.` },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
       "seek-shelter": { title: "Weather coming", detail: `${state.name} knows where the old tree keeps the ground dry.` },
       shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
@@ -272,7 +278,7 @@ export function PetPrototype() {
         <span className="eyebrow">Kwilt Lab · Pet Engine Study 10</span>
         <h1>Your touch<br />has an answer.</h1>
         <p>
-          Reach high, release a firefly, or invite a rollover. Every Leafling form now answers with its own authored acting—not a translated or rotated stand-in.
+          A crawler, a firefly, then something high in the sky. Each Leafling form notices a different layer of the world—and answers with a body that has truly grown.
         </p>
         <dl className="engine-facts">
           <div><dt>Touch</dt><dd>reach · hunt · roll</dd></div>
@@ -366,7 +372,7 @@ export function PetPrototype() {
         <section className="inspector-section">
           <div className="inspector-label"><span>World interaction</span><output>{world.action}</output></div>
           <div className="world-controls">
-            <button type="button" onClick={() => commandWorld("firefly")}>Release firefly</button>
+            <button type="button" onClick={() => commandWorld("visitor")}>Invite {visitorLabel}</button>
             <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
             <button type="button" onClick={() => commandWorld("center")}>Reset camera</button>
           </div>
@@ -378,8 +384,9 @@ export function PetPrototype() {
           <div className="world-readout" aria-label="Portable world runtime output">
             <span>Pet x <strong>{Math.round(world.petX)}</strong></span>
             <span>Camera x <strong>{Math.round(world.cameraX)}</strong></span>
+            <span>Facing <strong>{world.facing === -1 ? "left" : "right"}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
-            <span>Visitor <strong>{world.insect.active ? "active" : "quiet"}</strong></span>
+            <span>Visitor <strong>{world.visitor.active ? world.visitor.kind : "quiet"}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
           </div>

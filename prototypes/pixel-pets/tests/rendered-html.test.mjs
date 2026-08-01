@@ -71,7 +71,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(habitat, /leafling-meadow-foreground-v1\.png/);
   assert.match(habitat, /weatherBakedIn: false/);
   assert.match(world, /stepPetWorld/);
-  assert.match(world, /spawnInsect/);
+  assert.match(world, /spawnVisitor/);
+  assert.match(world, /sky-moth/);
   assert.match(world, /setWorldWeather/);
   assert.match(world, /beginCompanionFocus/);
   assert.match(runtime, /resolvePetFrame/);

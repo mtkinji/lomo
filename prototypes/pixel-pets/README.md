@@ -11,7 +11,7 @@ The prototype lets a tester:
 - see a one-time sleep transition resolve into a curled breathing loop;
 - tap the world to walk, run, and jump while authored footfalls and a wider camera follow;
 - pinch from a full habitat view to a temporary 2.25x close-up;
-- watch autonomous fireflies recruit attention and provoke a pounce;
+- discover a stage-specific wildlife ladder: baby follows a ground crawler, young chases a firefly, and guardian performs a high aerial interception of a sky moth;
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
 - inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
 - see a face-only 184 ms blink composed over a locked full-body key pose;
@@ -37,6 +37,9 @@ or moving its body; all three forms now own distinct eight-drawing walk, run,
 jump, pounce, and rollover clips with non-linear limited-animation timing and
 explicit ground contact. World state owns destinations, facing, and camera
 travel; the drawings own lift, body turn, anticipation, impact, and recovery.
+Visitor pursuit uses one side-stable intercept and one recovery, so a crossing
+visitor cannot make Leafling turn away, launch backward, or oscillate into a
+second pounce.
 The renderer-neutral habitat manifest carries a 480 × 240 far panorama, a
 root-anchored shelter tree, and a transparent near-meadow layer. Canvas 2D is
 the current adapter. It places Leafling low in the scene, draws contact cues

@@ -1,3 +1,5 @@
+import type { PetStage } from "./pet-state";
+
 export const PET_WORLD = {
   width: 480,
   viewportWidth: 160,
@@ -7,6 +9,7 @@ export const PET_WORLD = {
   maxZoom: 2.25,
   jumpDuration: 850,
   pounceDuration: 720,
+  aerialPounceDuration: 980,
   rolloverDuration: 1200,
   treeShelterX: 112,
   sunPatchX: 366,
@@ -15,7 +18,8 @@ export const PET_WORLD = {
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
-export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
 export interface WorldPoint {
   x: number;
@@ -28,13 +32,16 @@ export type PetWorldIntent =
   | { kind: "jump"; worldX: number }
   | { kind: "rollover"; worldX: number };
 
-export interface WorldInsect {
+export interface WorldVisitor {
   active: boolean;
+  kind: WorldVisitorKind;
   x: number;
   y: number;
   originY: number;
   direction: -1 | 1;
   ageMs: number;
+  engaged: boolean;
+  engagedAgeMs: number;
 }
 
 export interface PetWorldState {
@@ -55,8 +62,48 @@ export interface PetWorldState {
     remainingMs: number;
     completed: boolean;
   };
-  insect: WorldInsect;
+  visitor: WorldVisitor;
 }
+
+const VISITOR_BEHAVIOR = {
+  crawler: {
+    y: 188,
+    speed: 0.011,
+    engageDistance: 15,
+    attentionDistance: 76,
+    lead: 4,
+    action: "pounce" as const,
+  },
+  firefly: {
+    y: 158,
+    speed: 0.026,
+    engageDistance: 22,
+    attentionDistance: 108,
+    lead: 22,
+    action: "pounce" as const,
+  },
+  "sky-moth": {
+    y: 112,
+    speed: 0.034,
+    engageDistance: 34,
+    attentionDistance: 138,
+    lead: 38,
+    action: "aerial-pounce" as const,
+  },
+} satisfies Record<WorldVisitorKind, {
+  y: number;
+  speed: number;
+  engageDistance: number;
+  attentionDistance: number;
+  lead: number;
+  action: "pounce" | "aerial-pounce";
+}>;
+
+const VISITOR_FOR_STAGE: Record<PetStage, WorldVisitorKind> = {
+  baby: "crawler",
+  young: "firefly",
+  guardian: "sky-moth",
+};
 
 export function createPetWorldState(): PetWorldState {
   return {
@@ -73,7 +120,17 @@ export function createPetWorldState(): PetWorldState {
     weatherElapsed: 0,
     weatherSway: 0,
     focus: { active: false, remainingMs: 0, completed: false },
-    insect: { active: false, x: 0, y: 0, originY: 0, direction: 1, ageMs: 0 },
+    visitor: {
+      active: false,
+      kind: "firefly",
+      x: 0,
+      y: VISITOR_BEHAVIOR.firefly.y,
+      originY: VISITOR_BEHAVIOR.firefly.y,
+      direction: 1,
+      ageMs: 0,
+      engaged: false,
+      engagedAgeMs: 0,
+    },
   };
 }
 
@@ -166,16 +223,29 @@ export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): 
   };
 }
 
-export function spawnInsect(
+export function spawnVisitor(
   state: PetWorldState,
-  insect: { x?: number; y?: number; direction?: -1 | 1 } = {},
+  stage: PetStage,
+  visitor: { x?: number; y?: number; direction?: -1 | 1 } = {},
 ): PetWorldState {
-  const direction = insect.direction ?? (state.petX > PET_WORLD.width / 2 ? -1 : 1);
-  const x = insect.x ?? (direction === 1 ? state.cameraX - 94 / state.zoom : state.cameraX + 94 / state.zoom);
-  const y = insect.y ?? 162;
+  const kind = VISITOR_FOR_STAGE[stage];
+  const behavior = VISITOR_BEHAVIOR[kind];
+  const direction = visitor.direction ?? (state.petX > PET_WORLD.width / 2 ? -1 : 1);
+  const x = visitor.x ?? (direction === 1 ? state.cameraX - 94 / state.zoom : state.cameraX + 94 / state.zoom);
+  const y = visitor.y ?? behavior.y;
   return {
     ...state,
-    insect: { active: true, x: clampWorldX(x), y, originY: y, direction, ageMs: 0 },
+    visitor: {
+      active: true,
+      kind,
+      x: clampWorldX(x),
+      y,
+      originY: y,
+      direction,
+      ageMs: 0,
+      engaged: false,
+      engagedAgeMs: 0,
+    },
   };
 }
 
@@ -188,7 +258,40 @@ function moveToward(value: number, target: number, distance: number) {
   return value + Math.sign(target - value) * distance;
 }
 
-export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMotion: boolean): PetWorldState {
+function faceToward(value: number, target: number, fallback: -1 | 1): -1 | 1 {
+  if (Math.abs(target - value) < 0.5) return fallback;
+  return target < value ? -1 : 1;
+}
+
+function resolveVisitorIntercept(
+  petX: number,
+  visitor: WorldVisitor,
+  lead: number,
+) {
+  const currentDelta = visitor.x - petX;
+  const predicted = clampWorldX(visitor.x + visitor.direction * lead);
+  const predictedDelta = predicted - petX;
+  // Lead a moving visitor only while the lead remains on the side the Pet can
+  // currently see. Predicting through the Pet makes the launch face away from
+  // the visible visitor and reads as a backward jump.
+  if (currentDelta !== 0 && predictedDelta * currentDelta <= 0) {
+    return clampWorldX(visitor.x);
+  }
+  return predicted;
+}
+
+function finishVisitorAction(state: PetWorldState): PetWorldState {
+  return finishAction({
+    ...state,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+  });
+}
+
+export function stepPetWorld(
+  state: PetWorldState,
+  elapsedMs: number,
+  reducedMotion: boolean,
+): PetWorldState {
   const dt = Math.max(0, elapsedMs);
   const weatherElapsed = state.weatherElapsed + dt;
   const weatherSway = state.weather === "breeze"
@@ -218,16 +321,28 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
     }
   }
 
-  if (state.insect.active) {
-    const ageMs = state.insect.ageMs + dt;
-    const x = state.insect.x + state.insect.direction * dt * 0.026;
+  if (state.visitor.active) {
+    const behavior = VISITOR_BEHAVIOR[state.visitor.kind];
+    const ageMs = state.visitor.ageMs + dt;
+    const engagedAgeMs = state.visitor.engaged ? state.visitor.engagedAgeMs + dt : 0;
+    const escapeMultiplier = state.visitor.engaged ? 1.32 : 1;
+    const x = state.visitor.x + state.visitor.direction * dt * behavior.speed * escapeMultiplier;
     const active = x > PET_WORLD.minX - 10 && x < PET_WORLD.maxX + 10 && ageMs < 9000;
-    next.insect = {
-      ...state.insect,
+    const baseY = state.visitor.kind === "crawler"
+      ? state.visitor.originY + (Math.floor(ageMs / 150) % 2)
+      : state.visitor.kind === "firefly"
+        ? state.visitor.originY + Math.sin(ageMs / 150) * 7 + Math.sin(ageMs / 53) * 2
+        : state.visitor.originY + Math.sin(ageMs / 210) * 11 + Math.sin(ageMs / 81) * 3;
+    const escapeLift = state.visitor.engaged && state.visitor.kind !== "crawler"
+      ? Math.min(22, engagedAgeMs * 0.032)
+      : 0;
+    next.visitor = {
+      ...state.visitor,
       active,
       ageMs,
+      engagedAgeMs,
       x,
-      y: state.insect.originY + Math.sin(ageMs / 150) * 7 + Math.sin(ageMs / 53) * 2,
+      y: baseY - escapeLift,
     };
   }
 
@@ -310,10 +425,19 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
       if (state.targetX !== null) next.petX = moveToward(state.petX, state.targetX, dt * 0.018);
     }
   } else if (state.action === "pounce") {
-    if (next.actionElapsed >= PET_WORLD.pounceDuration) next = finishAction(next);
+    if (next.actionElapsed >= PET_WORLD.pounceDuration) next = finishVisitorAction(next);
     else {
-      const targetX = state.targetX ?? state.insect.x;
+      const targetX = state.targetX ?? state.visitor.x;
       next.petX = moveToward(state.petX, targetX, dt * 0.05);
+      next.facing = faceToward(state.petX, targetX, state.facing);
+      next.poseY = 0;
+    }
+  } else if (state.action === "aerial-pounce") {
+    if (next.actionElapsed >= PET_WORLD.aerialPounceDuration) next = finishVisitorAction(next);
+    else {
+      const targetX = state.targetX ?? state.visitor.x;
+      next.petX = moveToward(state.petX, targetX, dt * 0.042);
+      next.facing = faceToward(state.petX, targetX, state.facing);
       next.poseY = 0;
     }
   } else if (state.targetX !== null) {
@@ -347,16 +471,19 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
   } else if (state.action === "shelter" || state.action === "focus" || state.action === "bask" || state.action === "shade") {
     next.poseY = 0;
     next.rotation = 0;
-  } else if (next.insect.active) {
-    const insectDistance = next.insect.x - state.petX;
-    next.facing = insectDistance < 0 ? -1 : 1;
-    if (Math.abs(insectDistance) <= 20 && next.insect.y > 158) {
-      next.action = "pounce";
+  } else if (next.visitor.active && !next.visitor.engaged) {
+    const behavior = VISITOR_BEHAVIOR[next.visitor.kind];
+    const visitorDistance = next.visitor.x - state.petX;
+    const interceptX = resolveVisitorIntercept(state.petX, next.visitor, behavior.lead);
+    next.facing = faceToward(state.petX, interceptX, state.facing);
+    if (Math.abs(visitorDistance) <= behavior.engageDistance) {
+      next.action = behavior.action;
       next.actionElapsed = 0;
-      next.targetX = clampWorldX(next.insect.x);
-    } else if (Math.abs(insectDistance) <= 100) {
+      next.targetX = interceptX;
+      next.visitor = { ...next.visitor, engaged: true, engagedAgeMs: 0 };
+    } else if (Math.abs(visitorDistance) <= behavior.attentionDistance) {
       next.action = "track";
-      next.actionElapsed = 0;
+      if (state.action !== "track") next.actionElapsed = 0;
     }
   } else if (state.action === "greet" || state.action === "track") {
     if (next.actionElapsed > 900) next = finishAction(next);
@@ -380,6 +507,7 @@ export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "
   if (action === "walk" || action === "run") return action;
   if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade") return "walk";
   if (action === "bask") return "idle";
+  if (action === "aerial-pounce") return "jump";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "greet") return "greet";
   if (action === "track") return "discover";

@@ -10,7 +10,7 @@ import {
   setWorldWeather,
   resolveTapIntent,
   setWorldZoom,
-  spawnInsect,
+  spawnVisitor,
   stepPetWorld,
 } from "../lib/pet-world.ts";
 
@@ -70,9 +70,9 @@ test("rain changes the world into a shelter-seeking behavior", () => {
   assert.ok(Math.abs(sheltered.petX - PET_WORLD.treeShelterX) <= 2);
 });
 
-test("a passing insect cannot pull the Pet out of rain shelter", () => {
+test("a passing visitor cannot pull the Pet out of rain shelter", () => {
   const sheltered = {
-    ...spawnInsect(createPetWorldState(), { x: PET_WORLD.treeShelterX + 8, y: 170 }),
+    ...spawnVisitor(createPetWorldState(), "young", { x: PET_WORLD.treeShelterX + 8, y: 170 }),
     petX: PET_WORLD.treeShelterX,
     cameraX: PET_WORLD.treeShelterX,
     weather: "rain" as const,
@@ -182,22 +182,56 @@ test("high taps jump toward the finger and return safely to idle", () => {
   assert.equal(landed.poseY, 0);
 });
 
-test("fireflies recruit attention and can provoke a pounce", () => {
-  const start = spawnInsect(createPetWorldState(), { x: 258, y: 170, direction: -1 });
-  const after = stepPetWorld(start, 80, false);
+test("each stage attracts a visitor at a newly reachable layer", () => {
+  const baby = spawnVisitor(createPetWorldState(), "baby");
+  const young = spawnVisitor(createPetWorldState(), "young");
+  const guardian = spawnVisitor(createPetWorldState(), "guardian");
 
-  assert.equal(after.insect.active, true);
-  assert.equal(after.action, "pounce");
-  assert.equal(after.facing, 1);
-  assert.equal(after.poseY, 0, "the authored pounce row owns body lift");
+  assert.deepEqual(
+    [baby.visitor.kind, young.visitor.kind, guardian.visitor.kind],
+    ["crawler", "firefly", "sky-moth"],
+  );
+  assert.ok(baby.visitor.y > young.visitor.y);
+  assert.ok(young.visitor.y > guardian.visitor.y);
 });
 
-test("an ordinary firefly flight eventually enters pounce range", () => {
-  const start = spawnInsect(createPetWorldState(), { direction: 1 });
-  const after = stepPetWorld(start, 3000, false);
+test("tracking a visitor advances one attention performance instead of restarting every frame", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 300, direction: -1 });
+  const noticed = stepPetWorld(start, 100, false);
+  const tracking = stepPetWorld(noticed, 100, false);
 
-  assert.equal(after.action, "pounce");
-  assert.ok(after.insect.y > 158);
+  assert.equal(noticed.action, "track");
+  assert.equal(tracking.action, "track");
+  assert.equal(tracking.actionElapsed, 100);
+});
+
+test("a crossing firefly keeps its intercept on the visible side and cannot provoke a backward retry", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 226, y: 164, direction: 1 });
+  const launched = stepPetWorld(start, 80, false);
+  const fromRight = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
+  const launchedFromRight = stepPetWorld(fromRight, 80, false);
+  const recovered = stepPetWorld(launched, PET_WORLD.pounceDuration, false);
+
+  assert.equal(launched.action, "pounce");
+  assert.equal(launched.facing, -1, "the Pet first faces the firefly that is still visibly left");
+  assert.ok((launched.targetX ?? 0) < launched.petX, "prediction cannot pass through the Pet's body");
+  assert.equal(launched.visitor.engaged, true);
+  assert.equal(launched.poseY, 0, "the authored pounce row owns body lift");
+  assert.equal(launchedFromRight.facing, 1, "the mirrored case faces the visible firefly on the right");
+  assert.ok((launchedFromRight.targetX ?? 0) > launchedFromRight.petX);
+  assert.equal(recovered.action, "idle");
+  assert.equal(recovered.visitor.active, false, "one visitor cannot provoke an opposite-facing second launch");
+});
+
+test("guardian tracks a high sky moth with its aerial vocabulary", () => {
+  const start = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
+  const after = stepPetWorld(start, 80, false);
+
+  assert.equal(after.visitor.kind, "sky-moth");
+  assert.ok(after.visitor.y < 130);
+  assert.equal(after.action, "aerial-pounce");
+  assert.equal(clipForWorldAction(after.action), "jump");
+  assert.equal(after.facing, 1, "the Guardian faces the sky moth that is still visibly right");
 });
 
 test("rollover is a finite grounded performance", () => {
