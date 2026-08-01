@@ -14,6 +14,7 @@ The prototype lets a tester:
 - raise that same light through a stage-shaped reach ladder: grounded Baby, bounding Young, and an aerial Guardian that lands before greeting and never pogo-loops under a held finger;
 - pinch from a full habitat view to a temporary 2.25x close-up;
 - discover a stage-specific wildlife ladder: baby follows a ground crawler, young chases a firefly, and guardian banks through a high aerial interception of a sky moth;
+- derive the visitor's outward escape, Moss's facing, and the committed landing from the same side instead of aiming from the visitor's obsolete crossing direction;
 - watch each visitor perform through the same renderer-neutral limited-animation grammar: a planted crawler transfers weight through six legs, a firefly beats its wings independently of its slow breathing glow, and a sky moth holds, strikes, banks, and escapes;
 - see visitor materials answer the world: warm light, wind effort, and rain weight change acting without changing behavior authority;
 - see every wildlife chase begin with a planted eyes-ears-head attention beat, sample the target's latest side, then lock facing, intercept, camera action line, travel, and escape to one committed side;
@@ -123,8 +124,12 @@ coil, launch, bank, held directional reach, landing, and calm recovery. World
 state owns destinations, facing, and camera
 travel; the drawings own lift, body turn, anticipation, impact, and recovery.
 Visitor pursuit uses one side-stable intercept and one recovery. At commitment,
-the visitor evades outward on that same side, so it cannot cross behind
-Leafling, make the launch read backward, or oscillate into a second pounce.
+the visitor's current side chooses its outward escape first; Moss's facing and
+landing are then derived from that same line through the species' visible escape
+window. The old crossing direction can no longer leave the landing behind,
+make the launch read backward, or oscillate into a second pounce. The crawler
+stays at ground height, the firefly owns low air, and the sky moth now occupies
+the highest layer while Guardian receives the deepest additional world lift.
 The old tree is also a renderer-neutral world affordance rather than scenery
 with a click handler. Pure state owns its bounded hit target, stage-specific
 anchors, notice, approach, launch, perch, return, contact height, and camera

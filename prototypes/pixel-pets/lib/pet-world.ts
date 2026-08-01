@@ -284,11 +284,11 @@ const VISITOR_BEHAVIOR = {
     launchAt: 290,
     landAt: 510,
     liftLandAt: 425,
-    extraLift: 6,
+    extraLift: 10,
     action: "pounce" as const,
   },
   "sky-moth": {
-    y: 112,
+    y: 98,
     spawnOffset: 68,
     speed: 0.034,
     engageDistance: 34,
@@ -298,7 +298,7 @@ const VISITOR_BEHAVIOR = {
     launchAt: 250,
     landAt: 595,
     liftLandAt: 595,
-    extraLift: 18,
+    extraLift: 30,
     action: "aerial-pounce" as const,
   },
 } satisfies Record<WorldVisitorKind, {
@@ -1524,19 +1524,17 @@ function resolveVisitorIntercept(
   behavior: (typeof VISITOR_BEHAVIOR)[WorldVisitorKind],
 ) {
   const currentDelta = visitor.x - petX;
-  const visibleEscapeDistance = behavior.speed
-    * 1.32
-    * (behavior.landAt - behavior.launchAt);
-  const readableLead = Math.min(behavior.lead, visibleEscapeDistance * 0.72);
-  const predicted = clampWorldX(visitor.x + visitor.direction * readableLead);
-  const predictedDelta = predicted - petX;
-  // Lead a moving visitor only while the lead remains on the side the Pet can
-  // currently see. Predicting through the Pet makes the launch face away from
-  // the visible visitor and reads as a backward jump.
-  if (currentDelta !== 0 && predictedDelta * currentDelta <= 0) {
-    return clampWorldX(visitor.x);
-  }
-  return predicted;
+  const escapeDirection = currentDelta === 0
+    ? visitor.direction
+    : currentDelta < 0 ? -1 : 1;
+  const visibleEscapeDistance = behavior.speed * 1.32 * behavior.landAt;
+  const readableLead = Math.min(behavior.lead, visibleEscapeDistance);
+
+  // Commitment changes the visitor from crossing the scene to fleeing away
+  // from Moss. Derive both the escape and the landing from that newly chosen
+  // side; using the visitor's old travel direction leaves the landing behind
+  // and makes an otherwise correctly mirrored leap read backward.
+  return clampWorldX(visitor.x + escapeDirection * readableLead);
 }
 
 function resolveCommittedVisitorX(state: PetWorldState, elapsedMs: number) {

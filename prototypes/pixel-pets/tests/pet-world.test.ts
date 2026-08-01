@@ -1933,6 +1933,37 @@ test("Moss commits toward the visitor's latest side after the attention beat", (
   assert.equal(launched.facing, 1);
 });
 
+test("a wildlife commitment leads the visitor along the same escape side Moss faces", () => {
+  const commit = (stage: "baby" | "young" | "guardian") => {
+    let world = spawnVisitor(createPetWorldState(), stage);
+    for (let frame = 0; frame < 700 && world.action !== "visitor-turn"; frame += 1) {
+      world = stepPetWorld(world, 16, false, stage);
+    }
+    return world;
+  };
+
+  const baby = commit("baby");
+  const young = commit("young");
+  const guardian = commit("guardian");
+
+  for (const world of [baby, young, guardian]) {
+    assert.equal(world.action, "visitor-turn");
+    assert.ok(world.targetX !== null);
+    assert.ok(
+      ((world.targetX ?? world.petX) - world.visitor.x) * world.facing >= 0,
+      "the landing cannot be left behind when the visitor turns to flee",
+    );
+    assert.ok(
+      ((world.targetX ?? world.petX) - world.petX) * world.facing > 0,
+      "the committed landing and Moss's body line must point the same way",
+    );
+  }
+
+  const reaches = [baby, young, guardian].map((world) => Math.abs((world.targetX ?? world.petX) - world.petX));
+  assert.ok(reaches[0] < reaches[1], "Young should commit beyond the Baby's ground pursuit");
+  assert.ok(reaches[1] < reaches[2], "Guardian should own the longest aerial intercept");
+});
+
 test("a crossing visitor earns a planted turn before Moss launches the other way", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 246, y: 164, direction: -1 });
   const noticed = stepPetWorld(start, 16, false, "young");

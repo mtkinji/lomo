@@ -537,15 +537,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 51</span>
-        <h1>Quiet takes root<br />where you choose.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 52</span>
+        <h1>The reachable world<br />rises with Moss.</h1>
         <p>
-          Focus becomes a place you share: choose it, arrive together, and let the meadow remember exactly where it happened.
+          Moss sees the visitor, turns, and commits along one honest action line—ground curiosity becomes a spring, then a high aerial vault.
         </p>
         <dl className="engine-facts">
-          <div><dt>Choose</dt><dd>one quiet place</dd></div>
-          <div><dt>Focus</dt><dd>full time together</dd></div>
-          <div><dt>Remember</dt><dd>light takes root</dd></div>
+          <div><dt>Baby</dt><dd>ground crawler</dd></div>
+          <div><dt>Young</dt><dd>low firefly</dd></div>
+          <div><dt>Guardian</dt><dd>high sky moth</dd></div>
         </dl>
       </header>
 
