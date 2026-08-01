@@ -29,13 +29,13 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 36 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 37 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, evolution, habitat, habitatPerformance, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, engine, evolution, habitat, habitatPerformance, affection, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
@@ -43,6 +43,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
     readFile(new URL("../lib/pet-evolution.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-habitat.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-habitat-performance.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-affection.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-world.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-life-director.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-plaything.ts", import.meta.url), "utf8"),
@@ -54,19 +55,21 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 36 — Kwilt Lab/);
-  assert.match(layout, /og-study-36\.png/);
-  assert.match(prototype, /Pet Engine Study 36/);
-  assert.match(prototype, /The world breathes\.<br \/>In layers\./i);
-  assert.match(prototype, /Roots hold\. Grass answers first\. The canopy follows/i);
+  assert.match(layout, /Pet Engine Study 37 — Kwilt Lab/);
+  assert.match(layout, /og-study-37\.png/);
+  assert.match(prototype, /Pet Engine Study 37/);
+  assert.match(prototype, /It leans into<br \/>your hand\./i);
+  assert.match(prototype, /Stroke Moss gently\. A tap still says hello/i);
   assert.match(prototype, /Visitor acting/);
   assert.match(prototype, /Habitat acting/);
+  assert.match(prototype, /Pet \{state\.name\}/);
+  assert.match(prototype, /Body contact/);
   assert.match(prototype, /data-testid="world-action-output"/);
   assert.match(prototype, /data-testid="attention-output"/);
   assert.match(prototype, /shouldShowSceneNarration/);
   assert.match(prototype, /scene-caption/);
   assert.match(prototype, /scene-announcer/);
-  assert.match(prototype, /scene-announcer-\$\{narrationSerial\.current\}/);
+  assert.match(prototype, /scene-announcer-\$\{sceneNarration\?\.serial \?\? 0\}/);
   assert.match(prototype, /clearSceneNarration/);
   assert.match(prototype, /data-reduced-motion/);
   assert.doesNotMatch(prototype, /Catch it—or watch|Touch the puddle before it settles/);
@@ -137,7 +140,13 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(habitatPerformance, /trunkRotation: 0/);
   assert.match(habitatPerformance, /grassLean/);
   assert.match(habitatPerformance, /vineLag/);
+  assert.match(affection, /resolvePetContactGesture/);
+  assert.match(affection, /isPetContactHit/);
   assert.match(canvas, /drawAuthoredHabitatPerformance/);
+  assert.match(canvas, /drawAffectionContact/);
+  assert.match(canvas, /kind: "affection"/);
+  assert.match(canvas, /if \(contactGesture !== "tap"\) return/);
+  assert.doesNotMatch(canvas, /if \(gestureMovedRef\.current\) return/);
   assert.match(world, /stepPetWorld/);
   assert.match(world, /spawnVisitor/);
   assert.match(world, /sky-moth/);

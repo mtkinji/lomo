@@ -215,6 +215,17 @@ export const LEAFLING_MANIFEST = {
         frame(7, 2, 420, { events: ["settle"], role: "hold" }),
       ],
     },
+    affection: {
+      loop: false,
+      frames: [
+        frame(0, 4, 240, { events: ["contact-noticed"], role: "hold" }),
+        frame(4, 4, 90, { events: ["lean-to-touch"], role: "key" }),
+        frame(6, 3, 130, { events: ["nuzzle"], role: "inbetween" }),
+        frame(6, 3, 360, { events: ["content"], role: "accent" }),
+        frame(7, 3, 120, { events: ["follow-through"], role: "inbetween" }),
+        frame(0, 0, 380, { events: ["settle"], role: "recovery" }),
+      ],
+    },
     care: {
       loop: false,
       frames: [
@@ -410,6 +421,17 @@ function createStageManifest(
         stageFrame(4, row, 70, { contact: "airborne", transform: { x: 0, y: -7 }, role: "inbetween", shadow: { width: 40, opacity: 0.14 } }),
         stageFrame(0, row, 110, { events: ["land"], role: "recovery" }),
         stageFrame(0, row, 420, { events: ["settle"], role: "hold" }),
+      ],
+    },
+    affection: {
+      loop: false,
+      frames: [
+        stageFrame(0, row, 260, { events: ["contact-noticed"], role: "hold" }),
+        stageFrame(3, row, 90, { events: ["lean-to-touch"], role: "key" }),
+        stageFrame(5, row, 130, { events: ["nuzzle"], role: "inbetween" }),
+        stageFrame(4, row, 360, { events: ["content"], role: "accent" }),
+        stageFrame(5, row, 100, { events: ["follow-through"], role: "inbetween" }),
+        stageFrame(0, row, 380, { events: ["settle"], role: "recovery" }),
       ],
     },
     care: {

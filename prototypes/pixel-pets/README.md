@@ -89,6 +89,13 @@ authored Moss clips own attention, travel, pounce, aerial reach, and contented
 recovery. Focus, a new meaningful-action consequence, weather direction, or
 ordinary touch can end the toy scene without preserving a score or unfinished
 need.
+Direct affection now shares the same boundary. A stage-aware silhouette target
+and pure gesture classifier distinguish a stationary hello, gentle body stroke,
+quick rollover swipe, and hand guide before Canvas chooses an interaction.
+Every form owns a grounded notice, lean, nuzzle, content, and recovery clip
+composed from approved high-fidelity drawings. Contact leaves no meter, reward,
+care credit, persistence, or unfinished need; Focus and rain shelter remain
+stronger than the invitation.
 Weather and play share that pure boundary. The engine samples sun, breeze, or
 rain when the leaf leaves the finger and resolves one immutable material
 profile containing gravity, horizontal force, drag, and maximum airtime. The

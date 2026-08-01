@@ -41,6 +41,39 @@ import {
 } from "../lib/pet-world.ts";
 import { leaflingManifestForStage } from "../lib/leafling.ts";
 
+test("affection is a finite grounded relationship with an intimate camera", () => {
+  const initial = { ...createPetWorldState(), petX: 220, facing: 1 as const };
+  const affectionate = applyWorldIntent(initial, { kind: "affection", worldX: 208 });
+
+  assert.equal(affectionate.action, "affection");
+  assert.equal(affectionate.facing, -1);
+  assert.equal(affectionate.targetX, null);
+  assert.equal(affectionate.poseY, 0);
+  assert.equal(resolveCinematicShot(affectionate, false).id, "intimate");
+  assert.equal(clipForWorldAction("affection"), "affection");
+
+  const holding = stepPetWorld(affectionate, PET_WORLD.affectionDuration - 1, false, "young");
+  assert.equal(holding.action, "affection");
+  assert.equal(holding.petX, initial.petX);
+  assert.equal(holding.poseY, 0);
+  const settled = stepPetWorld(holding, 2, false, "young");
+  assert.equal(settled.action, "idle");
+  assert.equal(settled.poseY, 0);
+});
+
+test("Focus and rain shelter remain stronger than affection", () => {
+  const focused = beginCompanionFocus(createPetWorldState(), 15000);
+  const sheltered = {
+    ...createPetWorldState(),
+    weather: "rain" as const,
+    weatherPhase: "settled" as const,
+    action: "shelter" as const,
+  };
+
+  assert.equal(applyWorldIntent(focused, { kind: "affection", worldX: focused.petX }).action, focused.action);
+  assert.equal(applyWorldIntent(sheltered, { kind: "affection", worldX: sheltered.petX }).action, "shelter");
+});
+
 test("only a real rain-to-sun clearing leaves one bounded puddle", () => {
   const ordinarySun = setWorldWeather(createPetWorldState(), "sunny");
   assert.equal(ordinarySun.afterRain.phase, "quiet");

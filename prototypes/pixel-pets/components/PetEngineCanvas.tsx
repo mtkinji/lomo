@@ -50,6 +50,7 @@ import {
   type WorldPoint,
 } from "@/lib/pet-world";
 import { createWindLeaf, isWindLeafHit } from "@/lib/pet-plaything";
+import { isPetContactHit, resolvePetContactGesture } from "@/lib/pet-affection";
 import {
   resolveHabitatPerformanceIntensity,
   resolveHabitatPerformance,
@@ -70,7 +71,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "rollover" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  type: "visitor" | "affection" | "rollover" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -1580,6 +1581,34 @@ function drawPetSprite(
   context.restore();
 }
 
+function drawAffectionContact(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  stage: PetStage,
+  world: PetWorldState,
+  reducedMotion: boolean,
+) {
+  if (world.action !== "affection") return;
+  const presentation = LEAFLING_PRESENTATION.stages[stage];
+  const progress = Math.min(1, world.actionElapsed / PET_WORLD.affectionDuration);
+  const contactX = world.petX + world.facing * presentation.width * 0.24;
+  const contactY = ENGINE_SCENE.groundY - presentation.height * 0.69;
+  const lift = reducedMotion ? 0 : Math.round(Math.sin(progress * Math.PI) * 3);
+  const alpha = reducedMotion ? 0.52 : Math.sin(progress * Math.PI) * 0.76;
+
+  context.save();
+  worldTransform(context, world);
+  context.translate(Math.round(contactX), Math.round(contactY - lift));
+  context.globalAlpha = Math.max(0.28, alpha);
+  context.fillStyle = palette.cream;
+  context.fillRect(-1, -3, 3, 1);
+  context.fillRect(0, -4, 1, 3);
+  context.fillStyle = palette.bloom;
+  context.globalAlpha *= 0.72;
+  context.fillRect(world.facing * 4 - 1, -1, 2, 2);
+  context.restore();
+}
+
 function renderScene(
   context: CanvasRenderingContext2D,
   sprite: HTMLImageElement,
@@ -1666,6 +1695,7 @@ function renderScene(
     evolution?.currentYOffset ?? 0,
     showRig,
   );
+  drawAffectionContact(context, palette, stage, world, reducedMotion);
   drawAfterRainSplash(context, world, reducedMotion);
   drawNearForeground(context, palette, world, habitat, guardianWake, habitatPerformance);
   drawWeather(context, palette, world, true);
@@ -1751,7 +1781,13 @@ export function PetEngineCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef(initialWorld);
-  const pointersRef = useRef(new Map<number, { start: WorldPoint; current: WorldPoint }>());
+  const pointersRef = useRef(new Map<number, {
+    start: WorldPoint;
+    current: WorldPoint;
+    startedAt: number;
+    startedOnPet: boolean;
+    leftPet: boolean;
+  }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const leafPointerRef = useRef<number | null>(null);
   const leafMotionRef = useRef<{
@@ -1760,7 +1796,6 @@ export function PetEngineCanvas({
     current: WorldPoint;
     currentAt: number;
   } | null>(null);
-  const gestureMovedRef = useRef(false);
   const lastFrameRef = useRef("");
   const lastWorldReportRef = useRef(0);
   const livingDayRef = useRef(createLivingDayDirector());
@@ -1793,6 +1828,12 @@ export function PetEngineCanvas({
     }
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
+    }
+    if (worldCommand.type === "affection") {
+      worldRef.current = applyWorldIntent(worldRef.current, {
+        kind: "affection",
+        worldX: worldRef.current.petX + worldRef.current.facing * 8,
+      });
     }
     if (worldCommand.type === "guardian-wake-left" || worldCommand.type === "guardian-wake-right") {
       const direction = worldCommand.type === "guardian-wake-left" ? -1 : 1;
@@ -2046,8 +2087,13 @@ export function PetEngineCanvas({
       callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
       return;
     }
-    pointersRef.current.set(event.pointerId, { start: point, current: point });
-    gestureMovedRef.current = false;
+    pointersRef.current.set(event.pointerId, {
+      start: point,
+      current: point,
+      startedAt: event.timeStamp,
+      startedOnPet: isPetContactHit(worldRef.current, stageRef.current, point),
+      leftPet: false,
+    });
     if (pointersRef.current.size === 2) {
       worldRef.current = cancelWorldHandGuide(worldRef.current);
       const [first, second] = [...pointersRef.current.values()];
@@ -2069,13 +2115,23 @@ export function PetEngineCanvas({
     const pointer = pointersRef.current.get(event.pointerId);
     if (!pointer) return;
     pointer.current = pointFromEvent(event);
+    if (pointer.startedOnPet && !isPetContactHit(worldRef.current, stageRef.current, pointer.current)) {
+      pointer.leftPet = true;
+    }
     const gestureDistance = Math.hypot(pointer.current.x - pointer.start.x, pointer.current.y - pointer.start.y);
-    if (gestureDistance > 4) gestureMovedRef.current = true;
     if (pointersRef.current.size === 2 && pinchRef.current) {
       const [first, second] = [...pointersRef.current.values()];
       const distance = Math.hypot(first.current.x - second.current.x, first.current.y - second.current.y);
       worldRef.current = setWorldZoom(worldRef.current, pinchRef.current.zoom * (distance / Math.max(1, pinchRef.current.distance)));
     } else if (pointersRef.current.size === 1 && gestureDistance > 6) {
+      const contactGesture = resolvePetContactGesture({
+        startedOnPet: pointer.startedOnPet,
+        leftPet: pointer.leftPet,
+        start: pointer.start,
+        current: pointer.current,
+        durationMs: Math.max(0, event.timeStamp - pointer.startedAt),
+      });
+      if (pointer.startedOnPet && contactGesture !== "guide") return;
       const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
       worldRef.current = guideWorldWithHand(worldRef.current, worldPoint, stageRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
@@ -2105,11 +2161,26 @@ export function PetEngineCanvas({
     if (pointersRef.current.size < 2) pinchRef.current = null;
     if (!pointer || wasPinching) return;
 
-    const travelX = pointer.current.x - pointer.start.x;
-    const travelY = pointer.current.y - pointer.start.y;
-    const petScreenX = ENGINE_SCENE.width / 2 + (worldRef.current.petX - worldRef.current.cameraX) * worldRef.current.zoom;
-    const startedNearPet = Math.abs(pointer.start.x - petScreenX) < 28 && pointer.start.y > 145;
-    if (startedNearPet && Math.abs(travelX) > 22 && Math.abs(travelX) > Math.abs(travelY)) {
+    pointer.current = pointFromEvent(event);
+    if (pointer.startedOnPet && !isPetContactHit(worldRef.current, stageRef.current, pointer.current)) {
+      pointer.leftPet = true;
+    }
+
+    const contactGesture = resolvePetContactGesture({
+      startedOnPet: pointer.startedOnPet,
+      leftPet: pointer.leftPet,
+      start: pointer.start,
+      current: pointer.current,
+      durationMs: Math.max(0, event.timeStamp - pointer.startedAt),
+    });
+    if (contactGesture === "affection") {
+      const contact = screenPointToWorldPoint(worldRef.current, pointer.current);
+      worldRef.current = applyWorldIntent(worldRef.current, { kind: "affection", worldX: contact.x });
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
+    if (contactGesture === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
       callbackRef.current.onWorldInteraction?.("rollover", worldRef.current);
       return;
@@ -2120,7 +2191,7 @@ export function PetEngineCanvas({
       callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
       return;
     }
-    if (gestureMovedRef.current) return;
+    if (contactGesture !== "tap") return;
     const careEcho = resolveCareEchoHit(
       worldRef.current,
       careEchoSource,
@@ -2159,6 +2230,12 @@ export function PetEngineCanvas({
     } else if (event.key.toLowerCase() === "r") {
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = applyWorldIntent(world, { kind: "rollover", worldX: world.petX });
+    } else if (event.key.toLowerCase() === "p") {
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      worldRef.current = applyWorldIntent(world, {
+        kind: "affection",
+        worldX: world.petX + world.facing * 8,
+      });
     } else if (event.key === "Enter") {
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = applyWorldIntent(world, { kind: "greet", worldX: world.petX });

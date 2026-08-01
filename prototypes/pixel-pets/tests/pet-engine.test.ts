@@ -42,8 +42,8 @@ test("each evolution stage resolves to its own authored animation vocabulary", (
 
   for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
     const expectedClips = stage === "guardian"
-      ? ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "weather-notice", "wind-brace", "rain-flinch", "sun-bask", "aerial"]
-      : ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "weather-notice", "wind-brace", "rain-flinch", "sun-bask"];
+      ? ["idle", "blink", "greet", "affection", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "weather-notice", "wind-brace", "rain-flinch", "sun-bask", "aerial"]
+      : ["idle", "blink", "greet", "affection", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "weather-notice", "wind-brace", "rain-flinch", "sun-bask"];
     assert.deepEqual(Object.keys(manifest.clips), expectedClips);
     assert.equal(manifest.clips.walk.loop, true);
     assert.equal(manifest.clips.run.loop, true);
@@ -74,6 +74,27 @@ test("Guardian owns a distinct acrobatic sky vocabulary", () => {
   assert.equal(aerial.frames[6].contact, "planted");
   assert.ok(!("aerial" in leaflingManifestForStage("baby").clips));
   assert.ok(!("aerial" in leaflingManifestForStage("young").clips));
+});
+
+test("every life stage owns grounded nonlinear affection acting", () => {
+  for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
+    const affection = manifest.clips.affection;
+    assert.ok(affection, `${stage} needs an affection clip`);
+    assert.equal(affection.loop, false);
+    assert.ok(affection.frames.length >= 5);
+    assert.ok(affection.frames.every((authoredFrame) => authoredFrame.contact !== "airborne"));
+    assert.ok(new Set(affection.frames.map((authoredFrame) => authoredFrame.duration)).size >= 3);
+    assert.ok(affection.frames.some((authoredFrame) => authoredFrame.events?.includes("nuzzle")));
+    assert.ok(affection.frames.some((authoredFrame) => authoredFrame.events?.includes("content")));
+    assert.ok(affection.frames.some((authoredFrame) => authoredFrame.role === "hold"));
+    assert.ok(affection.frames.some((authoredFrame) => authoredFrame.role === "accent"));
+    assert.ok(affection.frames.some((authoredFrame) => authoredFrame.role === "recovery"));
+  }
+
+  assert.notDeepEqual(
+    leaflingManifestForStage("baby").clips.affection.frames.map((authoredFrame) => authoredFrame.cell),
+    leaflingManifestForStage("guardian").clips.affection.frames.map((authoredFrame) => authoredFrame.cell),
+  );
 });
 
 test("locomotion sources are normalized to the renderer's screen-right contract", async () => {

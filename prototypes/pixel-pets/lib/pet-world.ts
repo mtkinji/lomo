@@ -23,6 +23,7 @@ export const PET_WORLD = {
   pounceDuration: 720,
   aerialPounceDuration: 965,
   rolloverDuration: 1200,
+  affectionDuration: 1320,
   treeShelterX: 112,
   sunPatchX: 366,
   sunBaskDuration: 5600,
@@ -76,7 +77,7 @@ export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "affection" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
 export type AfterRainPhase = "quiet" | "shimmer" | "engaged" | "spent";
@@ -109,6 +110,7 @@ export interface GuardianWakePresentation {
 
 export type PetWorldIntent =
   | { kind: "greet"; worldX: number }
+  | { kind: "affection"; worldX: number }
   | { kind: "move"; worldX: number }
   | { kind: "jump"; worldX: number }
   | { kind: "rollover"; worldX: number };
@@ -824,6 +826,7 @@ export function resolveCinematicShot(
     || state.action === "bask"
     || state.action === "leaf-catch"
     || state.action === "hand-found"
+    || state.action === "affection"
   ) {
     return { id: "intimate", zoom: 1.45 };
   }
@@ -1091,6 +1094,10 @@ export function tossWorldWindLeaf(
 
 export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): PetWorldState {
   if (state.daylight.eveningActive || state.afterRain.phase === "engaged") return state;
+  if (
+    intent.kind === "affection"
+    && (state.focus.active || state.action === "focus" || (state.weather === "rain" && state.action === "shelter"))
+  ) return state;
   const facing = intent.worldX < state.petX ? -1 : 1;
   if (intent.kind === "move") {
     return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, hand: quietWorldHand(), playLeaf: createWindLeaf() };
@@ -1937,6 +1944,12 @@ export function stepPetWorld(
       next.poseY = 0;
       next.rotation = 0;
     }
+  } else if (state.action === "affection") {
+    if (next.actionElapsed >= PET_WORLD.affectionDuration) next = finishAction(next);
+    else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
   } else if (state.action === "rollover") {
     if (next.actionElapsed >= PET_WORLD.rolloverDuration) next = finishAction(next);
     else {
@@ -2116,7 +2129,7 @@ export function stepPetWorld(
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction, reducedMotion = false): "idle" | "greet" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
+export function clipForWorldAction(action: PetWorldAction, reducedMotion = false): "idle" | "greet" | "affection" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
   if (action === "walk" || action === "run") return action;
   if (action === "hand-walk") return "walk";
   if (action === "hand-run") return "run";
@@ -2130,6 +2143,7 @@ export function clipForWorldAction(action: PetWorldAction, reducedMotion = false
   if (action === "aerial-pounce" || action === "leaf-aerial") return "aerial";
   if (action === "leaf-pounce" || action === "puddle-splash") return "pounce";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
+  if (action === "affection") return "affection";
   if (action === "greet" || action === "hand-found") return "greet";
   if (action === "track" || action === "hand-track" || action === "leaf-invite" || action === "leaf-track") return "discover";
   if (action === "weather-notice") return "weather-notice";

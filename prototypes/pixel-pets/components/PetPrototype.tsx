@@ -104,6 +104,7 @@ export function PetPrototype() {
   const [livingDay, setLivingDay] = useState<LivingDayDirectorState>(() => createLivingDayDirector());
   const [worldMessage, setWorldMessage] = useState<{ title: string; detail: string } | null>(null);
   const [sceneNarration, setSceneNarration] = useState<{ title: string; detail: string; serial: number } | null>(null);
+  const [soundscapeStarted, setSoundscapeStarted] = useState(false);
   const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
   const reactionTimer = useRef<number | null>(null);
   const narrationTimer = useRef<number | null>(null);
@@ -186,7 +187,9 @@ export function PetPrototype() {
     if (!state.soundEnabled) return;
     const controller = soundscape();
     controller.update(currentSoundscapeMix());
-    void controller.start();
+    void controller.start().then((started) => {
+      if (started) setSoundscapeStarted(true);
+    });
   }
 
   const playPetCue = useCallback((reaction: PetReaction, stage: PetStage = state.stage) => {
@@ -202,7 +205,10 @@ export function PetPrototype() {
       visitor: world.visitor.active ? world.visitor.kind : null,
     }));
     void controller.start().then((started) => {
-      if (started) controller.playPetCue(stage, reaction);
+      if (started) {
+        setSoundscapeStarted(true);
+        controller.playPetCue(stage, reaction);
+      }
     });
   }, [state.reducedMotion, state.soundEnabled, state.stage, world.focus, world.visitor.active, world.visitor.kind, world.weather, world.weatherIntensity]);
 
@@ -379,6 +385,10 @@ export function PetPrototype() {
 
   function handleWorldInteraction(action: PetWorldAction, worldSnapshot: PetWorldState) {
     beginSoundscape();
+    if (action === "affection") {
+      playPetCue("greet", currentStage);
+      nudge();
+    }
     const narrationContext = { focusActive: worldSnapshot.focus.active };
     const contextualMessage = resolveWorldInteractionMessage(action, {
       focusActive: worldSnapshot.focus.active,
@@ -391,6 +401,7 @@ export function PetPrototype() {
     }
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
+      affection: { title: "A little closer", detail: `${state.name} leaned into your hand, then settled in their own time.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
       "hand-track": { title: "Your hand entered the world", detail: `${state.name} noticed before taking a single step.` },
       "hand-walk": { title: "Coming closer", detail: `${state.name} is following without becoming a cursor.` },
@@ -449,7 +460,9 @@ export function PetPrototype() {
     if (enabled) {
       const controller = soundscape();
       controller.update(currentSoundscapeMix(true));
-      void controller.start();
+      void controller.start().then((started) => {
+        if (started) setSoundscapeStarted(true);
+      });
     } else {
       soundscapeRef.current?.update(currentSoundscapeMix(false));
     }
@@ -467,15 +480,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 36</span>
-        <h1>The world breathes.<br />In layers.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 37</span>
+        <h1>It leans into<br />your hand.</h1>
         <p>
-          Roots hold. Grass answers first. The canopy follows, and the smallest vines arrive last.
+          Stroke Moss gently. A tap still says hello, a swipe still rolls over, and a touch that lingers becomes trust.
         </p>
         <dl className="engine-facts">
-          <div><dt>Roots</dt><dd>stay planted</dd></div>
-          <div><dt>Grass</dt><dd>feels it first</dd></div>
-          <div><dt>Canopy</dt><dd>follows through</dd></div>
+          <div><dt>Tap</dt><dd>says hello</dd></div>
+          <div><dt>Stroke</dt><dd>earns a nuzzle</dd></div>
+          <div><dt>Swipe</dt><dd>rolls over</dd></div>
         </dl>
       </header>
 
@@ -517,7 +530,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Draw one finger upward through the meadow to discover how ${state.name}'s reach grows, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
+            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -527,7 +540,7 @@ export function PetPrototype() {
           ) : null}
         </div>
 
-        <div key={`scene-announcer-${narrationSerial.current}`} className="scene-announcer" aria-live="polite" aria-atomic="true">
+        <div key={`scene-announcer-${sceneNarration?.serial ?? 0}`} className="scene-announcer" aria-live="polite" aria-atomic="true">
           {currentStatus.title}. {currentStatus.detail}
         </div>
 
@@ -615,6 +628,7 @@ export function PetPrototype() {
           <div className="inspector-label"><span>World interaction</span><output data-testid="world-action-output">{world.action}</output></div>
           <div className="world-controls">
             <button type="button" onClick={() => commandWorld("visitor")}>Invite {visitorLabel}</button>
+            <button type="button" onClick={() => commandWorld("affection")}>Pet {state.name}</button>
             <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
             <button type="button" onClick={() => { setPreviewStage("guardian"); commandWorld("guardian-wake-left"); }}>Guardian landing left</button>
             <button type="button" onClick={() => { setPreviewStage("guardian"); commandWorld("guardian-wake-right"); }}>Guardian landing right</button>
@@ -632,6 +646,7 @@ export function PetPrototype() {
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
+            <span>Body contact <strong>{world.action === "affection" ? "nuzzle · no reward" : "quiet"}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Visitor acting <strong>{visitorPerformance ? `${visitorPerformance.role} · ${visitorPerformance.material} · ${visitorPerformance.frame + 1}/${VISITOR_PERFORMANCE_CLIPS[visitorPerformance.kind].frames.length}` : "quiet"}</strong></span>
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
@@ -651,7 +666,7 @@ export function PetPrototype() {
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
-            <span>Soundscape <strong>{!state.soundEnabled ? "muted" : soundscapeRef.current?.started ? "awake" : "tap to hear"}</strong></span>
+            <span>Soundscape <strong>{!state.soundEnabled ? "muted" : soundscapeStarted ? "awake" : "tap to hear"}</strong></span>
             <span>Audio mix <strong>{world.focus.active ? "meadow · hush" : world.weather === "rain" ? "meadow · rain" : world.weather === "breeze" ? "meadow · wind" : "meadow · warmth"}{soundscapeMix.wildlife > 0 ? " · wildlife" : ""}</strong></span>
             <span>Life echoes <strong>{world.blooms.length === 0 ? "quiet" : world.blooms.map((memory) => memory.source).join(" · ")}</strong></span>
           </div>
