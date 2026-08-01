@@ -152,6 +152,13 @@ than a second progress model. The scene keeps the full ground plane for direct
 play, and all weather, playback, stage, palette, rig, and accelerated-time QA
 controls remain visibly outside the capability.
 
+Once that bounded world answer settles, the newest matching privacy-safe life
+echo becomes the primary care target. The user touches the To-do bloom, Focus
+stilllight, or paired Play seedheads inside the meadow to complete the existing
+one-daily-care transition. A semantic instruction in the world-edge dock remains
+keyboard accessible as a fallback, but there is no generic reward claim,
+harvest, inventory, currency, or second care mechanic.
+
 The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
 Camera direction uses the same portable semantic boundary. Quiet, travel,

@@ -93,6 +93,12 @@ export interface WorldBloom {
   source: MeaningfulAction;
 }
 
+export const CARE_ECHO_TARGET = {
+  anchorY: ENGINE_SCENE.groundY - 14,
+  radiusX: 16,
+  radiusY: 20,
+} as const;
+
 export interface WorldHandGuide {
   phase: WorldHandPhase;
   x: number;
@@ -312,6 +318,48 @@ export function plantLifeEcho(
 
 export function plantProgressBloom(state: PetWorldState, requestedX?: number): PetWorldState {
   return plantLifeEcho(state, "todo", requestedX);
+}
+
+export function resolveCareEchoHit(
+  state: PetWorldState,
+  source: MeaningfulAction | null,
+  point: WorldPoint,
+): WorldBloom | null {
+  if (!source) return null;
+  const candidate = [...state.blooms]
+    .reverse()
+    .find((bloom) => bloom.source === source);
+  if (!candidate) return null;
+  if (Math.abs(point.x - candidate.x) > CARE_ECHO_TARGET.radiusX) return null;
+  if (Math.abs(point.y - CARE_ECHO_TARGET.anchorY) > CARE_ECHO_TARGET.radiusY) return null;
+  return candidate;
+}
+
+export function holdCareEcho(
+  state: PetWorldState,
+  source: MeaningfulAction | null,
+): PetWorldState {
+  if (!source) return state;
+  const bloom = [...state.blooms]
+    .reverse()
+    .find((candidate) => candidate.source === source);
+  if (!bloom) return state;
+  const facing = faceToward(state.petX, bloom.x, state.facing);
+  const petX = clampWorldX(bloom.x - facing * PET_WORLD.bloomApproachDistance);
+  return {
+    ...state,
+    petX,
+    facing: faceToward(petX, bloom.x, facing),
+    action: "remember",
+    actionElapsed: 0,
+    targetX: null,
+    poseY: 0,
+    rotation: 0,
+    weatherResponsePending: false,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
+    playLeaf: createWindLeaf(),
+  };
 }
 
 export function beginMemoryVisit(state: PetWorldState, requestedX: number): PetWorldState {

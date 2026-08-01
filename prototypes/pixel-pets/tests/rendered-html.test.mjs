@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 28 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 29 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -53,17 +53,23 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 28 — Kwilt Lab/);
-  assert.match(layout, /og-study-28\.png/);
-  assert.match(prototype, /Pet Engine Study 28/);
-  assert.match(prototype, /Step inside<br \/>the little world\./i);
-  assert.match(prototype, /Moss’s meadow is the capability now/);
+  assert.match(layout, /Pet Engine Study 29 — Kwilt Lab/);
+  assert.match(layout, /og-study-29\.png/);
+  assert.match(prototype, /Pet Engine Study 29/);
+  assert.match(prototype, /Touch what<br \/>changed\./i);
+  assert.match(prototype, /touching that exact change/i);
   assert.match(prototype, /world-first-capability/);
   assert.match(prototype, /world-dock/);
   assert.match(prototype, /Care changes Moss\. Nothing can be lost\./);
   assert.doesNotMatch(prototype, /memory-dots|of 8 care moments/);
   assert.match(prototype, /Let the little world answer/);
   assert.match(prototype, /worldAnswering/);
+  assert.match(prototype, /Touch the new bloom/);
+  assert.match(prototype, /Touch the still light/);
+  assert.match(prototype, /Touch the paired seedheads/);
+  assert.match(prototype, /careEchoSource/);
+  assert.match(prototype, /onCareEcho/);
+  assert.doesNotMatch(prototype, /Give today’s care/);
   assert.match(prototype, /Let the next morning arrive/);
   assert.match(prototype, /Advance prototype time · nothing is lost/);
   assert.match(prototype, /resolvePrototypeDayPhase/);
@@ -118,6 +124,9 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /wind-brace/);
   assert.match(world, /rain-flinch/);
   assert.match(world, /plantProgressBloom/);
+  assert.match(world, /resolveCareEchoHit/);
+  assert.match(world, /CARE_ECHO_TARGET/);
+  assert.match(world, /holdCareEcho/);
   assert.match(world, /bloom-notice/);
   assert.match(world, /admire-bloom/);
   assert.match(world, /beginMemoryVisit/);
@@ -170,6 +179,9 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(canvas, /setWorldZoom/);
   assert.match(canvas, /nextWeatherKind/);
   assert.match(canvas, /drawProgressBlooms/);
+  assert.match(canvas, /drawCareEchoInvitation/);
+  assert.match(canvas, /resolveCareEchoHit/);
+  assert.match(canvas, /holdCareEcho/);
   assert.match(canvas, /plantLifeEcho/);
   assert.match(canvas, /initialWorld/);
   assert.doesNotMatch(canvas, /context\.rotate\(\(world\.weatherSway \* Math\.PI\)/);

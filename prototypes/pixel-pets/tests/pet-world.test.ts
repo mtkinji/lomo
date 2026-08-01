@@ -18,9 +18,11 @@ import {
   resolveFocusAtmosphere,
   grabWorldWindLeaf,
   guideWorldWithHand,
+  holdCareEcho,
   nextWeatherKind,
   plantProgressBloom,
   plantLifeEcho,
+  resolveCareEchoHit,
   restorePetWorldMemory,
   resolveCameraTargetX,
   resolveCinematicShot,
@@ -31,6 +33,46 @@ import {
   tossWorldWindLeaf,
   releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
+
+test("care touch resolves only the newest matching life echo", () => {
+  let world = createPetWorldState();
+  world = plantLifeEcho(world, "todo", 126);
+  world = plantLifeEcho(world, "focus", 202);
+  world = plantLifeEcho(world, "todo", 278);
+
+  assert.deepEqual(resolveCareEchoHit(world, "todo", { x: 278, y: 194 })?.id, 3);
+  assert.equal(resolveCareEchoHit(world, "todo", { x: 202, y: 194 }), null);
+  assert.equal(resolveCareEchoHit(world, "focus", { x: 278, y: 194 }), null);
+});
+
+test("care touch keeps a forgiving but bounded world-space target", () => {
+  const world = plantLifeEcho(createPetWorldState(), "play", 244);
+
+  assert.deepEqual(resolveCareEchoHit(world, "play", { x: 258, y: 178 })?.id, 1);
+  assert.equal(resolveCareEchoHit(world, "play", { x: 263, y: 178 }), null);
+  assert.equal(resolveCareEchoHit(world, "play", { x: 244, y: 164 }), null);
+  assert.equal(resolveCareEchoHit(world, null, { x: 244, y: 194 }), null);
+});
+
+test("a ready care echo holds Moss and the camera story beside that exact change", () => {
+  let world = plantLifeEcho(createPetWorldState(), "todo", 318);
+  world = {
+    ...world,
+    action: "seek-rest",
+    petX: PET_WORLD.treeShelterX,
+    cameraX: PET_WORLD.treeShelterX,
+    visitor: { ...world.visitor, active: true },
+  };
+
+  const held = holdCareEcho(world, "todo");
+
+  assert.equal(held.action, "remember");
+  assert.equal(held.targetX, null);
+  assert.equal(held.visitor.active, false);
+  assert.ok(Math.abs(held.petX - 318) <= PET_WORLD.bloomApproachDistance + 1);
+  assert.equal(held.facing, 318 < held.petX ? -1 : 1);
+  assert.ok(Math.abs(resolveCameraTargetX(held) - 318) <= PET_WORLD.bloomApproachDistance + 1);
+});
 
 test("durable world memory contains only bounded privacy-safe scenery", () => {
   let world = createPetWorldState();

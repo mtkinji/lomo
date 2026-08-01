@@ -19,14 +19,17 @@ import {
   beginMemoryVisit,
   beginTreeRest,
   cancelWorldHandGuide,
+  CARE_ECHO_TARGET,
   clipForWorldAction,
   createPetWorldState,
   dragWorldWindLeaf,
   guideWorldWithHand,
   grabWorldWindLeaf,
+  holdCareEcho,
   nextWeatherKind,
   plantLifeEcho,
   resolveFocusAtmosphere,
+  resolveCareEchoHit,
   resolveTapIntent,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
@@ -50,7 +53,7 @@ import {
 import { LEAFLING_HABITAT } from "@/lib/pet-habitat";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
-import type { PetPalette, PetStage } from "@/lib/pet-state";
+import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
@@ -73,6 +76,8 @@ interface PetEngineCanvasProps {
   onWorldFrame?: (world: PetWorldState) => void;
   onLivingDayFrame?: (director: LivingDayDirectorState) => void;
   onWorldInteraction?: (action: PetWorldAction, world: PetWorldState) => void;
+  careEchoSource?: MeaningfulAction | null;
+  onCareEcho?: (source: MeaningfulAction) => void;
   label: string;
 }
 
@@ -658,6 +663,45 @@ function drawProgressBlooms(
   }
 }
 
+function drawCareEchoInvitation(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  source: MeaningfulAction | null,
+) {
+  if (!source) return;
+  const bloom = [...world.blooms].reverse().find((candidate) => candidate.source === source);
+  if (!bloom) return;
+
+  const pulse = Math.floor(world.weatherElapsed / 320) % 2;
+  const reach = 10 + pulse * 2;
+  context.save();
+  worldTransform(context, world);
+  context.translate(Math.round(bloom.x), CARE_ECHO_TARGET.anchorY);
+  context.globalAlpha = 0.58 + pulse * 0.16;
+  context.fillStyle = palette.cream;
+  context.fillRect(-reach, -8, 3, 1);
+  context.fillRect(-reach, -8, 1, 3);
+  context.fillRect(reach - 2, -8, 3, 1);
+  context.fillRect(reach, -8, 1, 3);
+  context.fillRect(-reach, 8, 3, 1);
+  context.fillRect(-reach, 6, 1, 3);
+  context.fillRect(reach - 2, 8, 3, 1);
+  context.fillRect(reach, 6, 1, 3);
+  context.globalAlpha = 0.34 + pulse * 0.12;
+  context.fillStyle = palette.bloom;
+  if (source === "focus") {
+    context.fillRect(-1, -12, 3, 3);
+    context.fillRect(-1, 10, 3, 3);
+  } else if (source === "play") {
+    context.fillRect(-7, -11, 2, 2);
+    context.fillRect(6, -11, 2, 2);
+  } else {
+    context.fillRect(-1, -12, 3, 2);
+  }
+  context.restore();
+}
+
 function drawProceduralHabitat(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -1113,10 +1157,12 @@ function renderScene(
   previousSnapshot: PetFrameSnapshot | null,
   evolution: EvolutionComposition | null,
   focusAtmosphere: FocusAtmosphere,
+  careEchoSource: MeaningfulAction | null,
 ) {
   const palette = PALETTES[paletteId];
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
   drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
+  drawCareEchoInvitation(context, palette, world, careEchoSource);
   drawFocusStillness(context, palette, world, focusAtmosphere);
 
   const showingPrevious = Boolean(
@@ -1191,6 +1237,8 @@ export function PetEngineCanvas({
   onWorldFrame,
   onLivingDayFrame,
   onWorldInteraction,
+  careEchoSource = null,
+  onCareEcho,
   label,
 }: PetEngineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1210,7 +1258,7 @@ export function PetEngineCanvas({
   const lastWorldReportRef = useRef(0);
   const livingDayRef = useRef(createLivingDayDirector());
   const stageRef = useRef(stage);
-  const callbackRef = useRef({ onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction });
+  const callbackRef = useRef({ onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction, onCareEcho });
   const manifest = leaflingManifestForStage(stage);
   const previousManifest = evolutionFromStage ? leaflingManifestForStage(evolutionFromStage) : null;
   const ceremonyActive = motion === "evolve" && previousManifest !== null;
@@ -1220,8 +1268,8 @@ export function PetEngineCanvas({
   }, [stage]);
 
   useEffect(() => {
-    callbackRef.current = { onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction };
-  }, [onFrame, onLivingDayFrame, onWorldFrame, onWorldInteraction]);
+    callbackRef.current = { onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction, onCareEcho };
+  }, [onCareEcho, onFrame, onLivingDayFrame, onWorldFrame, onWorldInteraction]);
 
   useEffect(() => {
     if (!worldCommand) return;
@@ -1268,6 +1316,14 @@ export function PetEngineCanvas({
     callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
     callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
   }, [worldCommand]);
+
+  useEffect(() => {
+    if (!careEchoSource) return;
+    livingDayRef.current = interruptLivingDay(livingDayRef.current);
+    worldRef.current = holdCareEcho(worldRef.current, careEchoSource);
+    callbackRef.current.onWorldFrame?.(worldRef.current);
+    callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+  }, [careEchoSource]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1322,24 +1378,30 @@ export function PetEngineCanvas({
       if (previewing && livingDayRef.current.activeEpisode) {
         livingDayRef.current = interruptLivingDay(livingDayRef.current);
       }
-      const livingDayStep = stepLivingDayDirector(
-        livingDayRef.current,
-        {
-          stage,
-          petX: worldRef.current.petX,
-          bloomXs: worldRef.current.blooms.map((bloom) => bloom.x),
-          action: worldRef.current.action,
-          focusActive: worldRef.current.focus.active,
-          visitorActive: worldRef.current.visitor.active,
-          weather: worldRef.current.weather,
-          weatherPhase: worldRef.current.weatherPhase,
-          ceremonyActive: ceremonyOwnsFrame || previewing,
-        },
-        dt,
-      );
-      livingDayRef.current = livingDayStep.state;
-      if (livingDayStep.command) {
-        worldRef.current = applyLivingDayCommand(worldRef.current, livingDayStep.command, stage);
+      if (careEchoSource) {
+        if (livingDayRef.current.activeEpisode) {
+          livingDayRef.current = interruptLivingDay(livingDayRef.current);
+        }
+      } else {
+        const livingDayStep = stepLivingDayDirector(
+          livingDayRef.current,
+          {
+            stage,
+            petX: worldRef.current.petX,
+            bloomXs: worldRef.current.blooms.map((bloom) => bloom.x),
+            action: worldRef.current.action,
+            focusActive: worldRef.current.focus.active,
+            visitorActive: worldRef.current.visitor.active,
+            weather: worldRef.current.weather,
+            weatherPhase: worldRef.current.weatherPhase,
+            ceremonyActive: ceremonyOwnsFrame || previewing,
+          },
+          dt,
+        );
+        livingDayRef.current = livingDayStep.state;
+        if (livingDayStep.command) {
+          worldRef.current = applyLivingDayCommand(worldRef.current, livingDayStep.command, stage);
+        }
       }
       if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
 
@@ -1386,6 +1448,7 @@ export function PetEngineCanvas({
         previousSnapshot,
         evolution,
         focusAtmosphere,
+        careEchoSource,
       );
 
       const frameKey = `${snapshot.clip}:${snapshot.frameIndex}`;
@@ -1424,7 +1487,7 @@ export function PetEngineCanvas({
       sprite.onload = null;
       if (previousSprite) previousSprite.onload = null;
     };
-  }, [ceremonyActive, evolutionFromStage, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
+  }, [careEchoSource, ceremonyActive, evolutionFromStage, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
 
   function pointFromEvent(event: PointerEvent<HTMLDivElement>): WorldPoint {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -1533,6 +1596,15 @@ export function PetEngineCanvas({
       return;
     }
     if (gestureMovedRef.current) return;
+    const careEcho = resolveCareEchoHit(
+      worldRef.current,
+      careEchoSource,
+      screenPointToWorldPoint(worldRef.current, pointer.current),
+    );
+    if (careEcho) {
+      callbackRef.current.onCareEcho?.(careEcho.source);
+      return;
+    }
     const intent = resolveTapIntent(worldRef.current, pointer.current);
     worldRef.current = applyWorldIntent(worldRef.current, intent);
     callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);

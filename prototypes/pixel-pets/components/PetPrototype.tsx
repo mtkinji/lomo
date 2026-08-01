@@ -303,6 +303,11 @@ export function PetPrototype() {
     : state.stage === "young"
       ? "New reach, same Moss. Care is remembered."
       : "Care changes Moss. Nothing can be lost.";
+  const careEchoCopy = state.pendingSource === "focus"
+    ? { title: "Touch the still light", detail: "The quiet place your Focus left is ready." }
+    : state.pendingSource === "play"
+      ? { title: "Touch the paired seedheads", detail: "The meadow kept the spark you shared." }
+      : { title: "Touch the new bloom", detail: "What you moved forward has taken root." };
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const dayPhase = resolvePrototypeDayPhase(state);
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
@@ -410,15 +415,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 28</span>
-        <h1>Step inside<br />the little world.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 29</span>
+        <h1>Touch what<br />changed.</h1>
         <p>
-          Moss’s meadow is the capability now. Touch the world, let real life change it, and stay close enough to notice the answer.
+          Do one real thing, watch Moss find its trace in the meadow, then complete the care moment by touching that exact change.
         </p>
         <dl className="engine-facts">
-          <div><dt>Touch</dt><dd>plays with Moss</dd></div>
-          <div><dt>Life</dt><dd>changes the meadow</dd></div>
-          <div><dt>Care</dt><dd>is always remembered</dd></div>
+          <div><dt>Do</dt><dd>changes the meadow</dd></div>
+          <div><dt>Notice</dt><dd>belongs to Moss</dd></div>
+          <div><dt>Touch</dt><dd>completes the care</dd></div>
         </dl>
       </header>
 
@@ -458,6 +463,8 @@ export function PetPrototype() {
             onWorldFrame={handleWorldFrame}
             onLivingDayFrame={setLivingDay}
             onWorldInteraction={handleWorldInteraction}
+            careEchoSource={dayPhase === "care-ready" && !worldAnswering ? state.pendingSource : null}
+            onCareEcho={care}
             label={`${state.name}'s interactive world. Draw one finger upward through the meadow to discover how ${state.name}'s reach grows, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
         </div>
@@ -490,9 +497,17 @@ export function PetPrototype() {
             </div>
           </div>
           ) : dayPhase === "care-ready" ? (
-          <button className="care-button" type="button" onClick={care}>
-            <span className="pixel-berry" aria-hidden="true" />
-            Give today’s care
+          <button
+            className="care-button care-invitation"
+            type="button"
+            onClick={care}
+            aria-label={`${careEchoCopy.title}. ${careEchoCopy.detail} Press here if you cannot target it in the meadow.`}
+          >
+            <span className={`echo-touch-mark echo-touch-${state.pendingSource ?? "todo"}`} aria-hidden="true" />
+            <span className="care-invitation-copy">
+              <strong>{careEchoCopy.title}</strong>
+              <small>{careEchoCopy.detail}</small>
+            </span>
           </button>
           ) : dayPhase === "care-settling" ? (
           <div className="focus-session day-settling" aria-live="polite">
