@@ -67,6 +67,7 @@ export const PET_WORLD = {
   // Sum of the Guardian aerial frames before the authored `land` drawing.
   handAerialContactAt: 595,
   handAerialDuration: 965,
+  handNoticeDuration: 260,
   guardianWakeDuration: 1100,
 } as const;
 
@@ -201,9 +202,11 @@ export interface PetWorldState {
 const VISITOR_BEHAVIOR = {
   crawler: {
     y: 188,
+    spawnOffset: 56,
     speed: 0.011,
     engageDistance: 15,
     attentionDistance: 76,
+    noticeDuration: 420,
     lead: 4,
     launchAt: 290,
     landAt: 510,
@@ -211,9 +214,11 @@ const VISITOR_BEHAVIOR = {
   },
   firefly: {
     y: 158,
+    spawnOffset: 62,
     speed: 0.026,
     engageDistance: 22,
     attentionDistance: 108,
+    noticeDuration: 340,
     lead: 22,
     launchAt: 290,
     landAt: 510,
@@ -221,9 +226,11 @@ const VISITOR_BEHAVIOR = {
   },
   "sky-moth": {
     y: 112,
+    spawnOffset: 68,
     speed: 0.034,
     engageDistance: 34,
     attentionDistance: 138,
+    noticeDuration: 280,
     lead: 38,
     launchAt: 250,
     landAt: 595,
@@ -231,9 +238,11 @@ const VISITOR_BEHAVIOR = {
   },
 } satisfies Record<WorldVisitorKind, {
   y: number;
+  spawnOffset: number;
   speed: number;
   engageDistance: number;
   attentionDistance: number;
+  noticeDuration: number;
   lead: number;
   launchAt: number;
   landAt: number;
@@ -901,6 +910,7 @@ export function guideWorldWithHand(
   stage: PetStage = "young",
 ): PetWorldState {
   if (handGuideIsRefused(state)) return state;
+  if (state.action === "hand-pounce" || state.action === "hand-aerial") return state;
   const hand: WorldHandGuide = {
     phase: "held",
     x: clampWorldX(point.x),
@@ -909,7 +919,12 @@ export function guideWorldWithHand(
     acroUsed: state.hand.phase === "quiet" ? false : state.hand.acroUsed,
   };
   const distance = Math.abs(hand.x - state.petX);
-  const action = actionForHandGuide(stage, hand, distance);
+  const isNewInvitation = state.hand.phase === "quiet";
+  const attentionStillSettling = state.action === "hand-track"
+    && state.hand.ageMs < PET_WORLD.handNoticeDuration;
+  const action = isNewInvitation || attentionStillSettling
+    ? "hand-track"
+    : actionForHandGuide(stage, hand, distance);
   const facing = faceToward(state.petX, hand.x, state.facing);
   return {
     ...state,
@@ -935,8 +950,15 @@ export function releaseWorldHandGuide(
   stage: PetStage = "young",
 ): PetWorldState {
   if (state.hand.phase !== "held") return state;
+  if (state.action === "hand-pounce" || state.action === "hand-aerial") {
+    return { ...state, hand: { ...state.hand, phase: "released" } };
+  }
   const distance = Math.abs(state.hand.x - state.petX);
-  const action = state.guardianWake.phase === "released" && stage === "guardian"
+  const attentionStillSettling = state.action === "hand-track"
+    && state.hand.ageMs < PET_WORLD.handNoticeDuration;
+  const action = attentionStillSettling
+    ? "hand-track"
+    : state.guardianWake.phase === "released" && stage === "guardian"
     ? "guardian-land"
     : distance <= PET_WORLD.handArrivalDistance && state.hand.acroUsed
     ? "hand-found"
@@ -949,7 +971,7 @@ export function releaseWorldHandGuide(
     facing: faceToward(state.petX, state.hand.x, state.facing),
     poseY: 0,
     rotation: 0,
-    hand: { ...state.hand, phase: "released", ageMs: 0 },
+    hand: { ...state.hand, phase: "released" },
   };
 }
 
@@ -1095,7 +1117,11 @@ export function spawnVisitor(
   const kind = VISITOR_FOR_STAGE[stage];
   const behavior = VISITOR_BEHAVIOR[kind];
   const direction = visitor.direction ?? (state.petX > PET_WORLD.width / 2 ? -1 : 1);
-  const x = visitor.x ?? (direction === 1 ? state.cameraX - 94 / state.zoom : state.cameraX + 94 / state.zoom);
+  const x = visitor.x ?? (
+    direction === 1
+      ? state.cameraX - behavior.spawnOffset / state.zoom
+      : state.cameraX + behavior.spawnOffset / state.zoom
+  );
   const y = visitor.y ?? behavior.y;
   return {
     ...state,
@@ -1326,10 +1352,35 @@ export function stepPetWorld(
 
   if (reducedMotion) {
     if (state.action === "hand-track") {
-      if (next.hand.phase === "released") {
-        return { ...next, action: "hand-found", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 };
+      const distance = Math.abs(next.hand.x - state.petX);
+      const intendedAction = actionForHandGuide(stage, next.hand, distance);
+      if (intendedAction === "hand-track") {
+        if (next.hand.phase === "released") {
+          return { ...next, action: "hand-found", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 };
+        }
+        return { ...next, facing: faceToward(state.petX, next.hand.x, state.facing), poseY: 0, rotation: 0 };
       }
-      return { ...next, facing: faceToward(state.petX, next.hand.x, state.facing), poseY: 0, rotation: 0 };
+      const facing = faceToward(state.petX, next.hand.x, state.facing);
+      return {
+        ...next,
+        petX: next.hand.x,
+        cameraX: clampCameraX(next.hand.x, next.zoom),
+        action: intendedAction === "hand-aerial"
+          ? "guardian-land"
+          : next.hand.phase === "held" ? "hand-track" : "hand-found",
+        actionElapsed: intendedAction === "hand-aerial" ? PET_WORLD.handAerialContactAt : 0,
+        targetX: null,
+        facing,
+        poseY: 0,
+        rotation: 0,
+        hand: {
+          ...next.hand,
+          acroUsed: next.hand.acroUsed || intendedAction === "hand-pounce" || intendedAction === "hand-aerial",
+        },
+        guardianWake: intendedAction === "hand-aerial"
+          ? { phase: "released", x: next.hand.x, elapsedMs: 0, facing }
+          : next.guardianWake,
+      };
     }
     if (
       state.action === "hand-walk"
@@ -1371,6 +1422,42 @@ export function stepPetWorld(
           : finishAction({ ...next, hand: quietWorldHand(), poseY: 0, rotation: 0 });
       }
       return { ...next, targetX: null, poseY: 0, rotation: 0 };
+    }
+    if (
+      next.visitor.active
+      && !next.visitor.engaged
+      && !weatherResponseStarted
+      && !next.focus.active
+      && !["focus", "shelter", "seek-shelter", "shade", "seek-shade", "night-rest"].includes(state.action)
+    ) {
+      const behavior = VISITOR_BEHAVIOR[next.visitor.kind];
+      const targetX = resolveVisitorIntercept(state.petX, next.visitor, behavior.lead);
+      const facing = faceToward(state.petX, targetX, state.facing);
+      return {
+        ...next,
+        petX: targetX,
+        cameraX: clampCameraX(targetX, next.zoom),
+        action: behavior.action,
+        actionElapsed: 0,
+        targetX: null,
+        facing,
+        poseY: 0,
+        rotation: 0,
+        visitor: {
+          ...next.visitor,
+          direction: facing,
+          engaged: true,
+          engagedAgeMs: 0,
+          launchX: state.petX,
+        },
+      };
+    }
+    if (
+      (state.action === "pounce" || state.action === "aerial-pounce")
+      && state.visitor.engaged
+    ) {
+      if (next.actionElapsed >= 300) return finishVisitorAction({ ...next, poseY: 0, rotation: 0 });
+      return { ...next, targetX: null, facing: state.facing, poseY: 0, rotation: 0 };
     }
     if (state.action === "leaf-invite") {
       if (next.actionElapsed < Math.min(300, PET_WORLD.windLeafInvitationDuration)) {
@@ -1588,10 +1675,28 @@ export function stepPetWorld(
     next.facing = faceToward(state.petX, next.hand.x, state.facing);
     next.poseY = 0;
     next.rotation = 0;
-    if (next.hand.phase === "released") {
-      next.action = "hand-found";
-      next.actionElapsed = 0;
-      next.targetX = null;
+    if (next.hand.ageMs >= PET_WORLD.handNoticeDuration) {
+      const distance = Math.abs(next.hand.x - state.petX);
+      const intendedAction = actionForHandGuide(stage, next.hand, distance);
+      if (intendedAction === "hand-track") {
+        if (next.hand.phase === "released") {
+          next.action = "hand-found";
+          next.actionElapsed = 0;
+          next.targetX = null;
+        }
+      } else {
+        next.action = intendedAction;
+        next.actionElapsed = 0;
+        next.targetX = next.hand.x;
+        if (intendedAction === "hand-aerial") {
+          next.guardianWake = {
+            phase: "gathering",
+            x: state.petX,
+            elapsedMs: 0,
+            facing: next.facing,
+          };
+        }
+      }
     }
   } else if (state.action === "hand-walk" || state.action === "hand-run") {
     const distance = next.hand.x - state.petX;
@@ -1613,8 +1718,8 @@ export function stepPetWorld(
       next.petX = moveToward(state.petX, next.hand.x, dt * speed);
     }
   } else if (state.action === "hand-aerial") {
-    const targetX = next.hand.x;
-    next.facing = faceToward(state.petX, targetX, state.facing);
+    const targetX = state.targetX ?? state.hand.x;
+    next.facing = state.facing;
     next.poseY = 0;
     next.rotation = 0;
     if (next.actionElapsed >= PET_WORLD.handAerialContactAt) {
@@ -1632,8 +1737,8 @@ export function stepPetWorld(
       next.targetX = targetX;
     }
   } else if (state.action === "hand-pounce") {
-    const targetX = next.hand.x;
-    next.facing = faceToward(state.petX, targetX, state.facing);
+    const targetX = state.targetX ?? state.hand.x;
+    next.facing = state.facing;
     next.poseY = 0;
     next.rotation = 0;
     if (next.actionElapsed >= PET_WORLD.handPounceDuration) {
@@ -1966,7 +2071,9 @@ export function stepPetWorld(
     const visitorDistance = next.visitor.x - state.petX;
     const interceptX = resolveVisitorIntercept(state.petX, next.visitor, behavior.lead);
     next.facing = faceToward(state.petX, interceptX, state.facing);
-    if (Math.abs(visitorDistance) <= behavior.engageDistance) {
+    const isTracking = state.action === "track";
+    const attentionComplete = isTracking && next.actionElapsed >= behavior.noticeDuration;
+    if (Math.abs(visitorDistance) <= behavior.engageDistance && attentionComplete) {
       next.action = behavior.action;
       next.actionElapsed = 0;
       next.targetX = interceptX;
@@ -1977,9 +2084,9 @@ export function stepPetWorld(
         engagedAgeMs: 0,
         launchX: state.petX,
       };
-    } else if (Math.abs(visitorDistance) <= behavior.attentionDistance) {
+    } else if (Math.abs(visitorDistance) <= behavior.attentionDistance || isTracking) {
       next.action = "track";
-      if (state.action !== "track") next.actionElapsed = 0;
+      if (!isTracking) next.actionElapsed = 0;
     }
   } else if (state.action === "greet" || state.action === "track" || state.action === "weather-notice") {
     const weatherStillArriving = state.action === "weather-notice" && next.weatherPhase === "arriving";

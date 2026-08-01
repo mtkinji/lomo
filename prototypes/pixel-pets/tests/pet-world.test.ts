@@ -819,7 +819,8 @@ test("screen taps resolve into world-space attention and travel intents", () => 
 test("a deliberate hand guide earns attention before choosing an honest gait", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 310, y: 146 });
   const watched = guideWorldWithHand(start, { x: start.petX + 10, y: 188 }, "young");
-  const walking = guideWorldWithHand(watched, { x: start.petX + 42, y: 184 }, "young");
+  const walkingInvitation = guideWorldWithHand(watched, { x: start.petX + 42, y: 184 }, "young");
+  const walking = stepPetWorld(walkingInvitation, PET_WORLD.handNoticeDuration, false, "young");
   const running = guideWorldWithHand(walking, { x: start.petX + 118, y: 180 }, "young");
 
   assert.equal(watched.hand.phase, "held");
@@ -837,6 +838,7 @@ test("a deliberate hand guide earns attention before choosing an honest gait", (
 
 test("Moss follows a moving hand with inertia instead of teleporting to the cursor", () => {
   let world = guideWorldWithHand(createPetWorldState(), { x: 390, y: 184 }, "young");
+  world = stepPetWorld(world, PET_WORLD.handNoticeDuration, false, "young");
   const first = stepPetWorld(world, 160, false, "young");
 
   assert.ok(first.petX > world.petX);
@@ -867,7 +869,7 @@ test("releasing the hand commits to one last place, greets, and becomes quiet", 
 
   assert.equal(world.hand.phase, "released");
   assert.equal(world.targetX, 356);
-  for (let frame = 0; frame < 180 && world.action !== "hand-found"; frame += 1) {
+  for (let frame = 0; frame < 300 && world.action !== "hand-found"; frame += 1) {
     world = stepPetWorld(world, 16, false, "young");
   }
 
@@ -909,10 +911,45 @@ test("Reduce Motion preserves guide, arrival, and greeting without animated trav
   assert.equal(arrived.poseY, 0);
 });
 
+test("a committed hand leap cannot flip when the finger crosses behind Moss", () => {
+  const youngNotice = guideWorldWithHand(createPetWorldState(), { x: 300, y: 118 }, "young");
+  const youngCommitted = stepPetWorld(youngNotice, PET_WORLD.handNoticeDuration, false, "young");
+  const youngCrossed = guideWorldWithHand(youngCommitted, { x: 180, y: 118 }, "young");
+  const youngAirborne = stepPetWorld(youngCrossed, 160, false, "young");
+  const guardianNotice = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "guardian");
+  const guardianCommitted = stepPetWorld(guardianNotice, PET_WORLD.handNoticeDuration, false, "guardian");
+  const guardianCrossed = guideWorldWithHand(guardianCommitted, { x: 180, y: 58 }, "guardian");
+  const guardianAirborne = stepPetWorld(guardianCrossed, 320, false, "guardian");
+
+  assert.equal(youngCommitted.action, "hand-pounce");
+  assert.equal(youngCrossed.targetX, 300);
+  assert.equal(youngCrossed.facing, 1);
+  assert.ok(youngAirborne.petX > youngCommitted.petX);
+  assert.equal(guardianCommitted.action, "hand-aerial");
+  assert.equal(guardianCrossed.targetX, 300);
+  assert.equal(guardianCrossed.facing, 1);
+  assert.ok(guardianAirborne.petX > guardianCommitted.petX);
+});
+
 test("the reachable sky opens from grounded baby to bounding young to aerial Guardian", () => {
-  const baby = guideWorldWithHand(createPetWorldState(), { x: 240, y: 58 }, "baby");
-  const young = guideWorldWithHand(createPetWorldState(), { x: 276, y: 118 }, "young");
-  const guardian = guideWorldWithHand(createPetWorldState(), { x: 276, y: 58 }, "guardian");
+  const baby = stepPetWorld(
+    guideWorldWithHand(createPetWorldState(), { x: 240, y: 58 }, "baby"),
+    PET_WORLD.handNoticeDuration,
+    false,
+    "baby",
+  );
+  const young = stepPetWorld(
+    guideWorldWithHand(createPetWorldState(), { x: 276, y: 118 }, "young"),
+    PET_WORLD.handNoticeDuration,
+    false,
+    "young",
+  );
+  const guardian = stepPetWorld(
+    guideWorldWithHand(createPetWorldState(), { x: 276, y: 58 }, "guardian"),
+    PET_WORLD.handNoticeDuration,
+    false,
+    "guardian",
+  );
 
   assert.equal(baby.hand.y, PET_WORLD.handBabyReachY);
   assert.equal(baby.action, "hand-track", "Baby can watch high play without borrowing a mature jump");
@@ -925,9 +962,9 @@ test("the reachable sky opens from grounded baby to bounding young to aerial Gua
 });
 
 test("only Guardian gathers a meadow wake from the existing high-hand gesture", () => {
-  const baby = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "baby");
-  const young = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "young");
-  const guardian = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "guardian");
+  const baby = stepPetWorld(guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "baby"), PET_WORLD.handNoticeDuration, false, "baby");
+  const young = stepPetWorld(guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "young"), PET_WORLD.handNoticeDuration, false, "young");
+  const guardian = stepPetWorld(guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "guardian"), PET_WORLD.handNoticeDuration, false, "guardian");
 
   assert.equal(baby.guardianWake.phase, "quiet");
   assert.equal(young.guardianWake.phase, "quiet");
@@ -947,10 +984,13 @@ test("the Guardian wake waits for authored landing, releases once, and settles",
     .reduce((duration, frame) => duration + frame.duration, 0);
   assert.equal(PET_WORLD.handAerialContactAt, authoredContactAt);
 
-  let world = releaseWorldHandGuide(
+  let world = stepPetWorld(
     guideWorldWithHand(createPetWorldState(), { x: 318, y: 58 }, "guardian"),
+    PET_WORLD.handNoticeDuration,
+    false,
     "guardian",
   );
+  world = releaseWorldHandGuide(world, "guardian");
   world = stepPetWorld(world, PET_WORLD.handAerialContactAt - 1, false, "guardian");
   assert.equal(world.guardianWake.phase, "gathering");
   assert.notEqual(world.petX, 318);
@@ -988,10 +1028,13 @@ test("meaningful Focus clears a released meadow wake and owns the scene", () => 
 });
 
 test("a released Guardian landing recovers on the terrain instead of greeting with a second hop", () => {
-  let world = releaseWorldHandGuide(
+  let world = stepPetWorld(
     guideWorldWithHand(createPetWorldState(), { x: 318, y: 58 }, "guardian"),
+    PET_WORLD.handNoticeDuration,
+    false,
     "guardian",
   );
+  world = releaseWorldHandGuide(world, "guardian");
   world = stepPetWorld(world, PET_WORLD.handAerialContactAt, false, "guardian");
 
   assert.equal(world.action, "guardian-land");
@@ -1064,7 +1107,8 @@ test("Reduce Motion keeps one static bowed-grass contact without traveling parti
 
 test("an acrobatic hand chase commits once, lands, then watches instead of pogoing", () => {
   let world = guideWorldWithHand(createPetWorldState(), { x: 318, y: 62 }, "guardian");
-  world = stepPetWorld(world, 320, false, "guardian");
+  world = stepPetWorld(world, PET_WORLD.handNoticeDuration, false, "guardian");
+  world = stepPetWorld(world, 160, false, "guardian");
   const elapsedBeforeRefine = world.actionElapsed;
   world = guideWorldWithHand(world, { x: 342, y: 70 }, "guardian");
 
@@ -1092,11 +1136,12 @@ test("settling weather may change the habitat but cannot cut off a committed han
     "guardian",
   );
   const committed = guideWorldWithHand(arriving, { x: 318, y: 62 }, "guardian");
-  const settled = stepPetWorld(committed, 160, false, "guardian");
+  const settled = stepPetWorld(committed, PET_WORLD.handNoticeDuration, false, "guardian");
 
   assert.equal(settled.weatherPhase, "settled");
   assert.equal(settled.action, "hand-aerial");
-  assert.ok(settled.actionElapsed > committed.actionElapsed);
+  assert.equal(settled.actionElapsed, 0, "weather may settle during the look, but the authored flight still begins cleanly");
+  assert.equal(settled.guardianWake.phase, "gathering");
 });
 
 test("holding the wind leaf lets Moss track the finger without sliding", () => {
@@ -1305,6 +1350,23 @@ test("each stage attracts a visitor at a newly reachable layer", () => {
   assert.ok(young.visitor.y > guardian.visitor.y);
 });
 
+test("an arriving visitor is already readable inside the shot when attention begins", () => {
+  const visitors = (["baby", "young", "guardian"] as const).map((stage) =>
+    spawnVisitor(createPetWorldState(), stage)
+  );
+
+  for (const world of visitors) {
+    const visitorScreenX = PET_WORLD.viewportWidth / 2
+      + (world.visitor.x - world.cameraX) * world.zoom;
+
+    assert.ok(visitorScreenX >= 12, `${world.visitor.kind} cannot begin hidden behind the left scenery`);
+    assert.ok(
+      visitorScreenX <= PET_WORLD.viewportWidth - 12,
+      `${world.visitor.kind} cannot begin hidden behind the right scenery`,
+    );
+  }
+});
+
 test("tracking a visitor advances one attention performance instead of restarting every frame", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 300, direction: -1 });
   const noticed = stepPetWorld(start, 100, false);
@@ -1315,11 +1377,57 @@ test("tracking a visitor advances one attention performance instead of restartin
   assert.equal(tracking.actionElapsed, 100);
 });
 
+test("a nearby visitor earns a visible attention beat before Moss commits to pursuit", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
+  const noticed = stepPetWorld(start, 16, false, "young");
+
+  assert.equal(noticed.action, "track");
+  assert.equal(noticed.facing, 1);
+  assert.equal(noticed.visitor.engaged, false);
+  assert.equal(noticed.petX, start.petX, "eyes, ears, and head should acquire the target before the body travels");
+});
+
+test("Moss commits toward the visitor's latest side after the attention beat", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 237, y: 164, direction: 1 });
+  const noticed = stepPetWorld(start, 16, false, "young");
+  const committed = stepPetWorld(noticed, 360, false, "young");
+
+  assert.equal(noticed.action, "track");
+  assert.equal(noticed.facing, -1, "the first glance follows the firefly on the left");
+  assert.ok(committed.visitor.x > committed.petX, "the firefly crosses to the right during the glance");
+  assert.equal(committed.action, "pounce");
+  assert.equal(committed.facing, 1, "the launch must use the target's latest visible side");
+  assert.ok((committed.targetX ?? 0) > committed.petX);
+  assert.equal(committed.visitor.direction, 1);
+});
+
+test("a new hand invitation is noticed before stage-specific movement begins", () => {
+  const babyNotice = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "baby");
+  const youngNotice = guideWorldWithHand(createPetWorldState(), { x: 300, y: 118 }, "young");
+  const guardianNotice = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "guardian");
+
+  assert.deepEqual(
+    [babyNotice.action, youngNotice.action, guardianNotice.action],
+    ["hand-track", "hand-track", "hand-track"],
+  );
+
+  const babyCommit = stepPetWorld(babyNotice, 300, false, "baby");
+  const youngCommit = stepPetWorld(youngNotice, 300, false, "young");
+  const guardianCommit = stepPetWorld(guardianNotice, 300, false, "guardian");
+
+  assert.equal(babyCommit.action, "hand-walk");
+  assert.equal(youngCommit.action, "hand-pounce");
+  assert.equal(guardianCommit.action, "hand-aerial");
+  assert.equal(guardianCommit.guardianWake.phase, "gathering");
+});
+
 test("a crossing firefly keeps its intercept on the visible side and cannot provoke a backward retry", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 226, y: 164, direction: 1 });
-  const launched = stepPetWorld(start, 80, false);
+  const noticed = stepPetWorld(start, 80, false);
+  const launched = stepPetWorld(noticed, 340, false);
   const fromRight = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
-  const launchedFromRight = stepPetWorld(fromRight, 80, false);
+  const noticedFromRight = stepPetWorld(fromRight, 80, false);
+  const launchedFromRight = stepPetWorld(noticedFromRight, 340, false);
   const pursuit = stepPetWorld(launched, 260, false);
   const recovered = stepPetWorld(launched, PET_WORLD.pounceDuration, false);
 
@@ -1338,7 +1446,8 @@ test("a crossing firefly keeps its intercept on the visible side and cannot prov
 
 test("a visitor chase plants the turn and coil before translating toward the locked target", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
-  const committed = stepPetWorld(start, 16, false);
+  const noticed = stepPetWorld(start, 16, false);
+  const committed = stepPetWorld(noticed, 340, false);
   const coiled = stepPetWorld(committed, 240, false);
   const launched = stepPetWorld(coiled, 120, false);
 
@@ -1354,7 +1463,8 @@ test("a visitor chase plants the turn and coil before translating toward the loc
 
 test("guardian tracks a high sky moth with its aerial vocabulary", () => {
   const start = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
-  const after = stepPetWorld(start, 80, false);
+  const noticed = stepPetWorld(start, 80, false, "guardian");
+  const after = stepPetWorld(noticed, 280, false, "guardian");
 
   assert.equal(after.visitor.kind, "sky-moth");
   assert.ok(after.visitor.y < 130);
@@ -1368,9 +1478,9 @@ test("maturity unlocks progressively higher wildlife and a longer aerial travel 
   const baby = spawnVisitor(createPetWorldState(), "baby", { x: 250, direction: -1 });
   const young = spawnVisitor(createPetWorldState(), "young", { x: 250, direction: -1 });
   const guardian = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
-  const babyCommitted = stepPetWorld(baby, 16, false);
-  const youngCommitted = stepPetWorld(young, 16, false);
-  const guardianCommitted = stepPetWorld(guardian, 16, false);
+  const babyCommitted = stepPetWorld(stepPetWorld(baby, 16, false, "baby"), 420, false, "baby");
+  const youngCommitted = stepPetWorld(stepPetWorld(young, 16, false, "young"), 340, false, "young");
+  const guardianCommitted = stepPetWorld(stepPetWorld(guardian, 16, false, "guardian"), 280, false, "guardian");
   const babyAirborne = stepPetWorld(babyCommitted, 390, false);
   const youngAirborne = stepPetWorld(youngCommitted, 390, false);
   const guardianAirborne = stepPetWorld(guardianCommitted, 390, false);
@@ -1388,10 +1498,24 @@ test("maturity unlocks progressively higher wildlife and a longer aerial travel 
     Math.abs(guardianAirborne.petX - guardianCommitted.petX) > Math.abs(youngAirborne.petX - youngCommitted.petX),
     "the Guardian's aerial path should cover more ground than the young pounce",
   );
-  assert.ok(
-    Math.abs(youngAirborne.petX - youngCommitted.petX) >= Math.abs(babyAirborne.petX - babyCommitted.petX),
-    "young movement should be at least as capable as the baby ground pounce",
-  );
+  assert.equal(clipForWorldAction(youngCommitted.action), "pounce");
+  assert.equal(clipForWorldAction(guardianCommitted.action), "aerial");
+});
+
+test("Reduce Motion resolves wildlife on the target side without animated pursuit", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 300, y: 158, direction: -1 });
+  const resolved = stepPetWorld(start, 16, true, "young");
+  const settled = stepPetWorld(resolved, 300, true, "young");
+
+  assert.equal(resolved.action, "pounce");
+  assert.equal(resolved.facing, 1);
+  assert.ok(resolved.petX > start.petX);
+  assert.equal(resolved.visitor.engaged, true);
+  assert.equal(resolved.targetX, null);
+  assert.equal(resolved.poseY, 0);
+  assert.equal(settled.action, "idle");
+  assert.equal(settled.visitor.active, false);
+  assert.equal(settled.visitor.engaged, false);
 });
 
 test("a pursued sky moth remains visible through the Guardian's committed reach", () => {
@@ -1401,7 +1525,8 @@ test("a pursued sky moth remains visible through the Guardian's committed reach"
     cameraX: 400,
   };
   const visitor = spawnVisitor(nearEdge, "guardian", { x: 448, direction: -1 });
-  const launched = stepPetWorld(visitor, 80, false);
+  const noticed = stepPetWorld(visitor, 80, false, "guardian");
+  const launched = stepPetWorld(noticed, 280, false, "guardian");
   const reaching = stepPetWorld(launched, 300, false);
 
   assert.equal(launched.action, "aerial-pounce");

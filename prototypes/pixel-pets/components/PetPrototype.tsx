@@ -452,15 +452,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 33</span>
-        <h1>The scene,<br />not the card.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 34</span>
+        <h1>Look first.<br />Then leap.</h1>
         <p>
-          Watch Moss act first. The world now explains only what motion cannot.
+          Watch Moss find the target with eyes, ears, and head before the body commits.
         </p>
         <dl className="engine-facts">
-          <div><dt>Sky</dt><dd>stays playable</dd></div>
-          <div><dt>Acting</dt><dd>leads meaning</dd></div>
-          <div><dt>Narration</dt><dd>visits briefly</dd></div>
+          <div><dt>Attention</dt><dd>arrives first</dd></div>
+          <div><dt>Direction</dt><dd>settles once</dd></div>
+          <div><dt>Movement</dt><dd>follows meaning</dd></div>
         </dl>
       </header>
 
@@ -597,7 +597,7 @@ export function PetPrototype() {
         </div>
 
         <section className="inspector-section">
-          <div className="inspector-label"><span>World interaction</span><output>{world.action}</output></div>
+          <div className="inspector-label"><span>World interaction</span><output data-testid="world-action-output">{world.action}</output></div>
           <div className="world-controls">
             <button type="button" onClick={() => commandWorld("visitor")}>Invite {visitorLabel}</button>
             <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
@@ -616,6 +616,7 @@ export function PetPrototype() {
             <span>Facing <strong>{world.facing === -1 ? "left" : "right"}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
+            <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
             <span>Reach layer <strong>{currentStage === "baby" ? "ground" : currentStage === "young" ? "bound" : "aerial"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
