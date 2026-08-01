@@ -21,6 +21,7 @@ import {
   beginTreePlay,
   beginTreeReturn,
   beginRainGuestShelter,
+  beginVisitorChase,
   cancelWorldHandGuide,
   clipForWorldAction,
   setWorldWeather,
@@ -28,6 +29,7 @@ import {
   resolveTwilightEchoPresentation,
   resolveTreePlayHit,
   resolveTreeReturnHit,
+  resolveVisitorHit,
   resolveRainGuestHit,
   resolveFocusAtmosphere,
   resolveCompanionFocusPlaceHit,
@@ -721,6 +723,7 @@ test("shared play keeps its breeze and visitor while planting a paired memory", 
   assert.equal(playing.weather, "breeze");
   assert.equal(playing.visitor.active, true);
   assert.equal(playing.visitor.kind, "firefly");
+  assert.equal(playing.visitor.sharedInvitation, true, "authored Play asks for one optional shared touch");
   assert.equal(playing.action, "track");
   assert.equal(playing.weatherResponsePending, false);
   assert.deepEqual(playing.blooms.map((memory) => memory.source), ["play"]);
@@ -2044,6 +2047,116 @@ test("a nearby visitor earns a visible attention beat before Moss commits to pur
   assert.equal(noticed.facing, 1);
   assert.equal(noticed.visitor.engaged, false);
   assert.equal(noticed.petX, start.petX, "eyes, ears, and head should acquire the target before the body travels");
+});
+
+test("an authored visitor holds a shared action line after Moss notices it", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", {
+    x: 254,
+    y: 164,
+    direction: -1,
+    sharedInvitation: true,
+  });
+  const noticed = stepPetWorld(start, 16, false, "young");
+  const invitation = stepPetWorld(noticed, 340, false, "young");
+  const held = stepPetWorld(invitation, 240, false, "young");
+
+  assert.equal(invitation.action, "visitor-invite");
+  assert.equal(invitation.visitor.sharedInvitation, true);
+  assert.equal(invitation.visitor.engaged, false);
+  assert.equal(invitation.petX, start.petX, "Moss plants before the person answers");
+  assert.equal(invitation.facing, 1, "Moss faces the visitor's current side");
+  assert.equal(held.visitor.x, invitation.visitor.x, "the invitation holds one lateral action line");
+  assert.notEqual(held.visitor.y, invitation.visitor.y, "the visitor keeps acting while it waits");
+  assert.ok(held.visitor.ageMs > invitation.visitor.ageMs);
+  assert.equal(clipForWorldAction(invitation.action, false, "young"), "discover");
+});
+
+test("the shared visitor owns a generous stage-specific touch target", () => {
+  for (const stage of ["baby", "young", "guardian"] as const) {
+    let world = spawnVisitor(createPetWorldState(), stage, {
+      x: 254,
+      direction: -1,
+      sharedInvitation: true,
+    });
+    for (let frame = 0; frame < 80 && world.action !== "visitor-invite"; frame += 1) {
+      world = stepPetWorld(world, 16, false, stage);
+    }
+
+    assert.equal(world.action, "visitor-invite", `${stage} should reach the shared invitation`);
+    assert.equal(resolveVisitorHit(world, { x: world.visitor.x, y: world.visitor.y }), true);
+    assert.equal(resolveVisitorHit(world, { x: world.visitor.x + 60, y: world.visitor.y + 60 }), false);
+  }
+});
+
+test("touching left or right commits Moss and the visitor to that exact side", () => {
+  const inviteAt = (x: number) => ({
+    ...spawnVisitor(createPetWorldState(), "young", {
+      x,
+      y: 164,
+      direction: x < PET_WORLD.width / 2 ? 1 : -1,
+      sharedInvitation: true,
+    }),
+    action: "visitor-invite" as const,
+    facing: x < PET_WORLD.width / 2 ? -1 as const : 1 as const,
+  });
+  const left = beginVisitorChase(inviteAt(210));
+  const right = beginVisitorChase(inviteAt(270));
+
+  assert.equal(left.action, "visitor-turn");
+  assert.equal(left.facing, -1);
+  assert.equal(left.visitor.direction, -1);
+  assert.ok((left.targetX ?? left.petX) < left.petX);
+  assert.equal(right.action, "visitor-turn");
+  assert.equal(right.facing, 1);
+  assert.equal(right.visitor.direction, 1);
+  assert.ok((right.targetX ?? right.petX) > right.petX);
+  assert.equal(left.visitor.sharedInvitation, false);
+  assert.equal(right.visitor.sharedInvitation, false);
+});
+
+test("an unanswered shared invitation becomes Moss's own directional decision", () => {
+  const invitation = {
+    ...spawnVisitor(createPetWorldState(), "guardian", {
+      x: 280,
+      direction: -1,
+      sharedInvitation: true,
+    }),
+    action: "visitor-invite" as const,
+    facing: 1 as const,
+  };
+  const held = stepPetWorld(invitation, PET_WORLD.visitorInvitationDuration - 1, false, "guardian");
+  const committed = stepPetWorld(held, 2, false, "guardian");
+
+  assert.equal(held.action, "visitor-invite");
+  assert.equal(committed.action, "visitor-turn");
+  assert.equal(committed.facing, 1);
+  assert.equal(committed.visitor.engaged, true);
+  assert.equal(committed.visitor.sharedInvitation, false);
+  assert.ok((committed.targetX ?? committed.petX) > committed.petX);
+});
+
+test("Reduce Motion preserves the shared decision before resolving its direction", () => {
+  const invitation = {
+    ...spawnVisitor(createPetWorldState(), "young", {
+      x: 280,
+      y: 158,
+      direction: -1,
+      sharedInvitation: true,
+    }),
+    action: "visitor-invite" as const,
+    facing: 1 as const,
+  };
+  const held = stepPetWorld(invitation, 500, true, "young");
+  const touched = beginVisitorChase(held);
+  const resolved = stepPetWorld(touched, 16, true, "young");
+
+  assert.equal(held.action, "visitor-invite");
+  assert.equal(held.petX, invitation.petX);
+  assert.equal(touched.action, "visitor-turn");
+  assert.equal(resolved.action, "pounce");
+  assert.equal(resolved.facing, 1);
+  assert.ok(resolved.petX > invitation.petX);
+  assert.equal(resolved.poseY, 0);
 });
 
 test("every wildlife chase plays its directional anticipation before takeoff", () => {

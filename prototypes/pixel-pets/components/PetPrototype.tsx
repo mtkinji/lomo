@@ -351,9 +351,10 @@ export function PetPrototype() {
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const dayPhase = resolvePrototypeDayPhase(state);
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
-  const playAnswering = world.visitor.active || ["track", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
+  const playAnswering = world.visitor.active || ["track", "visitor-invite", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
   const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
   const treePerchActive = world.action === "tree-perch" && world.treePlay?.active;
+  const visitorInviteActive = world.action === "visitor-invite" && world.visitor.active;
   const windLeafActive = world.playLeaf.phase !== "perched"
     && ["leaf-invite", "leaf-track", "seek-leaf", "leaf-pounce", "leaf-aerial", "leaf-catch"].includes(world.action);
   const windLeafHeld = windLeafActive && world.playLeaf.phase === "held";
@@ -368,6 +369,7 @@ export function PetPrototype() {
     && !world.focus.active
     && !reunionActive
     && !treePerchActive
+    && !visitorInviteActive
     && !windLeafActive
     && !worldAnswering;
   const worldAnswerDetail = state.pendingSource === "focus"
@@ -428,6 +430,7 @@ export function PetPrototype() {
     const rainGuestOwnsScene = worldSnapshot.rainGuest.phase !== "quiet";
     const wildlifeOwnsScene = worldSnapshot.visitor.active && [
       "track",
+      "visitor-invite",
       "visitor-turn",
       "visitor-stalk",
       "pounce",
@@ -465,6 +468,7 @@ export function PetPrototype() {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       affection: { title: "A little closer", detail: `${state.name} leaned into your hand, then settled in their own time.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
+      "visitor-invite": { title: "One shared glance", detail: `${state.name} held the action line while the ${visitorLabel} stayed within reach.` },
       "visitor-turn": { title: "Paws planted", detail: `${state.name} turned all the way toward the chase before launching.` },
       "hand-track": { title: "Your hand entered the world", detail: `${state.name} noticed before taking a single step.` },
       "hand-walk": { title: "Coming closer", detail: `${state.name} is following without becoming a cursor.` },
@@ -556,15 +560,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 55</span>
-        <h1>The breeze finds<br />your hand.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 56</span>
+        <h1>The chase waits<br />for your signal.</h1>
         <p>
-          Moss notices the wind before one golden leaf enters your reach. Catch it, move it, and let Moss answer in the way this form can.
+          A crawler, firefly, or sky moth enters at the height Moss has grown into. Moss notices, turns, and holds one shared action line for your touch.
         </p>
         <dl className="engine-facts">
-          <div><dt>First</dt><dd>the meadow stirs</dd></div>
-          <div><dt>Then</dt><dd>your hand enters</dd></div>
-          <div><dt>Finally</dt><dd>Moss answers</dd></div>
+          <div><dt>Arrive</dt><dd>at the earned layer</dd></div>
+          <div><dt>Aim</dt><dd>before moving</dd></div>
+          <div><dt>Answer</dt><dd>with one touch</dd></div>
         </dl>
       </header>
 
@@ -607,7 +611,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}, Enter to choose the current Focus place or answer a rain-light, and use left or right arrows for a Focus place or branch landing.`}
+            label={`${state.name}'s interactive world. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -644,6 +648,18 @@ export function PetPrototype() {
             <div>
               <strong>Choose the landing</strong>
               <small>Touch the meadow · {currentStage === "guardian" ? "the whole clearing is within reach" : "Young Moss can reach nearby ground"}</small>
+            </div>
+          </div>
+          ) : visitorInviteActive ? (
+          <div className="focus-session visitor-invitation-session" aria-live="polite">
+            <span className={`visitor-invitation-mark visitor-invitation-${world.visitor.kind}`} aria-hidden="true" />
+            <div>
+              <strong>Touch the {visitorLabel}</strong>
+              <small>{currentStage === "baby"
+                ? `${state.name} is holding a careful ground line`
+                : currentStage === "young"
+                  ? `${state.name} is coiled for the middle air`
+                  : `${state.name} has the high path in sight`}</small>
             </div>
           </div>
           ) : windLeafActive ? (
@@ -778,7 +794,7 @@ export function PetPrototype() {
             <span>Facing <strong>{world.facing === -1 ? "left" : "right"}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
-            <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.action === "visitor-turn" ? "turning · planted" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
+            <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.action === "visitor-invite" ? "waiting on you" : world.action === "visitor-turn" ? "turning · planted" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
             <span>Body contact <strong>{world.action === "affection" ? "nuzzle · no reward" : "quiet"}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Visitor acting <strong>{visitorPerformance ? `${visitorPerformance.role} · ${visitorPerformance.material} · ${visitorPerformance.frame + 1}/${VISITOR_PERFORMANCE_CLIPS[visitorPerformance.kind].frames.length}` : "quiet"}</strong></span>

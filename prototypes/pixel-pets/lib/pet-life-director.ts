@@ -99,20 +99,20 @@ function commandForEpisode(
   if (observation.weather === "rain") return { kind: "weather" };
   if (episodeIndex === 0) return { kind: "wind-play" };
   const sequenceIndex = (episodeIndex - 1) % 5;
-  if (sequenceIndex === 0) return roamCommand(observation, episodeIndex);
-  if (sequenceIndex === 1) {
+  if (sequenceIndex === 0) return { kind: "visitor" };
+  if (sequenceIndex === 1) return roamCommand(observation, episodeIndex);
+  if (sequenceIndex === 2) {
     if (observation.bloomXs.length > 0) {
       const bloomX = observation.bloomXs[episodeIndex % observation.bloomXs.length];
       return { kind: "visit-bloom", bloomX };
     }
     return { kind: "tree-rest" };
   }
-  if (sequenceIndex === 2) {
+  if (sequenceIndex === 3) {
     return observation.bloomXs.length > 0
       ? { kind: "tree-rest" }
       : roamCommand(observation, episodeIndex);
   }
-  if (sequenceIndex === 3) return { kind: "visitor" };
   return { kind: "weather" };
 }
 

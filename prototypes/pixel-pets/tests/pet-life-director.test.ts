@@ -46,7 +46,7 @@ test("the living-day director leaves calm space before composing one scene", () 
   assert.equal(finished.state.quietElapsedMs, 0);
 });
 
-test("the first breeze owns the complete hand-to-leaf episode before ordinary wandering", () => {
+test("the first breeze owns the complete hand-to-leaf episode before shared wildlife", () => {
   const opening = stepLivingDayDirector(
     { ...createLivingDayDirector(), quietElapsedMs: LIVING_DAY.initialQuietMs },
     quietObservation(),
@@ -77,13 +77,13 @@ test("the first breeze owns the complete hand-to-leaf episode before ordinary wa
   assert.equal(held.command, null);
   assert.equal(caught.command, null);
   assert.equal(finished.state.episodeIndex, 1);
-  assert.deepEqual(next.command, { kind: "roam", targetX: 284 });
+  assert.deepEqual(next.command, { kind: "visitor" });
 });
 
 test("maturity expands autonomous roaming without changing the world bounds", () => {
   const ready = {
     ...createLivingDayDirector(),
-    episodeIndex: 1,
+    episodeIndex: 2,
     quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs,
   };
   const baby = stepLivingDayDirector(ready, quietObservation({ stage: "baby" }), 0);
@@ -100,7 +100,7 @@ test("maturity expands autonomous roaming without changing the world bounds", ()
 test("a remembered bloom becomes part of the Pet's next living-day sequence", () => {
   const readyForSecondEpisode = {
     ...createLivingDayDirector(),
-    episodeIndex: 2,
+    episodeIndex: 3,
     quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs,
   };
   const withMemory = stepLivingDayDirector(
@@ -110,7 +110,7 @@ test("a remembered bloom becomes part of the Pet's next living-day sequence", ()
   );
   const emptyMeadow = stepLivingDayDirector(readyForSecondEpisode, quietObservation(), 0);
 
-  assert.deepEqual(withMemory.command, { kind: "visit-bloom", bloomX: 118 });
+  assert.deepEqual(withMemory.command, { kind: "visit-bloom", bloomX: 332 });
   assert.deepEqual(emptyMeadow.command, { kind: "tree-rest" });
 });
 
@@ -141,7 +141,7 @@ test("deliberate interaction interrupts ambient direction and earns fresh quiet"
 test("weather and wildlife share the same authored sequence instead of racing timers", () => {
   const visitorReady = {
     ...createLivingDayDirector(),
-    episodeIndex: 4,
+    episodeIndex: 1,
     quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs,
   };
   const weatherReady = { ...visitorReady, episodeIndex: 5 };

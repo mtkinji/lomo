@@ -617,6 +617,55 @@ summary:focus-visible {
   background: linear-gradient(135deg, color-mix(in srgb, #f4dc8f 36%, var(--accent-soft)), var(--panel));
 }
 
+.visitor-invitation-session {
+  border-color: color-mix(in srgb, var(--accent-dark) 58%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 86%, white), var(--panel));
+}
+
+.visitor-invitation-mark {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.visitor-invitation-mark::before,
+.visitor-invitation-mark::after {
+  position: absolute;
+  content: "";
+}
+
+.visitor-invitation-mark::before {
+  inset: 8px 6px;
+  border: 2px solid var(--accent-dark);
+  border-radius: 50%;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-soft) 48%, transparent);
+  animation: visitor-invitation-breath 980ms ease-in-out infinite;
+}
+
+.visitor-invitation-mark::after {
+  top: 3px;
+  left: 4px;
+  width: 20px;
+  height: 22px;
+  border-top: 2px solid var(--accent-dark);
+  border-bottom: 2px solid var(--accent-dark);
+  transform: rotate(-18deg);
+}
+
+.visitor-invitation-crawler::before {
+  inset: 12px 4px 5px;
+  border-radius: 8px 8px 4px 4px;
+}
+
+.visitor-invitation-sky-moth::after { transform: rotate(24deg); }
+
+@keyframes visitor-invitation-breath {
+  0%, 100% { transform: scale(0.9); opacity: 0.68; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
 .wind-leaf-mark {
   position: relative;
   width: 27px;

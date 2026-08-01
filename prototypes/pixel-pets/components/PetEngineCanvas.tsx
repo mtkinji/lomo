@@ -26,6 +26,7 @@ import {
   beginTreePlay,
   beginTreeReturn,
   beginRainGuestShelter,
+  beginVisitorChase,
   cancelWorldHandGuide,
   chooseCompanionFocusPlace,
   CARE_ECHO_TARGET,
@@ -49,6 +50,7 @@ import {
   resolveTreePlayHit,
   resolveTreeReturnHit,
   resolveRainGuestHit,
+  resolveVisitorHit,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
   setWorldZoom,
@@ -143,7 +145,7 @@ function applyLivingDayCommand(
   }
   if (command.kind === "visit-bloom") return beginMemoryVisit(world, command.bloomX);
   if (command.kind === "tree-rest") return beginTreeRest(world);
-  if (command.kind === "visitor") return spawnVisitor(world, stage);
+  if (command.kind === "visitor") return spawnVisitor(world, stage, { sharedInvitation: true });
   return setWorldWeather(world, nextWeatherKind(world.weather));
 }
 
@@ -2344,16 +2346,24 @@ export function PetEngineCanvas({
       return;
     }
     if (contactGesture !== "tap") return;
+    const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+    if (resolveVisitorHit(worldRef.current, worldPoint)) {
+      worldRef.current = beginVisitorChase(worldRef.current);
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
     const careEcho = resolveCareEchoHit(
       worldRef.current,
       careEchoSource,
-      screenPointToWorldPoint(worldRef.current, pointer.current),
+      worldPoint,
     );
     if (careEcho) {
       callbackRef.current.onCareEcho?.(careEcho.source);
       return;
     }
-    const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
     if (worldRef.current.rainGuest.phase === "waiting") {
       if (resolveRainGuestHit(worldRef.current, worldPoint)) {
         worldRef.current = beginRainGuestShelter(worldRef.current);
@@ -2416,6 +2426,15 @@ export function PetEngineCanvas({
       event.preventDefault();
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = beginRainGuestShelter(world);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
+    if (world.action === "visitor-invite" && event.key === "Enter") {
+      event.preventDefault();
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      worldRef.current = beginVisitorChase(world);
       callbackRef.current.onWorldFrame?.(worldRef.current);
       callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
       callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);

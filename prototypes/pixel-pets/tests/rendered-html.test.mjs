@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 55 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 56 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,13 +55,13 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 55 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 56 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 55/);
-  assert.match(prototype, /The breeze finds<br \/>your hand\./i);
-  assert.match(prototype, /First<\/dt><dd>the meadow stirs/i);
-  assert.match(prototype, /Then<\/dt><dd>your hand enters/i);
-  assert.match(prototype, /Finally<\/dt><dd>Moss answers/i);
+  assert.match(prototype, /Pet Engine Study 56/);
+  assert.match(prototype, /The chase waits<br \/>for your signal\./i);
+  assert.match(prototype, /Arrive<\/dt><dd>at the earned layer/i);
+  assert.match(prototype, /Aim<\/dt><dd>before moving/i);
+  assert.match(prototype, /Answer<\/dt><dd>with one touch/i);
   assert.match(prototype, /Catch the golden leaf/);
   assert.match(prototype, /Hold it, drag it, then let go/);
   assert.match(prototype, /is reading your hand/);
@@ -201,10 +201,15 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(canvas, /drawAuthoredHabitatPerformance/);
   assert.match(canvas, /drawAffectionContact/);
   assert.match(canvas, /kind: "affection"/);
+  assert.match(canvas, /resolveVisitorHit/);
+  assert.match(canvas, /beginVisitorChase/);
   assert.match(canvas, /if \(contactGesture !== "tap"\) return/);
   assert.doesNotMatch(canvas, /if \(gestureMovedRef\.current\) return/);
   assert.match(world, /stepPetWorld/);
   assert.match(world, /spawnVisitor/);
+  assert.match(world, /visitor-invite/);
+  assert.match(world, /resolveVisitorHit/);
+  assert.match(world, /beginVisitorChase/);
   assert.match(world, /sky-moth/);
   assert.match(world, /setWorldWeather/);
   assert.match(world, /weatherPhase/);
@@ -225,6 +230,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /cameraControlRemainingMs/);
   assert.match(livingDay, /stepLivingDayDirector/);
   assert.match(livingDay, /quietBetweenEpisodesMs/);
+  assert.match(prototype, /The chase waits/);
+  assert.match(prototype, /Touch the \{visitorLabel\}/);
   assert.match(plaything, /createWindLeaf/);
   assert.match(plaything, /releaseWindLeaf/);
   assert.match(plaything, /resolveWindLeafFlightProfile/);

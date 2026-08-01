@@ -234,6 +234,15 @@ position, target side, and outward visitor escape then remain committed through
 landing, and added lift returns to zero on the exact authored contact frame, so
 no correct chase can read as a backward jump or floating landing.
 
+Authored wildlife episodes now hold one shared action line after that attention
+beat. The visitor pauses laterally but keeps its attached legs, wings, glow, or
+antennae acting; Moss remains planted and faces its current side; and the
+visitor itself owns one generous world-space touch target. Touch or keyboard
+Enter releases the same stage-shaped chase. If no answer arrives, Moss chooses
+independently after one calm finite beat. Inspector-only visitor checks remain
+autonomous, and Reduce Motion keeps the decision before resolving the committed
+side without animated pursuit.
+
 After-rain play uses the same portable boundary. One stage profile owns the
 approved clip, authored contact time, spray window, physical spread, recovery,
 and whether the landing releases a meadow wake. Baby keeps its face and paws
