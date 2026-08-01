@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   type NativeScrollEvent,
@@ -11,9 +11,14 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { HapticsService } from '../../../services/HapticsService';
+import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 import { colors, fonts, spacing } from '../../../theme';
+import { BottomDrawer } from '../../../ui/BottomDrawer';
 import { rootNavigationRef } from '../../../navigation/rootNavigationRef';
 import { Icon } from '../../../ui/Icon';
+import { BottomDrawerHeader } from '../../../ui/layout/BottomDrawerHeader';
+import { Button } from '../../../ui/Button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,16 +31,23 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { projectMoneyPeriodView, type MoneyPeriodView } from '../domain/moneyPeriodView';
 import type { MoneyStackParamList } from '../navigation/types';
 import { MoneyCategoryMeterTile } from '../components/MoneyCategoryMeterTile';
+import { MoneyPlanLimitAnswer } from '../components/MoneyPlanLimitAnswer';
+import type { MoneyPlanLimitAnswer as LivingLimitAnswer } from '../domain/moneyPlanLimitAnswer';
 import { MoneyScreenFrame } from './MoneyScreenFrame';
+import { buildMoneyBudgetAnswerViewedProps, buildMoneyBudgetExplanationOpenedProps } from '../runtime/moneyPlanLimitAnalytics';
+import { refreshStaleMoneySummary } from '../runtime/moneySummaryAutoRefresh';
 
 const MONTH_RADIUS = 12;
 const INITIAL_MONTH_INDEX = MONTH_RADIUS;
 
 export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneySummary'>) {
-  const { snapshot } = useMoneyData();
+  const { snapshot, refresh, reconcileGovernedPlanFoundation } = useMoneyData();
+  const { capture } = useAnalytics();
   const { width: windowWidth } = useWindowDimensions();
   const [measuredPagerWidth, setMeasuredPagerWidth] = useState(0);
   const [currentMonthIndex, setCurrentMonthIndex] = useState(INITIAL_MONTH_INDEX);
+  const [limitExplanationOpen, setLimitExplanationOpen] = useState(false);
+  const autoRefreshKeyRef = useRef<string | null>(null);
   const pagerRef = useRef<FlatList<MoneyPeriodView>>(null);
   const pagerWidth = measuredPagerWidth > 24
     ? measuredPagerWidth
@@ -67,7 +79,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
   const summaryMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Pressable accessibilityRole="button" accessibilityLabel="Summary options" style={styles.headerMoreButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Budget options" style={styles.headerMoreButton}>
           <Icon name="more" size={22} color={colors.textPrimary} />
         </Pressable>
       </DropdownMenuTrigger>
@@ -83,8 +95,29 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
     </DropdownMenu>
   );
 
+  const livingLimitAnswer = snapshot?.livingLimitAnswer ?? null;
+
+  useEffect(() => {
+    if (!livingLimitAnswer || currentMonthIndex !== INITIAL_MONTH_INDEX) return;
+    capture(AnalyticsEvent.MoneyBudgetAnswerViewed, buildMoneyBudgetAnswerViewedProps({ answer: livingLimitAnswer, periodRelation: 'current' }));
+  }, [capture, currentMonthIndex, livingLimitAnswer]);
+
+  useEffect(() => {
+    if (!snapshot || livingLimitAnswer?.state !== 'stale') return;
+    const refreshKey = `${livingLimitAnswer.facts.planVersionId}:${snapshot.lastSyncedAt ?? 'never'}`;
+    if (autoRefreshKeyRef.current === refreshKey) return;
+    autoRefreshKeyRef.current = refreshKey;
+    void refreshStaleMoneySummary({
+      reconcileGovernedPlanFoundation,
+      refreshSnapshot: refresh,
+    }).catch(() => {
+      // Keep the last useful answer visible. Account-specific repair belongs in Accounts.
+    });
+  }, [livingLimitAnswer, reconcileGovernedPlanFoundation, refresh, snapshot]);
+
   return (
-    <MoneyScreenFrame moreMenu={summaryMenu} title="Summary">
+    <>
+    <MoneyScreenFrame moreMenu={summaryMenu} title="Budget">
       {snapshot && currentPeriod ? (
         <View
           style={styles.monthSwipeSurface}
@@ -121,6 +154,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
           </View>
 
           <FlatList
+            testID="money-month-pager"
             ref={pagerRef}
             horizontal
             pagingEnabled
@@ -137,6 +171,12 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
                 pageWidth={pagerWidth}
                 period={item}
                 freshness={formatMoneyFreshness(snapshot.lastSyncedAt)}
+                answer={item.monthOffset === 0 ? livingLimitAnswer : null}
+                onExplain={() => {
+                  if (livingLimitAnswer) capture(AnalyticsEvent.MoneyBudgetExplanationOpened, buildMoneyBudgetExplanationOpenedProps({ answer: livingLimitAnswer, surface: 'budget' }));
+                  setLimitExplanationOpen(true);
+                }}
+                onReviewIncome={() => navigation.navigate('MoneyLivingPlan')}
                 onOpenCategory={(categoryId) => navigation.navigate('MoneyCategoryDetail', { categoryId, monthOffset: item.monthOffset })}
               />
             )}
@@ -150,23 +190,59 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
         </View>
       ) : null}
     </MoneyScreenFrame>
+    <BottomDrawer visible={Boolean(livingLimitAnswer) && limitExplanationOpen} onClose={() => setLimitExplanationOpen(false)} snapPoints={['64%']}>
+      {livingLimitAnswer ? (
+        <View style={styles.drawerContent}>
+          <BottomDrawerHeader
+            title="Monthly plan"
+            titleVariant="lg"
+            variant="withClose"
+            closeAccessibilityLabel="Close living limit details"
+            onClose={() => setLimitExplanationOpen(false)}
+          />
+          <LimitFacts
+            answer={livingLimitAnswer}
+            freshness={formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}
+            onChangePlan={() => {
+              setLimitExplanationOpen(false);
+              navigation.navigate('MoneyLivingPlan');
+            }}
+          />
+        </View>
+      ) : null}
+    </BottomDrawer>
+    </>
   );
 }
 
 function SummaryMonthPanel({
+  answer,
   freshness,
+  onExplain,
   onOpenCategory,
+  onReviewIncome,
   pageWidth,
   period,
 }: {
+  answer: LivingLimitAnswer | null;
   freshness: string;
+  onExplain: () => void;
   onOpenCategory: (categoryId: string) => void;
+  onReviewIncome: () => void;
   pageWidth: number;
   period: MoneyPeriodView;
 }) {
   const cardWidth = Math.max(1, Math.floor((pageWidth - spacing.sm) / 2));
   return (
     <View style={[styles.monthBody, { width: pageWidth }]}>
+      {answer ? (
+        <MoneyPlanLimitAnswer
+          answer={answer}
+          freshness={freshness}
+          onExplain={onExplain}
+          onReviewIncome={onReviewIncome}
+        />
+      ) : null}
       <View style={styles.categoryGrid}>
         {period.categories.map((category) => (
           <MoneyCategoryMeterTile
@@ -178,7 +254,7 @@ function SummaryMonthPanel({
           />
         ))}
       </View>
-      <View style={styles.totalSection}>
+      {!answer ? <View style={styles.totalSection}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalValue}>
@@ -186,10 +262,43 @@ function SummaryMonthPanel({
           </Text>
         </View>
         <Text style={styles.remainingLabel}>{formatMoney(period.totals.remainingCents)} left across planned categories</Text>
-      </View>
+      </View> : null}
       <Text style={styles.updatedLabel}>{period.monthOffset === 0 ? `Connected accounts · ${freshness}` : 'Saved transaction history'}</Text>
     </View>
   );
+}
+
+function LimitFacts({ answer, freshness, onChangePlan }: { answer: LivingLimitAnswer; freshness: string; onChangePlan: () => void }) {
+  const { facts } = answer;
+  return (
+    <View style={styles.drawerFacts}>
+      <LimitFact label="Monthly living money" value={facts.livingLimitCents == null ? 'Not available' : formatMoney(facts.livingLimitCents)} />
+      <LimitFact label="Protected costs" value={facts.protectedPlanCents == null ? 'Not available' : `−${formatMoney(facts.protectedPlanCents)}`} />
+      <LimitFact label="Flexible money" value={facts.flexibleCapacityCents == null ? 'Not available' : formatMoney(facts.flexibleCapacityCents)} emphasized />
+      <View style={styles.drawerDivider} />
+      <LimitFact label="Flexible spending so far" value={facts.countedFlexibleSpendCents == null ? 'Not available' : `−${formatMoney(facts.countedFlexibleSpendCents)}`} />
+      <LimitFact label="Left" value={facts.flexibleRoomCents == null ? 'Not available' : formatMoney(facts.flexibleRoomCents)} emphasized />
+      {facts.overLimitCents > 0 ? <LimitFact label="Plan over limit" value={formatMoney(facts.overLimitCents)} /> : null}
+      <Text style={styles.drawerBasis}>Based on {basisLabel(facts.resourceBasisKind).toLowerCase()} of {facts.resourceBasisCents == null ? 'an unconfirmed amount' : formatMoney(facts.resourceBasisCents)} and your {facts.livingPercent}% living target. {freshness}.</Text>
+      <Button accessibilityLabel="Change plan" accessibilityRole="button" fullWidth onPress={onChangePlan} variant="outline">Change plan</Button>
+    </View>
+  );
+}
+
+function LimitFact({ emphasized = false, label, value }: { emphasized?: boolean; label: string; value: string }) {
+  return (
+    <View style={styles.drawerFactRow}>
+      <Text style={[styles.drawerFactLabel, emphasized ? styles.drawerFactEmphasized : null]}>{label}</Text>
+      <Text style={[styles.drawerFactValue, emphasized ? styles.drawerFactEmphasized : null]}>{value}</Text>
+    </View>
+  );
+}
+
+function basisLabel(kind: LivingLimitAnswer['facts']['resourceBasisKind']): string {
+  if (kind === 'user_set') return 'You set this';
+  if (kind === 'detected_income') return 'Detected income';
+  if (kind === 'prior_supported_basis') return 'Last supported income';
+  return 'Not confirmed';
 }
 
 function MonthArrow({ direction, disabled, label, onPress }: {
@@ -252,4 +361,12 @@ const styles = StyleSheet.create({
   totalValue: { color: colors.textPrimary, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600', fontVariant: ['tabular-nums'] },
   remainingLabel: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
   updatedLabel: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
+  drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  drawerFacts: { gap: spacing.sm },
+  drawerFactRow: { minHeight: 28, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.lg },
+  drawerFactLabel: { flex: 1, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  drawerFactValue: { flexShrink: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  drawerFactEmphasized: { color: colors.textPrimary, fontFamily: fonts.bold, fontWeight: '700' },
+  drawerDivider: { height: 1, backgroundColor: colors.cardBorder, marginVertical: spacing.xs },
+  drawerBasis: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
 });

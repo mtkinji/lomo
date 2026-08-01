@@ -7,6 +7,7 @@ export type MoneyStackParamList = {
     monthEnd?: string;
     monthLabel?: string;
     reviewState?: 'needs_review' | 'not_counted';
+    reviewTransactionIds?: string[];
   } | undefined;
   MoneyAccounts: undefined;
   MoneyCategoryDetail: { categoryId: string; monthOffset?: number };
@@ -15,7 +16,7 @@ export type MoneyStackParamList = {
   MoneyAppControl: { categoryId: string };
   MoneyLivingPlan: undefined;
   MoneyLivingPlanReceipt: { receiptId: string };
-  MoneyTransactionDetail: { transactionId: string };
+  MoneyTransactionDetail: { transactionId: string; economicRoleReview?: boolean };
 };
 
 export type MoneyPlaceRouteName = 'MoneySummary' | 'MoneyTransactions' | 'MoneyAccounts';

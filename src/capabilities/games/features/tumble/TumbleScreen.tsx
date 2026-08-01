@@ -30,7 +30,7 @@ import { useGamePlayerProfile } from '@/src/capabilities/games/players/useGamePl
 import { useActiveGameOrientation } from '@/src/capabilities/games/platform/useActiveGameOrientation';
 import { usePersonalBests } from '@/src/capabilities/games/players/usePersonalBests';
 import { playerBestKey, type PersonalBestOutcome } from '@/src/capabilities/games/players/personalBests';
-import { bankRollButtonLabel, useRollCooldown } from './useRollCooldown';
+import { bankRollButtonLabel, bankRollCooldownRemaining, useRollCooldown } from './useRollCooldown';
 import { permanentUserId } from '@/src/capabilities/games/platform/auth';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 
@@ -297,6 +297,7 @@ export function TumbleScreen() {
   const setup = mode === 'bank' ? bankSetup : mode === 'farkle' ? farkleSetup : false;
   useActiveGameOrientation(!setup);
   const presenting = !setup && width > height;
+  const bankCooldownRemaining = bankRollCooldownRemaining(bankGame, bankRollCooldown.remainingSeconds);
   return (
     <GameBackdrop>
       <SafeAreaView style={[styles.safe, presenting ? styles.safePresenting : null]}>
@@ -385,7 +386,7 @@ export function TumbleScreen() {
                 <GameButton disabled={rolling} onPress={rollRoller} style={styles.primaryControl}>Roll {diceCount} {diceCount === 1 ? 'die' : 'dice'}</GameButton>
               </View>
             ) : mode === 'bank' ? (
-              bankGame.status === 'finished' ? <GameButton onPress={newBankGame} icon={<RotateCcw size={20} color={gamesTheme.colors.ink} />}>New game</GameButton> : <View style={[styles.controls, presenting ? styles.controlsPresenting : null]}><GameButton tone="turmeric" disabled={rolling || bankGame.rollInRound === 0} onPress={() => bankGame.bankingRule === 'anyone' ? setBankPickerOpen(true) : setBankGame((game: BankGame) => bankCurrentPlayer(game))} style={styles.secondaryControl} icon={<Landmark size={19} color={gamesTheme.colors.ink} />}>{bankGame.bankingRule === 'anyone' ? 'Bank!' : `Bank ${bankGame.pot}`}</GameButton><GameButton disabled={rolling || bankRollCooldown.remainingSeconds > 0} onPress={rollBank} style={styles.primaryControl}>{bankRollButtonLabel(rolling, bankRollCooldown.remainingSeconds)}</GameButton></View>
+              bankGame.status === 'finished' ? <GameButton onPress={newBankGame} icon={<RotateCcw size={20} color={gamesTheme.colors.ink} />}>New game</GameButton> : <View style={[styles.controls, presenting ? styles.controlsPresenting : null]}><GameButton tone="turmeric" disabled={rolling || bankGame.rollInRound === 0} onPress={() => bankGame.bankingRule === 'anyone' ? setBankPickerOpen(true) : setBankGame((game: BankGame) => bankCurrentPlayer(game))} style={styles.secondaryControl} icon={<Landmark size={19} color={gamesTheme.colors.ink} />}>{bankGame.bankingRule === 'anyone' ? 'Bank!' : `Bank ${bankGame.pot}`}</GameButton><GameButton disabled={rolling || bankCooldownRemaining > 0} onPress={rollBank} style={styles.primaryControl}>{bankRollButtonLabel(rolling, bankCooldownRemaining)}</GameButton></View>
             ) : farklePractice ? (
               farklePractice.phase === 'selecting' ? (
                 <GameButton disabled={!practiceCanConfirm} onPress={() => setFarklePractice(confirmPracticeSelection(farklePractice))}>Keep these dice</GameButton>

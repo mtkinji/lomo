@@ -66,6 +66,20 @@ const snapshots = {
       merchantName: 'Private merchant', amountCents: 10000, direction: 'outflow' as const, date: '2026-07-20', pending: false,
       currencyCode: 'USD', categoryId: 'groceries', categoryName: 'Groceries', reviewState: 'assigned' as const, moneyMeaning: null,
     }],
+    livingLimitAnswer: {
+      state: 'supported' as const, headlineAmountCents: 34296, qualification: null, recoveryAction: null,
+      reviewTransactionIds: [], limitLine: { livingPercent: 70, livingLimitCents: 350000 },
+      facts: {
+        periodId: '2026-07', planVersionId: 'private-plan-version', policyVersion: 'money-plan-limit-v1' as const,
+        resourceBasisCents: 500000, resourceBasisKind: 'detected_income' as const,
+        resourceBasisUpdatedAtIso: '2026-07-23T17:00:00.000Z', livingPercent: 70,
+        livingLimitCents: 350000, protectedPlanCents: 200000, flexibleCapacityCents: 150000,
+        countedFlexibleSpendCents: 115704, flexibleRoomCents: 34296, flexibleRoomLowCents: 34296,
+        flexibleRoomHighCents: 34296, unresolvedInScopeCents: 0, plannedCents: 350000,
+        unassignedCents: 0, overLimitCents: 0, freshness: 'fresh' as const,
+        confidence: 'supported' as const, qualificationReason: null,
+      },
+    },
   },
 };
 
@@ -95,11 +109,55 @@ describe('createUnifiedChatToolProvider', () => {
             forecast: snapshots.money.categories[0].forecast,
           }],
           accountCount: 1,
+          planLimit: {
+            state: 'supported', livingPercent: 70, incomeBasisCents: 500000,
+            livingLimitCents: 350000, plannedCents: 350000, flexibleRoomCents: 34296,
+            confidence: 'supported', freshness: 'fresh', observedAt: '2026-07-23T17:00:00.000Z',
+            answer: '$342.96 left for flexible spending this month · $1,157.04 of $1,500 used',
+            returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
+          },
         },
       },
     });
     expect(JSON.stringify(result)).not.toContain('Private merchant');
     expect(JSON.stringify(result)).not.toContain('Private checking');
+    expect(JSON.stringify(result)).not.toContain('private-plan-version');
+  });
+
+  it('returns a direct truthful Money refusal when the income basis is unavailable', async () => {
+    const unavailable = {
+      ...snapshots.money.livingLimitAnswer,
+      state: 'missing_income_basis' as const,
+      headlineAmountCents: null,
+      limitLine: null,
+      recoveryAction: 'review_income' as const,
+      facts: {
+        ...snapshots.money.livingLimitAnswer.facts,
+        resourceBasisCents: null,
+        resourceBasisKind: 'unknown' as const,
+        livingLimitCents: null,
+        protectedPlanCents: null,
+        flexibleCapacityCents: null,
+        countedFlexibleSpendCents: null,
+        flexibleRoomCents: null,
+        flexibleRoomLowCents: null,
+        flexibleRoomHighCents: null,
+        confidence: 'qualified' as const,
+        qualificationReason: 'missing_provenance' as const,
+      },
+    };
+    const provider = createUnifiedChatToolProvider({
+      snapshots: { ...snapshots, money: { ...snapshots.money, livingLimitAnswer: unavailable } },
+    });
+
+    const result = await provider.execute(
+      { id: 'money-read-unavailable', toolId: 'money.read', arguments: {} }, tool('money.read'),
+    );
+    const serialized = JSON.stringify(result);
+    expect(serialized).toContain('Finish your monthly plan');
+    expect(serialized).toContain('Add your monthly income so Kwilt can calculate flexible money');
+    expect(serialized).not.toContain('$0');
+    expect(serialized).not.toContain('"livingPercent":0');
   });
 
   it('delegates relationship reads and writes to the shared authenticated provider', async () => {

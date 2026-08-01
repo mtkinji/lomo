@@ -62,16 +62,21 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const monthStart = route.params?.monthStart;
   const monthEnd = route.params?.monthEnd;
   const monthLabel = route.params?.monthLabel;
+  const reviewTransactionIds = route.params?.reviewTransactionIds;
+  const reviewTransactionIdSet = useMemo(() => new Set(reviewTransactionIds ?? []), [reviewTransactionIds]);
   const allTransactions = snapshot?.transactions ?? [];
   const selectedCategory = categoryId
     ? snapshot?.categories.find((category) => category.id === categoryId || category.sourceId === categoryId)
     : undefined;
   const scopedInventory = useMemo(() => {
-    const accountTransactions = allTransactions.filter((transaction) => !accountId || transaction.accountId === accountId);
+    const accountTransactions = allTransactions.filter((transaction) => (
+      (!accountId || transaction.accountId === accountId)
+      && (!reviewTransactionIds || reviewTransactionIdSet.has(transaction.id))
+    ));
     return selectedCategory
       ? projectMoneyTransactionsForCategory(accountTransactions, selectedCategory)
       : categoryId ? [] : accountTransactions;
-  }, [accountId, allTransactions, categoryId, selectedCategory]);
+  }, [accountId, allTransactions, categoryId, reviewTransactionIdSet, reviewTransactionIds, selectedCategory]);
   const dateTransactions = useMemo(() => scopedInventory.filter((transaction) => (
     monthStart && monthEnd
       ? transaction.date >= monthStart && transaction.date <= monthEnd
@@ -81,8 +86,10 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const groups = useMemo(() => groupByDate(transactions), [transactions]);
   const accountLabel = accountId ? snapshot?.accounts.find((account) => account.id === accountId)?.name : null;
   const categoryLabel = selectedCategory?.name ?? null;
-  const title = [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions';
-  const isScopedInventory = Boolean(accountId || categoryId);
+  const title = reviewTransactionIds
+    ? 'Review purchases'
+    : [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions';
+  const isScopedInventory = Boolean(accountId || categoryId || reviewTransactionIds);
 
   const selectDateScope = (next: DateScope) => {
     setDateScope(next);
@@ -145,7 +152,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
           <View key={group.label} style={styles.dateGroup}>
             <Text style={styles.dateGroupHeader}>{group.label}</Text>
             <View style={styles.dateGroupRows}>
-              {group.rows.map((transaction) => <TransactionInventoryRow key={transaction.id} transaction={transaction} onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id })} />)}
+              {group.rows.map((transaction) => <TransactionInventoryRow key={transaction.id} transaction={transaction} onPress={() => navigation.navigate('MoneyTransactionDetail', { transactionId: transaction.id, economicRoleReview: Boolean(reviewTransactionIds) })} />)}
             </View>
           </View>
         )) : (

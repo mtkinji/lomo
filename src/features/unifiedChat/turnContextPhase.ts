@@ -11,6 +11,7 @@ import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { buildPlanRecommendations, resolvePlanTargetDate } from './planRecommendationTool';
 import { loadPlanAgentContext } from '../../services/plan/loadPlanAgentContext';
 import { getKwiltCalendarBlocksForDay } from '../../services/plan/kwiltCalendarBlocks';
+import type { MoneySnapshot } from '../../capabilities/money/data/moneySnapshot';
 
 type ContextRepository = Pick<
   UnifiedChatRepository,
@@ -23,6 +24,25 @@ export const EMPTY_CAPABILITY_SNAPSHOTS: UnifiedChatCapabilitySnapshots = {
   chapters: { chapters: [] },
   profile: { profile: null },
 };
+
+export async function loadMoneySnapshotForChat<TClient>(
+  repository: { loadSnapshot: () => Promise<MoneySnapshot> },
+  client: TClient,
+  project: (client: TClient, snapshot: MoneySnapshot) => Promise<{ snapshot: MoneySnapshot } | null>,
+): Promise<MoneySnapshot> {
+  const snapshot = await repository.loadSnapshot();
+  const projection = await project(client, snapshot);
+  return projection?.snapshot ?? snapshot;
+}
+
+async function loadDefaultMoneySnapshot(): Promise<MoneySnapshot> {
+  const [{ createMoneyRepository }, { loadMoneyPlanProjection }, { getSupabaseClient }] = await Promise.all([
+    import('../../capabilities/money/data/moneyRepository'),
+    import('../../capabilities/money/data/moneyPlanProjection'),
+    import('../../services/backend/supabaseClient'),
+  ]);
+  return loadMoneySnapshotForChat(createMoneyRepository(), getSupabaseClient(), loadMoneyPlanProjection);
+}
 
 export async function loadDefaultCapabilitySnapshots(
   capabilities: readonly UnifiedChatCapabilityId[],
@@ -37,7 +57,7 @@ export async function loadDefaultCapabilitySnapshots(
     ? await fetchMyChapters({ limit: 20, throwOnError: true })
     : [];
   const money = capabilities.includes('money')
-    ? await (await import('../../capabilities/money/data/moneyRepository')).createMoneyRepository().loadSnapshot()
+    ? await loadDefaultMoneySnapshot()
     : undefined;
   const screenTime = capabilities.includes('screenTime')
     ? await (await import('./loadFamilyScreenTimeChatSnapshot')).loadFamilyScreenTimeChatSnapshot(

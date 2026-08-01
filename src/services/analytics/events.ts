@@ -54,6 +54,14 @@ export const AnalyticsEvent = {
   MoneyTransactionSplitSaveFailed: 'money_transaction_split_save_failed',
   MoneyTransactionSplitAbandoned: 'money_transaction_split_abandoned',
   MoneyMutationCompleted: 'money_mutation_completed',
+  MoneyBudgetAnswerViewed: 'money_budget_answer_viewed',
+  MoneyBudgetExplanationOpened: 'money_budget_explanation_opened',
+  MoneyRebalancePreviewViewed: 'money_rebalance_preview_viewed',
+  MoneyRebalanceChangesOpened: 'money_rebalance_changes_opened',
+  MoneyRebalanceSaved: 'money_rebalance_saved',
+  MoneyRebalanceCancelled: 'money_rebalance_cancelled',
+  MoneyRebalanceStaleRejected: 'money_rebalance_stale_rejected',
+  MoneyBudgetRecoveryInvoked: 'money_budget_recovery_invoked',
 
   // Unified Chat agent reliability. Metadata only: request classes,
   // capability/tool ids, provider/outcome enums, booleans, and counts.

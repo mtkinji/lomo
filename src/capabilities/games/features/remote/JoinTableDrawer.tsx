@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
 import { Radio, UsersRound } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -9,6 +9,9 @@ import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';
 import { BottomDrawer, BottomDrawerScrollView } from '@/src/ui/BottomDrawer';
 import { BottomDrawerHeader } from '@/src/ui/layout/BottomDrawerHeader';
+import { useAuth } from '@/src/capabilities/games/shell/AuthProvider';
+import { permanentUserId } from '@/src/capabilities/games/platform/auth';
+import { useGamePlayerProfile } from '@/src/capabilities/games/players/useGamePlayerProfile';
 
 type JoinTableDrawerProps = {
   visible: boolean;
@@ -17,17 +20,40 @@ type JoinTableDrawerProps = {
 };
 
 export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProps) {
+  const { session } = useAuth();
+  const accountUserId = permanentUserId(session);
+  const fallbackName = session?.user.user_metadata?.full_name
+    ?? session?.user.user_metadata?.name
+    ?? session?.user.email?.split('@')[0]
+    ?? 'You';
+  const playerProfile = useGamePlayerProfile({ userId: accountUserId, fallbackName });
   const [displayName, setDisplayName] = useState('');
   const [code, setCode] = useState('');
   const [nearbyTables, setNearbyTables] = useState<NearbyTable[]>([]);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nameHelp, setNameHelp] = useState<string | null>(null);
+  const nameInputRef = useRef<TextInput>(null);
+  const didPrefillName = useRef(false);
   const cleanName = displayName.trim();
   const cleanCode = normalizeJoinCode(code);
+  const nearbyAvailable = nearbyTablesAvailable();
 
   useEffect(() => {
-    if (!visible || token || !nearbyTablesAvailable()) return undefined;
+    if (!visible) {
+      didPrefillName.current = false;
+      return;
+    }
+    if (didPrefillName.current) return;
+    const suggestedName = playerProfile.profile?.displayName.trim();
+    if (!suggestedName) return;
+    didPrefillName.current = true;
+    setDisplayName((current) => current.trim() ? current : suggestedName);
+  }, [playerProfile.profile?.displayName, visible]);
+
+  useEffect(() => {
+    if (!visible || token || !nearbyAvailable) return undefined;
     let active = true;
     let stop: (() => void) | null = null;
     void browseNearbyTables(
@@ -39,18 +65,16 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
     }).catch((next) => {
       if (active) setNearbyError(next instanceof Error ? next.message : 'Nearby tables are unavailable.');
     });
-    return () => { active = false; stop?.(); };
-  }, [token, visible]);
+    return () => {
+      active = false;
+      stop?.();
+      setNearbyTables([]);
+      setNearbyError(null);
+    };
+  }, [nearbyAvailable, token, visible]);
 
   const canJoinToken = !!token && cleanName.length > 0 && !joining;
   const canJoinCode = cleanCode.length === 6 && cleanName.length > 0 && !joining;
-  const nearbyCopy = useMemo(() => {
-    if (!nearbyTablesAvailable()) return 'Scan the host’s QR or enter the table code.';
-    if (nearbyError) return 'Nearby discovery is unavailable. The table code still works.';
-    if (nearbyTables.length === 0) return 'Looking for an open Kwilt table…';
-    return 'Choose the table shown on the host’s phone.';
-  }, [nearbyError, nearbyTables.length]);
-
   const join = async (input: { token?: string; shortCode?: string }) => {
     if (!cleanName || joining) return;
     setJoining(true);
@@ -67,6 +91,17 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
     } finally {
       setJoining(false);
     }
+  };
+
+  const joinNearby = (table: NearbyTable) => {
+    if (joining) return;
+    if (!cleanName) {
+      setNameHelp('Add your name to join this table.');
+      nameInputRef.current?.focus();
+      return;
+    }
+    setNameHelp(null);
+    void join({ shortCode: table.code });
   };
 
   return (
@@ -89,8 +124,8 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
         keyboardShouldPersistTaps="handled"
       >
         <BottomDrawerHeader
-          title={token ? 'Take your place' : 'Join a table'}
-          subtitle={token ? 'Add the name everyone at the table will see.' : nearbyCopy}
+          title={token ? 'Take your place' : 'Find a table nearby'}
+          subtitle={token ? 'Add the name everyone at the table will see.' : 'Searching while this sheet is open. Other players can’t see you.'}
           variant="withClose"
           onClose={onClose}
           closeAccessibilityLabel="Close join table"
@@ -99,14 +134,41 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
           subtitleStyle={styles.copy}
         />
 
+        {!token ? <View style={styles.section}>
+          <View style={styles.sectionHeading}><Radio size={17} color={gamesTheme.colors.ink} /><Text style={styles.sectionTitle}>NEARBY</Text></View>
+          {nearbyTables.length > 0 ? nearbyTables.map((table) => <Pressable
+            key={table.code}
+            accessibilityRole="button"
+            accessibilityLabel={`Join ${table.game === 'slanguage' ? 'Slanguage' : 'Bank'} table ${tableMarkForCode(table.code)}`}
+            accessibilityHint={!cleanName ? 'Add your player name first' : 'Joins the open table'}
+            disabled={joining}
+            onPress={() => joinNearby(table)}
+            style={({ pressed }) => [styles.nearbyCard, joining ? styles.disabled : null, pressed ? styles.pressed : null]}
+          >
+            <View style={styles.nearbyMark}><UsersRound size={20} color={gamesTheme.colors.ink} /></View>
+            <View style={styles.nearbyCopy}><Text style={styles.nearbyTitle}>{table.game === 'slanguage' ? 'Slanguage nearby' : 'Bank nearby'}</Text><Text style={styles.nearbyMeta}>{tableMarkForCode(table.code)}</Text></View>
+            <Text style={styles.joinLabel}>Join</Text>
+          </Pressable>) : <View style={[styles.searchCard, (!nearbyAvailable || nearbyError) ? styles.searchCardUnavailable : null]}>
+            <View style={styles.searchIcon}><Radio size={20} color={nearbyAvailable && !nearbyError ? gamesTheme.colors.felt : 'rgba(32,29,24,0.46)'} /></View>
+            <View style={styles.searchCopy}>
+              <Text style={styles.searchTitle}>{nearbyAvailable && !nearbyError ? 'Looking for open tables…' : 'Nearby search unavailable'}</Text>
+              <Text style={styles.searchMeta}>{nearbyAvailable && !nearbyError ? 'Ask the host to open a table in Kwilt.' : 'Use a table code below.'}</Text>
+            </View>
+          </View>}
+        </View> : null}
+
         <View style={styles.nameBlock}>
           <Text style={styles.label}>YOUR NAME</Text>
           <TextInput
+            ref={nameInputRef}
             autoCapitalize="words"
             autoCorrect={false}
             maxLength={18}
             value={displayName}
-            onChangeText={setDisplayName}
+            onChangeText={(next) => {
+              setDisplayName(next);
+              if (next.trim()) setNameHelp(null);
+            }}
             placeholder="Olive"
             placeholderTextColor="rgba(32,29,24,0.28)"
             accessibilityLabel="Your player name"
@@ -114,28 +176,13 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
             onSubmitEditing={() => { if (canJoinToken) void join({ token }); }}
             style={styles.input}
           />
+          {nameHelp ? <Text accessibilityRole="alert" style={styles.nameHelp}>{nameHelp}</Text> : null}
         </View>
 
         {token ? <GameButton disabled={!canJoinToken} onPress={() => void join({ token })}>{joining ? 'Joining…' : 'Join table'}</GameButton> : null}
 
-        {!token && nearbyTables.length > 0 ? <View style={styles.section}>
-          <View style={styles.sectionHeading}><Radio size={17} color={gamesTheme.colors.ink} /><Text style={styles.sectionTitle}>NEARBY</Text></View>
-          {nearbyTables.map((table) => <Pressable
-            key={table.code}
-            accessibilityRole="button"
-            accessibilityLabel={`Join ${table.game === 'slanguage' ? 'Slanguage' : 'Bank'} table ${tableMarkForCode(table.code)}`}
-            disabled={!cleanName || joining}
-            onPress={() => void join({ shortCode: table.code })}
-            style={({ pressed }) => [styles.nearbyCard, (!cleanName || joining) ? styles.disabled : null, pressed ? styles.pressed : null]}
-          >
-            <View style={styles.nearbyMark}><UsersRound size={20} color={gamesTheme.colors.ink} /></View>
-            <View style={styles.nearbyCopy}><Text style={styles.nearbyTitle}>{table.game === 'slanguage' ? 'Slanguage nearby' : 'Bank nearby'}</Text><Text style={styles.nearbyMeta}>{tableMarkForCode(table.code)}</Text></View>
-            <Text style={styles.joinLabel}>Join</Text>
-          </Pressable>)}
-        </View> : null}
-
         {!token ? <View style={styles.section}>
-          <Text style={styles.sectionTitle}>TABLE CODE</Text>
+          <Text style={styles.sectionTitle}>HAVE A CODE?</Text>
           <TextInput
             autoCapitalize="characters"
             autoCorrect={false}
@@ -179,6 +226,13 @@ const styles = StyleSheet.create({
   nearbyTitle: { fontFamily: gamesTheme.type.display, fontSize: 17, color: gamesTheme.colors.ink },
   nearbyMeta: { fontFamily: gamesTheme.type.body, fontSize: 12, color: 'rgba(32,29,24,0.55)' },
   joinLabel: { fontFamily: gamesTheme.type.utility, fontSize: 12, color: gamesTheme.colors.ink },
+  searchCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 20, backgroundColor: 'rgba(86,139,113,0.1)', borderWidth: 1, borderColor: 'rgba(64,112,89,0.22)' },
+  searchCardUnavailable: { backgroundColor: 'rgba(32,29,24,0.04)', borderColor: 'rgba(32,29,24,0.12)' },
+  searchIcon: { width: 44, height: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: gamesTheme.colors.paper },
+  searchCopy: { flex: 1, gap: 2 },
+  searchTitle: { fontFamily: gamesTheme.type.display, fontSize: 17, color: gamesTheme.colors.ink },
+  searchMeta: { fontFamily: gamesTheme.type.body, fontSize: 12, lineHeight: 16, color: 'rgba(32,29,24,0.58)' },
+  nameHelp: { fontFamily: gamesTheme.type.body, fontSize: 12, color: gamesTheme.colors.danger },
   disabled: { opacity: 0.46 },
   pressed: { transform: [{ scale: 0.985 }] },
   error: { padding: 11, borderRadius: 12, backgroundColor: 'rgba(197,63,43,0.08)', fontFamily: gamesTheme.type.body, color: gamesTheme.colors.danger },

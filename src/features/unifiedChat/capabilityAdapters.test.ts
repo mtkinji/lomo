@@ -102,15 +102,38 @@ describe('Unified Chat capability adapters', () => {
           projectedOverageCents: 0, status: 'steady',
         },
       }],
+      livingLimitAnswer: {
+        state: 'supported', headlineAmountCents: 34296, qualification: null, recoveryAction: null,
+        reviewTransactionIds: [], limitLine: { livingPercent: 70, livingLimitCents: 350000 },
+        facts: {
+          periodId: '2026-07', planVersionId: 'plan-1', policyVersion: 'money-plan-limit-v1',
+          resourceBasisCents: 500000, resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-23T17:00:00.000Z',
+          livingPercent: 70, livingLimitCents: 350000, protectedPlanCents: 200000, flexibleCapacityCents: 150000,
+          countedFlexibleSpendCents: 115704, flexibleRoomCents: 34296, flexibleRoomLowCents: 34296,
+          flexibleRoomHighCents: 34296, unresolvedInScopeCents: 0, plannedCents: 350000,
+          unassignedCents: 0, overLimitCents: 0, freshness: 'fresh', confidence: 'supported', qualificationReason: null,
+        },
+      },
     });
 
-    expect(sources).toEqual([expect.objectContaining({
+    expect(sources).toEqual([
+      expect.objectContaining({
+        capabilityId: 'money', object: { type: 'money_plan_limit', id: 'current', label: 'Current Budget answer' },
+        authority: 'authoritative', observedAt: '2026-07-23T17:00:00.000Z',
+        summary: '$342.96 left for flexible spending this month · $1,157.04 of $1,500 used',
+      }),
+      expect.objectContaining({
       capabilityId: 'money', object: { type: 'money_category', id: 'groceries', label: 'Groceries', secondaryLabel: '$100 spent of $600' },
       authority: 'authoritative', observedAt: '2026-07-23T17:00:00.000Z',
       summary: expect.stringContaining('Projected: $300'),
-    })]);
+      }),
+    ]);
     expect(JSON.stringify(sources)).not.toContain('Private merchant');
     expect(moneyChatAdapter.return.targetFor(sources[0].object)).toMatchObject({
+      capabilityId: 'money',
+      route: { name: 'Money', params: { screen: 'MoneySummary' } },
+    });
+    expect(moneyChatAdapter.return.targetFor(sources[1].object)).toMatchObject({
       capabilityId: 'money',
       route: { name: 'Money', params: { screen: 'MoneyCategoryDetail', params: { categoryId: 'groceries' } } },
     });

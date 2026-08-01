@@ -100,6 +100,14 @@ describe('CapabilityMenu', () => {
     expect(handlers.onSelectCapability).toHaveBeenCalledWith('money-transactions');
   });
 
+  it('calls the Money summary destination Budget only when the living-limit answer is enabled', () => {
+    const enabled = render(
+      <CapabilityMenu activeCapabilityId="money-summary" displayName="Andy" chats={chats} moneyLivingLimitEnabled {...handlers} />,
+    );
+    expect(enabled.getByLabelText('Budget').props.accessibilityState).toEqual({ selected: true });
+    expect(enabled.queryByLabelText('Summary')).toBeNull();
+  });
+
   it('shows Explore only when its feature flag is enabled', () => {
     const hidden = render(
       <CapabilityMenu activeCapabilityId={null} displayName="Andy" chats={chats} {...handlers} />,

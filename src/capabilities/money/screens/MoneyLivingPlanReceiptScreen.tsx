@@ -53,11 +53,13 @@ export function MoneyLivingPlanReceiptScreen({ navigation, route }: NativeStackS
       {detail && summary ? (
         <>
           <SettingsGroup footer={detail.cause} title={summary.headline}>
-            <SettingsRow title="Living target" value={`${detail.after.targetCents > 0 ? Math.round((detail.after.targetCents / detail.after.resourceBasisCents) * 100) : 0}%`} />
+            <SettingsRow title="Living limit" value={`${detail.after.livingPercent}% · ${formatMoney(detail.after.targetCents)}`} />
             <SettingsDivider />
-            <SettingsRow title="Available for categories" value={formatMoney(detail.after.targetCents)} />
+            <SettingsRow title="Plan result" value={detail.after.overTargetCents > 0 ? `${formatMoney(detail.after.overTargetCents)} over` : 'Within limit'} />
             <SettingsDivider />
-            <SettingsRow title="Planned" value={formatMoney(detail.after.plannedCents)} />
+            <SettingsRow title="Protected plan" value={formatMoney(detail.after.protectedPlanCents)} />
+            <SettingsDivider />
+            <SettingsRow title="Flexible capacity" value={formatMoney(detail.after.flexibleCapacityCents)} />
           </SettingsGroup>
           {detail.changed.length ? (
             <SettingsGroup footer={summary.explanation} title="Category changes">

@@ -22,7 +22,7 @@ const CAPABILITY_DESCRIPTIONS: Readonly<Record<UnifiedChatCapabilityId, string>>
   chapters: 'Read and reflect on the user\'s saved Chapters, experiments, and learning.',
   profile: 'Read the user\'s bounded coaching profile and update an explicitly requested display name or age range.',
   relationships: 'Read explicitly saved People, facts, dates, and follow-up cadences; remember, correct, or forget only details the user explicitly identifies.',
-  money: 'Read current-month Money plan and spending aggregates. Merchant, account, and mutation workflows remain native and bounded.',
+  money: 'Read the current Budget answer, including whether the plan fits the chosen income or living limit, plus current-month spending aggregates. Merchant, account, and mutation workflows remain native and bounded.',
   screenTime: 'Recognize Screen Time and app-control requests that require native authorization.',
   notifications: 'Open native notification settings and authorization owned by the device.',
   account: 'Read show-up streak status or open native account, subscription, and destructive account-review surfaces; never silently execute consequential changes.',
