@@ -146,4 +146,58 @@ describe('reconcileMoneyEconomicRoles', () => {
     expect(result.rows[0]?.disposition).toBe('unresolved');
     expect(result.totals.unresolvedInScopeCents).toBe(2500);
   });
+
+  it('keeps supported account transfers and credit-card payments out of spending', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [
+        transaction('account-transfer', 283100, {
+          providerCategoryPrimary: 'TRANSFER_OUT',
+          providerCategoryDetailed: 'TRANSFER_OUT_ACCOUNT_TRANSFER',
+          providerCategoryConfidence: 'LOW',
+        }),
+        transaction('card-payment', 4297, {
+          providerCategoryPrimary: 'LOAN_PAYMENTS',
+          providerCategoryDetailed: 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT',
+          providerCategoryConfidence: 'HIGH',
+        }),
+      ],
+      allocations: [],
+    });
+
+    expect(result.rows.map((row) => row.disposition)).toEqual(['not_spending', 'not_spending']);
+    expect(result.totals.neutralCents).toBe(287397);
+    expect(result.totals.unresolvedInScopeCents).toBe(0);
+  });
+
+  it('does not assume payment-app transfers are neutral spending', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [transaction('payment-app', 14000, {
+        providerCategoryPrimary: 'TRANSFER_OUT',
+        providerCategoryDetailed: 'TRANSFER_OUT_TRANSFER_OUT_FROM_APPS',
+        providerCategoryConfidence: 'HIGH',
+      })],
+      allocations: [],
+    });
+
+    expect(result.rows[0]?.disposition).toBe('unresolved');
+    expect(result.totals.unresolvedInScopeCents).toBe(14000);
+  });
+
+  it('uses supported provider evidence to keep an uncategorized commitment out of flexible spending', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [transaction('rent', 180000, {
+        providerCategoryPrimary: 'RENT_AND_UTILITIES',
+        providerCategoryDetailed: 'RENT_AND_UTILITIES_RENT',
+        providerCategoryConfidence: 'HIGH',
+      })],
+      allocations: [],
+    });
+
+    expect(result.rows[0]).toMatchObject({
+      disposition: 'protected_spending',
+      contributions: [{ role: 'protected_spending', amountCents: 180000, spendDeltaCents: 180000 }],
+    });
+    expect(result.totals.flexibleSpendingCents).toBe(0);
+    expect(result.totals.unresolvedInScopeCents).toBe(0);
+  });
 });

@@ -107,6 +107,21 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
       economicRoleReview: true,
     });
   });
+
+  it('uses the calculation evidence label for a scoped audit', () => {
+    mockSnapshot.transactions = [transaction('flexible', 'Corner Market')];
+    const navigation = { goBack: jest.fn(), navigate: jest.fn(), setParams: jest.fn() };
+    const route = {
+      key: 'flexible-spending',
+      name: 'MoneyTransactions' as const,
+      params: { reviewTransactionIds: ['flexible'], inventoryTitle: 'Flexible spending' },
+    };
+
+    const screen = render(<MoneyTransactionsScreen navigation={navigation as never} route={route as never} />);
+
+    expect(screen.getByText('Flexible spending')).toBeTruthy();
+    expect(screen.getByLabelText('Go back from Flexible spending')).toBeTruthy();
+  });
 });
 
 function transaction(id: string, merchantName: string) {

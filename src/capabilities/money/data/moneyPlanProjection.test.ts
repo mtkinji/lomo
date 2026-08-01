@@ -84,6 +84,36 @@ describe('projectMoneyPlanProjection', () => {
     });
   });
 
+  it('uses the customer local month when an incorrectly future-dated plan is active', () => {
+    const localJuly = new Date(2026, 6, 31, 18, 28, 57);
+    const recentlySyncedAt = new Date(localJuly.getTime() - 60 * 60 * 1000).toISOString();
+    const snapshot = {
+      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: recentlySyncedAt,
+      totals: { plannedCents: 60000, spentCents: 10000, remainingCents: 50000, needsReviewCount: 0 },
+      forecast: { projectedSpendCents: 10000, projectionRangeLowCents: 10000, projectionRangeHighCents: 10000, projectedRemainingCents: 50000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
+      outsidePlan: { spentCents: 0, transactionCount: 0 },
+      categories: [category('housing', 20000, 0), category('food', 40000, 10000)], accounts: [],
+      transactions: [moneyTransaction('july-spend', '2026-07-31', 10000)],
+    } as MoneySnapshot;
+    const futurePlan = {
+      ...activePlan(),
+      periodId: '2026-08',
+      allocations: [
+        { ...allocation('housing', 20000), fixedCents: 20000, overrideCents: 0, source: 'fixed' as const },
+        { ...allocation('food', 40000), overrideCents: 0, flexibleCents: 40000, source: 'recent_spending' as const },
+      ],
+    };
+    jest.spyOn(localJuly, 'toISOString').mockReturnValue('2026-08-01T00:28:57.000Z');
+
+    const result = projectMoneyPlanProjection(snapshot, futurePlan, evidence, localJuly);
+
+    expect(result.snapshot.livingLimitAnswer).toMatchObject({
+      state: 'supported',
+      headlineAmountCents: 30000,
+      facts: { periodId: '2026-07', countedFlexibleSpendCents: 10000 },
+    });
+  });
+
   it('uses category meaning, not a manual amount, to separate protected and flexible money', () => {
     const snapshot = {
       periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
@@ -117,6 +147,84 @@ describe('projectMoneyPlanProjection', () => {
       facts: {
         protectedPlanCents: 40000,
         flexibleCapacityCents: 20000,
+        countedFlexibleSpendCents: 5000,
+      },
+    });
+  });
+
+  it('reduces flexible room when monthly bills exceed the amount kept aside', () => {
+    const snapshot = {
+      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
+      totals: { plannedCents: 60000, spentCents: 50000, remainingCents: 10000, needsReviewCount: 0 },
+      forecast: { projectedSpendCents: 50000, projectionRangeLowCents: 50000, projectionRangeHighCents: 50000, projectedRemainingCents: 10000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 1 },
+      outsidePlan: { spentCents: 0, transactionCount: 0 },
+      categories: [
+        { ...category('housing', 40000, 45000), mappingTags: ['housing'] },
+        { ...category('shopping', 20000, 5000), mappingTags: ['shopping'] },
+      ],
+      accounts: [],
+      transactions: [
+        { ...moneyTransaction('rent', '2026-07-20', 45000), categoryId: 'housing' },
+        { ...moneyTransaction('store', '2026-07-20', 5000), categoryId: 'shopping' },
+      ],
+    } as MoneySnapshot;
+    const plan = {
+      ...activePlan(),
+      allocations: [allocation('housing', 40000), allocation('shopping', 20000)],
+    };
+
+    const result = projectMoneyPlanProjection(snapshot, plan, evidence, new Date('2026-07-24T12:00:00Z'));
+
+    expect(result.snapshot.livingLimitAnswer).toMatchObject({
+      state: 'supported',
+      headlineAmountCents: 10000,
+      facts: {
+        protectedPlanCents: 40000,
+        protectedOverageCents: 5000,
+        flexibleCapacityCents: 15000,
+        countedFlexibleSpendCents: 5000,
+      },
+    });
+  });
+
+  it('does not charge reserve-funded bills against flexible room a second time', () => {
+    const reserveHousing = {
+      ...category('housing', 10000, 45000),
+      mappingTags: ['housing'],
+      fundingRhythm: 'reserve' as const,
+      monthlyContributionCents: 10000,
+      reserveBalanceCents: 40000,
+      reserveAvailableCents: 5000,
+    };
+    const snapshot = {
+      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
+      totals: { plannedCents: 60000, spentCents: 50000, remainingCents: 10000, needsReviewCount: 0 },
+      forecast: { projectedSpendCents: 50000, projectionRangeLowCents: 50000, projectionRangeHighCents: 50000, projectedRemainingCents: 10000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
+      outsidePlan: { spentCents: 0, transactionCount: 0 },
+      categories: [reserveHousing, { ...category('shopping', 50000, 5000), mappingTags: ['shopping'] }],
+      accounts: [],
+      transactions: [
+        { ...moneyTransaction('annual-bill', '2026-07-20', 45000), categoryId: 'housing' },
+        { ...moneyTransaction('store', '2026-07-20', 5000), categoryId: 'shopping' },
+      ],
+    } as MoneySnapshot;
+    const plan = {
+      ...activePlan(),
+      allocations: [
+        { ...allocation('housing', 10000), fundingRhythm: 'reserve' as const, priorReserveCents: 40000 },
+        allocation('shopping', 50000),
+      ],
+    };
+
+    const result = projectMoneyPlanProjection(snapshot, plan, evidence, new Date('2026-07-24T12:00:00Z'));
+
+    expect(result.snapshot.livingLimitAnswer).toMatchObject({
+      state: 'supported',
+      headlineAmountCents: 45000,
+      facts: {
+        protectedPlanCents: 10000,
+        protectedOverageCents: 0,
+        flexibleCapacityCents: 50000,
         countedFlexibleSpendCents: 5000,
       },
     });

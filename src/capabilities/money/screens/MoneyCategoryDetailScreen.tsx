@@ -36,6 +36,7 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, formatMoneyFreshness, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { groupMoneyTransactionsByDate } from '../domain/moneyDetailView';
+import { getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 import { projectMoneyCategoryPeriodView } from '../domain/moneyPeriodView';
 import { projectMoneyRebalanceAnswer, type MoneyRebalanceAnswer } from '../domain/moneyRebalanceAnswer';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
@@ -643,7 +644,7 @@ function reserveCoverageCopy(
     monthlyContributionCents: Math.round(contribution * 100),
     priorReserveCents: category.reserveAvailableCents - category.monthlyContributionCents + category.spentCents,
     countedSpendCents: category.spentCents,
-    periodId: new Date().toISOString().slice(0, 7),
+    periodId: getLocalMoneyPeriodId(new Date()),
     expectedNeed: { amountCents: Math.round(amount * 100), dueMonth },
   }).coverage;
   if (coverage.status === 'none') return `${formatMoney(category.reserveAvailableCents)} is available now.`;

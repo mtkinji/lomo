@@ -14,6 +14,18 @@ import { formatMoney, type MoneyCategory } from '../data/moneySnapshot';
 const TICK_COUNT = 52;
 const MAX_OVER_BUDGET_TICK_WIDTH_MULTIPLIER = 3.2;
 
+export type MoneyCategoryValueMode = 'percent_used' | 'dollars_left';
+export type MoneyCategoryPresentation = 'tiles' | 'list_percent' | 'list_dollars';
+
+export function resolveCategoryPresentation(presentation: MoneyCategoryPresentation): {
+  layout: 'tiles' | 'list';
+  valueMode: MoneyCategoryValueMode;
+} {
+  if (presentation === 'list_dollars') return { layout: 'list', valueMode: 'dollars_left' };
+  if (presentation === 'list_percent') return { layout: 'list', valueMode: 'percent_used' };
+  return { layout: 'tiles', valueMode: 'percent_used' };
+}
+
 export function MoneyCategoryMeterTile({
   category,
   onPress,
@@ -27,7 +39,8 @@ export function MoneyCategoryMeterTile({
 }) {
   const [meterSize, setMeterSize] = useState(136);
   const percent = Math.round(category.percentUsed);
-  const isRisk = percent >= 100 || category.forecast.status === 'over';
+  const isOver = category.remainingCents < 0;
+  const isRisk = percent >= 100 || isOver || category.forecast.status === 'over';
   const statusColor = isRisk
     ? colors.destructive
     : category.forecast.status === 'watch'
@@ -42,7 +55,7 @@ export function MoneyCategoryMeterTile({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${category.name} category, ${formatMoney(category.spentCents)} spent of ${formatMoney(category.plannedCents)}, ${percent} percent used`}
+      accessibilityLabel={`Open ${category.name} category, ${formatMoney(category.spentCents)} spent of ${formatMoney(category.plannedCents)}, ${percent} percent used, ${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`}
       onPress={onPress}
       style={({ pressed }) => [styles.pressable, style, pressed ? styles.pressed : null]}
     >
@@ -54,11 +67,17 @@ export function MoneyCategoryMeterTile({
           size={meterSize}
         >
           <View style={styles.center}>
-            <View style={styles.percentRow}>
-              <Text numberOfLines={1} style={[styles.percent, isRisk ? styles.percentRisk : null]}>
+            <View style={styles.valueRow}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.value,
+                  isRisk ? styles.valueRisk : null,
+                ]}
+              >
                 {percent}
               </Text>
-              <Text style={styles.percentSymbol}>%</Text>
+              <Text style={styles.valueSuffix}>%</Text>
             </View>
             <Text numberOfLines={2} style={styles.name}>
               {category.name}
@@ -71,6 +90,33 @@ export function MoneyCategoryMeterTile({
           {formatMoney(category.spentCents)} / {formatMoney(category.plannedCents)}
         </Text>
       </View>
+    </Pressable>
+  );
+}
+
+export function MoneyCategoryListRow({ category, onPress, valueMode }: {
+  category: MoneyCategory;
+  onPress: () => void;
+  valueMode: MoneyCategoryValueMode;
+}) {
+  const percent = Math.round(category.percentUsed);
+  const isOver = category.remainingCents < 0;
+  const value = valueMode === 'percent_used'
+    ? `${percent}% used`
+    : `${formatMoney(Math.abs(category.remainingCents))} ${isOver ? 'over' : 'left'}`;
+  return (
+    <Pressable
+      accessibilityLabel={`Open ${category.name} category, ${value}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.listRow, pressed ? styles.pressed : null]}
+    >
+      <View style={styles.listCopy}>
+        <Text numberOfLines={2} style={styles.listName}>{category.name}</Text>
+        <Text numberOfLines={1} style={styles.listDetail}>{formatMoney(category.spentCents)} / {formatMoney(category.plannedCents)}</Text>
+      </View>
+      <Text numberOfLines={1} style={[styles.listValue, isOver ? styles.valueRisk : null]}>{value}</Text>
+      <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.listChevron}>›</Text>
     </Pressable>
   );
 }
@@ -237,35 +283,42 @@ const styles = StyleSheet.create({
   },
   tick: { position: 'absolute', borderRadius: 99 },
   center: {
-    width: '78%',
+    width: '90%',
+    height: 88,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: spacing.xs,
   },
-  percentRow: {
-    minHeight: 48,
+  valueRow: {
+    width: '100%',
+    height: 48,
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
     gap: spacing.sm,
+    paddingHorizontal: 2,
   },
-  percent: {
+  value: {
+    maxWidth: '76%',
+    flexShrink: 1,
     color: colors.gray900,
     fontSize: 42,
     lineHeight: 46,
-    fontWeight: '900',
+    fontWeight: '800',
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
     letterSpacing: -1.5,
   },
-  percentRisk: { color: colors.destructive },
-  percentSymbol: {
+  valueRisk: { color: colors.destructive },
+  valueSuffix: {
+    flexShrink: 0,
     color: colors.gray500,
     fontSize: 18,
     lineHeight: 22,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   name: {
+    minHeight: 36,
     maxWidth: 112,
     color: colors.textSecondary,
     textAlign: 'center',
@@ -288,4 +341,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
+  listRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+    paddingVertical: spacing.sm,
+  },
+  listCopy: { flex: 1, minWidth: 0, gap: 2 },
+  listName: { color: colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '600' },
+  listDetail: { color: colors.textSecondary, fontSize: 12, lineHeight: 16, fontVariant: ['tabular-nums'] },
+  listValue: { flexShrink: 0, color: colors.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  listChevron: { color: colors.textSecondary, fontSize: 22, lineHeight: 24 },
 });

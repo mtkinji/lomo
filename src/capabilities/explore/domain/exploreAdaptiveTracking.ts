@@ -237,7 +237,14 @@ export function adaptiveLocationProfile(
     };
   }
   if (movement === 'vehicle') {
-    return {
+    return policy === 'ambient' ? {
+      accuracy: 'high',
+      distanceIntervalM: 22,
+      timeIntervalMs: 2_000,
+      deferredDistanceM: 200,
+      deferredIntervalMs: 30_000,
+      pausesAutomatically: false,
+    } : {
       accuracy: 'high',
       distanceIntervalM: 6,
       timeIntervalMs: 1_000,

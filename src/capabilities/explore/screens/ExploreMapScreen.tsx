@@ -43,6 +43,7 @@ import { Text } from '../../../ui/Typography';
 import { buildAltitudeSegments } from '../domain/exploreElevation';
 import {
   buildFogHole,
+  buildFogRenderGeometry,
   EXPLORE_FEATHER_REFERENCE_RADIUS_M,
   EXPLORE_REVEAL_RADIUS_M,
   isCoordinateExplored,
@@ -154,12 +155,18 @@ export function ExploreMapScreen() {
       veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
     };
   }, [visibleCells]);
+  const fogGeometry = useMemo(
+    () => buildFogRenderGeometry([...pointGroups].reverse()),
+    [pointGroups],
+  );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
       fogEnabled: preferences.showFog,
-      fogCoordinates: preferences.showFog ? visibleCells.map((cell) => cell.center) : [],
+      fogCoordinates: preferences.showFog ? fogGeometry.points : [],
+      fogSegmentStarts: preferences.showFog ? fogGeometry.segmentStarts : [],
+      fogSegmentEnds: preferences.showFog ? fogGeometry.segmentEnds : [],
       fogClearRadiusMeters: EXPLORE_REVEAL_RADIUS_M,
       fogFeatherReferenceRadiusMeters: EXPLORE_FEATHER_REFERENCE_RADIUS_M,
-    } as unknown as ComponentProps<typeof MapView>) : {}, [preferences.showFog, visibleCells]);
+    } as unknown as ComponentProps<typeof MapView>) : {}, [fogGeometry, preferences.showFog]);
   const exploredCellValues = useMemo(() => Object.values(exploredCells), [exploredCells]);
   const savedPlaces = useMemo(() => {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));

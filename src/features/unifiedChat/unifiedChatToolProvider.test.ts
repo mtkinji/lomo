@@ -70,10 +70,10 @@ const snapshots = {
       state: 'supported' as const, headlineAmountCents: 34296, qualification: null, recoveryAction: null,
       reviewTransactionIds: [], limitLine: { livingPercent: 70, livingLimitCents: 350000 },
       facts: {
-        periodId: '2026-07', planVersionId: 'private-plan-version', policyVersion: 'money-plan-limit-v1' as const,
+        periodId: '2026-07', planVersionId: 'private-plan-version', policyVersion: 'money-plan-limit-v2' as const,
         resourceBasisCents: 500000, resourceBasisKind: 'detected_income' as const,
         resourceBasisUpdatedAtIso: '2026-07-23T17:00:00.000Z', livingPercent: 70,
-        livingLimitCents: 350000, protectedPlanCents: 200000, flexibleCapacityCents: 150000,
+        livingLimitCents: 350000, protectedPlanCents: 200000, protectedOverageCents: 0, flexibleCapacityCents: 150000,
         countedFlexibleSpendCents: 115704, flexibleRoomCents: 34296, flexibleRoomLowCents: 34296,
         flexibleRoomHighCents: 34296, unresolvedInScopeCents: 0, plannedCents: 350000,
         unassignedCents: 0, overLimitCents: 0, freshness: 'fresh' as const,
