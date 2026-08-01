@@ -118,7 +118,7 @@ export function createWindLeaf(): WindLeafState {
 }
 
 export function isWindLeafHit(leaf: WindLeafState, point: WindLeafPoint) {
-  if (leaf.phase !== "perched") return false;
+  if (leaf.phase === "held" || leaf.phase === "caught") return false;
   return Math.hypot(point.x - leaf.x, point.y - leaf.y) <= WIND_LEAF.grabRadius;
 }
 

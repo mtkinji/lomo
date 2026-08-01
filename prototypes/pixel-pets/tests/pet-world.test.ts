@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   PET_WORLD,
   applyWorldIntent,
+  beginWindLeafInvitation,
   createPetWorldState,
   dragWorldWindLeaf,
   beginCompanionFocus,
@@ -349,7 +350,7 @@ test("a passing visitor cannot pull the Pet out of rain shelter", () => {
   assert.equal(after.petX, PET_WORLD.treeShelterX);
 });
 
-test("wind has a bounded grounded sway instead of lifting the Pet", () => {
+test("wind has a bounded grounded sway, then loosens one playable leaf", () => {
   const breezy = setWorldWeather(createPetWorldState(), "breeze");
   const arriving = stepPetWorld(breezy, PET_WORLD.weatherArrivalDuration / 2, false);
   const after = stepPetWorld(arriving, PET_WORLD.weatherArrivalDuration / 2 + 420, false);
@@ -362,8 +363,82 @@ test("wind has a bounded grounded sway instead of lifting the Pet", () => {
   assert.ok(Math.abs(after.weatherSway) <= PET_WORLD.maxWeatherSway);
   assert.equal(after.poseY, 0);
 
-  const recovered = stepPetWorld(after, PET_WORLD.windBraceDuration, false);
-  assert.equal(recovered.action, "idle");
+  const invitation = stepPetWorld(after, PET_WORLD.windBraceDuration, false, "young");
+  assert.equal(invitation.action, "leaf-invite");
+  assert.equal(invitation.playLeaf.phase, "flying");
+  assert.equal(invitation.playLeaf.mode, "leap");
+  assert.equal(invitation.playLeaf.flight.id, "wind-drift");
+  assert.equal(clipForWorldAction(invitation.action), "discover");
+});
+
+test("the wind hands one moving toy to the person before Moss commits", () => {
+  const breezy = {
+    ...createPetWorldState(),
+    weather: "breeze" as const,
+    weatherPhase: "settled" as const,
+    weatherIntensity: 1,
+    weatherSway: 1.5,
+  };
+  const invitation = beginWindLeafInvitation(breezy, "guardian", false);
+
+  assert.equal(invitation.action, "leaf-invite");
+  assert.equal(invitation.playLeaf.phase, "flying");
+  assert.equal(invitation.playLeaf.mode, "aerial");
+  assert.equal(invitation.visitor.active, false);
+  assert.equal(invitation.targetX, null);
+
+  const noticed = stepPetWorld(invitation, 160, false, "guardian");
+  assert.equal(noticed.action, "leaf-invite");
+  assert.equal(noticed.petX, invitation.petX, "the invitation is a look, not an automatic slide");
+
+  const grabbed = grabWorldWindLeaf(
+    noticed,
+    { x: noticed.playLeaf.x, y: noticed.playLeaf.y },
+    "guardian",
+  );
+  assert.equal(grabbed.playLeaf.phase, "held");
+  assert.equal(grabbed.action, "leaf-track");
+});
+
+test("an ignored wind toy resolves at the movement layer each form has earned", () => {
+  const resolveInvitation = (stage: "baby" | "young" | "guardian") => {
+    let world = beginWindLeafInvitation({
+      ...createPetWorldState(),
+      weather: "breeze",
+      weatherPhase: "settled",
+      weatherIntensity: 1,
+      weatherSway: 1.4,
+    }, stage, false);
+    for (let frame = 0; frame < 240 && (world.action === "leaf-invite" || world.action === "leaf-track"); frame += 1) {
+      world = stepPetWorld(world, 16, false, stage);
+    }
+    return world;
+  };
+
+  const baby = resolveInvitation("baby");
+  const young = resolveInvitation("young");
+  const guardian = resolveInvitation("guardian");
+
+  assert.equal(baby.action, "seek-leaf");
+  assert.equal(young.action, "leaf-pounce");
+  assert.equal(guardian.action, "leaf-aerial");
+});
+
+test("an active visitor keeps priority over the wind-toy episode", () => {
+  const visitor = spawnVisitor(createPetWorldState(), "young", { x: 300, y: 150 });
+  const braced = {
+    ...visitor,
+    weather: "breeze" as const,
+    weatherPhase: "settled" as const,
+    weatherIntensity: 1,
+    action: "wind-brace" as const,
+    actionElapsed: PET_WORLD.windBraceDuration - 1,
+  };
+  const after = stepPetWorld(braced, 2, false, "young");
+
+  assert.equal(after.action, "idle");
+  assert.equal(after.playLeaf.phase, "perched");
+  assert.equal(after.visitor.active, true);
 });
 
 test("reduced motion preserves weather meaning by settling directly into shelter", () => {

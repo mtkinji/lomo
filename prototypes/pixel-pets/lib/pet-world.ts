@@ -28,6 +28,7 @@ export const PET_WORLD = {
   sunBaskDuration: 5600,
   weatherArrivalDuration: 1200,
   windBraceDuration: 1680,
+  windLeafInvitationDuration: 800,
   rainFlinchDuration: 920,
   bloomOpenDuration: 900,
   bloomNoticeDuration: 900,
@@ -48,7 +49,7 @@ export const PET_WORLD = {
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "track" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
 export interface WorldPoint {
@@ -373,6 +374,7 @@ export function resolveCameraTargetX(state: PetWorldState) {
     state.playLeaf.phase !== "perched"
     && (
       state.action === "leaf-track"
+      || state.action === "leaf-invite"
       || state.action === "seek-leaf"
       || state.action === "leaf-pounce"
       || state.action === "leaf-aerial"
@@ -424,6 +426,7 @@ export function resolveCinematicShot(
   if (
     state.action === "greet"
     || state.action === "track"
+    || state.action === "leaf-invite"
     || state.action === "leaf-track"
     || state.action === "weather-notice"
     || state.action === "wind-brace"
@@ -474,6 +477,34 @@ export function grabWorldWindLeaf(
   return {
     ...state,
     action: "leaf-track",
+    actionElapsed: 0,
+    targetX: null,
+    facing: faceToward(state.petX, playLeaf.x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    playLeaf,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+  };
+}
+
+export function beginWindLeafInvitation(
+  state: PetWorldState,
+  stage: PetStage,
+  reducedMotion: boolean,
+): PetWorldState {
+  const perched = createWindLeaf();
+  const held = grabWindLeaf(perched, { x: perched.x, y: perched.y }, stage);
+  const direction = Math.abs(state.weatherSway) < 0.12 ? 1 : Math.sign(state.weatherSway);
+  const lift = stage === "baby" ? 0.01 : stage === "young" ? -0.11 : -0.14;
+  const playLeaf = releaseWindLeaf(
+    held,
+    { x: direction * 0.055, y: lift },
+    reducedMotion,
+    resolveWindLeafFlightProfile(state.weather, state.weatherSway, state.weatherIntensity),
+  );
+  return {
+    ...state,
+    action: "leaf-invite",
     actionElapsed: 0,
     targetX: null,
     facing: faceToward(state.petX, playLeaf.x, state.facing),
@@ -635,6 +666,7 @@ export function stepPetWorld(
   state: PetWorldState,
   elapsedMs: number,
   reducedMotion: boolean,
+  stage: PetStage = "young",
 ): PetWorldState {
   const dt = Math.max(0, elapsedMs);
   const weatherElapsed = state.weatherElapsed + dt;
@@ -762,6 +794,24 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (state.action === "leaf-invite") {
+      if (next.actionElapsed < Math.min(300, PET_WORLD.windLeafInvitationDuration)) {
+        return { ...next, facing: faceToward(state.petX, next.playLeaf.x, state.facing), poseY: 0, rotation: 0 };
+      }
+      const catchX = next.playLeaf.catchX;
+      return {
+        ...next,
+        petX: catchX,
+        cameraX: clampCameraX(catchX, next.zoom),
+        action: "leaf-catch",
+        actionElapsed: 0,
+        targetX: null,
+        facing: faceToward(state.petX, catchX, state.facing),
+        poseY: 0,
+        rotation: 0,
+        playLeaf: catchWindLeaf(next.playLeaf),
+      };
+    }
     if (
       state.action === "leaf-track"
       || state.action === "seek-leaf"
@@ -918,6 +968,14 @@ export function stepPetWorld(
   if (weatherResponseStarted) {
     next.poseY = 0;
     next.rotation = 0;
+  } else if (state.action === "leaf-invite") {
+    next.facing = faceToward(state.petX, next.playLeaf.x, state.facing);
+    next.poseY = 0;
+    next.rotation = 0;
+    if (next.playLeaf.phase === "landed" || next.actionElapsed >= PET_WORLD.windLeafInvitationDuration) {
+      next.action = "leaf-track";
+      next.actionElapsed = 0;
+    }
   } else if (state.action === "leaf-track") {
     const leaf = next.playLeaf;
     next.facing = faceToward(state.petX, leaf.x, state.facing);
@@ -1019,8 +1077,11 @@ export function stepPetWorld(
       rotation: 0,
     };
   } else if (state.action === "wind-brace") {
-    if (next.actionElapsed >= PET_WORLD.windBraceDuration) next = finishAction(next);
-    else {
+    if (next.actionElapsed >= PET_WORLD.windBraceDuration) {
+      next = !next.visitor.active && !next.focus.active && next.playLeaf.phase === "perched"
+        ? beginWindLeafInvitation(next, stage, reducedMotion)
+        : finishAction(next);
+    } else {
       next.poseY = 0;
       next.rotation = 0;
     }
@@ -1215,7 +1276,7 @@ export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "
   if (action === "leaf-pounce") return "pounce";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "greet") return "greet";
-  if (action === "track" || action === "leaf-track") return "discover";
+  if (action === "track" || action === "leaf-invite" || action === "leaf-track") return "discover";
   if (action === "weather-notice") return "weather-notice";
   if (action === "wind-brace") return "wind-brace";
   if (action === "rain-flinch") return "rain-flinch";

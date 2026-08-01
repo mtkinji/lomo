@@ -310,6 +310,7 @@ export function PetPrototype() {
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
       "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
+      "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. Catch it—or watch ${state.name} read where it goes.` },
       "rain-flinch": { title: "First drops", detail: `${state.name} shakes once, then looks for cover.` },
       "bloom-notice": { title: "Something took root", detail: `${state.name} noticed the meadow answer.` },
       "seek-bloom": { title: "Going to see", detail: `${state.name} is padding toward the new bloom.` },
@@ -370,15 +371,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 22</span>
-        <h1>The meadow<br />remembers your day.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 23</span>
+        <h1>The wind found<br />a way to play.</h1>
         <p>
-          Move one thing forward, focus beside Moss, or play together. Each way of living leaves a different gentle trace.
+          A breeze arrives. Moss braces. Then the old tree lets go of one golden leaf—and the scene becomes yours.
         </p>
         <dl className="engine-facts">
-          <div><dt>To-do</dt><dd>one upright bloom</dd></div>
-          <div><dt>Focus</dt><dd>a quiet stilllight</dd></div>
-          <div><dt>Together</dt><dd>paired seedheads</dd></div>
+          <div><dt>World</dt><dd>begins the story</dd></div>
+          <div><dt>You</dt><dd>catch and redirect</dd></div>
+          <div><dt>Moss</dt><dd>reads and responds</dd></div>
         </dl>
       </header>
 
@@ -490,6 +491,7 @@ export function PetPrototype() {
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
+            <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
             <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>
             <span>Leaf position <strong>{Math.round(world.playLeaf.x)}, {Math.round(world.playLeaf.y)}</strong></span>
             <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>

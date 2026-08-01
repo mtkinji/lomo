@@ -28,12 +28,19 @@ test("maturity unlocks ground, leaping, and aerial wind-leaf play", () => {
   assert.equal(windLeafModeForStage("guardian"), "aerial");
 });
 
-test("the perched leaf has one generous invisible grab target", () => {
-  const leaf = createWindLeaf();
+test("a loose leaf keeps one generous invisible grab target throughout its flight", () => {
+  const perched = createWindLeaf();
+  const held = grabWindLeaf(perched, { x: 210, y: 94 }, "young");
+  const flying = releaseWindLeaf(held, { x: 0.04, y: -0.05 }, false);
+  const landed = { ...flying, phase: "landed" as const, y: WIND_LEAF.groundY };
+  const caught = catchWindLeaf(landed);
 
-  assert.equal(leaf.phase, "perched");
-  assert.equal(isWindLeafHit(leaf, { x: WIND_LEAF.perchX + 10, y: WIND_LEAF.perchY + 6 }), true);
-  assert.equal(isWindLeafHit(leaf, { x: WIND_LEAF.perchX + 24, y: WIND_LEAF.perchY }), false);
+  assert.equal(isWindLeafHit(perched, { x: WIND_LEAF.perchX + 10, y: WIND_LEAF.perchY + 6 }), true);
+  assert.equal(isWindLeafHit(flying, { x: flying.x, y: flying.y }), true);
+  assert.equal(isWindLeafHit(landed, { x: landed.x, y: landed.y }), true);
+  assert.equal(isWindLeafHit(held, { x: held.x, y: held.y }), false);
+  assert.equal(isWindLeafHit(caught, { x: caught.x, y: caught.y }), false);
+  assert.equal(isWindLeafHit(perched, { x: WIND_LEAF.perchX + 24, y: WIND_LEAF.perchY }), false);
 });
 
 test("a held leaf follows the finger but remains inside the authored world", () => {

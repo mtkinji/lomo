@@ -472,6 +472,16 @@ function drawWindLeaf(
 
   context.save();
   context.translate(Math.round(leaf.x), Math.round(leaf.y));
+  if (world.action === "leaf-invite") {
+    const glint = Math.floor(leaf.ageMs / 90) % 4;
+    context.fillStyle = "#fff0a5";
+    context.globalAlpha = 0.58 + glint * 0.1;
+    context.fillRect(-10 - glint, 0, 4 + glint, 1);
+    context.fillRect(7, 0, 4 + glint, 1);
+    context.fillRect(0, -10 - glint, 1, 4 + glint);
+    context.fillRect(0, 7, 1, 4 + glint);
+    context.globalAlpha = 1;
+  }
   if (leaf.phase === "flying" && leaf.flight.id === "wind-drift") {
     const direction = leaf.flight.windX < 0 ? 1 : -1;
     context.fillStyle = palette.cream;
@@ -1272,7 +1282,7 @@ export function PetEngineCanvas({
           playLeaf: createWindLeaf(),
         };
       } else if (!paused) {
-        worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
+        worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion, stageRef.current);
       }
 
       if (previewing && livingDayRef.current.activeEpisode) {

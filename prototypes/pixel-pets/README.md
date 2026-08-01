@@ -35,6 +35,7 @@ The prototype lets a tester:
 - hear sun, breeze, rain, wildlife, and Focus crossfade as parts of one meadow rather than separate sound effects;
 - hear Moss's short nonverbal voice mature from baby through Guardian without becoming a reward fanfare;
 - grab one golden wind leaf from the old tree, move it continuously through world space, and toss it without opening a control panel;
+- let a settled breeze become one causal scene: Moss braces, the tree releases its leaf, and the moving toy remains catchable before Moss commits;
 - watch baby wait for a grounded catch, young commit to a descending leap, and Guardian meet the same toy with an aerial interception;
 - release one stable catch target per throw so Moss always turns before committing and never reverses mid-performance;
 - feel one throw linger in warm air, drift with a sampled gust, or fall quickly when rain makes the leaf heavy;
