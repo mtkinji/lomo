@@ -238,7 +238,7 @@ describe('ExploreMapScreen', () => {
     expect(screen.queryByTestId('explore.fog.core', { includeHiddenElements: true })).toBeNull();
   });
 
-  it('sends recorded movement to Silver Mist as explicit corridor segments', () => {
+  it('sends recorded movement to Silver Mist without granting a broad reveal from Adventure alone', () => {
     act(() => useExploreStore.getState().loadPreviewAdventure());
     const screen = render(<ExploreMapScreen />);
     const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
@@ -246,14 +246,13 @@ describe('ExploreMapScreen', () => {
     expect(map.props.fogCoordinates).toEqual([]);
     expect(map.props.fogSegmentStarts.length).toBeGreaterThan(0);
     expect(map.props.fogSegmentStarts).toHaveLength(map.props.fogSegmentEnds.length);
-    expect(map.props.fogTerrainSegmentStarts.length).toBeGreaterThan(0);
-    expect(map.props.fogTerrainSegmentStarts).toHaveLength(map.props.fogTerrainSegmentEnds.length);
-    expect(map.props.fogTerrainRevealRadiusMeters).toBe(120);
+    expect(map.props.fogPlaceCoordinates).toEqual([]);
+    expect(map.props.fogPlaceRevealRadiusMeters).toBeCloseTo(3 * 65 * 0.3048, 3);
     expect(screen.getAllByTestId('explore.path.casing', { includeHiddenElements: true }).length)
       .toBeLessThan(map.props.fogSegmentStarts.length);
   });
 
-  it('does not grant the broad terrain reveal to ambient sessions', () => {
+  it('does not grant the broad Place reveal to ambient movement alone', () => {
     act(() => {
       const store = useExploreStore.getState();
       store.startSession('2026-07-28T12:00:00.000Z', 'ambient-outing', 'ambient');
@@ -279,8 +278,7 @@ describe('ExploreMapScreen', () => {
     const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
 
     expect(map.props.fogSegmentStarts.length).toBeGreaterThan(0);
-    expect(map.props.fogTerrainSegmentStarts).toEqual([]);
-    expect(map.props.fogTerrainSegmentEnds).toEqual([]);
+    expect(map.props.fogPlaceCoordinates).toEqual([]);
   });
 
   it('places the primary action above a composer-sized bottom utility row', () => {
@@ -333,6 +331,11 @@ describe('ExploreMapScreen', () => {
     expect(Object.values(useExploreStore.getState().places)).toEqual([
       expect.objectContaining({ name: 'Home', source: 'user' }),
     ]);
+    const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
+    expect(map.props.fogPlaceCoordinates).toEqual([
+      expect.objectContaining({ latitude: 40.55, longitude: -105.12 }),
+    ]);
+    expect(map.props.fogPlaceRevealRadiusMeters).toBeCloseTo(3 * 65 * 0.3048, 3);
     expect(screen.queryByText('Name this Place')).toBeNull();
     expect(screen.getAllByTestId('mock.marker', { includeHiddenElements: true })).toHaveLength(1);
 
@@ -503,8 +506,7 @@ describe('ExploreMapScreen', () => {
     expect(useExploreStore.getState().preferences.showFog).toBe(false);
     const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
     expect(map.props.fogEnabled).toBe(false);
-    expect(map.props.fogTerrainSegmentStarts).toEqual([]);
-    expect(map.props.fogTerrainSegmentEnds).toEqual([]);
+    expect(map.props.fogPlaceCoordinates).toEqual([]);
   });
 
   it('keeps the contextual menu open while changing multiple map layers', () => {

@@ -60,16 +60,16 @@ Constraints to preserve:
 
 Constraints we may challenge:
 
-- The current 65-foot clear-core treatment is too literal as the only expression of an intentional outdoor Adventure.
+- The current 65-foot clear-core treatment is too literal as the only expression of a landscape the person chose to remember as a Place.
 - The altitude line may use fewer render primitives and a contrast casing if that is required for dependable visibility.
 
 Design implication:
 
-Use the same bounded, topology-preserving geometry for fog and route presentation. Add a wider, partial terrain reveal only for deliberate Adventures, while leaving the observed route line as the sole precise claim.
+Use the same bounded, topology-preserving geometry for fog and route presentation. Let the explicit act of creating a Place produce a wider, partial familiarity bloom, while leaving the observed route line as the sole precise claim.
 
 ## Aspirational design challenge
 
-How might we help Maya feel that a family Adventure revealed the landscape they experienced, while preserving an unmistakable and trustworthy record of where they actually traveled?
+How might we help Maya recognize a landscape that mattered enough to name, while preserving an unmistakable and trustworthy record of where she actually traveled?
 
 ## Out of scope
 
@@ -80,4 +80,4 @@ How might we help Maya feel that a family Adventure revealed the landscape they 
 
 ## Open question
 
-Does a 120-meter soft reveal around deliberate Adventures feel generous enough without reading as exact traversal?
+Does a three-times-radius soft bloom around a user-created Place feel meaningful without reading as exact traversal?

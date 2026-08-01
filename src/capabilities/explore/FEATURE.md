@@ -23,7 +23,7 @@ Turns explicitly recorded real-world movement into a private, persistent map of 
 ## Surfaces in this folder
 
 - `screens/ExploreMapScreen.tsx` - primary map, recording, fog, trail, and layer surface.
-- Deliberate Adventures retain their session policy, render a bounded high-contrast evidence trace, and derive a wider soft terrain reveal without asserting a park boundary or an unobserved path.
+- Every outing renders a bounded high-contrast evidence trace. Creating a Place adds a soft familiarity bloom at three times the normal reveal radius without asserting a park boundary or an unobserved path.
 - `domain/` - point acceptance, explored-cell geometry, elevation presentation, privacy projections, and Place relationships.
 - `runtime/` - explicit foreground/background session recording, bounded placemark resolution, recap delivery, and local persistence.
 

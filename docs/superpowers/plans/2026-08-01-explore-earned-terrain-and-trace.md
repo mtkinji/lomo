@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Render long Explore routes dependably and give deliberate Adventures a wider, visibly softer terrain reveal without claiming an unobserved path or park boundary.
+**Goal:** Render long Explore routes dependably and give user-created Places a wider, visibly softer familiarity bloom without claiming an unobserved path or park boundary.
 
-**Architecture:** Persist recording intent on each session, derive both fog and route presentation from one bounded topology-preserving geometry, and pass a second Adventure-only segment set to the native Silver Mist shader. The exact corridor reaches zero fog alpha; the wider terrain corridor only suppresses fog alpha, preserving the semantic distinction.
+**Architecture:** Derive fog and route presentation from one bounded topology-preserving geometry, then pass a separate bounded set of user-created Place coordinates to the native Silver Mist shader. The exact corridor reaches zero fog alpha; a three-times-radius Place bloom only suppresses fog alpha, preserving the semantic distinction.
+
+**Decision revision:** Field discussion rejected activity classification as a reliable proxy for landscape meaning. The shipped learning direction uses the existing **Name current Place** action instead. Session policy retention remains useful recording provenance but no longer controls the broad reveal.
 
 **Tech Stack:** TypeScript, Zustand persistence, React Native Maps/MapKit, Objective-C, Metal, Jest, patch-package.
 
@@ -18,8 +20,8 @@
 - `src/capabilities/explore/domain/exploreElevation.ts` — altitude strokes built from bounded traces.
 - `src/capabilities/explore/runtime/useExploreStore.ts` — foreground migration to schema 9.
 - `src/capabilities/explore/runtime/exploreBackgroundTask.ts` — background migration and schema 9 persistence.
-- `src/capabilities/explore/screens/ExploreMapScreen.tsx` — exact path casing, bounded altitude strokes, Adventure geometry, Android fallback, native props.
-- `patches/react-native-maps+1.20.1.patch` — Adventure terrain inputs and partial-reveal Metal contract.
+- `src/capabilities/explore/screens/ExploreMapScreen.tsx` — exact path casing, bounded altitude strokes, user-created Place selection, Android fallback, native props.
+- `patches/react-native-maps+1.20.1.patch` — Place-coordinate inputs and partial-reveal Metal contract.
 - Corresponding `*.test.*` files — red-green coverage for each contract.
 
 ### Task 1: Retain Adventure versus ambient intent
@@ -54,7 +56,7 @@
 - [ ] Build altitude segments only from those bounded traces; keep null-altitude fallback color and the existing continuity contract.
 - [ ] Rerun the focused command; expect all assertions to pass.
 
-### Task 3: Render exact evidence and Adventure terrain as separate layers
+### Task 3: Render exact evidence and Place familiarity as separate layers
 
 **Files:**
 
@@ -63,12 +65,12 @@
 - Modify: `src/capabilities/explore/screens/ExploreMetalFogContract.test.ts`
 - Modify: `patches/react-native-maps+1.20.1.patch`
 
-- [ ] Add failing screen tests requiring a bounded route casing/altitude layer, Adventure-only `fogTerrainSegmentStarts`/`fogTerrainSegmentEnds`, a 120-meter terrain radius, no terrain props from an ambient-only session, and clearing all native arrays when fog is hidden.
-- [ ] Add a failing native contract test requiring terrain coordinate properties, bounded native buffers, a terrain-distance shader input, and partial alpha suppression rather than zero alpha for terrain-only pixels.
+- [x] Add failing screen tests requiring a bounded route casing/altitude layer, user-created Place-only `fogPlaceCoordinates`, a three-times normal radius, no bloom from Adventure or automatic Places, and clearing the native array when fog is hidden.
+- [x] Add a failing native contract test requiring Place coordinate properties, bounded native buffers, a Place-distance shader input, and partial alpha suppression rather than zero alpha for Place-only pixels.
 - [ ] Run `npx jest src/capabilities/explore/screens/ExploreMapScreen.test.tsx src/capabilities/explore/screens/ExploreMetalFogContract.test.ts --runInBand`; expect the new contracts to fail.
-- [ ] Derive `fogGeometry` from all sessions and `terrainGeometry` from only `trackingPolicy === 'adventure'` sessions. Render one high-contrast casing polyline per bounded trace and bounded altitude inner strokes.
-- [ ] Add `EXPLORE_TERRAIN_REVEAL_RADIUS_M = 120`, pass terrain segment props to iOS, and add Adventure trace holes only to the lightest Android veil so the wider area remains visibly softer than the exact core.
-- [ ] Extend the native map patch with terrain props, visible terrain buffers, and a shader function that multiplies fog alpha down inside the terrain corridor while exact explored distance still determines full clearing.
+- [x] Derive `fogGeometry` from all sessions and `createdPlaces` from only the current user's `source: 'user'` Places. Render one high-contrast casing polyline per bounded trace and bounded altitude inner strokes.
+- [x] Add `EXPLORE_PLACE_REVEAL_RADIUS_M = EXPLORE_REVEAL_RADIUS_M * 3`, pass Place coordinates to iOS, and add user-created Place holes only to the lightest Android layer so the wider area remains visibly softer than the exact core.
+- [x] Extend the native map patch with bounded Place props/buffers and a shader function that multiplies fog alpha down inside each Place bloom while exact explored distance still determines full clearing.
 - [ ] Run `npx patch-package --error-on-fail`, then rerun the focused screen/native contract tests; expect all to pass.
 
 ### Task 4: Documentation, verification, and branch handoff
@@ -78,7 +80,7 @@
 - Modify: `docs/feature-briefs/explore-capability.md`
 - Modify: `src/capabilities/explore/FEATURE.md`
 
-- [ ] Link the accepted brief and state the durable contracts: precise route evidence, Adventure-only interpreted terrain, no park-boundary claim, and signed-device proof boundary.
+- [x] Link the accepted brief and state the durable contracts: precise route evidence, user-created Place familiarity, no park-boundary claim, and signed-device proof boundary.
 - [ ] Run `npm run jtbd:lint` and correct any taxonomy or front-matter failures.
 - [ ] Run focused Explore suites, `npm run verify:changed -- --run`, `npx patch-package --error-on-fail`, and `git diff --check`.
 - [ ] If native tooling is available and the checkout owns the runtime lane, build the `react-native-maps` Simulator scheme and inspect the preview Adventure. Otherwise, report the exact runtime owner/blocker and leave signed-device hiking proof explicit.

@@ -62,7 +62,7 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 42,
 };
 
-export const EXPLORE_TERRAIN_REVEAL_RADIUS_M = 120;
+export const EXPLORE_PLACE_REVEAL_RADIUS_M = EXPLORE_REVEAL_RADIUS_M * 3;
 
 function pointGroupsInDisplayOrder(
   sessions: ReturnType<typeof useExploreStore.getState>['sessions'],
@@ -146,33 +146,30 @@ export function ExploreMapScreen() {
       .slice(-700);
   }, [exploredCells, visibleRegion]);
   const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
-  const adventurePointGroups = useMemo(() => {
-    const completed = [...sessions]
-      .reverse()
-      .filter((session) => session.trackingPolicy === 'adventure')
-      .map((session) => session.points);
-    return activeSession?.trackingPolicy === 'adventure'
-      ? [...completed, activeSession.points]
-      : completed;
-  }, [activeSession, sessions]);
-  const visibleAdventurePoints = useMemo(() => {
+  const createdPlaces = useMemo(() => Object.values(placeRelationships)
+    .filter((relationship) => relationship.userId === localUserId)
+    .sort((left, right) => Date.parse(left.lastVisitedAt) - Date.parse(right.lastVisitedAt))
+    .map((relationship) => places[relationship.placeId])
+    .filter((place): place is Place => place?.source === 'user')
+    .slice(-256), [localUserId, placeRelationships, places]);
+  const visibleCreatedPlaces = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
-    return adventurePointGroups.flat().filter((point) =>
-      Math.abs(point.latitude - visibleRegion.latitude) <= latitudeRadius &&
-      Math.abs(point.longitude - visibleRegion.longitude) <= longitudeRadius,
+    return createdPlaces.filter((place) =>
+      Math.abs(place.latitude - visibleRegion.latitude) <= latitudeRadius &&
+      Math.abs(place.longitude - visibleRegion.longitude) <= longitudeRadius,
     );
-  }, [adventurePointGroups, visibleRegion]);
+  }, [createdPlaces, visibleRegion]);
   const fogHoles = useMemo(() => {
     return {
       core: [
         ...visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
-        ...visibleAdventurePoints.map((point) => buildFogHole(point, EXPLORE_TERRAIN_REVEAL_RADIUS_M)),
+        ...visibleCreatedPlaces.map((place) => buildFogHole(place, EXPLORE_PLACE_REVEAL_RADIUS_M)),
       ],
       mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 30)),
       veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
     };
-  }, [visibleAdventurePoints, visibleCells]);
+  }, [visibleCells, visibleCreatedPlaces]);
   const fogGeometry = useMemo(
     () => buildFogRenderGeometry([...pointGroups].reverse()),
     [pointGroups],
@@ -181,21 +178,16 @@ export function ExploreMapScreen() {
     () => fogGeometry.traces.flatMap((trace) => buildAltitudeSegments(trace)),
     [fogGeometry],
   );
-  const terrainGeometry = useMemo(
-    () => buildFogRenderGeometry([...adventurePointGroups].reverse()),
-    [adventurePointGroups],
-  );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
       fogEnabled: preferences.showFog,
       fogCoordinates: preferences.showFog ? fogGeometry.points : [],
       fogSegmentStarts: preferences.showFog ? fogGeometry.segmentStarts : [],
       fogSegmentEnds: preferences.showFog ? fogGeometry.segmentEnds : [],
-      fogTerrainSegmentStarts: preferences.showFog ? terrainGeometry.segmentStarts : [],
-      fogTerrainSegmentEnds: preferences.showFog ? terrainGeometry.segmentEnds : [],
+      fogPlaceCoordinates: preferences.showFog ? createdPlaces : [],
       fogClearRadiusMeters: EXPLORE_REVEAL_RADIUS_M,
       fogFeatherReferenceRadiusMeters: EXPLORE_FEATHER_REFERENCE_RADIUS_M,
-      fogTerrainRevealRadiusMeters: EXPLORE_TERRAIN_REVEAL_RADIUS_M,
-    } as unknown as ComponentProps<typeof MapView>) : {}, [fogGeometry, preferences.showFog, terrainGeometry]);
+      fogPlaceRevealRadiusMeters: EXPLORE_PLACE_REVEAL_RADIUS_M,
+    } as unknown as ComponentProps<typeof MapView>) : {}, [createdPlaces, fogGeometry, preferences.showFog]);
   const exploredCellValues = useMemo(() => Object.values(exploredCells), [exploredCells]);
   const savedPlaces = useMemo(() => {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));

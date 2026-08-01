@@ -2,7 +2,7 @@
 
 ## Concept To Build
 
-Deliberate Adventures reveal a soft, broad terrain corridor around a dependable exact route line, while automatic movement keeps the narrow evidence-based reveal.
+Creating a Place produces a soft familiarity bloom at three times the normal reveal radius, while the dependable exact route remains narrowly and fully clear.
 
 ## Capability Delta
 
@@ -14,7 +14,7 @@ Today, the user cannot:
 After this release, the user can:
 
 - see bounded, contrast-backed route traces throughout a long outing;
-- see a distinct 120-meter terrain reveal around deliberate Adventures.
+- see a distinct soft bloom immediately after creating a Place.
 
 Still intentionally not supported:
 
@@ -22,11 +22,11 @@ Still intentionally not supported:
 
 ## User Experience
 
-The user encounters the behavior on the existing Explore map. Starting an Adventure requires no new choice. As observations arrive, the exact path remains crisp and the wider area becomes lighter without becoming fully clear. Long gaps remain fogged and unconnected.
+The user encounters the behavior on the existing Explore map. As observations arrive, the exact path remains crisp. When the user saves **Name current Place**, the fog becomes lighter in a larger area around that point without becoming fully clear. Long gaps remain fogged and unconnected.
 
 ## Existing Product Relationship
 
-This enhances Silver Mist and My Path. It leaves recording choices, Places, recaps, settings, privacy, and family controls unchanged.
+This enhances Silver Mist, My Path, and the existing Place-creation action. It leaves recording choices, recaps, settings, privacy, and family controls unchanged.
 
 ## Buildable Slice
 
@@ -35,13 +35,13 @@ Must be real:
 - session-level retention of `ambient` versus `adventure` intent;
 - bounded topology-preserving path geometry;
 - a reliable contrast casing plus bounded altitude stroke;
-- native iOS soft-terrain shader inputs and rendering;
+- bounded user-created Place selection and native iOS soft-bloom shader inputs;
 - Android fallback that preserves the same semantic distinction as closely as its polygon renderer allows;
-- migration that does not relabel unknown historic ambient sessions as Adventures.
+- automatic map discoveries excluded from the bloom.
 
 Can be thin or temporary:
 
-- fixed 120-meter terrain radius;
+- a fixed radius equal to three times the normal 65-foot reveal radius;
 - visual learning through direct inspection rather than analytics.
 
 Intentionally excluded:
@@ -50,18 +50,18 @@ Intentionally excluded:
 
 ## Release Channel
 
-Local build. Andrew can inspect it on the active hiking history or a preview Adventure before any TestFlight claim.
+Local build. Andrew can name a Place on an existing route and inspect the immediate bloom before any TestFlight claim.
 
 ## Brand-Goodwill Guardrails
 
 - Exact route and interpreted terrain remain visually and structurally distinct.
 - No park name or boundary claim is made.
 - No new sensitive location data leaves the device.
-- Historic sessions with unknown policy do not gain a wider reveal.
+- Adventures and automatically discovered Places do not gain a wider reveal by themselves.
 
 ## Reversibility
 
-The wide reveal is derived from canonical points and session policy. Removing the additional renderer inputs restores the prior map without deleting or migrating location evidence.
+The wide reveal is derived from existing user-created Places. Removing the additional renderer input restores the prior map without deleting or migrating location or Place data.
 
 ## Permanent Product Threshold
 

@@ -2,6 +2,18 @@
 
 Axis of variation: how broadly terrain is earned — semantic boundary, recording intent, or movement-derived corridor.
 
+## Alternative E: Place-earned familiarity
+
+Creating a Place is an explicit statement that the person did more than pass through: this area is worth remembering. Keep the exact route narrow and fully clear, then thin Silver Mist in a larger bloom around only user-created Places. Automatically discovered map Places do not earn the bloom.
+
+- Persona fit: strong; meaning comes from a calm existing action rather than classification or setup.
+- Design challenge: recognizes experienced landscape without guessing whether an outing was a hike.
+- System fit: extends the existing Place relationship and native fog layers with one bounded coordinate set.
+- Best when: the person names a campsite, overlook, trail destination, neighborhood spot, or other meaningful location.
+- Fails when: the person never creates Places; their normal route still remains truthfully and narrowly revealed.
+- Four-object/capture stance: an Explore projection activated by an existing Place action.
+- Anti-pattern check: pass if it remains a visual acknowledgment rather than points, acreage, or collection pressure.
+
 ## Alternative A: Park-boundary reveal
 
 Resolve the current location to a protected-area polygon and reveal that whole polygon after sufficient observed presence. This most directly matches the mental model of "I explored this park," but Kwilt has no trustworthy boundary provider today and a false match would overclaim dramatically.

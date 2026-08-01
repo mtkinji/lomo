@@ -15,17 +15,17 @@ describe('Explore Metal fog integration contract', () => {
     expect(shaderPatch).not.toContain('distance(points[i],points[i+1])<=maxJoinDistance');
   });
 
-  it('keeps Adventure terrain as a bounded partial reveal separate from the exact route', () => {
+  it('keeps user-created Place familiarity as a bounded partial reveal separate from the exact route', () => {
     const shaderPatch = fs.readFileSync(
       path.resolve(process.cwd(), 'patches/react-native-maps+1.20.1.patch'),
       'utf8',
     );
 
-    expect(shaderPatch).toContain('fogTerrainSegmentStarts');
-    expect(shaderPatch).toContain('fogTerrainSegmentEnds');
-    expect(shaderPatch).toContain('terrainRevealRadius');
-    expect(shaderPatch).toContain('distanceToTerrain');
-    expect(shaderPatch).toContain('terrainAlphaMultiplier');
-    expect(shaderPatch).toContain('AIRMapFogMaximumTerrainSegmentCount 256');
+    expect(shaderPatch).toContain('fogPlaceCoordinates');
+    expect(shaderPatch).toContain('placeRevealRadius');
+    expect(shaderPatch).toContain('distanceToPlace');
+    expect(shaderPatch).toContain('placeAlphaMultiplier');
+    expect(shaderPatch).toContain('AIRMapFogMaximumPlaceCount 256');
+    expect(shaderPatch).not.toContain('fogTerrainSegmentStarts');
   });
 });
