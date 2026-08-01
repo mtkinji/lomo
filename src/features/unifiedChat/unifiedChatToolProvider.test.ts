@@ -113,7 +113,7 @@ describe('createUnifiedChatToolProvider', () => {
             state: 'supported', livingPercent: 70, incomeBasisCents: 500000,
             livingLimitCents: 350000, plannedCents: 350000, flexibleRoomCents: 34296,
             confidence: 'supported', freshness: 'fresh', observedAt: '2026-07-23T17:00:00.000Z',
-            answer: '$343 left for flexible spending · Within your 70% living limit of $3,500.',
+            answer: '$342.96 left for flexible spending this month · $1,157.04 of $1,500 used',
             returnTarget: { name: 'Money', params: { screen: 'MoneySummary' } },
           },
         },
@@ -154,9 +154,10 @@ describe('createUnifiedChatToolProvider', () => {
       { id: 'money-read-unavailable', toolId: 'money.read', arguments: {} }, tool('money.read'),
     );
     const serialized = JSON.stringify(result);
-    expect(serialized).toContain('Kwilt needs your monthly income');
+    expect(serialized).toContain('Finish your monthly plan');
+    expect(serialized).toContain('Add your monthly income so Kwilt can calculate flexible money');
     expect(serialized).not.toContain('$0');
-    expect(serialized).not.toContain('0%');
+    expect(serialized).not.toContain('"livingPercent":0');
   });
 
   it('delegates relationship reads and writes to the shared authenticated provider', async () => {

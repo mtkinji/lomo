@@ -551,7 +551,7 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
 async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
   const withCover = await db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags')
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
   if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];

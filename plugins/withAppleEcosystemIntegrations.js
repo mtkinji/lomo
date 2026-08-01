@@ -1715,21 +1715,33 @@ struct GlanceableStateV1: Codable {
     let updatedAtMs: Double
   }
 
-  struct MoneyCategory: Codable {
-    let id: String
-    let name: String
-    let percentUsed: Int
-    let periodElapsedPercent: Int
-    let paceSentiment: String
-    let status: String
-    let deepLink: String
-  }
-
   struct Money: Codable {
+    struct FlexibleMoney: Codable {
+      let state: String
+      let amountCents: Double?
+      let flexibleCapacityCents: Double?
+      let countedFlexibleSpendCents: Double?
+      let deepLink: String
+    }
+
+    struct Category: Codable {
+      let id: String
+      let name: String
+      let percentUsed: Int
+      let periodElapsedPercent: Int
+      let paceSentiment: String
+      let status: String
+      let plannedCents: Double?
+      let spentCents: Double?
+      let remainingCents: Double?
+      let deepLink: String
+    }
+
     let periodLabel: String
     let percentUsed: Int
     let needsReviewCount: Int
-    let categories: [MoneyCategory]
+    let flexibleMoney: FlexibleMoney?
+    let categories: [Category]
   }
 
   let version: Int
@@ -2496,7 +2508,8 @@ struct ${targetName}Bundle: WidgetBundle {
       KwiltActivitiesWidget()
       KwiltLockScreenWidget()
       KwiltStreakWidget()
-      KwiltMoneyWidget()
+      KwiltFlexibleMoneyWidget()
+      KwiltMoneyCategoryWidget()
     }
     if #available(iOS 16.2, *) {
       KwiltFocusLiveActivity()

@@ -21,7 +21,6 @@ import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { MoneyWeeklyCheckRow } from '../components/MoneyWeeklyCheckRow';
-import { useFeatureFlag } from '../../../services/analytics/useFeatureFlag';
 
 export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyLivingPlan'>) {
   const [state, setState] = useState<LivingPlanSettingsSnapshot | null>(null);
@@ -31,7 +30,6 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
   const [planningBasisDraft, setPlanningBasisDraft] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const client = getSupabaseClient();
-  const livingLimitEnabled = useFeatureFlag('money-living-limit-answer', __DEV__);
 
   const load = useCallback(async () => {
     try {
@@ -115,7 +113,7 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
         <SettingsRow title="Current plan" value={state?.active ? `${state.active.livingPercent}% target` : loading ? 'Loading…' : 'Not ready'} />
       </SettingsGroup>
 
-      {livingLimitEnabled && userId ? <MoneyWeeklyCheckRow userId={userId} /> : null}
+      {userId ? <MoneyWeeklyCheckRow userId={userId} /> : null}
 
       {status ? <SettingsGroup footer={status}><SettingsRow title="Latest result" /></SettingsGroup> : null}
 

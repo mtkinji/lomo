@@ -1,7 +1,7 @@
 ---
 id: brief-money-living-limit-answer
 title: Money Living-Limit Answer
-status: draft
+status: accepted
 audiences: [audience-aspirational-family-organizers]
 personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
@@ -20,9 +20,8 @@ last_updated: 2026-07-31
 Kwilt Money already stores a chosen living percentage, builds a versioned plan,
 shows category spending, previews category amount changes, and preserves fixed
 amounts and customer overrides. The customer still has to reconstruct the most
-important whole-plan answer. The ordinary Summary surface does not show the
-chosen percentage or its dollar limit, and the category editor does not make it
-immediately clear whether a proposed change remains within that intention.
+important whole-plan answer instead of receiving the flexible money left after
+protected costs.
 
 This brief turns the existing living-plan truth into one reductive native answer
 that remains consistent from current-month orientation through preview, Save,
@@ -95,9 +94,10 @@ into the category-change moment without requiring manual arithmetic.
 
 ### One-sentence concept
 
-Budget shows one current-month living-limit answer built from every relevant
-transaction, while broad categories organize the evidence without requiring
-perfect mixed-purchase classification.
+Kwilt teaches the three-part monthly plan once, then Budget shows one exact
+current-month flexible-money answer built from every relevant transaction.
+Broad categories remain supporting guidance, and every plan-change entry uses
+one governed whole-plan review contract.
 
 ### Product relationship
 
@@ -119,35 +119,38 @@ The underlying projection is comprehensive. The resting surface is not.
 ```yaml
 Job: When I open Budget or change one category amount, tell me whether I still
   have room inside the living limit I chose.
-Primary action: None on Budget; Save only when already editing a category.
-Must show: One answer, the percentage and dollar limit, and one material
-  consequence or qualification.
-Reveal later: Income basis, protected composition, flexible math, affected
-  categories, freshness, confidence, and receipts.
+Primary action: None on Budget. See monthly plan reveals one Change plan action;
+  Save appears only inside a governed plan-change review.
+Must show: Exact flexible money left this month and flexible spending used
+  versus total flexible capacity.
+Reveal later: Monthly living money, income basis, living target, protected
+  costs, flexible calculation, affected categories, freshness, and receipts.
 Must not add: Cards, banners, charts, new meters, legends, status icons,
   fixed/flexible badges, health scores, tutorials, permanent helper copy,
   duplicate settings, or a new destination.
 Reuse map: Money typography, month header, category grid, existing drawer,
-  category editor, Save flow, preview service, and receipt route.
+  category editor, shared plan-change review contract, Save flow, preview
+  service, and receipt route.
 ```
 
-At rest, the new Budget content has a maximum of three elements:
+At rest, the new Budget content has three elements:
 
-> **$343 left for flexible spending**
+> **$343 left for flexible spending this month**
 >
-> Within your 70% living limit of $3,360.
+> $617 of $960 used
 >
-> `How this works`
+> `See monthly plan`
 
 The answer has no wrapper card, icon, border, meter, legend, or decorative
 state. Existing type and spacing establish hierarchy. The category grid begins
 immediately afterward.
 
-`How this works` uses an existing disclosure surface. It contains the supported
-planning-income amount and source, freshness, living-limit calculation,
-protected-plan composition, flexible capacity, counted spending, unassigned or
-over-limit facts, and the reason for any qualification. It never describes plan
-room as account balance, cash available, or guaranteed affordability.
+`See monthly plan` uses an existing disclosure surface. It first shows monthly
+living money minus protected costs equals flexible money, followed by flexible
+spending and the exact amount left. Planning-income source, target percentage,
+freshness, and protected-cost composition are available as supporting evidence.
+The disclosure includes one `Change plan` action and never describes plan room
+as account balance, cash available, or guaranteed affordability.
 
 ### Current-month answer states
 
@@ -155,33 +158,19 @@ The pure projection must support:
 
 | State | Primary answer direction |
 | --- | --- |
-| `supported` | `$343 left for flexible spending` |
-| `estimated` | `About $340 left for flexible spending` |
+| `supported` | `$343 left for flexible spending this month` |
 | `no_flexible_room` | `Your protected plan uses the full 70% living limit` |
 | `over_limit` | `Your plan is $84 over its 70% living limit` |
 | `over_flexible_room` | `Flexible spending is $84 beyond the room in your living limit` |
-| `unassigned` | `$120 of your living limit is not assigned yet` |
-| `stale` | Keep the last trustworthy answer and state its date. |
-| `needs_one_answer` | State what Kwilt needs reviewed before it can give the answer. |
-| `insufficient_meaning` | State the narrower supported fact and one direct next step. |
-| `missing_income_basis` | Say Kwilt cannot calculate the dollar limit yet and offer the existing recovery action. |
+| `stale` | Keep the last exact supported answer; disclose its age inside the monthly plan. |
+| `invalid_reconciliation` | Do not publish a number; preserve the prior supported answer and record the defect. |
+| `missing_income_basis` | Show one `Finish your monthly plan` action card only when the foundation is genuinely absent. |
 
-Missing evidence never becomes `$0`. Stale evidence never replaces the last
-trustworthy answer. `supported` may state an exact amount. `estimated` must use
-`About` and remain inside deterministic bounds. No other state may claim a
-precise remaining amount.
-
-When uncertainty could change the conclusion, the same answer position becomes
-the temporary review entry rather than adding a banner or permanent warning:
-
-> **Kwilt needs one answer**
->
-> Two purchases could change what is left inside your 70% living limit.
->
-> `Review purchases`
-
-The review asks only the smallest economic-role question needed to restore a
-useful answer, then returns the customer to the same Budget position.
+Missing evidence never becomes `$0`. Stale evidence never becomes `About`; it
+retains the last supported amount with a dated basis. Ordinary transaction or
+category ambiguity never becomes a blocking answer state. The deterministic
+policy counts an unresolved ordinary outflow conservatively as flexible
+spending until stronger meaning is available.
 
 ### Domain projection
 
@@ -219,20 +208,17 @@ type MoneyPlanLimitFacts = {
 type MoneyPlanLimitAnswer = {
   state:
     | 'supported'
-    | 'estimated'
     | 'no_flexible_room'
     | 'over_limit'
     | 'over_flexible_room'
-    | 'unassigned'
     | 'stale'
-    | 'needs_one_answer'
-    | 'insufficient_meaning'
+    | 'invalid_reconciliation'
     | 'missing_income_basis';
   facts: MoneyPlanLimitFacts;
   headlineAmountCents: number | null;
   limitLine: { livingPercent: number; livingLimitCents: number } | null;
   qualification: string | null;
-  recoveryAction: 'refresh' | 'review_income' | 'review_meaning' | null;
+  recoveryAction: 'refresh' | 'review_income' | null;
 };
 ```
 
@@ -319,39 +305,25 @@ correction, exclusion, or merchant rule, and cannot silently create categories
 or durable merchant rules. Prompt and response contracts are versioned and
 tested. Customer corrections outrank every later inference.
 
-### Comprehensive uncertainty policy
+### Conservative uncertainty policy
 
-The projection retains a lower and upper flexible-room bound:
+The primary whole-plan answer is deterministic even when local category meaning
+is imperfect:
 
-- the low end treats economically unresolved in-scope spending as flexible;
-- the high end includes only spending supported as flexible;
-- both bounds include every canonical row exactly once in the reconciliation.
+1. Supported protected spending consumes its protected allocation.
+2. Supported flexible spending consumes flexible capacity.
+3. An ordinary unresolved outflow is conservatively counted as flexible
+   spending until corrected.
+4. Supported transfers, refunds, duplicates, credits, pending replacements, and
+   outside-plan activity retain their canonical non-flexible treatment.
+5. A later correction may move spending between economic roles and therefore
+   update the answer, but Kwilt does not withhold the best deterministic answer
+   while waiting for optional bookkeeping.
 
-Presentation depends on whether uncertainty changes the useful conclusion:
-
-1. **Exact:** both bounds are equal. Show `$343 left for flexible spending`.
-2. **Stable estimate:** the bounds differ, but every plausible result remains
-   within the same meaningful plan state. Show `About $340 left for flexible
-   spending`; keep the uncertainty inside `How this works`.
-3. **Materially branching:** the uncertainty could cross zero, the living
-   limit, a customer-set boundary, or the decision currently being considered.
-   Ask one focused economic-role question about the smallest set of transactions
-   that can resolve the branch.
-4. **Not answerable:** the unresolved range remains too broad after one focused
-   question. State the supported living-limit fact and give one direct next
-   step; do not show a fake precise amount.
-
-Materiality must be a deterministic, versioned policy. Model confidence alone
-cannot decide whether the user is interrupted.
-
-The focused question is about meaning, not taxonomy. Prefer:
-
-> **How should this Costco purchase count?**
->
-> `Flexible spending` · `A protected bill or reserve` · `Outside the plan`
-
-Do not ask the customer to estimate grocery percentages unless they deliberately
-choose to split the transaction and that precision changes a decision.
+The projection may retain unresolved totals for inspection and debugging, but
+the UI does not show `About`, `Kwilt needs one answer`, or a transaction cleanup
+request for ordinary ambiguity. Only a genuinely missing planning foundation or
+an invalid reconciliation can prevent publication of the current answer.
 
 ### Rebalance preview
 
@@ -399,6 +371,19 @@ the Save and offer a fresh preview. A successful Save updates the active plan,
 creates the authoritative receipt, closes the editor, and causes Budget to
 render the matching committed answer.
 
+### Shared plan-change review
+
+`Change plan` is one reusable Money contract entered from the monthly-plan
+disclosure, category detail, or a later contextual proposal. The entry supplies
+the authoritative version, originating route, focused object, and optional
+change. The shared review supplies the whole-plan calculation, affected
+categories, protected facts, this-month-versus-ongoing scope, version-checked
+Save, receipt, reversal, and exact return.
+
+The shared behavior does not require one oversized visual component. A living
+percentage, protected amount, and category allocation may use different focused
+inputs while reusing the same preview and consequence renderer.
+
 ### Setup alignment
 
 Do not redesign Plaid or create another onboarding system. Align only the
@@ -406,10 +391,11 @@ handoffs necessary to make the product promise coherent:
 
 - explain that the chosen percentage is the share of planning income intended
   for ordinary living;
-- once evidence exists, show the percentage's dollar value;
+- once evidence exists, teach monthly living money minus protected costs equals
+  flexible money in one compact review;
 - remove a redundant abstract build decision when Kwilt is simply performing
   the requested calculation;
-- finish with the same supported answer used by Budget.
+- finish with `Use this plan`, then the same supported answer used by Budget.
 
 Budget and rebalance form the first implementation slice. Setup alignment may
 follow immediately in the same TestFlight learning release, but it must not
@@ -434,15 +420,14 @@ transaction detail, receipt prose, or inferred financial confidence.
 
 ### Release and reversibility
 
-Release through TestFlight after automated gates and Simulator proof from the
-owning checkout. Keep the answer renderer additive and feature-gated during the
-learning period. Preserve `MoneySummary`, existing plan rows, category identity,
-and compatibility reads. Keep the current total presentation available as a
-temporary fallback; do not create notification permissions, background work,
-connector scope, or migrations unrelated to projection truth.
+Release first in the owning local Simulator build, visible by default without a
+feature flag. Preserve `MoneySummary`, existing plan rows, category identity,
+and compatibility reads. After Andrew accepts the interaction and the focused
+truth tests pass, run comprehensive verification and package the same experience
+for an Andrew-only TestFlight build.
 
-Withdrawal hides the new answer and restores customer-facing `Summary` copy
-without deleting plans, transactions, receipts, or evidence.
+Withdrawal restores the prior Budget hierarchy without deleting plans,
+transactions, receipts, or evidence.
 
 ## Acceptance Criteria
 
@@ -469,9 +454,8 @@ without deleting plans, transactions, receipts, or evidence.
   once in the whole-plan answer without requiring a split.
 - Category assignment cannot change the top-line answer when economic role is
   unchanged.
-- Unresolved spending produces explicit lower and upper flexible-room bounds.
-  Exact, estimated, branching-question, and not-answerable states follow one
-  deterministic materiality policy.
+- Ordinary unresolved outflows are included once in counted flexible spending
+  under the conservative policy and do not create a blocking answer state.
 - AI classification is restricted to allowed economic roles and existing
   category ids, preserves governed precedence, exposes bounded confidence and
   evidence, and never creates a durable rule without confirmation.
@@ -484,24 +468,24 @@ without deleting plans, transactions, receipts, or evidence.
 
 - Customer-facing `Summary` becomes `Budget`; internal route names do not
   change.
-- The current month renders no more than one answer line, one limit or
-  qualification line, and one disclosure action above the existing grid.
+- The current month renders one answer line, one used-versus-capacity line, and
+  one disclosure action above the existing grid.
 - The new answer has no wrapper card, icon, illustration, chart, meter, legend,
   badge, border, status color dependency, persistent CTA, or tutorial.
-- `70%` and its dollar limit are visible without opening Settings.
-- Planning-income basis, protected composition, freshness, and calculation are
-  reachable in one disclosure.
+- The planning-income basis, living percentage and dollar amount, protected
+  composition, freshness, and calculation are reachable in one disclosure.
 - The answer never implies account balance, cash-flow coverage, financial
   advice, or guaranteed affordability.
-- An estimated answer uses `About`; a materially branching answer asks one
-  economic-role question rather than exposing a confidence score or demanding
-  category cleanup.
+- Ordinary category or merchant ambiguity never produces `About`, `Kwilt needs
+  one answer`, or a transaction-cleanup request above the category grid.
 - Past and future months do not reuse current-plan facts as historical truth.
 - Large text preserves the amount, limit, qualification, disclosure, and
   category-grid reading order.
 
 ### Rebalance experience
 
+- `Change plan` from the monthly plan and from category detail uses the same
+  whole-plan preview, version, Save, receipt, and return contract.
 - Editing a category amount produces a non-mutating preview before Save.
 - The visible consequence uses no more than a headline, short explanation,
   optional disclosure, and existing Save action.
@@ -522,19 +506,19 @@ without deleting plans, transactions, receipts, or evidence.
 - If the headline needs explanatory helper copy, revise the headline, hierarchy,
   disclosure, or claim before adding another component.
 - Fixture truth passes before moderated comprehension begins.
-- In a cohort of at least six, at least five correctly explain the answer and
-  rebalance consequence without coaching; all low-app-fluency participants find
-  the limit and complete the rebalance; all distinguish plan room from account
-  balance and preview from committed state.
-- Ordinary TestFlight use covers at least one real category change and two
-  Budget visits over seven to fourteen days.
+- Andrew first accepts the connected-data Simulator result. Then at least three
+  uncoached participants, including one with low app confidence, correctly
+  explain the answer and plan-change consequence; all distinguish plan room
+  from account balance and preview from committed state.
+- Small TestFlight use covers at least one real category change and an ordinary
+  return to Budget.
 - No additional persistent UI is required to meet the comprehension threshold.
 
 ### Verification
 
-- Pure projection and answer-state tests cover every required state and mixed
-  boundary, including Costco/Walmart-style mixed merchants that do and do not
-  change economic role.
+- Pure projection and answer-state tests cover every required state and the
+  conservative unresolved-outflow policy, including Costco/Walmart-style mixed
+  merchants.
 - Classification tests cover precedence from canonical relationships through
   customer corrections, provider mapping, bounded AI inference, and unresolved
   fallback.
@@ -544,8 +528,8 @@ without deleting plans, transactions, receipts, or evidence.
 - Rebalance tests cover unassigned, reallocation, over-limit, no-op, blocked,
   stale, commit, receipt, and return consistency.
 - `npm run verify:changed -- --run` passes.
-- The owning Simulator runtime proves normal, loading, qualified, stale, error,
-  preview, Save, return, and large-text states.
+- The owning Simulator runtime proves normal, loading, stale, true missing
+  foundation, preview, Save, return, and large-text states.
 - Signed TestFlight proof remains distinct from Simulator proof and is required
   for the learning decision, not for claiming source completion.
 
@@ -575,8 +559,8 @@ raise the delivery scores.
   back to Budget.
 - Whole-plan economic role is authoritative for the living-limit answer;
   category assignment is a separate organizational layer.
-- Every canonical transaction is reconciled once. Uncertainty changes the
-  answer state; it never makes evidence disappear.
+- Every canonical transaction is reconciled once. Ordinary unresolved outflows
+  are counted conservatively as flexible spending and do not block the answer.
 - Broad, versioned default categories are the normal destination. Merchant
   names do not become categories by default.
 - Costco/Walmart-style ambiguity does not trigger a question when every
@@ -584,14 +568,15 @@ raise the delivery scores.
 - Bounded AI follows canonical relationships, customer corrections, merchant
   rules, and supported provider evidence. It cannot invent categories or
   override governed truth.
-- Ask at most one focused question only when uncertainty could materially change
-  the plan conclusion or current decision.
 - `Budget` is customer-facing copy; `MoneySummary` remains the internal route.
 - The resting UI has at most three elements and no decorative container.
-- `$343 left for flexible spending` is the initial supported headline. It is
-  longer than `$343 left` because clarity outranks raw brevity.
-- The chosen percentage and dollar limit remain visible; calculation detail is
-  progressively disclosed.
+- `$343 left for flexible spending this month` is the supported headline.
+- `$617 of $960 used` is the only supporting line at rest. The chosen percentage,
+  dollar limit, protected costs, and income basis are progressively disclosed
+  through `See monthly plan`.
+- `See monthly plan` contains one `Change plan` action.
+- `Change plan` from monthly plan and category detail shares one governed
+  whole-plan review contract while allowing context-specific focused inputs.
 - Current active-plan facts and `previewLivingPlanOverride` remain the truth and
   scenario boundaries.
 - Save uses optimistic version consistency and the existing receipt path.
@@ -649,16 +634,17 @@ Implement the smallest Money-owned economic-role reconciliation that can:
 - account for every canonical transaction exactly once;
 - preserve existing governed assignment precedence;
 - distinguish economic role from broad category;
-- produce lower and upper flexible-room bounds for unresolved roles;
+- count ordinary unresolved outflows conservatively as flexible spending;
 - use bounded AI only after deterministic, customer, rule, and supported
   provider evidence;
-- ask one focused question only when the unresolved range materially changes
-  the conclusion.
+- reserve blocking publication for a genuinely missing planning foundation or
+  invalid reconciliation.
 
-This removes perfect category attribution as the blocker. The remaining build
-question is how much existing transaction meaning, split, scheduled-plan, and
-allocation provenance can be reused before an additive economic-role field or
-receipt is required. Fixture evidence must answer that before schema work.
+This removes perfect category attribution as the blocker. The first local slice
+uses existing transaction meaning, split, scheduled-plan, and allocation
+provenance without schema work. Fixture and connected-data reconciliation must
+prove that this is sufficient before any additive economic-role field is
+considered.
 
 ### Intentionally deferred decisions
 
@@ -675,11 +661,9 @@ receipt is required. Fixture evidence must answer that before schema work.
 
 ## Open Questions
 
-- What deterministic dollar width or decision-boundary rule separates a stable
-  `About` estimate from a materially branching question?
 - Should the first category-policy version retain the current eleven governed
   categories or test the proposed nine broader customer-facing groups while
   preserving existing category ids and corrections?
-- Does the existing settings drawer remain calm with `See changes` expanded at
-  large text sizes, or does that evidence require an existing nested detail
+- Does the composed shared review remain calm with affected categories expanded
+  at large text sizes, or does that evidence require an existing nested detail
   pattern?

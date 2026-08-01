@@ -25,34 +25,35 @@ function answer(state: Answer['state'], overrides: Partial<Answer> = {}): Answer
 describe('MoneyPlanLimitAnswer', () => {
   it('renders the exact answer with only its limit and disclosure control', () => {
     const onExplain = jest.fn();
-    const screen = render(<MoneyPlanLimitAnswer answer={answer('supported')} onExplain={onExplain} onReview={jest.fn()} />);
+    const screen = render(<MoneyPlanLimitAnswer answer={answer('supported')} freshness="Updated just now" onExplain={onExplain} onReviewIncome={jest.fn()} />);
 
-    expect(screen.getByText('$343 left for flexible spending')).toBeTruthy();
-    expect(screen.getByText('Within your 70% living limit of $3,360.')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'How this works' }));
+    expect(screen.getByText('$342.96 left for flexible spending this month')).toBeTruthy();
+    expect(screen.getByText('$1,017.04 of $1,360 used')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'See monthly plan' }));
     expect(onExplain).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('money-limit-card')).toBeNull();
     expect(screen.queryByText(/confidence/i)).toBeNull();
   });
 
-  it('rounds a qualified estimate and labels it About', () => {
-    const screen = render(<MoneyPlanLimitAnswer answer={answer('estimated', { headlineAmountCents: 32296 })} onExplain={jest.fn()} onReview={jest.fn()} />);
-    expect(screen.getByText('About $320 left for flexible spending')).toBeTruthy();
-  });
-
-  it('turns materially branching uncertainty into one review entry', () => {
-    const onReview = jest.fn();
-    const screen = render(<MoneyPlanLimitAnswer answer={answer('needs_one_answer', { headlineAmountCents: null, reviewTransactionIds: ['one', 'two'] })} onExplain={jest.fn()} onReview={onReview} />);
-
-    expect(screen.getByText('Kwilt needs one answer')).toBeTruthy();
-    expect(screen.getByText('Two purchases could change what is left inside your 70% living limit.')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Review purchases' }));
-    expect(onReview).toHaveBeenCalledTimes(1);
-  });
-
-  it('never turns missing income evidence into a zero-dollar answer', () => {
-    const screen = render(<MoneyPlanLimitAnswer answer={answer('missing_income_basis', { headlineAmountCents: null, limitLine: null })} onExplain={jest.fn()} onReview={jest.fn()} />);
-    expect(screen.getByText('Kwilt needs your monthly income')).toBeTruthy();
+  it('turns genuinely missing income into one compact recovery card', () => {
+    const onReviewIncome = jest.fn();
+    const screen = render(<MoneyPlanLimitAnswer answer={answer('missing_income_basis', { headlineAmountCents: null, limitLine: null })} freshness="Updated just now" onExplain={jest.fn()} onReviewIncome={onReviewIncome} />);
+    expect(screen.getByTestId('money-limit-recovery-card')).toBeTruthy();
+    expect(screen.getByText('Finish your monthly plan')).toBeTruthy();
+    expect(screen.getByText('Add your monthly income so Kwilt can calculate flexible money.')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Finish plan' }));
+    expect(onReviewIncome).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('How this works')).toBeNull();
     expect(screen.queryByText(/\$0/)).toBeNull();
+  });
+
+  it('keeps stale maintenance out of the user flow', () => {
+    const screen = render(<MoneyPlanLimitAnswer answer={answer('stale')} freshness="Updated 4 days ago" onExplain={jest.fn()} onReviewIncome={jest.fn()} />);
+    expect(screen.queryByTestId('money-limit-recovery-card')).toBeNull();
+    expect(screen.getByText('$342.96 left for flexible spending this month')).toBeTruthy();
+    expect(screen.getByText('$1,017.04 of $1,360 used')).toBeTruthy();
+    expect(screen.queryByText(/transactions need/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open connected accounts' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'See monthly plan' })).toBeTruthy();
   });
 });

@@ -32,12 +32,11 @@ export async function getMoneyPlanLimitEvidence(
       .from('budget_planning_income_sources')
       .select('confidence,planning_role,expected_monthly_cents,updated_at')
       .eq('user_id', authData.user.id)
-      .eq('active', true)
-      .eq('evidence_hash', active.evidenceHash),
+      .eq('active', true),
   ]);
 
   if (isMissingOptionalTable(overrideResult.error) || isMissingOptionalTable(sourcesResult.error)) {
-    return unknownEvidence();
+    return retainedActiveBasis(active);
   }
   if (overrideResult.error) throw overrideResult.error;
   if (sourcesResult.error) throw sourcesResult.error;
@@ -61,10 +60,7 @@ export async function getMoneyPlanLimitEvidence(
       resourceBasisUpdatedAtIso: latestIso(supportedSources.map((source) => source.updated_at)),
     };
   }
-  if (active.status === 'blocked' && active.resourceBasisCents > 0) {
-    return { resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null };
-  }
-  return unknownEvidence();
+  return retainedActiveBasis(active);
 }
 
 function isMissingOptionalTable(error: { code?: string; message?: string } | null): boolean {
@@ -78,6 +74,12 @@ function isMissingOptionalTable(error: { code?: string; message?: string } | nul
 
 function unknownEvidence(): MoneyPlanLimitEvidence {
   return { resourceBasisKind: 'unknown', resourceBasisUpdatedAtIso: null };
+}
+
+function retainedActiveBasis(active: ActiveLivingPlan): MoneyPlanLimitEvidence {
+  return active.resourceBasisCents > 0
+    ? { resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null }
+    : unknownEvidence();
 }
 
 function latestIso(values: Array<string | null>): string | null {

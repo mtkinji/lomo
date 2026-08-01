@@ -42,6 +42,7 @@ type SpendingRole = MoneyEconomicContribution['role'];
 export function reconcileMoneyEconomicRoles(input: {
   transactions: MoneyTransaction[];
   allocations: LivingPlanAllocation[];
+  roleByCategoryId?: ReadonlyMap<string, SpendingRole>;
 }): MoneyEconomicRoleReconciliation {
   const roleByCategoryId = new Map<string, SpendingRole>();
   input.allocations.forEach((allocation) => {
@@ -52,6 +53,7 @@ export function reconcileMoneyEconomicRoles(input: {
         : 'flexible_spending',
     );
   });
+  input.roleByCategoryId?.forEach((role, categoryId) => roleByCategoryId.set(categoryId, role));
 
   const rows = input.transactions.map((transaction) => reconcileTransaction(transaction, roleByCategoryId));
   const uniqueTransactionIds = new Set(rows.map((row) => row.transactionId));

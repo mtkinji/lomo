@@ -1,7 +1,7 @@
 import type { ActiveLivingPlan } from '../data/livingPlanRepository';
 import type { MoneyPlanLimitEvidence } from '../data/moneyPlanLimitEvidence';
 import type { MoneyEconomicRoleReconciliation } from './moneyEconomicRole';
-import { formatMoneyPlanLimitAnswer, projectMoneyPlanLimitAnswer } from './moneyPlanLimitAnswer';
+import { formatMoneyPlanLimitAnswer, projectMoneyPlanCapacity, projectMoneyPlanLimitAnswer } from './moneyPlanLimitAnswer';
 
 const evidence: MoneyPlanLimitEvidence = {
   resourceBasisKind: 'detected_income',
@@ -59,9 +59,19 @@ describe('projectMoneyPlanLimitAnswer', () => {
     const answer = projectMoneyPlanLimitAnswer({ active: active(), evidence, reconciliation: reconciliation(), freshness: 'fresh' });
 
     expect(formatMoneyPlanLimitAnswer(answer)).toEqual({
-      headline: '$343 left for flexible spending',
-      support: 'Within your 70% living limit of $3,500.',
+      headline: '$342.96 left for flexible spending this month',
+      support: '$1,157.04 of $1,500 used',
     });
+  });
+
+  it('protects fixed costs without turning a flexible user override into a fixed cost', () => {
+    expect(projectMoneyPlanCapacity({
+      livingLimitCents: 350000,
+      allocations: [
+        { amountCents: 200000, fixedCents: 200000, overrideCents: 0 },
+        { amountCents: 50000, fixedCents: 0, overrideCents: 50000 },
+      ],
+    })).toEqual({ protectedPlanCents: 200000, flexibleCapacityCents: 150000 });
   });
 
   it('formats an honest refusal without inventing a zero-dollar basis', () => {
@@ -73,8 +83,22 @@ describe('projectMoneyPlanLimitAnswer', () => {
     });
 
     expect(formatMoneyPlanLimitAnswer(answer)).toEqual({
-      headline: 'Kwilt needs your monthly income',
-      support: 'Your dollar living limit is not available yet.',
+      headline: 'Finish your monthly plan',
+      support: 'Add your monthly income so Kwilt can calculate flexible money.',
+    });
+  });
+
+  it('keeps the last useful answer when transaction evidence is stale', () => {
+    const stale = projectMoneyPlanLimitAnswer({
+      active: active(),
+      evidence,
+      reconciliation: reconciliation(),
+      freshness: 'stale',
+    });
+
+    expect(formatMoneyPlanLimitAnswer(stale, 'Updated 4 days ago')).toEqual({
+      headline: '$342.96 left for flexible spending this month',
+      support: '$1,157.04 of $1,500 used',
     });
   });
 
@@ -82,9 +106,20 @@ describe('projectMoneyPlanLimitAnswer', () => {
     ['missing_income_basis', active(), { ...evidence, resourceBasisKind: 'unknown' as const }, reconciliation(), 'fresh' as const],
     ['stale', active(), evidence, reconciliation(), 'stale' as const],
     ['over_limit', active({ plannedCents: 358400, overTargetCents: 8400 }), evidence, reconciliation(), 'fresh' as const],
-    ['unassigned', active({ plannedCents: 338000, unassignedCents: 12000 }), evidence, reconciliation(), 'fresh' as const],
   ])('uses state priority for %s', (state, plan, planEvidence, rows, freshness) => {
     expect(projectMoneyPlanLimitAnswer({ active: plan, evidence: planEvidence, reconciliation: rows, freshness }).state).toBe(state);
+  });
+
+  it('keeps unassigned category capacity as a supporting fact instead of replacing the flexible answer', () => {
+    const projected = projectMoneyPlanLimitAnswer({
+      active: active({ plannedCents: 338000, unassignedCents: 12000 }),
+      evidence,
+      reconciliation: reconciliation(),
+      freshness: 'fresh',
+    });
+    expect(projected.state).toBe('supported');
+    expect(projected.headlineAmountCents).toBe(34296);
+    expect(projected.facts.unassignedCents).toBe(12000);
   });
 
   it('distinguishes no flexible capacity from actual flexible overspending', () => {
@@ -101,9 +136,13 @@ describe('projectMoneyPlanLimitAnswer', () => {
     });
     expect(overspent.state).toBe('over_flexible_room');
     expect(overspent.headlineAmountCents).toBe(8400);
+    expect(formatMoneyPlanLimitAnswer(overspent)).toEqual({
+      headline: 'Flexible spending is $84 beyond the room in your living limit',
+      support: '$1,584 of $1,500 used',
+    });
   });
 
-  it('asks about only enough largest unresolved transactions to resolve a branching answer', () => {
+  it('counts unresolved ordinary outflows conservatively instead of asking the customer to classify them', () => {
     const rows = reconciliation({ flexibleSpendingCents: 145000, unresolvedInScopeCents: 9000 });
     rows.rows = [
       { transactionId: 'small', disposition: 'unresolved', amountCents: 1000, contributions: [] },
@@ -113,26 +152,22 @@ describe('projectMoneyPlanLimitAnswer', () => {
 
     const answer = projectMoneyPlanLimitAnswer({ active: active(), evidence, reconciliation: rows, freshness: 'fresh' });
 
-    expect(answer.state).toBe('needs_one_answer');
-    expect(answer.facts.flexibleRoomLowCents).toBeLessThan(0);
-    expect(answer.facts.flexibleRoomHighCents).toBeGreaterThanOrEqual(0);
-    expect(answer.reviewTransactionIds).toEqual(['large']);
+    expect(answer.state).toBe('over_flexible_room');
+    expect(answer.headlineAmountCents).toBe(4000);
+    expect(answer.facts.countedFlexibleSpendCents).toBe(154000);
+    expect(answer.facts.flexibleRoomCents).toBe(-4000);
+    expect(answer.reviewTransactionIds).toEqual([]);
   });
 
-  it('returns a conservative estimate only for bounded, non-branching uncertainty', () => {
-    const estimated = projectMoneyPlanLimitAnswer({
+  it('returns one exact conservative answer when unresolved category placement remains', () => {
+    const projected = projectMoneyPlanLimitAnswer({
       active: active(), evidence,
       reconciliation: reconciliation({ flexibleSpendingCents: 115704, unresolvedInScopeCents: 2000 }),
       freshness: 'fresh',
     });
-    expect(estimated.state).toBe('estimated');
-    expect(estimated.headlineAmountCents).toBe(32296);
-
-    const unsupported = projectMoneyPlanLimitAnswer({
-      active: active(), evidence,
-      reconciliation: reconciliation({ flexibleSpendingCents: 80000, unresolvedInScopeCents: 20000 }),
-      freshness: 'fresh',
-    });
-    expect(unsupported.state).toBe('insufficient_meaning');
+    expect(projected.state).toBe('supported');
+    expect(projected.headlineAmountCents).toBe(32296);
+    expect(projected.facts.flexibleRoomLowCents).toBe(32296);
+    expect(projected.facts.flexibleRoomHighCents).toBe(32296);
   });
 });

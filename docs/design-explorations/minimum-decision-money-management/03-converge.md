@@ -1,438 +1,310 @@
-# Converge: Protected Core, Flexible Room
+# Converge: Teach the Model, Then Manage the Month
 
-## Chosen coherent system
+## Chosen direction
 
-Choose **Protected Core, Flexible Room** as the financial model, with a
-**Critical-Moment Answer** as its interaction model.
+Choose **Managed Month** as the operating system, use the **Three-Part Budget**
+as a short setup lesson, and use **Priority Budget** as the focused adjustment
+flow.
 
-The system has one plain organizing promise:
+The everyday promise is:
 
-> Kwilt protects the spending you have already committed to, tells you what
-> remains flexible for everyday choices, and helps you understand what a new
-> decision would change.
+> Kwilt runs the monthly plan and tells you how much flexible money remains.
 
-This weaves together setup, the 70% living limit, automatic planning,
-categories, mixed spending, Summary, purchase decisions, rebalancing, Chat,
-widgets, Screen Time protections, household questions, and long-term adaptation
-without giving each capability a separate mental model.
+The customer should understand what `flexible` means because Kwilt taught the
+calculation when it first created the plan. Kwilt does not need to repeat the
+full lesson every time the customer returns.
 
-## Why this is the missing center
+## The three-part model
 
-The earlier directions each solved only one layer:
+The model contains only three concepts:
 
-- The One-Answer Budget improved orientation.
-- The Decision Simulator improved purchase and rebalance decisions.
-- The Conversational Budget accepted different user questions.
-- Guardrailed Autopilot reduced maintenance.
-- Adaptive Dialect respected different financial language.
-
-Protected Core, Flexible Room supplies the shared financial truth all five need:
-
-1. What portion of the plan is already protected?
-2. What portion remains flexible?
-3. How much flexible spending remains now?
-4. What would this decision change?
-5. Does anything require the customer's judgment?
-
-The interface can then answer different questions without constructing a
-different financial system for each customer.
-
-## The customer model
-
-### 1. Monthly living limit
-
-The customer has one confirmed boundary for ordinary living, such as 70% of a
-stable monthly planning-income basis.
+1. **Monthly living money** — the durable amount the customer intends to use for
+   ordinary living, based on normalized planning income and the chosen target.
+2. **Protected costs** — fixed expenses and planned contributions that Kwilt
+   sets aside before calculating ordinary spending room.
+3. **Flexible money** — what remains for spending that can vary during the
+   month, such as groceries, fuel, children's activities, shopping, or dining.
 
 Example:
 
-`$4,800 monthly planning income × 70% = $3,360 monthly living limit`
+```text
+Monthly living money        $3,360
+Protected costs            -$2,400
+Flexible money                $960
+```
 
-The remainder of income stays undefined. Kwilt does not call it savings,
-giving, investing, debt payment, or available cash unless the customer has
-explicitly given it that meaning.
+After `$617` of flexible spending, the everyday answer is:
 
-### 2. Protected core
+> **$343 left for flexible spending this month**
+> `$617 of $960 used`
 
-Within the monthly living limit, Kwilt first sets aside supported fixed
-commitments and intentionally protected monthly contributions.
+This is monthly plan room. It is not a claim about the current bank balance or
+cash that is safe until payday.
 
-Examples:
+## Setup experience
 
-- housing and recurring bills;
-- stable contractual commitments;
-- monthly contributions to a repair, medical, gift, travel, or annual-cost
-  reserve;
-- another economically committed amount the customer confirms belongs in the
-  protected core.
+Kwilt does not ask the customer to build this calculation. It builds the draft,
+then teaches it in one short review moment.
 
-`Protected` means the plan will not silently use this capacity for another
-purpose. It does not necessarily mean the bill has already been paid or that
-cash-flow coverage has been proven.
+### Preferred single-moment version
 
-### 3. Flexible room
+```text
+Your monthly plan
 
-Flexible room is what remains inside the living limit after the protected core:
+You plan to use                    $3,360
+Protected costs                   -$2,400
+Flexible money                       $960
 
-`flexible capacity = monthly living limit - protected monthly amounts`
+Kwilt will keep this plan current and tell you what is left.
 
-Flexible spending may include groceries, fuel, household goods, dining,
-clothing, entertainment, and other amounts that vary. Flexible does **not** mean
-unnecessary. Groceries and medicine may vary while remaining essential.
+[Use this plan]
+```
+
+The living percentage and normalized income basis remain inspectable from this
+moment, but they do not need separate instructional cards if the dollar result
+is already correct and understandable.
+
+### When one moment is not enough
+
+Split the same lesson across no more than two moments:
+
+1. Confirm the living-money amount and its income basis.
+2. Review what Kwilt protected and see the flexible amount that remains.
+
+Do not add a carousel, quiz, category-allocation exercise, terminology screen,
+or mandatory transaction review. Education is complete when the customer can
+answer: **“The large number is what remains after Kwilt set aside my protected
+costs.”**
+
+## Everyday Budget experience
+
+The existing Budget screen keeps its month selector and category tiles. Its
+reading order becomes:
+
+1. **`$343 left for flexible spending this month`**
+2. **`$617 of $960 used`**
+3. Category guidance in dollars left
+4. Freshness, calculation, and deeper evidence on demand
+
+The screen does not repeatedly lead with the living percentage, normalized
+income, fixed-cost total, forecast commentary, or an explanation card. Those
+facts remain available through one clearly named disclosure such as **`See
+monthly plan`**.
+
+That disclosure is not a dead end. After showing the three-part calculation, it
+offers one clear **`Change plan`** action. The customer can use that path to
+change the living target, correct a protected cost, or redirect flexible
+category priorities without returning to setup. A future **`Ask about this
+plan`** entry may open contextual Chat over the same Money-owned facts and
+governed proposal contracts; Chat is an additional access method, not a second
+plan editor or calculator.
+
+Income received so far may appear inside that disclosure as a dated fact. It
+must not visually imply that a partial paycheck caused the durable plan to
+shrink or grow.
+
+## Priority-change experience
+
+Categories are supporting guides inside the flexible total. A customer can
+open a category and choose the same **`Change plan`** action used from the
+monthly-plan disclosure. The category supplies the starting context; the shared
+review supplies the whole-plan consequence.
 
 Example:
 
-- Monthly living limit: `$3,360`
-- Protected core: `$2,400`
-- Flexible capacity: `$960`
-- Flexible spending so far: `$617`
-- Flexible room remaining: `$343`
+```text
+Give Kids activities $100 more this month
+
+Beauty and Shopping would have $100 less.
+Your flexible total and protected costs stay the same.
+
+[Save change]
+```
+
+Kwilt may propose the smallest reasonable source category, but it does not
+silently decide what matters less. The customer can choose another source. The
+flow states whether the change applies only this month or continues, and saving
+produces a reversible receipt.
+
+## Shared plan-change review
 
-The primary answer becomes:
+`Change plan` is one reusable Money capability, not a collection of unrelated
+editors. It can be entered from:
+
+- **Monthly plan:** review or change the living target, protected costs, or
+  flexible priorities.
+- **Category detail:** begin with that category selected and show how changing
+  it affects the whole plan.
+- **A material Money explanation:** begin with the affected assumption or
+  category already in context.
+- **Contextual Chat later:** receive a typed proposal, then render the same
+  native review before Save.
 
-> You have $343 left for flexible spending this month.
+The shared surface always answers the same questions in the same order:
 
-Supporting explanation:
+1. What are you changing?
+2. What will the whole plan look like afterward?
+3. What receives less room, becomes unassigned, or crosses the living target?
+4. What remains protected?
+5. Does this apply only this month or continue?
 
-> Your plan protects $2,400 for fixed expenses and planned contributions. You
-> have used $617 of the $960 available for flexible spending.
+It receives an authoritative plan version, entry context, focused object, and
+optional proposed change. It returns either no change or one version-checked
+commit with an authoritative receipt and an exact route back to the originating
+surface.
 
-### 4. Category guides inside flexible room
+This should be shared domain behavior and presentation grammar, not necessarily
+one oversized visual component. The calculation, consequence ordering, Save
+boundary, stale-preview handling, receipt, and return contract are reusable;
+the focused input control may differ for a percentage, protected amount, or
+category allocation.
+
+## Transaction and category policy
+
+The total answer must not depend on perfect category assignment.
+
+- High-confidence transactions are assigned automatically.
+- Ordinary ambiguous outflows are counted conservatively as flexible spending.
+- Mixed merchants can use a best supported category without demanding exact
+  receipt splitting.
+- A correction is requested only when protected-versus-flexible meaning,
+  outside-plan treatment, household authority, or another material conclusion
+  genuinely depends on it.
+- A category correction can change local category room without invalidating the
+  already-counted whole-plan spending total.
+
+This means the Budget screen should not lead with messages such as `Kwilt needs
+one answer` or `Transactions need an update` when Kwilt can already count the
+outflow deterministically.
 
-Kwilt distributes flexible capacity across recognizable categories using the
-governed plan and household evidence. These allocations explain where flexible
-money is expected to go; they should not automatically turn every category edge
-into a moral or mathematical cliff.
-
-If Groceries is above its guide while flexible room remains elsewhere, Kwilt can
-say:
-
-> Groceries is $40 above its guide, but you still have $120 of flexible room in
-> the overall plan. No protected amount needs to change.
-
-This makes category allocation useful without forcing constant rebalancing or
-perfect categorization.
-
-### 5. Decision consequence
-
-At a critical moment, Kwilt evaluates the proposed choice against:
-
-- the relevant category guide;
-- total flexible room;
-- current spending pace and supported forecast;
-- the protected core;
-- customer-owned limits and intentions;
-- trustworthy timing or cash-flow evidence when available;
-- freshness, coverage, and unresolved transaction meaning.
-
-It then reduces the result to one of four states:
-
-- fits the rules you set;
-- fits with one named trade-off;
-- does not fit the confirmed rules;
-- Kwilt cannot tell yet, with the missing evidence named.
-
-## Two axes the system must not confuse
-
-### Economic behavior
-
-- **Fixed commitment:** predictable and difficult to vary in the current period.
-- **Flexible spending:** varies with ordinary choices or circumstances.
-- **Reserve contribution:** stable monthly funding for a future or lumpy need.
-- **Outside the living plan:** not assigned to ordinary living.
-
-### Governance authority
-
-- **Customer-protected:** Kwilt cannot reduce or reinterpret it automatically.
-- **System-adjustable:** Kwilt may maintain it within confirmed policies.
-- **Provisional:** evidence is not strong enough for consequential use.
-
-These axes are independent. A customer-set Dining amount is economically
-flexible and stays inside flexible room, but it may be customer-protected from
-automatic redistribution. A recurring utility bill may be economically fixed
-and system-maintained from supported evidence. A mixed Costco purchase may be
-provisional without changing the protected-versus-flexible conclusion.
-
-This separation is an important domain requirement. A UI that calls every
-protected amount `fixed`, or every variable amount `discretionary`, would be
-simple but wrong.
-
-## How it serves the whole lifecycle
-
-### Recognition and entry
-
-The customer enters through the hot moment: Summary, category detail, a
-spending-app pause, Chat, a transaction anomaly, or a proposed plan change. The
-question and context travel together into Money.
-
-### Minimum setup
-
-Kwilt uses connected evidence to draft the planning-income basis, protected
-core, and flexible allocation. The customer chooses the living limit and
-confirms only protected commitments that materially affect flexible room.
-
-Setup should not ask the customer to construct all categories or label every
-expense fixed versus variable. It should show the first useful answer and ask
-one focused correction when evidence is consequentially uncertain.
-
-### Everyday orientation
-
-Summary leads with flexible room, qualified by the period and evidence:
-
-> You have $343 left for flexible spending through July 31.
-
-If the system cannot support that statement:
-
-> Kwilt cannot calculate flexible room yet because two recurring expenses still
-> need meaning.
-
-The existing category view remains underneath as explanation, history, and
-control—not as the first interpretation task.
-
-### Categories and mixed spending
-
-Categories explain where protected and flexible spending is going. Kwilt asks
-about ambiguous or mixed spending only when the answer could change a critical
-decision, the protected/flexible boundary, or a material category conclusion.
-
-The system can tolerate `mixed`, `mostly groceries`, or an uncertainty range
-when exact splitting would not improve the decision.
-
-### Before a purchase
-
-The customer asks in their own words. Context supplies what it already knows.
-Kwilt asks at most one materially branching clarification, then responds:
-
-> A $60 purchase fits. It would leave $283 of flexible room this month. Clothing
-> would have $14 left, and protected expenses stay unchanged.
-
-Or:
-
-> This does not fit the flexible room remaining. It would require $84 from a
-> protected amount or a one-time exception.
-
-The customer retains the values decision: buy, wait, choose another amount, or
-accept the named trade-off.
-
-### Self-protection
-
-The customer can opt into protection after Kwilt has demonstrated the answer:
-
-> Would a pause help when Shopping is likely to use the flexible room you want
-> to protect?
-
-Existing Screen Time policies become delivery rules for the same critical-moment
-answer. A pause recalls the customer's reason and current consequence before
-offering `Open for 20 min` or `Keep blocked`.
-
-Within a safe customer-chosen range, Kwilt should stay quiet. Friction increases
-only when evidence indicates a meaningful boundary, customer-defined trigger,
-or uncertainty.
-
-### Rebalancing
-
-Moving capacity among system-adjustable flexible categories does not change the
-protected core or living limit. The preview can therefore say:
-
-> This changes where your $960 of flexible spending can go. Your 70% limit and
-> protected expenses do not change.
-
-When a proposed amount expands the flexible total or touches protected capacity:
-
-> This would put the living plan $84 over its 70% limit. Fitting it requires
-> reducing a protected amount, changing the limit, or making a temporary
-> exception.
-
-One explicit Save commits the already-understood consequence and creates an
-authoritative receipt.
-
-### Chat and varied questions
-
-Chat does not need to support arbitrary financial reasoning. It maps the
-customer's wording to bounded answer dimensions over the same state:
-
-- `How much can I spend?` → flexible room, with scope.
-- `Can I buy this?` → proposed-decision consequence.
-- `Are my bills covered?` → protected-plan status and cash-flow scope.
-- `What can I do until payday?` → timing evidence or an honest refusal.
-- `Why is Groceries so high?` → category composition and anomaly explanation.
-- `Where would the money come from?` → governed trade-off preview.
-- `What did I say I wanted to protect?` → customer-owned intention.
-
-The original words remain visible. Money owns calculation and authority; Chat
-owns interpretation and delivery.
-
-### Household coordination
-
-A scoped answer can say whether a request fits flexible room and which shared
-protection would change. Another person's authority is requested only when the
-household rule actually requires it. The handoff contains the decision and
-consequence, not broad transaction access.
-
-### Adaptation and recovery
-
-An unusual month does not automatically rewrite the protected core or flexible
-allocation. Kwilt asks one change-point question when evidence suggests the
-difference may be durable:
-
-> Was this a one-time expense, or should Kwilt plan for it again?
-
-After unplanned spending, the same system finds the smallest recovery path and
-keeps a temporary exception from becoming a permanent rule.
-
-## The Critical-Moment Answer grammar
-
-Every doorway uses the same sequence:
-
-1. **Question:** preserve what the customer is trying to decide.
-2. **Answer:** lead with the scoped conclusion.
-3. **Consequence:** name what changes and what remains protected.
-4. **Qualification:** disclose freshness or dimensions Kwilt could not check.
-5. **Choice:** offer only the few materially different next moves.
-6. **Receipt:** record only authority actually exercised inside Kwilt.
-
-The visible grammar is:
-
-> **One answer. One reason. One choice—only when a choice is required.**
-
-## Presentation for an elderly grandmother
-
-This is not a separate `simple mode`. The default experience should already be
-comprehensible to someone with low app fluency:
-
-- Use a complete sentence before percentages, charts, or category grids.
-- Pair every percentage with its dollar basis.
-- Use `fixed and protected` and `flexible spending`; avoid `living target`,
-  `allocation candidate`, `resource basis`, and `discretionary` in primary copy.
-- Present one question or decision at a time.
-- Never require hidden gestures, icon interpretation, or navigation memory for
-  the primary answer.
-- Make touch targets, text scaling, focus order, contrast, and recovery explicit
-  implementation requirements.
-- Say `Kwilt cannot tell yet` rather than asking the customer to diagnose the
-  system.
-- Explain why a pause occurred and return the customer's own intention.
-- Keep supporting arithmetic immediately available so simplicity does not feel
-  like withheld information.
-- Never infer incapacity, transfer authority, or reduce privacy based on age.
-
-## Reductive UI contract
-
-Job: When a money question or spending decision becomes hot, the customer needs
-to understand their flexible room and the relevant consequence, so they can act
-in line with their own intentions without operating a budget.
-
-Primary action: None during ordinary orientation. At a decision moment, answer
-the customer's question or check one proposed amount.
-
-Must show:
-
-- the scoped answer in a complete sentence;
-- flexible room remaining and period;
-- the most important relevant consequence;
-- what remains protected;
-- evidence limitation when material;
-- whether state is current, hypothetical, or committed.
-
-Reveal later:
-
-- income basis and living-limit arithmetic;
-- protected commitments and reserve contributions;
-- flexible category guides;
-- forecast range, freshness, confidence, and source records;
-- alternative trade-offs and plan history.
-
-Must not add:
-
-- a dashboard, score, planner grid, approval queue, permanent question catalog,
-  `simple mode`, new tab, new shell, or persistent floating control;
-- a universal `You can afford this` claim;
-- default surveillance, partner permission, or automatic purchase logging;
-- a requirement to categorize perfectly before receiving an answer.
-
-Reuse map:
-
-- Summary → current flexible-room answer and progressive evidence.
-- Category detail → relevant category consequence and exact transactions.
-- Governed plan preview → non-mutating trade-off calculation.
-- Living-plan receipt → committed result and safe undo.
-- Unified Chat → natural-language doorway and exact native return.
-- Money glanceable state/widgets → privacy-minimized orientation.
-- Screen Time handoff → customer-chosen pause at a critical moment.
-- Transaction detail → correction of authoritative money meaning.
-
-Behavior sources:
-
-- Current living-plan target, fixed-first allocation, flexible evidence,
-  overrides, reserves, preview, receipt, correction, forecast, freshness, and
-  app-control contracts.
-- Critical-moment empathy model in `00-critical-money-moments.md`.
-- Customer constraints: preserve Kwilt shell/navigation and recommend before
-  implementation.
-
-Unresolved decisions:
-
-- Whether customers understand `flexible spending` without confusing it with
-  optional or morally lesser spending.
-- How to represent protected and flexible components that coexist inside one
-  user-facing category.
-- Which recurring-expense evidence is strong enough to enter the protected core
-  without confirmation.
-- Whether flexible category amounts are soft guides by default or require a
-  stronger customer-owned boundary.
-- What evidence is required before the product may answer timing or cash-flow
-  questions rather than plan-fit questions only.
-- Which single critical moment should anchor the first learning release.
-
-Required states:
-
-- ready with flexible room;
-- no flexible room because protected amounts consume the target;
-- protected amounts exceed the target;
-- missing or stale income basis;
-- uncertain fixed/variable meaning;
-- proposed purchase fits;
-- fits with trade-off;
-- does not fit;
-- cannot determine;
-- preview versus committed result;
-- safe and unsafe undo.
-
-Proof path: Not run. This is a recommendation artifact, not an implemented
-surface. Any later build must prove realistic fixed/flexible examples, text
-scaling, smallest viewport, Screen Time return, Chat return, preview/save/receipt,
-stale evidence, and correction on the actual owned runtime.
-
-## Why this is elegant
-
-- One financial decomposition supports the whole lifecycle.
-- One answer grammar supports different customer questions.
-- One protection model supports quiet freedom and deliberate friction.
-- One authoritative Money engine serves UI, Chat, widgets, and OS handoffs.
-- Categories remain useful without becoming the system the customer must operate.
-- Depth is retained but revealed only when it helps the current decision.
-- The app shell remains unchanged.
+## UI contract
+
+**Job:** When Maya opens Budget during the month, she needs to know how much
+flexible money remains so she can adjust ordinary spending without operating a
+budget system.
+
+**Primary action:** No action is required at rest. `See monthly plan` reveals
+the calculation and one `Change plan` action. The same action from category
+detail enters the shared review with that category already selected.
+
+**Must show:** The exact flexible amount left, the month, amount used versus
+flexible capacity, and category dollars left.
+
+**Reveal later:** Monthly planning income, target percentage, protected-cost
+composition, transaction evidence, forecast, provenance, and receipts.
+
+**Must not add:** A new dashboard, permanent calculation card, setup carousel,
+uncertainty task queue, category-perfection workflow, financial health score,
+or Money-local navigation.
+
+**Reuse map:** Existing Budget screen, category tiles, category detail,
+governed plan preview, receipts, transaction detail, native disclosure
+patterns, and one shared plan-change review contract.
+
+**Behavior sources:** The living target and normalized planning basis define
+monthly living money; protected-plan evidence defines protected costs; the
+economic-role projection defines counted flexible spending; governed plan
+changes define preview, save, and reversal.
+
+**Required states:** Ready, no flexible money left, negative flexible room,
+past month, future month, refreshing, stale-but-usable, and genuinely missing
+planning basis. Ordinary categorization ambiguity is not a blocking state.
+
+**Proof path:** Authenticated current-month Budget in the iOS Simulator using
+real connected data, followed by category priority change, save, relaunch, and
+receipt/reversal checks. Signed-device and TestFlight proof remain separate.
+
+## Alternatives considered
+
+| Direction | Persona fit | Comprehension | System fit | Main tradeoff |
+| --- | --- | --- | --- | --- |
+| Managed Month | Strongest | Strong after brief teaching | Strong | Requires trusted automation |
+| Three-Part Budget always visible | Strong | Strong for detail-oriented users | Strong | Risks turning the answer into a mini-dashboard |
+| Priority Budget as the whole product | Medium | Strong during rebalancing | Strong | Does not answer ordinary orientation by itself |
+| Money Steward as primary UI | Strong for conversational users | Potentially strong | Medium | Depends on native Money truth and adds cross-capability scope |
+
+## Capability delta
+
+Today, the customer cannot reliably:
+
+- open Budget and receive one deterministic whole-month flexible amount;
+- understand that amount from a previously taught three-part model;
+- treat category guidance as secondary to the whole-plan total;
+- redirect one flexible priority without becoming the plan administrator.
+
+After this concept ships, the customer can:
+
+- accept a Kwilt-created monthly plan after one simple explanation;
+- return to one exact flexible-money answer throughout the month;
+- inspect dollars left by category when useful;
+- move room toward a current family priority with a visible, reversible tradeoff.
+
+Still intentionally unsupported in this release:
+
+- claiming cash safe until payday;
+- arbitrary financial advice or purchase approval;
+- Chat-created plans, scheduled outreach, or SMS;
+- silent changes to customer-protected amounts;
+- perfect item-level splitting for mixed merchants.
+
+## Reductive decisions
+
+- Teach the calculation once; do not permanently display the lesson.
+- Enhance Budget rather than create a new destination.
+- Keep the existing category layer; change its role from primary answer to
+  supporting guidance.
+- Use dollars first. Percentages and planning basis are evidence, not the
+  everyday headline.
+- Require no action when the plan is operating normally.
+- Give priority changes one entry point and one preview before Save.
+- Refuse to add Chat, notifications, widgets, cash runway, and Screen Time work
+  to the first coherent Money release.
+
+## Activation path
+
+The teaching moment appears when Kwilt has enough evidence to generate the
+first credible monthly plan, not at generic app onboarding. Existing customers
+see it once when their managed plan is first available; returning customers go
+directly to the large flexible-money answer.
+
+Natural adoption looks like this:
+
+1. The customer accepts the drafted plan.
+2. She later opens Budget and correctly interprets the large number.
+3. She uses category dollars only when a local question matters.
+4. She optionally changes one priority without editing the rest of the plan.
+
+## Accepted tradeoffs
+
+- The everyday screen exposes less arithmetic in exchange for faster
+  comprehension; the full calculation remains one disclosure away.
+- The total can be trustworthy even when a flexible purchase's precise category
+  is imperfect.
+- Income normalization will begin with a bounded deterministic policy rather
+  than pretending to model every compensation pattern immediately.
+- Cash timing remains a separate future job rather than weakening the monthly
+  answer with ambiguous language.
 
 ## Stated bet
 
-We are betting that customers can understand and act on household money more
-easily when Kwilt first protects known commitments, then makes the remaining
-flexible room explicit, and uses that same truth to answer whatever bounded
-question becomes hot.
+We are betting that customers will trust and act on one flexible-money number
+when Kwilt first teaches the simple calculation behind it and keeps that
+calculation inspectable.
 
-If customers still cannot decide, the missing dimension is likely not more
-category detail. It is whether the question actually concerns cash-flow timing,
-household authority, a customer-owned intention, or evidence trust. The answer
-system should add that bounded dimension without changing the core model.
+If customers repeatedly reopen the calculation, confuse flexible money with
+bank balance, or cannot explain what was protected, we will revisit how much of
+the three-part model remains visible in the everyday Budget surface.
 
 ## Success signal
 
-A customer—including someone with low app fluency—can explain without coaching:
+In a short comprehension test, a customer can look at the Budget screen and
+answer all three questions without coaching:
 
-1. how much of the monthly plan is protected;
-2. how much remains flexible;
-3. what they have left for ordinary choices;
-4. whether a proposed purchase fits;
-5. what would have to change if it does not;
-6. whether Kwilt knows enough to answer confidently;
-7. that nothing changes until they explicitly authorize it.
+1. How much flexible money is left this month?
+2. What has already been set aside before that number?
+3. How would you give one category more room without changing the overall
+   living plan?
+
+The historical supporting explorations in `03a`, `03b`, and `03c` remain useful
+source reasoning. This document supersedes their presentation hierarchy and
+release ordering where they differ.

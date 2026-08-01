@@ -24,6 +24,7 @@ export type MoneyCategoryRow = {
   accent_color: string | null;
   cover_image?: unknown | null;
   sort_order: number;
+  mapping_tags?: string[] | null;
 };
 
 export type MoneyPlanRow = {
@@ -137,6 +138,7 @@ export type MoneyCategory = {
   };
   forecast: MoneyCategoryForecast;
   planRole?: 'protected' | 'flexible';
+  mappingTags?: string[];
 };
 
 export type MoneyTransaction = {
@@ -363,6 +365,7 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
           scheduledDueDay: plan?.scheduled_due_day ?? null,
         },
         forecast,
+        mappingTags: Array.isArray(category.mapping_tags) ? category.mapping_tags : [],
       };
     });
 

@@ -323,6 +323,36 @@ The current product is strongest at establishing the plan and supporting
 correction. The opportunity is to convert that capability depth into a quieter,
 repeatable operating model.
 
+## Accepted job hierarchy
+
+Recent conversation with Blair sharpens the demand behind this frame. She does
+not want to construct and continuously administer a budget. She would be happy
+for a trustworthy system to do that work and tell her what remains available.
+She still values category guidance, but mainly as a way to express priorities,
+not as a bookkeeping obligation.
+
+The experience should therefore serve these jobs in this order:
+
+1. **Run the monthly budget for me.** Build and maintain a durable plan from a
+   normalized view of income, the living target, and protected or fixed costs.
+2. **Tell me what I have left.** Lead with one exact whole-plan amount of
+   flexible money left for the month.
+3. **Show me where I have room.** Offer dollars left by category as supporting
+   guidance, without making category perfection a prerequisite for the total.
+4. **Let me redirect my priorities.** Make it easy to express a value choice
+   such as giving more room to children's activities and less to beauty or
+   shopping, with the tradeoff visible before it takes effect.
+5. **Let me inspect or correct only when useful.** Transaction review and exact
+   splitting remain available, but ordinary merchant ambiguity should not turn
+   the customer into a categorization administrator or withhold the primary
+   answer.
+
+This hierarchy also separates two related but different answers. **Monthly plan
+room** is based on durable planning income and should not jump whenever a
+paycheck arrives. **Cash safe until payday** depends on account balances,
+remaining bill timing, and expected deposits. Kwilt should not conflate the two
+or claim the second until it has sufficient evidence.
+
 ## Active anchors
 
 - `jtbd-review-budget-reality-before-spending` — the immediate result must make
@@ -347,6 +377,13 @@ and how to recover when something is uncertain.
 
 The risk is optimizing each screen independently while leaving Maya responsible
 for operating the overall budgeting system.
+
+The sharper risk is allowing category uncertainty or paycheck timing to block
+the whole-month answer. Income arrivals update current reality; sustained income
+changes may update a future plan; one paycheck should not rewrite the plan.
+Likewise, an ordinary unresolved purchase should be handled by a deterministic,
+conservative policy rather than producing a vague request that the user cannot
+act on.
 
 ## System alignment
 
@@ -428,10 +465,9 @@ shell/navigation contract.
 
 ## Aspirational design challenge
 
-**How might we give customers comprehensive, trustworthy budget management while
-asking them to make only the decisions that genuinely require their values or
-judgment—and have Kwilt handle everything else automatically, transparently,
-and reversibly within its established shell and navigation?**
+**How might Kwilt run the monthly budget on Maya's behalf, give her one
+trustworthy amount left to spend, and let her redirect category priorities
+without turning her into a budget or categorization administrator?**
 
 ## Out of scope
 

@@ -8,12 +8,23 @@ function clientWith(results: Record<string, Result>): SupabaseClient {
   return {
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
     from: (table: string) => {
+      const filters: Array<[string, unknown]> = [];
+      const filteredResult = (): Result => {
+        const result = results[table];
+        if (!Array.isArray(result.data)) return result;
+        return {
+          ...result,
+          data: result.data.filter((row) => filters.every(([column, value]) => (
+            typeof row !== 'object' || row == null || !(column in row) || (row as Record<string, unknown>)[column] === value
+          ))),
+        };
+      };
       const query = {
         select: () => query,
-        eq: () => query,
-        maybeSingle: () => Promise.resolve(results[table]),
+        eq: (column: string, value: unknown) => { filters.push([column, value]); return query; },
+        maybeSingle: () => Promise.resolve(filteredResult()),
         then: (resolve: (value: Result) => unknown, reject?: (reason: unknown) => unknown) => (
-          Promise.resolve(results[table]).then(resolve, reject)
+          Promise.resolve(filteredResult()).then(resolve, reject)
         ),
       };
       return query;
@@ -48,6 +59,17 @@ describe('getMoneyPlanLimitEvidence', () => {
     expect(result).toEqual({ resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-24T12:00:00Z' });
   });
 
+  it('keeps matching detected income supported when newer evidence has a different hash', async () => {
+    const result = await getMoneyPlanLimitEvidence(clientWith({
+      budget_planning_basis_overrides: { data: null, error: null },
+      budget_planning_income_sources: { data: [
+        { evidence_hash: 'evidence-2', confidence: 'high', planning_role: 'irregular_planning_income', expected_monthly_cents: 500000, updated_at: '2026-07-31T20:35:54Z' },
+      ], error: null },
+    }), active);
+
+    expect(result).toEqual({ resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-31T20:35:54Z' });
+  });
+
   it('reports a deliberately retained prior basis when the active plan is blocked', async () => {
     const result = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: null, error: null },
@@ -57,17 +79,17 @@ describe('getMoneyPlanLimitEvidence', () => {
     expect(result).toEqual({ resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null });
   });
 
-  it('returns unknown when evidence does not reconcile or an optional table is missing', async () => {
+  it('keeps the active plan basis when optional provenance cannot currently be reloaded', async () => {
     const mismatched = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: null, error: null },
       budget_planning_income_sources: { data: [{ confidence: 'high', planning_role: 'recurring_planning_income', expected_monthly_cents: 450000, updated_at: '2026-07-24T12:00:00Z' }], error: null },
     }), active);
-    expect(mismatched.resourceBasisKind).toBe('unknown');
+    expect(mismatched).toEqual({ resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null });
 
     const missing = await getMoneyPlanLimitEvidence(clientWith({
       budget_planning_basis_overrides: { data: null, error: { code: 'PGRST205', message: 'table missing' } },
       budget_planning_income_sources: { data: null, error: { code: 'PGRST205', message: 'table missing' } },
     }), active);
-    expect(missing).toEqual({ resourceBasisKind: 'unknown', resourceBasisUpdatedAtIso: null });
+    expect(missing).toEqual({ resourceBasisKind: 'prior_supported_basis', resourceBasisUpdatedAtIso: null });
   });
 });

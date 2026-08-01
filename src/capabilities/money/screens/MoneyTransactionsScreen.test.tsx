@@ -110,9 +110,15 @@ describe('MoneyTransactionsScreen navigation hierarchy', () => {
 });
 
 function transaction(id: string, merchantName: string) {
+  const today = new Date();
+  const localDate = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
   return {
     id, accountId: null, accountName: 'Checking', institutionName: 'Bank', merchantName,
-    amountCents: 1000, direction: 'outflow', date: new Date().toISOString().slice(0, 10), pending: false,
+    amountCents: 1000, direction: 'outflow', date: localDate, pending: false,
     currencyCode: 'USD', categoryId: null, categoryName: 'Needs review', reviewState: 'needs_review', moneyMeaning: null,
   };
 }

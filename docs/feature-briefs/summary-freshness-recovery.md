@@ -40,6 +40,7 @@ Summary should treat current-month snapshot failure as a stale-while-refreshing 
 
 - pull-to-refresh should reread the latest available Kwilt DB snapshot
 - while Summary is open, relevant DB changes should automatically refresh the snapshot
+- when the living-limit answer is stale, Summary should make one silent connected-activity check for that stale snapshot
 - preserve the last successful current-month snapshot when a later refresh fails
 - label retained charts as not newly refreshed
 - center the unavailable state in the page body
@@ -63,6 +64,7 @@ As Maya, when a new transaction appears in Kwilt's data while I already have Sum
 - The state includes a retry action.
 - Pull-to-refresh reruns the same connected snapshot load.
 - Relevant transaction, connection, forecast-setting, and match-rule DB changes trigger a Summary refresh while the screen is open.
+- Ordinary stale connected activity never becomes a blocking Summary card or maintenance action; the last useful answer remains visible and qualified while one background check runs.
 - Live DB refreshes are debounced so a multi-row sync only causes a compact UI refresh.
 - Prior-month copy distinguishes saved history from current-month freshness.
 - Preview and prior-month behavior remain unchanged.

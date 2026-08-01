@@ -1,359 +1,287 @@
-# Evaluate Learning: The Living-Limit Answer
+# Evaluate Learning: Managed Month
 
 ## Decision This Evaluation Must Support
 
-Decide whether Kwilt can make the customer's living limit and remaining
-flexible room understandable at the moment of orientation and rebalance using
-only:
+Decide whether Kwilt can teach the three-part monthly model once, then help a
+customer manage ordinary spending from one large flexible-money number and one
+reusable **`Change plan`** action.
 
-- one answer line;
-- one limit or qualification line;
-- one progressive disclosure;
-- the existing Save action when a decision is already in progress.
-
-The evaluation is not trying to prove that more financial information increases
-engagement. It is trying to prove that the least visible interface can still
-produce correct understanding, confidence, and control.
+The evaluation is not measuring engagement with a budgeting dashboard. It is
+testing whether the smallest coherent Money experience produces correct
+understanding, trustworthy dollars, and confident plan changes.
 
 ## The Bet Under Test
 
-We are betting that customers—including people with low app fluency—do not need
-more budgeting UI. They need one trustworthy Money-owned answer, with the
-chosen limit visible and the complete calculation available only when wanted.
+We are betting that a customer can learn:
 
-If that minimal hierarchy cannot communicate the answer without coaching, the
-first response is to improve the wording, ordering, or financial claim. It is
-not to add cards, meters, banners, legends, or permanent helper text.
+`monthly living money - protected costs = flexible money`
+
+Then, during ordinary use, this is enough:
+
+> **$343 left for flexible spending this month**
+> `$617 of $960 used`
+
+The full calculation and one **`Change plan`** action remain available through
+**`See monthly plan`**. Category detail enters the same plan-change review with
+that category already selected.
 
 ## Learning Questions
 
-### Comprehension
+### Financial truth
 
-1. After a brief unassisted read, what does the customer believe `$343 left for
-   flexible spending` means?
-2. Do they understand that `70%` is their chosen ordinary-living boundary, that
-   `$3,360` is its dollar value, and that it is based on planning income?
-3. Can they distinguish plan room from current account balance or guaranteed
-   cash-flow coverage?
-4. Do they understand, without learning Kwilt's internal taxonomy, that some
-   planned amounts remain protected while other room can move?
-5. When evidence is stale or insufficient, do they understand what Kwilt knows,
-   what it cannot claim, and the single recovery action?
+1. Does the displayed amount reconcile exactly to the active planning basis,
+   living target, protected plan, and counted flexible spending?
+2. Does the planning basis stay stable when an individual paycheck arrives?
+3. Is every current-period outflow counted exactly once?
+4. Do ordinary mixed or unresolved flexible purchases reduce the total without
+   producing a customer task?
+5. Do transfers, refunds, duplicates, credits, and outside-plan activity receive
+   the correct treatment?
 
-### Rebalance decision
+### Initial teaching
 
-6. Before Save, can the customer say whether the proposed category change:
-   - stays within the living limit;
-   - uses unassigned room;
-   - moves room from other flexible categories; or
-   - puts the plan over the limit?
-7. Can they name what will change and what will remain protected?
-8. Do they understand that the preview has not changed the active plan yet?
-9. After Save, does the updated Budget answer match the consequence they
-   believed they accepted?
+6. After the short setup review, can the customer explain the three parts in her
+   own words?
+7. Does she understand that protected costs were set aside before flexible money
+   was calculated?
+8. Does **`Use this plan`** feel like accepting an understandable result rather
+   than approving hidden financial machinery?
+9. Is one teaching moment sufficient, or is a second focused moment genuinely
+   necessary?
 
-### Reduction
+### Everyday comprehension
 
-10. Is each of the three possible resting elements necessary?
-11. Can any line or disclosure label be removed without reducing correct
-    understanding?
-12. Does anyone need permanent explanatory copy that belongs in `How this
-    works`, or do they merely need a clearer headline?
-13. Does the answer remain legible with large text, a small supported screen,
-    realistic category names, and non-ideal financial states without creating
-    new visual containers?
+10. Can the customer identify flexible money left within a few seconds?
+11. Does she understand that it is room in the monthly plan—not the checking
+    balance or a guarantee that cash is safe until payday?
+12. Is `$617 of $960 used` enough supporting context?
+13. Can she find **`See monthly plan`** when she wants to verify the answer?
+14. Does the calculation disclosure increase trust without becoming a second
+    dashboard?
 
-### Trust and usefulness
+### Plan changes
 
-14. Does the answer feel useful enough to replace adding category balances by
-    hand?
-15. Can the customer find the calculation and source when they want to verify
-    it?
-16. Can they find and correct the underlying plan input instead of feeling that
-    Kwilt has issued an unexplained judgment?
-17. Does the minimal presentation feel calm and sufficient, or sparse and
-    withholding?
+15. Can the customer find **`Change plan`** from both the monthly plan and a
+    category such as Shopping?
+16. When entering from Shopping, does she understand why the whole plan is
+    visible?
+17. Before Save, can she say what receives more room, what receives less, what
+    remains protected, and whether the total changes?
+18. Can she distinguish this-month-only from ongoing changes?
+19. After Save, do the Budget answer, category, plan calculation, and receipt all
+    match the preview?
+20. Can she cancel or reverse the change without uncertainty?
 
-### Technical truth
+### Reduction and accessibility
 
-18. Can the protected/flexible projection classify current plan components and
-    counted spending without inventing meaning for mixed or provisional cases?
-19. Does every preview either match the subsequent committed version or reject
-    the Save as stale?
-20. Do current-month, preview, receipt, and post-save Budget surfaces use the
-    same versioned facts?
+21. Can any visible line or action be removed without harming comprehension or
+    control?
+22. Does the experience remain clear at large text sizes and on the smallest
+    supported iPhone?
+23. Does someone with low app fluency complete the path without interpreting an
+    icon, hidden gesture, or unfamiliar navigation pattern?
 
-## Highest-Risk Assumptions
+## Evidence Gates
 
-1. Even `$343 left for flexible spending` may be heard as bank balance or
-   guaranteed purchasing power rather than room inside this plan.
-2. `Living limit` may be understandable only to people who remember setup.
-3. Existing fixed, override, reserve, and flexible components may not fully
-   support the protected/flexible claim for mixed categories.
-4. Hiding the income basis and protected composition behind one disclosure may
-   preserve calmness or may hide the very evidence required for trust.
-5. A short rebalance consequence may conceal category movements customers
-   consider material.
-6. People with low app fluency may understand the words but miss the disclosure
-   or misread preview as confirmation.
+The gates are ordered. A visually successful screen cannot compensate for bad
+financial truth.
 
-## Evidence Plan
+### Gate 1: Deterministic truth
 
-Use three evidence gates. A later gate cannot compensate for failure in an
-earlier one.
+Use pure fixtures and focused regression tests for:
 
-### Gate 1: deterministic truth
+- supported flexible money left;
+- no flexible capacity and negative flexible room;
+- a persisted planning basis with partial-month income;
+- a later paycheck that does not rewrite the plan;
+- protected, flexible, outside-plan, and non-spending transactions;
+- mixed merchants and unresolved flexible category placement;
+- refunds, transfers, duplicates, and pending-to-settled relationships;
+- refresh while a prior supported answer exists;
+- genuinely missing target or planning basis;
+- category change within flexible capacity;
+- category change that alters protected costs or crosses the living target;
+- stale preview rejected before commit;
+- preview, commit, receipt, and post-save reconciliation.
 
-Before visual learning counts, exercise fixture-based states for:
+For representative fixtures and Andrew's connected current month, independently
+verify:
 
-- supported flexible room;
-- no flexible room;
-- over-limit plan;
-- unassigned capacity;
-- stale evidence with a prior trustworthy answer;
-- insufficient category meaning;
-- no planning-income basis;
-- mixed fixed/flexible spend;
-- preview that reallocates multiple categories;
-- preview that uses unassigned room;
-- preview that exceeds the limit;
-- concurrent plan change between preview and Save.
+```text
+planning basis × living target = monthly living money
+monthly living money - protected plan = flexible capacity
+flexible capacity - counted flexible spending = flexible money left
+```
 
-For each fixture, independently reconcile:
+Any unexplained dollar, duplicate count, missing outflow, paycheck-driven plan
+jump, or preview/commit mismatch stops the release.
 
-- planning income × living percentage = dollar limit;
-- protected, flexible, unassigned, and over-limit amounts;
-- counted spending and remaining room;
-- disclosed categories and transaction totals;
-- preview facts, committed facts, and receipt facts.
+### Gate 2: Andrew's Simulator review
 
-Any arithmetic mismatch, unsupported classification, or preview/commit drift is
-a stop condition. UI comprehension testing cannot legitimize an untrustworthy
-answer.
+Use the owning checkout and current connected data. Keep this early loop fast:
 
-### Gate 2: moderated comprehension on a real device
+1. Run only the focused domain and component tests needed for the change.
+2. Render the real Budget path in the Simulator.
+3. Let Andrew inspect the result before expanding or polishing it.
+4. Revise the product or UI direction in small increments.
+5. Run comprehensive diff-aware verification only after the experience is
+   accepted.
 
-Use a small directional cohort of at least six people:
+Exercise:
 
-- at least three people who describe themselves as low-confidence or
-  low-fluency with apps;
-- at least two people at or beyond typical retirement age;
-- at least three people who currently make household spending decisions;
-- avoid assuming that age predicts conversational or financial ability.
+- the one-time teaching moment;
+- ordinary Budget return;
+- **`See monthly plan`**;
+- **`Change plan`** from the monthly view;
+- **`Change plan`** from a category;
+- Save, cancel, relaunch, receipt, and reversal;
+- ordinary ambiguous purchases without a review message;
+- refresh and last-supported-answer behavior;
+- true missing-foundation recovery using controlled data, not Andrew's valid
+  onboarding state.
 
-Categories may overlap. This is not a statistically representative study; it
-is an early comprehension and failure-discovery gate.
+### Gate 3: Uncoached comprehension
 
-Let each participant use a signed or TestFlight iPhone build without a feature
-tour. Use realistic but non-sensitive seeded data unless they explicitly choose
-their own connected data.
+After Andrew accepts the interaction direction, test with at least three people,
+including Blair and at least one person who describes herself as having low
+confidence using apps. Age may be relevant research context, but it is not used
+as a proxy for ability.
 
-Ask them to complete this path without coaching:
+Give no feature tour. Ask each person to:
 
-1. Open Money and tell us what the first answer means.
-2. Tell us the living limit in percent and dollars.
-3. Explain whether the remaining amount is cash in an account.
-4. Find what the limit is based on and what is protected.
-5. Change one category amount using each material preview state.
-6. Before Save, explain what will change and what will not.
-7. Save one change, return to Budget, and explain the new answer.
-8. Encounter one stale or insufficient-evidence state and attempt recovery.
+1. Review the three-part monthly plan.
+2. Open Budget and explain the large amount.
+3. Find how the amount was calculated.
+4. Open Shopping and give it more room.
+5. Explain the whole-plan consequence before saving.
+6. Save or cancel, then explain the resulting state.
 
-Use neutral prompts after the first read:
+Use neutral questions:
 
-- `What do you think this amount means?`
-- `Seventy percent of what?`
-- `If you saved this, what would change?`
-- `Has anything changed yet?`
-- `Where would you look if this seemed wrong?`
+- `What does this amount mean to you?`
+- `What was set aside before Kwilt calculated it?`
+- `Is this your bank balance?`
+- `What would change if you saved this?`
+- `What would stay protected?`
+- `Where would you go if the plan felt wrong?`
 
-Do not teach the terms `protected core`, `flexible room`, or `planning-income
-basis` before asking. The customer does not need Kwilt's vocabulary; they need
-the correct mental model.
+Do not teach the answers while testing them.
 
-### Gate 3: ordinary TestFlight use
+### Gate 4: Small TestFlight use
 
-After the moderated gate passes, invite the same cohort plus Andrew to use the
-experience through at least one real category edit and two ordinary Budget
-visits over seven to fourteen days.
-
-Gather:
-
-- a short in-context note after the first Budget read;
-- whether and why `How this works` was opened;
-- whether a category change was saved, cancelled, or revised after preview;
-- whether the customer later contradicted their original interpretation;
-- any manual reconciliation they performed outside Kwilt;
-- any moment they wanted more visible information or found visible information
-  unnecessary;
-- whether the answer remained credible after transactions changed.
-
-Repeated opens are not success by themselves. The useful behavior is returning
-to the answer for orientation or using the preview to make a real plan decision
-without reconstructing the arithmetic.
-
-## Reductive Copy Check
-
-Start with the shortest candidate that already names the financial scope:
-
-> **$343 left for flexible spending**
->
-> Within your 70% living limit of $3,360.
-
-If any participant interprets `$343` as cash in the bank, guaranteed purchasing
-power, or money left after every obligation, replace the headline—not the screen
-around it—with the next-shortest accurate phrase and retest it with participants
-who have not seen the earlier version. Do not add permanent helper copy merely
-to preserve a headline that failed.
-
-For every visible element, record the failure introduced by removing it:
-
-| Element | It earns its place only if removing it causes |
-| --- | --- |
-| Answer line | The customer cannot orient to remaining plan room. |
-| Limit line | The customer cannot connect the answer to their chosen boundary. |
-| `How this works` | The customer cannot verify basis, protection, or uncertainty. |
-| Rebalance consequence | The customer cannot predict the result before Save. |
-| `See changes` | A material multi-category movement cannot be inspected. |
-
-If removal causes no observed or safety-relevant failure, remove the element.
-Do not retain it because it looks balanced or complete.
+After truth and comprehension pass, ship the same experience to Andrew and a
+small invited cohort for at least one ordinary budget check and one real plan
+change. TestFlight evaluates whether the model remains trusted as transactions
+arrive, not whether people repeatedly open the app.
 
 ## Supporting Evidence
 
-Evidence supporting the bet includes:
+The bet is supported when:
 
-- participants describe the remaining amount as room inside their monthly plan,
-  not an account balance;
-- they can identify the percentage and dollar limit without opening settings;
-- they can reach the income basis and protected composition when asked;
-- they correctly predict each rebalance outcome before Save;
-- they understand preview versus committed state;
-- the post-save answer matches their expectation;
-- low-app-fluency participants complete the same path without moderator rescue;
-- participants use disclosure selectively rather than needing all evidence
-  permanently visible;
-- no participant asks what a decorative state, icon, meter, or badge means,
-  because none was added;
-- every tested value reconciles to versioned source facts.
+- every displayed amount reconciles to authoritative Money facts;
+- customers explain flexible money as what remains after protected costs;
+- they find the number quickly without summing category tiles;
+- they do not call it their account balance or cash safe until payday;
+- they can reopen the calculation without help;
+- a category-originated change naturally expands to the whole-plan consequence;
+- they correctly identify what changes and what stays protected before Save;
+- Save, return, receipt, relaunch, and reversal remain consistent;
+- ordinary transaction ambiguity produces no administrative request;
+- low-app-fluency customers complete the same path without moderator rescue;
+- no additional permanent UI is needed.
 
 ## Disconfirming Signals
 
-Revise or stop if:
+Revise or stop when:
 
-- anyone reasonably interprets the answer as current cash and the safer
-  headline does not correct it;
-- more than one of six participants cannot identify the living percentage and
-  dollar limit after an unassisted read;
-- any low-app-fluency participant cannot explain whether a preview is within or
-  over the limit after one ordinary attempt;
-- participants save while believing the preview already changed the plan;
-- `How this works` feels hidden, opens an overwhelming disclosure, or still
-  fails to establish the income basis;
-- the interface requires permanent helper copy, multiple cards, or a legend to
-  explain the concept;
-- mixed categories produce confident flexible-room claims that cannot be
-  reconciled;
-- preview and committed results differ without a stale-version rejection;
-- users continue summing categories manually because the leading answer is not
-  trusted;
-- the answer causes anxiety or moral judgment around necessary variable
-  spending;
-- text scaling hides the amount, limit, qualification, or Save consequence.
+- the total cannot be independently reconciled;
+- one paycheck changes the durable monthly plan without a confirmed planning
+  update;
+- ordinary mixed purchases cause blocking or vague messages;
+- customers interpret the large number as bank balance or guaranteed purchasing
+  power;
+- the setup lesson is forgotten immediately and **`See monthly plan`** does not
+  restore the model;
+- **`Change plan`** opens different financial logic from different entry points;
+- users change a category without realizing another category, protected cost,
+  or the living target is affected;
+- preview and committed results differ without rejecting stale state;
+- the reusable review grows into a general-purpose planner dashboard;
+- comprehension depends on persistent helper copy, warnings, or decoration;
+- large text or a small screen hides the amount, consequence, or Save action.
 
 ## Decision Rule
 
-Proceed to accepted product capability only if all truth and safety gates pass
-and, in the moderated cohort:
+Proceed to a small TestFlight release only when:
 
-- at least five of six participants correctly explain the primary answer after
-  an unassisted read;
-- all low-app-fluency participants can find the limit and complete a rebalance
-  without moderator intervention;
-- at least five of six correctly predict the rebalance consequence before Save;
-- all participants distinguish preview from committed state;
-- all participants distinguish plan room from account balance after the final
-  chosen wording;
-- every tested preview reconciles with the committed plan or rejects stale
-  state;
-- no additional persistent UI is required to achieve those results.
+- every Gate 1 reconciliation passes;
+- Andrew accepts the real connected-data Simulator result;
+- all uncoached participants identify flexible money left correctly;
+- all distinguish it from account balance after the final wording;
+- all can find the calculation and plan-change action;
+- all correctly explain the consequence before saving;
+- no participant requires category cleanup to receive the primary answer;
+- the surface passes the reductive-UI runtime scorecard.
 
-If comprehension fails but the financial model is sound, revise in this order:
+If comprehension fails but the arithmetic is sound, revise in this order:
 
-1. headline wording;
-2. reading order and type hierarchy;
-3. the one supporting line;
-4. disclosure label and organization;
-5. narrow the claim.
+1. the teaching language;
+2. the large-number wording;
+3. reading order and typography;
+4. the used-versus-capacity line;
+5. the disclosure organization;
+6. the scope of the financial claim.
 
-Only consider another persistent component after those reductions fail and the
-observed misunderstanding is both material and unsolved by progressive
-disclosure.
+Do not add a new card, dashboard, meter, legend, or warning until those smaller
+corrections have been tested.
 
-If the financial model cannot support protected/flexible truth, do not soften
-the UI threshold. Ship only the narrower living-limit answer or stop and extend
-the domain model first.
+If financial truth fails, do not soften the copy or show an estimate. Fix the
+calculation or withhold the unsupported claim through the one true recovery
+state.
 
 ## Learning Instrumentation
 
-Use a minimal event set:
+For the local Simulator phase, use test output, screenshots, reconciliation
+notes, and Andrew's direct feedback. Do not delay early iteration to implement
+production analytics.
 
-- `money_budget_answer_viewed`
-  - answer state, period relation, freshness bucket, projection version;
-- `money_budget_explanation_opened`
-  - answer state and originating surface;
-- `money_rebalance_preview_viewed`
-  - outcome class, changed-category count bucket, used-unassigned boolean;
-- `money_rebalance_changes_opened`
-  - changed-category count bucket;
-- `money_rebalance_saved` or `money_rebalance_cancelled`
-  - preview outcome and whether the amount changed again after preview;
-- `money_rebalance_stale_rejected`
-  - no financial payload;
-- `money_budget_recovery_invoked`
-  - stale, missing income, or insufficient meaning.
+Before TestFlight, add only privacy-safe events needed to answer the learning
+questions:
 
-Do not collect:
+- `money_managed_month_viewed`
+  - answer state, period relation, freshness bucket;
+- `money_monthly_plan_opened`
+  - originating surface;
+- `money_plan_change_started`
+  - whole plan or category origin;
+- `money_plan_change_previewed`
+  - consequence class and number-of-affected-categories bucket;
+- `money_plan_change_saved` or `money_plan_change_cancelled`
+  - origin and this-month-versus-ongoing choice;
+- `money_plan_change_stale_rejected`;
+- `money_plan_recovery_opened`
+  - missing target or missing planning basis.
 
-- raw transaction names, category names, dollar amounts, account balances, or
-  income through analytics;
-- conversation recordings or screen recordings without explicit research
-  consent;
-- tap heatmaps, attention scores, or inferred financial confidence;
-- generic time-on-screen as a proxy for comprehension;
-- extra events merely because a component can emit them.
-
-Keep a short research note for each participant containing observed words,
-misinterpretations, moderator interventions, disclosure use, rebalance outcome,
-and requested additions or removals. Store no real financial values unless the
-participant explicitly consents and they are necessary to investigate a defect.
+Do not collect merchant names, category names, dollar amounts, account balances,
+income, receipt text, conversation content, screen recordings, or generic
+time-on-screen.
 
 ## Brand-Goodwill Check
 
-At the end of each session, ask:
+Ask after testing:
 
-- `Did Kwilt make this feel clearer or more complicated?`
-- `Did anything sound more certain than it should?`
-- `Was anything on this screen unnecessary?`
-- `What, if anything, would you be afraid to change here?`
+- `Did Kwilt make your monthly spending feel clearer or more complicated?`
+- `Did any number sound more certain than it should?`
+- `Was anything unnecessary?`
+- `Would you be comfortable letting Kwilt keep this plan current?`
+- `What, if anything, would you be afraid to change?`
 
-Goodwill is protected when customers describe the answer as calm, factual,
-reversible, and easy to verify. A polished screen that produces false certainty
-does not pass.
+The experience passes when customers describe it as calm, understandable,
+inspectable, and reversible—not merely polished.
 
 ## Expected Next Action
 
-If this evaluation plan feels right, create the native Money feature brief. The
-brief must carry forward:
-
-- the pure projection and mixed-category truth boundary;
-- the three-element resting-screen limit;
-- the two-line rebalance consequence and progressive disclosure;
-- preview/commit version consistency;
-- the non-ideal states;
-- the TestFlight comprehension thresholds;
-- the explicit exclusion of Chat, outreach, purchase checking, Screen Time
-  changes, widgets, SMS, and connectors from the first implementation.
-
-Implementation remains unauthorized until that brief is reviewed and the
-remaining domain and copy assumptions are surfaced in spec refinement.
+Refine the native Money feature brief against this plan, resolve any remaining
+domain or product ambiguity, then implement the local learning release with
+regression-first logic tests, focused component tests, and Simulator review
+before comprehensive verification.

@@ -34,6 +34,7 @@ briefs:
   - live-better-goal-crossover
   - model-strategy-and-tradeoffs
   - money-living-limit-answer
+  - money-flexible-room-widgets
   - multimodal-money-answers
   - plaid-transaction-backed-meter
   - prediction-trust-contract

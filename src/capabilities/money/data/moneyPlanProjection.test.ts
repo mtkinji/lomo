@@ -50,8 +50,8 @@ describe('projectMoneyPlanProjection', () => {
     ]);
     expect(result.snapshot.totals.plannedCents).toBe(60000);
     expect(result.snapshot.livingLimitAnswer).toMatchObject({
-      state: 'no_flexible_room',
-      facts: { planVersionId: 'version-2', livingLimitCents: 60000 },
+      state: 'supported',
+      facts: { planVersionId: 'version-2', livingLimitCents: 60000, protectedPlanCents: 35000 },
     });
   });
 
@@ -81,6 +81,44 @@ describe('projectMoneyPlanProjection', () => {
       state: 'supported',
       headlineAmountCents: 30000,
       facts: { countedFlexibleSpendCents: 10000 },
+    });
+  });
+
+  it('uses category meaning, not a manual amount, to separate protected and flexible money', () => {
+    const snapshot = {
+      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
+      totals: { plannedCents: 60000, spentCents: 15000, remainingCents: 45000, needsReviewCount: 0 },
+      forecast: { projectedSpendCents: 15000, projectionRangeLowCents: 15000, projectionRangeHighCents: 15000, projectedRemainingCents: 45000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
+      outsidePlan: { spentCents: 0, transactionCount: 0 },
+      categories: [
+        { ...category('housing', 40000, 10000), mappingTags: ['housing'] },
+        { ...category('shopping', 20000, 5000), mappingTags: ['shopping'] },
+      ],
+      accounts: [],
+      transactions: [
+        { ...moneyTransaction('rent', '2026-07-20', 10000), categoryId: 'housing' },
+        { ...moneyTransaction('store', '2026-07-20', 5000), categoryId: 'shopping' },
+      ],
+    } as MoneySnapshot;
+    const plan = {
+      ...activePlan(),
+      allocations: [allocation('housing', 40000), allocation('shopping', 20000)],
+    };
+
+    const result = projectMoneyPlanProjection(snapshot, plan, evidence, new Date('2026-07-24T12:00:00Z'));
+
+    expect(result.snapshot.categories.map(({ id, planRole }) => ({ id, planRole }))).toEqual([
+      { id: 'housing', planRole: 'protected' },
+      { id: 'shopping', planRole: 'flexible' },
+    ]);
+    expect(result.snapshot.livingLimitAnswer).toMatchObject({
+      state: 'supported',
+      headlineAmountCents: 15000,
+      facts: {
+        protectedPlanCents: 40000,
+        flexibleCapacityCents: 20000,
+        countedFlexibleSpendCents: 5000,
+      },
     });
   });
 
@@ -134,6 +172,7 @@ function category(id: string, plannedCents: number, spentCents: number): MoneyCa
     monthlyContributionCents: plannedCents, reserveAvailableCents: 0, reserveBalanceCents: 0,
     reserveBalancePeriodId: null, reserveAvailabilityKnown: true, expectedNeed: null,
     fundingCoverage: { status: 'none' },
+    mappingTags: id === 'housing' ? ['housing'] : [],
     forecastSettings: { mode: 'paced', manualProjectedSpendCents: null, scheduledAmountCents: null, scheduledDueDay: null },
     forecast: { mode: 'paced', claim: 'monthly_range', expectedSpendCents: spentCents, projectedSpendCents: spentCents, projectionRangeLowCents: spentCents, projectionRangeHighCents: spentCents, projectedRemainingCents: plannedCents - spentCents, projectedOverageCents: 0, confidence: 'high', status: 'steady' },
   };

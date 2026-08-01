@@ -275,7 +275,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
         <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
-        <DetailMenuItem icon="edit" label="Category settings" onPress={() => setSettingsOpen(true)} />
         {category.fundingRhythm === 'monthly' ? <DetailMenuItem icon="gauge" label="Forecast settings" onPress={() => setForecastSettingsOpen(true)} /> : null}
         <DetailMenuItem icon="shield" label="App controls" onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })} />
       </DropdownMenuContent>
@@ -340,6 +339,15 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 periodStartIso={view.periodStartIso}
                 transactions={view.transactions}
               />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Change ${category.name} plan`}
+                onPress={() => setSettingsOpen(true)}
+                style={({ pressed }) => [styles.changePlanLink, pressed ? styles.changePlanLinkPressed : null]}
+              >
+                <Text style={styles.changePlanText}>Change plan</Text>
+                <Icon name="chevronRight" size={18} color={colors.pine700} />
+              </Pressable>
             </View>
 
             {pendingAppControlReviewCategoryId === category.sourceId ? (
@@ -450,9 +458,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <BottomDrawer visible={settingsOpen} onClose={() => setSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
           <BottomDrawerHeader
-            closeAccessibilityLabel="Close category settings"
+            closeAccessibilityLabel="Close plan changes"
             onClose={() => setSettingsOpen(false)}
-            title="Category settings"
+            title={`Change ${category.name} plan`}
             titleVariant="lg"
             variant="withClose"
           />
@@ -721,6 +729,9 @@ const styles = StyleSheet.create({
   heroArtwork: { ...StyleSheet.absoluteFillObject },
   summarySection: { gap: spacing.md },
   categoryTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, fontWeight: '700' },
+  changePlanLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
+  changePlanLinkPressed: { opacity: 0.62 },
+  changePlanText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   activitySection: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },

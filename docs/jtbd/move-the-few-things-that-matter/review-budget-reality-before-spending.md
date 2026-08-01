@@ -4,7 +4,7 @@ title: "Help me review household money reality before I spend or change the plan
 parent: jtbd-put-intention-before-impulse
 level: leaf
 owner: andrew
-last_reviewed: 2026-07-24
+last_reviewed: 2026-07-31
 confidence: hypothesis
 evidence:
   - docs/job-flows/maya-review-budget-reality-before-spending.md
@@ -15,27 +15,34 @@ tags: [money, families, spending, planning, forecast, screen-time, trust]
 
 ## When this job is hot
 
-Maya is about to spend, open an app that makes spending easy, or change part of
-the household plan. She does not want to operate a finance dashboard. She needs
-to know whether the relevant category and the whole plan are still okay, using
-current evidence she can understand quickly.
+Maya wants Kwilt to run an ordinary month without making her operate a finance
+dashboard. She may be about to spend, open an app that makes spending easy, or
+change a family priority. She first needs one trustworthy amount of flexible
+money left for the month. Category room and transaction detail should support
+that answer, not become prerequisites for receiving it.
 
 ## What "done" feels like for the user
 
-Maya can distinguish what has actually been spent, what was planned, what sits
-outside the plan, what is forecast, and how fresh or confident that evidence is.
-She can make an intentional choice—to continue, keep an app blocked, correct the
-underlying transaction truth, or adjust the plan—and see an authoritative
-result without being shamed or forced into bookkeeping.
+Maya can rely on a durable monthly plan that Kwilt maintains on her behalf. She
+can see exactly how much flexible money remains overall, then inspect what
+remains by category if useful. When her priorities change, she can move room
+from one category to another and understand the tradeoff. She can still inspect
+or correct the evidence, but ordinary ambiguity does not force her into
+bookkeeping or prevent Kwilt from giving its best deterministic answer.
 
 ## Sub-jobs
 
-- See the relevant category and whole-plan reality close to the decision.
-- Understand actual, planned, outside-plan, forecast, freshness, and confidence
-  without translating finance jargon.
-- Correct categorization or planning assumptions before acting on bad evidence.
+- Delegate creation and routine maintenance of a durable monthly plan.
+- See exact whole-plan flexible money left before category detail.
+- See dollars left by category when that helps guide a spending choice.
+- Redirect capacity between categories when family priorities change, with the
+  tradeoff visible before saving.
+- Distinguish monthly plan room from cash that is safe until the next payday.
+- Inspect or correct categorization and planning assumptions when materially
+  useful, without making routine ambiguity a required task.
 - Choose whether to continue spending or leave a spend-triggering app blocked.
-- Trust that a plan change shows its household tradeoffs and can be corrected.
+- Trust that the plan is based on normalized income rather than being rewritten
+  by each individual paycheck.
 
 ## Anti-patterns
 
@@ -46,6 +53,10 @@ result without being shamed or forced into bookkeeping.
 - Using shame, punishment, or surveillance to force compliance.
 - Making Maya configure a finance system before Kwilt can answer the immediate
   question.
+- Withholding the whole-plan answer because one ordinary purchase has uncertain
+  category meaning.
+- Presenting a monthly-plan number as cash-safe-until-payday without balances,
+  bill timing, and expected-income evidence.
 
 ## Notes
 

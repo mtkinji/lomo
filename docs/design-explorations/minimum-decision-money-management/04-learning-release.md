@@ -1,385 +1,354 @@
-# Learning Release: The Living-Limit Answer
+# Learning Release: Managed Month
 
 ## Concept To Build
 
-Kwilt's native Budget should give the customer one current-month answer about
-what remains inside their chosen living limit, then preserve that same truth
-when they change a category amount.
+Kwilt briefly teaches how it formed the monthly plan, then makes the native
+Budget screen lead with one exact answer:
 
-The first release proves the financial comprehension loop:
+> **$343 left for flexible spending this month**
+> `$617 of $960 used`
 
-```text
-See my limit and room in Budget
-              ↓
-Change one category amount
-              ↓
-Understand the whole-plan consequence before Save
-              ↓
-Return to Budget and see the committed answer
-```
+The customer can open **`See monthly plan`** to revisit the same three-part
+calculation. Existing categories remain below as supporting guidance.
 
-It does not attempt to prove Chat, scheduled checks, Phone Agent, Screen Time,
-or the external connector. Those remain later ways to ask for, protect, or
-receive the same Money-owned answer.
-
-## Reductive UI Contract
-
-The financial model may be comprehensive. The resting interface must not look
-comprehensive.
-
-```yaml
-Job: When I open Budget or change one category amount, tell me whether I still
-  have room inside the living limit I chose, so I can feel oriented and decide
-  without reconstructing the plan.
-Primary action: Save the category change already being edited; Budget itself
-  requires no action.
-Must show: One answer; the chosen percentage and dollar limit; one material
-  consequence or qualification.
-Reveal later: Planning-income source, protected composition, flexible math,
-  affected-category detail, freshness, confidence, and receipts.
-Must not add: A card stack, status dashboard, legend, new meter, fixed/flexible
-  badges on every category, explanatory banner, permanent CTA, tutorial, health
-  score, or duplicate settings control.
-Reuse map: Existing Money screen typography, month header, category grid,
-  settings drawer, Save flow, preview boundary, and receipt path.
-Behavior sources: Active living-plan projection for truth;
-  previewLivingPlanOverride for hypothetical state; existing versioned commit
-  and receipt for applied state.
-Unresolved decisions: Exact shortest language for flexible room and the minimum
-  classification evidence required to use it without qualification.
-Required states: Supported, no room, over limit, unassigned, stale,
-  insufficient meaning, no income basis, preview loading, preview stale, save
-  failure, and committed success.
-Proof path: Money > Budget > current month > category > Settings > edit amount >
-  preview > Save > return to Budget, on the owning iOS runtime with large text.
-```
-
-### Visible-element budget
-
-At rest, the new Budget hierarchy earns at most:
-
-1. one large answer line;
-2. one short line containing the limit or the only important qualification;
-3. one low-emphasis disclosure action.
-
-No wrapper card, icon, illustration, border, badge, progress meter, or color key
-is required. Existing spacing and type hierarchy should make the answer legible.
-The category grid begins immediately afterward.
-
-During rebalance, the existing editor earns at most:
-
-1. one consequence headline;
-2. one short explanation of what moves or remains protected;
-3. one disclosure for exact affected categories when more detail is necessary;
-4. the existing Save action.
-
-Copy is not allowed to compensate for an unclear hierarchy. If the answer needs
-a paragraph to make sense, the structure or the financial claim must be reduced.
+This release tests whether teaching the model once is enough for a customer to
+understand and trust the large number during ordinary use.
 
 ## Capability Delta
 
-Today, the customer cannot:
+Today, the customer cannot reliably:
 
-- see the chosen living percentage, its dollar limit, and its income basis on
-  the ordinary Summary surface;
-- tell at a glance how much genuinely flexible spending remains rather than
-  interpreting the sum of category balances;
-- see, before saving a category change, whether the whole plan remains inside
-  the chosen limit and exactly what other category capacity would move;
-- verify that the answer after Save is the committed result they just approved.
+- see one deterministic total for flexible money left;
+- connect that total to monthly living money minus protected costs;
+- count on ordinary transaction ambiguity being handled without an
+  administrative request;
+- revisit the calculation through one clearly named disclosure.
 
 After this release, the customer can:
 
-- open `Money > Budget` and see one current-month answer first;
-- see `70%`, the corresponding dollar limit, and the planning-income basis
-  without navigating to settings;
-- distinguish the amount protected for supported commitments and reserves from
-  the amount remaining for flexible spending;
-- edit one category amount and receive a non-mutating whole-plan preview before
-  Save;
-- understand whether the proposed change stays within the living limit, moves
-  capacity from other flexible categories, or exceeds the limit;
-- save once and return to a Budget answer that agrees with the preview and the
-  resulting receipt.
+- review a Kwilt-created monthly plan in one short teaching moment;
+- return to Budget and immediately see exact flexible money left;
+- see flexible spending used versus total flexible capacity;
+- inspect the three-part calculation without navigating into Settings;
+- continue into category detail when a local spending question matters.
 
 Still intentionally not supported:
 
-- claiming that plan room is cash in the bank or that all bills are cash-flow
-  covered;
-- general `Can I buy this?` amount entry or purchase interruption;
-- contextual Chat, scheduled checks, system-originated outreach, widgets, SMS,
-  or ChatGPT connector behavior;
-- Screen Time setup or enforcement changes;
-- automatic changes to the customer's living percentage;
-- silently reducing protected amounts to make another category fit;
-- household-scoped budgeting;
-- a permanent fixed-versus-flexible category taxonomy in the visible UI;
-- historical protected/flexible answers until historical plan semantics are
-  proven.
+- cash safe until payday;
+- a new income-normalization engine covering every compensation pattern;
+- Chat-based setup or plan changes;
+- scheduled outreach, notifications, SMS, widgets, or Screen Time changes;
+- automatic value judgments about which category matters less;
+- perfect item-level splitting for mixed merchants.
 
 ## User Experience
 
-### 1. Budget becomes the ordinary orientation surface
+### 1. Teach the model once
 
-Rename the customer-facing `Summary` destination and screen title to `Budget`.
-Keep the internal `MoneySummary` route and the existing shell, month paging,
-category grid, Transactions, Accounts, and navigation behavior.
+At the end of new Money setup—after Kwilt has a supported active plan—show one
+plain review moment:
 
-For the current month, place one answer above the existing category grid:
+```text
+Your monthly plan
 
-> **$343 left for flexible spending**
->
-> Within your 70% living limit of $3,360.
->
-> `How this works`
+You plan to use                    $3,360
+Protected costs                   -$2,400
+Flexible money                       $960
 
-The headline is the answer. The percentage and dollar limit are the one visible
-orientation line. The income basis, protected amount, and calculation details
-remain one tap away rather than becoming a second dashboard.
+Kwilt will keep this plan current and tell you what is left.
 
-`How this works` opens a disclosure using an existing drawer or
-nested detail pattern. It shows the planning-income source and freshness,
-living-limit calculation, protected-plan inputs, flexible capacity, counted
-spending, and any uncertainty. It never calls the result an account balance.
+[Use this plan]
+```
 
-The existing category grid remains the next layer of evidence. The current
-total row is demoted or collapsed if it merely repeats the answer.
+The customer does not allocate categories, classify transactions, or approve
+individual protected costs here. **`Use this plan`** confirms that the
+calculation was presented; it does not create a second plan or recompute the
+numbers.
 
-For past and future months in this release, preserve the current period view and
-use existing truthful language. Do not project the current living plan backward
-or manufacture historical flexible-room answers.
+For existing customers receiving this model for the first time, the same review
+appears once when Budget has a supported answer. Its completion state may be
+device-local for the first learning release. The calculation remains available
+later through **`See monthly plan`**.
 
-### 2. Non-ideal states answer honestly
+Do not use a carousel, explanatory card stack, percentage tutorial, quiz, or
+forced category review.
 
-The answer block must support at least these current-month states:
+### 2. Lead Budget with the answer
 
-- **Supported:** `$343 left for flexible spending this month.`
-- **No flexible room:** `Your protected plan uses the full 70% living limit.`
-- **Over the limit:** `Your plan is $84 over your 70% living limit.`
-- **Unassigned capacity:** `$120 of your living limit is not assigned yet.`
-- **Stale evidence:** retain the last trustworthy answer, state its date, and
-  offer the exact refresh or account recovery action.
-- **Insufficient meaning:** show the living percentage and supported dollar
-  facts, name the one consequential uncertainty, and do not display `$0 left`.
-- **No planning-income basis:** say that Kwilt cannot calculate the dollar limit
-  yet and link to the existing recovery path.
+For the current month, the existing Budget screen reads:
 
-Only show `left for flexible spending` when the projection can support the
-protected-versus-flexible boundary. Otherwise give the narrower true answer.
+```text
+Budget                                      •••
 
-### 3. Rebalancing uses the same answer
+‹  ›   July 2026                              +
 
-When the customer changes a category's monthly amount, run the existing
-non-mutating living-plan preview before Save. Replace the current generic impact
-copy with a plain whole-plan consequence.
+$343 left for flexible spending this month
+$617 of $960 used
 
-Within the limit, with capacity moving elsewhere:
+See monthly plan
 
-> **This stays within your 70% living limit.**
->
-> $60 moves from Dining and Shopping. Protected expenses do not change.
->
-> `See changes`
+[existing category tiles]
+```
 
-Within the limit, using unassigned capacity:
+The answer is plain typography, not a card or banner. It replaces weak states
+such as `Kwilt needs one answer` when ordinary outflows can already be counted
+conservatively.
 
-> **This stays within your 70% living limit.**
->
-> This uses $60 that was not assigned. No other category changes.
+The Budget screen does not repeat `70%`, monthly income, protected costs,
+forecast, or confidence at rest. Those are supporting evidence, not the daily
+job.
 
-Over the limit:
+### 3. Revisit the monthly plan
 
-> **This puts your plan $84 over its 70% living limit.**
->
-> Protected amounts stay in place.
->
-> `See ways to make it fit`
+**`See monthly plan`** opens an existing sheet or nested disclosure pattern:
 
-The exact affected categories are available before Save, but do not need to be
-expanded by default when the short consequence is sufficient. `See changes`
-reveals names and amounts without leaving the decision. Spending already
-recorded does not change.
+```text
+Monthly plan
 
-Save remains one explicit action. A successful save closes the editor, updates
-the authoritative Budget answer, and creates the existing plan receipt. A
-failed or stale preview never mutates the active plan and gives one recovery
-action.
+Monthly living money              $3,360
+Protected costs                  -$2,400
+Flexible money                      $960
+Flexible spending so far           $617
+Left                               $343
 
-### 4. Setup is aligned, not redesigned
+Based on your current planning income and 70% living target.
+Updated 15 minutes ago
 
-This release does not replace Plaid or create a new onboarding structure. It
-updates only the handoff and result necessary to make the same Money model
-understandable:
+[Change plan]
+```
 
-- explain that the chosen percentage is the portion of planning income reserved
-  for ordinary living;
-- when account evidence becomes available, show the chosen percentage in
-  dollars before completion;
-- end with the same living-limit and flexible-room answer the customer will see
-  in Budget;
-- remove any redundant abstract `build` decision if the system is merely doing
-  the calculation the customer already requested.
+The disclosure may expand protected-cost composition and planning-income basis
+one level deeper. The first view remains the simple arithmetic above.
 
-If including this setup copy materially expands the first implementation, it
-may follow immediately after the Budget/rebalance slice. The release is not
-considered permanently coherent until setup's final answer matches Budget.
+**`Change plan`** is the one modification affordance. It opens existing
+governed Money controls rather than returning to onboarding. From there, the
+customer can change the living target, correct a protected amount, or adjust a
+category allocation. Every material change uses the existing preview, explicit
+Save, receipt, and reversal boundaries.
+
+A later **`Ask about this plan`** affordance may open contextual Chat with the
+plan already in scope. It can explain the calculation and construct a typed
+change proposal, but Money remains responsible for the dollars, preview, Save,
+and receipt. That conversational affordance is deliberately deferred from this
+first Money learning release.
+
+`Updated 15 minutes ago` reports financial-data freshness. It is not a warning
+and does not invite action while the supported answer remains usable.
+
+### 4. Reuse one plan-change review
+
+Every in-scope **`Change plan`** action enters the same governed review contract.
+
+From **`See monthly plan`**, it opens at the whole-plan level. From Shopping
+category detail, it opens with Shopping selected and its current amount visible.
+If the customer raises Shopping, the surface renders the whole-plan consequence
+before Save:
+
+```text
+Shopping gets $100 more this month
+
+Flexible money remains             $960
+Beauty has                         $100 less
+Protected costs do not change
+
+[Save change]
+```
+
+The visible input can differ by context, but the review always uses the same:
+
+- authoritative plan version;
+- non-mutating whole-plan preview;
+- consequence order;
+- period choice for this month versus ongoing;
+- explicit Save;
+- stale-preview rejection;
+- receipt and reversal;
+- exact return to the originating Budget or category view.
+
+This release should extract or compose the shared review behavior from existing
+governed plan controls. It should not build separate Budget, category, and Chat
+calculation paths.
+
+### 5. Preserve category guidance
+
+The existing category tiles remain immediately below the answer. They continue
+to show local spending versus the category guide and open category detail.
+
+The first learning release does not redesign the grid or add fixed/flexible
+badges. Existing governed category amount changes enter the shared plan-change
+review. Their preview must state whether the flexible total or protected costs
+change, and the committed Budget answer must agree with the preview.
+
+The first slice can begin from the existing amount editor. Natural-language
+requests such as `Give Kids activities $100 more` and automatic source-category
+suggestions remain the next slice after the shared consequence review is proven.
+
+### 6. Handle imperfect evidence without burdening the customer
+
+- Every canonical current-period outflow is counted exactly once.
+- A high-confidence protected outflow uses its protected allocation.
+- An ordinary unresolved or mixed-merchant outflow is counted conservatively as
+  flexible spending until corrected.
+- Transfers, refunds, duplicates, and other supported non-spending events do
+  not consume flexible money.
+- Moving a transaction between flexible categories changes category guidance,
+  not the already-counted whole-plan total.
+
+Do not ask the customer to review a transaction merely because its precise
+flexible category is uncertain.
+
+### 7. Use focused recovery only for genuinely missing foundations
+
+If the living target or planning-income basis truly does not exist, replace the
+answer with one compact action card:
+
+> **Finish your monthly plan**
+> Add the one missing amount so Kwilt can calculate flexible money.
+> **`Finish plan`**
+
+This state must be derived from current authoritative data. Kwilt must not show
+it because an onboarding value failed to load, a refresh is in progress, or one
+transaction is ambiguous.
+
+When refreshing, keep the last supported answer visible and update it in place.
+If the answer is stale but still supported, show its age inside **`See monthly
+plan`** rather than creating a warning above the category grid.
 
 ## Existing Product Relationship
 
-This enhances existing Money surfaces rather than creating a new destination:
+This release enhances the existing Money system:
 
-- `Summary` is renamed `Budget` only in customer-facing copy;
-- `MoneySummary` remains the internal route;
-- the answer sits above the existing category grid;
-- category settings retain their current editor and Save flow;
-- `previewLivingPlanOverride` remains the non-mutating scenario boundary;
-- the active living-plan version and receipt remain authoritative after Save;
-- Plaid, Transactions, Accounts, category details, forecasts, and app-shell
-  navigation remain in place.
+- customer-facing `Budget` remains the current Summary destination;
+- internal routes and Kwilt shell navigation remain unchanged;
+- the answer occupies the existing space above the category grid;
+- the three-part review reuses a native sheet or setup-result surface;
+- category detail, Transactions, Accounts, plan settings, receipts, privacy,
+  and month navigation remain intact;
+- Money owns every dollar and classification rule.
 
-The release deliberately replaces two interpretation burdens:
+It replaces:
 
-1. adding category balances to infer what is available;
-2. reading `other categories change` and guessing whether the 70% intention is
-   still intact.
+- the need to total category balances mentally;
+- vague whole-plan uncertainty messages for ordinary purchases;
+- repeated explanation of the living percentage on the resting screen;
+- `How this works`, whose subject is unclear, with **`See monthly plan`**.
 
 ## Buildable Slice
 
 ### Must be real
 
-- A pure, tested current-month projection that returns:
-  - planning-income basis and provenance;
-  - living percentage and dollar limit;
-  - supported protected amount;
-  - flexible capacity, counted flexible spending, and flexible room;
-  - planned total, unassigned amount, and over-limit amount;
-  - freshness, confidence, and the reason a stronger answer is unavailable.
-- Explicit economic interpretation of existing allocation components. Fixed,
-  reserve, customer override, and flexible evidence cannot be collapsed by UI
-  copy when their meaning differs.
-- A clear rule for how spending in a mixed or provisionally classified category
-  contributes to the flexible-room answer. If the current data cannot support
-  that rule, the projection must return a qualified state rather than guess.
-- Unit coverage for supported, no-room, over-limit, unassigned, stale,
-  insufficient-evidence, mixed-category, and no-income-basis states.
-- A current-month Budget answer consuming that projection.
-- A rebalance preview consuming the same limit facts and exposing every material
-  allocation change before Save.
-- A single semantic answer renderer that can appear as plain typography on
-  Budget and as plain consequence text in the existing editor. It must not
-  impose a reusable card treatment or bring its own decorative chrome.
-- Preview/commit consistency: the saved result must match the preview version or
-  reject the save as stale.
-- Accessible reading order and scalable text that preserve the headline,
-  percentage, dollar basis, qualification, and primary action.
+- A pure, tested current-month projection for:
+  - persisted planning-income basis;
+  - living target and monthly living-money amount;
+  - protected-plan amount;
+  - flexible capacity;
+  - counted flexible spending;
+  - exact flexible money left;
+  - current evidence freshness.
+- The persisted active planning basis must remain stable as individual income
+  transactions arrive. This slice uses the existing governed basis; it does not
+  infer a new basis from a partial month.
+- Deterministic economic-role reconciliation in which every canonical outflow
+  is counted once and ordinary unresolved outflows default conservatively to
+  flexible spending.
+- Regression tests proving that mixed flexible purchases and unresolved
+  category placement do not produce a blocking answer state.
+- The one-time three-part teaching moment for supported plans.
+- The current-month Budget answer and used-versus-capacity line.
+- The **`See monthly plan`** disclosure using the same projection.
+- A working **`Change plan`** action from that disclosure into the existing
+  governed plan controls, with exact return to the updated calculation.
+- A reusable plan-change review contract entered from both the monthly plan and
+  category detail, with one whole-plan preview, version-checked Save, receipt,
+  reversal, and exact return path.
+- Focused component tests proving that a category-originated change renders the
+  same total-plan consequences as a whole-plan-originated change.
+- A true missing-foundation action card with a working recovery route.
+- Last-supported-answer behavior during refresh.
+- Existing category-change preview and committed result must reconcile with the
+  primary Budget answer.
+- Accessible reading order, large-text behavior, scrolling, and smallest-device
+  rendering.
 
 ### Can be thin or temporary
 
-- Use the existing drawer and typography primitives rather than designing a new
-  evidence surface.
-- Preserve the current category tiles without fixed/flexible badges or new
-  grouping.
-- Limit the new primary answer to the current month while historical semantics
-  remain unchanged.
-- Use deterministic copy templates for the bounded answer states.
-- Test with the existing category settings flow before considering a dedicated
-  rebalance composer.
-- Gate the experience to a TestFlight cohort if historical or mixed-category
-  qualification needs observation before broader release.
+- Store the existing-customer teaching receipt locally for the learning release.
+- Limit the new large answer to the current month; preserve truthful existing
+  past and future month behavior.
+- Use deterministic copy templates rather than generated prose.
+- Reuse the current plan basis instead of building compensation-pattern
+  detection in this slice.
+- Keep existing category tiles and category adjustment UI visually unchanged.
 
 ### Intentionally excluded
 
-- A new Money tab, dashboard, planner, question center, or protection center.
-- A visible technical label such as `FlexibleRoomProjection`.
-- A user-maintained fixed/flexible classification exercise during setup.
-- A universal health score, traffic-light judgment, or congratulatory budget
-  language.
-- New answer cards, banners, charts, legends, ornamental icons, or color-coded
-  financial states when words and type hierarchy communicate the result.
-- Forecast-based overspend promises in the primary headline.
-- Automatic category movement without a preview and explicit Save.
-- Chat launchers, loop offers, notification scheduling, Phone Agent, or external
-  connector work.
-- New Screen Time controls.
-- Broad visual redesign of the category grid.
+- A permanent calculation card or dashboard.
+- A new Money route, tab, planner, or category taxonomy.
+- A feature flag that prevents Andrew from seeing the learning experience in
+  the owning Simulator build.
+- `Estimated`, `about`, `needs one answer`, or transaction-cleanup headlines for
+  ordinary current-period ambiguity.
+- A new setup interview or Plaid workflow.
+- Priority suggestions, automatic category transfers, or a new rebalance
+  composer.
+- Chat, loops, notifications, Phone Agent, connectors, and Screen Time work.
+- Production-default rollout.
 
 ## Release Channel
 
-Use a **TestFlight build**, after local typecheck, tests, and Simulator visual
-proof from the owning checkout.
+Use a **Local build** first, visible by default in the owning iOS Simulator.
 
-The concept depends on comprehension, text scaling, real account evidence,
-month changes, and real category edits. A static prototype cannot establish
-whether the answer remains trustworthy through a live rebalance. TestFlight
-keeps the audience controlled while allowing Andrew and a small set of willing
-customers—including someone with low app fluency—to use the complete bundled
-flow on their own devices.
+This supports the fast iteration loop Andrew requested:
 
-The release should be invited as a normal Money improvement, not branded as an
-AI experiment. Participants should know that the answer is an early version and
-be given a direct way to report anything they cannot reconcile.
+1. implement one focused slice;
+2. run targeted logic and component tests;
+3. hot reload or rebuild only when native changes require it;
+4. let Andrew inspect the real connected-data result;
+5. revise the product direction if needed;
+6. run the comprehensive diff-aware verification gate only after the experience
+   is accepted.
+
+After local comprehension and reconciliation pass, package the same unflagged
+experience into an Andrew-only TestFlight build. Broader TestFlight evaluation
+comes after the income-basis and transaction-accounting evidence is strong
+enough to protect trust.
 
 ## Brand-Goodwill Guardrails
 
-- Show one answer first and no more than one primary action.
-- Treat every added line, border, icon, color, and component as a cost that must
-  improve immediate comprehension or enable the current decision.
-- Keep comprehensive evidence available through progressive disclosure instead
-  of displaying every requirement simultaneously.
-- Always show the percentage with its dollar limit and planning-income basis
-  somewhere in the immediate answer or one-tap disclosure.
-- Never call plan room `cash available`, `safe to spend`, or `affordable` unless
-  the required cash-flow evidence exists.
-- Never display `$0` as a fallback for missing or stale evidence.
-- Do not label flexible spending frivolous or discretionary; variable essentials
-  remain legitimate.
-- Preserve customer-protected amounts unless the customer explicitly changes
-  them.
-- Show every material rebalance consequence before Save.
-- Keep the proposed plan isolated until Save succeeds.
-- Make source freshness and consequential uncertainty visible without alarmist
-  language.
-- Ensure transaction/category totals remain traceable to the records shown.
-- Do not introduce Chat or outreach as a shortcut around an untrustworthy Money
-  calculation.
+- Never present plan room as bank balance or permission to buy.
+- Never manufacture a precise dollar from a missing planning foundation.
+- Never withhold a supported total because category placement is imperfect.
+- Never ask the customer to understand internal classifications or confidence
+  states.
+- Keep correction, evidence, and plan provenance inspectable.
+- Use calm dollar language without praise, warning colors, or moral judgment.
+- Treat the customer as the authority on priorities even while Kwilt operates
+  the routine plan.
 
 ## Reversibility
 
-Keep the release additive and presentation-scoped around the existing
-versioned living-plan contracts:
+The UI changes reuse existing surfaces and can be removed without deleting
+financial data. The teaching receipt is presentation state only. The projection
+is pure and reads existing authoritative Money data. No new category taxonomy,
+plan format, transaction mutation, notification schedule, or external delivery
+contract is introduced.
 
-- preserve `MoneySummary` route names and stored navigation state;
-- do not migrate category identities merely to rename the screen;
-- add a versioned projection rather than rewriting historical plan rows;
-- keep previews non-mutating and commits on the existing version/receipt path;
-- isolate new answer rendering behind one Money-owned component or feature gate;
-- retain the current Summary total as an available fallback during the learning
-  period;
-- avoid notification permissions, background jobs, connector scopes, or new
-  persistent customer settings in this release.
-
-If the answer proves confusing or the classification is not trustworthy, Kwilt
-can hide the new answer block and restore the prior customer-facing label while
-retaining the tested domain projection for refinement.
+If the concept fails comprehension testing, restore the existing Budget
+hierarchy while preserving the tested projection for future use. If the
+projection fails reconciliation, remove the answer rather than fall back to a
+vague estimate.
 
 ## Permanent Product Threshold
 
-This becomes accepted Money behavior only when real use shows that customers
-can answer all of the following without assistance:
+Promote this from a local learning release when:
 
-1. What is my living limit in percent and dollars?
-2. What income amount is that based on?
-3. How much is protected and how much flexible spending remains?
-4. Is that number plan room or cash in my account?
-5. If I change this category, do I remain inside my limit?
-6. What else changes, and what stays protected?
-
-The projection must reconcile with its disclosed sources, the post-save Budget
-answer must agree with the accepted preview, and no observed mixed-category or
-stale-data case may produce a stronger claim than the evidence supports.
-
-If customers understand the living limit but not `flexible spending`, revise
-the language before adding more surfaces. If the domain cannot reliably support
-the protected/flexible boundary, narrow the primary answer to the living-plan
-limit and resolve the data model before advancing Chat, outreach, or purchase
-guidance.
+- the displayed total reconciles against representative connected-data cases;
+- a first-time customer can explain the three-part model without coaching;
+- a returning customer can identify flexible money left in a few seconds;
+- customers do not confuse the number with account balance or cash safe until
+  payday;
+- mixed flexible merchants and category corrections do not destabilize the
+  whole-plan total;
+- setup, Budget, disclosure, category preview, Save, relaunch, and receipt agree;
+- the real rendered path passes the reductive-UI scorecard and comprehensive
+  repository verification.

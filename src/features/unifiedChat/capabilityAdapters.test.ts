@@ -120,7 +120,7 @@ describe('Unified Chat capability adapters', () => {
       expect.objectContaining({
         capabilityId: 'money', object: { type: 'money_plan_limit', id: 'current', label: 'Current Budget answer' },
         authority: 'authoritative', observedAt: '2026-07-23T17:00:00.000Z',
-        summary: '$343 left for flexible spending · Within your 70% living limit of $3,500.',
+        summary: '$342.96 left for flexible spending this month · $1,157.04 of $1,500 used',
       }),
       expect.objectContaining({
       capabilityId: 'money', object: { type: 'money_category', id: 'groceries', label: 'Groceries', secondaryLabel: '$100 spent of $600' },

@@ -1,236 +1,395 @@
 function getMoneyWidgetSwift(targetName) {
   return `// ---------------------------------------------------------------------------
-// Money widget — standalone Kwilt Money meter presentation in the shared target
+// Money widgets
 // ---------------------------------------------------------------------------
 
-@available(iOS 17.0, *)
-struct MoneyBudgetSelection: AppEntity {
-  static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Budget")
-  static var defaultQuery = MoneyBudgetSelectionQuery()
-  let id: String
-  let name: String
-  var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\\(name)") }
-}
+struct MoneyWidgetPalette {
+  static let calm = KwiltPalette.pine
+  static let near = Color(red: 181/255, green: 113/255, blue: 20/255)
+  static let over = Color(red: 218/255, green: 45/255, blue: 52/255)
+  static let inactive = Color.secondary.opacity(0.16)
 
-@available(iOS 17.0, *)
-struct MoneyBudgetSelectionQuery: EntityQuery, EntityStringQuery {
-  func entities(for identifiers: [MoneyBudgetSelection.ID]) async throws -> [MoneyBudgetSelection] {
-    let ids = Set(identifiers)
-    return Self.available.filter { ids.contains($0.id) }
-  }
-  func suggestedEntities() async throws -> [MoneyBudgetSelection] { Self.available }
-  func entities(matching string: String) async throws -> [MoneyBudgetSelection] {
-    let query = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    return query.isEmpty ? Self.available : Self.available.filter { $0.name.lowercased().contains(query) }
-  }
-  func defaultResult() async -> MoneyBudgetSelection? { Self.available.first }
-  private static var available: [MoneyBudgetSelection] {
-    (readGlanceableState()?.money?.categories ?? []).map { MoneyBudgetSelection(id: $0.id, name: $0.name) }
+  static func category(_ status: String) -> Color {
+    if status == "over" { return over }
+    if status == "near_limit" { return near }
+    return calm
   }
 }
 
-@available(iOS 17.0, *)
-struct SelectMoneyBudgetIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Budget"
-  static var description = IntentDescription("Choose the budget shown by this widget.")
-  static var parameterSummary: some ParameterSummary { Summary("Show \\(\\.$budget)") }
-  @Parameter(title: "Budget") var budget: MoneyBudgetSelection?
-  @Parameter(title: "Second Budget") var secondBudget: MoneyBudgetSelection?
+struct MoneyTickBorder: View {
+  let progress: Double
+  let color: Color
+
+  var body: some View {
+    let bounded = min(1, max(0, progress))
+    ZStack {
+      RoundedRectangle(cornerRadius: 22, style: .continuous)
+        .stroke(MoneyWidgetPalette.inactive, style: StrokeStyle(lineWidth: 2, dash: [2, 5]))
+      RoundedRectangle(cornerRadius: 22, style: .continuous)
+        .trim(from: 0, to: bounded)
+        .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 5]))
+        .rotationEffect(.degrees(-90))
+    }
+    .padding(4)
+    .allowsHitTesting(false)
+  }
 }
 
-@available(iOS 17.0, *)
-struct MoneyEntry: TimelineEntry {
+func moneyFreshnessLabel(updatedAtMs: Double) -> String? {
+  let updated = Date(timeIntervalSince1970: updatedAtMs / 1000.0)
+  let age = Date().timeIntervalSince(updated)
+  guard age >= 60 * 60 else { return nil }
+  guard let relative = formatRelativeLabel(ms: updatedAtMs) else { return nil }
+  return "Updated \\(relative)"
+}
+
+func moneyURL(_ value: String?, fallback: String = "kwilt://money?source=widget") -> URL? {
+  return URL(string: value ?? fallback) ?? URL(string: fallback)
+}
+
+struct FlexibleMoneyEntry: TimelineEntry {
   let date: Date
-  let categories: [GlanceableStateV1.MoneyCategory]
-  let configuration: SelectMoneyBudgetIntent
+  let updatedAtMs: Double
+  let periodLabel: String
+  let hasMoneySnapshot: Bool
+  let flexibleMoney: GlanceableStateV1.Money.FlexibleMoney?
 }
 
-@available(iOS 17.0, *)
-struct MoneyProvider: AppIntentTimelineProvider {
-  func placeholder(in context: Context) -> MoneyEntry {
-    MoneyEntry(date: Date(), categories: [], configuration: SelectMoneyBudgetIntent())
+struct FlexibleMoneyProvider: TimelineProvider {
+  func placeholder(in context: Context) -> FlexibleMoneyEntry {
+    FlexibleMoneyEntry(
+      date: Date(),
+      updatedAtMs: Date().timeIntervalSince1970 * 1000,
+      periodLabel: "This month",
+      hasMoneySnapshot: true,
+      flexibleMoney: .init(
+        state: "left",
+        amountCents: 34320,
+        flexibleCapacityCents: 96000,
+        countedFlexibleSpendCents: 61680,
+        deepLink: "kwilt://money?source=widget"
+      )
+    )
   }
-  func snapshot(for configuration: SelectMoneyBudgetIntent, in context: Context) async -> MoneyEntry {
-    MoneyEntry(date: Date(), categories: readGlanceableState()?.money?.categories ?? [], configuration: configuration)
+
+  func getSnapshot(in context: Context, completion: @escaping (FlexibleMoneyEntry) -> Void) {
+    completion(entry())
   }
-  func timeline(for configuration: SelectMoneyBudgetIntent, in context: Context) async -> Timeline<MoneyEntry> {
-    let entry = MoneyEntry(date: Date(), categories: readGlanceableState()?.money?.categories ?? [], configuration: configuration)
-    return Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(1800)))
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<FlexibleMoneyEntry>) -> Void) {
+    let current = entry()
+    completion(Timeline(entries: [current], policy: .after(Date().addingTimeInterval(15 * 60))))
+  }
+
+  private func entry() -> FlexibleMoneyEntry {
+    let state = readGlanceableState()
+    return FlexibleMoneyEntry(
+      date: Date(),
+      updatedAtMs: state?.updatedAtMs ?? 0,
+      periodLabel: state?.money?.periodLabel ?? "This month",
+      hasMoneySnapshot: state?.money != nil,
+      flexibleMoney: state?.money?.flexibleMoney
+    )
   }
 }
 
-@available(iOS 17.0, *)
-struct MoneyWidgetView: View {
-  @Environment(\\.widgetFamily) private var family
-  let entry: MoneyEntry
+struct FlexibleMoneyWidgetView: View {
+  let entry: FlexibleMoneyEntry
+
+  private var progress: Double {
+    guard let facts = entry.flexibleMoney,
+          let capacity = facts.flexibleCapacityCents,
+          let spent = facts.countedFlexibleSpendCents,
+          capacity > 0 else { return 0 }
+    return min(1, max(0, spent / capacity))
+  }
+
+  private var tone: Color {
+    guard let state = entry.flexibleMoney?.state else { return MoneyWidgetPalette.calm }
+    if state == "over" || state == "plan_over" { return MoneyWidgetPalette.over }
+    if progress >= 0.9 { return MoneyWidgetPalette.near }
+    return MoneyWidgetPalette.calm
+  }
+
+  private var value: String? {
+    formatCurrency(cents: entry.flexibleMoney?.amountCents)
+  }
+
+  private var meaning: String {
+    switch entry.flexibleMoney?.state {
+    case "left": return "left this month"
+    case "over": return "over this month"
+    case "no_room": return "no flexible room"
+    case "plan_over": return "plan over its limit"
+    default: return ""
+    }
+  }
 
   var body: some View {
-    Group {
-      if family == .systemMedium {
-        HStack(spacing: 10) {
-          ForEach(rowCategories, id: \\.id) { category in
-            MoneyCategoryLink(category: category, compact: true)
-          }
-        }
-        .padding(10)
-      } else if let category = selectedCategory {
-        MoneyCategoryLink(category: category, compact: false).padding(6)
-      } else {
-        VStack(spacing: 6) {
-          Image(systemName: "chart.donut")
-          Text("Open Kwilt to sync Money").font(.caption).multilineTextAlignment(.center)
-        }.foregroundStyle(.secondary)
-      }
-    }
-    .containerBackground(Color.white, for: .widget)
-  }
-
-  private var rowCategories: [GlanceableStateV1.MoneyCategory] {
-    var result: [GlanceableStateV1.MoneyCategory] = []
-    for selection in [entry.configuration.budget, entry.configuration.secondBudget] {
-      if let id = selection?.id, let category = entry.categories.first(where: { $0.id == id }), !result.contains(where: { $0.id == id }) { result.append(category) }
-    }
-    for category in entry.categories where result.count < 2 && !result.contains(where: { $0.id == category.id }) { result.append(category) }
-    return result
-  }
-  private var selectedCategory: GlanceableStateV1.MoneyCategory? {
-    if let id = entry.configuration.budget?.id { return entry.categories.first(where: { $0.id == id }) ?? entry.categories.first }
-    return entry.categories.first
-  }
-}
-
-@available(iOS 17.0, *)
-struct MoneyCategoryLink: View {
-  let category: GlanceableStateV1.MoneyCategory
-  let compact: Bool
-  var body: some View {
-    if let url = URL(string: category.deepLink) {
-      Link(destination: url) { MoneyClockTile(category: category, compact: compact) }
-    } else {
-      MoneyClockTile(category: category, compact: compact)
-    }
-  }
-}
-
-@available(iOS 17.0, *)
-struct MoneyClockTile: View {
-  let category: GlanceableStateV1.MoneyCategory
-  let compact: Bool
-  private let tickCount = 52
-
-  var body: some View {
-    GeometryReader { proxy in
-      let side = min(proxy.size.width, proxy.size.height)
-      let activeTicks = Int((Double(min(max(category.percentUsed, 0), 100)) / 100.0 * Double(tickCount)).rounded())
-      let markerTick = Int((Double(min(max(category.periodElapsedPercent, 0), 100)) / 100.0 * Double(tickCount)).rounded())
+    widgetContainer {
       ZStack {
-        if compact {
-          RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white)
-          RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(red: 0.91, green: 0.90, blue: 0.89), lineWidth: 1)
+        if entry.flexibleMoney != nil {
+          MoneyTickBorder(progress: progress, color: tone)
         }
-        ForEach(0..<tickCount, id: \\.self) { index in
-          let active = index < activeTicks
-          let marker = index == markerTick
-          let width = marker ? max(3.0, overBudgetWidth(percent: category.percentUsed, index: index)) : active ? overBudgetWidth(percent: category.percentUsed, index: index) : 2.0
-          let height = marker ? 14.0 : active ? 9.0 : 6.0
-          let point = tickPosition(index: index, size: side, tickHeight: height, tickWidth: width)
-          Capsule().fill(marker ? Color(red: 0.27, green: 0.25, blue: 0.24) : active ? statusColor : Color(red: 0.08, green: 0.16, blue: 0.13).opacity(0.12))
-            .frame(width: width, height: height).rotationEffect(.radians(point.rotation)).position(x: point.x, y: point.y)
-        }
-        VStack(spacing: 4) {
-          HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text("\\(category.percentUsed)").font(.custom("Inter-Black", size: side * 0.31)).monospacedDigit().foregroundStyle(statusTextColor).lineLimit(1).minimumScaleFactor(0.56)
-            Text("%").font(.custom("Inter-Black", size: side * 0.132)).foregroundStyle(Color(red: 0.44, green: 0.44, blue: 0.48))
-          }
-          Text(category.name).font(.custom("Inter-Medium", size: side * 0.103)).foregroundStyle(Color(red: 0.34, green: 0.33, blue: 0.31)).lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: side * 0.68)
-        }
-      }
-    }.aspectRatio(1, contentMode: .fit)
-  }
-
-  private var statusColor: Color {
-    if category.paceSentiment == "under" || category.paceSentiment == "on-track" { return Color(red: 0.25, green: 0.50, blue: 0.42) }
-    if category.status == "over" { return Color.red }
-    if category.status == "near_limit" { return Color(red: 0.66, green: 0.44, blue: 0.13) }
-    return Color(red: 0.44, green: 0.65, blue: 0.57)
-  }
-  private var statusTextColor: Color { category.status == "over" ? .red : Color(red: 0.09, green: 0.09, blue: 0.11) }
-  private func overBudgetWidth(percent: Int, index: Int) -> Double {
-    let fullLaps = max(0, percent) / 100
-    let partial = Int((Double(max(0, percent) % 100) / 100.0 * Double(tickCount)).rounded())
-    return min(6.0, 2.0 + Double(max(0, fullLaps + (index < partial ? 1 : 0) - 1)))
-  }
-  private func tickPosition(index: Int, size: Double, tickHeight: Double, tickWidth: Double) -> (x: Double, y: Double, rotation: Double) {
-    let half = size / 2 - 12, radius = min(22.0, half), straight = max(0, half * 2 - radius * 2), arc = Double.pi * radius / 2
-    var distance = Double(index) / Double(tickCount) * (straight * 4 + arc * 4), x = 0.0, y = -half
-    let topHalf = straight / 2
-    if distance <= topHalf {
-      x = distance
-    } else {
-      distance -= topHalf
-      if distance <= arc {
-        let angle = -Double.pi / 2 + distance / radius
-        x = half - radius + cos(angle) * radius
-        y = -half + radius + sin(angle) * radius
-      } else {
-        distance -= arc
-        if distance <= straight {
-          x = half
-          y = -half + radius + distance
-        } else {
-          distance -= straight
-          if distance <= arc {
-            let angle = distance / radius
-            x = half - radius + cos(angle) * radius
-            y = half - radius + sin(angle) * radius
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Flexible money")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+          Spacer(minLength: 2)
+          if let value = value, entry.flexibleMoney?.state != "unavailable" {
+            Text(value)
+              .font(.system(size: 28, weight: .black, design: .rounded))
+              .foregroundStyle(tone)
+              .monospacedDigit()
+              .lineLimit(1)
+              .minimumScaleFactor(0.55)
+            Text(meaning)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
           } else {
-            distance -= arc
-            if distance <= straight {
-              x = half - radius - distance
-              y = half
-            } else {
-              distance -= straight
-              if distance <= arc {
-                let angle = Double.pi / 2 + distance / radius
-                x = -half + radius + cos(angle) * radius
-                y = half - radius + sin(angle) * radius
-              } else {
-                distance -= arc
-                if distance <= straight {
-                  x = -half
-                  y = half - radius - distance
-                } else {
-                  distance -= straight
-                  if distance <= arc {
-                    let angle = Double.pi + distance / radius
-                    x = -half + radius + cos(angle) * radius
-                    y = -half + radius + sin(angle) * radius
-                  } else {
-                    distance -= arc
-                    x = -topHalf + distance
-                  }
-                }
-              }
+            Text(entry.hasMoneySnapshot
+              ? "Open Kwilt to finish your monthly plan."
+              : "Open Kwilt to view Money.")
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+              .lineLimit(3)
+          }
+          Spacer(minLength: 2)
+          HStack(spacing: 4) {
+            Text(entry.periodLabel)
+              .lineLimit(1)
+            if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
+              Text("•")
+              Text(freshness)
+                .lineLimit(1)
             }
           }
+          .font(.caption2)
+          .foregroundStyle(.secondary)
         }
+        .padding(14)
       }
+      .widgetURL(moneyURL(entry.flexibleMoney?.deepLink))
     }
-    return (size / 2 + x, size / 2 + y, atan2(-y, -x) - Double.pi / 2)
   }
 }
 
 @available(iOS 17.0, *)
-struct KwiltMoneyWidget: Widget {
-  let kind: String = "${targetName}.money"
+struct KwiltFlexibleMoneyWidget: Widget {
+  let kind = "${targetName}.money.flexible"
+
   var body: some WidgetConfiguration {
-    AppIntentConfiguration(kind: kind, intent: SelectMoneyBudgetIntent.self, provider: MoneyProvider()) { entry in MoneyWidgetView(entry: entry) }
-      .configurationDisplayName("Kwilt Money")
-      .description("Keep your budget meters visible.")
-      .supportedFamilies([.systemSmall, .systemMedium])
-      .contentMarginsDisabled()
+    StaticConfiguration(kind: kind, provider: FlexibleMoneyProvider()) { entry in
+      FlexibleMoneyWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Flexible Money")
+    .description("See the flexible money left in your monthly plan.")
+    .supportedFamilies([.systemSmall])
+    .contentMarginsDisabled()
   }
 }
+
+@available(iOS 17.0, *)
+struct MoneyCategoryEntity: AppEntity, Identifiable {
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Budget category"
+  static var defaultQuery = MoneyCategoryEntityQuery()
+
+  let id: String
+  let name: String
+
+  var displayRepresentation: DisplayRepresentation {
+    DisplayRepresentation(title: LocalizedStringResource(stringLiteral: name))
+  }
+}
+
+@available(iOS 17.0, *)
+struct MoneyCategoryEntityQuery: EntityQuery {
+  func suggestedEntities() async throws -> [MoneyCategoryEntity] {
+    return readGlanceableState()?.money?.categories.map {
+      MoneyCategoryEntity(id: $0.id, name: $0.name)
+    } ?? []
+  }
+
+  func entities(for identifiers: [String]) async throws -> [MoneyCategoryEntity] {
+    let categories = readGlanceableState()?.money?.categories ?? []
+    let byId = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0.name) })
+    return identifiers.compactMap { id in
+      guard let name = byId[id] else { return nil }
+      return MoneyCategoryEntity(id: id, name: name)
+    }
+  }
+}
+
+@available(iOS 17.0, *)
+enum MoneyCategoryDisplay: String, AppEnum {
+  case dollarsLeft
+  case percentUsed
+
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Show"
+  static var caseDisplayRepresentations: [MoneyCategoryDisplay: DisplayRepresentation] = [
+    .dollarsLeft: "Dollars left",
+    .percentUsed: "Percent used",
+  ]
+}
+
+@available(iOS 17.0, *)
+struct MoneyCategoryWidgetConfigurationIntent: WidgetConfigurationIntent {
+  static var title: LocalizedStringResource = "Budget Category"
+  static var description = IntentDescription("Choose one category and how to show it.")
+
+  @Parameter(title: "Category")
+  var category: MoneyCategoryEntity?
+
+  @Parameter(title: "Show", default: MoneyCategoryDisplay.dollarsLeft)
+  var display: MoneyCategoryDisplay
+}
+
+@available(iOS 17.0, *)
+struct MoneyCategoryEntry: TimelineEntry {
+  let date: Date
+  let updatedAtMs: Double
+  let hasMoneySnapshot: Bool
+  let category: GlanceableStateV1.Money.Category?
+  let display: MoneyCategoryDisplay
+}
+
+@available(iOS 17.0, *)
+struct MoneyCategoryWidgetProvider: AppIntentTimelineProvider {
+  typealias Intent = MoneyCategoryWidgetConfigurationIntent
+
+  func placeholder(in context: Context) -> MoneyCategoryEntry {
+    MoneyCategoryEntry(
+      date: Date(),
+      updatedAtMs: Date().timeIntervalSince1970 * 1000,
+      hasMoneySnapshot: true,
+      category: .init(
+        id: "groceries", name: "Groceries", percentUsed: 72,
+        periodElapsedPercent: 60, paceSentiment: "on-track", status: "on_track",
+        plannedCents: 90000, spentCents: 64800, remainingCents: 25200,
+        deepLink: "kwilt://money/category/groceries?source=widget"
+      ),
+      display: .dollarsLeft
+    )
+  }
+
+  func snapshot(for configuration: MoneyCategoryWidgetConfigurationIntent, in context: Context) async -> MoneyCategoryEntry {
+    entry(configuration: configuration)
+  }
+
+  func timeline(for configuration: MoneyCategoryWidgetConfigurationIntent, in context: Context) async -> Timeline<MoneyCategoryEntry> {
+    Timeline(entries: [entry(configuration: configuration)], policy: .after(Date().addingTimeInterval(15 * 60)))
+  }
+
+  private func entry(configuration: MoneyCategoryWidgetConfigurationIntent) -> MoneyCategoryEntry {
+    let state = readGlanceableState()
+    let selectedId = configuration.category?.id
+    let selected = state?.money?.categories.first(where: { $0.id == selectedId })
+    return MoneyCategoryEntry(
+      date: Date(),
+      updatedAtMs: state?.updatedAtMs ?? 0,
+      hasMoneySnapshot: state?.money != nil,
+      category: selected,
+      display: configuration.display
+    )
+  }
+}
+
+@available(iOS 17.0, *)
+struct MoneyCategoryWidgetView: View {
+  let entry: MoneyCategoryEntry
+
+  private var tone: Color {
+    guard let category = entry.category else { return MoneyWidgetPalette.calm }
+    return MoneyWidgetPalette.category(category.status)
+  }
+
+  private var progress: Double {
+    guard let category = entry.category else { return 0 }
+    return min(1, max(0, Double(category.percentUsed) / 100.0))
+  }
+
+  private var value: String {
+    guard let category = entry.category else { return "" }
+    if entry.display == .percentUsed { return "\\(category.percentUsed)%" }
+    return formatCurrency(cents: abs(category.remainingCents ?? 0)) ?? ""
+  }
+
+  private var meaning: String {
+    guard let category = entry.category else { return "" }
+    if entry.display == .percentUsed { return "used" }
+    return (category.remainingCents ?? 0) < 0 ? "over" : "left"
+  }
+
+  var body: some View {
+    widgetContainer {
+      ZStack {
+        if entry.category != nil {
+          MoneyTickBorder(progress: progress, color: tone)
+        }
+        VStack(alignment: .leading, spacing: 4) {
+          if let category = entry.category {
+            Text(category.name)
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(.secondary)
+              .lineLimit(2)
+            Spacer(minLength: 2)
+            Text(value)
+              .font(.system(size: 30, weight: .black, design: .rounded))
+              .foregroundStyle(tone)
+              .monospacedDigit()
+              .lineLimit(1)
+              .minimumScaleFactor(0.55)
+            Text(meaning)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+            Spacer(minLength: 2)
+            if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
+              Text(freshness)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+          } else {
+            Text("Budget Category")
+              .font(.caption.weight(.semibold))
+              .foregroundStyle(.secondary)
+            Spacer()
+            Text(entry.hasMoneySnapshot ? "Choose a category" : "Open Kwilt to view Money")
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+              .lineLimit(2)
+            Text(entry.hasMoneySnapshot ? "Edit this widget" : "")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+            Spacer()
+          }
+        }
+        .padding(14)
+      }
+      .widgetURL(moneyURL(entry.category?.deepLink))
+    }
+  }
+}
+
+@available(iOS 17.0, *)
+struct KwiltMoneyCategoryWidget: Widget {
+  let kind = "${targetName}.money"
+
+  var body: some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: MoneyCategoryWidgetConfigurationIntent.self, provider: MoneyCategoryWidgetProvider()) { entry in
+      MoneyCategoryWidgetView(entry: entry)
+    }
+    .configurationDisplayName("Budget Category")
+    .description("See dollars left or percent used for one category.")
+    .supportedFamilies([.systemSmall])
+    .contentMarginsDisabled()
+  }
+}
+
+// ---------------------------------------------------------------------------
 `;
 }
 
