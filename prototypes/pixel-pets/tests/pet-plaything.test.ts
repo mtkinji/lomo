@@ -4,10 +4,12 @@ import test from "node:test";
 import {
   WIND_LEAF,
   catchWindLeaf,
+  carryWindLeaf,
   createWindLeaf,
   dragWindLeaf,
   grabWindLeaf,
   isWindLeafHit,
+  offerWindLeaf,
   releaseWindLeaf,
   resolveWindLeafFlightProfile,
   stepWindLeaf,
@@ -140,12 +142,57 @@ test("Reduce Motion keeps the throw meaning with an immediate grounded landing",
   assert.equal(released.velocityY, 0);
 });
 
-test("a caught leaf holds briefly, then returns quietly to the old tree", () => {
-  const caught = catchWindLeaf(
+test("an ambient caught leaf still returns quietly to the old tree", () => {
+  const caught = { ...catchWindLeaf(
     releaseWindLeaf(grabWindLeaf(createWindLeaf(), { x: 220, y: 120 }, "baby"), { x: 0, y: 0 }, true),
-  );
+  ), throwCount: 0 };
 
   assert.equal(caught.phase, "caught");
   assert.equal(stepWindLeaf(caught, WIND_LEAF.returnDelayMs - 1).phase, "caught");
   assert.deepEqual(stepWindLeaf(caught, WIND_LEAF.returnDelayMs + 1), createWindLeaf());
+});
+
+test("a direct throw remembers where the person's hand released it", () => {
+  const held = grabWindLeaf(createWindLeaf(), { x: 118, y: 82 }, "young");
+  const thrown = releaseWindLeaf(held, { x: 0.09, y: -0.08 }, false);
+
+  assert.equal(thrown.throwCount, 1);
+  assert.deepEqual([thrown.returnX, thrown.returnY], [118, 82]);
+});
+
+test("a carried leaf stays visibly attached to each form's forward side", () => {
+  const caught = catchWindLeaf(
+    releaseWindLeaf(grabWindLeaf(createWindLeaf(), { x: 118, y: 82 }, "baby"), { x: 0, y: 0 }, true),
+  );
+  const baby = carryWindLeaf(caught, 260, "baby", -1);
+  const young = carryWindLeaf(caught, 260, "young", 1);
+  const guardian = carryWindLeaf(caught, 260, "guardian", 1);
+
+  assert.equal(baby.phase, "carried");
+  assert.ok(baby.x < 260);
+  assert.ok(young.x > 260);
+  assert.ok(guardian.x > 260);
+  assert.equal(baby.y, WIND_LEAF.groundY - 10);
+  assert.equal(young.y, WIND_LEAF.groundY - 7);
+  assert.equal(guardian.y, WIND_LEAF.groundY - 22);
+});
+
+test("Moss can offer the returned leaf for exactly one reciprocal throw", () => {
+  const firstThrow = releaseWindLeaf(
+    grabWindLeaf(createWindLeaf(), { x: 126, y: 76 }, "young"),
+    { x: 0.08, y: -0.08 },
+    false,
+  );
+  const offered = offerWindLeaf(carryWindLeaf(catchWindLeaf(firstThrow), 126, "young", 1));
+
+  assert.equal(offered.phase, "offered");
+  assert.deepEqual([offered.x, offered.y], [126, WIND_LEAF.groundY - 10]);
+  assert.equal(isWindLeafHit(offered, { x: 126, y: WIND_LEAF.groundY - 10 }), true);
+
+  const secondThrow = releaseWindLeaf(
+    grabWindLeaf(offered, { x: offered.x, y: offered.y }, "young"),
+    { x: -0.08, y: -0.06 },
+    false,
+  );
+  assert.equal(secondThrow.throwCount, 2);
 });

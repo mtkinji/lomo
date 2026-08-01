@@ -58,6 +58,8 @@ The prototype lets a tester:
 - let a settled breeze become one causal scene: Moss braces, the tree releases its leaf, and the moving toy remains catchable before Moss commits;
 - watch baby wait for a grounded catch, young commit to a descending leap, and Guardian meet the same toy with an aerial interception;
 - release one stable catch target per throw so Moss always turns before committing and never reverses mid-performance;
+- watch the first direct catch become reciprocal play: Baby toddles the leaf back, Young trots it back, and Guardian carries it home on a low glide;
+- touch the returned leaf for one optional second toss, or ignore it and let the meadow settle without a prompt, score, or unfinished need;
 - feel one throw linger in warm air, drift with a sampled gust, or fall quickly when rain makes the leaf heavy;
 - keep weather prediction and frame-by-frame physics on one immutable flight profile so environmental play remains legible and portable;
 - let a Play-together receipt stir the breeze and invite a small visitor;
@@ -108,13 +110,16 @@ short, stage-specific phrases with a wind-up and decay, never coins, button
 clicks, or arcade fanfares. Native and desktop adapters can replace synthesis
 with authored samples without changing the behavior contract.
 Direct play follows that boundary too. A pure wind-leaf state machine owns its
-perched, held, flying, landed, caught, and returned phases plus bounded throw
+perched, held, flying, landed, caught, carried, offered, and returned phases plus bounded throw
 physics and a stage-shaped catch mode. Pointer handling supplies world-space
 positions and release velocity; Canvas draws one golden habitat leaf; existing
 authored Moss clips own attention, travel, pounce, aerial reach, and contented
-recovery. Focus, a new meaningful-action consequence, weather direction, or
-ordinary touch can end the toy scene without preserving a score or unfinished
-need.
+recovery. A first direct throw remembers its release point, and Moss returns
+the leaf there with a stage-shaped gait before one finite optional second toss.
+The carried leaf is rendered against Moss's forward body edge rather than
+teleporting independently. Focus, a new meaningful-action consequence, weather
+direction, or ordinary touch can end the toy scene without preserving a score
+or unfinished need.
 Direct affection now shares the same boundary. A stage-aware silhouette target
 and pure gesture classifier distinguish a stationary hello, gentle body stroke,
 quick rollover swipe, and hand guide before Canvas chooses an interaction.

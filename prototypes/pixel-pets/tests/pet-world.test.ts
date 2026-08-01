@@ -1836,7 +1836,70 @@ test("baby waits for a grounded wind leaf, then approaches and catches once", ()
   assert.equal(world.action, "leaf-catch");
   assert.equal(world.playLeaf.phase, "caught");
 
-  world = stepPetWorld(world, PET_WORLD.leafCatchDuration, false);
+  world = stepPetWorld(world, PET_WORLD.leafCatchDuration, false, "baby");
+  assert.equal(world.action, "leaf-return");
+  assert.equal(world.playLeaf.phase, "carried");
+  assert.equal(world.targetX, 330);
+});
+
+test("the first direct catch becomes a stage-shaped return and a finite offer", () => {
+  const finishFirstCatch = (stage: "baby" | "young" | "guardian") => {
+    let world = grabWorldWindLeaf(createPetWorldState(), { x: 112, y: 92 }, stage);
+    world = tossWorldWindLeaf(world, { x: 0.1, y: -0.08 }, true);
+    world = stepPetWorld(world, 16, false, stage);
+    if (world.action === "seek-leaf") {
+      for (let frame = 0; frame < 80 && world.action === "seek-leaf"; frame += 1) {
+        world = stepPetWorld(world, 96, false, stage);
+      }
+    }
+    if (world.action === "leaf-pounce" || world.action === "leaf-aerial") {
+      world = stepPetWorld(world, PET_WORLD.aerialPounceDuration, false, stage);
+    }
+    return stepPetWorld(world, PET_WORLD.leafCatchDuration, false, stage);
+  };
+
+  const baby = finishFirstCatch("baby");
+  const young = finishFirstCatch("young");
+  const guardian = finishFirstCatch("guardian");
+
+  assert.deepEqual([baby.action, young.action, guardian.action], ["leaf-return", "leaf-return", "leaf-return"]);
+  assert.deepEqual(
+    [clipForWorldAction("leaf-return", false, "baby"), clipForWorldAction("leaf-return", false, "young"), clipForWorldAction("leaf-return", false, "guardian")],
+    ["walk", "run", "aerial"],
+  );
+
+  let offered = young;
+  for (let frame = 0; frame < 120 && offered.action === "leaf-return"; frame += 1) {
+    offered = stepPetWorld(offered, 64, false, "young");
+  }
+  assert.equal(offered.action, "leaf-offer");
+  assert.equal(offered.playLeaf.phase, "offered");
+  assert.equal(offered.petX, offered.playLeaf.returnX);
+
+  const stillOffered = stepPetWorld(offered, 350, false, "young");
+  assert.equal(stillOffered.action, "leaf-offer");
+  assert.equal(stillOffered.playLeaf.phase, "offered");
+
+  const ignored = stepPetWorld(offered, PET_WORLD.leafOfferDuration, false, "young");
+  assert.equal(ignored.action, "idle");
+  assert.equal(ignored.playLeaf.phase, "perched");
+});
+
+test("accepting Moss's offer permits one second throw but never creates an endless fetch loop", () => {
+  let world = grabWorldWindLeaf(createPetWorldState(), { x: 118, y: 90 }, "young");
+  world = tossWorldWindLeaf(world, { x: 0.08, y: -0.06 }, true);
+  world = { ...world, action: "leaf-catch", actionElapsed: PET_WORLD.leafCatchDuration, playLeaf: { ...world.playLeaf, phase: "caught" } };
+  world = stepPetWorld(world, 1, false, "young");
+  world = { ...world, petX: world.playLeaf.returnX };
+  world = stepPetWorld(world, 16, false, "young");
+
+  assert.equal(world.action, "leaf-offer");
+  world = grabWorldWindLeaf(world, { x: world.playLeaf.x, y: world.playLeaf.y }, "young");
+  world = tossWorldWindLeaf(world, { x: -0.07, y: -0.05 }, true);
+  assert.equal(world.playLeaf.throwCount, 2);
+
+  world = { ...world, action: "leaf-catch", actionElapsed: PET_WORLD.leafCatchDuration, playLeaf: { ...world.playLeaf, phase: "caught" } };
+  world = stepPetWorld(world, 1, false, "young");
   assert.equal(world.action, "idle");
   assert.equal(world.playLeaf.phase, "perched");
 });
@@ -1921,6 +1984,21 @@ test("cinematic shots give quiet, reaction, intimacy, and action different compo
   assert.deepEqual(resolveCinematicShot(pouncing, false), { id: "action-wide", zoom: 1 });
   assert.deepEqual(resolveCinematicShot(focusing, false), { id: "focus", zoom: 1.35 });
   assert.deepEqual(resolveCinematicShot(remembering, true), { id: "reduced-motion", zoom: 1 });
+});
+
+test("the leaf invitation stays wide enough to keep Moss and the grab target visible", () => {
+  const invitation = beginWindLeafInvitation({
+    ...createPetWorldState(),
+    petX: 92,
+    cameraX: 92,
+    weather: "breeze",
+    weatherPhase: "settled",
+    weatherIntensity: 1,
+    weatherSway: 2.2,
+  }, "guardian", true);
+  const shot = resolveCinematicShot(invitation, false);
+
+  assert.deepEqual(shot, { id: "action-wide", zoom: 1 });
 });
 
 test("pinch ownership holds its composition, then yields gently to the scene director", () => {

@@ -1,6 +1,6 @@
 import type { PetStage } from "./pet-state";
 
-export type WindLeafPhase = "perched" | "held" | "flying" | "landed" | "caught";
+export type WindLeafPhase = "perched" | "held" | "flying" | "landed" | "caught" | "carried" | "offered";
 export type WindLeafMode = "ground" | "leap" | "aerial";
 export type WindLeafWeather = "sunny" | "breeze" | "rain";
 export type WindLeafFlightProfileId = "sun-updraft" | "wind-drift" | "rain-heavy";
@@ -18,6 +18,9 @@ export interface WindLeafState {
   velocityX: number;
   velocityY: number;
   catchX: number;
+  returnX: number;
+  returnY: number;
+  throwCount: number;
   ageMs: number;
   flight: WindLeafFlightProfile;
 }
@@ -112,13 +115,16 @@ export function createWindLeaf(): WindLeafState {
     velocityX: 0,
     velocityY: 0,
     catchX: WIND_LEAF.perchX,
+    returnX: WIND_LEAF.perchX,
+    returnY: WIND_LEAF.perchY,
+    throwCount: 0,
     ageMs: 0,
     flight: resolveWindLeafFlightProfile("sunny"),
   };
 }
 
 export function isWindLeafHit(leaf: WindLeafState, point: WindLeafPoint) {
-  if (leaf.phase === "held" || leaf.phase === "caught") return false;
+  if (leaf.phase === "held" || leaf.phase === "caught" || leaf.phase === "carried") return false;
   return Math.hypot(point.x - leaf.x, point.y - leaf.y) <= WIND_LEAF.grabRadius;
 }
 
@@ -211,6 +217,9 @@ export function releaseWindLeaf(
       velocityX: 0,
       velocityY: 0,
       catchX: leaf.x,
+      returnX: leaf.x,
+      returnY: leaf.y,
+      throwCount: leaf.throwCount + 1,
       ageMs: 0,
       flight,
     };
@@ -224,6 +233,9 @@ export function releaseWindLeaf(
     velocityX,
     velocityY,
     catchX: predictCatchX(leaf, velocityX, velocityY, flight),
+    returnX: leaf.x,
+    returnY: leaf.y,
+    throwCount: leaf.throwCount + 1,
     ageMs: 0,
     flight,
   };
@@ -241,10 +253,47 @@ export function catchWindLeaf(leaf: WindLeafState): WindLeafState {
   };
 }
 
+const CARRY_OFFSET: Record<PetStage, { forward: number; lift: number }> = {
+  baby: { forward: 13, lift: 10 },
+  young: { forward: 18, lift: 7 },
+  guardian: { forward: 22, lift: 22 },
+};
+
+export function carryWindLeaf(
+  leaf: WindLeafState,
+  petX: number,
+  stage: PetStage,
+  facing: -1 | 1,
+): WindLeafState {
+  const offset = CARRY_OFFSET[stage];
+  return {
+    ...leaf,
+    phase: "carried",
+    x: clamp(petX + facing * offset.forward, WIND_LEAF.minX, WIND_LEAF.maxX),
+    y: WIND_LEAF.groundY - offset.lift,
+    velocityX: 0,
+    velocityY: 0,
+    ageMs: 0,
+  };
+}
+
+export function offerWindLeaf(leaf: WindLeafState): WindLeafState {
+  return {
+    ...leaf,
+    phase: "offered",
+    x: clamp(leaf.returnX, WIND_LEAF.minX, WIND_LEAF.maxX),
+    y: WIND_LEAF.groundY - 10,
+    velocityX: 0,
+    velocityY: 0,
+    ageMs: 0,
+  };
+}
+
 export function stepWindLeaf(leaf: WindLeafState, dtMs: number): WindLeafState {
   const dt = clamp(dtMs, 0, 64);
-  if (leaf.phase === "perched" || leaf.phase === "held" || leaf.phase === "landed") return leaf;
+  if (leaf.phase === "perched" || leaf.phase === "held" || leaf.phase === "landed" || leaf.phase === "carried" || leaf.phase === "offered") return leaf;
   if (leaf.phase === "caught") {
+    if (leaf.throwCount > 0) return leaf;
     const ageMs = leaf.ageMs + Math.max(0, dtMs);
     return ageMs >= WIND_LEAF.returnDelayMs ? createWindLeaf() : { ...leaf, ageMs };
   }

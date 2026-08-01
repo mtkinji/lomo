@@ -1208,7 +1208,7 @@ function drawProceduralHabitat(
   drawHandMote(context, palette, world);
   drawVisitor(context, palette, world, reducedMotion);
   if (world.rainGuest.phase === "waiting") drawRainGuest(context, palette, world, reducedMotion);
-  drawWindLeaf(context, palette, world);
+  if (world.playLeaf.phase !== "carried") drawWindLeaf(context, palette, world);
 
   context.restore();
   drawWeather(context, palette, world, false);
@@ -1405,7 +1405,7 @@ function drawAuthoredHabitat(
   drawHandMote(context, palette, world);
   drawVisitor(context, palette, world, reducedMotion);
   if (world.rainGuest.phase === "waiting") drawRainGuest(context, palette, world, reducedMotion);
-  drawWindLeaf(context, palette, world);
+  if (world.playLeaf.phase !== "carried") drawWindLeaf(context, palette, world);
   context.restore();
 
   drawWeather(context, palette, world, false);
@@ -1764,6 +1764,12 @@ function renderScene(
     evolution?.currentYOffset ?? 0,
     showRig,
   );
+  if (world.playLeaf.phase === "carried") {
+    context.save();
+    worldTransform(context, world);
+    drawWindLeaf(context, palette, world);
+    context.restore();
+  }
   if (world.rainGuest.phase === "carried" || world.rainGuest.phase === "sheltered") {
     context.save();
     worldTransform(context, world);

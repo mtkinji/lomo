@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 56 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 57 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,13 +55,14 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 56 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 57 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 56/);
-  assert.match(prototype, /The chase waits<br \/>for your signal\./i);
-  assert.match(prototype, /Arrive<\/dt><dd>at the earned layer/i);
-  assert.match(prototype, /Aim<\/dt><dd>before moving/i);
-  assert.match(prototype, /Answer<\/dt><dd>with one touch/i);
+  assert.match(prototype, /Pet Engine Study 57/);
+  assert.match(prototype, /Your turn again/);
+  assert.match(prototype, /Moss brings<br \/>the play back\./i);
+  assert.match(prototype, /Toss<\/dt><dd>through the living air/i);
+  assert.match(prototype, /Return<\/dt><dd>with a grown-in gait/i);
+  assert.match(prototype, /Offer<\/dt><dd>one quiet second turn/i);
   assert.match(prototype, /Catch the golden leaf/);
   assert.match(prototype, /Hold it, drag it, then let go/);
   assert.match(prototype, /is reading your hand/);
@@ -160,6 +161,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /Flight profile/);
   assert.match(prototype, /Leaf position/);
   assert.match(prototype, /Catch point/);
+  assert.match(prototype, /Leaf exchange/);
   assert.match(prototype, /Camera shot/);
   assert.match(prototype, /Soundscape/);
   assert.match(prototype, /Audio mix/);
@@ -230,12 +232,16 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /cameraControlRemainingMs/);
   assert.match(livingDay, /stepLivingDayDirector/);
   assert.match(livingDay, /quietBetweenEpisodesMs/);
-  assert.match(prototype, /The chase waits/);
+  assert.match(prototype, /Moss brings/);
   assert.match(prototype, /Touch the \{visitorLabel\}/);
   assert.match(plaything, /createWindLeaf/);
   assert.match(plaything, /releaseWindLeaf/);
   assert.match(plaything, /resolveWindLeafFlightProfile/);
   assert.match(plaything, /stepWindLeaf/);
+  assert.match(plaything, /carryWindLeaf/);
+  assert.match(plaything, /offerWindLeaf/);
+  assert.match(world, /leaf-return/);
+  assert.match(world, /leaf-offer/);
   assert.match(world, /grabWorldWindLeaf/);
   assert.match(world, /tossWorldWindLeaf/);
   assert.match(world, /guideWorldWithHand/);

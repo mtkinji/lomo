@@ -356,8 +356,9 @@ export function PetPrototype() {
   const treePerchActive = world.action === "tree-perch" && world.treePlay?.active;
   const visitorInviteActive = world.action === "visitor-invite" && world.visitor.active;
   const windLeafActive = world.playLeaf.phase !== "perched"
-    && ["leaf-invite", "leaf-track", "seek-leaf", "leaf-pounce", "leaf-aerial", "leaf-catch"].includes(world.action);
+    && ["leaf-invite", "leaf-track", "seek-leaf", "leaf-pounce", "leaf-aerial", "leaf-catch", "leaf-return", "leaf-offer"].includes(world.action);
   const windLeafHeld = windLeafActive && world.playLeaf.phase === "held";
+  const windLeafOffered = windLeafActive && world.playLeaf.phase === "offered";
   const afterRainPlayable = world.afterRain.phase === "shimmer"
     && ["puddle-notice", "puddle-invite", "idle"].includes(world.action);
   const worldAnswering = state.careAvailable && (
@@ -504,7 +505,9 @@ export function PetPrototype() {
       "seek-leaf": { title: "The chase is on", detail: `${state.name} saw where the wind leaf came down.` },
       "leaf-pounce": { title: "A playful opening", detail: `${state.name} committed to one grounded catch.` },
       "leaf-aerial": { title: "Meet it in the air", detail: `${state.name} found the leaf’s path above the meadow.` },
-      "leaf-catch": { title: "Caught together", detail: "One toss, one delighted little answer, then the meadow grows quiet again." },
+      "leaf-catch": { title: "Caught together", detail: worldSnapshot.playLeaf.throwCount === 1 ? `${state.name} has one idea before the play is over.` : "One last delighted catch, then the meadow grows quiet again." },
+      "leaf-return": { title: "Bringing it back", detail: currentStage === "baby" ? `${state.name} is toddling the leaf back to where your hand let go.` : currentStage === "young" ? `${state.name} is trotting the leaf back for another turn.` : `${state.name} is carrying the leaf home on a low glide.` },
+      "leaf-offer": { title: "Your turn again", detail: `Touch the leaf if you want one more toss. ${state.name} will be just as happy if the meadow grows quiet.` },
       "puddle-notice": { title: "The rain left a glint", detail: `${state.name} noticed that the meadow is still holding a little sky.` },
       "puddle-invite": { title: "Something to splash", detail: `Rain gathered the sky into one bright place at ${state.name}’s feet.` },
       "seek-puddle": { title: "Couldn’t resist", detail: `${state.name} is finding the wet ground before committing.` },
@@ -560,15 +563,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 56</span>
-        <h1>The chase waits<br />for your signal.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 57</span>
+        <h1>Moss brings<br />the play back.</h1>
         <p>
-          A crawler, firefly, or sky moth enters at the height Moss has grown into. Moss notices, turns, and holds one shared action line for your touch.
+          Toss the golden leaf. Moss catches it, carries it back to where your hand let go, and offers one more turn without asking you to stay.
         </p>
         <dl className="engine-facts">
-          <div><dt>Arrive</dt><dd>at the earned layer</dd></div>
-          <div><dt>Aim</dt><dd>before moving</dd></div>
-          <div><dt>Answer</dt><dd>with one touch</dd></div>
+          <div><dt>Toss</dt><dd>through the living air</dd></div>
+          <div><dt>Return</dt><dd>with a grown-in gait</dd></div>
+          <div><dt>Offer</dt><dd>one quiet second turn</dd></div>
         </dl>
       </header>
 
@@ -611,7 +614,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
+            label={`${state.name}'s interactive world. Drag and toss the golden leaf; after ${state.name} catches and brings it back, touch the offered leaf for one more turn. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -666,13 +669,17 @@ export function PetPrototype() {
           <div className="focus-session wind-leaf-session" aria-live="polite">
             <span className="wind-leaf-mark" aria-hidden="true" />
             <div>
-              <strong>{windLeafHeld ? `${state.name} is reading your hand` : world.action === "leaf-invite" ? "Catch the golden leaf" : "Watch the catch"}</strong>
+              <strong>{windLeafHeld ? `${state.name} is reading your hand` : windLeafOffered ? "Your turn again" : world.action === "leaf-return" ? `${state.name} is bringing it back` : world.action === "leaf-invite" ? "Catch the golden leaf" : "Watch the catch"}</strong>
               <small>{windLeafHeld
                 ? currentStage === "baby"
                   ? "Keep it near the grass, then let go"
                   : currentStage === "young"
                     ? "Toss it low for a spring, or lift it higher"
                     : "The whole sky is within reach"
+                : windLeafOffered
+                  ? "Touch the leaf for one more toss · or let the meadow rest"
+                  : world.action === "leaf-return"
+                    ? currentStage === "baby" ? "A careful toddle back to your hand" : currentStage === "young" ? "A playful trot back to your hand" : "A low glide back to your hand"
                 : world.action === "leaf-invite"
                   ? "Hold it, drag it, then let go"
                   : `The leaf is loose. ${state.name} owns the landing.`}</small>
@@ -801,10 +808,11 @@ export function PetPrototype() {
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
             <span>Reach layer <strong>{currentStage === "baby" ? "ground · stalk" : currentStage === "young" ? "low air · spring" : "upper air · vault"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
-            <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
+            <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action === "leaf-return" ? "returning" : world.action === "leaf-offer" ? "offering" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
             <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>
             <span>Leaf position <strong>{Math.round(world.playLeaf.x)}, {Math.round(world.playLeaf.y)}</strong></span>
             <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>
+            <span>Leaf exchange <strong>{world.playLeaf.throwCount} throw{world.playLeaf.throwCount === 1 ? "" : "s"} · return {Math.round(world.playLeaf.returnX)}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Habitat acting <strong>{habitatPerformance.role} · {habitatPerformance.material} · {habitatPerformance.frame + 1}/{HABITAT_PERFORMANCE_CLIPS[world.weather].frames.length}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
