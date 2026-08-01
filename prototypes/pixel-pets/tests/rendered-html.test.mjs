@@ -42,7 +42,11 @@ test("the immersive capability stretches across a narrow phone viewport", async 
     /@media \(max-width: 760px\)[\s\S]*?\.immersive-lab\s*\{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*stretch;[\s\S]*?justify-content:\s*flex-start;/,
     "the mobile play route must not center its capability in the desktop grid track",
   );
-  assert.match(css, /\.immersive-lab \.capability-frame\s*\{[\s\S]*?width:\s*100%;/);
+  assert.match(
+    css,
+    /@media \(max-width: 760px\)[\s\S]*?\.immersive-lab \.capability-frame\s*\{[^}]*^\s*width:\s*100%;/m,
+    "the phone capability itself must own an explicit full-width declaration",
+  );
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
