@@ -6,6 +6,8 @@ import {
   applyWorldIntent,
   createPetWorldState,
   beginCompanionFocus,
+  beginMemoryVisit,
+  beginTreeRest,
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
@@ -149,6 +151,65 @@ test("Reduce Motion opens the memory in place without staged travel", () => {
   assert.equal(after.petX, planted.petX);
   assert.equal(after.targetX, null);
   assert.equal(after.blooms[0].growth, 1);
+});
+
+test("an ambient memory visit notices, travels, remembers, and releases", () => {
+  const world = restorePetWorldMemory(createPetWorldState(), {
+    version: 1,
+    blooms: [{ id: 1, x: 330, source: "todo" }],
+  });
+  let visiting = beginMemoryVisit(world, 330);
+
+  assert.equal(visiting.action, "memory-notice");
+  assert.equal(clipForWorldAction(visiting.action), "discover");
+
+  visiting = stepPetWorld(visiting, PET_WORLD.memoryNoticeDuration, false);
+  assert.equal(visiting.action, "seek-memory");
+  assert.equal(clipForWorldAction(visiting.action), "walk");
+
+  for (let step = 0; step < 30 && visiting.action === "seek-memory"; step += 1) {
+    visiting = stepPetWorld(visiting, 250, false);
+  }
+  assert.equal(visiting.action, "remember");
+  assert.equal(clipForWorldAction(visiting.action), "care");
+
+  visiting = stepPetWorld(visiting, PET_WORLD.memoryHoldDuration, false);
+  assert.equal(visiting.action, "idle");
+});
+
+test("tree rest is a finite voluntary scene, not a need", () => {
+  let resting = beginTreeRest(createPetWorldState());
+  assert.equal(resting.action, "seek-rest");
+  assert.equal(resting.targetX, PET_WORLD.treeShelterX);
+
+  for (let step = 0; step < 30 && resting.action === "seek-rest"; step += 1) {
+    resting = stepPetWorld(resting, 250, false);
+  }
+  assert.equal(resting.action, "rest");
+  assert.equal(clipForWorldAction(resting.action), "sleep");
+
+  resting = stepPetWorld(resting, PET_WORLD.treeRestDuration, false);
+  assert.equal(resting.action, "idle");
+});
+
+test("Reduce Motion preserves memory and rest meaning without ambient travel", () => {
+  const remembered = stepPetWorld(
+    beginMemoryVisit(
+      restorePetWorldMemory(createPetWorldState(), {
+        version: 1,
+        blooms: [{ id: 1, x: 330, source: "todo" }],
+      }),
+      330,
+    ),
+    16,
+    true,
+  );
+  const rested = stepPetWorld(beginTreeRest(createPetWorldState()), 16, true);
+
+  assert.equal(remembered.action, "remember");
+  assert.equal(remembered.petX, PET_WORLD.width / 2);
+  assert.equal(rested.action, "rest");
+  assert.equal(rested.petX, PET_WORLD.treeShelterX);
 });
 
 test("weather arrives as a noticed event before it changes the Pet's behavior", () => {

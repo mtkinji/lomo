@@ -29,13 +29,13 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 16 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 17 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, evolution, habitat, world, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, engine, evolution, habitat, world, livingDay, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
@@ -43,6 +43,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
     readFile(new URL("../lib/pet-evolution.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-habitat.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-world.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-life-director.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/leafling.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/PetEngineCanvas.tsx", import.meta.url), "utf8"),
@@ -50,10 +51,12 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 16 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 16/);
+  assert.match(layout, /Pet Engine Study 17 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 17/);
+  assert.match(prototype, /life of its own/i);
   assert.match(prototype, /The meadow remembers/);
-  assert.match(prototype, /same blooms · calm world/);
+  assert.match(prototype, /touch always wins/);
+  assert.match(prototype, /Living day/);
   assert.match(prototype, /Evolution phase/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
@@ -93,6 +96,10 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /plantProgressBloom/);
   assert.match(world, /bloom-notice/);
   assert.match(world, /admire-bloom/);
+  assert.match(world, /beginMemoryVisit/);
+  assert.match(world, /beginTreeRest/);
+  assert.match(livingDay, /stepLivingDayDirector/);
+  assert.match(livingDay, /quietBetweenEpisodesMs/);
   assert.match(leafling, /sun-bask/);
   assert.match(world, /beginCompanionFocus/);
   assert.match(runtime, /resolvePetFrame/);

@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: base,
-    title: "Pet Engine Study 16 — Kwilt Lab",
+    title: "Pet Engine Study 17 — Kwilt Lab",
     description,
     openGraph: {
       title: "The meadow remembers what moved.",

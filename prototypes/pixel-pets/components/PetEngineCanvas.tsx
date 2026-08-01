@@ -15,6 +15,8 @@ import {
   PET_WORLD,
   applyWorldIntent,
   beginCompanionFocus,
+  beginMemoryVisit,
+  beginTreeRest,
   clipForWorldAction,
   createPetWorldState,
   nextWeatherKind,
@@ -29,6 +31,13 @@ import {
   type PetWorldState,
   type WorldPoint,
 } from "@/lib/pet-world";
+import {
+  createLivingDayDirector,
+  interruptLivingDay,
+  stepLivingDayDirector,
+  type LivingDayCommand,
+  type LivingDayDirectorState,
+} from "@/lib/pet-life-director";
 import { LEAFLING_HABITAT } from "@/lib/pet-habitat";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
@@ -53,6 +62,7 @@ interface PetEngineCanvasProps {
   worldCommand?: PetWorldCommand | null;
   onFrame?: (snapshot: PetFrameSnapshot) => void;
   onWorldFrame?: (world: PetWorldState) => void;
+  onLivingDayFrame?: (director: LivingDayDirectorState) => void;
   onWorldInteraction?: (action: PetWorldAction) => void;
   label: string;
 }
@@ -79,6 +89,20 @@ type HabitatPalette = {
 };
 
 type FocusAtmosphere = ReturnType<typeof resolveFocusAtmosphere>;
+
+function applyLivingDayCommand(
+  world: PetWorldState,
+  command: LivingDayCommand,
+  stage: PetStage,
+) {
+  if (command.kind === "roam") {
+    return applyWorldIntent(world, { kind: "move", worldX: command.targetX });
+  }
+  if (command.kind === "visit-bloom") return beginMemoryVisit(world, command.bloomX);
+  if (command.kind === "tree-rest") return beginTreeRest(world);
+  if (command.kind === "visitor") return spawnVisitor(world, stage);
+  return setWorldWeather(world, nextWeatherKind(world.weather));
+}
 
 const PALETTES: Record<PetPalette, HabitatPalette> = {
   moss: { outline: "#26372d", deep: "#3f5b42", leaf: "#4f793f", leafLight: "#7fa55d", cream: "#e7e6ba", sky: "#cfe1bf", skyLight: "#e8efd8", skyDeep: "#aecb9d", ground: "#91a866", groundLight: "#adc17f", groundDark: "#667b4c", bloom: "#f3d58a" },
@@ -993,6 +1017,7 @@ export function PetEngineCanvas({
   worldCommand,
   onFrame,
   onWorldFrame,
+  onLivingDayFrame,
   onWorldInteraction,
   label,
 }: PetEngineCanvasProps) {
@@ -1004,11 +1029,9 @@ export function PetEngineCanvas({
   const gestureMovedRef = useRef(false);
   const lastFrameRef = useRef("");
   const lastWorldReportRef = useRef(0);
-  const worldClockRef = useRef(0);
-  const nextVisitorRef = useRef(1800);
-  const nextWeatherRef = useRef(12000);
+  const livingDayRef = useRef(createLivingDayDirector());
   const stageRef = useRef(stage);
-  const callbackRef = useRef({ onFrame, onWorldFrame, onWorldInteraction });
+  const callbackRef = useRef({ onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction });
   const manifest = leaflingManifestForStage(stage);
   const previousManifest = evolutionFromStage ? leaflingManifestForStage(evolutionFromStage) : null;
   const ceremonyActive = motion === "evolve" && previousManifest !== null;
@@ -1018,14 +1041,14 @@ export function PetEngineCanvas({
   }, [stage]);
 
   useEffect(() => {
-    callbackRef.current = { onFrame, onWorldFrame, onWorldInteraction };
-  }, [onFrame, onWorldFrame, onWorldInteraction]);
+    callbackRef.current = { onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction };
+  }, [onFrame, onLivingDayFrame, onWorldFrame, onWorldInteraction]);
 
   useEffect(() => {
     if (!worldCommand) return;
+    livingDayRef.current = interruptLivingDay(livingDayRef.current);
     if (worldCommand.type === "visitor" && !worldRef.current.focus.active) {
       worldRef.current = spawnVisitor(worldRef.current, stageRef.current);
-      nextVisitorRef.current = worldClockRef.current + 7800;
     }
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
@@ -1035,14 +1058,11 @@ export function PetEngineCanvas({
     }
     if (worldCommand.type === "reset") {
       worldRef.current = createPetWorldState();
-      nextVisitorRef.current = worldClockRef.current + 1800;
-      nextWeatherRef.current = worldClockRef.current + 12000;
+      livingDayRef.current = createLivingDayDirector();
     }
     if (worldCommand.type === "sunny" || worldCommand.type === "breeze" || worldCommand.type === "rain") {
       if (!worldRef.current.focus.active) {
         worldRef.current = setWorldWeather(worldRef.current, worldCommand.type);
-        nextWeatherRef.current = worldClockRef.current + 14000;
-        nextVisitorRef.current = worldClockRef.current + 3600;
       }
     }
     if (worldCommand.type === "focus") {
@@ -1050,15 +1070,12 @@ export function PetEngineCanvas({
     }
     if (worldCommand.type === "bloom" && !worldRef.current.focus.active) {
       worldRef.current = plantProgressBloom(worldRef.current);
-      nextVisitorRef.current = worldClockRef.current + 9000;
-      nextWeatherRef.current = worldClockRef.current + 9000;
     }
     if (worldCommand.type === "play" && !worldRef.current.focus.active) {
       worldRef.current = spawnVisitor(setWorldWeather(worldRef.current, "breeze"), stageRef.current);
-      nextVisitorRef.current = worldClockRef.current + 7800;
-      nextWeatherRef.current = worldClockRef.current + 14000;
     }
     callbackRef.current.onWorldFrame?.(worldRef.current);
+    callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
     callbackRef.current.onWorldInteraction?.(worldRef.current.action);
   }, [worldCommand]);
 
@@ -1094,11 +1111,10 @@ export function PetEngineCanvas({
       if (disposed) return;
       const dt = paused ? 0 : Math.min(64, Math.max(0, time - previousTime));
       previousTime = time;
-      worldClockRef.current += dt;
-
       const beforeAction = worldRef.current.action;
       const ceremonyOwnsFrame = shouldRunEvolutionCeremony(ceremonyActive, worldRef.current.focus.active);
       if (ceremonyOwnsFrame) {
+        livingDayRef.current = interruptLivingDay(livingDayRef.current);
         worldRef.current = {
           ...worldRef.current,
           action: "idle",
@@ -1111,22 +1127,28 @@ export function PetEngineCanvas({
       } else if (!paused) {
         worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
       }
-      if (worldRef.current.focus.active) {
-        nextVisitorRef.current = Math.max(nextVisitorRef.current, worldClockRef.current + 2200);
-        nextWeatherRef.current = Math.max(nextWeatherRef.current, worldClockRef.current + 2200);
+
+      if (previewing && livingDayRef.current.activeEpisode) {
+        livingDayRef.current = interruptLivingDay(livingDayRef.current);
       }
-      const stableForWeather = ["idle", "shelter", "shade", "bask"].includes(worldRef.current.action);
-      if (!ceremonyOwnsFrame && !worldRef.current.focus.active && !worldRef.current.visitor.active && stableForWeather && worldClockRef.current >= nextWeatherRef.current) {
-        worldRef.current = setWorldWeather(worldRef.current, nextWeatherKind(worldRef.current.weather));
-        nextWeatherRef.current = worldClockRef.current + 14000;
-        nextVisitorRef.current = Math.max(nextVisitorRef.current, worldClockRef.current + 3600);
-      } else if (worldClockRef.current >= nextWeatherRef.current && !stableForWeather) {
-        nextWeatherRef.current = worldClockRef.current + 1000;
-      }
-      const stableForVisitor = worldRef.current.action === "idle" && worldRef.current.weather !== "rain";
-      if (!ceremonyOwnsFrame && !worldRef.current.focus.active && worldRef.current.weatherPhase === "settled" && stableForVisitor && !worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
-        worldRef.current = spawnVisitor(worldRef.current, stage);
-        nextVisitorRef.current = worldClockRef.current + 7800;
+      const livingDayStep = stepLivingDayDirector(
+        livingDayRef.current,
+        {
+          stage,
+          petX: worldRef.current.petX,
+          bloomXs: worldRef.current.blooms.map((bloom) => bloom.x),
+          action: worldRef.current.action,
+          focusActive: worldRef.current.focus.active,
+          visitorActive: worldRef.current.visitor.active,
+          weather: worldRef.current.weather,
+          weatherPhase: worldRef.current.weatherPhase,
+          ceremonyActive: ceremonyOwnsFrame || previewing,
+        },
+        dt,
+      );
+      livingDayRef.current = livingDayStep.state;
+      if (livingDayStep.command) {
+        worldRef.current = applyLivingDayCommand(worldRef.current, livingDayStep.command, stage);
       }
       if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action);
 
@@ -1183,6 +1205,7 @@ export function PetEngineCanvas({
       if (time - lastWorldReportRef.current > 120) {
         lastWorldReportRef.current = time;
         callbackRef.current.onWorldFrame?.(worldRef.current);
+        callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
       }
       if (!paused) animationId = requestAnimationFrame(draw);
     };
@@ -1223,6 +1246,7 @@ export function PetEngineCanvas({
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (worldRef.current.focus.active) return;
     event.currentTarget.setPointerCapture(event.pointerId);
+    livingDayRef.current = interruptLivingDay(livingDayRef.current);
     const point = pointFromEvent(event);
     pointersRef.current.set(event.pointerId, { start: point, current: point });
     gestureMovedRef.current = false;
@@ -1271,14 +1295,18 @@ export function PetEngineCanvas({
     if (world.focus.active) return;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
       const direction = event.key === "ArrowLeft" ? -1 : 1;
       worldRef.current = applyWorldIntent(world, { kind: "move", worldX: world.petX + direction * 72 });
     } else if (event.key === "ArrowUp" || event.key === " ") {
       event.preventDefault();
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = applyWorldIntent(world, { kind: "jump", worldX: world.petX });
     } else if (event.key.toLowerCase() === "r") {
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = applyWorldIntent(world, { kind: "rollover", worldX: world.petX });
     } else if (event.key === "Enter") {
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = applyWorldIntent(world, { kind: "greet", worldX: world.petX });
     } else return;
     callbackRef.current.onWorldInteraction?.(worldRef.current.action);

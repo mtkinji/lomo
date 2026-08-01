@@ -114,6 +114,16 @@ Animation follows an anime-inspired limited-motion language rather than uniform 
 
 The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. The Leafling proof uses a versioned, renderer-neutral habitat pack: an authored far panorama, a root-anchored shelter-tree sprite, and a transparent near-meadow layer. Canvas, native, web, and desktop adapters can preserve the same layer order and world coordinates while expressing weather appropriately. Environmental visitors are transient behavior targets, not collectible currency or another progress system.
 
+Autonomous life uses one renderer-neutral scene director rather than several
+competing random timers or a needs simulation. When the capability is otherwise
+quiet, the director may compose one bounded episode: stage-scaled roaming,
+revisiting a remembered bloom, resting beneath the old tree, noticing
+stage-appropriate wildlife, or experiencing weather. Each scene leaves a calm
+interval before the next. Direct touch, Focus, evolution, Play, and a new Kwilt
+progress consequence preempt the scene immediately. The director persists no
+unfinished behavior and exposes no energy, mood, hunger, comfort, or attention
+meter.
+
 Weather is behavior, not a wallpaper swap. Wind moves foliage, loose leaves, and the Pet's grounded silhouette. Rain changes light and terrain, then gives the Pet a reason to seek shelter and curl beneath a tree. Sun creates a warm destination in the meadow; after a readable basking hold, the Pet chooses the old tree's shade and curls without exposing heat as a meter or need. The portable world snapshot owns weather, intensity, elapsed time, destinations, and the Pet's response so iPhone, web, and desktop renderers can express the same event with platform-appropriate drawing.
 
 Weather changes use a shared directed-episode grammar: arrive, notice, respond, settle. Intensity grows across the whole habitat before the Pet acts; the Pet uses an authored attention clip, then the camera frames a little destination-side world during instinctive travel. Direct touch remains live outside Focus, and occasional deterministic episodes may begin while the world is otherwise quiet. The inspector exposes phase and intensity for learning, but the Pet experience adds no forecast, meter, danger, reward, or weather controls.

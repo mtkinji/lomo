@@ -14,6 +14,7 @@ import {
   type PetWorldState,
 } from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
+import { createLivingDayDirector, type LivingDayDirectorState } from "@/lib/pet-life-director";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
   advancePrototypeDay,
@@ -121,6 +122,7 @@ export function PetPrototype() {
   const [showRig, setShowRig] = useState(false);
   const [frame, setFrame] = useState<PetFrameSnapshot | null>(null);
   const [world, setWorld] = useState<PetWorldState>(() => createPetWorldState());
+  const [livingDay, setLivingDay] = useState<LivingDayDirectorState>(() => createLivingDayDirector());
   const [worldMessage, setWorldMessage] = useState<{ title: string; detail: string } | null>(null);
   const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
   const reactionTimer = useRef<number | null>(null);
@@ -279,6 +281,11 @@ export function PetPrototype() {
       "bloom-notice": { title: "Something took root", detail: `${state.name} noticed the meadow answer.` },
       "seek-bloom": { title: "Going to see", detail: `${state.name} is padding toward the new bloom.` },
       "admire-bloom": { title: "The meadow remembers", detail: "One real thing moved forward, and the little world kept it beautifully." },
+      "memory-notice": { title: "Something familiar", detail: `${state.name} remembered a place that changed.` },
+      "seek-memory": { title: "Padding back", detail: `${state.name} is returning to a bloom from your life.` },
+      remember: { title: "A quiet memory", detail: `${state.name} stopped beside something you helped grow.` },
+      "seek-rest": { title: "A favorite place", detail: `${state.name} is wandering toward the old tree.` },
+      rest: { title: "A small pause", detail: `${state.name} curled up because this is home, not because anything is wrong.` },
       walk: { title: "Off we go", detail: `${state.name} is padding over.` },
       run: { title: "Coming fast", detail: `${state.name} is racing over.` },
       jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
@@ -312,15 +319,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 16</span>
-        <h1>The meadow remembers<br />what moved.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 17</span>
+        <h1>The meadow has<br />a life of its own.</h1>
         <p>
-          Complete one real intention. A bud opens, Moss notices, and the tiny world keeps the memory without turning life into points.
+          Leave the controls alone and Moss still roams, remembers, rests, and notices the world. Touch anywhere and the living day yields to you.
         </p>
         <dl className="engine-facts">
-          <div><dt>To-do</dt><dd>opens · notice · admire</dd></div>
-          <div><dt>Meaning</dt><dd>memory · not payment</dd></div>
-          <div><dt>Return</dt><dd>same blooms · calm world</dd></div>
+          <div><dt>Rhythm</dt><dd>quiet · scene · recovery</dd></div>
+          <div><dt>Agency</dt><dd>roam · remember · rest</dd></div>
+          <div><dt>Control</dt><dd>touch always wins</dd></div>
         </dl>
       </header>
 
@@ -355,6 +362,7 @@ export function PetPrototype() {
             worldCommand={worldCommand}
             onFrame={handleFrame}
             onWorldFrame={handleWorldFrame}
+            onLivingDayFrame={setLivingDay}
             onWorldInteraction={handleWorldInteraction}
             label={`${state.name}'s interactive world. Tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
@@ -431,6 +439,7 @@ export function PetPrototype() {
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
+            <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
             <span>Bloom <strong>{world.blooms.length === 0 ? "quiet" : world.blooms.at(-1)?.growth === 1 ? "remembered" : "opening"}</strong></span>

@@ -25,6 +25,8 @@ The prototype lets a tester:
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
 - watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
+- leave the controls alone and watch one portable living-day director compose quiet roaming, remembered-bloom visits, voluntary tree rest, weather, and wildlife without overlapping scenes;
+- interrupt any ambient scene immediately with touch, Focus, Play, evolution, or a new To-do consequence;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
 - leave and return to the same bounded bloom memories in an otherwise calm fresh world;
@@ -41,7 +43,9 @@ The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
 coordinates, camera follow, destination-side shot framing, transient zoom,
 weather arrival phase and intensity, weather response, shared-focus state,
-autonomous behavior targets, and the directed sun-to-shade sequence.
+autonomous behavior targets, the directed sun-to-shade sequence, and one
+renderer-neutral living-day director that sequences ambient scenes without
+creating a needs simulation.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
 or moving its body; all three forms now own distinct eight-drawing walk, run,
