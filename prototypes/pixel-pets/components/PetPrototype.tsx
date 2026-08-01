@@ -103,6 +103,7 @@ export function PetPrototype() {
   const [paused, setPaused] = useState(false);
   const [manualElapsed, setManualElapsed] = useState(0);
   const [showRig, setShowRig] = useState(false);
+  const [labOpen, setLabOpen] = useState(false);
   const [frame, setFrame] = useState<PetFrameSnapshot | null>(null);
   const [world, setWorld] = useState<PetWorldState>(() => createPetWorldState());
   const [livingDay, setLivingDay] = useState<LivingDayDirectorState>(() => createLivingDayDirector());
@@ -563,18 +564,32 @@ export function PetPrototype() {
     );
   }
 
+  const immersiveMode = typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("play") === "1";
+
   return (
-    <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
+    <main className={`engine-lab ${immersiveMode ? "immersive-lab" : ""}`} data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
+      {immersiveMode ? (
+        <button
+          type="button"
+          className="immersive-lab-toggle"
+          aria-expanded={labOpen}
+          aria-controls="pet-engine-inspector"
+          onClick={() => setLabOpen((open) => !open)}
+        >
+          {labOpen ? "Close Lab controls" : "Open Lab controls"}
+        </button>
+      ) : null}
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 58</span>
-        <h1>Run home with<br />the rain.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 59</span>
+        <h1>The world gets<br />the screen.</h1>
         <p>
-          Feel the first drops. Touch the old tree, and Moss will cross the wet meadow with you—or choose the same safe path alone.
+          Enter Moss&apos;s living meadow first. Touch, play, focus, and weather the day together—then open the Lab only when you want to see the machine.
         </p>
         <dl className="engine-facts">
-          <div><dt>Notice</dt><dd>the world changes first</dd></div>
-          <div><dt>Choose</dt><dd>the shelter in the scene</dd></div>
-          <div><dt>Grow</dt><dd>from toddle into run</dd></div>
+          <div><dt>Enter</dt><dd>without an explainer</dd></div>
+          <div><dt>Play</dt><dd>inside one living world</dd></div>
+          <div><dt>Reveal</dt><dd>the engine when wanted</dd></div>
         </dl>
       </header>
 
@@ -778,7 +793,12 @@ export function PetPrototype() {
         </div>
       </section>
 
-      <aside className="engine-inspector" aria-label="Pet engine inspector">
+      <aside
+        id="pet-engine-inspector"
+        className={`engine-inspector ${immersiveMode ? "immersive-inspector" : ""}`}
+        aria-label="Pet engine inspector"
+        hidden={immersiveMode && !labOpen}
+      >
         <div className="inspector-heading">
           <div>
             <span className="eyebrow">Engine inspector</span>

@@ -71,6 +71,80 @@ summary:focus-visible {
   padding: 36px 34px 64px;
 }
 
+.immersive-lab {
+  position: relative;
+  display: grid;
+  width: 100%;
+  max-width: none;
+  min-height: 100svh;
+  grid-template-columns: minmax(0, 430px);
+  place-content: center;
+  padding: clamp(12px, 2.5vh, 24px);
+  background:
+    radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--accent-soft) 72%, transparent), transparent 46%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 22%, var(--paper)), var(--paper));
+}
+
+.immersive-lab .engine-intro { display: none; }
+
+.immersive-lab .capability-frame {
+  width: min(430px, calc(100vw - 24px), 56svh);
+  max-width: 100%;
+  order: initial;
+}
+
+.immersive-lab-toggle {
+  position: fixed;
+  z-index: 40;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, calc(50vw - 272px));
+  overflow: hidden;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--accent-dark) 28%, transparent);
+  border-radius: 50%;
+  color: transparent;
+  background: rgba(255, 253, 247, 0.7);
+  box-shadow: 0 6px 22px rgba(30, 36, 27, 0.14);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.immersive-lab-toggle::before {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  color: var(--accent-dark);
+  content: "LAB";
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+}
+
+.immersive-lab-toggle[aria-expanded="true"]::before { content: "×"; font-size: 1.25rem; letter-spacing: 0; }
+
+.immersive-inspector {
+  position: fixed;
+  z-index: 30;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  width: min(390px, 100vw);
+  margin: 0;
+  padding: 24px 28px 48px;
+  border: 0;
+  background: color-mix(in srgb, var(--paper) 95%, transparent);
+  box-shadow: -20px 0 60px rgba(33, 31, 39, 0.2);
+  overscroll-behavior: contain;
+  backdrop-filter: blur(18px);
+}
+
+.immersive-inspector[hidden] { display: none; }
+
 .engine-intro {
   position: sticky;
   top: 42px;
@@ -1061,6 +1135,32 @@ summary:focus-visible {
 
   .capability-frame { width: min(100%, 390px); border-radius: 32px; }
   .engine-inspector { width: min(100%, 390px); margin-top: 4px; }
+
+  .immersive-lab {
+    display: grid;
+    min-height: 100svh;
+    padding: 0;
+    background: color-mix(in srgb, var(--accent-soft) 28%, var(--panel));
+  }
+
+  .immersive-lab .capability-frame {
+    width: 100%;
+    min-height: 100svh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .immersive-inspector {
+    width: min(390px, 100vw);
+    margin: 0;
+    padding-top: 62px;
+  }
+
+  .immersive-lab-toggle {
+    top: max(74px, calc(env(safe-area-inset-top) + 60px));
+    right: max(14px, env(safe-area-inset-right));
+  }
 }
 
 @media (max-width: 390px) {
@@ -1070,6 +1170,8 @@ summary:focus-visible {
   .action-pair { padding-right: 14px; padding-left: 14px; }
   .action-pair button { font-size: 0.67rem; }
   .resting-action-row { grid-template-columns: minmax(0, 0.9fr) minmax(142px, 1.1fr); padding-right: 13px; padding-left: 15px; }
+  .immersive-lab { padding: 0; }
+  .immersive-lab .capability-frame { border-radius: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

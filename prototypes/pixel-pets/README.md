@@ -4,6 +4,7 @@ A standalone, mobile-first learning prototype for Kwilt's portable Pixel Pet ani
 
 The prototype lets a tester:
 
+- enter the exact same Pet runtime through `?play=1` as a full-height immersive capability, with the study explanation removed and the complete engine inspector available through one temporary Lab drawer;
 - inspect twelve shared Leafling clips plus a Guardian-only aerial-acrobatics performance;
 - pause and step through the exact atlas cells used by the renderer;
 - observe planted, resting, and airborne ground-contact states;

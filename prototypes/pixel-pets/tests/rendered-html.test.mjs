@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 58 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 59 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,14 +55,18 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 58 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 59 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 58/);
+  assert.match(prototype, /Pet Engine Study 59/);
+  assert.match(prototype, /immersiveMode/);
+  assert.match(prototype, /Open Lab controls/);
+  assert.match(prototype, /Close Lab controls/);
+  assert.match(prototype, /The world gets<br \/>the screen\./i);
   assert.match(prototype, /Your turn again/);
-  assert.match(prototype, /Run home with<br \/>the rain\./i);
-  assert.match(prototype, /Notice<\/dt><dd>the world changes first/i);
-  assert.match(prototype, /Choose<\/dt><dd>the shelter in the scene/i);
-  assert.match(prototype, /Grow<\/dt><dd>from toddle into run/i);
+  assert.match(prototype, /The world gets<br \/>the screen\./i);
+  assert.match(prototype, /Enter<\/dt><dd>without an explainer/i);
+  assert.match(prototype, /Play<\/dt><dd>inside one living world/i);
+  assert.match(prototype, /Reveal<\/dt><dd>the engine when wanted/i);
   assert.match(prototype, /Touch the old tree/);
   assert.match(prototype, /Catch the golden leaf/);
   assert.match(prototype, /Hold it, drag it, then let go/);
@@ -233,7 +237,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /cameraControlRemainingMs/);
   assert.match(livingDay, /stepLivingDayDirector/);
   assert.match(livingDay, /quietBetweenEpisodesMs/);
-  assert.match(prototype, /Run home with/);
+  assert.match(prototype, /The world gets/);
   assert.match(world, /resolveRainShelterHit/);
   assert.match(world, /beginRainShelterRun/);
   assert.match(canvas, /resolveRainShelterHit/);
