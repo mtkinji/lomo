@@ -44,6 +44,7 @@ import {
   resolveAfterRainSplashPresentation,
   resolveAfterRainPlayProfile,
   resolveGuardianWakePresentation,
+  resolveTwilightEchoPresentation,
   resolveTapIntent,
   resolveTreePlayHit,
   resolveTreeReturnHit,
@@ -84,6 +85,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 export type PetWorldCommand = {
   serial: number;
   type: "visitor" | "tree-play" | "after-rain" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  source?: MeaningfulAction | null;
 };
 
 interface PetEngineCanvasProps {
@@ -1770,6 +1772,7 @@ function renderScene(
   drawNearForeground(context, palette, world, habitat, guardianWake, habitatPerformance);
   drawWeather(context, palette, world, true);
   drawDaylight(context, palette, world);
+  drawTwilightEcho(context, palette, world, reducedMotion);
 }
 
 function drawDaylight(
@@ -1824,6 +1827,59 @@ function drawDaylight(
       context.globalAlpha = skyAlpha * (0.38 + (Math.sin(age * 3) + 1) * 0.22);
       context.fillRect(Math.round(x), Math.round(y), 2, 2);
     }
+  }
+  context.restore();
+}
+
+function drawTwilightEcho(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  reducedMotion: boolean,
+) {
+  const echo = resolveTwilightEchoPresentation(world, reducedMotion);
+  if (!echo.visible) return;
+
+  context.save();
+  worldTransform(context, world);
+  for (const mote of echo.motes) {
+    context.save();
+    context.translate(Math.round(mote.x), Math.round(mote.y));
+    context.scale(mote.scale, mote.scale);
+    context.globalAlpha = mote.alpha;
+
+    if (echo.material === "seed-light") {
+      context.fillStyle = "#8b5a35";
+      context.fillRect(-1, 2, 3, 2);
+      context.fillStyle = palette.bloom;
+      context.fillRect(-2, -2, 5, 4);
+      context.fillStyle = palette.cream;
+      context.fillRect(-1, -1, 3, 2);
+      context.fillStyle = palette.leafLight;
+      context.fillRect(2, -4, 3, 2);
+    } else if (echo.material === "still-light") {
+      context.globalAlpha *= 0.2;
+      context.fillStyle = palette.skyLight;
+      context.fillRect(-7, -7, 15, 15);
+      context.globalAlpha = mote.alpha;
+      context.fillStyle = palette.cream;
+      context.fillRect(-3, -3, 7, 7);
+      context.fillRect(0, -6, 1, 13);
+      context.fillRect(-6, 0, 13, 1);
+      context.fillStyle = "#fff3af";
+      context.fillRect(-1, -1, 3, 3);
+    } else {
+      context.globalAlpha *= 0.2;
+      context.fillStyle = palette.bloom;
+      context.fillRect(-5, -5, 11, 11);
+      context.globalAlpha = mote.alpha;
+      context.fillStyle = palette.cream;
+      context.fillRect(-2, -2, 5, 5);
+      context.fillStyle = palette.bloom;
+      context.fillRect(-1, -1, 3, 3);
+    }
+
+    context.restore();
   }
   context.restore();
 }
@@ -1950,7 +2006,7 @@ export function PetEngineCanvas({
       worldRef.current = beginSharedPlayEcho(worldRef.current, stageRef.current);
     }
     if (worldCommand.type === "evening") {
-      worldRef.current = beginPetEvening(worldRef.current);
+      worldRef.current = beginPetEvening(worldRef.current, worldCommand.source ?? null);
     }
     if (worldCommand.type === "morning") {
       worldRef.current = beginPetMorning(worldRef.current);

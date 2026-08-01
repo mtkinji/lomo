@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 53 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 54 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,13 +55,13 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 53 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 54 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 53/);
-  assert.match(prototype, /The same puddle<br \/>grows with Moss\./i);
-  assert.match(prototype, /Baby<\/dt><dd>nose &amp; paws/i);
-  assert.match(prototype, /Young<\/dt><dd>playful spring/i);
-  assert.match(prototype, /Guardian<\/dt><dd>aerial landing/i);
+  assert.match(prototype, /Pet Engine Study 54/);
+  assert.match(prototype, /The day follows<br \/>Moss home\./i);
+  assert.match(prototype, /To-do<\/dt><dd>one warm seed/i);
+  assert.match(prototype, /Focus<\/dt><dd>one quiet light/i);
+  assert.match(prototype, /Play<\/dt><dd>two lights together/i);
   assert.match(prototype, /Meet the rain-light/);
   assert.match(prototype, /commandWorld\("after-rain"\)/);
   assert.match(canvas, /worldCommand\.type === "after-rain"/);
@@ -124,6 +124,12 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /puddle-splash/);
   assert.match(world, /PetDaylightPhase/);
   assert.match(world, /night-rest/);
+  assert.match(world, /TwilightEchoPresentation/);
+  assert.match(world, /resolveTwilightEchoPresentation/);
+  assert.match(canvas, /drawTwilightEcho/);
+  assert.match(canvas, /worldCommand\.source/);
+  assert.match(prototype, /Twilight echo/);
+  assert.match(prototype, /The day is coming home/);
   assert.match(prototype, /world-first-capability/);
   assert.match(prototype, /world-dock/);
   assert.match(prototype, /Care changes Moss\. Nothing can be lost\./);

@@ -40,6 +40,9 @@ export const PET_WORLD = {
   goldenDuration: 3200,
   duskDuration: 3400,
   dawnDuration: 2200,
+  twilightEchoGatherDuration: 760,
+  twilightEchoFollowDuration: 3300,
+  twilightEchoRestOffset: 20,
   puddleY: ENGINE_SCENE.groundY - 3,
   puddleNoticeDuration: 980,
   puddleSplashContactAt: 425,
@@ -122,6 +125,8 @@ export type WorldHandPhase = "quiet" | "held" | "released";
 export type AfterRainPhase = "quiet" | "shimmer" | "engaged" | "spent";
 export type GuardianWakePhase = "quiet" | "gathering" | "released";
 export type RainGuestPhase = "quiet" | "waiting" | "carried" | "sheltered";
+export type TwilightEchoPhase = "quiet" | "gathering" | "following" | "settled";
+export type TwilightEchoMaterial = "seed-light" | "still-light" | "paired-motes";
 
 export interface WorldPoint {
   x: number;
@@ -223,6 +228,14 @@ export interface WorldBloom {
   source: MeaningfulAction;
 }
 
+export interface TwilightEchoPresentation {
+  visible: boolean;
+  animated: boolean;
+  phase: TwilightEchoPhase;
+  material: TwilightEchoMaterial | null;
+  motes: Array<{ x: number; y: number; alpha: number; scale: number }>;
+}
+
 export const CARE_ECHO_TARGET = {
   anchorY: ENGINE_SCENE.groundY - 14,
   radiusX: 16,
@@ -265,6 +278,12 @@ export interface PetWorldState {
     phase: PetDaylightPhase;
     elapsedMs: number;
     eveningActive: boolean;
+  };
+  twilightEcho: {
+    source: MeaningfulAction | null;
+    originX: number;
+    destinationX: number;
+    elapsedMs: number;
   };
   afterRain: {
     phase: AfterRainPhase;
@@ -392,6 +411,15 @@ function quietRainGuest(): PetWorldState["rainGuest"] {
   return { phase: "quiet", x: PET_WORLD.width / 2, y: RAIN_GUEST.guestY, elapsedMs: 0 };
 }
 
+function quietTwilightEcho(): PetWorldState["twilightEcho"] {
+  return {
+    source: null,
+    originX: PET_WORLD.treeShelterX,
+    destinationX: PET_WORLD.treeShelterX + PET_WORLD.twilightEchoRestOffset,
+    elapsedMs: 0,
+  };
+}
+
 function waitingRainGuest(petX: number): PetWorldState["rainGuest"] {
   const roomRight = PET_WORLD.maxX - petX;
   const roomLeft = petX - PET_WORLD.minX;
@@ -456,6 +484,7 @@ export function createPetWorldState(): PetWorldState {
     weatherElapsed: 0,
     weatherSway: 0,
     daylight: { phase: "day", elapsedMs: 0, eveningActive: false },
+    twilightEcho: quietTwilightEcho(),
     afterRain: quietAfterRain(),
     guardianWake: quietGuardianWake(),
     rainGuest: quietRainGuest(),
@@ -966,12 +995,26 @@ export function beginTreeRest(state: PetWorldState): PetWorldState {
   };
 }
 
-export function beginPetEvening(state: PetWorldState): PetWorldState {
+export function beginPetEvening(
+  state: PetWorldState,
+  source: MeaningfulAction | null = null,
+): PetWorldState {
+  const matchingEcho = source
+    ? [...state.blooms].reverse().find((bloom) => bloom.source === source) ?? null
+    : null;
   return {
     ...beginTreeRest(state),
     weatherResponsePending: false,
     afterRain: quietAfterRain(state.afterRain.x),
     daylight: { phase: "golden", elapsedMs: 0, eveningActive: true },
+    twilightEcho: matchingEcho
+      ? {
+          source,
+          originX: matchingEcho.x,
+          destinationX: PET_WORLD.treeShelterX + PET_WORLD.twilightEchoRestOffset,
+          elapsedMs: 0,
+        }
+      : quietTwilightEcho(),
   };
 }
 
@@ -991,6 +1034,7 @@ export function beginPetMorning(state: PetWorldState): PetWorldState {
     weatherElapsed: 0,
     weatherSway: 0,
     daylight: { phase: "dawn", elapsedMs: 0, eveningActive: false },
+    twilightEcho: quietTwilightEcho(),
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     guardianWake: quietGuardianWake(state.petX),
@@ -1017,6 +1061,50 @@ function stepDaylight(
     phase = "day";
   }
   return { ...daylight, phase, elapsedMs: remaining };
+}
+
+export function resolveTwilightEchoPresentation(
+  state: PetWorldState,
+  reducedMotion = false,
+): TwilightEchoPresentation {
+  const source = state.twilightEcho.source;
+  if (!source) return { visible: false, animated: false, phase: "quiet", material: null, motes: [] };
+
+  const material: TwilightEchoMaterial = source === "todo"
+    ? "seed-light"
+    : source === "focus" ? "still-light" : "paired-motes";
+  const moteCount = source === "play" ? 2 : 1;
+  const elapsed = state.twilightEcho.elapsedMs;
+  const followingAt = PET_WORLD.twilightEchoGatherDuration;
+  const settledAt = followingAt + PET_WORLD.twilightEchoFollowDuration;
+  const phase: TwilightEchoPhase = reducedMotion || elapsed >= settledAt
+    ? "settled"
+    : elapsed >= followingAt ? "following" : "gathering";
+  const rawProgress = reducedMotion
+    ? 1
+    : clamp((elapsed - followingAt) / PET_WORLD.twilightEchoFollowDuration, 0, 1);
+  const progress = 0.5 - Math.cos(rawProgress * Math.PI) / 2;
+  const baseX = phase === "gathering"
+    ? state.twilightEcho.originX
+    : state.twilightEcho.originX
+      + (state.twilightEcho.destinationX - state.twilightEcho.originX) * progress;
+  const baseY = ENGINE_SCENE.groundY - 18 - (phase === "following" ? Math.sin(progress * Math.PI) * 28 : 0);
+  const pulse = reducedMotion ? 0 : Math.sin(elapsed / (source === "focus" ? 420 : 230));
+  const motes = Array.from({ length: moteCount }, (_, index) => {
+    const pairSign = index === 0 ? -1 : 1;
+    const weave = source === "play" && phase === "following"
+      ? pairSign * (4 + Math.sin(elapsed / 180) * 3)
+      : 0;
+    const settledOffset = phase === "settled" && source === "play" ? pairSign * 6 : 0;
+    return {
+      x: clampWorldX(baseX + weave + settledOffset),
+      y: baseY + (source === "play" ? pairSign * (2 + pulse * 2) : pulse * 1.5),
+      alpha: phase === "gathering" ? 0.62 + clamp(elapsed / followingAt, 0, 1) * 0.28 : 0.9,
+      scale: source === "focus" ? 1.15 : source === "todo" ? 0.92 : 0.78,
+    };
+  });
+
+  return { visible: true, animated: !reducedMotion && phase !== "settled", phase, material, motes };
 }
 
 function stepAfterRain(
@@ -1705,6 +1793,9 @@ export function stepPetWorld(
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
     daylight: stepDaylight(state.daylight, dt),
+    twilightEcho: state.twilightEcho.source && state.daylight.eveningActive
+      ? { ...state.twilightEcho, elapsedMs: state.twilightEcho.elapsedMs + dt }
+      : state.twilightEcho,
     afterRain: stepAfterRain(state.afterRain, dt),
     guardianWake: stepGuardianWake(state.guardianWake, dt, state.action),
     rainGuest: stepRainGuest(state.rainGuest, dt),

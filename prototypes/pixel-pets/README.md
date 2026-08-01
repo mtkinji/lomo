@@ -66,6 +66,7 @@ The prototype lets a tester:
 - leave and return to the same four bounded, privacy-safe life echoes in an otherwise calm fresh world;
 - simulate a completed Focus session;
 - give one care moment per prototype day;
+- let that exact day follow Moss home through one source-aware twilight: a To-do seed-light, Focus still-light, or two Play motes gather at their real echo, travel toward the old tree, and settle beside the grounded night curl;
 - return after quiet days without loss or punishment;
 - hear and mute nonverbal sounds;
 - accelerate time through a young form after three care moments and a guardian form after eight;
@@ -230,6 +231,16 @@ the existing aerial performance before a single weighty contact at the puddle.
 The Canvas adapter draws water only after that contact; it never uses sprite
 size to infer maturity. Reduce Motion preserves one grounded contact tableau
 without droplets, aerial travel, or a moving terrain wake.
+
+Daily closure now composes the existing Kwilt receipt, life echo, and evening
+engine into one source-aware journey home. Pure state captures the newest
+matching echo coordinate when care begins, keeps one immutable old-tree
+destination, and resolves gathering, following, and settled world-space motes.
+A To-do carries one warm seed-light, Focus carries one steady still-light, and
+Play carries two related motes. Canvas draws those habitat-owned materials after
+the dusk grade so they remain legible without becoming a sprite aura or reward
+burst. Morning clears the transient performance while the bounded durable echo
+remains. Reduce Motion skips travel and holds one source-specific night mark.
 
 ## Local use
 

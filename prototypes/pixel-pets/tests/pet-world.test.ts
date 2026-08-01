@@ -25,6 +25,7 @@ import {
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
+  resolveTwilightEchoPresentation,
   resolveTreePlayHit,
   resolveTreeReturnHit,
   resolveRainGuestHit,
@@ -421,6 +422,70 @@ test("evening is a directed journey from golden light to the old tree", () => {
   assert.equal(evening.facing, -1);
   assert.equal(evening.visitor.active, false);
   assert.equal(evening.playLeaf.phase, "perched");
+});
+
+test("the newest matching life echo follows its own day home", () => {
+  let world = plantLifeEcho(createPetWorldState(), "todo", 126);
+  world = plantLifeEcho(world, "focus", 202);
+  world = plantLifeEcho(world, "todo", 348);
+
+  const evening = beginPetEvening(world, "todo");
+
+  assert.equal(evening.twilightEcho.source, "todo");
+  assert.equal(evening.twilightEcho.originX, 348);
+  assert.equal(evening.twilightEcho.destinationX, PET_WORLD.treeShelterX + PET_WORLD.twilightEchoRestOffset);
+  assert.equal(evening.twilightEcho.elapsedMs, 0);
+  assert.equal(beginPetEvening(world).twilightEcho.source, null, "legacy evenings remain quietly valid");
+});
+
+test("To-do, Focus, and Play keep distinct materials inside one twilight grammar", () => {
+  const presentations = (["todo", "focus", "play"] as const).map((source) => {
+    const planted = plantLifeEcho(createPetWorldState(), source, 336);
+    return resolveTwilightEchoPresentation(beginPetEvening(planted, source), false);
+  });
+
+  assert.deepEqual(presentations.map(({ material }) => material), ["seed-light", "still-light", "paired-motes"]);
+  assert.deepEqual(presentations.map(({ motes }) => motes.length), [1, 1, 2]);
+  assert.ok(presentations.every(({ phase, animated }) => phase === "gathering" && animated));
+  assert.ok(presentations.every(({ motes }) => motes.every(({ x }) => x === 336)));
+});
+
+test("twilight echoes travel toward one stable sleeping place and settle there", () => {
+  const planted = plantLifeEcho(createPetWorldState(), "play", 356);
+  const evening = beginPetEvening(planted, "play");
+  const followingWorld = stepPetWorld(
+    evening,
+    PET_WORLD.twilightEchoGatherDuration + PET_WORLD.twilightEchoFollowDuration / 2,
+    false,
+    "young",
+  );
+  const following = resolveTwilightEchoPresentation(
+    { ...followingWorld, petX: PET_WORLD.maxX, cameraX: PET_WORLD.maxX },
+    false,
+  );
+
+  assert.equal(following.phase, "following");
+  assert.ok(following.motes.every(({ x }) => x < evening.twilightEcho.originX));
+  assert.ok(following.motes.every(({ x }) => x > evening.twilightEcho.destinationX - 12));
+
+  const settledWorld = stepPetWorld(followingWorld, PET_WORLD.twilightEchoFollowDuration, false, "young");
+  const settled = resolveTwilightEchoPresentation(settledWorld, false);
+  assert.equal(settled.phase, "settled");
+  assert.ok(settled.motes.every(({ x }) => Math.abs(x - evening.twilightEcho.destinationX) <= 8));
+});
+
+test("Reduce Motion keeps one source-specific night mark and morning clears only the performance", () => {
+  const planted = plantLifeEcho(createPetWorldState(), "focus", 314);
+  const evening = beginPetEvening(planted, "focus");
+  const still = resolveTwilightEchoPresentation(evening, true);
+  const morning = beginPetMorning(evening);
+
+  assert.equal(still.phase, "settled");
+  assert.equal(still.animated, false);
+  assert.equal(still.motes.length, 1);
+  assert.equal(still.motes[0].x, evening.twilightEcho.destinationX);
+  assert.equal(morning.twilightEcho.source, null);
+  assert.deepEqual(morning.blooms, evening.blooms, "durable life echoes survive the transient twilight");
 });
 
 test("daylight advances deterministically through dusk into night", () => {

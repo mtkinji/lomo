@@ -10,6 +10,7 @@ import {
   createPetWorldState,
   resolveFocusAtmosphere,
   resolveAfterRainPlayProfile,
+  resolveTwilightEchoPresentation,
   restorePetWorldMemory,
   serializePetWorldMemory,
   type PetWorldAction,
@@ -255,13 +256,14 @@ export function PetPrototype() {
   }
 
   function care() {
+    const source = state.pendingSource;
     const next = giveCare(state);
     setState(next);
     setWorldMessage(next.reaction === "evolve"
       ? { title: next.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes", detail: next.lastReceipt }
       : { title: "Today is cared for", detail: next.lastReceipt });
     playPetCue(next.reaction, next.stage);
-    commandWorld("evening");
+    commandWorld("evening", source);
     nudge();
     settleAfterMotion(REACTION_MOTION[next.reaction], next.stage);
   }
@@ -320,6 +322,7 @@ export function PetPrototype() {
     : null;
   const focusAtmosphere = resolveFocusAtmosphere(world.focus, state.reducedMotion);
   const afterRainPlay = resolveAfterRainPlayProfile(currentStage);
+  const twilightEcho = resolveTwilightEchoPresentation(world, state.reducedMotion);
   const soundscapeMix = currentSoundscapeMix();
   const visitorPerformance = world.visitor.active
     ? resolveVisitorPerformance(world.visitor, world.weather, state.reducedMotion)
@@ -518,9 +521,9 @@ export function PetPrototype() {
     if (message && shouldShowSceneNarration(action, narrationContext)) showSceneNarration(message);
   }
 
-  function commandWorld(type: PetWorldCommand["type"]) {
+  function commandWorld(type: PetWorldCommand["type"], source: MeaningfulAction | null = null) {
     beginSoundscape();
-    setWorldCommand((current) => ({ serial: (current?.serial ?? 0) + 1, type }));
+    setWorldCommand((current) => ({ serial: (current?.serial ?? 0) + 1, type, source }));
   }
 
   function toggleSoundscape() {
@@ -549,15 +552,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 53</span>
-        <h1>The same puddle<br />grows with Moss.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 54</span>
+        <h1>The day follows<br />Moss home.</h1>
         <p>
-          Rain leaves one bright piece of sky in the meadow. Touch it and Baby investigates, Young springs, or Guardian arrives from above.
+          Do, focus, or play. The exact kind of day you cared for becomes one small light that travels through dusk beside Moss.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>nose &amp; paws</dd></div>
-          <div><dt>Young</dt><dd>playful spring</dd></div>
-          <div><dt>Guardian</dt><dd>aerial landing</dd></div>
+          <div><dt>To-do</dt><dd>one warm seed</dd></div>
+          <div><dt>Focus</dt><dd>one quiet light</dd></div>
+          <div><dt>Play</dt><dd>two lights together</dd></div>
         </dl>
       </header>
 
@@ -693,8 +696,8 @@ export function PetPrototype() {
           <div className="focus-session day-settling" aria-live="polite">
             <span className="settling-leaves evening-moon" aria-hidden="true">☾</span>
             <div>
-              <strong>{world.action === "seek-rest" ? `${state.name} is finding the old tree` : "The meadow is becoming evening"}</strong>
-              <small>Golden light, a grounded curl, then one quiet night.</small>
+              <strong>{world.action === "seek-rest" ? `${state.name} is finding the old tree` : twilightEcho.visible ? "The day is coming home" : "The meadow is becoming evening"}</strong>
+              <small>{twilightEcho.material === "seed-light" ? "One warm seed follows what took root." : twilightEcho.material === "still-light" ? "The quiet place keeps one steady light." : twilightEcho.material === "paired-motes" ? "Two small lights remember playing together." : "Golden light, a grounded curl, then one quiet night."}</small>
             </div>
           </div>
           ) : (
@@ -769,6 +772,7 @@ export function PetPrototype() {
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Habitat acting <strong>{habitatPerformance.role} · {habitatPerformance.material} · {habitatPerformance.frame + 1}/{HABITAT_PERFORMANCE_CLIPS[world.weather].frames.length}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
+            <span>Twilight echo <strong>{twilightEcho.visible ? `${twilightEcho.material} · ${twilightEcho.phase} · ${twilightEcho.motes.length}` : "quiet"}</strong></span>
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
             <span>Puddle play <strong>{afterRainPlay.clip} · {afterRainPlay.baseSpread}px{afterRainPlay.releasesWake ? " · meadow wake" : ""}</strong></span>
             <span>Rain guest <strong>{world.rainGuest.phase === "quiet" ? "quiet" : `${world.rainGuest.phase} · ${Math.round(world.rainGuest.x)}, ${Math.round(world.rainGuest.y)}`}</strong></span>
