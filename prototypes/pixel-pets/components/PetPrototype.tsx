@@ -311,6 +311,8 @@ export function PetPrototype() {
       "hand-track": { title: "Your hand entered the world", detail: `${state.name} noticed before taking a single step.` },
       "hand-walk": { title: "Coming closer", detail: `${state.name} is following without becoming a cursor.` },
       "hand-run": { title: "Wait for me", detail: `${state.name} opened into a real run to close the distance.` },
+      "hand-pounce": { title: "A new layer", detail: `${state.name} can reach the light with one committed bound.` },
+      "hand-aerial": { title: "The sky opened", detail: `${state.name} read the height, launched, and chose one landing.` },
       "hand-found": { title: "There you are", detail: `${state.name} found the last place your hand left light.` },
       "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
@@ -375,15 +377,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 24</span>
-        <h1>Where your hand goes,<br />Moss follows.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 25</span>
+        <h1>The sky opens<br />as Moss grows.</h1>
         <p>
-          Draw one finger through the meadow. A little light enters the world, Moss notices, and then chooses how to follow.
+          Draw one finger upward through the meadow. Baby stays low, Young learns to bound, and Guardian reaches the open air.
         </p>
         <dl className="engine-facts">
-          <div><dt>Touch</dt><dd>wakes one light</dd></div>
-          <div><dt>Distance</dt><dd>shapes the gait</dd></div>
-          <div><dt>Moss</dt><dd>keeps its agency</dd></div>
+          <div><dt>Baby</dt><dd>owns the low world</dd></div>
+          <div><dt>Young</dt><dd>unlocks the bound</dd></div>
+          <div><dt>Guardian</dt><dd>opens the sky</dd></div>
         </dl>
       </header>
 
@@ -420,7 +422,7 @@ export function PetPrototype() {
             onWorldFrame={handleWorldFrame}
             onLivingDayFrame={setLivingDay}
             onWorldInteraction={handleWorldInteraction}
-            label={`${state.name}'s interactive world. Draw one finger through the meadow to guide ${state.name}, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
+            label={`${state.name}'s interactive world. Draw one finger upward through the meadow to discover how ${state.name}'s reach grows, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
         </div>
 
@@ -495,6 +497,7 @@ export function PetPrototype() {
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
+            <span>Reach layer <strong>{currentStage === "baby" ? "ground" : currentStage === "young" ? "bound" : "aerial"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
             <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
             <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>

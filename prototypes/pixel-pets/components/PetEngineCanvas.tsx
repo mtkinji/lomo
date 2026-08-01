@@ -1488,7 +1488,7 @@ export function PetEngineCanvas({
       worldRef.current = setWorldZoom(worldRef.current, pinchRef.current.zoom * (distance / Math.max(1, pinchRef.current.distance)));
     } else if (pointersRef.current.size === 1 && gestureDistance > 6) {
       const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
-      worldRef.current = guideWorldWithHand(worldRef.current, worldPoint);
+      worldRef.current = guideWorldWithHand(worldRef.current, worldPoint, stageRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
       callbackRef.current.onWorldInteraction?.(worldRef.current.action);
     }
@@ -1526,7 +1526,7 @@ export function PetEngineCanvas({
       return;
     }
     if (worldRef.current.hand.phase === "held") {
-      worldRef.current = releaseWorldHandGuide(worldRef.current);
+      worldRef.current = releaseWorldHandGuide(worldRef.current, stageRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
       callbackRef.current.onWorldInteraction?.(worldRef.current.action);
       return;

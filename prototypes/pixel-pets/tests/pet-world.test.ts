@@ -532,9 +532,9 @@ test("screen taps resolve into world-space attention and travel intents", () => 
 
 test("a deliberate hand guide earns attention before choosing an honest gait", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 310, y: 146 });
-  const watched = guideWorldWithHand(start, { x: start.petX + 10, y: 112 });
-  const walking = guideWorldWithHand(watched, { x: start.petX + 42, y: 104 });
-  const running = guideWorldWithHand(walking, { x: start.petX + 118, y: 92 });
+  const watched = guideWorldWithHand(start, { x: start.petX + 10, y: 188 }, "young");
+  const walking = guideWorldWithHand(watched, { x: start.petX + 42, y: 184 }, "young");
+  const running = guideWorldWithHand(walking, { x: start.petX + 118, y: 180 }, "young");
 
   assert.equal(watched.hand.phase, "held");
   assert.equal(watched.action, "hand-track");
@@ -550,14 +550,14 @@ test("a deliberate hand guide earns attention before choosing an honest gait", (
 });
 
 test("Moss follows a moving hand with inertia instead of teleporting to the cursor", () => {
-  let world = guideWorldWithHand(createPetWorldState(), { x: 390, y: 96 });
+  let world = guideWorldWithHand(createPetWorldState(), { x: 390, y: 184 }, "young");
   const first = stepPetWorld(world, 160, false, "young");
 
   assert.ok(first.petX > world.petX);
   assert.ok(first.petX < world.hand.x);
   assert.equal(first.facing, 1);
 
-  world = guideWorldWithHand(first, { x: 92, y: 104 });
+  world = guideWorldWithHand(first, { x: 92, y: 184 }, "young");
   const turned = stepPetWorld(world, 160, false, "young");
   assert.ok(turned.petX < world.petX);
   assert.ok(turned.petX > world.hand.x);
@@ -565,7 +565,7 @@ test("Moss follows a moving hand with inertia instead of teleporting to the curs
 });
 
 test("a more specific gesture can cancel hand guidance without inventing an arrival", () => {
-  const guided = guideWorldWithHand(createPetWorldState(), { x: 390, y: 96 });
+  const guided = guideWorldWithHand(createPetWorldState(), { x: 390, y: 184 }, "young");
   const cancelled = cancelWorldHandGuide(guided);
 
   assert.equal(cancelled.action, "idle");
@@ -575,7 +575,8 @@ test("a more specific gesture can cancel hand guidance without inventing an arri
 
 test("releasing the hand commits to one last place, greets, and becomes quiet", () => {
   let world = releaseWorldHandGuide(
-    guideWorldWithHand(createPetWorldState(), { x: 356, y: 106 }),
+    guideWorldWithHand(createPetWorldState(), { x: 356, y: 184 }, "young"),
+    "young",
   );
 
   assert.equal(world.hand.phase, "released");
@@ -603,18 +604,70 @@ test("rain shelter and shared Focus are stronger than a hand invitation", () => 
   };
   const focusing = beginCompanionFocus(createPetWorldState(), 15_000);
 
-  assert.deepEqual(guideWorldWithHand(sheltered, { x: 380, y: 80 }), sheltered);
-  assert.deepEqual(guideWorldWithHand(focusing, { x: 380, y: 80 }), focusing);
+  assert.deepEqual(guideWorldWithHand(sheltered, { x: 380, y: 80 }, "guardian"), sheltered);
+  assert.deepEqual(guideWorldWithHand(focusing, { x: 380, y: 80 }, "guardian"), focusing);
 });
 
 test("Reduce Motion preserves guide, arrival, and greeting without animated travel", () => {
-  const guided = guideWorldWithHand(createPetWorldState(), { x: 352, y: 90 });
-  const arrived = stepPetWorld(releaseWorldHandGuide(guided), 16, true, "guardian");
+  const guided = guideWorldWithHand(createPetWorldState(), { x: 352, y: 72 }, "guardian");
+  const arrived = stepPetWorld(releaseWorldHandGuide(guided, "guardian"), 16, true, "guardian");
 
   assert.equal(arrived.petX, 352);
   assert.equal(arrived.action, "hand-found");
   assert.equal(arrived.hand.phase, "released");
   assert.equal(arrived.poseY, 0);
+});
+
+test("the reachable sky opens from grounded baby to bounding young to aerial Guardian", () => {
+  const baby = guideWorldWithHand(createPetWorldState(), { x: 240, y: 58 }, "baby");
+  const young = guideWorldWithHand(createPetWorldState(), { x: 276, y: 118 }, "young");
+  const guardian = guideWorldWithHand(createPetWorldState(), { x: 276, y: 58 }, "guardian");
+
+  assert.equal(baby.hand.y, PET_WORLD.handBabyReachY);
+  assert.equal(baby.action, "hand-track", "Baby can watch high play without borrowing a mature jump");
+  assert.equal(young.hand.y, PET_WORLD.handYoungReachY);
+  assert.equal(young.action, "hand-pounce");
+  assert.equal(clipForWorldAction(young.action), "pounce");
+  assert.equal(guardian.hand.y, 58);
+  assert.equal(guardian.action, "hand-aerial");
+  assert.equal(clipForWorldAction(guardian.action), "aerial");
+});
+
+test("an acrobatic hand chase commits once, lands, then watches instead of pogoing", () => {
+  let world = guideWorldWithHand(createPetWorldState(), { x: 318, y: 62 }, "guardian");
+  world = stepPetWorld(world, 320, false, "guardian");
+  const elapsedBeforeRefine = world.actionElapsed;
+  world = guideWorldWithHand(world, { x: 342, y: 70 }, "guardian");
+
+  assert.equal(world.action, "hand-aerial");
+  assert.equal(world.actionElapsed, elapsedBeforeRefine, "moving the landing point must not restart the authored flight");
+  assert.ok(world.petX > 240 && world.petX < world.hand.x);
+
+  world = stepPetWorld(world, PET_WORLD.handAerialDuration, false, "guardian");
+  assert.equal(world.action, "hand-track");
+  assert.equal(world.hand.acroUsed, true);
+  assert.equal(world.poseY, 0, "the creature must land before holding attention");
+
+  const heldAfterLanding = guideWorldWithHand(world, { x: 350, y: 62 }, "guardian");
+  assert.notEqual(heldAfterLanding.action, "hand-aerial", "one continuous gesture cannot trigger a pogo loop");
+
+  const released = releaseWorldHandGuide(heldAfterLanding, "guardian");
+  assert.equal(released.action, "hand-found");
+});
+
+test("settling weather may change the habitat but cannot cut off a committed hand landing", () => {
+  const arriving = stepPetWorld(
+    setWorldWeather(createPetWorldState(), "breeze"),
+    PET_WORLD.weatherArrivalDuration - 80,
+    false,
+    "guardian",
+  );
+  const committed = guideWorldWithHand(arriving, { x: 318, y: 62 }, "guardian");
+  const settled = stepPetWorld(committed, 160, false, "guardian");
+
+  assert.equal(settled.weatherPhase, "settled");
+  assert.equal(settled.action, "hand-aerial");
+  assert.ok(settled.actionElapsed > committed.actionElapsed);
 });
 
 test("holding the wind leaf lets Moss track the finger without sliding", () => {

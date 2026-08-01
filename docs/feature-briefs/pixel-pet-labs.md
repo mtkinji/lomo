@@ -154,6 +154,12 @@ Continuous touch uses the same portable world boundary. A deliberate
 one-finger drag may wake one restrained world-space mote; the Pet first notices,
 then walks or runs according to honest distance while the target moves with the
 hand. Release commits to the last reachable place and resolves in one greeting.
+Reach matures through the same gesture: Baby keeps the mote in the low world,
+Young may commit once to a middle-layer bound, and Guardian may use its authored
+aerial vocabulary for a high light. A vertical invitation beside the Pet is
+enough to reveal the new reach. Pointer updates may refine one landing point but
+cannot restart an authored commitment or create a repeated jump loop while the
+finger remains held; the Pet must land before watching or greeting.
 The engine owns dead zones, gait, facing, camera framing, refusal, and recovery;
 the renderer only routes the gesture and draws the mote. This is direct
 relationship, not raw cursor following: pinch, rollover, and wind-leaf ownership
