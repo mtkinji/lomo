@@ -58,6 +58,114 @@ function frame(
   };
 }
 
+function youngWeatherClips() {
+  return {
+    "weather-notice": {
+      loop: false,
+      frames: [
+        frame(0, 4, 360, { events: ["sky-still"], role: "hold" }),
+        frame(1, 4, 80, { events: ["ears-read-air"], role: "key" }),
+        frame(2, 4, 90, { events: ["eyes-lift"], role: "inbetween" }),
+        frame(3, 4, 240, { events: ["weather-understood"], role: "accent" }),
+        frame(0, 4, 430, { events: ["ready"], role: "recovery" }),
+      ],
+    },
+    "wind-brace": {
+      loop: false,
+      frames: [
+        frame(0, 10, 220, { events: ["gust-heard"], role: "hold" }),
+        frame(1, 10, 90, { events: ["lower-weight"], role: "key" }),
+        frame(2, 10, 560, { events: ["brace"], role: "accent" }),
+        frame(1, 10, 130, { events: ["leaf-rebound"], role: "inbetween" }),
+        frame(0, 0, 420, { events: ["grounded-recovery"], role: "recovery" }),
+      ],
+    },
+    "rain-flinch": {
+      loop: false,
+      frames: [
+        frame(0, 4, 250, { events: ["first-drop"], role: "hold" }),
+        frame(1, 2, 70, { events: ["tuck"], role: "key" }),
+        frame(2, 2, 90, { events: ["compress"], role: "inbetween" }),
+        frame(6, 2, 80, { events: ["shake-off"], role: "accent" }),
+        frame(0, 0, 320, { events: ["find-cover"], role: "recovery" }),
+      ],
+    },
+    "sun-bask": {
+      loop: true,
+      frames: [
+        frame(2, 0, 260, { events: ["warmth-found"], role: "key" }),
+        frame(3, 0, 90, { events: ["eyes-close"], role: "inbetween" }),
+        frame(4, 0, 520, { events: ["bask-inhale"], role: "accent" }),
+        frame(5, 0, 340, { events: ["bask-exhale"], role: "recovery" }),
+        frame(4, 0, 460, { events: ["content"], role: "hold" }),
+      ],
+    },
+  };
+}
+
+function stageSunBaskClip(row: number) {
+  if (row === 0) {
+    return {
+      loop: true,
+      loopFrom: 4,
+      frames: [
+        stageFrame(0, row, 280, { events: ["warmth-found"], role: "hold" }),
+        stageFrame(2, row, 90, { events: ["eyes-close"], role: "key" }),
+        stageFrame(5, row, 180, { contact: "resting", events: ["lower"], role: "inbetween" }),
+        stageFrame(6, row, 240, { contact: "resting", events: ["curl-warm"], role: "recovery" }),
+        stageFrame(7, row, 560, { contact: "resting", events: ["bask-inhale"], role: "accent" }),
+        stageFrame(7, row, 640, { contact: "resting", events: ["bask-exhale"], role: "hold" }),
+      ],
+    };
+  }
+
+  return {
+    loop: true,
+    frames: [
+      stageFrame(0, row, 320, { events: ["warmth-found"], role: "hold" }),
+      stageFrame(3, row, 120, { events: ["face-lift"], role: "key" }),
+      stageFrame(2, row, 680, { events: ["bask-inhale"], role: "accent" }),
+      stageFrame(3, row, 220, { events: ["bask-exhale"], role: "recovery" }),
+      stageFrame(2, row, 580, { events: ["content"], role: "hold" }),
+    ],
+  };
+}
+
+function stageWeatherClips(row: number, pounceRow: number) {
+  return {
+    "weather-notice": {
+      loop: false,
+      frames: [
+        stageFrame(0, row, 390, { events: ["sky-still"], role: "hold" }),
+        stageFrame(3, row, 90, { events: ["ears-read-air"], role: "key" }),
+        stageFrame(3, row, 250, { events: ["weather-understood"], role: "accent" }),
+        stageFrame(0, row, 470, { events: ["ready"], role: "recovery" }),
+      ],
+    },
+    "wind-brace": {
+      loop: false,
+      frames: [
+        stageFrame(0, pounceRow, 230, { events: ["gust-heard"], role: "hold" }),
+        stageFrame(1, pounceRow, 80, { events: ["lower-weight"], role: "key" }),
+        stageFrame(2, pounceRow, row === 0 ? 420 : 660, { events: ["brace"], role: "accent" }),
+        stageFrame(1, pounceRow, row === 0 ? 95 : 160, { events: ["leaf-rebound"], role: "inbetween" }),
+        stageFrame(0, row, row === 0 ? 320 : 520, { events: ["grounded-recovery"], role: "recovery" }),
+      ],
+    },
+    "rain-flinch": {
+      loop: false,
+      frames: [
+        stageFrame(3, row, 240, { events: ["first-drop"], role: "hold" }),
+        stageFrame(1, pounceRow, 70, { events: ["tuck"], role: "key" }),
+        stageFrame(2, pounceRow, 90, { events: ["compress"], role: "inbetween" }),
+        stageFrame(3, row, 80, { events: ["shake-off"], role: "accent" }),
+        stageFrame(0, row, 340, { events: ["find-cover"], role: "recovery" }),
+      ],
+    },
+    "sun-bask": stageSunBaskClip(row),
+  };
+}
+
 export const LEAFLING_MANIFEST = {
   atlas: {
     src: "/leafling-motion-atlas-v5.png",
@@ -180,6 +288,7 @@ export const LEAFLING_MANIFEST = {
       loop: false,
       frames: interactionFrames(11, "rollover"),
     },
+    ...youngWeatherClips(),
   },
 } satisfies PetAnimationManifest;
 
@@ -362,6 +471,7 @@ function createStageManifest(
       loop: false,
       frames: interactionFrames(rolloverRow, "rollover"),
     },
+    ...stageWeatherClips(row, pounceRow),
   };
   if (aerialRow !== undefined) {
     Object.assign(clips, {

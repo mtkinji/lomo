@@ -15,13 +15,15 @@ export const PET_WORLD = {
   sunPatchX: 366,
   sunBaskDuration: 5600,
   weatherArrivalDuration: 1200,
+  windBraceDuration: 1680,
+  rainFlinchDuration: 920,
   cameraLookAhead: 14,
   maxWeatherSway: 2.2,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
-export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "weather-notice" | "wind-brace" | "rain-flinch" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
 export interface WorldPoint {
@@ -151,7 +153,7 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
     weatherIntensity: 0,
     weatherElapsed: 0,
     weatherSway: 0,
-    action: "track",
+    action: "weather-notice",
     actionElapsed: 0,
     targetX: null,
     facing: weather === "rain"
@@ -351,7 +353,7 @@ export function stepPetWorld(
     if (state.weather === "rain") {
       next = {
         ...next,
-        action: "seek-shelter",
+        action: "rain-flinch",
         actionElapsed: 0,
         targetX: PET_WORLD.treeShelterX,
         facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
@@ -365,7 +367,14 @@ export function stepPetWorld(
         facing: faceToward(state.petX, PET_WORLD.sunPatchX, state.facing),
       };
     } else {
-      next = finishAction(next);
+      next = {
+        ...next,
+        action: "wind-brace",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
     }
   }
 
@@ -515,6 +524,27 @@ export function stepPetWorld(
       poseY: 0,
       rotation: 0,
     };
+  } else if (state.action === "wind-brace") {
+    if (next.actionElapsed >= PET_WORLD.windBraceDuration) next = finishAction(next);
+    else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
+  } else if (state.action === "rain-flinch") {
+    if (next.actionElapsed >= PET_WORLD.rainFlinchDuration) {
+      next = {
+        ...next,
+        action: "seek-shelter",
+        actionElapsed: 0,
+        targetX: PET_WORLD.treeShelterX,
+        facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
+        poseY: 0,
+        rotation: 0,
+      };
+    } else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
   } else if (state.action === "rollover") {
     if (next.actionElapsed >= PET_WORLD.rolloverDuration) next = finishAction(next);
     else {
@@ -593,8 +623,8 @@ export function stepPetWorld(
       next.action = "track";
       if (state.action !== "track") next.actionElapsed = 0;
     }
-  } else if (state.action === "greet" || state.action === "track") {
-    const weatherStillArriving = state.action === "track" && next.weatherPhase === "arriving";
+  } else if (state.action === "greet" || state.action === "track" || state.action === "weather-notice") {
+    const weatherStillArriving = state.action === "weather-notice" && next.weatherPhase === "arriving";
     if (!weatherStillArriving && next.actionElapsed > 900) next = finishAction(next);
   }
 
@@ -612,14 +642,17 @@ export function stepPetWorld(
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" {
+export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
   if (action === "walk" || action === "run") return action;
   if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade") return "walk";
-  if (action === "bask") return "idle";
+  if (action === "bask") return "sun-bask";
   if (action === "aerial-pounce") return "aerial";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "greet") return "greet";
   if (action === "track") return "discover";
+  if (action === "weather-notice") return "weather-notice";
+  if (action === "wind-brace") return "wind-brace";
+  if (action === "rain-flinch") return "rain-flinch";
   if (action === "shelter" || action === "shade" || action === "focus") return "sleep";
   return "idle";
 }

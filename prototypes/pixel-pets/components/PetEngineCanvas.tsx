@@ -794,9 +794,6 @@ function drawPetSprite(
   worldTransform(context, world);
   context.translate(world.petX, ENGINE_SCENE.groundY + world.poseY + yOffset);
   context.globalAlpha = opacity;
-  if (world.weatherSway !== 0 && snapshot.contact !== "airborne") {
-    context.rotate((world.weatherSway * Math.PI) / 180);
-  }
   if (world.rotation !== 0) {
     context.translate(0, -size.height * scaleMultiplier * 0.42);
     context.rotate((world.rotation * world.facing * Math.PI) / 180);

@@ -23,11 +23,14 @@ test("world travel requests authored locomotion instead of an idle fallback", ()
   assert.equal(clipForWorldAction("seek-shelter"), "walk");
   assert.equal(clipForWorldAction("seek-sun"), "walk");
   assert.equal(clipForWorldAction("seek-shade"), "walk");
-  assert.equal(clipForWorldAction("bask"), "idle");
+  assert.equal(clipForWorldAction("bask"), "sun-bask");
   assert.equal(clipForWorldAction("shade"), "sleep");
   assert.equal(clipForWorldAction("jump"), "jump");
   assert.equal(clipForWorldAction("pounce"), "pounce");
   assert.equal(clipForWorldAction("rollover"), "rollover");
+  assert.equal(clipForWorldAction("weather-notice"), "weather-notice");
+  assert.equal(clipForWorldAction("wind-brace"), "wind-brace");
+  assert.equal(clipForWorldAction("rain-flinch"), "rain-flinch");
 });
 
 test("weather arrives as a noticed event before it changes the Pet's behavior", () => {
@@ -37,13 +40,17 @@ test("weather arrives as a noticed event before it changes the Pet's behavior", 
 
   assert.equal(rain.weatherPhase, "arriving");
   assert.equal(rain.weatherIntensity, 0);
-  assert.equal(rain.action, "track");
-  assert.equal(gathering.action, "track");
+  assert.equal(rain.action, "weather-notice");
+  assert.equal(gathering.action, "weather-notice");
   assert.ok(gathering.weatherIntensity > 0.45 && gathering.weatherIntensity < 0.55);
   assert.equal(arrived.weatherPhase, "settled");
   assert.equal(arrived.weatherIntensity, 1);
-  assert.equal(arrived.action, "seek-shelter");
+  assert.equal(arrived.action, "rain-flinch");
   assert.equal(arrived.targetX, PET_WORLD.treeShelterX);
+
+  const responding = stepPetWorld(arrived, PET_WORLD.rainFlinchDuration, false);
+  assert.equal(responding.action, "seek-shelter");
+  assert.equal(responding.targetX, PET_WORLD.treeShelterX);
 });
 
 test("direct touch can interrupt the notice beat while weather continues arriving", () => {
@@ -62,7 +69,7 @@ test("direct touch can interrupt the notice beat while weather continues arrivin
 
 test("sun warms Leafling before it chooses the old tree's shade", () => {
   let sunny = setWorldWeather(createPetWorldState(), "sunny");
-  assert.equal(sunny.action, "track");
+  assert.equal(sunny.action, "weather-notice");
 
   sunny = stepPetWorld(sunny, PET_WORLD.weatherArrivalDuration, false);
   assert.equal(sunny.action, "seek-sun");
@@ -94,7 +101,8 @@ test("reduced motion preserves the sunny heat-to-shade story without travel", ()
 
 test("rain changes the world into a shelter-seeking behavior", () => {
   const arriving = setWorldWeather(createPetWorldState(), "rain");
-  const raining = stepPetWorld(arriving, PET_WORLD.weatherArrivalDuration, false);
+  const flinching = stepPetWorld(arriving, PET_WORLD.weatherArrivalDuration, false);
+  const raining = stepPetWorld(flinching, PET_WORLD.rainFlinchDuration, false);
 
   assert.equal(raining.weather, "rain");
   assert.equal(raining.action, "seek-shelter");
@@ -129,9 +137,13 @@ test("wind has a bounded grounded sway instead of lifting the Pet", () => {
   assert.equal(after.weather, "breeze");
   assert.equal(after.weatherPhase, "settled");
   assert.equal(after.weatherIntensity, 1);
+  assert.equal(after.action, "wind-brace");
   assert.ok(Math.abs(after.weatherSway) > 0.2);
   assert.ok(Math.abs(after.weatherSway) <= PET_WORLD.maxWeatherSway);
   assert.equal(after.poseY, 0);
+
+  const recovered = stepPetWorld(after, PET_WORLD.windBraceDuration, false);
+  assert.equal(recovered.action, "idle");
 });
 
 test("reduced motion preserves weather meaning by settling directly into shelter", () => {

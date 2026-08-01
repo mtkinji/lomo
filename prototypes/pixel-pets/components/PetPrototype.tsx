@@ -252,6 +252,9 @@ export function PetPrototype() {
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
+      "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
+      "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
+      "rain-flinch": { title: "First drops", detail: `${state.name} shakes once, then looks for cover.` },
       walk: { title: "Off we go", detail: `${state.name} is padding over.` },
       run: { title: "Coming fast", detail: `${state.name} is racing over.` },
       jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
@@ -285,15 +288,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 13</span>
-        <h1>The sky enters<br />the story.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 14</span>
+        <h1>The weather moves<br />through Moss.</h1>
         <p>
-          Light gathers. Leaves turn. Moss notices before the weather arrives—then chooses what to do inside a world you can still touch.
+          Ears read the air. Paws brace. Leaves recover. Moss acts inside the weather before choosing where to go.
         </p>
         <dl className="engine-facts">
-          <div><dt>Direction</dt><dd>notice · respond · settle</dd></div>
-          <div><dt>Agency</dt><dd>touch stays live</dd></div>
-          <div><dt>System</dt><dd>phase · intensity · shot</dd></div>
+          <div><dt>Acting</dt><dd>posture · face · recovery</dd></div>
+          <div><dt>Forms</dt><dd>baby · young · guardian</dd></div>
+          <div><dt>System</dt><dd>semantic clips · portable</dd></div>
         </dl>
       </header>
 

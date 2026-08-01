@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -42,8 +42,8 @@ test("each evolution stage resolves to its own authored animation vocabulary", (
 
   for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
     const expectedClips = stage === "guardian"
-      ? ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "aerial"]
-      : ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"];
+      ? ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "weather-notice", "wind-brace", "rain-flinch", "sun-bask", "aerial"]
+      : ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover", "weather-notice", "wind-brace", "rain-flinch", "sun-bask"];
     assert.deepEqual(Object.keys(manifest.clips), expectedClips);
     assert.equal(manifest.clips.walk.loop, true);
     assert.equal(manifest.clips.run.loop, true);
@@ -127,9 +127,9 @@ test("ground cues stay inside the terrain instead of becoming a floating disk", 
   });
 });
 
-test("every behavior owns a complete authored animation row", () => {
-  const clips = Object.entries(LEAFLING_MANIFEST.clips);
-  assert.deepEqual(clips.map(([id]) => id), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"]);
+test("every core behavior owns a complete authored animation row", () => {
+  const coreClipIds = ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"];
+  const clips = coreClipIds.map((id) => [id, LEAFLING_MANIFEST.clips[id]] as const);
   clips.forEach(([id, clip], row) => {
     assert.equal(clip.frames.length, 8, `${id} needs eight authored poses`);
     assert.deepEqual(new Set(clip.frames.map((frame) => frame.cell.row)), new Set([row]));
@@ -137,6 +137,41 @@ test("every behavior owns a complete authored animation row", () => {
   assert.equal(LEAFLING_MANIFEST.clips.sleep.loop, true);
   assert.equal(LEAFLING_MANIFEST.clips.sleep.loopFrom, 4);
   assert.ok(LEAFLING_MANIFEST.clips.greet.frames.some((frame) => frame.events?.includes("airborne")));
+});
+
+test("every form owns a stage-specific limited-animation weather vocabulary", () => {
+  const weatherClipIds = ["weather-notice", "wind-brace", "rain-flinch", "sun-bask"];
+
+  for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
+    for (const clipId of weatherClipIds) {
+      const clip = manifest.clips[clipId];
+      assert.ok(clip, `${stage} needs ${clipId}`);
+      assert.ok(clip.frames.length >= 4, `${stage} ${clipId} needs readable acting beats`);
+      assert.ok(new Set(clip.frames.map((authoredFrame) => authoredFrame.duration)).size >= 2, `${stage} ${clipId} needs non-linear anime timing`);
+      assert.ok(clip.frames.every((authoredFrame) => authoredFrame.contact !== "airborne"), `${stage} ${clipId} must remain grounded`);
+    }
+    assert.equal(manifest.clips["sun-bask"].loop, true);
+    assert.ok(manifest.clips["wind-brace"].frames.some((authoredFrame) => authoredFrame.role === "accent"));
+    assert.ok(manifest.clips["rain-flinch"].frames.some((authoredFrame) => authoredFrame.events?.includes("shake-off")));
+  }
+
+  assert.notDeepEqual(
+    leaflingManifestForStage("baby").clips["wind-brace"].frames.map((authoredFrame) => authoredFrame.cell),
+    leaflingManifestForStage("guardian").clips["wind-brace"].frames.map((authoredFrame) => authoredFrame.cell),
+    "maturity should change the weather performance",
+  );
+});
+
+test("weather acting has deterministic per-stage visual QA artifacts", async () => {
+  const spec = await readFile(new URL("../art/leafling-weather-v1/motion-spec.md", import.meta.url), "utf8");
+  assert.match(spec, /weather-notice/);
+  assert.match(spec, /whole-sprite tilt/);
+  await access(new URL("../art/leafling-weather-v1/qa/contact-sheet.png", import.meta.url));
+  for (const stage of ["baby", "young", "guardian"]) {
+    for (const clip of ["weather-notice", "wind-brace", "rain-flinch", "sun-bask"]) {
+      await access(new URL(`../art/leafling-weather-v1/qa/previews/${stage}-${clip}.gif`, import.meta.url));
+    }
+  }
 });
 
 test("every Leafling frame occupies a valid atlas cell", () => {

@@ -17,6 +17,8 @@ The prototype lets a tester:
 - see a face-only 184 ms blink composed over a locked full-body key pose;
 - move through sun, wind, and rain that affect both the habitat and Leafling;
 - watch weather arrive by degrees, catch Leafling's attention, and only then become a reason to move;
+- see every form perform weather-specific notice, wind-brace, rain-flinch, and sun-bask acting instead of receiving a rigid whole-sprite tilt;
+- watch baby curl in a sunny patch while Guardian holds a longer, more deliberate brace and bask;
 - let occasional deterministic weather episodes emerge while the world is otherwise quiet;
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
@@ -68,6 +70,10 @@ same world coordinates, habitat assets, and frame snapshots.
 Weather now uses one portable directed-episode grammar: arrive, notice, respond,
 and settle. The Canvas adapter fades the whole event into the authored habitat,
 adds moving foreground vegetation, and keeps touch live while the world changes.
+Each stage manifest also owns the same four semantic weather clips with
+stage-specific pose selection and timing. These are deliberate limited-animation
+edits of approved drawings; the Canvas adapter no longer rotates the complete
+Pet sprite to impersonate wind acting.
 
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.
