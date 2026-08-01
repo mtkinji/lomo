@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 32 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 33 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -53,11 +53,19 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 32 — Kwilt Lab/);
-  assert.match(layout, /og-study-32\.png/);
-  assert.match(prototype, /Pet Engine Study 32/);
-  assert.match(prototype, /Make the meadow<br \/>answer\./i);
-  assert.match(prototype, /landing travel through the world/i);
+  assert.match(layout, /Pet Engine Study 33 — Kwilt Lab/);
+  assert.match(layout, /og-study-33\.png/);
+  assert.match(prototype, /Pet Engine Study 33/);
+  assert.match(prototype, /The scene,<br \/>not the card\./i);
+  assert.match(prototype, /explains only what motion cannot/i);
+  assert.match(prototype, /shouldShowSceneNarration/);
+  assert.match(prototype, /scene-caption/);
+  assert.match(prototype, /scene-announcer/);
+  assert.match(prototype, /scene-announcer-\$\{narrationSerial\.current\}/);
+  assert.match(prototype, /clearSceneNarration/);
+  assert.match(prototype, /data-reduced-motion/);
+  assert.doesNotMatch(prototype, /Catch it—or watch|Touch the puddle before it settles/);
+  assert.doesNotMatch(prototype, /pet-message/);
   assert.match(world, /GuardianWakePhase/);
   assert.match(world, /resolveGuardianWakePresentation/);
   assert.match(canvas, /drawGuardianWake/);

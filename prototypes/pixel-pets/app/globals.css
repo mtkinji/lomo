@@ -284,33 +284,55 @@ summary:focus-visible {
   image-rendering: crisp-edges;
 }
 
-.pet-message {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 11px;
-  min-height: 88px;
-  padding: 17px 20px 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.world-first-capability .pet-message {
+.scene-announcer {
   position: absolute;
-  z-index: 5;
-  top: 78px;
-  right: 15px;
-  left: 15px;
-  min-height: 70px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--accent-dark) 20%, transparent);
-  border-radius: 15px;
-  background: rgba(255, 253, 247, 0.76);
-  box-shadow: 0 10px 30px rgba(35, 46, 31, 0.12);
-  pointer-events: none;
-  backdrop-filter: blur(10px);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.world-first-capability .pet-message strong { font-size: 0.8rem; }
-.world-first-capability .pet-message p { font-size: 0.68rem; }
+.scene-caption {
+  position: absolute;
+  z-index: 6;
+  right: 22px;
+  bottom: 17px;
+  left: 22px;
+  display: grid;
+  max-width: 320px;
+  margin: 0 auto;
+  padding: 9px 13px 10px;
+  border: 1px solid rgba(255, 252, 233, 0.28);
+  border-radius: 6px;
+  color: #fffced;
+  background: rgba(28, 34, 25, 0.76);
+  box-shadow: 0 6px 20px rgba(21, 27, 19, 0.18);
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: scene-caption-visit 2.8s ease both;
+  backdrop-filter: blur(5px);
+}
+
+.scene-caption strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.005em;
+}
+
+.scene-caption span {
+  margin-top: 2px;
+  color: rgba(255, 252, 233, 0.84);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+@keyframes scene-caption-visit {
+  0% { opacity: 0; transform: translateY(6px); }
+  9%, 80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-2px); }
+}
 
 .world-dock {
   position: relative;
@@ -321,35 +343,6 @@ summary:focus-visible {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 30%, var(--panel)), var(--panel));
   box-shadow: 0 -16px 34px rgba(40, 53, 35, 0.1);
-}
-
-.receipt-icon {
-  display: grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  color: var(--muted);
-}
-
-.receipt-icon.ready {
-  border-color: var(--accent);
-  color: var(--accent-dark);
-  background: var(--accent-soft);
-}
-
-.pet-message strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.86rem;
-}
-
-.pet-message p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 1.45;
 }
 
 .care-button {
@@ -870,4 +863,9 @@ summary:focus-visible {
   .focus-orb,
   .settling-leaves,
   .answering-sprout::after { animation: none; }
+  .scene-caption { animation: none; }
+}
+
+[data-reduced-motion="true"] .scene-caption {
+  animation: none;
 }

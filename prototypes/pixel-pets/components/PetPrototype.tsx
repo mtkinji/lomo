@@ -15,7 +15,10 @@ import {
 } from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { createLivingDayDirector, type LivingDayDirectorState } from "@/lib/pet-life-director";
-import { resolveWorldInteractionMessage } from "@/lib/pet-world-message";
+import {
+  resolveWorldInteractionMessage,
+  shouldShowSceneNarration,
+} from "@/lib/pet-world-message";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import { BrowserPetSoundscape, resolveSoundscapeMix } from "@/lib/pet-soundscape";
 import {
@@ -94,8 +97,11 @@ export function PetPrototype() {
   const [world, setWorld] = useState<PetWorldState>(() => createPetWorldState());
   const [livingDay, setLivingDay] = useState<LivingDayDirectorState>(() => createLivingDayDirector());
   const [worldMessage, setWorldMessage] = useState<{ title: string; detail: string } | null>(null);
+  const [sceneNarration, setSceneNarration] = useState<{ title: string; detail: string; serial: number } | null>(null);
   const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
   const reactionTimer = useRef<number | null>(null);
+  const narrationTimer = useRef<number | null>(null);
+  const narrationSerial = useRef(0);
   const focusCompletionHandled = useRef(false);
   const soundscapeRef = useRef<BrowserPetSoundscape | null>(null);
   const lastVisitorRef = useRef<string | null>(null);
@@ -131,6 +137,7 @@ export function PetPrototype() {
 
   useEffect(() => () => {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
+    if (narrationTimer.current) window.clearTimeout(narrationTimer.current);
     soundscapeRef.current?.dispose();
   }, []);
 
@@ -339,14 +346,32 @@ export function PetPrototype() {
   }, [dayHasCare, state.careAvailable, state.lastReceipt, state.name, state.reaction, state.stage, world.guardianWake.phase, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
   const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
+  function showSceneNarration(message: { title: string; detail: string }) {
+    if (narrationTimer.current) window.clearTimeout(narrationTimer.current);
+    narrationSerial.current += 1;
+    setSceneNarration({ ...message, serial: narrationSerial.current });
+    narrationTimer.current = window.setTimeout(() => {
+      setSceneNarration(null);
+      narrationTimer.current = null;
+    }, 2800);
+  }
+
+  function clearSceneNarration() {
+    if (narrationTimer.current) window.clearTimeout(narrationTimer.current);
+    narrationTimer.current = null;
+    setSceneNarration(null);
+  }
+
   function handleWorldInteraction(action: PetWorldAction, worldSnapshot: PetWorldState) {
     beginSoundscape();
+    const narrationContext = { focusActive: worldSnapshot.focus.active };
     const contextualMessage = resolveWorldInteractionMessage(action, {
       focusActive: worldSnapshot.focus.active,
       name: state.name,
     });
     if (contextualMessage) {
       setWorldMessage(contextualMessage);
+      if (shouldShowSceneNarration(action, narrationContext)) showSceneNarration(contextualMessage);
       return;
     }
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
@@ -361,7 +386,7 @@ export function PetPrototype() {
       "guardian-land": { title: "The meadow answered", detail: `The air ${state.name} carried touched the ground and traveled through the grass.` },
       "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
-      "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. Catch it—or watch ${state.name} read where it goes.` },
+      "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. ${state.name} watched its bright path through the grass.` },
       "rain-flinch": { title: "First drops", detail: `${state.name} shakes once, then looks for cover.` },
       "bloom-notice": { title: "Something took root", detail: `${state.name} noticed the meadow answer.` },
       "seek-bloom": { title: "Going to see", detail: `${state.name} is padding toward the new bloom.` },
@@ -382,7 +407,7 @@ export function PetPrototype() {
       "leaf-aerial": { title: "Meet it in the air", detail: `${state.name} found the leaf’s path above the meadow.` },
       "leaf-catch": { title: "Caught together", detail: "One toss, one delighted little answer, then the meadow grows quiet again." },
       "puddle-notice": { title: "The rain left a glint", detail: `${state.name} noticed that the meadow is still holding a little sky.` },
-      "puddle-invite": { title: "Something to splash", detail: `Touch the puddle before it settles, or simply let ${state.name} watch it shine.` },
+      "puddle-invite": { title: "Something to splash", detail: `Rain gathered the sky into one bright place at ${state.name}’s feet.` },
       "seek-puddle": { title: "Couldn’t resist", detail: `${state.name} is finding the wet ground before committing.` },
       "puddle-splash": { title: "After the rain", detail: "One grounded pounce sent the clearing light everywhere." },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
@@ -393,7 +418,9 @@ export function PetPrototype() {
       shade: { title: "Cool under the canopy", detail: `${state.name} curled up where the leaves make shade.` },
       focus: { title: "Quiet company", detail: `${state.name} is focusing beside you.` },
     };
-    setWorldMessage(messages[action] ?? null);
+    const message = messages[action] ?? null;
+    setWorldMessage(message);
+    if (message && shouldShowSceneNarration(action, narrationContext)) showSceneNarration(message);
   }
 
   function commandWorld(type: PetWorldCommand["type"]) {
@@ -423,17 +450,17 @@ export function PetPrototype() {
   }
 
   return (
-    <main className="engine-lab" data-palette={state.palette}>
+    <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 32</span>
-        <h1>Make the meadow<br />answer.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 33</span>
+        <h1>The scene,<br />not the card.</h1>
         <p>
-          Grow Moss into a Guardian, draw your hand into the high sky, and feel the landing travel through the world.
+          Watch Moss act first. The world now explains only what motion cannot.
         </p>
         <dl className="engine-facts">
-          <div><dt>Growth</dt><dd>opens the sky</dd></div>
-          <div><dt>Guardian</dt><dd>gathers the air</dd></div>
-          <div><dt>Landing</dt><dd>moves the meadow</dd></div>
+          <div><dt>Sky</dt><dd>stays playable</dd></div>
+          <div><dt>Acting</dt><dd>leads meaning</dd></div>
+          <div><dt>Narration</dt><dd>visits briefly</dd></div>
         </dl>
       </header>
 
@@ -477,16 +504,16 @@ export function PetPrototype() {
             onCareEcho={care}
             label={`${state.name}'s interactive world. Draw one finger upward through the meadow to discover how ${state.name}'s reach grows, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
+          {sceneNarration ? (
+            <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
+              <strong>{sceneNarration.title}</strong>
+              <span>{sceneNarration.detail}</span>
+            </div>
+          ) : null}
         </div>
 
-        <div className="pet-message" aria-live="polite">
-          <span className={`receipt-icon ${state.careAvailable ? "ready" : ""}`} aria-hidden="true">
-            {state.careAvailable ? "✦" : "·"}
-          </span>
-          <div>
-            <strong>{currentStatus.title}</strong>
-            <p>{currentStatus.detail}</p>
-          </div>
+        <div key={`scene-announcer-${narrationSerial.current}`} className="scene-announcer" aria-live="polite" aria-atomic="true">
+          {currentStatus.title}. {currentStatus.detail}
         </div>
 
         <div className="world-dock">
@@ -676,6 +703,7 @@ export function PetPrototype() {
               setPreviewStage(null);
               setState(createPetState("leafling", "Moss", state.palette));
               setWorldMessage(null);
+              clearSceneNarration();
               commandWorld("reset");
             }}>Reset prototype</button>
           </div>

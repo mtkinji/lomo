@@ -5,6 +5,29 @@ export type PetWorldInteractionMessage = {
   detail: string;
 };
 
+const CAUSAL_SCENE_NARRATION_ACTIONS = new Set<PetWorldAction>([
+  "weather-notice",
+  "wind-brace",
+  "rain-flinch",
+  "shelter",
+  "bask",
+  "shade",
+  "leaf-invite",
+  "leaf-catch",
+  "puddle-notice",
+  "puddle-invite",
+  "puddle-splash",
+  "guardian-land",
+]);
+
+export function shouldShowSceneNarration(
+  action: PetWorldAction,
+  context: { focusActive: boolean },
+): boolean {
+  if (action === "seek-shelter") return !context.focusActive;
+  return CAUSAL_SCENE_NARRATION_ACTIONS.has(action);
+}
+
 export function resolveWorldInteractionMessage(
   action: PetWorldAction,
   context: { focusActive: boolean; name: string },
