@@ -27,6 +27,7 @@ import {
   beginTreeReturn,
   beginRainGuestShelter,
   cancelWorldHandGuide,
+  chooseCompanionFocusPlace,
   CARE_ECHO_TARGET,
   clipForWorldAction,
   createPetWorldState,
@@ -37,6 +38,7 @@ import {
   nextWeatherKind,
   plantLifeEcho,
   resolveFocusAtmosphere,
+  resolveCompanionFocusPlaceHit,
   resolveCareEchoHit,
   resolveAfterRainHit,
   resolveAfterRainSplashPresentation,
@@ -1499,7 +1501,7 @@ function drawFocusStillness(
   const radiusY = 10 + breath * 2;
   context.save();
   worldTransform(context, world);
-  context.translate(PET_WORLD.treeShelterX, ENGINE_SCENE.groundY - 13);
+  context.translate(world.focus.anchorX, ENGINE_SCENE.groundY - 13);
   context.fillStyle = palette.skyLight;
   context.globalAlpha = atmosphere.hush * (0.08 + breath * 0.045);
   context.beginPath();
@@ -1750,7 +1752,7 @@ function renderScene(
     snapshot,
     world,
     evolution?.currentOpacity ?? 1,
-    (evolution?.currentScale ?? 1) * (world.focus.active ? 0.995 + focusAtmosphere.breath * 0.01 : 1),
+    (evolution?.currentScale ?? 1) * (world.focus.phase === "together" ? 0.995 + focusAtmosphere.breath * 0.01 : 1),
     evolution?.currentYOffset ?? 0,
     showRig,
   );
@@ -1936,7 +1938,7 @@ export function PetEngineCanvas({
       worldRef.current = plantLifeEcho(worldRef.current, "todo");
     }
     if (worldCommand.type === "focus-memory") {
-      worldRef.current = plantLifeEcho(worldRef.current, "focus");
+      worldRef.current = plantLifeEcho(worldRef.current, "focus", worldRef.current.focus.anchorX);
     }
     if (worldCommand.type === "play" && !worldRef.current.focus.active) {
       worldRef.current = beginSharedPlayEcho(worldRef.current, stageRef.current);
@@ -2140,7 +2142,7 @@ export function PetEngineCanvas({
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (worldRef.current.focus.active) return;
+    if (worldRef.current.focus.active && worldRef.current.focus.phase !== "choosing") return;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -2191,6 +2193,7 @@ export function PetEngineCanvas({
     const pointer = pointersRef.current.get(event.pointerId);
     if (!pointer) return;
     pointer.current = pointFromEvent(event);
+    if (worldRef.current.focus.active && worldRef.current.focus.phase === "choosing") return;
     if (pointer.startedOnPet && !isPetContactHit(worldRef.current, stageRef.current, pointer.current)) {
       pointer.leftPet = true;
     }
@@ -2249,6 +2252,16 @@ export function PetEngineCanvas({
       current: pointer.current,
       durationMs: Math.max(0, event.timeStamp - pointer.startedAt),
     });
+    if (worldRef.current.focus.active && worldRef.current.focus.phase === "choosing") {
+      if (contactGesture !== "tap") return;
+      const focusPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+      const requestedX = resolveCompanionFocusPlaceHit(worldRef.current, focusPoint);
+      if (requestedX === null) return;
+      worldRef.current = chooseCompanionFocusPlace(worldRef.current, requestedX);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
     if (contactGesture === "affection") {
       const contact = screenPointToWorldPoint(worldRef.current, pointer.current);
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "affection", worldX: contact.x });
@@ -2319,7 +2332,23 @@ export function PetEngineCanvas({
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const world = worldRef.current;
-    if (world.focus.active) return;
+    if (world.focus.active) {
+      if (
+        world.focus.phase === "choosing"
+        && (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "Enter")
+      ) {
+        event.preventDefault();
+        const requestedX = event.key === "ArrowLeft"
+          ? world.petX - 96
+          : event.key === "ArrowRight"
+            ? world.petX + 96
+            : world.petX;
+        worldRef.current = chooseCompanionFocusPlace(world, requestedX);
+        callbackRef.current.onWorldFrame?.(worldRef.current);
+        callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      }
+      return;
+    }
     if (world.rainGuest.phase === "waiting" && event.key === "Enter") {
       event.preventDefault();
       livingDayRef.current = interruptLivingDay(livingDayRef.current);

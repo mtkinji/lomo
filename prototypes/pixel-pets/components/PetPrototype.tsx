@@ -277,7 +277,7 @@ export function PetPrototype() {
   function focusTogether() {
     focusCompletionHandled.current = false;
     commandWorld("focus");
-    setWorldMessage({ title: `Focusing with ${state.name}`, detail: "The little world is settling with you for fifteen quiet seconds." });
+    setWorldMessage({ title: "Choose where quiet begins", detail: `Touch a place in the meadow. ${state.name} will come settle there with you.` });
   }
 
   function playTogether() {
@@ -537,15 +537,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 46</span>
-        <h1>The chase rises<br />with Moss.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 51</span>
+        <h1>Quiet takes root<br />where you choose.</h1>
         <p>
-          Growing up opens a higher layer of the meadow—without ever breaking the line between looking and leaping.
+          Focus becomes a place you share: choose it, arrive together, and let the meadow remember exactly where it happened.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>ground stalk</dd></div>
-          <div><dt>Young</dt><dd>low pounce</dd></div>
-          <div><dt>Guardian</dt><dd>aerial bank</dd></div>
+          <div><dt>Choose</dt><dd>one quiet place</dd></div>
+          <div><dt>Focus</dt><dd>full time together</dd></div>
+          <div><dt>Remember</dt><dd>light takes root</dd></div>
         </dl>
       </header>
 
@@ -588,7 +588,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. When Guardian notices a low rain-light, touch the firefly to share shelter. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}, Enter to answer a rain-light, or use left and right arrows to choose a branch landing.`}
+            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}, Enter to choose the current Focus place or answer a rain-light, and use left or right arrows for a Focus place or branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -607,8 +607,8 @@ export function PetPrototype() {
           <div className="focus-session" aria-live="polite">
             <span className="focus-orb" aria-hidden="true" />
             <div>
-              <strong>{world.action === "focus" ? "Quietly focusing together" : "Settling under the old tree"}</strong>
-              <small>{world.action === "focus" ? `${state.name} is curled beneath the old tree` : `${state.name} is padding to a quiet place`} · {Math.ceil(world.focus.remainingMs / 1000)} seconds</small>
+              <strong>{world.focus.phase === "choosing" ? "Choose where quiet begins" : world.focus.phase === "settling" ? `${state.name} is coming to you` : "Quietly focusing together"}</strong>
+              <small>{world.focus.phase === "choosing" ? `Touch a place in the meadow · or simply let ${state.name} choose` : world.focus.phase === "settling" ? `The full ${Math.ceil(world.focus.durationMs / 1000)} seconds begin after ${state.name} arrives` : `${state.name} is curled beside the place you chose · ${Math.ceil(world.focus.remainingMs / 1000)} seconds`}</small>
             </div>
           </div>
           ) : reunionActive ? (
@@ -752,7 +752,7 @@ export function PetPrototype() {
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
-            <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
+            <span>Focus <strong>{world.focus.active ? `${world.focus.phase} · ${Math.ceil(world.focus.remainingMs / 1000)}s · ${Math.round(world.focus.anchorX)}` : world.focus.completed ? `complete · ${Math.round(world.focus.anchorX)}` : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
             <span>Soundscape <strong>{!state.soundEnabled ? "muted" : soundscapeStarted ? "awake" : "tap to hear"}</strong></span>
             <span>Audio mix <strong>{world.focus.active ? "meadow · hush" : world.weather === "rain" ? "meadow · rain" : world.weather === "breeze" ? "meadow · wind" : "meadow · warmth"}{soundscapeMix.wildlife > 0 ? " · wildlife" : ""}</strong></span>

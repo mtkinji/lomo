@@ -14,6 +14,7 @@ import {
   createPetWorldState,
   dragWorldWindLeaf,
   beginCompanionFocus,
+  chooseCompanionFocusPlace,
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
@@ -28,6 +29,7 @@ import {
   resolveTreeReturnHit,
   resolveRainGuestHit,
   resolveFocusAtmosphere,
+  resolveCompanionFocusPlaceHit,
   grabWorldWindLeaf,
   guideWorldWithHand,
   holdCareEcho,
@@ -335,7 +337,7 @@ test("meaningful Focus may preempt after-rain play without stranding residue", (
   const committed = beginAfterRainSplash(setWorldWeather(rain, "sunny"));
   const focused = beginCompanionFocus(committed, 1000);
 
-  assert.equal(focused.action, "seek-shelter");
+  assert.equal(focused.action, "focus-invite");
   assert.equal(focused.afterRain.phase, "quiet");
 });
 
@@ -604,7 +606,7 @@ test("habitat memories stay bounded and survive direct play plus Focus priority"
   assert.deepEqual(touched.blooms, world.blooms);
 
   const focused = beginCompanionFocus(touched, 1200);
-  assert.equal(focused.action, "seek-shelter");
+  assert.equal(focused.action, "focus-invite");
   assert.deepEqual(focused.blooms, world.blooms);
 });
 
@@ -854,7 +856,7 @@ test("a quiet invitation resolves with care, while Focus and new weather retain 
 
   assert.equal(autonomous.action, "seek-rain-guest");
   assert.equal(focusing.rainGuest.phase, "quiet");
-  assert.equal(focusing.action, "seek-shelter");
+  assert.equal(focusing.action, "focus-invite");
   assert.equal(clearing.rainGuest.phase, "quiet");
   assert.equal(clearing.action, "weather-notice");
 });
@@ -1008,23 +1010,82 @@ test("directed travel frames destination-side world without leaving its bounds",
   assert.ok(resolveCameraTargetX(edge) <= PET_WORLD.width - PET_WORLD.viewportWidth / 2);
 });
 
-test("focus together settles under the tree and completes without inventing a streak", () => {
-  let focusing = beginCompanionFocus(createPetWorldState(), 1200);
+test("shared Focus begins with a place choice and its clock waits for Moss to arrive", () => {
+  const invited = beginCompanionFocus({ ...createPetWorldState(), petX: 112 }, 1200);
+
+  assert.equal(invited.action, "focus-invite");
+  assert.equal(invited.focus.phase, "choosing");
+  assert.equal(invited.focus.remainingMs, 1200);
+
+  const waiting = stepPetWorld(invited, 800, false);
+  assert.equal(waiting.focus.remainingMs, 1200, "the Focus duration cannot be consumed by setup");
+
+  let focusing = chooseCompanionFocusPlace(waiting, 338);
+  assert.equal(focusing.action, "seek-focus");
+  assert.equal(focusing.focus.phase, "settling");
+  assert.equal(focusing.focus.anchorX, 338);
+
+  for (let step = 0; step < 100 && focusing.action !== "focus"; step += 1) {
+    focusing = stepPetWorld(focusing, 100, false);
+  }
+
+  assert.equal(focusing.action, "focus");
+  assert.equal(focusing.petX, 338);
+  assert.equal(focusing.focus.phase, "together");
+  assert.equal(focusing.focus.remainingMs, 1200, "the complete clock begins only after arrival");
+});
+
+test("focus together completes at the chosen place without inventing a streak", () => {
+  let focusing = chooseCompanionFocusPlace(beginCompanionFocus(createPetWorldState(), 1200), 318);
+  for (let step = 0; step < 40 && focusing.action !== "focus"; step += 1) focusing = stepPetWorld(focusing, 100, false);
   assert.equal(focusing.focus.remainingMs, 1200);
   assert.equal(focusing.focus.durationMs, 1200);
   assert.equal(focusing.focus.elapsedMs, 0);
-  assert.equal(focusing.targetX, PET_WORLD.treeShelterX);
+  assert.equal(focusing.focus.anchorX, 318);
 
   for (let step = 0; step < 8; step += 1) focusing = stepPetWorld(focusing, 250, false);
 
   assert.equal(focusing.focus.active, false);
   assert.equal(focusing.focus.completed, true);
+  assert.equal(focusing.focus.phase, "complete");
+  assert.equal(focusing.focus.anchorX, 318);
   assert.equal(focusing.action, "greet");
+
+  const remembered = plantLifeEcho(focusing, "focus", focusing.focus.anchorX);
+  assert.equal(remembered.blooms.at(-1)?.x, 318, "the still light remembers the shared place");
+});
+
+test("rain keeps a chosen Focus place beneath the old tree", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const focusing = chooseCompanionFocusPlace(beginCompanionFocus(rain, 1200), PET_WORLD.maxX);
+
+  assert.equal(focusing.focus.phase, "settling");
+  assert.ok(focusing.focus.anchorX >= PET_WORLD.treeShelterX - 34);
+  assert.ok(focusing.focus.anchorX <= PET_WORLD.treeShelterX + 34);
+});
+
+test("only the terrain becomes a shared Focus place", () => {
+  const invited = beginCompanionFocus(createPetWorldState(), 1200);
+
+  assert.equal(resolveCompanionFocusPlaceHit(invited, { x: 330, y: 72 }), null);
+  assert.equal(resolveCompanionFocusPlaceHit(invited, { x: 330, y: 194 }), 330);
+  assert.equal(resolveCompanionFocusPlaceHit(createPetWorldState(), { x: 330, y: 194 }), null);
+});
+
+test("an unanswered Focus invitation chooses the old tree without becoming a need", () => {
+  const invited = beginCompanionFocus(createPetWorldState(), 1200);
+  const defaulted = stepPetWorld(invited, PET_WORLD.focusChoiceDuration, false);
+
+  assert.equal(defaulted.action, "seek-focus");
+  assert.equal(defaulted.focus.phase, "settling");
+  assert.equal(defaulted.focus.anchorX, PET_WORLD.treeShelterX);
+  assert.equal(defaulted.focus.remainingMs, 1200);
 });
 
 test("starting shared focus clears wildlife and enters a portable stillness clock", () => {
   const withVisitor = spawnVisitor(createPetWorldState(), "young", { x: 250 });
-  const focusing = beginCompanionFocus(withVisitor, 15000);
+  let focusing = chooseCompanionFocusPlace(beginCompanionFocus(withVisitor, 15000), withVisitor.petX);
+  focusing = stepPetWorld(focusing, 100, false);
   const after = stepPetWorld(focusing, 2200, false);
 
   assert.equal(focusing.visitor.active, false);
@@ -1036,8 +1097,9 @@ test("starting shared focus clears wildlife and enters a portable stillness cloc
 test("shared focus hushes weather and carries a gentle breathing cadence", () => {
   const breezy = setWorldWeather(createPetWorldState(), "breeze");
   const ordinary = stepPetWorld(breezy, 420, false);
-  const focusing = beginCompanionFocus(breezy, 15000);
-  const quiet = stepPetWorld(focusing, 420, false);
+  const focusing = chooseCompanionFocusPlace(beginCompanionFocus(breezy, 15000), breezy.petX);
+  const settled = stepPetWorld(focusing, 100, false);
+  const quiet = stepPetWorld(settled, 420, false);
   const atmosphere = resolveFocusAtmosphere(quiet.focus, false);
 
   assert.ok(atmosphere.hush > 0);
@@ -1046,7 +1108,7 @@ test("shared focus hushes weather and carries a gentle breathing cadence", () =>
 });
 
 test("Reduce Motion keeps focus meaning without a pulsing cadence", () => {
-  const focusing = beginCompanionFocus(createPetWorldState(), 15000);
+  const focusing = chooseCompanionFocusPlace(beginCompanionFocus(createPetWorldState(), 15000), 318);
   const settled = stepPetWorld(focusing, 100, true);
   const after = stepPetWorld(settled, 3200, true);
   const atmosphere = resolveFocusAtmosphere(after.focus, true);
@@ -1434,7 +1496,7 @@ test("meaningful Focus clears a released meadow wake and owns the scene", () => 
 
   const focusing = beginCompanionFocus(released, 15_000);
 
-  assert.equal(focusing.action, "seek-shelter");
+  assert.equal(focusing.action, "focus-invite");
   assert.equal(focusing.guardianWake.phase, "quiet");
 });
 
@@ -1643,7 +1705,7 @@ test("Focus immediately returns the wind leaf and owns the scene", () => {
   );
   const focused = beginCompanionFocus(playing, 15000);
 
-  assert.equal(focused.action, "seek-shelter");
+  assert.equal(focused.action, "focus-invite");
   assert.equal(focused.focus.active, true);
   assert.equal(focused.playLeaf.phase, "perched");
 });

@@ -38,7 +38,10 @@ The prototype lets a tester:
 - hold the branch until the person touches a reachable place in the meadow, giving Young a modest landing arc and Guardian a much wider one without exposing platformer controls;
 - let one chosen landing lock for the complete return while a generous no-input timeout brings Moss home safely instead of creating an unfinished need;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
-- watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
+- choose one terrain place for that ritual, watch Moss travel there before the clock begins, and let a calm no-input path choose the old tree instead of creating a demand;
+- watch rain keep the chosen place beneath the old tree while sun and breeze leave the wider meadow available;
+- watch that ritual clear wildlife, soften weather, curl beside the chosen place, and breathe without becoming a guided exercise;
+- let the completed still-light memory grow at the exact coordinate where Moss focused with you;
 - leave the controls alone and watch one portable living-day director compose quiet roaming, remembered-bloom visits, voluntary tree rest, weather, and wildlife without overlapping scenes;
 - interrupt any ambient scene immediately with touch, Focus, Play, evolution, or a new To-do consequence;
 - watch one portable cinematic director move between establishing, follow, reaction, intimate, focus, and action-wide compositions;
@@ -160,10 +163,15 @@ gathers inward and opens around the arrived form; visitors and autonomous travel
 yield until the ceremony is complete. Reduce Motion removes the orbit and scale
 pulse but retains the two-form handoff.
 Shared Focus adds a portable duration and elapsed-time clock plus bounded hush
-and breath outputs. The world clears transient visitors, suppresses direct play,
-softens decorative weather sway, and holds a quiet pool of light beneath the
-old tree while Leafling remains grounded in its curled breathing loop. The same
-state resolves to a static calm treatment under Reduce Motion.
+and breath outputs. It begins with one bounded world-space choice: a terrain
+touch selects the shared anchor, rain clamps that anchor beneath the old tree,
+and a no-input timeout selects shelter without leaving an unfinished request.
+The world clears transient visitors, suppresses direct play, and walks Leafling
+to the anchor while the complete duration remains untouched. Only on arrival
+does the clock begin, decorative weather soften, and a quiet pool of light form
+beneath the grounded curled breathing loop. Completion plants the existing
+still-light life echo at that same coordinate. The same state resolves to a
+static calm treatment under Reduce Motion.
 The renderer-neutral habitat manifest carries a 480 × 240 far panorama, a
 root-anchored shelter tree, and a transparent near-meadow layer. Canvas 2D is
 the current adapter. It places Leafling low in the scene, draws contact cues
