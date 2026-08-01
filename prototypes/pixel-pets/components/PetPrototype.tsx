@@ -16,6 +16,7 @@ import {
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { createLivingDayDirector, type LivingDayDirectorState } from "@/lib/pet-life-director";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
+import { BrowserPetSoundscape, resolveSoundscapeMix } from "@/lib/pet-soundscape";
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
@@ -75,39 +76,6 @@ const MOTION_SOUND: Record<EngineMotion, PetReaction> = {
   rollover: "sleep",
 };
 
-function playPetSound(reaction: PetReaction, enabled: boolean) {
-  if (!enabled || typeof window === "undefined") return;
-  const AudioContextClass = window.AudioContext;
-  if (!AudioContextClass) return;
-
-  const context = new AudioContextClass();
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const offsets: Record<PetReaction, number> = {
-    idle: 0,
-    greet: 80,
-    eat: -30,
-    discover: 130,
-    sleep: -90,
-    evolve: 260,
-  };
-
-  oscillator.type = "square";
-  oscillator.frequency.setValueAtTime(392 + offsets[reaction], context.currentTime);
-  oscillator.frequency.setValueAtTime(437 + offsets[reaction], context.currentTime + 0.08);
-  if (reaction === "evolve") {
-    oscillator.frequency.exponentialRampToValueAtTime(784, context.currentTime + 0.42);
-  }
-  gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + (reaction === "evolve" ? 0.58 : 0.22));
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-  oscillator.stop(context.currentTime + (reaction === "evolve" ? 0.6 : 0.24));
-  oscillator.addEventListener("ended", () => void context.close());
-}
-
 function nudge() {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(18);
 }
@@ -127,6 +95,8 @@ export function PetPrototype() {
   const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
   const reactionTimer = useRef<number | null>(null);
   const focusCompletionHandled = useRef(false);
+  const soundscapeRef = useRef<BrowserPetSoundscape | null>(null);
+  const lastVisitorRef = useRef<string | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -159,7 +129,67 @@ export function PetPrototype() {
 
   useEffect(() => () => {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
+    soundscapeRef.current?.dispose();
   }, []);
+
+  useEffect(() => {
+    const focus = resolveFocusAtmosphere(world.focus, state.reducedMotion);
+    soundscapeRef.current?.update(resolveSoundscapeMix({
+      enabled: state.soundEnabled,
+      weather: world.weather,
+      weatherIntensity: world.weatherIntensity,
+      focusHush: focus.hush,
+      visitor: world.visitor.active ? world.visitor.kind : null,
+    }));
+  }, [state.reducedMotion, state.soundEnabled, world.focus, world.visitor.active, world.visitor.kind, world.weather, world.weatherIntensity]);
+
+  useEffect(() => {
+    const visitorKey = world.visitor.active ? `${world.visitor.kind}:${world.visitor.ageMs > 0 ? "moving" : "new"}` : null;
+    if (world.visitor.active && lastVisitorRef.current === null && state.soundEnabled) {
+      soundscapeRef.current?.playVisitorCue(world.visitor.kind);
+    }
+    lastVisitorRef.current = visitorKey;
+  }, [state.soundEnabled, world.visitor.active, world.visitor.ageMs, world.visitor.kind]);
+
+  function soundscape() {
+    if (!soundscapeRef.current) soundscapeRef.current = new BrowserPetSoundscape();
+    return soundscapeRef.current;
+  }
+
+  function currentSoundscapeMix(enabled = state.soundEnabled) {
+    const focus = resolveFocusAtmosphere(world.focus, state.reducedMotion);
+    return resolveSoundscapeMix({
+      enabled,
+      weather: world.weather,
+      weatherIntensity: world.weatherIntensity,
+      focusHush: focus.hush,
+      visitor: world.visitor.active ? world.visitor.kind : null,
+    });
+  }
+
+  function beginSoundscape() {
+    if (!state.soundEnabled) return;
+    const controller = soundscape();
+    controller.update(currentSoundscapeMix());
+    void controller.start();
+  }
+
+  const playPetCue = useCallback((reaction: PetReaction, stage: PetStage = state.stage) => {
+    if (!state.soundEnabled) return;
+    if (!soundscapeRef.current) soundscapeRef.current = new BrowserPetSoundscape();
+    const controller = soundscapeRef.current;
+    const focus = resolveFocusAtmosphere(world.focus, state.reducedMotion);
+    controller.update(resolveSoundscapeMix({
+      enabled: true,
+      weather: world.weather,
+      weatherIntensity: world.weatherIntensity,
+      focusHush: focus.hush,
+      visitor: world.visitor.active ? world.visitor.kind : null,
+    }));
+    void controller.start().then((started) => {
+      if (started) controller.playPetCue(stage, reaction);
+    });
+  }, [state.reducedMotion, state.soundEnabled, state.stage, world.focus, world.visitor.active, world.visitor.kind, world.weather, world.weatherIntensity]);
 
   const settle = useCallback((delay = 1250) => {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
@@ -181,16 +211,16 @@ export function PetPrototype() {
     focusCompletionHandled.current = true;
     const next = completeMeaningfulAction(state, "focus");
     setState(next);
-    playPetSound("discover", next.soundEnabled);
+    playPetCue("discover", next.stage);
     nudge();
     settleAfterMotion("discover");
-  }, [settleAfterMotion, state, world.focus.completed]);
+  }, [playPetCue, settleAfterMotion, state, world.focus.completed]);
 
   function complete(source: MeaningfulAction) {
     const next = completeMeaningfulAction(state, source);
     setState(next);
     if (source === "todo") commandWorld("bloom");
-    playPetSound("discover", next.soundEnabled);
+    playPetCue("discover", next.stage);
     nudge();
     settleAfterMotion("discover");
   }
@@ -198,7 +228,7 @@ export function PetPrototype() {
   function care() {
     const next = giveCare(state);
     setState(next);
-    playPetSound(next.reaction, next.soundEnabled);
+    playPetCue(next.reaction, next.stage);
     nudge();
     settleAfterMotion(REACTION_MOTION[next.reaction], next.stage);
   }
@@ -206,7 +236,7 @@ export function PetPrototype() {
   function advanceDay() {
     const next = advancePrototypeDay(state);
     setState(next);
-    playPetSound("sleep", next.soundEnabled);
+    playPetCue("sleep", next.stage);
   }
 
   function focusTogether() {
@@ -227,7 +257,7 @@ export function PetPrototype() {
     setPaused(false);
     setManualElapsed(0);
     if (motion !== "idle" && motion !== "blink") {
-      playPetSound(MOTION_SOUND[motion], state.soundEnabled);
+      playPetCue(MOTION_SOUND[motion], currentStage);
     }
     settleAfterMotion(motion);
   }
@@ -252,6 +282,7 @@ export function PetPrototype() {
     ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
     : null;
   const focusAtmosphere = resolveFocusAtmosphere(world.focus, state.reducedMotion);
+  const soundscapeMix = currentSoundscapeMix();
   const nextGrowthThreshold = state.stage === "baby" ? 3 : state.stage === "young" ? 8 : null;
   const momentsToGrow = nextGrowthThreshold === null ? 0 : Math.max(0, nextGrowthThreshold - state.careDays);
   const growthTitle = state.stage === "guardian" ? "Guardian form reached" : "Growing together";
@@ -271,7 +302,8 @@ export function PetPrototype() {
   }, [dayHasCare, state.careAvailable, state.lastReceipt, state.reaction, state.stage, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
   const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
-  const handleWorldInteraction = useCallback((action: PetWorldAction) => {
+  function handleWorldInteraction(action: PetWorldAction) {
+    beginSoundscape();
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
@@ -301,10 +333,23 @@ export function PetPrototype() {
       focus: { title: "Quiet company", detail: `${state.name} is focusing beside you.` },
     };
     setWorldMessage(messages[action] ?? null);
-  }, [state.name]);
+  }
 
   function commandWorld(type: PetWorldCommand["type"]) {
+    beginSoundscape();
     setWorldCommand((current) => ({ serial: (current?.serial ?? 0) + 1, type }));
+  }
+
+  function toggleSoundscape() {
+    const enabled = !state.soundEnabled;
+    setState({ ...state, soundEnabled: enabled });
+    if (enabled) {
+      const controller = soundscape();
+      controller.update(currentSoundscapeMix(true));
+      void controller.start();
+    } else {
+      soundscapeRef.current?.update(currentSoundscapeMix(false));
+    }
   }
 
   if (!hydrated) {
@@ -319,15 +364,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 18</span>
-        <h1>The little world<br />knows when<br />to come close.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 19</span>
+        <h1>The meadow<br />has a voice.</h1>
         <p>
-          Moss has a wide world to roam—and a camera that knows when a small expression deserves the whole screen. Pinch, and the view stays yours.
+          Tap once, then listen as sunlight, weather, wildlife, and Moss become one quiet little place. Nothing asks for your attention.
         </p>
         <dl className="engine-facts">
-          <div><dt>Shots</dt><dd>wide · follow · intimate</dd></div>
-          <div><dt>Direction</dt><dd>action · reaction · hold</dd></div>
-          <div><dt>Control</dt><dd>pinch stays yours</dd></div>
+          <div><dt>Layers</dt><dd>meadow · weather · stillness</dd></div>
+          <div><dt>Voice</dt><dd>baby · young · guardian</dd></div>
+          <div><dt>Control</dt><dd>sound starts with you</dd></div>
         </dl>
       </header>
 
@@ -341,7 +386,7 @@ export function PetPrototype() {
             type="button"
             className="sound-button"
             aria-label={state.soundEnabled ? "Mute Pet sounds" : "Turn on Pet sounds"}
-            onClick={() => setState({ ...state, soundEnabled: !state.soundEnabled })}
+            onClick={toggleSoundscape}
           >
             {state.soundEnabled ? "♪" : "♪̸"}
           </button>
@@ -443,6 +488,8 @@ export function PetPrototype() {
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
+            <span>Soundscape <strong>{!state.soundEnabled ? "muted" : soundscapeRef.current?.started ? "awake" : "tap to hear"}</strong></span>
+            <span>Audio mix <strong>{world.focus.active ? "meadow · hush" : world.weather === "rain" ? "meadow · rain" : world.weather === "breeze" ? "meadow · wind" : "meadow · warmth"}{soundscapeMix.wildlife > 0 ? " · wildlife" : ""}</strong></span>
             <span>Bloom <strong>{world.blooms.length === 0 ? "quiet" : world.blooms.at(-1)?.growth === 1 ? "remembered" : "opening"}</strong></span>
           </div>
         </section>

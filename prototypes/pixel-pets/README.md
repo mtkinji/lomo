@@ -30,6 +30,9 @@ The prototype lets a tester:
 - watch one portable cinematic director move between establishing, follow, reaction, intimate, focus, and action-wide compositions;
 - keep a pursued visitor and Moss together in the action frame instead of letting the camera crop the relationship;
 - pinch to take temporary ownership of the camera, then watch it return gently to the current scene after six seconds;
+- unlock one low-volume procedural soundscape with the first deliberate interaction;
+- hear sun, breeze, rain, wildlife, and Focus crossfade as parts of one meadow rather than separate sound effects;
+- hear Moss's short nonverbal voice mature from baby through Guardian without becoming a reward fanfare;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
 - leave and return to the same bounded bloom memories in an otherwise calm fresh world;
@@ -55,6 +58,14 @@ rest and memory hold close, and jumps or pounces open back out to protect the
 full silhouette. A user's pinch owns zoom for six seconds after the last
 gesture; automatic direction cannot alter it during that window and eases back
 only after ownership expires. Reduce Motion holds one stable wide composition.
+The sound layer follows the same boundary. Pure TypeScript resolves semantic
+levels for meadow, weather, warmth, Focus, and wildlife; the browser adapter
+turns those levels into filtered noise and soft tones with gradual gain ramps.
+It starts only after a user gesture, stops immediately when muted, and disposes
+its complete audio graph when the capability leaves. Pet and wildlife calls are
+short, stage-specific phrases with a wind-up and decay, never coins, button
+clicks, or arcade fanfares. Native and desktop adapters can replace synthesis
+with authored samples without changing the behavior contract.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
 or moving its body; all three forms now own distinct eight-drawing walk, run,

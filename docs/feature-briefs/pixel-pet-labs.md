@@ -102,6 +102,15 @@ Pet does not use text, speech, or an AI persona in the first release. It communi
 
 Pet sounds have their own setting. Equivalent visual and semantic-haptic feedback remains when muted, and decorative motion respects Reduce Motion. Kwilt Chat remains the only speaker and must not claim that Pet is lonely, hungry, disappointed, or dependent on the user.
 
+The engine emits a semantic soundscape mix rather than naming audio files:
+meadow presence, wind, rain, warmth, Focus hush, wildlife, and a bounded Pet
+cue. Each renderer may realize that mix with procedural synthesis or authored
+samples. Layers crossfade; they do not jump in volume or restart as unrelated
+loops. Pet cues use a short wind-up, expressive peak, and natural decay rather
+than coins, fanfares, button clicks, or arcade bleeps. Browser audio starts only
+after a user gesture, mute is immediate, navigation disposes the graph, and the
+experience remains fully legible without sound.
+
 ### Evolution and asset boundary
 
 The first Labs version targets baby, young, and guardian forms for each type: fifteen core designs total if the Leafling proof earns a five-species release. Each form preserves species identity while changing its silhouette and body plan. Behaviors use compact authored vocabularies for idle, greet, care, sleep, discover, evolve, walk, run, jump, pounce, and rollover; the Leafling proof gives every form a dedicated eight-drawing clip for each direct-play action. Guardian additionally owns a stage-specific eight-drawing aerial-acrobatics performance—sightline, coil, launch, bank, directional reaching apex, landing, and recovery—so maturity unlocks a new physical idea rather than merely scaling the ordinary jump. Branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
