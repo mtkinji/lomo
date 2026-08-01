@@ -39,6 +39,15 @@ export const PET_WORLD = {
   goldenDuration: 3200,
   duskDuration: 3400,
   dawnDuration: 2200,
+  puddleY: ENGINE_SCENE.groundY - 3,
+  puddleNoticeDuration: 980,
+  puddleSplashContactAt: 425,
+  puddleSplashVisualEnd: 720,
+  puddleSplashRecoveryHold: 120,
+  puddleSplashDuration: 840,
+  puddleInvitationDuration: 30000,
+  puddleSpentDuration: 3200,
+  puddleApproachDistance: 12,
   bloomApproachDistance: 12,
   maxBlooms: 4,
   cameraLookAhead: 14,
@@ -62,13 +71,22 @@ export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
+export type AfterRainPhase = "quiet" | "shimmer" | "engaged" | "spent";
 
 export interface WorldPoint {
   x: number;
   y: number;
+}
+
+export interface AfterRainSplashPresentation {
+  visible: boolean;
+  animated: boolean;
+  progress: number;
+  lift: number;
+  spread: number;
 }
 
 export type PetWorldIntent =
@@ -132,12 +150,18 @@ export interface PetWorldState {
   weatherPhase: PetWeatherPhase;
   weatherResponsePending: boolean;
   weatherIntensity: number;
+  clearingRainIntensity: number;
   weatherElapsed: number;
   weatherSway: number;
   daylight: {
     phase: PetDaylightPhase;
     elapsedMs: number;
     eveningActive: boolean;
+  };
+  afterRain: {
+    phase: AfterRainPhase;
+    x: number;
+    elapsedMs: number;
   };
   focus: {
     active: boolean;
@@ -204,6 +228,10 @@ function quietWorldHand(): WorldHandGuide {
   return { phase: "quiet", x: PET_WORLD.width / 2, y: 112, ageMs: 0, acroUsed: false };
 }
 
+function quietAfterRain(x = PET_WORLD.sunPatchX - 48): PetWorldState["afterRain"] {
+  return { phase: "quiet", x: clampWorldX(x), elapsedMs: 0 };
+}
+
 export function createPetWorldState(): PetWorldState {
   return {
     petX: PET_WORLD.width / 2,
@@ -221,9 +249,11 @@ export function createPetWorldState(): PetWorldState {
     weatherPhase: "settled",
     weatherResponsePending: false,
     weatherIntensity: 1,
+    clearingRainIntensity: 0,
     weatherElapsed: 0,
     weatherSway: 0,
     daylight: { phase: "day", elapsedMs: 0, eveningActive: false },
+    afterRain: quietAfterRain(),
     focus: { active: false, durationMs: 0, elapsedMs: 0, remainingMs: 0, completed: false },
     visitor: {
       active: false,
@@ -244,14 +274,25 @@ export function createPetWorldState(): PetWorldState {
 }
 
 export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetWorldState {
+  if (state.afterRain.phase === "engaged") return state;
+  const rainIsClearing = state.weather === "rain"
+    && state.weatherPhase === "settled"
+    && weather === "sunny";
+  const puddleX = clampWorldX(state.petX + (state.petX < PET_WORLD.width / 2 ? 66 : -66));
   return {
     ...state,
     weather,
     weatherPhase: "arriving",
     weatherResponsePending: true,
     weatherIntensity: 0,
+    clearingRainIntensity: rainIsClearing ? state.weatherIntensity : 0,
     weatherElapsed: 0,
     weatherSway: 0,
+    afterRain: rainIsClearing
+      ? { phase: "shimmer", x: puddleX, elapsedMs: 0 }
+      : weather === "rain" || weather === "breeze"
+        ? quietAfterRain(puddleX)
+        : state.afterRain,
     action: "weather-notice",
     actionElapsed: 0,
     targetX: null,
@@ -263,6 +304,66 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
+  };
+}
+
+export function resolveAfterRainHit(state: PetWorldState, point: WorldPoint): boolean {
+  return state.afterRain.phase === "shimmer"
+    && Math.abs(point.x - state.afterRain.x) <= 18
+    && Math.abs(point.y - PET_WORLD.puddleY) <= 11;
+}
+
+export function beginAfterRainSplash(state: PetWorldState): PetWorldState {
+  if (
+    state.afterRain.phase !== "shimmer"
+    || state.focus.active
+    || state.daylight.eveningActive
+  ) return state;
+  const facing = faceToward(state.petX, state.afterRain.x, state.facing);
+  return {
+    ...state,
+    action: "seek-puddle",
+    actionElapsed: 0,
+    targetX: clampWorldX(state.afterRain.x - facing * PET_WORLD.puddleApproachDistance),
+    facing,
+    poseY: 0,
+    rotation: 0,
+    weatherResponsePending: false,
+    afterRain: { ...state.afterRain, phase: "engaged", elapsedMs: 0 },
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
+    playLeaf: createWindLeaf(),
+  };
+}
+
+export function resolveAfterRainSplashPresentation(
+  state: PetWorldState,
+  reducedMotion: boolean,
+): AfterRainSplashPresentation {
+  if (state.action !== "puddle-splash") {
+    return { visible: false, animated: false, progress: 0, lift: 0, spread: 0 };
+  }
+  if (reducedMotion) {
+    return { visible: true, animated: false, progress: 0, lift: 0, spread: 11 };
+  }
+  if (
+    state.actionElapsed < PET_WORLD.puddleSplashContactAt
+    || state.actionElapsed >= PET_WORLD.puddleSplashVisualEnd
+  ) {
+    return { visible: false, animated: true, progress: 0, lift: 0, spread: 0 };
+  }
+  const progress = clamp(
+    (state.actionElapsed - PET_WORLD.puddleSplashContactAt)
+      / (PET_WORLD.puddleSplashVisualEnd - PET_WORLD.puddleSplashContactAt),
+    0,
+    1,
+  );
+  return {
+    visible: true,
+    animated: true,
+    progress,
+    lift: 1 - progress,
+    spread: Math.round(11 + progress * 15),
   };
 }
 
@@ -289,6 +390,7 @@ export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): P
     targetX: PET_WORLD.treeShelterX,
     facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
     focus: { active: true, durationMs: duration, elapsedMs: 0, remainingMs: duration, completed: false },
+    afterRain: quietAfterRain(state.afterRain.x),
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
@@ -322,6 +424,7 @@ export function plantLifeEcho(
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
+    afterRain: quietAfterRain(state.afterRain.x),
     blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
   };
 }
@@ -412,6 +515,7 @@ export function beginPetEvening(state: PetWorldState): PetWorldState {
   return {
     ...beginTreeRest(state),
     weatherResponsePending: false,
+    afterRain: quietAfterRain(state.afterRain.x),
     daylight: { phase: "golden", elapsedMs: 0, eveningActive: true },
   };
 }
@@ -428,6 +532,7 @@ export function beginPetMorning(state: PetWorldState): PetWorldState {
     weatherPhase: "settled",
     weatherResponsePending: false,
     weatherIntensity: 1,
+    clearingRainIntensity: 0,
     weatherElapsed: 0,
     weatherSway: 0,
     daylight: { phase: "dawn", elapsedMs: 0, eveningActive: false },
@@ -456,6 +561,19 @@ function stepDaylight(
     phase = "day";
   }
   return { ...daylight, phase, elapsedMs: remaining };
+}
+
+function stepAfterRain(
+  afterRain: PetWorldState["afterRain"],
+  elapsedMs: number,
+): PetWorldState["afterRain"] {
+  if (afterRain.phase === "quiet") return { ...afterRain, elapsedMs: 0 };
+  const nextElapsed = afterRain.elapsedMs + elapsedMs;
+  if (
+    (afterRain.phase === "shimmer" && nextElapsed >= PET_WORLD.puddleInvitationDuration)
+    || (afterRain.phase === "spent" && nextElapsed >= PET_WORLD.puddleSpentDuration)
+  ) return quietAfterRain(afterRain.x);
+  return { ...afterRain, elapsedMs: nextElapsed };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -519,6 +637,17 @@ function clampCameraX(value: number, zoom: number) {
 }
 
 export function resolveCameraTargetX(state: PetWorldState) {
+  if (
+    state.afterRain.phase !== "quiet"
+    && (
+      state.action === "puddle-notice"
+      || state.action === "puddle-invite"
+      || state.action === "seek-puddle"
+      || state.action === "puddle-splash"
+    )
+  ) {
+    return clampCameraX((state.petX + state.afterRain.x) / 2, state.zoom);
+  }
   if (state.hand.phase !== "quiet" && state.action.startsWith("hand-")) {
     return clampCameraX((state.petX + state.hand.x) / 2, state.zoom);
   }
@@ -550,7 +679,8 @@ export function resolveCameraTargetX(state: PetWorldState) {
     || state.action === "seek-bloom"
     || state.action === "seek-memory"
     || state.action === "seek-rest"
-    || state.action === "seek-leaf";
+    || state.action === "seek-leaf"
+    || state.action === "seek-puddle";
   const lookAhead = directed ? PET_WORLD.cameraLookAhead * state.facing : 0;
   return clampCameraX(state.petX + lookAhead, state.zoom);
 }
@@ -561,7 +691,7 @@ export function resolveCinematicShot(
 ): { id: Exclude<PetCameraShot, "user">; zoom: number } {
   if (reducedMotion) return { id: "reduced-motion", zoom: 1 };
   if (state.focus.active || state.action === "focus") return { id: "focus", zoom: 1.35 };
-  if (state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial") {
+  if (state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial" || state.action === "puddle-splash") {
     return { id: "action-wide", zoom: 1 };
   }
   if (
@@ -587,6 +717,8 @@ export function resolveCinematicShot(
     || state.action === "rain-flinch"
     || state.action === "bloom-notice"
     || state.action === "memory-notice"
+    || state.action === "puddle-notice"
+    || state.action === "puddle-invite"
   ) {
     return { id: "reaction", zoom: 1.28 };
   }
@@ -646,7 +778,7 @@ function actionForHandGuide(
 }
 
 function handGuideIsRefused(state: PetWorldState) {
-  if (state.focus.active) return true;
+  if (state.focus.active || state.afterRain.phase === "engaged") return true;
   return state.weather === "rain"
     && state.weatherPhase === "settled"
     && (state.action === "rain-flinch" || state.action === "seek-shelter" || state.action === "shelter");
@@ -721,7 +853,7 @@ export function grabWorldWindLeaf(
   point: WindLeafPoint,
   stage: PetStage,
 ): PetWorldState {
-  if (state.focus.active) return state;
+  if (state.focus.active || state.afterRain.phase === "engaged") return state;
   const playLeaf = grabWindLeaf(state.playLeaf, point, stage);
   return {
     ...state,
@@ -813,7 +945,7 @@ export function tossWorldWindLeaf(
 }
 
 export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): PetWorldState {
-  if (state.daylight.eveningActive) return state;
+  if (state.daylight.eveningActive || state.afterRain.phase === "engaged") return state;
   const facing = intent.worldX < state.petX ? -1 : 1;
   if (intent.kind === "move") {
     return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, hand: quietWorldHand(), playLeaf: createWindLeaf() };
@@ -837,6 +969,7 @@ export function spawnVisitor(
   stage: PetStage,
   visitor: { x?: number; y?: number; direction?: -1 | 1 } = {},
 ): PetWorldState {
+  if (state.afterRain.phase === "engaged") return state;
   const kind = VISITOR_FOR_STAGE[stage];
   const behavior = VISITOR_BEHAVIOR[kind];
   const direction = visitor.direction ?? (state.petX > PET_WORLD.width / 2 ? -1 : 1);
@@ -932,6 +1065,9 @@ export function stepPetWorld(
       : clamp(weatherElapsed / PET_WORLD.weatherArrivalDuration, 0, 1)
     : state.weatherIntensity;
   const weatherPhase: PetWeatherPhase = weatherIntensity >= 1 ? "settled" : state.weatherPhase;
+  const clearingRainIntensity = reducedMotion
+    ? 0
+    : Math.max(0, state.clearingRainIntensity - dt / PET_WORLD.weatherArrivalDuration);
   const weatherResponseStarted = state.weatherResponsePending
     && weatherPhase === "settled"
     && canBeginWeatherResponse(state);
@@ -955,9 +1091,11 @@ export function stepPetWorld(
     cameraControlRemainingMs: Math.max(0, state.cameraControlRemainingMs - dt),
     weatherPhase,
     weatherIntensity,
+    clearingRainIntensity,
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
     daylight: stepDaylight(state.daylight, dt),
+    afterRain: stepAfterRain(state.afterRain, dt),
     hand: state.hand.phase === "quiet"
       ? state.hand
       : { ...state.hand, ageMs: state.hand.ageMs + dt },
@@ -985,6 +1123,14 @@ export function stepPetWorld(
         actionElapsed: 0,
         targetX: PET_WORLD.treeShelterX,
         facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
+      };
+    } else if (state.weather === "sunny" && state.afterRain.phase === "shimmer") {
+      next = {
+        ...next,
+        action: "puddle-notice",
+        actionElapsed: 0,
+        targetX: null,
+        facing: faceToward(state.petX, state.afterRain.x, state.facing),
       };
     } else if (state.weather === "sunny") {
       next = {
@@ -1183,6 +1329,39 @@ export function stepPetWorld(
       return { ...next, poseY: 0, rotation: 0 };
     }
     if (state.action === "night-rest") return { ...next, poseY: 0, rotation: 0, targetX: null };
+    if (state.action === "puddle-notice") {
+      return { ...next, action: "puddle-invite", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 };
+    }
+    if (state.action === "puddle-invite") {
+      return next.afterRain.phase === "quiet"
+        ? finishAction({ ...next, afterRain: quietAfterRain(next.afterRain.x) })
+        : { ...next, poseY: 0, rotation: 0 };
+    }
+    if (state.action === "seek-puddle") {
+      return {
+        ...next,
+        petX: next.afterRain.x,
+        cameraX: clampCameraX(next.afterRain.x, next.zoom),
+        action: "puddle-splash",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (state.action === "puddle-splash") {
+      if (next.actionElapsed >= Math.min(300, PET_WORLD.puddleSplashDuration)) {
+        return {
+          ...next,
+          action: "greet",
+          actionElapsed: 0,
+          poseY: 0,
+          rotation: 0,
+          afterRain: { ...next.afterRain, phase: "spent", elapsedMs: 0 },
+        };
+      }
+      return { ...next, poseY: 0, rotation: 0 };
+    }
     if (weatherResponseStarted && state.weather === "rain") {
       return {
         ...next,
@@ -1428,6 +1607,36 @@ export function stepPetWorld(
   } else if (state.action === "night-rest") {
     next.poseY = 0;
     next.rotation = 0;
+  } else if (state.action === "puddle-notice") {
+    if (next.actionElapsed >= PET_WORLD.puddleNoticeDuration) {
+      next = { ...next, action: "puddle-invite", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 };
+    } else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
+  } else if (state.action === "puddle-invite") {
+    if (next.afterRain.phase === "quiet") {
+      next = finishAction({ ...next, afterRain: quietAfterRain(next.afterRain.x) });
+    } else {
+      next.facing = faceToward(state.petX, state.afterRain.x, state.facing);
+      next.poseY = 0;
+      next.rotation = 0;
+    }
+  } else if (state.action === "puddle-splash") {
+    if (next.actionElapsed >= PET_WORLD.puddleSplashDuration) {
+      next = {
+        ...next,
+        action: "greet",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+        afterRain: { ...next.afterRain, phase: "spent", elapsedMs: 0 },
+      };
+    } else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
   } else if (state.action === "bask" && state.weather === "sunny" && next.actionElapsed >= PET_WORLD.sunBaskDuration) {
     next = {
       ...next,
@@ -1567,10 +1776,21 @@ export function stepPetWorld(
           poseY: 0,
           rotation: 0,
         };
+      } else if (state.action === "seek-puddle") {
+        next = {
+          ...next,
+          petX: state.targetX,
+          targetX: null,
+          action: "puddle-splash",
+          actionElapsed: 0,
+          facing: faceToward(state.targetX, state.afterRain.x, state.facing),
+          poseY: 0,
+          rotation: 0,
+        };
       } else next = finishAction({ ...next, petX: state.targetX });
     }
     else {
-      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest" || state.action === "seek-leaf";
+      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest" || state.action === "seek-leaf" || state.action === "seek-puddle";
       const running = !directedWalk && Math.abs(distance) > 52;
       const speed = running ? 0.052 : directedWalk ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
@@ -1634,16 +1854,17 @@ export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "
   if (action === "hand-run") return "run";
   if (action === "hand-pounce") return "pounce";
   if (action === "hand-aerial") return "aerial";
-  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest" || action === "seek-leaf") return "walk";
+  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest" || action === "seek-leaf" || action === "seek-puddle") return "walk";
   if (action === "bloom-notice" || action === "memory-notice") return "discover";
   if (action === "admire-bloom" || action === "remember" || action === "leaf-catch") return "care";
   if (action === "bask") return "sun-bask";
   if (action === "aerial-pounce" || action === "leaf-aerial") return "aerial";
-  if (action === "leaf-pounce") return "pounce";
+  if (action === "leaf-pounce" || action === "puddle-splash") return "pounce";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "greet" || action === "hand-found") return "greet";
   if (action === "track" || action === "hand-track" || action === "leaf-invite" || action === "leaf-track") return "discover";
   if (action === "weather-notice") return "weather-notice";
+  if (action === "puddle-notice" || action === "puddle-invite") return "discover";
   if (action === "wind-brace") return "wind-brace";
   if (action === "rain-flinch") return "rain-flinch";
   if (action === "shelter" || action === "shade" || action === "focus" || action === "rest" || action === "night-rest") return "sleep";

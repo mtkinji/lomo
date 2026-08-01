@@ -6,6 +6,7 @@ import {
   applyWorldIntent,
   beginPetEvening,
   beginPetMorning,
+  beginAfterRainSplash,
   beginWindLeafInvitation,
   createPetWorldState,
   dragWorldWindLeaf,
@@ -25,6 +26,8 @@ import {
   plantProgressBloom,
   plantLifeEcho,
   resolveCareEchoHit,
+  resolveAfterRainHit,
+  resolveAfterRainSplashPresentation,
   restorePetWorldMemory,
   resolveCameraTargetX,
   resolveCinematicShot,
@@ -35,6 +38,170 @@ import {
   tossWorldWindLeaf,
   releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
+
+test("only a real rain-to-sun clearing leaves one bounded puddle", () => {
+  const ordinarySun = setWorldWeather(createPetWorldState(), "sunny");
+  assert.equal(ordinarySun.afterRain.phase, "quiet");
+  const cancelledFirstDrop = setWorldWeather(setWorldWeather(createPetWorldState(), "rain"), "sunny");
+  assert.equal(cancelledFirstDrop.afterRain.phase, "quiet");
+
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const clearing = setWorldWeather(rain, "sunny");
+
+  assert.equal(clearing.afterRain.phase, "shimmer");
+  assert.ok(clearing.afterRain.x >= PET_WORLD.minX);
+  assert.ok(clearing.afterRain.x <= PET_WORLD.maxX);
+  assert.equal(clearing.afterRain.elapsedMs, 0);
+});
+
+test("clearing light crossfades the settled rain instead of deleting it", () => {
+  const rain = {
+    ...createPetWorldState(),
+    weather: "rain" as const,
+    weatherPhase: "settled" as const,
+    weatherIntensity: 1,
+  };
+  const clearing = setWorldWeather(rain, "sunny");
+  const halfway = stepPetWorld(clearing, PET_WORLD.weatherArrivalDuration / 2, false, "young");
+  const settled = stepPetWorld(halfway, PET_WORLD.weatherArrivalDuration / 2, false, "young");
+  const reduced = stepPetWorld(clearing, 1, true, "young");
+
+  assert.equal(clearing.clearingRainIntensity, 1);
+  assert.ok(halfway.clearingRainIntensity > 0.49 && halfway.clearingRainIntensity < 0.51);
+  assert.equal(settled.clearingRainIntensity, 0);
+  assert.equal(reduced.clearingRainIntensity, 0);
+});
+
+test("the clearing puddle owns a forgiving but terrain-bounded touch target", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const clearing = setWorldWeather(rain, "sunny");
+  const x = clearing.afterRain.x;
+
+  assert.equal(resolveAfterRainHit(clearing, { x: x + 15, y: PET_WORLD.puddleY - 5 }), true);
+  assert.equal(resolveAfterRainHit(clearing, { x: x + 23, y: PET_WORLD.puddleY - 5 }), false);
+  assert.equal(resolveAfterRainHit(clearing, { x, y: PET_WORLD.puddleY - 17 }), false);
+  assert.equal(resolveAfterRainHit({ ...clearing, afterRain: { ...clearing.afterRain, phase: "spent" } }, { x, y: PET_WORLD.puddleY }), false);
+});
+
+test("the after-rain invitation frames Moss and the puddle together", () => {
+  const rain = { ...createPetWorldState(), petX: 112, weather: "rain" as const, weatherPhase: "settled" as const };
+  const clearing = setWorldWeather(rain, "sunny");
+  const invited = { ...clearing, action: "puddle-invite" as const, zoom: 1.28 };
+  const target = resolveCameraTargetX(invited);
+
+  assert.ok(target > invited.petX);
+  assert.ok(target < invited.afterRain.x);
+  assert.ok(Math.abs((invited.petX - target) * invited.zoom) < PET_WORLD.viewportWidth / 2);
+  assert.ok(Math.abs((invited.afterRain.x - target) * invited.zoom) < PET_WORLD.viewportWidth / 2);
+});
+
+test("tapping after rain commits one correctly faced grounded splash", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  let world = setWorldWeather({ ...rain, petX: 112 }, "sunny");
+  world = beginAfterRainSplash(world);
+
+  assert.equal(world.action, "seek-puddle");
+  assert.equal(world.facing, 1);
+  assert.ok(world.targetX !== null && world.targetX < world.afterRain.x);
+
+  for (let index = 0; index < 40 && world.action === "seek-puddle"; index += 1) {
+    world = stepPetWorld(world, 250, false, "young");
+  }
+  assert.equal(world.action, "puddle-splash");
+  assert.equal(world.poseY, 0);
+  world = stepPetWorld(world, PET_WORLD.puddleSplashDuration + 1, false, "young");
+  assert.equal(world.afterRain.phase, "spent");
+  assert.equal(world.action, "greet");
+  assert.equal(world.poseY, 0);
+  assert.notEqual(stepPetWorld(world, 9000, false, "young").action, "puddle-splash");
+});
+
+test("after-rain spray begins at paw contact, peaks there, and ends with the authored pounce", () => {
+  const base = { ...createPetWorldState(), action: "puddle-splash" as const };
+  const beforeContact = resolveAfterRainSplashPresentation(
+    { ...base, actionElapsed: PET_WORLD.puddleSplashContactAt - 1 },
+    false,
+  );
+  const contact = resolveAfterRainSplashPresentation(
+    { ...base, actionElapsed: PET_WORLD.puddleSplashContactAt },
+    false,
+  );
+  const afterClip = resolveAfterRainSplashPresentation(
+    { ...base, actionElapsed: PET_WORLD.puddleSplashVisualEnd },
+    false,
+  );
+
+  assert.equal(beforeContact.visible, false);
+  assert.deepEqual(contact, { visible: true, animated: true, progress: 0, lift: 1, spread: 11 });
+  assert.equal(afterClip.visible, false);
+  assert.equal(
+    PET_WORLD.puddleSplashDuration,
+    PET_WORLD.puddleSplashVisualEnd + PET_WORLD.puddleSplashRecoveryHold,
+  );
+});
+
+test("Reduce Motion presents one static contact mark instead of animated spray", () => {
+  const base = { ...createPetWorldState(), action: "puddle-splash" as const };
+  const first = resolveAfterRainSplashPresentation({ ...base, actionElapsed: 0 }, true);
+  const later = resolveAfterRainSplashPresentation({ ...base, actionElapsed: 250 }, true);
+
+  assert.deepEqual(first, later);
+  assert.deepEqual(first, { visible: true, animated: false, progress: 0, lift: 0, spread: 11 });
+});
+
+test("Reduce Motion preserves the after-rain touch without animated travel or spray", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const clearing = setWorldWeather(rain, "sunny");
+  const invited = beginAfterRainSplash(clearing);
+  const splashed = stepPetWorld(invited, 1, true, "guardian");
+
+  assert.equal(splashed.petX, clearing.afterRain.x);
+  assert.equal(splashed.action, "puddle-splash");
+  assert.equal(splashed.poseY, 0);
+});
+
+test("Reduce Motion lets an ignored puddle settle without trapping the scene", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const clearing = setWorldWeather(rain, "sunny");
+  const invited = { ...clearing, action: "puddle-invite" as const };
+  const settled = stepPetWorld(invited, PET_WORLD.puddleInvitationDuration + 1, true, "young");
+
+  assert.equal(settled.afterRain.phase, "quiet");
+  assert.equal(settled.action, "idle");
+});
+
+test("direct play may interrupt the invitation without making the puddle permanent", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const clearing = setWorldWeather(rain, "sunny");
+  const redirected = {
+    ...clearing,
+    action: "walk" as const,
+    targetX: clearing.petX + 30,
+    afterRain: { ...clearing.afterRain, elapsedMs: PET_WORLD.puddleInvitationDuration - 10 },
+  };
+  const settled = stepPetWorld(redirected, 20, false, "young");
+
+  assert.equal(settled.afterRain.phase, "quiet");
+  assert.equal(settled.action, "walk");
+});
+
+test("a committed splash cannot be redirected by ordinary touch or weather", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const committed = beginAfterRainSplash(setWorldWeather(rain, "sunny"));
+
+  assert.equal(applyWorldIntent(committed, { kind: "move", worldX: 420 }).action, "seek-puddle");
+  assert.equal(setWorldWeather(committed, "breeze").action, "seek-puddle");
+  assert.equal(setWorldWeather(committed, "breeze").afterRain.phase, "engaged");
+});
+
+test("meaningful Focus may preempt after-rain play without stranding residue", () => {
+  const rain = { ...createPetWorldState(), weather: "rain" as const, weatherPhase: "settled" as const };
+  const committed = beginAfterRainSplash(setWorldWeather(rain, "sunny"));
+  const focused = beginCompanionFocus(committed, 1000);
+
+  assert.equal(focused.action, "seek-shelter");
+  assert.equal(focused.afterRain.phase, "quiet");
+});
 
 test("evening is a directed journey from golden light to the old tree", () => {
   const busy = spawnVisitor(plantLifeEcho(createPetWorldState(), "todo", 318), "young");

@@ -376,6 +376,10 @@ export function PetPrototype() {
       "leaf-pounce": { title: "A playful opening", detail: `${state.name} committed to one grounded catch.` },
       "leaf-aerial": { title: "Meet it in the air", detail: `${state.name} found the leaf’s path above the meadow.` },
       "leaf-catch": { title: "Caught together", detail: "One toss, one delighted little answer, then the meadow grows quiet again." },
+      "puddle-notice": { title: "The rain left a glint", detail: `${state.name} noticed that the meadow is still holding a little sky.` },
+      "puddle-invite": { title: "Something to splash", detail: `Touch the puddle before it settles, or simply let ${state.name} watch it shine.` },
+      "seek-puddle": { title: "Couldn’t resist", detail: `${state.name} is finding the wet ground before committing.` },
+      "puddle-splash": { title: "After the rain", detail: "One grounded pounce sent the clearing light everywhere." },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
       shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
       "seek-sun": { title: "Following the warmth", detail: `${state.name} noticed the sunny part of the meadow.` },
@@ -416,15 +420,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 30</span>
-        <h1>Let the day<br />exhale.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 31</span>
+        <h1>Play after<br />the rain.</h1>
         <p>
-          Do one real thing, touch what changed, then watch Moss find the old tree as the whole meadow becomes night.
+          Watch one storm pass through Moss’s meadow, then touch what the weather leaves behind.
         </p>
         <dl className="engine-facts">
-          <div><dt>Do</dt><dd>changes the meadow</dd></div>
-          <div><dt>Notice</dt><dd>belongs to Moss</dd></div>
-          <div><dt>Rest</dt><dd>gives the day an ending</dd></div>
+          <div><dt>Rain</dt><dd>changes Moss</dd></div>
+          <div><dt>Clearing</dt><dd>changes the meadow</dd></div>
+          <div><dt>Touch</dt><dd>completes the story</dd></div>
         </dl>
       </header>
 
@@ -588,6 +592,7 @@ export function PetPrototype() {
             <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
+            <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>

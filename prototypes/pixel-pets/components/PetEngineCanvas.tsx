@@ -15,6 +15,7 @@ import {
   PET_WORLD,
   applyWorldIntent,
   beginCompanionFocus,
+  beginAfterRainSplash,
   beginPetEvening,
   beginPetMorning,
   beginSharedPlayEcho,
@@ -32,6 +33,8 @@ import {
   plantLifeEcho,
   resolveFocusAtmosphere,
   resolveCareEchoHit,
+  resolveAfterRainHit,
+  resolveAfterRainSplashPresentation,
   resolveTapIntent,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
@@ -327,10 +330,11 @@ function drawWeather(
   foreground: boolean,
 ) {
   const intensity = world.weatherIntensity;
-  if (intensity <= 0) return;
-  if (world.weather === "rain") {
+  const rainIntensity = world.weather === "rain" ? intensity : world.clearingRainIntensity;
+  if (intensity <= 0 && rainIntensity <= 0) return;
+  if (rainIntensity > 0) {
     context.save();
-    context.globalAlpha = (foreground ? 0.5 : 0.28) * intensity;
+    context.globalAlpha = (foreground ? 0.5 : 0.28) * rainIntensity;
     context.strokeStyle = foreground ? palette.skyLight : palette.deep;
     context.lineWidth = foreground ? 1 : 0.75;
     const offset = (world.weatherElapsed * 0.08) % 26;
@@ -343,13 +347,13 @@ function drawWeather(
     }
     if (foreground) {
       context.fillStyle = palette.skyLight;
-      context.globalAlpha = 0.42 * intensity;
+      context.globalAlpha = 0.42 * rainIntensity;
       const ripple = Math.floor(world.weatherElapsed / 180) % 10;
       context.fillRect(14 - ripple / 2, 214, 18 + ripple, 1);
       context.fillRect(102 - ripple / 3, 224, 12 + ripple, 1);
       context.fillRect(139 - ripple / 4, 218, 8 + ripple / 2, 1);
       context.fillStyle = palette.deep;
-      context.globalAlpha = 0.18 * intensity;
+      context.globalAlpha = 0.18 * rainIntensity;
       context.fillRect(0, 207, ENGINE_SCENE.width, 4);
     }
     context.restore();
@@ -665,6 +669,76 @@ function drawProgressBlooms(
   }
 }
 
+function drawAfterRainPuddle(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+) {
+  if (world.afterRain.phase === "quiet") return;
+  const arriving = world.afterRain.phase === "shimmer"
+    ? Math.min(1, world.afterRain.elapsedMs / 620)
+    : 1;
+  const leaving = world.afterRain.phase === "spent"
+    ? Math.max(0, 1 - world.afterRain.elapsedMs / PET_WORLD.puddleSpentDuration)
+    : 1;
+  const alpha = arriving * leaving;
+  const glint = Math.floor(world.weatherElapsed / 240) % 3;
+
+  context.save();
+  context.translate(Math.round(world.afterRain.x), PET_WORLD.puddleY);
+  context.globalAlpha = alpha * 0.5;
+  context.fillStyle = "#385657";
+  context.fillRect(-21, -1, 43, 5);
+  context.fillRect(-15, -3, 31, 9);
+  context.globalAlpha = alpha * 0.88;
+  context.fillStyle = "#90bfc4";
+  context.fillRect(-19, 0, 39, 3);
+  context.fillRect(-12, -2, 25, 7);
+  context.globalAlpha = alpha * 0.82;
+  context.fillStyle = "#e5f2dd";
+  context.fillRect(-14, -1, 16, 1);
+  context.fillRect(6, 1, 9, 1);
+  if (world.afterRain.phase === "shimmer") {
+    context.globalAlpha = alpha * (0.52 + glint * 0.18);
+    context.fillStyle = palette.cream;
+    context.fillRect(-4, -7 - glint, 1, 5);
+    context.fillRect(-6 - glint, -5, 5, 1);
+  }
+  context.restore();
+}
+
+function drawAfterRainSplash(
+  context: CanvasRenderingContext2D,
+  world: PetWorldState,
+  reducedMotion: boolean,
+) {
+  const splash = resolveAfterRainSplashPresentation(world, reducedMotion);
+  if (!splash.visible) return;
+  const { progress, lift, spread } = splash;
+  context.save();
+  worldTransform(context, world);
+  context.translate(Math.round(world.afterRain.x), PET_WORLD.puddleY);
+  context.fillStyle = "#91d3d7";
+  context.globalAlpha = 0.94 * (1 - progress * 0.3);
+  context.fillRect(-spread, 1, spread * 2, 1);
+  context.fillRect(-Math.round(spread * 0.65), 3, Math.round(spread * 1.3), 1);
+  context.fillStyle = "#e8f7e8";
+  context.fillRect(-10, -2, 21, 2);
+  if (!splash.animated) {
+    context.restore();
+    return;
+  }
+  for (let index = 0; index < 10; index += 1) {
+    const side = index % 2 === 0 ? -1 : 1;
+    const distance = 5 + Math.floor(index / 2) * 5;
+    const x = side * Math.round(distance + progress * (5 + index));
+    const y = -Math.round(lift * (9 + index * 1.7)) + Math.floor(index / 3);
+    const size = index < 4 ? 2 : 1;
+    context.fillRect(x, y, size, size + (index % 3 === 0 ? 1 : 0));
+  }
+  context.restore();
+}
+
 function drawCareEchoInvitation(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -856,6 +930,7 @@ function drawProceduralHabitat(
   }
 
   drawProgressBlooms(context, palette, world);
+  drawAfterRainPuddle(context, palette, world);
   drawHandMote(context, palette, world);
   drawVisitor(context, palette, world);
   drawWindLeaf(context, palette, world);
@@ -938,6 +1013,7 @@ function drawAuthoredHabitat(
   }
 
   drawProgressBlooms(context, palette, world);
+  drawAfterRainPuddle(context, palette, world);
   drawHandMote(context, palette, world);
   drawVisitor(context, palette, world);
   drawWindLeaf(context, palette, world);
@@ -1160,6 +1236,7 @@ function renderScene(
   evolution: EvolutionComposition | null,
   focusAtmosphere: FocusAtmosphere,
   careEchoSource: MeaningfulAction | null,
+  reducedMotion: boolean,
 ) {
   const palette = PALETTES[paletteId];
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
@@ -1219,6 +1296,7 @@ function renderScene(
     evolution?.currentYOffset ?? 0,
     showRig,
   );
+  drawAfterRainSplash(context, world, reducedMotion);
   drawNearForeground(context, palette, world, habitat);
   drawWeather(context, palette, world, true);
   drawDaylight(context, palette, world);
@@ -1514,6 +1592,7 @@ export function PetEngineCanvas({
         evolution,
         focusAtmosphere,
         careEchoSource,
+        reducedMotion,
       );
 
       const frameKey = `${snapshot.clip}:${snapshot.frameIndex}`;
@@ -1668,6 +1747,15 @@ export function PetEngineCanvas({
     );
     if (careEcho) {
       callbackRef.current.onCareEcho?.(careEcho.source);
+      return;
+    }
+    const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+    if (resolveAfterRainHit(worldRef.current, worldPoint)) {
+      worldRef.current = beginAfterRainSplash(worldRef.current);
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
       return;
     }
     const intent = resolveTapIntent(worldRef.current, pointer.current);
