@@ -14,10 +14,13 @@ export const PET_WORLD = {
   treeShelterX: 112,
   sunPatchX: 366,
   sunBaskDuration: 5600,
+  weatherArrivalDuration: 1200,
+  cameraLookAhead: 14,
   maxWeatherSway: 2.2,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
+export type PetWeatherPhase = "arriving" | "settled";
 export type PetWorldAction = "idle" | "greet" | "track" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
@@ -55,6 +58,8 @@ export interface PetWorldState {
   poseY: number;
   rotation: number;
   weather: PetWeather;
+  weatherPhase: PetWeatherPhase;
+  weatherIntensity: number;
   weatherElapsed: number;
   weatherSway: number;
   focus: {
@@ -119,6 +124,8 @@ export function createPetWorldState(): PetWorldState {
     poseY: 0,
     rotation: 0,
     weather: "sunny",
+    weatherPhase: "settled",
+    weatherIntensity: 1,
     weatherElapsed: 0,
     weatherSway: 0,
     focus: { active: false, durationMs: 0, elapsedMs: 0, remainingMs: 0, completed: false },
@@ -137,39 +144,29 @@ export function createPetWorldState(): PetWorldState {
 }
 
 export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetWorldState {
-  if (weather === "rain") {
-    return {
-      ...state,
-      weather,
-      weatherElapsed: 0,
-      action: "seek-shelter",
-      actionElapsed: 0,
-      targetX: PET_WORLD.treeShelterX,
-      facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
-    };
-  }
-
-  if (weather === "sunny") {
-    return {
-      ...state,
-      weather,
-      weatherElapsed: 0,
-      action: "seek-sun",
-      actionElapsed: 0,
-      targetX: PET_WORLD.sunPatchX,
-      facing: PET_WORLD.sunPatchX < state.petX ? -1 : 1,
-    };
-  }
-
   return {
     ...state,
     weather,
+    weatherPhase: "arriving",
+    weatherIntensity: 0,
     weatherElapsed: 0,
     weatherSway: 0,
     action: "track",
     actionElapsed: 0,
     targetX: null,
+    facing: weather === "rain"
+      ? faceToward(state.petX, PET_WORLD.treeShelterX, state.facing)
+      : weather === "sunny"
+        ? faceToward(state.petX, PET_WORLD.sunPatchX, state.facing)
+        : state.facing,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   };
+}
+
+export function nextWeatherKind(weather: PetWeather): PetWeather {
+  if (weather === "sunny") return "breeze";
+  if (weather === "breeze") return "rain";
+  return "sunny";
 }
 
 export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): PetWorldState {
@@ -207,6 +204,16 @@ function clampWorldX(value: number) {
 function clampCameraX(value: number, zoom: number) {
   const halfView = PET_WORLD.viewportWidth / (2 * zoom);
   return clamp(value, halfView, PET_WORLD.width - halfView);
+}
+
+export function resolveCameraTargetX(state: PetWorldState) {
+  const directed = state.action === "walk"
+    || state.action === "run"
+    || state.action === "seek-shelter"
+    || state.action === "seek-sun"
+    || state.action === "seek-shade";
+  const lookAhead = directed ? PET_WORLD.cameraLookAhead * state.facing : 0;
+  return clampCameraX(state.petX + lookAhead, state.zoom);
 }
 
 export function setWorldZoom(state: PetWorldState, zoom: number): PetWorldState {
@@ -309,6 +316,14 @@ export function stepPetWorld(
 ): PetWorldState {
   const dt = Math.max(0, elapsedMs);
   const weatherElapsed = state.weatherElapsed + dt;
+  const arrivingWeather = state.weatherPhase === "arriving";
+  const weatherIntensity = arrivingWeather
+    ? reducedMotion
+      ? 1
+      : clamp(weatherElapsed / PET_WORLD.weatherArrivalDuration, 0, 1)
+    : state.weatherIntensity;
+  const weatherPhase: PetWeatherPhase = weatherIntensity >= 1 ? "settled" : state.weatherPhase;
+  const weatherResponseStarted = arrivingWeather && weatherPhase === "settled" && !state.focus.active;
   const focusAtFrame = state.focus.active
     ? {
         ...state.focus,
@@ -318,17 +333,41 @@ export function stepPetWorld(
     : state.focus;
   const focusAtmosphere = resolveFocusAtmosphere(focusAtFrame, reducedMotion);
   const rawWeatherSway = state.weather === "breeze"
-    ? Math.sin(weatherElapsed / 230) * PET_WORLD.maxWeatherSway
+    ? Math.sin(weatherElapsed / 230) * PET_WORLD.maxWeatherSway * weatherIntensity
     : state.weather === "rain"
-      ? Math.sin(weatherElapsed / 170) * 0.7
+      ? Math.sin(weatherElapsed / 170) * 0.7 * weatherIntensity
       : 0;
   const weatherSway = rawWeatherSway * (1 - focusAtmosphere.hush * 0.82);
   let next: PetWorldState = {
     ...state,
     actionElapsed: state.actionElapsed + dt,
+    weatherPhase,
+    weatherIntensity,
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
   };
+
+  if (weatherResponseStarted) {
+    if (state.weather === "rain") {
+      next = {
+        ...next,
+        action: "seek-shelter",
+        actionElapsed: 0,
+        targetX: PET_WORLD.treeShelterX,
+        facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
+      };
+    } else if (state.weather === "sunny") {
+      next = {
+        ...next,
+        action: "seek-sun",
+        actionElapsed: 0,
+        targetX: PET_WORLD.sunPatchX,
+        facing: faceToward(state.petX, PET_WORLD.sunPatchX, state.facing),
+      };
+    } else {
+      next = finishAction(next);
+    }
+  }
 
   if (state.focus.active) {
     const remainingMs = Math.max(0, state.focus.remainingMs - dt);
@@ -380,6 +419,31 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (weatherResponseStarted && state.weather === "rain") {
+      return {
+        ...next,
+        petX: PET_WORLD.treeShelterX,
+        cameraX: clampCameraX(PET_WORLD.treeShelterX, next.zoom),
+        action: "shelter",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (weatherResponseStarted && state.weather === "sunny") {
+      return {
+        ...next,
+        petX: PET_WORLD.sunPatchX,
+        cameraX: clampCameraX(PET_WORLD.sunPatchX, next.zoom),
+        action: "bask",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (weatherResponseStarted) return { ...next, poseY: 0, rotation: 0 };
     if (state.action === "seek-shelter") {
       return {
         ...next,
@@ -438,7 +502,10 @@ export function stepPetWorld(
     return { ...next, poseY: 0, rotation: 0 };
   }
 
-  if (state.action === "bask" && state.weather === "sunny" && next.actionElapsed >= PET_WORLD.sunBaskDuration) {
+  if (weatherResponseStarted) {
+    next.poseY = 0;
+    next.rotation = 0;
+  } else if (state.action === "bask" && state.weather === "sunny" && next.actionElapsed >= PET_WORLD.sunBaskDuration) {
     next = {
       ...next,
       action: "seek-shade",
@@ -527,10 +594,11 @@ export function stepPetWorld(
       if (state.action !== "track") next.actionElapsed = 0;
     }
   } else if (state.action === "greet" || state.action === "track") {
-    if (next.actionElapsed > 900) next = finishAction(next);
+    const weatherStillArriving = state.action === "track" && next.weatherPhase === "arriving";
+    if (!weatherStillArriving && next.actionElapsed > 900) next = finishAction(next);
   }
 
-  const desiredCamera = clampCameraX(next.petX, next.zoom);
+  const desiredCamera = resolveCameraTargetX(next);
   const follow = Math.min(1, dt / 280);
   let cameraX = clampCameraX(state.cameraX + (desiredCamera - state.cameraX) * follow, next.zoom);
   const petDelta = next.petX - state.petX;

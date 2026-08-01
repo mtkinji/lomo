@@ -10,6 +10,8 @@ import {
   setWorldWeather,
   resolveTapIntent,
   resolveFocusAtmosphere,
+  nextWeatherKind,
+  resolveCameraTargetX,
   setWorldZoom,
   spawnVisitor,
   stepPetWorld,
@@ -28,8 +30,41 @@ test("world travel requests authored locomotion instead of an idle fallback", ()
   assert.equal(clipForWorldAction("rollover"), "rollover");
 });
 
+test("weather arrives as a noticed event before it changes the Pet's behavior", () => {
+  const rain = setWorldWeather(createPetWorldState(), "rain");
+  const gathering = stepPetWorld(rain, PET_WORLD.weatherArrivalDuration / 2, false);
+  const arrived = stepPetWorld(gathering, PET_WORLD.weatherArrivalDuration / 2, false);
+
+  assert.equal(rain.weatherPhase, "arriving");
+  assert.equal(rain.weatherIntensity, 0);
+  assert.equal(rain.action, "track");
+  assert.equal(gathering.action, "track");
+  assert.ok(gathering.weatherIntensity > 0.45 && gathering.weatherIntensity < 0.55);
+  assert.equal(arrived.weatherPhase, "settled");
+  assert.equal(arrived.weatherIntensity, 1);
+  assert.equal(arrived.action, "seek-shelter");
+  assert.equal(arrived.targetX, PET_WORLD.treeShelterX);
+});
+
+test("direct touch can interrupt the notice beat while weather continues arriving", () => {
+  const arriving = stepPetWorld(
+    setWorldWeather(createPetWorldState(), "breeze"),
+    PET_WORLD.weatherArrivalDuration / 4,
+    false,
+  );
+  const touched = applyWorldIntent(arriving, { kind: "jump", worldX: arriving.petX + 30 });
+
+  assert.equal(touched.weatherPhase, "arriving");
+  assert.ok(touched.weatherIntensity > 0 && touched.weatherIntensity < 1);
+  assert.equal(touched.action, "jump");
+  assert.equal(touched.facing, 1);
+});
+
 test("sun warms Leafling before it chooses the old tree's shade", () => {
   let sunny = setWorldWeather(createPetWorldState(), "sunny");
+  assert.equal(sunny.action, "track");
+
+  sunny = stepPetWorld(sunny, PET_WORLD.weatherArrivalDuration, false);
   assert.equal(sunny.action, "seek-sun");
   assert.equal(sunny.targetX, PET_WORLD.sunPatchX);
 
@@ -48,7 +83,7 @@ test("sun warms Leafling before it chooses the old tree's shade", () => {
 
 test("reduced motion preserves the sunny heat-to-shade story without travel", () => {
   const seekingSun = setWorldWeather(createPetWorldState(), "sunny");
-  const basking = stepPetWorld(seekingSun, 400, true);
+  const basking = stepPetWorld(seekingSun, 16, true);
   const shaded = stepPetWorld(basking, PET_WORLD.sunBaskDuration, true);
 
   assert.equal(basking.action, "bask");
@@ -58,7 +93,8 @@ test("reduced motion preserves the sunny heat-to-shade story without travel", ()
 });
 
 test("rain changes the world into a shelter-seeking behavior", () => {
-  const raining = setWorldWeather(createPetWorldState(), "rain");
+  const arriving = setWorldWeather(createPetWorldState(), "rain");
+  const raining = stepPetWorld(arriving, PET_WORLD.weatherArrivalDuration, false);
 
   assert.equal(raining.weather, "rain");
   assert.equal(raining.action, "seek-shelter");
@@ -87,9 +123,12 @@ test("a passing visitor cannot pull the Pet out of rain shelter", () => {
 
 test("wind has a bounded grounded sway instead of lifting the Pet", () => {
   const breezy = setWorldWeather(createPetWorldState(), "breeze");
-  const after = stepPetWorld(breezy, 420, false);
+  const arriving = stepPetWorld(breezy, PET_WORLD.weatherArrivalDuration / 2, false);
+  const after = stepPetWorld(arriving, PET_WORLD.weatherArrivalDuration / 2 + 420, false);
 
   assert.equal(after.weather, "breeze");
+  assert.equal(after.weatherPhase, "settled");
+  assert.equal(after.weatherIntensity, 1);
   assert.ok(Math.abs(after.weatherSway) > 0.2);
   assert.ok(Math.abs(after.weatherSway) <= PET_WORLD.maxWeatherSway);
   assert.equal(after.poseY, 0);
@@ -97,11 +136,31 @@ test("wind has a bounded grounded sway instead of lifting the Pet", () => {
 
 test("reduced motion preserves weather meaning by settling directly into shelter", () => {
   const raining = setWorldWeather(createPetWorldState(), "rain");
-  const after = stepPetWorld(raining, 400, true);
+  const after = stepPetWorld(raining, 16, true);
 
   assert.equal(after.action, "shelter");
   assert.equal(after.petX, PET_WORLD.treeShelterX);
+  assert.equal(after.weatherPhase, "settled");
+  assert.equal(after.weatherIntensity, 1);
   assert.equal(after.weatherSway, 0);
+});
+
+test("autonomous weather follows one calm deterministic cycle", () => {
+  assert.equal(nextWeatherKind("sunny"), "breeze");
+  assert.equal(nextWeatherKind("breeze"), "rain");
+  assert.equal(nextWeatherKind("rain"), "sunny");
+});
+
+test("directed travel frames destination-side world without leaving its bounds", () => {
+  const idle = createPetWorldState();
+  const rightward = { ...idle, petX: 300, action: "seek-sun" as const, facing: 1 as const };
+  const leftward = { ...idle, petX: 180, action: "seek-shelter" as const, facing: -1 as const };
+  const edge = { ...idle, petX: PET_WORLD.maxX, action: "run" as const, facing: 1 as const };
+
+  assert.equal(resolveCameraTargetX(idle), idle.petX);
+  assert.ok(resolveCameraTargetX(rightward) > rightward.petX);
+  assert.ok(resolveCameraTargetX(leftward) < leftward.petX);
+  assert.ok(resolveCameraTargetX(edge) <= PET_WORLD.width - PET_WORLD.viewportWidth / 2);
 });
 
 test("focus together settles under the tree and completes without inventing a streak", () => {

@@ -17,6 +17,7 @@ import {
   beginCompanionFocus,
   clipForWorldAction,
   createPetWorldState,
+  nextWeatherKind,
   resolveFocusAtmosphere,
   resolveTapIntent,
   setWorldZoom,
@@ -283,9 +284,11 @@ function drawWeather(
   world: PetWorldState,
   foreground: boolean,
 ) {
+  const intensity = world.weatherIntensity;
+  if (intensity <= 0) return;
   if (world.weather === "rain") {
     context.save();
-    context.globalAlpha = foreground ? 0.5 : 0.28;
+    context.globalAlpha = (foreground ? 0.5 : 0.28) * intensity;
     context.strokeStyle = foreground ? palette.skyLight : palette.deep;
     context.lineWidth = foreground ? 1 : 0.75;
     const offset = (world.weatherElapsed * 0.08) % 26;
@@ -298,13 +301,13 @@ function drawWeather(
     }
     if (foreground) {
       context.fillStyle = palette.skyLight;
-      context.globalAlpha = 0.42;
+      context.globalAlpha = 0.42 * intensity;
       const ripple = Math.floor(world.weatherElapsed / 180) % 10;
       context.fillRect(14 - ripple / 2, 214, 18 + ripple, 1);
       context.fillRect(102 - ripple / 3, 224, 12 + ripple, 1);
       context.fillRect(139 - ripple / 4, 218, 8 + ripple / 2, 1);
       context.fillStyle = palette.deep;
-      context.globalAlpha = 0.18;
+      context.globalAlpha = 0.18 * intensity;
       context.fillRect(0, 207, ENGINE_SCENE.width, 4);
     }
     context.restore();
@@ -312,7 +315,7 @@ function drawWeather(
 
   if (world.weather === "breeze" && foreground) {
     context.save();
-    context.globalAlpha = 0.66;
+    context.globalAlpha = 0.66 * intensity;
     for (let index = 0; index < 8; index += 1) {
       const travel = (world.weatherElapsed * (0.018 + index * 0.001) + index * 31) % 210;
       const x = travel - 24;
@@ -328,7 +331,7 @@ function drawWeather(
     context.save();
     const pulse = 0.055 + (Math.sin(world.weatherElapsed / 900) + 1) * 0.02;
     const sunPatchScreenX = ENGINE_SCENE.width / 2 + (PET_WORLD.sunPatchX - world.cameraX) * world.zoom;
-    context.globalAlpha = pulse;
+    context.globalAlpha = pulse * intensity;
     context.fillStyle = palette.bloom;
     context.beginPath();
     context.moveTo(Math.max(84, sunPatchScreenX - 19), 0);
@@ -609,7 +612,9 @@ function drawAuthoredHabitat(
   );
 
   context.save();
-  context.globalAlpha = world.weather === "rain" ? 0.24 : 0.07;
+  context.globalAlpha = world.weather === "rain"
+    ? 0.07 + 0.17 * world.weatherIntensity
+    : 0.07;
   context.fillStyle = world.weather === "rain" ? palette.outline : palette.sky;
   context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
   context.restore();
@@ -631,11 +636,13 @@ function drawAuthoredHabitat(
   context.save();
   worldTransform(context, world);
   context.fillStyle = palette.outline;
-  context.globalAlpha = world.weather === "rain" ? 0.3 : 0.17;
+  context.globalAlpha = world.weather === "rain"
+    ? 0.17 + 0.13 * world.weatherIntensity
+    : 0.17;
   context.fillRect(PET_WORLD.treeShelterX - 46, ENGINE_SCENE.groundY + 1, 92, 2);
   if (world.weather === "sunny") {
     context.fillStyle = palette.bloom;
-    context.globalAlpha = 0.24;
+    context.globalAlpha = 0.24 * world.weatherIntensity;
     context.fillRect(PET_WORLD.sunPatchX - 38, ENGINE_SCENE.groundY - 1, 76, 3);
     context.fillRect(PET_WORLD.sunPatchX - 27, ENGINE_SCENE.groundY + 2, 54, 2);
   }
@@ -662,7 +669,8 @@ function drawNearForeground(
   world: PetWorldState,
   habitat: HabitatImages,
 ) {
-  if (habitatImageReady(habitat.foreground)) {
+  const hasAuthoredForeground = habitatImageReady(habitat.foreground);
+  if (hasAuthoredForeground) {
     context.save();
     worldTransform(context, world);
     context.imageSmoothingEnabled = false;
@@ -674,13 +682,12 @@ function drawNearForeground(
       LEAFLING_HABITAT.foreground.size.height,
     );
     context.restore();
-    return;
   }
 
   context.save();
   worldTransform(context, world);
   context.fillStyle = palette.deep;
-  context.globalAlpha = 0.82;
+  context.globalAlpha = hasAuthoredForeground ? 0.42 : 0.82;
   for (let x = 5; x < PET_WORLD.width; x += 19) {
     const bend = Math.round(world.weatherSway * (1 + (x % 4) * 0.15));
     context.fillRect(x, ENGINE_SCENE.groundY - 4, 1, 5);
@@ -960,6 +967,7 @@ export function PetEngineCanvas({
   const lastWorldReportRef = useRef(0);
   const worldClockRef = useRef(0);
   const nextVisitorRef = useRef(1800);
+  const nextWeatherRef = useRef(12000);
   const stageRef = useRef(stage);
   const callbackRef = useRef({ onFrame, onWorldFrame, onWorldInteraction });
   const manifest = leaflingManifestForStage(stage);
@@ -987,7 +995,11 @@ export function PetEngineCanvas({
       worldRef.current = setWorldZoom({ ...worldRef.current, cameraX: worldRef.current.petX }, 1);
     }
     if (worldCommand.type === "sunny" || worldCommand.type === "breeze" || worldCommand.type === "rain") {
-      worldRef.current = setWorldWeather(worldRef.current, worldCommand.type);
+      if (!worldRef.current.focus.active) {
+        worldRef.current = setWorldWeather(worldRef.current, worldCommand.type);
+        nextWeatherRef.current = worldClockRef.current + 14000;
+        nextVisitorRef.current = worldClockRef.current + 3600;
+      }
     }
     if (worldCommand.type === "focus") {
       worldRef.current = beginCompanionFocus(worldRef.current, 15000);
@@ -995,6 +1007,7 @@ export function PetEngineCanvas({
     if (worldCommand.type === "play" && !worldRef.current.focus.active) {
       worldRef.current = spawnVisitor(setWorldWeather(worldRef.current, "breeze"), stageRef.current);
       nextVisitorRef.current = worldClockRef.current + 7800;
+      nextWeatherRef.current = worldClockRef.current + 14000;
     }
     callbackRef.current.onWorldInteraction?.(worldRef.current.action);
   }, [worldCommand]);
@@ -1050,8 +1063,18 @@ export function PetEngineCanvas({
       }
       if (worldRef.current.focus.active) {
         nextVisitorRef.current = Math.max(nextVisitorRef.current, worldClockRef.current + 2200);
+        nextWeatherRef.current = Math.max(nextWeatherRef.current, worldClockRef.current + 2200);
       }
-      if (!ceremonyOwnsFrame && !worldRef.current.focus.active && !worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
+      const stableForWeather = ["idle", "shelter", "shade", "bask"].includes(worldRef.current.action);
+      if (!ceremonyOwnsFrame && !worldRef.current.focus.active && !worldRef.current.visitor.active && stableForWeather && worldClockRef.current >= nextWeatherRef.current) {
+        worldRef.current = setWorldWeather(worldRef.current, nextWeatherKind(worldRef.current.weather));
+        nextWeatherRef.current = worldClockRef.current + 14000;
+        nextVisitorRef.current = Math.max(nextVisitorRef.current, worldClockRef.current + 3600);
+      } else if (worldClockRef.current >= nextWeatherRef.current && !stableForWeather) {
+        nextWeatherRef.current = worldClockRef.current + 1000;
+      }
+      const stableForVisitor = worldRef.current.action === "idle" && worldRef.current.weather !== "rain";
+      if (!ceremonyOwnsFrame && !worldRef.current.focus.active && worldRef.current.weatherPhase === "settled" && stableForVisitor && !worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
         worldRef.current = spawnVisitor(worldRef.current, stage);
         nextVisitorRef.current = worldClockRef.current + 7800;
       }

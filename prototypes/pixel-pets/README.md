@@ -16,6 +16,8 @@ The prototype lets a tester:
 - inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
 - see a face-only 184 ms blink composed over a locked full-body key pose;
 - move through sun, wind, and rain that affect both the habitat and Leafling;
+- watch weather arrive by degrees, catch Leafling's attention, and only then become a reason to move;
+- let occasional deterministic weather episodes emerge while the world is otherwise quiet;
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
@@ -33,7 +35,8 @@ The prototype lets a tester:
 
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
-coordinates, camera follow, transient zoom, weather response, shared-focus state,
+coordinates, camera follow, destination-side shot framing, transient zoom,
+weather arrival phase and intensity, weather response, shared-focus state,
 autonomous behavior targets, and the directed sun-to-shade sequence.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
@@ -62,6 +65,9 @@ the current adapter. It places Leafling low in the scene, draws contact cues
 inside the terrain rather than as a separate platform, and layers weather over
 the same authored place. Native, web, and desktop renderers can consume the
 same world coordinates, habitat assets, and frame snapshots.
+Weather now uses one portable directed-episode grammar: arrive, notice, respond,
+and settle. The Canvas adapter fades the whole event into the authored habitat,
+adds moving foreground vegetation, and keeps touch live while the world changes.
 
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.

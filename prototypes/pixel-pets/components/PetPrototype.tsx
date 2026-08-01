@@ -285,15 +285,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 12</span>
-        <h1>A little world<br />settles with you.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 13</span>
+        <h1>The sky enters<br />the story.</h1>
         <p>
-          Moss pads beneath the old tree. Wildlife clears, weather softens, and one curled breath becomes the rhythm of a real Focus session.
+          Light gathers. Leaves turn. Moss notices before the weather arrives—then chooses what to do inside a world you can still touch.
         </p>
         <dl className="engine-facts">
-          <div><dt>Intent</dt><dd>focus · not a game</dd></div>
-          <div><dt>World</dt><dd>travel · hush · breathe</dd></div>
-          <div><dt>Receipt</dt><dd>one care moment</dd></div>
+          <div><dt>Direction</dt><dd>notice · respond · settle</dd></div>
+          <div><dt>Agency</dt><dd>touch stays live</dd></div>
+          <div><dt>System</dt><dd>phase · intensity · shot</dd></div>
         </dl>
       </header>
 
@@ -301,7 +301,7 @@ export function PetPrototype() {
         <header className="capability-header">
           <div>
             <span className="device-label">Day {state.prototypeDay}</span>
-            <strong>{state.name}</strong><span className="weather-label">{world.weather}</span>
+            <strong>{state.name}</strong><span className="weather-label">{world.weather}{world.weatherPhase === "arriving" ? " arriving" : ""}</span>
           </div>
           <button
             type="button"
@@ -402,6 +402,7 @@ export function PetPrototype() {
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
+            <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
           </div>
