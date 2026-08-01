@@ -18,14 +18,17 @@ import {
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
+  cancelWorldHandGuide,
   clipForWorldAction,
   createPetWorldState,
   dragWorldWindLeaf,
+  guideWorldWithHand,
   grabWorldWindLeaf,
   nextWeatherKind,
   plantLifeEcho,
   resolveFocusAtmosphere,
   resolveTapIntent,
+  releaseWorldHandGuide,
   screenPointToWorldPoint,
   setWorldZoom,
   setWorldWeather,
@@ -540,6 +543,34 @@ function drawWindLeaf(
   context.restore();
 }
 
+function drawHandMote(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+) {
+  if (world.hand.phase === "quiet") return;
+  const pulse = Math.floor(world.hand.ageMs / 90) % 4;
+  const foundFade = world.action === "hand-found"
+    ? Math.max(0, 1 - world.actionElapsed / PET_WORLD.handFoundDuration)
+    : 1;
+
+  context.save();
+  context.translate(Math.round(world.hand.x), Math.round(world.hand.y));
+  context.globalAlpha = foundFade;
+  context.fillStyle = palette.bloom;
+  context.fillRect(-2, -2, 5, 5);
+  context.fillStyle = "#fff0a5";
+  context.fillRect(-1, -1, 3, 3);
+  context.globalAlpha = foundFade * (0.48 + pulse * 0.12);
+  context.fillRect(-7 - pulse, 0, 4 + pulse, 1);
+  context.fillRect(4, 0, 4 + pulse, 1);
+  context.fillRect(0, -7 - pulse, 1, 4 + pulse);
+  context.fillRect(0, 4, 1, 4 + pulse);
+  context.fillRect(-5, 5, 1, 1);
+  context.fillRect(5, -5, 1, 1);
+  context.restore();
+}
+
 function drawProgressBlooms(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -779,6 +810,7 @@ function drawProceduralHabitat(
   }
 
   drawProgressBlooms(context, palette, world);
+  drawHandMote(context, palette, world);
   drawVisitor(context, palette, world);
   drawWindLeaf(context, palette, world);
 
@@ -860,6 +892,7 @@ function drawAuthoredHabitat(
   }
 
   drawProgressBlooms(context, palette, world);
+  drawHandMote(context, palette, world);
   drawVisitor(context, palette, world);
   drawWindLeaf(context, palette, world);
   context.restore();
@@ -1427,6 +1460,7 @@ export function PetEngineCanvas({
     pointersRef.current.set(event.pointerId, { start: point, current: point });
     gestureMovedRef.current = false;
     if (pointersRef.current.size === 2) {
+      worldRef.current = cancelWorldHandGuide(worldRef.current);
       const [first, second] = [...pointersRef.current.values()];
       pinchRef.current = { distance: Math.hypot(first.current.x - second.current.x, first.current.y - second.current.y), zoom: worldRef.current.zoom };
     }
@@ -1446,11 +1480,17 @@ export function PetEngineCanvas({
     const pointer = pointersRef.current.get(event.pointerId);
     if (!pointer) return;
     pointer.current = pointFromEvent(event);
-    if (Math.hypot(pointer.current.x - pointer.start.x, pointer.current.y - pointer.start.y) > 4) gestureMovedRef.current = true;
+    const gestureDistance = Math.hypot(pointer.current.x - pointer.start.x, pointer.current.y - pointer.start.y);
+    if (gestureDistance > 4) gestureMovedRef.current = true;
     if (pointersRef.current.size === 2 && pinchRef.current) {
       const [first, second] = [...pointersRef.current.values()];
       const distance = Math.hypot(first.current.x - second.current.x, first.current.y - second.current.y);
       worldRef.current = setWorldZoom(worldRef.current, pinchRef.current.zoom * (distance / Math.max(1, pinchRef.current.distance)));
+    } else if (pointersRef.current.size === 1 && gestureDistance > 6) {
+      const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+      worldRef.current = guideWorldWithHand(worldRef.current, worldPoint);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
     }
   }
 
@@ -1483,6 +1523,12 @@ export function PetEngineCanvas({
     if (startedNearPet && Math.abs(travelX) > 22 && Math.abs(travelX) > Math.abs(travelY)) {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
       callbackRef.current.onWorldInteraction?.("rollover");
+      return;
+    }
+    if (worldRef.current.hand.phase === "held") {
+      worldRef.current = releaseWorldHandGuide(worldRef.current);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
       return;
     }
     if (gestureMovedRef.current) return;

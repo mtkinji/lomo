@@ -150,6 +150,17 @@ Weather is behavior, not a wallpaper swap. Wind moves foliage, loose leaves, and
 
 Weather changes use a shared directed-episode grammar: arrive, notice, respond, settle. Intensity grows across the whole habitat before the Pet acts; the Pet uses an authored attention clip, then the camera frames a little destination-side world during instinctive travel. Direct touch remains live outside Focus, and occasional deterministic episodes may begin while the world is otherwise quiet. The inspector exposes phase and intensity for learning, but the Pet experience adds no forecast, meter, danger, reward, or weather controls.
 
+Continuous touch uses the same portable world boundary. A deliberate
+one-finger drag may wake one restrained world-space mote; the Pet first notices,
+then walks or runs according to honest distance while the target moves with the
+hand. Release commits to the last reachable place and resolves in one greeting.
+The engine owns dead zones, gait, facing, camera framing, refusal, and recovery;
+the renderer only routes the gesture and draws the mote. This is direct
+relationship, not raw cursor following: pinch, rollover, and wind-leaf ownership
+remain more specific gestures, and settled rain shelter or active Focus may not
+be overridden. The mote creates no object, reward, receipt, persistence, need,
+or control mode.
+
 The Pet also owns a portable weather-acting vocabulary rather than receiving renderer-authored body motion. `weather-notice`, `wind-brace`, `rain-flinch`, and `sun-bask` are semantic clips in every evolution manifest, with stage-specific drawings, contact, holds, accents, and recovery. Baby compresses quickly and may curl in a warm patch; Guardian holds a powerful brace and a controlled eyes-closed bask. The renderer moves the habitat during wind but never tilts the whole grounded Pet to fake anatomy or weight.
 
 Wildlife makes growth physical rather than merely visual. The portable behavior engine selects a transient visitor by evolution stage: ground crawler for baby, firefly for young, and high sky moth for guardian. Acquisition predicts one directionally stable intercept before starting an authored clip, but the prediction can never pass through the Pet and make it turn away from a visitor that remains visibly on the other side. At commitment, the visitor evades outward on that chosen side instead of crossing behind the Pet during the performance. The encounter ends once, so the Pet never oscillates or attempts an opposite-facing retry. These are living-world moments, not collectibles, prey, combat, or rewards.

@@ -44,13 +44,17 @@ export const PET_WORLD = {
   cameraReleaseDuration: 1500,
   maxWeatherSway: 2.2,
   leafCatchDuration: 1280,
+  handArrivalDistance: 16,
+  handRunDistance: 72,
+  handFoundDuration: 920,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "track" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "hand-track" | "hand-walk" | "hand-run" | "hand-found" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
+export type WorldHandPhase = "quiet" | "held" | "released";
 
 export interface WorldPoint {
   x: number;
@@ -83,6 +87,13 @@ export interface WorldBloom {
   source: MeaningfulAction;
 }
 
+export interface WorldHandGuide {
+  phase: WorldHandPhase;
+  x: number;
+  y: number;
+  ageMs: number;
+}
+
 export interface PetWorldMemory {
   version: 1;
   blooms: WorldBloom[];
@@ -113,6 +124,7 @@ export interface PetWorldState {
     completed: boolean;
   };
   visitor: WorldVisitor;
+  hand: WorldHandGuide;
   playLeaf: WindLeafState;
   blooms: WorldBloom[];
 }
@@ -165,6 +177,10 @@ const VISITOR_FOR_STAGE: Record<PetStage, WorldVisitorKind> = {
   guardian: "sky-moth",
 };
 
+function quietWorldHand(): WorldHandGuide {
+  return { phase: "quiet", x: PET_WORLD.width / 2, y: 112, ageMs: 0 };
+}
+
 export function createPetWorldState(): PetWorldState {
   return {
     petX: PET_WORLD.width / 2,
@@ -196,6 +212,7 @@ export function createPetWorldState(): PetWorldState {
       engagedAgeMs: 0,
       launchX: PET_WORLD.width / 2,
     },
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
     blooms: [],
   };
@@ -218,6 +235,7 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
         ? faceToward(state.petX, PET_WORLD.sunPatchX, state.facing)
         : state.facing,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -238,6 +256,7 @@ export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): P
     facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
     focus: { active: true, durationMs: duration, elapsedMs: 0, remainingMs: duration, completed: false },
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -266,6 +285,7 @@ export function plantLifeEcho(
     poseY: 0,
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
     blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
   };
@@ -291,6 +311,7 @@ export function beginMemoryVisit(state: PetWorldState, requestedX: number): PetW
     poseY: 0,
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -305,6 +326,7 @@ export function beginTreeRest(state: PetWorldState): PetWorldState {
     poseY: 0,
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -370,6 +392,9 @@ function clampCameraX(value: number, zoom: number) {
 }
 
 export function resolveCameraTargetX(state: PetWorldState) {
+  if (state.hand.phase !== "quiet" && state.action.startsWith("hand-")) {
+    return clampCameraX((state.petX + state.hand.x) / 2, state.zoom);
+  }
   if (
     state.playLeaf.phase !== "perched"
     && (
@@ -420,12 +445,14 @@ export function resolveCinematicShot(
     || state.action === "shade"
     || state.action === "bask"
     || state.action === "leaf-catch"
+    || state.action === "hand-found"
   ) {
     return { id: "intimate", zoom: 1.45 };
   }
   if (
     state.action === "greet"
     || state.action === "track"
+    || state.action === "hand-track"
     || state.action === "leaf-invite"
     || state.action === "leaf-track"
     || state.action === "weather-notice"
@@ -467,6 +494,78 @@ export function screenPointToWorldPoint(state: PetWorldState, point: WorldPoint)
   };
 }
 
+function actionForHandDistance(distance: number): PetWorldAction {
+  if (distance <= PET_WORLD.handArrivalDistance) return "hand-track";
+  if (distance >= PET_WORLD.handRunDistance) return "hand-run";
+  return "hand-walk";
+}
+
+function handGuideIsRefused(state: PetWorldState) {
+  if (state.focus.active) return true;
+  return state.weather === "rain"
+    && state.weatherPhase === "settled"
+    && (state.action === "rain-flinch" || state.action === "seek-shelter" || state.action === "shelter");
+}
+
+export function guideWorldWithHand(
+  state: PetWorldState,
+  point: WorldPoint,
+): PetWorldState {
+  if (handGuideIsRefused(state)) return state;
+  const hand: WorldHandGuide = {
+    phase: "held",
+    x: clampWorldX(point.x),
+    y: clamp(point.y, 38, ENGINE_SCENE.groundY - 8),
+    ageMs: state.hand.phase === "quiet" ? 0 : state.hand.ageMs,
+  };
+  const distance = Math.abs(hand.x - state.petX);
+  const action = actionForHandDistance(distance);
+  return {
+    ...state,
+    action,
+    actionElapsed: state.action === action ? state.actionElapsed : 0,
+    targetX: action === "hand-track" ? null : hand.x,
+    facing: faceToward(state.petX, hand.x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    hand,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    playLeaf: createWindLeaf(),
+  };
+}
+
+export function releaseWorldHandGuide(state: PetWorldState): PetWorldState {
+  if (state.hand.phase !== "held") return state;
+  const distance = Math.abs(state.hand.x - state.petX);
+  const action = distance <= PET_WORLD.handArrivalDistance
+    ? "hand-found"
+    : actionForHandDistance(distance);
+  return {
+    ...state,
+    action,
+    actionElapsed: 0,
+    targetX: action === "hand-found" ? null : state.hand.x,
+    facing: faceToward(state.petX, state.hand.x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    hand: { ...state.hand, phase: "released", ageMs: 0 },
+  };
+}
+
+export function cancelWorldHandGuide(state: PetWorldState): PetWorldState {
+  if (state.hand.phase === "quiet") return state;
+  const handOwnedAction = state.action.startsWith("hand-");
+  return {
+    ...state,
+    action: handOwnedAction ? "idle" : state.action,
+    actionElapsed: handOwnedAction ? 0 : state.actionElapsed,
+    targetX: handOwnedAction ? null : state.targetX,
+    poseY: handOwnedAction ? 0 : state.poseY,
+    rotation: handOwnedAction ? 0 : state.rotation,
+    hand: quietWorldHand(),
+  };
+}
+
 export function grabWorldWindLeaf(
   state: PetWorldState,
   point: WindLeafPoint,
@@ -482,6 +581,7 @@ export function grabWorldWindLeaf(
     facing: faceToward(state.petX, playLeaf.x, state.facing),
     poseY: 0,
     rotation: 0,
+    hand: quietWorldHand(),
     playLeaf,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   };
@@ -510,6 +610,7 @@ export function beginWindLeafInvitation(
     facing: faceToward(state.petX, playLeaf.x, state.facing),
     poseY: 0,
     rotation: 0,
+    hand: quietWorldHand(),
     playLeaf,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   };
@@ -564,7 +665,7 @@ export function tossWorldWindLeaf(
 export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): PetWorldState {
   const facing = intent.worldX < state.petX ? -1 : 1;
   if (intent.kind === "move") {
-    return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, playLeaf: createWindLeaf() };
+    return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, hand: quietWorldHand(), playLeaf: createWindLeaf() };
   }
 
   return {
@@ -575,6 +676,7 @@ export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): 
     targetX: intent.kind === "jump" ? clampWorldX(intent.worldX) : null,
     poseY: 0,
     rotation: 0,
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -591,6 +693,7 @@ export function spawnVisitor(
   const y = visitor.y ?? behavior.y;
   return {
     ...state,
+    hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
     visitor: {
       active: true,
@@ -700,6 +803,9 @@ export function stepPetWorld(
     weatherIntensity,
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
+    hand: state.hand.phase === "quiet"
+      ? state.hand
+      : { ...state.hand, ageMs: state.hand.ageMs + dt },
     playLeaf: stepWindLeaf(state.playLeaf, dt),
     blooms: state.blooms.map((bloom) => ({
       ...bloom,
@@ -794,6 +900,31 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (state.action === "hand-track") {
+      if (next.hand.phase === "released") {
+        return { ...next, action: "hand-found", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 };
+      }
+      return { ...next, facing: faceToward(state.petX, next.hand.x, state.facing), poseY: 0, rotation: 0 };
+    }
+    if (state.action === "hand-walk" || state.action === "hand-run") {
+      return {
+        ...next,
+        petX: next.hand.x,
+        cameraX: clampCameraX(next.hand.x, next.zoom),
+        action: next.hand.phase === "held" ? "hand-track" : "hand-found",
+        actionElapsed: 0,
+        targetX: null,
+        facing: faceToward(state.petX, next.hand.x, state.facing),
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (state.action === "hand-found") {
+      if (next.actionElapsed >= Math.min(300, PET_WORLD.handFoundDuration)) {
+        return finishAction({ ...next, hand: quietWorldHand() });
+      }
+      return { ...next, poseY: 0, rotation: 0 };
+    }
     if (state.action === "leaf-invite") {
       if (next.actionElapsed < Math.min(300, PET_WORLD.windLeafInvitationDuration)) {
         return { ...next, facing: faceToward(state.petX, next.playLeaf.x, state.facing), poseY: 0, rotation: 0 };
@@ -968,6 +1099,39 @@ export function stepPetWorld(
   if (weatherResponseStarted) {
     next.poseY = 0;
     next.rotation = 0;
+  } else if (state.action === "hand-track") {
+    next.facing = faceToward(state.petX, next.hand.x, state.facing);
+    next.poseY = 0;
+    next.rotation = 0;
+    if (next.hand.phase === "released") {
+      next.action = "hand-found";
+      next.actionElapsed = 0;
+      next.targetX = null;
+    }
+  } else if (state.action === "hand-walk" || state.action === "hand-run") {
+    const distance = next.hand.x - state.petX;
+    const remaining = Math.abs(distance);
+    next.facing = faceToward(state.petX, next.hand.x, state.facing);
+    next.poseY = 0;
+    next.rotation = 0;
+    if (remaining <= PET_WORLD.handArrivalDistance) {
+      next.petX = next.hand.x;
+      next.targetX = null;
+      next.action = next.hand.phase === "held" ? "hand-track" : "hand-found";
+      next.actionElapsed = 0;
+    } else {
+      next.action = actionForHandDistance(remaining);
+      next.targetX = next.hand.x;
+      const speed = next.action === "hand-run" ? 0.052 : 0.03;
+      next.petX = moveToward(state.petX, next.hand.x, dt * speed);
+    }
+  } else if (state.action === "hand-found") {
+    next.facing = faceToward(state.petX, next.hand.x, state.facing);
+    next.poseY = 0;
+    next.rotation = 0;
+    if (next.actionElapsed >= PET_WORLD.handFoundDuration) {
+      next = finishAction({ ...next, hand: quietWorldHand() });
+    }
   } else if (state.action === "leaf-invite") {
     next.facing = faceToward(state.petX, next.playLeaf.x, state.facing);
     next.poseY = 0;
@@ -1268,6 +1432,8 @@ export function stepPetWorld(
 
 export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
   if (action === "walk" || action === "run") return action;
+  if (action === "hand-walk") return "walk";
+  if (action === "hand-run") return "run";
   if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest" || action === "seek-leaf") return "walk";
   if (action === "bloom-notice" || action === "memory-notice") return "discover";
   if (action === "admire-bloom" || action === "remember" || action === "leaf-catch") return "care";
@@ -1275,8 +1441,8 @@ export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "
   if (action === "aerial-pounce" || action === "leaf-aerial") return "aerial";
   if (action === "leaf-pounce") return "pounce";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
-  if (action === "greet") return "greet";
-  if (action === "track" || action === "leaf-invite" || action === "leaf-track") return "discover";
+  if (action === "greet" || action === "hand-found") return "greet";
+  if (action === "track" || action === "hand-track" || action === "leaf-invite" || action === "leaf-track") return "discover";
   if (action === "weather-notice") return "weather-notice";
   if (action === "wind-brace") return "wind-brace";
   if (action === "rain-flinch") return "rain-flinch";

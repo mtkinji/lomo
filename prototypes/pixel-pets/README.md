@@ -10,6 +10,7 @@ The prototype lets a tester:
 - compare 38px baby, 46px young, and 62px guardian game-character scales;
 - see a one-time sleep transition resolve into a curled breathing loop;
 - tap the world to walk, run, and jump while authored footfalls and a wider camera follow;
+- draw one finger through the habitat to wake a small world-space light that Moss notices, follows with walk/run inertia, finds, and releases without becoming a joystick puppet;
 - pinch from a full habitat view to a temporary 2.25x close-up;
 - discover a stage-specific wildlife ladder: baby follows a ground crawler, young chases a firefly, and guardian banks through a high aerial interception of a sky moth;
 - see every wildlife chase plant its acquisition and coil before translation, then lock facing, travel, and escape to one committed side;

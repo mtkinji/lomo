@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 23 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 24 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -53,10 +53,11 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 23 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 23/);
-  assert.match(prototype, /The wind found<br \/>a way to play\./i);
-  assert.match(prototype, /A breeze arrives/);
+  assert.match(layout, /Pet Engine Study 24 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 24/);
+  assert.match(prototype, /Where your hand goes,<br \/>Moss follows\./i);
+  assert.match(prototype, /Draw one finger through the meadow/);
+  assert.match(prototype, /Hand guide/);
   assert.match(prototype, /Wind episode/);
   assert.match(prototype, /The meadow remembers/);
   assert.match(prototype, /Life echoes/);
@@ -119,6 +120,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(plaything, /stepWindLeaf/);
   assert.match(world, /grabWorldWindLeaf/);
   assert.match(world, /tossWorldWindLeaf/);
+  assert.match(world, /guideWorldWithHand/);
+  assert.match(world, /releaseWorldHandGuide/);
   assert.match(soundscape, /resolveSoundscapeMix/);
   assert.match(soundscape, /BrowserPetSoundscape/);
   assert.match(soundscape, /playVisitorCue/);
@@ -142,6 +145,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(canvas, /imageSmoothingEnabled = false/);
   assert.match(canvas, /resolvePetFrame/);
   assert.match(canvas, /drawWindLeaf/);
+  assert.match(canvas, /drawHandMote/);
   assert.match(canvas, /isWindLeafHit/);
   assert.match(canvas, /previousSprite/);
   assert.match(canvas, /drawEvolutionMotes/);

@@ -308,6 +308,10 @@ export function PetPrototype() {
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
+      "hand-track": { title: "Your hand entered the world", detail: `${state.name} noticed before taking a single step.` },
+      "hand-walk": { title: "Coming closer", detail: `${state.name} is following without becoming a cursor.` },
+      "hand-run": { title: "Wait for me", detail: `${state.name} opened into a real run to close the distance.` },
+      "hand-found": { title: "There you are", detail: `${state.name} found the last place your hand left light.` },
       "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
       "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. Catch it—or watch ${state.name} read where it goes.` },
@@ -371,15 +375,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 23</span>
-        <h1>The wind found<br />a way to play.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 24</span>
+        <h1>Where your hand goes,<br />Moss follows.</h1>
         <p>
-          A breeze arrives. Moss braces. Then the old tree lets go of one golden leaf—and the scene becomes yours.
+          Draw one finger through the meadow. A little light enters the world, Moss notices, and then chooses how to follow.
         </p>
         <dl className="engine-facts">
-          <div><dt>World</dt><dd>begins the story</dd></div>
-          <div><dt>You</dt><dd>catch and redirect</dd></div>
-          <div><dt>Moss</dt><dd>reads and responds</dd></div>
+          <div><dt>Touch</dt><dd>wakes one light</dd></div>
+          <div><dt>Distance</dt><dd>shapes the gait</dd></div>
+          <div><dt>Moss</dt><dd>keeps its agency</dd></div>
         </dl>
       </header>
 
@@ -416,7 +420,7 @@ export function PetPrototype() {
             onWorldFrame={handleWorldFrame}
             onLivingDayFrame={setLivingDay}
             onWorldInteraction={handleWorldInteraction}
-            label={`${state.name}'s interactive world. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
+            label={`${state.name}'s interactive world. Draw one finger through the meadow to guide ${state.name}, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
         </div>
 
@@ -490,6 +494,7 @@ export function PetPrototype() {
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
+            <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
             <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
             <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>

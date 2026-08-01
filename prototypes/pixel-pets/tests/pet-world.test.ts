@@ -11,11 +11,13 @@ import {
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
+  cancelWorldHandGuide,
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
   resolveFocusAtmosphere,
   grabWorldWindLeaf,
+  guideWorldWithHand,
   nextWeatherKind,
   plantProgressBloom,
   plantLifeEcho,
@@ -27,6 +29,7 @@ import {
   spawnVisitor,
   stepPetWorld,
   tossWorldWindLeaf,
+  releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
 
 test("durable world memory contains only bounded privacy-safe scenery", () => {
@@ -525,6 +528,93 @@ test("screen taps resolve into world-space attention and travel intents", () => 
   assert.deepEqual(resolveTapIntent(world, { x: 80, y: 190 }), { kind: "greet", worldX: 240 });
   assert.deepEqual(resolveTapIntent(world, { x: 142, y: 188 }), { kind: "move", worldX: 302 });
   assert.deepEqual(resolveTapIntent(world, { x: 24, y: 72 }), { kind: "jump", worldX: 184 });
+});
+
+test("a deliberate hand guide earns attention before choosing an honest gait", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 310, y: 146 });
+  const watched = guideWorldWithHand(start, { x: start.petX + 10, y: 112 });
+  const walking = guideWorldWithHand(watched, { x: start.petX + 42, y: 104 });
+  const running = guideWorldWithHand(walking, { x: start.petX + 118, y: 92 });
+
+  assert.equal(watched.hand.phase, "held");
+  assert.equal(watched.action, "hand-track");
+  assert.equal(watched.petX, start.petX, "attention must not fake movement");
+  assert.equal(walking.action, "hand-walk");
+  assert.equal(running.action, "hand-run");
+  assert.equal(running.facing, 1);
+  assert.equal(running.visitor.active, false, "deliberate touch owns the scene");
+  assert.equal(running.playLeaf.phase, "perched");
+  assert.equal(clipForWorldAction(watched.action), "discover");
+  assert.equal(clipForWorldAction(walking.action), "walk");
+  assert.equal(clipForWorldAction(running.action), "run");
+});
+
+test("Moss follows a moving hand with inertia instead of teleporting to the cursor", () => {
+  let world = guideWorldWithHand(createPetWorldState(), { x: 390, y: 96 });
+  const first = stepPetWorld(world, 160, false, "young");
+
+  assert.ok(first.petX > world.petX);
+  assert.ok(first.petX < world.hand.x);
+  assert.equal(first.facing, 1);
+
+  world = guideWorldWithHand(first, { x: 92, y: 104 });
+  const turned = stepPetWorld(world, 160, false, "young");
+  assert.ok(turned.petX < world.petX);
+  assert.ok(turned.petX > world.hand.x);
+  assert.equal(turned.facing, -1);
+});
+
+test("a more specific gesture can cancel hand guidance without inventing an arrival", () => {
+  const guided = guideWorldWithHand(createPetWorldState(), { x: 390, y: 96 });
+  const cancelled = cancelWorldHandGuide(guided);
+
+  assert.equal(cancelled.action, "idle");
+  assert.equal(cancelled.targetX, null);
+  assert.equal(cancelled.hand.phase, "quiet");
+});
+
+test("releasing the hand commits to one last place, greets, and becomes quiet", () => {
+  let world = releaseWorldHandGuide(
+    guideWorldWithHand(createPetWorldState(), { x: 356, y: 106 }),
+  );
+
+  assert.equal(world.hand.phase, "released");
+  assert.equal(world.targetX, 356);
+  for (let frame = 0; frame < 180 && world.action !== "hand-found"; frame += 1) {
+    world = stepPetWorld(world, 16, false, "young");
+  }
+
+  assert.equal(world.action, "hand-found");
+  assert.ok(Math.abs(world.petX - 356) <= PET_WORLD.handArrivalDistance);
+  assert.equal(clipForWorldAction(world.action), "greet");
+
+  world = stepPetWorld(world, PET_WORLD.handFoundDuration, false, "young");
+  assert.equal(world.action, "idle");
+  assert.equal(world.hand.phase, "quiet");
+});
+
+test("rain shelter and shared Focus are stronger than a hand invitation", () => {
+  const sheltered = {
+    ...createPetWorldState(),
+    weather: "rain" as const,
+    weatherPhase: "settled" as const,
+    action: "shelter" as const,
+    petX: PET_WORLD.treeShelterX,
+  };
+  const focusing = beginCompanionFocus(createPetWorldState(), 15_000);
+
+  assert.deepEqual(guideWorldWithHand(sheltered, { x: 380, y: 80 }), sheltered);
+  assert.deepEqual(guideWorldWithHand(focusing, { x: 380, y: 80 }), focusing);
+});
+
+test("Reduce Motion preserves guide, arrival, and greeting without animated travel", () => {
+  const guided = guideWorldWithHand(createPetWorldState(), { x: 352, y: 90 });
+  const arrived = stepPetWorld(releaseWorldHandGuide(guided), 16, true, "guardian");
+
+  assert.equal(arrived.petX, 352);
+  assert.equal(arrived.action, "hand-found");
+  assert.equal(arrived.hand.phase, "released");
+  assert.equal(arrived.poseY, 0);
 });
 
 test("holding the wind leaf lets Moss track the finger without sliding", () => {
