@@ -85,8 +85,10 @@ describe('projectMoneyPlanProjection', () => {
   });
 
   it('uses the customer local month when an incorrectly future-dated plan is active', () => {
+    const localJuly = new Date(2026, 6, 31, 18, 28, 57);
+    const recentlySyncedAt = new Date(localJuly.getTime() - 60 * 60 * 1000).toISOString();
     const snapshot = {
-      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-31T23:00:00Z',
+      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: recentlySyncedAt,
       totals: { plannedCents: 60000, spentCents: 10000, remainingCents: 50000, needsReviewCount: 0 },
       forecast: { projectedSpendCents: 10000, projectionRangeLowCents: 10000, projectionRangeHighCents: 10000, projectedRemainingCents: 50000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
       outsidePlan: { spentCents: 0, transactionCount: 0 },
@@ -101,7 +103,6 @@ describe('projectMoneyPlanProjection', () => {
         { ...allocation('food', 40000), overrideCents: 0, flexibleCents: 40000, source: 'recent_spending' as const },
       ],
     };
-    const localJuly = new Date(2026, 6, 31, 18, 28, 57);
     jest.spyOn(localJuly, 'toISOString').mockReturnValue('2026-08-01T00:28:57.000Z');
 
     const result = projectMoneyPlanProjection(snapshot, futurePlan, evidence, localJuly);
