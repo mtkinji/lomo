@@ -24,6 +24,7 @@ import {
   type PetWorldState,
   type WorldPoint,
 } from "@/lib/pet-world";
+import { LEAFLING_HABITAT } from "@/lib/pet-habitat";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import type { PetPalette, PetStage } from "@/lib/pet-state";
@@ -48,6 +49,12 @@ interface PetEngineCanvasProps {
   onWorldInteraction?: (action: PetWorldAction) => void;
   label: string;
 }
+
+type HabitatImages = {
+  backdrop: HTMLImageElement;
+  shelterTree: HTMLImageElement;
+  foreground: HTMLImageElement;
+};
 
 type HabitatPalette = {
   outline: string;
@@ -328,7 +335,7 @@ function drawWeather(
   }
 }
 
-function drawHabitat(
+function drawProceduralHabitat(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
   motion: EngineMotion,
@@ -494,11 +501,112 @@ function drawHabitat(
   drawWeather(context, palette, world, false);
 }
 
+function habitatImageReady(image: HTMLImageElement) {
+  return image.complete && image.naturalWidth > 0;
+}
+
+function drawAuthoredHabitat(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  motion: EngineMotion,
+  progress: number,
+  world: PetWorldState,
+  habitat: HabitatImages,
+) {
+  if (!habitatImageReady(habitat.backdrop) || !habitatImageReady(habitat.shelterTree)) {
+    drawProceduralHabitat(context, palette, motion, progress, world);
+    return;
+  }
+
+  const backdropX = -(world.cameraX - PET_WORLD.viewportWidth / 2) * LEAFLING_HABITAT.backdrop.parallax;
+  context.imageSmoothingEnabled = false;
+  context.drawImage(
+    habitat.backdrop,
+    Math.round(backdropX),
+    0,
+    LEAFLING_HABITAT.backdrop.size.width,
+    LEAFLING_HABITAT.backdrop.size.height,
+  );
+
+  context.save();
+  context.globalAlpha = world.weather === "rain" ? 0.24 : 0.07;
+  context.fillStyle = world.weather === "rain" ? palette.outline : palette.sky;
+  context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+  context.restore();
+
+  context.save();
+  worldTransform(context, world);
+  context.translate(PET_WORLD.treeShelterX, ENGINE_SCENE.groundY);
+  context.rotate((world.weatherSway * 0.32 * Math.PI) / 180);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(
+    habitat.shelterTree,
+    -LEAFLING_HABITAT.shelterTree.anchor.x,
+    -LEAFLING_HABITAT.shelterTree.anchor.y,
+    LEAFLING_HABITAT.shelterTree.size.width,
+    LEAFLING_HABITAT.shelterTree.size.height,
+  );
+  context.restore();
+
+  context.save();
+  worldTransform(context, world);
+  context.fillStyle = palette.outline;
+  context.globalAlpha = world.weather === "rain" ? 0.3 : 0.17;
+  context.fillRect(PET_WORLD.treeShelterX - 46, ENGINE_SCENE.groundY + 1, 92, 2);
+  if (world.weather === "sunny") {
+    context.fillStyle = palette.bloom;
+    context.globalAlpha = 0.24;
+    context.fillRect(PET_WORLD.sunPatchX - 38, ENGINE_SCENE.groundY - 1, 76, 3);
+    context.fillRect(PET_WORLD.sunPatchX - 27, ENGINE_SCENE.groundY + 2, 54, 2);
+  }
+
+  if (motion === "care") {
+    const berryY = ENGINE_SCENE.groundY - 28 + Math.round(Math.min(progress * 2, 1) * 23);
+    context.globalAlpha = 1;
+    context.fillStyle = "#d8615f";
+    context.fillRect(world.petX - 2, berryY, 3, 3);
+    context.fillRect(world.petX + 1, berryY + 1, 2, 2);
+    context.fillStyle = palette.leaf;
+    context.fillRect(world.petX, berryY - 2, 2, 2);
+  }
+
+  if (world.insect.active) {
+    const wing = Math.floor(world.insect.ageMs / 90) % 2;
+    context.globalAlpha = 1;
+    context.fillStyle = palette.cream;
+    context.fillRect(Math.round(world.insect.x) - 2, Math.round(world.insect.y) - wing, 2, 2);
+    context.fillRect(Math.round(world.insect.x) + 2, Math.round(world.insect.y) + wing, 2, 2);
+    context.fillStyle = palette.bloom;
+    context.fillRect(Math.round(world.insect.x), Math.round(world.insect.y), 2, 2);
+    context.fillStyle = palette.outline;
+    context.fillRect(Math.round(world.insect.x), Math.round(world.insect.y) + 2, 1, 1);
+  }
+  context.restore();
+
+  drawWeather(context, palette, world, false);
+}
+
 function drawNearForeground(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
   world: PetWorldState,
+  habitat: HabitatImages,
 ) {
+  if (habitatImageReady(habitat.foreground)) {
+    context.save();
+    worldTransform(context, world);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(
+      habitat.foreground,
+      0,
+      ENGINE_SCENE.groundY - LEAFLING_HABITAT.foreground.baseline,
+      LEAFLING_HABITAT.foreground.size.width,
+      LEAFLING_HABITAT.foreground.size.height,
+    );
+    context.restore();
+    return;
+  }
+
   context.save();
   worldTransform(context, world);
   context.fillStyle = palette.deep;
@@ -527,10 +635,11 @@ function renderScene(
   snapshot: PetFrameSnapshot,
   showRig: boolean,
   world: PetWorldState,
+  habitat: HabitatImages,
 ) {
   const palette = PALETTES[paletteId];
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
-  drawHabitat(context, palette, motion, snapshot.progress, world);
+  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
 
   const size = LEAFLING_PRESENTATION.stages[stage];
   const scaleX = size.height / manifest.atlas.frameHeight;
@@ -625,7 +734,7 @@ function renderScene(
     });
   }
   context.restore();
-  drawNearForeground(context, palette, world);
+  drawNearForeground(context, palette, world, habitat);
   drawWeather(context, palette, world, true);
 }
 
@@ -700,6 +809,14 @@ export function PetEngineCanvas({
     let activeClip = "";
     let worldClock = 0;
     const sprite = new Image();
+    const habitat: HabitatImages = {
+      backdrop: new Image(),
+      shelterTree: new Image(),
+      foreground: new Image(),
+    };
+    habitat.backdrop.src = LEAFLING_HABITAT.backdrop.src;
+    habitat.shelterTree.src = LEAFLING_HABITAT.shelterTree.src;
+    habitat.foreground.src = LEAFLING_HABITAT.foreground.src;
 
     const draw = (time: number) => {
       if (disposed) return;
@@ -729,7 +846,7 @@ export function PetEngineCanvas({
       }
       const elapsed = paused ? manualElapsed : time - clipStartedAt;
       const snapshot = resolvePetFrame(manifest, requestedClip, elapsed, reducedMotion);
-      renderScene(context, sprite, manifest, palette, stage, motion, snapshot, showRig, worldRef.current);
+      renderScene(context, sprite, manifest, palette, stage, motion, snapshot, showRig, worldRef.current, habitat);
 
       const frameKey = `${snapshot.clip}:${snapshot.frameIndex}`;
       if (frameKey !== lastFrameRef.current) {

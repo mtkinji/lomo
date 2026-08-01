@@ -18,7 +18,7 @@ The prototype lets a tester:
 - move through sun, wind, and rain that affect both the habitat and Leafling;
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
-- travel through layered clouds, mountain ranges, distant pines, canopy, terrain, and foreground grass at different camera depths;
+- travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - simulate a completed To-do or Focus session;
@@ -37,10 +37,12 @@ or moving its body; all three forms now own distinct eight-drawing walk, run,
 jump, pounce, and rollover clips with non-linear limited-animation timing and
 explicit ground contact. World state owns destinations, facing, and camera
 travel; the drawings own lift, body turn, anticipation, impact, and recovery.
-Canvas 2D is the current renderer adapter. It places Leafling low in the scene,
-draws contact cues inside the terrain rather than as a separate platform, and
-uses wider cells so running silhouettes can extend without stretching. Native,
-web, and desktop renderers can consume the same frame snapshots.
+The renderer-neutral habitat manifest carries a 480 × 240 far panorama, a
+root-anchored shelter tree, and a transparent near-meadow layer. Canvas 2D is
+the current adapter. It places Leafling low in the scene, draws contact cues
+inside the terrain rather than as a separate platform, and layers weather over
+the same authored place. Native, web, and desktop renderers can consume the
+same world coordinates, habitat assets, and frame snapshots.
 
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.

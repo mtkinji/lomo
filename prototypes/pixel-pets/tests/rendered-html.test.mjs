@@ -35,11 +35,12 @@ test("server-renders the Pixel Pet prototype shell", async () => {
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, world, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, engine, habitat, world, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-engine.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-habitat.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-world.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/leafling.ts", import.meta.url), "utf8"),
@@ -65,6 +66,10 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /Canvas 2D/);
   assert.match(engine, /width: 160, height: 240/);
   assert.match(engine, /MOTION_CLIPS/);
+  assert.match(habitat, /leafling-habitat-backdrop-v1\.png/);
+  assert.match(habitat, /leafling-shelter-tree-v1\.png/);
+  assert.match(habitat, /leafling-meadow-foreground-v1\.png/);
+  assert.match(habitat, /weatherBakedIn: false/);
   assert.match(world, /stepPetWorld/);
   assert.match(world, /spawnInsect/);
   assert.match(world, /setWorldWeather/);
