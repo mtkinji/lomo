@@ -319,15 +319,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 17</span>
-        <h1>The meadow has<br />a life of its own.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 18</span>
+        <h1>The little world<br />knows when<br />to come close.</h1>
         <p>
-          Leave the controls alone and Moss still roams, remembers, rests, and notices the world. Touch anywhere and the living day yields to you.
+          Moss has a wide world to roam—and a camera that knows when a small expression deserves the whole screen. Pinch, and the view stays yours.
         </p>
         <dl className="engine-facts">
-          <div><dt>Rhythm</dt><dd>quiet · scene · recovery</dd></div>
-          <div><dt>Agency</dt><dd>roam · remember · rest</dd></div>
-          <div><dt>Control</dt><dd>touch always wins</dd></div>
+          <div><dt>Shots</dt><dd>wide · follow · intimate</dd></div>
+          <div><dt>Direction</dt><dd>action · reaction · hold</dd></div>
+          <div><dt>Control</dt><dd>pinch stays yours</dd></div>
         </dl>
       </header>
 
@@ -436,6 +436,7 @@ export function PetPrototype() {
             <span>Camera x <strong>{Math.round(world.cameraX)}</strong></span>
             <span>Facing <strong>{world.facing === -1 ? "left" : "right"}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
+            <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>

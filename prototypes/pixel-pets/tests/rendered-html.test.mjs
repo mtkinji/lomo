@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 17 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 18 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -51,11 +51,12 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 17 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 17/);
-  assert.match(prototype, /life of its own/i);
+  assert.match(layout, /Pet Engine Study 18 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 18/);
+  assert.match(prototype, /knows when/i);
   assert.match(prototype, /The meadow remembers/);
-  assert.match(prototype, /touch always wins/);
+  assert.match(prototype, /pinch stays yours/);
+  assert.match(prototype, /Camera shot/);
   assert.match(prototype, /Living day/);
   assert.match(prototype, /Evolution phase/);
   assert.match(prototype, /Engine inspector/);
@@ -98,6 +99,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /admire-bloom/);
   assert.match(world, /beginMemoryVisit/);
   assert.match(world, /beginTreeRest/);
+  assert.match(world, /resolveCinematicShot/);
+  assert.match(world, /cameraControlRemainingMs/);
   assert.match(livingDay, /stepLivingDayDirector/);
   assert.match(livingDay, /quietBetweenEpisodesMs/);
   assert.match(leafling, /sun-bask/);

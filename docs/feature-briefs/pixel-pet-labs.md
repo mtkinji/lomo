@@ -110,6 +110,15 @@ Evolution happens inside the persistent habitat rather than replacing it with a 
 
 The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
+Camera direction uses the same portable semantic boundary. Quiet, travel,
+recognition, intimate holds, shared Focus, and full-body action resolve to a
+small shot vocabulary rather than renderer-specific camera guesses. The
+adapter eases toward the requested scale and framing while keeping the ground
+anchor stable. Pinch temporarily transfers camera ownership to the person;
+automatic direction may not alter that composition until the ownership window
+expires. Reduce Motion removes automatic push-ins while preserving explicit
+pinch zoom.
+
 Animation follows an anime-inspired limited-motion language rather than uniform interpolation. Each drawing is authored as a hold, key, in-between, accent, or recovery. Small involuntary actions use the smallest participating anatomy channel: a blink moves only the eyelids over a locked body pose. Expressive actions spend additional drawings around changes in direction, contact, and expression, then hold the strongest readable pose. The goal is deliberate 8–12-drawing character acting, not high-frame-rate feature-film smoothness.
 
 The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. The Leafling proof uses a versioned, renderer-neutral habitat pack: an authored far panorama, a root-anchored shelter-tree sprite, and a transparent near-meadow layer. Canvas, native, web, and desktop adapters can preserve the same layer order and world coordinates while expressing weather appropriately. Environmental visitors are transient behavior targets, not collectible currency or another progress system.

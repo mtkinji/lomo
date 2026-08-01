@@ -16,6 +16,7 @@ import {
   plantProgressBloom,
   restorePetWorldMemory,
   resolveCameraTargetX,
+  resolveCinematicShot,
   serializePetWorldMemory,
   setWorldZoom,
   spawnVisitor,
@@ -417,6 +418,47 @@ test("zoom is temporary camera state clamped to a humane close-up", () => {
   assert.equal(setWorldZoom(world, 1.8).zoom, 1.8);
   assert.equal(setWorldZoom(world, 99).zoom, PET_WORLD.maxZoom);
   assert.equal(setWorldZoom(world, 0.2).zoom, PET_WORLD.minZoom);
+  assert.equal(setWorldZoom(world, 1.8).cameraShot, "user");
+  assert.equal(setWorldZoom(world, 1.8).cameraControlRemainingMs, PET_WORLD.userCameraHoldDuration);
+});
+
+test("cinematic shots give quiet, reaction, intimacy, and action different compositions", () => {
+  const idle = createPetWorldState();
+  const greeting = { ...idle, action: "greet" as const };
+  const remembering = { ...idle, action: "remember" as const };
+  const pouncing = { ...idle, action: "aerial-pounce" as const };
+  const focusing = { ...beginCompanionFocus(idle, 15000), action: "focus" as const };
+
+  assert.deepEqual(resolveCinematicShot(idle, false), { id: "establishing", zoom: 1 });
+  assert.deepEqual(resolveCinematicShot(greeting, false), { id: "reaction", zoom: 1.28 });
+  assert.deepEqual(resolveCinematicShot(remembering, false), { id: "intimate", zoom: 1.45 });
+  assert.deepEqual(resolveCinematicShot(pouncing, false), { id: "action-wide", zoom: 1 });
+  assert.deepEqual(resolveCinematicShot(focusing, false), { id: "focus", zoom: 1.35 });
+  assert.deepEqual(resolveCinematicShot(remembering, true), { id: "reduced-motion", zoom: 1 });
+});
+
+test("pinch ownership holds its composition, then yields gently to the scene director", () => {
+  const close = setWorldZoom({ ...createPetWorldState(), action: "remember" }, 2);
+  const whileHeld = stepPetWorld(close, PET_WORLD.userCameraHoldDuration - 1, false);
+  const released = stepPetWorld(whileHeld, 2, false);
+  const directed = stepPetWorld(released, 400, false);
+
+  assert.equal(whileHeld.zoom, 2);
+  assert.equal(whileHeld.cameraShot, "user");
+  assert.equal(released.cameraControlRemainingMs, 0);
+  assert.notEqual(directed.cameraShot, "user");
+  assert.ok(directed.zoom < 2);
+  assert.ok(directed.zoom > resolveCinematicShot(directed, false).zoom);
+});
+
+test("visitor action framing keeps both Moss and the visitor in the shot", () => {
+  const tracking = {
+    ...spawnVisitor(createPetWorldState(), "guardian", { x: 340, direction: -1 }),
+    action: "track" as const,
+    petX: 240,
+  };
+
+  assert.equal(resolveCameraTargetX(tracking), 290);
 });
 
 test("a distant ground tap produces real locomotion and camera follow", () => {

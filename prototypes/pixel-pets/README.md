@@ -27,6 +27,9 @@ The prototype lets a tester:
 - watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
 - leave the controls alone and watch one portable living-day director compose quiet roaming, remembered-bloom visits, voluntary tree rest, weather, and wildlife without overlapping scenes;
 - interrupt any ambient scene immediately with touch, Focus, Play, evolution, or a new To-do consequence;
+- watch one portable cinematic director move between establishing, follow, reaction, intimate, focus, and action-wide compositions;
+- keep a pursued visitor and Moss together in the action frame instead of letting the camera crop the relationship;
+- pinch to take temporary ownership of the camera, then watch it return gently to the current scene after six seconds;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
 - leave and return to the same bounded bloom memories in an otherwise calm fresh world;
@@ -46,6 +49,12 @@ weather arrival phase and intensity, weather response, shared-focus state,
 autonomous behavior targets, the directed sun-to-shade sequence, and one
 renderer-neutral living-day director that sequences ambient scenes without
 creating a needs simulation.
+The world also owns a renderer-neutral cinematic shot contract. Quiet stays
+wide, travel receives a restrained follow composition, recognition pushes in,
+rest and memory hold close, and jumps or pounces open back out to protect the
+full silhouette. A user's pinch owns zoom for six seconds after the last
+gesture; automatic direction cannot alter it during that window and eases back
+only after ownership expires. Reduce Motion holds one stable wide composition.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
 or moving its body; all three forms now own distinct eight-drawing walk, run,

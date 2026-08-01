@@ -26,11 +26,15 @@ export const PET_WORLD = {
   bloomApproachDistance: 12,
   maxBlooms: 3,
   cameraLookAhead: 14,
+  userCameraHoldDuration: 6000,
+  cameraPushDuration: 900,
+  cameraReleaseDuration: 1500,
   maxWeatherSway: 2.2,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
+export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
 export type PetWorldAction = "idle" | "greet" | "track" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
@@ -73,6 +77,8 @@ export interface PetWorldState {
   petX: number;
   cameraX: number;
   zoom: number;
+  cameraShot: PetCameraShot;
+  cameraControlRemainingMs: number;
   facing: -1 | 1;
   action: PetWorldAction;
   actionElapsed: number;
@@ -140,6 +146,8 @@ export function createPetWorldState(): PetWorldState {
     petX: PET_WORLD.width / 2,
     cameraX: PET_WORLD.width / 2,
     zoom: 1,
+    cameraShot: "establishing",
+    cameraControlRemainingMs: 0,
     facing: 1,
     action: "idle",
     actionElapsed: 0,
@@ -314,6 +322,12 @@ function clampCameraX(value: number, zoom: number) {
 }
 
 export function resolveCameraTargetX(state: PetWorldState) {
+  if (
+    state.visitor.active
+    && (state.action === "track" || state.action === "pounce" || state.action === "aerial-pounce")
+  ) {
+    return clampCameraX((state.petX + state.visitor.x) / 2, state.zoom);
+  }
   const directed = state.action === "walk"
     || state.action === "run"
     || state.action === "seek-shelter"
@@ -326,9 +340,51 @@ export function resolveCameraTargetX(state: PetWorldState) {
   return clampCameraX(state.petX + lookAhead, state.zoom);
 }
 
+export function resolveCinematicShot(
+  state: PetWorldState,
+  reducedMotion: boolean,
+): { id: Exclude<PetCameraShot, "user">; zoom: number } {
+  if (reducedMotion) return { id: "reduced-motion", zoom: 1 };
+  if (state.focus.active || state.action === "focus") return { id: "focus", zoom: 1.35 };
+  if (state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump") {
+    return { id: "action-wide", zoom: 1 };
+  }
+  if (
+    state.action === "rest"
+    || state.action === "remember"
+    || state.action === "admire-bloom"
+    || state.action === "shelter"
+    || state.action === "shade"
+    || state.action === "bask"
+  ) {
+    return { id: "intimate", zoom: 1.45 };
+  }
+  if (
+    state.action === "greet"
+    || state.action === "track"
+    || state.action === "weather-notice"
+    || state.action === "wind-brace"
+    || state.action === "rain-flinch"
+    || state.action === "bloom-notice"
+    || state.action === "memory-notice"
+  ) {
+    return { id: "reaction", zoom: 1.28 };
+  }
+  if (state.targetX !== null || state.action === "walk" || state.action === "run") {
+    return { id: "follow", zoom: 1.08 };
+  }
+  return { id: "establishing", zoom: 1 };
+}
+
 export function setWorldZoom(state: PetWorldState, zoom: number): PetWorldState {
   const nextZoom = clamp(zoom, PET_WORLD.minZoom, PET_WORLD.maxZoom);
-  return { ...state, zoom: nextZoom, cameraX: clampCameraX(state.cameraX, nextZoom) };
+  return {
+    ...state,
+    zoom: nextZoom,
+    cameraX: clampCameraX(state.cameraX, nextZoom),
+    cameraShot: "user",
+    cameraControlRemainingMs: PET_WORLD.userCameraHoldDuration,
+  };
 }
 
 export function resolveTapIntent(state: PetWorldState, point: WorldPoint): PetWorldIntent {
@@ -451,6 +507,7 @@ export function stepPetWorld(
   let next: PetWorldState = {
     ...state,
     actionElapsed: state.actionElapsed + dt,
+    cameraControlRemainingMs: Math.max(0, state.cameraControlRemainingMs - dt),
     weatherPhase,
     weatherIntensity,
     weatherElapsed,
@@ -460,6 +517,14 @@ export function stepPetWorld(
       growth: reducedMotion ? 1 : clamp(bloom.growth + dt / PET_WORLD.bloomOpenDuration, 0, 1),
     })),
   };
+
+  if (next.cameraControlRemainingMs > 0 && state.cameraShot === "user") {
+    next.cameraShot = "user";
+  } else if (reducedMotion) {
+    const shot = resolveCinematicShot(next, true);
+    next.cameraShot = shot.id;
+    next.zoom = shot.zoom;
+  }
 
   if (weatherResponseStarted) {
     if (state.weather === "rain") {
@@ -863,6 +928,14 @@ export function stepPetWorld(
   } else if (state.action === "greet" || state.action === "track" || state.action === "weather-notice") {
     const weatherStillArriving = state.action === "weather-notice" && next.weatherPhase === "arriving";
     if (!weatherStillArriving && next.actionElapsed > 900) next = finishAction(next);
+  }
+
+  if (next.cameraControlRemainingMs <= 0 || state.cameraShot !== "user") {
+    const shot = resolveCinematicShot(next, false);
+    const duration = shot.zoom > state.zoom ? PET_WORLD.cameraPushDuration : PET_WORLD.cameraReleaseDuration;
+    const progress = Math.min(1, dt / duration);
+    next.zoom = clamp(state.zoom + (shot.zoom - state.zoom) * progress, PET_WORLD.minZoom, PET_WORLD.maxZoom);
+    next.cameraShot = shot.id;
   }
 
   const desiredCamera = resolveCameraTargetX(next);
