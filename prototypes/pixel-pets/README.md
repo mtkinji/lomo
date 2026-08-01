@@ -27,6 +27,7 @@ The prototype lets a tester:
 - watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
+- leave and return to the same bounded bloom memories in an otherwise calm fresh world;
 - simulate a completed Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
@@ -81,6 +82,11 @@ currency, or collectible. The world opens one bounded bloom, Leafling notices,
 walks over using its authored gait, and admires it through the existing care
 performance. Up to three blooms persist as scenery while weather, direct touch,
 Focus, Play, and evolution continue to operate through the same world state.
+The browser stores only a versioned list of anonymous bloom identifiers and
+clamped coordinates. On return, it restores those fully opened memories but
+resets Leafling's position, camera, weather, visitors, Focus, and unfinished
+animation. Malformed or unknown data returns to a safe empty meadow, and the
+prototype reset clears both the care loop and habitat memory.
 
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.

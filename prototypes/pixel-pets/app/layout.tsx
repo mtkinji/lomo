@@ -22,11 +22,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
   const base = new URL(`${protocol}://${host}`);
   const description =
-    "A playable anime-inspired creature world that remembers meaningful progress as living scenery.";
+    "A playable anime-inspired creature world that remembers meaningful progress when you return.";
 
   return {
     metadataBase: base,
-    title: "Pet Engine Study 15 — Kwilt Lab",
+    title: "Pet Engine Study 16 — Kwilt Lab",
     description,
     openGraph: {
       title: "The meadow remembers what moved.",

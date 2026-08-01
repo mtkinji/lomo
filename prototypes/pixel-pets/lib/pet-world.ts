@@ -61,6 +61,11 @@ export interface WorldBloom {
   source: "todo";
 }
 
+export interface PetWorldMemory {
+  version: 1;
+  blooms: WorldBloom[];
+}
+
 export interface PetWorldState {
   petX: number;
   cameraX: number;
@@ -215,6 +220,38 @@ export function plantProgressBloom(state: PetWorldState, requestedX?: number): P
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function restorePetWorldMemory(state: PetWorldState, value: unknown): PetWorldState {
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.blooms)) {
+    return { ...state, blooms: [] };
+  }
+
+  const seenIds = new Set<number>();
+  const blooms: WorldBloom[] = [];
+  for (const candidate of value.blooms) {
+    if (!isRecord(candidate)) continue;
+    const id = candidate.id;
+    const x = candidate.x;
+    if (!Number.isInteger(id) || (id as number) <= 0 || seenIds.has(id as number)) continue;
+    if (typeof x !== "number" || !Number.isFinite(x) || candidate.source !== "todo") continue;
+    seenIds.add(id as number);
+    blooms.push({ id: id as number, x: clampWorldX(Math.round(x)), growth: 1, source: "todo" });
+  }
+
+  return { ...state, blooms: blooms.slice(-PET_WORLD.maxBlooms) };
+}
+
+export function serializePetWorldMemory(state: PetWorldState): PetWorldMemory {
+  const blooms = restorePetWorldMemory(createPetWorldState(), {
+    version: 1,
+    blooms: state.blooms,
+  }).blooms;
+  return { version: 1, blooms };
 }
 
 export function resolveFocusAtmosphere(

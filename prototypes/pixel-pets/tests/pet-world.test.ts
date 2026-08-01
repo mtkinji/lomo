@@ -12,11 +12,68 @@ import {
   resolveFocusAtmosphere,
   nextWeatherKind,
   plantProgressBloom,
+  restorePetWorldMemory,
   resolveCameraTargetX,
+  serializePetWorldMemory,
   setWorldZoom,
   spawnVisitor,
   stepPetWorld,
 } from "../lib/pet-world.ts";
+
+test("durable world memory contains only bounded privacy-safe scenery", () => {
+  let world = createPetWorldState();
+  for (let index = 0; index < 4; index += 1) world = plantProgressBloom(world);
+  world = {
+    ...world,
+    action: "focus",
+    weather: "rain",
+    petX: 84,
+    cameraX: 92,
+    visitor: { ...world.visitor, active: true, x: 116, ageMs: 320 },
+  };
+
+  const memory = serializePetWorldMemory(world);
+
+  assert.deepEqual(Object.keys(memory).sort(), ["blooms", "version"]);
+  assert.equal(memory.version, 1);
+  assert.equal(memory.blooms.length, PET_WORLD.maxBlooms);
+  assert.deepEqual(memory.blooms.map((bloom) => bloom.id), [2, 3, 4]);
+  assert.ok(memory.blooms.every((bloom) => bloom.source === "todo" && bloom.growth === 1));
+  assert.doesNotMatch(JSON.stringify(memory), /focus|rain|visitor|petX|camera/i);
+});
+
+test("returning to the capability restores scenery into a calm fresh world", () => {
+  const memory = serializePetWorldMemory(plantProgressBloom(createPetWorldState(), 318));
+  const restored = restorePetWorldMemory(createPetWorldState(), memory);
+
+  assert.deepEqual(restored.blooms, [{ id: 1, x: 318, growth: 1, source: "todo" }]);
+  assert.equal(restored.action, "idle");
+  assert.equal(restored.petX, PET_WORLD.width / 2);
+  assert.equal(restored.cameraX, PET_WORLD.width / 2);
+  assert.equal(restored.weather, "sunny");
+  assert.equal(restored.visitor.active, false);
+});
+
+test("world-memory recovery rejects malformed, private, and out-of-bounds data", () => {
+  const initial = createPetWorldState();
+  const restored = restorePetWorldMemory(initial, {
+    version: 1,
+    taskTitle: "A private task must never survive",
+    blooms: [
+      { id: 2, x: -900, growth: 0.2, source: "todo", title: "private" },
+      { id: 3, x: 900, growth: 0.8, source: "todo" },
+      { id: "bad", x: 240, growth: 1, source: "todo" },
+      { id: 4, x: 250, growth: 1, source: "unknown" },
+    ],
+  });
+
+  assert.deepEqual(restored.blooms, [
+    { id: 2, x: PET_WORLD.minX, growth: 1, source: "todo" },
+    { id: 3, x: PET_WORLD.maxX, growth: 1, source: "todo" },
+  ]);
+  assert.deepEqual(restorePetWorldMemory(initial, null).blooms, []);
+  assert.deepEqual(restorePetWorldMemory(initial, { version: 2, blooms: [] }).blooms, []);
+});
 
 test("world travel requests authored locomotion instead of an idle fallback", () => {
   assert.equal(clipForWorldAction("walk"), "walk");

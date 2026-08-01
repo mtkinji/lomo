@@ -36,10 +36,11 @@ import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "play" | "bloom";
+  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "play" | "bloom" | "reset";
 };
 
 interface PetEngineCanvasProps {
+  initialWorld: PetWorldState;
   stage: PetStage;
   evolutionFromStage?: PetStage | null;
   palette: PetPalette;
@@ -979,6 +980,7 @@ function renderScene(
 }
 
 export function PetEngineCanvas({
+  initialWorld,
   stage,
   evolutionFromStage = null,
   palette,
@@ -996,7 +998,7 @@ export function PetEngineCanvas({
 }: PetEngineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const worldRef = useRef(createPetWorldState());
+  const worldRef = useRef(initialWorld);
   const pointersRef = useRef(new Map<number, { start: WorldPoint; current: WorldPoint }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const gestureMovedRef = useRef(false);
@@ -1031,6 +1033,11 @@ export function PetEngineCanvas({
     if (worldCommand.type === "center") {
       worldRef.current = setWorldZoom({ ...worldRef.current, cameraX: worldRef.current.petX }, 1);
     }
+    if (worldCommand.type === "reset") {
+      worldRef.current = createPetWorldState();
+      nextVisitorRef.current = worldClockRef.current + 1800;
+      nextWeatherRef.current = worldClockRef.current + 12000;
+    }
     if (worldCommand.type === "sunny" || worldCommand.type === "breeze" || worldCommand.type === "rain") {
       if (!worldRef.current.focus.active) {
         worldRef.current = setWorldWeather(worldRef.current, worldCommand.type);
@@ -1051,6 +1058,7 @@ export function PetEngineCanvas({
       nextVisitorRef.current = worldClockRef.current + 7800;
       nextWeatherRef.current = worldClockRef.current + 14000;
     }
+    callbackRef.current.onWorldFrame?.(worldRef.current);
     callbackRef.current.onWorldInteraction?.(worldRef.current.action);
   }, [worldCommand]);
 

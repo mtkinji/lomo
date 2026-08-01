@@ -5,7 +5,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
 import { previousStageFor, resolveEvolutionComposition } from "@/lib/pet-evolution";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
-import { createPetWorldState, resolveFocusAtmosphere, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
+import {
+  createPetWorldState,
+  resolveFocusAtmosphere,
+  restorePetWorldMemory,
+  serializePetWorldMemory,
+  type PetWorldAction,
+  type PetWorldState,
+} from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
@@ -22,6 +29,7 @@ import {
 } from "@/lib/pet-state";
 
 const STORAGE_KEY = "kwilt-pixel-pet-engine-proof-v4";
+const WORLD_MEMORY_STORAGE_KEY = "kwilt-pixel-pet-world-memory-v1";
 
 const PALETTES: Array<{ id: PetPalette; label: string }> = [
   { id: "moss", label: "Moss" },
@@ -125,15 +133,27 @@ export function PetPrototype() {
         if (saved) setState(JSON.parse(saved) as PetState);
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
-      } finally {
-        setHydrated(true);
       }
+      try {
+        const savedWorldMemory = window.localStorage.getItem(WORLD_MEMORY_STORAGE_KEY);
+        if (savedWorldMemory) {
+          setWorld(restorePetWorldMemory(createPetWorldState(), JSON.parse(savedWorldMemory)));
+        }
+      } catch {
+        window.localStorage.removeItem(WORLD_MEMORY_STORAGE_KEY);
+      }
+      setHydrated(true);
     });
   }, []);
 
   useEffect(() => {
     if (hydrated) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [hydrated, state]);
+
+  const worldMemorySignature = JSON.stringify(serializePetWorldMemory(world));
+  useEffect(() => {
+    if (hydrated) window.localStorage.setItem(WORLD_MEMORY_STORAGE_KEY, worldMemorySignature);
+  }, [hydrated, worldMemorySignature]);
 
   useEffect(() => () => {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
@@ -292,7 +312,7 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 15</span>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 16</span>
         <h1>The meadow remembers<br />what moved.</h1>
         <p>
           Complete one real intention. A bud opens, Moss notices, and the tiny world keeps the memory without turning life into points.
@@ -300,7 +320,7 @@ export function PetPrototype() {
         <dl className="engine-facts">
           <div><dt>To-do</dt><dd>opens · notice · admire</dd></div>
           <div><dt>Meaning</dt><dd>memory · not payment</dd></div>
-          <div><dt>Privacy</dt><dd>source only · no title</dd></div>
+          <div><dt>Return</dt><dd>same blooms · calm world</dd></div>
         </dl>
       </header>
 
@@ -322,6 +342,7 @@ export function PetPrototype() {
 
         <div className="scene-frame">
           <PetEngineCanvas
+            initialWorld={world}
             stage={currentStage}
             evolutionFromStage={evolutionFromStage}
             palette={state.palette}
@@ -476,7 +497,12 @@ export function PetPrototype() {
           <div className="control-grid">
             <button type="button" onClick={advanceDay}>Advance one day</button>
             <button type="button" onClick={() => setState({ ...state, reducedMotion: !state.reducedMotion })}>{state.reducedMotion ? "Enable motion" : "Reduce motion"}</button>
-            <button type="button" onClick={() => { setPreviewStage(null); setState(createPetState("leafling", "Moss", state.palette)); }}>Reset care loop</button>
+            <button type="button" onClick={() => {
+              setPreviewStage(null);
+              setState(createPetState("leafling", "Moss", state.palette));
+              setWorldMessage(null);
+              commandWorld("reset");
+            }}>Reset prototype</button>
           </div>
         </details>
       </aside>
