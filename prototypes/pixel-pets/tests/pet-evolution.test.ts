@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   previousStageFor,
+  resolveEvolutionCameraFrame,
+  resolveEvolutionAtmosphere,
   resolveEvolutionComposition,
 } from "../lib/pet-evolution.ts";
 
@@ -65,4 +67,54 @@ test("Reduce Motion keeps the form handoff stable and removes orbiting flourishe
   assert.ok(handoff.previousOpacity > 0 && handoff.currentOpacity > 0);
   assert.equal(after.previousOpacity, 0);
   assert.equal(after.currentOpacity, 1);
+});
+
+test("the whole world responds more strongly when a Guardian arrives", () => {
+  const youngGather = resolveEvolutionAtmosphere(0.42, "young", false);
+  const guardianGather = resolveEvolutionAtmosphere(0.42, "guardian", false);
+  const youngArrival = resolveEvolutionAtmosphere(0.82, "young", false);
+  const guardianArrival = resolveEvolutionAtmosphere(0.82, "guardian", false);
+
+  assert.ok(youngGather.cameraPush > 0);
+  assert.ok(guardianGather.cameraPush > youngGather.cameraPush);
+  assert.ok(guardianGather.canopyImpulse > youngGather.canopyImpulse);
+  assert.ok(guardianArrival.groundWake > youngArrival.groundWake * 2);
+  assert.ok(guardianArrival.wakeRadius > youngArrival.wakeRadius);
+  assert.ok(guardianArrival.lightOpacity > 0);
+});
+
+test("the evolution atmosphere begins and ends at rest", () => {
+  for (const stage of ["young", "guardian"] as const) {
+    for (const progress of [0, 1]) {
+      const atmosphere = resolveEvolutionAtmosphere(progress, stage, false);
+      assert.equal(atmosphere.cameraPush, 0);
+      assert.equal(atmosphere.cameraCentering, 0);
+      assert.equal(atmosphere.canopyImpulse, 0);
+      assert.equal(atmosphere.groundWake, 0);
+      assert.equal(atmosphere.wakeRadius, 0);
+      assert.equal(atmosphere.lightOpacity, 0);
+    }
+  }
+});
+
+test("Reduce Motion preserves a quiet arrival light without moving the camera or habitat", () => {
+  const atmosphere = resolveEvolutionAtmosphere(0.58, "guardian", true);
+
+  assert.equal(atmosphere.cameraPush, 0);
+  assert.equal(atmosphere.cameraCentering, 0);
+  assert.equal(atmosphere.canopyImpulse, 0);
+  assert.equal(atmosphere.groundWake, 0);
+  assert.equal(atmosphere.wakeRadius, 0);
+  assert.ok(atmosphere.lightOpacity > 0);
+});
+
+test("an evolution camera gather never exposes space beyond the habitat", () => {
+  const atmosphere = resolveEvolutionAtmosphere(0.42, "guardian", false);
+  const camera = resolveEvolutionCameraFrame(145, 24, 1, atmosphere);
+  const halfView = 160 / (2 * camera.zoom);
+
+  assert.ok(camera.cameraX >= halfView);
+  assert.ok(camera.cameraX <= 480 - halfView);
+  assert.ok(camera.cameraX - halfView >= 0);
+  assert.ok(camera.cameraX + halfView <= 480);
 });

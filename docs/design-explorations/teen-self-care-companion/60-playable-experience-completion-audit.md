@@ -21,7 +21,7 @@ declared from automated proof.
 | Immediate immersion | `?play=1` removes study copy and the permanent inspector; the complete capability fits one desktop viewport and Lab is optional disclosure. An iPhone 17 Pro Simulator Safari pass exposed and then closed a mobile grid-centering defect: the capability now stretches across the 402px device viewport with header, world, dock, sound, and Lab controls inside the visible phone width. | Proven in fresh production navigation and the local iPhone 17 Pro Simulator runtime. Physical-device ergonomics and performance remain unproven. |
 | Direct playful control | Production pointer proof produced a correctly faced rightward walk; high touch requested jump; the same engine owns affection, rollover, hand guide, pinch zoom, tree play, leaf toss/return, visitor chase, and terrain choices. | Proven for direct locomotion/jump in current production; broader gesture vocabulary is covered by deterministic tests and earlier browser studies. |
 | Causal sun, wind, and rain | Weather arrives, earns attention, moves habitat materials, changes Moss's acting and decisions, changes leaf physics, and leaves an after-rain puddle. Baby/Young share the shelter choice; Guardian helps a wet firefly. | Proven by engine tests and production weather controls. |
-| Baby → Young → powerful Guardian | Care thresholds are three and eight distinct days; forms use 38px, 46px, and 62px presentation; each owns different locomotion, reach, visitor layer, tree height, puddle response, weather acting, sound, and evolution ceremony. Evolution now completes before evening, and the first calm morning guarantees a shared new-reach encounter: Young/firefly or Guardian/sky-moth. | Proven by current source, tests, and a clean Baby-day-1 through Young-day-4 browser journey. Whether Guardian *feels powerful enough* remains a family-playtest judgment. |
+| Baby → Young → powerful Guardian | Care thresholds are three and eight distinct days; forms use 38px, 46px, and 62px presentation; each owns different locomotion, reach, visitor layer, tree height, puddle response, weather acting, sound, and evolution ceremony. Evolution now gathers the camera and habitat around the handoff, Guardian releases the stronger arrival wake, and the first calm morning guarantees a shared new-reach encounter: Young/firefly or Guardian/sky-moth. | Proven by current source, tests, and a clean Baby-day-1 through Guardian-day-8 browser journey. Whether Guardian *feels powerful enough* remains a family-playtest judgment. |
 | Focus with the creature | Immersive browser proof entered Focus, chose a place, waited for Moss to arrive, and reached the grounded curled shared-stillness scene. Completion plants a still-light at that coordinate. | Proven in the Sites-compatible browser runtime. |
 | To-do becomes lived-world progress | Current production proof changed a completed To-do receipt into `bloom-notice` and added a persistent `todo` life echo. | Proven in production. |
 | Family/friend play becomes lived-world progress | Current production proof changed the Play receipt into a breeze, ground visitor, tracking response, and persistent `play` life echo. | Proven in production. |
@@ -50,6 +50,15 @@ and ambient living-day direction could preempt the first new-form encounter.
 The repaired path now completes ceremony → tree sleep → dawn → shared visitor.
 With Lab closed, the Young morning visibly held the firefly invitation and
 waited for the person's touch.
+
+A later clean Baby-day-1 through Guardian-day-8 replay exercised the same real
+receipt, bloom, evening, and morning path. It showed the camera and old tree
+answering the Guardian handoff and caught an authored-backdrop parallax gap at
+the left edge. Clamping the backdrop's draw position independently of the world
+camera closed the seam; the complete replay was then repeated without exposing
+an unpainted strip. Phone-sized chase playback also isolated one backward read
+to the Guardian aerial landing drawing rather than the committed world path;
+the manifest now borrows the directionally consistent grounded recovery cell.
 
 The same source was then opened through Safari on an iPhone 17 Pro Simulator.
 Runtime instrumentation confirmed `innerWidth`, document client width, screen

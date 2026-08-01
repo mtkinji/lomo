@@ -10,7 +10,13 @@ import {
   shouldRunEvolutionCeremony,
   type EngineMotion,
 } from "@/lib/pet-engine";
-import { resolveEvolutionComposition, type EvolutionComposition } from "@/lib/pet-evolution";
+import {
+  resolveEvolutionAtmosphere,
+  resolveEvolutionCameraFrame,
+  resolveEvolutionComposition,
+  type EvolutionAtmosphere,
+  type EvolutionComposition,
+} from "@/lib/pet-evolution";
 import {
   PET_WORLD,
   TREE_PLAY,
@@ -82,7 +88,7 @@ import {
   type LivingDayCommand,
   type LivingDayDirectorState,
 } from "@/lib/pet-life-director";
-import { LEAFLING_HABITAT } from "@/lib/pet-habitat";
+import { LEAFLING_HABITAT, resolveHabitatBackdropX } from "@/lib/pet-habitat";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
@@ -1349,7 +1355,7 @@ function drawAuthoredHabitat(
     return;
   }
 
-  const backdropX = -(world.cameraX - PET_WORLD.viewportWidth / 2) * LEAFLING_HABITAT.backdrop.parallax;
+  const backdropX = resolveHabitatBackdropX(world.cameraX, PET_WORLD.viewportWidth);
   context.imageSmoothingEnabled = false;
   context.drawImage(
     habitat.backdrop,
@@ -1559,6 +1565,94 @@ function drawEvolutionMotes(
   context.restore();
 }
 
+function resolveEvolutionSceneWorld(
+  world: PetWorldState,
+  atmosphere: EvolutionAtmosphere | null,
+) {
+  if (!atmosphere) return world;
+  const camera = resolveEvolutionCameraFrame(world.cameraX, world.petX, world.zoom, atmosphere);
+  return {
+    ...world,
+    cameraX: camera.cameraX,
+    zoom: camera.zoom,
+  };
+}
+
+function resolveEvolutionHabitatPerformance(
+  performance: HabitatPerformanceSnapshot,
+  world: PetWorldState,
+  atmosphere: EvolutionAtmosphere | null,
+): HabitatPerformanceSnapshot {
+  if (!atmosphere || atmosphere.canopyImpulse <= 0) return performance;
+  const direction = world.petX >= PET_WORLD.treeShelterX ? 1 : -1;
+  const impulse = atmosphere.canopyImpulse;
+  return {
+    ...performance,
+    role: atmosphere.groundWake > 0.25 ? "accent" : "gather",
+    grassLean: performance.grassLean + direction * impulse * 0.42,
+    canopyLead: performance.canopyLead + direction * impulse,
+    canopyFollow: performance.canopyFollow + direction * impulse * 0.58,
+    canopyDrop: performance.canopyDrop - impulse * 0.16,
+    vineLag: performance.vineLag - direction * impulse * 0.72,
+    dapple: Math.max(performance.dapple, atmosphere.lightOpacity * 2.2),
+    looseLeaf: Math.max(performance.looseLeaf, atmosphere.groundWake * 0.82),
+  };
+}
+
+function resolveEvolutionWake(
+  ordinaryWake: GuardianWakePresentation,
+  world: PetWorldState,
+  atmosphere: EvolutionAtmosphere | null,
+  reducedMotion: boolean,
+): GuardianWakePresentation {
+  if (!atmosphere || atmosphere.groundWake <= ordinaryWake.intensity || atmosphere.wakeRadius <= 0) {
+    return ordinaryWake;
+  }
+  return {
+    visible: true,
+    mode: "released",
+    centerX: world.petX,
+    facing: world.facing,
+    progress: atmosphere.wakeProgress,
+    intensity: atmosphere.groundWake,
+    radius: Math.max(18, atmosphere.wakeRadius),
+    lift: Math.sin(atmosphere.wakeProgress * Math.PI),
+    particles: !reducedMotion && atmosphere.groundWake > 0.16,
+  };
+}
+
+function drawEvolutionAtmosphere(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  atmosphere: EvolutionAtmosphere | null,
+) {
+  if (!atmosphere || atmosphere.lightOpacity <= 0) return;
+
+  context.save();
+  context.fillStyle = palette.bloom;
+  context.globalAlpha = atmosphere.lightOpacity * 0.13;
+  context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+  context.restore();
+
+  context.save();
+  worldTransform(context, world);
+  context.translate(Math.round(world.petX), ENGINE_SCENE.groundY);
+  context.fillStyle = palette.skyLight;
+  context.globalAlpha = atmosphere.lightOpacity * 0.72;
+  const reach = 20 + Math.round(atmosphere.lightOpacity * 42);
+  context.fillRect(-reach, -72, reach - 7, 1);
+  context.fillRect(8, -76, reach - 4, 1);
+  context.fillRect(-Math.round(reach * 0.62), -49, Math.round(reach * 0.42), 2);
+  context.fillRect(4, -53, Math.round(reach * 0.5), 2);
+  context.fillStyle = palette.cream;
+  context.globalAlpha = atmosphere.lightOpacity * 0.54;
+  context.fillRect(-2, -88, 3, 24);
+  context.fillRect(7, -82, 2, 17);
+  context.fillRect(-11, -78, 2, 12);
+  context.restore();
+}
+
 function drawPetSprite(
   context: CanvasRenderingContext2D,
   sprite: HTMLImageElement,
@@ -1700,18 +1794,34 @@ function renderScene(
   reducedMotion: boolean,
 ) {
   const palette = PALETTES[paletteId];
-  const guardianWake = resolveGuardianWakePresentation(world, reducedMotion);
-  const habitatPerformance = resolveHabitatPerformance(
+  const evolutionAtmosphere = evolution
+    ? resolveEvolutionAtmosphere(snapshot.progress, stage, reducedMotion)
+    : null;
+  const sceneWorld = resolveEvolutionSceneWorld(world, evolutionAtmosphere);
+  const ordinaryGuardianWake = resolveGuardianWakePresentation(sceneWorld, reducedMotion);
+  const guardianWake = resolveEvolutionWake(
+    ordinaryGuardianWake,
+    sceneWorld,
+    evolutionAtmosphere,
+    reducedMotion,
+  );
+  const ordinaryHabitatPerformance = resolveHabitatPerformance(
     world.weather,
     resolveHabitatPerformanceIntensity(world.weatherIntensity, focusAtmosphere.hush),
     world.weatherElapsed,
     reducedMotion,
   );
+  const habitatPerformance = resolveEvolutionHabitatPerformance(
+    ordinaryHabitatPerformance,
+    sceneWorld,
+    evolutionAtmosphere,
+  );
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
-  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat, habitatPerformance, reducedMotion);
-  drawGuardianWake(context, palette, world, guardianWake);
-  drawCareEchoInvitation(context, palette, world, careEchoSource);
-  drawFocusStillness(context, palette, world, focusAtmosphere);
+  drawAuthoredHabitat(context, palette, motion, snapshot.progress, sceneWorld, habitat, habitatPerformance, reducedMotion);
+  drawEvolutionAtmosphere(context, palette, sceneWorld, evolutionAtmosphere);
+  drawGuardianWake(context, palette, sceneWorld, guardianWake);
+  drawCareEchoInvitation(context, palette, sceneWorld, careEchoSource);
+  drawFocusStillness(context, palette, sceneWorld, focusAtmosphere);
 
   const showingPrevious = Boolean(
     evolution && previousManifest && previousStage && previousSnapshot && evolution.previousOpacity > evolution.currentOpacity,
@@ -1726,22 +1836,22 @@ function renderScene(
     groundSnapshot.shadow.opacity,
     groundScale,
   );
-  const contactBaseline = world.action === "tree-perch"
-    ? ENGINE_SCENE.groundY + world.poseY
+  const contactBaseline = sceneWorld.action === "tree-perch"
+    ? ENGINE_SCENE.groundY + sceneWorld.poseY
     : ENGINE_SCENE.groundY;
 
   context.save();
-  worldTransform(context, world);
+  worldTransform(context, sceneWorld);
   context.globalAlpha = groundCue.opacity;
   context.fillStyle = palette.outline;
   context.fillRect(
-    Math.round(world.petX - groundCue.width / 2),
+    Math.round(sceneWorld.petX - groundCue.width / 2),
     contactBaseline + groundCue.yOffset,
     groundCue.width,
     groundCue.height,
   );
   context.restore();
-  if (evolution) drawEvolutionMotes(context, palette, world, snapshot.progress, evolution.motesOpacity);
+  if (evolution) drawEvolutionMotes(context, palette, sceneWorld, snapshot.progress, evolution.motesOpacity);
   if (evolution && previousSprite && previousManifest && previousStage && previousSnapshot) {
     drawPetSprite(
       context,
@@ -1749,7 +1859,7 @@ function renderScene(
       previousManifest,
       previousStage,
       previousSnapshot,
-      world,
+      sceneWorld,
       evolution.previousOpacity,
       evolution.previousScale,
       0,
@@ -1762,30 +1872,30 @@ function renderScene(
     manifest,
     stage,
     snapshot,
-    world,
+    sceneWorld,
     evolution?.currentOpacity ?? 1,
-    (evolution?.currentScale ?? 1) * (world.focus.phase === "together" ? 0.995 + focusAtmosphere.breath * 0.01 : 1),
+    (evolution?.currentScale ?? 1) * (sceneWorld.focus.phase === "together" ? 0.995 + focusAtmosphere.breath * 0.01 : 1),
     evolution?.currentYOffset ?? 0,
     showRig,
   );
-  if (world.playLeaf.phase === "carried") {
+  if (sceneWorld.playLeaf.phase === "carried") {
     context.save();
-    worldTransform(context, world);
-    drawWindLeaf(context, palette, world);
+    worldTransform(context, sceneWorld);
+    drawWindLeaf(context, palette, sceneWorld);
     context.restore();
   }
-  if (world.rainGuest.phase === "carried" || world.rainGuest.phase === "sheltered") {
+  if (sceneWorld.rainGuest.phase === "carried" || sceneWorld.rainGuest.phase === "sheltered") {
     context.save();
-    worldTransform(context, world);
-    drawRainGuest(context, palette, world, reducedMotion);
+    worldTransform(context, sceneWorld);
+    drawRainGuest(context, palette, sceneWorld, reducedMotion);
     context.restore();
   }
-  drawAffectionContact(context, palette, stage, world, reducedMotion);
-  drawAfterRainSplash(context, world, reducedMotion, stage);
-  drawNearForeground(context, palette, world, habitat, guardianWake, habitatPerformance);
-  drawWeather(context, palette, world, true);
-  drawDaylight(context, palette, world);
-  drawTwilightEcho(context, palette, world, reducedMotion);
+  drawAffectionContact(context, palette, stage, sceneWorld, reducedMotion);
+  drawAfterRainSplash(context, sceneWorld, reducedMotion, stage);
+  drawNearForeground(context, palette, sceneWorld, habitat, guardianWake, habitatPerformance);
+  drawWeather(context, palette, sceneWorld, true);
+  drawDaylight(context, palette, sceneWorld);
+  drawTwilightEcho(context, palette, sceneWorld, reducedMotion);
 }
 
 function drawDaylight(

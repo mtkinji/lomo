@@ -103,7 +103,11 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(canvas, /resolveCompanionFocusPlaceHit/);
   assert.match(canvas, /worldRef\.current\.focus\.anchorX/);
   assert.match(canvas, /context\.translate\(world\.focus\.anchorX/);
-  assert.match(canvas, /world\.focus\.phase === "together"/);
+  assert.match(canvas, /sceneWorld\.focus\.phase === "together"/);
+  assert.match(evolution, /resolveEvolutionAtmosphere/);
+  assert.match(canvas, /resolveEvolutionSceneWorld/);
+  assert.match(canvas, /resolveEvolutionHabitatPerformance/);
+  assert.match(canvas, /drawEvolutionAtmosphere/);
   assert.match(world, /RainGuestPhase/);
   assert.match(world, /resolveRainGuestHit/);
   assert.match(world, /beginRainGuestShelter/);

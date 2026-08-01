@@ -64,7 +64,20 @@ test("Guardian owns a distinct acrobatic sky vocabulary", () => {
 
   assert.equal(aerial.loop, false);
   assert.equal(aerial.frames.length, 8);
-  assert.deepEqual(new Set(aerial.frames.map((frame) => frame.cell.row)), new Set([12]));
+  assert.deepEqual(
+    aerial.frames.map((frame) => frame.cell),
+    [
+      { column: 0, row: 12 },
+      { column: 1, row: 12 },
+      { column: 2, row: 12 },
+      { column: 3, row: 12 },
+      { column: 4, row: 12 },
+      { column: 5, row: 12 },
+      { column: 6, row: 10 },
+      { column: 7, row: 12 },
+    ],
+    "the landing recovery must keep the same screen-right anatomy line as the reach",
+  );
   assert.deepEqual(
     aerial.frames.map((frame) => frame.events?.[0]),
     ["sightline", "coil", "launch", "rise", "bank", "reach", "land", "settle"],

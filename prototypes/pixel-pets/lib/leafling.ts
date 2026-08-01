@@ -357,13 +357,13 @@ function interactionFrames(row: number, motion: "jump" | "pounce" | "rollover"):
   }));
 }
 
-function aerialFrames(row: number): PetAnimationFrame[] {
+function aerialFrames(row: number, landingRow: number): PetAnimationFrame[] {
   const durations = [180, 70, 55, 65, 75, 150, 110, 260];
   const events = ["sightline", "coil", "launch", "rise", "bank", "reach", "land", "settle"];
   const lifts = [0, 0, -10, -28, -38, -45, 0, 0];
   const airborne = new Set([2, 3, 4, 5]);
 
-  return durations.map((duration, column) => frame(column, row, duration, {
+  return durations.map((duration, column) => frame(column, column === 6 ? landingRow : row, duration, {
     contact: airborne.has(column) ? "airborne" : "planted",
     events: [events[column]],
     role: column === 0
@@ -499,7 +499,7 @@ function createStageManifest(
     Object.assign(clips, {
       aerial: {
         loop: false,
-        frames: aerialFrames(aerialRow),
+        frames: aerialFrames(aerialRow, pounceRow),
       },
     });
   }

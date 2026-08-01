@@ -114,3 +114,17 @@ fail on planted screen drift and target recomputation before implementation.
 Existing stage and motion tests remain the acceptance proof for crawler,
 firefly, sky moth, grounded stalk, low pounce, high aerial arc, and Reduce
 Motion behavior.
+
+## Later live-play finding
+
+A phone-sized Guardian replay found one remaining contradiction after the world
+trajectory was fixed: the aerial atlas's landing recovery drawing turned the
+anatomical action line against the committed direction. The engine was moving
+correctly, but that single image made the end of some chases read as a backward
+jump.
+
+The manifest now composes Guardian's consistent pounce recovery drawing into
+the aerial clip's landing event, then returns to the aerial settle. This keeps
+head, torso, travel, and contact aligned in both mirror directions without a new
+atlas or a special-case renderer. A manifest regression pins the exact cells so
+future art assembly cannot silently restore the backward-facing landing.

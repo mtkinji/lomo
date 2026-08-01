@@ -40,3 +40,9 @@ export const LEAFLING_HABITAT: PetHabitatManifest = {
   },
   weatherBakedIn: false,
 };
+
+export function resolveHabitatBackdropX(cameraX: number, viewportWidth: number) {
+  const backdrop = LEAFLING_HABITAT.backdrop;
+  const parallaxX = -(cameraX - viewportWidth / 2) * backdrop.parallax;
+  return Math.min(0, Math.max(viewportWidth - backdrop.size.width, parallaxX));
+}
