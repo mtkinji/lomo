@@ -60,11 +60,11 @@ function frame(
 
 export const LEAFLING_MANIFEST = {
   atlas: {
-    src: "/leafling-motion-atlas-v4.png",
+    src: "/leafling-motion-atlas-v5.png",
     frameWidth: 160,
     frameHeight: 128,
     columns: 8,
-    rows: 9,
+    rows: 12,
   },
   fallbackClip: "idle",
   clips: {
@@ -168,6 +168,18 @@ export const LEAFLING_MANIFEST = {
       loop: true,
       frames: gaitFrames(8, "run"),
     },
+    jump: {
+      loop: false,
+      frames: interactionFrames(9, "jump"),
+    },
+    pounce: {
+      loop: false,
+      frames: interactionFrames(10, "pounce"),
+    },
+    rollover: {
+      loop: false,
+      frames: interactionFrames(11, "rollover"),
+    },
   },
 } satisfies PetAnimationManifest;
 
@@ -199,14 +211,47 @@ function gaitFrames(row: number, motion: "walk" | "run"): PetAnimationFrame[] {
   }));
 }
 
-function createStageManifest(row: number, walkRow: number, runRow: number): PetAnimationManifest {
+function interactionFrames(row: number, motion: "jump" | "pounce" | "rollover"): PetAnimationFrame[] {
+  const durations = {
+    jump: [150, 70, 55, 60, 140, 60, 85, 220],
+    pounce: [150, 80, 60, 55, 80, 85, 100, 110],
+    rollover: [160, 100, 90, 140, 130, 100, 110, 370],
+  }[motion];
+  const airborne = motion === "jump" ? new Set([2, 3, 4, 5]) : motion === "pounce" ? new Set([3, 4]) : new Set<number>();
+  const resting = motion === "rollover" ? new Set([1, 2, 3, 4, 5, 6]) : new Set<number>();
+  const events = {
+    jump: [["notice-high"], ["coil"], ["takeoff"], ["rise"], ["apex", "chirp"], ["descend"], ["land"], ["settle"]],
+    pounce: [["acquire"], ["lower"], ["coil"], ["launch"], ["reach"], ["contact"], ["inspect"], ["rebound"]],
+    rollover: [["invite"], ["lower"], ["shoulder-turn"], ["back-roll"], ["belly-up"], ["other-side"], ["uncurl"], ["proud"]],
+  }[motion];
+
+  return durations.map((duration, column) => frame(column, row, duration, {
+    contact: airborne.has(column) ? "airborne" : resting.has(column) ? "resting" : "planted",
+    events: events[column],
+    role: column === 0 ? "hold" : column === 1 || column === 2 ? "key" : column === 4 ? "accent" : column >= 6 ? "recovery" : "inbetween",
+    shadow: airborne.has(column)
+      ? { width: motion === "pounce" ? 34 : 28, opacity: 0.1 }
+      : resting.has(column)
+        ? { width: 88, opacity: 0.24 }
+        : { width: 68, opacity: 0.2 },
+  }));
+}
+
+function createStageManifest(
+  row: number,
+  walkRow: number,
+  runRow: number,
+  jumpRow: number,
+  pounceRow: number,
+  rolloverRow: number,
+): PetAnimationManifest {
   return {
     atlas: {
-      src: "/leafling-stage-atlas-v2.png",
+      src: "/leafling-stage-atlas-v3.png",
       frameWidth: 160,
       frameHeight: 128,
       columns: 8,
-      rows: 6,
+      rows: 12,
     },
     fallbackClip: "idle",
     clips: {
@@ -288,14 +333,26 @@ function createStageManifest(row: number, walkRow: number, runRow: number): PetA
         loop: true,
         frames: gaitFrames(runRow, "run"),
       },
+      jump: {
+        loop: false,
+        frames: interactionFrames(jumpRow, "jump"),
+      },
+      pounce: {
+        loop: false,
+        frames: interactionFrames(pounceRow, "pounce"),
+      },
+      rollover: {
+        loop: false,
+        frames: interactionFrames(rolloverRow, "rollover"),
+      },
     },
   };
 }
 
 export const LEAFLING_STAGE_MANIFESTS = {
-  baby: createStageManifest(0, 2, 3),
+  baby: createStageManifest(0, 2, 3, 6, 7, 8),
   young: LEAFLING_MANIFEST,
-  guardian: createStageManifest(1, 4, 5),
+  guardian: createStageManifest(1, 4, 5, 9, 10, 11),
 } satisfies Record<PetStage, PetAnimationManifest>;
 
 export function leaflingManifestForStage(stage: PetStage): PetAnimationManifest {

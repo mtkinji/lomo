@@ -33,7 +33,10 @@ export type EngineMotion =
   | "care"
   | "discover"
   | "sleep"
-  | "evolve";
+  | "evolve"
+  | "jump"
+  | "pounce"
+  | "rollover";
 
 export type AuthoredClip = EngineMotion;
 
@@ -45,6 +48,9 @@ export const MOTION_CLIPS: Record<EngineMotion, AuthoredClip> = {
   discover: "discover",
   sleep: "sleep",
   evolve: "evolve",
+  jump: "jump",
+  pounce: "pounce",
+  rollover: "rollover",
 };
 
 export function clipForMotion(motion: EngineMotion): AuthoredClip {

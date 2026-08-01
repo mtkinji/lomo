@@ -4,7 +4,7 @@ A standalone, mobile-first learning prototype for Kwilt's portable Pixel Pet ani
 
 The prototype lets a tester:
 
-- inspect seven expressive Leafling clips plus dedicated walk and run gaits;
+- inspect twelve dedicated Leafling clips, including authored walk, run, jump, pounce, and rollover acting;
 - pause and step through the exact atlas cells used by the renderer;
 - observe planted, resting, and airborne ground-contact states;
 - compare 38px baby, 46px young, and 62px guardian game-character scales;
@@ -33,8 +33,10 @@ coordinates, camera follow, transient zoom, weather response, shared-focus state
 autonomous behavior targets, and the directed sun-to-shade sequence.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
-or moving its body; all three forms now own distinct eight-drawing walk and run
-cycles with non-linear limited-animation timing and explicit ground contact.
+or moving its body; all three forms now own distinct eight-drawing walk, run,
+jump, pounce, and rollover clips with non-linear limited-animation timing and
+explicit ground contact. World state owns destinations, facing, and camera
+travel; the drawings own lift, body turn, anticipation, impact, and recovery.
 Canvas 2D is the current renderer adapter. It places Leafling low in the scene,
 draws contact cues inside the terrain rather than as a separate platform, and
 uses wider cells so running silhouettes can extend without stretching. Native,

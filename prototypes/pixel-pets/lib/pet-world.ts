@@ -179,26 +179,6 @@ export function spawnInsect(
   };
 }
 
-export function resolveRolloverPose(elapsedMs: number): { rotation: number; clipElapsed: number } {
-  const elapsed = clamp(elapsedMs, 0, PET_WORLD.rolloverDuration);
-  const curlDuration = 300;
-  const rollEnd = 900;
-
-  if (elapsed < curlDuration) {
-    return { rotation: 0, clipElapsed: Math.round((elapsed / curlDuration) * 940) };
-  }
-  if (elapsed <= rollEnd) {
-    return {
-      rotation: ((elapsed - curlDuration) / (rollEnd - curlDuration)) * 360,
-      clipElapsed: 1000,
-    };
-  }
-  return {
-    rotation: 0,
-    clipElapsed: Math.round(((PET_WORLD.rolloverDuration - elapsed) / (PET_WORLD.rolloverDuration - rollEnd)) * 940),
-  };
-}
-
 function finishAction(state: PetWorldState): PetWorldState {
   return { ...state, action: "idle", actionElapsed: 0, targetX: null, poseY: 0, rotation: 0 };
 }
@@ -320,24 +300,21 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
   } else if (state.action === "rollover") {
     if (next.actionElapsed >= PET_WORLD.rolloverDuration) next = finishAction(next);
     else {
-      const pose = resolveRolloverPose(next.actionElapsed);
-      next.rotation = pose.rotation;
+      next.rotation = 0;
       next.poseY = 0;
     }
   } else if (state.action === "jump") {
     if (next.actionElapsed >= PET_WORLD.jumpDuration) next = finishAction(next);
     else {
-      const progress = next.actionElapsed / PET_WORLD.jumpDuration;
-      next.poseY = -Math.sin(progress * Math.PI) * 31;
+      next.poseY = 0;
       if (state.targetX !== null) next.petX = moveToward(state.petX, state.targetX, dt * 0.018);
     }
   } else if (state.action === "pounce") {
     if (next.actionElapsed >= PET_WORLD.pounceDuration) next = finishAction(next);
     else {
-      const progress = next.actionElapsed / PET_WORLD.pounceDuration;
       const targetX = state.targetX ?? state.insect.x;
       next.petX = moveToward(state.petX, targetX, dt * 0.05);
-      next.poseY = -Math.sin(progress * Math.PI) * 10;
+      next.poseY = 0;
     }
   } else if (state.targetX !== null) {
     const distance = state.targetX - state.petX;
@@ -399,13 +376,13 @@ export function stepPetWorld(state: PetWorldState, elapsedMs: number, reducedMot
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" {
+export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "sleep" | "walk" | "run" | "jump" | "pounce" | "rollover" {
   if (action === "walk" || action === "run") return action;
   if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade") return "walk";
   if (action === "bask") return "idle";
-  if (action === "jump") return "greet";
-  if (action === "pounce" || action === "greet") return "greet";
+  if (action === "jump" || action === "pounce" || action === "rollover") return action;
+  if (action === "greet") return "greet";
   if (action === "track") return "discover";
-  if (action === "rollover" || action === "shelter" || action === "shade" || action === "focus") return "sleep";
+  if (action === "shelter" || action === "shade" || action === "focus") return "sleep";
   return "idle";
 }

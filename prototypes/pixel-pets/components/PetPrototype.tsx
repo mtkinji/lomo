@@ -38,6 +38,9 @@ const MOTIONS: Array<{ id: EngineMotion; label: string }> = [
   { id: "discover", label: "Discover" },
   { id: "sleep", label: "Sleep" },
   { id: "evolve", label: "Evolve" },
+  { id: "jump", label: "Jump" },
+  { id: "pounce", label: "Pounce" },
+  { id: "rollover", label: "Rollover" },
 ];
 
 const REACTION_MOTION: Record<PetReaction, EngineMotion> = {
@@ -47,6 +50,19 @@ const REACTION_MOTION: Record<PetReaction, EngineMotion> = {
   discover: "discover",
   sleep: "sleep",
   evolve: "evolve",
+};
+
+const MOTION_SOUND: Record<EngineMotion, PetReaction> = {
+  idle: "idle",
+  blink: "idle",
+  greet: "greet",
+  care: "eat",
+  discover: "discover",
+  sleep: "sleep",
+  evolve: "evolve",
+  jump: "greet",
+  pounce: "discover",
+  rollover: "sleep",
 };
 
 function playPetSound(reaction: PetReaction, enabled: boolean) {
@@ -187,8 +203,7 @@ export function PetPrototype() {
     setPaused(false);
     setManualElapsed(0);
     if (motion !== "idle" && motion !== "blink") {
-      const soundReaction: PetReaction = motion === "care" ? "eat" : motion;
-      playPetSound(soundReaction, state.soundEnabled);
+      playPetSound(MOTION_SOUND[motion], state.soundEnabled);
     }
     settleAfterMotion(motion);
   }
@@ -254,15 +269,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 09</span>
-        <h1>The weather<br />has a point.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 10</span>
+        <h1>Your touch<br />has an answer.</h1>
         <p>
-          Light, wind, and rain now change the whole habitat. Leafling follows warmth, decides when it has had enough, and curls beneath the old tree.
+          Reach high, release a firefly, or invite a rollover. Every Leafling form now answers with its own authored acting—not a translated or rotated stand-in.
         </p>
         <dl className="engine-facts">
-          <div><dt>Depth</dt><dd>sky · range · canopy</dd></div>
-          <div><dt>Sun</dt><dd>warm · seek shade</dd></div>
-          <div><dt>Weather</dt><dd>light · wind · rain</dd></div>
+          <div><dt>Touch</dt><dd>reach · hunt · roll</dd></div>
+          <div><dt>Acting</dt><dd>hold · key · recovery</dd></div>
+          <div><dt>Forms</dt><dd>baby · young · guardian</dd></div>
         </dl>
       </header>
 

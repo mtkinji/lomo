@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 09 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 10 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -48,8 +48,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 09 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 09/);
+  assert.match(layout, /Pet Engine Study 10 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 10/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
   assert.match(prototype, /Focus together/);
@@ -72,14 +72,17 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(runtime, /resolvePetFrame/);
   assert.match(runtime, /nextFrameElapsed/);
   assert.match(runtime, /PetFrameLayer/);
-  assert.match(leafling, /leafling-motion-atlas-v4\.png/);
-  assert.match(leafling, /leafling-stage-atlas-v2\.png/);
+  assert.match(leafling, /leafling-motion-atlas-v5\.png/);
+  assert.match(leafling, /leafling-stage-atlas-v3\.png/);
   assert.match(leafling, /leaflingManifestForStage/);
   assert.match(leafling, /"tail"/);
   assert.match(leafling, /idle/);
   assert.match(leafling, /greet/);
   assert.match(leafling, /walk/);
   assert.match(leafling, /run/);
+  assert.match(leafling, /jump/);
+  assert.match(leafling, /pounce/);
+  assert.match(leafling, /rollover/);
   assert.match(canvas, /imageSmoothingEnabled = false/);
   assert.match(canvas, /resolvePetFrame/);
   assert.match(canvas, /-snapshot\.anchor\.y \* scaleY/);

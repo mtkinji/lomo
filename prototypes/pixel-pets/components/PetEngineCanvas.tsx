@@ -15,7 +15,6 @@ import {
   beginCompanionFocus,
   clipForWorldAction,
   createPetWorldState,
-  resolveRolloverPose,
   resolveTapIntent,
   setWorldZoom,
   setWorldWeather,
@@ -728,9 +727,7 @@ export function PetEngineCanvas({
         clipStartedAt = time;
         lastFrameRef.current = "";
       }
-      const elapsed = worldRef.current.action === "rollover"
-        ? resolveRolloverPose(worldRef.current.actionElapsed).clipElapsed
-        : paused ? manualElapsed : time - clipStartedAt;
+      const elapsed = paused ? manualElapsed : time - clipStartedAt;
       const snapshot = resolvePetFrame(manifest, requestedClip, elapsed, reducedMotion);
       renderScene(context, sprite, manifest, palette, stage, motion, snapshot, showRig, worldRef.current);
 

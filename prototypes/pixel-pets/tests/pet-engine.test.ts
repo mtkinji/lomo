@@ -23,11 +23,11 @@ test("the reference engine keeps a low ground plane for a roaming-scale Pet", ()
   assert.equal(LEAFLING_MANIFEST.atlas.frameWidth, 160);
   assert.equal(LEAFLING_MANIFEST.atlas.frameHeight, 128);
   assert.deepEqual(LEAFLING_MANIFEST.atlas, {
-    src: "/leafling-motion-atlas-v4.png",
+    src: "/leafling-motion-atlas-v5.png",
     frameWidth: 160,
     frameHeight: 128,
     columns: 8,
-    rows: 9,
+    rows: 12,
   });
   assert.deepEqual(LEAFLING_PRESENTATION.stages.baby, { width: 38, height: 38 });
   assert.deepEqual(LEAFLING_PRESENTATION.stages.young, { width: 46, height: 46 });
@@ -36,11 +36,11 @@ test("the reference engine keeps a low ground plane for a roaming-scale Pet", ()
 
 test("each evolution stage resolves to its own authored animation vocabulary", () => {
   assert.equal(leaflingManifestForStage("young"), LEAFLING_MANIFEST);
-  assert.equal(leaflingManifestForStage("baby").atlas.src, "/leafling-stage-atlas-v2.png");
-  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v2.png");
+  assert.equal(leaflingManifestForStage("baby").atlas.src, "/leafling-stage-atlas-v3.png");
+  assert.equal(leaflingManifestForStage("guardian").atlas.src, "/leafling-stage-atlas-v3.png");
 
   for (const [stage, manifest] of Object.entries(LEAFLING_STAGE_MANIFESTS)) {
-    assert.deepEqual(Object.keys(manifest.clips), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run"]);
+    assert.deepEqual(Object.keys(manifest.clips), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"]);
     assert.equal(manifest.clips.walk.loop, true);
     assert.equal(manifest.clips.run.loop, true);
     assert.equal(manifest.clips.walk.frames.length, 8);
@@ -89,7 +89,7 @@ test("ground cues stay inside the terrain instead of becoming a floating disk", 
 
 test("every behavior owns a complete authored animation row", () => {
   const clips = Object.entries(LEAFLING_MANIFEST.clips);
-  assert.deepEqual(clips.map(([id]) => id), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run"]);
+  assert.deepEqual(clips.map(([id]) => id), ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "walk", "run", "jump", "pounce", "rollover"]);
   clips.forEach(([id, clip], row) => {
     assert.equal(clip.frames.length, 8, `${id} needs eight authored poses`);
     assert.deepEqual(new Set(clip.frames.map((frame) => frame.cell.row)), new Set([row]));
@@ -119,6 +119,11 @@ test("physical clips declare believable contact changes", () => {
   assert.equal(LEAFLING_MANIFEST.clips.evolve.frames[7].contact, "planted");
   assert.ok(LEAFLING_MANIFEST.clips.walk.frames.every((frame) => frame.contact === "planted"));
   assert.ok(LEAFLING_MANIFEST.clips.run.frames.some((frame) => frame.contact === "airborne"));
+  assert.ok(LEAFLING_MANIFEST.clips.jump.frames.some((frame) => frame.contact === "airborne"));
+  assert.equal(LEAFLING_MANIFEST.clips.jump.frames[6].contact, "planted");
+  assert.ok(LEAFLING_MANIFEST.clips.pounce.frames.some((frame) => frame.contact === "airborne"));
+  assert.equal(LEAFLING_MANIFEST.clips.pounce.frames[5].contact, "planted");
+  assert.ok(LEAFLING_MANIFEST.clips.rollover.frames.slice(1, 7).every((frame) => frame.contact === "resting"));
 });
 
 test("blink uses anime cadence and changes only the eye channel", () => {
@@ -161,7 +166,7 @@ test("the reference Pet declares stable animation authoring channels", () => {
 
 test("prototype reactions resolve to their own authored clips", () => {
   const motions = Object.keys(MOTION_CLIPS) as EngineMotion[];
-  assert.deepEqual(motions, ["idle", "blink", "greet", "care", "discover", "sleep", "evolve"]);
+  assert.deepEqual(motions, ["idle", "blink", "greet", "care", "discover", "sleep", "evolve", "jump", "pounce", "rollover"]);
   motions.forEach((motion) => assert.equal(clipForMotion(motion), motion));
 });
 

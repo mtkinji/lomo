@@ -9,7 +9,6 @@ import {
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
-  resolveRolloverPose,
   setWorldZoom,
   spawnInsect,
   stepPetWorld,
@@ -23,7 +22,9 @@ test("world travel requests authored locomotion instead of an idle fallback", ()
   assert.equal(clipForWorldAction("seek-shade"), "walk");
   assert.equal(clipForWorldAction("bask"), "idle");
   assert.equal(clipForWorldAction("shade"), "sleep");
-  assert.equal(clipForWorldAction("jump"), "greet");
+  assert.equal(clipForWorldAction("jump"), "jump");
+  assert.equal(clipForWorldAction("pounce"), "pounce");
+  assert.equal(clipForWorldAction("rollover"), "rollover");
 });
 
 test("sun warms Leafling before it chooses the old tree's shade", () => {
@@ -175,7 +176,8 @@ test("high taps jump toward the finger and return safely to idle", () => {
   const landed = stepPetWorld(airborne, 700, false);
 
   assert.equal(airborne.action, "jump");
-  assert.ok(airborne.poseY < 0);
+  assert.ok(airborne.petX > start.petX, "the world still owns horizontal reach");
+  assert.equal(airborne.poseY, 0, "the authored jump row owns body lift");
   assert.equal(landed.action, "idle");
   assert.equal(landed.poseY, 0);
 });
@@ -187,6 +189,7 @@ test("fireflies recruit attention and can provoke a pounce", () => {
   assert.equal(after.insect.active, true);
   assert.equal(after.action, "pounce");
   assert.equal(after.facing, 1);
+  assert.equal(after.poseY, 0, "the authored pounce row owns body lift");
 });
 
 test("an ordinary firefly flight eventually enters pounce range", () => {
@@ -203,15 +206,9 @@ test("rollover is a finite grounded performance", () => {
   const finished = stepPetWorld(middle, 800, false);
 
   assert.equal(middle.action, "rollover");
-  assert.ok(middle.rotation > 120 && middle.rotation < 260);
+  assert.equal(middle.rotation, 0, "the authored rollover row owns the body turn");
   assert.equal(finished.action, "idle");
   assert.equal(finished.rotation, 0);
-});
-
-test("rollover curls before rotating and uncurls before it ends", () => {
-  assert.deepEqual(resolveRolloverPose(180), { rotation: 0, clipElapsed: 564 });
-  assert.deepEqual(resolveRolloverPose(600), { rotation: 180, clipElapsed: 1000 });
-  assert.deepEqual(resolveRolloverPose(1020), { rotation: 0, clipElapsed: 564 });
 });
 
 test("reduced motion preserves intent without travel or spins", () => {
