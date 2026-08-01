@@ -32,6 +32,7 @@ test("only causal world events receive visible scene narration", () => {
     "weather-notice",
     "wind-brace",
     "rain-flinch",
+    "rain-invite",
     "shelter",
     "bask",
     "shade",

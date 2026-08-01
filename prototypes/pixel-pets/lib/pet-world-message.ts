@@ -9,6 +9,7 @@ const CAUSAL_SCENE_NARRATION_ACTIONS = new Set<PetWorldAction>([
   "weather-notice",
   "wind-brace",
   "rain-flinch",
+  "rain-invite",
   "shelter",
   "bask",
   "shade",

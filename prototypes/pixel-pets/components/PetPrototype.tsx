@@ -354,6 +354,7 @@ export function PetPrototype() {
   const playAnswering = world.visitor.active || ["track", "visitor-invite", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
   const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
   const treePerchActive = world.action === "tree-perch" && world.treePlay?.active;
+  const rainInviteActive = world.action === "rain-invite";
   const visitorInviteActive = world.action === "visitor-invite" && world.visitor.active;
   const windLeafActive = world.playLeaf.phase !== "perched"
     && ["leaf-invite", "leaf-track", "seek-leaf", "leaf-pounce", "leaf-aerial", "leaf-catch", "leaf-return", "leaf-offer"].includes(world.action);
@@ -370,6 +371,7 @@ export function PetPrototype() {
     && !world.focus.active
     && !reunionActive
     && !treePerchActive
+    && !rainInviteActive
     && !visitorInviteActive
     && !windLeafActive
     && !worldAnswering;
@@ -482,6 +484,7 @@ export function PetPrototype() {
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
       "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. ${state.name} watched its bright path through the grass.` },
       "rain-flinch": { title: "First drops", detail: `${state.name} shakes once, then looks for cover.` },
+      "rain-invite": { title: "The old tree is waiting", detail: `${state.name} found the dry path and left one quiet choice for your hand.` },
       "rain-guest-notice": { title: "Something small in the rain", detail: `${state.name} noticed a wet firefly struggling close to the grass.` },
       "rain-guest-wait": { title: "A quiet choice", detail: `The little rain-light is waiting where ${state.name} can see it.` },
       "seek-rain-guest": { title: "Across the rain", detail: `${state.name} planted every step toward the low light.` },
@@ -563,15 +566,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 57</span>
-        <h1>Moss brings<br />the play back.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 58</span>
+        <h1>Run home with<br />the rain.</h1>
         <p>
-          Toss the golden leaf. Moss catches it, carries it back to where your hand let go, and offers one more turn without asking you to stay.
+          Feel the first drops. Touch the old tree, and Moss will cross the wet meadow with you—or choose the same safe path alone.
         </p>
         <dl className="engine-facts">
-          <div><dt>Toss</dt><dd>through the living air</dd></div>
-          <div><dt>Return</dt><dd>with a grown-in gait</dd></div>
-          <div><dt>Offer</dt><dd>one quiet second turn</dd></div>
+          <div><dt>Notice</dt><dd>the world changes first</dd></div>
+          <div><dt>Choose</dt><dd>the shelter in the scene</dd></div>
+          <div><dt>Grow</dt><dd>from toddle into run</dd></div>
         </dl>
       </header>
 
@@ -614,7 +617,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Drag and toss the golden leaf; after ${state.name} catches and brings it back, touch the offered leaf for one more turn. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
+            label={`${state.name}'s interactive world. Drag and toss the golden leaf; after ${state.name} catches and brings it back, touch the offered leaf for one more turn. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. When the first rain makes Baby or Young look for cover, touch the old tree to go there together. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to choose rain shelter, release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -651,6 +654,16 @@ export function PetPrototype() {
             <div>
               <strong>Choose the landing</strong>
               <small>Touch the meadow · {currentStage === "guardian" ? "the whole clearing is within reach" : "Young Moss can reach nearby ground"}</small>
+            </div>
+          </div>
+          ) : rainInviteActive ? (
+          <div className="focus-session rain-shelter-session" aria-live="polite">
+            <span className="rain-shelter-mark" aria-hidden="true">⌂</span>
+            <div>
+              <strong>Touch the old tree</strong>
+              <small>{currentStage === "baby"
+                ? `${state.name} will toddle home with the rain · or choose when ready`
+                : `${state.name} is ready to run for the canopy · or choose when ready`}</small>
             </div>
           </div>
           ) : visitorInviteActive ? (

@@ -26,6 +26,7 @@ import {
   beginTreePlay,
   beginTreeReturn,
   beginRainGuestShelter,
+  beginRainShelterRun,
   beginVisitorChase,
   cancelWorldHandGuide,
   chooseCompanionFocusPlace,
@@ -50,6 +51,7 @@ import {
   resolveTreePlayHit,
   resolveTreeReturnHit,
   resolveRainGuestHit,
+  resolveRainShelterHit,
   resolveVisitorHit,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
@@ -2380,6 +2382,16 @@ export function PetEngineCanvas({
       }
       return;
     }
+    if (worldRef.current.action === "rain-invite") {
+      if (resolveRainShelterHit(worldRef.current, worldPoint)) {
+        worldRef.current = beginRainShelterRun(worldRef.current);
+        livingDayRef.current = interruptLivingDay(livingDayRef.current);
+        callbackRef.current.onWorldFrame?.(worldRef.current);
+        callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+        callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      }
+      return;
+    }
     if (worldRef.current.action === "tree-perch" && worldRef.current.treePlay.active) {
       if (resolveTreeReturnHit(worldRef.current, worldPoint)) {
         worldRef.current = beginTreeReturn(worldRef.current, worldPoint.x);
@@ -2432,6 +2444,15 @@ export function PetEngineCanvas({
       event.preventDefault();
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = beginRainGuestShelter(world);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
+    if (world.action === "rain-invite" && event.key === "Enter") {
+      event.preventDefault();
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      worldRef.current = beginRainShelterRun(world);
       callbackRef.current.onWorldFrame?.(worldRef.current);
       callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
       callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);

@@ -32,6 +32,9 @@ The prototype lets a tester:
 - watch baby curl in a sunny patch while Guardian holds a longer, more deliberate brace and bask;
 - let occasional deterministic weather episodes emerge while the world is otherwise quiet;
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
+- let Baby or Young hold after the first-drop flinch, touch the old tree itself to release the shelter journey, or leave the choice to Moss without creating a failure state;
+- watch that rain journey mature from Baby's careful toddle into Young's authored run while Guardian keeps the higher-order wet-firefly shelter story;
+- let the storm camera temporarily pull beyond ordinary roaming scale so distant Moss and the old tree can share one readable action line;
 - touch the one bright puddle left by a real rain-to-sun clearing and feel the same place answer each form differently: Baby investigates, Young pounces, and Guardian vaults into a wide spray and finite meadow wake;
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;

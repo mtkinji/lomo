@@ -612,6 +612,26 @@ summary:focus-visible {
   animation: reunion-recognition 1.4s ease-in-out infinite;
 }
 
+.rain-shelter-session {
+  border-color: color-mix(in srgb, #66869a 62%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, #c8dae0 48%, var(--accent-soft)), var(--panel));
+}
+
+.rain-shelter-mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #46687a 68%, var(--line));
+  border-radius: 50% 50% 44% 44%;
+  color: #46687a;
+  background: color-mix(in srgb, #dce8eb 76%, transparent);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.92rem;
+  animation: reunion-recognition 1.8s ease-in-out infinite;
+}
+
 .wind-leaf-session {
   border-color: color-mix(in srgb, #d6a94b 58%, var(--line));
   background: linear-gradient(135deg, color-mix(in srgb, #f4dc8f 36%, var(--accent-soft)), var(--panel));
@@ -1057,7 +1077,8 @@ summary:focus-visible {
   .focus-orb,
   .settling-leaves,
   .answering-sprout::after { animation: none; }
-  .reunion-mark { animation: none; }
+  .reunion-mark,
+  .rain-shelter-mark { animation: none; }
   .wind-leaf-mark::before { animation: none; }
   .scene-caption { animation: none; }
 }
@@ -1067,5 +1088,9 @@ summary:focus-visible {
 }
 
 [data-reduced-motion="true"] .wind-leaf-mark::before {
+  animation: none;
+}
+
+[data-reduced-motion="true"] .rain-shelter-mark {
   animation: none;
 }

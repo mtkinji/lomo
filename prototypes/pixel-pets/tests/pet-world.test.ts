@@ -21,6 +21,7 @@ import {
   beginTreePlay,
   beginTreeReturn,
   beginRainGuestShelter,
+  beginRainShelterRun,
   beginVisitorChase,
   cancelWorldHandGuide,
   clipForWorldAction,
@@ -31,6 +32,7 @@ import {
   resolveTreeReturnHit,
   resolveVisitorHit,
   resolveRainGuestHit,
+  resolveRainShelterHit,
   resolveFocusAtmosphere,
   resolveCompanionFocusPlaceHit,
   grabWorldWindLeaf,
@@ -633,7 +635,8 @@ test("world-memory recovery rejects malformed, private, and out-of-bounds data",
 test("world travel requests authored locomotion instead of an idle fallback", () => {
   assert.equal(clipForWorldAction("walk"), "walk");
   assert.equal(clipForWorldAction("run"), "run");
-  assert.equal(clipForWorldAction("seek-shelter"), "walk");
+  assert.equal(clipForWorldAction("seek-shelter", false, "baby"), "walk");
+  assert.equal(clipForWorldAction("seek-shelter", false, "young"), "run");
   assert.equal(clipForWorldAction("seek-sun"), "walk");
   assert.equal(clipForWorldAction("seek-shade"), "walk");
   assert.equal(clipForWorldAction("bask"), "sun-bask");
@@ -832,8 +835,53 @@ test("weather arrives as a noticed event before it changes the Pet's behavior", 
   assert.equal(arrived.targetX, PET_WORLD.treeShelterX);
 
   const responding = stepPetWorld(arrived, PET_WORLD.rainFlinchDuration, false);
-  assert.equal(responding.action, "seek-shelter");
+  assert.equal(responding.action, "rain-invite");
   assert.equal(responding.targetX, PET_WORLD.treeShelterX);
+});
+
+test("the first rain waits at one world-space shelter invitation", () => {
+  const flinching = stepPetWorld(
+    setWorldWeather({ ...createPetWorldState(), petX: 352 }, "rain"),
+    PET_WORLD.weatherArrivalDuration,
+    false,
+    "young",
+  );
+  const waiting = stepPetWorld(flinching, PET_WORLD.rainFlinchDuration, false, "young");
+
+  assert.equal(waiting.action, "rain-invite");
+  assert.equal(waiting.petX, 352, "the invitation plants Moss instead of beginning travel");
+  assert.equal(waiting.facing, -1);
+  const shot = resolveCinematicShot(waiting, false);
+  assert.equal(shot.id, "action-wide");
+  assert.ok(shot.zoom < 1, "the storm may pull wider than ordinary roaming to reveal shelter");
+  assert.equal(resolveCameraTargetX(waiting), (waiting.petX + PET_WORLD.treeShelterX) / 2);
+  assert.equal(resolveRainShelterHit(waiting, { x: PET_WORLD.treeShelterX, y: 92 }), true);
+  assert.equal(resolveRainShelterHit(waiting, { x: PET_WORLD.treeShelterX + 100, y: 92 }), false);
+
+  const committed = beginRainShelterRun(waiting);
+  assert.equal(committed.action, "seek-shelter");
+  assert.equal(committed.targetX, PET_WORLD.treeShelterX);
+  assert.equal(committed.facing, -1);
+});
+
+test("ignoring the rain invitation lets Moss choose the same safe journey", () => {
+  const waiting = stepPetWorld(
+    stepPetWorld(setWorldWeather(createPetWorldState(), "rain"), PET_WORLD.weatherArrivalDuration, false, "baby"),
+    PET_WORLD.rainFlinchDuration,
+    false,
+    "baby",
+  );
+  const autonomous = stepPetWorld(waiting, PET_WORLD.rainInvitationDuration, false, "baby");
+
+  assert.equal(autonomous.action, "seek-shelter");
+  assert.equal(autonomous.targetX, PET_WORLD.treeShelterX);
+});
+
+test("the rain journey matures from Baby's toddle into Young's run", () => {
+  assert.equal(clipForWorldAction("rain-invite", false, "baby"), "weather-notice");
+  assert.equal(clipForWorldAction("seek-shelter", false, "baby"), "walk");
+  assert.equal(clipForWorldAction("seek-shelter", false, "young"), "run");
+  assert.equal(clipForWorldAction("seek-shelter", false, "guardian"), "walk");
 });
 
 test("direct touch can interrupt the notice beat while weather continues arriving", () => {
@@ -885,7 +933,8 @@ test("reduced motion preserves the sunny heat-to-shade story without travel", ()
 test("rain changes the world into a shelter-seeking behavior", () => {
   const arriving = setWorldWeather(createPetWorldState(), "rain");
   const flinching = stepPetWorld(arriving, PET_WORLD.weatherArrivalDuration, false);
-  const raining = stepPetWorld(flinching, PET_WORLD.rainFlinchDuration, false);
+  const waiting = stepPetWorld(flinching, PET_WORLD.rainFlinchDuration, false);
+  const raining = beginRainShelterRun(waiting);
 
   assert.equal(raining.weather, "rain");
   assert.equal(raining.action, "seek-shelter");

@@ -20,6 +20,7 @@ export const PET_WORLD = {
   minX: 24,
   maxX: 456,
   minZoom: 1,
+  minCinematicZoom: 0.42,
   maxZoom: 2.25,
   jumpDuration: 850,
   pounceDuration: 720,
@@ -33,6 +34,7 @@ export const PET_WORLD = {
   windBraceDuration: 1680,
   windLeafInvitationDuration: 7400,
   rainFlinchDuration: 920,
+  rainInvitationDuration: 5200,
   bloomOpenDuration: 900,
   bloomNoticeDuration: 900,
   bloomAdmireDuration: 1400,
@@ -123,7 +125,7 @@ export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "tree-notice" | "seek-tree" | "tree-root" | "tree-launch" | "tree-perch" | "tree-return" | "track" | "visitor-invite" | "visitor-turn" | "visitor-stalk" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "leaf-return" | "leaf-offer" | "weather-notice" | "wind-brace" | "rain-flinch" | "rain-guest-notice" | "rain-guest-wait" | "seek-rain-guest" | "rain-guest-carry" | "rain-guest-shelter" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "focus-invite" | "seek-focus" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "tree-notice" | "seek-tree" | "tree-root" | "tree-launch" | "tree-perch" | "tree-return" | "track" | "visitor-invite" | "visitor-turn" | "visitor-stalk" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "leaf-return" | "leaf-offer" | "weather-notice" | "wind-brace" | "rain-flinch" | "rain-invite" | "rain-guest-notice" | "rain-guest-wait" | "seek-rain-guest" | "rain-guest-carry" | "rain-guest-shelter" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "focus-invite" | "seek-focus" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type CompanionFocusPhase = "quiet" | "choosing" | "settling" | "together" | "complete";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
@@ -587,6 +589,36 @@ export function resolveRainGuestHit(state: PetWorldState, point: WorldPoint): bo
     && Math.abs(point.y - state.rainGuest.y) <= RAIN_GUEST.hitRadiusY;
 }
 
+export function resolveRainShelterHit(state: PetWorldState, point: WorldPoint): boolean {
+  return state.weather === "rain"
+    && state.weatherPhase === "settled"
+    && state.action === "rain-invite"
+    && Math.abs(point.x - PET_WORLD.treeShelterX) <= TREE_PLAY.hitRadiusX
+    && point.y >= TREE_PLAY.hitTopY
+    && point.y <= TREE_PLAY.hitBottomY;
+}
+
+export function beginRainShelterRun(state: PetWorldState): PetWorldState {
+  if (
+    state.weather !== "rain"
+    || state.weatherPhase !== "settled"
+    || state.action !== "rain-invite"
+    || state.focus.active
+  ) return state;
+  return {
+    ...state,
+    action: "seek-shelter",
+    actionElapsed: 0,
+    targetX: PET_WORLD.treeShelterX,
+    facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
+    poseY: 0,
+    rotation: 0,
+    hand: quietWorldHand(),
+    treePlay: quietTreePlay(),
+    playLeaf: createWindLeaf(),
+  };
+}
+
 export function beginRainGuestShelter(state: PetWorldState): PetWorldState {
   if (
     state.weather !== "rain"
@@ -937,7 +969,7 @@ function treePlayIsRefused(state: PetWorldState) {
   if (state.focus.active || state.daylight.eveningActive || state.afterRain.phase === "engaged" || state.rainGuest.phase !== "quiet") return true;
   return state.weather === "rain"
     && state.weatherPhase === "settled"
-    && (state.action === "rain-flinch" || state.action === "seek-shelter" || state.action === "shelter");
+    && (state.action === "rain-flinch" || state.action === "rain-invite" || state.action === "seek-shelter" || state.action === "shelter");
 }
 
 export function beginTreePlay(state: PetWorldState, stage: PetStage): PetWorldState {
@@ -1216,6 +1248,9 @@ function clampCameraX(value: number, zoom: number) {
 }
 
 export function resolveCameraTargetX(state: PetWorldState) {
+  if (state.action === "rain-invite") {
+    return clampCameraX((state.petX + PET_WORLD.treeShelterX) / 2, state.zoom);
+  }
   if (state.treePlay?.active) {
     return clampCameraX((state.petX + PET_WORLD.treeShelterX) / 2, state.zoom);
   }
@@ -1296,6 +1331,13 @@ export function resolveCinematicShot(
   if (reducedMotion) return { id: "reduced-motion", zoom: 1 };
   if (state.action === "focus") return { id: "focus", zoom: 1.35 };
   if (state.action === "focus-invite") return { id: "establishing", zoom: 1 };
+  if (state.action === "rain-invite") {
+    const span = Math.abs(state.petX - PET_WORLD.treeShelterX) + 48;
+    return {
+      id: "action-wide",
+      zoom: clamp(PET_WORLD.viewportWidth / span, PET_WORLD.minCinematicZoom, 1),
+    };
+  }
   if (state.action === "leaf-invite" || state.action === "leaf-track") return { id: "action-wide", zoom: 1 };
   if (state.action === "tree-launch" || state.action === "tree-perch" || state.action === "tree-return" || state.action === "visitor-stalk" || state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial" || state.action === "guardian-land" || state.action === "puddle-splash") {
     return { id: "action-wide", zoom: 1 };
@@ -2793,7 +2835,7 @@ export function stepPetWorld(
     if (next.actionElapsed >= PET_WORLD.rainFlinchDuration) {
       next = {
         ...next,
-        action: "seek-shelter",
+        action: "rain-invite",
         actionElapsed: 0,
         targetX: PET_WORLD.treeShelterX,
         facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
@@ -2803,6 +2845,14 @@ export function stepPetWorld(
     } else {
       next.poseY = 0;
       next.rotation = 0;
+    }
+  } else if (state.action === "rain-invite") {
+    next.petX = state.petX;
+    next.facing = faceToward(state.petX, PET_WORLD.treeShelterX, state.facing);
+    next.poseY = 0;
+    next.rotation = 0;
+    if (next.actionElapsed >= PET_WORLD.rainInvitationDuration) {
+      next = beginRainShelterRun(next);
     }
   } else if (state.action === "affection") {
     if (next.actionElapsed >= PET_WORLD.affectionDuration) next = finishAction(next);
@@ -3064,8 +3114,9 @@ export function stepPetWorld(
     }
     else {
       const directedWalk = state.action === "seek-focus" || state.action === "seek-shelter" || state.action === "seek-rain-guest" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest" || state.action === "seek-leaf" || state.action === "seek-puddle" || state.action === "seek-tree";
+      const youngRainRun = state.action === "seek-shelter" && stage === "young" && state.rainGuest.phase !== "carried";
       const running = !directedWalk && Math.abs(distance) > 52;
-      const speed = running ? 0.052 : directedWalk ? 0.032 : 0.024;
+      const speed = youngRainRun ? 0.052 : running ? 0.052 : directedWalk ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
       next.facing = distance < 0 ? -1 : 1;
       if (!directedWalk) next.action = running ? "run" : "walk";
@@ -3110,7 +3161,7 @@ export function stepPetWorld(
     const shot = resolveCinematicShot(next, false);
     const duration = shot.zoom > state.zoom ? PET_WORLD.cameraPushDuration : PET_WORLD.cameraReleaseDuration;
     const progress = Math.min(1, dt / duration);
-    next.zoom = clamp(state.zoom + (shot.zoom - state.zoom) * progress, PET_WORLD.minZoom, PET_WORLD.maxZoom);
+    next.zoom = clamp(state.zoom + (shot.zoom - state.zoom) * progress, PET_WORLD.minCinematicZoom, PET_WORLD.maxZoom);
     next.cameraShot = shot.id;
   }
 
@@ -3147,7 +3198,9 @@ export function clipForWorldAction(action: PetWorldAction, reducedMotion = false
   if (action === "hand-aerial") return "aerial";
   if (action === "guardian-land") return reducedMotion ? "discover" : "aerial";
   if (action === "focus-invite") return "discover";
-  if (action === "seek-focus" || action === "seek-shelter" || action === "seek-rain-guest" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest" || action === "seek-leaf" || action === "seek-puddle") return "walk";
+  if (action === "rain-invite") return "weather-notice";
+  if (action === "seek-shelter") return stage === "young" ? "run" : "walk";
+  if (action === "seek-focus" || action === "seek-rain-guest" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest" || action === "seek-leaf" || action === "seek-puddle") return "walk";
   if (action === "rain-guest-carry") return "care";
   if (action === "rain-guest-shelter") return "affection";
   if (action === "bloom-notice" || action === "memory-notice") return "discover";
