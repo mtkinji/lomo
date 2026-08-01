@@ -28,6 +28,7 @@ import {
   beginRainGuestShelter,
   beginRainShelterRun,
   beginVisitorChase,
+  beginStageDebutEncounter,
   cancelWorldHandGuide,
   chooseCompanionFocusPlace,
   CARE_ECHO_TARGET,
@@ -88,7 +89,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "tree-play" | "after-rain" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  type: "visitor" | "stage-debut" | "tree-play" | "after-rain" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
   source?: MeaningfulAction | null;
 };
 
@@ -103,6 +104,7 @@ interface PetEngineCanvasProps {
   manualElapsed?: number;
   showRig?: boolean;
   previewing?: boolean;
+  holdLivingDay?: boolean;
   worldCommand?: PetWorldCommand | null;
   onFrame?: (snapshot: PetFrameSnapshot) => void;
   onWorldFrame?: (world: PetWorldState) => void;
@@ -1906,6 +1908,7 @@ export function PetEngineCanvas({
   manualElapsed = 0,
   showRig = false,
   previewing = false,
+  holdLivingDay = false,
   worldCommand,
   onFrame,
   onWorldFrame,
@@ -1962,6 +1965,9 @@ export function PetEngineCanvas({
         poseY: 0,
         rotation: 0,
       }, stageRef.current);
+    }
+    if (worldCommand.type === "stage-debut" && !worldRef.current.focus.active) {
+      worldRef.current = beginStageDebutEncounter(worldRef.current, stageRef.current);
     }
     if (worldCommand.type === "tree-play") {
       worldRef.current = beginTreePlay(worldRef.current, stageRef.current);
@@ -2091,10 +2097,10 @@ export function PetEngineCanvas({
         worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion, stageRef.current);
       }
 
-      if (previewing && livingDayRef.current.activeEpisode) {
+      if ((previewing || holdLivingDay) && livingDayRef.current.activeEpisode) {
         livingDayRef.current = interruptLivingDay(livingDayRef.current);
       }
-      if (careEchoSource) {
+      if (careEchoSource || holdLivingDay) {
         if (livingDayRef.current.activeEpisode) {
           livingDayRef.current = interruptLivingDay(livingDayRef.current);
         }
@@ -2204,7 +2210,7 @@ export function PetEngineCanvas({
       sprite.onload = null;
       if (previousSprite) previousSprite.onload = null;
     };
-  }, [careEchoSource, ceremonyActive, evolutionFromStage, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
+  }, [careEchoSource, ceremonyActive, evolutionFromStage, holdLivingDay, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
 
   function pointFromEvent(event: PointerEvent<HTMLDivElement>): WorldPoint {
     const bounds = event.currentTarget.getBoundingClientRect();

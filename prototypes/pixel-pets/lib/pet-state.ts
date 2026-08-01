@@ -26,6 +26,7 @@ export interface PetState {
   careAvailable: boolean;
   pendingSource: MeaningfulAction | null;
   stage: PetStage;
+  stageDebutPending: boolean;
   reaction: PetReaction;
   lastReceipt: string;
   soundEnabled: boolean;
@@ -44,6 +45,10 @@ export function resolvePrototypeDayPhase(state: PetState): PrototypeDayPhase {
   return state.reaction === "idle" ? "day-complete" : "care-settling";
 }
 
+export function resolveCareWorldTiming(reaction: PetReaction): "now" | "after-reaction" {
+  return reaction === "evolve" ? "after-reaction" : "now";
+}
+
 export function createPetState(
   kind: PetKind,
   name: string,
@@ -59,6 +64,7 @@ export function createPetState(
     careAvailable: false,
     pendingSource: null,
     stage: "baby",
+    stageDebutPending: false,
     reaction: "greet",
     lastReceipt: "A new little life has arrived.",
     soundEnabled: true,
@@ -115,6 +121,7 @@ export function giveCare(state: PetState): PetState {
     careAvailable: false,
     pendingSource: null,
     stage,
+    stageDebutPending: evolvedNow || state.stageDebutPending,
     reaction: evolvedNow ? "evolve" : "eat",
     lastReceipt: evolvedNow
       ? stage === "guardian"
@@ -122,6 +129,29 @@ export function giveCare(state: PetState): PetState {
         : `${state.name} grew into a young Leafling.`
       : `${state.name} is cozy and cared for today.`,
   };
+}
+
+export function consumeStageDebut(state: PetState): PetState {
+  if (!state.stageDebutPending) return state;
+  return { ...state, stageDebutPending: false };
+}
+
+export function isStageDebutReady(
+  state: PetState,
+  world: {
+    daylightPhase: string;
+    action: string;
+    visitorActive: boolean;
+    focusActive: boolean;
+  },
+): boolean {
+  return state.stageDebutPending
+    && state.caredPrototypeDay !== null
+    && state.prototypeDay > state.caredPrototypeDay
+    && world.daylightPhase === "day"
+    && world.action === "idle"
+    && !world.visitorActive
+    && !world.focusActive;
 }
 
 export function advancePrototypeDay(state: PetState): PetState {

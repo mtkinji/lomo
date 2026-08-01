@@ -1690,6 +1690,22 @@ export function spawnVisitor(
   };
 }
 
+export function beginStageDebutEncounter(state: PetWorldState, stage: PetStage): PetWorldState {
+  const world = spawnVisitor(
+    {
+      ...state,
+      action: "track",
+      actionElapsed: 0,
+      targetX: null,
+      poseY: 0,
+      rotation: 0,
+    },
+    stage,
+    { sharedInvitation: true },
+  );
+  return { ...world, action: "track", actionElapsed: 0, targetX: null };
+}
+
 export function beginSharedPlayEcho(state: PetWorldState, stage: PetStage): PetWorldState {
   const breeze = setWorldWeather(plantLifeEcho(state, "play"), "breeze");
   const world = spawnVisitor(

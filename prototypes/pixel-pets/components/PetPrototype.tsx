@@ -34,9 +34,12 @@ import { BrowserPetSoundscape, resolveSoundscapeMix } from "@/lib/pet-soundscape
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
+  consumeStageDebut,
   createPetState,
   giveCare,
+  isStageDebutReady,
   resolvePrototypeDayPhase,
+  resolveCareWorldTiming,
   type MeaningfulAction,
   type PetPalette,
   type PetReaction,
@@ -115,6 +118,7 @@ export function PetPrototype() {
   const narrationTimer = useRef<number | null>(null);
   const narrationSerial = useRef(0);
   const focusCompletionHandled = useRef(false);
+  const stageDebutCommandedRef = useRef(false);
   const soundscapeRef = useRef<BrowserPetSoundscape | null>(null);
   const lastVisitorRef = useRef<string | null>(null);
 
@@ -123,7 +127,7 @@ export function PetPrototype() {
       let restoredState = createPetState("leafling", "Moss", "moss");
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved) restoredState = JSON.parse(saved) as PetState;
+        if (saved) restoredState = { ...restoredState, ...JSON.parse(saved) as Partial<PetState> };
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
       }
@@ -221,19 +225,20 @@ export function PetPrototype() {
     });
   }, [state.reducedMotion, state.soundEnabled, state.stage, world.focus, world.visitor.active, world.visitor.kind, world.weather, world.weatherIntensity]);
 
-  const settle = useCallback((delay = 1250) => {
+  const settle = useCallback((delay = 1250, onSettled?: () => void) => {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
     reactionTimer.current = window.setTimeout(() => {
       setPreviewMotion(null);
       setPaused(false);
       setManualElapsed(0);
       setState((current) => withReaction(current, "idle"));
+      onSettled?.();
     }, delay);
   }, []);
 
-  const settleAfterMotion = useCallback((motion: EngineMotion, stage: PetStage = state.stage, hold = 220) => {
+  const settleAfterMotion = useCallback((motion: EngineMotion, stage: PetStage = state.stage, hold = 220, onSettled?: () => void) => {
     const clip = leaflingManifestForStage(stage).clips[clipForMotion(motion)];
-    if (!clip.loop) settle(clipDuration(clip) + hold);
+    if (!clip.loop) settle(clipDuration(clip) + hold, onSettled);
   }, [settle, state.stage]);
 
   useEffect(() => {
@@ -247,6 +252,37 @@ export function PetPrototype() {
     settleAfterMotion("discover");
   }, [playPetCue, settleAfterMotion, state, world.focus.completed]);
 
+  useEffect(() => {
+    if (!isStageDebutReady(state, {
+      daylightPhase: world.daylight.phase,
+      action: world.action,
+      visitorActive: world.visitor.active,
+      focusActive: world.focus.active,
+    }) || stageDebutCommandedRef.current) return;
+
+    stageDebutCommandedRef.current = true;
+    queueMicrotask(() => {
+      setWorldCommand((current) => ({ serial: (current?.serial ?? 0) + 1, type: "stage-debut" }));
+      setWorldMessage(state.stage === "guardian"
+        ? { title: "Something moved above the canopy", detail: `${state.name} looked higher than ever before.` }
+        : { title: "A new light found the meadow", detail: `${state.name} noticed that the middle air is within reach now.` });
+    });
+  }, [state, world.action, world.daylight.phase, world.focus.active, world.visitor.active]);
+
+  useEffect(() => {
+    if (!state.stageDebutPending || !world.visitor.active || !stageDebutCommandedRef.current) return;
+    queueMicrotask(() => {
+      setState((current) => consumeStageDebut(current));
+      stageDebutCommandedRef.current = false;
+    });
+  }, [state.stageDebutPending, world.visitor.active]);
+
+  useEffect(() => {
+    if (!state.stageDebutPending || (world.focus.active && !world.visitor.active)) {
+      stageDebutCommandedRef.current = false;
+    }
+  }, [state.stageDebutPending, world.focus.active, world.visitor.active]);
+
   function complete(source: MeaningfulAction) {
     const next = completeMeaningfulAction(state, source);
     setState(next);
@@ -259,14 +295,20 @@ export function PetPrototype() {
   function care() {
     const source = state.pendingSource;
     const next = giveCare(state);
+    const worldTiming = resolveCareWorldTiming(next.reaction);
     setState(next);
     setWorldMessage(next.reaction === "evolve"
       ? { title: next.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes", detail: next.lastReceipt }
       : { title: "Today is cared for", detail: next.lastReceipt });
     playPetCue(next.reaction, next.stage);
-    commandWorld("evening", source);
+    if (worldTiming === "now") commandWorld("evening", source);
     nudge();
-    settleAfterMotion(REACTION_MOTION[next.reaction], next.stage);
+    settleAfterMotion(
+      REACTION_MOTION[next.reaction],
+      next.stage,
+      220,
+      worldTiming === "after-reaction" ? () => commandWorld("evening", source) : undefined,
+    );
   }
 
   function advanceDay() {
@@ -625,6 +667,7 @@ export function PetPrototype() {
             manualElapsed={manualElapsed}
             showRig={showRig}
             previewing={previewMotion !== null}
+            holdLivingDay={state.stageDebutPending}
             worldCommand={worldCommand}
             onFrame={handleFrame}
             onWorldFrame={handleWorldFrame}
@@ -840,6 +883,7 @@ export function PetPrototype() {
             <span>Visitor acting <strong>{visitorPerformance ? `${visitorPerformance.role} · ${visitorPerformance.material} · ${visitorPerformance.frame + 1}/${VISITOR_PERFORMANCE_CLIPS[visitorPerformance.kind].frames.length}` : "quiet"}</strong></span>
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
             <span>Reach layer <strong>{currentStage === "baby" ? "ground · stalk" : currentStage === "young" ? "low air · spring" : "upper air · vault"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
+            <span>Form debut <strong>{state.stageDebutPending ? "waiting for a calm morning" : "complete"}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
             <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action === "leaf-return" ? "returning" : world.action === "leaf-offer" ? "offering" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
             <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>

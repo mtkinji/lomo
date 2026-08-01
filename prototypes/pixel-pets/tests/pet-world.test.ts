@@ -16,6 +16,7 @@ import {
   beginCompanionFocus,
   chooseCompanionFocusPlace,
   beginSharedPlayEcho,
+  beginStageDebutEncounter,
   beginMemoryVisit,
   beginTreeRest,
   beginTreePlay,
@@ -2137,6 +2138,24 @@ test("each stage attracts a visitor at a newly reachable layer", () => {
   assert.equal(baby.visitor.y, PET_WORLD.visitorGroundY, "the crawler's body anchor belongs on the terrain");
   assert.ok(baby.visitor.y > young.visitor.y);
   assert.ok(young.visitor.y > guardian.visitor.y);
+});
+
+test("a new form debut waits on a shared action line instead of disappearing autonomously", () => {
+  for (const [stage, kind] of [["young", "firefly"], ["guardian", "sky-moth"]] as const) {
+    let world = beginStageDebutEncounter(createPetWorldState(), stage);
+
+    assert.equal(world.visitor.kind, kind);
+    assert.equal(world.visitor.sharedInvitation, true);
+    assert.equal(world.action, "track");
+
+    for (let frame = 0; frame < 180 && world.action !== "visitor-invite"; frame += 1) {
+      world = stepPetWorld(world, 64, false, stage);
+    }
+
+    assert.equal(world.action, "visitor-invite");
+    assert.equal(world.visitor.active, true);
+    assert.equal(world.visitor.engaged, false);
+  }
 });
 
 test("an arriving visitor is already readable inside the shot when attention begins", () => {

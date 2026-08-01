@@ -4,9 +4,12 @@ import test from "node:test";
 import {
   advancePrototypeDay,
   completeMeaningfulAction,
+  consumeStageDebut,
   createPetState,
   giveCare,
+  isStageDebutReady,
   resolvePrototypeDayPhase,
+  resolveCareWorldTiming,
   withReaction,
 } from "../lib/pet-state.ts";
 
@@ -50,6 +53,11 @@ test("care is recorded once per day and cannot be ground repeatedly", () => {
   assert.deepEqual(duplicate, cared);
 });
 
+test("evolution finishes its ceremony before evening takes control of the world", () => {
+  assert.equal(resolveCareWorldTiming("eat"), "now");
+  assert.equal(resolveCareWorldTiming("evolve"), "after-reaction");
+});
+
 test("three distinct care days grow a baby into a young Leafling", () => {
   let state = createPetState("glowmoth", "Luma", "ember");
 
@@ -60,6 +68,7 @@ test("three distinct care days grow a baby into a young Leafling", () => {
 
   assert.equal(state.careDays, 3);
   assert.equal(state.stage, "young");
+  assert.equal(state.stageDebutPending, true);
   assert.equal(state.reaction, "evolve");
   assert.match(state.lastReceipt, /young Leafling/i);
 });
@@ -74,8 +83,43 @@ test("eight distinct care days grow a young Leafling into a guardian", () => {
 
   assert.equal(state.careDays, 8);
   assert.equal(state.stage, "guardian");
+  assert.equal(state.stageDebutPending, true);
   assert.equal(state.reaction, "evolve");
   assert.match(state.lastReceipt, /Guardian Leafling/i);
+});
+
+test("a new form keeps one debut encounter for its first morning", () => {
+  let state = createPetState("leafling", "Moss", "moss");
+
+  for (let day = 1; day <= 3; day += 1) {
+    state = giveCare(completeMeaningfulAction(state, "focus"));
+    if (day < 3) state = advancePrototypeDay(state);
+  }
+
+  const firstYoungMorning = advancePrototypeDay(state);
+  const afterDebut = consumeStageDebut(firstYoungMorning);
+
+  assert.equal(firstYoungMorning.stage, "young");
+  assert.equal(firstYoungMorning.stageDebutPending, true);
+  assert.equal(afterDebut.stageDebutPending, false);
+  assert.deepEqual(consumeStageDebut(afterDebut), afterDebut, "the debut cannot be harvested twice");
+});
+
+test("a form debut waits for calm daylight on the morning after evolution", () => {
+  let evolved = createPetState("leafling", "Moss", "moss");
+  for (let day = 1; day <= 3; day += 1) {
+    evolved = giveCare(completeMeaningfulAction(evolved, "focus"));
+    if (day < 3) evolved = advancePrototypeDay(evolved);
+  }
+  const morning = advancePrototypeDay(evolved);
+  const calmDay = { daylightPhase: "day", action: "idle", visitorActive: false, focusActive: false } as const;
+
+  assert.equal(isStageDebutReady(evolved, calmDay), false, "the evolution evening is not the debut morning");
+  assert.equal(isStageDebutReady(morning, { ...calmDay, daylightPhase: "dawn" }), false);
+  assert.equal(isStageDebutReady(morning, { ...calmDay, action: "greet" }), false);
+  assert.equal(isStageDebutReady(morning, { ...calmDay, visitorActive: true }), false);
+  assert.equal(isStageDebutReady(morning, calmDay), true);
+  assert.equal(isStageDebutReady(consumeStageDebut(morning), calmDay), false);
 });
 
 test("advancing through quiet days never removes care or evolution", () => {
