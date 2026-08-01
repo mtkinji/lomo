@@ -59,6 +59,8 @@ export interface PetWorldState {
   weatherSway: number;
   focus: {
     active: boolean;
+    durationMs: number;
+    elapsedMs: number;
     remainingMs: number;
     completed: boolean;
   };
@@ -119,7 +121,7 @@ export function createPetWorldState(): PetWorldState {
     weather: "sunny",
     weatherElapsed: 0,
     weatherSway: 0,
-    focus: { active: false, remainingMs: 0, completed: false },
+    focus: { active: false, durationMs: 0, elapsedMs: 0, remainingMs: 0, completed: false },
     visitor: {
       active: false,
       kind: "firefly",
@@ -171,14 +173,27 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
 }
 
 export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): PetWorldState {
+  const duration = Math.max(1, durationMs);
   return {
     ...state,
     action: "seek-shelter",
     actionElapsed: 0,
     targetX: PET_WORLD.treeShelterX,
     facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
-    focus: { active: true, remainingMs: Math.max(1, durationMs), completed: false },
+    focus: { active: true, durationMs: duration, elapsedMs: 0, remainingMs: duration, completed: false },
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   };
+}
+
+export function resolveFocusAtmosphere(
+  focus: PetWorldState["focus"],
+  reducedMotion: boolean,
+) {
+  if (!focus.active) return { hush: 0, breath: 0 };
+  if (reducedMotion) return { hush: 1, breath: 0.5 };
+  const hush = clamp(focus.elapsedMs / 1800, 0, 1);
+  const breath = 0.5 + Math.sin((focus.elapsedMs / 5200) * Math.PI * 2 - Math.PI / 2) * 0.5;
+  return { hush, breath: clamp(breath, 0, 1) };
 }
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -294,11 +309,20 @@ export function stepPetWorld(
 ): PetWorldState {
   const dt = Math.max(0, elapsedMs);
   const weatherElapsed = state.weatherElapsed + dt;
-  const weatherSway = state.weather === "breeze"
+  const focusAtFrame = state.focus.active
+    ? {
+        ...state.focus,
+        elapsedMs: Math.min(state.focus.durationMs, state.focus.elapsedMs + dt),
+        remainingMs: Math.max(0, state.focus.remainingMs - dt),
+      }
+    : state.focus;
+  const focusAtmosphere = resolveFocusAtmosphere(focusAtFrame, reducedMotion);
+  const rawWeatherSway = state.weather === "breeze"
     ? Math.sin(weatherElapsed / 230) * PET_WORLD.maxWeatherSway
     : state.weather === "rain"
       ? Math.sin(weatherElapsed / 170) * 0.7
       : 0;
+  const weatherSway = rawWeatherSway * (1 - focusAtmosphere.hush * 0.82);
   let next: PetWorldState = {
     ...state,
     actionElapsed: state.actionElapsed + dt,
@@ -308,7 +332,14 @@ export function stepPetWorld(
 
   if (state.focus.active) {
     const remainingMs = Math.max(0, state.focus.remainingMs - dt);
-    next.focus = { active: remainingMs > 0, remainingMs, completed: remainingMs === 0 };
+    const elapsedMs = Math.min(state.focus.durationMs, state.focus.elapsedMs + dt);
+    next.focus = {
+      active: remainingMs > 0,
+      durationMs: state.focus.durationMs,
+      elapsedMs,
+      remainingMs,
+      completed: remainingMs === 0,
+    };
     if (remainingMs === 0) {
       next = {
         ...next,
@@ -326,8 +357,10 @@ export function stepPetWorld(
     const ageMs = state.visitor.ageMs + dt;
     const engagedAgeMs = state.visitor.engaged ? state.visitor.engagedAgeMs + dt : 0;
     const escapeMultiplier = state.visitor.engaged ? 1.32 : 1;
-    const x = state.visitor.x + state.visitor.direction * dt * behavior.speed * escapeMultiplier;
-    const active = x > PET_WORLD.minX - 10 && x < PET_WORLD.maxX + 10 && ageMs < 9000;
+    const rawX = state.visitor.x + state.visitor.direction * dt * behavior.speed * escapeMultiplier;
+    const x = state.visitor.engaged ? clampWorldX(rawX) : rawX;
+    const insideWorldExit = x > PET_WORLD.minX - 10 && x < PET_WORLD.maxX + 10;
+    const active = ageMs < 9000 && (state.visitor.engaged || insideWorldExit);
     const baseY = state.visitor.kind === "crawler"
       ? state.visitor.originY + (Math.floor(ageMs / 150) % 2)
       : state.visitor.kind === "firefly"
@@ -397,6 +430,9 @@ export function stepPetWorld(
         poseY: 0,
         rotation: 0,
       };
+    }
+    if (state.action === "focus" || state.action === "shelter" || state.action === "shade") {
+      return { ...next, poseY: 0, rotation: 0 };
     }
     if (next.actionElapsed >= Math.min(300, PET_WORLD.rolloverDuration)) return finishAction({ ...next, poseY: 0, rotation: 0 });
     return { ...next, poseY: 0, rotation: 0 };

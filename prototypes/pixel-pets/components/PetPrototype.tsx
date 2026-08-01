@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
 import { previousStageFor, resolveEvolutionComposition } from "@/lib/pet-evolution";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
-import { createPetWorldState, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
+import { createPetWorldState, resolveFocusAtmosphere, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import {
@@ -228,6 +228,7 @@ export function PetPrototype() {
   const currentGroundCue = frame
     ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
     : null;
+  const focusAtmosphere = resolveFocusAtmosphere(world.focus, state.reducedMotion);
   const nextGrowthThreshold = state.stage === "baby" ? 3 : state.stage === "young" ? 8 : null;
   const momentsToGrow = nextGrowthThreshold === null ? 0 : Math.max(0, nextGrowthThreshold - state.careDays);
   const growthTitle = state.stage === "guardian" ? "Guardian form reached" : "Growing together";
@@ -284,15 +285,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 11</span>
-        <h1>Watch who<br />they become.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 12</span>
+        <h1>A little world<br />settles with you.</h1>
         <p>
-          The meadow stays. The creature you know recognizes the change, gathers the light, and grows into a more capable body—right where your life together has been unfolding.
+          Moss pads beneath the old tree. Wildlife clears, weather softens, and one curled breath becomes the rhythm of a real Focus session.
         </p>
         <dl className="engine-facts">
-          <div><dt>Ceremony</dt><dd>recognize · gather · arrive</dd></div>
-          <div><dt>Continuity</dt><dd>one habitat · two forms</dd></div>
-          <div><dt>Meaning</dt><dd>care · growth · capability</dd></div>
+          <div><dt>Intent</dt><dd>focus · not a game</dd></div>
+          <div><dt>World</dt><dd>travel · hush · breathe</dd></div>
+          <div><dt>Receipt</dt><dd>one care moment</dd></div>
         </dl>
       </header>
 
@@ -344,7 +345,10 @@ export function PetPrototype() {
         {world.focus.active ? (
           <div className="focus-session" aria-live="polite">
             <span className="focus-orb" aria-hidden="true" />
-            <div><strong>Focusing together</strong><small>{Math.ceil(world.focus.remainingMs / 1000)} seconds · Leafling will stay with you</small></div>
+            <div>
+              <strong>{world.action === "focus" ? "Quietly focusing together" : "Settling under the old tree"}</strong>
+              <small>{world.action === "focus" ? `${state.name} is curled beneath the old tree` : `${state.name} is padding to a quiet place`} · {Math.ceil(world.focus.remainingMs / 1000)} seconds</small>
+            </div>
           </div>
         ) : state.careAvailable ? (
           <button className="care-button" type="button" onClick={care}>
@@ -399,6 +403,7 @@ export function PetPrototype() {
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Focus <strong>{world.focus.active ? `${Math.ceil(world.focus.remainingMs / 1000)}s` : world.focus.completed ? "complete" : "quiet"}</strong></span>
+            <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
           </div>
         </section>
 

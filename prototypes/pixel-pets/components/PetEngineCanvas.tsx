@@ -7,6 +7,7 @@ import {
   clipForMotion,
   resolveGroundCue,
   resolveRequestedClip,
+  shouldRunEvolutionCeremony,
   type EngineMotion,
 } from "@/lib/pet-engine";
 import { resolveEvolutionComposition, type EvolutionComposition } from "@/lib/pet-evolution";
@@ -16,6 +17,7 @@ import {
   beginCompanionFocus,
   clipForWorldAction,
   createPetWorldState,
+  resolveFocusAtmosphere,
   resolveTapIntent,
   setWorldZoom,
   setWorldWeather,
@@ -72,6 +74,8 @@ type HabitatPalette = {
   groundDark: string;
   bloom: string;
 };
+
+type FocusAtmosphere = ReturnType<typeof resolveFocusAtmosphere>;
 
 const PALETTES: Record<PetPalette, HabitatPalette> = {
   moss: { outline: "#26372d", deep: "#3f5b42", leaf: "#4f793f", leafLight: "#7fa55d", cream: "#e7e6ba", sky: "#cfe1bf", skyLight: "#e8efd8", skyDeep: "#aecb9d", ground: "#91a866", groundLight: "#adc17f", groundDark: "#667b4c", bloom: "#f3d58a" },
@@ -691,6 +695,37 @@ function drawNearForeground(
   context.restore();
 }
 
+function drawFocusStillness(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  atmosphere: FocusAtmosphere,
+) {
+  if (!world.focus.active || atmosphere.hush <= 0) return;
+
+  context.save();
+  context.fillStyle = palette.skyLight;
+  context.globalAlpha = atmosphere.hush * 0.055;
+  context.fillRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+  context.restore();
+
+  const breath = atmosphere.breath;
+  const radiusX = 23 + breath * 4;
+  const radiusY = 10 + breath * 2;
+  context.save();
+  worldTransform(context, world);
+  context.translate(PET_WORLD.treeShelterX, ENGINE_SCENE.groundY - 13);
+  context.fillStyle = palette.skyLight;
+  context.globalAlpha = atmosphere.hush * (0.08 + breath * 0.045);
+  context.beginPath();
+  context.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+  context.fill();
+  context.fillStyle = palette.bloom;
+  context.globalAlpha = atmosphere.hush * (0.035 + breath * 0.025);
+  context.fillRect(-Math.round(radiusX), 10, Math.round(radiusX * 2), 2);
+  context.restore();
+}
+
 function drawEvolutionMotes(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -836,10 +871,12 @@ function renderScene(
   previousStage: PetStage | null,
   previousSnapshot: PetFrameSnapshot | null,
   evolution: EvolutionComposition | null,
+  focusAtmosphere: FocusAtmosphere,
 ) {
   const palette = PALETTES[paletteId];
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
   drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
+  drawFocusStillness(context, palette, world, focusAtmosphere);
 
   const showingPrevious = Boolean(
     evolution && previousManifest && previousStage && previousSnapshot && evolution.previousOpacity > evolution.currentOpacity,
@@ -889,7 +926,7 @@ function renderScene(
     snapshot,
     world,
     evolution?.currentOpacity ?? 1,
-    evolution?.currentScale ?? 1,
+    (evolution?.currentScale ?? 1) * (world.focus.active ? 0.995 + focusAtmosphere.breath * 0.01 : 1),
     evolution?.currentYOffset ?? 0,
     showRig,
   );
@@ -939,7 +976,7 @@ export function PetEngineCanvas({
 
   useEffect(() => {
     if (!worldCommand) return;
-    if (worldCommand.type === "visitor") {
+    if (worldCommand.type === "visitor" && !worldRef.current.focus.active) {
       worldRef.current = spawnVisitor(worldRef.current, stageRef.current);
       nextVisitorRef.current = worldClockRef.current + 7800;
     }
@@ -955,7 +992,7 @@ export function PetEngineCanvas({
     if (worldCommand.type === "focus") {
       worldRef.current = beginCompanionFocus(worldRef.current, 15000);
     }
-    if (worldCommand.type === "play") {
+    if (worldCommand.type === "play" && !worldRef.current.focus.active) {
       worldRef.current = spawnVisitor(setWorldWeather(worldRef.current, "breeze"), stageRef.current);
       nextVisitorRef.current = worldClockRef.current + 7800;
     }
@@ -997,7 +1034,8 @@ export function PetEngineCanvas({
       worldClockRef.current += dt;
 
       const beforeAction = worldRef.current.action;
-      if (ceremonyActive) {
+      const ceremonyOwnsFrame = shouldRunEvolutionCeremony(ceremonyActive, worldRef.current.focus.active);
+      if (ceremonyOwnsFrame) {
         worldRef.current = {
           ...worldRef.current,
           action: "idle",
@@ -1010,7 +1048,10 @@ export function PetEngineCanvas({
       } else if (!paused) {
         worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
       }
-      if (!ceremonyActive && !worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
+      if (worldRef.current.focus.active) {
+        nextVisitorRef.current = Math.max(nextVisitorRef.current, worldClockRef.current + 2200);
+      }
+      if (!ceremonyOwnsFrame && !worldRef.current.focus.active && !worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
         worldRef.current = spawnVisitor(worldRef.current, stage);
         nextVisitorRef.current = worldClockRef.current + 7800;
       }
@@ -1030,7 +1071,7 @@ export function PetEngineCanvas({
       }
       const elapsed = paused ? manualElapsed : time - clipStartedAt;
       const snapshot = resolvePetFrame(manifest, requestedClip, elapsed, reducedMotion);
-      const evolution = ceremonyActive
+      const evolution = ceremonyOwnsFrame
         ? resolveEvolutionComposition(snapshot.progress, reducedMotion)
         : null;
       const previousSnapshot = previousManifest && evolution
@@ -1041,6 +1082,7 @@ export function PetEngineCanvas({
             reducedMotion,
           )
         : null;
+      const focusAtmosphere = resolveFocusAtmosphere(worldRef.current.focus, reducedMotion);
       renderScene(
         context,
         sprite,
@@ -1057,6 +1099,7 @@ export function PetEngineCanvas({
         evolutionFromStage,
         previousSnapshot,
         evolution,
+        focusAtmosphere,
       );
 
       const frameKey = `${snapshot.clip}:${snapshot.frameIndex}`;
@@ -1105,6 +1148,7 @@ export function PetEngineCanvas({
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (worldRef.current.focus.active) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = pointFromEvent(event);
     pointersRef.current.set(event.pointerId, { start: point, current: point });
@@ -1151,6 +1195,7 @@ export function PetEngineCanvas({
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const world = worldRef.current;
+    if (world.focus.active) return;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
       const direction = event.key === "ArrowLeft" ? -1 : 1;

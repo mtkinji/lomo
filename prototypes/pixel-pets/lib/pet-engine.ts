@@ -65,3 +65,10 @@ export function resolveRequestedClip(
 ): string {
   return previewing || worldIsIdle ? motionClip : worldClip;
 }
+
+export function shouldRunEvolutionCeremony(
+  ceremonyRequested: boolean,
+  focusActive: boolean,
+) {
+  return ceremonyRequested && !focusActive;
+}

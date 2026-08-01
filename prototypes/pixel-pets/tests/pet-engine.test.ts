@@ -8,6 +8,7 @@ import {
   clipForMotion,
   resolveGroundCue,
   resolveRequestedClip,
+  shouldRunEvolutionCeremony,
   type EngineMotion,
 } from "../lib/pet-engine.ts";
 import {
@@ -214,6 +215,12 @@ test("an explicit inspector preview wins over spontaneous world attention", () =
   assert.equal(resolveRequestedClip("blink", "discover", false, true), "blink");
   assert.equal(resolveRequestedClip("blink", "discover", false, false), "discover");
   assert.equal(resolveRequestedClip("blink", "discover", true, false), "blink");
+});
+
+test("shared focus takes precedence over an evolution ceremony still settling", () => {
+  assert.equal(shouldRunEvolutionCeremony(true, false), true);
+  assert.equal(shouldRunEvolutionCeremony(true, true), false);
+  assert.equal(shouldRunEvolutionCeremony(false, true), false);
 });
 
 test("reduced motion preserves authored expressions while removing travel", () => {

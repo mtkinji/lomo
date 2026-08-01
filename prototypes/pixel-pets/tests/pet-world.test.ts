@@ -9,6 +9,7 @@ import {
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
+  resolveFocusAtmosphere,
   setWorldZoom,
   spawnVisitor,
   stepPetWorld,
@@ -106,6 +107,8 @@ test("reduced motion preserves weather meaning by settling directly into shelter
 test("focus together settles under the tree and completes without inventing a streak", () => {
   let focusing = beginCompanionFocus(createPetWorldState(), 1200);
   assert.equal(focusing.focus.remainingMs, 1200);
+  assert.equal(focusing.focus.durationMs, 1200);
+  assert.equal(focusing.focus.elapsedMs, 0);
   assert.equal(focusing.targetX, PET_WORLD.treeShelterX);
 
   for (let step = 0; step < 8; step += 1) focusing = stepPetWorld(focusing, 250, false);
@@ -113,6 +116,41 @@ test("focus together settles under the tree and completes without inventing a st
   assert.equal(focusing.focus.active, false);
   assert.equal(focusing.focus.completed, true);
   assert.equal(focusing.action, "greet");
+});
+
+test("starting shared focus clears wildlife and enters a portable stillness clock", () => {
+  const withVisitor = spawnVisitor(createPetWorldState(), "young", { x: 250 });
+  const focusing = beginCompanionFocus(withVisitor, 15000);
+  const after = stepPetWorld(focusing, 2200, false);
+
+  assert.equal(focusing.visitor.active, false);
+  assert.equal(after.focus.active, true);
+  assert.equal(after.focus.elapsedMs, 2200);
+  assert.equal(after.focus.remainingMs, 12800);
+});
+
+test("shared focus hushes weather and carries a gentle breathing cadence", () => {
+  const breezy = setWorldWeather(createPetWorldState(), "breeze");
+  const ordinary = stepPetWorld(breezy, 420, false);
+  const focusing = beginCompanionFocus(breezy, 15000);
+  const quiet = stepPetWorld(focusing, 420, false);
+  const atmosphere = resolveFocusAtmosphere(quiet.focus, false);
+
+  assert.ok(atmosphere.hush > 0);
+  assert.ok(atmosphere.breath >= 0 && atmosphere.breath <= 1);
+  assert.ok(Math.abs(quiet.weatherSway) < Math.abs(ordinary.weatherSway));
+});
+
+test("Reduce Motion keeps focus meaning without a pulsing cadence", () => {
+  const focusing = beginCompanionFocus(createPetWorldState(), 15000);
+  const settled = stepPetWorld(focusing, 100, true);
+  const after = stepPetWorld(settled, 3200, true);
+  const atmosphere = resolveFocusAtmosphere(after.focus, true);
+
+  assert.equal(settled.action, "focus");
+  assert.equal(after.action, "focus", "shared stillness must not become idle while its clock is active");
+  assert.equal(atmosphere.hush, 1);
+  assert.equal(atmosphere.breath, 0.5);
 });
 
 test("screen taps resolve into world-space attention and travel intents", () => {
@@ -236,6 +274,22 @@ test("guardian tracks a high sky moth with its aerial vocabulary", () => {
   assert.equal(clipForWorldAction(after.action), "aerial");
   assert.equal(after.facing, 1, "the Guardian faces the sky moth that is still visibly right");
   assert.equal(after.visitor.direction, 1, "the sky moth escapes farther into the chosen side of the shot");
+});
+
+test("a pursued sky moth remains visible through the Guardian's committed reach", () => {
+  const nearEdge = {
+    ...createPetWorldState(),
+    petX: 430,
+    cameraX: 400,
+  };
+  const visitor = spawnVisitor(nearEdge, "guardian", { x: 448, direction: -1 });
+  const launched = stepPetWorld(visitor, 80, false);
+  const reaching = stepPetWorld(launched, 300, false);
+
+  assert.equal(launched.action, "aerial-pounce");
+  assert.equal(launched.facing, 1);
+  assert.equal(reaching.visitor.active, true, "the target cannot vanish before the aerial performance resolves");
+  assert.ok(reaching.visitor.x <= PET_WORLD.maxX);
 });
 
 test("rollover is a finite grounded performance", () => {

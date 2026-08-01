@@ -20,6 +20,7 @@ The prototype lets a tester:
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
+- watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - simulate a completed To-do or Focus session;
 - give one care moment per prototype day;
@@ -50,6 +51,11 @@ new manifests together while the habitat renders once. Deterministic leaf-light
 gathers inward and opens around the arrived form; visitors and autonomous travel
 yield until the ceremony is complete. Reduce Motion removes the orbit and scale
 pulse but retains the two-form handoff.
+Shared Focus adds a portable duration and elapsed-time clock plus bounded hush
+and breath outputs. The world clears transient visitors, suppresses direct play,
+softens decorative weather sway, and holds a quiet pool of light beneath the
+old tree while Leafling remains grounded in its curled breathing loop. The same
+state resolves to a static calm treatment under Reduce Motion.
 The renderer-neutral habitat manifest carries a 480 × 240 far panorama, a
 root-anchored shelter tree, and a transparent near-meadow layer. Canvas 2D is
 the current adapter. It places Leafling low in the scene, draws contact cues
