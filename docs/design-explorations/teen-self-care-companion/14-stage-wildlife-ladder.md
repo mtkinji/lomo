@@ -69,6 +69,8 @@ later, preserving surprise and preventing oscillating left-right pursuit.
 - Acquisition predicts one intercept point from visitor direction and speed,
   but never predicts through the Pet's body to the opposite visible side.
 - Facing locks to that intercept before the first launch drawing.
+- Acquisition, lowering, and coil remain planted; world translation begins on
+  the authored launch drawing rather than sliding beneath the anticipation.
 - Pounce and aerial-pounce preserve that facing through contact and recovery.
 - At commitment the visitor turns outward on the chosen side, preventing it
   from crossing behind the Pet and reversing the visible relationship mid-shot.
@@ -94,6 +96,8 @@ vocabulary, not add visitor inventories or reward systems.
 ## Acceptance evidence
 
 - A visitor crossing the Pet cannot cause a backward or repeated pounce.
+- Pet travel begins after anticipation and always agrees with the locked body
+  action line.
 - The Pet faces the predicted intercept before launch in both directions.
 - Baby receives a ground crawler, young receives a firefly, and Guardian
   receives a high sky moth.
@@ -102,3 +106,19 @@ vocabulary, not add visitor inventories or reward systems.
 - Every encounter ends once and returns to a calm world.
 - Rain shelter, Focus together, direct taps, Reduce Motion, and ordinary travel
   retain priority over wildlife.
+
+## Timing correction evidence
+
+The initial world implementation moved `petX` from the first acquisition
+drawing, even though the authored pounce and aerial rows begin with planted
+notice, lowering, and coil drawings. That mismatch—not the atlas mirroring—was
+the remaining source of backward-looking or sliding jumps.
+
+The corrected runtime locks one intercept and facing at commitment, records the
+launch position, keeps horizontal position fixed through anticipation, and
+interpolates travel only across the authored launch-to-contact window. Browser
+QA at a 390 x 844 viewport showed Guardian planted and looking up-left toward a
+visible sky moth before launch; deterministic runtime tests then proved the
+first travel delta is leftward under the same locked facing and that Guardian
+covers more aerial distance than the young and baby responses. This is browser
+prototype proof, not signed-device proof.

@@ -12,6 +12,7 @@ The prototype lets a tester:
 - tap the world to walk, run, and jump while authored footfalls and a wider camera follow;
 - pinch from a full habitat view to a temporary 2.25x close-up;
 - discover a stage-specific wildlife ladder: baby follows a ground crawler, young chases a firefly, and guardian banks through a high aerial interception of a sky moth;
+- see every wildlife chase plant its acquisition and coil before translation, then lock facing, travel, and escape to one committed side;
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
 - inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
 - see a face-only 184 ms blink composed over a locked full-body key pose;
@@ -39,8 +40,8 @@ The prototype lets a tester:
 - feel one throw linger in warm air, drift with a sampled gust, or fall quickly when rain makes the leaf heavy;
 - keep weather prediction and frame-by-frame physics on one immutable flight profile so environmental play remains legible and portable;
 - let a Play-together receipt stir the breeze and invite a small visitor;
-- complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
-- leave and return to the same bounded bloom memories in an otherwise calm fresh world;
+- complete a To-do, Focus session, or Play-together moment and watch each leave a distinct persistent habitat trace;
+- leave and return to the same four bounded, privacy-safe life echoes in an otherwise calm fresh world;
 - simulate a completed Focus session;
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;

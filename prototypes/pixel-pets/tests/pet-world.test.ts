@@ -7,6 +7,7 @@ import {
   createPetWorldState,
   dragWorldWindLeaf,
   beginCompanionFocus,
+  beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
   clipForWorldAction,
@@ -16,6 +17,7 @@ import {
   grabWorldWindLeaf,
   nextWeatherKind,
   plantProgressBloom,
+  plantLifeEcho,
   restorePetWorldMemory,
   resolveCameraTargetX,
   resolveCinematicShot,
@@ -28,7 +30,11 @@ import {
 
 test("durable world memory contains only bounded privacy-safe scenery", () => {
   let world = createPetWorldState();
-  for (let index = 0; index < 4; index += 1) world = plantProgressBloom(world);
+  world = plantLifeEcho(world, "todo");
+  world = plantLifeEcho(world, "focus");
+  world = plantLifeEcho(world, "play");
+  world = plantLifeEcho(world, "todo");
+  world = plantLifeEcho(world, "focus");
   world = {
     ...world,
     action: "focus",
@@ -43,9 +49,11 @@ test("durable world memory contains only bounded privacy-safe scenery", () => {
   assert.deepEqual(Object.keys(memory).sort(), ["blooms", "version"]);
   assert.equal(memory.version, 1);
   assert.equal(memory.blooms.length, PET_WORLD.maxBlooms);
-  assert.deepEqual(memory.blooms.map((bloom) => bloom.id), [2, 3, 4]);
-  assert.ok(memory.blooms.every((bloom) => bloom.source === "todo" && bloom.growth === 1));
-  assert.doesNotMatch(JSON.stringify(memory), /focus|rain|visitor|petX|camera/i);
+  assert.deepEqual(memory.blooms.map((bloom) => bloom.id), [2, 3, 4, 5]);
+  assert.deepEqual(memory.blooms.map((bloom) => bloom.source), ["focus", "play", "todo", "focus"]);
+  assert.ok(memory.blooms.every((bloom) => bloom.growth === 1));
+  assert.ok(memory.blooms.every((bloom) => Object.keys(bloom).sort().join(",") === "growth,id,source,x"));
+  assert.doesNotMatch(JSON.stringify(memory), /taskTitle|person|duration|date|goal|arc|visitor|petX|camera/i);
 });
 
 test("returning to the capability restores scenery into a calm fresh world", () => {
@@ -67,15 +75,17 @@ test("world-memory recovery rejects malformed, private, and out-of-bounds data",
     taskTitle: "A private task must never survive",
     blooms: [
       { id: 2, x: -900, growth: 0.2, source: "todo", title: "private" },
-      { id: 3, x: 900, growth: 0.8, source: "todo" },
+      { id: 3, x: 900, growth: 0.8, source: "focus" },
+      { id: 4, x: 240, growth: 1, source: "play", person: "private" },
       { id: "bad", x: 240, growth: 1, source: "todo" },
-      { id: 4, x: 250, growth: 1, source: "unknown" },
+      { id: 5, x: 250, growth: 1, source: "unknown" },
     ],
   });
 
   assert.deepEqual(restored.blooms, [
     { id: 2, x: PET_WORLD.minX, growth: 1, source: "todo" },
-    { id: 3, x: PET_WORLD.maxX, growth: 1, source: "todo" },
+    { id: 3, x: PET_WORLD.maxX, growth: 1, source: "focus" },
+    { id: 4, x: 240, growth: 1, source: "play" },
   ]);
   assert.deepEqual(restorePetWorldMemory(initial, null).blooms, []);
   assert.deepEqual(restorePetWorldMemory(initial, { version: 2, blooms: [] }).blooms, []);
@@ -130,13 +140,40 @@ test("a completed intention opens one world memory that Moss notices and admires
   assert.equal(blooming.blooms[0].growth, 1);
 });
 
+test("doing, focusing, and playing create distinct traces in one memory system", () => {
+  let world = createPetWorldState();
+  world = plantLifeEcho(world, "todo", 286);
+  world = plantLifeEcho(world, "focus", 118);
+  world = plantLifeEcho(world, "play", 350);
+
+  assert.deepEqual(world.blooms.map(({ source, x }) => ({ source, x })), [
+    { source: "todo", x: 286 },
+    { source: "focus", x: 118 },
+    { source: "play", x: 350 },
+  ]);
+  assert.ok(world.blooms.every((memory) => memory.growth === 0));
+  assert.equal(world.action, "bloom-notice");
+  assert.equal(world.targetX, 350);
+});
+
+test("shared play keeps its breeze and visitor while planting a paired memory", () => {
+  const playing = beginSharedPlayEcho(createPetWorldState(), "young");
+
+  assert.equal(playing.weather, "breeze");
+  assert.equal(playing.visitor.active, true);
+  assert.equal(playing.visitor.kind, "firefly");
+  assert.equal(playing.action, "track");
+  assert.deepEqual(playing.blooms.map((memory) => memory.source), ["play"]);
+});
+
 test("habitat memories stay bounded and survive direct play plus Focus priority", () => {
   let world = createPetWorldState();
-  for (let index = 0; index < 4; index += 1) world = plantProgressBloom(world);
+  const sources = ["todo", "focus", "play", "todo", "focus"] as const;
+  for (const source of sources) world = plantLifeEcho(world, source);
 
-  assert.equal(world.blooms.length, 3);
-  assert.deepEqual(world.blooms.map((bloom) => bloom.id), [2, 3, 4]);
-  assert.equal(new Set(world.blooms.map((bloom) => bloom.x)).size, 3);
+  assert.equal(world.blooms.length, 4);
+  assert.deepEqual(world.blooms.map((bloom) => bloom.id), [2, 3, 4, 5]);
+  assert.equal(new Set(world.blooms.map((bloom) => bloom.x)).size, 4);
 
   const touched = applyWorldIntent(world, { kind: "jump", worldX: world.petX + 20 });
   assert.equal(touched.action, "jump");
@@ -652,6 +689,22 @@ test("a crossing firefly keeps its intercept on the visible side and cannot prov
   assert.equal(recovered.visitor.active, false, "one visitor cannot provoke an opposite-facing second launch");
 });
 
+test("a visitor chase plants the turn and coil before translating toward the locked target", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
+  const committed = stepPetWorld(start, 16, false);
+  const coiled = stepPetWorld(committed, 240, false);
+  const launched = stepPetWorld(coiled, 120, false);
+
+  assert.equal(committed.action, "pounce");
+  assert.equal(committed.facing, 1);
+  assert.equal(committed.visitor.launchX, start.petX);
+  assert.equal(coiled.petX, committed.petX, "acquire, lower, and coil must stay planted");
+  assert.equal(coiled.facing, committed.facing, "a committed chase cannot flip during anticipation");
+  assert.ok(launched.petX > coiled.petX, "translation begins only once the authored launch starts");
+  assert.equal(launched.facing, committed.facing);
+  assert.ok((launched.petX - coiled.petX) * launched.facing > 0, "screen travel must agree with the body action line");
+});
+
 test("guardian tracks a high sky moth with its aerial vocabulary", () => {
   const start = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
   const after = stepPetWorld(start, 80, false);
@@ -662,6 +715,36 @@ test("guardian tracks a high sky moth with its aerial vocabulary", () => {
   assert.equal(clipForWorldAction(after.action), "aerial");
   assert.equal(after.facing, 1, "the Guardian faces the sky moth that is still visibly right");
   assert.equal(after.visitor.direction, 1, "the sky moth escapes farther into the chosen side of the shot");
+});
+
+test("maturity unlocks progressively higher wildlife and a longer aerial travel window", () => {
+  const baby = spawnVisitor(createPetWorldState(), "baby", { x: 250, direction: -1 });
+  const young = spawnVisitor(createPetWorldState(), "young", { x: 250, direction: -1 });
+  const guardian = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
+  const babyCommitted = stepPetWorld(baby, 16, false);
+  const youngCommitted = stepPetWorld(young, 16, false);
+  const guardianCommitted = stepPetWorld(guardian, 16, false);
+  const babyAirborne = stepPetWorld(babyCommitted, 390, false);
+  const youngAirborne = stepPetWorld(youngCommitted, 390, false);
+  const guardianAirborne = stepPetWorld(guardianCommitted, 390, false);
+
+  assert.deepEqual(
+    [babyCommitted.visitor.kind, youngCommitted.visitor.kind, guardianCommitted.visitor.kind],
+    ["crawler", "firefly", "sky-moth"],
+  );
+  assert.ok(babyCommitted.visitor.y > youngCommitted.visitor.y);
+  assert.ok(youngCommitted.visitor.y > guardianCommitted.visitor.y);
+  assert.equal(clipForWorldAction(babyCommitted.action), "pounce");
+  assert.equal(clipForWorldAction(youngCommitted.action), "pounce");
+  assert.equal(clipForWorldAction(guardianCommitted.action), "aerial");
+  assert.ok(
+    Math.abs(guardianAirborne.petX - guardianCommitted.petX) > Math.abs(youngAirborne.petX - youngCommitted.petX),
+    "the Guardian's aerial path should cover more ground than the young pounce",
+  );
+  assert.ok(
+    Math.abs(youngAirborne.petX - youngCommitted.petX) >= Math.abs(babyAirborne.petX - babyCommitted.petX),
+    "young movement should be at least as capable as the baby ground pounce",
+  );
 });
 
 test("a pursued sky moth remains visible through the Guardian's committed reach", () => {

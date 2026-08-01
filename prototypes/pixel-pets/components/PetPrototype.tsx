@@ -211,6 +211,7 @@ export function PetPrototype() {
     focusCompletionHandled.current = true;
     const next = completeMeaningfulAction(state, "focus");
     setState(next);
+    setWorldCommand((current) => ({ serial: (current?.serial ?? 0) + 1, type: "focus-memory" }));
     playPetCue("discover", next.stage);
     nudge();
     settleAfterMotion("discover");
@@ -219,7 +220,7 @@ export function PetPrototype() {
   function complete(source: MeaningfulAction) {
     const next = completeMeaningfulAction(state, source);
     setState(next);
-    if (source === "todo") commandWorld("bloom");
+    if (source === "todo") commandWorld("todo-memory");
     playPetCue("discover", next.stage);
     nudge();
     settleAfterMotion("discover");
@@ -369,15 +370,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 21</span>
-        <h1>The weather<br />joins the game.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 22</span>
+        <h1>The meadow<br />remembers your day.</h1>
         <p>
-          Toss the same golden leaf through sun, wind, and rain. The air will change its path—and Moss will read the world with you.
+          Move one thing forward, focus beside Moss, or play together. Each way of living leaves a different gentle trace.
         </p>
         <dl className="engine-facts">
-          <div><dt>Sun</dt><dd>buoyant · lingering</dd></div>
-          <div><dt>Wind</dt><dd>gusted · drifting</dd></div>
-          <div><dt>Rain</dt><dd>wet · quick to fall</dd></div>
+          <div><dt>To-do</dt><dd>one upright bloom</dd></div>
+          <div><dt>Focus</dt><dd>a quiet stilllight</dd></div>
+          <div><dt>Together</dt><dd>paired seedheads</dd></div>
         </dl>
       </header>
 
@@ -499,7 +500,7 @@ export function PetPrototype() {
             <span>Stillness <strong>{world.focus.active ? `${Math.round(focusAtmosphere.hush * 100)}%` : "quiet"}</strong></span>
             <span>Soundscape <strong>{!state.soundEnabled ? "muted" : soundscapeRef.current?.started ? "awake" : "tap to hear"}</strong></span>
             <span>Audio mix <strong>{world.focus.active ? "meadow · hush" : world.weather === "rain" ? "meadow · rain" : world.weather === "breeze" ? "meadow · wind" : "meadow · warmth"}{soundscapeMix.wildlife > 0 ? " · wildlife" : ""}</strong></span>
-            <span>Bloom <strong>{world.blooms.length === 0 ? "quiet" : world.blooms.at(-1)?.growth === 1 ? "remembered" : "opening"}</strong></span>
+            <span>Life echoes <strong>{world.blooms.length === 0 ? "quiet" : world.blooms.map((memory) => memory.source).join(" · ")}</strong></span>
           </div>
         </section>
 

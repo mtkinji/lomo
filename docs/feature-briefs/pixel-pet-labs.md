@@ -93,6 +93,7 @@ Care days accumulate and never subtract. A missed day cannot make the Pet hungry
 - The golden leaf shares the habitat's weather rules. A throw samples one deterministic profile: sun gives the dry leaf a lingering updraft, wind produces readable lateral drift, and rain makes it heavier and quicker to land. Prediction and simulation use the same immutable profile so the Pet commits once, faces correctly, and never chases a moving intercept.
 - Tap or drag an available meal to its bowl.
 - See one recent source-class receipt without private Activity text.
+- Let the habitat keep a bounded, privacy-safe visual trace of different life progress: a completed To-do opens an upright bloom, Focus leaves one pale stilllight near the old tree, and playing together opens paired seedheads. Only source class, world position, and completed growth persist; no Activity text, person, duration, date, Goal, Arc, count, score, or care progress is stored in the scenery contract.
 - Occasionally choose between two cosmetic directions such as rest, explore, or play.
 - Grow from baby to young after three distinct care days, then to guardian after eight.
 

@@ -1,4 +1,4 @@
-import type { PetStage } from "./pet-state";
+import type { MeaningfulAction, PetStage } from "./pet-state";
 import { ENGINE_SCENE } from "./pet-engine.ts";
 import {
   catchWindLeaf,
@@ -36,7 +36,7 @@ export const PET_WORLD = {
   memoryHoldDuration: 2200,
   treeRestDuration: 4800,
   bloomApproachDistance: 12,
-  maxBlooms: 3,
+  maxBlooms: 4,
   cameraLookAhead: 14,
   userCameraHoldDuration: 6000,
   cameraPushDuration: 900,
@@ -72,13 +72,14 @@ export interface WorldVisitor {
   ageMs: number;
   engaged: boolean;
   engagedAgeMs: number;
+  launchX: number;
 }
 
 export interface WorldBloom {
   id: number;
   x: number;
   growth: number;
-  source: "todo";
+  source: MeaningfulAction;
 }
 
 export interface PetWorldMemory {
@@ -122,6 +123,8 @@ const VISITOR_BEHAVIOR = {
     engageDistance: 15,
     attentionDistance: 76,
     lead: 4,
+    launchAt: 290,
+    landAt: 510,
     action: "pounce" as const,
   },
   firefly: {
@@ -130,6 +133,8 @@ const VISITOR_BEHAVIOR = {
     engageDistance: 22,
     attentionDistance: 108,
     lead: 22,
+    launchAt: 290,
+    landAt: 510,
     action: "pounce" as const,
   },
   "sky-moth": {
@@ -138,6 +143,8 @@ const VISITOR_BEHAVIOR = {
     engageDistance: 34,
     attentionDistance: 138,
     lead: 38,
+    launchAt: 250,
+    landAt: 595,
     action: "aerial-pounce" as const,
   },
 } satisfies Record<WorldVisitorKind, {
@@ -146,6 +153,8 @@ const VISITOR_BEHAVIOR = {
   engageDistance: number;
   attentionDistance: number;
   lead: number;
+  launchAt: number;
+  landAt: number;
   action: "pounce" | "aerial-pounce";
 }>;
 
@@ -184,6 +193,7 @@ export function createPetWorldState(): PetWorldState {
       ageMs: 0,
       engaged: false,
       engagedAgeMs: 0,
+      launchX: PET_WORLD.width / 2,
     },
     playLeaf: createWindLeaf(),
     blooms: [],
@@ -231,11 +241,20 @@ export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): P
   };
 }
 
-export function plantProgressBloom(state: PetWorldState, requestedX?: number): PetWorldState {
+export function plantLifeEcho(
+  state: PetWorldState,
+  source: MeaningfulAction,
+  requestedX?: number,
+): PetWorldState {
   const nextId = state.blooms.reduce((highest, bloom) => Math.max(highest, bloom.id), 0) + 1;
-  const placementOffsets = [56, -70, 92, -96] as const;
-  const x = clampWorldX(requestedX ?? state.petX + placementOffsets[(nextId - 1) % placementOffsets.length]);
-  const bloom: WorldBloom = { id: nextId, x, growth: 0, source: "todo" };
+  const placement = {
+    todo: { anchor: state.petX, offsets: [56, -70, 92, -96] },
+    focus: { anchor: PET_WORLD.treeShelterX, offsets: [-24, 22, -38, 36] },
+    play: { anchor: state.petX, offsets: [72, -78, 98, -104] },
+  } satisfies Record<MeaningfulAction, { anchor: number; offsets: readonly number[] }>;
+  const sourcePlacement = placement[source];
+  const x = clampWorldX(requestedX ?? sourcePlacement.anchor + sourcePlacement.offsets[(nextId - 1) % sourcePlacement.offsets.length]);
+  const bloom: WorldBloom = { id: nextId, x, growth: 0, source };
 
   return {
     ...state,
@@ -249,6 +268,10 @@ export function plantProgressBloom(state: PetWorldState, requestedX?: number): P
     playLeaf: createWindLeaf(),
     blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
   };
+}
+
+export function plantProgressBloom(state: PetWorldState, requestedX?: number): PetWorldState {
+  return plantLifeEcho(state, "todo", requestedX);
 }
 
 export function beginMemoryVisit(state: PetWorldState, requestedX: number): PetWorldState {
@@ -301,9 +324,13 @@ export function restorePetWorldMemory(state: PetWorldState, value: unknown): Pet
     const id = candidate.id;
     const x = candidate.x;
     if (!Number.isInteger(id) || (id as number) <= 0 || seenIds.has(id as number)) continue;
-    if (typeof x !== "number" || !Number.isFinite(x) || candidate.source !== "todo") continue;
+    if (
+      typeof x !== "number"
+      || !Number.isFinite(x)
+      || (candidate.source !== "todo" && candidate.source !== "focus" && candidate.source !== "play")
+    ) continue;
     seenIds.add(id as number);
-    blooms.push({ id: id as number, x: clampWorldX(Math.round(x)), growth: 1, source: "todo" });
+    blooms.push({ id: id as number, x: clampWorldX(Math.round(x)), growth: 1, source: candidate.source });
   }
 
   return { ...state, blooms: blooms.slice(-PET_WORLD.maxBlooms) };
@@ -544,8 +571,14 @@ export function spawnVisitor(
       ageMs: 0,
       engaged: false,
       engagedAgeMs: 0,
+      launchX: state.petX,
     },
   };
+}
+
+export function beginSharedPlayEcho(state: PetWorldState, stage: PetStage): PetWorldState {
+  const world = spawnVisitor(setWorldWeather(plantLifeEcho(state, "play"), "breeze"), stage);
+  return { ...world, action: "track", actionElapsed: 0, targetX: null };
 }
 
 function finishAction(state: PetWorldState): PetWorldState {
@@ -577,6 +610,18 @@ function resolveVisitorIntercept(
     return clampWorldX(visitor.x);
   }
   return predicted;
+}
+
+function resolveCommittedVisitorX(state: PetWorldState, elapsedMs: number) {
+  const behavior = VISITOR_BEHAVIOR[state.visitor.kind];
+  const targetX = state.targetX ?? state.visitor.x;
+  const progress = clamp(
+    (elapsedMs - behavior.launchAt) / (behavior.landAt - behavior.launchAt),
+    0,
+    1,
+  );
+  const easedProgress = 1 - (1 - progress) ** 2;
+  return state.visitor.launchX + (targetX - state.visitor.launchX) * easedProgress;
 }
 
 function finishVisitorAction(state: PetWorldState): PetWorldState {
@@ -1007,19 +1052,29 @@ export function stepPetWorld(
       if (state.targetX !== null) next.petX = moveToward(state.petX, state.targetX, dt * 0.018);
     }
   } else if (state.action === "pounce") {
-    if (next.actionElapsed >= PET_WORLD.pounceDuration) next = finishVisitorAction(next);
+    if (next.actionElapsed >= PET_WORLD.pounceDuration) {
+      next = finishVisitorAction({
+        ...next,
+        petX: state.targetX ?? next.petX,
+        facing: state.visitor.direction,
+      });
+    }
     else {
-      const targetX = state.targetX ?? state.visitor.x;
-      next.petX = moveToward(state.petX, targetX, dt * 0.05);
-      next.facing = faceToward(state.petX, targetX, state.facing);
+      next.petX = resolveCommittedVisitorX(state, next.actionElapsed);
+      next.facing = state.visitor.direction;
       next.poseY = 0;
     }
   } else if (state.action === "aerial-pounce") {
-    if (next.actionElapsed >= PET_WORLD.aerialPounceDuration) next = finishVisitorAction(next);
+    if (next.actionElapsed >= PET_WORLD.aerialPounceDuration) {
+      next = finishVisitorAction({
+        ...next,
+        petX: state.targetX ?? next.petX,
+        facing: state.visitor.direction,
+      });
+    }
     else {
-      const targetX = state.targetX ?? state.visitor.x;
-      next.petX = moveToward(state.petX, targetX, dt * 0.042);
-      next.facing = faceToward(state.petX, targetX, state.facing);
+      next.petX = resolveCommittedVisitorX(state, next.actionElapsed);
+      next.facing = state.visitor.direction;
       next.poseY = 0;
     }
   } else if (state.targetX !== null) {
@@ -1117,6 +1172,7 @@ export function stepPetWorld(
         direction: next.facing,
         engaged: true,
         engagedAgeMs: 0,
+        launchX: state.petX,
       };
     } else if (Math.abs(visitorDistance) <= behavior.attentionDistance) {
       next.action = "track";

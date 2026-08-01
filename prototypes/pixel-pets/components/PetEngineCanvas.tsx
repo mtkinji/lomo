@@ -15,6 +15,7 @@ import {
   PET_WORLD,
   applyWorldIntent,
   beginCompanionFocus,
+  beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
   clipForWorldAction,
@@ -22,7 +23,7 @@ import {
   dragWorldWindLeaf,
   grabWorldWindLeaf,
   nextWeatherKind,
-  plantProgressBloom,
+  plantLifeEcho,
   resolveFocusAtmosphere,
   resolveTapIntent,
   screenPointToWorldPoint,
@@ -50,7 +51,7 @@ import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "play" | "bloom" | "reset";
+  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -536,9 +537,59 @@ function drawProgressBlooms(
 ) {
   for (const bloom of world.blooms) {
     const growth = bloom.growth;
-    const stemHeight = Math.max(1, Math.round(growth * 10));
-    const bloomY = ENGINE_SCENE.groundY - stemHeight;
     const side = bloom.id % 2 === 0 ? -1 : 1;
+
+    if (bloom.source === "focus") {
+      const height = Math.max(3, Math.round(growth * 14));
+      const lightY = ENGINE_SCENE.groundY - height;
+      context.save();
+      context.translate(Math.round(bloom.x), 0);
+      context.globalAlpha = 0.52 + growth * 0.34;
+      context.fillStyle = palette.deep;
+      context.fillRect(0, lightY, 1, height);
+      if (growth > 0.5) {
+        const pulse = Math.floor(world.weatherElapsed / 480) % 2;
+        context.globalAlpha = 0.12 + pulse * 0.05;
+        context.fillStyle = palette.skyLight;
+        context.fillRect(-6, lightY - 7, 13, 13);
+        context.globalAlpha = 0.9;
+        context.fillStyle = palette.cream;
+        context.fillRect(-3, lightY - 3, 7, 7);
+        context.fillRect(0, lightY - 6, 1, 13);
+        context.fillStyle = palette.skyLight;
+        context.fillRect(0, lightY, 1, 1);
+      }
+      context.restore();
+      continue;
+    }
+
+    if (bloom.source === "play") {
+      const height = Math.max(3, Math.round(growth * 13));
+      const headY = ENGINE_SCENE.groundY - height;
+      context.save();
+      context.translate(Math.round(bloom.x), 0);
+      context.globalAlpha = 0.56 + growth * 0.4;
+      context.fillStyle = palette.deep;
+      context.fillRect(-4, headY + 3, 2, height - 3);
+      context.fillRect(3, headY + 3, 2, height - 3);
+      if (growth > 0.42) {
+        context.fillRect(-3, headY + 1, 2, 5);
+        context.fillRect(2, headY + 1, 2, 5);
+      }
+      if (growth > 0.65) {
+        context.fillStyle = palette.cream;
+        context.fillRect(-7, headY - 2, 6, 4);
+        context.fillRect(2, headY - 2, 6, 4);
+        context.fillStyle = palette.bloom;
+        context.fillRect(-3, headY, 1, 1);
+        context.fillRect(3, headY, 1, 1);
+      }
+      context.restore();
+      continue;
+    }
+
+    const stemHeight = Math.max(2, Math.round(growth * 15));
+    const bloomY = ENGINE_SCENE.groundY - stemHeight;
 
     context.save();
     context.translate(Math.round(bloom.x), 0);
@@ -549,7 +600,7 @@ function drawProgressBlooms(
     if (growth > 0.52) context.fillRect(-side, ENGINE_SCENE.groundY - Math.max(3, Math.round(stemHeight * 0.68)), -2 * side, 2);
 
     if (growth > 0.62) {
-      const opening = Math.max(1, Math.round((growth - 0.62) / 0.38 * 3));
+      const opening = Math.max(2, Math.round((growth - 0.62) / 0.38 * 4));
       context.fillStyle = palette.cream;
       context.fillRect(-opening, bloomY - 1, opening * 2 + 1, 3);
       context.fillRect(-1, bloomY - opening, 3, opening * 2 + 1);
@@ -1133,7 +1184,14 @@ export function PetEngineCanvas({
     if (!worldCommand) return;
     livingDayRef.current = interruptLivingDay(livingDayRef.current);
     if (worldCommand.type === "visitor" && !worldRef.current.focus.active) {
-      worldRef.current = spawnVisitor(worldRef.current, stageRef.current);
+      worldRef.current = spawnVisitor({
+        ...worldRef.current,
+        action: "idle",
+        actionElapsed: 0,
+        targetX: null,
+        poseY: 0,
+        rotation: 0,
+      }, stageRef.current);
     }
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
@@ -1153,11 +1211,14 @@ export function PetEngineCanvas({
     if (worldCommand.type === "focus") {
       worldRef.current = beginCompanionFocus(worldRef.current, 15000);
     }
-    if (worldCommand.type === "bloom" && !worldRef.current.focus.active) {
-      worldRef.current = plantProgressBloom(worldRef.current);
+    if (worldCommand.type === "todo-memory" && !worldRef.current.focus.active) {
+      worldRef.current = plantLifeEcho(worldRef.current, "todo");
+    }
+    if (worldCommand.type === "focus-memory") {
+      worldRef.current = plantLifeEcho(worldRef.current, "focus");
     }
     if (worldCommand.type === "play" && !worldRef.current.focus.active) {
-      worldRef.current = spawnVisitor(setWorldWeather(worldRef.current, "breeze"), stageRef.current);
+      worldRef.current = beginSharedPlayEcho(worldRef.current, stageRef.current);
     }
     callbackRef.current.onWorldFrame?.(worldRef.current);
     callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
