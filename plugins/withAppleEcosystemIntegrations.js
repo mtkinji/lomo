@@ -1798,6 +1798,20 @@ struct WidgetFormatters {
     rf.unitsStyle = .abbreviated
     return rf
   }()
+
+  static let currency: NumberFormatter = {
+    let formatter = NumberFormatter()
+    formatter.locale = Locale.autoupdatingCurrent
+    formatter.numberStyle = .currency
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 2
+    return formatter
+  }()
+}
+
+func formatCurrency(cents: Double?) -> String? {
+  guard let cents = cents, cents.isFinite else { return nil }
+  return WidgetFormatters.currency.string(from: NSNumber(value: cents / 100.0))
 }
 
 func formatTimeLabel(ms: Double?) -> String? {
