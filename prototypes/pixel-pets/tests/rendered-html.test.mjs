@@ -30,8 +30,19 @@ test("server-renders the Pixel Pet prototype shell", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Pet Engine Study 59 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<meta[^>]+name=["']viewport["'][^>]+content=["'][^"']*width=device-width[^"']*initial-scale=1[^"']*["']/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+});
+
+test("the immersive capability stretches across a narrow phone viewport", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(
+    css,
+    /@media \(max-width: 760px\)[\s\S]*?\.immersive-lab\s*\{[\s\S]*?display:\s*flex;[\s\S]*?align-items:\s*stretch;[\s\S]*?justify-content:\s*flex-start;/,
+    "the mobile play route must not center its capability in the desktop grid track",
+  );
+  assert.match(css, /\.immersive-lab \.capability-frame\s*\{[\s\S]*?width:\s*100%;/);
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {

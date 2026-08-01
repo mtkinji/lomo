@@ -1137,8 +1137,10 @@ summary:focus-visible {
   .engine-inspector { width: min(100%, 390px); margin-top: 4px; }
 
   .immersive-lab {
-    display: grid;
+    display: flex;
     min-height: 100svh;
+    align-items: stretch;
+    justify-content: flex-start;
     padding: 0;
     background: color-mix(in srgb, var(--accent-soft) 28%, var(--panel));
   }
