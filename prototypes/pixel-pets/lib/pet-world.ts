@@ -70,7 +70,7 @@ export const PET_WORLD = {
   handAerialContactAt: 595,
   handAerialDuration: 965,
   handNoticeDuration: 260,
-  visitorTurnDuration: 180,
+  visitorTurnDuration: 290,
   guardianWakeDuration: 1100,
   reunionNoticeDuration: 720,
   reunionGreetingDuration: 1280,
@@ -81,7 +81,7 @@ export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "track" | "visitor-turn" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "track" | "visitor-turn" | "visitor-stalk" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
 export type AfterRainPhase = "quiet" | "shimmer" | "engaged" | "spent";
@@ -217,7 +217,9 @@ const VISITOR_BEHAVIOR = {
     lead: 4,
     launchAt: 290,
     landAt: 510,
-    action: "pounce" as const,
+    liftLandAt: 290,
+    extraLift: 0,
+    action: "visitor-stalk" as const,
   },
   firefly: {
     y: 158,
@@ -229,6 +231,8 @@ const VISITOR_BEHAVIOR = {
     lead: 22,
     launchAt: 290,
     landAt: 510,
+    liftLandAt: 425,
+    extraLift: 6,
     action: "pounce" as const,
   },
   "sky-moth": {
@@ -241,6 +245,8 @@ const VISITOR_BEHAVIOR = {
     lead: 38,
     launchAt: 250,
     landAt: 595,
+    liftLandAt: 595,
+    extraLift: 18,
     action: "aerial-pounce" as const,
   },
 } satisfies Record<WorldVisitorKind, {
@@ -253,7 +259,9 @@ const VISITOR_BEHAVIOR = {
   lead: number;
   launchAt: number;
   landAt: number;
-  action: "pounce" | "aerial-pounce";
+  liftLandAt: number;
+  extraLift: number;
+  action: "visitor-stalk" | "pounce" | "aerial-pounce";
 }>;
 
 const VISITOR_FOR_STAGE: Record<PetStage, WorldVisitorKind> = {
@@ -821,7 +829,7 @@ export function resolveCameraTargetX(state: PetWorldState) {
   }
   if (
     state.visitor.active
-    && (state.action === "track" || state.action === "visitor-turn" || state.action === "pounce" || state.action === "aerial-pounce")
+    && (state.action === "track" || state.action === "visitor-turn" || state.action === "visitor-stalk" || state.action === "pounce" || state.action === "aerial-pounce")
   ) {
     return clampCameraX((state.petX + state.visitor.x) / 2, state.zoom);
   }
@@ -846,7 +854,7 @@ export function resolveCinematicShot(
 ): { id: Exclude<PetCameraShot, "user">; zoom: number } {
   if (reducedMotion) return { id: "reduced-motion", zoom: 1 };
   if (state.focus.active || state.action === "focus") return { id: "focus", zoom: 1.35 };
-  if (state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial" || state.action === "guardian-land" || state.action === "puddle-splash") {
+  if (state.action === "visitor-stalk" || state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial" || state.action === "guardian-land" || state.action === "puddle-splash") {
     return { id: "action-wide", zoom: 1 };
   }
   if (
@@ -1208,10 +1216,14 @@ function faceToward(value: number, target: number, fallback: -1 | 1): -1 | 1 {
 function resolveVisitorIntercept(
   petX: number,
   visitor: WorldVisitor,
-  lead: number,
+  behavior: (typeof VISITOR_BEHAVIOR)[WorldVisitorKind],
 ) {
   const currentDelta = visitor.x - petX;
-  const predicted = clampWorldX(visitor.x + visitor.direction * lead);
+  const visibleEscapeDistance = behavior.speed
+    * 1.32
+    * (behavior.landAt - behavior.launchAt);
+  const readableLead = Math.min(behavior.lead, visibleEscapeDistance * 0.72);
+  const predicted = clampWorldX(visitor.x + visitor.direction * readableLead);
   const predictedDelta = predicted - petX;
   // Lead a moving visitor only while the lead remains on the side the Pet can
   // currently see. Predicting through the Pet makes the launch face away from
@@ -1232,6 +1244,18 @@ function resolveCommittedVisitorX(state: PetWorldState, elapsedMs: number) {
   );
   const easedProgress = 1 - (1 - progress) ** 2;
   return state.visitor.launchX + (targetX - state.visitor.launchX) * easedProgress;
+}
+
+function resolveCommittedVisitorLift(state: PetWorldState, elapsedMs: number) {
+  const behavior = VISITOR_BEHAVIOR[state.visitor.kind];
+  if (behavior.extraLift === 0) return 0;
+  const progress = clamp(
+    (elapsedMs - behavior.launchAt) / (behavior.liftLandAt - behavior.launchAt),
+    0,
+    1,
+  );
+  if (progress === 0 || progress === 1) return 0;
+  return -Math.sin(progress * Math.PI) * behavior.extraLift;
 }
 
 function finishVisitorAction(state: PetWorldState): PetWorldState {
@@ -1491,7 +1515,7 @@ export function stepPetWorld(
       && !["focus", "shelter", "seek-shelter", "shade", "seek-shade", "night-rest"].includes(state.action)
     ) {
       const behavior = VISITOR_BEHAVIOR[next.visitor.kind];
-      const targetX = resolveVisitorIntercept(state.petX, next.visitor, behavior.lead);
+      const targetX = resolveVisitorIntercept(state.petX, next.visitor, behavior);
       const facing = faceToward(state.petX, targetX, state.facing);
       return {
         ...next,
@@ -1513,7 +1537,7 @@ export function stepPetWorld(
       };
     }
     if (
-      (state.action === "pounce" || state.action === "aerial-pounce")
+      (state.action === "visitor-stalk" || state.action === "pounce" || state.action === "aerial-pounce")
       && state.visitor.engaged
     ) {
       if (next.actionElapsed >= 300) return finishVisitorAction({ ...next, poseY: 0, rotation: 0 });
@@ -2048,19 +2072,22 @@ export function stepPetWorld(
     next.petX = state.petX;
     next.poseY = 0;
     next.rotation = 0;
-    if (next.actionElapsed >= PET_WORLD.visitorTurnDuration) {
-      const behavior = VISITOR_BEHAVIOR[state.visitor.kind];
-      const targetX = resolveVisitorIntercept(state.petX, next.visitor, behavior.lead);
+    const behavior = VISITOR_BEHAVIOR[state.visitor.kind];
+    if (next.actionElapsed >= behavior.launchAt) {
+      const pursuitElapsed = next.actionElapsed;
+      const targetX = resolveVisitorIntercept(state.petX, next.visitor, behavior);
       next.action = behavior.action;
-      next.actionElapsed = 0;
+      next.actionElapsed = pursuitElapsed;
       next.targetX = targetX;
       next.visitor = {
         ...next.visitor,
         direction: state.facing,
         launchX: state.petX,
       };
+      next.petX = resolveCommittedVisitorX(next, pursuitElapsed);
+      next.poseY = resolveCommittedVisitorLift(next, pursuitElapsed);
     }
-  } else if (state.action === "pounce") {
+  } else if (state.action === "visitor-stalk" || state.action === "pounce") {
     if (next.actionElapsed >= PET_WORLD.pounceDuration) {
       next = finishVisitorAction({
         ...next,
@@ -2071,7 +2098,7 @@ export function stepPetWorld(
     else {
       next.petX = resolveCommittedVisitorX(state, next.actionElapsed);
       next.facing = state.visitor.direction;
-      next.poseY = 0;
+      next.poseY = resolveCommittedVisitorLift(state, next.actionElapsed);
     }
   } else if (state.action === "aerial-pounce") {
     if (next.actionElapsed >= PET_WORLD.aerialPounceDuration) {
@@ -2084,7 +2111,7 @@ export function stepPetWorld(
     else {
       next.petX = resolveCommittedVisitorX(state, next.actionElapsed);
       next.facing = state.visitor.direction;
-      next.poseY = 0;
+      next.poseY = resolveCommittedVisitorLift(state, next.actionElapsed);
     }
   } else if (state.targetX !== null) {
     const distance = state.targetX - state.petX;
@@ -2181,13 +2208,12 @@ export function stepPetWorld(
   } else if (next.visitor.active && !next.visitor.engaged) {
     const behavior = VISITOR_BEHAVIOR[next.visitor.kind];
     const visitorDistance = next.visitor.x - state.petX;
-    const interceptX = resolveVisitorIntercept(state.petX, next.visitor, behavior.lead);
+    const interceptX = resolveVisitorIntercept(state.petX, next.visitor, behavior);
     next.facing = faceToward(state.petX, interceptX, state.facing);
     const isTracking = state.action === "track";
     const attentionComplete = isTracking && next.actionElapsed >= behavior.noticeDuration;
     if (Math.abs(visitorDistance) <= behavior.engageDistance && attentionComplete) {
-      const needsPlantedTurn = next.facing !== state.facing;
-      next.action = needsPlantedTurn ? "visitor-turn" : behavior.action;
+      next.action = "visitor-turn";
       next.actionElapsed = 0;
       next.targetX = interceptX;
       next.visitor = {
@@ -2247,7 +2273,9 @@ export function clipForWorldAction(action: PetWorldAction, reducedMotion = false
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "affection") return "affection";
   if (action === "greet" || action === "hand-found") return "greet";
-  if (action === "track" || action === "visitor-turn" || action === "hand-track" || action === "leaf-invite" || action === "leaf-track") return "discover";
+  if (action === "visitor-stalk") return "walk";
+  if (action === "visitor-turn") return stage === "baby" ? "walk" : stage === "guardian" ? "aerial" : "pounce";
+  if (action === "track" || action === "hand-track" || action === "leaf-invite" || action === "leaf-track") return "discover";
   if (action === "weather-notice") return "weather-notice";
   if (action === "puddle-notice" || action === "puddle-invite") return "discover";
   if (action === "wind-brace") return "wind-brace";

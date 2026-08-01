@@ -41,6 +41,7 @@ import {
   releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
 import { leaflingManifestForStage } from "../lib/leafling.ts";
+import { resolvePetFrame } from "../lib/pet-runtime.ts";
 
 test("returning to the capability begins with recognition before movement", () => {
   const baby = beginPetReunion(createPetWorldState(), "baby");
@@ -1513,6 +1514,60 @@ test("a nearby visitor earns a visible attention beat before Moss commits to pur
   assert.equal(noticed.petX, start.petX, "eyes, ears, and head should acquire the target before the body travels");
 });
 
+test("every wildlife chase plays its directional anticipation before takeoff", () => {
+  const stages = ["baby", "young", "guardian"] as const;
+
+  for (const stage of stages) {
+    const start = spawnVisitor(createPetWorldState(), stage, { x: 250, direction: -1 });
+    const noticed = stepPetWorld(start, 16, false, stage);
+    const prepared = stepPetWorld(noticed, 440, false, stage);
+
+    assert.equal(prepared.action, "visitor-turn", `${stage} must plant and aim before leaving the ground`);
+    assert.equal(prepared.petX, start.petX);
+    assert.equal(
+      clipForWorldAction(prepared.action, false, stage),
+      stage === "baby" ? "walk" : stage === "guardian" ? "aerial" : "pounce",
+      `${stage} anticipation must use the same directional body line as its takeoff`,
+    );
+  }
+});
+
+test("Baby stalks the crawler without ever breaking terrain contact", () => {
+  const manifest = leaflingManifestForStage("baby");
+  const start = spawnVisitor(createPetWorldState(), "baby", { x: 250, direction: -1 });
+  const noticed = stepPetWorld(start, 16, false, "baby");
+  const prepared = stepPetWorld(noticed, 440, false, "baby");
+  const stalking = stepPetWorld(prepared, PET_WORLD.visitorTurnDuration, false, "baby");
+
+  assert.equal(clipForWorldAction(prepared.action, false, "baby"), "walk");
+  assert.equal(stalking.action, "visitor-stalk");
+  assert.equal(clipForWorldAction(stalking.action, false, "baby"), "walk");
+  assert.ok(
+    manifest.clips.walk.frames.every((frame) => frame.contact === "planted"),
+    "the Baby chase vocabulary must keep every authored frame on the terrain",
+  );
+  for (let elapsed = 0; elapsed <= PET_WORLD.pounceDuration; elapsed += 40) {
+    assert.equal(resolvePetFrame(manifest, "walk", elapsed, false).contact, "planted");
+  }
+});
+
+test("Young returns world lift to zero when the authored pounce makes contact", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 250, direction: -1 });
+  const noticed = stepPetWorld(start, 16, false, "young");
+  const prepared = stepPetWorld(noticed, 340, false, "young");
+  const contact = stepPetWorld(prepared, 425, false, "young");
+  const snapshot = resolvePetFrame(
+    leaflingManifestForStage("young"),
+    clipForWorldAction(contact.action, false, "young"),
+    contact.actionElapsed,
+    false,
+  );
+
+  assert.equal(contact.action, "pounce");
+  assert.equal(snapshot.contact, "planted");
+  assert.equal(contact.poseY, 0, "world lift and authored foot contact must land on the same frame");
+});
+
 test("Moss commits toward the visitor's latest side after the attention beat", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 237, y: 164, direction: 1 });
   const noticed = stepPetWorld(start, 16, false, "young");
@@ -1542,7 +1597,7 @@ test("a crossing visitor earns a planted turn before Moss launches the other way
   assert.equal(turned.action, "visitor-turn");
   assert.equal(turned.facing, -1);
   assert.equal(turned.petX, start.petX, "turning establishes the action line before translation");
-  assert.equal(clipForWorldAction(turned.action), "discover");
+  assert.equal(clipForWorldAction(turned.action), "pounce");
 
   const planted = stepPetWorld(turned, PET_WORLD.visitorTurnDuration - 1, false, "young");
   const launched = stepPetWorld(planted, 2, false, "young");
@@ -1578,10 +1633,12 @@ test("a new hand invitation is noticed before stage-specific movement begins", (
 test("a crossing firefly keeps its intercept on the visible side and cannot provoke a backward retry", () => {
   const start = spawnVisitor(createPetWorldState(), "young", { x: 226, y: 164, direction: 1 });
   const noticed = stepPetWorld(start, 80, false);
-  const launched = stepPetWorld(noticed, 340, false);
+  const prepared = stepPetWorld(noticed, 340, false);
+  const launched = stepPetWorld(prepared, PET_WORLD.visitorTurnDuration, false);
   const fromRight = spawnVisitor(createPetWorldState(), "young", { x: 254, y: 164, direction: -1 });
   const noticedFromRight = stepPetWorld(fromRight, 80, false);
-  const launchedFromRight = stepPetWorld(noticedFromRight, 340, false);
+  const preparedFromRight = stepPetWorld(noticedFromRight, 340, false);
+  const launchedFromRight = stepPetWorld(preparedFromRight, PET_WORLD.visitorTurnDuration, false);
   const pursuit = stepPetWorld(launched, 260, false);
   const recovered = stepPetWorld(launched, PET_WORLD.pounceDuration, false);
 
@@ -1603,22 +1660,26 @@ test("a visitor chase plants the turn and coil before translating toward the loc
   const noticed = stepPetWorld(start, 16, false);
   const committed = stepPetWorld(noticed, 340, false);
   const coiled = stepPetWorld(committed, 240, false);
-  const launched = stepPetWorld(coiled, 120, false);
+  const launched = stepPetWorld(coiled, 60, false);
+  const airborne = stepPetWorld(launched, 40, false);
 
-  assert.equal(committed.action, "pounce");
+  assert.equal(committed.action, "visitor-turn");
+  assert.equal(clipForWorldAction(committed.action), "pounce");
   assert.equal(committed.facing, 1);
   assert.equal(committed.visitor.launchX, start.petX);
   assert.equal(coiled.petX, committed.petX, "acquire, lower, and coil must stay planted");
   assert.equal(coiled.facing, committed.facing, "a committed chase cannot flip during anticipation");
-  assert.ok(launched.petX > coiled.petX, "translation begins only once the authored launch starts");
+  assert.ok(launched.petX > coiled.petX, "a delayed frame preserves its takeoff overshoot instead of freezing translation");
+  assert.ok(airborne.petX > launched.petX, "translation begins only once the authored launch starts");
   assert.equal(launched.facing, committed.facing);
-  assert.ok((launched.petX - coiled.petX) * launched.facing > 0, "screen travel must agree with the body action line");
+  assert.ok((airborne.petX - launched.petX) * airborne.facing > 0, "screen travel must agree with the body action line");
 });
 
 test("guardian tracks a high sky moth with its aerial vocabulary", () => {
   const start = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
   const noticed = stepPetWorld(start, 80, false, "guardian");
-  const after = stepPetWorld(noticed, 280, false, "guardian");
+  const prepared = stepPetWorld(noticed, 280, false, "guardian");
+  const after = stepPetWorld(prepared, PET_WORLD.visitorTurnDuration, false, "guardian");
 
   assert.equal(after.visitor.kind, "sky-moth");
   assert.ok(after.visitor.y < 130);
@@ -1635,9 +1696,12 @@ test("maturity unlocks progressively higher wildlife and a longer aerial travel 
   const babyCommitted = stepPetWorld(stepPetWorld(baby, 16, false, "baby"), 420, false, "baby");
   const youngCommitted = stepPetWorld(stepPetWorld(young, 16, false, "young"), 340, false, "young");
   const guardianCommitted = stepPetWorld(stepPetWorld(guardian, 16, false, "guardian"), 280, false, "guardian");
-  const babyAirborne = stepPetWorld(babyCommitted, 390, false);
-  const youngAirborne = stepPetWorld(youngCommitted, 390, false);
-  const guardianAirborne = stepPetWorld(guardianCommitted, 390, false);
+  const babyLaunched = stepPetWorld(babyCommitted, PET_WORLD.visitorTurnDuration, false, "baby");
+  const youngLaunched = stepPetWorld(youngCommitted, PET_WORLD.visitorTurnDuration, false, "young");
+  const guardianLaunched = stepPetWorld(guardianCommitted, PET_WORLD.visitorTurnDuration, false, "guardian");
+  const babyAirborne = stepPetWorld(babyLaunched, 110, false, "baby");
+  const youngAirborne = stepPetWorld(youngLaunched, 110, false, "young");
+  const guardianAirborne = stepPetWorld(guardianLaunched, 110, false, "guardian");
 
   assert.deepEqual(
     [babyCommitted.visitor.kind, youngCommitted.visitor.kind, guardianCommitted.visitor.kind],
@@ -1645,15 +1709,18 @@ test("maturity unlocks progressively higher wildlife and a longer aerial travel 
   );
   assert.ok(babyCommitted.visitor.y > youngCommitted.visitor.y);
   assert.ok(youngCommitted.visitor.y > guardianCommitted.visitor.y);
-  assert.equal(clipForWorldAction(babyCommitted.action), "pounce");
-  assert.equal(clipForWorldAction(youngCommitted.action), "pounce");
-  assert.equal(clipForWorldAction(guardianCommitted.action), "aerial");
+  assert.equal(clipForWorldAction(babyCommitted.action, false, "baby"), "walk");
+  assert.equal(clipForWorldAction(youngCommitted.action, false, "young"), "pounce");
+  assert.equal(clipForWorldAction(guardianCommitted.action, false, "guardian"), "aerial");
   assert.ok(
     Math.abs(guardianAirborne.petX - guardianCommitted.petX) > Math.abs(youngAirborne.petX - youngCommitted.petX),
     "the Guardian's aerial path should cover more ground than the young pounce",
   );
-  assert.equal(clipForWorldAction(youngCommitted.action), "pounce");
-  assert.equal(clipForWorldAction(guardianCommitted.action), "aerial");
+  assert.ok(youngAirborne.poseY < babyAirborne.poseY, "the young form should add lift beyond the ground chase");
+  assert.ok(guardianAirborne.poseY < youngAirborne.poseY, "the Guardian should visibly own the highest air layer");
+  assert.equal(clipForWorldAction(babyLaunched.action, false, "baby"), "walk");
+  assert.equal(clipForWorldAction(youngLaunched.action), "pounce");
+  assert.equal(clipForWorldAction(guardianLaunched.action, false, "guardian"), "aerial");
 });
 
 test("Reduce Motion resolves wildlife on the target side without animated pursuit", () => {
@@ -1680,7 +1747,8 @@ test("a pursued sky moth remains visible through the Guardian's committed reach"
   };
   const visitor = spawnVisitor(nearEdge, "guardian", { x: 448, direction: -1 });
   const noticed = stepPetWorld(visitor, 80, false, "guardian");
-  const launched = stepPetWorld(noticed, 280, false, "guardian");
+  const prepared = stepPetWorld(noticed, 280, false, "guardian");
+  const launched = stepPetWorld(prepared, PET_WORLD.visitorTurnDuration, false, "guardian");
   const reaching = stepPetWorld(launched, 300, false);
 
   assert.equal(launched.action, "aerial-pounce");

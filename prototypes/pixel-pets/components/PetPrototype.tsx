@@ -506,15 +506,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 40</span>
-        <h1>The meadow is<br />the capability.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 41</span>
+        <h1>Lock the eyes.<br />Then leave the ground.</h1>
         <p>
-          Touch and play belong here. Focus can happen beside Moss. Everything else arrives as a consequence from the part of Kwilt where life actually happened.
+          Every chase begins with a readable body line. As Moss grows, the living world invites them higher—from ground crawler to firefly to sky moth.
         </p>
         <dl className="engine-facts">
-          <div><dt>Play</dt><dd>touch the world</dd></div>
-          <div><dt>Focus</dt><dd>settle together</dd></div>
-          <div><dt>Progress</dt><dd>arrives from Kwilt</dd></div>
+          <div><dt>Baby</dt><dd>ground</dd></div>
+          <div><dt>Young</dt><dd>low air</dd></div>
+          <div><dt>Guardian</dt><dd>upper air</dd></div>
         </dl>
       </header>
 
@@ -695,7 +695,7 @@ export function PetPrototype() {
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Visitor acting <strong>{visitorPerformance ? `${visitorPerformance.role} · ${visitorPerformance.material} · ${visitorPerformance.frame + 1}/${VISITOR_PERFORMANCE_CLIPS[visitorPerformance.kind].frames.length}` : "quiet"}</strong></span>
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
-            <span>Reach layer <strong>{currentStage === "baby" ? "ground" : currentStage === "young" ? "bound" : "aerial"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
+            <span>Reach layer <strong>{currentStage === "baby" ? "ground · stalk" : currentStage === "young" ? "low air · spring" : "upper air · vault"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
             <span>Wind episode <strong>{world.action === "wind-brace" ? "gathering" : world.action === "leaf-invite" ? "inviting" : world.action.startsWith("leaf-") || world.action === "seek-leaf" ? "playing" : "quiet"}</strong></span>
             <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>

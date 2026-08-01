@@ -17,6 +17,9 @@ The prototype lets a tester:
 - watch each visitor perform through the same renderer-neutral limited-animation grammar: a planted crawler transfers weight through six legs, a firefly beats its wings independently of its slow breathing glow, and a sky moth holds, strikes, banks, and escapes;
 - see visitor materials answer the world: warm light, wind effort, and rain weight change acting without changing behavior authority;
 - see every wildlife chase begin with a planted eyes-ears-head attention beat, sample the target's latest side, then lock facing, travel, and escape to one committed side;
+- keep the directional pounce or aerial playhead continuous from planted anticipation through takeoff instead of restarting or substituting a front-facing discover pose;
+- keep the pursued visitor visibly ahead through contact by capping intercept lead to its real escape window;
+- read evolution in the jump itself: terrain-bound Baby, a modest Young spring, and the Guardian's highest aerial vault;
 - return to a world that begins with recognition: Baby pads over from nearby, Young opens into a delighted run, and Guardian crosses the widest entrance lane before one grounded hello;
 - inhabit a Pet capability whose resting state is the meadow itself: direct touch and one native Focus-with-Moss invitation remain, while To-do and family/friend Play arrive as consequences from the capabilities that own them;
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
@@ -162,11 +165,12 @@ Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.
 
 Wildlife pursuit is stage-aware and direction-locked. Baby follows a terrain
-crawler, Young follows a low firefly, and Guardian follows a high sky moth with
-its authored aerial performance. When a moving visitor crosses Moss during the
-attention beat, the world now inserts a grounded turn before launch. Facing,
-launch position, target side, and outward visitor escape then remain committed
-through landing, so no correct chase can read as a backward jump.
+crawler with an entirely planted stalk, Young springs after a low firefly, and
+Guardian follows a high sky moth with its authored aerial performance. Every
+encounter establishes a directional body line before travel. Facing, launch
+position, target side, and outward visitor escape then remain committed through
+landing, and added lift returns to zero on the exact authored contact frame, so
+no correct chase can read as a backward jump or floating landing.
 
 ## Local use
 
