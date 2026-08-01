@@ -518,15 +518,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 43</span>
-        <h1>The tree waits<br />for you.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 44</span>
+        <h1>The meadow feels<br />the Guardian.</h1>
         <p>
-          Moss earns the branch. You choose when—and where—they return to the meadow.
+          Choose the landing. Young Moss arrives softly. Guardian Moss carries the sky into the grass.
         </p>
         <dl className="engine-facts">
-          <div><dt>Young</dt><dd>short arc</dd></div>
-          <div><dt>Guardian</dt><dd>wide arc</dd></div>
-          <div><dt>No input</dt><dd>safe return</dd></div>
+          <div><dt>Young</dt><dd>quiet contact</dd></div>
+          <div><dt>Guardian</dt><dd>meadow wake</dd></div>
+          <div><dt>Origin</dt><dd>your landing</dd></div>
         </dl>
       </header>
 

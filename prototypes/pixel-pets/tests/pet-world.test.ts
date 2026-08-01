@@ -1013,10 +1013,41 @@ test("a tree perch waits for the person, then returns through their committed la
   assert.equal(returning.treePlay.landingX, TREE_PLAY.guardian.perchX + TREE_PLAY.guardian.landingReach);
   assert.ok(airborne.poseY < 0);
   assert.ok(airborne.petX > returning.petX);
+  assert.equal(landed.action, "guardian-land");
+  assert.equal(landed.petX, returning.treePlay.landingX);
+  assert.equal(landed.poseY, 0);
+  assert.equal(landed.treePlay.active, false);
+  assert.equal(landed.guardianWake.phase, "released");
+  assert.equal(landed.guardianWake.x, returning.treePlay.landingX);
+  assert.equal(landed.guardianWake.facing, 1);
+
+  const wake = resolveGuardianWakePresentation(landed);
+  assert.equal(wake.mode, "released");
+  assert.equal(wake.centerX, returning.treePlay.landingX);
+  assert.equal(wake.intensity, 1);
+
+  const settled = stepPetWorld(
+    landed,
+    PET_WORLD.handAerialDuration - PET_WORLD.handAerialContactAt + 1,
+    false,
+    "guardian",
+  );
+  assert.equal(settled.action, "idle");
+});
+
+test("a Young tree return lands at the chosen place without moving the meadow", () => {
+  const invited = beginTreePlay(createPetWorldState(), "young");
+  const launch = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, "young");
+  const perched = stepPetWorld(launch, TREE_PLAY.young.launchDuration, false, "young");
+  const returning = beginTreeReturn(perched, PET_WORLD.minX);
+  const landed = stepPetWorld(returning, TREE_PLAY.young.returnDuration + 1, false, "young");
+
   assert.equal(landed.action, "idle");
   assert.equal(landed.petX, returning.treePlay.landingX);
   assert.equal(landed.poseY, 0);
   assert.equal(landed.treePlay.active, false);
+  assert.equal(landed.guardianWake.phase, "quiet");
+  assert.equal(resolveGuardianWakePresentation(landed).mode, "quiet");
 });
 
 test("maturity expands the landing space without allowing an impossible request", () => {

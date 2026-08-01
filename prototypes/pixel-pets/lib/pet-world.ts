@@ -1391,6 +1391,25 @@ function finishTreePlay(state: PetWorldState): PetWorldState {
   return finishAction({ ...state, poseY: 0, rotation: 0, treePlay: quietTreePlay(state.treePlay.stage) });
 }
 
+function finishTreeReturn(state: PetWorldState): PetWorldState {
+  const stage = state.treePlay.stage;
+  const landingX = state.treePlay.landingX;
+  const facing = state.facing;
+  const landed = finishTreePlay({ ...state, petX: landingX, facing });
+
+  if (stage !== "guardian") return landed;
+
+  return {
+    ...landed,
+    action: "guardian-land",
+    actionElapsed: PET_WORLD.handAerialContactAt,
+    petX: landingX,
+    poseY: 0,
+    rotation: 0,
+    guardianWake: { phase: "released", x: landingX, elapsedMs: 0, facing },
+  };
+}
+
 function resolveTreePlayMotion(state: PetWorldState, elapsedMs: number, returning: boolean) {
   const profile = treePlayProfile(state.treePlay.stage);
   const duration = returning ? profile.returnDuration : profile.launchDuration;
@@ -2271,7 +2290,7 @@ export function stepPetWorld(
   } else if (state.action === "tree-return" && state.treePlay.active) {
     const profile = treePlayProfile(state.treePlay.stage);
     if (next.actionElapsed >= profile.returnDuration) {
-      next = finishTreePlay({ ...next, petX: state.treePlay.landingX, facing: state.facing });
+      next = finishTreeReturn({ ...next, petX: state.treePlay.landingX, facing: state.facing });
     } else {
       const motion = resolveTreePlayMotion(state, next.actionElapsed, true);
       next.petX = motion.x;

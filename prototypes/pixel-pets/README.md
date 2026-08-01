@@ -137,6 +137,14 @@ Young can choose nearby ground while Guardian can cross a much wider part of
 the clearing. Keyboard left and right map to the same contract. If no invitation
 arrives, the living world waits eight quiet seconds and chooses a safe default
 landing, so player authorship never becomes a demand or stranded state.
+The chosen landing now carries a maturity-specific physical consequence. Young
+returns cleanly and quietly. Guardian reaches the same committed terrain point,
+then releases one finite renderer-neutral meadow wake at contact: grass bows
+away from the body, broken pressure travels through the ground plane, and a few
+loose leaf motes settle back into the habitat. The wake originates at the
+person's landing rather than the old tree, never awards currency or care credit,
+and yields immediately to Focus. Reduce Motion preserves one static bowed-grass
+contact without traveling particles.
 During evolution, a renderer-neutral composition contract drives the old and
 new manifests together while the habitat renders once. Deterministic leaf-light
 gathers inward and opens around the arrived form; visitors and autonomous travel

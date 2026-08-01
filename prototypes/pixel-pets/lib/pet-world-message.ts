@@ -17,7 +17,6 @@ const CAUSAL_SCENE_NARRATION_ACTIONS = new Set<PetWorldAction>([
   "puddle-notice",
   "puddle-invite",
   "puddle-splash",
-  "guardian-land",
 ]);
 
 export function shouldShowSceneNarration(

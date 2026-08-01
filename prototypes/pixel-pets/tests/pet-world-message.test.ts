@@ -39,7 +39,6 @@ test("only causal world events receive visible scene narration", () => {
     "puddle-notice",
     "puddle-invite",
     "puddle-splash",
-    "guardian-land",
   ] as const;
   const selfExplanatory = [
     "idle",
@@ -60,6 +59,7 @@ test("only causal world events receive visible scene narration", () => {
     "visitor-turn",
     "pounce",
     "aerial-pounce",
+    "guardian-land",
     "focus",
     "bloom-notice",
     "seek-bloom",
