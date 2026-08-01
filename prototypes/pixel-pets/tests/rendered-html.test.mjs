@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 38 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 39 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,11 +55,15 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 38 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 39 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 38/);
-  assert.match(prototype, /Face\. Plant\.<br \/>Then fly\./i);
-  assert.match(prototype, /turns all the way toward the chase/i);
+  assert.match(prototype, /Pet Engine Study 39/);
+  assert.match(prototype, /It knows<br \/>you came back\./i);
+  assert.match(prototype, /hears you arrive/i);
+  assert.match(prototype, /beginPetReunion/);
+  assert.match(world, /reunion-notice/);
+  assert.match(world, /reunion-approach/);
+  assert.match(world, /reunion-greet/);
   assert.match(prototype, /Visitor acting/);
   assert.match(prototype, /Habitat acting/);
   assert.match(prototype, /Pet \{state\.name\}/);

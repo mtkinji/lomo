@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   PET_WORLD,
   applyWorldIntent,
+  beginPetReunion,
   beginPetEvening,
   beginPetMorning,
   beginAfterRainSplash,
@@ -40,6 +41,97 @@ import {
   releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
 import { leaflingManifestForStage } from "../lib/leafling.ts";
+
+test("returning to the capability begins with recognition before movement", () => {
+  const baby = beginPetReunion(createPetWorldState(), "baby");
+  const young = beginPetReunion(createPetWorldState(), "young");
+  const guardian = beginPetReunion(createPetWorldState(), "guardian");
+
+  assert.equal(baby.action, "reunion-notice");
+  assert.equal(young.action, "reunion-notice");
+  assert.equal(guardian.action, "reunion-notice");
+  assert.equal(baby.targetX, PET_WORLD.reunionTargetX);
+  assert.equal(young.targetX, PET_WORLD.reunionTargetX);
+  assert.equal(guardian.targetX, PET_WORLD.reunionTargetX);
+  assert.ok(baby.petX > young.petX, "Baby begins nearby instead of performing a long entrance");
+  assert.ok(young.petX > guardian.petX, "Guardian has the largest entrance lane");
+  assert.equal(baby.cameraX, baby.petX);
+  assert.equal(clipForWorldAction(baby.action), "discover");
+  assert.equal(resolveCinematicShot(baby, false).id, "reaction");
+});
+
+test("reunion approach grows from a walk into a faster confident arrival", () => {
+  const noticedBaby = stepPetWorld(
+    beginPetReunion(createPetWorldState(), "baby"),
+    PET_WORLD.reunionNoticeDuration,
+    false,
+    "baby",
+  );
+  const noticedYoung = stepPetWorld(
+    beginPetReunion(createPetWorldState(), "young"),
+    PET_WORLD.reunionNoticeDuration,
+    false,
+    "young",
+  );
+  const noticedGuardian = stepPetWorld(
+    beginPetReunion(createPetWorldState(), "guardian"),
+    PET_WORLD.reunionNoticeDuration,
+    false,
+    "guardian",
+  );
+
+  assert.equal(noticedBaby.action, "reunion-approach");
+  assert.equal(noticedYoung.action, "reunion-approach");
+  assert.equal(noticedGuardian.action, "reunion-approach");
+  assert.equal(clipForWorldAction(noticedBaby.action, false, "baby"), "walk");
+  assert.equal(clipForWorldAction(noticedYoung.action, false, "young"), "run");
+  assert.equal(clipForWorldAction(noticedGuardian.action, false, "guardian"), "run");
+
+  const babyStep = stepPetWorld(noticedBaby, 400, false, "baby");
+  const youngStep = stepPetWorld(noticedYoung, 400, false, "young");
+  const guardianStep = stepPetWorld(noticedGuardian, 400, false, "guardian");
+  assert.ok(babyStep.petX - noticedBaby.petX < youngStep.petX - noticedYoung.petX);
+  assert.ok(youngStep.petX - noticedYoung.petX < guardianStep.petX - noticedGuardian.petX);
+});
+
+test("a reunion lands beside the user, holds one hello, and releases the world", () => {
+  let world = beginPetReunion(createPetWorldState(), "guardian");
+  world = stepPetWorld(world, PET_WORLD.reunionNoticeDuration, false, "guardian");
+  for (let step = 0; step < 80 && world.action === "reunion-approach"; step += 1) {
+    world = stepPetWorld(world, 64, false, "guardian");
+  }
+
+  assert.equal(world.action, "reunion-greet");
+  assert.equal(world.petX, PET_WORLD.reunionTargetX);
+  assert.equal(world.targetX, null);
+  assert.equal(world.poseY, 0);
+  assert.equal(clipForWorldAction(world.action), "affection");
+  assert.ok(
+    leaflingManifestForStage("guardian").clips.affection.frames.every((frame) => frame.contact !== "airborne"),
+    "the final close-up must stay planted on the terrain",
+  );
+  assert.equal(resolveCinematicShot(world, false).id, "intimate");
+
+  world = stepPetWorld(world, PET_WORLD.reunionGreetingDuration, false, "guardian");
+  assert.equal(world.action, "idle");
+});
+
+test("direct play interrupts the reunion and Reduce Motion keeps only recognition", () => {
+  const reunion = beginPetReunion(createPetWorldState(), "young");
+  const touched = applyWorldIntent(reunion, { kind: "move", worldX: 360 });
+  assert.equal(touched.action, "walk");
+  assert.equal(stepPetWorld(touched, 64, false, "young").action, "run");
+
+  const reduced = stepPetWorld(
+    beginPetReunion(createPetWorldState(), "guardian"),
+    1,
+    true,
+    "guardian",
+  );
+  assert.equal(reduced.action, "reunion-greet");
+  assert.equal(reduced.petX, PET_WORLD.reunionTargetX);
+  assert.equal(reduced.poseY, 0);
+});
 
 test("affection is a finite grounded relationship with an intimate camera", () => {
   const initial = { ...createPetWorldState(), petX: 220, facing: 1 as const };

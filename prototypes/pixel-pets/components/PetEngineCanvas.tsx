@@ -18,6 +18,7 @@ import {
   beginAfterRainSplash,
   beginPetEvening,
   beginPetMorning,
+  beginPetReunion,
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
@@ -71,7 +72,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "affection" | "rollover" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  type: "visitor" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -1829,6 +1830,9 @@ export function PetEngineCanvas({
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
     }
+    if (worldCommand.type === "reunion") {
+      worldRef.current = beginPetReunion(worldRef.current, stageRef.current);
+    }
     if (worldCommand.type === "affection") {
       worldRef.current = applyWorldIntent(worldRef.current, {
         kind: "affection",
@@ -1970,7 +1974,7 @@ export function PetEngineCanvas({
       }
       if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
 
-      const worldClip = clipForWorldAction(worldRef.current.action, reducedMotion);
+      const worldClip = clipForWorldAction(worldRef.current.action, reducedMotion, stageRef.current);
       const requestedClip = resolveRequestedClip(
         clipForMotion(motion),
         worldClip,

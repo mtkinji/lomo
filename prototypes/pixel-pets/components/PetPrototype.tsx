@@ -6,6 +6,7 @@ import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
 import { previousStageFor, resolveEvolutionComposition } from "@/lib/pet-evolution";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
 import {
+  beginPetReunion,
   createPetWorldState,
   resolveFocusAtmosphere,
   restorePetWorldMemory,
@@ -115,20 +116,24 @@ export function PetPrototype() {
 
   useEffect(() => {
     queueMicrotask(() => {
+      let restoredState = createPetState("leafling", "Moss", "moss");
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved) setState(JSON.parse(saved) as PetState);
+        if (saved) restoredState = JSON.parse(saved) as PetState;
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
       }
+      setState(restoredState);
+      let restoredWorld = createPetWorldState();
       try {
         const savedWorldMemory = window.localStorage.getItem(WORLD_MEMORY_STORAGE_KEY);
         if (savedWorldMemory) {
-          setWorld(restorePetWorldMemory(createPetWorldState(), JSON.parse(savedWorldMemory)));
+          restoredWorld = restorePetWorldMemory(restoredWorld, JSON.parse(savedWorldMemory));
         }
       } catch {
         window.localStorage.removeItem(WORLD_MEMORY_STORAGE_KEY);
       }
+      setWorld(beginPetReunion(restoredWorld, restoredState.stage));
       setHydrated(true);
     });
   }, []);
@@ -322,14 +327,14 @@ export function PetPrototype() {
     world.weatherElapsed,
     state.reducedMotion,
   );
-  const growthTitle = state.stage === "guardian"
+  const growthTitle = currentStage === "guardian"
     ? "Guardian form"
-    : state.stage === "young"
+    : currentStage === "young"
       ? "Young form · still becoming"
       : "Baby form · still becoming";
-  const growthDetail = state.stage === "guardian"
+  const growthDetail = currentStage === "guardian"
     ? "Powerful, playful, and still Moss."
-    : state.stage === "young"
+    : currentStage === "young"
       ? "New reach, same Moss. Care is remembered."
       : "Care changes Moss. Nothing can be lost.";
   const careEchoCopy = state.pendingSource === "focus"
@@ -341,6 +346,7 @@ export function PetPrototype() {
   const dayPhase = resolvePrototypeDayPhase(state);
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
   const playAnswering = world.visitor.active || ["track", "visitor-turn", "pounce", "aerial-pounce"].includes(world.action);
+  const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
   const worldAnswering = state.careAvailable && (
     (state.pendingSource === "todo" && bloomAnswering)
     || (state.pendingSource === "focus" && bloomAnswering)
@@ -360,11 +366,23 @@ export function PetPrototype() {
       title: "The meadow answered",
       detail: `The air ${state.name} carried touched the ground and traveled through the grass.`,
     };
+    if (world.action === "reunion-notice") return {
+      title: "Moss heard you arrive",
+      detail: "A pause, ears up, then recognition.",
+    };
+    if (world.action === "reunion-approach") return {
+      title: "Coming to meet you",
+      detail: currentStage === "baby" ? "Small steps. No hesitation now." : currentStage === "guardian" ? "A Guardian crossed the meadow just to be near you." : "Moss opened into a delighted run.",
+    };
+    if (world.action === "reunion-greet") return {
+      title: "There you are",
+      detail: `${state.name} found you again.`,
+    };
     if (worldMessage) return worldMessage;
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
-  }, [dayHasCare, state.careAvailable, state.lastReceipt, state.name, state.reaction, state.stage, world.guardianWake.phase, worldMessage]);
+  }, [currentStage, dayHasCare, state.careAvailable, state.lastReceipt, state.name, state.reaction, state.stage, world.action, world.guardianWake.phase, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
   const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
   function showSceneNarration(message: { title: string; detail: string }) {
@@ -400,6 +418,9 @@ export function PetPrototype() {
       return;
     }
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
+      "reunion-notice": { title: "Moss heard you arrive", detail: "A pause, ears up, then recognition." },
+      "reunion-approach": { title: "Coming to meet you", detail: currentStage === "baby" ? "Small steps. No hesitation now." : currentStage === "guardian" ? "A Guardian crossed the meadow just to be near you." : `${state.name} opened into a delighted run.` },
+      "reunion-greet": { title: "There you are", detail: `${state.name} found you again.` },
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       affection: { title: "A little closer", detail: `${state.name} leaned into your hand, then settled in their own time.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
@@ -481,15 +502,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 38</span>
-        <h1>Face. Plant.<br />Then fly.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 39</span>
+        <h1>It knows<br />you came back.</h1>
         <p>
-          Moss turns all the way toward the chase before moving. Each form finds wildlife at a newly reachable layer.
+          The little world does not begin with a menu. Moss hears you arrive, recognizes you, and crosses the meadow to meet you.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>ground crawler</dd></div>
-          <div><dt>Young</dt><dd>low firefly</dd></div>
-          <div><dt>Guardian</dt><dd>high sky moth</dd></div>
+          <div><dt>Baby</dt><dd>small, brave steps</dd></div>
+          <div><dt>Young</dt><dd>a delighted run</dd></div>
+          <div><dt>Guardian</dt><dd>crosses the meadow</dd></div>
         </dl>
       </header>
 
@@ -529,7 +550,7 @@ export function PetPrototype() {
             onWorldFrame={handleWorldFrame}
             onLivingDayFrame={setLivingDay}
             onWorldInteraction={handleWorldInteraction}
-            careEchoSource={dayPhase === "care-ready" && !worldAnswering ? state.pendingSource : null}
+            careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
             label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}.`}
           />
@@ -552,6 +573,14 @@ export function PetPrototype() {
             <div>
               <strong>{world.action === "focus" ? "Quietly focusing together" : "Settling under the old tree"}</strong>
               <small>{world.action === "focus" ? `${state.name} is curled beneath the old tree` : `${state.name} is padding to a quiet place`} · {Math.ceil(world.focus.remainingMs / 1000)} seconds</small>
+            </div>
+          </div>
+          ) : reunionActive ? (
+          <div className="focus-session reunion-session" aria-live="polite">
+            <span className="reunion-mark" aria-hidden="true">⌁</span>
+            <div>
+              <strong>{currentStatus.title}</strong>
+              <small>{currentStatus.detail}</small>
             </div>
           </div>
           ) : worldAnswering ? (
@@ -713,9 +742,9 @@ export function PetPrototype() {
         <section className="inspector-section">
           <div className="inspector-label"><span>Form</span><output>{currentStage}</output></div>
           <div className="segmented-control">
-            <button type="button" className={currentStage === "baby" ? "active" : ""} onClick={() => setPreviewStage("baby")}>Baby</button>
-            <button type="button" className={currentStage === "young" ? "active" : ""} onClick={() => setPreviewStage("young")}>Young</button>
-            <button type="button" className={currentStage === "guardian" ? "active" : ""} onClick={() => setPreviewStage("guardian")}>Guardian</button>
+            <button type="button" className={currentStage === "baby" ? "active" : ""} onClick={() => { setPreviewStage("baby"); commandWorld("reunion"); }}>Baby</button>
+            <button type="button" className={currentStage === "young" ? "active" : ""} onClick={() => { setPreviewStage("young"); commandWorld("reunion"); }}>Young</button>
+            <button type="button" className={currentStage === "guardian" ? "active" : ""} onClick={() => { setPreviewStage("guardian"); commandWorld("reunion"); }}>Guardian</button>
           </div>
         </section>
 

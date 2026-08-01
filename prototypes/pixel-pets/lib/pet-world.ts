@@ -72,13 +72,16 @@ export const PET_WORLD = {
   handNoticeDuration: 260,
   visitorTurnDuration: 180,
   guardianWakeDuration: 1100,
+  reunionNoticeDuration: 720,
+  reunionGreetingDuration: 1280,
+  reunionTargetX: 248,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "affection" | "track" | "visitor-turn" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "track" | "visitor-turn" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
 export type AfterRainPhase = "quiet" | "shimmer" | "engaged" | "spent";
@@ -259,6 +262,12 @@ const VISITOR_FOR_STAGE: Record<PetStage, WorldVisitorKind> = {
   guardian: "sky-moth",
 };
 
+const REUNION_FOR_STAGE: Record<PetStage, { startX: number; speed: number }> = {
+  baby: { startX: 184, speed: 0.026 },
+  young: { startX: 142, speed: 0.052 },
+  guardian: { startX: 92, speed: 0.066 },
+};
+
 function quietWorldHand(): WorldHandGuide {
   return { phase: "quiet", x: PET_WORLD.width / 2, y: 112, ageMs: 0, acroUsed: false };
 }
@@ -310,6 +319,27 @@ export function createPetWorldState(): PetWorldState {
     hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
     blooms: [],
+  };
+}
+
+export function beginPetReunion(state: PetWorldState, stage: PetStage): PetWorldState {
+  const profile = REUNION_FOR_STAGE[stage];
+  return {
+    ...state,
+    petX: profile.startX,
+    cameraX: clampCameraX(profile.startX, 1),
+    zoom: 1,
+    cameraShot: "establishing",
+    cameraControlRemainingMs: 0,
+    facing: 1,
+    action: "reunion-notice",
+    actionElapsed: 0,
+    targetX: PET_WORLD.reunionTargetX,
+    poseY: 0,
+    rotation: 0,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
+    playLeaf: createWindLeaf(),
   };
 }
 
@@ -797,6 +827,7 @@ export function resolveCameraTargetX(state: PetWorldState) {
   }
   const directed = state.action === "walk"
     || state.action === "run"
+    || state.action === "reunion-approach"
     || state.action === "seek-shelter"
     || state.action === "seek-sun"
     || state.action === "seek-shade"
@@ -828,11 +859,13 @@ export function resolveCinematicShot(
     || state.action === "leaf-catch"
     || state.action === "hand-found"
     || state.action === "affection"
+    || state.action === "reunion-greet"
   ) {
     return { id: "intimate", zoom: 1.45 };
   }
   if (
     state.action === "greet"
+    || state.action === "reunion-notice"
     || state.action === "track"
     || state.action === "visitor-turn"
     || state.action === "hand-track"
@@ -1361,6 +1394,23 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (state.action === "reunion-notice" || state.action === "reunion-approach") {
+      return {
+        ...next,
+        petX: PET_WORLD.reunionTargetX,
+        cameraX: clampCameraX(PET_WORLD.reunionTargetX, next.zoom),
+        action: "reunion-greet",
+        actionElapsed: 0,
+        targetX: null,
+        facing: 1,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
+    if (state.action === "reunion-greet") {
+      if (next.actionElapsed >= Math.min(400, PET_WORLD.reunionGreetingDuration)) return finishAction(next);
+      return { ...next, poseY: 0, rotation: 0 };
+    }
     if (state.action === "hand-track") {
       const distance = Math.abs(next.hand.x - state.petX);
       const intendedAction = actionForHandGuide(stage, next.hand, distance);
@@ -1681,6 +1731,35 @@ export function stepPetWorld(
   if (weatherResponseStarted) {
     next.poseY = 0;
     next.rotation = 0;
+  } else if (state.action === "reunion-notice") {
+    next.poseY = 0;
+    next.rotation = 0;
+    next.facing = faceToward(state.petX, PET_WORLD.reunionTargetX, state.facing);
+    if (next.actionElapsed >= PET_WORLD.reunionNoticeDuration) {
+      next.action = "reunion-approach";
+      next.actionElapsed = 0;
+      next.targetX = PET_WORLD.reunionTargetX;
+    }
+  } else if (state.action === "reunion-approach") {
+    const profile = REUNION_FOR_STAGE[stage];
+    const remaining = PET_WORLD.reunionTargetX - state.petX;
+    next.poseY = 0;
+    next.rotation = 0;
+    next.facing = faceToward(state.petX, PET_WORLD.reunionTargetX, state.facing);
+    if (Math.abs(remaining) <= 2) {
+      next.petX = PET_WORLD.reunionTargetX;
+      next.action = "reunion-greet";
+      next.actionElapsed = 0;
+      next.targetX = null;
+    } else {
+      next.petX = moveToward(state.petX, PET_WORLD.reunionTargetX, dt * profile.speed);
+      next.targetX = PET_WORLD.reunionTargetX;
+    }
+  } else if (state.action === "reunion-greet") {
+    next.poseY = 0;
+    next.rotation = 0;
+    next.targetX = null;
+    if (next.actionElapsed >= PET_WORLD.reunionGreetingDuration) next = finishAction(next);
   } else if (state.action === "hand-track") {
     next.facing = faceToward(state.petX, next.hand.x, state.facing);
     next.poseY = 0;
@@ -2149,7 +2228,10 @@ export function stepPetWorld(
   return next;
 }
 
-export function clipForWorldAction(action: PetWorldAction, reducedMotion = false): "idle" | "greet" | "affection" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
+export function clipForWorldAction(action: PetWorldAction, reducedMotion = false, stage: PetStage = "young"): "idle" | "greet" | "affection" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
+  if (action === "reunion-notice") return "discover";
+  if (action === "reunion-approach") return stage === "baby" ? "walk" : "run";
+  if (action === "reunion-greet") return "affection";
   if (action === "walk" || action === "run") return action;
   if (action === "hand-walk") return "walk";
   if (action === "hand-run") return "run";

@@ -44,6 +44,9 @@ test("only causal world events receive visible scene narration", () => {
   const selfExplanatory = [
     "idle",
     "greet",
+    "reunion-notice",
+    "reunion-approach",
+    "reunion-greet",
     "walk",
     "run",
     "jump",

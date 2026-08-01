@@ -523,6 +523,26 @@ summary:focus-visible {
 .focus-session strong { font-size: 0.74rem; }
 .focus-session small { margin-top: 4px; color: var(--muted); font-size: 0.61rem; line-height: 1.4; }
 
+.reunion-session { min-height: 66px; }
+.reunion-mark {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent-dark) 54%, var(--line));
+  border-radius: 50%;
+  color: var(--accent-dark);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 1.05rem;
+  animation: reunion-recognition 1.4s ease-in-out infinite;
+}
+
+@keyframes reunion-recognition {
+  0%, 100% { transform: scale(0.94); opacity: 0.7; }
+  45% { transform: scale(1.04); opacity: 1; }
+}
+
 .focus-orb {
   width: 17px;
   height: 17px;
@@ -863,6 +883,7 @@ summary:focus-visible {
   .focus-orb,
   .settling-leaves,
   .answering-sprout::after { animation: none; }
+  .reunion-mark { animation: none; }
   .scene-caption { animation: none; }
 }
 

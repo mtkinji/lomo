@@ -17,6 +17,7 @@ The prototype lets a tester:
 - watch each visitor perform through the same renderer-neutral limited-animation grammar: a planted crawler transfers weight through six legs, a firefly beats its wings independently of its slow breathing glow, and a sky moth holds, strikes, banks, and escapes;
 - see visitor materials answer the world: warm light, wind effort, and rain weight change acting without changing behavior authority;
 - see every wildlife chase begin with a planted eyes-ears-head attention beat, sample the target's latest side, then lock facing, travel, and escape to one committed side;
+- return to a world that begins with recognition: Baby pads over from nearby, Young opens into a delighted run, and Guardian crosses the widest entrance lane before one grounded hello;
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
 - inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
 - see a face-only 184 ms blink composed over a locked full-body key pose;
