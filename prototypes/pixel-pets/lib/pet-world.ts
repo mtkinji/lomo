@@ -6,6 +6,7 @@ import {
   dragWindLeaf,
   grabWindLeaf,
   releaseWindLeaf,
+  resolveWindLeafFlightProfile,
   stepWindLeaf,
   type WindLeafPoint,
   type WindLeafState,
@@ -476,7 +477,12 @@ export function tossWorldWindLeaf(
   reducedMotion: boolean,
 ): PetWorldState {
   if (state.playLeaf.phase !== "held" || state.focus.active) return state;
-  const playLeaf = releaseWindLeaf(state.playLeaf, velocity, reducedMotion);
+  const playLeaf = releaseWindLeaf(
+    state.playLeaf,
+    velocity,
+    reducedMotion,
+    resolveWindLeafFlightProfile(state.weather, state.weatherSway, state.weatherIntensity),
+  );
   const commitsLow = playLeaf.mode === "leap" && playLeaf.y >= 128;
   const commitsHigh = playLeaf.mode === "aerial" && playLeaf.y < 176;
   const action: PetWorldAction = commitsHigh

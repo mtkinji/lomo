@@ -36,6 +36,8 @@ The prototype lets a tester:
 - grab one golden wind leaf from the old tree, move it continuously through world space, and toss it without opening a control panel;
 - watch baby wait for a grounded catch, young commit to a descending leap, and Guardian meet the same toy with an aerial interception;
 - release one stable catch target per throw so Moss always turns before committing and never reverses mid-performance;
+- feel one throw linger in warm air, drift with a sampled gust, or fall quickly when rain makes the leaf heavy;
+- keep weather prediction and frame-by-frame physics on one immutable flight profile so environmental play remains legible and portable;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
 - leave and return to the same bounded bloom memories in an otherwise calm fresh world;
@@ -77,6 +79,12 @@ authored Moss clips own attention, travel, pounce, aerial reach, and contented
 recovery. Focus, a new meaningful-action consequence, weather direction, or
 ordinary touch can end the toy scene without preserving a score or unfinished
 need.
+Weather and play share that pure boundary. The engine samples sun, breeze, or
+rain when the leaf leaves the finger and resolves one immutable material
+profile containing gravity, horizontal force, drag, and maximum airtime. The
+same profile predicts the catch and steps every frame, so renderers can add a
+warm glint, short wind wake, or wet landing cue without owning physics or
+changing Moss's commitment.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
 or moving its body; all three forms now own distinct eight-drawing walk, run,

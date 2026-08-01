@@ -467,6 +467,34 @@ test("young and Guardian commit to distinct stable airborne catches", () => {
   assert.equal(guardian.facing, 1);
 });
 
+test("the Pet world samples settled weather once for each wind-leaf throw", () => {
+  const sunny = tossWorldWindLeaf(
+    grabWorldWindLeaf(setWorldWeather(createPetWorldState(), "sunny"), { x: 292, y: 74 }, "guardian"),
+    { x: 0.02, y: -0.09 },
+    false,
+  );
+  const breezyState = {
+    ...setWorldWeather(createPetWorldState(), "breeze"),
+    weatherPhase: "settled" as const,
+    weatherIntensity: 1,
+    weatherSway: -2,
+  };
+  const breezy = tossWorldWindLeaf(
+    grabWorldWindLeaf(breezyState, { x: 292, y: 74 }, "guardian"),
+    { x: 0.02, y: -0.09 },
+    false,
+  );
+
+  assert.equal(sunny.playLeaf.flight.id, "sun-updraft");
+  assert.equal(breezy.playLeaf.flight.id, "wind-drift");
+  assert.ok(breezy.playLeaf.flight.windX < 0);
+  assert.ok(breezy.playLeaf.catchX < sunny.playLeaf.catchX);
+
+  const stepped = stepPetWorld(breezy, 320, false);
+  assert.equal(stepped.playLeaf.flight, breezy.playLeaf.flight, "weather cannot rewrite a throw after Moss commits");
+  assert.equal(stepped.playLeaf.catchX, breezy.playLeaf.catchX);
+});
+
 test("Focus immediately returns the wind leaf and owns the scene", () => {
   const playing = tossWorldWindLeaf(
     grabWorldWindLeaf(createPetWorldState(), { x: 310, y: 72 }, "guardian"),

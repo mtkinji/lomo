@@ -369,15 +369,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 20</span>
-        <h1>The meadow<br />plays back.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 21</span>
+        <h1>The weather<br />joins the game.</h1>
         <p>
-          Pull the golden leaf from the old tree, move it through the air, and toss. Moss will read your hand—and grow into new ways to answer.
+          Toss the same golden leaf through sun, wind, and rain. The air will change its path—and Moss will read the world with you.
         </p>
         <dl className="engine-facts">
-          <div><dt>Touch</dt><dd>grab · drag · toss</dd></div>
-          <div><dt>Growth</dt><dd>ground · leap · aerial</dd></div>
-          <div><dt>Rule</dt><dd>one toy · no score</dd></div>
+          <div><dt>Sun</dt><dd>buoyant · lingering</dd></div>
+          <div><dt>Wind</dt><dd>gusted · drifting</dd></div>
+          <div><dt>Rain</dt><dd>wet · quick to fall</dd></div>
         </dl>
       </header>
 
@@ -489,7 +489,9 @@ export function PetPrototype() {
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
-            <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, {Math.round(world.playLeaf.y)}</strong></span>
+            <span>Flight profile <strong>{world.playLeaf.phase === "perched" || world.playLeaf.phase === "held" ? "waiting" : world.playLeaf.flight.id}</strong></span>
+            <span>Leaf position <strong>{Math.round(world.playLeaf.x)}, {Math.round(world.playLeaf.y)}</strong></span>
+            <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, 202</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>

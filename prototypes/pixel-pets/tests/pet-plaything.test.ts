@@ -9,9 +9,18 @@ import {
   grabWindLeaf,
   isWindLeafHit,
   releaseWindLeaf,
+  resolveWindLeafFlightProfile,
   stepWindLeaf,
   windLeafModeForStage,
 } from "../lib/pet-plaything.ts";
+
+function land(leaf: ReturnType<typeof releaseWindLeaf>) {
+  let next = leaf;
+  for (let elapsed = 0; elapsed < 4000 && next.phase === "flying"; elapsed += 16) {
+    next = stepWindLeaf(next, 16);
+  }
+  return next;
+}
 
 test("maturity unlocks ground, leaping, and aerial wind-leaf play", () => {
   assert.equal(windLeafModeForStage("baby"), "ground");
@@ -47,6 +56,54 @@ test("release preserves throw direction and commits one stable catch target", ()
 
   const later = stepWindLeaf(released, 180);
   assert.equal(later.catchX, released.catchX, "the Pet never chases a moving or reversing intercept");
+});
+
+test("sun, breeze, and rain resolve to visibly different immutable flight materials", () => {
+  const sun = resolveWindLeafFlightProfile("sunny", 0, 1);
+  const breeze = resolveWindLeafFlightProfile("breeze", 2, 1);
+  const rain = resolveWindLeafFlightProfile("rain", -0.6, 1);
+
+  assert.equal(sun.id, "sun-updraft");
+  assert.equal(breeze.id, "wind-drift");
+  assert.equal(rain.id, "rain-heavy");
+  assert.ok(sun.gravity < breeze.gravity);
+  assert.ok(rain.gravity > breeze.gravity);
+  assert.ok(breeze.windX > 0);
+  assert.ok(rain.drag < sun.drag);
+});
+
+test("the same throw lingers in sun, drifts with wind, and falls quickly in rain", () => {
+  const held = grabWindLeaf(createWindLeaf(), { x: 230, y: 92 }, "guardian");
+  const velocity = { x: 0.01, y: -0.075 };
+  const sun = land(releaseWindLeaf(held, velocity, false, resolveWindLeafFlightProfile("sunny", 0, 1)));
+  const breeze = land(releaseWindLeaf(held, velocity, false, resolveWindLeafFlightProfile("breeze", 2.2, 1)));
+  const rain = land(releaseWindLeaf(held, velocity, false, resolveWindLeafFlightProfile("rain", 0.4, 1)));
+
+  assert.equal(sun.phase, "landed");
+  assert.equal(breeze.phase, "landed");
+  assert.equal(rain.phase, "landed");
+  assert.ok(sun.ageMs > rain.ageMs + 250, "warm air should hold a dry leaf longer than rain");
+  assert.ok(breeze.x > sun.x + 8, "a settled positive gust should move the landing visibly downwind");
+  assert.equal(sun.flight.id, "sun-updraft");
+  assert.equal(breeze.flight.id, "wind-drift");
+  assert.equal(rain.flight.id, "rain-heavy");
+});
+
+test("prediction and simulation share one weather profile and one catch point", () => {
+  const held = grabWindLeaf(createWindLeaf(), { x: 250, y: 76 }, "young");
+  const released = releaseWindLeaf(
+    held,
+    { x: -0.015, y: -0.09 },
+    false,
+    resolveWindLeafFlightProfile("breeze", -2, 1),
+  );
+  const predicted = released.catchX;
+  const landed = land(released);
+
+  assert.equal(released.flight.id, "wind-drift");
+  assert.ok(released.flight.windX < 0);
+  assert.equal(landed.catchX, predicted);
+  assert.ok(Math.abs(landed.x - predicted) <= 2, "the authored catch should agree with the simulated landing");
 });
 
 test("ballistic play lands once without escaping the habitat", () => {

@@ -471,6 +471,36 @@ function drawWindLeaf(
 
   context.save();
   context.translate(Math.round(leaf.x), Math.round(leaf.y));
+  if (leaf.phase === "flying" && leaf.flight.id === "wind-drift") {
+    const direction = leaf.flight.windX < 0 ? 1 : -1;
+    context.fillStyle = palette.cream;
+    context.globalAlpha = 0.52;
+    context.fillRect(direction * 7, -5, direction * 7, 1);
+    context.fillRect(direction * 10, 0, direction * 10, 1);
+    context.fillRect(direction * 5, 5, direction * 5, 1);
+    context.globalAlpha = 1;
+  }
+  if (leaf.phase === "flying" && leaf.flight.id === "sun-updraft") {
+    const lift = Math.floor(leaf.ageMs / 110) % 3;
+    context.fillStyle = "#fff0a5";
+    context.globalAlpha = 0.72;
+    context.fillRect(-7, 5 + lift, 1, 2);
+    context.fillRect(7, 1 + ((lift + 1) % 3), 1, 1);
+    context.globalAlpha = 1;
+  }
+  if ((leaf.phase === "flying" || leaf.phase === "landed") && leaf.flight.id === "rain-heavy") {
+    context.fillStyle = palette.skyLight;
+    context.globalAlpha = 0.68;
+    if (leaf.phase === "flying") {
+      context.fillRect(-6, -6, 1, 3);
+      context.fillRect(6, 3, 1, 3);
+    } else {
+      context.fillRect(-7, 3, 5, 1);
+      context.fillRect(3, 3, 5, 1);
+      context.fillRect(-2, 4, 5, 1);
+    }
+    context.globalAlpha = 1;
+  }
   context.rotate(angle);
   context.scale(heldPulse, heldPulse);
   if (leaf.phase === "held") {
@@ -484,16 +514,17 @@ function drawWindLeaf(
     context.fillRect(3, -9, 1, 8);
     context.fillRect(2, -8, 2, 1);
   }
-  context.fillStyle = "#6e5526";
+  const wet = leaf.flight.id === "rain-heavy" && leaf.phase !== "perched";
+  context.fillStyle = wet ? "#4f6045" : "#6e5526";
   context.fillRect(-4, -2, 8, 4);
   context.fillRect(-2, -4, 4, 8);
   context.fillRect(3, 1, 4, 1);
-  context.fillStyle = "#f0b83e";
+  context.fillStyle = wet ? "#ae8e45" : "#f0b83e";
   context.fillRect(-3, -1, 6, 3);
   context.fillRect(-1, -3, 3, 6);
-  context.fillStyle = "#fff0a5";
+  context.fillStyle = wet ? "#d7c784" : "#fff0a5";
   context.fillRect(-1, -2, 2, 2);
-  context.fillStyle = "#8d6726";
+  context.fillStyle = wet ? "#65704f" : "#8d6726";
   context.fillRect(0, -2, 1, 5);
   context.restore();
 }

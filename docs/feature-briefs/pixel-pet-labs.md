@@ -90,6 +90,7 @@ Care days accumulate and never subtract. A missed day cannot make the Pet hungry
 - Pinch between a full-world view and a temporary close-up. Zoom is camera state, not a saved preference or a consumer-facing control.
 - Notice occasional stage-specific wildlife moving through the habitat. Baby notices a crawler at paw height, young follows a meadow firefly, and guardian attempts one high aerial interception of a sky moth. Each encounter predicts one intercept, faces before launch, and ends without capture, collection, or repeated pursuit.
 - Grab one golden wind leaf from the old tree, move it through the world, and toss it for the Pet. The Pet tracks continuously while the person holds the leaf, then uses a stage-specific ground, leaping, or aerial catch performance. The leaf returns to the habitat after one bounded scene; it is not an item, collectible, score, or affection meter.
+- The golden leaf shares the habitat's weather rules. A throw samples one deterministic profile: sun gives the dry leaf a lingering updraft, wind produces readable lateral drift, and rain makes it heavier and quicker to land. Prediction and simulation use the same immutable profile so the Pet commits once, faces correctly, and never chases a moving intercept.
 - Tap or drag an available meal to its bowl.
 - See one recent source-class receipt without private Activity text.
 - Occasionally choose between two cosmetic directions such as rest, explore, or play.

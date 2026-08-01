@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 20 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 21 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -53,12 +53,14 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 20 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 20/);
-  assert.match(prototype, /The meadow<br \/>plays back\./i);
+  assert.match(layout, /Pet Engine Study 21 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 21/);
+  assert.match(prototype, /The weather<br \/>joins the game\./i);
   assert.match(prototype, /The meadow remembers/);
-  assert.match(prototype, /grab · drag · toss/);
+  assert.match(prototype, /buoyant · lingering/);
   assert.match(prototype, /Wind leaf/);
+  assert.match(prototype, /Flight profile/);
+  assert.match(prototype, /Leaf position/);
   assert.match(prototype, /Catch point/);
   assert.match(prototype, /Camera shot/);
   assert.match(prototype, /Soundscape/);
@@ -111,6 +113,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(livingDay, /quietBetweenEpisodesMs/);
   assert.match(plaything, /createWindLeaf/);
   assert.match(plaything, /releaseWindLeaf/);
+  assert.match(plaything, /resolveWindLeafFlightProfile/);
   assert.match(plaything, /stepWindLeaf/);
   assert.match(world, /grabWorldWindLeaf/);
   assert.match(world, /tossWorldWindLeaf/);

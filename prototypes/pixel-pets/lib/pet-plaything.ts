@@ -2,6 +2,8 @@ import type { PetStage } from "./pet-state";
 
 export type WindLeafPhase = "perched" | "held" | "flying" | "landed" | "caught";
 export type WindLeafMode = "ground" | "leap" | "aerial";
+export type WindLeafWeather = "sunny" | "breeze" | "rain";
+export type WindLeafFlightProfileId = "sun-updraft" | "wind-drift" | "rain-heavy";
 
 export interface WindLeafPoint {
   x: number;
@@ -17,6 +19,16 @@ export interface WindLeafState {
   velocityY: number;
   catchX: number;
   ageMs: number;
+  flight: WindLeafFlightProfile;
+}
+
+export interface WindLeafFlightProfile {
+  id: WindLeafFlightProfileId;
+  weather: WindLeafWeather;
+  gravity: number;
+  windX: number;
+  drag: number;
+  maxFlightMs: number;
 }
 
 export const WIND_LEAF = {
@@ -27,7 +39,6 @@ export const WIND_LEAF = {
   minY: 38,
   groundY: 202,
   grabRadius: 18,
-  gravity: 0.00046,
   maxVelocityX: 0.12,
   maxVelocityY: 0.16,
   returnDelayMs: 1280,
@@ -41,6 +52,44 @@ const MODE_FOR_STAGE: Record<PetStage, WindLeafMode> = {
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+export function resolveWindLeafFlightProfile(
+  weather: WindLeafWeather,
+  weatherSway = 0,
+  intensity = 1,
+): WindLeafFlightProfile {
+  const settledIntensity = clamp(intensity, 0, 1);
+  const direction = Math.abs(weatherSway) < 0.12 ? 1 : Math.sign(weatherSway);
+  const gust = clamp(Math.abs(weatherSway) / 2.2, 0.45, 1);
+  if (weather === "breeze") {
+    return {
+      id: "wind-drift",
+      weather,
+      gravity: 0.00045,
+      windX: direction * (0.000018 + gust * 0.000016) * settledIntensity,
+      drag: 0.9991,
+      maxFlightMs: 2700,
+    };
+  }
+  if (weather === "rain") {
+    return {
+      id: "rain-heavy",
+      weather,
+      gravity: 0.00072,
+      windX: direction * gust * 0.000004 * settledIntensity,
+      drag: 0.9962,
+      maxFlightMs: 1800,
+    };
+  }
+  return {
+    id: "sun-updraft",
+    weather,
+    gravity: 0.00033,
+    windX: 0,
+    drag: 0.9993,
+    maxFlightMs: 3000,
+  };
 }
 
 function clampPoint(point: WindLeafPoint): WindLeafPoint {
@@ -64,6 +113,7 @@ export function createWindLeaf(): WindLeafState {
     velocityY: 0,
     catchX: WIND_LEAF.perchX,
     ageMs: 0,
+    flight: resolveWindLeafFlightProfile("sunny"),
   };
 }
 
@@ -97,23 +147,60 @@ export function dragWindLeaf(leaf: WindLeafState, point: WindLeafPoint): WindLea
   return { ...leaf, x: clamped.x, y: clamped.y, catchX: clamped.x };
 }
 
-function predictCatchX(point: WindLeafPoint, velocityX: number, velocityY: number) {
-  const distanceToGround = Math.max(0, WIND_LEAF.groundY - point.y);
-  const discriminant = velocityY * velocityY + 2 * WIND_LEAF.gravity * distanceToGround;
-  const flightMs = discriminant <= 0
-    ? 0
-    : (-velocityY + Math.sqrt(discriminant)) / WIND_LEAF.gravity;
-  return clamp(
-    point.x + velocityX * Math.min(1700, flightMs) * 0.7,
-    WIND_LEAF.minX,
-    WIND_LEAF.maxX,
-  );
+interface WindLeafFlightStep {
+  x: number;
+  y: number;
+  velocityX: number;
+  velocityY: number;
+  landed: boolean;
+}
+
+function stepFlight(
+  point: WindLeafPoint,
+  velocityX: number,
+  velocityY: number,
+  flight: WindLeafFlightProfile,
+  dtMs: number,
+): WindLeafFlightStep {
+  const dt = clamp(dtMs, 0, 64);
+  const nextVelocityY = velocityY + flight.gravity * dt;
+  let nextVelocityX = (velocityX + flight.windX * dt) * Math.pow(flight.drag, dt);
+  let x = point.x + nextVelocityX * dt;
+  const rawY = point.y + nextVelocityY * dt;
+
+  if (x <= WIND_LEAF.minX || x >= WIND_LEAF.maxX) {
+    x = clamp(x, WIND_LEAF.minX, WIND_LEAF.maxX);
+    nextVelocityX *= -0.34;
+  }
+
+  const landed = rawY >= WIND_LEAF.groundY;
+  return {
+    x,
+    y: landed ? WIND_LEAF.groundY : Math.max(WIND_LEAF.minY, rawY),
+    velocityX: nextVelocityX,
+    velocityY: nextVelocityY,
+    landed,
+  };
+}
+
+function predictCatchX(
+  point: WindLeafPoint,
+  velocityX: number,
+  velocityY: number,
+  flight: WindLeafFlightProfile,
+) {
+  let prediction: WindLeafFlightStep = { x: point.x, y: point.y, velocityX, velocityY, landed: false };
+  for (let elapsed = 0; elapsed < flight.maxFlightMs && !prediction.landed; elapsed += 16) {
+    prediction = stepFlight(prediction, prediction.velocityX, prediction.velocityY, flight, 16);
+  }
+  return clamp(prediction.x, WIND_LEAF.minX, WIND_LEAF.maxX);
 }
 
 export function releaseWindLeaf(
   leaf: WindLeafState,
   velocity: WindLeafPoint,
   reducedMotion: boolean,
+  flight = resolveWindLeafFlightProfile("sunny"),
 ): WindLeafState {
   if (leaf.phase !== "held") return leaf;
   if (reducedMotion) {
@@ -125,6 +212,7 @@ export function releaseWindLeaf(
       velocityY: 0,
       catchX: leaf.x,
       ageMs: 0,
+      flight,
     };
   }
 
@@ -135,8 +223,9 @@ export function releaseWindLeaf(
     phase: "flying",
     velocityX,
     velocityY,
-    catchX: predictCatchX(leaf, velocityX, velocityY),
+    catchX: predictCatchX(leaf, velocityX, velocityY, flight),
     ageMs: 0,
+    flight,
   };
 }
 
@@ -161,21 +250,13 @@ export function stepWindLeaf(leaf: WindLeafState, dtMs: number): WindLeafState {
   }
 
   const ageMs = leaf.ageMs + dt;
-  const velocityY = leaf.velocityY + WIND_LEAF.gravity * dt;
-  let velocityX = leaf.velocityX * Math.pow(0.9987, dt);
-  let x = leaf.x + velocityX * dt;
-  const y = leaf.y + velocityY * dt;
+  const stepped = stepFlight(leaf, leaf.velocityX, leaf.velocityY, leaf.flight, dt);
 
-  if (x <= WIND_LEAF.minX || x >= WIND_LEAF.maxX) {
-    x = clamp(x, WIND_LEAF.minX, WIND_LEAF.maxX);
-    velocityX *= -0.34;
-  }
-
-  if (y >= WIND_LEAF.groundY || ageMs >= 2400) {
+  if (stepped.landed || ageMs >= leaf.flight.maxFlightMs) {
     return {
       ...leaf,
       phase: "landed",
-      x: clamp(x, WIND_LEAF.minX, WIND_LEAF.maxX),
+      x: clamp(stepped.x, WIND_LEAF.minX, WIND_LEAF.maxX),
       y: WIND_LEAF.groundY,
       velocityX: 0,
       velocityY: 0,
@@ -185,10 +266,10 @@ export function stepWindLeaf(leaf: WindLeafState, dtMs: number): WindLeafState {
 
   return {
     ...leaf,
-    x,
-    y: Math.max(WIND_LEAF.minY, y),
-    velocityX,
-    velocityY,
+    x: stepped.x,
+    y: stepped.y,
+    velocityX: stepped.velocityX,
+    velocityY: stepped.velocityY,
     ageMs,
   };
 }
