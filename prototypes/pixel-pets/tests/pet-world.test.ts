@@ -1346,6 +1346,7 @@ test("each stage attracts a visitor at a newly reachable layer", () => {
     [baby.visitor.kind, young.visitor.kind, guardian.visitor.kind],
     ["crawler", "firefly", "sky-moth"],
   );
+  assert.equal(baby.visitor.y, PET_WORLD.visitorGroundY, "the crawler's body anchor belongs on the terrain");
   assert.ok(baby.visitor.y > young.visitor.y);
   assert.ok(young.visitor.y > guardian.visitor.y);
 });

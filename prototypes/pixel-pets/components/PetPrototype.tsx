@@ -15,6 +15,7 @@ import {
 } from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { createLivingDayDirector, type LivingDayDirectorState } from "@/lib/pet-life-director";
+import { VISITOR_PERFORMANCE_CLIPS, resolveVisitorPerformance } from "@/lib/pet-visitor-performance";
 import {
   resolveWorldInteractionMessage,
   shouldShowSceneNarration,
@@ -301,6 +302,9 @@ export function PetPrototype() {
     : null;
   const focusAtmosphere = resolveFocusAtmosphere(world.focus, state.reducedMotion);
   const soundscapeMix = currentSoundscapeMix();
+  const visitorPerformance = world.visitor.active
+    ? resolveVisitorPerformance(world.visitor, world.weather, state.reducedMotion)
+    : null;
   const growthTitle = state.stage === "guardian"
     ? "Guardian form"
     : state.stage === "young"
@@ -452,15 +456,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 34</span>
-        <h1>Look first.<br />Then leap.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 35</span>
+        <h1>Everything alive.<br />Has acting.</h1>
         <p>
-          Watch Moss find the target with eyes, ears, and head before the body commits.
+          Watch a crawler carry weight, a firefly breathe light, and a sky moth bank before Moss gives chase.
         </p>
         <dl className="engine-facts">
-          <div><dt>Attention</dt><dd>arrives first</dd></div>
-          <div><dt>Direction</dt><dd>settles once</dd></div>
-          <div><dt>Movement</dt><dd>follows meaning</dd></div>
+          <div><dt>Body</dt><dd>carries weight</dd></div>
+          <div><dt>Wings</dt><dd>hold and strike</dd></div>
+          <div><dt>Weather</dt><dd>changes material</dd></div>
         </dl>
       </header>
 
@@ -618,6 +622,7 @@ export function PetPrototype() {
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
+            <span>Visitor acting <strong>{visitorPerformance ? `${visitorPerformance.role} · ${visitorPerformance.material} · ${visitorPerformance.frame + 1}/${VISITOR_PERFORMANCE_CLIPS[visitorPerformance.kind].frames.length}` : "quiet"}</strong></span>
             <span>Hand guide <strong>{world.hand.phase === "quiet" ? "quiet" : `${world.hand.phase} · ${Math.round(world.hand.x)}, ${Math.round(world.hand.y)}`}</strong></span>
             <span>Reach layer <strong>{currentStage === "baby" ? "ground" : currentStage === "young" ? "bound" : "aerial"}{world.hand.acroUsed ? " · spent" : ""}</strong></span>
             <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>

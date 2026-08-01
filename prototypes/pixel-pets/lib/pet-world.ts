@@ -55,6 +55,7 @@ export const PET_WORLD = {
   cameraPushDuration: 900,
   cameraReleaseDuration: 1500,
   maxWeatherSway: 2.2,
+  visitorGroundY: ENGINE_SCENE.groundY - 6,
   leafCatchDuration: 1280,
   handArrivalDistance: 16,
   handRunDistance: 72,
@@ -201,7 +202,7 @@ export interface PetWorldState {
 
 const VISITOR_BEHAVIOR = {
   crawler: {
-    y: 188,
+    y: PET_WORLD.visitorGroundY,
     spawnOffset: 56,
     speed: 0.011,
     engageDistance: 15,

@@ -50,6 +50,7 @@ import {
   type WorldPoint,
 } from "@/lib/pet-world";
 import { createWindLeaf, isWindLeafHit } from "@/lib/pet-plaything";
+import { resolveVisitorPerformance, type VisitorPerformanceSnapshot } from "@/lib/pet-visitor-performance";
 import {
   createLivingDayDirector,
   interruptLivingDay,
@@ -396,83 +397,223 @@ function drawVisitor(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
   world: PetWorldState,
+  reducedMotion: boolean,
 ) {
   if (!world.visitor.active) return;
   const visitor = world.visitor;
+  const pose = resolveVisitorPerformance(visitor, world.weather, reducedMotion);
 
   context.save();
   context.translate(Math.round(visitor.x), Math.round(visitor.y));
+  context.rotate((pose.bank * Math.PI) / 180);
   context.scale(visitor.direction, 1);
+  context.translate(0, pose.rigDrop);
   context.globalAlpha = visitor.engaged
     ? Math.max(0.85, 1 - visitor.engagedAgeMs / 2600)
     : 1;
 
   if (visitor.kind === "crawler") {
-    const step = Math.floor(visitor.ageMs / 110) % 2;
-    context.fillStyle = palette.outline;
-    context.fillRect(-4, -2, 7, 3);
-    context.fillRect(3, -1, 2, 2);
-    context.fillRect(-3, 1, 1, 1 + step);
-    context.fillRect(0, 1, 1, 2 - step);
-    context.fillRect(3, 1, 1, 1 + step);
-    context.fillRect(4, -3, 1, 2);
-    context.fillRect(5, -4, 1, 2);
-    context.fillStyle = palette.leafLight;
-    context.fillRect(-3, -1, 5, 2);
-    context.fillStyle = palette.bloom;
-    context.fillRect(3, -1, 1, 1);
+    drawCrawlerVisitor(context, palette, pose);
   } else if (visitor.kind === "firefly") {
-    const wing = Math.floor(visitor.ageMs / 90) % 2;
-    context.fillStyle = palette.cream;
-    context.fillRect(-3, -wing, 2, 2);
-    context.fillRect(3, wing, 2, 2);
-    context.fillStyle = palette.bloom;
-    context.fillRect(-1, -1, 3, 3);
-    context.fillStyle = palette.outline;
-    context.fillRect(0, 2, 1, 1);
+    drawFireflyVisitor(context, palette, pose);
   } else {
-    const wingLift = Math.floor(visitor.ageMs / 105) % 2;
-    const leftWingY = -wingLift;
-    const rightWingY = wingLift;
-    context.fillStyle = palette.outline;
-    context.fillRect(-1, -7, 3, 14);
-    context.fillRect(-2, -9, 5, 4);
-    context.fillRect(-4, -11, 1, 3);
-    context.fillRect(4, -11, 1, 3);
-    context.fillRect(-5, -7 + leftWingY, 4, 1);
-    context.fillRect(-8, -6 + leftWingY, 7, 1);
-    context.fillRect(-11, -5 + leftWingY, 10, 2);
-    context.fillRect(-13, -3 + leftWingY, 12, 2);
-    context.fillRect(-10, -1 + leftWingY, 9, 2);
-    context.fillRect(-8, 1 + leftWingY, 7, 2);
-    context.fillRect(-5, 3 + leftWingY, 4, 2);
-    context.fillRect(2, -7 + rightWingY, 4, 1);
-    context.fillRect(2, -6 + rightWingY, 7, 1);
-    context.fillRect(2, -5 + rightWingY, 10, 2);
-    context.fillRect(2, -3 + rightWingY, 12, 2);
-    context.fillRect(2, -1 + rightWingY, 9, 2);
-    context.fillRect(2, 1 + rightWingY, 7, 2);
-    context.fillRect(2, 3 + rightWingY, 4, 2);
-    context.fillStyle = palette.bloom;
-    context.fillRect(-7, -5 + leftWingY, 6, 1);
-    context.fillRect(-10, -4 + leftWingY, 9, 2);
-    context.fillRect(-11, -2 + leftWingY, 10, 1);
-    context.fillRect(-8, -1 + leftWingY, 7, 2);
-    context.fillRect(-6, 1 + leftWingY, 5, 2);
-    context.fillRect(2, -5 + rightWingY, 6, 1);
-    context.fillRect(2, -4 + rightWingY, 9, 2);
-    context.fillRect(2, -2 + rightWingY, 11, 1);
-    context.fillRect(2, -1 + rightWingY, 8, 2);
-    context.fillRect(2, 1 + rightWingY, 6, 2);
-    context.fillStyle = palette.cream;
-    context.fillRect(-8, -3 + leftWingY, 3, 2);
-    context.fillRect(6, -3 + rightWingY, 3, 2);
-    context.fillRect(-5, 1 + leftWingY, 2, 1);
-    context.fillRect(4, 1 + rightWingY, 2, 1);
-    context.fillStyle = palette.leafLight;
-    context.fillRect(0, -5, 1, 9);
+    drawSkyMothVisitor(context, palette, pose);
   }
   context.restore();
+}
+
+function drawCrawlerVisitor(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  pose: VisitorPerformanceSnapshot,
+) {
+  const groundOffset = ENGINE_SCENE.groundY - PET_WORLD.visitorGroundY;
+  if (pose.dust > 0) {
+    context.save();
+    context.globalAlpha = 0.2 + pose.dust * 0.35;
+    context.fillStyle = palette.groundLight;
+    context.fillRect(-14, groundOffset - 1, 3, 1);
+    context.fillRect(-11, groundOffset - 3, 2, 1);
+    if (pose.dust > 0.55) context.fillRect(-17, groundOffset, 2, 1);
+    context.restore();
+  }
+
+  const stride = pose.legPhase;
+  context.fillStyle = palette.outline;
+  for (let index = 0; index < 3; index += 1) {
+    const x = -5 + index * 4;
+    const reach = index % 2 === 0 ? stride : -stride;
+    context.fillRect(x - reach, 3, 1, 3 + Math.max(0, reach));
+    context.fillRect(x - 2 - reach, 5 + Math.max(0, reach), 3, 1);
+    context.fillRect(x + reach, -5 - Math.max(0, -reach), 1, 3 + Math.max(0, -reach));
+    context.fillRect(x - 1 + reach, -6 - Math.max(0, -reach), 3, 1);
+  }
+
+  context.save();
+  context.translate(0, pose.bodyDrop);
+  context.fillStyle = palette.outline;
+  context.fillRect(-8, -5, 13, 9);
+  context.fillRect(-10, -3, 17, 5);
+  context.fillStyle = palette.deep;
+  context.fillRect(-7, -4, 11, 7);
+  context.fillRect(-9, -2, 15, 3);
+
+  context.fillStyle = palette.leaf;
+  context.fillRect(-8 + pose.shellShift, -4, 7, 6);
+  context.fillRect(-6 + pose.shellShift, -6, 7, 9);
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-5 + pose.shellShift, -5, 4, 2);
+  context.fillRect(-3 + pose.shellShift, -2, 3, 1);
+  context.fillStyle = palette.deep;
+  context.fillRect(-2 + pose.shellShift, -5, 1, 8);
+
+  context.fillStyle = palette.outline;
+  context.fillRect(4, -4, 5, 6);
+  context.fillRect(7, -2, 3, 3);
+  context.fillStyle = palette.cream;
+  context.fillRect(5, -3, 3, 4);
+  context.fillStyle = palette.bloom;
+  context.fillRect(7, -2, 1, 1);
+
+  const antenna = Math.max(1, Math.round(pose.antennaLift * 3));
+  context.fillStyle = palette.outline;
+  context.fillRect(8, -5 - antenna, 1, antenna + 2);
+  context.fillRect(10, -4 - antenna, 1, antenna + 2);
+  context.fillRect(9, -6 - antenna, 2, 1);
+  context.restore();
+}
+
+function drawFireflyVisitor(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  pose: VisitorPerformanceSnapshot,
+) {
+  const wingLift = Math.round((pose.wingPhase + 1) * 2);
+
+  // A stepped halo belongs to the abdomen, never to the visitor's bounding box.
+  context.save();
+  context.globalAlpha = 0.08 + pose.glow * 0.12;
+  context.fillStyle = palette.bloom;
+  context.fillRect(-9, -2, 11, 5);
+  context.fillRect(-7, -5, 7, 11);
+  context.globalAlpha = 0.14 + pose.glow * 0.2;
+  context.fillRect(-8, -1, 9, 3);
+  context.fillRect(-6, -3, 5, 7);
+  context.restore();
+
+  // Four independently posed wings leave negative space around the body.
+  context.save();
+  context.globalAlpha = pose.material === "wet" ? 0.38 : 0.5;
+  context.fillStyle = palette.outline;
+  context.fillRect(-3, -8 - wingLift, 5, 2);
+  context.fillRect(-5, -6 - wingLift, 6, 3);
+  context.fillRect(-4, 5 + wingLift, 5, 2);
+  context.fillRect(-6, 3 + wingLift, 6, 3);
+  context.globalAlpha = pose.material === "wet" ? 0.58 : 0.84;
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-2, -7 - wingLift, 3, 1);
+  context.fillRect(-4, -5 - wingLift, 4, 1);
+  context.fillRect(-3, 6 + wingLift, 3, 1);
+  context.fillRect(-5, 4 + wingLift, 4, 1);
+  context.fillStyle = palette.cream;
+  context.fillRect(-2, -6 - wingLift, 3, 1);
+  context.fillRect(-3, 4 + wingLift, 3, 1);
+  context.restore();
+
+  // Tapered abdomen, thorax, head, eye, and antennae keep a readable facing.
+  context.fillStyle = palette.outline;
+  context.fillRect(-8, -1, 2, 2);
+  context.fillRect(-7, -2, 4, 4);
+  context.fillRect(-4, -3, 6, 6);
+  context.fillRect(1, -2, 5, 4);
+  context.fillStyle = palette.deep;
+  context.fillRect(-3, -2, 4, 4);
+  context.fillStyle = palette.bloom;
+  context.globalAlpha = 0.64 + pose.glow * 0.36;
+  context.fillRect(-7, -1, 4, 3);
+  context.fillStyle = palette.cream;
+  context.fillRect(-6, 0, 2, 1);
+  context.globalAlpha = 1;
+  context.fillStyle = palette.cream;
+  context.fillRect(2, -1, 3, 2);
+  context.fillStyle = palette.bloom;
+  context.fillRect(5, -1, 1, 1);
+  context.fillStyle = palette.outline;
+  context.fillRect(6, -4, 1, 2);
+  context.fillRect(7, -5, 1, 1);
+  context.fillRect(8, -6, 1, 1);
+  context.fillRect(7, -3, 1, 1);
+  context.fillRect(9, -4, 1, 1);
+  context.fillRect(10, -5, 1, 1);
+}
+
+function drawSkyMothVisitor(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  pose: VisitorPerformanceSnapshot,
+) {
+  const wingLift = Math.round((pose.wingPhase + 1) * 3);
+  const wetDrop = pose.material === "wet" ? 1 : 0;
+
+  context.fillStyle = palette.outline;
+  context.fillRect(-7, -10 - wingLift + wetDrop, 6, 2);
+  context.fillRect(-11, -8 - wingLift + wetDrop, 10, 2);
+  context.fillRect(-14, -6 - wingLift + wetDrop, 13, 3);
+  context.fillRect(-12, -3 - wingLift + wetDrop, 11, 3);
+  context.fillRect(-7, 8 + wingLift, 6, 2);
+  context.fillRect(-11, 6 + wingLift, 10, 2);
+  context.fillRect(-14, 3 + wingLift, 13, 3);
+  context.fillRect(-12, wingLift, 11, 3);
+
+  context.fillStyle = pose.material === "wet" ? palette.skyDeep : palette.leafLight;
+  context.fillRect(-7, -9 - wingLift + wetDrop, 5, 2);
+  context.fillRect(-10, -7 - wingLift + wetDrop, 8, 2);
+  context.fillRect(-12, -5 - wingLift + wetDrop, 10, 2);
+  context.fillRect(-7, 8 + wingLift, 5, 1);
+  context.fillRect(-10, 6 + wingLift, 8, 2);
+  context.fillRect(-12, 4 + wingLift, 10, 2);
+
+  context.fillStyle = palette.cream;
+  context.fillRect(-6, -8 - wingLift + wetDrop, 3, 1);
+  context.fillRect(-9, -6 - wingLift + wetDrop, 4, 1);
+  context.fillRect(-10, -4 - wingLift + wetDrop, 3, 1);
+  context.fillRect(-6, 7 + wingLift, 3, 1);
+  context.fillRect(-9, 5 + wingLift, 4, 1);
+
+  context.fillStyle = palette.bloom;
+  context.fillRect(-8, -6 - wingLift + wetDrop, 4, 2);
+  context.fillRect(-5, -8 - wingLift + wetDrop, 2, 2);
+  context.fillRect(-8, 4 + wingLift, 4, 2);
+  context.fillRect(-5, 6 + wingLift, 2, 2);
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-10, -4 - wingLift + wetDrop, 5, 1);
+  context.fillRect(-10, 3 + wingLift, 5, 1);
+
+  context.fillStyle = palette.outline;
+  context.fillRect(-8, -1, 13, 3);
+  context.fillRect(-6, -2, 9, 5);
+  context.fillRect(3, -3, 6, 6);
+  context.fillRect(5, -4, 2, 8);
+  context.fillRect(-10, 0, 3, 2);
+  context.fillStyle = palette.deep;
+  context.fillRect(-6, 0, 9, 2);
+  context.fillStyle = palette.cream;
+  context.fillRect(4, -2, 4, 4);
+  context.fillStyle = palette.bloom;
+  context.fillRect(6, -1, 1, 1);
+
+  const antenna = Math.max(2, Math.round(pose.antennaLift * 5));
+  context.fillStyle = palette.outline;
+  context.fillRect(7, -5, 1, 2);
+  context.fillRect(8, -6, 1, 1);
+  context.fillRect(9, -7 - Math.round(antenna / 3), 1, 2 + Math.round(antenna / 3));
+  context.fillRect(10, -8 - Math.round(antenna / 3), 2, 1);
+  context.fillRect(8, -4, 1, 1);
+  context.fillRect(10, -5, 1, 1);
+  context.fillRect(11, -6, 1, 1);
+  context.fillRect(12, -7 - Math.round(antenna / 4), 1, 2 + Math.round(antenna / 4));
+  context.fillRect(-11, 0, 2, 1);
+  context.fillRect(-12, 1, 2, 1);
 }
 
 function drawWindLeaf(
@@ -846,6 +987,7 @@ function drawProceduralHabitat(
   motion: EngineMotion,
   progress: number,
   world: PetWorldState,
+  reducedMotion: boolean,
 ) {
   const groundY = ENGINE_SCENE.groundY;
 
@@ -994,7 +1136,7 @@ function drawProceduralHabitat(
   drawProgressBlooms(context, palette, world);
   drawAfterRainPuddle(context, palette, world);
   drawHandMote(context, palette, world);
-  drawVisitor(context, palette, world);
+  drawVisitor(context, palette, world, reducedMotion);
   drawWindLeaf(context, palette, world);
 
   context.restore();
@@ -1012,9 +1154,10 @@ function drawAuthoredHabitat(
   progress: number,
   world: PetWorldState,
   habitat: HabitatImages,
+  reducedMotion: boolean,
 ) {
   if (!habitatImageReady(habitat.backdrop) || !habitatImageReady(habitat.shelterTree)) {
-    drawProceduralHabitat(context, palette, motion, progress, world);
+    drawProceduralHabitat(context, palette, motion, progress, world, reducedMotion);
     return;
   }
 
@@ -1077,7 +1220,7 @@ function drawAuthoredHabitat(
   drawProgressBlooms(context, palette, world);
   drawAfterRainPuddle(context, palette, world);
   drawHandMote(context, palette, world);
-  drawVisitor(context, palette, world);
+  drawVisitor(context, palette, world, reducedMotion);
   drawWindLeaf(context, palette, world);
   context.restore();
 
@@ -1341,7 +1484,7 @@ function renderScene(
   const palette = PALETTES[paletteId];
   const guardianWake = resolveGuardianWakePresentation(world, reducedMotion);
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
-  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
+  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat, reducedMotion);
   drawGuardianWake(context, palette, world, guardianWake);
   drawCareEchoInvitation(context, palette, world, careEchoSource);
   drawFocusStillness(context, palette, world, focusAtmosphere);

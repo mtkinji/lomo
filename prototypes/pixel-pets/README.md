@@ -14,6 +14,8 @@ The prototype lets a tester:
 - raise that same light through a stage-shaped reach ladder: grounded Baby, bounding Young, and an aerial Guardian that lands before greeting and never pogo-loops under a held finger;
 - pinch from a full habitat view to a temporary 2.25x close-up;
 - discover a stage-specific wildlife ladder: baby follows a ground crawler, young chases a firefly, and guardian banks through a high aerial interception of a sky moth;
+- watch each visitor perform through the same renderer-neutral limited-animation grammar: a planted crawler transfers weight through six legs, a firefly beats its wings independently of its slow breathing glow, and a sky moth holds, strikes, banks, and escapes;
+- see visitor materials answer the world: warm light, wind effort, and rain weight change acting without changing behavior authority;
 - see every wildlife chase begin with a planted eyes-ears-head attention beat, sample the target's latest side, then lock facing, travel, and escape to one committed side;
 - swipe across Leafling to curl, roll over on the ground, and uncurl;
 - inspect anime-style holds, keys, in-betweens, accents, and recovery timing;
