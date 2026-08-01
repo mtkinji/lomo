@@ -35,6 +35,7 @@ import {
   resolveCareEchoHit,
   resolveAfterRainHit,
   resolveAfterRainSplashPresentation,
+  resolveGuardianWakePresentation,
   resolveTapIntent,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
@@ -45,6 +46,7 @@ import {
   tossWorldWindLeaf,
   type PetWorldAction,
   type PetWorldState,
+  type GuardianWakePresentation,
   type WorldPoint,
 } from "@/lib/pet-world";
 import { createWindLeaf, isWindLeafHit } from "@/lib/pet-plaything";
@@ -62,7 +64,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "rollover" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  type: "visitor" | "rollover" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -739,6 +741,66 @@ function drawAfterRainSplash(
   context.restore();
 }
 
+function drawGuardianWake(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  wake: GuardianWakePresentation,
+) {
+  if (!wake.visible) return;
+  context.save();
+  worldTransform(context, world);
+  context.translate(Math.round(wake.centerX), ENGINE_SCENE.groundY);
+
+  if (wake.mode === "gathering") {
+    context.globalAlpha = wake.intensity * 0.42;
+    context.fillStyle = palette.skyLight;
+    for (let band = 0; band < 3; band += 1) {
+      const width = 10 + band * 6 + Math.round(wake.progress * 8);
+      const y = -18 - band * 13 - Math.round(wake.lift * (5 + band * 3));
+      context.fillRect(-width, y, Math.round(width * 0.62), 1);
+      context.fillRect(3 + band * 2, y - 2, Math.round(width * 0.72), 1);
+      context.fillRect(-2 - band, y - 5, 2, 2);
+    }
+  } else {
+    // The air itself stays quiet; the readable force comes from the meadow it crosses.
+    // Two broken pressure lines keep the wake directional without turning it into a spell.
+    context.fillStyle = palette.cream;
+    context.globalAlpha = wake.intensity * 0.72;
+    for (let band = 0; band < 4; band += 1) {
+      const radius = Math.max(8, wake.radius - band * 11);
+      const y = -2 - band * 4;
+      const segment = Math.max(5, Math.round(radius * 0.34));
+      context.fillRect(-radius, y, segment, 2);
+      context.fillRect(-Math.round(radius * 0.38), y - 1, Math.round(radius * 0.25), 1);
+      context.fillRect(radius - segment, y, segment, 2);
+      context.fillRect(Math.round(radius * 0.14), y - 1, Math.round(radius * 0.25), 1);
+    }
+    context.fillStyle = palette.cream;
+    context.globalAlpha = wake.intensity * 0.38;
+    context.fillRect(-Math.round(wake.radius * 0.52), -1, Math.round(wake.radius * 1.04), 1);
+  }
+
+  if (wake.particles) {
+    for (let index = 0; index < 12; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const lane = Math.floor(index / 2);
+      const travel = wake.mode === "released"
+        ? wake.radius * (0.28 + lane * 0.08)
+        : wake.radius * (0.34 + lane * 0.04);
+      const x = side * Math.round(travel);
+      const y = wake.mode === "released"
+        ? -5 - Math.round(wake.lift * (7 + lane * 2)) - (lane % 3) * 3
+        : -12 - lane * 6 - Math.round(wake.lift * 10);
+      context.globalAlpha = wake.intensity * (0.68 + (index % 3) * 0.1);
+      context.fillStyle = index % 3 === 0 ? palette.bloom : index % 2 === 0 ? palette.leafLight : palette.leaf;
+      context.fillRect(x, y, index % 4 === 0 ? 4 : 3, 2);
+      context.fillRect(x + (side > 0 ? 2 : -1), y + 2, 2, 1);
+    }
+  }
+  context.restore();
+}
+
 function drawCareEchoInvitation(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -1027,6 +1089,7 @@ function drawNearForeground(
   palette: HabitatPalette,
   world: PetWorldState,
   habitat: HabitatImages,
+  guardianWake: GuardianWakePresentation,
 ) {
   const hasAuthoredForeground = habitatImageReady(habitat.foreground);
   if (hasAuthoredForeground) {
@@ -1048,10 +1111,47 @@ function drawNearForeground(
   context.fillStyle = palette.deep;
   context.globalAlpha = hasAuthoredForeground ? 0.42 : 0.82;
   for (let x = 5; x < PET_WORLD.width; x += 19) {
-    const bend = Math.round(world.weatherSway * (1 + (x % 4) * 0.15));
+    const distanceFromWake = Math.abs(x - guardianWake.centerX);
+    const wakeDirection = x < guardianWake.centerX ? -1 : 1;
+    const wakeBand = guardianWake.visible && guardianWake.mode === "released" && guardianWake.radius > 0
+      ? Math.max(
+          0,
+          1 - Math.abs(distanceFromWake - guardianWake.radius * 0.62) / Math.max(12, guardianWake.radius * 0.54),
+        )
+      : 0;
+    const wakeBend = wakeDirection * Math.round(wakeBand * guardianWake.intensity * 8);
+    const bend = Math.round(world.weatherSway * (1 + (x % 4) * 0.15)) + wakeBend;
     context.fillRect(x, ENGINE_SCENE.groundY - 4, 1, 5);
     context.fillRect(x + bend, ENGINE_SCENE.groundY - 6 - (x % 3), 1, 3 + (x % 3));
     if (x % 3 === 0) context.fillRect(x - 2 + bend, ENGINE_SCENE.groundY - 4, 3, 1);
+  }
+
+  // A released Guardian wake travels as an authored row of grass laying away
+  // from the landing. This sits over the detailed foreground so it remains
+  // legible at phone scale, while still being made only from meadow colors.
+  if (guardianWake.visible && guardianWake.mode === "released" && guardianWake.radius > 0) {
+    const ringCenter = guardianWake.radius * 0.68;
+    const ringWidth = Math.max(18, guardianWake.radius * 0.42);
+    for (let x = 9; x < PET_WORLD.width; x += 11) {
+      const signedDistance = x - guardianWake.centerX;
+      const distance = Math.abs(signedDistance);
+      const response = Math.max(0, 1 - Math.abs(distance - ringCenter) / ringWidth)
+        * guardianWake.intensity;
+      if (response <= 0.08) continue;
+      const direction = signedDistance < 0 ? -1 : 1;
+      const height = 7 + (x % 4);
+      const bend = direction * Math.max(3, Math.round(response * 13));
+      const baseY = ENGINE_SCENE.groundY;
+
+      context.globalAlpha = 0.5 + response * 0.38;
+      context.fillStyle = palette.deep;
+      context.fillRect(x - 1, baseY - 2, 3, 2);
+      context.fillRect(x, baseY - height, 2, height - 1);
+      context.fillRect(x + Math.round(bend * 0.45), baseY - height - 2, Math.max(2, Math.abs(bend) - 2), 2);
+      context.fillStyle = palette.leafLight;
+      context.fillRect(x + bend, baseY - height - 3, 3, 2);
+      context.fillRect(x + bend + direction, baseY - height - 2, 2, 1);
+    }
   }
   context.fillStyle = palette.leafLight;
   context.globalAlpha = 0.44;
@@ -1239,8 +1339,10 @@ function renderScene(
   reducedMotion: boolean,
 ) {
   const palette = PALETTES[paletteId];
+  const guardianWake = resolveGuardianWakePresentation(world, reducedMotion);
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
   drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
+  drawGuardianWake(context, palette, world, guardianWake);
   drawCareEchoInvitation(context, palette, world, careEchoSource);
   drawFocusStillness(context, palette, world, focusAtmosphere);
 
@@ -1297,7 +1399,7 @@ function renderScene(
     showRig,
   );
   drawAfterRainSplash(context, world, reducedMotion);
-  drawNearForeground(context, palette, world, habitat);
+  drawNearForeground(context, palette, world, habitat, guardianWake);
   drawWeather(context, palette, world, true);
   drawDaylight(context, palette, world);
 }
@@ -1424,6 +1526,17 @@ export function PetEngineCanvas({
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
     }
+    if (worldCommand.type === "guardian-wake-left" || worldCommand.type === "guardian-wake-right") {
+      const direction = worldCommand.type === "guardian-wake-left" ? -1 : 1;
+      const targetX = Math.max(
+        PET_WORLD.minX,
+        Math.min(PET_WORLD.maxX, worldRef.current.petX + direction * 62),
+      );
+      worldRef.current = releaseWorldHandGuide(
+        guideWorldWithHand(worldRef.current, { x: targetX, y: 58 }, "guardian"),
+        "guardian",
+      );
+    }
     if (worldCommand.type === "center") {
       worldRef.current = setWorldZoom({ ...worldRef.current, cameraX: worldRef.current.petX }, 1);
     }
@@ -1548,7 +1661,7 @@ export function PetEngineCanvas({
       }
       if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
 
-      const worldClip = clipForWorldAction(worldRef.current.action);
+      const worldClip = clipForWorldAction(worldRef.current.action, reducedMotion);
       const requestedClip = resolveRequestedClip(
         clipForMotion(motion),
         worldClip,

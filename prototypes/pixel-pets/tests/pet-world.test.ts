@@ -28,6 +28,7 @@ import {
   resolveCareEchoHit,
   resolveAfterRainHit,
   resolveAfterRainSplashPresentation,
+  resolveGuardianWakePresentation,
   restorePetWorldMemory,
   resolveCameraTargetX,
   resolveCinematicShot,
@@ -38,6 +39,7 @@ import {
   tossWorldWindLeaf,
   releaseWorldHandGuide,
 } from "../lib/pet-world.ts";
+import { leaflingManifestForStage } from "../lib/leafling.ts";
 
 test("only a real rain-to-sun clearing leaves one bounded puddle", () => {
   const ordinarySun = setWorldWeather(createPetWorldState(), "sunny");
@@ -888,8 +890,13 @@ test("rain shelter and shared Focus are stronger than a hand invitation", () => 
   };
   const focusing = beginCompanionFocus(createPetWorldState(), 15_000);
 
-  assert.deepEqual(guideWorldWithHand(sheltered, { x: 380, y: 80 }, "guardian"), sheltered);
-  assert.deepEqual(guideWorldWithHand(focusing, { x: 380, y: 80 }, "guardian"), focusing);
+  const rainRefusal = guideWorldWithHand(sheltered, { x: 380, y: 80 }, "guardian");
+  const focusRefusal = guideWorldWithHand(focusing, { x: 380, y: 80 }, "guardian");
+
+  assert.deepEqual(rainRefusal, sheltered);
+  assert.deepEqual(focusRefusal, focusing);
+  assert.equal(rainRefusal.guardianWake.phase, "quiet");
+  assert.equal(focusRefusal.guardianWake.phase, "quiet");
 });
 
 test("Reduce Motion preserves guide, arrival, and greeting without animated travel", () => {
@@ -897,7 +904,7 @@ test("Reduce Motion preserves guide, arrival, and greeting without animated trav
   const arrived = stepPetWorld(releaseWorldHandGuide(guided, "guardian"), 16, true, "guardian");
 
   assert.equal(arrived.petX, 352);
-  assert.equal(arrived.action, "hand-found");
+  assert.equal(arrived.action, "guardian-land");
   assert.equal(arrived.hand.phase, "released");
   assert.equal(arrived.poseY, 0);
 });
@@ -917,6 +924,144 @@ test("the reachable sky opens from grounded baby to bounding young to aerial Gua
   assert.equal(clipForWorldAction(guardian.action), "aerial");
 });
 
+test("only Guardian gathers a meadow wake from the existing high-hand gesture", () => {
+  const baby = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "baby");
+  const young = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "young");
+  const guardian = guideWorldWithHand(createPetWorldState(), { x: 300, y: 58 }, "guardian");
+
+  assert.equal(baby.guardianWake.phase, "quiet");
+  assert.equal(young.guardianWake.phase, "quiet");
+  assert.deepEqual(guardian.guardianWake, {
+    phase: "gathering",
+    x: guardian.petX,
+    elapsedMs: 0,
+    facing: 1,
+  });
+});
+
+test("the Guardian wake waits for authored landing, releases once, and settles", () => {
+  const aerial = leaflingManifestForStage("guardian").clips.aerial;
+  const landIndex = aerial.frames.findIndex((frame) => frame.events?.includes("land"));
+  const authoredContactAt = aerial.frames
+    .slice(0, landIndex)
+    .reduce((duration, frame) => duration + frame.duration, 0);
+  assert.equal(PET_WORLD.handAerialContactAt, authoredContactAt);
+
+  let world = releaseWorldHandGuide(
+    guideWorldWithHand(createPetWorldState(), { x: 318, y: 58 }, "guardian"),
+    "guardian",
+  );
+  world = stepPetWorld(world, PET_WORLD.handAerialContactAt - 1, false, "guardian");
+  assert.equal(world.guardianWake.phase, "gathering");
+  assert.notEqual(world.petX, 318);
+
+  world = stepPetWorld(world, 1, false, "guardian");
+  assert.equal(world.action, "guardian-land");
+  assert.equal(world.actionElapsed, PET_WORLD.handAerialContactAt);
+  assert.equal(world.petX, 318);
+  assert.deepEqual(world.guardianWake, {
+    phase: "released",
+    x: 318,
+    elapsedMs: 0,
+    facing: 1,
+  });
+
+  const recovery = stepPetWorld(world, 180, false, "guardian");
+  assert.equal(recovery.action, "guardian-land");
+  assert.equal(recovery.petX, 318, "authored grounded recovery must not continue translating");
+
+  const settled = stepPetWorld(world, PET_WORLD.guardianWakeDuration + 1, false, "guardian");
+  assert.equal(settled.guardianWake.phase, "quiet");
+});
+
+test("meaningful Focus clears a released meadow wake and owns the scene", () => {
+  const released = {
+    ...createPetWorldState(),
+    action: "guardian-land" as const,
+    guardianWake: { phase: "released" as const, x: 318, elapsedMs: 180, facing: 1 as const },
+  };
+
+  const focusing = beginCompanionFocus(released, 15_000);
+
+  assert.equal(focusing.action, "seek-shelter");
+  assert.equal(focusing.guardianWake.phase, "quiet");
+});
+
+test("a released Guardian landing recovers on the terrain instead of greeting with a second hop", () => {
+  let world = releaseWorldHandGuide(
+    guideWorldWithHand(createPetWorldState(), { x: 318, y: 58 }, "guardian"),
+    "guardian",
+  );
+  world = stepPetWorld(world, PET_WORLD.handAerialContactAt, false, "guardian");
+
+  assert.equal(world.action, "guardian-land");
+  assert.equal(clipForWorldAction(world.action), "aerial");
+  assert.equal(clipForWorldAction(world.action, true), "discover");
+  assert.equal(world.poseY, 0);
+  assert.equal(world.targetX, null);
+
+  world = stepPetWorld(
+    world,
+    PET_WORLD.handAerialDuration - PET_WORLD.handAerialContactAt,
+    false,
+    "guardian",
+  );
+  assert.equal(world.action, "idle");
+  assert.equal(world.hand.phase, "quiet");
+  assert.equal(world.poseY, 0);
+});
+
+test("Guardian wake presentation is contact-led limited animation, not an aura", () => {
+  const base = createPetWorldState();
+  const gathering = resolveGuardianWakePresentation({
+    ...base,
+    guardianWake: { phase: "gathering", x: 240, elapsedMs: 360, facing: 1 },
+  }, false);
+  const contact = resolveGuardianWakePresentation({
+    ...base,
+    guardianWake: { phase: "released", x: 318, elapsedMs: 0, facing: 1 },
+  }, false);
+  const traveling = resolveGuardianWakePresentation({
+    ...base,
+    guardianWake: { phase: "released", x: 318, elapsedMs: PET_WORLD.guardianWakeDuration / 2, facing: 1 },
+  }, false);
+
+  assert.equal(gathering.mode, "gathering");
+  assert.ok(gathering.radius < contact.radius);
+  assert.deepEqual(
+    { mode: contact.mode, intensity: contact.intensity, progress: contact.progress },
+    { mode: "released", intensity: 1, progress: 0 },
+  );
+  assert.ok(traveling.radius > contact.radius);
+  assert.ok(traveling.intensity < contact.intensity);
+  assert.equal(traveling.particles, true);
+});
+
+test("Reduce Motion keeps one static bowed-grass contact without traveling particles", () => {
+  const base = {
+    ...createPetWorldState(),
+    guardianWake: { phase: "released" as const, x: 318, elapsedMs: 0, facing: 1 as const },
+  };
+  const first = resolveGuardianWakePresentation(base, true);
+  const later = resolveGuardianWakePresentation({
+    ...base,
+    guardianWake: { ...base.guardianWake, elapsedMs: 500 },
+  }, true);
+
+  assert.deepEqual(first, later);
+  assert.deepEqual(first, {
+    visible: true,
+    mode: "released",
+    centerX: 318,
+    facing: 1,
+    progress: 0,
+    intensity: 0.42,
+    radius: 30,
+    lift: 0,
+    particles: false,
+  });
+});
+
 test("an acrobatic hand chase commits once, lands, then watches instead of pogoing", () => {
   let world = guideWorldWithHand(createPetWorldState(), { x: 318, y: 62 }, "guardian");
   world = stepPetWorld(world, 320, false, "guardian");
@@ -928,7 +1073,7 @@ test("an acrobatic hand chase commits once, lands, then watches instead of pogoi
   assert.ok(world.petX > 240 && world.petX < world.hand.x);
 
   world = stepPetWorld(world, PET_WORLD.handAerialDuration, false, "guardian");
-  assert.equal(world.action, "hand-track");
+  assert.equal(world.action, "guardian-land");
   assert.equal(world.hand.acroUsed, true);
   assert.equal(world.poseY, 0, "the creature must land before holding attention");
 
@@ -936,7 +1081,7 @@ test("an acrobatic hand chase commits once, lands, then watches instead of pogoi
   assert.notEqual(heldAfterLanding.action, "hand-aerial", "one continuous gesture cannot trigger a pogo loop");
 
   const released = releaseWorldHandGuide(heldAfterLanding, "guardian");
-  assert.equal(released.action, "hand-found");
+  assert.equal(released.action, "guardian-land");
 });
 
 test("settling weather may change the habitat but cannot cut off a committed hand landing", () => {

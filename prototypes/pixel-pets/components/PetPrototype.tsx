@@ -328,11 +328,15 @@ export function PetPrototype() {
       title: state.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes",
       detail: state.lastReceipt,
     };
+    if (world.guardianWake.phase === "released") return {
+      title: "The meadow answered",
+      detail: `The air ${state.name} carried touched the ground and traveled through the grass.`,
+    };
     if (worldMessage) return worldMessage;
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
-  }, [dayHasCare, state.careAvailable, state.lastReceipt, state.reaction, state.stage, worldMessage]);
+  }, [dayHasCare, state.careAvailable, state.lastReceipt, state.name, state.reaction, state.stage, world.guardianWake.phase, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
   const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
   function handleWorldInteraction(action: PetWorldAction, worldSnapshot: PetWorldState) {
@@ -352,8 +356,9 @@ export function PetPrototype() {
       "hand-walk": { title: "Coming closer", detail: `${state.name} is following without becoming a cursor.` },
       "hand-run": { title: "Wait for me", detail: `${state.name} opened into a real run to close the distance.` },
       "hand-pounce": { title: "A new layer", detail: `${state.name} can reach the light with one committed bound.` },
-      "hand-aerial": { title: "The sky opened", detail: `${state.name} read the height, launched, and chose one landing.` },
-      "hand-found": { title: "There you are", detail: `${state.name} found the last place your hand left light.` },
+      "hand-aerial": { title: "The sky opened", detail: currentStage === "guardian" ? `${state.name} gathered the meadow’s loose air into one committed flight.` : `${state.name} read the height, launched, and chose one landing.` },
+      "hand-found": { title: worldSnapshot.guardianWake.phase === "released" ? "The meadow answered" : "There you are", detail: worldSnapshot.guardianWake.phase === "released" ? `The air ${state.name} carried touched the ground and traveled through the grass.` : `${state.name} found the last place your hand left light.` },
+      "guardian-land": { title: "The meadow answered", detail: `The air ${state.name} carried touched the ground and traveled through the grass.` },
       "weather-notice": { title: "The air changed", detail: `${state.name} felt it before the weather arrived.` },
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
       "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. Catch it—or watch ${state.name} read where it goes.` },
@@ -420,15 +425,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 31</span>
-        <h1>Play after<br />the rain.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 32</span>
+        <h1>Make the meadow<br />answer.</h1>
         <p>
-          Watch one storm pass through Moss’s meadow, then touch what the weather leaves behind.
+          Grow Moss into a Guardian, draw your hand into the high sky, and feel the landing travel through the world.
         </p>
         <dl className="engine-facts">
-          <div><dt>Rain</dt><dd>changes Moss</dd></div>
-          <div><dt>Clearing</dt><dd>changes the meadow</dd></div>
-          <div><dt>Touch</dt><dd>completes the story</dd></div>
+          <div><dt>Growth</dt><dd>opens the sky</dd></div>
+          <div><dt>Guardian</dt><dd>gathers the air</dd></div>
+          <div><dt>Landing</dt><dd>moves the meadow</dd></div>
         </dl>
       </header>
 
@@ -569,6 +574,8 @@ export function PetPrototype() {
           <div className="world-controls">
             <button type="button" onClick={() => commandWorld("visitor")}>Invite {visitorLabel}</button>
             <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
+            <button type="button" onClick={() => { setPreviewStage("guardian"); commandWorld("guardian-wake-left"); }}>Guardian landing left</button>
+            <button type="button" onClick={() => { setPreviewStage("guardian"); commandWorld("guardian-wake-right"); }}>Guardian landing right</button>
             <button type="button" onClick={() => commandWorld("center")}>Reset camera</button>
           </div>
           <div className="weather-controls" aria-label="Weather study controls">
@@ -593,6 +600,7 @@ export function PetPrototype() {
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
+            <span>Guardian wake <strong>{world.guardianWake.phase === "quiet" ? "quiet" : `${world.guardianWake.phase} · ${Math.round(world.guardianWake.x)}`}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
