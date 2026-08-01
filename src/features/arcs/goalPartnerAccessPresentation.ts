@@ -33,23 +33,38 @@ type GoalPartnerAccessPresentationInput = {
   sharedMembers: SharedMember[] | null | undefined;
 };
 
+type GoalPartnerRemovalInput = {
+  member: SharedMember;
+  currentUserIds: Set<string>;
+  canRemoveGoalPartners: boolean;
+};
+
+export function canRemoveGoalPartnerMember({
+  member,
+  currentUserIds,
+  canRemoveGoalPartners,
+}: GoalPartnerRemovalInput): boolean {
+  if (!canRemoveGoalPartners) return false;
+  if (currentUserIds.has(member.userId.trim())) return false;
+  return (member.role ?? '').toLowerCase() !== 'owner';
+}
+
 export function buildGoalPartnerRowPresentation({
   member,
   currentUserIds,
   canRemoveGoalPartners,
-}: {
-  member: SharedMember;
-  currentUserIds: Set<string>;
-  canRemoveGoalPartners: boolean;
-}): GoalPartnerRowPresentation {
+}: GoalPartnerRemovalInput): GoalPartnerRowPresentation {
   const isCurrentUser = currentUserIds.has(member.userId.trim());
-  const isExplicitOwner = (member.role ?? '').toLowerCase() === 'owner';
 
   return {
     member,
     isCurrentUser,
     roleLabel: sharedMemberRoleLabel(member, currentUserIds),
-    canRemoveMember: canRemoveGoalPartners && !isCurrentUser && !isExplicitOwner,
+    canRemoveMember: canRemoveGoalPartnerMember({
+      member,
+      currentUserIds,
+      canRemoveGoalPartners,
+    }),
     avatarName: member.name ?? undefined,
     avatarUrl: member.avatarUrl ?? undefined,
     displayName: member.name ?? 'Member',

@@ -117,8 +117,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: partner-row JSX recomputes normalized identity, role labels, current-user status, and remove-button eligibility inside composition.
   - Result: `goalPartnerAccessPresentation.ts` now returns tested partner-row models with identity, role, removal eligibility, avatar, display-name, and accessibility-label fields consumed directly by the screen.
 
-- [ ] Unify Goal partner removal guard
+- [x] Unify Goal partner removal guard
   - Area: `src/features/arcs/GoalDetailScreen.tsx`, `src/features/arcs/goalPartnerAccessPresentation.ts`
   - Why: row presentation blocks removing the current user or explicit owner, while the mutation handler independently repeats only part of that access policy.
-  - Ideal test: pin no-owner-access, current-user, explicit-owner, partner, and co-owner targets through one reusable predicate.
+  - Result: `canRemoveGoalPartnerMember` now guards both row presentation and mutation entry, with focused tests for access, self, owner, partner, and co-owner targets.
+
+- [ ] Extract Goal check-in partner presentation
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: partner-name filtering, approval count, and the development draft preview override are split across adjacent screen expressions.
+  - Ideal test: pin blank-name filtering, live partner counts, development preview names/counts, and production behavior.
   - Risk: low

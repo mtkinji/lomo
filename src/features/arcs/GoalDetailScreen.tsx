@@ -164,7 +164,10 @@ import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
-import { buildGoalPartnerAccessPresentation } from './goalPartnerAccessPresentation';
+import {
+  buildGoalPartnerAccessPresentation,
+  canRemoveGoalPartnerMember,
+} from './goalPartnerAccessPresentation';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
@@ -811,7 +814,12 @@ export function GoalDetailScreen() {
 
   const handleRemovePartner = useCallback(
     (member: SharedMember) => {
-      if (!goalId || !canRemoveGoalPartners || currentUserIds.has(member.userId.trim())) return;
+      if (
+        !goalId ||
+        !canRemoveGoalPartnerMember({ member, currentUserIds, canRemoveGoalPartners })
+      ) {
+        return;
+      }
       const partnerName = member.name?.trim() || 'this partner';
       Alert.alert(
         'Remove partner?',
