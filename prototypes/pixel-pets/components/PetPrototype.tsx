@@ -311,7 +311,7 @@ export function PetPrototype() {
       ? "firefly"
       : "sky moth";
   const currentManifest = leaflingManifestForStage(currentStage);
-  const currentAnimation = currentManifest.clips[renderedClip] as PetAnimationClip;
+  const currentAnimation = (currentManifest.clips[renderedClip] ?? currentManifest.clips.idle) as PetAnimationClip;
   const currentScale = LEAFLING_PRESENTATION.stages[currentStage].height / currentManifest.atlas.frameHeight;
   const currentGroundCue = frame
     ? resolveGroundCue(frame.contact, frame.shadow.width, frame.shadow.opacity, currentScale)
@@ -345,7 +345,7 @@ export function PetPrototype() {
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const dayPhase = resolvePrototypeDayPhase(state);
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
-  const playAnswering = world.visitor.active || ["track", "visitor-turn", "pounce", "aerial-pounce"].includes(world.action);
+  const playAnswering = world.visitor.active || ["track", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
   const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
   const worldAnswering = state.careAvailable && (
     (state.pendingSource === "todo" && bloomAnswering)
@@ -381,6 +381,10 @@ export function PetPrototype() {
     if (world.action === "reunion-greet") return {
       title: "There you are",
       detail: `${state.name} found you again.`,
+    };
+    if (world.action === "tree-perch") return {
+      title: currentStage === "guardian" ? "Above the old tree" : "A new place to stand",
+      detail: currentStage === "guardian" ? `${state.name} can see the whole meadow from here.` : `${state.name} found the lower bough.`,
     };
     if (worldMessage) return worldMessage;
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
@@ -425,6 +429,12 @@ export function PetPrototype() {
       "reunion-notice": { title: "Moss heard you arrive", detail: "A pause, ears up, then recognition." },
       "reunion-approach": { title: "Coming to meet you", detail: currentStage === "baby" ? "Small steps. No hesitation now." : currentStage === "guardian" ? "A Guardian crossed the meadow just to be near you." : `${state.name} opened into a delighted run.` },
       "reunion-greet": { title: "There you are", detail: `${state.name} found you again.` },
+      "tree-notice": { title: "The old tree answered", detail: `${state.name} looked up before choosing a path.` },
+      "seek-tree": { title: "Toward the roots", detail: `${state.name} is padding into the tree’s quiet edge.` },
+      "tree-root": { title: "A place to lean", detail: `${state.name} found the roots without leaving the terrain.` },
+      "tree-launch": { title: currentStage === "guardian" ? "The highest bough" : "A low branch opened", detail: currentStage === "guardian" ? `${state.name} committed to one long vault through the canopy.` : `${state.name} gathered into a careful spring.` },
+      "tree-perch": { title: currentStage === "guardian" ? "Above the old tree" : "A new place to stand", detail: currentStage === "guardian" ? `${state.name} can see the whole meadow from here.` : `${state.name} found the lower bough.` },
+      "tree-return": { title: "Back to the meadow", detail: `${state.name} chose one landing and came home to the grass.` },
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       affection: { title: "A little closer", detail: `${state.name} leaned into your hand, then settled in their own time.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
@@ -506,15 +516,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 41</span>
-        <h1>Lock the eyes.<br />Then leave the ground.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 42</span>
+        <h1>The old tree<br />is playable.</h1>
         <p>
-          Every chase begins with a readable body line. As Moss grows, the living world invites them higher—from ground crawler to firefly to sky moth.
+          The meadow is not a painted backdrop. Touch its oldest landmark and the same world opens differently as Moss grows.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>ground</dd></div>
-          <div><dt>Young</dt><dd>low air</dd></div>
-          <div><dt>Guardian</dt><dd>upper air</dd></div>
+          <div><dt>Baby</dt><dd>roots</dd></div>
+          <div><dt>Young</dt><dd>low bough</dd></div>
+          <div><dt>Guardian</dt><dd>high canopy</dd></div>
         </dl>
       </header>
 
@@ -670,6 +680,7 @@ export function PetPrototype() {
             <button type="button" onClick={() => commandWorld("visitor")}>Invite {visitorLabel}</button>
             <button type="button" onClick={() => commandWorld("affection")}>Pet {state.name}</button>
             <button type="button" onClick={() => commandWorld("rollover")}>Roll over</button>
+            <button type="button" onClick={() => commandWorld("tree-play")}>Play at the old tree</button>
             <button type="button" onClick={() => { setPreviewStage("guardian"); commandWorld("guardian-wake-left"); }}>Guardian landing left</button>
             <button type="button" onClick={() => { setPreviewStage("guardian"); commandWorld("guardian-wake-right"); }}>Guardian landing right</button>
             <button type="button" onClick={() => commandWorld("center")}>Reset camera</button>
@@ -706,6 +717,7 @@ export function PetPrototype() {
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
             <span>Guardian wake <strong>{world.guardianWake.phase === "quiet" ? "quiet" : `${world.guardianWake.phase} · ${Math.round(world.guardianWake.x)}`}</strong></span>
+            <span>Old tree <strong>{world.treePlay?.active ? `${world.treePlay.stage} · ${world.action} · ${Math.round(world.poseY)}` : "touchable · quiet"}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>

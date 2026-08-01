@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   PET_WORLD,
+  TREE_PLAY,
   applyWorldIntent,
   beginPetReunion,
   beginPetEvening,
@@ -15,10 +16,12 @@ import {
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
+  beginTreePlay,
   cancelWorldHandGuide,
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
+  resolveTreePlayHit,
   resolveFocusAtmosphere,
   grabWorldWindLeaf,
   guideWorldWithHand,
@@ -940,6 +943,94 @@ test("screen taps resolve into world-space attention and travel intents", () => 
   assert.deepEqual(resolveTapIntent(world, { x: 80, y: 190 }), { kind: "greet", worldX: 240 });
   assert.deepEqual(resolveTapIntent(world, { x: 142, y: 188 }), { kind: "move", worldX: 302 });
   assert.deepEqual(resolveTapIntent(world, { x: 24, y: 72 }), { kind: "jump", worldX: 184 });
+});
+
+test("the authored old tree owns one bounded world-space touch target", () => {
+  const world = createPetWorldState();
+
+  assert.equal(resolveTreePlayHit(world, { x: PET_WORLD.treeShelterX, y: 90 }), true);
+  assert.equal(resolveTreePlayHit(world, { x: PET_WORLD.treeShelterX - TREE_PLAY.hitRadiusX - 1, y: 90 }), false);
+  assert.equal(resolveTreePlayHit(world, { x: PET_WORLD.treeShelterX, y: TREE_PLAY.hitTopY - 1 }), false);
+  assert.equal(resolveTreePlayHit(world, { x: PET_WORLD.treeShelterX, y: TREE_PLAY.hitBottomY + 1 }), false);
+});
+
+test("Baby explores the old roots without leaving the terrain", () => {
+  const invited = beginTreePlay(createPetWorldState(), "baby");
+  const noticed = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, "baby");
+  const approached = stepPetWorld(noticed, 5000, false, "baby");
+  const arrived = stepPetWorld(approached, 1, false, "baby");
+  const held = stepPetWorld(arrived, TREE_PLAY.rootHoldDuration - 1, false, "baby");
+  const settled = stepPetWorld(held, 2, false, "baby");
+
+  assert.equal(invited.action, "tree-notice");
+  assert.equal(noticed.action, "seek-tree");
+  assert.equal(arrived.action, "tree-root");
+  assert.equal(arrived.petX, TREE_PLAY.rootX);
+  assert.equal(arrived.poseY, 0);
+  assert.equal(held.poseY, 0);
+  assert.equal(clipForWorldAction(arrived.action, false, "baby"), "affection");
+  assert.equal(settled.action, "idle");
+  assert.equal(settled.treePlay.active, false);
+});
+
+test("the old tree opens a progressively higher stable perch as Moss matures", () => {
+  const youngInvited = beginTreePlay(createPetWorldState(), "young");
+  const guardianInvited = beginTreePlay(createPetWorldState(), "guardian");
+  const youngLaunch = stepPetWorld(youngInvited, TREE_PLAY.noticeDuration, false, "young");
+  const guardianLaunch = stepPetWorld(guardianInvited, TREE_PLAY.noticeDuration, false, "guardian");
+  const youngPerched = stepPetWorld(youngLaunch, TREE_PLAY.young.launchDuration, false, "young");
+  const guardianPerched = stepPetWorld(guardianLaunch, TREE_PLAY.guardian.launchDuration, false, "guardian");
+
+  assert.equal(youngLaunch.action, "tree-launch");
+  assert.equal(guardianLaunch.action, "tree-launch");
+  assert.equal(clipForWorldAction(youngLaunch.action, false, "young"), "pounce");
+  assert.equal(clipForWorldAction(guardianLaunch.action, false, "guardian"), "aerial");
+  assert.equal(youngPerched.action, "tree-perch");
+  assert.equal(guardianPerched.action, "tree-perch");
+  assert.equal(youngPerched.petX, TREE_PLAY.young.perchX);
+  assert.equal(guardianPerched.petX, TREE_PLAY.guardian.perchX);
+  assert.equal(youngPerched.poseY, TREE_PLAY.young.perchY);
+  assert.equal(guardianPerched.poseY, TREE_PLAY.guardian.perchY);
+  assert.ok(guardianPerched.poseY < youngPerched.poseY, "the Guardian should occupy the highest bough");
+});
+
+test("a tree perch holds its branch contact, then returns through one committed landing", () => {
+  const invited = beginTreePlay(createPetWorldState(), "guardian");
+  const launch = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, "guardian");
+  const perched = stepPetWorld(launch, TREE_PLAY.guardian.launchDuration, false, "guardian");
+  const held = stepPetWorld(perched, TREE_PLAY.perchHoldDuration - 1, false, "guardian");
+  const returning = stepPetWorld(held, 2, false, "guardian");
+  const airborne = stepPetWorld(returning, TREE_PLAY.guardian.returnDuration / 2, false, "guardian");
+  const landed = stepPetWorld(airborne, TREE_PLAY.guardian.returnDuration / 2 + 1, false, "guardian");
+
+  assert.equal(held.petX, TREE_PLAY.guardian.perchX);
+  assert.equal(held.poseY, TREE_PLAY.guardian.perchY);
+  assert.equal(returning.action, "tree-return");
+  assert.equal(returning.facing, 1);
+  assert.ok(airborne.poseY < 0);
+  assert.ok(airborne.petX > returning.petX);
+  assert.equal(landed.action, "idle");
+  assert.equal(landed.petX, TREE_PLAY.landingX);
+  assert.equal(landed.poseY, 0);
+  assert.equal(landed.treePlay.active, false);
+});
+
+test("Reduce Motion keeps tree discovery grounded and stronger rituals keep authority", () => {
+  const invited = beginTreePlay(createPetWorldState(), "guardian");
+  const reduced = stepPetWorld(invited, TREE_PLAY.noticeDuration, true, "guardian");
+  const focusing = beginCompanionFocus(createPetWorldState(), 15000);
+  const raining = {
+    ...createPetWorldState(),
+    weather: "rain" as const,
+    weatherPhase: "settled" as const,
+    action: "shelter" as const,
+  };
+
+  assert.equal(reduced.action, "tree-root");
+  assert.equal(reduced.petX, TREE_PLAY.rootX);
+  assert.equal(reduced.poseY, 0);
+  assert.equal(beginTreePlay(focusing, "guardian"), focusing);
+  assert.equal(beginTreePlay(raining, "guardian"), raining);
 });
 
 test("a deliberate hand guide earns attention before choosing an honest gait", () => {

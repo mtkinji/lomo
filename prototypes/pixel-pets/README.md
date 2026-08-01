@@ -33,6 +33,8 @@ The prototype lets a tester:
 - watch Leafling seek the old tree and curl up when rain reaches the meadow;
 - watch Leafling follow a sunny patch, bask briefly, then independently return to the old tree's shade;
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
+- touch the old tree as real world geography: Baby explores its roots, Young springs to a low bough, and Guardian vaults to the highest stable canopy perch before one committed return;
+- feel evolution as newly reachable space inside the same familiar habitat, with branch contact, action-wide framing, and a grounded Reduce Motion alternative owned by the portable world engine;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
 - watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
 - leave the controls alone and watch one portable living-day director compose quiet roaming, remembered-bloom visits, voluntary tree rest, weather, and wildlife without overlapping scenes;
@@ -118,6 +120,14 @@ travel; the drawings own lift, body turn, anticipation, impact, and recovery.
 Visitor pursuit uses one side-stable intercept and one recovery. At commitment,
 the visitor evades outward on that same side, so it cannot cross behind
 Leafling, make the launch read backward, or oscillate into a second pounce.
+The old tree is also a renderer-neutral world affordance rather than scenery
+with a click handler. Pure state owns its bounded hit target, stage-specific
+anchors, notice, approach, launch, perch, return, contact height, and camera
+composition. Baby remains on the terrain at the roots; Young and Guardian
+occupy increasingly high authored boughs before following one committed arc
+back to the meadow. Reduce Motion preserves discovery at the roots without
+vertical travel, and Focus, evening, care echoes, and rain shelter retain
+authority over decorative tree play.
 During evolution, a renderer-neutral composition contract drives the old and
 new manifests together while the habitat renders once. Deterministic leaf-light
 gathers inward and opens around the arrived form; visitors and autonomous travel

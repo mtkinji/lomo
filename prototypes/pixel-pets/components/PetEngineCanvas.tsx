@@ -22,6 +22,7 @@ import {
   beginSharedPlayEcho,
   beginMemoryVisit,
   beginTreeRest,
+  beginTreePlay,
   cancelWorldHandGuide,
   CARE_ECHO_TARGET,
   clipForWorldAction,
@@ -38,6 +39,7 @@ import {
   resolveAfterRainSplashPresentation,
   resolveGuardianWakePresentation,
   resolveTapIntent,
+  resolveTreePlayHit,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
   setWorldZoom,
@@ -72,7 +74,7 @@ import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
   serial: number;
-  type: "visitor" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
+  type: "visitor" | "tree-play" | "affection" | "rollover" | "reunion" | "guardian-wake-left" | "guardian-wake-right" | "center" | "sunny" | "breeze" | "rain" | "focus" | "focus-memory" | "play" | "todo-memory" | "evening" | "morning" | "reset";
 };
 
 interface PetEngineCanvasProps {
@@ -1657,6 +1659,9 @@ function renderScene(
     groundSnapshot.shadow.opacity,
     groundScale,
   );
+  const contactBaseline = world.action === "tree-perch"
+    ? ENGINE_SCENE.groundY + world.poseY
+    : ENGINE_SCENE.groundY;
 
   context.save();
   worldTransform(context, world);
@@ -1664,7 +1669,7 @@ function renderScene(
   context.fillStyle = palette.outline;
   context.fillRect(
     Math.round(world.petX - groundCue.width / 2),
-    ENGINE_SCENE.groundY + groundCue.yOffset,
+    contactBaseline + groundCue.yOffset,
     groundCue.width,
     groundCue.height,
   );
@@ -1827,6 +1832,9 @@ export function PetEngineCanvas({
         rotation: 0,
       }, stageRef.current);
     }
+    if (worldCommand.type === "tree-play") {
+      worldRef.current = beginTreePlay(worldRef.current, stageRef.current);
+    }
     if (worldCommand.type === "rollover") {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
     }
@@ -1938,6 +1946,11 @@ export function PetEngineCanvas({
           poseY: 0,
           rotation: 0,
           visitor: { ...worldRef.current.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+          treePlay: {
+            ...(worldRef.current.treePlay ?? createPetWorldState().treePlay),
+            active: false,
+            perchY: 0,
+          },
           playLeaf: createWindLeaf(),
         };
       } else if (!paused) {
@@ -2208,6 +2221,14 @@ export function PetEngineCanvas({
     const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
     if (resolveAfterRainHit(worldRef.current, worldPoint)) {
       worldRef.current = beginAfterRainSplash(worldRef.current);
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
+    if (resolveTreePlayHit(worldRef.current, worldPoint)) {
+      worldRef.current = beginTreePlay(worldRef.current, stageRef.current);
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
       callbackRef.current.onLivingDayFrame?.(livingDayRef.current);

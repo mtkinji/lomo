@@ -77,11 +77,24 @@ export const PET_WORLD = {
   reunionTargetX: 248,
 } as const;
 
+export const TREE_PLAY = {
+  hitRadiusX: 82,
+  hitTopY: 28,
+  hitBottomY: ENGINE_SCENE.groundY + 4,
+  noticeDuration: 520,
+  rootX: 146,
+  landingX: 166,
+  rootHoldDuration: 1500,
+  perchHoldDuration: 1900,
+  young: { perchX: 153, perchY: -76, launchDuration: 720, returnDuration: 850, arcLift: 8 },
+  guardian: { perchX: 127, perchY: -108, launchDuration: 965, returnDuration: 965, arcLift: 22 },
+} as const;
+
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetDaylightPhase = "day" | "golden" | "dusk" | "night" | "dawn";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "track" | "visitor-turn" | "visitor-stalk" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "affection" | "reunion-notice" | "reunion-approach" | "reunion-greet" | "tree-notice" | "seek-tree" | "tree-root" | "tree-launch" | "tree-perch" | "tree-return" | "track" | "visitor-turn" | "visitor-stalk" | "hand-track" | "hand-walk" | "hand-run" | "hand-pounce" | "hand-aerial" | "hand-found" | "guardian-land" | "leaf-invite" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "puddle-notice" | "puddle-invite" | "seek-puddle" | "puddle-splash" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "night-rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 export type WorldHandPhase = "quiet" | "held" | "released";
 export type AfterRainPhase = "quiet" | "shimmer" | "engaged" | "spent";
@@ -193,6 +206,13 @@ export interface PetWorldState {
     elapsedMs: number;
     facing: -1 | 1;
   };
+  treePlay: {
+    active: boolean;
+    stage: PetStage;
+    launchX: number;
+    perchX: number;
+    perchY: number;
+  };
   focus: {
     active: boolean;
     durationMs: number;
@@ -288,6 +308,16 @@ function quietGuardianWake(x = PET_WORLD.width / 2): PetWorldState["guardianWake
   return { phase: "quiet", x: clampWorldX(x), elapsedMs: 0, facing: 1 };
 }
 
+function quietTreePlay(stage: PetStage = "young"): PetWorldState["treePlay"] {
+  return {
+    active: false,
+    stage,
+    launchX: PET_WORLD.width / 2,
+    perchX: TREE_PLAY.young.perchX,
+    perchY: 0,
+  };
+}
+
 export function createPetWorldState(): PetWorldState {
   return {
     petX: PET_WORLD.width / 2,
@@ -311,6 +341,7 @@ export function createPetWorldState(): PetWorldState {
     daylight: { phase: "day", elapsedMs: 0, eveningActive: false },
     afterRain: quietAfterRain(),
     guardianWake: quietGuardianWake(),
+    treePlay: quietTreePlay(),
     focus: { active: false, durationMs: 0, elapsedMs: 0, remainingMs: 0, completed: false },
     visitor: {
       active: false,
@@ -347,6 +378,7 @@ export function beginPetReunion(state: PetWorldState, stage: PetStage): PetWorld
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
+    treePlay: quietTreePlay(stage),
     playLeaf: createWindLeaf(),
   };
 }
@@ -531,6 +563,7 @@ export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): P
     focus: { active: true, durationMs: duration, elapsedMs: 0, remainingMs: duration, completed: false },
     afterRain: quietAfterRain(state.afterRain.x),
     guardianWake: quietGuardianWake(state.petX),
+    treePlay: quietTreePlay(),
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     playLeaf: createWindLeaf(),
@@ -566,6 +599,7 @@ export function plantLifeEcho(
     playLeaf: createWindLeaf(),
     afterRain: quietAfterRain(state.afterRain.x),
     guardianWake: quietGuardianWake(state.petX),
+    treePlay: quietTreePlay(),
     blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
   };
 }
@@ -613,6 +647,7 @@ export function holdCareEcho(
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     guardianWake: quietGuardianWake(petX),
+    treePlay: quietTreePlay(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -635,7 +670,48 @@ export function beginMemoryVisit(state: PetWorldState, requestedX: number): PetW
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     guardianWake: quietGuardianWake(state.petX),
+    treePlay: quietTreePlay(),
     playLeaf: createWindLeaf(),
+  };
+}
+
+export function resolveTreePlayHit(state: PetWorldState, point: WorldPoint) {
+  return !treePlayIsRefused(state)
+    && Math.abs(point.x - PET_WORLD.treeShelterX) <= TREE_PLAY.hitRadiusX
+    && point.y >= TREE_PLAY.hitTopY
+    && point.y <= TREE_PLAY.hitBottomY;
+}
+
+function treePlayIsRefused(state: PetWorldState) {
+  if (state.focus.active || state.daylight.eveningActive || state.afterRain.phase === "engaged") return true;
+  return state.weather === "rain"
+    && state.weatherPhase === "settled"
+    && (state.action === "rain-flinch" || state.action === "seek-shelter" || state.action === "shelter");
+}
+
+export function beginTreePlay(state: PetWorldState, stage: PetStage): PetWorldState {
+  if (treePlayIsRefused(state)) return state;
+  const profile = stage === "guardian" ? TREE_PLAY.guardian : TREE_PLAY.young;
+  return {
+    ...state,
+    action: "tree-notice",
+    actionElapsed: 0,
+    targetX: null,
+    facing: faceToward(state.petX, PET_WORLD.treeShelterX, state.facing),
+    poseY: 0,
+    rotation: 0,
+    weatherResponsePending: false,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    hand: quietWorldHand(),
+    playLeaf: createWindLeaf(),
+    guardianWake: quietGuardianWake(state.petX),
+    treePlay: {
+      active: true,
+      stage,
+      launchX: state.petX,
+      perchX: profile.perchX,
+      perchY: stage === "baby" ? 0 : profile.perchY,
+    },
   };
 }
 
@@ -651,6 +727,7 @@ export function beginTreeRest(state: PetWorldState): PetWorldState {
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
     hand: quietWorldHand(),
     guardianWake: quietGuardianWake(state.petX),
+    treePlay: quietTreePlay(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -799,6 +876,9 @@ function clampCameraX(value: number, zoom: number) {
 }
 
 export function resolveCameraTargetX(state: PetWorldState) {
+  if (state.treePlay?.active) {
+    return clampCameraX((state.petX + PET_WORLD.treeShelterX) / 2, state.zoom);
+  }
   if (
     state.afterRain.phase !== "quiet"
     && (
@@ -843,7 +923,8 @@ export function resolveCameraTargetX(state: PetWorldState) {
     || state.action === "seek-memory"
     || state.action === "seek-rest"
     || state.action === "seek-leaf"
-    || state.action === "seek-puddle";
+    || state.action === "seek-puddle"
+    || state.action === "seek-tree";
   const lookAhead = directed ? PET_WORLD.cameraLookAhead * state.facing : 0;
   return clampCameraX(state.petX + lookAhead, state.zoom);
 }
@@ -854,7 +935,7 @@ export function resolveCinematicShot(
 ): { id: Exclude<PetCameraShot, "user">; zoom: number } {
   if (reducedMotion) return { id: "reduced-motion", zoom: 1 };
   if (state.focus.active || state.action === "focus") return { id: "focus", zoom: 1.35 };
-  if (state.action === "visitor-stalk" || state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial" || state.action === "guardian-land" || state.action === "puddle-splash") {
+  if (state.action === "tree-launch" || state.action === "tree-perch" || state.action === "tree-return" || state.action === "visitor-stalk" || state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial" || state.action === "hand-pounce" || state.action === "hand-aerial" || state.action === "guardian-land" || state.action === "puddle-splash") {
     return { id: "action-wide", zoom: 1 };
   }
   if (
@@ -868,6 +949,7 @@ export function resolveCinematicShot(
     || state.action === "hand-found"
     || state.action === "affection"
     || state.action === "reunion-greet"
+    || state.action === "tree-root"
   ) {
     return { id: "intimate", zoom: 1.45 };
   }
@@ -886,6 +968,7 @@ export function resolveCinematicShot(
     || state.action === "memory-notice"
     || state.action === "puddle-notice"
     || state.action === "puddle-invite"
+    || state.action === "tree-notice"
   ) {
     return { id: "reaction", zoom: 1.28 };
   }
@@ -981,6 +1064,7 @@ export function guideWorldWithHand(
     facing,
     poseY: 0,
     rotation: 0,
+    treePlay: quietTreePlay(),
     hand,
     guardianWake: action === "hand-aerial"
       ? state.guardianWake.phase === "gathering"
@@ -1055,6 +1139,7 @@ export function grabWorldWindLeaf(
     poseY: 0,
     rotation: 0,
     hand: quietWorldHand(),
+    treePlay: quietTreePlay(),
     playLeaf,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   };
@@ -1084,6 +1169,7 @@ export function beginWindLeafInvitation(
     poseY: 0,
     rotation: 0,
     hand: quietWorldHand(),
+    treePlay: quietTreePlay(),
     playLeaf,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   };
@@ -1131,6 +1217,7 @@ export function tossWorldWindLeaf(
     facing: faceToward(state.petX, targetX ?? playLeaf.x, state.facing),
     poseY: 0,
     rotation: 0,
+    treePlay: quietTreePlay(),
     playLeaf,
   };
 }
@@ -1143,7 +1230,7 @@ export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): 
   ) return state;
   const facing = intent.worldX < state.petX ? -1 : 1;
   if (intent.kind === "move") {
-    return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, hand: quietWorldHand(), playLeaf: createWindLeaf() };
+    return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, hand: quietWorldHand(), treePlay: quietTreePlay(), playLeaf: createWindLeaf() };
   }
 
   return {
@@ -1155,6 +1242,7 @@ export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): 
     poseY: 0,
     rotation: 0,
     hand: quietWorldHand(),
+    treePlay: quietTreePlay(),
     playLeaf: createWindLeaf(),
   };
 }
@@ -1263,6 +1351,29 @@ function finishVisitorAction(state: PetWorldState): PetWorldState {
     ...state,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
   });
+}
+
+function treePlayProfile(stage: PetStage) {
+  return stage === "guardian" ? TREE_PLAY.guardian : TREE_PLAY.young;
+}
+
+function finishTreePlay(state: PetWorldState): PetWorldState {
+  return finishAction({ ...state, poseY: 0, rotation: 0, treePlay: quietTreePlay(state.treePlay.stage) });
+}
+
+function resolveTreePlayMotion(state: PetWorldState, elapsedMs: number, returning: boolean) {
+  const profile = treePlayProfile(state.treePlay.stage);
+  const duration = returning ? profile.returnDuration : profile.launchDuration;
+  const progress = clamp(elapsedMs / duration, 0, 1);
+  const eased = 0.5 - Math.cos(progress * Math.PI) / 2;
+  const fromX = returning ? state.treePlay.perchX : state.treePlay.launchX;
+  const toX = returning ? TREE_PLAY.landingX : state.treePlay.perchX;
+  const fromY = returning ? state.treePlay.perchY : 0;
+  const toY = returning ? 0 : state.treePlay.perchY;
+  return {
+    x: fromX + (toX - fromX) * eased,
+    y: fromY + (toY - fromY) * eased - Math.sin(progress * Math.PI) * profile.arcLift,
+  };
 }
 
 export function stepPetWorld(
@@ -1418,6 +1529,23 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (state.treePlay.active) {
+      if (state.action === "tree-root") {
+        if (next.actionElapsed >= Math.min(500, TREE_PLAY.rootHoldDuration)) return finishTreePlay(next);
+        return { ...next, petX: TREE_PLAY.rootX, poseY: 0, rotation: 0, targetX: null };
+      }
+      return {
+        ...next,
+        petX: TREE_PLAY.rootX,
+        cameraX: clampCameraX(PET_WORLD.treeShelterX, next.zoom),
+        action: "tree-root",
+        actionElapsed: 0,
+        targetX: null,
+        facing: -1,
+        poseY: 0,
+        rotation: 0,
+      };
+    }
     if (state.action === "reunion-notice" || state.action === "reunion-approach") {
       return {
         ...next,
@@ -2061,6 +2189,69 @@ export function stepPetWorld(
       next.rotation = 0;
       next.poseY = 0;
     }
+  } else if (state.action === "tree-notice" && state.treePlay.active) {
+    next.petX = state.petX;
+    next.poseY = 0;
+    next.rotation = 0;
+    next.facing = faceToward(state.petX, PET_WORLD.treeShelterX, state.facing);
+    if (next.actionElapsed >= TREE_PLAY.noticeDuration) {
+      if (state.treePlay.stage === "baby") {
+        next.action = "seek-tree";
+        next.actionElapsed = 0;
+        next.targetX = TREE_PLAY.rootX;
+      } else {
+        next.action = "tree-launch";
+        next.actionElapsed = 0;
+        next.targetX = state.treePlay.perchX;
+        next.treePlay = { ...state.treePlay, launchX: state.petX };
+      }
+    }
+  } else if (state.action === "tree-root" && state.treePlay.active) {
+    next.petX = TREE_PLAY.rootX;
+    next.targetX = null;
+    next.poseY = 0;
+    next.rotation = 0;
+    next.facing = -1;
+    if (next.actionElapsed >= TREE_PLAY.rootHoldDuration) next = finishTreePlay(next);
+  } else if (state.action === "tree-launch" && state.treePlay.active) {
+    const profile = treePlayProfile(state.treePlay.stage);
+    if (next.actionElapsed >= profile.launchDuration) {
+      next.action = "tree-perch";
+      next.actionElapsed = 0;
+      next.targetX = null;
+      next.petX = state.treePlay.perchX;
+      next.poseY = state.treePlay.perchY;
+      next.rotation = 0;
+    } else {
+      const motion = resolveTreePlayMotion(state, next.actionElapsed, false);
+      next.petX = motion.x;
+      next.poseY = motion.y;
+      next.rotation = 0;
+      next.facing = -1;
+    }
+  } else if (state.action === "tree-perch" && state.treePlay.active) {
+    next.petX = state.treePlay.perchX;
+    next.poseY = state.treePlay.perchY;
+    next.targetX = null;
+    next.rotation = 0;
+    next.facing = -1;
+    if (next.actionElapsed >= TREE_PLAY.perchHoldDuration) {
+      next.action = "tree-return";
+      next.actionElapsed = 0;
+      next.targetX = TREE_PLAY.landingX;
+      next.facing = 1;
+    }
+  } else if (state.action === "tree-return" && state.treePlay.active) {
+    const profile = treePlayProfile(state.treePlay.stage);
+    if (next.actionElapsed >= profile.returnDuration) {
+      next = finishTreePlay({ ...next, petX: TREE_PLAY.landingX, facing: 1 });
+    } else {
+      const motion = resolveTreePlayMotion(state, next.actionElapsed, true);
+      next.petX = motion.x;
+      next.poseY = motion.y;
+      next.rotation = 0;
+      next.facing = 1;
+    }
   } else if (state.action === "jump") {
     if (next.actionElapsed >= PET_WORLD.jumpDuration) next = finishAction(next);
     else {
@@ -2191,10 +2382,21 @@ export function stepPetWorld(
           poseY: 0,
           rotation: 0,
         };
+      } else if (state.action === "seek-tree") {
+        next = {
+          ...next,
+          petX: TREE_PLAY.rootX,
+          targetX: null,
+          action: "tree-root",
+          actionElapsed: 0,
+          facing: -1,
+          poseY: 0,
+          rotation: 0,
+        };
       } else next = finishAction({ ...next, petX: state.targetX });
     }
     else {
-      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest" || state.action === "seek-leaf" || state.action === "seek-puddle";
+      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest" || state.action === "seek-leaf" || state.action === "seek-puddle" || state.action === "seek-tree";
       const running = !directedWalk && Math.abs(distance) > 52;
       const speed = running ? 0.052 : directedWalk ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
@@ -2255,6 +2457,12 @@ export function stepPetWorld(
 }
 
 export function clipForWorldAction(action: PetWorldAction, reducedMotion = false, stage: PetStage = "young"): "idle" | "greet" | "affection" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
+  if (action === "tree-notice") return "discover";
+  if (action === "seek-tree") return "walk";
+  if (action === "tree-root") return "affection";
+  if (action === "tree-launch") return stage === "guardian" ? "aerial" : "pounce";
+  if (action === "tree-perch") return "idle";
+  if (action === "tree-return") return stage === "guardian" ? "aerial" : "jump";
   if (action === "reunion-notice") return "discover";
   if (action === "reunion-approach") return stage === "baby" ? "walk" : "run";
   if (action === "reunion-greet") return "affection";

@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 41 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 42 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,11 +55,17 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 41 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 42 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 41/);
-  assert.match(prototype, /Lock the eyes\.<br \/>Then leave the ground\./i);
-  assert.match(prototype, /Guardian<\/dt><dd>upper air/i);
+  assert.match(prototype, /Pet Engine Study 42/);
+  assert.match(prototype, /The old tree<br \/>is playable\./i);
+  assert.match(prototype, /Guardian<\/dt><dd>high canopy/i);
+  assert.match(prototype, /Play at the old tree/);
+  assert.match(prototype, /Old tree/);
+  assert.match(world, /resolveTreePlayHit/);
+  assert.match(world, /beginTreePlay/);
+  assert.match(world, /tree-perch/);
+  assert.match(canvas, /"tree-play"/);
   assert.match(prototype, /beginPetReunion/);
   assert.match(world, /reunion-notice/);
   assert.match(world, /reunion-approach/);
