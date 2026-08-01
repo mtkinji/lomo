@@ -54,6 +54,7 @@ test("only causal world events receive visible scene narration", () => {
     "hand-pounce",
     "hand-aerial",
     "track",
+    "visitor-turn",
     "pounce",
     "aerial-pounce",
     "focus",

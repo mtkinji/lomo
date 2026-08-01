@@ -159,6 +159,13 @@ prototype reset clears both the care loop and habitat memory.
 Pet state stays in the current browser. The prototype does not connect to a
 Kwilt account, production data, Chat, notifications, Money, or Screen Time.
 
+Wildlife pursuit is stage-aware and direction-locked. Baby follows a terrain
+crawler, Young follows a low firefly, and Guardian follows a high sky moth with
+its authored aerial performance. When a moving visitor crosses Moss during the
+attention beat, the world now inserts a grounded turn before launch. Facing,
+launch position, target side, and outward visitor escape then remain committed
+through landing, so no correct chase can read as a backward jump.
+
 ## Local use
 
 ```bash

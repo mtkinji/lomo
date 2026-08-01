@@ -1429,10 +1429,38 @@ test("Moss commits toward the visitor's latest side after the attention beat", (
   assert.equal(noticed.action, "track");
   assert.equal(noticed.facing, -1, "the first glance follows the firefly on the left");
   assert.ok(committed.visitor.x > committed.petX, "the firefly crosses to the right during the glance");
-  assert.equal(committed.action, "pounce");
-  assert.equal(committed.facing, 1, "the launch must use the target's latest visible side");
+  assert.equal(committed.action, "visitor-turn");
+  assert.equal(committed.facing, 1, "the planted turn must use the target's latest visible side");
   assert.ok((committed.targetX ?? 0) > committed.petX);
   assert.equal(committed.visitor.direction, 1);
+
+  const launched = stepPetWorld(committed, PET_WORLD.visitorTurnDuration, false, "young");
+  assert.equal(launched.action, "pounce");
+  assert.equal(launched.facing, 1);
+});
+
+test("a crossing visitor earns a planted turn before Moss launches the other way", () => {
+  const start = spawnVisitor(createPetWorldState(), "young", { x: 246, y: 164, direction: -1 });
+  const noticed = stepPetWorld(start, 16, false, "young");
+  const turned = stepPetWorld(noticed, 340, false, "young");
+
+  assert.equal(noticed.action, "track");
+  assert.equal(noticed.facing, 1, "Moss first sees the firefly on the right");
+  assert.ok(turned.visitor.x < turned.petX, "the firefly crosses to the left during attention");
+  assert.equal(turned.action, "visitor-turn");
+  assert.equal(turned.facing, -1);
+  assert.equal(turned.petX, start.petX, "turning establishes the action line before translation");
+  assert.equal(clipForWorldAction(turned.action), "discover");
+
+  const planted = stepPetWorld(turned, PET_WORLD.visitorTurnDuration - 1, false, "young");
+  const launched = stepPetWorld(planted, 2, false, "young");
+  const airborne = stepPetWorld(launched, 390, false, "young");
+
+  assert.equal(planted.action, "visitor-turn");
+  assert.equal(planted.petX, start.petX);
+  assert.equal(launched.action, "pounce");
+  assert.equal(launched.facing, -1);
+  assert.ok(airborne.petX < launched.petX, "screen travel must follow the planted facing");
 });
 
 test("a new hand invitation is noticed before stage-specific movement begins", () => {

@@ -340,7 +340,7 @@ export function PetPrototype() {
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const dayPhase = resolvePrototypeDayPhase(state);
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
-  const playAnswering = world.visitor.active || ["track", "pounce", "aerial-pounce"].includes(world.action);
+  const playAnswering = world.visitor.active || ["track", "visitor-turn", "pounce", "aerial-pounce"].includes(world.action);
   const worldAnswering = state.careAvailable && (
     (state.pendingSource === "todo" && bloomAnswering)
     || (state.pendingSource === "focus" && bloomAnswering)
@@ -403,6 +403,7 @@ export function PetPrototype() {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       affection: { title: "A little closer", detail: `${state.name} leaned into your hand, then settled in their own time.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
+      "visitor-turn": { title: "Paws planted", detail: `${state.name} turned all the way toward the chase before launching.` },
       "hand-track": { title: "Your hand entered the world", detail: `${state.name} noticed before taking a single step.` },
       "hand-walk": { title: "Coming closer", detail: `${state.name} is following without becoming a cursor.` },
       "hand-run": { title: "Wait for me", detail: `${state.name} opened into a real run to close the distance.` },
@@ -480,15 +481,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 37</span>
-        <h1>It leans into<br />your hand.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 38</span>
+        <h1>Face. Plant.<br />Then fly.</h1>
         <p>
-          Stroke Moss gently. A tap still says hello, a swipe still rolls over, and a touch that lingers becomes trust.
+          Moss turns all the way toward the chase before moving. Each form finds wildlife at a newly reachable layer.
         </p>
         <dl className="engine-facts">
-          <div><dt>Tap</dt><dd>says hello</dd></div>
-          <div><dt>Stroke</dt><dd>earns a nuzzle</dd></div>
-          <div><dt>Swipe</dt><dd>rolls over</dd></div>
+          <div><dt>Baby</dt><dd>ground crawler</dd></div>
+          <div><dt>Young</dt><dd>low firefly</dd></div>
+          <div><dt>Guardian</dt><dd>high sky moth</dd></div>
         </dl>
       </header>
 
@@ -645,7 +646,7 @@ export function PetPrototype() {
             <span>Facing <strong>{world.facing === -1 ? "left" : "right"}</strong></span>
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
-            <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
+            <span>Attention <strong data-testid="attention-output">{world.action === "track" || world.action === "hand-track" ? "noticing" : world.action === "visitor-turn" ? "turning · planted" : world.visitor.engaged || world.action === "hand-pounce" || world.action === "hand-aerial" ? "committed" : "quiet"}</strong></span>
             <span>Body contact <strong>{world.action === "affection" ? "nuzzle · no reward" : "quiet"}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
             <span>Visitor acting <strong>{visitorPerformance ? `${visitorPerformance.role} · ${visitorPerformance.material} · ${visitorPerformance.frame + 1}/${VISITOR_PERFORMANCE_CLIPS[visitorPerformance.kind].frames.length}` : "quiet"}</strong></span>
