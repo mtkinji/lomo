@@ -29,13 +29,13 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 19 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 20 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, evolution, habitat, world, livingDay, soundscape, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, engine, evolution, habitat, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
@@ -44,6 +44,7 @@ test("removes starter infrastructure and exposes the portable engine study", asy
     readFile(new URL("../lib/pet-habitat.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-world.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-life-director.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-plaything.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-soundscape.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-runtime.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/leafling.ts", import.meta.url), "utf8"),
@@ -52,11 +53,13 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 19 — Kwilt Lab/);
-  assert.match(prototype, /Pet Engine Study 19/);
-  assert.match(prototype, /The meadow<br \/>has a voice\./i);
+  assert.match(layout, /Pet Engine Study 20 — Kwilt Lab/);
+  assert.match(prototype, /Pet Engine Study 20/);
+  assert.match(prototype, /The meadow<br \/>plays back\./i);
   assert.match(prototype, /The meadow remembers/);
-  assert.match(prototype, /sound starts with you/);
+  assert.match(prototype, /grab · drag · toss/);
+  assert.match(prototype, /Wind leaf/);
+  assert.match(prototype, /Catch point/);
   assert.match(prototype, /Camera shot/);
   assert.match(prototype, /Soundscape/);
   assert.match(prototype, /Audio mix/);
@@ -106,6 +109,11 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(world, /cameraControlRemainingMs/);
   assert.match(livingDay, /stepLivingDayDirector/);
   assert.match(livingDay, /quietBetweenEpisodesMs/);
+  assert.match(plaything, /createWindLeaf/);
+  assert.match(plaything, /releaseWindLeaf/);
+  assert.match(plaything, /stepWindLeaf/);
+  assert.match(world, /grabWorldWindLeaf/);
+  assert.match(world, /tossWorldWindLeaf/);
   assert.match(soundscape, /resolveSoundscapeMix/);
   assert.match(soundscape, /BrowserPetSoundscape/);
   assert.match(soundscape, /playVisitorCue/);
@@ -128,6 +136,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(leafling, /rollover/);
   assert.match(canvas, /imageSmoothingEnabled = false/);
   assert.match(canvas, /resolvePetFrame/);
+  assert.match(canvas, /drawWindLeaf/);
+  assert.match(canvas, /isWindLeafHit/);
   assert.match(canvas, /previousSprite/);
   assert.match(canvas, /drawEvolutionMotes/);
   assert.match(canvas, /resolveFocusAtmosphere/);

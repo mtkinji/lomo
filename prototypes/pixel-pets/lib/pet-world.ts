@@ -1,4 +1,15 @@
 import type { PetStage } from "./pet-state";
+import { ENGINE_SCENE } from "./pet-engine.ts";
+import {
+  catchWindLeaf,
+  createWindLeaf,
+  dragWindLeaf,
+  grabWindLeaf,
+  releaseWindLeaf,
+  stepWindLeaf,
+  type WindLeafPoint,
+  type WindLeafState,
+} from "./pet-plaything.ts";
 
 export const PET_WORLD = {
   width: 480,
@@ -30,12 +41,13 @@ export const PET_WORLD = {
   cameraPushDuration: 900,
   cameraReleaseDuration: 1500,
   maxWeatherSway: 2.2,
+  leafCatchDuration: 1280,
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
 export type PetWeatherPhase = "arriving" | "settled";
 export type PetCameraShot = "establishing" | "follow" | "reaction" | "intimate" | "focus" | "action-wide" | "reduced-motion" | "user";
-export type PetWorldAction = "idle" | "greet" | "track" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
+export type PetWorldAction = "idle" | "greet" | "track" | "leaf-track" | "seek-leaf" | "leaf-pounce" | "leaf-aerial" | "leaf-catch" | "weather-notice" | "wind-brace" | "rain-flinch" | "bloom-notice" | "seek-bloom" | "admire-bloom" | "memory-notice" | "seek-memory" | "remember" | "seek-rest" | "rest" | "walk" | "run" | "jump" | "pounce" | "aerial-pounce" | "rollover" | "seek-shelter" | "shelter" | "seek-sun" | "bask" | "seek-shade" | "shade" | "focus";
 export type WorldVisitorKind = "crawler" | "firefly" | "sky-moth";
 
 export interface WorldPoint {
@@ -98,6 +110,7 @@ export interface PetWorldState {
     completed: boolean;
   };
   visitor: WorldVisitor;
+  playLeaf: WindLeafState;
   blooms: WorldBloom[];
 }
 
@@ -171,6 +184,7 @@ export function createPetWorldState(): PetWorldState {
       engaged: false,
       engagedAgeMs: 0,
     },
+    playLeaf: createWindLeaf(),
     blooms: [],
   };
 }
@@ -192,6 +206,7 @@ export function setWorldWeather(state: PetWorldState, weather: PetWeather): PetW
         ? faceToward(state.petX, PET_WORLD.sunPatchX, state.facing)
         : state.facing,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    playLeaf: createWindLeaf(),
   };
 }
 
@@ -211,6 +226,7 @@ export function beginCompanionFocus(state: PetWorldState, durationMs = 60000): P
     facing: PET_WORLD.treeShelterX < state.petX ? -1 : 1,
     focus: { active: true, durationMs: duration, elapsedMs: 0, remainingMs: duration, completed: false },
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    playLeaf: createWindLeaf(),
   };
 }
 
@@ -229,6 +245,7 @@ export function plantProgressBloom(state: PetWorldState, requestedX?: number): P
     poseY: 0,
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    playLeaf: createWindLeaf(),
     blooms: [...state.blooms, bloom].slice(-PET_WORLD.maxBlooms),
   };
 }
@@ -249,6 +266,7 @@ export function beginMemoryVisit(state: PetWorldState, requestedX: number): PetW
     poseY: 0,
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    playLeaf: createWindLeaf(),
   };
 }
 
@@ -262,6 +280,7 @@ export function beginTreeRest(state: PetWorldState): PetWorldState {
     poseY: 0,
     rotation: 0,
     visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+    playLeaf: createWindLeaf(),
   };
 }
 
@@ -323,6 +342,19 @@ function clampCameraX(value: number, zoom: number) {
 
 export function resolveCameraTargetX(state: PetWorldState) {
   if (
+    state.playLeaf.phase !== "perched"
+    && (
+      state.action === "leaf-track"
+      || state.action === "seek-leaf"
+      || state.action === "leaf-pounce"
+      || state.action === "leaf-aerial"
+      || state.action === "leaf-catch"
+    )
+  ) {
+    const leafX = state.targetX ?? state.playLeaf.x;
+    return clampCameraX((state.petX + leafX) / 2, state.zoom);
+  }
+  if (
     state.visitor.active
     && (state.action === "track" || state.action === "pounce" || state.action === "aerial-pounce")
   ) {
@@ -335,7 +367,8 @@ export function resolveCameraTargetX(state: PetWorldState) {
     || state.action === "seek-shade"
     || state.action === "seek-bloom"
     || state.action === "seek-memory"
-    || state.action === "seek-rest";
+    || state.action === "seek-rest"
+    || state.action === "seek-leaf";
   const lookAhead = directed ? PET_WORLD.cameraLookAhead * state.facing : 0;
   return clampCameraX(state.petX + lookAhead, state.zoom);
 }
@@ -346,7 +379,7 @@ export function resolveCinematicShot(
 ): { id: Exclude<PetCameraShot, "user">; zoom: number } {
   if (reducedMotion) return { id: "reduced-motion", zoom: 1 };
   if (state.focus.active || state.action === "focus") return { id: "focus", zoom: 1.35 };
-  if (state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump") {
+  if (state.action === "aerial-pounce" || state.action === "pounce" || state.action === "jump" || state.action === "leaf-pounce" || state.action === "leaf-aerial") {
     return { id: "action-wide", zoom: 1 };
   }
   if (
@@ -356,12 +389,14 @@ export function resolveCinematicShot(
     || state.action === "shelter"
     || state.action === "shade"
     || state.action === "bask"
+    || state.action === "leaf-catch"
   ) {
     return { id: "intimate", zoom: 1.45 };
   }
   if (
     state.action === "greet"
     || state.action === "track"
+    || state.action === "leaf-track"
     || state.action === "weather-notice"
     || state.action === "wind-brace"
     || state.action === "rain-flinch"
@@ -394,10 +429,78 @@ export function resolveTapIntent(state: PetWorldState, point: WorldPoint): PetWo
   return { kind: "move", worldX: clampWorldX(worldX) };
 }
 
+export function screenPointToWorldPoint(state: PetWorldState, point: WorldPoint): WorldPoint {
+  return {
+    x: state.cameraX + (point.x - PET_WORLD.viewportWidth / 2) / state.zoom,
+    y: ENGINE_SCENE.groundY + (point.y - ENGINE_SCENE.groundY) / state.zoom,
+  };
+}
+
+export function grabWorldWindLeaf(
+  state: PetWorldState,
+  point: WindLeafPoint,
+  stage: PetStage,
+): PetWorldState {
+  if (state.focus.active) return state;
+  const playLeaf = grabWindLeaf(state.playLeaf, point, stage);
+  return {
+    ...state,
+    action: "leaf-track",
+    actionElapsed: 0,
+    targetX: null,
+    facing: faceToward(state.petX, playLeaf.x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    playLeaf,
+    visitor: { ...state.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+  };
+}
+
+export function dragWorldWindLeaf(state: PetWorldState, point: WindLeafPoint): PetWorldState {
+  if (state.playLeaf.phase !== "held" || state.focus.active) return state;
+  const playLeaf = dragWindLeaf(state.playLeaf, point);
+  return {
+    ...state,
+    action: "leaf-track",
+    targetX: null,
+    facing: faceToward(state.petX, playLeaf.x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    playLeaf,
+  };
+}
+
+export function tossWorldWindLeaf(
+  state: PetWorldState,
+  velocity: WindLeafPoint,
+  reducedMotion: boolean,
+): PetWorldState {
+  if (state.playLeaf.phase !== "held" || state.focus.active) return state;
+  const playLeaf = releaseWindLeaf(state.playLeaf, velocity, reducedMotion);
+  const commitsLow = playLeaf.mode === "leap" && playLeaf.y >= 128;
+  const commitsHigh = playLeaf.mode === "aerial" && playLeaf.y < 176;
+  const action: PetWorldAction = commitsHigh
+    ? "leaf-aerial"
+    : commitsLow
+      ? "leaf-pounce"
+      : "leaf-track";
+  const targetX = action === "leaf-pounce" || action === "leaf-aerial" ? playLeaf.catchX : null;
+  return {
+    ...state,
+    action,
+    actionElapsed: 0,
+    targetX,
+    facing: faceToward(state.petX, targetX ?? playLeaf.x, state.facing),
+    poseY: 0,
+    rotation: 0,
+    playLeaf,
+  };
+}
+
 export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): PetWorldState {
   const facing = intent.worldX < state.petX ? -1 : 1;
   if (intent.kind === "move") {
-    return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0 };
+    return { ...state, facing, action: "walk", actionElapsed: 0, targetX: clampWorldX(intent.worldX), poseY: 0, rotation: 0, playLeaf: createWindLeaf() };
   }
 
   return {
@@ -408,6 +511,7 @@ export function applyWorldIntent(state: PetWorldState, intent: PetWorldIntent): 
     targetX: intent.kind === "jump" ? clampWorldX(intent.worldX) : null,
     poseY: 0,
     rotation: 0,
+    playLeaf: createWindLeaf(),
   };
 }
 
@@ -423,6 +527,7 @@ export function spawnVisitor(
   const y = visitor.y ?? behavior.y;
   return {
     ...state,
+    playLeaf: createWindLeaf(),
     visitor: {
       active: true,
       kind,
@@ -512,6 +617,7 @@ export function stepPetWorld(
     weatherIntensity,
     weatherElapsed,
     weatherSway: reducedMotion ? 0 : weatherSway,
+    playLeaf: stepWindLeaf(state.playLeaf, dt),
     blooms: state.blooms.map((bloom) => ({
       ...bloom,
       growth: reducedMotion ? 1 : clamp(bloom.growth + dt / PET_WORLD.bloomOpenDuration, 0, 1),
@@ -605,6 +711,32 @@ export function stepPetWorld(
   }
 
   if (reducedMotion) {
+    if (
+      state.action === "leaf-track"
+      || state.action === "seek-leaf"
+      || state.action === "leaf-pounce"
+      || state.action === "leaf-aerial"
+    ) {
+      const catchX = next.playLeaf.catchX;
+      return {
+        ...next,
+        petX: catchX,
+        cameraX: clampCameraX(catchX, next.zoom),
+        action: "leaf-catch",
+        actionElapsed: 0,
+        targetX: null,
+        facing: faceToward(state.petX, catchX, state.facing),
+        poseY: 0,
+        rotation: 0,
+        playLeaf: catchWindLeaf(next.playLeaf),
+      };
+    }
+    if (state.action === "leaf-catch") {
+      if (next.actionElapsed >= PET_WORLD.leafCatchDuration) {
+        return finishAction({ ...next, playLeaf: createWindLeaf() });
+      }
+      return { ...next, poseY: 0, rotation: 0 };
+    }
     if (state.action === "bloom-notice" || state.action === "seek-bloom") {
       return {
         ...next,
@@ -735,6 +867,54 @@ export function stepPetWorld(
   if (weatherResponseStarted) {
     next.poseY = 0;
     next.rotation = 0;
+  } else if (state.action === "leaf-track") {
+    const leaf = next.playLeaf;
+    next.facing = faceToward(state.petX, leaf.x, state.facing);
+    next.poseY = 0;
+    next.rotation = 0;
+    if (leaf.phase === "flying" && leaf.mode === "leap" && leaf.y >= 128) {
+      next.action = "leaf-pounce";
+      next.actionElapsed = 0;
+      next.targetX = leaf.catchX;
+      next.facing = faceToward(state.petX, leaf.catchX, state.facing);
+    } else if (leaf.phase === "flying" && leaf.mode === "aerial" && leaf.y < 176) {
+      next.action = "leaf-aerial";
+      next.actionElapsed = 0;
+      next.targetX = leaf.catchX;
+      next.facing = faceToward(state.petX, leaf.catchX, state.facing);
+    } else if (leaf.phase === "landed") {
+      next.action = "seek-leaf";
+      next.actionElapsed = 0;
+      next.targetX = leaf.catchX;
+      next.facing = faceToward(state.petX, leaf.catchX, state.facing);
+    }
+  } else if (state.action === "leaf-pounce" || state.action === "leaf-aerial") {
+    const duration = state.action === "leaf-aerial" ? PET_WORLD.aerialPounceDuration : PET_WORLD.pounceDuration;
+    if (next.actionElapsed >= duration) {
+      next = {
+        ...next,
+        action: "leaf-catch",
+        actionElapsed: 0,
+        targetX: null,
+        petX: state.targetX ?? next.playLeaf.catchX,
+        poseY: 0,
+        rotation: 0,
+        playLeaf: catchWindLeaf(next.playLeaf),
+      };
+    } else {
+      const targetX = state.targetX ?? next.playLeaf.catchX;
+      next.petX = moveToward(state.petX, targetX, dt * (state.action === "leaf-aerial" ? 0.042 : 0.05));
+      next.facing = faceToward(state.petX, targetX, state.facing);
+      next.poseY = 0;
+      next.rotation = 0;
+    }
+  } else if (state.action === "leaf-catch") {
+    if (next.actionElapsed >= PET_WORLD.leafCatchDuration) {
+      next = finishAction({ ...next, playLeaf: createWindLeaf() });
+    } else {
+      next.poseY = 0;
+      next.rotation = 0;
+    }
   } else if (state.action === "bloom-notice") {
     if (next.actionElapsed >= PET_WORLD.bloomNoticeDuration) {
       const bloomX = state.targetX ?? state.petX;
@@ -892,10 +1072,21 @@ export function stepPetWorld(
           poseY: 0,
           rotation: 0,
         };
+      } else if (state.action === "seek-leaf") {
+        next = {
+          ...next,
+          petX: state.targetX,
+          targetX: state.targetX,
+          action: "leaf-pounce",
+          actionElapsed: 0,
+          facing: faceToward(state.petX, state.targetX, state.facing),
+          poseY: 0,
+          rotation: 0,
+        };
       } else next = finishAction({ ...next, petX: state.targetX });
     }
     else {
-      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest";
+      const directedWalk = state.action === "seek-shelter" || state.action === "seek-sun" || state.action === "seek-shade" || state.action === "seek-bloom" || state.action === "seek-memory" || state.action === "seek-rest" || state.action === "seek-leaf";
       const running = !directedWalk && Math.abs(distance) > 52;
       const speed = running ? 0.052 : directedWalk ? 0.032 : 0.024;
       next.petX = moveToward(state.petX, state.targetX, dt * speed);
@@ -954,14 +1145,15 @@ export function stepPetWorld(
 
 export function clipForWorldAction(action: PetWorldAction): "idle" | "greet" | "discover" | "care" | "sleep" | "walk" | "run" | "jump" | "pounce" | "aerial" | "rollover" | "weather-notice" | "wind-brace" | "rain-flinch" | "sun-bask" {
   if (action === "walk" || action === "run") return action;
-  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest") return "walk";
+  if (action === "seek-shelter" || action === "seek-sun" || action === "seek-shade" || action === "seek-bloom" || action === "seek-memory" || action === "seek-rest" || action === "seek-leaf") return "walk";
   if (action === "bloom-notice" || action === "memory-notice") return "discover";
-  if (action === "admire-bloom" || action === "remember") return "care";
+  if (action === "admire-bloom" || action === "remember" || action === "leaf-catch") return "care";
   if (action === "bask") return "sun-bask";
-  if (action === "aerial-pounce") return "aerial";
+  if (action === "aerial-pounce" || action === "leaf-aerial") return "aerial";
+  if (action === "leaf-pounce") return "pounce";
   if (action === "jump" || action === "pounce" || action === "rollover") return action;
   if (action === "greet") return "greet";
-  if (action === "track") return "discover";
+  if (action === "track" || action === "leaf-track") return "discover";
   if (action === "weather-notice") return "weather-notice";
   if (action === "wind-brace") return "wind-brace";
   if (action === "rain-flinch") return "rain-flinch";

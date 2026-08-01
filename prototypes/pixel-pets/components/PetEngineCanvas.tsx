@@ -19,18 +19,23 @@ import {
   beginTreeRest,
   clipForWorldAction,
   createPetWorldState,
+  dragWorldWindLeaf,
+  grabWorldWindLeaf,
   nextWeatherKind,
   plantProgressBloom,
   resolveFocusAtmosphere,
   resolveTapIntent,
+  screenPointToWorldPoint,
   setWorldZoom,
   setWorldWeather,
   spawnVisitor,
   stepPetWorld,
+  tossWorldWindLeaf,
   type PetWorldAction,
   type PetWorldState,
   type WorldPoint,
 } from "@/lib/pet-world";
+import { createWindLeaf, isWindLeafHit } from "@/lib/pet-plaything";
 import {
   createLivingDayDirector,
   interruptLivingDay,
@@ -453,6 +458,46 @@ function drawVisitor(
   context.restore();
 }
 
+function drawWindLeaf(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+) {
+  const leaf = world.playLeaf;
+  const heldPulse = leaf.phase === "held" ? 1 + Math.sin(world.weatherElapsed / 90) * 0.08 : 1;
+  const angle = leaf.phase === "flying"
+    ? Math.atan2(leaf.velocityY, leaf.velocityX || 0.001) + leaf.ageMs / 120
+    : (world.weatherSway * 0.7 * Math.PI) / 180;
+
+  context.save();
+  context.translate(Math.round(leaf.x), Math.round(leaf.y));
+  context.rotate(angle);
+  context.scale(heldPulse, heldPulse);
+  if (leaf.phase === "held") {
+    context.globalAlpha = 0.17;
+    context.fillStyle = "#fff0a5";
+    context.fillRect(-6, -5, 12, 10);
+    context.globalAlpha = 1;
+  }
+  if (leaf.phase === "perched") {
+    context.fillStyle = "#6e5526";
+    context.fillRect(3, -9, 1, 8);
+    context.fillRect(2, -8, 2, 1);
+  }
+  context.fillStyle = "#6e5526";
+  context.fillRect(-4, -2, 8, 4);
+  context.fillRect(-2, -4, 4, 8);
+  context.fillRect(3, 1, 4, 1);
+  context.fillStyle = "#f0b83e";
+  context.fillRect(-3, -1, 6, 3);
+  context.fillRect(-1, -3, 3, 6);
+  context.fillStyle = "#fff0a5";
+  context.fillRect(-1, -2, 2, 2);
+  context.fillStyle = "#8d6726";
+  context.fillRect(0, -2, 1, 5);
+  context.restore();
+}
+
 function drawProgressBlooms(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -643,6 +688,7 @@ function drawProceduralHabitat(
 
   drawProgressBlooms(context, palette, world);
   drawVisitor(context, palette, world);
+  drawWindLeaf(context, palette, world);
 
   context.restore();
   drawWeather(context, palette, world, false);
@@ -723,6 +769,7 @@ function drawAuthoredHabitat(
 
   drawProgressBlooms(context, palette, world);
   drawVisitor(context, palette, world);
+  drawWindLeaf(context, palette, world);
   context.restore();
 
   drawWeather(context, palette, world, false);
@@ -1026,6 +1073,13 @@ export function PetEngineCanvas({
   const worldRef = useRef(initialWorld);
   const pointersRef = useRef(new Map<number, { start: WorldPoint; current: WorldPoint }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const leafPointerRef = useRef<number | null>(null);
+  const leafMotionRef = useRef<{
+    previous: WorldPoint;
+    previousAt: number;
+    current: WorldPoint;
+    currentAt: number;
+  } | null>(null);
   const gestureMovedRef = useRef(false);
   const lastFrameRef = useRef("");
   const lastWorldReportRef = useRef(0);
@@ -1123,6 +1177,7 @@ export function PetEngineCanvas({
           poseY: 0,
           rotation: 0,
           visitor: { ...worldRef.current.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+          playLeaf: createWindLeaf(),
         };
       } else if (!paused) {
         worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
@@ -1245,9 +1300,28 @@ export function PetEngineCanvas({
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (worldRef.current.focus.active) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Synthetic browser QA and older pointer implementations may not own
+      // the pointer yet; the world interaction still remains well-defined.
+    }
     livingDayRef.current = interruptLivingDay(livingDayRef.current);
     const point = pointFromEvent(event);
+    const worldPoint = screenPointToWorldPoint(worldRef.current, point);
+    if (isWindLeafHit(worldRef.current.playLeaf, worldPoint)) {
+      leafPointerRef.current = event.pointerId;
+      leafMotionRef.current = {
+        previous: worldPoint,
+        previousAt: event.timeStamp,
+        current: worldPoint,
+        currentAt: event.timeStamp,
+      };
+      worldRef.current = grabWorldWindLeaf(worldRef.current, worldPoint, stageRef.current);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      return;
+    }
     pointersRef.current.set(event.pointerId, { start: point, current: point });
     gestureMovedRef.current = false;
     if (pointersRef.current.size === 2) {
@@ -1257,6 +1331,16 @@ export function PetEngineCanvas({
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (leafPointerRef.current === event.pointerId) {
+      const point = screenPointToWorldPoint(worldRef.current, pointFromEvent(event));
+      const prior = leafMotionRef.current;
+      leafMotionRef.current = prior
+        ? { previous: prior.current, previousAt: prior.currentAt, current: point, currentAt: event.timeStamp }
+        : { previous: point, previousAt: event.timeStamp, current: point, currentAt: event.timeStamp };
+      worldRef.current = dragWorldWindLeaf(worldRef.current, point);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      return;
+    }
     const pointer = pointersRef.current.get(event.pointerId);
     if (!pointer) return;
     pointer.current = pointFromEvent(event);
@@ -1269,6 +1353,21 @@ export function PetEngineCanvas({
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
+    if (leafPointerRef.current === event.pointerId) {
+      const point = screenPointToWorldPoint(worldRef.current, pointFromEvent(event));
+      worldRef.current = dragWorldWindLeaf(worldRef.current, point);
+      const motion = leafMotionRef.current;
+      const elapsed = motion ? Math.max(16, event.timeStamp - motion.previousAt) : 16;
+      const velocity = motion
+        ? { x: (point.x - motion.previous.x) / elapsed, y: (point.y - motion.previous.y) / elapsed }
+        : { x: 0, y: 0 };
+      worldRef.current = tossWorldWindLeaf(worldRef.current, velocity, reducedMotion);
+      leafPointerRef.current = null;
+      leafMotionRef.current = null;
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      return;
+    }
     const pointer = pointersRef.current.get(event.pointerId);
     const wasPinching = pinchRef.current !== null;
     pointersRef.current.delete(event.pointerId);

@@ -5,6 +5,7 @@ import {
   PET_WORLD,
   applyWorldIntent,
   createPetWorldState,
+  dragWorldWindLeaf,
   beginCompanionFocus,
   beginMemoryVisit,
   beginTreeRest,
@@ -12,6 +13,7 @@ import {
   setWorldWeather,
   resolveTapIntent,
   resolveFocusAtmosphere,
+  grabWorldWindLeaf,
   nextWeatherKind,
   plantProgressBloom,
   restorePetWorldMemory,
@@ -21,6 +23,7 @@ import {
   setWorldZoom,
   spawnVisitor,
   stepPetWorld,
+  tossWorldWindLeaf,
 } from "../lib/pet-world.ts";
 
 test("durable world memory contains only bounded privacy-safe scenery", () => {
@@ -410,6 +413,71 @@ test("screen taps resolve into world-space attention and travel intents", () => 
   assert.deepEqual(resolveTapIntent(world, { x: 80, y: 190 }), { kind: "greet", worldX: 240 });
   assert.deepEqual(resolveTapIntent(world, { x: 142, y: 188 }), { kind: "move", worldX: 302 });
   assert.deepEqual(resolveTapIntent(world, { x: 24, y: 72 }), { kind: "jump", worldX: 184 });
+});
+
+test("holding the wind leaf lets Moss track the finger without sliding", () => {
+  const start = createPetWorldState();
+  const grabbed = grabWorldWindLeaf(start, { x: 180, y: 94 }, "young");
+  const dragged = dragWorldWindLeaf(grabbed, { x: 140, y: 72 });
+
+  assert.equal(grabbed.playLeaf.phase, "held");
+  assert.equal(grabbed.action, "leaf-track");
+  assert.equal(dragged.petX, start.petX);
+  assert.equal(dragged.facing, -1);
+  assert.deepEqual([dragged.playLeaf.x, dragged.playLeaf.y], [140, 72]);
+  assert.equal(clipForWorldAction(dragged.action), "discover");
+});
+
+test("baby waits for a grounded wind leaf, then approaches and catches once", () => {
+  let world = grabWorldWindLeaf(createPetWorldState(), { x: 330, y: 104 }, "baby");
+  world = tossWorldWindLeaf(world, { x: 0.08, y: -0.1 }, true);
+  world = stepPetWorld(world, 16, false);
+
+  assert.equal(world.playLeaf.phase, "landed");
+  assert.equal(world.action, "seek-leaf");
+  assert.equal(world.targetX, world.playLeaf.catchX);
+
+  for (let step = 0; step < 40 && world.action === "seek-leaf"; step += 1) {
+    world = stepPetWorld(world, 160, false);
+  }
+  assert.equal(world.action, "leaf-pounce");
+
+  world = stepPetWorld(world, PET_WORLD.pounceDuration, false);
+  assert.equal(world.action, "leaf-catch");
+  assert.equal(world.playLeaf.phase, "caught");
+
+  world = stepPetWorld(world, PET_WORLD.leafCatchDuration, false);
+  assert.equal(world.action, "idle");
+  assert.equal(world.playLeaf.phase, "perched");
+});
+
+test("young and Guardian commit to distinct stable airborne catches", () => {
+  const youngHeld = grabWorldWindLeaf(createPetWorldState(), { x: 292, y: 146 }, "young");
+  const young = tossWorldWindLeaf(youngHeld, { x: 0.06, y: -0.04 }, false);
+  const guardianHeld = grabWorldWindLeaf(createPetWorldState(), { x: 292, y: 74 }, "guardian");
+  const guardian = tossWorldWindLeaf(guardianHeld, { x: 0.06, y: -0.1 }, false);
+
+  assert.equal(young.action, "leaf-pounce");
+  assert.equal(clipForWorldAction(young.action), "pounce");
+  assert.equal(guardian.action, "leaf-aerial");
+  assert.equal(clipForWorldAction(guardian.action), "aerial");
+  assert.equal(young.targetX, young.playLeaf.catchX);
+  assert.equal(guardian.targetX, guardian.playLeaf.catchX);
+  assert.equal(young.facing, 1);
+  assert.equal(guardian.facing, 1);
+});
+
+test("Focus immediately returns the wind leaf and owns the scene", () => {
+  const playing = tossWorldWindLeaf(
+    grabWorldWindLeaf(createPetWorldState(), { x: 310, y: 72 }, "guardian"),
+    { x: 0.08, y: -0.12 },
+    false,
+  );
+  const focused = beginCompanionFocus(playing, 15000);
+
+  assert.equal(focused.action, "seek-shelter");
+  assert.equal(focused.focus.active, true);
+  assert.equal(focused.playLeaf.phase, "perched");
 });
 
 test("zoom is temporary camera state clamped to a humane close-up", () => {

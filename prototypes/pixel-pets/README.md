@@ -33,6 +33,9 @@ The prototype lets a tester:
 - unlock one low-volume procedural soundscape with the first deliberate interaction;
 - hear sun, breeze, rain, wildlife, and Focus crossfade as parts of one meadow rather than separate sound effects;
 - hear Moss's short nonverbal voice mature from baby through Guardian without becoming a reward fanfare;
+- grab one golden wind leaf from the old tree, move it continuously through world space, and toss it without opening a control panel;
+- watch baby wait for a grounded catch, young commit to a descending leap, and Guardian meet the same toy with an aerial interception;
+- release one stable catch target per throw so Moss always turns before committing and never reverses mid-performance;
 - let a Play-together receipt stir the breeze and invite a small visitor;
 - complete a To-do and watch one persistent bloom open, catch Leafling's attention, and become a quiet habitat memory;
 - leave and return to the same bounded bloom memories in an otherwise calm fresh world;
@@ -66,6 +69,14 @@ its complete audio graph when the capability leaves. Pet and wildlife calls are
 short, stage-specific phrases with a wind-up and decay, never coins, button
 clicks, or arcade fanfares. Native and desktop adapters can replace synthesis
 with authored samples without changing the behavior contract.
+Direct play follows that boundary too. A pure wind-leaf state machine owns its
+perched, held, flying, landed, caught, and returned phases plus bounded throw
+physics and a stage-shaped catch mode. Pointer handling supplies world-space
+positions and release velocity; Canvas draws one golden habitat leaf; existing
+authored Moss clips own attention, travel, pounce, aerial reach, and contented
+recovery. Focus, a new meaningful-action consequence, weather direction, or
+ordinary touch can end the toy scene without preserving a score or unfinished
+need.
 The same snapshot contract carries both masked anatomy layers and stage-specific
 animation manifests. The young Leafling can change its eyes without redrawing
 or moving its body; all three forms now own distinct eight-drawing walk, run,

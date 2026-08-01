@@ -323,6 +323,11 @@ export function PetPrototype() {
       jump: { title: "Almost!", detail: `${state.name} reached for your finger.` },
       pounce: { title: "Couldn’t resist", detail: "That tiny visitor looked interesting." },
       "aerial-pounce": { title: "Above the meadow", detail: `${state.name} read the sky moth’s path and reached high.` },
+      "leaf-track": { title: "Following your hand", detail: `${state.name} is reading every turn of the golden leaf.` },
+      "seek-leaf": { title: "The chase is on", detail: `${state.name} saw where the wind leaf came down.` },
+      "leaf-pounce": { title: "A playful opening", detail: `${state.name} committed to one grounded catch.` },
+      "leaf-aerial": { title: "Meet it in the air", detail: `${state.name} found the leaf’s path above the meadow.` },
+      "leaf-catch": { title: "Caught together", detail: "One toss, one delighted little answer, then the meadow grows quiet again." },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
       "seek-shelter": { title: "Weather coming", detail: `${state.name} knows where the old tree keeps the ground dry.` },
       shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
@@ -364,15 +369,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 19</span>
-        <h1>The meadow<br />has a voice.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 20</span>
+        <h1>The meadow<br />plays back.</h1>
         <p>
-          Tap once, then listen as sunlight, weather, wildlife, and Moss become one quiet little place. Nothing asks for your attention.
+          Pull the golden leaf from the old tree, move it through the air, and toss. Moss will read your hand—and grow into new ways to answer.
         </p>
         <dl className="engine-facts">
-          <div><dt>Layers</dt><dd>meadow · weather · stillness</dd></div>
-          <div><dt>Voice</dt><dd>baby · young · guardian</dd></div>
-          <div><dt>Control</dt><dd>sound starts with you</dd></div>
+          <div><dt>Touch</dt><dd>grab · drag · toss</dd></div>
+          <div><dt>Growth</dt><dd>ground · leap · aerial</dd></div>
+          <div><dt>Rule</dt><dd>one toy · no score</dd></div>
         </dl>
       </header>
 
@@ -409,7 +414,7 @@ export function PetPrototype() {
             onWorldFrame={handleWorldFrame}
             onLivingDayFrame={setLivingDay}
             onWorldInteraction={handleWorldInteraction}
-            label={`${state.name}'s interactive world. Tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
+            label={`${state.name}'s interactive world. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe across ${state.name} for a rollover.`}
           />
         </div>
 
@@ -483,6 +488,8 @@ export function PetPrototype() {
             <span>Zoom <strong>{world.zoom.toFixed(2)}×</strong></span>
             <span>Camera shot <strong>{world.cameraShot}{world.cameraShot === "user" ? ` · ${Math.ceil(world.cameraControlRemainingMs / 1000)}s` : ""}</strong></span>
             <span>Visitor <strong>{world.visitor.active ? `${world.visitor.kind} · ${Math.round(world.visitor.x)}, ${Math.round(world.visitor.y)}` : "quiet"}</strong></span>
+            <span>Wind leaf <strong>{world.playLeaf.phase} · {world.playLeaf.mode}</strong></span>
+            <span>Catch point <strong>{Math.round(world.playLeaf.catchX)}, {Math.round(world.playLeaf.y)}</strong></span>
             <span>Weather <strong>{world.weather}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>
