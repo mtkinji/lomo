@@ -53,6 +53,8 @@ The prototype lets a tester:
 - hear sun, breeze, rain, wildlife, and Focus crossfade as parts of one meadow rather than separate sound effects;
 - hear Moss's short nonverbal voice mature from baby through Guardian without becoming a reward fanfare;
 - grab one golden wind leaf from the old tree, move it continuously through world space, and toss it without opening a control panel;
+- let the first calm living-day episode arrive as a causal breeze after reunion, bringing that existing golden leaf within reach before ordinary wandering begins;
+- read one transient, world-timed invitation while the leaf is catchable or held, then watch the dock yield as Moss owns the stage-shaped landing and recovery;
 - let a settled breeze become one causal scene: Moss braces, the tree releases its leaf, and the moving toy remains catchable before Moss commits;
 - watch baby wait for a grounded catch, young commit to a descending leap, and Guardian meet the same toy with an aerial interception;
 - release one stable catch target per throw so Moss always turns before committing and never reverses mid-performance;
@@ -82,6 +84,15 @@ weather arrival phase and intensity, weather response, shared-focus state,
 autonomous behavior targets, the directed sun-to-shade sequence, and one
 renderer-neutral living-day director that sequences ambient scenes without
 creating a needs simulation.
+Each capability visit now opens its ambient sequence with one authored
+wind-play episode after reunion and a short quiet breath. The director delegates
+to the same weather arrival, habitat acting, wind brace, leaf physics, and
+stage-shaped catch states that already govern later breeze events; it does not
+spawn a tutorial object. While that world-owned leaf is catchable, the
+contextual dock exposes only the current direct gesture. Holding it reveals the
+form's reachable play layer, and release removes the instruction while Moss
+owns contact and recovery. Direct touch or any stronger ritual interrupts the
+ambient director without leaving a tutorial flag or unfinished need.
 The world also owns a renderer-neutral cinematic shot contract. Quiet stays
 wide, travel receives a restrained follow composition, recognition pushes in,
 rest and memory hold close, and jumps or pounces open back out to protect the

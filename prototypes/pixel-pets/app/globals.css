@@ -612,6 +612,48 @@ summary:focus-visible {
   animation: reunion-recognition 1.4s ease-in-out infinite;
 }
 
+.wind-leaf-session {
+  border-color: color-mix(in srgb, #d6a94b 58%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, #f4dc8f 36%, var(--accent-soft)), var(--panel));
+}
+
+.wind-leaf-mark {
+  position: relative;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  transform: rotate(-18deg);
+}
+
+.wind-leaf-mark::before,
+.wind-leaf-mark::after {
+  position: absolute;
+  content: "";
+}
+
+.wind-leaf-mark::before {
+  inset: 4px 5px 5px 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-dark) 70%, #6b4a21);
+  border-radius: 80% 12% 76% 16%;
+  background: linear-gradient(135deg, #f2d778, #c99a3f);
+  animation: wind-leaf-invitation 1.5s ease-in-out infinite;
+}
+
+.wind-leaf-mark::after {
+  top: 13px;
+  left: 5px;
+  width: 17px;
+  height: 1px;
+  background: color-mix(in srgb, var(--accent-dark) 74%, #6b4a21);
+  transform: rotate(-34deg);
+  transform-origin: left center;
+}
+
+@keyframes wind-leaf-invitation {
+  0%, 100% { transform: translateY(1px) rotate(-4deg); }
+  48% { transform: translateY(-2px) rotate(5deg); }
+}
+
 @keyframes reunion-recognition {
   0%, 100% { transform: scale(0.94); opacity: 0.7; }
   45% { transform: scale(1.04); opacity: 1; }
@@ -967,9 +1009,14 @@ summary:focus-visible {
   .settling-leaves,
   .answering-sprout::after { animation: none; }
   .reunion-mark { animation: none; }
+  .wind-leaf-mark::before { animation: none; }
   .scene-caption { animation: none; }
 }
 
 [data-reduced-motion="true"] .scene-caption {
+  animation: none;
+}
+
+[data-reduced-motion="true"] .wind-leaf-mark::before {
   animation: none;
 }

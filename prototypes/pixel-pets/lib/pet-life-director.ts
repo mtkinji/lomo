@@ -2,7 +2,7 @@ import type { PetStage } from "./pet-state";
 import type { PetWeather, PetWeatherPhase, PetWorldAction } from "./pet-world";
 
 export const LIVING_DAY = {
-  initialQuietMs: 5200,
+  initialQuietMs: 3200,
   quietBetweenEpisodesMs: 6800,
   minX: 24,
   maxX: 456,
@@ -13,9 +13,10 @@ export const LIVING_DAY = {
   },
 } as const;
 
-export type LivingDayEpisode = "roam" | "visit-bloom" | "tree-rest" | "visitor" | "weather";
+export type LivingDayEpisode = "wind-play" | "roam" | "visit-bloom" | "tree-rest" | "visitor" | "weather";
 
 export type LivingDayCommand =
+  | { kind: "wind-play" }
   | { kind: "roam"; targetX: number }
   | { kind: "visit-bloom"; bloomX: number }
   | { kind: "tree-rest" }
@@ -96,7 +97,8 @@ function commandForEpisode(
   episodeIndex: number,
 ): LivingDayCommand {
   if (observation.weather === "rain") return { kind: "weather" };
-  const sequenceIndex = episodeIndex % 5;
+  if (episodeIndex === 0) return { kind: "wind-play" };
+  const sequenceIndex = (episodeIndex - 1) % 5;
   if (sequenceIndex === 0) return roamCommand(observation, episodeIndex);
   if (sequenceIndex === 1) {
     if (observation.bloomXs.length > 0) {

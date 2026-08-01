@@ -30,12 +30,12 @@ test("the living-day director leaves calm space before composing one scene", () 
   const started = stepLivingDayDirector(stillQuiet.state, quietObservation(), 1);
 
   assert.equal(stillQuiet.command, null);
-  assert.deepEqual(started.command, { kind: "roam", targetX: 284 });
-  assert.equal(started.state.activeEpisode, "roam");
+  assert.deepEqual(started.command, { kind: "wind-play" });
+  assert.equal(started.state.activeEpisode, "wind-play");
 
   const whileMoving = stepLivingDayDirector(
     started.state,
-    quietObservation({ action: "walk" }),
+    quietObservation({ action: "leaf-invite", weather: "breeze" }),
     9000,
   );
   assert.equal(whileMoving.command, null, "one scene must finish before another can begin");
@@ -46,8 +46,46 @@ test("the living-day director leaves calm space before composing one scene", () 
   assert.equal(finished.state.quietElapsedMs, 0);
 });
 
+test("the first breeze owns the complete hand-to-leaf episode before ordinary wandering", () => {
+  const opening = stepLivingDayDirector(
+    { ...createLivingDayDirector(), quietElapsedMs: LIVING_DAY.initialQuietMs },
+    quietObservation(),
+    0,
+  );
+  const held = stepLivingDayDirector(
+    opening.state,
+    quietObservation({ action: "leaf-track", weather: "breeze" }),
+    LIVING_DAY.quietBetweenEpisodesMs * 2,
+  );
+  const caught = stepLivingDayDirector(
+    held.state,
+    quietObservation({ action: "leaf-catch", weather: "breeze" }),
+    LIVING_DAY.quietBetweenEpisodesMs * 2,
+  );
+  const finished = stepLivingDayDirector(
+    caught.state,
+    quietObservation({ weather: "breeze" }),
+    16,
+  );
+  const next = stepLivingDayDirector(
+    { ...finished.state, quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs },
+    quietObservation({ weather: "breeze" }),
+    0,
+  );
+
+  assert.deepEqual(opening.command, { kind: "wind-play" });
+  assert.equal(held.command, null);
+  assert.equal(caught.command, null);
+  assert.equal(finished.state.episodeIndex, 1);
+  assert.deepEqual(next.command, { kind: "roam", targetX: 284 });
+});
+
 test("maturity expands autonomous roaming without changing the world bounds", () => {
-  const ready = { ...createLivingDayDirector(), quietElapsedMs: LIVING_DAY.initialQuietMs };
+  const ready = {
+    ...createLivingDayDirector(),
+    episodeIndex: 1,
+    quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs,
+  };
   const baby = stepLivingDayDirector(ready, quietObservation({ stage: "baby" }), 0);
   const young = stepLivingDayDirector(ready, quietObservation({ stage: "young" }), 0);
   const guardian = stepLivingDayDirector(ready, quietObservation({ stage: "guardian" }), 0);
@@ -62,7 +100,7 @@ test("maturity expands autonomous roaming without changing the world bounds", ()
 test("a remembered bloom becomes part of the Pet's next living-day sequence", () => {
   const readyForSecondEpisode = {
     ...createLivingDayDirector(),
-    episodeIndex: 1,
+    episodeIndex: 2,
     quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs,
   };
   const withMemory = stepLivingDayDirector(
@@ -72,7 +110,7 @@ test("a remembered bloom becomes part of the Pet's next living-day sequence", ()
   );
   const emptyMeadow = stepLivingDayDirector(readyForSecondEpisode, quietObservation(), 0);
 
-  assert.deepEqual(withMemory.command, { kind: "visit-bloom", bloomX: 332 });
+  assert.deepEqual(withMemory.command, { kind: "visit-bloom", bloomX: 118 });
   assert.deepEqual(emptyMeadow.command, { kind: "tree-rest" });
 });
 
@@ -103,10 +141,10 @@ test("deliberate interaction interrupts ambient direction and earns fresh quiet"
 test("weather and wildlife share the same authored sequence instead of racing timers", () => {
   const visitorReady = {
     ...createLivingDayDirector(),
-    episodeIndex: 3,
+    episodeIndex: 4,
     quietElapsedMs: LIVING_DAY.quietBetweenEpisodesMs,
   };
-  const weatherReady = { ...visitorReady, episodeIndex: 4 };
+  const weatherReady = { ...visitorReady, episodeIndex: 5 };
 
   assert.deepEqual(
     stepLivingDayDirector(visitorReady, quietObservation(), 0).command,

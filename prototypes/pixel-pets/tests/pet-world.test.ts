@@ -1074,6 +1074,39 @@ test("the wind hands one moving toy to the person before Moss commits", () => {
   assert.equal(grabbed.action, "leaf-track");
 });
 
+test("a landed invitation remains catchable long enough for a person to read and touch", () => {
+  const invitation = beginWindLeafInvitation({
+    ...createPetWorldState(),
+    weather: "breeze",
+    weatherPhase: "settled",
+    weatherIntensity: 1,
+    weatherSway: 1.5,
+  }, "baby", false);
+  const landed = {
+    ...invitation,
+    actionElapsed: 1000,
+    playLeaf: {
+      ...invitation.playLeaf,
+      phase: "landed" as const,
+      y: 202,
+      velocityX: 0,
+      velocityY: 0,
+    },
+  };
+
+  const stillInviting = stepPetWorld(landed, 16, false, "baby");
+  const eventuallyContinues = stepPetWorld(
+    stillInviting,
+    PET_WORLD.windLeafInvitationDuration,
+    false,
+    "baby",
+  );
+
+  assert.ok(PET_WORLD.windLeafInvitationDuration >= 7000);
+  assert.equal(stillInviting.action, "leaf-invite");
+  assert.notEqual(eventuallyContinues.action, "leaf-invite");
+});
+
 test("an ignored wind toy resolves at the movement layer each form has earned", () => {
   const resolveInvitation = (stage: "baby" | "young" | "guardian") => {
     let world = beginWindLeafInvitation({
@@ -1083,7 +1116,7 @@ test("an ignored wind toy resolves at the movement layer each form has earned", 
       weatherIntensity: 1,
       weatherSway: 1.4,
     }, stage, false);
-    for (let frame = 0; frame < 240 && (world.action === "leaf-invite" || world.action === "leaf-track"); frame += 1) {
+    for (let frame = 0; frame < 620 && (world.action === "leaf-invite" || world.action === "leaf-track"); frame += 1) {
       world = stepPetWorld(world, 16, false, stage);
     }
     return world;

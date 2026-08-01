@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 54 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 55 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,13 +55,19 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 54 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 55 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 54/);
-  assert.match(prototype, /The day follows<br \/>Moss home\./i);
-  assert.match(prototype, /To-do<\/dt><dd>one warm seed/i);
-  assert.match(prototype, /Focus<\/dt><dd>one quiet light/i);
-  assert.match(prototype, /Play<\/dt><dd>two lights together/i);
+  assert.match(prototype, /Pet Engine Study 55/);
+  assert.match(prototype, /The breeze finds<br \/>your hand\./i);
+  assert.match(prototype, /First<\/dt><dd>the meadow stirs/i);
+  assert.match(prototype, /Then<\/dt><dd>your hand enters/i);
+  assert.match(prototype, /Finally<\/dt><dd>Moss answers/i);
+  assert.match(prototype, /Catch the golden leaf/);
+  assert.match(prototype, /Hold it, drag it, then let go/);
+  assert.match(prototype, /is reading your hand/);
+  assert.match(prototype, /windLeafActive/);
+  assert.match(livingDay, /"wind-play"/);
+  assert.match(canvas, /command\.kind === "wind-play"/);
   assert.match(prototype, /Meet the rain-light/);
   assert.match(prototype, /commandWorld\("after-rain"\)/);
   assert.match(canvas, /worldCommand\.type === "after-rain"/);

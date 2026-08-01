@@ -354,6 +354,9 @@ export function PetPrototype() {
   const playAnswering = world.visitor.active || ["track", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
   const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
   const treePerchActive = world.action === "tree-perch" && world.treePlay?.active;
+  const windLeafActive = world.playLeaf.phase !== "perched"
+    && ["leaf-invite", "leaf-track", "seek-leaf", "leaf-pounce", "leaf-aerial", "leaf-catch"].includes(world.action);
+  const windLeafHeld = windLeafActive && world.playLeaf.phase === "held";
   const afterRainPlayable = world.afterRain.phase === "shimmer"
     && ["puddle-notice", "puddle-invite", "idle"].includes(world.action);
   const worldAnswering = state.careAvailable && (
@@ -365,6 +368,7 @@ export function PetPrototype() {
     && !world.focus.active
     && !reunionActive
     && !treePerchActive
+    && !windLeafActive
     && !worldAnswering;
   const worldAnswerDetail = state.pendingSource === "focus"
     ? `${state.name} is noticing the still light your Focus left behind.`
@@ -552,15 +556,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 54</span>
-        <h1>The day follows<br />Moss home.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 55</span>
+        <h1>The breeze finds<br />your hand.</h1>
         <p>
-          Do, focus, or play. The exact kind of day you cared for becomes one small light that travels through dusk beside Moss.
+          Moss notices the wind before one golden leaf enters your reach. Catch it, move it, and let Moss answer in the way this form can.
         </p>
         <dl className="engine-facts">
-          <div><dt>To-do</dt><dd>one warm seed</dd></div>
-          <div><dt>Focus</dt><dd>one quiet light</dd></div>
-          <div><dt>Play</dt><dd>two lights together</dd></div>
+          <div><dt>First</dt><dd>the meadow stirs</dd></div>
+          <div><dt>Then</dt><dd>your hand enters</dd></div>
+          <div><dt>Finally</dt><dd>Moss answers</dd></div>
         </dl>
       </header>
 
@@ -640,6 +644,22 @@ export function PetPrototype() {
             <div>
               <strong>Choose the landing</strong>
               <small>Touch the meadow · {currentStage === "guardian" ? "the whole clearing is within reach" : "Young Moss can reach nearby ground"}</small>
+            </div>
+          </div>
+          ) : windLeafActive ? (
+          <div className="focus-session wind-leaf-session" aria-live="polite">
+            <span className="wind-leaf-mark" aria-hidden="true" />
+            <div>
+              <strong>{windLeafHeld ? `${state.name} is reading your hand` : world.action === "leaf-invite" ? "Catch the golden leaf" : "Watch the catch"}</strong>
+              <small>{windLeafHeld
+                ? currentStage === "baby"
+                  ? "Keep it near the grass, then let go"
+                  : currentStage === "young"
+                    ? "Toss it low for a spring, or lift it higher"
+                    : "The whole sky is within reach"
+                : world.action === "leaf-invite"
+                  ? "Hold it, drag it, then let go"
+                  : `The leaf is loose. ${state.name} owns the landing.`}</small>
             </div>
           </div>
           ) : afterRainPlayable ? (

@@ -29,7 +29,7 @@ export const PET_WORLD = {
   sunBaskDuration: 5600,
   weatherArrivalDuration: 1200,
   windBraceDuration: 1680,
-  windLeafInvitationDuration: 800,
+  windLeafInvitationDuration: 7400,
   rainFlinchDuration: 920,
   bloomOpenDuration: 900,
   bloomNoticeDuration: 900,
@@ -2437,9 +2437,13 @@ export function stepPetWorld(
     next.facing = faceToward(state.petX, next.playLeaf.x, state.facing);
     next.poseY = 0;
     next.rotation = 0;
-    if (next.playLeaf.phase === "landed" || next.actionElapsed >= PET_WORLD.windLeafInvitationDuration) {
-      next.action = "leaf-track";
+    if (next.actionElapsed >= PET_WORLD.windLeafInvitationDuration) {
+      next.action = next.playLeaf.mode === "ground"
+        ? "seek-leaf"
+        : next.playLeaf.mode === "leap" ? "leaf-pounce" : "leaf-aerial";
       next.actionElapsed = 0;
+      next.targetX = next.playLeaf.catchX;
+      next.facing = faceToward(state.petX, next.playLeaf.catchX, state.facing);
     }
   } else if (state.action === "leaf-track") {
     const leaf = next.playLeaf;

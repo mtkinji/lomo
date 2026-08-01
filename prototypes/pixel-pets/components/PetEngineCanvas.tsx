@@ -137,6 +137,7 @@ function applyLivingDayCommand(
   command: LivingDayCommand,
   stage: PetStage,
 ) {
+  if (command.kind === "wind-play") return setWorldWeather(world, "breeze");
   if (command.kind === "roam") {
     return applyWorldIntent(world, { kind: "move", worldX: command.targetX });
   }

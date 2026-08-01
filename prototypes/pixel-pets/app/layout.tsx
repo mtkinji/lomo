@@ -22,20 +22,20 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
   const base = new URL(`${protocol}://${host}`);
   const description =
-    "Complete a To-do, Focus, or Play moment and watch its distinct light follow Moss through dusk to one quiet night.";
+    "A breeze crosses Moss's meadow, brings one golden leaf within reach, and turns a simple hand gesture into stage-shaped play.";
 
   return {
     metadataBase: base,
-    title: "Pet Engine Study 54 — Kwilt Lab",
+    title: "Pet Engine Study 55 — Kwilt Lab",
     description,
     openGraph: {
-      title: "The day follows Moss home.",
+      title: "The breeze finds your hand.",
       description,
       images: [{ url: new URL("/og-study-34.png", base), width: 1728, height: 910 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "The day follows Moss home.",
+      title: "The breeze finds your hand.",
       description,
       images: [new URL("/og-study-34.png", base)],
     },
