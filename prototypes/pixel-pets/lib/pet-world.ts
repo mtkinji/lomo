@@ -81,13 +81,15 @@ export const TREE_PLAY = {
   hitRadiusX: 82,
   hitTopY: 28,
   hitBottomY: ENGINE_SCENE.groundY + 4,
+  landingHitTopY: ENGINE_SCENE.groundY - 38,
+  landingHitBottomY: ENGINE_SCENE.height,
   noticeDuration: 520,
   rootX: 146,
-  landingX: 166,
+  defaultLandingX: 166,
   rootHoldDuration: 1500,
-  perchHoldDuration: 1900,
-  young: { perchX: 153, perchY: -76, launchDuration: 720, returnDuration: 850, arcLift: 8 },
-  guardian: { perchX: 127, perchY: -108, launchDuration: 965, returnDuration: 965, arcLift: 22 },
+  perchDecisionDuration: 8000,
+  young: { perchX: 153, perchY: -76, landingReach: 56, launchDuration: 720, returnDuration: 850, arcLift: 8 },
+  guardian: { perchX: 127, perchY: -108, landingReach: 124, launchDuration: 965, returnDuration: 965, arcLift: 22 },
 } as const;
 
 export type PetWeather = "sunny" | "breeze" | "rain";
@@ -212,6 +214,7 @@ export interface PetWorldState {
     launchX: number;
     perchX: number;
     perchY: number;
+    landingX: number;
   };
   focus: {
     active: boolean;
@@ -315,6 +318,7 @@ function quietTreePlay(stage: PetStage = "young"): PetWorldState["treePlay"] {
     launchX: PET_WORLD.width / 2,
     perchX: TREE_PLAY.young.perchX,
     perchY: 0,
+    landingX: TREE_PLAY.defaultLandingX,
   };
 }
 
@@ -682,6 +686,13 @@ export function resolveTreePlayHit(state: PetWorldState, point: WorldPoint) {
     && point.y <= TREE_PLAY.hitBottomY;
 }
 
+export function resolveTreeReturnHit(state: PetWorldState, point: WorldPoint) {
+  return state.treePlay.active
+    && state.action === "tree-perch"
+    && point.y >= TREE_PLAY.landingHitTopY
+    && point.y <= TREE_PLAY.landingHitBottomY;
+}
+
 function treePlayIsRefused(state: PetWorldState) {
   if (state.focus.active || state.daylight.eveningActive || state.afterRain.phase === "engaged") return true;
   return state.weather === "rain"
@@ -711,7 +722,26 @@ export function beginTreePlay(state: PetWorldState, stage: PetStage): PetWorldSt
       launchX: state.petX,
       perchX: profile.perchX,
       perchY: stage === "baby" ? 0 : profile.perchY,
+      landingX: TREE_PLAY.defaultLandingX,
     },
+  };
+}
+
+export function beginTreeReturn(state: PetWorldState, requestedX: number): PetWorldState {
+  if (!state.treePlay.active || state.action !== "tree-perch" || state.treePlay.stage === "baby") return state;
+  const profile = treePlayProfile(state.treePlay.stage);
+  const landingX = clamp(
+    clampWorldX(requestedX),
+    Math.max(PET_WORLD.minX, state.treePlay.perchX - profile.landingReach),
+    Math.min(PET_WORLD.maxX, state.treePlay.perchX + profile.landingReach),
+  );
+  return {
+    ...state,
+    action: "tree-return",
+    actionElapsed: 0,
+    targetX: landingX,
+    facing: faceToward(state.treePlay.perchX, landingX, state.facing),
+    treePlay: { ...state.treePlay, landingX },
   };
 }
 
@@ -1367,7 +1397,7 @@ function resolveTreePlayMotion(state: PetWorldState, elapsedMs: number, returnin
   const progress = clamp(elapsedMs / duration, 0, 1);
   const eased = 0.5 - Math.cos(progress * Math.PI) / 2;
   const fromX = returning ? state.treePlay.perchX : state.treePlay.launchX;
-  const toX = returning ? TREE_PLAY.landingX : state.treePlay.perchX;
+  const toX = returning ? state.treePlay.landingX : state.treePlay.perchX;
   const fromY = returning ? state.treePlay.perchY : 0;
   const toY = returning ? 0 : state.treePlay.perchY;
   return {
@@ -2235,22 +2265,19 @@ export function stepPetWorld(
     next.targetX = null;
     next.rotation = 0;
     next.facing = -1;
-    if (next.actionElapsed >= TREE_PLAY.perchHoldDuration) {
-      next.action = "tree-return";
-      next.actionElapsed = 0;
-      next.targetX = TREE_PLAY.landingX;
-      next.facing = 1;
+    if (next.actionElapsed >= TREE_PLAY.perchDecisionDuration) {
+      next = beginTreeReturn(next, TREE_PLAY.defaultLandingX);
     }
   } else if (state.action === "tree-return" && state.treePlay.active) {
     const profile = treePlayProfile(state.treePlay.stage);
     if (next.actionElapsed >= profile.returnDuration) {
-      next = finishTreePlay({ ...next, petX: TREE_PLAY.landingX, facing: 1 });
+      next = finishTreePlay({ ...next, petX: state.treePlay.landingX, facing: state.facing });
     } else {
       const motion = resolveTreePlayMotion(state, next.actionElapsed, true);
       next.petX = motion.x;
       next.poseY = motion.y;
       next.rotation = 0;
-      next.facing = 1;
+      next.facing = state.facing;
     }
   } else if (state.action === "jump") {
     if (next.actionElapsed >= PET_WORLD.jumpDuration) next = finishAction(next);

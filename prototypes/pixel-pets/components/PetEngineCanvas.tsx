@@ -13,6 +13,7 @@ import {
 import { resolveEvolutionComposition, type EvolutionComposition } from "@/lib/pet-evolution";
 import {
   PET_WORLD,
+  TREE_PLAY,
   applyWorldIntent,
   beginCompanionFocus,
   beginAfterRainSplash,
@@ -23,6 +24,7 @@ import {
   beginMemoryVisit,
   beginTreeRest,
   beginTreePlay,
+  beginTreeReturn,
   cancelWorldHandGuide,
   CARE_ECHO_TARGET,
   clipForWorldAction,
@@ -40,6 +42,7 @@ import {
   resolveGuardianWakePresentation,
   resolveTapIntent,
   resolveTreePlayHit,
+  resolveTreeReturnHit,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
   setWorldZoom,
@@ -2219,6 +2222,14 @@ export function PetEngineCanvas({
       return;
     }
     const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+    if (worldRef.current.action === "tree-perch" && worldRef.current.treePlay.active) {
+      if (resolveTreeReturnHit(worldRef.current, worldPoint)) {
+        worldRef.current = beginTreeReturn(worldRef.current, worldPoint.x);
+        callbackRef.current.onWorldFrame?.(worldRef.current);
+        callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      }
+      return;
+    }
     if (resolveAfterRainHit(worldRef.current, worldPoint)) {
       worldRef.current = beginAfterRainSplash(worldRef.current);
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
@@ -2243,6 +2254,18 @@ export function PetEngineCanvas({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const world = worldRef.current;
     if (world.focus.active) return;
+    if (world.action === "tree-perch" && world.treePlay.active && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      const direction = event.key === "ArrowLeft" ? -1 : 1;
+      worldRef.current = beginTreeReturn(
+        world,
+        world.treePlay.perchX + direction * TREE_PLAY[world.treePlay.stage === "guardian" ? "guardian" : "young"].landingReach,
+      );
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
       livingDayRef.current = interruptLivingDay(livingDayRef.current);

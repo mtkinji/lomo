@@ -347,6 +347,7 @@ export function PetPrototype() {
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
   const playAnswering = world.visitor.active || ["track", "visitor-turn", "visitor-stalk", "pounce", "aerial-pounce"].includes(world.action);
   const reunionActive = ["reunion-notice", "reunion-approach", "reunion-greet"].includes(world.action);
+  const treePerchActive = world.action === "tree-perch" && world.treePlay?.active;
   const worldAnswering = state.careAvailable && (
     (state.pendingSource === "todo" && bloomAnswering)
     || (state.pendingSource === "focus" && bloomAnswering)
@@ -355,6 +356,7 @@ export function PetPrototype() {
   const restingCapability = dayPhase === "choose-action"
     && !world.focus.active
     && !reunionActive
+    && !treePerchActive
     && !worldAnswering;
   const worldAnswerDetail = state.pendingSource === "focus"
     ? `${state.name} is noticing the still light your Focus left behind.`
@@ -383,8 +385,8 @@ export function PetPrototype() {
       detail: `${state.name} found you again.`,
     };
     if (world.action === "tree-perch") return {
-      title: currentStage === "guardian" ? "Above the old tree" : "A new place to stand",
-      detail: currentStage === "guardian" ? `${state.name} can see the whole meadow from here.` : `${state.name} found the lower bough.`,
+      title: "Choose the landing",
+      detail: currentStage === "guardian" ? `Touch anywhere in the meadow. ${state.name} can cross a wide span from here.` : `Touch the nearby meadow when ${state.name} should come down.`,
     };
     if (worldMessage) return worldMessage;
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
@@ -433,8 +435,8 @@ export function PetPrototype() {
       "seek-tree": { title: "Toward the roots", detail: `${state.name} is padding into the tree’s quiet edge.` },
       "tree-root": { title: "A place to lean", detail: `${state.name} found the roots without leaving the terrain.` },
       "tree-launch": { title: currentStage === "guardian" ? "The highest bough" : "A low branch opened", detail: currentStage === "guardian" ? `${state.name} committed to one long vault through the canopy.` : `${state.name} gathered into a careful spring.` },
-      "tree-perch": { title: currentStage === "guardian" ? "Above the old tree" : "A new place to stand", detail: currentStage === "guardian" ? `${state.name} can see the whole meadow from here.` : `${state.name} found the lower bough.` },
-      "tree-return": { title: "Back to the meadow", detail: `${state.name} chose one landing and came home to the grass.` },
+      "tree-perch": { title: "Choose the landing", detail: currentStage === "guardian" ? `Touch anywhere in the meadow. ${state.name} can cross a wide span from here.` : `Touch the nearby meadow when ${state.name} should come down.` },
+      "tree-return": { title: "Your place in the meadow", detail: `${state.name} locked onto the landing you chose.` },
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       affection: { title: "A little closer", detail: `${state.name} leaned into your hand, then settled in their own time.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
@@ -516,15 +518,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 42</span>
-        <h1>The old tree<br />is playable.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 43</span>
+        <h1>The tree waits<br />for you.</h1>
         <p>
-          The meadow is not a painted backdrop. Touch its oldest landmark and the same world opens differently as Moss grows.
+          Moss earns the branch. You choose when—and where—they return to the meadow.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>roots</dd></div>
-          <div><dt>Young</dt><dd>low bough</dd></div>
-          <div><dt>Guardian</dt><dd>high canopy</dd></div>
+          <div><dt>Young</dt><dd>short arc</dd></div>
+          <div><dt>Guardian</dt><dd>wide arc</dd></div>
+          <div><dt>No input</dt><dd>safe return</dd></div>
         </dl>
       </header>
 
@@ -567,7 +569,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}.`}
+            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name} or use left and right arrows to choose a branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -596,6 +598,14 @@ export function PetPrototype() {
             <div>
               <strong>{currentStatus.title}</strong>
               <small>{currentStatus.detail}</small>
+            </div>
+          </div>
+          ) : treePerchActive ? (
+          <div className="focus-session reunion-session tree-landing-session" aria-live="polite">
+            <span className="reunion-mark" aria-hidden="true">⌄</span>
+            <div>
+              <strong>Choose the landing</strong>
+              <small>Touch the meadow · {currentStage === "guardian" ? "the whole clearing is within reach" : "Young Moss can reach nearby ground"}</small>
             </div>
           </div>
           ) : worldAnswering ? (
@@ -718,6 +728,7 @@ export function PetPrototype() {
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
             <span>Guardian wake <strong>{world.guardianWake.phase === "quiet" ? "quiet" : `${world.guardianWake.phase} · ${Math.round(world.guardianWake.x)}`}</strong></span>
             <span>Old tree <strong>{world.treePlay?.active ? `${world.treePlay.stage} · ${world.action} · ${Math.round(world.poseY)}` : "touchable · quiet"}</strong></span>
+            <span>Landing choice <strong>{world.treePlay?.active ? `${Math.round(world.treePlay.landingX)} · ${world.action === "tree-perch" ? "waiting" : world.action === "tree-return" ? "committed" : "not ready"}` : "quiet"}</strong></span>
             <span>Episode <strong>{world.weatherPhase} · {Math.round(world.weatherIntensity * 100)}%</strong></span>
             <span>Weather response <strong>{world.weatherResponsePending ? "waiting" : "settled"}</strong></span>
             <span>Living day <strong>{livingDay.activeEpisode ?? `quiet · ${livingDay.episodeIndex + 1}`}</strong></span>

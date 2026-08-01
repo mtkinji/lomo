@@ -17,11 +17,13 @@ import {
   beginMemoryVisit,
   beginTreeRest,
   beginTreePlay,
+  beginTreeReturn,
   cancelWorldHandGuide,
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
   resolveTreePlayHit,
+  resolveTreeReturnHit,
   resolveFocusAtmosphere,
   grabWorldWindLeaf,
   guideWorldWithHand,
@@ -994,25 +996,68 @@ test("the old tree opens a progressively higher stable perch as Moss matures", (
   assert.ok(guardianPerched.poseY < youngPerched.poseY, "the Guardian should occupy the highest bough");
 });
 
-test("a tree perch holds its branch contact, then returns through one committed landing", () => {
+test("a tree perch waits for the person, then returns through their committed landing", () => {
   const invited = beginTreePlay(createPetWorldState(), "guardian");
   const launch = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, "guardian");
   const perched = stepPetWorld(launch, TREE_PLAY.guardian.launchDuration, false, "guardian");
-  const held = stepPetWorld(perched, TREE_PLAY.perchHoldDuration - 1, false, "guardian");
-  const returning = stepPetWorld(held, 2, false, "guardian");
+  const held = stepPetWorld(perched, TREE_PLAY.perchDecisionDuration - 1, false, "guardian");
+  const returning = beginTreeReturn(held, PET_WORLD.maxX);
   const airborne = stepPetWorld(returning, TREE_PLAY.guardian.returnDuration / 2, false, "guardian");
   const landed = stepPetWorld(airborne, TREE_PLAY.guardian.returnDuration / 2 + 1, false, "guardian");
 
+  assert.equal(held.action, "tree-perch", "Moss should not leave while the person still has the scene");
   assert.equal(held.petX, TREE_PLAY.guardian.perchX);
   assert.equal(held.poseY, TREE_PLAY.guardian.perchY);
   assert.equal(returning.action, "tree-return");
   assert.equal(returning.facing, 1);
+  assert.equal(returning.treePlay.landingX, TREE_PLAY.guardian.perchX + TREE_PLAY.guardian.landingReach);
   assert.ok(airborne.poseY < 0);
   assert.ok(airborne.petX > returning.petX);
   assert.equal(landed.action, "idle");
-  assert.equal(landed.petX, TREE_PLAY.landingX);
+  assert.equal(landed.petX, returning.treePlay.landingX);
   assert.equal(landed.poseY, 0);
   assert.equal(landed.treePlay.active, false);
+});
+
+test("maturity expands the landing space without allowing an impossible request", () => {
+  const perch = (stage: "young" | "guardian") => {
+    const invited = beginTreePlay(createPetWorldState(), stage);
+    const launch = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, stage);
+    return stepPetWorld(launch, TREE_PLAY[stage].launchDuration, false, stage);
+  };
+  const youngLeft = beginTreeReturn(perch("young"), PET_WORLD.minX);
+  const guardianRight = beginTreeReturn(perch("guardian"), PET_WORLD.maxX);
+
+  assert.equal(youngLeft.facing, -1);
+  assert.equal(youngLeft.treePlay.landingX, TREE_PLAY.young.perchX - TREE_PLAY.young.landingReach);
+  assert.equal(guardianRight.facing, 1);
+  assert.equal(guardianRight.treePlay.landingX, TREE_PLAY.guardian.perchX + TREE_PLAY.guardian.landingReach);
+  assert.ok(TREE_PLAY.guardian.landingReach > TREE_PLAY.young.landingReach);
+});
+
+test("only terrain touch becomes a landing invitation while Moss is actually perched", () => {
+  const invited = beginTreePlay(createPetWorldState(), "young");
+  const launch = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, "young");
+  const perched = stepPetWorld(launch, TREE_PLAY.young.launchDuration, false, "young");
+
+  assert.equal(resolveTreeReturnHit(perched, { x: 300, y: TREE_PLAY.landingHitTopY }), true);
+  assert.equal(resolveTreeReturnHit(perched, { x: 300, y: TREE_PLAY.landingHitTopY - 1 }), false);
+  assert.equal(resolveTreeReturnHit(launch, { x: 300, y: PET_WORLD.visitorGroundY }), false);
+});
+
+test("a chosen branch return cannot reverse in flight and quiet inaction still comes home", () => {
+  const invited = beginTreePlay(createPetWorldState(), "young");
+  const launch = stepPetWorld(invited, TREE_PLAY.noticeDuration, false, "young");
+  const perched = stepPetWorld(launch, TREE_PLAY.young.launchDuration, false, "young");
+  const chosen = beginTreeReturn(perched, PET_WORLD.minX);
+  const reversed = beginTreeReturn(chosen, PET_WORLD.maxX);
+  const waiting = stepPetWorld(perched, TREE_PLAY.perchDecisionDuration - 1, false, "young");
+  const autonomous = stepPetWorld(waiting, 2, false, "young");
+
+  assert.deepEqual(reversed, chosen, "one landing invitation must stay immutable through flight");
+  assert.equal(waiting.action, "tree-perch");
+  assert.equal(autonomous.action, "tree-return");
+  assert.equal(autonomous.treePlay.landingX, TREE_PLAY.defaultLandingX);
 });
 
 test("Reduce Motion keeps tree discovery grounded and stronger rituals keep authority", () => {

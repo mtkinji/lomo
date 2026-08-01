@@ -35,6 +35,8 @@ The prototype lets a tester:
 - travel through an authored panorama, root-anchored shelter tree, fine foreground meadow, and weather overlays at different camera depths;
 - touch the old tree as real world geography: Baby explores its roots, Young springs to a low bough, and Guardian vaults to the highest stable canopy perch before one committed return;
 - feel evolution as newly reachable space inside the same familiar habitat, with branch contact, action-wide framing, and a grounded Reduce Motion alternative owned by the portable world engine;
+- hold the branch until the person touches a reachable place in the meadow, giving Young a modest landing arc and Guardian a much wider one without exposing platformer controls;
+- let one chosen landing lock for the complete return while a generous no-input timeout brings Moss home safely instead of creating an unfinished need;
 - start a fifteen-second Focus-together ritual that resolves through the same bounded Kwilt receipt path;
 - watch that ritual clear wildlife, soften weather, settle beneath the old tree, and breathe without becoming a guided exercise;
 - leave the controls alone and watch one portable living-day director compose quiet roaming, remembered-bloom visits, voluntary tree rest, weather, and wildlife without overlapping scenes;
@@ -128,6 +130,13 @@ occupy increasingly high authored boughs before following one committed arc
 back to the meadow. Reduce Motion preserves discovery at the roots without
 vertical travel, and Focus, evening, care echoes, and rain shelter retain
 authority over decorative tree play.
+Once a mature form settles on a branch, direct touch owns one more piece of the
+portable contract. A terrain tap resolves to a stage-bounded landing coordinate;
+facing and destination then remain immutable through the complete return arc.
+Young can choose nearby ground while Guardian can cross a much wider part of
+the clearing. Keyboard left and right map to the same contract. If no invitation
+arrives, the living world waits eight quiet seconds and chooses a safe default
+landing, so player authorship never becomes a demand or stranded state.
 During evolution, a renderer-neutral composition contract drives the old and
 new manifests together while the habitat renders once. Deterministic leaf-light
 gathers inward and opens around the arrived form; visitors and autonomous travel
