@@ -146,6 +146,14 @@ summary:focus-visible {
   box-shadow: 0 28px 72px rgba(42, 36, 29, 0.17), 8px 8px 0 var(--accent-soft);
 }
 
+.world-first-capability {
+  isolation: isolate;
+  background: color-mix(in srgb, var(--accent-soft) 32%, var(--panel));
+  box-shadow:
+    0 30px 78px rgba(42, 36, 29, 0.2),
+    8px 8px 0 color-mix(in srgb, var(--accent-soft) 82%, transparent);
+}
+
 .capability-header {
   display: flex;
   min-height: 74px;
@@ -154,6 +162,30 @@ summary:focus-visible {
   padding: 16px 19px 14px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 38%, var(--panel)), var(--panel));
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+}
+
+.world-first-capability .capability-header {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: 0;
+  left: 0;
+  min-height: 68px;
+  padding: 14px 16px 12px 18px;
+  border-bottom: 0;
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.9), rgba(255, 253, 247, 0.68) 68%, transparent);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.world-first-capability .capability-header::after {
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  left: 18px;
+  height: 1px;
+  background: color-mix(in srgb, var(--accent-dark) 18%, transparent);
+  content: "";
 }
 
 .capability-header .device-label {
@@ -166,9 +198,15 @@ summary:focus-visible {
   letter-spacing: -0.025em;
 }
 
+.pet-identity-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
 .weather-label {
   display: inline-flex;
-  margin-left: 9px;
+  margin-left: 0;
   padding: 3px 6px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
   border-radius: 999px;
@@ -179,7 +217,7 @@ summary:focus-visible {
   font-weight: 720;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  vertical-align: 3px;
+  vertical-align: 0;
 }
 
 .sound-button {
@@ -193,12 +231,24 @@ summary:focus-visible {
   font-size: 1.05rem;
 }
 
+.world-first-capability .sound-button {
+  border-color: color-mix(in srgb, var(--accent-dark) 24%, transparent);
+  background: rgba(255, 253, 247, 0.58);
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
 .scene-frame {
   position: relative;
   overflow: hidden;
   width: 100%;
   background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-dark) 22%, transparent);
+}
+
+.world-first-capability .scene-frame {
+  z-index: 1;
+  box-shadow: none;
 }
 
 .scene-frame::after {
@@ -241,6 +291,36 @@ summary:focus-visible {
   min-height: 88px;
   padding: 17px 20px 14px;
   border-bottom: 1px solid var(--line);
+}
+
+.world-first-capability .pet-message {
+  position: absolute;
+  z-index: 5;
+  top: 78px;
+  right: 15px;
+  left: 15px;
+  min-height: 70px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent-dark) 20%, transparent);
+  border-radius: 15px;
+  background: rgba(255, 253, 247, 0.76);
+  box-shadow: 0 10px 30px rgba(35, 46, 31, 0.12);
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+}
+
+.world-first-capability .pet-message strong { font-size: 0.8rem; }
+.world-first-capability .pet-message p { font-size: 0.68rem; }
+
+.world-dock {
+  position: relative;
+  z-index: 3;
+  margin-top: -1px;
+  padding-top: 1px;
+  border-top: 1px solid color-mix(in srgb, var(--accent-dark) 22%, var(--line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 30%, var(--panel)), var(--panel));
+  box-shadow: 0 -16px 34px rgba(40, 53, 35, 0.1);
 }
 
 .receipt-icon {
@@ -460,14 +540,22 @@ summary:focus-visible {
   padding: 0 20px 20px;
 }
 
+.world-first-capability .growth-memory {
+  justify-content: flex-start;
+  padding: 0 20px 18px;
+}
+
+.world-first-capability .memory-copy {
+  padding-left: 10px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 58%, var(--line));
+}
+
+.world-first-capability .memory-copy span { color: var(--accent-dark); }
+
 .memory-copy span,
 .memory-copy small { display: block; }
 .memory-copy span { font-size: 0.69rem; font-weight: 730; }
 .memory-copy small { margin-top: 3px; color: var(--muted); font-size: 0.62rem; }
-
-.memory-dots { display: flex; gap: 6px; }
-.memory-dots span { width: 9px; height: 9px; background: var(--line); transform: rotate(45deg); }
-.memory-dots span.remembered { background: var(--accent); box-shadow: 2px 2px 0 var(--accent-soft); }
 
 .engine-inspector {
   align-self: start;

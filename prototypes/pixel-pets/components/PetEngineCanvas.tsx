@@ -72,7 +72,7 @@ interface PetEngineCanvasProps {
   onFrame?: (snapshot: PetFrameSnapshot) => void;
   onWorldFrame?: (world: PetWorldState) => void;
   onLivingDayFrame?: (director: LivingDayDirectorState) => void;
-  onWorldInteraction?: (action: PetWorldAction) => void;
+  onWorldInteraction?: (action: PetWorldAction, world: PetWorldState) => void;
   label: string;
 }
 
@@ -1263,9 +1263,10 @@ export function PetEngineCanvas({
     if (worldCommand.type === "play" && !worldRef.current.focus.active) {
       worldRef.current = beginSharedPlayEcho(worldRef.current, stageRef.current);
     }
+
     callbackRef.current.onWorldFrame?.(worldRef.current);
     callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
-    callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+    callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
   }, [worldCommand]);
 
   useEffect(() => {
@@ -1340,7 +1341,7 @@ export function PetEngineCanvas({
       if (livingDayStep.command) {
         worldRef.current = applyLivingDayCommand(worldRef.current, livingDayStep.command, stage);
       }
-      if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      if (worldRef.current.action !== beforeAction) callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
 
       const worldClip = clipForWorldAction(worldRef.current.action);
       const requestedClip = resolveRequestedClip(
@@ -1454,7 +1455,7 @@ export function PetEngineCanvas({
       };
       worldRef.current = grabWorldWindLeaf(worldRef.current, worldPoint, stageRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
-      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
       return;
     }
     pointersRef.current.set(event.pointerId, { start: point, current: point });
@@ -1490,7 +1491,7 @@ export function PetEngineCanvas({
       const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
       worldRef.current = guideWorldWithHand(worldRef.current, worldPoint, stageRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
-      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
     }
   }
 
@@ -1507,7 +1508,7 @@ export function PetEngineCanvas({
       leafPointerRef.current = null;
       leafMotionRef.current = null;
       callbackRef.current.onWorldFrame?.(worldRef.current);
-      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
       return;
     }
     const pointer = pointersRef.current.get(event.pointerId);
@@ -1522,19 +1523,19 @@ export function PetEngineCanvas({
     const startedNearPet = Math.abs(pointer.start.x - petScreenX) < 28 && pointer.start.y > 145;
     if (startedNearPet && Math.abs(travelX) > 22 && Math.abs(travelX) > Math.abs(travelY)) {
       worldRef.current = applyWorldIntent(worldRef.current, { kind: "rollover", worldX: worldRef.current.petX });
-      callbackRef.current.onWorldInteraction?.("rollover");
+      callbackRef.current.onWorldInteraction?.("rollover", worldRef.current);
       return;
     }
     if (worldRef.current.hand.phase === "held") {
       worldRef.current = releaseWorldHandGuide(worldRef.current, stageRef.current);
       callbackRef.current.onWorldFrame?.(worldRef.current);
-      callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
       return;
     }
     if (gestureMovedRef.current) return;
     const intent = resolveTapIntent(worldRef.current, pointer.current);
     worldRef.current = applyWorldIntent(worldRef.current, intent);
-    callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+    callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -1556,7 +1557,7 @@ export function PetEngineCanvas({
       livingDayRef.current = interruptLivingDay(livingDayRef.current);
       worldRef.current = applyWorldIntent(world, { kind: "greet", worldX: world.petX });
     } else return;
-    callbackRef.current.onWorldInteraction?.(worldRef.current.action);
+    callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
   }
 
   return (

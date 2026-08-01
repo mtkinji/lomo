@@ -142,6 +142,16 @@ care-ready copy. Care appears only after the bounded answer is grounded and
 quiet. This is scene priority, not a reward delay, action score, or second
 progress model.
 
+The Pet capability presents that engine as one continuous phone-scale world,
+not a picture followed by a dashboard. Pet identity, day, weather, sound, and
+live scene language sit lightly in the sky without owning meadow touch. The one
+currently available Kwilt action sits in a calm world-edge dock. Consumer UI
+describes the current form and says that care is remembered; exact thresholds
+and the eight-mark progress meter remain prototype-inspector evidence rather
+than a second progress model. The scene keeps the full ground plane for direct
+play, and all weather, playback, stage, palette, rig, and accelerated-time QA
+controls remain visibly outside the capability.
+
 The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
 Camera direction uses the same portable semantic boundary. Quiet, travel,

@@ -26,18 +26,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     metadataBase: base,
-    title: "Pet Engine Study 27 — Kwilt Lab",
+    title: "Pet Engine Study 28 — Kwilt Lab",
     description,
     openGraph: {
-      title: "Something real takes root here.",
+      title: "Step inside the little world.",
       description,
-      images: [{ url: new URL("/og.png", base), width: 1200, height: 630 }],
+      images: [{ url: new URL("/og-study-28.png", base), width: 1730, height: 909 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Something real takes root here.",
+      title: "Step inside the little world.",
       description,
-      images: [new URL("/og.png", base)],
+      images: [new URL("/og-study-28.png", base)],
     },
   };
 }

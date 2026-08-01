@@ -15,6 +15,7 @@ import {
 } from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { createLivingDayDirector, type LivingDayDirectorState } from "@/lib/pet-life-director";
+import { resolveWorldInteractionMessage } from "@/lib/pet-world-message";
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import { BrowserPetSoundscape, resolveSoundscapeMix } from "@/lib/pet-soundscape";
 import {
@@ -292,12 +293,16 @@ export function PetPrototype() {
     : null;
   const focusAtmosphere = resolveFocusAtmosphere(world.focus, state.reducedMotion);
   const soundscapeMix = currentSoundscapeMix();
-  const nextGrowthThreshold = state.stage === "baby" ? 3 : state.stage === "young" ? 8 : null;
-  const momentsToGrow = nextGrowthThreshold === null ? 0 : Math.max(0, nextGrowthThreshold - state.careDays);
-  const growthTitle = state.stage === "guardian" ? "Guardian form reached" : "Growing together";
+  const growthTitle = state.stage === "guardian"
+    ? "Guardian form"
+    : state.stage === "young"
+      ? "Young form · still becoming"
+      : "Baby form · still becoming";
   const growthDetail = state.stage === "guardian"
-    ? `${state.careDays} moments remembered`
-    : `${momentsToGrow} until ${state.stage === "baby" ? "young form" : "guardian form"}`;
+    ? "Powerful, playful, and still Moss."
+    : state.stage === "young"
+      ? "New reach, same Moss. Care is remembered."
+      : "Care changes Moss. Nothing can be lost.";
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const dayPhase = resolvePrototypeDayPhase(state);
   const bloomAnswering = ["bloom-notice", "seek-bloom", "admire-bloom"].includes(world.action);
@@ -324,8 +329,16 @@ export function PetPrototype() {
   }, [dayHasCare, state.careAvailable, state.lastReceipt, state.reaction, state.stage, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
   const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
-  function handleWorldInteraction(action: PetWorldAction) {
+  function handleWorldInteraction(action: PetWorldAction, worldSnapshot: PetWorldState) {
     beginSoundscape();
+    const contextualMessage = resolveWorldInteractionMessage(action, {
+      focusActive: worldSnapshot.focus.active,
+      name: state.name,
+    });
+    if (contextualMessage) {
+      setWorldMessage(contextualMessage);
+      return;
+    }
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
       greet: { title: "A little hello", detail: `${state.name} noticed you.` },
       track: { title: "Ears up", detail: `Something caught ${state.name}’s eye.` },
@@ -358,7 +371,6 @@ export function PetPrototype() {
       "leaf-aerial": { title: "Meet it in the air", detail: `${state.name} found the leaf’s path above the meadow.` },
       "leaf-catch": { title: "Caught together", detail: "One toss, one delighted little answer, then the meadow grows quiet again." },
       rollover: { title: `Olive taught ${state.name} a trick`, detail: "A complete, leafy rollover." },
-      "seek-shelter": { title: "Weather coming", detail: `${state.name} knows where the old tree keeps the ground dry.` },
       shelter: { title: "Safe under the leaves", detail: `Rain can pass. ${state.name} found a quiet place to curl up.` },
       "seek-sun": { title: "Following the warmth", detail: `${state.name} noticed the sunny part of the meadow.` },
       bask: { title: "Warm leaves", detail: `${state.name} is soaking up a little sun.` },
@@ -398,23 +410,26 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 27</span>
-        <h1>Something real<br />takes root here.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 28</span>
+        <h1>Step inside<br />the little world.</h1>
         <p>
-          Complete something real and stay for the little answer. Moss notices what changed before today’s care becomes yours to give.
+          Moss’s meadow is the capability now. Touch the world, let real life change it, and stay close enough to notice the answer.
         </p>
         <dl className="engine-facts">
-          <div><dt>Do</dt><dd>leaves a living echo</dd></div>
-          <div><dt>Watch</dt><dd>Moss notices first</dd></div>
-          <div><dt>Care</dt><dd>happens once today</dd></div>
+          <div><dt>Touch</dt><dd>plays with Moss</dd></div>
+          <div><dt>Life</dt><dd>changes the meadow</dd></div>
+          <div><dt>Care</dt><dd>is always remembered</dd></div>
         </dl>
       </header>
 
-      <section className="capability-frame" aria-label={`${state.name}'s Pet capability`}>
+      <section className="capability-frame world-first-capability" aria-label={`${state.name}'s Pet capability`}>
         <header className="capability-header">
           <div>
             <span className="device-label">Day {state.prototypeDay}</span>
-            <strong>{state.name}</strong><span className="weather-label">{world.weather}{world.weatherPhase === "arriving" ? " arriving" : ""}</span>
+            <span className="pet-identity-line">
+              <strong>{state.name}</strong>
+              <span className="weather-label">{world.weather}{world.weatherPhase === "arriving" ? " arriving" : ""}</span>
+            </span>
           </div>
           <button
             type="button"
@@ -457,7 +472,8 @@ export function PetPrototype() {
           </div>
         </div>
 
-        {world.focus.active ? (
+        <div className="world-dock">
+          {world.focus.active ? (
           <div className="focus-session" aria-live="polite">
             <span className="focus-orb" aria-hidden="true" />
             <div>
@@ -465,7 +481,7 @@ export function PetPrototype() {
               <small>{world.action === "focus" ? `${state.name} is curled beneath the old tree` : `${state.name} is padding to a quiet place`} · {Math.ceil(world.focus.remainingMs / 1000)} seconds</small>
             </div>
           </div>
-        ) : worldAnswering ? (
+          ) : worldAnswering ? (
           <div className="focus-session world-answering" aria-live="polite">
             <span className="answering-sprout" aria-hidden="true" />
             <div>
@@ -473,12 +489,12 @@ export function PetPrototype() {
               <small>{worldAnswerDetail}</small>
             </div>
           </div>
-        ) : dayPhase === "care-ready" ? (
+          ) : dayPhase === "care-ready" ? (
           <button className="care-button" type="button" onClick={care}>
             <span className="pixel-berry" aria-hidden="true" />
             Give today’s care
           </button>
-        ) : dayPhase === "care-settling" ? (
+          ) : dayPhase === "care-settling" ? (
           <div className="focus-session day-settling" aria-live="polite">
             <span className="settling-leaves" aria-hidden="true">✦</span>
             <div>
@@ -486,7 +502,7 @@ export function PetPrototype() {
               <small>{state.reaction === "evolve" ? "The old and new forms are completing one grounded handoff." : `${state.name} is finishing today’s care before morning.`}</small>
             </div>
           </div>
-        ) : dayPhase === "day-complete" ? (
+          ) : dayPhase === "day-complete" ? (
           <button className="care-button next-morning-button" type="button" onClick={advanceDay}>
             <span className="morning-orb" aria-hidden="true" />
             <span className="morning-copy">
@@ -494,21 +510,19 @@ export function PetPrototype() {
               <small>Advance prototype time · nothing is lost</small>
             </span>
           </button>
-        ) : (
+          ) : (
           <div className="action-pair three-actions" aria-label="Simulate a meaningful Kwilt action">
             <button type="button" onClick={() => complete("todo")}><span aria-hidden="true">✓</span>Complete a To-do</button>
             <button type="button" onClick={focusTogether}><span aria-hidden="true">◎</span>Focus together</button>
             <button type="button" onClick={playTogether}><span aria-hidden="true">✦</span>Play together</button>
           </div>
-        )}
+          )}
 
-        <div className="growth-memory">
-          <div className="memory-copy">
-            <span>{growthTitle}</span>
-            <small>{growthDetail}</small>
-          </div>
-          <div className="memory-dots" aria-label={`${Math.min(state.careDays, 8)} of 8 care moments`}>
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => <span key={index} className={index < state.careDays ? "remembered" : ""} />)}
+          <div className="growth-memory">
+            <div className="memory-copy">
+              <span>{growthTitle}</span>
+              <small>{growthDetail}</small>
+            </div>
           </div>
         </div>
       </section>
