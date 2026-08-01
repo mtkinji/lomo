@@ -1107,6 +1107,24 @@ test("a landed invitation remains catchable long enough for a person to read and
   assert.notEqual(eventuallyContinues.action, "leaf-invite");
 });
 
+test("Reduce Motion keeps the landed wind leaf playable for the full invitation", () => {
+  const invitation = beginWindLeafInvitation({
+    ...createPetWorldState(),
+    weather: "breeze",
+    weatherPhase: "settled",
+    weatherIntensity: 1,
+    weatherSway: 1.5,
+  }, "baby", true);
+  const afterToggle = stepPetWorld({
+    ...invitation,
+    actionElapsed: 1200,
+  }, 16, true, "baby");
+
+  assert.equal(invitation.playLeaf.phase, "landed");
+  assert.equal(afterToggle.action, "leaf-invite");
+  assert.equal(afterToggle.playLeaf.phase, "landed");
+});
+
 test("an ignored wind toy resolves at the movement layer each form has earned", () => {
   const resolveInvitation = (stage: "baby" | "young" | "guardian") => {
     let world = beginWindLeafInvitation({

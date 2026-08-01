@@ -2082,7 +2082,7 @@ export function stepPetWorld(
       return { ...next, targetX: null, facing: state.facing, poseY: 0, rotation: 0 };
     }
     if (state.action === "leaf-invite") {
-      if (next.actionElapsed < Math.min(300, PET_WORLD.windLeafInvitationDuration)) {
+      if (next.actionElapsed < PET_WORLD.windLeafInvitationDuration) {
         return { ...next, facing: faceToward(state.petX, next.playLeaf.x, state.facing), poseY: 0, rotation: 0 };
       }
       const catchX = next.playLeaf.catchX;
