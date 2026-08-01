@@ -62,6 +62,7 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const monthStart = route.params?.monthStart;
   const monthEnd = route.params?.monthEnd;
   const monthLabel = route.params?.monthLabel;
+  const inventoryTitle = route.params?.inventoryTitle;
   const reviewTransactionIds = route.params?.reviewTransactionIds;
   const reviewTransactionIdSet = useMemo(() => new Set(reviewTransactionIds ?? []), [reviewTransactionIds]);
   const allTransactions = snapshot?.transactions ?? [];
@@ -86,9 +87,9 @@ export function MoneyTransactionsScreen({ navigation, route }: NativeStackScreen
   const groups = useMemo(() => groupByDate(transactions), [transactions]);
   const accountLabel = accountId ? snapshot?.accounts.find((account) => account.id === accountId)?.name : null;
   const categoryLabel = selectedCategory?.name ?? null;
-  const title = reviewTransactionIds
+  const title = inventoryTitle ?? (reviewTransactionIds
     ? 'Review purchases'
-    : [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions';
+    : [categoryLabel ?? accountLabel, monthLabel].filter(Boolean).join(' · ') || 'Transactions');
   const isScopedInventory = Boolean(accountId || categoryId || reviewTransactionIds);
 
   const selectDateScope = (next: DateScope) => {

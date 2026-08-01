@@ -40,4 +40,12 @@ describe('decideLivingPlanActivation', () => {
       activePeriodId: '2026-07',
     })).toEqual({ action: 'promote_now', reason: 'period_boundary' });
   });
+
+  it('replaces an active plan that is ahead of the customer local month', () => {
+    expect(decideLivingPlanActivation({
+      trigger: 'sync_evidence_changed',
+      candidatePeriodId: '2026-07',
+      activePeriodId: '2026-08',
+    })).toEqual({ action: 'promote_now', reason: 'future_period_recovery' });
+  });
 });

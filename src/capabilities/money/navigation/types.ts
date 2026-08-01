@@ -6,6 +6,7 @@ export type MoneyStackParamList = {
     monthStart?: string;
     monthEnd?: string;
     monthLabel?: string;
+    inventoryTitle?: string;
     reviewState?: 'needs_review' | 'not_counted';
     reviewTransactionIds?: string[];
   } | undefined;

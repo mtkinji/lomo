@@ -156,7 +156,32 @@ function reconcileTransaction(
     };
   }
 
+  const providerRole = providerEconomicRole(transaction);
+  if (providerRole === 'not_spending') {
+    return { ...base, disposition: 'not_spending', contributions: [] };
+  }
+  if (providerRole === 'protected_spending') {
+    return {
+      ...base,
+      disposition: 'protected_spending',
+      contributions: [{ role: 'protected_spending', amountCents, spendDeltaCents: amountCents }],
+    };
+  }
+
   return { ...base, disposition: 'unresolved', contributions: [] };
+}
+
+function providerEconomicRole(transaction: MoneyTransaction): 'not_spending' | 'protected_spending' | null {
+  const primary = transaction.providerCategoryPrimary;
+  const detailed = transaction.providerCategoryDetailed;
+  if (detailed === 'TRANSFER_OUT_ACCOUNT_TRANSFER'
+    || detailed === 'LOAN_PAYMENTS_CREDIT_CARD_PAYMENT') {
+    return 'not_spending';
+  }
+  if (primary === 'RENT_AND_UTILITIES' || primary === 'INSURANCE' || primary === 'LOAN_PAYMENTS') {
+    return 'protected_spending';
+  }
+  return null;
 }
 
 function isContribution(value: MoneyEconomicContribution | null): value is MoneyEconomicContribution {

@@ -119,38 +119,58 @@ The underlying projection is comprehensive. The resting surface is not.
 ```yaml
 Job: When I open Budget or change one category amount, tell me whether I still
   have room inside the living limit I chose.
-Primary action: None on Budget. See monthly plan reveals one Change plan action;
-  Save appears only inside a governed plan-change review.
-Must show: Exact flexible money left this month and flexible spending used
-  versus total flexible capacity.
-Reveal later: Monthly living money, income basis, living target, protected
-  costs, flexible calculation, affected categories, freshness, and receipts.
-Must not add: Cards, banners, charts, new meters, legends, status icons,
+Primary action: `What’s included?` reveals the calculation and
+  evidence; that disclosure contains one secondary `Adjust plan` action. Save appears only
+  inside a governed plan-change review.
+Must show: Exact flexible money left this month and total flexible capacity.
+Reveal later: The chosen monthly boundary, income basis, bills and money set
+  aside, flexible calculation, affected categories, freshness, receipts, and
+  category inventory presentation choices.
+Must not add: Banners, charts, new meters, legends, status icons,
   fixed/flexible badges, health scores, tutorials, permanent helper copy,
   duplicate settings, or a new destination.
-Reuse map: Money typography, month header, category grid, existing drawer,
+Reuse map: Money typography, month header, category grid and list, existing drawer,
   category editor, shared plan-change review contract, Save flow, preview
   service, and receipt route.
 ```
 
-At rest, the new Budget content has three elements:
+At rest, the new Budget content has three groups:
 
-> **$343 left for flexible spending this month**
+> Flexible spending
 >
-> $617 of $960 used
+> **$343** left
 >
-> `See monthly plan`
+> out of $960
+>
+> `What’s included?`
 
-The answer has no wrapper card, icon, border, meter, legend, or decorative
-state. Existing type and spacing establish hierarchy. The category grid begins
+The label and explicit question action share one row above the compact answer
+card. The card contains only the amount left and total flexible capacity. There
+is no separate info icon, meter, legend, or decorative state. The currency
+symbol is smaller and top-aligned so the amount remains the visual anchor.
+Existing type and spacing establish hierarchy, and the category grid begins
 immediately afterward.
 
-`See monthly plan` uses an existing disclosure surface. It first shows monthly
-living money minus protected costs equals flexible money, followed by flexible
-spending and the exact amount left. Planning-income source, target percentage,
-freshness, and protected-cost composition are available as supporting evidence.
-The disclosure includes one `Change plan` action and never describes plan room
-as account balance, cash available, or guaranteed affordability.
+The category inventory begins with `Categories` and one right-aligned `View`
+menu. `View` offers three valid presentations: percentage tiles, a percentage
+list, or a dollars-left list. Square tiles remain percentage-only because
+realistic currency values do not reliably fit beside a status word. These
+choices change presentation only; they do not change category truth,
+calculations, ordering, or navigation.
+
+`What’s included?` uses an existing disclosure surface. It leads with the exact
+amount left, then presents a compact monthly statement: the chosen boundary
+minus bills and money set aside equals flexible room; current flexible spending
+then produces the exact amount left. Planning-income source, target percentage,
+freshness, and the bill/set-aside composition remain supporting evidence. The
+disclosure includes one secondary `Adjust plan` action and never describes plan
+room as account balance, cash available, or guaranteed affordability.
+
+Customer-facing copy says `Bills and money set aside`, not `Protected costs`.
+The counted amount is conservative and category-specific: monthly obligations
+retain at least their planned amount, uncovered spending above plan reduces
+flexible room, and spending funded by an accumulated reserve is not charged to
+the current month twice.
 
 ### Current-month answer states
 
@@ -191,6 +211,7 @@ type MoneyPlanLimitFacts = {
   livingPercent: number;
   livingLimitCents: number | null;
   protectedPlanCents: number | null;
+  protectedOverageCents: number;
   flexibleCapacityCents: number | null;
   countedFlexibleSpendCents: number | null;
   flexibleRoomCents: number | null;
@@ -310,13 +331,16 @@ tested. Customer corrections outrank every later inference.
 The primary whole-plan answer is deterministic even when local category meaning
 is imperfect:
 
-1. Supported protected spending consumes its protected allocation.
-2. Supported flexible spending consumes flexible capacity.
-3. An ordinary unresolved outflow is conservatively counted as flexible
+1. Monthly bills retain at least their planned amount even before they post.
+2. Supported spending above a monthly bill's plan reduces flexible room.
+3. Reserve-funded spending consumes the accumulated reserve before it can
+   reduce current-month flexible room.
+4. Supported flexible spending consumes flexible capacity.
+5. An ordinary unresolved outflow is conservatively counted as flexible
    spending until corrected.
-4. Supported transfers, refunds, duplicates, credits, pending replacements, and
+6. Supported transfers, refunds, duplicates, credits, pending replacements, and
    outside-plan activity retain their canonical non-flexible treatment.
-5. A later correction may move spending between economic roles and therefore
+7. A later correction may move spending between economic roles and therefore
    update the answer, but Kwilt does not withhold the best deterministic answer
    while waiting for optional bookkeeping.
 
@@ -569,12 +593,20 @@ raise the delivery scores.
   rules, and supported provider evidence. It cannot invent categories or
   override governed truth.
 - `Budget` is customer-facing copy; `MoneySummary` remains the internal route.
-- The resting UI has at most three elements and no decorative container.
-- `$343 left for flexible spending this month` is the supported headline.
-- `$617 of $960 used` is the only supporting line at rest. The chosen percentage,
-  dollar limit, protected costs, and income basis are progressively disclosed
-  through `See monthly plan`.
-- `See monthly plan` contains one `Change plan` action.
+- The resting UI has three groups: a label, one compact amount card, and one
+  right-aligned disclosure question.
+- The flexible-spending label does not repeat the month because the whole page
+  is already scoped by the month header.
+- `$343 left` is the supported headline and `out of $960` preserves total
+  flexible capacity without repeating the derived amount spent.
+- The chosen percentage, dollar limit, bills and money set aside, derived spending, and
+  income basis are progressively disclosed through
+  `What’s included?`.
+- `What’s included?` contains one secondary `Adjust plan` action.
+- The category inventory has a plain `Categories` heading and one `View` menu
+  for percentage tiles, a percentage list, or a dollars-left list. The initial
+  learning release keeps these choices screen-local rather than inventing
+  preference storage.
 - `Change plan` from monthly plan and category detail shares one governed
   whole-plan review contract while allowing context-specific focused inputs.
 - Current active-plan facts and `previewLivingPlanOverride` remain the truth and

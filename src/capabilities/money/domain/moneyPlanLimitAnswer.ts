@@ -3,7 +3,7 @@ import type { ActiveLivingPlan } from '../data/livingPlanRepository';
 import type { MoneyEconomicRoleReconciliation } from './moneyEconomicRole';
 import { formatMoney } from '../data/moneySnapshot';
 
-export const MONEY_PLAN_LIMIT_POLICY_VERSION = 'money-plan-limit-v1';
+export const MONEY_PLAN_LIMIT_POLICY_VERSION = 'money-plan-limit-v2';
 
 export type MoneyPlanLimitAnswerState =
   | 'supported'
@@ -27,6 +27,7 @@ export type MoneyPlanLimitFacts = {
   livingPercent: number;
   livingLimitCents: number | null;
   protectedPlanCents: number | null;
+  protectedOverageCents: number;
   flexibleCapacityCents: number | null;
   countedFlexibleSpendCents: number | null;
   flexibleRoomCents: number | null;
@@ -103,12 +104,36 @@ export function projectMoneyPlanCapacity(input: {
   };
 }
 
+export function projectProtectedRequirement(input: {
+  categories: Array<{
+    fundingRhythm: 'monthly' | 'reserve';
+    plannedCents: number;
+    priorReserveCents: number;
+    spentCents: number;
+  }>;
+}): { protectedPlanCents: number; protectedOverageCents: number; effectiveProtectedCents: number } {
+  return input.categories.reduce((result, category) => {
+    const plannedCents = validCents(category.plannedCents);
+    const spentCents = validCents(category.spentCents);
+    const priorReserveCents = category.fundingRhythm === 'reserve'
+      ? validCents(category.priorReserveCents)
+      : 0;
+    const currentMonthRequirementCents = Math.max(0, spentCents - priorReserveCents);
+    const effectiveCents = Math.max(plannedCents, currentMonthRequirementCents);
+    result.protectedPlanCents += plannedCents;
+    result.protectedOverageCents += Math.max(0, effectiveCents - plannedCents);
+    result.effectiveProtectedCents += effectiveCents;
+    return result;
+  }, { protectedPlanCents: 0, protectedOverageCents: 0, effectiveProtectedCents: 0 });
+}
+
 export function projectMoneyPlanLimitAnswer(input: {
   active: ActiveLivingPlan;
   evidence: MoneyPlanLimitEvidence;
   reconciliation: MoneyEconomicRoleReconciliation;
   freshness: 'fresh' | 'stale';
   protectedPlanCents?: number;
+  protectedOverageCents?: number;
 }): MoneyPlanLimitAnswer {
   const { active, evidence, reconciliation, freshness } = input;
   const hasIncomeBasis = active.resourceBasisCents > 0 && evidence.resourceBasisKind !== 'unknown';
@@ -122,7 +147,10 @@ export function projectMoneyPlanLimitAnswer(input: {
           flexibleCapacityCents: Math.max(0, livingLimitCents - validCents(input.protectedPlanCents)),
         };
   const protectedPlanCents = capacity?.protectedPlanCents ?? null;
-  const flexibleCapacityCents = capacity?.flexibleCapacityCents ?? null;
+  const protectedOverageCents = validCents(input.protectedOverageCents ?? 0);
+  const flexibleCapacityCents = capacity == null
+    ? null
+    : Math.max(0, capacity.flexibleCapacityCents - protectedOverageCents);
   const countedFlexibleSpendCents = hasIncomeBasis
     ? reconciliation.totals.flexibleSpendingCents + reconciliation.totals.unresolvedInScopeCents
     : null;
@@ -149,6 +177,7 @@ export function projectMoneyPlanLimitAnswer(input: {
     livingPercent: active.livingPercent,
     livingLimitCents,
     protectedPlanCents,
+    protectedOverageCents,
     flexibleCapacityCents,
     countedFlexibleSpendCents,
     flexibleRoomCents,

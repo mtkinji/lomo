@@ -75,9 +75,9 @@ function snapshot(): MoneySnapshot {
       recoveryAction: null,
       reviewTransactionIds: [],
       facts: {
-        periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v1',
+        periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v2',
         resourceBasisCents: 480_000, resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-24T12:00:00Z',
-        livingPercent: 70, livingLimitCents: 336_000, protectedPlanCents: 200_000,
+        livingPercent: 70, livingLimitCents: 336_000, protectedPlanCents: 200_000, protectedOverageCents: 0,
         flexibleCapacityCents: 136_000, countedFlexibleSpendCents: 101_704,
         flexibleRoomCents: 34_296, flexibleRoomLowCents: 34_296, flexibleRoomHighCents: 34_296,
         unresolvedInScopeCents: 0, plannedCents: 336_000, unassignedCents: 0,

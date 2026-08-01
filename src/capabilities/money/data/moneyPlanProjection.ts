@@ -3,7 +3,8 @@ import { projectCategoryFunding } from '../domain/categoryFunding';
 import { inferMoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import { projectCategoryForecast, type MoneyForecastConfidence } from '../domain/moneyForecast';
 import { reconcileMoneyEconomicRoles } from '../domain/moneyEconomicRole';
-import { projectMoneyPlanLimitAnswer } from '../domain/moneyPlanLimitAnswer';
+import { projectMoneyPlanLimitAnswer, projectProtectedRequirement } from '../domain/moneyPlanLimitAnswer';
+import { getLocalMoneyDayId, getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 import { getActiveLivingPlan, type ActiveLivingPlan, type LivingPlanReceipt } from './livingPlanRepository';
 import { getMoneyPlanLimitEvidence, type MoneyPlanLimitEvidence } from './moneyPlanLimitEvidence';
 import type { MoneyCategory, MoneySnapshot } from './moneySnapshot';
@@ -35,9 +36,10 @@ export function projectMoneyPlanProjection(
   now = new Date(),
 ): MoneyPlanProjection {
   const allocationByCategoryId = new Map(active.allocations.map((allocation) => [allocation.categoryId, allocation]));
-  const periodStartIso = `${active.periodId}-01`;
-  const periodEndIso = lastDayOfPeriod(active.periodId);
-  const todayIso = now.toISOString().slice(0, 10);
+  const currentPeriodId = getLocalMoneyPeriodId(now);
+  const periodStartIso = `${currentPeriodId}-01`;
+  const periodEndIso = lastDayOfPeriod(currentPeriodId);
+  const todayIso = getLocalMoneyDayId(now);
   const categories = snapshot.categories.map((category): MoneyCategory => {
     const allocation = allocationByCategoryId.get(category.id);
     if (!allocation) return category;
@@ -46,7 +48,7 @@ export function projectMoneyPlanProjection(
       monthlyContributionCents: allocation.amountCents,
       priorReserveCents: allocation.priorReserveCents,
       countedSpendCents: category.spentCents,
-      periodId: active.periodId,
+      periodId: currentPeriodId,
       expectedNeed: allocation.expectedNeed,
     });
     const forecastSettings = category.forecastSettings ?? {
@@ -79,7 +81,7 @@ export function projectMoneyPlanProjection(
       monthlyContributionCents: allocation.amountCents,
       reserveAvailableCents: allocation.fundingRhythm === 'reserve' ? funding.availableCents : 0,
       reserveBalanceCents: allocation.fundingRhythm === 'reserve' ? allocation.priorReserveCents : 0,
-      reserveBalancePeriodId: allocation.fundingRhythm === 'reserve' ? active.periodId : null,
+      reserveBalancePeriodId: allocation.fundingRhythm === 'reserve' ? currentPeriodId : null,
       expectedNeed: allocation.expectedNeed,
       fundingCoverage: funding.coverage,
       forecast,
@@ -90,7 +92,7 @@ export function projectMoneyPlanProjection(
   const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
   const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
   const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
-  const currentTransactions = snapshot.transactions.filter((transaction) => transaction.date.slice(0, 7) === active.periodId);
+  const currentTransactions = snapshot.transactions.filter((transaction) => transaction.date.slice(0, 7) === currentPeriodId);
   const roleByCategoryId = new Map<string, 'protected_spending' | 'flexible_spending'>();
   categories.forEach((category) => {
     const role = category.planRole === 'protected' ? 'protected_spending' : 'flexible_spending';
@@ -102,11 +104,25 @@ export function projectMoneyPlanProjection(
     allocations: active.allocations,
     roleByCategoryId,
   });
-  const protectedPlanCents = categories
-    .filter((category) => category.planRole === 'protected')
-    .reduce((sum, category) => sum + category.plannedCents, 0);
+  const protectedRequirement = projectProtectedRequirement({
+    categories: categories
+      .filter((category) => category.planRole === 'protected')
+      .map((category) => ({
+        fundingRhythm: category.fundingRhythm,
+        plannedCents: category.plannedCents,
+        priorReserveCents: category.reserveBalanceCents,
+        spentCents: category.spentCents,
+      })),
+  });
   const freshness = isFresh(snapshot.lastSyncedAt, now) && active.status !== 'blocked' ? 'fresh' : 'stale';
-  const livingLimitAnswer = projectMoneyPlanLimitAnswer({ active, evidence, reconciliation, freshness, protectedPlanCents });
+  const livingLimitAnswer = projectMoneyPlanLimitAnswer({
+    active: active.periodId === currentPeriodId ? active : { ...active, periodId: currentPeriodId },
+    evidence,
+    reconciliation,
+    freshness,
+    protectedPlanCents: protectedRequirement.protectedPlanCents,
+    protectedOverageCents: protectedRequirement.protectedOverageCents,
+  });
   return {
     versionId: active.versionId,
     receipt: active.receipt,

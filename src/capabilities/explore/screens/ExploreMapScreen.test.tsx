@@ -229,11 +229,23 @@ describe('ExploreMapScreen', () => {
     expect(map.props.fogClearRadiusMeters).toBeCloseTo(65 * 0.3048, 3);
     expect(map.props.fogFeatherReferenceRadiusMeters).toBeCloseTo(100 * 0.3048, 3);
     expect(map.props.fogCoordinates).toEqual([]);
+    expect(map.props.fogSegmentStarts).toEqual([]);
+    expect(map.props.fogSegmentEnds).toEqual([]);
     expect(map.props.accessibilityElementsHidden).toBe(true);
     expect(map.props.importantForAccessibility).toBe('no-hide-descendants');
     expect(screen.queryByTestId('explore.fog.veil', { includeHiddenElements: true })).toBeNull();
     expect(screen.queryByTestId('explore.fog.mist', { includeHiddenElements: true })).toBeNull();
     expect(screen.queryByTestId('explore.fog.core', { includeHiddenElements: true })).toBeNull();
+  });
+
+  it('sends recorded movement to Silver Mist as explicit corridor segments', () => {
+    act(() => useExploreStore.getState().loadPreviewAdventure());
+    const screen = render(<ExploreMapScreen />);
+    const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
+
+    expect(map.props.fogCoordinates).toEqual([]);
+    expect(map.props.fogSegmentStarts.length).toBeGreaterThan(0);
+    expect(map.props.fogSegmentStarts).toHaveLength(map.props.fogSegmentEnds.length);
   });
 
   it('places the primary action above a composer-sized bottom utility row', () => {

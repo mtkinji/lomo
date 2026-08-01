@@ -100,6 +100,13 @@ describe('Explore adaptive tracking', () => {
     }));
     expect(adaptiveLocationProfile('ambient', 'active', 'vehicle')).toEqual(expect.objectContaining({
       accuracy: 'high',
+      distanceIntervalM: 22,
+      timeIntervalMs: 2_000,
+      deferredDistanceM: 200,
+      deferredIntervalMs: 30_000,
+    }));
+    expect(adaptiveLocationProfile('adventure', 'active', 'vehicle')).toEqual(expect.objectContaining({
+      accuracy: 'high',
       distanceIntervalM: 6,
       timeIntervalMs: 1_000,
       deferredDistanceM: 60,

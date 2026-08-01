@@ -7,6 +7,7 @@ import { compareLivingPlanVersions, getLivingPlanAllocationChanges, type LivingP
 import { classifyPlanningIncomeSource } from '../domain/planning-income';
 import { applyGovernedCategoryPlanChange, getActiveLivingPlan, holdLivingPlanCandidate, promoteLivingPlan } from '../data/livingPlanRepository';
 import { decideLivingPlanActivation } from '../domain/living-plan-promotion';
+import { getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 
 export type LivingPlanReconciliationResult = { outcome: 'promoted' | 'held' | 'no_op' | 'blocked' | 'disabled' | 'not_ready'; versionId?: string; activationPeriodId?: string; reason?: string; hasUsablePlan?: boolean };
 export type ReadyLivingPlanOverridePreview = {
@@ -185,7 +186,7 @@ async function evaluateLivingPlan(
     if (sourceReceiptError) throw sourceReceiptError;
   }
   const candidate = projectLivingPlanCandidate({
-    periodId: new Date().toISOString().slice(0, 7), livingPercent: targetResult.data.living_percent,
+    periodId: getLocalMoneyPeriodId(new Date()), livingPercent: targetResult.data.living_percent,
     allocatorVersion: 'living-plan-v2', evidenceHash: evidence.evidenceHash, syncFresh: evidence.syncFresh,
     resourceReceipts, categories: evidence.categories, priorResourceBasisCents: active?.resourceBasisCents,
     evidenceConfidence: evidence.evidenceConfidence,
