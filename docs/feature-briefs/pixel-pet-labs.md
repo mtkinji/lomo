@@ -106,6 +106,8 @@ Pet sounds have their own setting. Equivalent visual and semantic-haptic feedbac
 
 The first Labs version targets baby, young, and guardian forms for each type: fifteen core designs total if the Leafling proof earns a five-species release. Each form preserves species identity while changing its silhouette and body plan. Behaviors use compact authored vocabularies for idle, greet, care, sleep, discover, evolve, walk, run, jump, pounce, and rollover; the Leafling proof gives every form a dedicated eight-drawing clip for each direct-play action. Guardian additionally owns a stage-specific eight-drawing aerial-acrobatics performance—sightline, coil, launch, bank, directional reaching apex, landing, and recovery—so maturity unlocks a new physical idea rather than merely scaling the ordinary jump. Branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
 
+Evolution happens inside the persistent habitat rather than replacing it with a reward screen. The previous form recognizes the change, leaf-light gathers inward, old and new bodies briefly overlap through a renderer-neutral handoff, and the new form grows to its authored size before landing on the same ground. Autonomous travel and visitors yield during the ceremony. Reduce Motion preserves the old-to-new meaning with a stable dissolve and no orbit or scale pulse. The ceremony celebrates accumulated care but introduces no level banner, rarity, item, currency, loss, or second progression model.
+
 The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
 
 Animation follows an anime-inspired limited-motion language rather than uniform interpolation. Each drawing is authored as a hold, key, in-between, accent, or recovery. Small involuntary actions use the smallest participating anatomy channel: a blink moves only the eyelids over a locked body pose. Expressive actions spend additional drawings around changes in direction, contact, and expression, then hold the strongest readable pose. The goal is deliberate 8–12-drawing character acting, not high-frame-rate feature-film smoothness.
@@ -138,6 +140,7 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 
 - Are five choices enough, and do all five attract real preference?
 - Do three and eight care moments make both evolutions reachable without making growth feel disposable?
+- Does seeing the familiar old body become the new one make evolution feel earned, or does the two-form overlap need a longer recognition hold?
 - Does a meal metaphor feel natural, or should the care object vary by pet?
 - How much habitat change is needed before the persistent display feels alive?
 - Do weather-caused behaviors make the habitat feel like a world rather than a decorated screen?

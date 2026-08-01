@@ -25,7 +25,10 @@ The prototype lets a tester:
 - give one care moment per prototype day;
 - return after quiet days without loss or punishment;
 - hear and mute nonverbal sounds;
-- accelerate time through a young form after three care moments and a guardian form after eight.
+- accelerate time through a young form after three care moments and a guardian form after eight;
+- watch both thresholds as an in-world, previous-form-to-new-form evolution ceremony;
+- inspect recognition, gathering, two-body handoff, and grounded arrival phases;
+- preserve the same transformation meaning under Reduce Motion with a stable dissolve.
 
 The pure TypeScript runtime owns clip timing, loop windows, frame events,
 ground anchors, contact states, movement offsets, contact-cue metadata, world
@@ -42,6 +45,11 @@ travel; the drawings own lift, body turn, anticipation, impact, and recovery.
 Visitor pursuit uses one side-stable intercept and one recovery. At commitment,
 the visitor evades outward on that same side, so it cannot cross behind
 Leafling, make the launch read backward, or oscillate into a second pounce.
+During evolution, a renderer-neutral composition contract drives the old and
+new manifests together while the habitat renders once. Deterministic leaf-light
+gathers inward and opens around the arrived form; visitors and autonomous travel
+yield until the ceremony is complete. Reduce Motion removes the orbit and scale
+pulse but retains the two-form handoff.
 The renderer-neutral habitat manifest carries a 480 × 240 far panorama, a
 root-anchored shelter tree, and a transparent near-meadow layer. Canvas 2D is
 the current adapter. It places Leafling low in the scene, draws contact cues

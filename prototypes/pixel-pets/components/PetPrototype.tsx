@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PetEngineCanvas, type PetWorldCommand } from "./PetEngineCanvas";
+import { previousStageFor, resolveEvolutionComposition } from "@/lib/pet-evolution";
 import { clipForMotion, resolveGroundCue, type EngineMotion } from "@/lib/pet-engine";
 import { createPetWorldState, type PetWorldAction, type PetWorldState } from "@/lib/pet-world";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
@@ -212,6 +213,10 @@ export function PetPrototype() {
   const currentClip = clipForMotion(currentMotion);
   const renderedClip = frame?.clip ?? currentClip;
   const currentStage = previewStage ?? state.stage;
+  const evolutionFromStage = currentMotion === "evolve" ? previousStageFor(currentStage) : null;
+  const evolutionComposition = evolutionFromStage && frame
+    ? resolveEvolutionComposition(frame.progress, state.reducedMotion)
+    : null;
   const visitorLabel = currentStage === "baby"
     ? "moss crawler"
     : currentStage === "young"
@@ -232,10 +237,14 @@ export function PetPrototype() {
   const dayHasCare = state.caredPrototypeDay === state.prototypeDay;
   const currentStatus = useMemo(() => {
     if (state.careAvailable) return { title: "A care moment is ready", detail: state.lastReceipt };
+    if (state.reaction === "evolve") return {
+      title: state.stage === "guardian" ? "A Guardian arrives" : "Growing before your eyes",
+      detail: state.lastReceipt,
+    };
     if (worldMessage) return worldMessage;
     if (dayHasCare) return { title: "Cozy and cared for", detail: state.lastReceipt };
     return { title: "Quietly keeping you company", detail: state.lastReceipt };
-  }, [dayHasCare, state.careAvailable, state.lastReceipt, worldMessage]);
+  }, [dayHasCare, state.careAvailable, state.lastReceipt, state.reaction, state.stage, worldMessage]);
   const handleFrame = useCallback((snapshot: PetFrameSnapshot) => setFrame(snapshot), []);
   const handleWorldFrame = useCallback((snapshot: PetWorldState) => setWorld(snapshot), []);
   const handleWorldInteraction = useCallback((action: PetWorldAction) => {
@@ -275,15 +284,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 10</span>
-        <h1>Your touch<br />has an answer.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 11</span>
+        <h1>Watch who<br />they become.</h1>
         <p>
-          A crawler, a firefly, then something high in the sky. Each Leafling form notices a different layer of the world—and answers with a body that has truly grown.
+          The meadow stays. The creature you know recognizes the change, gathers the light, and grows into a more capable body—right where your life together has been unfolding.
         </p>
         <dl className="engine-facts">
-          <div><dt>Touch</dt><dd>reach · hunt · roll</dd></div>
-          <div><dt>Acting</dt><dd>hold · key · recovery</dd></div>
-          <div><dt>Forms</dt><dd>baby · young · guardian</dd></div>
+          <div><dt>Ceremony</dt><dd>recognize · gather · arrive</dd></div>
+          <div><dt>Continuity</dt><dd>one habitat · two forms</dd></div>
+          <div><dt>Meaning</dt><dd>care · growth · capability</dd></div>
         </dl>
       </header>
 
@@ -306,6 +315,7 @@ export function PetPrototype() {
         <div className="scene-frame">
           <PetEngineCanvas
             stage={currentStage}
+            evolutionFromStage={evolutionFromStage}
             palette={state.palette}
             motion={currentMotion}
             reducedMotion={state.reducedMotion}
@@ -407,6 +417,7 @@ export function PetPrototype() {
           </div>
           <div className="runtime-contract" aria-label="Portable Pet runtime output">
             <div className="inspector-label"><span>Behavior request</span><output>{world.action === "idle" ? currentMotion : world.action}</output></div>
+            {evolutionComposition ? <div className="inspector-label"><span>Evolution phase</span><output>{evolutionComposition.phase}</output></div> : null}
             <div className="inspector-label"><span>Authored clip</span><output>{renderedClip}{renderedClip !== (world.action === "idle" ? currentMotion : world.action) ? " · composed" : ""}</output></div>
             <div className="inspector-label"><span>Atlas cell</span><output>{frame ? `${frame.cell.column}, ${frame.cell.row}` : "—"}</output></div>
             <div className="inspector-label"><span>Drawing role</span><output>{frame?.role ?? "—"}</output></div>

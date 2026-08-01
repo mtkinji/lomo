@@ -9,6 +9,7 @@ import {
   resolveRequestedClip,
   type EngineMotion,
 } from "@/lib/pet-engine";
+import { resolveEvolutionComposition, type EvolutionComposition } from "@/lib/pet-evolution";
 import {
   PET_WORLD,
   applyWorldIntent,
@@ -26,7 +27,7 @@ import {
 } from "@/lib/pet-world";
 import { LEAFLING_HABITAT } from "@/lib/pet-habitat";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
-import { resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
+import { clipDuration, resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import type { PetPalette, PetStage } from "@/lib/pet-state";
 
 export type PetWorldCommand = {
@@ -36,6 +37,7 @@ export type PetWorldCommand = {
 
 interface PetEngineCanvasProps {
   stage: PetStage;
+  evolutionFromStage?: PetStage | null;
   palette: PetPalette;
   motion: EngineMotion;
   reducedMotion: boolean;
@@ -689,24 +691,55 @@ function drawNearForeground(
   context.restore();
 }
 
-function renderScene(
+function drawEvolutionMotes(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  progress: number,
+  opacity: number,
+) {
+  if (opacity <= 0) return;
+  const gathering = progress < 0.52;
+  const travel = gathering ? progress / 0.52 : (progress - 0.52) / 0.48;
+  const radius = gathering
+    ? 42 - Math.min(1, travel) * 29
+    : 13 + Math.min(1, travel) * 24;
+  const colors = [palette.bloom, palette.cream, palette.leafLight, palette.skyLight];
+
+  context.save();
+  worldTransform(context, world);
+  context.translate(world.petX, ENGINE_SCENE.groundY - 31);
+  context.globalAlpha = opacity * 0.92;
+  for (let index = 0; index < 12; index += 1) {
+    const angle = (index / 12) * Math.PI * 2 + progress * (index % 2 === 0 ? 1.8 : -1.35);
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius * 0.62;
+    context.save();
+    context.translate(Math.round(x), Math.round(y));
+    context.rotate(angle + Math.PI / 4);
+    context.fillStyle = colors[index % colors.length];
+    context.fillRect(-2, -1, index % 3 === 0 ? 5 : 4, 2);
+    context.fillRect(-1, -2, 2, 4);
+    context.restore();
+  }
+  context.restore();
+}
+
+function drawPetSprite(
   context: CanvasRenderingContext2D,
   sprite: HTMLImageElement,
   manifest: PetAnimationManifest,
-  paletteId: PetPalette,
   stage: PetStage,
-  motion: EngineMotion,
   snapshot: PetFrameSnapshot,
-  showRig: boolean,
   world: PetWorldState,
-  habitat: HabitatImages,
+  opacity: number,
+  scaleMultiplier: number,
+  yOffset: number,
+  showRig: boolean,
 ) {
-  const palette = PALETTES[paletteId];
-  context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
-  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
-
+  if (opacity <= 0) return;
   const size = LEAFLING_PRESENTATION.stages[stage];
-  const scaleX = size.height / manifest.atlas.frameHeight;
+  const scaleX = (size.height / manifest.atlas.frameHeight) * scaleMultiplier;
   const scaleY = scaleX;
   const destinationWidth = manifest.atlas.frameWidth * scaleX;
   const destinationHeight = manifest.atlas.frameHeight * scaleY;
@@ -714,30 +747,18 @@ function renderScene(
   const sourceY = snapshot.cell.row * manifest.atlas.frameHeight;
   const destinationX = -snapshot.anchor.x * scaleX + snapshot.transform.x;
   const destinationY = -snapshot.anchor.y * scaleY + snapshot.transform.y;
-  const groundCue = resolveGroundCue(snapshot.contact, snapshot.shadow.width, snapshot.shadow.opacity, scaleX);
 
   context.save();
   worldTransform(context, world);
-  context.globalAlpha = groundCue.opacity;
-  context.fillStyle = palette.outline;
-  context.fillRect(
-    Math.round(world.petX - groundCue.width / 2),
-    ENGINE_SCENE.groundY + groundCue.yOffset,
-    groundCue.width,
-    groundCue.height,
-  );
-  context.restore();
-
-  context.save();
-  worldTransform(context, world);
-  context.translate(world.petX, ENGINE_SCENE.groundY + world.poseY);
+  context.translate(world.petX, ENGINE_SCENE.groundY + world.poseY + yOffset);
+  context.globalAlpha = opacity;
   if (world.weatherSway !== 0 && snapshot.contact !== "airborne") {
     context.rotate((world.weatherSway * Math.PI) / 180);
   }
   if (world.rotation !== 0) {
-    context.translate(0, -size.height * 0.42);
+    context.translate(0, -size.height * scaleMultiplier * 0.42);
     context.rotate((world.rotation * world.facing * Math.PI) / 180);
-    context.translate(0, size.height * 0.42);
+    context.translate(0, size.height * scaleMultiplier * 0.42);
   }
   context.scale(world.facing, 1);
   context.imageSmoothingEnabled = false;
@@ -786,8 +807,7 @@ function renderScene(
     const colors = ["#e14f62", "#316ee8", "#be4ee6", "#f08a34", "#2eaa7b", "#c55a92", "#111111", "#7d6c24"];
     LEAFLING_PRESENTATION.channels.forEach((channel, index) => {
       const bounds = channel.bounds;
-      const color = colors[index % colors.length];
-      context.strokeStyle = color;
+      context.strokeStyle = colors[index % colors.length];
       context.lineWidth = 1 / world.zoom;
       context.strokeRect(
         Math.round(-snapshot.anchor.x * scaleX + bounds.x * scaleX),
@@ -798,12 +818,88 @@ function renderScene(
     });
   }
   context.restore();
+}
+
+function renderScene(
+  context: CanvasRenderingContext2D,
+  sprite: HTMLImageElement,
+  manifest: PetAnimationManifest,
+  paletteId: PetPalette,
+  stage: PetStage,
+  motion: EngineMotion,
+  snapshot: PetFrameSnapshot,
+  showRig: boolean,
+  world: PetWorldState,
+  habitat: HabitatImages,
+  previousSprite: HTMLImageElement | null,
+  previousManifest: PetAnimationManifest | null,
+  previousStage: PetStage | null,
+  previousSnapshot: PetFrameSnapshot | null,
+  evolution: EvolutionComposition | null,
+) {
+  const palette = PALETTES[paletteId];
+  context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
+  drawAuthoredHabitat(context, palette, motion, snapshot.progress, world, habitat);
+
+  const showingPrevious = Boolean(
+    evolution && previousManifest && previousStage && previousSnapshot && evolution.previousOpacity > evolution.currentOpacity,
+  );
+  const groundManifest = showingPrevious ? previousManifest! : manifest;
+  const groundStage = showingPrevious ? previousStage! : stage;
+  const groundSnapshot = showingPrevious ? previousSnapshot! : snapshot;
+  const groundScale = LEAFLING_PRESENTATION.stages[groundStage].height / groundManifest.atlas.frameHeight;
+  const groundCue = resolveGroundCue(
+    groundSnapshot.contact,
+    groundSnapshot.shadow.width,
+    groundSnapshot.shadow.opacity,
+    groundScale,
+  );
+
+  context.save();
+  worldTransform(context, world);
+  context.globalAlpha = groundCue.opacity;
+  context.fillStyle = palette.outline;
+  context.fillRect(
+    Math.round(world.petX - groundCue.width / 2),
+    ENGINE_SCENE.groundY + groundCue.yOffset,
+    groundCue.width,
+    groundCue.height,
+  );
+  context.restore();
+  if (evolution) drawEvolutionMotes(context, palette, world, snapshot.progress, evolution.motesOpacity);
+  if (evolution && previousSprite && previousManifest && previousStage && previousSnapshot) {
+    drawPetSprite(
+      context,
+      previousSprite,
+      previousManifest,
+      previousStage,
+      previousSnapshot,
+      world,
+      evolution.previousOpacity,
+      evolution.previousScale,
+      0,
+      false,
+    );
+  }
+  drawPetSprite(
+    context,
+    sprite,
+    manifest,
+    stage,
+    snapshot,
+    world,
+    evolution?.currentOpacity ?? 1,
+    evolution?.currentScale ?? 1,
+    evolution?.currentYOffset ?? 0,
+    showRig,
+  );
   drawNearForeground(context, palette, world, habitat);
   drawWeather(context, palette, world, true);
 }
 
 export function PetEngineCanvas({
   stage,
+  evolutionFromStage = null,
   palette,
   motion,
   reducedMotion,
@@ -830,6 +926,8 @@ export function PetEngineCanvas({
   const stageRef = useRef(stage);
   const callbackRef = useRef({ onFrame, onWorldFrame, onWorldInteraction });
   const manifest = leaflingManifestForStage(stage);
+  const previousManifest = evolutionFromStage ? leaflingManifestForStage(evolutionFromStage) : null;
+  const ceremonyActive = motion === "evolve" && previousManifest !== null;
 
   useEffect(() => {
     stageRef.current = stage;
@@ -882,6 +980,7 @@ export function PetEngineCanvas({
     let clipStartedAt = previousTime;
     let activeClip = "";
     const sprite = new Image();
+    const previousSprite = previousManifest ? new Image() : null;
     const habitat: HabitatImages = {
       backdrop: new Image(),
       shelterTree: new Image(),
@@ -898,8 +997,20 @@ export function PetEngineCanvas({
       worldClockRef.current += dt;
 
       const beforeAction = worldRef.current.action;
-      if (!paused) worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
-      if (!worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
+      if (ceremonyActive) {
+        worldRef.current = {
+          ...worldRef.current,
+          action: "idle",
+          actionElapsed: 0,
+          targetX: null,
+          poseY: 0,
+          rotation: 0,
+          visitor: { ...worldRef.current.visitor, active: false, engaged: false, engagedAgeMs: 0 },
+        };
+      } else if (!paused) {
+        worldRef.current = stepPetWorld(worldRef.current, dt, reducedMotion);
+      }
+      if (!ceremonyActive && !worldRef.current.visitor.active && worldClockRef.current >= nextVisitorRef.current) {
         worldRef.current = spawnVisitor(worldRef.current, stage);
         nextVisitorRef.current = worldClockRef.current + 7800;
       }
@@ -919,7 +1030,34 @@ export function PetEngineCanvas({
       }
       const elapsed = paused ? manualElapsed : time - clipStartedAt;
       const snapshot = resolvePetFrame(manifest, requestedClip, elapsed, reducedMotion);
-      renderScene(context, sprite, manifest, palette, stage, motion, snapshot, showRig, worldRef.current, habitat);
+      const evolution = ceremonyActive
+        ? resolveEvolutionComposition(snapshot.progress, reducedMotion)
+        : null;
+      const previousSnapshot = previousManifest && evolution
+        ? resolvePetFrame(
+            previousManifest,
+            "evolve",
+            snapshot.progress * clipDuration(previousManifest.clips.evolve),
+            reducedMotion,
+          )
+        : null;
+      renderScene(
+        context,
+        sprite,
+        manifest,
+        palette,
+        stage,
+        motion,
+        snapshot,
+        showRig,
+        worldRef.current,
+        habitat,
+        previousSprite,
+        previousManifest,
+        evolutionFromStage,
+        previousSnapshot,
+        evolution,
+      );
 
       const frameKey = `${snapshot.clip}:${snapshot.frameIndex}`;
       if (frameKey !== lastFrameRef.current) {
@@ -933,14 +1071,30 @@ export function PetEngineCanvas({
       if (!paused) animationId = requestAnimationFrame(draw);
     };
 
-    sprite.onload = () => draw(performance.now());
+    let spriteReady = false;
+    let previousSpriteReady = previousSprite === null;
+    const beginWhenReady = () => {
+      if (spriteReady && previousSpriteReady && !disposed) draw(performance.now());
+    };
+    sprite.onload = () => {
+      spriteReady = true;
+      beginWhenReady();
+    };
     sprite.src = manifest.atlas.src;
+    if (previousSprite && previousManifest) {
+      previousSprite.onload = () => {
+        previousSpriteReady = true;
+        beginWhenReady();
+      };
+      previousSprite.src = previousManifest.atlas.src;
+    }
     return () => {
       disposed = true;
       cancelAnimationFrame(animationId);
       sprite.onload = null;
+      if (previousSprite) previousSprite.onload = null;
     };
-  }, [manualElapsed, manifest, motion, palette, paused, previewing, reducedMotion, showRig, stage]);
+  }, [ceremonyActive, evolutionFromStage, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
 
   function pointFromEvent(event: PointerEvent<HTMLDivElement>): WorldPoint {
     const bounds = event.currentTarget.getBoundingClientRect();
