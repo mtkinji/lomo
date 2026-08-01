@@ -62,6 +62,8 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 42,
 };
 
+export const EXPLORE_TERRAIN_REVEAL_RADIUS_M = 120;
+
 function pointGroupsInDisplayOrder(
   sessions: ReturnType<typeof useExploreStore.getState>['sessions'],
   active: ReturnType<typeof useExploreStore.getState>['activeSession'],
@@ -133,10 +135,6 @@ export function ExploreMapScreen() {
   const [visibleRegion, setVisibleRegion] = useState<Region>(() =>
     latestPoint ? regionAround(latestPoint) : DEFAULT_REGION,
   );
-  const altitudeSegments = useMemo(
-    () => pointGroups.flatMap((group) => buildAltitudeSegments(group)),
-    [pointGroups],
-  );
   const visibleCells = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
@@ -148,25 +146,56 @@ export function ExploreMapScreen() {
       .slice(-700);
   }, [exploredCells, visibleRegion]);
   const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
+  const adventurePointGroups = useMemo(() => {
+    const completed = [...sessions]
+      .reverse()
+      .filter((session) => session.trackingPolicy === 'adventure')
+      .map((session) => session.points);
+    return activeSession?.trackingPolicy === 'adventure'
+      ? [...completed, activeSession.points]
+      : completed;
+  }, [activeSession, sessions]);
+  const visibleAdventurePoints = useMemo(() => {
+    const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
+    const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
+    return adventurePointGroups.flat().filter((point) =>
+      Math.abs(point.latitude - visibleRegion.latitude) <= latitudeRadius &&
+      Math.abs(point.longitude - visibleRegion.longitude) <= longitudeRadius,
+    );
+  }, [adventurePointGroups, visibleRegion]);
   const fogHoles = useMemo(() => {
     return {
-      core: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
+      core: [
+        ...visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
+        ...visibleAdventurePoints.map((point) => buildFogHole(point, EXPLORE_TERRAIN_REVEAL_RADIUS_M)),
+      ],
       mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 30)),
       veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
     };
-  }, [visibleCells]);
+  }, [visibleAdventurePoints, visibleCells]);
   const fogGeometry = useMemo(
     () => buildFogRenderGeometry([...pointGroups].reverse()),
     [pointGroups],
+  );
+  const altitudeSegments = useMemo(
+    () => fogGeometry.traces.flatMap((trace) => buildAltitudeSegments(trace)),
+    [fogGeometry],
+  );
+  const terrainGeometry = useMemo(
+    () => buildFogRenderGeometry([...adventurePointGroups].reverse()),
+    [adventurePointGroups],
   );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
       fogEnabled: preferences.showFog,
       fogCoordinates: preferences.showFog ? fogGeometry.points : [],
       fogSegmentStarts: preferences.showFog ? fogGeometry.segmentStarts : [],
       fogSegmentEnds: preferences.showFog ? fogGeometry.segmentEnds : [],
+      fogTerrainSegmentStarts: preferences.showFog ? terrainGeometry.segmentStarts : [],
+      fogTerrainSegmentEnds: preferences.showFog ? terrainGeometry.segmentEnds : [],
       fogClearRadiusMeters: EXPLORE_REVEAL_RADIUS_M,
       fogFeatherReferenceRadiusMeters: EXPLORE_FEATHER_REFERENCE_RADIUS_M,
-    } as unknown as ComponentProps<typeof MapView>) : {}, [fogGeometry, preferences.showFog]);
+      fogTerrainRevealRadiusMeters: EXPLORE_TERRAIN_REVEAL_RADIUS_M,
+    } as unknown as ComponentProps<typeof MapView>) : {}, [fogGeometry, preferences.showFog, terrainGeometry]);
   const exploredCellValues = useMemo(() => Object.values(exploredCells), [exploredCells]);
   const savedPlaces = useMemo(() => {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));
@@ -345,18 +374,30 @@ export function ExploreMapScreen() {
           strokeWidth={0}
         />
         </> : null}
-        {preferences.showMyPath
-          ? altitudeSegments.map((segment, index) => (
+        {preferences.showMyPath ? <>
+          {fogGeometry.traces.map((trace, index) => (
+            <Polyline
+              key={`path-casing-${index}`}
+              testID="explore.path.casing"
+              coordinates={trace}
+              strokeColor="rgba(255, 255, 255, 0.92)"
+              strokeWidth={8}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ))}
+          {altitudeSegments.map((segment, index) => (
               <Polyline
                 key={`altitude-segment-${index}`}
+                testID="explore.path.altitude"
                 coordinates={segment.coordinates}
                 strokeColor={segment.color}
-                strokeWidth={5}
+                strokeWidth={4.5}
                 lineCap="round"
                 lineJoin="round"
               />
-            ))
-          : null}
+            ))}
+        </> : null}
         {mapPlaces.map((place) => (
           <Marker
             key={place.id}

@@ -122,10 +122,11 @@ export function isCoordinateExplored(
   return exploredCells.some((cell) => coordinateDistanceM(coordinate, cell.center) <= revealRadiusM);
 }
 
-export type ExploreFogRenderGeometry = {
-  points: ExploreCoordinate[];
-  segmentStarts: ExploreCoordinate[];
-  segmentEnds: ExploreCoordinate[];
+export type ExploreFogRenderGeometry<T extends ExploreCoordinate = ExploreCoordinate> = {
+  points: T[];
+  segmentStarts: T[];
+  segmentEnds: T[];
+  traces: T[][];
 };
 
 function pointToSegmentDistanceM(
@@ -145,10 +146,10 @@ function pointToSegmentDistanceM(
   return Math.hypot(pointX - endX * projection, pointY - endY * projection);
 }
 
-function simplifyTrace(
-  points: readonly ExploreCoordinate[],
+function simplifyTrace<T extends ExploreCoordinate>(
+  points: readonly T[],
   toleranceM: number,
-): ExploreCoordinate[] {
+): T[] {
   if (points.length <= 2) return [...points];
   let furthestIndex = -1;
   let furthestDistanceM = 0;
@@ -167,12 +168,12 @@ function simplifyTrace(
   return [...before.slice(0, -1), ...after];
 }
 
-function continuousTraceGroups(
-  pointGroups: readonly (readonly ExploreCoordinate[])[],
-): ExploreCoordinate[][] {
-  const traces: ExploreCoordinate[][] = [];
+function continuousTraceGroups<T extends ExploreCoordinate>(
+  pointGroups: readonly (readonly T[])[],
+): T[][] {
+  const traces: T[][] = [];
   pointGroups.forEach((group) => {
-    let current: ExploreCoordinate[] = [];
+    let current: T[] = [];
     group.forEach((point) => {
       const previous = current.at(-1);
       if (previous && !isExploreTraceContinuous(previous, point)) {
@@ -191,10 +192,10 @@ function continuousTraceGroups(
  * Simplification may remove redundant observations, but never joins sessions or
  * crosses an untrusted recorded gap.
  */
-export function buildFogRenderGeometry(
-  pointGroups: readonly (readonly ExploreCoordinate[])[],
+export function buildFogRenderGeometry<T extends ExploreCoordinate>(
+  pointGroups: readonly (readonly T[])[],
   maxSegments = 256,
-): ExploreFogRenderGeometry {
+): ExploreFogRenderGeometry<T> {
   const traces = continuousTraceGroups(pointGroups);
   let toleranceM = FOG_TRACE_SIMPLIFICATION_TOLERANCE_M;
   let simplified = traces.map((trace) => simplifyTrace(trace, toleranceM));
@@ -204,19 +205,23 @@ export function buildFogRenderGeometry(
     simplified = traces.map((trace) => simplifyTrace(trace, toleranceM));
   }
 
-  const points: ExploreCoordinate[] = [];
-  const segmentStarts: ExploreCoordinate[] = [];
-  const segmentEnds: ExploreCoordinate[] = [];
+  const points: T[] = [];
+  const segmentStarts: T[] = [];
+  const segmentEnds: T[] = [];
+  const renderTraces: T[][] = [];
   simplified.forEach((trace) => {
     if (trace.length === 1) {
       points.push(trace[0]);
       return;
     }
-    trace.slice(1).forEach((end, index) => {
-      if (segmentStarts.length >= maxSegments) return;
+    const remainingSegmentCount = Math.max(0, maxSegments - segmentStarts.length);
+    const renderTrace = trace.slice(0, remainingSegmentCount + 1);
+    if (renderTrace.length < 2) return;
+    renderTraces.push(renderTrace);
+    renderTrace.slice(1).forEach((end, index) => {
       segmentStarts.push(trace[index]);
       segmentEnds.push(end);
     });
   });
-  return { points, segmentStarts, segmentEnds };
+  return { points, segmentStarts, segmentEnds, traces: renderTraces };
 }

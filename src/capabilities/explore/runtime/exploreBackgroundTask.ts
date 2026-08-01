@@ -44,9 +44,15 @@ async function globalNotificationsAreEnabled(): Promise<boolean> {
   }
 }
 
-function upgradeSession(session: Partial<ExploreSession>): ExploreSession {
+function upgradeSession(
+  session: Partial<ExploreSession>,
+  fallbackPolicy: ExploreSession['trackingPolicy'] = 'ambient',
+): ExploreSession {
   return {
     id: session.id ?? 'unknown-session',
+    trackingPolicy: session.trackingPolicy === 'adventure' || session.trackingPolicy === 'ambient'
+      ? session.trackingPolicy
+      : fallbackPolicy,
     startedAt: session.startedAt ?? new Date().toISOString(),
     endedAt: session.endedAt ?? null,
     points: Array.isArray(session.points) ? session.points.map((point) => ({
@@ -75,12 +81,19 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
     const envelope = parsed as PersistEnvelope;
     const persisted = (envelope.state ?? envelope) as Partial<ExploreData>;
     const defaults = createEmptyExploreData();
+    const activeFallbackPolicy = persisted.tracking?.policy === 'adventure' || persisted.tracking?.policy === 'ambient'
+      ? persisted.tracking.policy
+      : trackingPolicyForRecordingMode(persisted.preferences?.recording ?? defaults.preferences.recording);
     const data = {
         ...defaults,
         ...persisted,
-        version: 8,
-        activeSession: persisted.activeSession ? upgradeSession(persisted.activeSession) : null,
-        sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
+        version: 9,
+        activeSession: persisted.activeSession
+          ? upgradeSession(persisted.activeSession, activeFallbackPolicy)
+          : null,
+        sessions: Array.isArray(persisted.sessions)
+          ? persisted.sessions.map((session) => upgradeSession(session))
+          : [],
         preferences: { ...defaults.preferences, ...(persisted.preferences ?? {}) },
         tracking: normalizeExploreTrackingState(
           persisted.tracking,
@@ -153,8 +166,8 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   }
 
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 8 }
-    : { state: next, version: 8 };
+    ? { ...persisted.envelope, state: next, version: 9 }
+    : { state: next, version: 9 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-location' });
@@ -190,8 +203,8 @@ TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
     tracking: resumeExploreTracking(persisted.data.tracking, new Date().toISOString()),
   };
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 8 }
-    : { state: next, version: 8 };
+    ? { ...persisted.envelope, state: next, version: 9 }
+    : { state: next, version: 9 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });

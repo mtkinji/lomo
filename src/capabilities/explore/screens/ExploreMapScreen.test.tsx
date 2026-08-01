@@ -246,6 +246,41 @@ describe('ExploreMapScreen', () => {
     expect(map.props.fogCoordinates).toEqual([]);
     expect(map.props.fogSegmentStarts.length).toBeGreaterThan(0);
     expect(map.props.fogSegmentStarts).toHaveLength(map.props.fogSegmentEnds.length);
+    expect(map.props.fogTerrainSegmentStarts.length).toBeGreaterThan(0);
+    expect(map.props.fogTerrainSegmentStarts).toHaveLength(map.props.fogTerrainSegmentEnds.length);
+    expect(map.props.fogTerrainRevealRadiusMeters).toBe(120);
+    expect(screen.getAllByTestId('explore.path.casing', { includeHiddenElements: true }).length)
+      .toBeLessThan(map.props.fogSegmentStarts.length);
+  });
+
+  it('does not grant the broad terrain reveal to ambient sessions', () => {
+    act(() => {
+      const store = useExploreStore.getState();
+      store.startSession('2026-07-28T12:00:00.000Z', 'ambient-outing', 'ambient');
+      store.appendSample({
+        latitude: 40.55,
+        longitude: -105.12,
+        altitudeM: 1500,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: '2026-07-28T12:00:00.000Z',
+      }, 'ambient-point-1');
+      store.appendSample({
+        latitude: 40.5503,
+        longitude: -105.1203,
+        altitudeM: 1510,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: '2026-07-28T12:01:00.000Z',
+      }, 'ambient-point-2');
+    });
+
+    const screen = render(<ExploreMapScreen />);
+    const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
+
+    expect(map.props.fogSegmentStarts.length).toBeGreaterThan(0);
+    expect(map.props.fogTerrainSegmentStarts).toEqual([]);
+    expect(map.props.fogTerrainSegmentEnds).toEqual([]);
   });
 
   it('places the primary action above a composer-sized bottom utility row', () => {
@@ -425,7 +460,8 @@ describe('ExploreMapScreen', () => {
 
     const screen = render(<ExploreMapScreen />);
 
-    expect(screen.getAllByTestId('mock.polyline', { includeHiddenElements: true })).toHaveLength(2);
+    expect(screen.getAllByTestId('explore.path.casing', { includeHiddenElements: true })).toHaveLength(2);
+    expect(screen.getAllByTestId('explore.path.altitude', { includeHiddenElements: true })).toHaveLength(2);
   });
 
   it('recenters on a fresh foreground location without starting an outing', async () => {
@@ -465,7 +501,10 @@ describe('ExploreMapScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Fog'));
     expect(useExploreStore.getState().preferences.showFog).toBe(false);
-    expect(screen.getByTestId('explore.map', { includeHiddenElements: true }).props.fogEnabled).toBe(false);
+    const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
+    expect(map.props.fogEnabled).toBe(false);
+    expect(map.props.fogTerrainSegmentStarts).toEqual([]);
+    expect(map.props.fogTerrainSegmentEnds).toEqual([]);
   });
 
   it('keeps the contextual menu open while changing multiple map layers', () => {
