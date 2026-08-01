@@ -25,6 +25,7 @@ import {
   beginTreeRest,
   beginTreePlay,
   beginTreeReturn,
+  beginRainGuestShelter,
   cancelWorldHandGuide,
   CARE_ECHO_TARGET,
   clipForWorldAction,
@@ -43,6 +44,7 @@ import {
   resolveTapIntent,
   resolveTreePlayHit,
   resolveTreeReturnHit,
+  resolveRainGuestHit,
   releaseWorldHandGuide,
   screenPointToWorldPoint,
   setWorldZoom,
@@ -54,6 +56,7 @@ import {
   type PetWorldState,
   type GuardianWakePresentation,
   type WorldPoint,
+  type WorldVisitor,
 } from "@/lib/pet-world";
 import { createWindLeaf, isWindLeafHit } from "@/lib/pet-plaything";
 import { isPetContactHit, resolvePetContactGesture } from "@/lib/pet-affection";
@@ -412,13 +415,23 @@ function drawVisitor(
   reducedMotion: boolean,
 ) {
   if (!world.visitor.active) return;
-  const visitor = world.visitor;
-  const pose = resolveVisitorPerformance(visitor, world.weather, reducedMotion);
+  drawVisitorCreature(context, palette, world.visitor, world.weather, reducedMotion);
+}
+
+function drawVisitorCreature(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  visitor: WorldVisitor,
+  weather: PetWorldState["weather"],
+  reducedMotion: boolean,
+  scale = 1,
+) {
+  const pose = resolveVisitorPerformance(visitor, weather, reducedMotion);
 
   context.save();
   context.translate(Math.round(visitor.x), Math.round(visitor.y));
   context.rotate((pose.bank * Math.PI) / 180);
-  context.scale(visitor.direction, 1);
+  context.scale(visitor.direction * scale, scale);
   context.translate(0, pose.rigDrop);
   context.globalAlpha = visitor.engaged
     ? Math.max(0.85, 1 - visitor.engagedAgeMs / 2600)
@@ -432,6 +445,41 @@ function drawVisitor(
     drawSkyMothVisitor(context, palette, pose);
   }
   context.restore();
+}
+
+function drawRainGuest(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  reducedMotion: boolean,
+) {
+  if (world.rainGuest.phase === "quiet") return;
+  const direction = world.rainGuest.phase === "carried"
+    ? world.facing
+    : world.rainGuest.x < world.petX ? 1 : -1;
+  const visitor: WorldVisitor = {
+    active: true,
+    kind: "firefly",
+    x: world.rainGuest.x,
+    y: world.rainGuest.y,
+    originY: world.rainGuest.y,
+    direction,
+    ageMs: world.rainGuest.elapsedMs,
+    engaged: false,
+    engagedAgeMs: 0,
+    launchX: world.rainGuest.x,
+  };
+
+  if (world.rainGuest.phase === "waiting") {
+    context.save();
+    const pulse = reducedMotion ? 0.16 : 0.11 + (Math.sin(world.rainGuest.elapsedMs / 270) + 1) * 0.045;
+    context.globalAlpha = pulse;
+    context.fillStyle = palette.bloom;
+    context.fillRect(Math.round(world.rainGuest.x - 8), Math.round(world.rainGuest.y - 6), 12, 8);
+    context.fillRect(Math.round(world.rainGuest.x - 5), Math.round(world.rainGuest.y - 9), 6, 14);
+    context.restore();
+  }
+  drawVisitorCreature(context, palette, visitor, "rain", reducedMotion, 0.66);
 }
 
 function drawCrawlerVisitor(
@@ -1149,6 +1197,7 @@ function drawProceduralHabitat(
   drawAfterRainPuddle(context, palette, world);
   drawHandMote(context, palette, world);
   drawVisitor(context, palette, world, reducedMotion);
+  if (world.rainGuest.phase === "waiting") drawRainGuest(context, palette, world, reducedMotion);
   drawWindLeaf(context, palette, world);
 
   context.restore();
@@ -1345,6 +1394,7 @@ function drawAuthoredHabitat(
   drawAfterRainPuddle(context, palette, world);
   drawHandMote(context, palette, world);
   drawVisitor(context, palette, world, reducedMotion);
+  if (world.rainGuest.phase === "waiting") drawRainGuest(context, palette, world, reducedMotion);
   drawWindLeaf(context, palette, world);
   context.restore();
 
@@ -1704,6 +1754,12 @@ function renderScene(
     evolution?.currentYOffset ?? 0,
     showRig,
   );
+  if (world.rainGuest.phase === "carried" || world.rainGuest.phase === "sheltered") {
+    context.save();
+    worldTransform(context, world);
+    drawRainGuest(context, palette, world, reducedMotion);
+    context.restore();
+  }
   drawAffectionContact(context, palette, stage, world, reducedMotion);
   drawAfterRainSplash(context, world, reducedMotion);
   drawNearForeground(context, palette, world, habitat, guardianWake, habitatPerformance);
@@ -2222,6 +2278,16 @@ export function PetEngineCanvas({
       return;
     }
     const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+    if (worldRef.current.rainGuest.phase === "waiting") {
+      if (resolveRainGuestHit(worldRef.current, worldPoint)) {
+        worldRef.current = beginRainGuestShelter(worldRef.current);
+        livingDayRef.current = interruptLivingDay(livingDayRef.current);
+        callbackRef.current.onWorldFrame?.(worldRef.current);
+        callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+        callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      }
+      return;
+    }
     if (worldRef.current.action === "tree-perch" && worldRef.current.treePlay.active) {
       if (resolveTreeReturnHit(worldRef.current, worldPoint)) {
         worldRef.current = beginTreeReturn(worldRef.current, worldPoint.x);
@@ -2254,6 +2320,15 @@ export function PetEngineCanvas({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const world = worldRef.current;
     if (world.focus.active) return;
+    if (world.rainGuest.phase === "waiting" && event.key === "Enter") {
+      event.preventDefault();
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      worldRef.current = beginRainGuestShelter(world);
+      callbackRef.current.onWorldFrame?.(worldRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onWorldInteraction?.(worldRef.current.action, worldRef.current);
+      return;
+    }
     if (world.action === "tree-perch" && world.treePlay.active && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
       event.preventDefault();
       livingDayRef.current = interruptLivingDay(livingDayRef.current);

@@ -16,7 +16,7 @@ The prototype lets a tester:
 - discover a stage-specific wildlife ladder: baby follows a ground crawler, young chases a firefly, and guardian banks through a high aerial interception of a sky moth;
 - watch each visitor perform through the same renderer-neutral limited-animation grammar: a planted crawler transfers weight through six legs, a firefly beats its wings independently of its slow breathing glow, and a sky moth holds, strikes, banks, and escapes;
 - see visitor materials answer the world: warm light, wind effort, and rain weight change acting without changing behavior authority;
-- see every wildlife chase begin with a planted eyes-ears-head attention beat, sample the target's latest side, then lock facing, travel, and escape to one committed side;
+- see every wildlife chase begin with a planted eyes-ears-head attention beat, sample the target's latest side, then lock facing, intercept, camera action line, travel, and escape to one committed side;
 - keep the directional pounce or aerial playhead continuous from planted anticipation through takeoff instead of restarting or substituting a front-facing discover pose;
 - keep the pursued visitor visibly ahead through contact by capping intercept lead to its real escape window;
 - read evolution in the jump itself: terrain-bound Baby, a modest Young spring, and the Guardian's highest aerial vault;
@@ -145,6 +145,15 @@ loose leaf motes settle back into the habitat. The wake originates at the
 person's landing rather than the old tree, never awards currency or care credit,
 and yields immediately to Focus. Reduce Motion preserves one static bowed-grass
 contact without traveling particles.
+Rain now reveals a second stage-exclusive Guardian behavior. Baby and Young
+continue to seek the old tree for themselves. Guardian instead notices one wet
+firefly struggling low over the grass and holds the scene long enough for a
+direct tap. It approaches the visitor, makes contact before attachment, carries
+the small light against its leafy mantle, and walks it to the existing shelter
+anchor. A quiet timeout produces the same caring choice without demanding input.
+The renderer-neutral guest state remains transient and earns no score, rescue
+credit, collectible, or care progress. Focus and new weather clear it; Reduce
+Motion resolves directly to one shared-shelter tableau.
 During evolution, a renderer-neutral composition contract drives the old and
 new manifests together while the habitat renders once. Deterministic leaf-light
 gathers inward and opens around the arrived form; visitors and autonomous travel

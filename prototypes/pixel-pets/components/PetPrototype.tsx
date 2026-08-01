@@ -413,18 +413,31 @@ export function PetPrototype() {
 
   function handleWorldInteraction(action: PetWorldAction, worldSnapshot: PetWorldState) {
     beginSoundscape();
+    const rainGuestOwnsScene = worldSnapshot.rainGuest.phase !== "quiet";
+    const wildlifeOwnsScene = worldSnapshot.visitor.active && [
+      "track",
+      "visitor-turn",
+      "visitor-stalk",
+      "pounce",
+      "aerial-pounce",
+    ].includes(action);
+    if (rainGuestOwnsScene || wildlifeOwnsScene) clearSceneNarration();
     if (action === "affection") {
       playPetCue("greet", currentStage);
       nudge();
     }
     const narrationContext = { focusActive: worldSnapshot.focus.active };
-    const contextualMessage = resolveWorldInteractionMessage(action, {
-      focusActive: worldSnapshot.focus.active,
-      name: state.name,
-    });
+    const contextualMessage = worldSnapshot.rainGuest.phase === "carried"
+      ? null
+      : resolveWorldInteractionMessage(action, {
+          focusActive: worldSnapshot.focus.active,
+          name: state.name,
+        });
     if (contextualMessage) {
       setWorldMessage(contextualMessage);
-      if (shouldShowSceneNarration(action, narrationContext)) showSceneNarration(contextualMessage);
+      if (!rainGuestOwnsScene && !wildlifeOwnsScene && shouldShowSceneNarration(action, narrationContext)) {
+        showSceneNarration(contextualMessage);
+      }
       return;
     }
     const messages: Partial<Record<PetWorldAction, { title: string; detail: string }>> = {
@@ -452,6 +465,12 @@ export function PetPrototype() {
       "wind-brace": { title: "Holding steady", detail: `Paws down. Leaves back. ${state.name} is reading the gust.` },
       "leaf-invite": { title: "The wind found the toy", detail: `A gust loosened the golden leaf. ${state.name} watched its bright path through the grass.` },
       "rain-flinch": { title: "First drops", detail: `${state.name} shakes once, then looks for cover.` },
+      "rain-guest-notice": { title: "Something small in the rain", detail: `${state.name} noticed a wet firefly struggling close to the grass.` },
+      "rain-guest-wait": { title: "A quiet choice", detail: `The little rain-light is waiting where ${state.name} can see it.` },
+      "seek-rain-guest": { title: "Across the rain", detail: `${state.name} planted every step toward the low light.` },
+      "rain-guest-carry": { title: "Safe in the leaves", detail: `The firefly settled only after ${state.name} reached it.` },
+      "rain-guest-shelter": { title: "Shelter is shared", detail: `${state.name} brought one small life beneath the old tree.` },
+      "seek-shelter": { title: "Home through the rain", detail: worldSnapshot.rainGuest.phase === "carried" ? `${state.name} is carrying the small light toward the old tree.` : `${state.name} knows where the old tree keeps the ground dry.` },
       "bloom-notice": { title: "Something took root", detail: `${state.name} noticed the meadow answer.` },
       "seek-bloom": { title: "Going to see", detail: `${state.name} is padding toward the new bloom.` },
       "admire-bloom": { title: "The meadow remembers", detail: "One real thing moved forward, and the little world kept it beautifully." },
@@ -518,15 +537,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 44</span>
-        <h1>The meadow feels<br />the Guardian.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 46</span>
+        <h1>The chase rises<br />with Moss.</h1>
         <p>
-          Choose the landing. Young Moss arrives softly. Guardian Moss carries the sky into the grass.
+          Growing up opens a higher layer of the meadow—without ever breaking the line between looking and leaping.
         </p>
         <dl className="engine-facts">
-          <div><dt>Young</dt><dd>quiet contact</dd></div>
-          <div><dt>Guardian</dt><dd>meadow wake</dd></div>
-          <div><dt>Origin</dt><dd>your landing</dd></div>
+          <div><dt>Baby</dt><dd>ground stalk</dd></div>
+          <div><dt>Young</dt><dd>low pounce</dd></div>
+          <div><dt>Guardian</dt><dd>aerial bank</dd></div>
         </dl>
       </header>
 
@@ -569,7 +588,7 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name} or use left and right arrows to choose a branch landing.`}
+            label={`${state.name}'s interactive world. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. When Guardian notices a low rain-light, touch the firefly to share shelter. Drag the golden leaf to play, tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press P to pet ${state.name}, Enter to answer a rain-light, or use left and right arrows to choose a branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -726,6 +745,7 @@ export function PetPrototype() {
             <span>Habitat acting <strong>{habitatPerformance.role} · {habitatPerformance.material} · {habitatPerformance.frame + 1}/{HABITAT_PERFORMANCE_CLIPS[world.weather].frames.length}</strong></span>
             <span>Daylight <strong>{world.daylight.phase}{world.daylight.eveningActive ? " · closing" : ""}</strong></span>
             <span>After rain <strong>{world.afterRain.phase === "quiet" ? "quiet" : `${world.afterRain.phase} · ${Math.round(world.afterRain.x)}`}</strong></span>
+            <span>Rain guest <strong>{world.rainGuest.phase === "quiet" ? "quiet" : `${world.rainGuest.phase} · ${Math.round(world.rainGuest.x)}, ${Math.round(world.rainGuest.y)}`}</strong></span>
             <span>Guardian wake <strong>{world.guardianWake.phase === "quiet" ? "quiet" : `${world.guardianWake.phase} · ${Math.round(world.guardianWake.x)}`}</strong></span>
             <span>Old tree <strong>{world.treePlay?.active ? `${world.treePlay.stage} · ${world.action} · ${Math.round(world.poseY)}` : "touchable · quiet"}</strong></span>
             <span>Landing choice <strong>{world.treePlay?.active ? `${Math.round(world.treePlay.landingX)} · ${world.action === "tree-perch" ? "waiting" : world.action === "tree-return" ? "committed" : "not ready"}` : "quiet"}</strong></span>

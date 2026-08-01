@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   PET_WORLD,
+  RAIN_GUEST,
   TREE_PLAY,
   applyWorldIntent,
   beginPetReunion,
@@ -18,12 +19,14 @@ import {
   beginTreeRest,
   beginTreePlay,
   beginTreeReturn,
+  beginRainGuestShelter,
   cancelWorldHandGuide,
   clipForWorldAction,
   setWorldWeather,
   resolveTapIntent,
   resolveTreePlayHit,
   resolveTreeReturnHit,
+  resolveRainGuestHit,
   resolveFocusAtmosphere,
   grabWorldWindLeaf,
   guideWorldWithHand,
@@ -754,6 +757,121 @@ test("rain changes the world into a shelter-seeking behavior", () => {
 
   assert.equal(sheltered.action, "shelter");
   assert.ok(Math.abs(sheltered.petX - PET_WORLD.treeShelterX) <= 2);
+});
+
+test("rain asks only Guardian to notice smaller life before seeking shelter", () => {
+  const arrive = (stage: "baby" | "young" | "guardian") => stepPetWorld(
+    setWorldWeather(createPetWorldState(), "rain"),
+    PET_WORLD.weatherArrivalDuration,
+    false,
+    stage,
+  );
+  const baby = arrive("baby");
+  const young = arrive("young");
+  const guardian = arrive("guardian");
+
+  assert.equal(baby.action, "rain-flinch");
+  assert.equal(young.action, "rain-flinch");
+  assert.equal(baby.rainGuest.phase, "quiet");
+  assert.equal(young.rainGuest.phase, "quiet");
+  assert.equal(guardian.action, "rain-guest-notice");
+  assert.equal(guardian.rainGuest.phase, "waiting");
+  assert.ok(guardian.rainGuest.x > guardian.petX, "the wet firefly should enter away from the old tree");
+  assert.ok(guardian.rainGuest.y < PET_WORLD.visitorGroundY, "the guest should struggle low without floating at sky height");
+  assert.equal(resolveCinematicShot(guardian, false).id, "reaction");
+});
+
+test("the wet firefly is the bounded invitation and Guardian commits from its actual side", () => {
+  const noticed = stepPetWorld(
+    setWorldWeather(createPetWorldState(), "rain"),
+    PET_WORLD.weatherArrivalDuration,
+    false,
+    "guardian",
+  );
+  const waiting = stepPetWorld(noticed, RAIN_GUEST.noticeDuration, false, "guardian");
+
+  assert.equal(waiting.action, "rain-guest-wait");
+  assert.equal(resolveRainGuestHit(waiting, { x: waiting.rainGuest.x, y: waiting.rainGuest.y }), true);
+  assert.equal(resolveRainGuestHit(waiting, { x: waiting.rainGuest.x + RAIN_GUEST.hitRadiusX + 1, y: waiting.rainGuest.y }), false);
+
+  const invited = beginRainGuestShelter(waiting);
+  assert.equal(invited.action, "seek-rain-guest");
+  assert.equal(invited.facing, 1);
+  assert.equal(invited.targetX, waiting.rainGuest.x - RAIN_GUEST.approachDistance);
+  assert.equal(invited.rainGuest.x, waiting.rainGuest.x, "the visitor must not teleport onto Guardian");
+});
+
+test("Guardian makes contact, carries the wet firefly, and shares the existing shelter", () => {
+  let world = stepPetWorld(
+    setWorldWeather(createPetWorldState(), "rain"),
+    PET_WORLD.weatherArrivalDuration + RAIN_GUEST.noticeDuration,
+    false,
+    "guardian",
+  );
+  world = beginRainGuestShelter(world);
+  for (let step = 0; step < 80 && world.action === "seek-rain-guest"; step += 1) {
+    world = stepPetWorld(world, 64, false, "guardian");
+  }
+
+  assert.equal(world.action, "rain-guest-carry");
+  assert.equal(world.rainGuest.phase, "carried");
+  assert.ok(Math.abs(world.rainGuest.x - world.petX) <= 12);
+  assert.equal(world.poseY, 0);
+  assert.equal(clipForWorldAction(world.action, false, "guardian"), "care");
+
+  world = stepPetWorld(world, RAIN_GUEST.contactDuration, false, "guardian");
+  assert.equal(world.action, "seek-shelter");
+  assert.equal(world.targetX, PET_WORLD.treeShelterX);
+  assert.equal(world.rainGuest.phase, "carried");
+
+  for (let step = 0; step < 100 && world.action === "seek-shelter"; step += 1) {
+    const before = world;
+    world = stepPetWorld(world, 64, false, "guardian");
+    if (world.action === "seek-shelter") {
+      assert.ok(Math.abs(world.rainGuest.x - world.petX) <= 12, "the passenger should stay attached during travel");
+    }
+    if (world.petX !== before.petX) assert.equal(world.facing, -1, "Guardian should face the shelter while moving left");
+  }
+
+  assert.equal(world.action, "rain-guest-shelter");
+  assert.equal(world.petX, PET_WORLD.treeShelterX);
+  assert.equal(world.rainGuest.phase, "sheltered");
+  assert.equal(world.poseY, 0);
+  assert.equal(resolveCinematicShot(world, false).id, "intimate");
+});
+
+test("a quiet invitation resolves with care, while Focus and new weather retain authority", () => {
+  const noticed = stepPetWorld(
+    setWorldWeather(createPetWorldState(), "rain"),
+    PET_WORLD.weatherArrivalDuration,
+    false,
+    "guardian",
+  );
+  const waiting = stepPetWorld(noticed, RAIN_GUEST.noticeDuration, false, "guardian");
+  const autonomous = stepPetWorld(waiting, RAIN_GUEST.waitDuration, false, "guardian");
+  const focusing = beginCompanionFocus(waiting, 15000);
+  const clearing = setWorldWeather(waiting, "sunny");
+
+  assert.equal(autonomous.action, "seek-rain-guest");
+  assert.equal(focusing.rainGuest.phase, "quiet");
+  assert.equal(focusing.action, "seek-shelter");
+  assert.equal(clearing.rainGuest.phase, "quiet");
+  assert.equal(clearing.action, "weather-notice");
+});
+
+test("Reduce Motion preserves shared shelter without animated travel", () => {
+  const sheltered = stepPetWorld(
+    setWorldWeather(createPetWorldState(), "rain"),
+    16,
+    true,
+    "guardian",
+  );
+
+  assert.equal(sheltered.action, "rain-guest-shelter");
+  assert.equal(sheltered.petX, PET_WORLD.treeShelterX);
+  assert.equal(sheltered.poseY, 0);
+  assert.equal(sheltered.rainGuest.phase, "sheltered");
+  assert.equal(clipForWorldAction(sheltered.action, true, "guardian"), "affection");
 });
 
 test("a passing visitor cannot pull the Pet out of rain shelter", () => {
@@ -1840,6 +1958,27 @@ test("a visitor chase plants the turn and coil before translating toward the loc
   assert.ok(airborne.petX > launched.petX, "translation begins only once the authored launch starts");
   assert.equal(launched.facing, committed.facing);
   assert.ok((airborne.petX - launched.petX) * airborne.facing > 0, "screen travel must agree with the body action line");
+});
+
+test("a planted wildlife turn locks one action line before takeoff", () => {
+  const start = spawnVisitor(createPetWorldState(), "guardian", { x: 260, direction: -1 });
+  const noticed = stepPetWorld(start, 80, false, "guardian");
+  const committed = stepPetWorld(noticed, 280, false, "guardian");
+  const committedScreenX = committed.petX - committed.cameraX;
+  const holding = stepPetWorld(committed, 120, false, "guardian");
+  const launched = stepPetWorld(holding, PET_WORLD.visitorTurnDuration - 120, false, "guardian");
+
+  assert.equal(committed.action, "visitor-turn");
+  assert.equal(holding.action, "visitor-turn");
+  assert.equal(holding.targetX, committed.targetX, "the intercept cannot move after Moss plants the turn");
+  assert.equal(
+    holding.petX - holding.cameraX,
+    committedScreenX,
+    "camera pursuit cannot make a planted Moss slide backward on screen",
+  );
+  assert.equal(launched.action, "aerial-pounce");
+  assert.equal(launched.targetX, committed.targetX, "takeoff must use the action line Moss visibly committed to");
+  assert.equal(launched.facing, committed.facing);
 });
 
 test("guardian tracks a high sky moth with its aerial vocabulary", () => {

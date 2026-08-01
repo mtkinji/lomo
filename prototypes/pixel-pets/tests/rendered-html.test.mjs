@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 44 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 46 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,12 +55,19 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 44 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 46 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 44/);
-  assert.match(prototype, /The meadow feels<br \/>the Guardian\./i);
-  assert.match(prototype, /Young<\/dt><dd>quiet contact/i);
-  assert.match(prototype, /Guardian<\/dt><dd>meadow wake/i);
+  assert.match(prototype, /Pet Engine Study 46/);
+  assert.match(prototype, /The chase rises<br \/>with Moss\./i);
+  assert.match(prototype, /Baby<\/dt><dd>ground stalk/i);
+  assert.match(prototype, /Young<\/dt><dd>low pounce/i);
+  assert.match(prototype, /Guardian<\/dt><dd>aerial bank/i);
+  assert.match(world, /RainGuestPhase/);
+  assert.match(world, /resolveRainGuestHit/);
+  assert.match(world, /beginRainGuestShelter/);
+  assert.match(canvas, /drawRainGuest/);
+  assert.match(canvas, /resolveRainGuestHit/);
+  assert.match(prototype, /Rain guest/);
   assert.match(prototype, /Play at the old tree/);
   assert.match(prototype, /Old tree/);
   assert.match(world, /resolveTreePlayHit/);
@@ -89,6 +96,8 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /scene-announcer/);
   assert.match(prototype, /scene-announcer-\$\{sceneNarration\?\.serial \?\? 0\}/);
   assert.match(prototype, /clearSceneNarration/);
+  assert.match(prototype, /rainGuestOwnsScene/);
+  assert.match(prototype, /wildlifeOwnsScene/);
   assert.match(prototype, /data-reduced-motion/);
   assert.doesNotMatch(prototype, /Catch it—or watch|Touch the puddle before it settles/);
   assert.doesNotMatch(prototype, /pet-message/);
