@@ -352,6 +352,10 @@ export function PetPrototype() {
     || (state.pendingSource === "focus" && bloomAnswering)
     || (state.pendingSource === "play" && playAnswering)
   );
+  const restingCapability = dayPhase === "choose-action"
+    && !world.focus.active
+    && !reunionActive
+    && !worldAnswering;
   const worldAnswerDetail = state.pendingSource === "focus"
     ? `${state.name} is noticing the still light your Focus left behind.`
     : state.pendingSource === "play"
@@ -502,15 +506,15 @@ export function PetPrototype() {
   return (
     <main className="engine-lab" data-palette={state.palette} data-reduced-motion={state.reducedMotion}>
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 39</span>
-        <h1>It knows<br />you came back.</h1>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 40</span>
+        <h1>The meadow is<br />the capability.</h1>
         <p>
-          The little world does not begin with a menu. Moss hears you arrive, recognizes you, and crosses the meadow to meet you.
+          Touch and play belong here. Focus can happen beside Moss. Everything else arrives as a consequence from the part of Kwilt where life actually happened.
         </p>
         <dl className="engine-facts">
-          <div><dt>Baby</dt><dd>small, brave steps</dd></div>
-          <div><dt>Young</dt><dd>a delighted run</dd></div>
-          <div><dt>Guardian</dt><dd>crosses the meadow</dd></div>
+          <div><dt>Play</dt><dd>touch the world</dd></div>
+          <div><dt>Focus</dt><dd>settle together</dd></div>
+          <div><dt>Progress</dt><dd>arrives from Kwilt</dd></div>
         </dl>
       </header>
 
@@ -520,6 +524,7 @@ export function PetPrototype() {
             <span className="device-label">Day {state.prototypeDay}</span>
             <span className="pet-identity-line">
               <strong>{state.name}</strong>
+              <span className="weather-label stage-label">{currentStage}</span>
               <span className="weather-label">{world.weather}{world.weatherPhase === "arriving" ? " arriving" : ""}</span>
             </span>
           </div>
@@ -566,7 +571,7 @@ export function PetPrototype() {
           {currentStatus.title}. {currentStatus.detail}
         </div>
 
-        <div className="world-dock">
+        <div className={`world-dock ${restingCapability ? "resting-world-dock" : ""}`}>
           {world.focus.active ? (
           <div className="focus-session" aria-live="polite">
             <span className="focus-orb" aria-hidden="true" />
@@ -629,19 +634,24 @@ export function PetPrototype() {
             </div>
           </div>
           ) : (
-          <div className="action-pair three-actions" aria-label="Simulate a meaningful Kwilt action">
-            <button type="button" onClick={() => complete("todo")}><span aria-hidden="true">✓</span>Complete a To-do</button>
-            <button type="button" onClick={focusTogether}><span aria-hidden="true">◎</span>Focus together</button>
-            <button type="button" onClick={playTogether}><span aria-hidden="true">✦</span>Play together</button>
+          <div className="resting-action-row">
+            <div className="world-play-invitation">
+              <strong>Touch the meadow</strong>
+              <small>{state.name} will answer in their own way.</small>
+            </div>
+            <button type="button" className="focus-with-moss" onClick={focusTogether}>
+              <span className="focus-orb" aria-hidden="true" />
+              <span><strong>Focus with {state.name}</strong><small>15 quiet seconds</small></span>
+            </button>
           </div>
           )}
 
-          <div className="growth-memory">
+          {!restingCapability ? <div className="growth-memory">
             <div className="memory-copy">
               <span>{growthTitle}</span>
               <small>{growthDetail}</small>
             </div>
-          </div>
+          </div> : null}
         </div>
       </section>
 
@@ -668,6 +678,11 @@ export function PetPrototype() {
             <button type="button" className={world.weather === "sunny" ? "active" : ""} onClick={() => commandWorld("sunny")}>Sun</button>
             <button type="button" className={world.weather === "breeze" ? "active" : ""} onClick={() => commandWorld("breeze")}>Wind</button>
             <button type="button" className={world.weather === "rain" ? "active" : ""} onClick={() => commandWorld("rain")}>Rain</button>
+          </div>
+          <div className="inspector-label receipt-label"><span>External Kwilt receipts</span><output>prototype inputs</output></div>
+          <div className="world-controls receipt-controls" aria-label="Simulate meaningful activity completed elsewhere in Kwilt">
+            <button type="button" onClick={() => complete("todo")}>Complete a To-do</button>
+            <button type="button" onClick={playTogether}>Play with family or a friend</button>
           </div>
           <div className="world-readout" aria-label="Portable world runtime output">
             <span>Pet x <strong>{Math.round(world.petX)}</strong></span>

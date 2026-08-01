@@ -220,6 +220,12 @@ summary:focus-visible {
   vertical-align: 0;
 }
 
+.stage-label {
+  border-color: rgba(255, 253, 247, 0.48);
+  color: color-mix(in srgb, var(--accent-dark) 82%, var(--ink));
+  background: rgba(255, 253, 247, 0.42);
+}
+
 .sound-button {
   width: 42px;
   height: 42px;
@@ -344,6 +350,74 @@ summary:focus-visible {
     linear-gradient(180deg, color-mix(in srgb, var(--accent-soft) 30%, var(--panel)), var(--panel));
   box-shadow: 0 -16px 34px rgba(40, 53, 35, 0.1);
 }
+
+.resting-world-dock {
+  min-height: 92px;
+  border-top-color: color-mix(in srgb, var(--accent-dark) 62%, #1f281d);
+  color: #fffced;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-dark) 84%, #263124), color-mix(in srgb, var(--accent-dark) 94%, #161d16));
+  box-shadow: 0 -13px 28px rgba(24, 31, 22, 0.18);
+}
+
+.resting-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(148px, 0.92fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 92px;
+  padding: 13px 17px 14px 19px;
+}
+
+.world-play-invitation strong,
+.world-play-invitation small,
+.focus-with-moss strong,
+.focus-with-moss small {
+  display: block;
+}
+
+.world-play-invitation strong {
+  font-size: 0.71rem;
+  letter-spacing: -0.01em;
+}
+
+.world-play-invitation small {
+  max-width: 155px;
+  margin-top: 4px;
+  color: rgba(255, 252, 237, 0.65);
+  font-size: 0.59rem;
+  line-height: 1.38;
+}
+
+.focus-with-moss {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 252, 237, 0.42);
+  border-radius: 12px;
+  color: #fffced;
+  background: rgba(255, 253, 247, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  text-align: left;
+  backdrop-filter: blur(5px);
+}
+
+.focus-with-moss:hover {
+  border-color: rgba(255, 252, 237, 0.7);
+  background: rgba(255, 253, 247, 0.14);
+}
+
+.focus-with-moss .focus-orb {
+  border-color: rgba(255, 252, 237, 0.3);
+  border-top-color: #fffced;
+}
+
+.focus-with-moss strong { font-size: 0.68rem; }
+.focus-with-moss small { margin-top: 3px; color: rgba(255, 252, 237, 0.62); font-size: 0.54rem; }
 
 .care-button {
   display: flex;
@@ -733,6 +807,14 @@ summary:focus-visible {
   background: color-mix(in srgb, var(--accent-soft) 56%, transparent);
 }
 
+.receipt-label {
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.receipt-controls { grid-template-columns: 1fr 1fr; }
+
 .world-readout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -876,6 +958,7 @@ summary:focus-visible {
   .motion-grid { grid-template-columns: repeat(3, 1fr); }
   .action-pair { padding-right: 14px; padding-left: 14px; }
   .action-pair button { font-size: 0.67rem; }
+  .resting-action-row { grid-template-columns: minmax(0, 0.9fr) minmax(142px, 1.1fr); padding-right: 13px; padding-left: 15px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

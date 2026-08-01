@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 39 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 40 — Kwilt Lab<\/title>/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -55,11 +55,11 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 39 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 40 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 39/);
-  assert.match(prototype, /It knows<br \/>you came back\./i);
-  assert.match(prototype, /hears you arrive/i);
+  assert.match(prototype, /Pet Engine Study 40/);
+  assert.match(prototype, /The meadow is<br \/>the capability\./i);
+  assert.match(prototype, /Progress<\/dt><dd>arrives from Kwilt/i);
   assert.match(prototype, /beginPetReunion/);
   assert.match(world, /reunion-notice/);
   assert.match(world, /reunion-approach/);
@@ -117,8 +117,10 @@ test("removes starter infrastructure and exposes the portable engine study", asy
   assert.match(prototype, /Evolution phase/);
   assert.match(prototype, /Engine inspector/);
   assert.match(prototype, /Complete a To-do/);
-  assert.match(prototype, /Focus together/);
-  assert.match(prototype, /Play together/);
+  assert.match(prototype, /Focus with \{state\.name\}/);
+  assert.match(prototype, /Play with family or a friend/);
+  assert.match(prototype, /External Kwilt receipts/);
+  assert.match(prototype, /resting-world-dock/);
   assert.match(prototype, /kwilt-pixel-pet-world-memory-v1/);
   assert.match(prototype, /restorePetWorldMemory/);
   assert.match(prototype, /serializePetWorldMemory/);
