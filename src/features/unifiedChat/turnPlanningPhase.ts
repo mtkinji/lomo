@@ -123,6 +123,7 @@ export async function planUnifiedChatTurnPhase(
     prompt: input.prompt,
     deterministicPolicy,
     semanticRoute: agentJudgment ? routeFromJudgment(agentJudgment) : semanticRoute,
+    allowAdditionalCapabilities: Boolean(agentJudgment),
     previousPolicy: previousRun?.requestClass
       ? {
           requestClass: previousRun.requestClass,

@@ -351,6 +351,7 @@ export async function runUnifiedChatTurn(
       userMessage,
       retryMessage,
       requestPolicy,
+      agentJudgment: plannedTurn.agentJudgment,
       requiresWebSearch,
       snapshots,
       context,

@@ -32,6 +32,7 @@ import {
   parseAssistantArtifactResponse,
   type UnifiedChatArtifactDraft,
 } from './assistantArtifact';
+import type { AgentJudgment } from './agentJudgment';
 
 type ExecutionRepository = Pick<
   UnifiedChatRepository,
@@ -44,6 +45,7 @@ type ActionResponse = ReturnType<typeof parseActivityActionResponse>;
 
 function groundingSummary(
   requestPolicy: UnifiedChatRequestPolicy,
+  agentJudgment: AgentJudgment | null,
   context: BuiltRunContext,
   attachments: readonly UnifiedChatTextAttachment[],
   snapshots: UnifiedChatCapabilitySnapshots,
@@ -52,6 +54,21 @@ function groundingSummary(
 ): string {
   const { requestClass, participatingCapabilities, usePrivateContext } = requestPolicy;
   const parts = [`Launch source: unifiedChat. Request class: ${requestClass}.`];
+  if (agentJudgment) {
+    const constraints = agentJudgment.constraints.map((constraint) => constraint.sourceText).join('; ') || 'none';
+    const steps = agentJudgment.steps.map((step) => {
+      const objective = /[.!?]$/.test(step.objective) ? step.objective : `${step.objective}.`;
+      return `${step.sequence}. ${objective}`;
+    }).join('\n') || '- none';
+    parts.push([
+      `User job: ${agentJudgment.userJob}.`,
+      `Desired outcome: ${agentJudgment.desiredOutcome}.`,
+      `Required constraints: ${constraints}.`,
+      `Execution mode: ${agentJudgment.executionMode}.`,
+      `Planned steps:\n${steps}`,
+      'Treat this as bounded guidance, not proof of work. Use only the actual tool schemas below, preserve every required constraint in tool arguments, and let capability validation, confirmation, proposals, native handoffs, and receipts remain authoritative.',
+    ].join('\n'));
+  }
   if (requestClass === 'capability_action' && participatingCapabilities.includes('todos')) {
     parts.push(
       'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
@@ -150,6 +167,7 @@ export type ExecuteUnifiedChatTurnPhaseInput = {
   userMessage: UnifiedChatMessage;
   retryMessage?: UnifiedChatMessage;
   requestPolicy: UnifiedChatRequestPolicy;
+  agentJudgment: AgentJudgment | null;
   requiresWebSearch?: boolean;
   snapshots: UnifiedChatCapabilitySnapshots;
   context: BuiltRunContext;
@@ -210,7 +228,7 @@ export async function executeUnifiedChatTurnPhase(
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
         capability === 'navigation' || capability === 'relationships',
-    ) && !directCreateTitle;
+    );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }
     : createRelationshipMemoryToolProvider({
@@ -241,12 +259,16 @@ export async function executeUnifiedChatTurnPhase(
     );
   };
   let runtimeToolEvents: readonly AgentToolLoopEvent[] = [];
+  const selectedToolIds = input.agentJudgment
+    ? new Set(input.agentJudgment.steps.flatMap((step) => step.toolId ? [step.toolId] : []))
+    : null;
   const runtimeTools = usesRuntimeToolLoop
     ? discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
         capabilityIds: input.requestPolicy.participatingCapabilities,
         effects: ['read', 'write'],
         providerAvailability: { server: true, device: true, connector: true, channel: false },
       }).map((entry) => entry.tool)
+        .filter((tool) => !selectedToolIds || selectedToolIds.has(tool.id))
     : [];
   const supportsTypedAction = input.requestPolicy.requestClass !== 'capability_action' ||
     input.requestPolicy.participatingCapabilities.includes('todos') || usesRuntimeToolLoop;
@@ -344,7 +366,7 @@ export async function executeUnifiedChatTurnPhase(
           : 'I prepared that change for review.';
     }
   }
-  const response = directResponse ?? await input.sendCoachChat(input.history, {
+  const modelOptions: NonNullable<Parameters<SendCoachChat>[1]> = {
     aiJob: 'default_chat',
     workflowInstanceId: input.aggregate.thread.id,
     includeUserProfileContext: false,
@@ -370,6 +392,7 @@ export async function executeUnifiedChatTurnPhase(
     launchContextSummary: [
       groundingSummary(
         input.requestPolicy,
+        input.agentJudgment,
         input.context,
         input.turnAttachments,
         input.snapshots,
@@ -398,7 +421,25 @@ export async function executeUnifiedChatTurnPhase(
         }
       },
     },
-  });
+  };
+  let response: string;
+  try {
+    response = directResponse ?? await input.sendCoachChat(input.history, modelOptions);
+  } catch (error) {
+    const proposals = toolProvider.proposals();
+    const clientActions = toolProvider.clientActions();
+    if (proposals.length > 0) {
+      response = proposals.length === 1
+        ? `I prepared “${proposals[0].title}” for review.`
+        : `I prepared ${proposals.length} changes for review.`;
+    } else if (clientActions.length > 0) {
+      response = clientActions.length === 1
+        ? `I prepared “${clientActions[0].title}” for native review.`
+        : `I prepared ${clientActions.length} native actions for review.`;
+    } else {
+      throw error;
+    }
+  }
   for (const record of buildUnifiedChatToolTelemetry(runtimeToolEvents)) {
     input.captureTelemetry(AnalyticsEvent.UnifiedChatToolSelected, {
       tool_id: record.tool_id,
@@ -469,9 +510,19 @@ export async function executeUnifiedChatTurnPhase(
           input.snapshots.plan.scheduledItems ?? [],
         )
       : null;
+  const authoritativeFallbackBody = toolProvider.proposals().length > 0
+    ? toolProvider.proposals().length === 1
+      ? `I prepared “${toolProvider.proposals()[0].title}” for review.`
+      : `I prepared ${toolProvider.proposals().length} changes for review.`
+    : toolProvider.clientActions().length > 0
+      ? toolProvider.clientActions().length === 1
+        ? `I prepared “${toolProvider.clientActions()[0].title}” for native review.`
+        : `I prepared ${toolProvider.clientActions().length} native actions for review.`
+      : null;
   const visibleBody = planPriorityBody ?? (groundedAnswer
     ? formatGroundedAnswer(groundedAnswer)
-    : sanitizeVisibleAssistantText(actionResponse?.answer ?? artifactResponse?.answer ?? response));
+    : sanitizeVisibleAssistantText(actionResponse?.answer ?? artifactResponse?.answer ?? response) ||
+      authoritativeFallbackBody);
   if (!visibleBody) {
     input.setFailureCode('visible_response_invalid');
     throw input.error('Kwilt did not produce a visible answer.');

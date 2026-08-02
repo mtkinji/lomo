@@ -118,12 +118,14 @@ export function resolveHybridRequestPolicy({
   prompt,
   deterministicPolicy,
   semanticRoute,
+  allowAdditionalCapabilities = false,
   previousPolicy,
   previousAssistantMessage,
 }: {
   prompt: string;
   deterministicPolicy: UnifiedChatRequestPolicy;
   semanticRoute: SemanticRequestRoute | null;
+  allowAdditionalCapabilities?: boolean;
   previousPolicy?: PreviousConversationPolicy;
   previousAssistantMessage?: string;
 }): UnifiedChatRequestPolicy {
@@ -160,9 +162,9 @@ export function resolveHybridRequestPolicy({
     deterministicPolicy.participatingCapabilities.length > 0 &&
     (
       semanticRoute.requestClass !== 'capability_action' ||
-      semanticRoute.participatingCapabilities.some(
+      (!allowAdditionalCapabilities && semanticRoute.participatingCapabilities.some(
         (capability) => !deterministicPolicy.participatingCapabilities.includes(capability),
-      )
+      ))
     )
   ) {
     return deterministicPolicy;
