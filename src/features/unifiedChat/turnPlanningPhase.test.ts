@@ -121,8 +121,9 @@ describe('planUnifiedChatTurnPhase agent judgment', () => {
         stopRequestedAt: null, steerCount: 0,
       }],
       events: [{
-        id: 'event-1', runId: 'run-previous', sequence: 1, type: 'conversation_referent', status: 'success',
-        visibility: 'internal', label: 'Pending work', detail: null, createdAt: '2026-08-01T12:01:00.000Z',
+        id: 'event-1', threadId: 'thread-1', runId: 'run-previous', sequence: 1,
+        type: 'conversation_referent', status: 'complete',
+        visibility: 'internal', label: 'Pending work', detail: null,
         payload: {
           schemaVersion: 2, kind: 'pending_work', items: [{
             proposalId: 'private-proposal-id', expectedVersion: 1, capabilityId: 'todos',

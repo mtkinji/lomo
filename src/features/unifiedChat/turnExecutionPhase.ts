@@ -43,6 +43,34 @@ type SendCoachChat = typeof defaultSendCoachChat;
 type ToolProvider = ReturnType<typeof createUnifiedChatToolProvider>;
 type ActionResponse = ReturnType<typeof parseActivityActionResponse>;
 
+export function buildAgentJudgmentGrounding(agentJudgment: AgentJudgment | null): string | null {
+  if (!agentJudgment) return null;
+  const constraints = agentJudgment.constraints.map((constraint) => constraint.sourceText).join('; ') || 'none';
+  const steps = agentJudgment.steps.map((step) => {
+    const objective = /[.!?]$/.test(step.objective) ? step.objective : `${step.objective}.`;
+    return `${step.sequence}. ${objective}`;
+  }).join('\n') || '- none';
+  return [
+    `User job: ${agentJudgment.userJob}.`,
+    `Desired outcome: ${agentJudgment.desiredOutcome}.`,
+    `Required constraints: ${constraints}.`,
+    `Execution mode: ${agentJudgment.executionMode}.`,
+    `Planned steps:\n${steps}`,
+    'Treat this as bounded guidance, not proof of work. Use only the actual tool schemas below, preserve every required constraint in tool arguments, and let capability validation, confirmation, proposals, native handoffs, and receipts remain authoritative.',
+  ].join('\n');
+}
+
+export function selectAgentJudgmentTools(
+  tools: readonly AgentToolDefinition[],
+  agentJudgment: AgentJudgment | null,
+): AgentToolDefinition[] {
+  if (!agentJudgment) return [...tools];
+  const selectedToolIds = new Set(
+    agentJudgment.steps.flatMap((step) => step.toolId ? [step.toolId] : []),
+  );
+  return tools.filter((tool) => selectedToolIds.has(tool.id));
+}
+
 function groundingSummary(
   requestPolicy: UnifiedChatRequestPolicy,
   agentJudgment: AgentJudgment | null,
@@ -54,21 +82,8 @@ function groundingSummary(
 ): string {
   const { requestClass, participatingCapabilities, usePrivateContext } = requestPolicy;
   const parts = [`Launch source: unifiedChat. Request class: ${requestClass}.`];
-  if (agentJudgment) {
-    const constraints = agentJudgment.constraints.map((constraint) => constraint.sourceText).join('; ') || 'none';
-    const steps = agentJudgment.steps.map((step) => {
-      const objective = /[.!?]$/.test(step.objective) ? step.objective : `${step.objective}.`;
-      return `${step.sequence}. ${objective}`;
-    }).join('\n') || '- none';
-    parts.push([
-      `User job: ${agentJudgment.userJob}.`,
-      `Desired outcome: ${agentJudgment.desiredOutcome}.`,
-      `Required constraints: ${constraints}.`,
-      `Execution mode: ${agentJudgment.executionMode}.`,
-      `Planned steps:\n${steps}`,
-      'Treat this as bounded guidance, not proof of work. Use only the actual tool schemas below, preserve every required constraint in tool arguments, and let capability validation, confirmation, proposals, native handoffs, and receipts remain authoritative.',
-    ].join('\n'));
-  }
+  const judgmentGrounding = buildAgentJudgmentGrounding(agentJudgment);
+  if (judgmentGrounding) parts.push(judgmentGrounding);
   if (requestClass === 'capability_action' && participatingCapabilities.includes('todos')) {
     parts.push(
       'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
@@ -259,16 +274,12 @@ export async function executeUnifiedChatTurnPhase(
     );
   };
   let runtimeToolEvents: readonly AgentToolLoopEvent[] = [];
-  const selectedToolIds = input.agentJudgment
-    ? new Set(input.agentJudgment.steps.flatMap((step) => step.toolId ? [step.toolId] : []))
-    : null;
   const runtimeTools = usesRuntimeToolLoop
-    ? discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
+    ? selectAgentJudgmentTools(discoverAgentTools(UNIFIED_CHAT_TOOL_CATALOG, {
         capabilityIds: input.requestPolicy.participatingCapabilities,
         effects: ['read', 'write'],
         providerAvailability: { server: true, device: true, connector: true, channel: false },
-      }).map((entry) => entry.tool)
-        .filter((tool) => !selectedToolIds || selectedToolIds.has(tool.id))
+      }).map((entry) => entry.tool), input.agentJudgment)
     : [];
   const supportsTypedAction = input.requestPolicy.requestClass !== 'capability_action' ||
     input.requestPolicy.participatingCapabilities.includes('todos') || usesRuntimeToolLoop;
