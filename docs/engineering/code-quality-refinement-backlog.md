@@ -122,8 +122,13 @@ Prioritize by compounding leverage per unit of risk:
   - Why: row presentation blocks removing the current user or explicit owner, while the mutation handler independently repeats only part of that access policy.
   - Result: `canRemoveGoalPartnerMember` now guards both row presentation and mutation entry, with focused tests for access, self, owner, partner, and co-owner targets.
 
-- [ ] Extract Goal check-in partner presentation
+- [x] Extract Goal check-in partner presentation
   - Area: `src/features/arcs/GoalDetailScreen.tsx`
   - Why: partner-name filtering, approval count, and the development draft preview override are split across adjacent screen expressions.
-  - Ideal test: pin blank-name filtering, live partner counts, development preview names/counts, and production behavior.
+  - Result: `goalCheckinPartnerPresentation.ts` now owns trimmed live names, full partner counts, and the development-only preview override, with focused tests preserving production behavior.
+
+- [ ] Extract Goal route check-in approval decision
+  - Area: `src/features/arcs/GoalDetailScreen.tsx`
+  - Why: route intent, screen focus, pending-draft presence, and the once-per-request guard form one opening rule embedded in an effect.
+  - Ideal test: pin missing route intent, blurred screen, missing draft, already-opened request, and eligible opening states.
   - Risk: low
