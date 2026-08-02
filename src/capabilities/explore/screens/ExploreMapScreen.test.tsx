@@ -10,6 +10,21 @@ const mockStop = jest.fn();
 const mockBeginOnboarding = jest.fn();
 const mockLocate = jest.fn(async () => ({ latitude: 40.55, longitude: -105.12 }));
 const mockAnimateToRegion = jest.fn();
+const mockNearbySearch = jest.fn(async () => undefined);
+const mockNearbySetRadius = jest.fn();
+let mockNearbyStatus: 'idle' | 'loading' | 'ready' | 'empty' | 'unavailable' | 'error' = 'ready';
+let mockNearbyRadius: 'quarter-mile' | 'half-mile' | 'one-mile' = 'half-mile';
+let mockNearbyResults = [{
+  id: 'nearby-nezu',
+  name: 'Nezu Shrine',
+  category: 'MKPOICategoryLandmark',
+  kind: 'landmark' as const,
+  latitude: 35.7201,
+  longitude: 139.7608,
+  distanceM: 420,
+  reason: 'A landmark near you',
+}];
+let mockNearbySearchedCenter: { latitude: number; longitude: number } | null = null;
 const mockRecorder = {
   active: false,
   status: 'idle' as const,
@@ -36,6 +51,17 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('../runtime/useExploreRecorder', () => ({
   useExploreRecorder: () => mockRecorder,
+}));
+
+jest.mock('../runtime/useExploreNearbyPlaces', () => ({
+  useExploreNearbyPlaces: () => ({
+    status: mockNearbyStatus,
+    radius: mockNearbyRadius,
+    results: mockNearbyResults,
+    searchedCenter: mockNearbySearchedCenter,
+    setRadius: mockNearbySetRadius,
+    search: mockNearbySearch,
+  }),
 }));
 
 jest.mock('react-native-maps', () => {
@@ -119,6 +145,13 @@ jest.mock('../../../ui/KwiltSwitch', () => {
 describe('ExploreMapScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNearbyStatus = 'ready';
+    mockNearbyRadius = 'half-mile';
+    mockNearbyResults = [{
+      id: 'nearby-nezu', name: 'Nezu Shrine', category: 'MKPOICategoryLandmark', kind: 'landmark',
+      latitude: 35.7201, longitude: 139.7608, distanceM: 420, reason: 'A landmark near you',
+    }];
+    mockNearbySearchedCenter = null;
     act(() => {
       useExploreStore.getState().clearHistory();
       useExploreStore.getState().updatePreferences({
@@ -146,7 +179,7 @@ describe('ExploreMapScreen', () => {
     expect(within(introduction).getByLabelText('Begin exploring')).toBeTruthy();
     expect(screen.queryByLabelText('Open navigation menu')).toBeNull();
     expect(screen.queryByLabelText('Explore options')).toBeNull();
-    expect(screen.queryByLabelText('Search visited Places')).toBeNull();
+    expect(screen.queryByLabelText('Open Places')).toBeNull();
     fireEvent.press(within(introduction).getByLabelText('Begin exploring'));
     expect(mockBeginOnboarding).toHaveBeenCalledTimes(1);
     expect(mockStart).not.toHaveBeenCalled();
@@ -178,7 +211,7 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByLabelText('Only when I start')).toBeTruthy();
     expect(screen.getByText('Private until you choose to share.')).toBeTruthy();
     expect(screen.queryByLabelText('Open navigation menu')).toBeNull();
-    expect(screen.queryByLabelText('Search visited Places')).toBeNull();
+    expect(screen.queryByLabelText('Open Places')).toBeNull();
     expect(mockAnimateToRegion).toHaveBeenCalledWith(
       expect.objectContaining({ latitude: expect.any(Number), latitudeDelta: 0.0045 }),
       450,
@@ -190,7 +223,7 @@ describe('ExploreMapScreen', () => {
     expect(mockRecorder.setRecordingMode).toHaveBeenCalledWith('manual');
     expect(screen.getByLabelText('Open navigation menu')).toBeTruthy();
     expect(screen.getByLabelText('Explore options')).toBeTruthy();
-    expect(screen.getByLabelText('Search visited Places')).toBeTruthy();
+    expect(screen.getByLabelText('Open Places')).toBeTruthy();
     expect(screen.getByText('Start with this Place')).toBeTruthy();
     expect(screen.getByText(/Give this clearing a name/)).toBeTruthy();
     expect(screen.getByText(/show or hide map layers/)).toBeTruthy();
@@ -211,7 +244,7 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByLabelText('Explore options')).toBeTruthy();
     expect(screen.getAllByTestId('explore.actions.icon').length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Center on current location')).toBeTruthy();
-    expect(screen.getByLabelText('Search visited Places')).toBeTruthy();
+    expect(screen.getByLabelText('Open Places')).toBeTruthy();
     expect(screen.getByText('The world is still waiting.')).toBeTruthy();
     expect(screen.getByText('Your map stays private. Start exploring to clear a path through the fog.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Start exploring'));
@@ -292,7 +325,7 @@ describe('ExploreMapScreen', () => {
     expect(StyleSheet.flatten(screen.getByTestId('explore.mapToolsRow').props.style)).toMatchObject({
       height: 48,
     });
-    expect(StyleSheet.flatten(screen.getByLabelText('Search visited Places').props.style)).toMatchObject({
+    expect(StyleSheet.flatten(screen.getByLabelText('Open Places').props.style)).toMatchObject({
       height: 48,
     });
     expect(StyleSheet.flatten(screen.getByTestId('explore.hereControls').props.style)).toMatchObject({
@@ -339,7 +372,8 @@ describe('ExploreMapScreen', () => {
     expect(screen.queryByText('Name this Place')).toBeNull();
     expect(screen.getAllByTestId('mock.marker', { includeHiddenElements: true })).toHaveLength(1);
 
-    fireEvent.press(screen.getByLabelText('Search visited Places'));
+    fireEvent.press(screen.getByLabelText('Open Places'));
+    fireEvent.press(screen.getByTestId('explore.places.segment.my-places'));
     expect(screen.getByText('Home')).toBeTruthy();
     expect(screen.queryByText('Collect current Place')).toBeNull();
   });
@@ -355,7 +389,8 @@ describe('ExploreMapScreen', () => {
 
     expect(useExploreStore.getState().preferences.showPlaces).toBe(false);
     expect(screen.queryAllByTestId('mock.marker', { includeHiddenElements: true })).toHaveLength(0);
-    fireEvent.press(screen.getByLabelText('Search visited Places'));
+    fireEvent.press(screen.getByLabelText('Open Places'));
+    fireEvent.press(screen.getByTestId('explore.places.segment.my-places'));
     expect(screen.getByText('Spring Canyon Park')).toBeTruthy();
   });
 
@@ -487,7 +522,8 @@ describe('ExploreMapScreen', () => {
     const screen = render(<ExploreMapScreen />);
     fireEvent.press(screen.getByText('Done'));
 
-    fireEvent.press(screen.getByLabelText('Search visited Places'));
+    fireEvent.press(screen.getByLabelText('Open Places'));
+    fireEvent.press(screen.getByTestId('explore.places.segment.my-places'));
     fireEvent.changeText(screen.getByLabelText('Search Places'), 'Harmony');
 
     expect(screen.queryByText('Foothills Trail')).toBeNull();
@@ -496,6 +532,90 @@ describe('ExploreMapScreen', () => {
       expect.objectContaining({ latitudeDelta: 0.0045, longitudeDelta: 0.0045 }),
       450,
     );
+  });
+
+  it('opens one Places drawer on Nearby and keeps recommendation pins out of history', () => {
+    const screen = render(<ExploreMapScreen />);
+
+    fireEvent.press(screen.getByLabelText('Open Places'));
+
+    expect(mockNearbySearch).toHaveBeenCalledWith(expect.objectContaining({
+      latitude: expect.any(Number), longitude: expect.any(Number),
+    }));
+    expect(screen.getByTestId('explore.places.segment.nearby').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText('Nezu Shrine')).toBeTruthy();
+    expect(screen.getByText('A landmark near you')).toBeTruthy();
+    expect(screen.getByText('0.3 mi away')).toBeTruthy();
+    expect(screen.getByLabelText('Suggestion: Nezu Shrine. A landmark near you. 0.3 mi away. View on map')).toBeTruthy();
+    expect(screen.getAllByTestId('explore.nearby.marker', { includeHiddenElements: true })).toHaveLength(1);
+    expect(screen.getByTestId('explore.nearby.marker.glyph', { includeHiddenElements: true })).toBeTruthy();
+    expect(Object.keys(useExploreStore.getState().places)).toHaveLength(0);
+  });
+
+  it('switches the drawer and map pins between Nearby and My Places without changing tracking mode', () => {
+    act(() => useExploreStore.getState().loadPreviewAdventure());
+    const screen = render(<ExploreMapScreen />);
+    fireEvent.press(screen.getByText('Done'));
+    fireEvent.press(screen.getByLabelText('Open Places'));
+
+    expect(screen.getAllByTestId('explore.nearby.marker', { includeHiddenElements: true })).toHaveLength(1);
+    fireEvent.press(screen.getByTestId('explore.places.segment.my-places'));
+
+    expect(screen.queryAllByTestId('explore.nearby.marker', { includeHiddenElements: true })).toHaveLength(0);
+    expect(screen.getByLabelText('Search Places')).toBeTruthy();
+    expect(screen.getAllByText('Spring Canyon Park').length).toBeGreaterThan(0);
+    expect(useExploreStore.getState().preferences.recording).toBe('manual');
+  });
+
+  it('keeps row and pin selection synchronized and supports explicit radius and area refresh', () => {
+    mockNearbySearchedCenter = { latitude: 40, longitude: -105 };
+    const screen = render(<ExploreMapScreen />);
+    fireEvent.press(screen.getByLabelText('Open Places'));
+
+    const marker = screen.getByTestId('explore.nearby.marker', { includeHiddenElements: true });
+    fireEvent.press(marker);
+    expect(screen.getByLabelText('Suggestion: Nezu Shrine. A landmark near you. 0.3 mi away. View on map').props.accessibilityState.selected).toBe(true);
+    expect(mockAnimateToRegion).toHaveBeenLastCalledWith(
+      expect.objectContaining({ longitude: 139.7608, latitudeDelta: 0.0045 }),
+      450,
+    );
+    expect(mockAnimateToRegion.mock.calls.at(-1)?.[0].latitude).toBeLessThan(35.7201);
+
+    fireEvent.press(screen.getByTestId('explore.nearby.radius.quarter-mile'));
+    expect(mockNearbySetRadius).toHaveBeenCalledWith('quarter-mile');
+    expect(mockNearbySearch).toHaveBeenLastCalledWith(expect.any(Object), 'quarter-mile');
+
+    fireEvent.press(screen.getByText('Search this area'));
+    expect(mockNearbySearch).toHaveBeenCalledTimes(3);
+  });
+
+  it('shows calm loading, empty, unavailable, and error states', () => {
+    mockNearbyResults = [];
+    mockNearbyStatus = 'loading';
+    const loading = render(<ExploreMapScreen />);
+    fireEvent.press(loading.getByLabelText('Open Places'));
+    expect(loading.getByText('Finding a few places nearby…')).toBeTruthy();
+    loading.unmount();
+
+    mockNearbyStatus = 'empty';
+    const empty = render(<ExploreMapScreen />);
+    fireEvent.press(empty.getByLabelText('Open Places'));
+    expect(empty.getByText('No strong suggestions in this area yet.')).toBeTruthy();
+    empty.unmount();
+
+    mockNearbyStatus = 'unavailable';
+    const unavailable = render(<ExploreMapScreen />);
+    fireEvent.press(unavailable.getByLabelText('Open Places'));
+    expect(unavailable.getByText('Nearby suggestions are not available on this device yet.')).toBeTruthy();
+    unavailable.unmount();
+
+    mockNearbyStatus = 'error';
+    const failed = render(<ExploreMapScreen />);
+    fireEvent.press(failed.getByLabelText('Open Places'));
+    expect(failed.getByText('Nearby places could not load. Try this area again.')).toBeTruthy();
+    const searchesBeforeRetry = mockNearbySearch.mock.calls.length;
+    fireEvent.press(failed.getByText('Try again'));
+    expect(mockNearbySearch).toHaveBeenCalledTimes(searchesBeforeRetry + 1);
   });
 
   it('can turn fog off from the contextual map menu', () => {
@@ -526,6 +646,6 @@ describe('ExploreMapScreen', () => {
 
     expect(screen.queryByText('Pause Exploring')).toBeNull();
     expect(screen.queryByLabelText('Pause always exploring')).toBeNull();
-    expect(screen.getByLabelText('Search visited Places')).toBeTruthy();
+    expect(screen.getByLabelText('Open Places')).toBeTruthy();
   });
 });
