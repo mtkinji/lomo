@@ -9,6 +9,15 @@ const navigatorSource = readFileSync(
 );
 
 describe('Unified Chat coexistence contract', () => {
+  test('opens a widget entry as an unsaved composer and creates a thread only for first send', () => {
+    expect(screenSource).toContain("route.params?.entry === 'fresh'");
+    expect(screenSource).toContain('buildFreshWorkbenchSnapshot');
+    expect(screenSource).toContain('freshThreadGateRef.current!.ensure()');
+    expect(screenSource).toContain('(aggregate && !freshEntry) || freshEntry');
+    expect(screenSource).toContain('entry: undefined');
+    expect(screenSource).not.toContain('startUnifiedChatVoiceRecording(); // widget');
+  });
+
   test('does not import the existing workflow-chat surface', () => {
     expect(screenSource).not.toContain('AiChatScreen');
     expect(screenSource).not.toContain('AgentWorkspace');

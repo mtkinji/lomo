@@ -1,14 +1,17 @@
 // NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
-// Lazy-load it so the deprecation warning does not spam on app launch.
+// Keep the existing playback API until the Focus runtime migrates to expo-audio.
+import { Audio as ExpoAvAudio } from 'expo-av';
 import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from './nativeCrashBreadcrumbs';
+import { audioGainForCategory } from '../capabilities/games/audio/audioGainPolicy';
+import { resolveAudioAsset } from './audioAssetDelivery';
+import type { RemoteAudioAssetId } from './audioAssetCatalog';
 
-type ExpoAvAudio = (typeof import('expo-av'))['Audio'];
-let Audio: ExpoAvAudio | null = null;
+type ExpoAvAudioModule = typeof ExpoAvAudio;
+let Audio: ExpoAvAudioModule | null = null;
 
-async function getAudio(): Promise<ExpoAvAudio> {
+async function getAudio(): Promise<ExpoAvAudioModule> {
   if (Audio) return Audio;
-  const mod = await import('expo-av');
-  Audio = mod.Audio;
+  Audio = ExpoAvAudio;
   return Audio;
 }
 
@@ -17,8 +20,8 @@ type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | '
 let status: SoundscapeStatus = 'idle';
 let sound: any | null = null;
 // Default soundscape volume (0..1). The device/system volume still applies on top of this.
-let currentVolume = 1.0;
-let lastAppliedVolume = 1.0;
+let currentVolume = audioGainForCategory('focus.music');
+let lastAppliedVolume = currentVolume;
 let pendingStop = false;
 let opCounter = 0;
 let audioModeConfigured = false;
@@ -28,27 +31,40 @@ let resumeAttempts = 0;
 let lastResumeAttemptMs = 0;
 let playbackListenerAttached = false;
 
-export type SoundscapeId = 'default' | 'focusFlowState' | 'midnightStudySession' | 'copacabanaFocus';
+export type SoundscapeId =
+  | 'default'
+  | 'focusFlowState'
+  | 'midnightStudySession'
+  | 'copacabanaFocus'
+  | 'openRoadFocus'
+  | 'cedarWorkshop'
+  | 'rainlitLibrary';
 
-// Bundled soundscapes (offline, no ads). Keep the default always available.
-const SOUNDSCAPE_SOURCES: Record<SoundscapeId, any> = {
-  default: require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3'),
-  copacabanaFocus: require('../../assets/audio/soundscapes/Copacabana Focus.mp3'),
-  focusFlowState: require('../../assets/audio/soundscapes/Focus Flow State.mp3'),
-  midnightStudySession: require('../../assets/audio/soundscapes/Midnight Study Session.mp3'),
+const DEFAULT_SOUNDSCAPE_SOURCE = require('../../assets/audio/soundscapes/Sleep Music No. 1 - Chris Haugen.mp3');
+const REMOTE_SOUNDSCAPE_IDS: Partial<Record<SoundscapeId, RemoteAudioAssetId>> = {
+  copacabanaFocus: 'focus.copacabana',
+  focusFlowState: 'focus.focus-tunnel',
+  midnightStudySession: 'focus.midnight-study',
+  openRoadFocus: 'focus.open-road',
+  cedarWorkshop: 'focus.cedar-workshop',
+  rainlitLibrary: 'focus.rainlit-library',
 };
 
 export const SOUND_SCAPES: Array<{ id: SoundscapeId; title: string }> = [
   { id: 'default', title: 'Deep Work Drift' },
-  { id: 'copacabanaFocus', title: 'Copacabana Focus' },
+  { id: 'copacabanaFocus', title: 'Copacabana' },
   { id: 'focusFlowState', title: 'Focus Tunnel' },
-  { id: 'midnightStudySession', title: 'Midnight Study Session' },
+  { id: 'midnightStudySession', title: 'Midnight Study' },
+  { id: 'openRoadFocus', title: 'Open Road' },
+  { id: 'cedarWorkshop', title: 'Cedar Workshop' },
+  { id: 'rainlitLibrary', title: 'Rainlit Library' },
 ];
 
 let currentSoundscapeId: SoundscapeId = 'default';
 
 /**
- * Offline, ad-free soundscape loop (bundled asset).
+ * Ad-free soundscape loop. Deep Work Drift is bundled; the remaining tracks
+ * stream immediately and use an app-managed cache when available.
  */
 export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) {
   if (opts?.soundscapeId && opts.soundscapeId !== currentSoundscapeId) {
@@ -72,15 +88,23 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
     try {
       const Audio = await getAudio();
       await ensureAudioMode();
-      const created = await runSoundscapeNativeOperation(
-        'Audio.Sound.createAsync',
-        () =>
-          Audio.Sound.createAsync(
-            SOUNDSCAPE_SOURCES[currentSoundscapeId],
-            { isLooping: true, volume: 0, shouldPlay: false },
-          ),
-        { shouldPlay: false },
-      );
+      const selectedId = currentSoundscapeId;
+      const selectedSource = await resolveSoundscapeSource(selectedId);
+      let created;
+      try {
+        created = await runSoundscapeNativeOperation(
+          'Audio.Sound.createAsync',
+          () => Audio.Sound.createAsync(selectedSource, { isLooping: true, volume: 0, shouldPlay: false }),
+          { shouldPlay: false, selectedId },
+        );
+      } catch (error) {
+        if (selectedId === 'default') throw error;
+        created = await runSoundscapeNativeOperation(
+          'Audio.Sound.createAsync.offlineFallback',
+          () => Audio.Sound.createAsync(DEFAULT_SOUNDSCAPE_SOURCE, { isLooping: true, volume: 0, shouldPlay: false }),
+          { shouldPlay: false, selectedId },
+        );
+      }
       sound = created.sound;
       attachPlaybackStatusListener(sound);
       status = 'ready';
@@ -93,6 +117,7 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
       lastAppliedVolume = 0;
     } catch (e) {
       status = 'error';
+      await recordSoundscapeBreadcrumb('preloadSoundscape', 'error', undefined, e);
       try {
         if (sound) {
           const target = sound;
@@ -188,6 +213,7 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
     await fadeToVolume(sound, 0, currentVolume, fadeInMs, opId);
     lastAppliedVolume = currentVolume;
   } catch (e) {
+    await recordSoundscapeBreadcrumb('startSoundscapeLoop', 'error', undefined, e);
     if (__DEV__) {
       // eslint-disable-next-line no-console
       console.warn('[soundscape] startSoundscapeLoop failed', e);
@@ -274,7 +300,7 @@ export function getSoundscapeStatus(): SoundscapeStatus {
 }
 
 export async function setSoundscapeId(id: SoundscapeId) {
-  if (!id || !(id in SOUNDSCAPE_SOURCES)) return;
+  if (!id || !SOUND_SCAPES.some((item) => item.id === id)) return;
   if (id === currentSoundscapeId) return;
 
   // Stop/unload any existing sound so the next preload uses the new source.
@@ -286,6 +312,13 @@ export async function setSoundscapeId(id: SoundscapeId) {
   currentSoundscapeId = id;
   status = 'idle';
   sound = null;
+}
+
+export async function resolveSoundscapeSource(id: SoundscapeId): Promise<any> {
+  const remoteId = REMOTE_SOUNDSCAPE_IDS[id];
+  if (!remoteId) return DEFAULT_SOUNDSCAPE_SOURCE;
+  const resolved = await resolveAudioAsset(remoteId);
+  return { uri: resolved.uri };
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -445,3 +478,49 @@ async function recordSoundscapeBreadcrumb(
   });
 }
 
+async function disposeSoundscapeForFastRefresh(): Promise<void> {
+  // Fast Refresh re-evaluates this module, but the native player can outlive the
+  // JavaScript singleton that owns it. Stop it before the old module is discarded
+  // so Focus audio cannot become detached from the active-session state.
+  const target = sound;
+  sound = null;
+  opCounter += 1;
+  pendingStop = true;
+  shouldBePlaying = false;
+  status = 'stopped';
+  resumeAttempts = 0;
+  lastResumeAttemptMs = 0;
+  lastAppliedVolume = 0;
+  playbackListenerAttached = false;
+
+  if (!target) return;
+
+  try {
+    target.setOnPlaybackStatusUpdate?.(null);
+  } catch {
+    // best effort during development teardown
+  }
+  try {
+    await target.stopAsync?.();
+  } catch {
+    // best effort during development teardown
+  }
+  try {
+    await target.unloadAsync?.();
+  } catch {
+    // best effort during development teardown
+  }
+}
+
+type MetroHotModule = {
+  hot?: {
+    dispose: (callback: () => void) => void;
+  };
+};
+
+if (__DEV__) {
+  const hot = (module as unknown as MetroHotModule).hot;
+  hot?.dispose(() => {
+    void disposeSoundscapeForFastRefresh();
+  });
+}

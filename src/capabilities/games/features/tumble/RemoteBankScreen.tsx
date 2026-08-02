@@ -14,6 +14,9 @@ import { useRemoteBankRoom } from '@/src/capabilities/games/remote/useRemoteBank
 import { Die } from './Die';
 import { PlayerRail } from './PlayerRail';
 import { OpenBankTableLobby } from './OpenBankTableLobby';
+import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
+import { bankMusicForState } from '@/src/capabilities/games/gameMusicState';
+import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 
 export function RemoteBankScreen() {
   const { sessionId, tableCode, hostUserId } = useLocalSearchParams<{ sessionId: string; tableCode?: string; hostUserId?: string }>();
@@ -24,6 +27,8 @@ export function RemoteBankScreen() {
   const userId = session?.user.id ?? hostUserId ?? '';
   const controlled = useMemo(() => room?.participants.filter((participant) => canControlSeat(participant, userId, room.hostUserId)) ?? [], [room, userId]);
   const game = room?.state;
+  const soundEnabled = useGamesSettingsStore((state) => state.soundEnabled);
+  useGameMusic(game ? bankMusicForState(game) : null, soundEnabled && room?.status !== 'lobby');
   const activeParticipant = game ? room?.participants.find((participant) => participant.seatIndex === game.activePlayer) : null;
   const canRoll = !!activeParticipant && controlled.some((participant) => participant.id === activeParticipant.id);
   const bankers = game?.bankingRule === 'anyone'

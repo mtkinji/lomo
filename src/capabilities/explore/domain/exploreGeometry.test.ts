@@ -8,6 +8,7 @@ import {
   coordinateDistanceM,
   exploreCellForCoordinate,
   isCoordinateExplored,
+  buildFogRenderGeometry,
 } from './exploreGeometry';
 
 describe('Explore geometry', () => {
@@ -71,5 +72,61 @@ describe('Explore geometry', () => {
     expect(isCoordinateExplored(destinationCoordinate(center, 15, 90), exploredCells)).toBe(true);
     expect(isCoordinateExplored(destinationCoordinate(center, 25, 90), exploredCells)).toBe(false);
     expect(isCoordinateExplored(center, [])).toBe(false);
+  });
+
+  it('keeps a long freeway trace continuous within the native segment budget', () => {
+    const start = { latitude: 40.58526, longitude: -105.08442 };
+    const freeway = Array.from({ length: 700 }, (_, index) =>
+      destinationCoordinate(start, index * 20, 0),
+    );
+
+    const geometry = buildFogRenderGeometry([freeway], 256);
+
+    expect(geometry.segmentStarts.length).toBeLessThanOrEqual(256);
+    expect(geometry.traces.reduce((total, trace) => total + Math.max(0, trace.length - 1), 0))
+      .toBeLessThanOrEqual(256);
+    expect(geometry.segmentStarts).toHaveLength(geometry.segmentEnds.length);
+    expect(geometry.segmentStarts[0]).toEqual(freeway[0]);
+    expect(geometry.segmentEnds.at(-1)).toEqual(freeway.at(-1));
+    geometry.segmentStarts.slice(1).forEach((startPoint, index) => {
+      expect(startPoint).toEqual(geometry.segmentEnds[index]);
+    });
+  });
+
+  it('keeps uncertain gaps as separate clearings instead of corridor segments', () => {
+    const start = { latitude: 40.58526, longitude: -105.08442 };
+    const beforeGap = destinationCoordinate(start, 20, 0);
+    const afterGap = destinationCoordinate(beforeGap, 120, 0);
+    const afterGapNext = destinationCoordinate(afterGap, 20, 0);
+
+    const geometry = buildFogRenderGeometry([[start, beforeGap, afterGap, afterGapNext]], 256);
+
+    expect(geometry.segmentStarts).toEqual([start, afterGap]);
+    expect(geometry.segmentEnds).toEqual([beforeGap, afterGapNext]);
+    expect(geometry.points).toEqual([]);
+    expect(geometry.traces).toEqual([[start, beforeGap], [afterGap, afterGapNext]]);
+  });
+
+  it('never joins bounded render traces across separate outings', () => {
+    const first = { latitude: 40.58526, longitude: -105.08442 };
+    const firstEnd = destinationCoordinate(first, 20, 0);
+    const second = destinationCoordinate(first, 40, 90);
+    const secondEnd = destinationCoordinate(second, 20, 0);
+
+    const geometry = buildFogRenderGeometry([[first, firstEnd], [second, secondEnd]], 256);
+
+    expect(geometry.traces).toEqual([[first, firstEnd], [second, secondEnd]]);
+  });
+
+  it('preserves a freeway bend while reducing redundant straight observations', () => {
+    const start = { latitude: 40.58526, longitude: -105.08442 };
+    const north = Array.from({ length: 40 }, (_, index) => destinationCoordinate(start, index * 10, 0));
+    const corner = north.at(-1)!;
+    const east = Array.from({ length: 40 }, (_, index) => destinationCoordinate(corner, index * 10, 90));
+
+    const geometry = buildFogRenderGeometry([[...north, ...east.slice(1)]], 256);
+
+    expect(geometry.segmentStarts.length).toBeLessThan(10);
+    expect([...geometry.segmentStarts, ...geometry.segmentEnds]).toContainEqual(corner);
   });
 });

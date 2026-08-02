@@ -92,7 +92,8 @@ Presence remains a future authenticated sharing capability. The local Explore re
 
 ## Movement and quality modifiers
 
-- Active vehicle movement: request approximately 6-meter observations, then retain straight-line points using a 0.8-second speed horizon clamped to 6-22 meters.
+- Automatic active vehicle movement: request approximately 22-meter observations and batch background delivery around 200 meters or 30 seconds; the 0.8-second retention horizon still caps accepted straight-line spacing at 22 meters.
+- Deliberate Adventure vehicle movement: retain the approximately 6-meter observation profile for maximum turn fidelity during an explicitly started outing.
 - Trustworthy course change: retain a point around each 10 degrees of change above approximately 3 m/s so corners, switchbacks, and roundabouts become denser without a separate compass watcher.
 - Walking, running, cycling, and skiing: preserve the existing intent-plus-movement profiles in this tranche; use the same course-aware retention when observations are available.
 - Background movement: defer delivery separately from observation spacing so the native location manager can batch points without erasing turn geometry.
@@ -122,5 +123,7 @@ Cheap wake signals are coarser than active GPS. Region exits may be delayed by s
 ## Implementation status
 
 The current branch implements Ambient and Adventure as `Always Exploring` and `Only when I start`. It persists the adaptive tracking phase, changes sampling for pedestrian, cycling, vehicle, airplane-like, inaccurate, and stationary evidence, enters soft sleep, and replaces precise updates with a 200-meter exit wake region in deep sleep. The speed- and turn-aware tranche adds dense active vehicle observations, adaptive straight-line retention, GPS-course retention, and canonical speed/course persistence. A later meaningful movement can resume the same active intent or split a new internal outing after the policy's movement-gap threshold.
+
+The iOS Silver Mist renderer now consumes explicit route segments plus isolated clearings. It simplifies redundant straight observations within a fixed segment budget while preserving bends, session boundaries, and the 60-meter discontinuity rule; it no longer uniformly drops cell centers and asks the shader to infer which survivors should connect.
 
 Presence exists only as internal policy infrastructure. Authenticated family delivery, sharing controls, and viewer freshness remain future work. The adaptive behavior is covered by deterministic tests but is not signed-device proven; wake delay, route gaps, battery, thermal behavior, and OS relaunch behavior still require the release matrix.

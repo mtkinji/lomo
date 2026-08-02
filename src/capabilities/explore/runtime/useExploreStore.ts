@@ -288,13 +288,19 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
         const defaults = createEmptyExploreData();
-        const upgradeSession = (session: Partial<ExploreSession>) => ({
+        const upgradeSession = (
+          session: Partial<ExploreSession>,
+          fallbackPolicy: ExploreTrackingPolicy = 'ambient',
+        ) => ({
           ...session,
+          trackingPolicy: session.trackingPolicy === 'adventure' || session.trackingPolicy === 'ambient'
+            ? session.trackingPolicy
+            : fallbackPolicy,
           points: Array.isArray(session?.points) ? session.points.map((point) => ({
             ...point,
             speedMps: typeof point.speedMps === 'number' && Number.isFinite(point.speedMps) && point.speedMps >= 0
@@ -325,13 +331,20 @@ export const useExploreStore = create<ExploreStore>()(
             ? preferences.onboardingCompleted
             : hadPersistedHistory,
         };
-        const activeSession = persisted.activeSession ? upgradeSession(persisted.activeSession) : null;
+        const activeFallbackPolicy = persisted.tracking?.policy === 'adventure' || persisted.tracking?.policy === 'ambient'
+          ? persisted.tracking.policy
+          : trackingPolicyForRecordingMode(nextPreferences.recording);
+        const activeSession = persisted.activeSession
+          ? upgradeSession(persisted.activeSession, activeFallbackPolicy)
+          : null;
         return rebuildExploreTerritory({
           ...defaults,
           ...persisted,
-          version: 8,
+          version: 9,
           activeSession,
-          sessions: Array.isArray(persisted.sessions) ? persisted.sessions.map(upgradeSession) : [],
+          sessions: Array.isArray(persisted.sessions)
+            ? persisted.sessions.map((session) => upgradeSession(session))
+            : [],
           preferences: nextPreferences,
           tracking: normalizeExploreTrackingState(
             persisted.tracking,

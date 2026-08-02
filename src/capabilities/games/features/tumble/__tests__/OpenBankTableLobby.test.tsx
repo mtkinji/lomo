@@ -2,6 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { OpenBankTableLobby } from '../OpenBankTableLobby';
 import { advertiseNearbyTable } from '@/src/capabilities/games/nearby/nearbyTables';
 import { createRemoteBankTableInvite, removeRemoteBankTableParticipant, startRemoteBankTable } from '@/src/capabilities/games/remote/remoteBankClient';
+import { tableMarkForCode } from '@/src/capabilities/games/remote/remoteBank';
 
 jest.mock('@/src/capabilities/games/navigation/gamesRouter', () => ({ router: { replace: jest.fn() } }));
 jest.mock('@/src/capabilities/games/nearby/nearbyTables', () => ({
@@ -66,6 +67,9 @@ describe('OpenBankTableLobby', () => {
     expect(screen.getByText('Olive')).toBeTruthy();
     expect(mockCreateInvite).toHaveBeenCalledTimes(1);
     expect(mockAdvertise).toHaveBeenCalledWith('W7K4JP');
+    expect(screen.getByText('Open nearby')).toBeTruthy();
+    expect(screen.getByText('People in Kwilt can find this table while this screen is open.')).toBeTruthy();
+    expect(screen.getByText(tableMarkForCode('W7K4JP'))).toBeTruthy();
 
     fireEvent.press(screen.getByText('Start game'));
     await waitFor(() => expect(mockStart).toHaveBeenCalledWith('room-1'));

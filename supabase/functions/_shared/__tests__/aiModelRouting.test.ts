@@ -10,6 +10,7 @@ describe('resolveKwiltAiModel', () => {
     expect(resolveKwiltAiModel({ route: '/v1/chat/completions', job: 'deep_planning' })).toBe('gpt-5.2');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'current_information' })).toBe('gpt-5.2');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'unified_chat_attachment' })).toBe('gpt-5-mini');
+    expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'agent_judgment' })).toBe('gpt-5.6-luna');
     expect(resolveKwiltAiModel({ route: '/v1/responses', job: 'default_chat' })).toBeNull();
   });
 
@@ -31,5 +32,6 @@ describe('resolveKwiltAiModel', () => {
     expect(normalizeKwiltAiJob('')).toBe('default_chat');
     expect(normalizeKwiltAiJob(null)).toBe('default_chat');
     expect(normalizeKwiltAiJob('arc_generation')).toBe('arc_generation');
+    expect(normalizeKwiltAiJob('agent_judgment')).toBe('agent_judgment');
   });
 });

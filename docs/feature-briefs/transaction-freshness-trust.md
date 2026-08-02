@@ -56,7 +56,9 @@ Accounts:
 Summary and budget detail:
 
 - Continue showing budget reality.
-- Add minimal freshness boundaries only when bank-check state is stale or unknown.
+- When bank-check state is stale, make one throttled foreground check automatically and keep the last useful answer visible while it runs.
+- Qualify a retained answer with minimal freshness language; do not turn ordinary freshness into a card, warning, or user task.
+- Reserve user involvement for a classified connection-repair condition and keep that repair in Accounts.
 - Do not show stronger claims than the freshness state supports.
 
 ## Data And System Behavior
@@ -66,6 +68,7 @@ Summary and budget detail:
 - Treat freshness as a property of the connected transaction inventory or budget snapshot, not of each immutable transaction row.
 - Treat row-level changes separately: pending transactions may settle, pending/posted duplicate handling may change visibility, and review/category state may change.
 - Use the existing `sync-plaid-transactions` function for user-triggered checks.
+- Budget may use the same function for one silent, throttled check when its current answer is stale.
 - Throttle refresh attempts enough to avoid duplicate calls and provider/API abuse.
 - Refresh the connected-spend snapshot after a successful or completed sync attempt.
 - Keep last useful budget data visible when possible, with freshness/status copy.
@@ -103,6 +106,8 @@ Avoid:
 - Transactions shows freshness once at the inventory/list level, not on each transaction row.
 - Refresh result copy distinguishes new rows, no new activity, failure, and delayed/stale states.
 - Summary and budget detail can display a compact freshness boundary without clearing useful data.
+- Summary does not ask the user to maintain ordinary transaction freshness.
+- A stale Summary initiates at most one background check for the same plan version and last-sync receipt while mounted.
 - The shared freshness model is covered by focused tests.
 - Sync-result copy logic is covered by focused tests.
 - No analytics or logs include merchant names, exact amounts, account masks, or raw provider payloads.
@@ -122,7 +127,7 @@ Avoid:
 
 Clear enough to build with these assumptions:
 
-- First release should use manual user-triggered bank checks before scheduled/webhook sync.
+- Transactions and Accounts retain manual checks, while Budget silently checks once when stale before any future scheduled/webhook sync exists.
 - The action label should be `Check for new activity`, not `Refresh`, because it avoids promising instant bank truth.
 - Accounts is the deeper health surface; Transactions and Summary should remain focused on budget reality.
 - Freshness copy should appear only where it affects trust or interpretation, should be list/surface-level, and should default to a terse timestamp like `Last updated: 2 hr ago`.

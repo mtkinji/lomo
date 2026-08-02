@@ -130,12 +130,13 @@ function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
   const capabilities: UnifiedChatCapabilityId[] = [];
   const personal = /\b(my|our|i have|i've|unfinished)\b/i.test(prompt);
   const action = ACTION_PATTERN.test(prompt.replace(/\bnext move\b/gi, ''));
+  const moneyLimitRequest = /\b(?:income|living|spending)\s+limit\b|\b(?:plan|budget)\b[^.!?]{0,40}\b\d{1,3}%\s+(?:income\s+|spending\s+|living\s+)?limit\b/i.test(prompt);
   if ((personal || action) && /\b(arcs?|identit(?:y|ies))\b/i.test(prompt)) capabilities.push('arcs');
   if ((personal || action) && /\bgoals?\b/i.test(prompt)) capabilities.push('goals');
-  if (
+  if (!moneyLimitRequest && (
     /\bmy\s+plans?\b/i.test(prompt) ||
     /\bplans?\s+(?:for\s+)?(?:today|tomorrow)\b/i.test(prompt)
-  ) {
+  )) {
     capabilities.push('plan');
   }
   if (/\b(?:goals?|tasks?|to[ -]?dos?)\b[^?]*\b(?:today|tomorrow)\b/i.test(prompt)) {
@@ -153,7 +154,7 @@ function explicitCapabilities(prompt: string): UnifiedChatCapabilityId[] {
   if ((personal || action) && /\b(chapters?|reflections?|what i learned|what i tried)\b/i.test(prompt)) {
     capabilities.push('chapters');
   }
-  if ((personal || action) && /\b(money|budgets?|spend(?:ing|ings)?|transactions?|accounts?)\b/i.test(prompt)) {
+  if (moneyLimitRequest || ((personal || action) && /\b(money|budgets?|spend(?:ing|ings)?|transactions?|accounts?)\b/i.test(prompt))) {
     capabilities.push('money');
   }
   if (/\b(my\s+)?profile\b|\b(?:call me|my name is|change my name|age range)\b/i.test(prompt)) {

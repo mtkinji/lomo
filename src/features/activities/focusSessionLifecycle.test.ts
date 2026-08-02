@@ -1,4 +1,5 @@
 import {
+  STANDALONE_FOCUS_ACTIVITY_ID,
   buildPausedFocusSession,
   buildFocusSessionId,
   buildRunningFocusSession,
@@ -6,6 +7,7 @@ import {
   getFocusCompletionNotificationSeconds,
   isFocusNotificationForActiveSession,
   isRunningFocusSessionExpired,
+  isStandaloneFocusSession,
   resumePausedFocusSession,
 } from './focusSessionLifecycle';
 
@@ -39,6 +41,18 @@ describe('focusSessionLifecycle', () => {
 
   it('builds a stable session id from the activity and start time', () => {
     expect(buildFocusSessionId('activity-1', 1_234)).toBe('activity-1-1234');
+  });
+
+  it('identifies the explicit standalone runtime target without inventing an Activity', () => {
+    const session = buildRunningFocusSession({
+      activityId: STANDALONE_FOCUS_ACTIVITY_ID,
+      title: 'Focus',
+      minutes: 25,
+      startedAtMs: 1_000,
+    });
+
+    expect(isStandaloneFocusSession(session)).toBe(true);
+    expect(isStandaloneFocusSession({ ...session, activityId: 'activity-1' })).toBe(false);
   });
 
   it('rejects focus notification schedule results from a stale session', () => {

@@ -82,6 +82,12 @@ export type ActivityDetailRouteParams = {
 };
 
 export type ActivitiesListRouteParams = {
+  /** Start an explicitly unlinked Kwilt Focus session from a widget or Shortcut. */
+  autoStartStandaloneFocus?: boolean;
+  /** Requested duration for `autoStartStandaloneFocus`, in minutes. */
+  focusMinutes?: number;
+  /** Open the active standalone Focus controls without starting a new session. */
+  openStandaloneFocus?: boolean;
   /**
    * When true, open and focus Quick Add on mount.
    * Used by exact task entry points such as the Guided Overture lab.

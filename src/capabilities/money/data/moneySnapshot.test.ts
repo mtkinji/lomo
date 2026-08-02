@@ -67,6 +67,22 @@ const accounts = [
 ];
 
 describe('projectMoneySnapshot', () => {
+  it('projects a stored category role as both the effective and explicit role', () => {
+    const snapshot = projectMoneySnapshot({
+      categories,
+      plans: [{ ...plans[0], plan_role: 'protected' }],
+      accounts: [],
+      connections: [],
+      transactions: [],
+    }, new Date(2026, 6, 24));
+
+    expect(snapshot.categories[0]).toMatchObject({
+      id: 'groceries',
+      planRole: 'protected',
+      planRoleOverride: 'protected',
+    });
+  });
+
   it('projects current-month plan, spend, credits, aliases, and accounts without fixture values', () => {
     const snapshot = projectMoneySnapshot(
       {
@@ -95,6 +111,9 @@ describe('projectMoneySnapshot', () => {
             pending: false,
             iso_currency_code: 'USD',
             budget_id: 'groceries',
+            budget_assignment_source: 'provider_policy',
+            budget_assignment_policy_version: 'governed-category-v1',
+            budget_assignment_governed: true,
             money_meaning: null,
             personal_finance_category_primary: 'FOOD_AND_DRINK',
             personal_finance_category_detailed: 'FOOD_AND_DRINK_GROCERIES',
@@ -161,6 +180,9 @@ describe('projectMoneySnapshot', () => {
       accountSubtype: 'checking',
       providerCategoryPrimary: 'FOOD_AND_DRINK',
       providerCategoryDetailed: 'FOOD_AND_DRINK_GROCERIES',
+      assignmentSource: 'provider_policy',
+      assignmentPolicyVersion: 'governed-category-v1',
+      assignmentGoverned: true,
     });
     expect(snapshot.lastSyncedAt).toBe('2026-07-23T16:00:00.000Z');
     expect(snapshot.forecast).toMatchObject({

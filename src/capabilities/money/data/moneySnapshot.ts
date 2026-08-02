@@ -13,6 +13,8 @@ import {
   type CategoryFundingCoverage,
   type CategoryFundingRhythm,
 } from '../domain/categoryFunding';
+import type { MoneyPlanLimitAnswer } from '../domain/moneyPlanLimitAnswer';
+import { inferMoneyCategoryPlanRole, type MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 
 export type MoneyCategoryRow = {
   id: string;
@@ -23,6 +25,7 @@ export type MoneyCategoryRow = {
   accent_color: string | null;
   cover_image?: unknown | null;
   sort_order: number;
+  mapping_tags?: string[] | null;
 };
 
 export type MoneyPlanRow = {
@@ -40,6 +43,7 @@ export type MoneyPlanRow = {
   reserve_balance_period_id?: string | null;
   expected_need_cents?: number | null;
   expected_need_due_month?: string | null;
+  plan_role?: MoneyCategoryPlanRole | null;
 };
 
 export type MoneyConnectionRow = {
@@ -83,6 +87,9 @@ export type MoneyTransactionRow = {
   iso_currency_code: string;
   budget_id: string | null;
   budget_match_source?: 'confirmed' | 'corrected' | 'excluded' | 'merchant_rule' | null;
+  budget_assignment_source?: 'provider_policy' | 'merchant_rule' | 'ai_classifier' | null;
+  budget_assignment_policy_version?: string | null;
+  budget_assignment_governed?: boolean | null;
   money_meaning: 'income' | 'category_credit' | 'transfer' | 'not_counted' | 'unknown' | null;
   personal_finance_category_primary?: string | null;
   personal_finance_category_detailed?: string | null;
@@ -132,6 +139,9 @@ export type MoneyCategory = {
     scheduledDueDay: number | null;
   };
   forecast: MoneyCategoryForecast;
+  planRole?: MoneyCategoryPlanRole;
+  planRoleOverride?: MoneyCategoryPlanRole | null;
+  mappingTags?: string[];
 };
 
 export type MoneyTransaction = {
@@ -157,6 +167,9 @@ export type MoneyTransaction = {
   categoryName: string;
   reviewState: 'assigned' | 'needs_review' | 'not_counted';
   merchantRuleCategoryId?: string | null;
+  assignmentSource?: MoneyTransactionRow['budget_assignment_source'];
+  assignmentPolicyVersion?: string | null;
+  assignmentGoverned?: boolean;
   moneyMeaning: MoneyTransactionRow['money_meaning'];
   allocations?: MoneyTransactionAllocation[];
 };
@@ -200,6 +213,7 @@ export type MoneySnapshot = {
   categories: MoneyCategory[];
   transactions: MoneyTransaction[];
   accounts: MoneyAccount[];
+  livingLimitAnswer?: MoneyPlanLimitAnswer | null;
 };
 
 export type MoneySnapshotRows = {
@@ -321,7 +335,10 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         fundingCoverage: funding.coverage,
       });
 
-      return {
+      const planRoleOverride = plan?.plan_role === 'protected' || plan?.plan_role === 'flexible'
+        ? plan.plan_role
+        : null;
+      const projectedCategory = {
         id: category.legacy_budget_id?.trim() || category.slug,
         sourceId: category.id,
         name: category.name.trim() || category.slug,
@@ -354,6 +371,12 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
           scheduledDueDay: plan?.scheduled_due_day ?? null,
         },
         forecast,
+        planRoleOverride,
+        mappingTags: Array.isArray(category.mapping_tags) ? category.mapping_tags : [],
+      };
+      return {
+        ...projectedCategory,
+        planRole: inferMoneyCategoryPlanRole(projectedCategory),
       };
     });
 
@@ -484,6 +507,15 @@ function projectTransaction(
     merchantRuleCategoryId: merchantRuleCategory
       ? merchantRuleCategory.legacy_budget_id?.trim() || merchantRuleCategory.slug
       : null,
+    assignmentSource: transaction.budget_match_source === 'corrected' || transaction.budget_match_source === 'confirmed' || transaction.budget_match_source === 'excluded'
+      ? null
+      : transaction.budget_assignment_source ?? null,
+    assignmentPolicyVersion: transaction.budget_match_source === 'corrected' || transaction.budget_match_source === 'confirmed' || transaction.budget_match_source === 'excluded'
+      ? null
+      : transaction.budget_assignment_policy_version ?? null,
+    assignmentGoverned: transaction.budget_match_source === 'corrected' || transaction.budget_match_source === 'confirmed' || transaction.budget_match_source === 'excluded'
+      ? false
+      : transaction.budget_assignment_governed === true,
     moneyMeaning: transaction.money_meaning,
     ...(allocations?.length ? { allocations } : {}),
   };

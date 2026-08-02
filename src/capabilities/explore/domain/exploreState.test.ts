@@ -22,7 +22,7 @@ const point = {
 
 describe('Explore state transitions', () => {
   it('starts with the current persisted Explore schema', () => {
-    expect(createEmptyExploreData().version).toBe(8);
+    expect(createEmptyExploreData().version).toBe(9);
   });
 
   it('starts, records, and completes an explicit adventure', () => {
@@ -31,18 +31,26 @@ describe('Explore state transitions', () => {
       policy: 'adventure',
       phase: 'active',
     }));
+    expect(started.activeSession?.trackingPolicy).toBe('adventure');
     const recorded = appendExplorePoint(started, point);
     const completed = completeExploreSession(recorded, '2026-07-27T18:10:00.000Z');
 
     expect(completed.activeSession).toBeNull();
     expect(completed.sessions[0]).toMatchObject({
       id: 'session-1',
+      trackingPolicy: 'adventure',
       points: [point],
       recapStatus: 'resolving',
       completedReason: 'manual',
     });
     expect(Object.keys(completed.exploredCells)).toHaveLength(1);
     expect(completed.tracking.policy).toBeNull();
+  });
+
+  it('retains ambient intent on an automatically recorded session', () => {
+    const started = beginExploreSession(createEmptyExploreData(), 'ambient-session', point.recordedAt, 'ambient');
+
+    expect(started.activeSession?.trackingPolicy).toBe('ambient');
   });
 
   it('records visits as a relationship to one canonical Place', () => {

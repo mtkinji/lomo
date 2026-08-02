@@ -83,6 +83,17 @@ export type GlanceableMoneyCategory = {
   periodElapsedPercent: number;
   paceSentiment: 'under' | 'on-track' | 'over';
   status: 'on_track' | 'near_limit' | 'over';
+  plannedCents?: number;
+  spentCents?: number;
+  remainingCents?: number;
+  deepLink: string;
+};
+
+export type GlanceableFlexibleMoney = {
+  state: 'left' | 'over' | 'no_room' | 'plan_over' | 'unavailable';
+  amountCents: number | null;
+  flexibleCapacityCents: number | null;
+  countedFlexibleSpendCents: number | null;
   deepLink: string;
 };
 
@@ -90,6 +101,7 @@ export type GlanceableMoney = {
   periodLabel: string;
   percentUsed: number;
   needsReviewCount: number;
+  flexibleMoney?: GlanceableFlexibleMoney | null;
   categories: GlanceableMoneyCategory[];
 };
 

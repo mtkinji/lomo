@@ -6,7 +6,7 @@ import {
 } from '@kwilt/agent-runtime';
 import type { ActivityProposalOperation } from './activityProposal';
 import { buildRecurringReminderFields, parseActivityMutationPatch } from './activityProposal';
-import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
+import { projectMoneyPlanLimitForChat, type UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type {
   PlanRemoveActivityPayload,
   PlanRescheduleActivityPayload,
@@ -174,6 +174,7 @@ export function createUnifiedChatToolProvider({
               forecast: category.forecast,
             })),
             accountCount: money.accounts.length,
+            planLimit: projectMoneyPlanLimitForChat(money),
           } : null,
         },
       };

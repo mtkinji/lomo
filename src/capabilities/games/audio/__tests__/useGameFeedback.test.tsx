@@ -1,4 +1,4 @@
-const mockPlayers = Array.from({ length: 10 }, () => ({
+const mockPlayers = Array.from({ length: 22 }, () => ({
   seekTo: jest.fn(async () => undefined), play: jest.fn(), volume: 1,
 }));
 let mockNextPlayer = 0;
@@ -45,6 +45,14 @@ describe('useGameFeedback', () => {
     }));
   });
 
+  test('balances every dice variation at the shared game mechanic gain', async () => {
+    renderHook(() => useGameFeedback(true));
+
+    await waitFor(() => {
+      expect(mockPlayers.slice(0, 3).map((player) => player.volume)).toEqual([0.68, 0.68, 0.68]);
+    });
+  });
+
   test('rewinds and plays the failure sound', async () => {
     const { result } = renderHook(() => useGameFeedback(true));
 
@@ -87,5 +95,53 @@ describe('useGameFeedback', () => {
     await act(async () => { await result.current.success('hawk'); });
 
     expect(mockPlayers[6].play).toHaveBeenCalledTimes(1);
+  });
+
+  test('plays the approved cartoon splat setback selected on a profile', async () => {
+    const { result } = renderHook(() => useGameFeedback(true));
+
+    await act(async () => { await result.current.failure('cartoon-splat'); });
+
+    expect(mockPlayers[10].seekTo).toHaveBeenCalledWith(0);
+    expect(mockPlayers[10].play).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['power-lick-1', 11],
+    ['power-lick-2', 12],
+    ['power-lick-3', 13],
+    ['banjo-run-1', 14],
+    ['tiny-crowd-1', 15],
+    ['tiny-crowd-2', 16],
+    ['tiny-crowd-3', 17],
+    ['tiny-crowd-4', 18],
+  ] as const)('plays approved profile win signature %s', async (soundId, playerIndex) => {
+    const { result } = renderHook(() => useGameFeedback(true));
+
+    await act(async () => { await result.current.success(soundId); });
+
+    expect(mockPlayers[playerIndex].play).toHaveBeenCalledTimes(1);
+  });
+
+  test('alternates the two approved coin gathers when players bank', async () => {
+    const { result } = renderHook(() => useGameFeedback(true));
+
+    await act(async () => {
+      await result.current.bank();
+      await result.current.bank();
+      await result.current.bank();
+    });
+
+    expect(mockPlayers[19].play).toHaveBeenCalledTimes(2);
+    expect(mockPlayers[20].play).toHaveBeenCalledTimes(1);
+  });
+
+  test('uses an approved tiny crowd at mechanic gain for a doubles roll', async () => {
+    const { result } = renderHook(() => useGameFeedback(true));
+
+    await waitFor(() => expect(mockPlayers[21].volume).toBeCloseTo(0.54, 2));
+    await act(async () => { await result.current.doubles(); });
+
+    expect(mockPlayers[21].play).toHaveBeenCalledTimes(1);
   });
 });

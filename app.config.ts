@@ -8,6 +8,8 @@ const projectRoot = __dirname;
 const widgetsEnabled = (process.env.KWILT_ENABLE_WIDGETS ?? '').trim() === '1';
 const screenTimeEnabled = (process.env.KWILT_ENABLE_SCREEN_TIME ?? '').trim() === '1';
 const appGroupId = 'group.com.andrewwatanabe.kwilt';
+const microphoneUsageDescription =
+  'Kwilt uses the microphone for voice input in Chat and audio notes you choose to record.';
 const screenTimeEntitlements = {
   'com.apple.developer.family-controls': true,
   'com.apple.security.application-groups': [appGroupId],
@@ -128,7 +130,7 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.98',
+  version: '1.0.99',
   // Games temporarily unlocks orientation for shared-table play and restores
   // portrait when leaving an active table.
   orientation: 'default',
@@ -167,7 +169,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '98',
+    buildNumber: '99',
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -205,8 +207,7 @@ const config = {
         'Kwilt reads Apple Health summaries for movement, workouts, sleep, and mindfulness to show them in your Weekly Chapters and help interpret your week.',
       NSHealthUpdateUsageDescription:
         'Kwilt does not write Apple Health data.',
-      NSMicrophoneUsageDescription:
-        'Kwilt uses the microphone so you can record an audio note and attach it to a to-do.',
+      NSMicrophoneUsageDescription: microphoneUsageDescription,
       NSLocalNetworkUsageDescription:
         'Kwilt uses your local network only while you open or join a nearby private game table.',
       NSBonjourServices: ['_kwilt-table._tcp'],
@@ -216,7 +217,7 @@ const config = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 98,
+    versionCode: 99,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
@@ -254,8 +255,8 @@ const config = {
     [
       'expo-audio',
       {
-        microphonePermission: false,
-        recordAudioAndroid: false,
+        microphonePermission: microphoneUsageDescription,
+        recordAudioAndroid: true,
       },
     ],
     [

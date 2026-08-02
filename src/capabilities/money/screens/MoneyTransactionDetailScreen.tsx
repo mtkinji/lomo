@@ -17,6 +17,7 @@ import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDra
 import { getSimilarMerchantTransactions } from '../domain/moneyDetailView';
 import { getPaymentSourcePresentation, type InstitutionPalette } from '../domain/paymentSourcePresentation';
 import { getTransactionMeaningOptions, type TransactionMeaningOption } from '../domain/transactionMeaningOptions';
+import { getTransactionPlanTreatment } from '../domain/transactionPlanTreatment';
 import type { TransactionSplitMode } from '../domain/transactionTruthTelemetry';
 import type { MoneyStackParamList } from '../navigation/types';
 import {
@@ -27,6 +28,7 @@ import { captureMoneyMutation, type MoneyMutationOperation } from '../runtime/mo
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 
 type RuleMatchMode = 'exact' | 'partial';
+type CategoryPickerMode = 'all' | 'flexible' | 'protected';
 
 export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactionDetail'>) {
   const { capture } = useAnalytics();
@@ -36,6 +38,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     markTransactionNotCounted,
     reviewTransactionMeaning,
     reviewingTransactionId,
+    refresh,
     saveMerchantRule,
     splitTransaction,
     savingCategory,
@@ -44,6 +47,8 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   } = useMoneyData();
   const transaction = snapshot?.transactions.find((candidate) => candidate.id === route.params.transactionId);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [planTreatmentOpen, setPlanTreatmentOpen] = useState(Boolean(route.params.economicRoleReview));
+  const [categoryPickerMode, setCategoryPickerMode] = useState<CategoryPickerMode>('all');
   const [categoryQuery, setCategoryQuery] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -61,8 +66,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     : undefined;
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase();
-    return query ? categories.filter((category) => category.name.toLowerCase().includes(query)) : categories;
-  }, [categories, categoryQuery]);
+    const scoped = categoryPickerMode === 'protected'
+      ? categories.filter((category) => category.planRole === 'protected')
+      : categoryPickerMode === 'flexible'
+        ? categories.filter((category) => category.planRole === 'flexible')
+        : categories;
+    return query ? scoped.filter((category) => category.name.toLowerCase().includes(query)) : scoped;
+  }, [categories, categoryPickerMode, categoryQuery]);
   const similarRows = useMemo(() => transaction
     ? getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode)
     : [], [ruleMode, snapshot?.transactions, transaction]);
@@ -99,6 +109,11 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     if (!changed) return;
     setCategoryPickerOpen(false);
     setCategoryQuery('');
+    if (route.params.economicRoleReview) {
+      await refresh();
+      navigation.popTo('MoneySummary');
+      return;
+    }
     if (transaction.direction === 'outflow' && transaction.merchantRuleCategoryId !== category.id) {
       setPendingRuleCategory(category);
     }
@@ -114,9 +129,20 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       : reviewTransactionMeaning(transaction.id, { meaning }), 'transaction_meaning');
     setPendingChoice(null);
     if (changed) {
+      setPlanTreatmentOpen(false);
       setCategoryPickerOpen(false);
       setCategoryQuery('');
+      if (route.params.economicRoleReview) {
+        await refresh();
+        navigation.popTo('MoneySummary');
+      }
     }
+  };
+
+  const openEconomicRolePicker = (mode: Extract<CategoryPickerMode, 'flexible' | 'protected'>) => {
+    setPlanTreatmentOpen(false);
+    setCategoryPickerMode(mode);
+    setCategoryPickerOpen(true);
   };
 
   const createAndSelectCategory = async () => {
@@ -212,6 +238,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   }
 
   const relationLabel = getCategoryRelationLabel(transaction, currentCategory);
+  const planTreatment = getTransactionPlanTreatment(transaction, categories);
 
   return (
     <>
@@ -231,13 +258,29 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
           <PaymentSourceCard transaction={transaction} />
 
+          {transaction.direction === 'outflow' ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Plan treatment</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Change plan treatment from ${planTreatment.label}`}
+                disabled={saving}
+                onPress={() => setPlanTreatmentOpen(true)}
+                style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
+              >
+                <Text numberOfLines={1} style={styles.categoryFieldText}>{planTreatment.label}</Text>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          ) : null}
+
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Category</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={relationLabel ? `Change category from ${relationLabel}` : 'Choose category'}
               disabled={saving}
-              onPress={() => setCategoryPickerOpen(true)}
+              onPress={() => { setCategoryPickerMode('all'); setCategoryPickerOpen(true); }}
               style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
             >
               <View style={styles.categoryFieldCopy}>
@@ -272,12 +315,29 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
         </ScrollView>
       </AppShell>
 
+      <BottomDrawer visible={planTreatmentOpen} onClose={() => setPlanTreatmentOpen(false)} snapPoints={['52%']} enableContentPanningGesture>
+        <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
+          <BottomDrawerHeader
+            closeAccessibilityLabel="Close plan treatment"
+            onClose={() => setPlanTreatmentOpen(false)}
+            title="How should this affect your plan?"
+            titleVariant="lg"
+            variant="withClose"
+          />
+          <Text style={styles.drawerCopy}>Transactions normally inherit this from their category.</Text>
+          <Button fullWidth variant="outline" disabled={saving} onPress={() => openEconomicRolePicker('flexible')}>Flexible spending</Button>
+          <Button fullWidth variant="outline" disabled={saving} onPress={() => openEconomicRolePicker('protected')}>A protected bill or reserve</Button>
+          <Button fullWidth variant="outline" disabled={saving} onPress={() => void selectMeaning('not_counted')}>Outside the plan</Button>
+          {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
+        </BottomDrawerScrollView>
+      </BottomDrawer>
+
       <BottomDrawer visible={categoryPickerOpen} onClose={() => { setCategoryPickerOpen(false); setCreatingCategory(false); }} snapPoints={['78%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent} keyboardShouldPersistTaps="handled">
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category picker"
             onClose={() => setCategoryPickerOpen(false)}
-            title="Where does this belong?"
+            title={categoryPickerMode === 'protected' ? 'Choose a protected category' : categoryPickerMode === 'flexible' ? 'Choose a flexible category' : 'Where does this belong?'}
             titleVariant="lg"
             variant="withClose"
           />
@@ -305,11 +365,15 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               </Pressable>
             ))}
             {filteredCategories.length === 0 ? (
-              <Text accessibilityLiveRegion="polite" style={styles.emptySearchText}>No categories match “{categoryQuery.trim()}”</Text>
+              <Text accessibilityLiveRegion="polite" style={styles.emptySearchText}>
+                {categoryPickerMode === 'all'
+                  ? `No categories match “${categoryQuery.trim()}”`
+                  : `No ${categoryPickerMode} categories yet. Change a category’s plan role first.`}
+              </Text>
             ) : null}
           </View>
 
-          <View style={styles.meaningSection}>
+          {categoryPickerMode === 'all' ? <View style={styles.meaningSection}>
             <Text style={styles.secondarySectionLabel}>OTHER MONEY MOVEMENT</Text>
             {getTransactionMeaningOptions(transaction.direction).map((option) => (
               <CategoryCommand
@@ -323,9 +387,9 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 onPress={() => void selectMeaning(option.meaning)}
               />
             ))}
-          </View>
+          </View> : null}
 
-          {creatingCategory ? (
+          {categoryPickerMode === 'all' && (creatingCategory ? (
             <View style={styles.createPanel}>
               <Text style={styles.createTitle}>New category</Text>
               <Input label="Name" value={newCategoryName} onChangeText={setNewCategoryName} />
@@ -338,7 +402,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               <Icon name="plus" size={18} color={colors.pine700} />
               <Text style={styles.createCommandText}>{categoryQuery.trim() ? `Create “${categoryQuery.trim()}”` : 'Create category'}</Text>
             </Pressable>
-          )}
+          ))}
           {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
         </BottomDrawerScrollView>
       </BottomDrawer>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnalytics } from '../../../services/analytics/useAnalytics';
+import { AnalyticsEvent } from '../../../services/analytics/events';
 import { colors, fonts, spacing, typography } from '../../../theme';
 import { BottomDrawer, BottomDrawerScrollView } from '../../../ui/BottomDrawer';
 import { Button } from '../../../ui/Button';
@@ -35,12 +36,16 @@ import { useMoneyData } from '../data/MoneyDataContext';
 import { formatMoney, formatMoneyFreshness, type MoneyCategory, type MoneyTransaction } from '../data/moneySnapshot';
 import { parseCategoryName, parseMonthlyAmount } from '../domain/categoryPlanDraft';
 import { groupMoneyTransactionsByDate } from '../domain/moneyDetailView';
+import { getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 import { projectMoneyCategoryPeriodView } from '../domain/moneyPeriodView';
+import { projectMoneyRebalanceAnswer, type MoneyRebalanceAnswer } from '../domain/moneyRebalanceAnswer';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
+import type { MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import type { MoneyStackParamList } from '../navigation/types';
 import { projectCategoryFunding, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliation';
 import { captureMoneyMutation } from '../runtime/moneyMutationTelemetry';
+import { buildMoneyRebalanceChangesOpenedProps, buildMoneyRebalanceOutcomeProps, buildMoneyRebalancePreviewViewedProps } from '../runtime/moneyPlanLimitAnalytics';
 import { signalMoneyMutationOutcome, signalMoneyToggle } from '../runtime/moneyMutationFeedback';
 
 const ACTIVITY_INLINE_LIMIT = 5;
@@ -76,9 +81,11 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
   const [fundingRhythmDraft, setFundingRhythmDraft] = useState<CategoryFundingRhythm>('monthly');
+  const [planRoleDraft, setPlanRoleDraft] = useState<MoneyCategoryPlanRole>('flexible');
   const [expectedNeedDraft, setExpectedNeedDraft] = useState('');
   const [expectedNeedDueMonthDraft, setExpectedNeedDueMonthDraft] = useState('');
   const [planImpact, setPlanImpact] = useState<LivingPlanOverridePreview | null>(null);
+  const [showPlanChanges, setShowPlanChanges] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [reviewReceipt, setReviewReceipt] = useState<'opened_for_now' | 'left_blocked' | null>(null);
   const [chartScrubbing, setChartScrubbing] = useState(false);
@@ -87,6 +94,15 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     ? projectMoneyCategoryPeriodView(snapshot, route.params.categoryId, monthOffset)
     : null, [monthOffset, route.params.categoryId, snapshot]);
   const category = view?.category;
+  const rebalanceAnswer = useMemo(() => (
+    category && planImpact?.outcome === 'ready'
+      ? projectMoneyRebalanceAnswer(planImpact, category.id)
+      : null
+  ), [category, planImpact]);
+  useEffect(() => {
+    if (!rebalanceAnswer) return;
+    capture(AnalyticsEvent.MoneyRebalancePreviewViewed, buildMoneyRebalancePreviewViewedProps({ answer: rebalanceAnswer }));
+  }, [capture, rebalanceAnswer]);
   const groups = useMemo(() => groupMoneyTransactionsByDate(
     (view?.transactions ?? []).slice(0, ACTIVITY_INLINE_LIMIT),
   ), [view?.transactions]);
@@ -112,15 +128,17 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     setCategoryNameDraft(category.name);
     setCategoryAmountDraft((category.plannedCents / 100).toFixed(2));
     setFundingRhythmDraft(category.fundingRhythm);
+    setPlanRoleDraft(category.planRole ?? 'flexible');
     setExpectedNeedDraft(formatCentsInput(category.expectedNeed?.amountCents));
     setExpectedNeedDueMonthDraft(category.expectedNeed?.dueMonth ?? '');
     setPlanImpact(null);
+    setShowPlanChanges(false);
     setForecastModeDraft(category.forecastSettings?.mode ?? category.forecast.mode);
     setManualForecastDraft(formatCentsInput(category.forecastSettings?.manualProjectedSpendCents));
     setScheduledAmountDraft(formatCentsInput(category.forecastSettings?.scheduledAmountCents));
     setScheduledDueDayDraft(category.forecastSettings?.scheduledDueDay?.toString() ?? '');
     setCategoryError(null);
-  }, [category?.expectedNeed, category?.forecast.mode, category?.forecastSettings, category?.fundingRhythm, category?.name, category?.plannedCents, category?.sourceId]);
+  }, [category?.expectedNeed, category?.forecast.mode, category?.forecastSettings, category?.fundingRhythm, category?.name, category?.planRole, category?.plannedCents, category?.sourceId]);
 
   const previewMonthlyAmount = async () => {
     if (!category) return null;
@@ -134,6 +152,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         expectedNeedDueMonth,
       });
       setPlanImpact(preview);
+      setShowPlanChanges(false);
       return preview;
     } catch (error) {
       setMutationError(error);
@@ -156,6 +175,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         || fundingRhythmDraft !== category.fundingRhythm
         || expectedNeedCents !== (category.expectedNeed?.amountCents ?? null)
         || dueMonth !== (category.expectedNeed?.dueMonth ?? null);
+      const roleChanged = planRoleDraft !== category.planRole;
 
       if (planChanged) {
         const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
@@ -171,14 +191,19 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           fundingRhythm: fundingRhythmDraft,
           expectedNeedCents,
           expectedNeedDueMonth: dueMonth,
-        });
+        }, preview?.outcome === 'ready' ? preview : undefined);
       }
+      if (roleChanged) await updateCategoryPlan(category.sourceId, { planRole: planRoleDraft });
       if (name !== category.name) await renameCategory(category.sourceId, name);
       setSettingsOpen(false);
+      if (rebalanceAnswer) capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
       captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'succeeded', durationMs: Date.now() - startedAtMs });
       signalMoneyMutationOutcome('succeeded');
     } catch (error) {
       setMutationError(error);
+      if (rebalanceAnswer && error instanceof Error && error.message.includes('changed since you reviewed')) {
+        capture(AnalyticsEvent.MoneyRebalanceStaleRejected, buildMoneyRebalanceOutcomeProps({ outcome: 'stale_rejected', answerState: rebalanceAnswer.state }));
+      }
       captureMoneyMutation(capture, { operation: 'category_settings', outcome: 'failed', durationMs: Date.now() - startedAtMs });
       signalMoneyMutationOutcome('failed');
     }
@@ -256,7 +281,6 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
         <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
-        <DetailMenuItem icon="edit" label="Category settings" onPress={() => setSettingsOpen(true)} />
         {category.fundingRhythm === 'monthly' ? <DetailMenuItem icon="gauge" label="Forecast settings" onPress={() => setForecastSettingsOpen(true)} /> : null}
         <DetailMenuItem icon="shield" label="App controls" onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })} />
       </DropdownMenuContent>
@@ -321,6 +345,15 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
                 periodStartIso={view.periodStartIso}
                 transactions={view.transactions}
               />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Change ${category.name} plan`}
+                onPress={() => setSettingsOpen(true)}
+                style={({ pressed }) => [styles.changePlanLink, pressed ? styles.changePlanLinkPressed : null]}
+              >
+                <Text style={styles.changePlanText}>Change plan</Text>
+                <Icon name="chevronRight" size={18} color={colors.pine700} />
+              </Pressable>
             </View>
 
             {pendingAppControlReviewCategoryId === category.sourceId ? (
@@ -431,17 +464,32 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <BottomDrawer visible={settingsOpen} onClose={() => setSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
           <BottomDrawerHeader
-            closeAccessibilityLabel="Close category settings"
+            closeAccessibilityLabel="Close plan changes"
             onClose={() => setSettingsOpen(false)}
-            title="Category settings"
+            title={`Change ${category.name} plan`}
             titleVariant="lg"
             variant="withClose"
           />
-          <Input editable={!savingCategory} label="Name" onChangeText={setCategoryNameDraft} value={categoryNameDraft} />
+          <Input editable={!savingCategory} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); setPlanImpact(null); setShowPlanChanges(false); }} value={categoryNameDraft} />
           <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
+          <View style={styles.settingGroup}>
+            <Text style={styles.settingLabel}>COUNTS AS</Text>
+            <View style={styles.modeList}>
+              <ForecastModeRow active={planRoleDraft === 'protected'} detail="Keep this amount aside before flexible spending." label="Protected" onPress={() => setPlanRoleDraft('protected')} />
+              <ForecastModeRow active={planRoleDraft === 'flexible'} detail="Count spending here against flexible room." label="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
+            </View>
+            {planRoleDraft !== category.planRole ? (
+              <Text style={styles.drawerCopy}>{planRoleDraft === 'protected'
+                ? 'This category will be kept aside before Kwilt calculates flexible room.'
+                : 'Spending here will count against flexible room instead of being kept aside.'}</Text>
+            ) : null}
+          </View>
+          <View style={styles.settingGroup}>
+            <Text style={styles.settingLabel}>FUNDING RHYTHM</Text>
           <View style={styles.modeList}>
             <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
             <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
+          </View>
           </View>
           {fundingRhythmDraft === 'reserve' ? (
             <View style={styles.forecastInputs}>
@@ -463,13 +511,19 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             />
           </View>
           )}
-          {planImpact?.outcome === 'ready' ? (
-            <View style={styles.impactBox}>
-              <Text style={styles.toggleTitle}>{planImpact.changes.length === 1 ? '1 other category changes' : planImpact.changes.length > 1 ? `${planImpact.changes.length} other categories change` : 'No other category changes'}</Text>
-              <Text style={styles.toggleDescription}>{planImpact.after.overTargetCents > 0
-                ? `${formatMoney(planImpact.after.overTargetCents)} over the living target. Protected amounts stay in place.`
-                : `The full living target stays allocated. Spending already recorded does not change.`}</Text>
-            </View>
+          {planImpact?.outcome === 'ready' && rebalanceAnswer ? (
+            <RebalanceConsequence
+              answer={rebalanceAnswer}
+              editedCategoryId={category.id}
+              livingPercent={planImpact.after.livingPercent}
+              livingLimitCents={planImpact.after.targetCents}
+              categories={snapshot?.categories ?? []}
+              expanded={showPlanChanges}
+              onToggle={() => setShowPlanChanges((value) => {
+                if (!value) capture(AnalyticsEvent.MoneyRebalanceChangesOpened, buildMoneyRebalanceChangesOpenedProps({ changedCount: rebalanceAnswer.changedCategories.length }));
+                return !value;
+              })}
+            />
           ) : null}
           {categoryError ? <Text style={styles.errorText}>{categoryError}</Text> : null}
           <Button
@@ -610,7 +664,7 @@ function reserveCoverageCopy(
     monthlyContributionCents: Math.round(contribution * 100),
     priorReserveCents: category.reserveAvailableCents - category.monthlyContributionCents + category.spentCents,
     countedSpendCents: category.spentCents,
-    periodId: new Date().toISOString().slice(0, 7),
+    periodId: getLocalMoneyPeriodId(new Date()),
     expectedNeed: { amountCents: Math.round(amount * 100), dueMonth },
   }).coverage;
   if (coverage.status === 'none') return `${formatMoney(category.reserveAvailableCents)} is available now.`;
@@ -628,6 +682,67 @@ function fundingCoverageLabel(category: MoneyCategory): string {
   return `${formatMoney(coverage.shortfallCents)} short`;
 }
 
+function RebalanceConsequence({
+  answer,
+  categories,
+  editedCategoryId,
+  expanded,
+  livingLimitCents,
+  livingPercent,
+  onToggle,
+}: {
+  answer: MoneyRebalanceAnswer;
+  categories: MoneyCategory[];
+  editedCategoryId: string;
+  expanded: boolean;
+  livingLimitCents: number;
+  livingPercent: number;
+  onToggle: () => void;
+}) {
+  const otherChanges = answer.changedCategories.filter((change) => change.categoryId !== editedCategoryId);
+  const decreasedNames = otherChanges
+    .filter((change) => change.deltaCents < 0)
+    .map((change) => categories.find((category) => category.id === change.categoryId || category.sourceId === change.categoryId)?.name ?? change.categoryId);
+  const headline = answer.state === 'over_limit'
+    ? `This puts your plan ${formatMoney(answer.headlineAmountCents)} over its ${livingPercent}% living limit.`
+    : answer.state === 'no_change'
+      ? `This does not change your ${livingPercent}% living limit.`
+      : `This stays within your ${livingPercent}% living limit of ${formatMoney(livingLimitCents)}.`;
+  const support = answer.state === 'within_unassigned'
+    ? `This uses ${formatMoney(answer.headlineAmountCents)} that was not assigned. No other category changes.`
+    : answer.state === 'within_reallocated'
+      ? `${formatMoney(answer.movedCents)} moves from ${naturalList(decreasedNames)}. ${answer.protectedAmountsUnchanged ? 'Protected expenses do not change.' : 'Review the protected changes below.'}`
+      : answer.state === 'over_limit'
+        ? answer.protectedAmountsUnchanged ? 'Protected amounts stay in place.' : 'Review the protected changes below.'
+        : 'No category amount changes.';
+  return (
+    <View style={styles.rebalanceSummary}>
+      <Text style={styles.rebalanceHeadline}>{headline}</Text>
+      <Text style={styles.toggleDescription}>{support}</Text>
+      {otherChanges.length > 0 ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={expanded ? 'Hide changes' : 'See changes'} onPress={onToggle} hitSlop={8}>
+          <Text style={styles.rebalanceAction}>{expanded ? 'Hide changes' : 'See changes'}</Text>
+        </Pressable>
+      ) : null}
+      {expanded ? (
+        <View style={styles.rebalanceChanges}>
+          {otherChanges.map((change) => {
+            const name = categories.find((category) => category.id === change.categoryId || category.sourceId === change.categoryId)?.name ?? change.categoryId;
+            return <Text key={change.categoryId} style={styles.toggleDescription}>{name}: {formatMoney(change.beforeCents ?? 0)} → {formatMoney(change.afterCents ?? 0)}</Text>;
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function naturalList(values: string[]): string {
+  if (values.length === 0) return 'other flexible categories';
+  if (values.length === 1) return values[0];
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(', ')}, and ${values.at(-1)}`;
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   content: { paddingBottom: 80, paddingHorizontal: spacing.xl, gap: spacing.xl },
@@ -635,6 +750,9 @@ const styles = StyleSheet.create({
   heroArtwork: { ...StyleSheet.absoluteFillObject },
   summarySection: { gap: spacing.md },
   categoryTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, fontWeight: '700' },
+  changePlanLink: { alignSelf: 'flex-start', minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm },
+  changePlanLinkPressed: { opacity: 0.62 },
+  changePlanText: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   activitySection: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 20, lineHeight: 25, fontWeight: '700' },
@@ -680,12 +798,17 @@ const styles = StyleSheet.create({
   toggleTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
   toggleDescription: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   modeList: { gap: spacing.sm },
+  settingGroup: { gap: spacing.sm },
+  settingLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   modeRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   modeRowActive: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
   modeCopy: { flex: 1, minWidth: 0, gap: 2 },
   modeTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
   modeDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   forecastInputs: { gap: spacing.md },
-  impactBox: { gap: spacing.xs, padding: spacing.md, borderRadius: 12, backgroundColor: colors.pine50 },
+  rebalanceSummary: { gap: spacing.xs },
+  rebalanceHeadline: { color: colors.textPrimary, fontFamily: fonts.bold, fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  rebalanceAction: { alignSelf: 'flex-start', color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600', paddingVertical: spacing.xs },
+  rebalanceChanges: { gap: spacing.xs, paddingTop: spacing.xs },
   errorText: { color: colors.destructive, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
 });

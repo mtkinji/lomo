@@ -43,14 +43,18 @@ import { Text } from '../../../ui/Typography';
 import { buildAltitudeSegments } from '../domain/exploreElevation';
 import {
   buildFogHole,
+  buildFogRenderGeometry,
+  coordinateDistanceM,
   EXPLORE_FEATHER_REFERENCE_RADIUS_M,
   EXPLORE_REVEAL_RADIUS_M,
   isCoordinateExplored,
 } from '../domain/exploreGeometry';
+import type { ExploreNearbyRadius, ExploreNearbyRecommendation } from '../domain/exploreNearby';
 import { pendingExploreRecap } from '../domain/exploreRecap';
 import type { ExplorePoint, ExplorePreferences, Place } from '../domain/types';
 import type { ExploreStackParamList } from '../navigation/types';
 import { useExploreRecorder } from '../runtime/useExploreRecorder';
+import { useExploreNearbyPlaces } from '../runtime/useExploreNearbyPlaces';
 import { useExploreRecapResolver } from '../runtime/useExploreRecapResolver';
 import { useExploreStore } from '../runtime/useExploreStore';
 
@@ -60,6 +64,10 @@ const DEFAULT_REGION: Region = {
   latitudeDelta: 42,
   longitudeDelta: 42,
 };
+
+export const EXPLORE_PLACE_REVEAL_RADIUS_M = EXPLORE_REVEAL_RADIUS_M * 3;
+
+type PlacesCollection = 'nearby' | 'my-places';
 
 function pointGroupsInDisplayOrder(
   sessions: ReturnType<typeof useExploreStore.getState>['sessions'],
@@ -118,6 +126,8 @@ export function ExploreMapScreen() {
   const recorder = useExploreRecorder();
   useExploreRecapResolver(localUserId);
   const [searchVisible, setSearchVisible] = useState(false);
+  const [placesCollection, setPlacesCollection] = useState<PlacesCollection>('nearby');
+  const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [collectingPlace, setCollectingPlace] = useState(false);
   const [placeName, setPlaceName] = useState('');
@@ -132,10 +142,6 @@ export function ExploreMapScreen() {
   const [visibleRegion, setVisibleRegion] = useState<Region>(() =>
     latestPoint ? regionAround(latestPoint) : DEFAULT_REGION,
   );
-  const altitudeSegments = useMemo(
-    () => pointGroups.flatMap((group) => buildAltitudeSegments(group)),
-    [pointGroups],
-  );
   const visibleCells = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
@@ -147,24 +153,54 @@ export function ExploreMapScreen() {
       .slice(-700);
   }, [exploredCells, visibleRegion]);
   const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
+  const createdPlaces = useMemo(() => Object.values(placeRelationships)
+    .filter((relationship) => relationship.userId === localUserId)
+    .sort((left, right) => Date.parse(left.lastVisitedAt) - Date.parse(right.lastVisitedAt))
+    .map((relationship) => places[relationship.placeId])
+    .filter((place): place is Place => place?.source === 'user')
+    .slice(-256), [localUserId, placeRelationships, places]);
+  const visibleCreatedPlaces = useMemo(() => {
+    const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
+    const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
+    return createdPlaces.filter((place) =>
+      Math.abs(place.latitude - visibleRegion.latitude) <= latitudeRadius &&
+      Math.abs(place.longitude - visibleRegion.longitude) <= longitudeRadius,
+    );
+  }, [createdPlaces, visibleRegion]);
   const fogHoles = useMemo(() => {
     return {
-      core: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
+      core: [
+        ...visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 68)),
+        ...visibleCreatedPlaces.map((place) => buildFogHole(place, EXPLORE_PLACE_REVEAL_RADIUS_M)),
+      ],
       mist: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M + 30)),
       veil: visibleCells.map((cell) => buildFogHole(cell.center, EXPLORE_REVEAL_RADIUS_M)),
     };
-  }, [visibleCells]);
+  }, [visibleCells, visibleCreatedPlaces]);
+  const fogGeometry = useMemo(
+    () => buildFogRenderGeometry([...pointGroups].reverse()),
+    [pointGroups],
+  );
+  const altitudeSegments = useMemo(
+    () => fogGeometry.traces.flatMap((trace) => buildAltitudeSegments(trace)),
+    [fogGeometry],
+  );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
       fogEnabled: preferences.showFog,
-      fogCoordinates: preferences.showFog ? visibleCells.map((cell) => cell.center) : [],
+      fogCoordinates: preferences.showFog ? fogGeometry.points : [],
+      fogSegmentStarts: preferences.showFog ? fogGeometry.segmentStarts : [],
+      fogSegmentEnds: preferences.showFog ? fogGeometry.segmentEnds : [],
+      fogPlaceCoordinates: preferences.showFog ? createdPlaces : [],
       fogClearRadiusMeters: EXPLORE_REVEAL_RADIUS_M,
       fogFeatherReferenceRadiusMeters: EXPLORE_FEATHER_REFERENCE_RADIUS_M,
-    } as unknown as ComponentProps<typeof MapView>) : {}, [preferences.showFog, visibleCells]);
+      fogPlaceRevealRadiusMeters: EXPLORE_PLACE_REVEAL_RADIUS_M,
+    } as unknown as ComponentProps<typeof MapView>) : {}, [createdPlaces, fogGeometry, preferences.showFog]);
   const exploredCellValues = useMemo(() => Object.values(exploredCells), [exploredCells]);
   const savedPlaces = useMemo(() => {
     const visitedIds = new Set(Object.values(placeRelationships).map((relationship) => relationship.placeId));
     return Object.values(places).filter((place) => visitedIds.has(place.id));
   }, [placeRelationships, places]);
+  const nearby = useExploreNearbyPlaces(savedPlaces);
   const mapPlaces = useMemo(
     () => preferences.showPlaces
       ? savedPlaces.filter((place) => isCoordinateExplored(place, exploredCellValues))
@@ -260,8 +296,11 @@ export function ExploreMapScreen() {
     setCollectingPlace(false);
   };
 
-  const centerMap = (coordinate: Pick<ExplorePoint, 'latitude' | 'longitude'>) => {
-    mapRef.current?.animateToRegion(regionAround(coordinate), 450);
+  const centerMap = (
+    coordinate: Pick<ExplorePoint, 'latitude' | 'longitude'>,
+    verticalOffsetRatio = 0,
+  ) => {
+    mapRef.current?.animateToRegion(regionAround(coordinate, verticalOffsetRatio), 450);
   };
 
   const centerOnCurrentLocation = async () => {
@@ -270,10 +309,35 @@ export function ExploreMapScreen() {
   };
 
   const showPlaceOnMap = (place: Place) => {
-    setSearchVisible(false);
     setSearchQuery('');
-    centerMap(place);
+    centerMap(place, 0.28);
   };
+
+  const visibleCenter = { latitude: visibleRegion.latitude, longitude: visibleRegion.longitude };
+  const openPlaces = () => {
+    setPlacesCollection('nearby');
+    setSearchVisible(true);
+    void nearby.search(visibleCenter);
+  };
+
+  const changePlacesCollection = (collection: PlacesCollection) => {
+    setPlacesCollection(collection);
+    if (collection === 'nearby' && nearby.status === 'idle') void nearby.search(visibleCenter);
+  };
+
+  const changeNearbyRadius = (radius: ExploreNearbyRadius) => {
+    nearby.setRadius(radius);
+    void nearby.search(visibleCenter, radius);
+  };
+
+  const showNearbyPlaceOnMap = (place: ExploreNearbyRecommendation) => {
+    setSelectedNearbyId(place.id);
+    centerMap(place, 0.28);
+  };
+
+  const mapMovedSinceNearbySearch = nearby.searchedCenter
+    ? coordinateDistanceM(nearby.searchedCenter, visibleCenter) > 80
+    : false;
 
   const finishOnboarding = async (mode: ExplorePreferences['recording']) => {
     const changed = await recorder.setRecordingMode(mode);
@@ -338,18 +402,30 @@ export function ExploreMapScreen() {
           strokeWidth={0}
         />
         </> : null}
-        {preferences.showMyPath
-          ? altitudeSegments.map((segment, index) => (
+        {preferences.showMyPath ? <>
+          {fogGeometry.traces.map((trace, index) => (
+            <Polyline
+              key={`path-casing-${index}`}
+              testID="explore.path.casing"
+              coordinates={trace}
+              strokeColor="rgba(255, 255, 255, 0.92)"
+              strokeWidth={8}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ))}
+          {altitudeSegments.map((segment, index) => (
               <Polyline
                 key={`altitude-segment-${index}`}
+                testID="explore.path.altitude"
                 coordinates={segment.coordinates}
                 strokeColor={segment.color}
-                strokeWidth={5}
+                strokeWidth={4.5}
                 lineCap="round"
                 lineJoin="round"
               />
-            ))
-          : null}
+            ))}
+        </> : null}
         {mapPlaces.map((place) => (
           <Marker
             key={place.id}
@@ -359,6 +435,26 @@ export function ExploreMapScreen() {
             pinColor={colors.turmeric600}
           />
         ))}
+        {searchVisible && placesCollection === 'nearby' ? nearby.results.map((place) => (
+          <Marker
+            key={`nearby:${place.id}`}
+            testID="explore.nearby.marker"
+            coordinate={place}
+            title={place.name}
+            description="Nearby possibility"
+            onPress={() => showNearbyPlaceOnMap(place)}
+          >
+            <View
+              testID="explore.nearby.marker.glyph"
+              style={[
+                styles.nearbyMapMarker,
+                selectedNearbyId === place.id ? styles.nearbyMapMarkerSelected : null,
+              ]}
+            >
+              <View style={styles.nearbyMapMarkerCore} />
+            </View>
+          </Marker>
+        )) : null}
       </MapView>
 
       {!needsOnboarding ? (
@@ -560,8 +656,8 @@ export function ExploreMapScreen() {
         <View testID="explore.mapToolsRow" style={styles.mapToolsRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Search visited Places"
-            onPress={() => setSearchVisible(true)}
+            accessibilityLabel="Open Places"
+            onPress={openPlaces}
             style={({ pressed }) => [styles.placeSearchControl, pressed ? styles.pressed : null]}
           >
             <BlurView
@@ -571,9 +667,9 @@ export function ExploreMapScreen() {
               style={StyleSheet.absoluteFillObject}
             />
             <View pointerEvents="none" style={styles.floatingControlTint} />
-            <Icon name="search" size={20} color={colors.textPrimary} />
+            <Icon name="pin" size={20} color={colors.textPrimary} />
             <Text numberOfLines={1} style={styles.placeSearchLabel}>
-              {savedPlaces.length ? 'Search visited Places' : 'Visited Places'}
+              Places
             </Text>
           </Pressable>
         </View>
@@ -626,48 +722,128 @@ export function ExploreMapScreen() {
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer visible={searchVisible} onClose={() => setSearchVisible(false)} snapPoints={['48%']}>
+      <BottomDrawer
+        visible={searchVisible}
+        onClose={() => setSearchVisible(false)}
+        snapPoints={['58%']}
+        presentation="inline"
+        hideBackdrop
+      >
         <BottomDrawerScrollView
           contentContainerStyle={[styles.searchDrawerContent, { paddingBottom: insets.bottom + spacing.xl }]}
           keyboardShouldPersistTaps="handled"
         >
-          <BottomDrawerHeader title="Visited Places" variant="minimal" />
-          <View style={styles.placeSearchField}>
-            <Icon name="search" size={19} color={colors.textSecondary} />
-            <TextInput
-              accessibilityLabel="Search Places"
-              autoFocus
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search places you’ve visited"
-              placeholderTextColor={colors.textSecondary}
-              returnKeyType="search"
-              style={styles.placeSearchInput}
-            />
-          </View>
-          {filteredPlaces.length ? (
-            <View style={styles.searchResults}>
-              {filteredPlaces.map((place) => (
-                <Pressable
-                  key={place.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View ${place.name} on map`}
-                  onPress={() => showPlaceOnMap(place)}
-                  style={({ pressed }) => [styles.searchResultRow, pressed ? styles.pressed : null]}
+          <BottomDrawerHeader title="Places" variant="minimal" />
+          <SegmentedControl
+            value={placesCollection}
+            onChange={changePlacesCollection}
+            options={[
+              { value: 'nearby', label: 'Nearby' },
+              { value: 'my-places', label: 'My Places' },
+            ]}
+            testIDPrefix="explore.places.segment"
+          />
+          {placesCollection === 'nearby' ? <>
+            <View style={styles.nearbyToolbar}>
+              <SegmentedControl
+                value={nearby.radius}
+                onChange={changeNearbyRadius}
+                options={[
+                  { value: 'quarter-mile', label: '¼ mi' },
+                  { value: 'half-mile', label: '½ mi' },
+                  { value: 'one-mile', label: '1 mi' },
+                ]}
+                size="compact"
+                style={styles.nearbyRadiusControl}
+                testIDPrefix="explore.nearby.radius"
+              />
+              {mapMovedSinceNearbySearch || nearby.status === 'error' ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => { void nearby.search(visibleCenter); }}
                 >
-                  <View style={styles.searchResultIcon}>
-                    <Icon name="pin" size={18} color={colors.pine700} />
-                  </View>
-                  <Text style={styles.searchResultName}>{place.name}</Text>
-                  <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-                </Pressable>
-              ))}
+                  {nearby.status === 'error' ? 'Try again' : 'Search this area'}
+                </Button>
+              ) : null}
             </View>
-          ) : (
-            <Text style={styles.searchEmpty}>
-              {savedPlaces.length ? 'No visited Places match that search.' : 'Places will appear here after you discover or collect them.'}
-            </Text>
-          )}
+            {nearby.status === 'loading' ? (
+              <Text style={styles.searchEmpty}>Finding a few places nearby…</Text>
+            ) : nearby.status === 'unavailable' ? (
+              <Text style={styles.searchEmpty}>Nearby suggestions are not available on this device yet.</Text>
+            ) : nearby.status === 'error' ? (
+              <Text style={styles.searchEmpty}>Nearby places could not load. Try this area again.</Text>
+            ) : nearby.status === 'empty' ? (
+              <Text style={styles.searchEmpty}>No strong suggestions in this area yet.</Text>
+            ) : nearby.results.length ? (
+              <View style={styles.searchResults}>
+                {nearby.results.map((place) => (
+                  <Pressable
+                    key={place.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Suggestion: ${place.name}. ${place.reason}. ${formatNearbyDistance(place.distanceM)}. View on map`}
+                    accessibilityState={{ selected: selectedNearbyId === place.id }}
+                    onPress={() => showNearbyPlaceOnMap(place)}
+                    style={({ pressed }) => [
+                      styles.searchResultRow,
+                      selectedNearbyId === place.id ? styles.nearbyResultSelected : null,
+                      pressed ? styles.pressed : null,
+                    ]}
+                  >
+                    <View style={styles.nearbyResultIcon}>
+                      <Icon name="pin" size={18} color={colors.pine700} />
+                    </View>
+                    <View style={styles.nearbyResultCopy}>
+                      <Text style={styles.searchResultName}>{place.name}</Text>
+                      <View style={styles.nearbyResultMeta}>
+                        <Text style={styles.nearbyResultDetail}>{place.reason}</Text>
+                        <Text style={styles.nearbyResultDetail}>{formatNearbyDistance(place.distanceM)}</Text>
+                      </View>
+                    </View>
+                    <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.searchEmpty}>Search this area to find a few interesting places nearby.</Text>
+            )}
+          </> : <>
+            <View style={styles.placeSearchField}>
+              <Icon name="search" size={19} color={colors.textSecondary} />
+              <TextInput
+                accessibilityLabel="Search Places"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search places you’ve visited"
+                placeholderTextColor={colors.textSecondary}
+                returnKeyType="search"
+                style={styles.placeSearchInput}
+              />
+            </View>
+            {filteredPlaces.length ? (
+              <View style={styles.searchResults}>
+                {filteredPlaces.map((place) => (
+                  <Pressable
+                    key={place.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View ${place.name} on map`}
+                    onPress={() => showPlaceOnMap(place)}
+                    style={({ pressed }) => [styles.searchResultRow, pressed ? styles.pressed : null]}
+                  >
+                    <View style={styles.searchResultIcon}>
+                      <Icon name="pin" size={18} color={colors.pine700} />
+                    </View>
+                    <Text style={styles.searchResultName}>{place.name}</Text>
+                    <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.searchEmpty}>
+                {savedPlaces.length ? 'No visited Places match that search.' : 'Places will appear here after you discover or collect them.'}
+              </Text>
+            )}
+          </>}
         </BottomDrawerScrollView>
       </BottomDrawer>
 
@@ -763,6 +939,12 @@ function formatRecapDuration(startedAt: string, endedAt: string): string {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
+}
+
+function formatNearbyDistance(distanceM: number): string {
+  const miles = distanceM / 1609.344;
+  if (miles < 0.1) return '<0.1 mi away';
+  return `${miles.toFixed(1)} mi away`;
 }
 
 function MapToggleMenuItem({ label, onPress, selected }: {
@@ -956,6 +1138,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(20, 25, 22, 0.76)',
   },
   searchDrawerContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  nearbyToolbar: { gap: spacing.sm, alignItems: 'stretch' },
+  nearbyRadiusControl: { alignSelf: 'stretch' },
   placeSearchField: {
     minHeight: 48,
     borderRadius: 16,
@@ -970,6 +1154,14 @@ const styles = StyleSheet.create({
   placeSearchInput: { ...typography.body, flex: 1, color: colors.textPrimary, paddingVertical: spacing.sm },
   searchResults: { gap: spacing.xs },
   searchResultRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  nearbyResultSelected: { borderRadius: 16, backgroundColor: colors.pine50, paddingHorizontal: spacing.sm },
+  nearbyResultIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.pine200, backgroundColor: colors.card },
+  nearbyResultCopy: { flex: 1, gap: 2 },
+  nearbyResultMeta: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.sm },
+  nearbyResultDetail: { ...typography.bodyXs, color: colors.textSecondary },
+  nearbyMapMarker: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: colors.pine700, backgroundColor: colors.gray50, shadowColor: colors.sumi900, shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  nearbyMapMarkerSelected: { borderWidth: 4, backgroundColor: colors.pine50, transform: [{ scale: 1.12 }] },
+  nearbyMapMarkerCore: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.pine700 },
   searchResultIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pine50 },
   searchResultName: { ...typography.body, flex: 1, color: colors.textPrimary },
   searchEmpty: { ...typography.bodySm, color: colors.textSecondary, textAlign: 'center', paddingVertical: spacing.xl },

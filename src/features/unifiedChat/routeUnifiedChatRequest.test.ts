@@ -52,6 +52,22 @@ describe('routeUnifiedChatRequest', () => {
     expect(call[1].launchContextSummary).toContain('Do not answer the user');
   });
 
+  it('describes Money as the owner of current income-limit answers', async () => {
+    const sendCoachChat = jest.fn(async () => JSON.stringify({
+      requestClass: 'capability_question', participatingCapabilities: ['money'],
+      usePrivateContext: true, informationNeed: 'current', confidence: 0.98,
+      reason: 'The user asked about the current living limit.',
+    }));
+
+    await routeUnifiedChatRequest({
+      prompt: 'Am I within my income spending limit?', visibleContext: [], recentTurns: [],
+    }, { sendCoachChat: sendCoachChat as never });
+
+    const call = sendCoachChat.mock.calls[0] as unknown as [unknown, { launchContextSummary?: string }];
+    expect(call[1].launchContextSummary).toContain('living limit');
+    expect(call[1].launchContextSummary).toContain('current plan-versus-income-limit answer');
+  });
+
   it.each([
     ['malformed output', async () => 'not json'],
     ['transport failure', async () => { throw new Error('offline'); }],

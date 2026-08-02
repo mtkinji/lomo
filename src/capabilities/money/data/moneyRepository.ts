@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../../../services/backend/supabaseClient';
 import type { CategoryPlanInput } from '../domain/categoryPlanDraft';
 import { validateMoneyCategoryCover, type MoneyCategoryCover } from '../domain/moneyCategoryCover';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
+import type { MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import { CATEGORY_FUNDING_POLICY_VERSION, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import { collectAllPages } from '../domain/living-plan-pagination';
 import {
@@ -67,6 +68,7 @@ export type ConfirmedCategoryWrite = {
     scheduledAmountCents?: number | null;
     scheduledDueDay?: number | null;
     coverImage?: MoneyCategoryCover | null;
+    planRole?: MoneyCategoryPlanRole;
   };
 };
 
@@ -82,6 +84,7 @@ export type ConfirmedMerchantRuleWrite = {
 
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
+  classifyUnresolvedTransactions(): Promise<{ consideredCount: number; assignedCount: number; unresolvedCount: number }>;
   ensureGovernedPlanFoundation(): Promise<void>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<ConfirmedTransactionWrite>;
   markTransactionNotCounted(transactionId: string): Promise<ConfirmedTransactionWrite>;
@@ -113,6 +116,7 @@ export interface MoneyRepository {
     fundingRhythm?: CategoryFundingRhythm;
     expectedNeedCents?: number | null;
     expectedNeedDueMonth?: string | null;
+    planRole?: MoneyCategoryPlanRole;
   }): Promise<ConfirmedCategoryWrite>;
 }
 
@@ -173,6 +177,9 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 iso_currency_code,
                 budget_id,
                 budget_match_source,
+                budget_assignment_source,
+                budget_assignment_policy_version,
+                budget_assignment_governed,
                 money_meaning,
                 personal_finance_category_primary,
                 personal_finance_category_detailed,
@@ -252,6 +259,19 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
   return {
     loadSnapshot,
+    async classifyUnresolvedTransactions() {
+      await requireSignedIn(client);
+      const { data, error } = await client.functions.invoke('classify-money-transactions', { body: {} });
+      if (error) throw new Error(`Money could not classify transactions: ${error.message || 'Unknown server error'}`);
+      const result = data as Record<string, unknown> | null;
+      const consideredCount = Number(result?.consideredCount);
+      const assignedCount = Number(result?.assignedCount);
+      const unresolvedCount = Number(result?.unresolvedCount);
+      if (![consideredCount, assignedCount, unresolvedCount].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+        throw new Error('Money received an invalid classification receipt.');
+      }
+      return { consideredCount, assignedCount, unresolvedCount };
+    },
     async ensureGovernedPlanFoundation() {
       await requireSignedIn(client);
       const { error } = await client.functions.invoke('reconcile-governed-money', { body: {} });
@@ -376,6 +396,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
         update.base_budget_cents = input.budgetCents;
       }
       if (input.rolloverEnabled != null) update.rollover_enabled = input.rolloverEnabled;
+      if (input.planRole != null) update.plan_role = input.planRole;
       if (input.forecastMode != null) update.forecast_mode = input.forecastMode;
       if ('manualProjectedSpendCents' in input) {
         validateNullableCents(input.manualProjectedSpendCents, 'manual forecast');
@@ -434,6 +455,7 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
           ...('manualProjectedSpendCents' in input ? { manualProjectedSpendCents: input.manualProjectedSpendCents ?? null } : null),
           ...('scheduledAmountCents' in input ? { scheduledAmountCents: input.scheduledAmountCents ?? null } : null),
           ...('scheduledDueDay' in input ? { scheduledDueDay: input.scheduledDueDay ?? null } : null),
+          ...(input.planRole != null ? { planRole: input.planRole } : null),
         },
       };
     },
@@ -474,9 +496,19 @@ function parseMerchantRuleReceipt(data: unknown, transactionId: string): Confirm
 async function readPlanRows(db: MoneyReadClient): Promise<MoneyPlanRow[]> {
   const expanded = await db
     .from('budget_plans')
-    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month')
+    .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month,plan_role')
     .eq('status', 'active');
   if (!expanded.error) return (expanded.data ?? []) as MoneyPlanRow[];
+  const missingPlanRole = expanded.error.code === 'PGRST204'
+    || expanded.error.message?.includes('plan_role');
+  if (missingPlanRole) {
+    const withoutPlanRole = await db
+      .from('budget_plans')
+      .select('category_id,base_budget_cents,rollover_enabled,forecast_mode,manual_projected_spend_cents,scheduled_amount_cents,scheduled_due_day,funding_rhythm,funding_policy_version,starter_weight,reserve_balance_cents,reserve_balance_period_id,expected_need_cents,expected_need_due_month')
+      .eq('status', 'active');
+    if (!withoutPlanRole.error) return (withoutPlanRole.data ?? []) as MoneyPlanRow[];
+    expanded.error = withoutPlanRole.error;
+  }
   const missingFundingColumns = expanded.error.code === 'PGRST204'
     || expanded.error.message?.includes('funding_rhythm')
     || expanded.error.message?.includes('expected_need');
@@ -534,7 +566,7 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
 async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
   const withCover = await db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags')
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
   if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];

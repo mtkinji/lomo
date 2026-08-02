@@ -2,11 +2,75 @@ import type { AgentToolLoopEvent } from '@kwilt/agent-runtime';
 import type { UnifiedChatRequestPolicy } from './requestPolicy';
 import type { UnifiedChatThreadAggregate } from './types';
 import type { UnifiedChatProposal } from './types';
+import type { AgentJudgment } from './agentJudgment';
+import type { UnifiedChatCapabilityId, UnifiedChatRequestClass } from './requestPolicy';
 
 export type UnifiedChatTelemetryProperties = Record<
   string,
   string | number | boolean | null | undefined
 >;
+
+export type UnifiedChatJudgmentSource = 'model' | 'semantic_fallback' | 'deterministic_fallback';
+
+function confidenceBucket(confidence: number): 'low' | 'medium' | 'high' {
+  if (confidence < 0.5) return 'low';
+  if (confidence < 0.8) return 'medium';
+  return 'high';
+}
+
+export function buildUnifiedChatFreshEntryTelemetry(
+  source: string | undefined,
+  outcome: 'first_send' | 'abandoned' | 'thread_creation_failed',
+): UnifiedChatTelemetryProperties {
+  return {
+    entry_source: source === 'widget' ? 'widget' : 'other',
+    outcome,
+  };
+}
+
+export function buildUnifiedChatAgentJudgmentTelemetry(
+  judgment: AgentJudgment | null,
+  source: UnifiedChatJudgmentSource,
+  fallback?: {
+    requestClass: UnifiedChatRequestClass;
+    participatingCapabilities: readonly UnifiedChatCapabilityId[];
+  },
+): UnifiedChatTelemetryProperties {
+  const capabilityIds = judgment?.participatingCapabilities ?? fallback?.participatingCapabilities ?? [];
+  const toolIds = judgment
+    ? [...new Set(judgment.steps.flatMap((step) => step.toolId ? [step.toolId] : []))]
+    : [];
+  const constraintKinds = judgment
+    ? [...new Set(judgment.constraints.map((constraint) => constraint.kind))]
+    : [];
+  return {
+    judgment_source: source,
+    request_class: judgment?.requestClass ?? fallback?.requestClass ?? 'general',
+    execution_mode: judgment?.executionMode ?? null,
+    capability_ids: capabilityIds.join(','),
+    tool_ids: toolIds.join(','),
+    step_count: judgment?.steps.length ?? 0,
+    constraint_kinds: constraintKinds.join(','),
+    confidence_bucket: judgment ? confidenceBucket(judgment.confidence) : null,
+  };
+}
+
+export function buildUnifiedChatAgentPlanOutcomeTelemetry(
+  judgment: AgentJudgment | null,
+  source: UnifiedChatJudgmentSource,
+  outcome: string,
+  failureCode: string | null,
+  fallback?: {
+    requestClass: UnifiedChatRequestClass;
+    participatingCapabilities: readonly UnifiedChatCapabilityId[];
+  },
+): UnifiedChatTelemetryProperties {
+  return {
+    ...buildUnifiedChatAgentJudgmentTelemetry(judgment, source, fallback),
+    outcome,
+    failure_code: failureCode,
+  };
+}
 
 export function buildUnifiedChatRouteTelemetry(
   policy: UnifiedChatRequestPolicy,

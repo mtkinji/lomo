@@ -74,7 +74,11 @@ export function OpenSlanguageTableLobby({
     {isHost ? <View style={styles.inviteArea}>
       <View style={styles.qrWrap}>{inviteUrl ? <QRCode value={inviteUrl} size={142} color={gamesTheme.colors.ink} backgroundColor={gamesTheme.colors.paper} /> : <Text style={styles.loading}>Opening the table…</Text>}</View>
       <View style={styles.inviteCopy}>
-        {tableMark ? <View style={styles.nearby}><Radio size={16} color={gamesTheme.colors.felt} /><Text style={styles.nearbyText}>{tableMark} · nearby</Text></View> : null}
+        {tableMark ? <View style={styles.nearby}>
+          <Radio size={18} color={gamesTheme.colors.felt} />
+          <View style={styles.nearbyCopy}><Text style={styles.nearbyTitle}>Open nearby</Text><Text style={styles.nearbyText}>People in Kwilt can find this table while this screen is open.</Text></View>
+          <Text style={styles.nearbyMark}>{tableMark}</Text>
+        </View> : null}
         {invite ? <><Text style={styles.codeLabel}>TABLE CODE</Text><Text selectable style={styles.code}>{invite.code.slice(0, 3)}-{invite.code.slice(3)}</Text></> : null}
         {inviteUrl ? <Pressable accessibilityRole="button" onPress={() => void Share.share({ message: `Join our Slanguage table: ${inviteUrl}`, url: inviteUrl })} style={styles.share}><Share2 size={16} color={gamesTheme.colors.ink} /><Text style={styles.shareText}>Share</Text></Pressable> : null}
       </View>
@@ -106,8 +110,11 @@ const styles = StyleSheet.create({
   qrWrap: { width: 148, height: 148, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: gamesTheme.colors.paper },
   loading: { fontFamily: gamesTheme.type.body, fontSize: 12, color: 'rgba(32,29,24,0.5)' },
   inviteCopy: { flex: 1, alignItems: 'center', gap: 6 },
-  nearby: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nearbyText: { fontFamily: gamesTheme.type.utility, fontSize: 11, color: gamesTheme.colors.felt },
+  nearby: { width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 7, padding: 9, borderRadius: 15, backgroundColor: 'rgba(86,139,113,0.1)' },
+  nearbyCopy: { flex: 1, gap: 2 },
+  nearbyTitle: { fontFamily: gamesTheme.type.display, fontSize: 14, color: gamesTheme.colors.ink },
+  nearbyText: { fontFamily: gamesTheme.type.body, fontSize: 10, lineHeight: 14, color: 'rgba(32,29,24,0.58)' },
+  nearbyMark: { fontFamily: gamesTheme.type.utility, fontSize: 9, color: gamesTheme.colors.felt },
   codeLabel: { fontFamily: gamesTheme.type.utility, fontSize: 8, letterSpacing: 1.3, color: 'rgba(32,29,24,0.45)' },
   code: { fontFamily: gamesTheme.type.display, fontSize: 22, letterSpacing: 2, color: gamesTheme.colors.ink },
   share: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -3,9 +3,13 @@ const mockPlayers = Array.from({ length: 8 }, () => ({
   shouldCorrectPitch: true, setPlaybackRate: jest.fn(),
 }));
 let mockNextPlayer = 0;
+const mockSources: unknown[] = [];
 
 jest.mock('expo-audio', () => ({
-  useAudioPlayer: () => mockPlayers[mockNextPlayer++],
+  useAudioPlayer: (source: unknown) => {
+    mockSources.push(source);
+    return mockPlayers[mockNextPlayer++];
+  },
   setAudioModeAsync: jest.fn(async () => undefined),
 }));
 jest.mock('expo-haptics', () => ({
@@ -22,11 +26,12 @@ describe('usePatternAudio', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockNextPlayer = 0;
+    mockSources.length = 0;
     mockPlayers.forEach((player) => { player.seekTo.mockClear(); player.play.mockClear(); player.setPlaybackRate.mockClear(); });
   });
   afterEach(() => jest.useRealTimers());
 
-  it('gives every color a distinct pitched voice', async () => {
+  it('plays color voices without runtime pitch shifting', async () => {
     const { result } = renderHook(() => usePatternAudio());
 
     await act(async () => {
@@ -34,8 +39,8 @@ describe('usePatternAudio', () => {
       await result.current.beat('rose');
     });
 
-    expect(mockPlayers[0].setPlaybackRate).toHaveBeenCalledWith(0.72);
-    expect(mockPlayers[5].setPlaybackRate).toHaveBeenCalledWith(1.58);
+    expect(mockSources).toHaveLength(8);
+    expect(mockPlayers.slice(0, 6).every((player) => player.setPlaybackRate.mock.calls.length === 0)).toBe(true);
     expect(mockPlayers[0].play).toHaveBeenCalledTimes(1);
     expect(mockPlayers[5].play).toHaveBeenCalledTimes(1);
   });

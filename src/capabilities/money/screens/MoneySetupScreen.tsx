@@ -6,6 +6,7 @@ import { colors, spacing } from '../../../theme';
 import { Button } from '../../../ui/Button';
 import { Heading, Text } from '../../../ui/Typography';
 import { useMoneyData } from '../data/MoneyDataContext';
+import { formatMoney } from '../data/moneySnapshot';
 import { getLivingPlanSettings, saveLivingPlanPromotionEnabled, saveLivingTargetIntent } from '../data/livingPlanRepository';
 import { buildMoneyOnboardingTarget, getMoneyOnboardingCompletionDecision, shouldOfferMoneyOnboarding } from '../domain/moneyOnboarding';
 import { startMoneyPlaidLink } from '../native/moneyPlaidLink';
@@ -158,15 +159,36 @@ export function MoneySetupScreen({ navigation }: NativeStackScreenProps<MoneySta
 
         {step === 'complete' ? <>
           <Text variant="label" tone="secondary">Money is ready</Text>
-          <Heading variant="lg">Your plan lives in Kwilt now.</Heading>
-          <Text tone="secondary">Review the summary, inspect plan receipts, or adjust the living target whenever life changes.</Text>
-          <Button fullWidth onPress={() => navigation.navigate('MoneySummary')} variant="primary">View Money summary</Button>
-          <Button fullWidth onPress={() => navigation.navigate('MoneyLivingPlan')} variant="outline">Review Money plan</Button>
+          <Heading variant="lg">Your monthly plan</Heading>
+          {snapshot?.livingLimitAnswer?.facts.livingLimitCents != null
+            && snapshot.livingLimitAnswer.facts.protectedPlanCents != null
+            && snapshot.livingLimitAnswer.facts.flexibleCapacityCents != null ? (
+              <View style={styles.planFacts}>
+                <SetupPlanRow label="You plan to use" value={formatMoney(snapshot.livingLimitAnswer.facts.livingLimitCents)} />
+                <SetupPlanRow label="Protected costs" value={`−${formatMoney(snapshot.livingLimitAnswer.facts.protectedPlanCents)}`} />
+                <View style={styles.planDivider} />
+                <SetupPlanRow emphasized label="Flexible money" value={formatMoney(snapshot.livingLimitAnswer.facts.flexibleCapacityCents)} />
+              </View>
+            ) : (
+              <Text tone="secondary">Kwilt will keep your monthly plan current and tell you what is left.</Text>
+            )}
+          <Text tone="secondary">Kwilt will keep this plan current and tell you what is left for flexible spending.</Text>
+          <Button fullWidth onPress={() => navigation.navigate('MoneySummary')} variant="primary">Use this plan</Button>
+          <Button fullWidth onPress={() => navigation.navigate('MoneyLivingPlan')} variant="outline">Change plan</Button>
         </> : null}
       </View>
 
       {message ? <Text accessibilityRole="alert" tone="secondary" style={styles.message}>{message}</Text> : null}
     </MoneyScreenFrame>
+  );
+}
+
+function SetupPlanRow({ emphasized = false, label, value }: { emphasized?: boolean; label: string; value: string }) {
+  return (
+    <View style={styles.planRow}>
+      <Text variant="body" tone={emphasized ? 'default' : 'secondary'} style={emphasized ? styles.planEmphasis : undefined}>{label}</Text>
+      <Text variant="body" style={emphasized ? styles.planEmphasis : undefined}>{value}</Text>
+    </View>
   );
 }
 
@@ -185,5 +207,9 @@ const styles = StyleSheet.create({
   targetOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   targetOption: { minWidth: 64, alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill },
   targetOptionSelected: { borderColor: colors.accent, backgroundColor: colors.card },
+  planFacts: { gap: spacing.sm, paddingVertical: spacing.xs },
+  planRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing.md },
+  planDivider: { height: 1, backgroundColor: colors.border },
+  planEmphasis: { fontWeight: '700' },
   message: { textAlign: 'center', paddingHorizontal: spacing.md },
 });

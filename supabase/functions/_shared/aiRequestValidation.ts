@@ -11,6 +11,46 @@ function validLocalDataUrl(value: unknown, allowed: readonly string[]): boolean 
   return Boolean(match && allowed.includes(match[1]) && match[2].length <= 6_700_000);
 }
 
+function validateAgentJudgmentRequest(parsed: Record<string, unknown>): ValidationResult {
+  const allowedKeys = new Set(['model', 'store', 'reasoning', 'max_output_tokens', 'input', 'text']);
+  if (Object.keys(parsed).some((key) => !allowedKeys.has(key))) {
+    return invalid('agent judgment contains unsupported request fields');
+  }
+  if (parsed.model !== 'gpt-5.6-luna' || parsed.store !== false) {
+    return invalid('agent judgment requires the routed ephemeral model');
+  }
+  if (parsed.tools != null || parsed.background != null) {
+    return invalid('agent judgment does not allow tools or background mode');
+  }
+  if (!isRecord(parsed.reasoning) || parsed.reasoning.effort !== 'low' ||
+    Object.keys(parsed.reasoning).some((key) => key !== 'effort')) {
+    return invalid('agent judgment requires low reasoning effort');
+  }
+  if (!Number.isInteger(parsed.max_output_tokens) ||
+    (parsed.max_output_tokens as number) < 1 || (parsed.max_output_tokens as number) > 800) {
+    return invalid('agent judgment output budget is invalid');
+  }
+  if (!Array.isArray(parsed.input) || parsed.input.length < 1 || parsed.input.length > 2) {
+    return invalid('agent judgment input must contain one or two messages');
+  }
+  let inputLength = 0;
+  for (const item of parsed.input) {
+    if (!isRecord(item) || (item.role !== 'user' && item.role !== 'system') || typeof item.content !== 'string' ||
+      Object.keys(item).some((key) => key !== 'role' && key !== 'content')) {
+      return invalid('agent judgment input message is invalid');
+    }
+    inputLength += item.content.length;
+  }
+  if (inputLength > 12_000) return invalid('agent judgment prompt is too large');
+  const format = isRecord(parsed.text) ? parsed.text.format : undefined;
+  if (!isRecord(parsed.text) || Object.keys(parsed.text).some((key) => key !== 'format') ||
+    !isRecord(format) || format.type !== 'json_schema' || format.name !== 'kwilt_agent_judgment' ||
+    format.strict !== true || !isRecord(format.schema)) {
+    return invalid('agent judgment requires strict structured output');
+  }
+  return { ok: true };
+}
+
 export function validateKwiltAiRequestShape(
   route: string,
   parsed: unknown,
@@ -38,6 +78,7 @@ export function validateKwiltAiRequestShape(
     if (parsed.store === true || parsed.background === true) {
       return invalid('stored and background responses are not allowed');
     }
+    if (aiJob === 'agent_judgment') return validateAgentJudgmentRequest(parsed);
     if (aiJob === 'current_information') {
       if (!Array.isArray(parsed.tools) || parsed.tools.length !== 1 || !isRecord(parsed.tools[0]) ||
         parsed.tools[0].type !== 'web_search') {

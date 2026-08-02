@@ -24,6 +24,7 @@ export type PaywallSource =
   | 'arc_banner_sheet'
   | 'activity_banner_sheet'
   | 'activity_focus_mode'
+  | 'focus_widget'
   | 'activity_detail_ai'
   | 'activity_tags_ai'
   | 'activity_quick_add_ai'
@@ -119,5 +120,4 @@ function getDeepActiveRoute(state: unknown): { name?: string } | undefined {
   }
   return undefined;
 }
-
 

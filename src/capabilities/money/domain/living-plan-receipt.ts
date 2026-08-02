@@ -1,8 +1,13 @@
 export type LivingPlanReceiptFacts = {
+  candidateHash: string;
+  livingPercent: number;
   resourceBasisCents: number;
   targetCents: number;
   plannedCents: number;
   unassignedCents: number;
+  overTargetCents: number;
+  protectedPlanCents: number;
+  flexibleCapacityCents: number;
 };
 
 export type LivingPlanReceiptSummary = {

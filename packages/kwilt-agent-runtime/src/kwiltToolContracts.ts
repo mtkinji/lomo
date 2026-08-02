@@ -199,7 +199,7 @@ const SCREEN_TIME_OVERRIDE_PROPERTIES = {
 export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
   {
     id: 'money.read', version: 1, capabilityId: 'money',
-    purpose: 'Read current-month Money aggregates and category totals without exposing merchant or account details.',
+    purpose: 'Read the current plan-versus-income-limit answer and current-month Money aggregates without exposing merchant or account details.',
     providers: ['device'], effect: 'read', consequence: 'low', reversible: true,
     confirmation: 'none', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
   },

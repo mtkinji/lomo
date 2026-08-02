@@ -1,24 +1,27 @@
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.h b/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
-index 5aa5fed..6b8bc5c 100644
+index 5aa5fed..f1c6e57 100644
 --- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.h
-@@ -47,6 +47,14 @@ extern const NSInteger AIRMapMaxZoomLevel;
+@@ -47,6 +47,17 @@ extern const NSInteger AIRMapMaxZoomLevel;
  @property (nonatomic, assign) CGPoint compassOffset;
  @property (nonatomic, assign) UIEdgeInsets mapPadding;
 
-+// Kwilt Explore's native Silver Mist overlay. Coordinates are persisted
-+// explored-cell centers; the two radii stay independent so tightening the
-+// clear corridor never collapses the approved atmospheric feather.
++// Kwilt Explore's native Silver Mist overlay. Isolated coordinates remain
++// circular clearings; explicit segment pairs form trustworthy route corridors.
 +@property (nonatomic, assign) BOOL fogEnabled;
 +@property (nonatomic, strong) NSArray *fogCoordinates;
++@property (nonatomic, strong) NSArray *fogSegmentStarts;
++@property (nonatomic, strong) NSArray *fogSegmentEnds;
++@property (nonatomic, strong) NSArray *fogPlaceCoordinates;
 +@property (nonatomic, assign) CLLocationDistance fogClearRadiusMeters;
 +@property (nonatomic, assign) CLLocationDistance fogFeatherReferenceRadiusMeters;
++@property (nonatomic, assign) CLLocationDistance fogPlaceRevealRadiusMeters;
 +
  @property (nonatomic, assign) CLLocationCoordinate2D pendingCenter;
  @property (nonatomic, assign) MKCoordinateSpan pendingSpan;
 
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
-index 07a4638..387cf22 100644
+index 07a4638..3aa3fca 100644
 --- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
 @@ -20,6 +20,7 @@
@@ -37,7 +40,7 @@ index 07a4638..387cf22 100644
 
  @end
 
-@@ -62,6 +64,12 @@ @implementation AIRMap
+@@ -62,6 +64,16 @@ @implementation AIRMap
      // Implementation based on RCTTextField, another component with indirect children
      // https://github.com/facebook/react-native/blob/v0.16.0/Libraries/Text/RCTTextField.m#L20
      NSMutableArray<UIView *> *_reactSubviews;
@@ -45,17 +48,22 @@ index 07a4638..387cf22 100644
 +    UIView *_metalFogFallbackView;
 +    BOOL _fogEnabled;
 +    NSArray *_fogCoordinates;
++    NSArray *_fogSegmentStarts;
++    NSArray *_fogSegmentEnds;
++    NSArray *_fogPlaceCoordinates;
 +    CLLocationDistance _fogClearRadiusMeters;
 +    CLLocationDistance _fogFeatherReferenceRadiusMeters;
++    CLLocationDistance _fogPlaceRevealRadiusMeters;
  }
 
  - (instancetype)init
-@@ -89,10 +97,81 @@ - (instancetype)init
+@@ -89,10 +101,130 @@ - (instancetype)init
          self.maxZoomLevel = AIRMapMaxZoomLevel;
          self.compassOffset = CGPointMake(0, 0);
          self.legacyZoomConstraintsEnabled = YES;
 +        _fogClearRadiusMeters = 19.812;
 +        _fogFeatherReferenceRadiusMeters = 30.48;
++        _fogPlaceRevealRadiusMeters = 59.436;
      }
      return self;
  }
@@ -66,8 +74,12 @@ index 07a4638..387cf22 100644
 +    _metalFogView = [[AIRMapMetalFogView alloc] initWithMap:self];
 +    if (_metalFogView) {
 +        _metalFogView.exploredCoordinates = _fogCoordinates ?: @[];
++        _metalFogView.segmentStartCoordinates = _fogSegmentStarts ?: @[];
++        _metalFogView.segmentEndCoordinates = _fogSegmentEnds ?: @[];
++        _metalFogView.placeCoordinates = _fogPlaceCoordinates ?: @[];
 +        _metalFogView.clearRadiusMeters = _fogClearRadiusMeters;
 +        _metalFogView.featherReferenceRadiusMeters = _fogFeatherReferenceRadiusMeters;
++        _metalFogView.placeRevealRadiusMeters = _fogPlaceRevealRadiusMeters;
 +        [self addSubview:_metalFogView];
 +        return;
 +    }
@@ -107,6 +119,39 @@ index 07a4638..387cf22 100644
 +    _metalFogView.exploredCoordinates = _fogCoordinates;
 +}
 +
++- (NSArray *)fogSegmentStarts
++{
++    return _fogSegmentStarts;
++}
++
++- (void)setFogSegmentStarts:(NSArray *)fogSegmentStarts
++{
++    _fogSegmentStarts = [fogSegmentStarts copy] ?: @[];
++    _metalFogView.segmentStartCoordinates = _fogSegmentStarts;
++}
++
++- (NSArray *)fogSegmentEnds
++{
++    return _fogSegmentEnds;
++}
++
++- (void)setFogSegmentEnds:(NSArray *)fogSegmentEnds
++{
++    _fogSegmentEnds = [fogSegmentEnds copy] ?: @[];
++    _metalFogView.segmentEndCoordinates = _fogSegmentEnds;
++}
++
++- (NSArray *)fogPlaceCoordinates
++{
++    return _fogPlaceCoordinates;
++}
++
++- (void)setFogPlaceCoordinates:(NSArray *)fogPlaceCoordinates
++{
++    _fogPlaceCoordinates = [fogPlaceCoordinates copy] ?: @[];
++    _metalFogView.placeCoordinates = _fogPlaceCoordinates;
++}
++
 +- (CLLocationDistance)fogClearRadiusMeters
 +{
 +    return _fogClearRadiusMeters;
@@ -129,10 +174,21 @@ index 07a4638..387cf22 100644
 +    _metalFogView.featherReferenceRadiusMeters = _fogFeatherReferenceRadiusMeters;
 +}
 +
++- (CLLocationDistance)fogPlaceRevealRadiusMeters
++{
++    return _fogPlaceRevealRadiusMeters;
++}
++
++- (void)setFogPlaceRevealRadiusMeters:(CLLocationDistance)fogPlaceRevealRadiusMeters
++{
++    _fogPlaceRevealRadiusMeters = MAX(1, fogPlaceRevealRadiusMeters);
++    _metalFogView.placeRevealRadiusMeters = _fogPlaceRevealRadiusMeters;
++}
++
  -(void)addSubview:(UIView *)view {
      if([view isKindOfClass:[AIRMapMarker class]]) {
          [self addAnnotation:(id <MKAnnotation>)view];
-@@ -707,6 +786,17 @@ - (void)layoutSubviews {
+@@ -707,6 +839,17 @@ - (void)layoutSubviews {
      [super layoutSubviews];
      [self cacheViewIfNeeded];
 
@@ -151,26 +207,30 @@ index 07a4638..387cf22 100644
          for (UIView *subview in self.subviews) {
              if (![NSStringFromClass(subview.class) isEqualToString:@"MKPassThroughStackView"]) continue;
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
-index 8bd7907..7dd68ab 100644
+index 8bd7907..2b42586 100644
 --- a/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapManager.m
-@@ -110,6 +110,10 @@ - (UIView *)view
+@@ -110,6 +110,14 @@ - (UIView *)view
  RCT_EXPORT_VIEW_PROPERTY(legalLabelInsets, UIEdgeInsets)
  RCT_EXPORT_VIEW_PROPERTY(mapPadding, UIEdgeInsets)
  RCT_EXPORT_VIEW_PROPERTY(mapType, MKMapType)
 +RCT_EXPORT_VIEW_PROPERTY(fogEnabled, BOOL)
 +RCT_EXPORT_VIEW_PROPERTY(fogCoordinates, AIRMapCoordinateArray)
++RCT_EXPORT_VIEW_PROPERTY(fogSegmentStarts, AIRMapCoordinateArray)
++RCT_EXPORT_VIEW_PROPERTY(fogSegmentEnds, AIRMapCoordinateArray)
++RCT_EXPORT_VIEW_PROPERTY(fogPlaceCoordinates, AIRMapCoordinateArray)
 +RCT_EXPORT_VIEW_PROPERTY(fogClearRadiusMeters, CLLocationDistance)
 +RCT_EXPORT_VIEW_PROPERTY(fogFeatherReferenceRadiusMeters, CLLocationDistance)
++RCT_EXPORT_VIEW_PROPERTY(fogPlaceRevealRadiusMeters, CLLocationDistance)
  RCT_EXPORT_VIEW_PROPERTY(cameraZoomRange, NSDictionary)
  RCT_EXPORT_VIEW_PROPERTY(onMapReady, RCTBubblingEventBlock)
  RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h
 new file mode 100644
-index 0000000..14a1b7d
+index 0000000..d0b4b17
 --- /dev/null
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,21 @@
 +#import <MetalKit/MetalKit.h>
 +#import <CoreLocation/CoreLocation.h>
 +
@@ -181,8 +241,12 @@ index 0000000..14a1b7d
 +
 +@property (nonatomic, weak) AIRMap *map;
 +@property (nonatomic, copy) NSArray<AIRMapCoordinate *> *exploredCoordinates;
++@property (nonatomic, copy) NSArray<AIRMapCoordinate *> *segmentStartCoordinates;
++@property (nonatomic, copy) NSArray<AIRMapCoordinate *> *segmentEndCoordinates;
++@property (nonatomic, copy) NSArray<AIRMapCoordinate *> *placeCoordinates;
 +@property (nonatomic, assign) CLLocationDistance clearRadiusMeters;
 +@property (nonatomic, assign) CLLocationDistance featherReferenceRadiusMeters;
++@property (nonatomic, assign) CLLocationDistance placeRevealRadiusMeters;
 +
 +- (instancetype)initWithMap:(AIRMap *)map;
 +- (void)invalidateGeography;
@@ -190,10 +254,10 @@ index 0000000..14a1b7d
 +@end
 diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m
 new file mode 100644
-index 0000000..9019a9c
+index 0000000..0cebf05
 --- /dev/null
 +++ b/node_modules/react-native-maps/ios/AirMaps/AIRMapMetalFogView.m
-@@ -0,0 +1,276 @@
+@@ -0,0 +1,375 @@
 +#import "AIRMapMetalFogView.h"
 +
 +#import "AIRMap.h"
@@ -203,6 +267,8 @@ index 0000000..9019a9c
 +#import <simd/simd.h>
 +
 +static const NSUInteger AIRMapFogMaximumPointCount = 256;
++static const NSUInteger AIRMapFogMaximumSegmentCount = 256;
++#define AIRMapFogMaximumPlaceCount 256
 +
 +typedef struct {
 +    vector_float2 viewportSize;
@@ -211,8 +277,10 @@ index 0000000..9019a9c
 +    float time;
 +    float clearRadius;
 +    float featherReferenceRadius;
++    float placeRevealRadius;
 +    uint32_t pointCount;
-+    uint32_t padding;
++    uint32_t segmentCount;
++    uint32_t placeCount;
 +} AIRMapFogUniforms;
 +
 +static NSString *AIRMapSilverMistShaderSource(void)
@@ -221,7 +289,7 @@ index 0000000..9019a9c
 +    "using namespace metal;\n"
 +    "struct FogUniforms {\n"
 +    "  float2 viewportSize; float2 noiseOrigin; float mapPointsPerPixel; float time;\n"
-+    "  float clearRadius; float featherReferenceRadius; uint pointCount; uint padding;\n"
++    "  float clearRadius; float featherReferenceRadius; float placeRevealRadius; uint pointCount; uint segmentCount; uint placeCount;\n"
 +    "};\n"
 +    "vertex float4 fogVertex(uint id [[vertex_id]]) {\n"
 +    "  const float2 p[3] = {float2(-1,-1), float2(3,-1), float2(-1,3)};\n"
@@ -242,15 +310,24 @@ index 0000000..9019a9c
 +    "  float projection=clamp(dot(point-start,segment)/denominator,0.0,1.0);\n"
 +    "  return length(point-(start+projection*segment));\n"
 +    "}\n"
-+    "float exploredDistance(float2 pixel, constant float2 *points, uint count, float maxJoinDistance) {\n"
++    "float exploredDistance(float2 pixel, constant float2 *points, uint pointCount, constant float2 *segmentStarts, constant float2 *segmentEnds, uint segmentCount) {\n"
 +    "  float result=100000.0;\n"
 +    "  for(uint i=0;i<256;i++){\n"
-+    "    if(i>=count)break; result=min(result,distance(pixel,points[i]));\n"
-+    "    if(i+1<count && distance(points[i],points[i+1])<=maxJoinDistance){result=min(result,segmentDistance(pixel,points[i],points[i+1]));}\n"
++    "    if(i>=pointCount)break; result=min(result,distance(pixel,points[i]));\n"
++    "  }\n"
++    "  for(uint i=0;i<256;i++){\n"
++    "    if(i>=segmentCount)break; result=min(result,segmentDistance(pixel,segmentStarts[i],segmentEnds[i]));\n"
 +    "  }\n"
 +    "  return result;\n"
 +    "}\n"
-+    "fragment float4 fogFragment(float4 position [[position]], constant FogUniforms &u [[buffer(0)]], constant float2 *points [[buffer(1)]]) {\n"
++    "float placeDistance(float2 pixel, constant float2 *places, uint placeCount) {\n"
++    "  float result=100000.0;\n"
++    "  for(uint i=0;i<256;i++){\n"
++    "    if(i>=placeCount)break; result=min(result,distance(pixel,places[i]));\n"
++    "  }\n"
++    "  return result;\n"
++    "}\n"
++    "fragment float4 fogFragment(float4 position [[position]], constant FogUniforms &u [[buffer(0)]], constant float2 *points [[buffer(1)]], constant float2 *segmentStarts [[buffer(2)]], constant float2 *segmentEnds [[buffer(3)]], constant float2 *places [[buffer(4)]]) {\n"
 +    "  float2 pixel=position.xy; float2 world=u.noiseOrigin+pixel*u.mapPointsPerPixel;\n"
 +    "  float fogWorldScale=max(620.0,u.mapPointsPerPixel*430.0); float2 broad=world/fogWorldScale;\n"
 +    "  float2 broadDrift=float2(u.time*0.038,u.time*-0.021);\n"
@@ -265,7 +342,8 @@ index 0000000..9019a9c
 +    "  float mist=smoothstep(0.20,0.84,cloud*0.66+ribbons*0.34);\n"
 +    "  float3 fogColor=float3(0.88,0.90,0.90);\n"
 +    "  fogColor+=(distant-0.5)*0.125+(mist-0.5)*0.165+(near-0.5)*0.078+(middle-0.5)*0.048;\n"
-+    "  float distanceToExplored=exploredDistance(pixel,points,u.pointCount,u.clearRadius*1.75);\n"
++    "  float distanceToExplored=exploredDistance(pixel,points,u.pointCount,segmentStarts,segmentEnds,u.segmentCount);\n"
++    "  float distanceToPlace=placeDistance(pixel,places,u.placeCount);\n"
 +    "  float broadEdge=softFbm(broad*2.25+distantDrift*0.34+19.2)-0.5;\n"
 +    "  float fineEdge=softFbm(broad*5.1+nearDrift*0.46+43.8)-0.5;\n"
 +    "  float blob=softFbm(broad*1.34+distantDrift*0.18+73.1);\n"
@@ -282,6 +360,9 @@ index 0000000..9019a9c
 +    "  float filamentWisp=pow(clamp(outside/filamentWidth,0.0,1.0),2.0);\n"
 +    "  float edgeDensity=smoothstep(0.28,0.78,near*0.68+middle*0.32);\n"
 +    "  float alpha=1.0-(1.0-opaqueLayer)*(1.0-distantVeil*mix(0.10,0.25,distant))*(1.0-nearWisp*mix(0.04,0.22,edgeDensity))*(1.0-filamentWisp*mix(0.02,0.16,smoothstep(0.30,0.74,filamentNoise)));\n"
++    "  float placeEdge=smoothstep(u.placeRevealRadius*0.72,u.placeRevealRadius,distanceToPlace);\n"
++    "  float placeAlphaMultiplier=mix(0.42,1.0,placeEdge);\n"
++    "  alpha*=placeAlphaMultiplier;\n"
 +    "  return float4(clamp(fogColor,0.0,1.0),clamp(alpha,0.0,1.0));\n"
 +    "}\n";
 +}
@@ -290,10 +371,14 @@ index 0000000..9019a9c
 +@property (nonatomic, strong) id<MTLCommandQueue> fogCommandQueue;
 +@property (nonatomic, strong) id<MTLRenderPipelineState> fogPipeline;
 +@property (nonatomic, strong) NSData *visiblePointData;
++@property (nonatomic, strong) NSData *visibleSegmentStartData;
++@property (nonatomic, strong) NSData *visibleSegmentEndData;
++@property (nonatomic, strong) NSData *visiblePlaceData;
 +@property (nonatomic, assign) vector_float2 noiseOrigin;
 +@property (nonatomic, assign) float mapPointsPerPixel;
 +@property (nonatomic, assign) float clearRadiusPixels;
 +@property (nonatomic, assign) float featherReferenceRadiusPixels;
++@property (nonatomic, assign) float placeRevealRadiusPixels;
 +@property (nonatomic, assign) CFTimeInterval animationStartedAt;
 +@property (nonatomic, assign) MKMapRect lastVisibleMapRect;
 +@property (nonatomic, assign) CGSize lastDrawableSize;
@@ -312,7 +397,11 @@ index 0000000..9019a9c
 +    _map = map;
 +    _clearRadiusMeters = 19.812;
 +    _featherReferenceRadiusMeters = 30.48;
++    _placeRevealRadiusMeters = 59.436;
 +    _visiblePointData = [NSData data];
++    _visibleSegmentStartData = [NSData data];
++    _visibleSegmentEndData = [NSData data];
++    _visiblePlaceData = [NSData data];
 +    _animationStartedAt = CACurrentMediaTime();
 +    _geographyInvalid = YES;
 +
@@ -364,6 +453,24 @@ index 0000000..9019a9c
 +    [self invalidateGeography];
 +}
 +
++- (void)setSegmentStartCoordinates:(NSArray<AIRMapCoordinate *> *)segmentStartCoordinates
++{
++    _segmentStartCoordinates = [segmentStartCoordinates copy] ?: @[];
++    [self invalidateGeography];
++}
++
++- (void)setSegmentEndCoordinates:(NSArray<AIRMapCoordinate *> *)segmentEndCoordinates
++{
++    _segmentEndCoordinates = [segmentEndCoordinates copy] ?: @[];
++    [self invalidateGeography];
++}
++
++- (void)setPlaceCoordinates:(NSArray<AIRMapCoordinate *> *)placeCoordinates
++{
++    _placeCoordinates = [placeCoordinates copy] ?: @[];
++    [self invalidateGeography];
++}
++
 +- (void)setClearRadiusMeters:(CLLocationDistance)clearRadiusMeters
 +{
 +    _clearRadiusMeters = MAX(1, clearRadiusMeters);
@@ -373,6 +480,12 @@ index 0000000..9019a9c
 +- (void)setFeatherReferenceRadiusMeters:(CLLocationDistance)featherReferenceRadiusMeters
 +{
 +    _featherReferenceRadiusMeters = MAX(1, featherReferenceRadiusMeters);
++    [self invalidateGeography];
++}
++
++- (void)setPlaceRevealRadiusMeters:(CLLocationDistance)placeRevealRadiusMeters
++{
++    _placeRevealRadiusMeters = MAX(1, placeRevealRadiusMeters);
 +    [self invalidateGeography];
 +}
 +
@@ -403,6 +516,7 @@ index 0000000..9019a9c
 +    self.mapPointsPerPixel = (float)mapPointsPerPixel;
 +    self.clearRadiusPixels = (float)(self.clearRadiusMeters / metersPerMapPoint / mapPointsPerPixel);
 +    self.featherReferenceRadiusPixels = (float)(self.featherReferenceRadiusMeters / metersPerMapPoint / mapPointsPerPixel);
++    self.placeRevealRadiusPixels = (float)(self.placeRevealRadiusMeters / metersPerMapPoint / mapPointsPerPixel);
 +
 +    if (!self.hasNoiseAnchor) {
 +        self.noiseAnchor = map.visibleMapRect.origin;
@@ -413,7 +527,10 @@ index 0000000..9019a9c
 +        (float)(map.visibleMapRect.origin.y - self.noiseAnchor.y)
 +    };
 +
-+    CGFloat margin = self.clearRadiusPixels + self.featherReferenceRadiusPixels * 3.0;
++    CGFloat margin = MAX(
++        self.clearRadiusPixels + self.featherReferenceRadiusPixels * 3.0,
++        self.placeRevealRadiusPixels
++    );
 +    NSMutableArray<NSData *> *visiblePoints = [NSMutableArray array];
 +    for (AIRMapCoordinate *coordinate in self.exploredCoordinates) {
 +        CGPoint point = [map convertCoordinate:coordinate.coordinate toPointToView:map];
@@ -432,6 +549,35 @@ index 0000000..9019a9c
 +        [visiblePoints[sourceIndex] getBytes:&destination[index] length:sizeof(vector_float2)];
 +    }
 +    self.visiblePointData = pointData;
++
++    NSUInteger availableSegmentCount = MIN(self.segmentStartCoordinates.count, self.segmentEndCoordinates.count);
++    NSMutableData *segmentStartData = [NSMutableData dataWithCapacity:availableSegmentCount * sizeof(vector_float2)];
++    NSMutableData *segmentEndData = [NSMutableData dataWithCapacity:availableSegmentCount * sizeof(vector_float2)];
++    for (NSUInteger index = 0; index < availableSegmentCount && segmentStartData.length / sizeof(vector_float2) < AIRMapFogMaximumSegmentCount; index++) {
++        CGPoint startPoint = [map convertCoordinate:self.segmentStartCoordinates[index].coordinate toPointToView:map];
++        CGPoint endPoint = [map convertCoordinate:self.segmentEndCoordinates[index].coordinate toPointToView:map];
++        vector_float2 startPixel = {(float)(startPoint.x * pixelScale), (float)(startPoint.y * pixelScale)};
++        vector_float2 endPixel = {(float)(endPoint.x * pixelScale), (float)(endPoint.y * pixelScale)};
++        float minX = MIN(startPixel.x, endPixel.x);
++        float maxX = MAX(startPixel.x, endPixel.x);
++        float minY = MIN(startPixel.y, endPixel.y);
++        float maxY = MAX(startPixel.y, endPixel.y);
++        if (maxX < -margin || maxY < -margin || minX > self.drawableSize.width + margin || minY > self.drawableSize.height + margin) continue;
++        [segmentStartData appendBytes:&startPixel length:sizeof(startPixel)];
++        [segmentEndData appendBytes:&endPixel length:sizeof(endPixel)];
++    }
++    self.visibleSegmentStartData = segmentStartData;
++    self.visibleSegmentEndData = segmentEndData;
++
++    NSMutableData *placeData = [NSMutableData dataWithCapacity:MIN(self.placeCoordinates.count, AIRMapFogMaximumPlaceCount) * sizeof(vector_float2)];
++    for (AIRMapCoordinate *coordinate in self.placeCoordinates) {
++        if (placeData.length / sizeof(vector_float2) >= AIRMapFogMaximumPlaceCount) break;
++        CGPoint point = [map convertCoordinate:coordinate.coordinate toPointToView:map];
++        vector_float2 pixel = {(float)(point.x * pixelScale), (float)(point.y * pixelScale)};
++        if (pixel.x < -margin || pixel.y < -margin || pixel.x > self.drawableSize.width + margin || pixel.y > self.drawableSize.height + margin) continue;
++        [placeData appendBytes:&pixel length:sizeof(pixel)];
++    }
++    self.visiblePlaceData = placeData;
 +}
 +
 +- (void)drawInMTKView:(MTKView *)view
@@ -444,6 +590,11 @@ index 0000000..9019a9c
 +    id<MTLCommandBuffer> commandBuffer = [self.fogCommandQueue commandBuffer];
 +    id<MTLRenderCommandEncoder> encoder = [commandBuffer renderCommandEncoderWithDescriptor:pass];
 +    NSUInteger pointCount = self.visiblePointData.length / sizeof(vector_float2);
++    NSUInteger segmentCount = MIN(
++        self.visibleSegmentStartData.length / sizeof(vector_float2),
++        self.visibleSegmentEndData.length / sizeof(vector_float2)
++    );
++    NSUInteger placeCount = self.visiblePlaceData.length / sizeof(vector_float2);
 +    AIRMapFogUniforms uniforms = {
 +        .viewportSize = {(float)view.drawableSize.width, (float)view.drawableSize.height},
 +        .noiseOrigin = self.noiseOrigin,
@@ -451,8 +602,10 @@ index 0000000..9019a9c
 +        .time = (float)(CACurrentMediaTime() - self.animationStartedAt),
 +        .clearRadius = self.clearRadiusPixels,
 +        .featherReferenceRadius = self.featherReferenceRadiusPixels,
++        .placeRevealRadius = self.placeRevealRadiusPixels,
 +        .pointCount = (uint32_t)pointCount,
-+        .padding = 0,
++        .segmentCount = (uint32_t)segmentCount,
++        .placeCount = (uint32_t)placeCount,
 +    };
 +
 +    [encoder setRenderPipelineState:self.fogPipeline];
@@ -463,6 +616,16 @@ index 0000000..9019a9c
 +        vector_float2 emptyPoint = {0, 0};
 +        [encoder setFragmentBytes:&emptyPoint length:sizeof(emptyPoint) atIndex:1];
 +    }
++    vector_float2 emptySegment = {0, 0};
++    [encoder setFragmentBytes:segmentCount > 0 ? self.visibleSegmentStartData.bytes : &emptySegment
++                       length:segmentCount > 0 ? self.visibleSegmentStartData.length : sizeof(emptySegment)
++                      atIndex:2];
++    [encoder setFragmentBytes:segmentCount > 0 ? self.visibleSegmentEndData.bytes : &emptySegment
++                       length:segmentCount > 0 ? self.visibleSegmentEndData.length : sizeof(emptySegment)
++                      atIndex:3];
++    [encoder setFragmentBytes:placeCount > 0 ? self.visiblePlaceData.bytes : &emptySegment
++                       length:placeCount > 0 ? self.visiblePlaceData.length : sizeof(emptySegment)
++                      atIndex:4];
 +    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 +    [encoder endEncoding];
 +    [commandBuffer presentDrawable:drawable];

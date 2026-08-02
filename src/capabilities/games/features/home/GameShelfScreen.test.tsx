@@ -65,8 +65,8 @@ describe('GameShelfScreen', () => {
   it('opens joining as a drawer over the shelf', () => {
     const screen = render(<GameShelfScreen />);
     expect(mockJoinDrawerProps?.visible).toBe(false);
-    const joinButton = within(screen.getByTestId('page.header')).getByRole('button', { name: 'Join a game with a code' });
-    expect(screen.getAllByRole('button', { name: 'Join a game with a code' })).toHaveLength(1);
+    const joinButton = within(screen.getByTestId('page.header')).getByRole('button', { name: 'Find or join a nearby game' });
+    expect(screen.getAllByRole('button', { name: 'Find or join a nearby game' })).toHaveLength(1);
     fireEvent.press(joinButton);
     expect(mockJoinDrawerProps?.visible).toBe(true);
   });

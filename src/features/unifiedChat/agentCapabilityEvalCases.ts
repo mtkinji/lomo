@@ -166,7 +166,7 @@ export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
   languageCase('chapters.get', 'Open my latest weekly Chapter.'),
   languageCase('chapters.reflect', 'What patterns have I been learning lately?'),
   languageCase('chapters.note.update', 'Add a note to my latest Chapter that sleep mattered.'),
-  languageCase('money.read', 'How is my grocery budget looking this month?'),
+  languageCase('money.read', 'Am I within my income spending limit?'),
   languageCase('money.review_transaction', 'Move my last Costco transaction to groceries.'),
   languageCase('money.category.create', 'Create a gifts category with $100 a month.'),
   languageCase('money.category.update', 'Raise my groceries plan to $700 a month.'),

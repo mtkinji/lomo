@@ -4,6 +4,8 @@
 
 **Goal:** Record trustworthy Explore paths densely enough to preserve residential turns and roundabouts while scaling straight-line storage by travel speed and retaining the existing battery sleep policies.
 
+> **2026-08-01 follow-up:** Always Exploring now uses a 22-meter active vehicle observation interval with 200-meter/30-second background delivery deferral, while deliberate Adventure recording retains the 6-meter profile. Silver Mist receives explicit, topology-preserving route segments so freeway continuity no longer depends on uniformly subsampled explored-cell centers.
+
 **Architecture:** Expo Location remains the observation source. A pure sampling policy receives trustworthy observations, uses speed-adjusted distance plus circular course change to decide which observations become canonical `ExplorePoint`s, and is shared by foreground Zustand ingestion and background task batches. Raw coordinates, timestamp, accuracy, speed, and course are persisted; fog and path continuity continue to use only recorded observations and the 60-meter gap rule. External road matching remains a later, optional presentation cache and never becomes evidence for fog or visits.
 
 **Tech Stack:** Expo SDK 54, `expo-location`, TypeScript, Zustand persistence, Jest, React Native Maps, native iOS background location.

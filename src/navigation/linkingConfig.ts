@@ -67,6 +67,12 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
               path: 'today',
               alias: ['todos'],
               parse: {
+                autoStartStandaloneFocus: (v: string) => v === '1' || v === 'true',
+                openStandaloneFocus: (v: string) => v === '1' || v === 'true',
+                focusMinutes: (v: string) => {
+                  const parsed = Number(v);
+                  return Number.isFinite(parsed) ? parsed : undefined;
+                },
                 highlightSuggested: (v: string) => v === '1' || v === 'true',
                 contextGoalId: (v: string) => String(v),
                 source: (v: string) => String(v),
@@ -128,6 +134,10 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     },
     UnifiedChat: {
       path: 'chat',
+      parse: {
+        entry: (value: string) => value === 'fresh' ? 'fresh' : undefined,
+        source: (value: string) => String(value),
+      },
     },
     // Development-only lab route. The matching screen is not mounted in production builds.
     GuidedOvertureLab: {

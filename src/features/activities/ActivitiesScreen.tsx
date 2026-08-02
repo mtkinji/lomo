@@ -154,6 +154,8 @@ import { retryDomainPull } from '../../services/sync/domainSync';
 import { PaywallContent } from '../paywall/PaywallDrawer';
 import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingComposerMetrics';
 import { useFloatingControlElevation } from './useFloatingControlElevation';
+import { StandaloneFocusExperience } from './StandaloneFocusExperience';
+import { useStandaloneFocusController } from './useStandaloneFocusController';
 
 const KANBAN_CARD_FIELDS: Array<{
   id: string;
@@ -333,7 +335,13 @@ export function ActivitiesScreen() {
   const recordShowUp = useAppStore((state) => state.recordShowUp);
   const tryConsumeGenerativeCredit = useAppStore((state) => state.tryConsumeGenerativeCredit);
   const isPro = useCanUseProTools('saved_views');
+  const canUseFocus = useCanUseProTools('focus_mode');
   const canUseUnsplash = useCanUseProTools('unsplash_banners');
+  const soundscapeTrackId = useAppStore((state) => state.soundscapeTrackId);
+  const standaloneFocusController = useStandaloneFocusController({
+    maxMinutes: canUseFocus ? 180 : 10,
+    soundscapeTrackId,
+  });
   const activityViews = useAppStore((state) => state.activityViews);
   const avatarName = authIdentity?.name?.trim() || userProfile?.fullName?.trim() || 'Kwilter';
   const avatarUrl = authIdentity?.avatarUrl || userProfile?.avatarUrl;
@@ -541,6 +549,33 @@ export function ActivitiesScreen() {
       // no-op
     }
   }, [navigation, route.params?.openSearch]);
+
+  React.useEffect(() => {
+    const shouldStart = Boolean(route.params?.autoStartStandaloneFocus);
+    const shouldOpen = Boolean(route.params?.openStandaloneFocus);
+    if (!shouldStart && !shouldOpen) return;
+
+    const rawMinutes = Number(route.params?.focusMinutes);
+    const requestedMinutes = Number.isFinite(rawMinutes) ? rawMinutes : 25;
+    try {
+      navigation.setParams({
+        autoStartStandaloneFocus: undefined,
+        focusMinutes: undefined,
+        openStandaloneFocus: undefined,
+      });
+    } catch {
+      // Best-effort route consumption; the active session is authoritative.
+    }
+
+    if (shouldStart) {
+      void standaloneFocusController.start(requestedMinutes);
+    }
+  }, [
+    navigation,
+    route.params?.autoStartStandaloneFocus,
+    route.params?.focusMinutes,
+    route.params?.openStandaloneFocus,
+  ]);
 
   React.useEffect(() => {
     // Views (and their editor) are Pro Tools; don't leave the editor open if Pro is lost.
@@ -3894,6 +3929,11 @@ export function ActivitiesScreen() {
         onApplyPreset={handleApplyPreset}
         onApplyAiCustomization={handleApplyAiCustomization}
         isAiLoading={isApplyingAiCustomization}
+      />
+      <StandaloneFocusExperience
+        controller={standaloneFocusController}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
       />
     </AppShell>
   );

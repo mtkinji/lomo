@@ -10,8 +10,8 @@ import { BrandLockup } from '../../ui/BrandLockup';
 import { Button } from '../../ui/Button';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
 import { Icon } from '../../ui/Icon';
@@ -77,8 +77,8 @@ export function ActivityFocusExperience({
     outputRange: [...palette, palette[0]],
   });
   const snapPoints = useMemo(() => {
-    if (Platform.OS === 'ios') return controller.customExpanded ? ['82%' as const] : ['72%' as const];
-    return controller.customExpanded ? ['74%' as const] : ['62%' as const];
+    if (Platform.OS === 'ios') return controller.customExpanded ? ['82%' as const] : ['56%' as const];
+    return controller.customExpanded ? ['74%' as const] : ['54%' as const];
   }, [controller.customExpanded]);
 
   useEffect(() => {
@@ -197,11 +197,17 @@ export function ActivityFocusExperience({
                       </HStack>
                     </Pressable>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent portalHost={portalHostName} side="bottom" sideOffset={6} align="start">
+                  <DropdownMenuContent portalHost={portalHostName} side="top" sideOffset={6} align="start">
                     {SOUND_SCAPES.map((item) => (
-                      <DropdownMenuItem key={item.id} onPress={() => setSoundscapeTrackId(item.id)}>
+                      <DropdownMenuCheckboxItem
+                        key={item.id}
+                        checked={item.id === soundscapeTrackId}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSoundscapeTrackId(item.id);
+                        }}
+                      >
                         <Text style={styles.menuRowText} numberOfLines={1}>{item.title}</Text>
-                      </DropdownMenuItem>
+                      </DropdownMenuCheckboxItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>

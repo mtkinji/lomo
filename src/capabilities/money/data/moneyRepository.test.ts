@@ -12,7 +12,7 @@ type RecordedCall = {
   ranges: Array<[number, number]>;
 };
 
-function createClient(options: { updatedRowCount?: number; rpcResult?: unknown } = {}) {
+function createClient(options: { updatedRowCount?: number; rpcResult?: unknown; functionResult?: unknown } = {}) {
   const calls: RecordedCall[] = [];
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const functionCalls: Array<{ name: string; body: Record<string, unknown> }> = [];
@@ -70,9 +70,9 @@ function createClient(options: { updatedRowCount?: number; rpcResult?: unknown }
       return Promise.resolve({ data: options.rpcResult ?? 'groceries-a1b2c3d4', error: null });
     },
     functions: {
-      invoke(name: string, options: { body: Record<string, unknown> }) {
-        functionCalls.push({ name, body: options.body });
-        return Promise.resolve({ data: { outcome: 'reconciled_governed_foundation' }, error: null });
+      invoke(name: string, invokeOptions: { body: Record<string, unknown> }) {
+        functionCalls.push({ name, body: invokeOptions.body });
+        return Promise.resolve({ data: options.functionResult ?? { outcome: 'reconciled_governed_foundation' }, error: null });
       },
     },
   };
@@ -87,7 +87,11 @@ describe('createMoneyRepository transaction review', () => {
 
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('funding_rhythm');
+    expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('plan_role');
     expect(calls.find((call) => call.table === 'budget_categories')?.selected).toContain('cover_image');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_source');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_policy_version');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_governed');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
@@ -105,6 +109,17 @@ describe('createMoneyRepository transaction review', () => {
     expect(rpcCalls).not.toContainEqual(expect.objectContaining({
       name: 'ensure_governed_household_money_foundation',
     }));
+  });
+
+  it('requests unresolved classification through an authenticated optional background boundary', async () => {
+    const { client, functionCalls } = createClient({
+      functionResult: { consideredCount: 3, assignedCount: 2, unresolvedCount: 1 },
+    });
+
+    await expect(createMoneyRepository(client).classifyUnresolvedTransactions()).resolves.toEqual({
+      consideredCount: 3, assignedCount: 2, unresolvedCount: 1,
+    });
+    expect(functionCalls).toContainEqual({ name: 'classify-money-transactions', body: {} });
   });
 
   it('atomically assigns one category and resolves without a snapshot reload', async () => {
@@ -383,6 +398,16 @@ describe('createMoneyRepository transaction review', () => {
         expected_need_cents: 80000,
         expected_need_due_month: '2026-12',
       },
+    });
+
+    const sixth = createClient();
+    await createMoneyRepository(sixth.client).updateCategoryPlan('category-1', {
+      planRole: 'protected',
+    });
+    expect(sixth.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_plans',
+      filters: [['category_id', 'category-1']],
+      update: { plan_role: 'protected' },
     });
   });
 

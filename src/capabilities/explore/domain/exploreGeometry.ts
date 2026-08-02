@@ -4,6 +4,7 @@ export const EXPLORE_REVEAL_RADIUS_M = 65 * 0.3048;
 export const EXPLORE_FEATHER_REFERENCE_RADIUS_M = 100 * 0.3048;
 export const EXPLORE_CELL_SIZE_M = 24;
 export const MAX_CONTINUOUS_TRACE_GAP_M = 60;
+const FOG_TRACE_SIMPLIFICATION_TOLERANCE_M = 3;
 
 const EARTH_RADIUS_M = 6_371_000;
 const METERS_PER_LATITUDE_DEGREE = 111_320;
@@ -119,4 +120,108 @@ export function isCoordinateExplored(
   revealRadiusM: number = EXPLORE_REVEAL_RADIUS_M,
 ): boolean {
   return exploredCells.some((cell) => coordinateDistanceM(coordinate, cell.center) <= revealRadiusM);
+}
+
+export type ExploreFogRenderGeometry<T extends ExploreCoordinate = ExploreCoordinate> = {
+  points: T[];
+  segmentStarts: T[];
+  segmentEnds: T[];
+  traces: T[][];
+};
+
+function pointToSegmentDistanceM(
+  point: ExploreCoordinate,
+  start: ExploreCoordinate,
+  end: ExploreCoordinate,
+): number {
+  const latitudeScale = METERS_PER_LATITUDE_DEGREE;
+  const longitudeScale = latitudeScale * Math.max(0.1, Math.cos(degreesToRadians(start.latitude)));
+  const endX = (end.longitude - start.longitude) * longitudeScale;
+  const endY = (end.latitude - start.latitude) * latitudeScale;
+  const pointX = (point.longitude - start.longitude) * longitudeScale;
+  const pointY = (point.latitude - start.latitude) * latitudeScale;
+  const denominator = endX * endX + endY * endY;
+  if (denominator <= 0) return coordinateDistanceM(point, start);
+  const projection = Math.max(0, Math.min(1, (pointX * endX + pointY * endY) / denominator));
+  return Math.hypot(pointX - endX * projection, pointY - endY * projection);
+}
+
+function simplifyTrace<T extends ExploreCoordinate>(
+  points: readonly T[],
+  toleranceM: number,
+): T[] {
+  if (points.length <= 2) return [...points];
+  let furthestIndex = -1;
+  let furthestDistanceM = 0;
+  const start = points[0];
+  const end = points[points.length - 1];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const distanceM = pointToSegmentDistanceM(points[index], start, end);
+    if (distanceM > furthestDistanceM) {
+      furthestDistanceM = distanceM;
+      furthestIndex = index;
+    }
+  }
+  if (furthestIndex < 0 || furthestDistanceM <= toleranceM) return [start, end];
+  const before = simplifyTrace(points.slice(0, furthestIndex + 1), toleranceM);
+  const after = simplifyTrace(points.slice(furthestIndex), toleranceM);
+  return [...before.slice(0, -1), ...after];
+}
+
+function continuousTraceGroups<T extends ExploreCoordinate>(
+  pointGroups: readonly (readonly T[])[],
+): T[][] {
+  const traces: T[][] = [];
+  pointGroups.forEach((group) => {
+    let current: T[] = [];
+    group.forEach((point) => {
+      const previous = current.at(-1);
+      if (previous && !isExploreTraceContinuous(previous, point)) {
+        if (current.length) traces.push(current);
+        current = [];
+      }
+      current.push(point);
+    });
+    if (current.length) traces.push(current);
+  });
+  return traces;
+}
+
+/**
+ * Produces explicit, rounded corridor segments for the native fog renderer.
+ * Simplification may remove redundant observations, but never joins sessions or
+ * crosses an untrusted recorded gap.
+ */
+export function buildFogRenderGeometry<T extends ExploreCoordinate>(
+  pointGroups: readonly (readonly T[])[],
+  maxSegments = 256,
+): ExploreFogRenderGeometry<T> {
+  const traces = continuousTraceGroups(pointGroups);
+  let toleranceM = FOG_TRACE_SIMPLIFICATION_TOLERANCE_M;
+  let simplified = traces.map((trace) => simplifyTrace(trace, toleranceM));
+  const segmentCount = () => simplified.reduce((total, trace) => total + Math.max(0, trace.length - 1), 0);
+  while (segmentCount() > maxSegments && toleranceM < 192) {
+    toleranceM *= 2;
+    simplified = traces.map((trace) => simplifyTrace(trace, toleranceM));
+  }
+
+  const points: T[] = [];
+  const segmentStarts: T[] = [];
+  const segmentEnds: T[] = [];
+  const renderTraces: T[][] = [];
+  simplified.forEach((trace) => {
+    if (trace.length === 1) {
+      points.push(trace[0]);
+      return;
+    }
+    const remainingSegmentCount = Math.max(0, maxSegments - segmentStarts.length);
+    const renderTrace = trace.slice(0, remainingSegmentCount + 1);
+    if (renderTrace.length < 2) return;
+    renderTraces.push(renderTrace);
+    renderTrace.slice(1).forEach((end, index) => {
+      segmentStarts.push(trace[index]);
+      segmentEnds.push(end);
+    });
+  });
+  return { points, segmentStarts, segmentEnds, traces: renderTraces };
 }
