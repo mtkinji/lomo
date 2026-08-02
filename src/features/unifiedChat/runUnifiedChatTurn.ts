@@ -10,6 +10,11 @@ import {
   type RouteUnifiedChatRequestInput,
 } from './routeUnifiedChatRequest';
 import type { SemanticRequestRoute } from './semanticRequestRouter';
+import {
+  requestAgentJudgment as defaultRequestAgentJudgment,
+  type RequestAgentJudgmentInput,
+} from './requestAgentJudgment';
+import type { AgentJudgment } from './agentJudgment';
 import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { transitionRun } from './runStateMachine';
@@ -97,6 +102,9 @@ export type RunUnifiedChatTurnDependencies = {
   routeRequest?: (
     input: RouteUnifiedChatRequestInput,
   ) => Promise<SemanticRequestRoute | null>;
+  requestJudgment?: (
+    input: RequestAgentJudgmentInput,
+  ) => Promise<AgentJudgment | null>;
   enableRuntimeTools?: boolean;
   executeRelationshipTool?: (
     call: AgentToolCall,
@@ -104,6 +112,7 @@ export type RunUnifiedChatTurnDependencies = {
   ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry?: (event: AnalyticsEventName, properties?: UnifiedChatTelemetryProperties) => void;
   now?: () => Date;
+  timeZone?: () => string;
 };
 
 export async function runUnifiedChatTurn(
@@ -116,6 +125,9 @@ export async function runUnifiedChatTurn(
   // opt-in there so existing deterministic harnesses never make a network call.
   const routeRequest = dependencies?.routeRequest ?? (
     dependencies ? async () => null : defaultRouteUnifiedChatRequest
+  );
+  const requestJudgment = dependencies?.requestJudgment ?? (
+    dependencies ? async () => null : defaultRequestAgentJudgment
   );
   const loadCapabilitySnapshots =
     dependencies?.loadCapabilitySnapshots ?? loadDefaultCapabilitySnapshots;
@@ -236,6 +248,10 @@ export async function runUnifiedChatTurn(
       aggregate,
       activeContext,
       routeRequest,
+      requestJudgment,
+      now: dependencies?.now?.() ?? new Date(),
+      timeZone: dependencies?.timeZone?.() ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+      signal: input.signal,
     });
   } catch {
     const failedPlanningRun = await repository.createRun({

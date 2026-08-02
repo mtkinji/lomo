@@ -17,6 +17,12 @@ const DETERMINISTIC_LOCK_REASONS = new Set([
   'ambiguous-action-target',
 ]);
 
+export function shouldAttemptAgentJudgment(
+  deterministicPolicy: UnifiedChatRequestPolicy,
+): boolean {
+  return !DETERMINISTIC_LOCK_REASONS.has(deterministicPolicy.policyReason);
+}
+
 type PreviousConversationPolicy = Pick<
   UnifiedChatRequestPolicy,
   'requestClass' | 'participatingCapabilities' | 'usePrivateContext'

@@ -6,6 +6,7 @@ import {
 } from './requestPolicy';
 import {
   resolveHybridRequestPolicy,
+  shouldAttemptAgentJudgment,
   shouldAttemptSemanticRouting,
 } from './hybridRequestPolicy';
 import type { RouteUnifiedChatRequestInput } from './routeUnifiedChatRequest';
@@ -17,6 +18,13 @@ import {
   resolvePlanPlacementReferent,
   type PlanPlacementConversationReferent,
 } from './planConversationReferent';
+import type { AgentJudgment } from './agentJudgment';
+import { buildAgentJudgmentPrompt } from './agentJudgmentPrompt';
+import type {
+  RequestAgentJudgmentInput,
+} from './requestAgentJudgment';
+import { UNIFIED_CHAT_TOOL_CATALOG } from './toolCatalog';
+import { resolveConversationReferent } from './conversationReferent';
 
 export type PlanUnifiedChatTurnPhaseInput = {
   prompt: string;
@@ -25,14 +33,44 @@ export type PlanUnifiedChatTurnPhaseInput = {
   routeRequest: (
     input: RouteUnifiedChatRequestInput,
   ) => Promise<SemanticRequestRoute | null>;
+  requestJudgment: (
+    input: RequestAgentJudgmentInput,
+  ) => Promise<AgentJudgment | null>;
+  now: Date;
+  timeZone: string;
+  signal?: AbortSignal;
 };
 
 export type PlannedUnifiedChatTurn = {
   requestPolicy: UnifiedChatRequestPolicy;
+  agentJudgment: AgentJudgment | null;
+  judgmentSource: 'model' | 'semantic_fallback' | 'deterministic_fallback';
   requiresWebSearch: boolean;
   planConversationReferent: PlanPlacementConversationReferent | null;
   activityClarification: string | null;
 };
+
+function pendingWorkSummary(aggregate: UnifiedChatThreadAggregate): string | null {
+  const referent = resolveConversationReferent(aggregate);
+  if (!referent) return null;
+  if (referent.kind === 'pending_work') {
+    return referent.items
+      .map((item) => `${item.sequence}. ${item.label} [${item.capabilityId}; ${item.operationType}]`)
+      .join('\n');
+  }
+  return `Awaiting Plan placement: ${referent.title} on ${referent.targetDate}.`;
+}
+
+function routeFromJudgment(judgment: AgentJudgment): SemanticRequestRoute {
+  return {
+    requestClass: judgment.requestClass,
+    participatingCapabilities: judgment.participatingCapabilities,
+    usePrivateContext: judgment.usePrivateContext,
+    informationNeed: judgment.informationNeed,
+    confidence: judgment.confidence,
+    reason: judgment.reason,
+  };
+}
 
 export async function planUnifiedChatTurnPhase(
   input: PlanUnifiedChatTurnPhaseInput,
@@ -45,29 +83,46 @@ export async function planUnifiedChatTurnPhase(
       objectId: context.objectId,
     })),
   });
-  const semanticRoute = shouldAttemptSemanticRouting({
+  const visibleContext = input.activeContext.map((context) => ({
+    capabilityId: context.capabilityId,
+    objectType: context.objectType,
+    objectId: context.objectId,
+    label: context.label,
+  }));
+  const recentTurns = input.aggregate.messages.slice(-6).map((message) => ({
+    role: message.role,
+    content: message.body,
+  }));
+  const agentJudgment = shouldAttemptAgentJudgment(deterministicPolicy)
+    ? await input.requestJudgment({
+        prompt: buildAgentJudgmentPrompt({
+          prompt: input.prompt,
+          now: input.now,
+          timeZone: input.timeZone,
+          visibleContext,
+          recentTurns,
+          pendingWorkSummary: pendingWorkSummary(input.aggregate),
+          tools: UNIFIED_CHAT_TOOL_CATALOG,
+        }),
+        allowedToolIds: new Set(UNIFIED_CHAT_TOOL_CATALOG.map((tool) => tool.id)),
+        signal: input.signal,
+      })
+    : null;
+  const semanticRoute = !agentJudgment && shouldAttemptSemanticRouting({
     prompt: input.prompt,
     deterministicPolicy,
   })
     ? await input.routeRequest({
         prompt: input.prompt,
-        visibleContext: input.activeContext.map((context) => ({
-          capabilityId: context.capabilityId,
-          objectType: context.objectType,
-          objectId: context.objectId,
-          label: context.label,
-        })),
-        recentTurns: input.aggregate.messages.slice(-6).map((message) => ({
-          role: message.role,
-          content: message.body,
-        })),
+        visibleContext,
+        recentTurns,
       })
     : null;
   const previousRun = input.aggregate.runs.at(-1);
   const requestPolicy = resolveHybridRequestPolicy({
     prompt: input.prompt,
     deterministicPolicy,
-    semanticRoute,
+    semanticRoute: agentJudgment ? routeFromJudgment(agentJudgment) : semanticRoute,
     previousPolicy: previousRun?.requestClass
       ? {
           requestClass: previousRun.requestClass,
@@ -79,16 +134,26 @@ export async function planUnifiedChatTurnPhase(
       .reverse()
       .find((message) => message.role === 'assistant')?.body,
   });
+  const judgmentSource = agentJudgment
+    ? 'model'
+    : semanticRoute
+      ? 'semantic_fallback'
+      : 'deterministic_fallback';
+  const activityClarification = agentJudgment?.executionMode === 'clarify'
+    ? agentJudgment.clarificationQuestion
+    : requestPolicy.participatingCapabilities.includes('todos')
+      ? recurringReminderClarification(input.prompt)
+      : null;
 
   return {
     requestPolicy,
+    agentJudgment,
+    judgmentSource,
     requiresWebSearch: requestPolicy.requestClass === 'general' &&
-      classifyCurrentInformationNeed(input.prompt) === 'current',
+      (agentJudgment?.informationNeed ?? classifyCurrentInformationNeed(input.prompt)) === 'current',
     planConversationReferent: requestPolicy.policyReason === 'conversation-follow-up:plan'
       ? resolvePlanPlacementReferent(input.aggregate)
       : null,
-    activityClarification: requestPolicy.participatingCapabilities.includes('todos')
-      ? recurringReminderClarification(input.prompt)
-      : null,
+    activityClarification,
   };
 }
