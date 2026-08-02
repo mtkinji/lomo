@@ -1,7 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectCategoryFunding } from '../domain/categoryFunding';
+import { inferMoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import { projectCategoryForecast, type MoneyForecastConfidence } from '../domain/moneyForecast';
+import { reconcileMoneyEconomicRoles } from '../domain/moneyEconomicRole';
+import { projectMoneyPlanLimitAnswer, projectProtectedRequirement } from '../domain/moneyPlanLimitAnswer';
+import { getLocalMoneyDayId, getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 import { getActiveLivingPlan, type ActiveLivingPlan, type LivingPlanReceipt } from './livingPlanRepository';
+import { getMoneyPlanLimitEvidence, type MoneyPlanLimitEvidence } from './moneyPlanLimitEvidence';
 import type { MoneyCategory, MoneySnapshot } from './moneySnapshot';
 
 export type MoneyPlanProjection = {
@@ -20,18 +25,21 @@ export async function loadMoneyPlanProjection(
   if (expectedVersionId && active.versionId !== expectedVersionId) {
     throw new Error('The Money plan changed somewhere else. Refresh before making another change.');
   }
-  return projectMoneyPlanProjection(snapshot, active);
+  const evidence = await getMoneyPlanLimitEvidence(client, active);
+  return projectMoneyPlanProjection(snapshot, active, evidence);
 }
 
 export function projectMoneyPlanProjection(
   snapshot: MoneySnapshot,
   active: ActiveLivingPlan,
+  evidence: MoneyPlanLimitEvidence,
   now = new Date(),
 ): MoneyPlanProjection {
   const allocationByCategoryId = new Map(active.allocations.map((allocation) => [allocation.categoryId, allocation]));
-  const periodStartIso = `${active.periodId}-01`;
-  const periodEndIso = lastDayOfPeriod(active.periodId);
-  const todayIso = now.toISOString().slice(0, 10);
+  const currentPeriodId = getLocalMoneyPeriodId(now);
+  const periodStartIso = `${currentPeriodId}-01`;
+  const periodEndIso = lastDayOfPeriod(currentPeriodId);
+  const todayIso = getLocalMoneyDayId(now);
   const categories = snapshot.categories.map((category): MoneyCategory => {
     const allocation = allocationByCategoryId.get(category.id);
     if (!allocation) return category;
@@ -40,7 +48,7 @@ export function projectMoneyPlanProjection(
       monthlyContributionCents: allocation.amountCents,
       priorReserveCents: allocation.priorReserveCents,
       countedSpendCents: category.spentCents,
-      periodId: active.periodId,
+      periodId: currentPeriodId,
       expectedNeed: allocation.expectedNeed,
     });
     const forecastSettings = category.forecastSettings ?? {
@@ -65,6 +73,7 @@ export function projectMoneyPlanProjection(
     });
     return {
       ...category,
+      planRole: inferMoneyCategoryPlanRole(category),
       plannedCents: allocation.amountCents,
       remainingCents: funding.availableCents,
       percentUsed: allocation.amountCents > 0 ? Math.round(category.spentCents / allocation.amountCents * 100) : 0,
@@ -72,7 +81,7 @@ export function projectMoneyPlanProjection(
       monthlyContributionCents: allocation.amountCents,
       reserveAvailableCents: allocation.fundingRhythm === 'reserve' ? funding.availableCents : 0,
       reserveBalanceCents: allocation.fundingRhythm === 'reserve' ? allocation.priorReserveCents : 0,
-      reserveBalancePeriodId: allocation.fundingRhythm === 'reserve' ? active.periodId : null,
+      reserveBalancePeriodId: allocation.fundingRhythm === 'reserve' ? currentPeriodId : null,
       expectedNeed: allocation.expectedNeed,
       fundingCoverage: funding.coverage,
       forecast,
@@ -83,12 +92,44 @@ export function projectMoneyPlanProjection(
   const projectedSpendCents = categories.reduce((sum, category) => sum + category.forecast.projectedSpendCents, 0);
   const projectionRangeLowCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeLowCents, 0);
   const projectionRangeHighCents = categories.reduce((sum, category) => sum + category.forecast.projectionRangeHighCents, 0);
+  const currentTransactions = snapshot.transactions.filter((transaction) => transaction.date.slice(0, 7) === currentPeriodId);
+  const roleByCategoryId = new Map<string, 'protected_spending' | 'flexible_spending'>();
+  categories.forEach((category) => {
+    const role = category.planRole === 'protected' ? 'protected_spending' : 'flexible_spending';
+    roleByCategoryId.set(category.id, role);
+    roleByCategoryId.set(category.sourceId, role);
+  });
+  const reconciliation = reconcileMoneyEconomicRoles({
+    transactions: currentTransactions,
+    allocations: active.allocations,
+    roleByCategoryId,
+  });
+  const protectedRequirement = projectProtectedRequirement({
+    categories: categories
+      .filter((category) => category.planRole === 'protected')
+      .map((category) => ({
+        fundingRhythm: category.fundingRhythm,
+        plannedCents: category.plannedCents,
+        priorReserveCents: category.reserveBalanceCents,
+        spentCents: category.spentCents,
+      })),
+  });
+  const freshness = isFresh(snapshot.lastSyncedAt, now) && active.status !== 'blocked' ? 'fresh' : 'stale';
+  const livingLimitAnswer = projectMoneyPlanLimitAnswer({
+    active: active.periodId === currentPeriodId ? active : { ...active, periodId: currentPeriodId },
+    evidence,
+    reconciliation,
+    freshness,
+    protectedPlanCents: protectedRequirement.protectedPlanCents,
+    protectedOverageCents: protectedRequirement.protectedOverageCents,
+  });
   return {
     versionId: active.versionId,
     receipt: active.receipt,
     snapshot: {
       ...snapshot,
       generatedAt: now.toISOString(),
+      livingLimitAnswer,
       categories,
       totals: { ...snapshot.totals, plannedCents, spentCents, remainingCents: plannedCents - spentCents },
       forecast: {
@@ -103,6 +144,12 @@ export function projectMoneyPlanProjection(
       },
     },
   };
+}
+
+function isFresh(lastSyncedAtIso: string | null, now: Date): boolean {
+  if (!lastSyncedAtIso) return false;
+  const ageMs = now.getTime() - new Date(lastSyncedAtIso).getTime();
+  return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 72 * 60 * 60 * 1000;
 }
 
 function lastDayOfPeriod(periodId: string): string {

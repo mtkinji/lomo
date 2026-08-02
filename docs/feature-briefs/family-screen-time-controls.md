@@ -7,12 +7,14 @@ personas: [Maya]
 hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-put-intention-before-impulse, jtbd-carry-intentions-into-action, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
-related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-screen-time-controls-contextual-setup]
+related_briefs: [brief-household-foundation, brief-household-activity-assignment, brief-chores-as-recurring-activities, brief-screen-time-controls-contextual-setup, brief-screen-time-controls]
 owner: andrew
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Family Screen Time Controls
+
+> **System ownership:** This brief defines family `.child` Screen Time agreements and caregiver authority. Shared selection, enforcement, receipt, conflict, and navigation rules are governed by the canonical [Screen Time Control Plane](../architecture/screen-time-control-plane.md). Family setup and editing remain owned by the named child inside Household.
 
 ## Context
 
@@ -51,6 +53,7 @@ When a child reaches for entertainment, the family wants the device to follow th
 - Apple Family Controls `.child` authorization governs whether the physical device can be managed.
 - App Store Family Sharing governs neither Kwilt authority nor policy delivery.
 - Adult `.individual` Screen Time remains a separate mode and feature brief.
+- Screen Time is not a global-navigation destination. **Settings > Screen Time** may summarize the child's state, but setup and editing route to **People > Household > [Child] > Screen Time**.
 
 Screen Time activation, caregiver authority, commercial entitlement, and managed-device readiness are separate states. Family Screen Time appears in the child's Kwilt experience only when activated for that child. If a rule references assigned Activities, To-dos must also be explicitly active for that child; a schedule-only rule has no To-dos dependency.
 
@@ -110,6 +113,28 @@ A denial is a durable decision, not the dismissal of one notification:
 
 The child surface explains when requesting becomes available again. Kwilt must not reproduce the native loop in which every tap becomes a fresh time-sensitive interruption after the caregiver has already said no.
 
+### Direct temporary controls
+
+A caregiver also needs to act on an immediate family decision without editing the standing agreement or waiting for a child request:
+
+> Turn off Brawl Stars for Charlie and Grant for the next three hours.
+
+Kwilt interprets **turn off** as **temporarily block**, resolves the named children and their saved child-scoped **Brawl Stars** selections, computes an exact local expiry, and stages one compact consequential proposal in Chat. The proposal shows action, app/group label, every child, and the exact end time. It is never auto-applied.
+
+The control plane uses two policy primitives and one request workflow:
+
+- **standing agreement** — recurring family policy;
+- **temporary override** — block or allow with automatic expiry;
+- **access request** — a child/caregiver decision path that may create the same allow override with request provenance.
+
+V1 direct controls support wall-clock **block**, wall-clock **allow**, **inspect**, and **cancel**. **Enable Brawl Stars for Charlie for the next 30 minutes** ends at an exact displayed time. **Give Charlie 30 minutes of Brawl Stars** means foreground usage and remains deferred until Device Activity threshold behavior is proven on signed devices.
+
+An allow overrides named Kwilt family restrictions for that saved selection. It does not imply that Focus, Money, a personal agreement, communication/safety policy, or another Apple restriction was cleared. On expiry or cancellation, the child device recompiles every remaining claim rather than globally clearing shields.
+
+Apple does not expose a readable installed-app inventory to Kwilt. The first request for an unknown app opens Apple's native picker for the exact child and saves a caregiver-defined selection label. Opaque Apple tokens remain on the authorized native side. Future Chat commands reuse that label. A multi-child command validates every child's saved selection before applying and never silently leaves the family in a partial state.
+
+See [Family Screen Time Direct Controls](../design-explorations/family-screen-time-direct-controls/03-converge.md).
+
 ## Success signal
 
 The child can predict when access changes, ordinary transitions happen without asking for an unlock, either caregiver can handle a real exception, and the family can distinguish a policy decision from device delivery.
@@ -131,3 +156,21 @@ Physical-device proof must cover schedule transitions, foreground usage threshol
 - How long may cached Activity occurrences and policies remain valid offline?
 - Does schedule-only access remove enough requests to justify shipping before chore integration?
 - Which custom shield actions can reliably route to the exact next responsibility across supported iOS versions?
+
+## Spec refinement: pre-TestFlight learning slice
+
+The first implementation checkpoint does not require a second device or a TestFlight build. Andrew may create a dependent child profile, activate Screen Time for that child, and review the fixed schedule-only starter agreement in the Simulator:
+
+> Games are available on school days from 4:00–7:00 for up to 30 minutes.
+
+A development-only simulated device adapter may acknowledge desired policy versions so the caregiver experience can exercise `pending`, `applying`, and `applied` presentation. This state is local learning scaffolding, keyed to the signed-in caregiver and child membership. It never changes the server Household activation from `pending_setup`, never claims Apple authorization, and is unavailable in production builds.
+
+The pre-TestFlight slice must prove:
+
+- Screen Time activation is child-specific and reveals one setup path for that child.
+- The starter agreement is readable without a generic rule builder.
+- Desired and applied policy versions remain distinct in state and copy.
+- The child preview explains the current time-window state without blame or surveillance language.
+- Reloading the local build preserves the learning state for the same caregiver and child without leaking it to another child.
+
+Signed physical-device and TestFlight proof remains required before the capability can claim authorization, app selection, scheduled enforcement, usage measurement, background behavior, offline behavior, or cleanup.

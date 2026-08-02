@@ -2,102 +2,128 @@
 
 ## Concept To Build
 
-Add one familiar `Search To-dos` field at the top of the populated To-dos inventory that opens Kwilt's existing shared Search drawer already scoped to To-dos.
+Place a separate circular Search action beside the collapsed Quick Add dock, and reveal
+a smaller circular scroll-to-top action centered above the full dock row after a short
+committed scroll.
 
 ## Capability Delta
 
 Today, the user cannot:
 
 - recognize a direct Search path from the visible To-dos page;
-- search all To-dos without knowing that global Search lives inside the capability menu;
-- clearly distinguish known-item retrieval from changing the current view, filters, grouping, or sort.
+- invoke Search without knowing it lives in the capability menu;
+- return quickly to the beginning after scrolling through a long inventory.
 
 After this release, the user can:
 
-- see `Search To-dos` before scanning a populated inventory;
-- tap it to open the existing drawer with To-dos as the sole initial scope and the query input focused;
-- search the full eligible To-dos collection without dismantling the current inventory configuration;
-- deliberately broaden the same search to Goals, Arcs, or Chapters using the existing scope chips;
-- dismiss Search and return to the unchanged To-dos context.
+- tap Search beside Quick Add to open the existing drawer scoped to To-dos;
+- keep capture and retrieval as distinct, unambiguous actions;
+- tap scroll-to-top after roughly one-third of a viewport to return to offset zero;
+- dismiss Search and return to the unchanged To-dos view and scroll position.
 
 Still intentionally not supported:
 
-- inline filtering of cards while typing;
-- a second Activities-only results surface;
-- saved searches, query modes, search preferences, or altered ranking;
-- a footer Search button, compound Add/Search dock, fixed-toolbar lens, or scroll-triggered rail;
-- a Search affordance when there are no stored To-dos to retrieve;
-- special Kanban search placement in the first learning slice.
+- inline filtering of the visible list;
+- a second To-dos-only result surface;
+- saved searches, ranking changes, or search preferences;
+- Search or scroll-to-top in Kanban, where the Quick Add dock is absent;
+- new analytics, onboarding, coachmarks, or settings.
 
 ## User Experience
 
-On a populated To-dos page in the standard inventory layouts, the user sees one compact, full-width field below the view/filter/group/sort toolbar and above the first list content. It contains a search lens and the literal placeholder-style label `Search To-dos`.
+On a populated standard To-dos list, the collapsed Quick Add pill keeps its existing
+height, copy, elevation, and tap behavior while reserving enough trailing space for a
+48-point circular Search button. The button uses the same card surface, border, and
+elevation as Quick Add.
 
-The field is a button rather than an editable input. Tapping anywhere on it opens `GlobalSearchDrawer`, resets any previous query, selects only the To-dos scope for this invocation, and focuses the drawer's real query input. With no query, the drawer retains its existing small set of recent/recommended To-dos. The user may broaden scope with the existing chips.
+Tapping Search calls `openGlobalSearch({ initialScope: 'activities' })`. The existing
+drawer remains authoritative for query state, focus, scopes, ranking, results, and
+navigation.
 
-The inventory field participates in the list opening context: it scrolls away with list content and reappears when the user returns to the top. Closing the drawer preserves the inventory's active view, filters, grouping, sort, and scroll position.
+After the list crosses roughly one-third of a viewport of vertical scroll, a 40-point circular return
+button appears centered above the complete Quick Add/Search row while retaining a
+48-point touch target. A hysteresis boundary keeps it stable while scrolling back
+through the middle and hides it again within the top quarter of the viewport. Tapping it
+gives light haptic feedback, grows briefly to acknowledge the request, starts the active
+standard, grouped, or manual-order list toward the top, then fades, sinks, and shrinks
+back toward its dock anchor during the return.
+Its entrance begins smaller and slightly lower at the dock anchor, then quickly fades,
+rises, and grows into its resting position so its origin is spatially legible.
+
+Quick Add and Search use the same light press haptic so the floating controls share one
+quiet interaction language. Scroll-to-top remains visually and spatially separate because
+it is transient navigation, not a third persistent dock action.
+
+Both satellite actions are hidden while Quick Add is expanded so the capture drawer and
+keyboard own the interaction.
+
+When the inventory is stationary, Quick Add and its satellite controls retain their
+broad floating shadow and add a darker, tight contact shadow around the surface edge.
+Actual list movement removes only the contact layer so the controls recede while the
+user scans content. The contact layer returns 600 ms after scrolling settles.
 
 ## Existing Product Relationship
 
-This enhances `ActivitiesScreen` as a local invocation point and leaves `GlobalSearchDrawer` authoritative for search state, scope, ranking, results, navigation, and empty states. The capability-menu Search entry remains the global invocation path. Quick Add and all To-dos organization controls remain unchanged.
+This enhances `ActivitiesScreen` as a local invocation point and reuses
+`GlobalSearchDrawer`, `QuickAddDock`, the existing inventory scroll stream, and Kwilt's
+current icon and surface tokens. The capability-menu Search entry remains the global
+invocation path. No domain data or persisted preferences change.
 
 ## Buildable Slice
 
 Must be real:
 
-- A reusable passive search-affordance row using existing Kwilt input/surface tokens, iconography, spacing, pressed state, and accessibility conventions.
-- Placement in the populated standard To-dos list header beneath the fixed toolbar.
-- `accessibilityRole="button"` and `accessibilityLabel="Search To-dos"` with a minimum 44-point hit target.
-- Invocation through `openGlobalSearch({ initialScope: 'activities' })`.
-- Drawer query reset and query-input focus on open.
-- To-dos-only initial scope even if the previous global invocation had broader scopes selected.
-- Search results drawn from the full eligible Activities store, independent of the active rendered view/filter/group/sort.
-- Unchanged inventory state and scroll position after drawer dismissal.
-- Focused tests for visibility, accessibility, invocation scope, and no regression to the existing menu Search entry.
-- Simulator proof at the top of a populated list, after the field has scrolled away, and after returning from the drawer.
+- A circular Search button anchored beside the collapsed Quick Add dock.
+- Quick Add's existing tap flow and expanded state preserved.
+- Search invocation scoped initially to Activities.
+- A circular scroll-to-top button revealed from tested viewport-relative behavior.
+- Animated return to offset zero in standard, grouped, and manual-order list layouts.
+- Minimum 44-point touch targets, button roles, literal accessibility labels, and hints.
+- Shared elevation values between the collapsed dock and the two satellite controls.
+- Shared settled-versus-scrolling elevation timing across all visible floating controls.
+- Focused tests for Search, scroll-to-top visibility, dock geometry, and threshold
+  hysteresis.
+- Simulator proof on the populated To-dos route at the top, deep in the list, after
+  returning to the top, and through the Search drawer.
 
-Can be thin or temporary:
+Can be thin:
 
-- Manual observation can capture whether the field is noticed and whether the vertical space feels acceptable; no new analytics event is required for an Andrew-only local build.
-- The first slice may target the standard list/grouped inventory paths used by the supplied screenshot while Kanban continues to rely on capability-menu Search.
-- Styling should reuse the nearest existing quiet input/surface treatment rather than establish a new generalized component API unless reuse is already obvious.
+- Andrew-only observation is sufficient for the first composition and thumb-reach pass.
+- Entrance and acknowledgement motion stay brief and functional; Reduce Motion removes
+  the scale and translation instead of substituting decorative effects.
 
 Intentionally excluded:
 
-- Search-result, ranking, recents, or scope-chip redesign.
-- New navigation routes or persisted state.
-- Search text rendered or managed by `ActivitiesScreen`.
-- Coachmarks, onboarding, badges, animations, or explanatory copy.
-- Quick Add geometry or behavior changes.
-- Fixed toolbar restructuring.
-- Search availability based on scroll thresholds, list length, AI inference, or usage frequency.
-- TestFlight, production rollout, or feature-flag infrastructure in this phase.
+- Search-result, recents, scope-chip, or ranking redesign.
+- New navigation routes, schema, persistence, entitlements, or feature flags.
+- A compound Add/Search input or another labeled dock.
+- Changes to the fixed inventory toolbar.
+- Kanban-specific placement.
 
 ## Release Channel
 
 **Local build.**
 
-This is the fastest truthful first evaluation because the unresolved questions are interaction quality and page composition, not backend feasibility or multi-user behavior. A local iOS simulator build can prove layout, scroll behavior, drawer invocation, accessibility labeling, and state preservation. If the field survives that review, a signed-device build is the next boundary for real thumb reach and repeated dogfood use; TestFlight remains a separate explicitly authorized step.
+The first unknowns are composition, reach, and scroll behavior on the real populated
+To-dos surface. Simulator proof can validate the integration; signed-device dogfood is
+the next boundary for repeated thumb-reach use. TestFlight remains a separate step.
 
 ## Brand-Goodwill Guardrails
 
-- The release remains Andrew-only until it looks intentional in the real populated To-dos surface.
-- Use literal, familiar `Search To-dos` language; do not frame this as a new feature or recommendation.
-- Keep the field visually quieter than Quick Add and the To-dos themselves.
-- Do not move, shrink, or overload Quick Add.
-- Do not expose incomplete Kanban behavior as if Search were universally placed until that layout is deliberately resolved.
+- Search stays visually secondary to the wider Quick Add action.
+- Retrieval never changes the current view, filters, grouping, or sort.
+- The return control appears only when it saves meaningful scrolling.
+- Expanded capture never competes with adjacent floating actions.
+- No data is collected merely to justify the affordances.
 
 ## Reversibility
 
-The release adds one local trigger and no schema, migration, persisted preference, entitlement, notification, or new result state. Removing the trigger restores the prior page while leaving the shared Search drawer and capability-menu entry intact. Rollback is therefore a narrow component/render-path reversal with no user-data cleanup.
+The slice adds local controls and one optional dock inset. It introduces no migration or
+persisted state. Removing the controls and inset restores the previous page without
+user-data cleanup.
 
 ## Permanent Product Threshold
 
-Promote the affordance from a learning slice to accepted To-dos behavior when:
-
-- it is recognized without instruction;
-- the added row does not make the opening inventory feel crowded or push useful content unacceptably far down;
-- it reliably opens To-dos-scoped Search and preserves inventory context;
-- it replaces scanning or filter/view dismantling for known-item retrieval in repeated dogfood use;
-- real-device use does not reveal a strong need for persistent bottom access;
-- the remaining supported inventory layouts receive an intentional, consistent placement decision.
+Keep the affordances when repeated dogfood use shows that Search is invoked without
+confusion, scroll-to-top appears at a useful moment, Quick Add still reads as primary,
+and the two-control stack feels calm on the smallest supported viewport.

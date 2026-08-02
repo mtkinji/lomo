@@ -105,6 +105,7 @@ const SETTINGS_STACK_SCHEMA: ChildSchema = {
     'SettingsNotifications',
     'SettingsScreenTimeProtection',
     'SettingsHousehold',
+    'SettingsFamilyScreenTime',
     'SettingsMoneyPrivacy',
     'SettingsMoneyHousehold',
     'SettingsWeeklyChapters',

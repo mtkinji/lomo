@@ -160,24 +160,45 @@ test('preserves the next-week bound when the model omits the Goal target date', 
   expect(proposal.operation?.payload?.followUpActivity).toEqual({ title: 'Walk', repeatRule: 'daily' });
 });
 
-test('returns an honest boundary for child app control without depending on model selection', async () => {
-  const sender = jest.fn(async () => 'What would you like Kwilt to change?');
+test('stages a reviewed family Screen Time control from authorized saved-selection evidence', async () => {
+  const sender = jest.fn(async (_history, options) => {
+    const screenTimeTool = options.runtimeTools?.find((tool: { id: string }) => tool.id === 'screen_time.override.allow');
+    await options.executeRuntimeTool?.({
+      id: 'allow-brawl-stars', toolId: 'screen_time.override.allow', arguments: {
+        targets: [{ childMembershipId: 'charlie', selectionId: 'selection-charlie', expectedVersion: 7 }],
+        timeBasis: 'wall_clock', expiresAt: '2026-07-30T11:00:00.000Z',
+      },
+    }, screenTimeTool);
+    return 'I prepared that Screen Time change for review.';
+  });
   const { repository, send } = harness(sender);
 
   await runUnifiedChatTurn(
     { aggregate, prompt: 'Turn on Brawl Stars for Charlie.' },
     {
       repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+      now: () => new Date('2026-07-30T10:00:00.000Z'),
       loadCapabilitySnapshots: async () => ({
         goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        screenTime: { children: [{
+          membershipId: 'charlie', displayName: 'Charlie', canManage: true,
+          policy: {
+            childMembershipId: 'charlie', subjectId: 'subject-charlie', desiredPolicyVersion: 7,
+            selections: [{ id: 'selection-charlie', label: 'Brawl Stars', selectionRef: 'opaque', status: 'active' }],
+            agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
+          },
+        }] },
       }),
     },
   );
 
-  expect(sender).not.toHaveBeenCalled();
+  expect(sender).toHaveBeenCalled();
   expect(repository.createClientAction).not.toHaveBeenCalled();
-  expect(repository.insertMessage).toHaveBeenLastCalledWith(expect.objectContaining({
-    role: 'assistant',
-    body: "Cross-device Screen Time controls aren't available yet. Kwilt can manage selected apps on this device, but it can't change Brawl Stars on Charlie's device.",
+  expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+    capabilityId: 'screenTime', title: 'Allow Brawl Stars',
+    operation: expect.objectContaining({
+      type: 'allow_family_screen_time_selection',
+      payload: expect.objectContaining({ expiresAt: '2026-07-30T11:00:00.000Z' }),
+    }),
   }));
 });

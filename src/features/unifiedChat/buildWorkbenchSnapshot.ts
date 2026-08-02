@@ -422,8 +422,14 @@ export function buildWorkbenchSnapshot(
     proposals: (aggregate.proposals ?? []).filter(
       (proposal) => !compactCreateProposals.has(proposal.id),
     ).map((proposal) => {
-      const { expectedUpdatedAt: _expectedUpdatedAt, ...fields } = proposal.operation.payload;
-      const visibleFields = proposal.capabilityId !== 'plan'
+      const { expectedUpdatedAt: _expectedUpdatedAt, ...fields } = proposal.operation.payload as Record<string, unknown>;
+      const visibleFields = proposal.capabilityId === 'screenTime'
+        ? {
+            expiresAt: proposal.operation.payload.expiresAt,
+            timeBasis: proposal.operation.payload.timeBasis,
+            targetCount: proposal.operation.payload.targets.length,
+          }
+        : proposal.capabilityId !== 'plan'
         ? fields
         : proposal.operation.type === 'remove_activity_from_plan'
           ? {
@@ -493,7 +499,15 @@ export function buildWorkbenchSnapshot(
         id: receipt.id,
         proposalId: receipt.proposalId,
         status: receipt.status,
-        summary: title
+        summary: receipt.capabilityId === 'screenTime' && receipt.status === 'applied'
+          ? receipt.resultState.deviceState === 'applied'
+            ? 'Saved · Applied on the child device'
+            : receipt.resultState.deviceState === 'device_required'
+              ? 'Saved · Child device setup needed'
+              : receipt.resultState.deviceState === 'failed'
+                ? 'Saved · Child device needs attention'
+                : 'Saved · Applying to the child device'
+          : title
           ? formatProposalReceiptSummary(receipt.status, proposal?.operation.type, title)
           : receipt.status === 'failed' ? 'The change could not be applied' : 'Kwilt saved the change',
         ...(receipt.resultingObjectId && title

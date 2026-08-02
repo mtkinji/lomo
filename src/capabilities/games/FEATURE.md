@@ -10,8 +10,10 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - kwilt-games-capability-integration
+  - nearby-game-join
+  - bank-roll-pacing
 status: shipping
-last_reviewed: 2026-07-28
+last_reviewed: 2026-07-31
 ---
 
 # Games

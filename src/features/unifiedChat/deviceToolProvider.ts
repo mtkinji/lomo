@@ -13,7 +13,8 @@ export type StagedUnifiedChatClientAction = {
 };
 
 const DEVICE_TOOL_IDS = new Set([
-  'screen_time.configure', 'notifications.configure', 'navigation.search.open',
+  'screen_time.configure', 'screen_time.selection.open', 'screen_time.device.setup.open',
+  'screen_time.device.release.open', 'notifications.configure', 'navigation.search.open',
   'navigation.account_settings.open', 'account.subscription.open', 'account.delete.open',
   'activities.open_focus', 'activities.location.update', 'activities.attachments.open',
   'activities.share.open', 'goals.share.open', 'goals.check_in', 'plan.preferences.open',
@@ -86,6 +87,42 @@ export function createDeviceToolProvider({ snapshots }: { snapshots: UnifiedChat
         retryable: false,
         reason: 'Cross-device Screen Time control is not available yet. Kwilt can only manage selected apps on this device.',
       };
+    }
+    if (call.toolId === 'screen_time.selection.open' || call.toolId === 'screen_time.device.setup.open'
+      || call.toolId === 'screen_time.device.release.open') {
+      const childMembershipId = typeof call.arguments.childMembershipId === 'string'
+        ? call.arguments.childMembershipId.trim()
+        : '';
+      const child = snapshots.screenTime?.children.find((candidate) => (
+        candidate.canManage && candidate.membershipId === childMembershipId
+      ));
+      if (!child) {
+        return {
+          status: 'failed', code: 'screen_time_child_not_found',
+          message: 'That child is not available in your authorized Screen Time household.', retryable: true,
+        };
+      }
+      const setupStep = call.toolId === 'screen_time.selection.open'
+        ? 'selection'
+        : call.toolId === 'screen_time.device.release.open' ? 'release' : 'device';
+      const suggestedLabel = typeof call.arguments.suggestedLabel === 'string'
+        ? call.arguments.suggestedLabel.trim().slice(0, 80)
+        : null;
+      return stage({
+        capabilityId: 'screenTime', actionType: 'open_family_screen_time_setup',
+        targetType: 'family_screen_time_child', targetId: child.membershipId,
+        title: setupStep === 'release'
+          ? `Review ${child.displayName}'s device release`
+          : `Continue Screen Time setup for ${child.displayName}`,
+        consequenceSummary: setupStep === 'release'
+          ? 'Kwilt will open native release review. Removing protection still happens only after you confirm there.'
+          : 'Kwilt will open the exact native setup step. Apple authorization or app selection still happens there.',
+        payload: {
+          childDisplayName: child.displayName,
+          setupStep,
+          ...(suggestedLabel ? { suggestedLabel } : {}),
+        },
+      });
     }
     const definitions: Record<string, StagedUnifiedChatClientAction> = {
       'notifications.configure': {

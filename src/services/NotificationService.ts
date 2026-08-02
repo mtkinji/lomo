@@ -25,6 +25,9 @@ import {
   shouldScheduleScreenTimeSetupNotification,
   type ScreenTimeSetupIntent,
 } from './screenTimeProtection';
+import type { MoneySavedCheck } from '../capabilities/money/domain/moneySavedCheck';
+import { moneySavedCheckStorage } from '../capabilities/money/runtime/moneySavedCheckStorage';
+import { getSupabaseClient } from './backend/supabaseClient';
 
 type OsPermissionStatus = 'notRequested' | 'authorized' | 'denied' | 'restricted';
 
@@ -55,7 +58,8 @@ type NotificationData =
   | { type: 'exploreRecap'; sessionId: string }
   | { type: 'focusSession'; activityId: string; sessionId?: string }
   | { type: 'streak' }
-  | { type: 'reactivation' };
+  | { type: 'reactivation' }
+  | { type: 'moneyCheck'; savedCheckId: string };
 
 // Local in-memory map of scheduled notification ids, hydrated on init.
 const activityNotificationIds = new Map<string, string>();
@@ -66,6 +70,7 @@ let setupNextStepNotificationId: string | null = null;
 let screenTimeSetupOfferNotificationId: string | null = null;
 let streakAtRiskNotificationId: string | null = null;
 let reactivationNotificationId: string | null = null;
+let moneyCheckNotificationId: string | null = null;
 
 let isInitialized = false;
 let hasAttachedStoreSubscription = false;
@@ -303,11 +308,53 @@ async function hydrateScheduledNotifications() {
       if (data && data.type === 'reactivation') {
         reactivationNotificationId = request.identifier;
       }
+      if (data && data.type === 'moneyCheck' && 'savedCheckId' in data) {
+        moneyCheckNotificationId = request.identifier;
+      }
     });
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to hydrate scheduled notifications', error);
     }
+  }
+}
+
+async function cancelMoneyCheckInternal(notificationId?: string | null): Promise<void> {
+  const ids = [...new Set([notificationId, moneyCheckNotificationId].filter((id): id is string => Boolean(id)))];
+  await Promise.all(ids.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined)));
+  moneyCheckNotificationId = null;
+}
+
+async function scheduleMoneyCheckInternal(check: MoneySavedCheck): Promise<string | null> {
+  if (!check.active) return null;
+  const permitted = await ensurePermissionWithRationaleInternal('money');
+  if (!permitted) return null;
+  await cancelMoneyCheckInternal(check.notificationId);
+  const identifier = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Your weekly Money check is ready',
+      body: 'Open Kwilt to see the current answer.',
+      data: { type: 'moneyCheck', savedCheckId: check.id } satisfies NotificationData,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      weekday: check.cadence.weekday + 1,
+      hour: check.cadence.hour,
+      minute: check.cadence.minute,
+      repeats: true,
+    },
+  });
+  moneyCheckNotificationId = identifier;
+  return identifier;
+}
+
+async function recordMoneyCheckOpened(atIso: string): Promise<void> {
+  try {
+    const { data, error } = await getSupabaseClient().auth.getUser();
+    if (error || !data.user) return;
+    await moneySavedCheckStorage.recordOpened(data.user.id, atIso);
+  } catch {
+    // Opening Budget remains useful even if the local receipt cannot be recorded.
   }
 }
 
@@ -1927,13 +1974,19 @@ function attachNotificationResponseListener() {
         });
         break;
       }
+      case 'moneyCheck': {
+        if ((data as { savedCheckId?: string }).savedCheckId !== 'money-limit') return;
+        void recordMoneyCheckOpened(openedAtIso);
+        navigateWhenReady('Money', { screen: 'MoneySummary' });
+        break;
+      }
       default:
         break;
     }
   });
 }
 
-async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily'): Promise<boolean> {
+async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily' | 'money'): Promise<boolean> {
   const currentStatus = (await syncOsPermissionStatus()) as OsPermissionStatus;
   if (currentStatus === 'authorized') {
     return true;
@@ -1956,7 +2009,9 @@ async function ensurePermissionWithRationaleInternal(reason: 'activity' | 'daily
       'Allow gentle reminders?',
       reason === 'activity'
         ? 'Kwilt can send you gentle reminders when to-dos are due so tiny steps don’t slip through the cracks.'
-        : 'Kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
+        : reason === 'money'
+          ? 'Kwilt can privately remind you to open Budget for a current weekly answer. The notification will not show financial details.'
+          : 'Kwilt can send a daily nudge to review Today and choose one tiny step for your arcs.',
       [
         {
           text: 'Not now',
@@ -2013,6 +2068,10 @@ async function captureLastNotificationOpenIfAny() {
     if (data.type === 'exploreRecap' && (data as { sessionId?: string }).sessionId) {
       navigateWhenReady('Explore', { screen: 'ExploreMap' });
     }
+    if (data.type === 'moneyCheck' && (data as { savedCheckId?: string }).savedCheckId === 'money-limit') {
+      void recordMoneyCheckOpened(new Date().toISOString());
+      navigateWhenReady('Money', { screen: 'MoneySummary' });
+    }
   } catch (error) {
     if (__DEV__) {
       console.warn('[notifications] failed to read last notification response', error);
@@ -2052,7 +2111,7 @@ export const NotificationService = {
     await captureLastNotificationOpenIfAny();
   },
 
-  async ensurePermissionWithRationale(reason: 'activity' | 'daily'): Promise<boolean> {
+  async ensurePermissionWithRationale(reason: 'activity' | 'daily' | 'money'): Promise<boolean> {
     return ensurePermissionWithRationaleInternal(reason);
   },
 
@@ -2109,6 +2168,14 @@ export const NotificationService = {
 
   async cancelActivityReminder(activityId: string) {
     await runExclusive(`activity:${activityId}`, async () => cancelActivityReminderInternal(activityId));
+  },
+
+  async scheduleMoneyCheck(check: MoneySavedCheck): Promise<string | null> {
+    return runExclusive('moneyCheck', async () => scheduleMoneyCheckInternal(check));
+  },
+
+  async cancelMoneyCheck(notificationId?: string | null): Promise<void> {
+    await runExclusive('moneyCheck', async () => cancelMoneyCheckInternal(notificationId));
   },
 
   async scheduleDailyShowUp(time: string) {

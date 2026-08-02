@@ -22,6 +22,8 @@ const handlers = {
   onTogglePriority: jest.fn(),
   onStartFocus: jest.fn(),
   onSchedule: jest.fn(),
+  onEditDueDate: jest.fn(),
+  onEditDuration: jest.fn(),
   onPressActivity: jest.fn(),
   onDeleteActivity: jest.fn(),
 };
@@ -29,6 +31,8 @@ const handlers = {
 describe('ActivityInventoryRow', () => {
   beforeEach(() => {
     mockActivityListItemRender.mockClear();
+    handlers.onEditDueDate.mockClear();
+    handlers.onEditDuration.mockClear();
   });
 
   it('does not rebuild an unchanged row when its inventory parent rerenders', () => {
@@ -51,5 +55,91 @@ describe('ActivityInventoryRow', () => {
     rerender(<ActivityInventoryRow {...props} />);
 
     expect(mockActivityListItemRender).toHaveBeenCalledTimes(1);
+  });
+
+  it('makes the timing pill editable only when it represents a due date', () => {
+    renderWithProviders(
+      <ActivityInventoryRow
+        activity={{ ...activity, scheduledDate: '2026-08-02' }}
+        meta="Aug 2"
+        metaTone="future"
+        estimateMeta={undefined}
+        priorityIndicator={undefined}
+        metaLoading={false}
+        isDueToday={false}
+        rowGap={2}
+        rowOuterGap={0}
+        isDragging={false}
+        isGhost={false}
+        {...handlers}
+      />,
+    );
+
+    const renderedProps = mockActivityListItemRender.mock.calls[0]?.[0] as {
+      onMetaPress?: () => void;
+      metaAccessibilityLabel?: string;
+    };
+    expect(renderedProps.metaAccessibilityLabel).toBe(
+      'Edit due date for Call Jenny, currently Aug 2',
+    );
+
+    renderedProps.onMetaPress?.();
+    expect(handlers.onEditDueDate).toHaveBeenCalledWith('activity-1');
+  });
+
+  it('leaves reminder-only timing metadata non-interactive', () => {
+    renderWithProviders(
+      <ActivityInventoryRow
+        activity={{ ...activity, scheduledDate: null, reminderAt: '2026-08-02T09:00:00.000Z' }}
+        meta="Aug 2"
+        metaTone="future"
+        estimateMeta={undefined}
+        priorityIndicator={undefined}
+        metaLoading={false}
+        isDueToday={false}
+        rowGap={2}
+        rowOuterGap={0}
+        isDragging={false}
+        isGhost={false}
+        {...handlers}
+      />,
+    );
+
+    const renderedProps = mockActivityListItemRender.mock.calls[0]?.[0] as {
+      onMetaPress?: () => void;
+      metaAccessibilityLabel?: string;
+    };
+    expect(renderedProps.onMetaPress).toBeUndefined();
+    expect(renderedProps.metaAccessibilityLabel).toBeUndefined();
+  });
+
+  it('makes a visible duration estimate directly editable', () => {
+    renderWithProviders(
+      <ActivityInventoryRow
+        activity={{ ...activity, estimateMinutes: 30 }}
+        meta={undefined}
+        metaTone={undefined}
+        estimateMeta="~30 min"
+        priorityIndicator={undefined}
+        metaLoading={false}
+        isDueToday={false}
+        rowGap={2}
+        rowOuterGap={0}
+        isDragging={false}
+        isGhost={false}
+        {...handlers}
+      />,
+    );
+
+    const renderedProps = mockActivityListItemRender.mock.calls[0]?.[0] as {
+      onEstimatePress?: () => void;
+      estimateAccessibilityLabel?: string;
+    };
+    expect(renderedProps.estimateAccessibilityLabel).toBe(
+      'Edit duration for Call Jenny, currently ~30 min',
+    );
+
+    renderedProps.onEstimatePress?.();
+    expect(handlers.onEditDuration).toHaveBeenCalledWith('activity-1');
   });
 });

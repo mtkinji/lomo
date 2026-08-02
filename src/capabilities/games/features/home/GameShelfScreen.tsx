@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
-import { ChevronRight, Dices, Smartphone, UsersRound } from 'lucide-react-native';
+import { ChevronRight, Dices, Radio, UsersRound } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JoinTableDrawer } from '@/src/capabilities/games/features/remote/JoinTableDrawer';
@@ -37,11 +37,11 @@ export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, o
         rightElement={(
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Join a game with a code"
+            accessibilityLabel="Find or join a nearby game"
             onPress={() => setJoinOpen(true)}
             style={({ pressed }) => [styles.joinGame, pressed ? styles.joinGamePressed : null]}
           >
-            <Smartphone size={16} color={gamesTheme.colors.ink} />
+            <Radio size={16} color={gamesTheme.colors.ink} />
             <Text style={styles.joinGameText}>Join</Text>
           </Pressable>
         )}

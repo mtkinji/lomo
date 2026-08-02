@@ -213,7 +213,17 @@ export async function materializeUnifiedChatOutcomePhase(
       body: proposal.body,
       permissionPolicy: { requiresExplicitApproval: true as const },
     };
-    if (proposal.capabilityId === 'todos') {
+    if (proposal.capabilityId === 'screenTime') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'screenTime',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'todos') {
       await persistProposal({
         ...common,
         capabilityId: 'todos',

@@ -1,5 +1,29 @@
 # Converge: todo-search-affordance
 
+## Decision update — 2026-07-30
+
+Andrew selected **C: Bottom Search satellite** for implementation after reviewing the
+current populated To-dos surface. This supersedes the earlier top-of-list choice below;
+the original scorecard and reasoning remain as decision history.
+
+The selected version keeps Quick Add as the primary bottom action, shortens only its
+collapsed resting width, and anchors a separate circular Search button to its right.
+Tapping Quick Add retains the existing capture flow. Tapping Search opens the existing
+drawer scoped to To-dos.
+
+The slice also adds one contextual companion action: after a short committed scroll,
+a smaller circular scroll-to-top button rises into view centered above the complete
+Quick Add/Search row. It remains available while the user is deep in the list and hides
+again near the top. Both satellite buttons
+disappear while Quick Add is expanded, and neither appears in Kanban where the Quick Add
+dock is absent.
+
+The updated bet is that persistent, thumb-reachable retrieval earns the small amount of
+bottom space on a long inventory, while the contextual return action removes the cost of
+recovering the list's opening context. If dogfood use makes the two-button stack feel too
+heavy, revisit the top-of-list Search concept rather than combining Search and capture
+into one ambiguous control.
+
 ## Scoring approach
 
 Each concept is scored from 1–5, where 5 is strongest. Scores compare the concepts rather than claim research precision.

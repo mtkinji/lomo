@@ -1,5 +1,7 @@
 # Navigation and Workflows: Family Screen Time
 
+> **Navigation supersession — 2026-07-30:** The proposed first-class Screen Time side-sheet destination in this exploration is superseded by the accepted [Screen Time Control Plane](../../architecture/screen-time-control-plane.md). Screen Time remains a named product capability, but it is reached contextually and through **Settings > Screen Time** or **People > Household > [Child] > Screen Time**, not global navigation. The family workflows, role-aware explanations, rule model, and device-delivery requirements below remain design inputs; references to a Screen Time capability home are historical proposals rather than the canonical information architecture.
+
 ## Navigation decision
 
 Family Screen Time uses three existing Kwilt ownership levels rather than creating a parental-controls mini-app:

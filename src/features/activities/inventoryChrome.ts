@@ -5,11 +5,32 @@ export const INVENTORY_CHROME_FADE_CONTROL_GAP_PX = 6;
 export const INVENTORY_CHROME_FADE_RAMP_DISTANCE_PX = 6;
 export const INVENTORY_CHROME_FADE_MAX_ALPHA = 0.92;
 export const INVENTORY_CHROME_TOOLBAR_VISUAL_FALLBACK_PX = 44;
+export const SCROLL_TO_TOP_REVEAL_VIEWPORTS = 0.33;
+export const SCROLL_TO_TOP_HIDE_VIEWPORTS = 0.25;
 
 export type InventoryChromeEffect = {
   direction: 'up' | 'down';
   visible: boolean;
 };
+
+export function getScrollToTopVisibility({
+  y,
+  viewportHeight,
+  currentlyVisible,
+}: {
+  y: number;
+  viewportHeight: number;
+  currentlyVisible: boolean;
+}): boolean {
+  if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return false;
+
+  const clampedY = Math.max(0, y);
+  const threshold = viewportHeight * (
+    currentlyVisible ? SCROLL_TO_TOP_HIDE_VIEWPORTS : SCROLL_TO_TOP_REVEAL_VIEWPORTS
+  );
+
+  return clampedY >= threshold;
+}
 
 export function getInventoryChromeDragStartEffect({
   canAutoHide,

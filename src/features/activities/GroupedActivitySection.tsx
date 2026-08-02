@@ -27,6 +27,8 @@ export type GroupedActivitySectionProps = {
   onTogglePriority: (activityId: string) => void;
   onStartFocus?: (activityId: string) => void;
   onSchedule?: (activityId: string) => void;
+  onEditDueDate?: (activityId: string) => void;
+  onEditDuration?: (activityId: string) => void;
   onPressActivity: (activityId: string) => void;
   onDeleteActivity?: (activity: Activity) => void;
   isMetaLoading?: (activityId: string) => boolean;
@@ -45,6 +47,8 @@ export function GroupedActivitySection({
   onTogglePriority,
   onStartFocus,
   onSchedule,
+  onEditDueDate,
+  onEditDuration,
   onPressActivity,
   onDeleteActivity,
   isMetaLoading,
@@ -110,6 +114,26 @@ export function GroupedActivitySection({
                   meta={meta}
                   estimateMeta={estimateMeta}
                   metaTone={metaTone}
+                  onMetaPress={
+                    activity.scheduledDate && onEditDueDate
+                      ? () => onEditDueDate(activity.id)
+                      : undefined
+                  }
+                  metaAccessibilityLabel={
+                    activity.scheduledDate && meta
+                      ? `Edit due date for ${activity.title}, currently ${meta}`
+                      : undefined
+                  }
+                  onEstimatePress={
+                    estimateMeta && onEditDuration
+                      ? () => onEditDuration(activity.id)
+                      : undefined
+                  }
+                  estimateAccessibilityLabel={
+                    estimateMeta
+                      ? `Edit duration for ${activity.title}, currently ${estimateMeta}`
+                      : undefined
+                  }
                   metaLoading={metaLoading}
                   isCompleted={activity.status === 'done'}
                   onToggleComplete={() => onToggleComplete(activity.id)}

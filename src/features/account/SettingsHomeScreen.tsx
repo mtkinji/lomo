@@ -76,7 +76,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       { id: 'notifications', title: 'Notifications', route: 'SettingsNotifications' },
       {
         id: 'screen_time_protection',
-        title: 'Screen Time Controls',
+        title: 'Screen Time',
         route: 'SettingsScreenTimeProtection',
       },
       { id: 'weekly_chapters', title: 'Weekly Chapters', route: 'SettingsWeeklyChapters' },

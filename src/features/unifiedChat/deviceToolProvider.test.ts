@@ -12,6 +12,13 @@ const goal: Goal = {
 };
 const snapshots = {
   goals: { goals: [goal] }, todos: { activities: [activity], goals: [goal] }, chapters: { chapters: [] },
+  screenTime: { children: [{
+    membershipId: 'child-charlie', displayName: 'Charlie', canManage: true,
+    policy: {
+      childMembershipId: 'child-charlie', subjectId: 'subject-charlie', desiredPolicyVersion: 1,
+      selections: [], agreements: [], activeOverrides: [], pendingRequests: [], devices: [], latestDeviceReceipt: null,
+    },
+  }] },
 };
 const tool = (id: string) => UNIFIED_CHAT_TOOL_CATALOG.find((candidate) => candidate.id === id)!;
 
@@ -86,6 +93,33 @@ test('names missing Screen Time intent fields instead of staging a generic setup
     status: 'needs_input',
     prompt: 'Which child, app, and access change should Kwilt prepare for Screen Time review?',
     fields: ['childName', 'appName', 'desiredAccess'],
+  });
+  expect(provider.actions()).toEqual([]);
+});
+
+test.each([
+  ['screen_time.selection.open', { childMembershipId: 'child-charlie', suggestedLabel: 'YouTube' }, 'selection'],
+  ['screen_time.device.setup.open', { childMembershipId: 'child-charlie' }, 'device'],
+  ['screen_time.device.release.open', { childMembershipId: 'child-charlie' }, 'release'],
+])('stages %s for the exact authorized child without claiming completion', async (toolId, args, setupStep) => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({ id: toolId, toolId, arguments: args }, tool(toolId)))
+    .resolves.toMatchObject({
+      status: 'pending_client_action', provider: 'device',
+      request: expect.objectContaining({
+        actionType: 'open_family_screen_time_setup', targetId: 'child-charlie',
+        payload: expect.objectContaining({ childDisplayName: 'Charlie', setupStep }),
+      }),
+    });
+  expect(provider.actions()[0].consequenceSummary).toContain('still happens');
+});
+
+test('rejects a Screen Time handoff outside the authorized child snapshot', async () => {
+  const provider = createDeviceToolProvider({ snapshots });
+  await expect(provider.execute({
+    id: 'setup', toolId: 'screen_time.device.setup.open', arguments: { childMembershipId: 'other-child' },
+  }, tool('screen_time.device.setup.open'))).resolves.toMatchObject({
+    status: 'failed', code: 'screen_time_child_not_found',
   });
   expect(provider.actions()).toEqual([]);
 });

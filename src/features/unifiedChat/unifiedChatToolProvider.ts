@@ -6,7 +6,7 @@ import {
 } from '@kwilt/agent-runtime';
 import type { ActivityProposalOperation } from './activityProposal';
 import { buildRecurringReminderFields, parseActivityMutationPatch } from './activityProposal';
-import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
+import { projectMoneyPlanLimitForChat, type UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type {
   PlanRemoveActivityPayload,
   PlanRescheduleActivityPayload,
@@ -20,6 +20,7 @@ import { parseProfileMutationPatch, type ProfileProposalOperation } from './prof
 import { parseChapterNotePatch, type ChapterProposalOperation } from './chapterProposal';
 import { createDeviceToolProvider } from './deviceToolProvider';
 import type { PlanPlacementConversationReferent } from './planConversationReferent';
+import { parseScreenTimeOverrideProposal, type ScreenTimeProposalOperation } from './screenTimeProposal';
 
 export type StagedUnifiedChatToolProposal =
   | {
@@ -61,6 +62,12 @@ export type StagedUnifiedChatToolProposal =
       title: string;
       body: string;
       operation: GoalProposalOperation;
+    }
+  | {
+      capabilityId: 'screenTime';
+      title: string;
+      body: string;
+      operation: ScreenTimeProposalOperation;
     };
 
 const failed = (code: string, message: string): AgentToolExecutionResult => ({
@@ -167,9 +174,52 @@ export function createUnifiedChatToolProvider({
               forecast: category.forecast,
             })),
             accountCount: money.accounts.length,
+            planLimit: projectMoneyPlanLimitForChat(money),
           } : null,
         },
       };
+    }
+
+    if (call.toolId === 'screen_time.override.block' || call.toolId === 'screen_time.override.allow') {
+      const action = call.toolId === 'screen_time.override.block' ? 'block' : 'allow';
+      const operation = parseScreenTimeOverrideProposal({ ...call.arguments, action }, now());
+      if (!operation) return failed('invalid_screen_time_override', 'Choose a bounded wall-clock duration and at least one child.');
+      const children = snapshots.screenTime?.children.filter((child) => child.canManage) ?? [];
+      const resolved = operation.payload.targets.map((target) => {
+        const child = children.find((candidate) => candidate.membershipId === target.childMembershipId);
+        const selection = child?.policy.selections.find((candidate) => (
+          candidate.id === target.selectionId && candidate.status === 'active'
+        ));
+        return child && selection && child.policy.desiredPolicyVersion === target.expectedVersion
+          ? { child, selection }
+          : null;
+      });
+      if (resolved.some((target) => target === null)) {
+        return {
+          status: 'failed', code: 'screen_time_target_stale',
+          message: 'A child, saved app selection, or Screen Time version changed. Refresh before continuing.', retryable: true,
+        };
+      }
+      const authorized = resolved as Array<{
+        child: NonNullable<typeof snapshots.screenTime>['children'][number];
+        selection: NonNullable<typeof snapshots.screenTime>['children'][number]['policy']['selections'][number];
+      }>;
+      const selectionLabels = [...new Set(authorized.map((target) => target.selection.label))];
+      const selectionLabel = selectionLabels.length === 1 ? selectionLabels[0] : 'selected apps';
+      const childLabel = authorized.map((target) => target.child.displayName).join(', ');
+      const expiryLabel = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric', minute: '2-digit',
+      }).format(new Date(operation.payload.expiresAt));
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'screenTime',
+        title: `${action === 'block' ? 'Block' : 'Allow'} ${selectionLabel}`,
+        body: action === 'allow'
+          ? `${childLabel} · for Kwilt family restrictions · until ${expiryLabel}`
+          : `${childLabel} · until ${expiryLabel}`,
+        operation,
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal: proposal as unknown as Record<string, unknown> };
     }
 
     if (call.toolId === 'profile.update') {

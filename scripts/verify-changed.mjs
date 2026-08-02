@@ -2,6 +2,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { buildRelatedTestCommand } from './verify-changed-lib.mjs';
 
 const argv = process.argv.slice(2);
 const shouldRun = argv.includes('--run');
@@ -98,7 +99,7 @@ if (matches(/(^|\/)([^/]+\.)?(test|spec)\.(ts|tsx)$/) || matches(/^(jest\.setup\
 const relatedTestCandidates = appCodeFiles.filter((file) => /\.(ts|tsx)$/.test(file) && !/\.(test|spec)\.(ts|tsx)$/.test(file));
 if (relatedTestCandidates.length > 0 && relatedTestCandidates.length <= 20) {
   add(
-    `npm test -- --runInBand --findRelatedTests ${relatedTestCandidates.map((file) => JSON.stringify(file)).join(' ')}`,
+    buildRelatedTestCommand(relatedTestCandidates),
     'run the Jest tests most directly related to touched app/package files',
   );
 } else if (relatedTestCandidates.length > 20 || matches(/^(jest\.config\.js|jest\.setup\.ts|src\/test\/)/)) {

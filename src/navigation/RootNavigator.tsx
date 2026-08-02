@@ -44,6 +44,7 @@ import type { UnifiedChatLaunchContext, UnifiedChatRouteParams } from '../featur
 import { deriveCapabilityAgentContext, resolveCapabilityAgentReturn } from '../features/ai/capabilityAgentContext';
 import { SettingsHomeScreen } from '../features/account/SettingsHomeScreen';
 import { HouseholdSettingsScreen } from '../features/household/HouseholdSettingsScreen';
+import { FamilyScreenTimeLearningScreen } from '../features/household/screenTime/FamilyScreenTimeLearningScreen';
 import { ActivityAreasSettingsScreen } from '../features/account/ActivityAreasSettingsScreen';
 import { WidgetsSettingsScreen } from '../features/account/WidgetsSettingsScreen';
 import { AppearanceSettingsScreen } from '../features/account/AppearanceSettingsScreen';
@@ -170,7 +171,12 @@ export type RootDrawerParamList = {
    */
   UnifiedChat: UnifiedChatRouteParams | undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
-  DevTools: undefined;
+  DevTools: {
+    familyScreenTimeChild?: {
+      childMembershipId: string;
+      childDisplayName: string;
+    };
+  } | undefined;
   GuidedOvertureLab: { sessionId?: number } | undefined;
 };
 
@@ -330,6 +336,13 @@ export type SettingsStackParamList = {
       }
     | undefined;
   SettingsHousehold: undefined;
+  SettingsFamilyScreenTime: {
+    childMembershipId: string;
+    childDisplayName: string;
+    setupStep?: 'device' | 'selection' | 'release';
+    suggestedLabel?: string;
+    clientActionId?: string;
+  };
   SettingsMoneyPrivacy: undefined;
   SettingsMoneyHousehold: undefined;
   SettingsWeeklyChapters: undefined;
@@ -962,6 +975,10 @@ function SettingsStackNavigator() {
         component={ScreenTimeProtectionSettingsScreen}
       />
       <SettingsStack.Screen name="SettingsHousehold" component={HouseholdSettingsScreen} />
+      <SettingsStack.Screen
+        name="SettingsFamilyScreenTime"
+        component={FamilyScreenTimeLearningScreen}
+      />
       <SettingsStack.Screen name="SettingsMoneyPrivacy" component={MoneyPrivacySettingsScreen} />
       <SettingsStack.Screen name="SettingsMoneyHousehold" component={MoneyHouseholdSettingsScreen} />
       <SettingsStack.Screen
@@ -1185,6 +1202,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
         chatsError={chatsError}
         displayName={displayName}
         avatarUrl={authIdentity?.avatarUrl || userProfile?.avatarUrl}
+        moneyLivingLimitEnabled
         onSelectCapability={(id) => {
           const capability = resolveCapabilityNavigation(id);
           capture(AnalyticsEvent.CapabilitySelected, {

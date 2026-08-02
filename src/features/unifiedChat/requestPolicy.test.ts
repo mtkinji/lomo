@@ -6,6 +6,18 @@ import {
 } from './requestPolicy';
 
 describe('classifyUnifiedChatRequest', () => {
+  test.each([
+    'Am I within my income spending limit?',
+    'Does my budget still fit the 70% living limit?',
+    'Does my plan still fit the 70% limit?',
+  ])('routes a Money limit question to Money without day-Plan context: %s', (prompt) => {
+    expect(classifyUnifiedChatRequest({ prompt })).toMatchObject({
+      requestClass: 'capability_question',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+    });
+  });
+
   test('treats asking what to add to tomorrow as a recommendation, not authorization', () => {
     expect(classifyUnifiedChatRequest({
       prompt: 'What should I add to my plan tomorrow?',
@@ -44,8 +56,8 @@ describe('classifyUnifiedChatRequest', () => {
     ["Actually, Lily's birthday is October 14.", 'capability_action', true, ['relationships']],
     ["Forget Lily's birthday.", 'capability_action', true, ['relationships']],
     ['Move my unfinished errands to Saturday morning.', 'capability_action', true, ['todos', 'plan']],
-    ['Block games until reading is done.', 'native_control', false, ['screenTime']],
-    ['Turn on Brawl Stars for Charlie.', 'native_control', false, ['screenTime']],
+    ['Block games until reading is done.', 'native_control', true, ['screenTime']],
+    ['Turn on Brawl Stars for Charlie.', 'native_control', true, ['screenTime']],
     ['Can you diagnose this chest pain?', 'better_served_elsewhere', false, []],
   ] as const)(
     'classifies %s as %s',

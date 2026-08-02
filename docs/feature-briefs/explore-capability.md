@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-capture-and-find-meaning, jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [geolocation-activity-offers]
 owner: andrew
-last_updated: 2026-07-28
+last_updated: 2026-08-01
 ---
 
 # Explore capability
@@ -107,5 +107,7 @@ A real or simulated outing visibly clears fog, draws a meaningful altitude-color
 The first clearing must work while the user is stationary; onboarding may not depend on a convenient walk or drive. The foreground-only first request is intentionally distinct from returning manual adventures, which retain their existing screen-lock permission path. “Family” controls describe and persist the privacy contract but do not imply remote data exists. Named Place visits are represented in the shared conceptual model; automatic POI lookup is deferred. Runtime completion requires a simulator or signed-device path, not unit tests alone, and battery claims still require signed-device measurement.
 
 Recorded territory must not imply a path Kwilt did not observe. Active vehicle tracking requests dense observations, then retains them using an approximately 0.8-second speed horizon clamped to 6-22 meters. A trustworthy course change of roughly 10 degrees may retain a point before the distance threshold so residential corners and roundabouts preserve their shape. Background delivery remains deferred so observation fidelity does not require waking the JavaScript runtime for every point. Canonical points retain coordinate, timestamp, accuracy, speed, and GPS course; the compass is not operated separately.
+
+Silver Mist receives explicit route-segment pairs rather than guessing continuity from explored-cell order. Straight observations may be topology-preservingly simplified for the bounded native renderer, but every segment remains inside one recorded session and no segment may cross the 60-meter evidence gap. Isolated trusted observations remain circular clearings. Always Exploring requests approximately 22-meter vehicle updates and batches delivery farther in the background; a deliberate Adventure retains the denser 6-meter vehicle profile. This reduces routine freeway acquisition and JavaScript wakeups without weakening intentional outing fidelity.
 
 Adjacent points more than 60 meters apart are treated as a discontinuity: the observations remain, but Explore draws no connecting line and clears no interpolated corridor. Schema migration rebuilds retained territory from the original points so previously over-interpolated gaps are repaired without discarding location history. Any later road-matched geometry is a separately cached, confidence-gated presentation only; it may not clear fog, establish a Place visit, or overwrite recorded evidence, and no precise coordinates may leave the device without an explicit provider and privacy decision.

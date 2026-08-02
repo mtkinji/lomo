@@ -3,7 +3,7 @@ id: job-flow-maya-review-budget-reality-before-spending
 audience: audience-aspirational-family-organizers
 persona: Maya
 hero_jtbd: jtbd-move-the-few-things-that-matter
-last_updated: 2026-07-27
+last_updated: 2026-07-31
 ---
 
 # Maya: Review Budget Reality Before Spending
@@ -47,14 +47,15 @@ replaced with evidence from the native Kwilt capability.
 1. Recognize a Money promise that matches the spending or planning decision and
    enter without learning Kwilt's capability taxonomy.
 2. Start or truthfully resume the minimum Money setup required for that decision.
-3. Establish the household plan and the categories that matter.
+3. Receive a durable household plan that Kwilt creates and routinely maintains,
+   then adjust priorities only when Maya wants a different tradeoff.
 4. Bring connected-account activity into a current, inspectable money view.
-5. See the relevant category and whole-plan reality before spending or changing
-   the plan.
-6. Understand actual spending, planned capacity, outside-plan activity,
-   forecast, freshness, and confidence in plain language.
-7. Correct transaction meaning or planning assumptions when the evidence is
-   wrong or incomplete.
+5. See exact whole-plan flexible money left first, with dollars left by category
+   available as a second-order guide.
+6. Understand the durable monthly plan, current spending, and freshness in plain
+   language without confusing plan room with cash safe until payday.
+7. Redirect category priorities when her values change, and inspect or correct
+   transaction meaning only when it materially improves the decision.
 8. Choose whether to continue, adjust the plan, or keep a spend-triggering app
    blocked.
 9. See an authoritative result or receipt and trust the pattern enough to use it
@@ -105,9 +106,9 @@ replaced with evidence from the native Kwilt capability.
 | --- | --- | --- |
 | Recognize and enter the Money job | 2 | Native destinations and a concept Guided Overture offer exist, but the production acquisition-to-activation path and task-specific experiment are not wired. |
 | Start or resume minimum setup | 2 | First-use setup and account connection surfaces exist, but shared capability adoption/resume state and exact campaign continuity are not implemented. |
-| Establish plan and categories | 4 | Native setup, category creation, plan changes, automatic planning, impact preview, receipts, and reversal exist; authenticated device acceptance remains. |
+| Establish plan and categories | 4 | Native setup, category creation, plan changes, automatic planning, impact preview, receipts, and reversal exist; the delegated experience and authenticated device acceptance remain unproven. |
 | Bring in current activity | 3 | Shared-session repositories and Plaid connection/sync surfaces exist, but signed-device OAuth, relink, sync/relaunch, and production-provider proof remain. |
-| See reality before acting | 3 | Summary, detail, widgets, and Screen Time handoff provide the intended paths; widget and shield delivery are not yet proven on a signed device. |
+| See reality before acting | 3 | Summary, detail, widgets, and Screen Time handoff provide supporting paths, but whole-plan flexible money is not yet consistently primary; widget and shield delivery are not yet proven on a signed device. |
 | Understand the evidence | 4 | Actual, planned, outside-plan, forecast range, confidence, and freshness are distinct in the native projection; same-account parity still needs device/TestFlight proof. |
 | Correct wrong assumptions | 4 | Transaction category/meaning review, exact mixed-category allocation, and plan correction paths rebuild authoritative state. Authenticated simulator save, relaunch, correction, reversal, and database reconciliation pass; installed TestFlight proof remains. |
 | Make the intentional choice | 3 | Continue, plan-adjustment, temporary-open, and keep-blocked paths exist; the Screen Time choices still need physical-device proof. |
@@ -142,11 +143,19 @@ statement-cycle, or longitudinal household proof.
   provider tokens.
 - Learn whether forecast and app-control language helps Maya decide quickly in
   repeated real spending moments.
+- Prove that Kwilt can create and maintain the ordinary monthly plan without
+  requiring routine category administration.
+- Make exact whole-plan flexible money left the primary answer, with category
+  room second and transaction correction on demand.
+- Model normalized planning income so ordinary paycheck timing and small income
+  variation do not rewrite the current month's plan.
+- Keep monthly plan room distinct from cash safe until payday; the latter still
+  requires reliable balances, bill timing, and expected-deposit evidence.
 - Keep the standalone build recoverable until parity is accepted and retirement
   is separately authorized.
 
 ## Aspirational Design Challenge
 
-How might we help Maya make a calm household spending or planning decision from
-current, understandable Money evidence—without turning family finances into a
-dashboard habit or making a restriction feel punitive?
+How might Kwilt run the monthly budget on Maya's behalf, give her one
+trustworthy amount left to spend, and let her redirect category priorities
+without turning her into a budget or categorization administrator?

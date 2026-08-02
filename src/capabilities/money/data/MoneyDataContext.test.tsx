@@ -84,4 +84,33 @@ describe('MoneyDataProvider merchant-rule confirmation', () => {
     backgroundRefresh.resolve(refreshedSnapshot);
     await waitFor(() => expect(screen.getByText('groceries')).toBeTruthy());
   });
+
+  it('renders deterministic Money first, then refreshes only when background classification assigns rows', async () => {
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValueOnce(snapshot).mockResolvedValueOnce({ ...snapshot, generatedAt: 'classified' }),
+      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({ consideredCount: 2, assignedCount: 1, unresolvedCount: 1 }),
+    } as unknown as MoneyRepository;
+    const screen = render(
+      <MoneyDataProvider repository={repository}>
+        <SaveRuleProbe />
+      </MoneyDataProvider>,
+    );
+
+    await screen.findByText('ready');
+    expect(screen.getByText('no-rule')).toBeTruthy();
+    await waitFor(() => expect(repository.loadSnapshot).toHaveBeenCalledTimes(2));
+    expect(repository.classifyUnresolvedTransactions).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Money ready when optional background classification fails', async () => {
+    const repository = {
+      loadSnapshot: jest.fn().mockResolvedValue(snapshot),
+      classifyUnresolvedTransactions: jest.fn().mockRejectedValue(new Error('optional failure')),
+    } as unknown as MoneyRepository;
+    const screen = render(<MoneyDataProvider repository={repository}><SaveRuleProbe /></MoneyDataProvider>);
+
+    await screen.findByText('ready');
+    expect(screen.queryByText('error')).toBeNull();
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(1);
+  });
 });

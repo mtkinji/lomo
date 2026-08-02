@@ -96,6 +96,13 @@ describe('SettingsHomeScreen planning group', () => {
     expect(getByText('Account')).toBeTruthy();
   });
 
+  it('uses the cross-domain Screen Time label at the Settings root', () => {
+    const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Screen Time')).toBeTruthy();
+    expect(queryByText('Screen Time Controls')).toBeNull();
+  });
+
   it('opens the canonical Household settings surface', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Household'));

@@ -1715,21 +1715,33 @@ struct GlanceableStateV1: Codable {
     let updatedAtMs: Double
   }
 
-  struct MoneyCategory: Codable {
-    let id: String
-    let name: String
-    let percentUsed: Int
-    let periodElapsedPercent: Int
-    let paceSentiment: String
-    let status: String
-    let deepLink: String
-  }
-
   struct Money: Codable {
+    struct FlexibleMoney: Codable {
+      let state: String
+      let amountCents: Double?
+      let flexibleCapacityCents: Double?
+      let countedFlexibleSpendCents: Double?
+      let deepLink: String
+    }
+
+    struct Category: Codable {
+      let id: String
+      let name: String
+      let percentUsed: Int
+      let periodElapsedPercent: Int
+      let paceSentiment: String
+      let status: String
+      let plannedCents: Double?
+      let spentCents: Double?
+      let remainingCents: Double?
+      let deepLink: String
+    }
+
     let periodLabel: String
     let percentUsed: Int
     let needsReviewCount: Int
-    let categories: [MoneyCategory]
+    let flexibleMoney: FlexibleMoney?
+    let categories: [Category]
   }
 
   let version: Int
@@ -1786,6 +1798,20 @@ struct WidgetFormatters {
     rf.unitsStyle = .abbreviated
     return rf
   }()
+
+  static let currency: NumberFormatter = {
+    let formatter = NumberFormatter()
+    formatter.locale = Locale.autoupdatingCurrent
+    formatter.numberStyle = .currency
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 2
+    return formatter
+  }()
+}
+
+func formatCurrency(cents: Double?) -> String? {
+  guard let cents = cents, cents.isFinite else { return nil }
+  return WidgetFormatters.currency.string(from: NSNumber(value: cents / 100.0))
 }
 
 func formatTimeLabel(ms: Double?) -> String? {
@@ -2496,7 +2522,8 @@ struct ${targetName}Bundle: WidgetBundle {
       KwiltActivitiesWidget()
       KwiltLockScreenWidget()
       KwiltStreakWidget()
-      KwiltMoneyWidget()
+      KwiltFlexibleMoneyWidget()
+      KwiltMoneyCategoryWidget()
     }
     if #available(iOS 16.2, *) {
       KwiltFocusLiveActivity()

@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { BankGame } from '../../domain/bank';
+
+type BankCooldownState = Pick<BankGame, 'players' | 'rollInRound'>;
+
+export function bankRollCooldownRemaining(
+  game: BankCooldownState,
+  remainingSeconds: number,
+) {
+  const activeRollers = game.players.filter((player) => !player.banked).length;
+  return game.rollInRound >= 3 && activeRollers > 1 ? remainingSeconds : 0;
+}
 
 export function bankRollButtonLabel(rolling: boolean, remainingSeconds: number) {
   if (rolling) return 'Rolling…';

@@ -82,6 +82,7 @@ export type ConfirmedMerchantRuleWrite = {
 
 export interface MoneyRepository {
   loadSnapshot(): Promise<MoneySnapshot>;
+  classifyUnresolvedTransactions(): Promise<{ consideredCount: number; assignedCount: number; unresolvedCount: number }>;
   ensureGovernedPlanFoundation(): Promise<void>;
   assignTransactionCategory(transactionId: string, categoryId: string): Promise<ConfirmedTransactionWrite>;
   markTransactionNotCounted(transactionId: string): Promise<ConfirmedTransactionWrite>;
@@ -173,6 +174,9 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 iso_currency_code,
                 budget_id,
                 budget_match_source,
+                budget_assignment_source,
+                budget_assignment_policy_version,
+                budget_assignment_governed,
                 money_meaning,
                 personal_finance_category_primary,
                 personal_finance_category_detailed,
@@ -252,6 +256,19 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
 
   return {
     loadSnapshot,
+    async classifyUnresolvedTransactions() {
+      await requireSignedIn(client);
+      const { data, error } = await client.functions.invoke('classify-money-transactions', { body: {} });
+      if (error) throw new Error(`Money could not classify transactions: ${error.message || 'Unknown server error'}`);
+      const result = data as Record<string, unknown> | null;
+      const consideredCount = Number(result?.consideredCount);
+      const assignedCount = Number(result?.assignedCount);
+      const unresolvedCount = Number(result?.unresolvedCount);
+      if (![consideredCount, assignedCount, unresolvedCount].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+        throw new Error('Money received an invalid classification receipt.');
+      }
+      return { consideredCount, assignedCount, unresolvedCount };
+    },
     async ensureGovernedPlanFoundation() {
       await requireSignedIn(client);
       const { error } = await client.functions.invoke('reconcile-governed-money', { body: {} });
@@ -534,7 +551,7 @@ async function readPart<T>(label: string, query: PromiseLike<ReadResult>): Promi
 async function readCategoryRows(db: MoneyReadClient): Promise<MoneyCategoryRow[]> {
   const withCover = await db
     .from('budget_categories')
-    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order')
+    .select('id,slug,legacy_budget_id,name,description,accent_color,cover_image,sort_order,mapping_tags')
     .eq('status', 'active')
     .order('sort_order', { ascending: true });
   if (!withCover.error) return (withCover.data ?? []) as MoneyCategoryRow[];

@@ -20,6 +20,7 @@ import {
 import type { MoneyStackParamList } from '../navigation/types';
 import { reconcileLivingPlan } from '../runtime/livingPlanReconciliation';
 import { parseMonthlyAmount } from '../domain/categoryPlanDraft';
+import { MoneyWeeklyCheckRow } from '../components/MoneyWeeklyCheckRow';
 
 export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<MoneyStackParamList, 'MoneyLivingPlan'>) {
   const [state, setState] = useState<LivingPlanSettingsSnapshot | null>(null);
@@ -27,12 +28,14 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [planningBasisDraft, setPlanningBasisDraft] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
   const client = getSupabaseClient();
 
   const load = useCallback(async () => {
     try {
-      const next = await getLivingPlanSettings(client);
+      const [next, authResult] = await Promise.all([getLivingPlanSettings(client), client.auth.getUser()]);
       setState(next);
+      setUserId(authResult.data.user?.id ?? null);
       setPlanningBasisDraft(next.planningBasis ? (next.planningBasis.monthlyBasisCents / 100).toFixed(2) : '');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Money plan settings could not be loaded.');
@@ -109,6 +112,8 @@ export function MoneyLivingPlanScreen({ navigation }: NativeStackScreenProps<Mon
       >
         <SettingsRow title="Current plan" value={state?.active ? `${state.active.livingPercent}% target` : loading ? 'Loading…' : 'Not ready'} />
       </SettingsGroup>
+
+      {userId ? <MoneyWeeklyCheckRow userId={userId} /> : null}
 
       {status ? <SettingsGroup footer={status}><SettingsRow title="Latest result" /></SettingsGroup> : null}
 

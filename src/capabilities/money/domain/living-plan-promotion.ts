@@ -1,7 +1,7 @@
 import type { LivingPlanTrigger } from './living-plan-changes';
 
 export type LivingPlanActivationDecision =
-  | { action: 'promote_now'; reason: 'initial_supported_plan' | 'explicit_user_save' | 'period_boundary' }
+  | { action: 'promote_now'; reason: 'initial_supported_plan' | 'explicit_user_save' | 'period_boundary' | 'future_period_recovery' }
   | { action: 'hold_for_period'; activationPeriodId: string; reason: 'automatic_monthly_maintenance' };
 
 export function decideLivingPlanActivation(input: {
@@ -10,6 +10,9 @@ export function decideLivingPlanActivation(input: {
   activePeriodId: string | null;
 }): LivingPlanActivationDecision {
   if (!input.activePeriodId) return { action: 'promote_now', reason: 'initial_supported_plan' };
+  if (input.activePeriodId > input.candidatePeriodId) {
+    return { action: 'promote_now', reason: 'future_period_recovery' };
+  }
   if (
     input.trigger === 'target_changed'
     || input.trigger === 'planning_basis_changed'

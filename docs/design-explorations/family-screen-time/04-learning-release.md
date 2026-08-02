@@ -206,6 +206,19 @@ The release sequence is:
 
 This plan does not authorize implementation, production migration, entitlement submission, or TestFlight submission. Each remains a distinct later gate.
 
+### Pre-TestFlight local checkpoint
+
+Before spending a TestFlight build, Kwilt will exercise the caregiver half of the agreement in a local development build. Andrew creates a dependent child profile, activates Screen Time for that child, reviews the fixed school-day Games agreement, and uses a development-only simulated device acknowledgement to inspect desired-versus-applied policy state and the child-facing explanation.
+
+This checkpoint is intentionally narrower than the TestFlight learning release:
+
+- Household activation remains server-authoritative and stays `pending_setup` without a physical device.
+- Simulated readiness and acknowledgements are local, development-only, and labeled as simulated everywhere they appear.
+- No Apple authorization, app selection, shield, Device Activity callback, foreground usage, offline enforcement, or cleanup claim is made.
+- Nearby discovery, QR, independent child-account acceptance, exceptions, responsibilities, and payment are not required to evaluate this caregiver workflow.
+
+The checkpoint is complete when the one-rule parent experience feels coherent enough that the next TestFlight build can focus on native delivery truth instead of unfinished product flow.
+
 ## Brand-Goodwill Guardrails
 
 - Call it **Family Screen Time** in the product; use “Family Access Rule” only when the rule needs a name.

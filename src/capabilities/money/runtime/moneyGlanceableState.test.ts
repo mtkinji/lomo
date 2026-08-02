@@ -67,17 +67,41 @@ function snapshot(): MoneySnapshot {
     ],
     transactions: [],
     accounts: [],
+    livingLimitAnswer: {
+      state: 'supported',
+      headlineAmountCents: 34_296,
+      limitLine: { livingPercent: 70, livingLimitCents: 336_000 },
+      qualification: null,
+      recoveryAction: null,
+      reviewTransactionIds: [],
+      facts: {
+        periodId: '2026-07', planVersionId: 'version-1', policyVersion: 'money-plan-limit-v2',
+        resourceBasisCents: 480_000, resourceBasisKind: 'detected_income', resourceBasisUpdatedAtIso: '2026-07-24T12:00:00Z',
+        livingPercent: 70, livingLimitCents: 336_000, protectedPlanCents: 200_000, protectedOverageCents: 0,
+        flexibleCapacityCents: 136_000, countedFlexibleSpendCents: 101_704,
+        flexibleRoomCents: 34_296, flexibleRoomLowCents: 34_296, flexibleRoomHighCents: 34_296,
+        unresolvedInScopeCents: 0, plannedCents: 336_000, unassignedCents: 0,
+        overLimitCents: 0, freshness: 'fresh', confidence: 'supported', qualificationReason: null,
+      },
+    },
   };
 }
 
 describe('buildMoneyGlanceableSnapshot', () => {
-  it('publishes progress without dollar amounts, merchants, or account details', () => {
+  it('publishes exact display-safe flexible and category facts without transaction or account details', () => {
     const result = buildMoneyGlanceableSnapshot(snapshot(), new Date(2026, 6, 24));
 
     expect(result).toEqual({
       periodLabel: 'July 2026',
       percentUsed: 64,
       needsReviewCount: 3,
+      flexibleMoney: {
+        state: 'left',
+        amountCents: 34_296,
+        flexibleCapacityCents: 136_000,
+        countedFlexibleSpendCents: 101_704,
+        deepLink: 'kwilt://money?source=widget',
+      },
       categories: [
         {
           id: 'fun',
@@ -86,6 +110,9 @@ describe('buildMoneyGlanceableSnapshot', () => {
           percentUsed: 130,
           periodElapsedPercent: 77,
           status: 'over',
+          plannedCents: 10_000,
+          spentCents: 13_000,
+          remainingCents: -3_000,
           deepLink: 'kwilt://money/category/fun?source=widget',
         },
         {
@@ -95,11 +122,42 @@ describe('buildMoneyGlanceableSnapshot', () => {
           percentUsed: 80,
           periodElapsedPercent: 77,
           status: 'on_track',
+          plannedCents: 40_000,
+          spentCents: 32_000,
+          remainingCents: 8_000,
           deepLink: 'kwilt://money/category/groceries?source=widget',
         },
       ],
     });
-    expect(JSON.stringify(result)).not.toMatch(/64000|36000|merchant|account/i);
+    expect(JSON.stringify(result)).not.toMatch(/merchant|account|transaction/i);
+  });
+
+  it('publishes exact over and unavailable states without inventing zero', () => {
+    const over = snapshot();
+    over.livingLimitAnswer = {
+      ...over.livingLimitAnswer!,
+      state: 'over_flexible_room',
+      headlineAmountCents: 8_400,
+      facts: { ...over.livingLimitAnswer!.facts, flexibleRoomCents: -8_400 },
+    };
+    expect(buildMoneyGlanceableSnapshot(over).flexibleMoney).toMatchObject({
+      state: 'over', amountCents: 8_400,
+    });
+
+    const unavailable = snapshot();
+    unavailable.livingLimitAnswer = {
+      ...unavailable.livingLimitAnswer!,
+      state: 'missing_income_basis',
+      headlineAmountCents: null,
+      limitLine: null,
+    };
+    expect(buildMoneyGlanceableSnapshot(unavailable).flexibleMoney).toEqual({
+      state: 'unavailable',
+      amountCents: null,
+      flexibleCapacityCents: 136_000,
+      countedFlexibleSpendCents: 101_704,
+      deepLink: 'kwilt://money?source=widget',
+    });
   });
 
   it('caps invalid percentages and publishes every category for widget configuration', () => {
