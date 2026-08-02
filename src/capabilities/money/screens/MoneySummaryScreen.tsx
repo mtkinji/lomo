@@ -229,7 +229,7 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
             answer={livingLimitAnswer}
             audit={planAudit}
             freshness={formatMoneyFreshness(snapshot?.lastSyncedAt ?? null)}
-            onChangePlan={() => {
+            onChangeTarget={() => {
               setLimitExplanationOpen(false);
               navigation.navigate('MoneyLivingPlan');
             }}
@@ -369,14 +369,14 @@ function LimitFacts({
   answer,
   audit,
   freshness,
-  onChangePlan,
+  onChangeTarget,
   onOpenCategory,
   onOpenTransactions,
 }: {
   answer: LivingLimitAnswer;
   audit: MoneyPlanAudit;
   freshness: string;
-  onChangePlan: () => void;
+  onChangeTarget: () => void;
   onOpenCategory: (categoryId: string) => void;
   onOpenTransactions: (title: string, transactionIds: string[]) => void;
 }) {
@@ -405,8 +405,10 @@ function LimitFacts({
 
       <StatementSection label="YOUR MONTHLY BOUNDARY">
         <LimitFact
-          label={`${facts.livingPercent}% of ${basisSourcePhrase(facts.resourceBasisKind)}`}
+          accessibilityLabel={`Change ${facts.livingPercent}% living target`}
+          label={`Living target · ${facts.livingPercent}%`}
           value={facts.livingLimitCents == null ? 'Not available' : formatMoney(facts.livingLimitCents)}
+          onPress={onChangeTarget}
         />
         <LimitFact
           accessibilityLabel="Review bills and money set aside"
@@ -469,7 +471,6 @@ function LimitFacts({
       <Text style={styles.drawerBasis}>
         {facts.resourceBasisCents == null ? 'Income basis unavailable' : `${basisLabel(facts.resourceBasisKind)}: ${formatMoney(facts.resourceBasisCents)}`} · {freshness}
       </Text>
-      <Button accessibilityLabel="Adjust plan" accessibilityRole="button" onPress={onChangePlan} size="sm" style={styles.adjustPlanAction} variant="link">Adjust plan</Button>
     </View>
   );
 }
@@ -530,13 +531,6 @@ function basisLabel(kind: LivingLimitAnswer['facts']['resourceBasisKind']): stri
   if (kind === 'detected_income') return 'Detected income';
   if (kind === 'prior_supported_basis') return 'Last supported income';
   return 'Not confirmed';
-}
-
-function basisSourcePhrase(kind: LivingLimitAnswer['facts']['resourceBasisKind']): string {
-  if (kind === 'user_set') return 'your monthly income';
-  if (kind === 'detected_income') return 'detected monthly income';
-  if (kind === 'prior_supported_basis') return 'last supported monthly income';
-  return 'monthly income';
 }
 
 function moneyMonthName(periodId: string): string {
@@ -632,5 +626,4 @@ const styles = StyleSheet.create({
   drawerSupportingFact: { marginTop: -spacing.xs, paddingLeft: spacing.sm, color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   drawerBasis: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   protectedCategoryList: { gap: spacing.xs },
-  adjustPlanAction: { alignSelf: 'flex-start', marginLeft: -spacing.md },
 });

@@ -12,8 +12,9 @@ const PROTECTED_MAPPING_TAGS = new Set([
 ]);
 
 export function inferMoneyCategoryPlanRole(
-  category: Pick<MoneyCategory, 'forecastSettings' | 'mappingTags'>,
+  category: Pick<MoneyCategory, 'forecastSettings' | 'mappingTags' | 'planRoleOverride'>,
 ): MoneyCategoryPlanRole {
+  if (category.planRoleOverride) return category.planRoleOverride;
   const scheduledAmountCents = category.forecastSettings?.scheduledAmountCents ?? 0;
   if (scheduledAmountCents > 0) return 'protected';
   return category.mappingTags?.some((tag) => PROTECTED_MAPPING_TAGS.has(tag))

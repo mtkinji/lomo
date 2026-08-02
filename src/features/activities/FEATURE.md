@@ -23,6 +23,7 @@ briefs:
   - dynamic-next-best-action
   - focus-mode-education
   - focus-protection
+  - focus-widget
   - geolocation-activity-offers
   - keyboard-input-safety
   - kwilt-text-coach

@@ -76,6 +76,7 @@ export const AnalyticsEvent = {
   UnifiedChatAgentJudgmentSelected: 'unified_chat_agent_judgment_selected',
   UnifiedChatAgentJudgmentFallback: 'unified_chat_agent_judgment_fallback',
   UnifiedChatAgentPlanOutcome: 'unified_chat_agent_plan_outcome',
+  UnifiedChatFreshEntryOutcome: 'unified_chat_fresh_entry_outcome',
   FamilyScreenTimeChatProposalDecided: 'family_screen_time_chat_proposal_decided',
   FamilyScreenTimeChatPolicyOutcome: 'family_screen_time_chat_policy_outcome',
 

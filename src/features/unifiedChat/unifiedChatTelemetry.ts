@@ -18,6 +18,16 @@ function confidenceBucket(confidence: number): 'low' | 'medium' | 'high' {
   return 'high';
 }
 
+export function buildUnifiedChatFreshEntryTelemetry(
+  source: string | undefined,
+  outcome: 'first_send' | 'abandoned' | 'thread_creation_failed',
+): UnifiedChatTelemetryProperties {
+  return {
+    entry_source: source === 'widget' ? 'widget' : 'other',
+    outcome,
+  };
+}
+
 export function buildUnifiedChatAgentJudgmentTelemetry(
   judgment: AgentJudgment | null,
   source: UnifiedChatJudgmentSource,

@@ -6,7 +6,17 @@ import {
   buildFamilyScreenTimeDecisionTelemetry,
   buildUnifiedChatAgentJudgmentTelemetry,
   buildUnifiedChatAgentPlanOutcomeTelemetry,
+  buildUnifiedChatFreshEntryTelemetry,
 } from './unifiedChatTelemetry';
+
+test('fresh-entry telemetry contains only bounded source and outcome metadata', () => {
+  expect(buildUnifiedChatFreshEntryTelemetry('widget', 'first_send')).toEqual({
+    entry_source: 'widget',
+    outcome: 'first_send',
+  });
+  expect(JSON.stringify(buildUnifiedChatFreshEntryTelemetry('widget', 'abandoned')))
+    .not.toMatch(/prompt|message|thread|title|text/i);
+});
 
 test('route telemetry contains only bounded routing metadata', () => {
   const record = buildUnifiedChatRouteTelemetry({

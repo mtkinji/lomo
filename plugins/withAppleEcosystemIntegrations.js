@@ -17,6 +17,8 @@ const fs = require('fs');
 const path = require('path');
 const { addMoneyWidgetFontResources, copyMoneyWidgetFontResources } = require('./appleEcosystem/moneyWidgetResources');
 const { getMoneyWidgetSwift } = require('./appleEcosystem/moneyWidgetSwift');
+const { getFocusWidgetSwift } = require('./appleEcosystem/focusWidgetSwift');
+const { getChatWidgetSwift } = require('./appleEcosystem/chatWidgetSwift');
 const { withScreenTimeShieldExtensions } = require('./appleEcosystem/screenTimeShieldExtensions');
 
 const KWILT_APP_GROUP_FALLBACK = 'group.com.andrewwatanabe.kwilt';
@@ -660,6 +662,8 @@ struct GlanceableStateV1: Codable {
   let focusSession: FocusSession?
 }
 
+let standaloneFocusActivityId = "kwilt-standalone-focus"
+
 func readGlanceableState() -> GlanceableStateV1? {
   let defaults = UserDefaults(suiteName: "${appGroupId}")
   guard let json = defaults?.string(forKey: "kwilt_glanceable_state_v1") else { return nil }
@@ -733,7 +737,9 @@ struct StartFocusIntent: AppIntent {
       await UIApplication.shared.open(url)
       return .result()
     }
-    if let url = URL(string: "kwilt://today") { await UIApplication.shared.open(url) }
+    if let url = URL(string: "kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\(safeMinutes)&source=shortcut") {
+      await UIApplication.shared.open(url)
+    }
     return .result()
   }
 }
@@ -747,6 +753,11 @@ struct EndFocusIntent: AppIntent {
   @MainActor
   func perform() async throws -> some IntentResult {
     if let state = readGlanceableState(), state.version == 1, let focus = state.focusSession {
+      if focus.activityId == standaloneFocusActivityId,
+         let url = URL(string: "kwilt://today?openStandaloneFocus=1&source=shortcut") {
+        await UIApplication.shared.open(url)
+        return .result()
+      }
       if let url = URL(string: "kwilt://activity/\\(focus.activityId)?endFocus=1") {
         await UIApplication.shared.open(url)
         return .result()
@@ -1715,6 +1726,16 @@ struct GlanceableStateV1: Codable {
     let updatedAtMs: Double
   }
 
+  struct FocusSession: Codable {
+    let id: String
+    let mode: String
+    let startedAtMs: Double
+    let endAtMs: Double?
+    let remainingMs: Double?
+    let activityId: String
+    let title: String
+  }
+
   struct Money: Codable {
     struct FlexibleMoney: Codable {
       let state: String
@@ -1754,6 +1775,7 @@ struct GlanceableStateV1: Codable {
   let activityViews: [ActivityViewSummary]?
   let activitiesWidgetByViewId: [String: ActivitiesWidgetPayload]?
   let money: Money?
+  let focusSession: FocusSession?
 }
 
 func readGlanceableState() -> GlanceableStateV1? {
@@ -1776,6 +1798,19 @@ func deepLinkActivities(viewId: String?) -> URL? {
     return URL(string: "kwilt://activities?viewId=\\(viewId)&source=widget")
   }
   return URL(string: "kwilt://activities?source=widget")
+}
+
+let standaloneFocusActivityId = "kwilt-standalone-focus"
+
+func deepLinkStartStandaloneFocus(minutes: Int) -> URL {
+  return URL(string: "kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\(minutes)&source=widget")!
+}
+
+func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {
+  if focus.activityId == standaloneFocusActivityId {
+    return URL(string: "kwilt://today?openStandaloneFocus=1&source=widget")!
+  }
+  return URL(string: "kwilt://activity/\\(focus.activityId)?openFocus=1&source=widget")!
 }
 
 struct KwiltPalette {
@@ -2046,6 +2081,10 @@ struct KwiltActivitiesWidget: Widget {
     .supportedFamilies([.systemMedium, .systemLarge])
   }
 }
+
+${getFocusWidgetSwift(targetName)}
+
+${getChatWidgetSwift(targetName)}
 
 // ---------------------------------------------------------------------------
 // Lock Screen Widgets (W1)
@@ -2522,6 +2561,8 @@ struct ${targetName}Bundle: WidgetBundle {
       KwiltActivitiesWidget()
       KwiltLockScreenWidget()
       KwiltStreakWidget()
+      KwiltFocusWidget()
+      KwiltChatWidget()
       KwiltFlexibleMoneyWidget()
       KwiltMoneyCategoryWidget()
     }

@@ -71,6 +71,15 @@ describe('linkingConfig', () => {
     expect(leaf?.path).toEqual(['Explore', 'ExploreMap']);
   });
 
+  test('kwilt://chat preserves default entry and parses an explicit fresh widget entry', () => {
+    expect(parse('chat')).toMatchObject({ name: 'UnifiedChat' });
+    expect(parse('chat')?.params).toBeUndefined();
+    expect(parse('chat?entry=fresh&source=widget')).toMatchObject({
+      name: 'UnifiedChat',
+      params: { entry: 'fresh', source: 'widget' },
+    });
+  });
+
   describe('Money capability deep links', () => {
     test.each([
       ['money', 'MoneySummary', ['Money', 'MoneySummary'], undefined],
@@ -180,6 +189,16 @@ describe('linkingConfig', () => {
 
     test('kwilt://today -> ActivitiesList', () => {
       expect(parse('today')?.name).toBe('ActivitiesList');
+    });
+
+    test('kwilt://today parses the standalone Focus widget request', () => {
+      const leaf = parse('today?autoStartStandaloneFocus=1&focusMinutes=25&source=widget');
+      expect(leaf?.name).toBe('ActivitiesList');
+      expect(leaf?.params).toMatchObject({
+        autoStartStandaloneFocus: true,
+        focusMinutes: 25,
+        source: 'widget',
+      });
     });
 
     test('kwilt://todos aliases the canonical To-dos root', () => {

@@ -8,9 +8,9 @@ hero_jtbd: jtbd-move-the-few-things-that-matter
 job_flow: job-flow-maya-review-budget-reality-before-spending
 serves: [jtbd-review-budget-reality-before-spending, jtbd-trust-this-app-with-my-life, jtbd-carry-intentions-into-action]
 related_briefs: [brief-auto-budget-from-living-target, brief-budget-amount-adjustment, brief-summary-freshness-recovery, brief-money-progressive-activation, brief-transaction-rule-truth, brief-plaid-transaction-backed-meter, brief-model-strategy-and-tradeoffs]
-exploration: docs/design-explorations/minimum-decision-money-management
+exploration: docs/design-explorations/money-plan-meaning-controls
 owner: andrew
-last_updated: 2026-07-31
+last_updated: 2026-08-02
 ---
 
 # Money Living-Limit Answer
@@ -119,16 +119,18 @@ The underlying projection is comprehensive. The resting surface is not.
 ```yaml
 Job: When I open Budget or change one category amount, tell me whether I still
   have room inside the living limit I chose.
-Primary action: `What’s included?` reveals the calculation and
-  evidence; that disclosure contains one secondary `Adjust plan` action. Save appears only
+Primary action: `What’s included?` reveals the calculation and evidence. Its
+  living-target row opens the existing focused target editor. Save appears only
   inside a governed plan-change review.
 Must show: Exact flexible money left this month and total flexible capacity.
 Reveal later: The chosen monthly boundary, income basis, bills and money set
   aside, flexible calculation, affected categories, freshness, receipts, and
-  category inventory presentation choices.
+  category inventory presentation choices, category plan role, and transaction
+  treatment.
 Must not add: Banners, charts, new meters, legends, status icons,
   fixed/flexible badges, health scores, tutorials, permanent helper copy,
-  duplicate settings, or a new destination.
+  duplicate settings, an independent transaction protected flag, or a new
+  destination.
 Reuse map: Money typography, month header, category grid and list, existing drawer,
   category editor, shared plan-change review contract, Save flow, preview
   service, and receipt route.
@@ -163,14 +165,27 @@ amount left, then presents a compact monthly statement: the chosen boundary
 minus bills and money set aside equals flexible room; current flexible spending
 then produces the exact amount left. Planning-income source, target percentage,
 freshness, and the bill/set-aside composition remain supporting evidence. The
-disclosure includes one secondary `Adjust plan` action and never describes plan
-room as account balance, cash available, or guaranteed affordability.
+living-target evidence row is actionable and replaces a separate `Adjust plan`
+button. It never describes plan room as account balance, cash available, or
+guaranteed affordability.
 
 Customer-facing copy says `Bills and money set aside`, not `Protected costs`.
 The counted amount is conservative and category-specific: monthly obligations
 retain at least their planned amount, uncovered spending above plan reduces
 flexible room, and spending funded by an accumulated reserve is not charged to
 the current month twice.
+
+Each category also has one durable `Counts as` role: `Protected` or `Flexible`.
+This is separate from `Funding rhythm` (`Monthly` or `Reserve`): role answers
+whether the category is kept aside before flexible spending, while rhythm
+answers when its money is needed. Existing categories continue to infer a role
+until the customer makes an explicit choice.
+
+Transaction detail always discloses `Plan treatment`. Ordinary outflows inherit
+their category's effective role. Choosing `Flexible spending` or `A protected
+bill or reserve` assigns a category with that role; choosing `Outside the plan`
+uses the existing not-counted meaning. Kwilt does not store a second,
+transaction-level role that could contradict the category.
 
 ### Current-month answer states
 

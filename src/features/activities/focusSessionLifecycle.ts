@@ -29,6 +29,15 @@ export type CompletedFocusSession = Extract<ActiveFocusSession, { mode: 'running
   durationMinutes: number;
 };
 
+/** Runtime identity for Focus time the user intentionally did not attach to an Activity. */
+export const STANDALONE_FOCUS_ACTIVITY_ID = 'kwilt-standalone-focus';
+
+export function isStandaloneFocusSession(
+  focusSession: Pick<ActiveFocusSession, 'activityId'> | null | undefined,
+): boolean {
+  return focusSession?.activityId === STANDALONE_FOCUS_ACTIVITY_ID;
+}
+
 export function isRunningFocusSessionExpired(
   focusSession: FocusSessionLifecycleState | null | undefined,
   nowMs = Date.now(),

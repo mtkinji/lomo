@@ -1966,6 +1966,17 @@ function attachNotificationResponseListener() {
         });
         break;
       }
+      case 'focusSession': {
+        const activityId = (data as { activityId?: string }).activityId;
+        if (!activityId) return;
+        navigateWhenReady('MainTabs', {
+          screen: 'ActivitiesTab',
+          params: activityId === 'kwilt-standalone-focus'
+            ? { screen: 'ActivitiesList', params: { openStandaloneFocus: true } }
+            : { screen: 'ActivityDetail', params: { activityId, openFocus: true } },
+        });
+        break;
+      }
       case 'streak':
       case 'reactivation': {
         navigateWhenReady('MainTabs', {

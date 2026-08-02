@@ -726,6 +726,19 @@ describe('NotificationService focus-session cleanup', () => {
     listener({
       actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',
       notification: { request: {
+        identifier: 'focus-complete-1',
+        content: { data: { type: 'focusSession', activityId: 'kwilt-standalone-focus' } },
+      } },
+    });
+    expect(navigateWhenReady).toHaveBeenCalledWith('MainTabs', {
+      screen: 'ActivitiesTab',
+      params: { screen: 'ActivitiesList', params: { openStandaloneFocus: true } },
+    });
+    (navigateWhenReady as jest.Mock).mockClear();
+
+    listener({
+      actionIdentifier: 'expo.modules.notifications.actions.DEFAULT',
+      notification: { request: {
         identifier: 'money-weekly-1',
         content: { data: { type: 'moneyCheck', savedCheckId: 'money-limit' } },
       } },

@@ -87,6 +87,7 @@ describe('createMoneyRepository transaction review', () => {
 
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('forecast_mode');
     expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('funding_rhythm');
+    expect(calls.find((call) => call.table === 'budget_plans')?.selected).toContain('plan_role');
     expect(calls.find((call) => call.table === 'budget_categories')?.selected).toContain('cover_image');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_source');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_policy_version');
@@ -397,6 +398,16 @@ describe('createMoneyRepository transaction review', () => {
         expected_need_cents: 80000,
         expected_need_due_month: '2026-12',
       },
+    });
+
+    const sixth = createClient();
+    await createMoneyRepository(sixth.client).updateCategoryPlan('category-1', {
+      planRole: 'protected',
+    });
+    expect(sixth.calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_plans',
+      filters: [['category_id', 'category-1']],
+      update: { plan_role: 'protected' },
     });
   });
 

@@ -31,4 +31,12 @@ describe('MoneyTransactionDetailScreen drawer headers', () => {
     expect(source).toContain("navigation.popTo('MoneySummary')");
     expect(source).not.toContain('grocery percentage');
   });
+
+  it('makes category-backed plan treatment visible in ordinary transaction detail', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyTransactionDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('Plan treatment');
+    expect(source).toContain('getTransactionPlanTreatment(transaction, categories)');
+    expect(source).toContain('Change plan treatment from ${planTreatment.label}');
+  });
 });

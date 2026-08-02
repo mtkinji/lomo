@@ -48,4 +48,14 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
     expect(source).not.toContain('styles.impactBox');
     expect(source).not.toContain('impactBox:');
   });
+
+  it('separates category plan role from funding rhythm and persists the role', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain('COUNTS AS');
+    expect(source).toContain('FUNDING RHYTHM');
+    expect(source).toContain('Keep this amount aside before flexible spending.');
+    expect(source).toContain('Count spending here against flexible room.');
+    expect(source).toContain("updateCategoryPlan(category.sourceId, { planRole: planRoleDraft })");
+  });
 });

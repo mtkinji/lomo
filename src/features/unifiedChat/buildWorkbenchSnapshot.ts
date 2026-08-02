@@ -10,6 +10,67 @@ import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { buildActivityListMeta } from '../../utils/activityListMeta';
 import type { Activity } from '../../domain/types';
 
+type WorkbenchPresentation = {
+  voice?: AgentWorkbenchSnapshot['composer']['voice'];
+  attachments?: UnifiedChatTextAttachment[];
+};
+
+function buildKwiltWorkbenchProduct(): AgentWorkbenchSnapshot['product'] {
+  return {
+    id: 'kwilt',
+    assistantName: 'Kwilt',
+    placeholder: 'Ask, search or chat…',
+    features: {
+      attachments: true,
+      mentions: false,
+      modelControl: false,
+      runDepthControl: false,
+      runModeControl: false,
+      voice: true,
+      webSearchControl: false,
+    },
+  };
+}
+
+function buildWorkbenchComposer(
+  prompt: string,
+  state: AgentWorkbenchSnapshot['composer']['state'],
+  presentation?: WorkbenchPresentation,
+): AgentWorkbenchSnapshot['composer'] {
+  return {
+    prompt,
+    state,
+    attachments: (presentation?.attachments ?? []).map((attachment) => ({
+      id: attachment.id,
+      name: attachment.name,
+      mimeType: attachment.mimeType,
+      sizeBytes: attachment.sizeBytes,
+      kind: attachment.kind ?? 'text',
+      status: attachment.status ?? 'ready',
+      ...(attachment.failureReason ? { failureReason: attachment.failureReason } : {}),
+    })),
+    voice: presentation?.voice ?? { state: 'idle', elapsedSeconds: 0 },
+  };
+}
+
+export function buildFreshWorkbenchSnapshot(
+  prompt = '',
+  presentation?: WorkbenchPresentation,
+): AgentWorkbenchSnapshot {
+  return {
+    product: buildKwiltWorkbenchProduct(),
+    context: [],
+    evidence: [],
+    messages: [],
+    runs: [],
+    proposals: [],
+    receipts: [],
+    clientActions: [],
+    artifacts: [],
+    composer: buildWorkbenchComposer(prompt, 'ready', presentation),
+  };
+}
+
 export function formatProposalReceiptSummary(
   status: 'applied' | 'failed' | 'undone',
   operationType: string | undefined,
@@ -321,10 +382,7 @@ function buildWorkbenchTimeline(
 export function buildWorkbenchSnapshot(
   aggregate: UnifiedChatThreadAggregate,
   prompt = '',
-  presentation?: {
-    voice?: AgentWorkbenchSnapshot['composer']['voice'];
-    attachments?: UnifiedChatTextAttachment[];
-  },
+  presentation?: WorkbenchPresentation,
 ): AgentWorkbenchSnapshot {
   const hasActiveRun = aggregate.runs.some(
     (run) => run.status === 'queued' || run.status === 'active',
@@ -343,20 +401,7 @@ export function buildWorkbenchSnapshot(
       .map((proposal) => proposal.messageId as string),
   );
   const snapshot: AgentWorkbenchSnapshot = {
-    product: {
-      id: 'kwilt',
-      assistantName: 'Kwilt',
-      placeholder: 'Ask, search or chat…',
-      features: {
-        attachments: true,
-        mentions: false,
-        modelControl: false,
-        runDepthControl: false,
-        runModeControl: false,
-        voice: true,
-        webSearchControl: false,
-      },
-    },
+    product: buildKwiltWorkbenchProduct(),
     thread: {
       id: aggregate.thread.id,
       title: aggregate.thread.title,
@@ -538,20 +583,7 @@ export function buildWorkbenchSnapshot(
       title: artifact.title, kind: artifact.kind, content: artifact.content,
       version: artifact.version, label: 'Draft' as const, editable: true as const,
     })),
-    composer: {
-      prompt,
-      state: hasActiveRun ? 'working' : 'ready',
-      attachments: (presentation?.attachments ?? []).map((attachment) => ({
-        id: attachment.id,
-        name: attachment.name,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
-        kind: attachment.kind ?? 'text',
-        status: attachment.status ?? 'ready',
-        ...(attachment.failureReason ? { failureReason: attachment.failureReason } : {}),
-      })),
-      voice: presentation?.voice ?? { state: 'idle', elapsedSeconds: 0 },
-    },
+    composer: buildWorkbenchComposer(prompt, hasActiveRun ? 'working' : 'ready', presentation),
   };
   const timeline = buildWorkbenchTimeline(aggregate, snapshot);
   if (timeline) snapshot.timeline = timeline;

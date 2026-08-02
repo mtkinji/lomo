@@ -16,22 +16,130 @@ struct MoneyWidgetPalette {
   }
 }
 
+private let moneyTickCount = 52
+
 struct MoneyTickBorder: View {
-  let progress: Double
+  let percentUsed: Double
+  let periodElapsedPercent: Double?
   let color: Color
 
   var body: some View {
-    let bounded = min(1, max(0, progress))
-    ZStack {
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .stroke(MoneyWidgetPalette.inactive, style: StrokeStyle(lineWidth: 2, dash: [2, 5]))
-      RoundedRectangle(cornerRadius: 22, style: .continuous)
-        .trim(from: 0, to: bounded)
-        .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 5]))
-        .rotationEffect(.degrees(-90))
+    GeometryReader { proxy in
+      let side = min(proxy.size.width, proxy.size.height)
+      let activeTicks = Int((min(max(percentUsed, 0), 100) / 100 * Double(moneyTickCount)).rounded())
+      let markerTick = periodElapsedPercent.map {
+        Int((min(max($0, 0), 100) / 100 * Double(moneyTickCount)).rounded())
+      }
+
+      ZStack {
+        ForEach(0..<moneyTickCount, id: \\.self) { index in
+          let isActive = index < activeTicks
+          let isMarker = index == markerTick
+          let activeTickWidth = overBudgetTickWidth(baseWidth: 2, percent: percentUsed, tickIndex: index)
+          let tickHeight = isMarker ? 14.0 : isActive ? 9.0 : 6.0
+          let tickWidth = isMarker ? max(3.0, activeTickWidth) : isActive ? activeTickWidth : 2.0
+          let position = roundedRectTickPosition(
+            index: index,
+            size: side,
+            tickHeight: tickHeight,
+            tickWidth: tickWidth,
+            padding: 12,
+            cornerRadius: 22
+          )
+
+          Capsule(style: .continuous)
+            .fill(isMarker ? Color(red: 68/255, green: 64/255, blue: 60/255) : isActive ? color : MoneyWidgetPalette.inactive)
+            .frame(width: tickWidth, height: tickHeight)
+            .rotationEffect(.radians(position.rotation))
+            .position(x: position.x, y: position.y)
+        }
+      }
     }
-    .padding(4)
     .allowsHitTesting(false)
+  }
+
+  private func overBudgetTickWidth(baseWidth: Double, percent: Double, tickIndex: Int) -> Double {
+    let clampedPercent = max(0, Int(percent.rounded()))
+    let fullLapCount = clampedPercent / 100
+    let partialLapTickCount = Int((Double(clampedPercent % 100) / 100 * Double(moneyTickCount)).rounded())
+    let tickLapCount = fullLapCount + (tickIndex < partialLapTickCount ? 1 : 0)
+    let overBudgetLapCount = max(0, tickLapCount - 1)
+    guard overBudgetLapCount > 0 else { return baseWidth }
+    return min((baseWidth * 3.2).rounded(), baseWidth + Double(overBudgetLapCount))
+  }
+
+  private func roundedRectTickPosition(
+    index: Int,
+    size: Double,
+    tickHeight: Double,
+    tickWidth: Double,
+    padding: Double,
+    cornerRadius: Double
+  ) -> (x: Double, y: Double, rotation: Double) {
+    let half = size / 2 - padding
+    let radius = min(cornerRadius, half)
+    let straight = max(0, half * 2 - radius * 2)
+    let arc = Double.pi * radius / 2
+    let perimeter = straight * 4 + arc * 4
+    var distance = Double(index) / Double(moneyTickCount) * perimeter
+    var x = 0.0
+    var y = -half
+    let topHalf = straight / 2
+
+    if distance <= topHalf {
+      x = distance
+    } else {
+      distance -= topHalf
+      if distance <= arc {
+        let angle = -Double.pi / 2 + distance / radius
+        x = half - radius + cos(angle) * radius
+        y = -half + radius + sin(angle) * radius
+      } else {
+        distance -= arc
+        if distance <= straight {
+          x = half
+          y = -half + radius + distance
+        } else {
+          distance -= straight
+          if distance <= arc {
+            let angle = distance / radius
+            x = half - radius + cos(angle) * radius
+            y = half - radius + sin(angle) * radius
+          } else {
+            distance -= arc
+            if distance <= straight {
+              x = half - radius - distance
+              y = half
+            } else {
+              distance -= straight
+              if distance <= arc {
+                let angle = Double.pi / 2 + distance / radius
+                x = -half + radius + cos(angle) * radius
+                y = half - radius + sin(angle) * radius
+              } else {
+                distance -= arc
+                if distance <= straight {
+                  x = -half
+                  y = half - radius - distance
+                } else {
+                  distance -= straight
+                  if distance <= arc {
+                    let angle = Double.pi + distance / radius
+                    x = -half + radius + cos(angle) * radius
+                    y = -half + radius + sin(angle) * radius
+                  } else {
+                    distance -= arc
+                    x = -topHalf + distance
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return (size / 2 + x, size / 2 + y, atan2(-y, -x) - Double.pi / 2)
   }
 }
 
@@ -96,18 +204,18 @@ struct FlexibleMoneyProvider: TimelineProvider {
 struct FlexibleMoneyWidgetView: View {
   let entry: FlexibleMoneyEntry
 
-  private var progress: Double {
+  private var percentUsed: Double {
     guard let facts = entry.flexibleMoney,
           let capacity = facts.flexibleCapacityCents,
           let spent = facts.countedFlexibleSpendCents,
           capacity > 0 else { return 0 }
-    return min(1, max(0, spent / capacity))
+    return max(0, spent / capacity * 100)
   }
 
   private var tone: Color {
     guard let state = entry.flexibleMoney?.state else { return MoneyWidgetPalette.calm }
     if state == "over" || state == "plan_over" { return MoneyWidgetPalette.over }
-    if progress >= 0.9 { return MoneyWidgetPalette.near }
+    if percentUsed >= 90 { return MoneyWidgetPalette.near }
     return MoneyWidgetPalette.calm
   }
 
@@ -129,30 +237,30 @@ struct FlexibleMoneyWidgetView: View {
     widgetContainer {
       ZStack {
         if entry.flexibleMoney != nil {
-          MoneyTickBorder(progress: progress, color: tone)
+          MoneyTickBorder(percentUsed: percentUsed, periodElapsedPercent: nil, color: tone)
         }
         VStack(alignment: .leading, spacing: 4) {
           Text("Flexible money")
-            .font(.caption.weight(.semibold))
+            .font(.custom("Inter-SemiBold", size: 12))
             .foregroundStyle(.secondary)
             .lineLimit(1)
           Spacer(minLength: 2)
           if let value = value, entry.flexibleMoney?.state != "unavailable" {
             Text(value)
-              .font(.system(size: 28, weight: .black, design: .rounded))
+              .font(.custom("Inter-Black", size: 28))
               .foregroundStyle(tone)
               .monospacedDigit()
               .lineLimit(1)
               .minimumScaleFactor(0.55)
             Text(meaning)
-              .font(.caption)
+              .font(.custom("Inter-Medium", size: 12))
               .foregroundStyle(.secondary)
               .lineLimit(1)
           } else {
             Text(entry.hasMoneySnapshot
               ? "Open Kwilt to finish your monthly plan."
               : "Open Kwilt to view Money.")
-              .font(.subheadline.weight(.semibold))
+              .font(.custom("Inter-SemiBold", size: 15))
               .foregroundStyle(.primary)
               .lineLimit(3)
           }
@@ -166,7 +274,7 @@ struct FlexibleMoneyWidgetView: View {
                 .lineLimit(1)
             }
           }
-          .font(.caption2)
+          .font(.custom("Inter-Medium", size: 10))
           .foregroundStyle(.secondary)
         }
         .padding(14)
@@ -305,11 +413,6 @@ struct MoneyCategoryWidgetView: View {
     return MoneyWidgetPalette.category(category.status)
   }
 
-  private var progress: Double {
-    guard let category = entry.category else { return 0 }
-    return min(1, max(0, Double(category.percentUsed) / 100.0))
-  }
-
   private var value: String {
     guard let category = entry.category else { return "" }
     if entry.display == .percentUsed { return "\\(category.percentUsed)%" }
@@ -326,43 +429,47 @@ struct MoneyCategoryWidgetView: View {
     widgetContainer {
       ZStack {
         if entry.category != nil {
-          MoneyTickBorder(progress: progress, color: tone)
+          MoneyTickBorder(
+            percentUsed: Double(entry.category?.percentUsed ?? 0),
+            periodElapsedPercent: Double(entry.category?.periodElapsedPercent ?? 0),
+            color: tone
+          )
         }
         VStack(alignment: .leading, spacing: 4) {
           if let category = entry.category {
             Text(category.name)
-              .font(.caption.weight(.semibold))
+              .font(.custom("Inter-SemiBold", size: 12))
               .foregroundStyle(.secondary)
               .lineLimit(2)
             Spacer(minLength: 2)
             Text(value)
-              .font(.system(size: 30, weight: .black, design: .rounded))
+              .font(.custom("Inter-Black", size: 30))
               .foregroundStyle(tone)
               .monospacedDigit()
               .lineLimit(1)
               .minimumScaleFactor(0.55)
             Text(meaning)
-              .font(.caption)
+              .font(.custom("Inter-Medium", size: 12))
               .foregroundStyle(.secondary)
               .lineLimit(1)
             Spacer(minLength: 2)
             if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
               Text(freshness)
-                .font(.caption2)
+                .font(.custom("Inter-Medium", size: 10))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
           } else {
             Text("Budget Category")
-              .font(.caption.weight(.semibold))
+              .font(.custom("Inter-SemiBold", size: 12))
               .foregroundStyle(.secondary)
             Spacer()
             Text(entry.hasMoneySnapshot ? "Choose a category" : "Open Kwilt to view Money")
-              .font(.subheadline.weight(.semibold))
+              .font(.custom("Inter-SemiBold", size: 15))
               .foregroundStyle(.primary)
               .lineLimit(2)
             Text(entry.hasMoneySnapshot ? "Edit this widget" : "")
-              .font(.caption)
+              .font(.custom("Inter-Medium", size: 12))
               .foregroundStyle(.secondary)
             Spacer()
           }

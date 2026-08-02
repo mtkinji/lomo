@@ -14,6 +14,7 @@ import {
   type CategoryFundingRhythm,
 } from '../domain/categoryFunding';
 import type { MoneyPlanLimitAnswer } from '../domain/moneyPlanLimitAnswer';
+import { inferMoneyCategoryPlanRole, type MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 
 export type MoneyCategoryRow = {
   id: string;
@@ -42,6 +43,7 @@ export type MoneyPlanRow = {
   reserve_balance_period_id?: string | null;
   expected_need_cents?: number | null;
   expected_need_due_month?: string | null;
+  plan_role?: MoneyCategoryPlanRole | null;
 };
 
 export type MoneyConnectionRow = {
@@ -137,7 +139,8 @@ export type MoneyCategory = {
     scheduledDueDay: number | null;
   };
   forecast: MoneyCategoryForecast;
-  planRole?: 'protected' | 'flexible';
+  planRole?: MoneyCategoryPlanRole;
+  planRoleOverride?: MoneyCategoryPlanRole | null;
   mappingTags?: string[];
 };
 
@@ -332,7 +335,10 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
         fundingCoverage: funding.coverage,
       });
 
-      return {
+      const planRoleOverride = plan?.plan_role === 'protected' || plan?.plan_role === 'flexible'
+        ? plan.plan_role
+        : null;
+      const projectedCategory = {
         id: category.legacy_budget_id?.trim() || category.slug,
         sourceId: category.id,
         name: category.name.trim() || category.slug,
@@ -365,7 +371,12 @@ export function projectMoneySnapshot(rows: MoneySnapshotRows, now = new Date()):
           scheduledDueDay: plan?.scheduled_due_day ?? null,
         },
         forecast,
+        planRoleOverride,
         mappingTags: Array.isArray(category.mapping_tags) ? category.mapping_tags : [],
+      };
+      return {
+        ...projectedCategory,
+        planRole: inferMoneyCategoryPlanRole(projectedCategory),
       };
     });
 

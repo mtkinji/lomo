@@ -110,10 +110,16 @@ export function MoneyDataProvider({
   const initialize = useCallback(async () => {
     dispatch({ type: 'load' });
     try {
-      const snapshot = repository
-        ? await resolvedRepository.loadSnapshot()
-        : await initializeGovernedMoneyPlan(resolvedRepository, getSupabaseClient());
-      acceptSnapshot(snapshot);
+      if (repository) {
+        acceptSnapshot(await resolvedRepository.loadSnapshot());
+      } else {
+        await initializeGovernedMoneyPlan(
+          resolvedRepository,
+          getSupabaseClient(),
+          reconcileLivingPlan,
+          acceptSnapshot,
+        );
+      }
       if (typeof resolvedRepository.classifyUnresolvedTransactions === 'function') {
         void resolvedRepository.classifyUnresolvedTransactions().then((result) => {
           if (result.assignedCount <= 0) return;
