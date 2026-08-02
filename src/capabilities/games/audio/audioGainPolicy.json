@@ -1,0 +1,64 @@
+{
+  "categories": {
+    "ui.micro": {
+      "targetLufs": -22,
+      "allowedSpreadLu": 1.5,
+      "truePeakCeilingDbtp": -3,
+      "runtimeGain": 0.72
+    },
+    "ui.outcome": {
+      "targetLufs": -20,
+      "allowedSpreadLu": 1.5,
+      "truePeakCeilingDbtp": -2,
+      "runtimeGain": 0.72
+    },
+    "game.mechanic": {
+      "targetLufs": -20,
+      "allowedSpreadLu": 1.5,
+      "truePeakCeilingDbtp": -2,
+      "runtimeGain": 0.68
+    },
+    "game.signature": {
+      "targetLufs": -18,
+      "allowedSpreadLu": 1,
+      "truePeakCeilingDbtp": -1.5,
+      "runtimeGain": 0.78
+    },
+    "game.pattern": {
+      "targetLufs": -21,
+      "allowedSpreadLu": 0.75,
+      "truePeakCeilingDbtp": -2.5,
+      "runtimeGain": 0.62
+    },
+    "game.music": {
+      "targetLufs": -24,
+      "allowedSpreadLu": 1,
+      "truePeakCeilingDbtp": -3,
+      "runtimeGain": 0.42
+    },
+    "focus.music": {
+      "targetLufs": -24,
+      "allowedSpreadLu": 1,
+      "truePeakCeilingDbtp": -2,
+      "runtimeGain": 0.55
+    }
+  },
+  "transitions": {
+    "signatureDuck": {
+      "attenuationDb": -12,
+      "attackMs": 80,
+      "holdAfterCueMs": 100,
+      "releaseMs": 450
+    },
+    "mechanicDuck": {
+      "attenuationDb": -6,
+      "attackMs": 60,
+      "holdAfterCueMs": 0,
+      "releaseMs": 300
+    },
+    "musicCrossfadeMs": {
+      "min": 800,
+      "max": 1200
+    }
+  }
+}

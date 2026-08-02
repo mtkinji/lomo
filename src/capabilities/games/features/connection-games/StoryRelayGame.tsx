@@ -11,6 +11,8 @@ import {
 import { gamesTheme } from '@/src/capabilities/games/theme/gamesTheme';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';
 import { connectionStyles as shared, PlayCard } from './ConnectionGameFrame';
+import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
+import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 
 type Phase = 'turn' | 'reveal' | 'finished';
 
@@ -23,6 +25,8 @@ export function StoryRelayGame({ players }: { players: string[] }) {
   const [selectedSpark, setSelectedSpark] = useState<string | undefined>();
   const [handoff, setHandoff] = useState(false);
   const [phase, setPhase] = useState<Phase>('turn');
+  const soundEnabled = useGamesSettingsStore((state) => state.soundEnabled);
+  useGameMusic(phase === 'turn' && !handoff ? 'game.story-relay' : null, soundEnabled);
 
   const premise = storyRelayPrompts[premiseIndex];
   const turn = getStoryTurn(players, chapterIndex, turnIndex, premiseIndex);

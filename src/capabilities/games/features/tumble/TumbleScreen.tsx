@@ -33,6 +33,8 @@ import { playerBestKey, type PersonalBestOutcome } from '@/src/capabilities/game
 import { bankRollButtonLabel, bankRollCooldownRemaining, useRollCooldown } from './useRollCooldown';
 import { permanentUserId } from '@/src/capabilities/games/platform/auth';
 import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
+import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
+import { bankMusicForState } from '@/src/capabilities/games/gameMusicState';
 
 const initialNames = ['Player 1', 'Player 2'];
 const initialSeats: SetupSeat[] = [
@@ -84,6 +86,7 @@ export function TumbleScreen() {
   const [celebration, setCelebration] = useState<WinnerCelebrationData | null>(null);
   const [bankBestLabels, setBankBestLabels] = useState<(string | null)[]>([]);
   const [farkleBestLabels, setFarkleBestLabels] = useState<(string | null)[]>([]);
+  useGameMusic(mode === 'bank' && !bankSetup ? bankMusicForState(bankGame) : null, soundOn);
   const liveSeats = useRef<SetupSeat[]>(initialSeats);
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const savePromptShown = useRef(false);
@@ -172,7 +175,7 @@ export function TumbleScreen() {
       setBankGame(nextGame);
       if (cue === 'bust' && shouldPlayFailureCue(nextGame.status)) void feedback.failure(actingIdentity?.failureSoundId);
       bankRollCooldown.start();
-      if (cue === 'doubles') void feedback.success(actingIdentity?.successSoundId);
+      if (cue === 'doubles') void feedback.doubles();
     }, 2);
   };
 
@@ -255,6 +258,15 @@ export function TumbleScreen() {
     return stableSeats;
   };
   const startBank = () => { const next = cleanNames(); const stableSeats = rememberSeats(); setLiveIdentities(identityForSeats(stableSeats, roster.players)); setBankBestLabels([]); setBankGame(createBankGame(next, 10, bankingRule)); setBankDice([3, 5]); bankRollCooldown.reset(); setBankPickerOpen(false); setBankSetup(false); };
+  const bankActivePlayer = () => {
+    setBankGame((game: BankGame) => bankCurrentPlayer(game));
+    void feedback.bank();
+  };
+  const bankSelectedPlayers = (playerIds: number[]) => {
+    setBankGame((game) => playerIds.reduce((next, playerId) => bankPlayer(next, playerId), game));
+    setBankPickerOpen(false);
+    void feedback.bank();
+  };
   const startRemoteBank = useCallback(async () => {
     setRemoteStarting(true);
     setRemoteError(null);
@@ -386,7 +398,7 @@ export function TumbleScreen() {
                 <GameButton disabled={rolling} onPress={rollRoller} style={styles.primaryControl}>Roll {diceCount} {diceCount === 1 ? 'die' : 'dice'}</GameButton>
               </View>
             ) : mode === 'bank' ? (
-              bankGame.status === 'finished' ? <GameButton onPress={newBankGame} icon={<RotateCcw size={20} color={gamesTheme.colors.ink} />}>New game</GameButton> : <View style={[styles.controls, presenting ? styles.controlsPresenting : null]}><GameButton tone="turmeric" disabled={rolling || bankGame.rollInRound === 0} onPress={() => bankGame.bankingRule === 'anyone' ? setBankPickerOpen(true) : setBankGame((game: BankGame) => bankCurrentPlayer(game))} style={styles.secondaryControl} icon={<Landmark size={19} color={gamesTheme.colors.ink} />}>{bankGame.bankingRule === 'anyone' ? 'Bank!' : `Bank ${bankGame.pot}`}</GameButton><GameButton disabled={rolling || bankCooldownRemaining > 0} onPress={rollBank} style={styles.primaryControl}>{bankRollButtonLabel(rolling, bankCooldownRemaining)}</GameButton></View>
+              bankGame.status === 'finished' ? <GameButton onPress={newBankGame} icon={<RotateCcw size={20} color={gamesTheme.colors.ink} />}>New game</GameButton> : <View style={[styles.controls, presenting ? styles.controlsPresenting : null]}><GameButton tone="turmeric" disabled={rolling || bankGame.rollInRound === 0} onPress={() => bankGame.bankingRule === 'anyone' ? setBankPickerOpen(true) : bankActivePlayer()} style={styles.secondaryControl} icon={<Landmark size={19} color={gamesTheme.colors.ink} />}>{bankGame.bankingRule === 'anyone' ? 'Bank!' : `Bank ${bankGame.pot}`}</GameButton><GameButton disabled={rolling || bankCooldownRemaining > 0} onPress={rollBank} style={styles.primaryControl}>{bankRollButtonLabel(rolling, bankCooldownRemaining)}</GameButton></View>
             ) : farklePractice ? (
               farklePractice.phase === 'selecting' ? (
                 <GameButton disabled={!practiceCanConfirm} onPress={() => setFarklePractice(confirmPracticeSelection(farklePractice))}>Keep these dice</GameButton>
@@ -404,7 +416,7 @@ export function TumbleScreen() {
         )}
       </SafeAreaView>
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} onLearn={() => startFarklePractice(farklePractice ? practiceReturn : 'resume')} />
-      <BankPlayerPicker game={bankGame} open={bankPickerOpen} onClose={() => setBankPickerOpen(false)} onBank={(playerIds) => { setBankGame((game) => playerIds.reduce((next, playerId) => bankPlayer(next, playerId), game)); setBankPickerOpen(false); }} />
+      <BankPlayerPicker game={bankGame} open={bankPickerOpen} onClose={() => setBankPickerOpen(false)} onBank={bankSelectedPlayers} />
       <WinCelebration celebration={celebration} onComplete={dismissCelebration} />
       <SavePlayersPrompt open={savePromptOpen} onClose={() => setSavePromptOpen(false)} onSave={() => { setSavePromptOpen(false); router.push({ pathname: '/auth', params: { source: 'post-game' } }); }} />
     </GameBackdrop>
