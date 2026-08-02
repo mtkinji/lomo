@@ -70,6 +70,7 @@ The prototype lets a tester:
 - complete a To-do, Focus session, or Play-together moment and watch each leave a distinct persistent habitat trace;
 - let each meaningful action own one complete notice-and-response vignette before care appears, even when ambient weather was already arriving;
 - inhabit one continuous phone-scale world with a quiet contextual action dock instead of a header, receipt panel, and visible care meter stacked around the habitat;
+- touch a separate young becoming-tree, carry that exact Pet context into a full-height local Chat prototype, choose one bounded next move, and return to Moss as the tree gains one persistent stage;
 - close care through the exact in-world bloom, stilllight, or paired seedheads that a real action created;
 - leave and return to the same four bounded, privacy-safe life echoes in an otherwise calm fresh world;
 - simulate a completed Focus session;

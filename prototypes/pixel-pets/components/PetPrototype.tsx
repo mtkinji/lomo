@@ -32,6 +32,16 @@ import {
 import { clipDuration, nextFrameElapsed, type PetAnimationClip, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import { BrowserPetSoundscape, resolveSoundscapeMix } from "@/lib/pet-soundscape";
 import {
+  CONTEXTUAL_CHAT_ACTIONS,
+  chooseContextualChatAction,
+  completeContextualChatAction,
+  createContextualChatState,
+  openTreeContextualChat,
+  returnToPet,
+  type ContextualChatAction,
+} from "@/lib/pet-contextual-chat";
+import { resolveBecomingTreePresentation } from "@/lib/pet-habitat-growth";
+import {
   advancePrototypeDay,
   completeMeaningfulAction,
   consumeStageDebut,
@@ -114,6 +124,9 @@ export function PetPrototype() {
   const [sceneNarration, setSceneNarration] = useState<{ title: string; detail: string; serial: number } | null>(null);
   const [soundscapeStarted, setSoundscapeStarted] = useState(false);
   const [worldCommand, setWorldCommand] = useState<PetWorldCommand | null>(null);
+  const [contextualChat, setContextualChat] = useState(createContextualChatState);
+  const [pendingChatReceipt, setPendingChatReceipt] = useState<MeaningfulAction | null>(null);
+  const chatBackRef = useRef<HTMLButtonElement | null>(null);
   const reactionTimer = useRef<number | null>(null);
   const narrationTimer = useRef<number | null>(null);
   const narrationSerial = useRef(0);
@@ -125,8 +138,9 @@ export function PetPrototype() {
   useEffect(() => {
     queueMicrotask(() => {
       let restoredState = createPetState("leafling", "Moss", "moss");
+      const freshPrototype = new URLSearchParams(window.location.search).get("fresh") === "1";
       try {
-        const saved = window.localStorage.getItem(STORAGE_KEY);
+        const saved = freshPrototype ? null : window.localStorage.getItem(STORAGE_KEY);
         if (saved) restoredState = { ...restoredState, ...JSON.parse(saved) as Partial<PetState> };
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
@@ -134,7 +148,7 @@ export function PetPrototype() {
       setState(restoredState);
       let restoredWorld = createPetWorldState();
       try {
-        const savedWorldMemory = window.localStorage.getItem(WORLD_MEMORY_STORAGE_KEY);
+        const savedWorldMemory = freshPrototype ? null : window.localStorage.getItem(WORLD_MEMORY_STORAGE_KEY);
         if (savedWorldMemory) {
           restoredWorld = restorePetWorldMemory(restoredWorld, JSON.parse(savedWorldMemory));
         }
@@ -160,6 +174,11 @@ export function PetPrototype() {
     if (narrationTimer.current) window.clearTimeout(narrationTimer.current);
     soundscapeRef.current?.dispose();
   }, []);
+
+  useEffect(() => {
+    if (contextualChat.phase === "closed") return;
+    chatBackRef.current?.focus();
+  }, [contextualChat.phase]);
 
   useEffect(() => {
     const focus = resolveFocusAtmosphere(world.focus, state.reducedMotion);
@@ -333,6 +352,33 @@ export function PetPrototype() {
     setWorldMessage({ title: "A shared spark", detail: "Playing together stirred the breeze and brought a tiny visitor." });
   }
 
+  function openGrowthChat() {
+    setPendingChatReceipt(null);
+    setContextualChat((current) => openTreeContextualChat(current));
+  }
+
+  function chooseChatAction(action: ContextualChatAction) {
+    setContextualChat((current) => chooseContextualChatAction(current, action));
+  }
+
+  function finishChatAction() {
+    const completed = completeContextualChatAction(contextualChat);
+    setContextualChat(completed.state);
+    setPendingChatReceipt(completed.source);
+  }
+
+  function backToMoss() {
+    if (pendingChatReceipt) {
+      complete(pendingChatReceipt);
+      setWorldMessage({
+        title: "The becoming tree answered",
+        detail: `${state.name} noticed what you moved forward. A new part of the meadow is growing with you.`,
+      });
+    }
+    setPendingChatReceipt(null);
+    setContextualChat((current) => returnToPet(current));
+  }
+
   function preview(motion: EngineMotion) {
     if (reactionTimer.current) window.clearTimeout(reactionTimer.current);
     setPreviewMotion(motion);
@@ -386,6 +432,8 @@ export function PetPrototype() {
     : currentStage === "young"
       ? "New reach, same Moss. Care is remembered."
       : "Care changes Moss. Nothing can be lost.";
+  const becomingTree = resolveBecomingTreePresentation(state.habitatGrowth);
+  const selectedChatAction = CONTEXTUAL_CHAT_ACTIONS.find((action) => action.id === contextualChat.selection) ?? null;
   const careEchoCopy = state.pendingSource === "focus"
     ? { title: "Touch the still light", detail: "The quiet place your Focus left is ready." }
     : state.pendingSource === "play"
@@ -623,7 +671,7 @@ export function PetPrototype() {
         </button>
       ) : null}
       <header className="engine-intro">
-        <span className="eyebrow">Kwilt Lab · Pet Engine Study 59</span>
+        <span className="eyebrow">Kwilt Lab · Pet Engine Study 60</span>
         <h1>The world gets<br />the screen.</h1>
         <p>
           Enter Moss&apos;s living meadow first. Touch, play, focus, and weather the day together—then open the Lab only when you want to see the machine.
@@ -635,7 +683,12 @@ export function PetPrototype() {
         </dl>
       </header>
 
-      <section className="capability-frame world-first-capability" aria-label={`${state.name}'s Pet capability`}>
+      <section
+        className="capability-frame world-first-capability"
+        aria-label={`${state.name}'s Pet capability`}
+        aria-hidden={contextualChat.phase !== "closed" || undefined}
+        inert={contextualChat.phase !== "closed" || undefined}
+      >
         <header className="capability-header">
           <div>
             <span className="device-label">Day {state.prototypeDay}</span>
@@ -663,7 +716,7 @@ export function PetPrototype() {
             palette={state.palette}
             motion={currentMotion}
             reducedMotion={state.reducedMotion}
-            paused={paused}
+            paused={paused || contextualChat.phase !== "closed"}
             manualElapsed={manualElapsed}
             showRig={showRig}
             previewing={previewMotion !== null}
@@ -675,7 +728,10 @@ export function PetPrototype() {
             onWorldInteraction={handleWorldInteraction}
             careEchoSource={dayPhase === "care-ready" && !worldAnswering && !reunionActive ? state.pendingSource : null}
             onCareEcho={care}
-            label={`${state.name}'s interactive world. Drag and toss the golden leaf; after ${state.name} catches and brings it back, touch the offered leaf for one more turn. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. When the first rain makes Baby or Young look for cover, touch the old tree to go there together. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to choose rain shelter, release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
+            habitatGrowth={state.habitatGrowth}
+            growthTreeInteractive={restingCapability}
+            onGrowthTree={openGrowthChat}
+            label={`${state.name}'s interactive world. Touch the young becoming tree to ask Kwilt for help growing it. Drag and toss the golden leaf; after ${state.name} catches and brings it back, touch the offered leaf for one more turn. When a visitor pauses and ${state.name} faces it, touch the visitor to join the chase. When the first rain makes Baby or Young look for cover, touch the old tree to go there together. Stroke ${state.name} gently for a nuzzle, draw one finger through the meadow to guide them, tap the old tree to reach a perch, then tap the meadow to choose a landing. Start Focus with ${state.name}, then touch the terrain to choose where you settle together. When Guardian notices a low rain-light, touch the firefly to share shelter. Tap to move, tap high to jump, pinch to zoom, or swipe quickly across ${state.name} for a rollover. Keyboard users can press Enter to choose rain shelter, release a waiting chase, choose the current Focus place, or answer a rain-light; press P to pet ${state.name}; and use left or right arrows for a Focus place or branch landing.`}
           />
           {sceneNarration ? (
             <div key={sceneNarration.serial} className="scene-caption" aria-hidden="true">
@@ -816,10 +872,10 @@ export function PetPrototype() {
           </div>
           ) : (
           <div className="resting-action-row">
-            <div className="world-play-invitation">
-              <strong>Touch the meadow</strong>
-              <small>{state.name} will answer in their own way.</small>
-            </div>
+            <button type="button" className="help-tree-grow" onClick={openGrowthChat}>
+              <span className={`becoming-tree-mark tree-stage-${becomingTree.stage}`} aria-hidden="true" />
+              <span><strong>Help this grow</strong><small>Ask Kwilt for one next move</small></span>
+            </button>
             <button type="button" className="focus-with-moss" onClick={focusTogether}>
               <span className="focus-orb" aria-hidden="true" />
               <span><strong>Focus with {state.name}</strong><small>15 quiet seconds</small></span>
@@ -835,6 +891,64 @@ export function PetPrototype() {
           </div> : null}
         </div>
       </section>
+
+      {contextualChat.phase !== "closed" ? (
+        <section className="contextual-chat-capability" aria-label="Contextual Kwilt Chat">
+          <header className="contextual-chat-header">
+            <button ref={chatBackRef} type="button" className="chat-back" onClick={backToMoss} aria-label={`Back to ${state.name}`}>←</button>
+            <div><span>Kwilt</span><strong>Chat</strong></div>
+            <span className="chat-presence" aria-hidden="true" />
+          </header>
+
+          <div className="contextual-chat-thread" aria-live="polite">
+            <button type="button" className="chat-context-chip" onClick={backToMoss} aria-label="Remove becoming-tree context and return to Pet">
+              <span className="context-tree-icon" aria-hidden="true" />
+              <span><small>{contextualChat.context.capability}</small><strong>{contextualChat.context.object}</strong></span>
+              <span aria-hidden="true">×</span>
+            </button>
+
+            <div className="chat-message assistant-message">
+              <p>This tree grows when you move something real forward. What feels possible right now?</p>
+            </div>
+
+            {contextualChat.phase === "choosing" ? (
+              <div className="chat-choice-list" aria-label="Ways Kwilt can help">
+                {CONTEXTUAL_CHAT_ACTIONS.map((action) => (
+                  <button key={action.id} type="button" onClick={() => chooseChatAction(action.id)}>
+                    <strong>{action.label}</strong>
+                    <small>{action.detail}</small>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {selectedChatAction && contextualChat.phase !== "choosing" ? (
+              <div className="chat-message user-message"><p>{selectedChatAction.label}</p></div>
+            ) : null}
+
+            {selectedChatAction && contextualChat.phase === "ready" ? (
+              <div className="chat-message assistant-message action-message">
+                <p>{selectedChatAction.detail} I found a small version we can use for this prototype.</p>
+                <button type="button" onClick={finishChatAction}>{selectedChatAction.actionLabel}</button>
+                <button type="button" className="chat-text-action" onClick={() => setContextualChat(openTreeContextualChat(createContextualChatState()))}>Choose something else</button>
+              </div>
+            ) : null}
+
+            {selectedChatAction && contextualChat.phase === "complete" ? (
+              <div className="chat-message assistant-message completion-message">
+                <span className="completion-sprout" aria-hidden="true" />
+                <p>{selectedChatAction.completion}</p>
+                <button type="button" onClick={backToMoss}>Back to {state.name}</button>
+              </div>
+            ) : null}
+          </div>
+
+          <footer className="contextual-chat-footer">
+            <span>Prototype Chat</span>
+            <small>No production data leaves this browser.</small>
+          </footer>
+        </section>
+      ) : null}
 
       <aside
         id="pet-engine-inspector"

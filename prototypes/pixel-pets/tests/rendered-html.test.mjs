@@ -29,7 +29,7 @@ test("server-renders the Pixel Pet prototype shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Pet Engine Study 59 — Kwilt Lab<\/title>/i);
+  assert.match(html, /<title>Pet Engine Study 60 — Kwilt Lab<\/title>/i);
   assert.match(html, /<meta[^>]+name=["']viewport["'][^>]+content=["'][^"']*width=device-width[^"']*initial-scale=1[^"']*["']/i);
   assert.match(html, /Starting the Pet engine/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
@@ -50,10 +50,11 @@ test("the immersive capability stretches across a narrow phone viewport", async 
 });
 
 test("removes starter infrastructure and exposes the portable engine study", async () => {
-  const [page, layout, prototype, engine, evolution, habitat, habitatPerformance, affection, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
+  const [page, layout, prototype, contextualChat, engine, evolution, habitat, habitatPerformance, affection, world, livingDay, plaything, soundscape, runtime, leafling, canvas] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/PetPrototype.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/pet-contextual-chat.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-engine.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-evolution.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/pet-habitat.ts", import.meta.url), "utf8"),
@@ -70,9 +71,17 @@ test("removes starter infrastructure and exposes the portable engine study", asy
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   assert.match(page, /<PetPrototype \/>/);
-  assert.match(layout, /Pet Engine Study 59 — Kwilt Lab/);
+  assert.match(layout, /Pet Engine Study 60 — Kwilt Lab/);
   assert.match(layout, /og-study-34\.png/);
-  assert.match(prototype, /Pet Engine Study 59/);
+  assert.match(prototype, /Pet Engine Study 60/);
+  assert.match(prototype, /Help this grow/);
+  assert.match(contextualChat, /Moss's becoming tree/);
+  assert.match(prototype, /Back to \{state\.name\}/);
+  assert.match(prototype, /No production data leaves this browser/);
+  assert.match(prototype, /get\("fresh"\) === "1"/);
+  assert.match(prototype, /paused=\{paused \|\| contextualChat\.phase !== "closed"\}/);
+  assert.match(canvas, /drawBecomingTree/);
+  assert.match(canvas, /resolveBecomingTreeHit/);
   assert.match(prototype, /immersiveMode/);
   assert.match(prototype, /Open Lab controls/);
   assert.match(prototype, /Close Lab controls/);

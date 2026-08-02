@@ -22,6 +22,7 @@ export interface PetState {
   palette: PetPalette;
   prototypeDay: number;
   careDays: number;
+  habitatGrowth: number;
   caredPrototypeDay: number | null;
   careAvailable: boolean;
   pendingSource: MeaningfulAction | null;
@@ -60,6 +61,7 @@ export function createPetState(
     palette,
     prototypeDay: 1,
     careDays: 0,
+    habitatGrowth: 0,
     caredPrototypeDay: null,
     careAvailable: false,
     pendingSource: null,
@@ -96,6 +98,7 @@ export function completeMeaningfulAction(
   };
   return {
     ...state,
+    habitatGrowth: Math.min(8, state.habitatGrowth + 1),
     careAvailable: true,
     pendingSource: source,
     reaction: "discover",

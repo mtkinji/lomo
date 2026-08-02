@@ -23,6 +23,7 @@ During the site prototype, also observe:
 - whether accelerated evolution produces delight or merely completes a test;
 - whether the experience still feels appealing after the debug controls are closed;
 - whether participants ask to connect a real Kwilt action, which is stronger evidence than asking them if integration sounds useful.
+- whether participants discover the becoming-tree launcher, understand why Chat already knows what they touched, and use **Back to Moss** to look for a consequence.
 
 ## Success signals
 
@@ -34,6 +35,7 @@ During the site prototype, also observe:
 - Reaching the first evolution increases affection or curiosity.
 - Sounds are retained by people who enjoy them and can be disabled without losing meaning.
 - Chat handoffs feel contextual and do not make Pet feel scattered across the timeline.
+- People can explain what changed in the meadow and connect that change to the action they completed through Chat.
 
 ## Disconfirming evidence
 
@@ -43,6 +45,7 @@ During the site prototype, also observe:
 - The Pet reads as childish to teens or emotionally manipulative to parents.
 - Five types still feel interchangeable or one type dominates overwhelmingly.
 - The nonverbal Pet is too opaque, or Chat explanations make it feel like a chatbot in disguise.
+- The contextual launch feels like an interruption, the three paths feel arbitrary, or users leave Chat without wanting to return to the Pet.
 - The first evolution feels merely cosmetic rather than like a record of showing up.
 - Sound is muted immediately because it is repetitive or socially awkward.
 

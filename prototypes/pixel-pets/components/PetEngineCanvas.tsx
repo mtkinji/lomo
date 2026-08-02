@@ -89,6 +89,11 @@ import {
   type LivingDayDirectorState,
 } from "@/lib/pet-life-director";
 import { LEAFLING_HABITAT, resolveHabitatBackdropX } from "@/lib/pet-habitat";
+import {
+  BECOMING_TREE,
+  resolveBecomingTreeHit,
+  resolveBecomingTreePresentation,
+} from "@/lib/pet-habitat-growth";
 import { LEAFLING_PRESENTATION, leaflingManifestForStage } from "@/lib/leafling";
 import { clipDuration, resolvePetFrame, type PetAnimationManifest, type PetFrameSnapshot } from "@/lib/pet-runtime";
 import type { MeaningfulAction, PetPalette, PetStage } from "@/lib/pet-state";
@@ -118,6 +123,9 @@ interface PetEngineCanvasProps {
   onWorldInteraction?: (action: PetWorldAction, world: PetWorldState) => void;
   careEchoSource?: MeaningfulAction | null;
   onCareEcho?: (source: MeaningfulAction) => void;
+  habitatGrowth?: number;
+  growthTreeInteractive?: boolean;
+  onGrowthTree?: () => void;
   label: string;
 }
 
@@ -1061,6 +1069,51 @@ function drawCareEchoInvitation(
   context.restore();
 }
 
+function drawBecomingTree(
+  context: CanvasRenderingContext2D,
+  palette: HabitatPalette,
+  world: PetWorldState,
+  growth: number,
+  answering: boolean,
+) {
+  const tree = resolveBecomingTreePresentation(growth);
+  const crownY = BECOMING_TREE.groundY - tree.trunkHeight;
+  const pulse = answering ? 1 + Math.sin(world.weatherElapsed / 95) * 0.08 : 1;
+
+  context.save();
+  worldTransform(context, world);
+  context.translate(BECOMING_TREE.x, BECOMING_TREE.groundY);
+  context.fillStyle = palette.outline;
+  context.globalAlpha = 0.2;
+  context.fillRect(-Math.max(5, tree.crownWidth / 3), 1, Math.max(10, tree.crownWidth * 0.66), 1);
+  context.globalAlpha = 1;
+  context.fillStyle = palette.deep;
+  context.fillRect(-2, -tree.trunkHeight, 4, tree.trunkHeight);
+  context.fillStyle = palette.leaf;
+  for (let pair = 0; pair < tree.branchPairs; pair += 1) {
+    const y = -8 - pair * 6;
+    const reach = 5 + pair * 2;
+    context.fillRect(-reach, y, reach, 2);
+    context.fillRect(2, y - 3, reach, 2);
+  }
+  context.translate(0, crownY - BECOMING_TREE.groundY);
+  context.scale(pulse, pulse);
+  context.fillStyle = palette.deep;
+  context.fillRect(-Math.round(tree.crownWidth * 0.42), -Math.round(tree.crownHeight * 0.32), Math.round(tree.crownWidth * 0.84), Math.round(tree.crownHeight * 0.68));
+  context.fillRect(-Math.round(tree.crownWidth * 0.26), -Math.round(tree.crownHeight * 0.52), Math.round(tree.crownWidth * 0.52), tree.crownHeight);
+  context.fillStyle = palette.leaf;
+  context.fillRect(-Math.round(tree.crownWidth * 0.34), -Math.round(tree.crownHeight * 0.38), Math.round(tree.crownWidth * 0.58), Math.round(tree.crownHeight * 0.58));
+  context.fillStyle = palette.leafLight;
+  context.fillRect(-Math.round(tree.crownWidth * 0.2), -Math.round(tree.crownHeight * 0.45), Math.max(3, Math.round(tree.crownWidth * 0.28)), Math.max(2, Math.round(tree.crownHeight * 0.22)));
+  if (answering) {
+    context.fillStyle = palette.cream;
+    context.fillRect(-tree.crownWidth / 2 - 4, -2, 3, 1);
+    context.fillRect(tree.crownWidth / 2 + 2, -6, 3, 1);
+    context.fillRect(0, -tree.crownHeight / 2 - 6, 1, 4);
+  }
+  context.restore();
+}
+
 function drawProceduralHabitat(
   context: CanvasRenderingContext2D,
   palette: HabitatPalette,
@@ -1791,6 +1844,7 @@ function renderScene(
   evolution: EvolutionComposition | null,
   focusAtmosphere: FocusAtmosphere,
   careEchoSource: MeaningfulAction | null,
+  habitatGrowth: number,
   reducedMotion: boolean,
 ) {
   const palette = PALETTES[paletteId];
@@ -1818,6 +1872,7 @@ function renderScene(
   );
   context.clearRect(0, 0, ENGINE_SCENE.width, ENGINE_SCENE.height);
   drawAuthoredHabitat(context, palette, motion, snapshot.progress, sceneWorld, habitat, habitatPerformance, reducedMotion);
+  drawBecomingTree(context, palette, sceneWorld, habitatGrowth, motion === "discover" && habitatGrowth > 0);
   drawEvolutionAtmosphere(context, palette, sceneWorld, evolutionAtmosphere);
   drawGuardianWake(context, palette, sceneWorld, guardianWake);
   drawCareEchoInvitation(context, palette, sceneWorld, careEchoSource);
@@ -2026,6 +2081,9 @@ export function PetEngineCanvas({
   onWorldInteraction,
   careEchoSource = null,
   onCareEcho,
+  habitatGrowth = 0,
+  growthTreeInteractive = false,
+  onGrowthTree,
   label,
 }: PetEngineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2050,7 +2108,7 @@ export function PetEngineCanvas({
   const lastWorldReportRef = useRef(0);
   const livingDayRef = useRef(createLivingDayDirector());
   const stageRef = useRef(stage);
-  const callbackRef = useRef({ onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction, onCareEcho });
+  const callbackRef = useRef({ onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction, onCareEcho, onGrowthTree });
   const manifest = leaflingManifestForStage(stage);
   const previousManifest = evolutionFromStage ? leaflingManifestForStage(evolutionFromStage) : null;
   const ceremonyActive = motion === "evolve" && previousManifest !== null;
@@ -2060,8 +2118,8 @@ export function PetEngineCanvas({
   }, [stage]);
 
   useEffect(() => {
-    callbackRef.current = { onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction, onCareEcho };
-  }, [onCareEcho, onFrame, onLivingDayFrame, onWorldFrame, onWorldInteraction]);
+    callbackRef.current = { onFrame, onWorldFrame, onLivingDayFrame, onWorldInteraction, onCareEcho, onGrowthTree };
+  }, [onCareEcho, onFrame, onGrowthTree, onLivingDayFrame, onWorldFrame, onWorldInteraction]);
 
   useEffect(() => {
     if (!worldCommand) return;
@@ -2281,6 +2339,7 @@ export function PetEngineCanvas({
         evolution,
         focusAtmosphere,
         careEchoSource,
+        habitatGrowth,
         reducedMotion,
       );
 
@@ -2320,7 +2379,7 @@ export function PetEngineCanvas({
       sprite.onload = null;
       if (previousSprite) previousSprite.onload = null;
     };
-  }, [careEchoSource, ceremonyActive, evolutionFromStage, holdLivingDay, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
+  }, [careEchoSource, ceremonyActive, evolutionFromStage, habitatGrowth, holdLivingDay, manualElapsed, manifest, motion, palette, paused, previewing, previousManifest, reducedMotion, showRig, stage]);
 
   function pointFromEvent(event: PointerEvent<HTMLDivElement>): WorldPoint {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -2471,6 +2530,12 @@ export function PetEngineCanvas({
     }
     if (contactGesture !== "tap") return;
     const worldPoint = screenPointToWorldPoint(worldRef.current, pointer.current);
+    if (growthTreeInteractive && resolveBecomingTreeHit(worldPoint)) {
+      livingDayRef.current = interruptLivingDay(livingDayRef.current);
+      callbackRef.current.onLivingDayFrame?.(livingDayRef.current);
+      callbackRef.current.onGrowthTree?.();
+      return;
+    }
     if (resolveVisitorHit(worldRef.current, worldPoint)) {
       worldRef.current = beginVisitorChase(worldRef.current);
       livingDayRef.current = interruptLivingDay(livingDayRef.current);

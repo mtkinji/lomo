@@ -37,6 +37,8 @@ test("only the first meaningful action of a prototype day prepares care", () => 
   assert.equal(afterFocus.careAvailable, true);
   assert.equal(afterFocus.pendingSource, "todo");
   assert.match(afterFocus.lastReceipt, /noticed that .* too/i);
+  assert.equal(afterTodo.habitatGrowth, 1);
+  assert.equal(afterFocus.habitatGrowth, 1, "extra activity cannot be farmed into habitat growth");
 });
 
 test("care is recorded once per day and cannot be ground repeatedly", () => {
@@ -128,6 +130,7 @@ test("advancing through quiet days never removes care or evolution", () => {
   state = advancePrototypeDay(advancePrototypeDay(advancePrototypeDay(state)));
 
   assert.equal(state.careDays, 1);
+  assert.equal(state.habitatGrowth, 1);
   assert.equal(state.stage, "baby");
   assert.equal(state.careAvailable, false);
   assert.match(state.lastReceipt, /new morning.*nothing was lost/i);

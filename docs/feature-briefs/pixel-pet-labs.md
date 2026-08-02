@@ -46,7 +46,7 @@ When I complete one thing that helps life feel better, I want a small creature I
 
 ### Prototype-first validation
 
-Before Pet changes the Kwilt app, test the concept as a separately deployed, mobile-first site prototype. The site includes a deeply proven Leafling before multiplying species, naming, palette choice, local persistence, simulated To-do and Focus receipts, the one-care-moment-per-day rule, nonverbal sound and motion, accelerated time, and two visible evolutions.
+Before Pet changes the Kwilt app, test the concept as a separately deployed, mobile-first site prototype. The site includes a deeply proven Leafling before multiplying species, local persistence, simulated To-do and Focus receipts, one contextual Pet → Chat → action → changed-world loop, the one-care-moment-per-day rule, nonverbal sound and motion, accelerated time, and two visible evolutions.
 
 The site does not connect to Kwilt accounts or production data. Prototype controls make it possible to replay reactions, advance days, reset, and switch Pets rapidly. These controls are visibly separated from the intended consumer experience.
 
@@ -212,6 +212,8 @@ Wildlife makes growth physical rather than merely visual. The portable behavior 
 Focus together is the first shared ritual. Starting it clears transient wildlife, brings the Pet physically to the shelter tree, softens decorative weather motion, suppresses direct play, and centers the curled breathing loop for a short prototype session. A faint habitat-owned light cadence makes the stillness visible without instructing the person to breathe or introducing a progress game; Reduce Motion keeps one stable pool of quiet light. Completion wakes the Pet gently and creates the same bounded source-class receipt as an ordinary Focus session, with no second streak or parallel task system. A completed family/friend game can likewise create the day's one care moment while causing a playful world response such as breeze and a visitor.
 
 ### Chat and notifications
+
+The site prototype contains one local-only contextual Chat proof. A young becoming-tree is separate from the old shelter tree and can be touched while the capability is resting. Chat opens as the destination with visible Pet/tree context and three bounded paths: choose an existing To-do, begin a short Focus, or create one small next action. No thread is persisted before the user acts. Completing the simulated action creates only an existing source-class receipt; **Back to Moss** returns to the same world, grows the tree by one bounded stage, and lets Moss and the meadow answer. The prototype does not connect to Unified Chat or ingest Activity content.
 
 The first family test sends no routine Pet notification. A later optional discovery notification may open contextual Chat with **Visit**, **Later**, and **Quiet Pet updates**. It may celebrate something already earned; it may not announce hunger, sadness, streak loss, or that the Pet misses the user.
 
