@@ -9,7 +9,7 @@ job_flow: job-flow-maya-move-family-life-forward
 serves: [jtbd-carry-intentions-into-action, jtbd-put-intention-before-impulse, jtbd-see-who-im-becoming, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-chores-as-recurring-activities]
 owner: andrew
-last_updated: 2026-07-30
+last_updated: 2026-08-01
 ---
 
 # Pixel Pet Labs
@@ -46,7 +46,7 @@ When I complete one thing that helps life feel better, I want a small creature I
 
 ### Prototype-first validation
 
-Before Pet changes the Kwilt app, test the concept as a separately deployed, mobile-first site prototype. The site includes all five selectable Pets, naming, palette choice, local persistence, simulated To-do and Focus receipts, the one-care-moment-per-day rule, nonverbal sound and motion, accelerated time, and one evolution after five care days.
+Before Pet changes the Kwilt app, test the concept as a separately deployed, mobile-first site prototype. The site includes a deeply proven Leafling before multiplying species, local persistence, simulated To-do and Focus receipts, one contextual Pet → Chat → action → changed-world loop, the one-care-moment-per-day rule, nonverbal sound and motion, accelerated time, and two visible evolutions.
 
 The site does not connect to Kwilt accounts or production data. Prototype controls make it possible to replay reactions, advance days, reset, and switch Pets rapidly. These controls are visibly separated from the intended consumer experience.
 
@@ -84,11 +84,21 @@ Care days accumulate and never subtract. A missed day cannot make the Pet hungry
 ### Interaction vocabulary
 
 - Visit the persistent Pet.
-- Tap or swipe once for a nonverbal reaction.
+- Tap near the Pet for a nonverbal greeting.
+- Tap elsewhere on the ground and the Pet walks or runs there while the camera follows.
+- Tap high and the Pet jumps toward the touch; swipe across the Pet and it curls up and rolls over.
+- Pinch between a full-world view and a temporary close-up. Zoom is camera state, not a saved preference or a consumer-facing control.
+- Notice occasional stage-specific wildlife moving through the habitat. Baby notices a crawler at paw height, young follows a meadow firefly, and guardian attempts one high aerial interception of a sky moth. Each encounter predicts one intercept, faces before launch, and ends without capture, collection, or repeated pursuit.
+- Enter one causal wind-play episode: after a settled breeze and authored brace, a gust may loosen the golden leaf, Moss reads its path, and the person can catch and redirect it in flight before one stage-specific catch and quiet return. Focus, visitors, direct touch, and other owned scenes retain priority.
+- Grab one golden wind leaf from the old tree, move it through the world, and toss it for the Pet. The Pet tracks continuously while the person holds the leaf, then uses a stage-specific ground, leaping, or aerial catch performance. The leaf returns to the habitat after one bounded scene; it is not an item, collectible, score, or affection meter.
+- The golden leaf shares the habitat's weather rules. A throw samples one deterministic profile: sun gives the dry leaf a lingering updraft, wind produces readable lateral drift, and rain makes it heavier and quicker to land. Prediction and simulation use the same immutable profile so the Pet commits once, faces correctly, and never chases a moving intercept.
 - Tap or drag an available meal to its bowl.
 - See one recent source-class receipt without private Activity text.
+- Let the habitat keep a bounded, privacy-safe visual trace of different life progress: a completed To-do opens an upright bloom, Focus leaves one pale stilllight near the old tree, and playing together opens paired seedheads. Only source class, world position, and completed growth persist; no Activity text, person, duration, date, Goal, Arc, count, score, or care progress is stored in the scenery contract.
 - Occasionally choose between two cosmetic directions such as rest, explore, or play.
-- Reach a first evolution after five distinct care days.
+- Grow from baby to young after three distinct care days, then to guardian after eight.
+
+Pet interactions use world coordinates rather than screen coordinates. The habitat is wider than the camera, so the same behavior and state model can travel between iPhone, web, and desktop renderers. The consumer surface has no joystick, zoom buttons, camera settings, meters, inventory, or permanent tutorial furniture; direct manipulation is the interface. Prototype-only controls remain in the separate engine inspector.
 
 ### Voice and sound
 
@@ -96,11 +106,114 @@ Pet does not use text, speech, or an AI persona in the first release. It communi
 
 Pet sounds have their own setting. Equivalent visual and semantic-haptic feedback remains when muted, and decorative motion respects Reduce Motion. Kwilt Chat remains the only speaker and must not claim that Pet is lonely, hungry, disappointed, or dependent on the user.
 
+The engine emits a semantic soundscape mix rather than naming audio files:
+meadow presence, wind, rain, warmth, Focus hush, wildlife, and a bounded Pet
+cue. Each renderer may realize that mix with procedural synthesis or authored
+samples. Layers crossfade; they do not jump in volume or restart as unrelated
+loops. Pet cues use a short wind-up, expressive peak, and natural decay rather
+than coins, fanfares, button clicks, or arcade bleeps. Browser audio starts only
+after a user gesture, mute is immediate, navigation disposes the graph, and the
+experience remains fully legible without sound.
+
 ### Evolution and asset boundary
 
-The first Labs version has a young and first-evolution form for each type: ten core designs total. Most behaviors use two-to-four-frame reusable loops for idle, greet, eat, sleep, discover, and evolve, plus code-driven position, scale, blink, palette, and particle effects. Mature forms, branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
+The first Labs version targets baby, young, and guardian forms for each type: fifteen core designs total if the Leafling proof earns a five-species release. Each form preserves species identity while changing its silhouette and body plan. Behaviors use compact authored vocabularies for idle, greet, care, sleep, discover, evolve, walk, run, jump, pounce, and rollover; the Leafling proof gives every form a dedicated eight-drawing clip for each direct-play action. Guardian additionally owns a stage-specific eight-drawing aerial-acrobatics performance—sightline, coil, launch, bank, directional reaching apex, landing, and recovery—so maturity unlocks a new physical idea rather than merely scaling the ordinary jump. Branching evolution, generated milestone portraits, accessories, an inventory, shop, currency, trading, breeding, and cutscenes are deferred.
+
+Evolution happens inside the persistent habitat rather than replacing it with a reward screen. The previous form recognizes the change, leaf-light gathers inward, old and new bodies briefly overlap through a renderer-neutral handoff, and the new form grows to its authored size before landing on the same ground. Autonomous travel and visitors yield during the ceremony. Reduce Motion preserves the old-to-new meaning with a stable dissolve and no orbit or scale pulse. The ceremony celebrates accumulated care but introduces no level banner, rarity, item, currency, loss, or second progression model.
+
+The standalone learning release makes the complete daily rhythm playable without
+weakening that boundary. Its capability surface resolves one explicit phase:
+choose a meaningful action, receive one care opportunity, let care or evolution
+settle, then allow the next prototype morning. The accelerated-morning action
+replaces otherwise inert action choices only after the day is complete and says
+plainly that prototype time is advancing and nothing is lost. Production Pet
+uses real elapsed days and omits this accelerator. Neither surface permits
+repeated care, interruption of an evolution handoff, a daily reward, or loss
+from absence.
+
+A meaningful Kwilt action owns one complete visible answer before care becomes
+available to press. Its life echo preempts autonomous direction and may cancel
+a still-pending instinctive Pet response from weather that was already
+arriving; the atmospheric layer may continue settling, but it cannot redirect
+the Pet mid-vignette or queue a second mandatory performance. While Moss is
+noticing, approaching, or responding to the new echo, the capability shows the
+live world-language and a passive settling affordance instead of generic
+care-ready copy. Care appears only after the bounded answer is grounded and
+quiet. This is scene priority, not a reward delay, action score, or second
+progress model.
+
+The Pet capability presents that engine as one continuous phone-scale world,
+not a picture followed by a dashboard. Pet identity, day, weather, sound, and
+live scene language sit lightly in the sky without owning meadow touch. The one
+currently available Kwilt action sits in a calm world-edge dock. Consumer UI
+describes the current form and says that care is remembered; exact thresholds
+and the eight-mark progress meter remain prototype-inspector evidence rather
+than a second progress model. The scene keeps the full ground plane for direct
+play, and all weather, playback, stage, palette, rig, and accelerated-time QA
+controls remain visibly outside the capability.
+
+Once that bounded world answer settles, the newest matching privacy-safe life
+echo becomes the primary care target. The user touches the To-do bloom, Focus
+stilllight, or paired Play seedheads inside the meadow to complete the existing
+one-daily-care transition. A semantic instruction in the world-edge dock remains
+keyboard accessible as a fallback, but there is no generic reward claim,
+harvest, inventory, currency, or second care mechanic.
+
+The engine owns world position, destinations, facing, camera follow, palette, particles, and action selection. Authored drawings own the vertical silhouette, body turn, anticipation, contact, impact, and recovery; the renderer does not lift or rigidly spin an idle sprite to impersonate a jump, pounce, or rollover. This split keeps renderer and behavior work portable without pretending animation craft can be generated entirely by the engine.
+
+Camera direction uses the same portable semantic boundary. Quiet, travel,
+recognition, intimate holds, shared Focus, and full-body action resolve to a
+small shot vocabulary rather than renderer-specific camera guesses. The
+adapter eases toward the requested scale and framing while keeping the ground
+anchor stable. Pinch temporarily transfers camera ownership to the person;
+automatic direction may not alter that composition until the ownership window
+expires. Reduce Motion removes automatic push-ins while preserving explicit
+pinch zoom.
+
+Animation follows an anime-inspired limited-motion language rather than uniform interpolation. Each drawing is authored as a hold, key, in-between, accent, or recovery. Small involuntary actions use the smallest participating anatomy channel: a blink moves only the eyelids over a locked body pose. Expressive actions spend additional drawings around changes in direction, contact, and expression, then hold the strongest readable pose. The goal is deliberate 8–12-drawing character acting, not high-frame-rate feature-film smoothness.
+
+The screen should match the character through layered pixel depth, a coherent palette, fine environmental detail, grounded contact, and autonomous life—not by surrounding the Pet with more controls. The Leafling proof uses a versioned, renderer-neutral habitat pack: an authored far panorama, a root-anchored shelter-tree sprite, and a transparent near-meadow layer. Canvas, native, web, and desktop adapters can preserve the same layer order and world coordinates while expressing weather appropriately. Environmental visitors are transient behavior targets, not collectible currency or another progress system.
+
+Autonomous life uses one renderer-neutral scene director rather than several
+competing random timers or a needs simulation. When the capability is otherwise
+quiet, the director may compose one bounded episode: stage-scaled roaming,
+revisiting a remembered bloom, resting beneath the old tree, noticing
+stage-appropriate wildlife, or experiencing weather. Each scene leaves a calm
+interval before the next. Direct touch, Focus, evolution, Play, and a new Kwilt
+progress consequence preempt the scene immediately. The director persists no
+unfinished behavior and exposes no energy, mood, hunger, comfort, or attention
+meter.
+
+Weather is behavior, not a wallpaper swap. Wind moves foliage, loose leaves, and the Pet's grounded silhouette. Rain changes light and terrain, then gives the Pet a reason to seek shelter and curl beneath a tree. Sun creates a warm destination in the meadow; after a readable basking hold, the Pet chooses the old tree's shade and curls without exposing heat as a meter or need. The portable world snapshot owns weather, intensity, elapsed time, destinations, and the Pet's response so iPhone, web, and desktop renderers can express the same event with platform-appropriate drawing.
+
+Weather changes use a shared directed-episode grammar: arrive, notice, respond, settle. Intensity grows across the whole habitat before the Pet acts; the Pet uses an authored attention clip, then the camera frames a little destination-side world during instinctive travel. Direct touch remains live outside Focus, and occasional deterministic episodes may begin while the world is otherwise quiet. The inspector exposes phase and intensity for learning, but the Pet experience adds no forecast, meter, danger, reward, or weather controls.
+
+Continuous touch uses the same portable world boundary. A deliberate
+one-finger drag may wake one restrained world-space mote; the Pet first notices,
+then walks or runs according to honest distance while the target moves with the
+hand. Release commits to the last reachable place and resolves in one greeting.
+Reach matures through the same gesture: Baby keeps the mote in the low world,
+Young may commit once to a middle-layer bound, and Guardian may use its authored
+aerial vocabulary for a high light. A vertical invitation beside the Pet is
+enough to reveal the new reach. Pointer updates may refine one landing point but
+cannot restart an authored commitment or create a repeated jump loop while the
+finger remains held; the Pet must land before watching or greeting.
+The engine owns dead zones, gait, facing, camera framing, refusal, and recovery;
+the renderer only routes the gesture and draws the mote. This is direct
+relationship, not raw cursor following: pinch, rollover, and wind-leaf ownership
+remain more specific gestures, and settled rain shelter or active Focus may not
+be overridden. The mote creates no object, reward, receipt, persistence, need,
+or control mode.
+
+The Pet also owns a portable weather-acting vocabulary rather than receiving renderer-authored body motion. `weather-notice`, `wind-brace`, `rain-flinch`, and `sun-bask` are semantic clips in every evolution manifest, with stage-specific drawings, contact, holds, accents, and recovery. Baby compresses quickly and may curl in a warm patch; Guardian holds a powerful brace and a controlled eyes-closed bask. The renderer moves the habitat during wind but never tilts the whole grounded Pet to fake anatomy or weight.
+
+Wildlife makes growth physical rather than merely visual. The portable behavior engine selects a transient visitor by evolution stage: ground crawler for baby, firefly for young, and high sky moth for guardian. Acquisition predicts one directionally stable intercept before starting an authored clip, but the prediction can never pass through the Pet and make it turn away from a visitor that remains visibly on the other side. At commitment, the visitor evades outward on that chosen side instead of crossing behind the Pet during the performance. The encounter ends once, so the Pet never oscillates or attempts an opposite-facing retry. These are living-world moments, not collectibles, prey, combat, or rewards.
+
+Focus together is the first shared ritual. Starting it clears transient wildlife, brings the Pet physically to the shelter tree, softens decorative weather motion, suppresses direct play, and centers the curled breathing loop for a short prototype session. A faint habitat-owned light cadence makes the stillness visible without instructing the person to breathe or introducing a progress game; Reduce Motion keeps one stable pool of quiet light. Completion wakes the Pet gently and creates the same bounded source-class receipt as an ordinary Focus session, with no second streak or parallel task system. A completed family/friend game can likewise create the day's one care moment while causing a playful world response such as breeze and a visitor.
 
 ### Chat and notifications
+
+The site prototype contains one local-only contextual Chat proof. A young becoming-tree is separate from the old shelter tree and can be touched while the capability is resting. Chat opens as the destination with visible Pet/tree context and three bounded paths: choose an existing To-do, begin a short Focus, or create one small next action. No thread is persisted before the user acts. Completing the simulated action creates only an existing source-class receipt; **Back to Moss** returns to the same world, grows the tree by one bounded stage, and lets Moss and the meadow answer. The prototype does not connect to Unified Chat or ingest Activity content.
 
 The first family test sends no routine Pet notification. A later optional discovery notification may open contextual Chat with **Visit**, **Later**, and **Quiet Pet updates**. It may celebrate something already earned; it may not announce hunger, sadness, streak loss, or that the Pet misses the user.
 
@@ -119,10 +232,17 @@ The experiment works when participants voluntarily revisit Pet, can explain why 
 ## Open questions
 
 - Are five choices enough, and do all five attract real preference?
-- Is five care days the right threshold for the first evolution?
+- Do three and eight care moments make both evolutions reachable without making growth feel disposable?
+- Does seeing the familiar old body become the new one make evolution feel earned, or does the two-form overlap need a longer recognition hold?
 - Does a meal metaphor feel natural, or should the care object vary by pet?
 - How much habitat change is needed before the persistent display feels alive?
+- Do weather-caused behaviors make the habitat feel like a world rather than a decorated screen?
+- Does focusing beside the resting Pet improve attention, or does the animation become distracting?
+- Does pinch-to-close-up create affection, or does it mostly interfere with taps?
+- How often can stage-specific wildlife visit before its movement becomes distracting or predictable?
+- Does the Guardian's bank-and-reach performance make evolution feel like a new capability, and is the held apex still readable with every habitat and palette?
+- Does rollover feel like a delightful learned trick, and does it justify a dedicated animation row?
 - Do teens prefer sounds by default, or should Pet begin muted?
 - Does contextual Chat clarify Pet events without making Pet feel distributed through the timeline?
-- Is one evolved form sufficient for lasting attachment, or does evidence justify a user-chosen branch?
+- Are three linear forms sufficient for lasting attachment, or does evidence justify a later user-chosen branch?
 - After playing with the standalone site, do participants ask to connect real Kwilt actions without being prompted?

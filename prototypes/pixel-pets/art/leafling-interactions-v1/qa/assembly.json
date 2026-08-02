@@ -1,0 +1,1278 @@
+{
+  "cell": [
+    160,
+    128
+  ],
+  "baseline": 120,
+  "rows": [
+    {
+      "stage": "young",
+      "motion": "jump",
+      "scale": 0.35327635327635326,
+      "source": "art/leafling-interactions-v1/source/young-jump-strip.png",
+      "source_size": [
+        1983,
+        793
+      ],
+      "source_vertical_span": [
+        195,
+        546
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 4,
+      "removed_tiny_detached_pixels": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            70,
+            342,
+            220,
+            542
+          ],
+          "destination": [
+            54,
+            52,
+            53,
+            71
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            303,
+            405,
+            498,
+            544
+          ],
+          "destination": [
+            46,
+            74,
+            69,
+            49
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            549,
+            352,
+            720,
+            542
+          ],
+          "destination": [
+            50,
+            55,
+            60,
+            67
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            804,
+            258,
+            1004,
+            506
+          ],
+          "destination": [
+            44,
+            22,
+            71,
+            88
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1042,
+            195,
+            1253,
+            459
+          ],
+          "destination": [
+            42,
+            0,
+            75,
+            93
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1310,
+            296,
+            1451,
+            506
+          ],
+          "destination": [
+            55,
+            36,
+            50,
+            74
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1522,
+            417,
+            1719,
+            545
+          ],
+          "destination": [
+            45,
+            78,
+            70,
+            45
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1774,
+            354,
+            1948,
+            546
+          ],
+          "destination": [
+            50,
+            56,
+            61,
+            68
+          ]
+        }
+      ],
+      "atlas_row": 9
+    },
+    {
+      "stage": "young",
+      "motion": "pounce",
+      "scale": 0.465,
+      "source": "art/leafling-interactions-v1/source/young-pounce-strip.png",
+      "source_size": [
+        1935,
+        813
+      ],
+      "source_vertical_span": [
+        305,
+        549
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "removed_tiny_detached_pixels": 2,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            32,
+            386,
+            232,
+            544
+          ],
+          "destination": [
+            34,
+            44,
+            93,
+            73
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            282,
+            305,
+            480,
+            544
+          ],
+          "destination": [
+            34,
+            7,
+            92,
+            111
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            521,
+            389,
+            712,
+            549
+          ],
+          "destination": [
+            36,
+            46,
+            89,
+            74
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            744,
+            339,
+            968,
+            543
+          ],
+          "destination": [
+            28,
+            22,
+            104,
+            95
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            978,
+            331,
+            1259,
+            473
+          ],
+          "destination": [
+            14,
+            19,
+            131,
+            66
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1280,
+            382,
+            1464,
+            549
+          ],
+          "destination": [
+            37,
+            42,
+            86,
+            78
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1503,
+            339,
+            1691,
+            545
+          ],
+          "destination": [
+            36,
+            22,
+            87,
+            96
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1727,
+            378,
+            1895,
+            549
+          ],
+          "destination": [
+            41,
+            40,
+            78,
+            80
+          ]
+        }
+      ],
+      "atlas_row": 10
+    },
+    {
+      "stage": "young",
+      "motion": "rollover",
+      "scale": 0.465,
+      "source": "art/leafling-interactions-v1/source/young-rollover-strip.png",
+      "source_size": [
+        2172,
+        724
+      ],
+      "source_vertical_span": [
+        280,
+        544
+      ],
+      "canonical_facing": "direction-neutral",
+      "mirrored_from_source": false,
+      "row_shift": 3,
+      "removed_tiny_detached_pixels": 1,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            34,
+            280,
+            259,
+            534
+          ],
+          "destination": [
+            28,
+            0,
+            105,
+            118
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            284,
+            314,
+            519,
+            537
+          ],
+          "destination": [
+            26,
+            16,
+            109,
+            104
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            519,
+            361,
+            797,
+            540
+          ],
+          "destination": [
+            16,
+            38,
+            129,
+            83
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            819,
+            385,
+            1074,
+            542
+          ],
+          "destination": [
+            20,
+            49,
+            119,
+            73
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1086,
+            383,
+            1325,
+            542
+          ],
+          "destination": [
+            24,
+            48,
+            111,
+            74
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1356,
+            400,
+            1611,
+            539
+          ],
+          "destination": [
+            20,
+            56,
+            119,
+            65
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1644,
+            354,
+            1873,
+            544
+          ],
+          "destination": [
+            27,
+            35,
+            106,
+            88
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1912,
+            285,
+            2135,
+            541
+          ],
+          "destination": [
+            28,
+            3,
+            104,
+            119
+          ]
+        }
+      ],
+      "atlas_row": 11
+    },
+    {
+      "stage": "baby",
+      "motion": "jump",
+      "scale": 0.3046683046683047,
+      "source": "art/leafling-interactions-v1/source/baby-jump-strip.png",
+      "source_size": [
+        2172,
+        724
+      ],
+      "source_vertical_span": [
+        178,
+        585
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 4,
+      "removed_tiny_detached_pixels": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            63,
+            366,
+            271,
+            585
+          ],
+          "destination": [
+            48,
+            57,
+            63,
+            67
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            332,
+            441,
+            529,
+            585
+          ],
+          "destination": [
+            50,
+            80,
+            60,
+            44
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            609,
+            281,
+            823,
+            531
+          ],
+          "destination": [
+            48,
+            31,
+            65,
+            76
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            878,
+            238,
+            1075,
+            507
+          ],
+          "destination": [
+            50,
+            18,
+            60,
+            82
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1144,
+            178,
+            1324,
+            435
+          ],
+          "destination": [
+            52,
+            0,
+            55,
+            78
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1389,
+            274,
+            1588,
+            509
+          ],
+          "destination": [
+            50,
+            29,
+            61,
+            72
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1638,
+            415,
+            1817,
+            585
+          ],
+          "destination": [
+            52,
+            72,
+            55,
+            52
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1907,
+            365,
+            2097,
+            585
+          ],
+          "destination": [
+            51,
+            57,
+            58,
+            67
+          ]
+        }
+      ],
+      "atlas_row": 6
+    },
+    {
+      "stage": "baby",
+      "motion": "pounce",
+      "scale": 0.5,
+      "source": "art/leafling-interactions-v1/source/baby-pounce-strip.png",
+      "source_size": [
+        2068,
+        760
+      ],
+      "source_vertical_span": [
+        276,
+        513
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "removed_tiny_detached_pixels": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            43,
+            325,
+            219,
+            513
+          ],
+          "destination": [
+            36,
+            26,
+            88,
+            94
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            284,
+            364,
+            486,
+            513
+          ],
+          "destination": [
+            30,
+            46,
+            101,
+            74
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            543,
+            358,
+            744,
+            513
+          ],
+          "destination": [
+            30,
+            42,
+            100,
+            78
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            801,
+            276,
+            1007,
+            455
+          ],
+          "destination": [
+            28,
+            2,
+            103,
+            90
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1048,
+            293,
+            1276,
+            469
+          ],
+          "destination": [
+            23,
+            10,
+            114,
+            88
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1335,
+            327,
+            1549,
+            513
+          ],
+          "destination": [
+            26,
+            27,
+            107,
+            93
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1586,
+            399,
+            1795,
+            513
+          ],
+          "destination": [
+            28,
+            63,
+            104,
+            57
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1843,
+            336,
+            2018,
+            513
+          ],
+          "destination": [
+            36,
+            32,
+            88,
+            88
+          ]
+        }
+      ],
+      "atlas_row": 7
+    },
+    {
+      "stage": "baby",
+      "motion": "rollover",
+      "scale": 0.5,
+      "source": "art/leafling-interactions-v1/source/baby-rollover-strip.png",
+      "source_size": [
+        1935,
+        813
+      ],
+      "source_vertical_span": [
+        328,
+        553
+      ],
+      "canonical_facing": "direction-neutral",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "removed_tiny_detached_pixels": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            34,
+            328,
+            223,
+            545
+          ],
+          "destination": [
+            33,
+            8,
+            94,
+            108
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            278,
+            378,
+            479,
+            544
+          ],
+          "destination": [
+            30,
+            32,
+            100,
+            83
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            528,
+            408,
+            704,
+            547
+          ],
+          "destination": [
+            36,
+            48,
+            88,
+            70
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            757,
+            371,
+            979,
+            553
+          ],
+          "destination": [
+            24,
+            29,
+            111,
+            91
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1017,
+            389,
+            1225,
+            550
+          ],
+          "destination": [
+            28,
+            38,
+            104,
+            80
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1277,
+            430,
+            1446,
+            547
+          ],
+          "destination": [
+            38,
+            58,
+            84,
+            58
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1502,
+            419,
+            1689,
+            547
+          ],
+          "destination": [
+            33,
+            53,
+            94,
+            64
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1721,
+            335,
+            1905,
+            545
+          ],
+          "destination": [
+            34,
+            11,
+            92,
+            105
+          ]
+        }
+      ],
+      "atlas_row": 8
+    },
+    {
+      "stage": "guardian",
+      "motion": "jump",
+      "scale": 0.289044289044289,
+      "source": "art/leafling-interactions-v1/source/guardian-jump-strip.png",
+      "source_size": [
+        2172,
+        724
+      ],
+      "source_vertical_span": [
+        171,
+        600
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 4,
+      "removed_tiny_detached_pixels": 898,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            39,
+            343,
+            239,
+            600
+          ],
+          "destination": [
+            51,
+            50,
+            58,
+            74
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            302,
+            384,
+            527,
+            600
+          ],
+          "destination": [
+            48,
+            62,
+            65,
+            62
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            572,
+            371,
+            836,
+            596
+          ],
+          "destination": [
+            42,
+            58,
+            76,
+            65
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            863,
+            171,
+            1117,
+            560
+          ],
+          "destination": [
+            44,
+            0,
+            73,
+            112
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1103,
+            174,
+            1368,
+            527
+          ],
+          "destination": [
+            42,
+            1,
+            77,
+            102
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1357,
+            233,
+            1582,
+            538
+          ],
+          "destination": [
+            48,
+            18,
+            65,
+            88
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1605,
+            329,
+            1824,
+            600
+          ],
+          "destination": [
+            48,
+            46,
+            63,
+            78
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1866,
+            331,
+            2116,
+            600
+          ],
+          "destination": [
+            44,
+            46,
+            72,
+            78
+          ]
+        }
+      ],
+      "atlas_row": 9
+    },
+    {
+      "stage": "guardian",
+      "motion": "pounce",
+      "scale": 0.475,
+      "source": "art/leafling-interactions-v1/source/guardian-pounce-strip.png",
+      "source_size": [
+        1983,
+        793
+      ],
+      "source_vertical_span": [
+        314,
+        524
+      ],
+      "canonical_facing": "screen-right",
+      "mirrored_from_source": false,
+      "row_shift": 0,
+      "removed_tiny_detached_pixels": 1,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            31,
+            334,
+            223,
+            518
+          ],
+          "destination": [
+            34,
+            30,
+            91,
+            87
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            271,
+            361,
+            492,
+            520
+          ],
+          "destination": [
+            28,
+            43,
+            105,
+            76
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            548,
+            344,
+            720,
+            520
+          ],
+          "destination": [
+            39,
+            34,
+            82,
+            84
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            757,
+            338,
+            1000,
+            506
+          ],
+          "destination": [
+            22,
+            32,
+            115,
+            80
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1020,
+            314,
+            1285,
+            448
+          ],
+          "destination": [
+            17,
+            20,
+            126,
+            64
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1321,
+            364,
+            1511,
+            522
+          ],
+          "destination": [
+            35,
+            44,
+            90,
+            75
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1545,
+            396,
+            1731,
+            524
+          ],
+          "destination": [
+            36,
+            59,
+            88,
+            61
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1743,
+            339,
+            1934,
+            522
+          ],
+          "destination": [
+            34,
+            32,
+            91,
+            87
+          ]
+        }
+      ],
+      "atlas_row": 10
+    },
+    {
+      "stage": "guardian",
+      "motion": "rollover",
+      "scale": 0.42758620689655175,
+      "source": "art/leafling-interactions-v1/source/guardian-rollover-strip.png",
+      "source_size": [
+        1988,
+        791
+      ],
+      "source_vertical_span": [
+        253,
+        543
+      ],
+      "canonical_facing": "direction-neutral",
+      "mirrored_from_source": false,
+      "row_shift": 4,
+      "removed_tiny_detached_pixels": 0,
+      "frames": [
+        {
+          "frame": 0,
+          "source_box": [
+            36,
+            253,
+            302,
+            530
+          ],
+          "destination": [
+            23,
+            0,
+            114,
+            118
+          ]
+        },
+        {
+          "frame": 1,
+          "source_box": [
+            311,
+            375,
+            525,
+            538
+          ],
+          "destination": [
+            34,
+            52,
+            92,
+            70
+          ]
+        },
+        {
+          "frame": 2,
+          "source_box": [
+            543,
+            446,
+            797,
+            542
+          ],
+          "destination": [
+            26,
+            83,
+            109,
+            41
+          ]
+        },
+        {
+          "frame": 3,
+          "source_box": [
+            816,
+            402,
+            1026,
+            537
+          ],
+          "destination": [
+            35,
+            64,
+            90,
+            58
+          ]
+        },
+        {
+          "frame": 4,
+          "source_box": [
+            1046,
+            441,
+            1239,
+            543
+          ],
+          "destination": [
+            38,
+            80,
+            83,
+            44
+          ]
+        },
+        {
+          "frame": 5,
+          "source_box": [
+            1258,
+            451,
+            1497,
+            542
+          ],
+          "destination": [
+            29,
+            85,
+            102,
+            39
+          ]
+        },
+        {
+          "frame": 6,
+          "source_box": [
+            1527,
+            411,
+            1729,
+            541
+          ],
+          "destination": [
+            37,
+            68,
+            86,
+            56
+          ]
+        },
+        {
+          "frame": 7,
+          "source_box": [
+            1758,
+            253,
+            1958,
+            530
+          ],
+          "destination": [
+            37,
+            0,
+            86,
+            118
+          ]
+        }
+      ],
+      "atlas_row": 11
+    }
+  ]
+}

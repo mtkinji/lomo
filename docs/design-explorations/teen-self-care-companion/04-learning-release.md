@@ -2,7 +2,7 @@
 
 ## Concept To Build
 
-A mobile-first interactive site where a person chooses, names, cares for, hears, and evolves one of five pixel Pets using simulated healthy-action receipts.
+A mobile-first interactive site where a person cares for and evolves a Pet using simulated healthy-action receipts, including one contextual Pet → Chat → action → changed-world loop.
 
 The site is a real interaction prototype, not a slide deck. Andrew, Olive, and Charlie should be able to open it on their phones, live with a Pet, accelerate time when needed, and make concrete judgments about attachment, expression, sound, care, and evolution before Pet enters Kwilt.
 
@@ -14,6 +14,7 @@ Today, the family cannot:
 - compare whether the pets feel meaningfully different in motion and sound;
 - test whether feeding after a meaningful action feels warm or transactional;
 - experience several care days and an evolution without waiting for app integration.
+- test whether touching something that could grow can open contextual Chat without a blank prompt or a fragmented Pet experience.
 
 After this release, the family can:
 
@@ -25,10 +26,11 @@ After this release, the family can:
 - hear and mute a species-specific nonverbal sound set;
 - advance through five care days and see a first evolution;
 - reset, switch pets, and replay the loop quickly during critique.
+- touch a becoming-tree, choose one bounded path in prototype Chat, complete it, return to Moss, and witness the tree and meadow answer.
 
 Still intentionally not supported:
 
-- production Kwilt accounts, authentication, Activities, streaks, Chat, notifications, or capability routing;
+- production Kwilt accounts, authentication, Activities, streaks, Chat backend, notifications, or capability routing;
 - real family data or cross-device synchronization;
 - parent visibility, health tracking, Money, or Screen Time connections;
 - accessories, stores, currencies, inventory, generated pets, or a navigable ecosystem.
@@ -48,13 +50,15 @@ The ordinary loop is:
 5. Additional simulated completions that day acknowledge the action but do not create more food or currency.
 6. After five distinct simulated care days, the Pet evolves.
 
+One additional learning path starts in the world itself: touching the becoming-tree opens a full-height prototype of contextual Chat with visible Pet/tree context. The user can choose an existing To-do, a short Focus, or one small next action. Completing the simulated action creates the same bounded source-class receipt, and **Back to Moss** returns to the meadow as the tree gains one persistent stage and Moss notices the change.
+
 A clearly separated **Prototype controls** drawer supports **Advance day**, **Replay state**, **Reset Pet**, **Switch Pet**, **Toggle sound**, and **Toggle reduced motion**. These controls are for learning speed and must not resemble future consumer UI.
 
 ## Existing Product Relationship
 
 The site tests the interaction contract intended eventually for **Settings > Labs > Pet** and the Pet capability. It leaves the Kwilt app unchanged.
 
-To-do and Focus buttons are simulations of privacy-minimized receipts, not replicas of the full capabilities. Chat is represented, if at all, by one static handoff example outside the core loop. This prevents the prototype from accidentally redesigning Kwilt while the Pet itself is still unproven.
+To-do and Focus actions are simulations of privacy-minimized receipts, not replicas of the full capabilities. Contextual Chat is one interactive, local-only destination used to prove context, choice, completion, and exact return. It creates no production thread and does not redesign the Chat backend.
 
 ## Buildable Slice
 
@@ -71,6 +75,8 @@ Must be real:
 - accelerated-time, replay, reset, and pet-switching controls;
 - reduced-motion and mute behavior;
 - a simple local event log or exportable test summary that contains no name text.
+- one tappable becoming-tree with persistent bounded growth stages;
+- one ephemeral contextual Chat draft with visible Pet/tree context, three bounded paths, simulated completion, and exact return.
 
 Can be thin or temporary:
 
@@ -84,7 +90,7 @@ Can be thin or temporary:
 Intentionally excluded:
 
 - Kwilt repository integration or shared production components;
-- production navigation, Chat, notifications, identity, sync, or database work;
+- production navigation, Chat backend, notifications, identity, sync, or database work;
 - PWA installation requirements;
 - public onboarding or marketing copy;
 - three-stage or branching evolution;
@@ -120,4 +126,5 @@ Move Pet toward a Kwilt Labs capability only if the site demonstrates that:
 - sound strengthens attachment without becoming irritating;
 - return after a missed day feels safe;
 - first evolution creates genuine anticipation or delight;
+- the contextual Chat handoff makes the next action easier to choose and the return to Pet feels causally rewarding rather than transactional;
 - the concept remains interesting after the first guided play session.
