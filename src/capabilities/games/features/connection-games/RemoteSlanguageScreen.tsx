@@ -16,6 +16,8 @@ import { GameBackdrop } from '@/src/capabilities/games/ui/GameBackdrop';
 import { GameButton } from '@/src/capabilities/games/ui/GameButton';
 import { KwiltGamesLockup } from '@/src/capabilities/games/ui/KwiltGamesLockup';
 import { OpenSlanguageTableLobby } from './OpenSlanguageTableLobby';
+import { useGameMusic } from '@/src/capabilities/games/audio/useGameMusic';
+import { useGamesSettingsStore } from '@/src/capabilities/games/settings/useGamesSettingsStore';
 
 function useClock(active: boolean) {
   const [now, setNow] = useState(Date.now());
@@ -32,6 +34,9 @@ export function RemoteSlanguageScreen() {
   const { session } = useAuth();
   const { room, loading, sending, error, reload, command } = useRemoteSlanguageRoom(sessionId ?? null);
   const userId = session?.user.id ?? hostUserId ?? '';
+  const soundEnabled = useGamesSettingsStore((state) => state.soundEnabled);
+  const musicPhase = room?.state.phase;
+  useGameMusic(musicPhase === 'build' || musicPhase === 'vote' ? 'game.slanguage' : null, soundEnabled);
 
   if (loading || !room) return <GameBackdrop><SafeAreaView style={styles.loading}><ActivityIndicator color={gamesTheme.colors.coral} /><Text style={styles.loadingText}>{error ?? 'Opening Slanguage…'}</Text></SafeAreaView></GameBackdrop>;
   if (room.state.phase === 'lobby') return <OpenSlanguageTableLobby

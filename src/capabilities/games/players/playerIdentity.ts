@@ -12,12 +12,21 @@ export const SUCCESS_SOUNDS = [
   { id: 'sparkle', label: 'Sparkle' },
   { id: 'fanfare', label: 'Fanfare' },
   { id: 'hawk', label: 'Majestic eagle' },
+  { id: 'power-lick-1', label: 'Power lick I' },
+  { id: 'power-lick-2', label: 'Power lick II' },
+  { id: 'power-lick-3', label: 'Power lick III' },
+  { id: 'banjo-run-1', label: 'Banjo run' },
+  { id: 'tiny-crowd-1', label: 'Tiny crowd I' },
+  { id: 'tiny-crowd-2', label: 'Tiny crowd II' },
+  { id: 'tiny-crowd-3', label: 'Tiny crowd III' },
+  { id: 'tiny-crowd-4', label: 'Tiny crowd IV' },
 ] as const;
 
 export const FAILURE_SOUNDS = [
   { id: 'trombone', label: 'Trombone' },
   { id: 'bonk', label: 'Bonk' },
   { id: 'wobble', label: 'Wobble' },
+  { id: 'cartoon-splat', label: 'Cartoon splat' },
 ] as const;
 
 export type PlayerColorId = typeof PLAYER_COLORS[number]['id'];

@@ -1,0 +1,59 @@
+import type { AudioCategory } from '@/src/capabilities/games/audio/audioGainPolicy';
+
+const PUBLIC_AUDIO_ROOT = 'https://sqxwjtorodqjdfnuvprf.supabase.co/storage/v1/object/public/audio_assets/v1';
+
+export type RemoteAudioAssetId =
+  | 'focus.copacabana'
+  | 'focus.focus-tunnel'
+  | 'focus.midnight-study'
+  | 'focus.open-road'
+  | 'focus.cedar-workshop'
+  | 'focus.rainlit-library'
+  | 'game.story-relay'
+  | 'game.clue-circle'
+  | 'game.slanguage'
+  | 'game.bank-initial'
+  | 'game.bank-building'
+  | 'game.bank-maximum';
+
+export type RemoteAudioAsset = {
+  id: RemoteAudioAssetId;
+  url: string;
+  cacheFileName: string;
+  expectedBytes: number;
+  category: Extract<AudioCategory, 'focus.music' | 'game.music'>;
+};
+
+function asset(
+  id: RemoteAudioAssetId,
+  relativePath: string,
+  expectedBytes: number,
+  category: RemoteAudioAsset['category'],
+): RemoteAudioAsset {
+  return {
+    id,
+    url: `${PUBLIC_AUDIO_ROOT}/${relativePath}`,
+    cacheFileName: relativePath.replaceAll('/', '-'),
+    expectedBytes,
+    category,
+  };
+}
+
+export const REMOTE_AUDIO_ASSETS: Record<RemoteAudioAssetId, RemoteAudioAsset> = {
+  'focus.copacabana': asset('focus.copacabana', 'focus/copacabana-focus-ccaaf823e168.mp3', 5_776_341, 'focus.music'),
+  'focus.focus-tunnel': asset('focus.focus-tunnel', 'focus/focus-tunnel-f6d4ab6fde4e.mp3', 5_777_595, 'focus.music'),
+  'focus.midnight-study': asset('focus.midnight-study', 'focus/midnight-study-3f5294ec1320.mp3', 5_777_595, 'focus.music'),
+  'focus.open-road': asset('focus.open-road', 'focus/open-road-focus-8173b2ab68a5.mp3', 5_761_871, 'focus.music'),
+  'focus.cedar-workshop': asset('focus.cedar-workshop', 'focus/cedar-workshop-eac9775e1d4f.mp3', 5_761_295, 'focus.music'),
+  'focus.rainlit-library': asset('focus.rainlit-library', 'focus/rainlit-library-5731d14f10a5.mp3', 5_756_111, 'focus.music'),
+  'game.story-relay': asset('game.story-relay', 'games/story-relay-a63e69918b9c.mp3', 1_441_871, 'game.music'),
+  'game.clue-circle': asset('game.clue-circle', 'games/clue-circle-f11ae524d433.mp3', 1_441_871, 'game.music'),
+  'game.slanguage': asset('game.slanguage', 'games/slanguage-b4848a867f22.mp3', 1_441_871, 'game.music'),
+  'game.bank-initial': asset('game.bank-initial', 'games/bank-initial-9d384641ba20.mp3', 1_441_871, 'game.music'),
+  'game.bank-building': asset('game.bank-building', 'games/bank-building-80c059ab399e.mp3', 1_441_871, 'game.music'),
+  'game.bank-maximum': asset('game.bank-maximum', 'games/bank-maximum-b04a34eb7fd2.mp3', 1_425_743, 'game.music'),
+};
+
+export function remoteAudioAsset(id: RemoteAudioAssetId) {
+  return REMOTE_AUDIO_ASSETS[id];
+}

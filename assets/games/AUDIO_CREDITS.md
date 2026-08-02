@@ -11,21 +11,23 @@
 
 Attribution is not required by CC0, but the source is recorded here for provenance.
 
-## Dice roll
+## Replaced dice-roll sources
 
-`dice-roll.mp3` is adapted from “Dice Rolling on Table” by Freesound user Flem0527.
+The following CC0 files supplied the original three dice-roll effects. They were replaced on 2026-07-31 by an ElevenLabs-generated, consistently mastered felt-and-wood family; the retired sources remain documented here for provenance.
+
+The former `dice-roll.mp3` was adapted from “Dice Rolling on Table” by Freesound user Flem0527.
 
 - Source: https://freesound.org/people/Flem0527/sounds/629982/
 - License: Creative Commons CC0 1.0 Universal
 - Changes: Freesound high-quality MP3 preview used for in-game playback.
 
-`dice-roll-2.mp3` is adapted from “dice roll_wooden table_2.wav” by Freesound user ekfink.
+The former `dice-roll-2.mp3` was adapted from “dice roll_wooden table_2.wav” by Freesound user ekfink.
 
 - Source: https://freesound.org/people/ekfink/sounds/235489/
 - License: Creative Commons CC0 1.0 Universal
 - Changes: Freesound high-quality MP3 preview used for in-game playback.
 
-`dice-roll-3.mp3` is adapted from “diceland.wav” by Freesound user Zaxtor99.
+The former `dice-roll-3.mp3` was adapted from “diceland.wav” by Freesound user Zaxtor99.
 
 - Source: https://freesound.org/people/Zaxtor99/sounds/147531/
 - License: Creative Commons CC0 1.0 Universal
@@ -80,3 +82,11 @@ Attribution is not required by CC0, but the source is recorded here for provenan
 - Changes: converted to 48 kHz stereo PCM, trimmed, and faded for in-game playback.
 
 All sources above are public-domain-equivalent CC0 recordings or sound designs. Attribution is retained here for provenance even when it is not required.
+
+## ElevenLabs generated additions
+
+The distinct Pass the Pattern notes, Pattern miss, and Cartoon Splat setback were generated in Andrew's paid ElevenLabs workspace, mastered for their category, reviewed in the Kwilt Audio Lab, and integrated on 2026-07-31. The listening-room export did not retain the original generation IDs or exact prompt/model metadata; that provenance gap is recorded in `assets/audio/AUDIO_MANIFEST.md` rather than inferred.
+
+Power Licks 1–3, Banjo Run 1, Tiny Crowd 1–4, and Coin Gather 1 and 3 were generated in Andrew's paid ElevenLabs workspace on 2026-07-31, mastered to the `game.signature` or `game.mechanic` policy, approved by Andrew in the Kwilt Audio Lab, and copied into the app without further encoding. Exact prompts, generation IDs, credit use, measurements, and the remaining in-app review gate are recorded in `assets/audio/AUDIO_MANIFEST.md`.
+
+The rejected second Wolf batch and dedicated Bank doubles-celebration batch remain review artifacts only and are not shipped. Bank doubles reuse Tiny Crowd 1 through a separate lower-gain playback path.
