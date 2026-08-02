@@ -83,6 +83,8 @@ describe('Explore geometry', () => {
     const geometry = buildFogRenderGeometry([freeway], 256);
 
     expect(geometry.segmentStarts.length).toBeLessThanOrEqual(256);
+    expect(geometry.traces.reduce((total, trace) => total + Math.max(0, trace.length - 1), 0))
+      .toBeLessThanOrEqual(256);
     expect(geometry.segmentStarts).toHaveLength(geometry.segmentEnds.length);
     expect(geometry.segmentStarts[0]).toEqual(freeway[0]);
     expect(geometry.segmentEnds.at(-1)).toEqual(freeway.at(-1));
@@ -102,6 +104,18 @@ describe('Explore geometry', () => {
     expect(geometry.segmentStarts).toEqual([start, afterGap]);
     expect(geometry.segmentEnds).toEqual([beforeGap, afterGapNext]);
     expect(geometry.points).toEqual([]);
+    expect(geometry.traces).toEqual([[start, beforeGap], [afterGap, afterGapNext]]);
+  });
+
+  it('never joins bounded render traces across separate outings', () => {
+    const first = { latitude: 40.58526, longitude: -105.08442 };
+    const firstEnd = destinationCoordinate(first, 20, 0);
+    const second = destinationCoordinate(first, 40, 90);
+    const secondEnd = destinationCoordinate(second, 20, 0);
+
+    const geometry = buildFogRenderGeometry([[first, firstEnd], [second, secondEnd]], 256);
+
+    expect(geometry.traces).toEqual([[first, firstEnd], [second, secondEnd]]);
   });
 
   it('preserves a freeway bend while reducing redundant straight observations', () => {

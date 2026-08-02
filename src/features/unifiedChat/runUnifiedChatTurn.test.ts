@@ -104,6 +104,104 @@ const structuredGroundedAnswer = JSON.stringify({
   uncertainty: 'Kwilt did not inspect capabilities outside this request.',
 });
 
+describe('agent judgment execution', () => {
+  const datedJudgment = {
+    schemaVersion: 1 as const,
+    userJob: 'Remember to call the dentist on the requested date',
+    desiredOutcome: 'A dated call Activity exists',
+    requestClass: 'capability_action' as const,
+    participatingCapabilities: ['todos' as const],
+    usePrivateContext: false,
+    informationNeed: 'stable' as const,
+    executionMode: 'single_tool' as const,
+    constraints: [
+      { kind: 'title' as const, sourceText: 'Call the dentist', normalizedValue: 'Call the dentist' },
+      { kind: 'date' as const, sourceText: 'August 5', normalizedValue: '2026-08-05' },
+    ],
+    steps: [{ sequence: 1, objective: 'Capture the dated call Activity', toolId: 'activities.capture', dependsOn: null }],
+    clarificationQuestion: null,
+    confidence: 0.97,
+    reason: 'One dated Activity capture achieves the requested outcome.',
+  };
+
+  test('preserves an explicit date through the selected Activity tool', async () => {
+    const executeRuntimeTool = jest.fn();
+    const runtimeSender = jest.fn(async (_history: unknown, options: {
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      const captureTool = options.runtimeTools?.find((tool) => tool.id === 'activities.capture');
+      const call = {
+        id: 'capture-dentist', toolId: 'activities.capture',
+        arguments: { title: 'Call the dentist', scheduledDate: '2026-08-05' },
+      };
+      executeRuntimeTool(call, captureTool);
+      await options.executeRuntimeTool?.(call, captureTool);
+      return 'I prepared the dated call for review.';
+    });
+    const { repository, send } = dependencies(runtimeSender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Add Call the dentist on August 5.' },
+      {
+        repository: repository as never,
+        sendCoachChat: send as never,
+        enableRuntimeTools: true,
+        requestJudgment: async () => datedJudgment,
+        now: () => new Date('2026-08-01T16:30:00.000Z'),
+        timeZone: () => 'America/Denver',
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(executeRuntimeTool).toHaveBeenCalledWith(expect.objectContaining({
+      toolId: 'activities.capture',
+      arguments: { title: 'Call the dentist', scheduledDate: '2026-08-05' },
+    }), expect.objectContaining({ id: 'activities.capture' }));
+    expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Add Call the dentist',
+      operation: expect.objectContaining({
+        type: 'create_activity',
+        payload: expect.objectContaining({ title: 'Call the dentist', scheduledDate: '2026-08-05' }),
+      }),
+    }));
+    expect(JSON.stringify(repository.createProposal.mock.calls)).not.toContain('Call the dentist on August 5');
+  });
+
+  test('uses the staged proposal when final model prose is empty', async () => {
+    const runtimeSender = jest.fn(async (_history: unknown, options: {
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      const captureTool = options.runtimeTools?.find((tool) => tool.id === 'activities.capture');
+      await options.executeRuntimeTool?.({
+        id: 'capture-dentist', toolId: 'activities.capture',
+        arguments: { title: 'Call the dentist', scheduledDate: '2026-08-05' },
+      }, captureTool);
+      return '';
+    });
+    const { repository, send } = dependencies(runtimeSender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt: 'Add Call the dentist on August 5.' },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        requestJudgment: async () => datedJudgment,
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'assistant', body: 'I prepared “Add Call the dentist” for review.',
+    }));
+    expect(repository.createProposal).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('runUnifiedChatTurn', () => {
   test('persists a confident semantic route before loading bounded evidence', async () => {
     const { repository, send } = dependencies(jest.fn(async () => structuredGroundedAnswer));

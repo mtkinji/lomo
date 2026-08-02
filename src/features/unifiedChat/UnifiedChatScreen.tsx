@@ -20,7 +20,8 @@ import { Icon } from '../../ui/Icon';
 import { PageHeader } from '../../ui/layout/PageHeader';
 import { Text } from '../../ui/Typography';
 import { colors, radii, spacing, typography } from '../../theme';
-import { buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
+import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
+import { createFreshEntryThreadGate } from './freshEntryThread';
 import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
 import type {
@@ -99,7 +100,11 @@ import { AnalyticsEvent } from '../../services/analytics/events';
 import { createRelationshipMemoryToolProvider } from '../../services/relationshipMemoryToolProvider';
 import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
-import { buildFamilyScreenTimeDecisionTelemetry, buildUnifiedChatReconciliationTelemetry } from './unifiedChatTelemetry';
+import {
+  buildFamilyScreenTimeDecisionTelemetry,
+  buildUnifiedChatFreshEntryTelemetry,
+  buildUnifiedChatReconciliationTelemetry,
+} from './unifiedChatTelemetry';
 import { appendUnifiedChatVoiceLevel } from './unifiedChatVoiceMetering';
 import {
   insertUnifiedChatTranscriptAtSelection,
@@ -172,6 +177,8 @@ export function UnifiedChatScreen() {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const launchContext = route.params?.launchContext;
   const requestedThreadId = route.params?.threadId;
+  const freshEntry = route.params?.entry === 'fresh' && !requestedThreadId;
+  const freshEntrySource = route.params?.source;
   const insets = useSafeAreaInsets();
   const { openMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
@@ -179,6 +186,11 @@ export function UnifiedChatScreen() {
   const repository = useMemo(() => createUnifiedChatRepository(), []);
   const webViewRef = useRef<WebView>(null);
   const handledRequestIds = useRef(new Set<string>());
+  const freshFirstSendRequestIdRef = useRef<string | null>(null);
+  const freshEntrySentRef = useRef(false);
+  const freshThreadGateRef = useRef<{
+    ensure: () => Promise<UnifiedChatThreadAggregate>;
+  } | null>(null);
   const activeTurn = useRef<{
     runId: string | null;
     controller: AbortController;
@@ -264,6 +276,24 @@ export function UnifiedChatScreen() {
     [attachments, prompt, voice],
   );
 
+  const postFreshSnapshot = useCallback(
+    (type: 'host.initialize' | 'host.snapshot') => {
+      const message = makeAgentWorkbenchHostMessage(
+        type,
+        buildFreshWorkbenchSnapshot(prompt, { voice, attachments }),
+      );
+      webViewRef.current?.postMessage(JSON.stringify(message));
+    },
+    [attachments, prompt, voice],
+  );
+
+  if (!freshThreadGateRef.current) {
+    freshThreadGateRef.current = createFreshEntryThreadGate({
+      create: () => repository.createThread(),
+      load: (thread) => loadThreadWithRecovery(thread.id),
+    });
+  }
+
   const openThread = useCallback(
     async (threadId: string) => {
       setError(null);
@@ -287,13 +317,13 @@ export function UnifiedChatScreen() {
     try {
       const next = await repository.listThreads();
       setThreads(next);
-      if (next.length > 0 && !aggregate) {
+      if (next.length > 0 && !aggregate && !freshEntry) {
         const requested = requestedThreadId && next.some((thread) => thread.id === requestedThreadId)
           ? requestedThreadId
           : next[0].id;
         await openThread(requested);
       }
-      if (next.length === 0 && launchContext && !aggregate) {
+      if (next.length === 0 && launchContext && !aggregate && !freshEntry) {
         const thread = await repository.createThread();
         setThreads([thread]);
         await openThread(thread.id);
@@ -303,7 +333,7 @@ export function UnifiedChatScreen() {
     } finally {
       setLoading(false);
     }
-  }, [aggregate, launchContext, openThread, repository, requestedThreadId]);
+  }, [aggregate, freshEntry, launchContext, openThread, repository, requestedThreadId]);
 
   useEffect(() => {
     if (!config.enabled) {
@@ -336,14 +366,37 @@ export function UnifiedChatScreen() {
     setAttachments([]);
   }, [requestedThreadId]);
 
+  useEffect(() => {
+    if (!freshEntry) return;
+    setAggregate(null);
+    setPrompt('');
+    setAttachments([]);
+  }, [freshEntry]);
+
   useEffect(() => () => {
     clearVoiceTimer();
     void cancelUnifiedChatVoiceRecording();
   }, [clearVoiceTimer]);
 
   useEffect(() => {
-    if (surfaceReady && aggregate) postSnapshot(aggregate, 'host.snapshot');
-  }, [aggregate, postSnapshot, surfaceReady]);
+    if (!freshEntry || freshEntrySource !== 'widget') return undefined;
+    freshEntrySentRef.current = false;
+    freshFirstSendRequestIdRef.current = null;
+    return () => {
+      if (!freshEntrySentRef.current) {
+        track(
+          posthogClient,
+          AnalyticsEvent.UnifiedChatFreshEntryOutcome,
+          buildUnifiedChatFreshEntryTelemetry(freshEntrySource, 'abandoned'),
+        );
+      }
+    };
+  }, [freshEntry, freshEntrySource]);
+
+  useEffect(() => {
+    if (surfaceReady && aggregate && !freshEntry) postSnapshot(aggregate, 'host.snapshot');
+    if (surfaceReady && freshEntry && !aggregate) postFreshSnapshot('host.snapshot');
+  }, [aggregate, freshEntry, postFreshSnapshot, postSnapshot, surfaceReady]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -501,7 +554,8 @@ export function UnifiedChatScreen() {
       if (!message) return;
       if (message.type === 'surface.ready') {
         setSurfaceReady(true);
-        if (aggregate) postSnapshot(aggregate, 'host.initialize');
+        if (aggregate && !freshEntry) postSnapshot(aggregate, 'host.initialize');
+        else if (freshEntry) postFreshSnapshot('host.initialize');
         return;
       }
       if (handledRequestIds.current.has(message.requestId)) return;
@@ -559,7 +613,7 @@ export function UnifiedChatScreen() {
         return;
       }
       if (command.type === 'voice.toggle') {
-        if (aggregate?.runs.some((run) => run.status === 'active' || run.status === 'queued') || voice.state === 'transcribing') return;
+        if ((!freshEntry && aggregate?.runs.some((run) => run.status === 'active' || run.status === 'queued')) || voice.state === 'transcribing') return;
         if (voice.state === 'recording') {
           clearVoiceTimer();
           void HapticsService.trigger('canvas.recording.stop');
@@ -617,6 +671,7 @@ export function UnifiedChatScreen() {
         }
         return;
       }
+      if (freshEntry && command.type !== 'run.send') return;
       if (command.type === 'context.add' && aggregate) {
         try {
           const activeIds = new Set((aggregate.contextRefs ?? []).filter((item) => item.active).map((item) => `${item.objectType}:${item.objectId}`));
@@ -964,8 +1019,9 @@ export function UnifiedChatScreen() {
         setPrompt('');
         return;
       }
-      if (command.type !== 'run.send' && command.type !== 'run.retry' || !aggregate) return;
+      if (command.type !== 'run.send' && command.type !== 'run.retry') return;
 
+      if (command.type === 'run.send' && !command.prompt.trim()) return;
       if (command.type === 'run.send' && !isUnifiedChatAttachmentSetSendable(attachments)) {
         setError(attachments.some((item) => item.status === 'inspecting')
           ? 'Wait for Kwilt to finish inspecting the attachment.'
@@ -973,18 +1029,56 @@ export function UnifiedChatScreen() {
         return;
       }
 
+      let turnAggregate = freshEntry ? null : aggregate;
+      if (command.type === 'run.send' && !turnAggregate && freshEntry) {
+        if (freshFirstSendRequestIdRef.current && freshFirstSendRequestIdRef.current !== message.requestId) return;
+        freshFirstSendRequestIdRef.current = message.requestId;
+        try {
+          const created = await freshThreadGateRef.current!.ensure();
+          turnAggregate = created;
+          setThreads((current) => [
+            created.thread,
+            ...current.filter((thread) => thread.id !== created.thread.id),
+          ]);
+          setAggregate(created);
+          freshEntrySentRef.current = true;
+          track(
+            posthogClient,
+            AnalyticsEvent.UnifiedChatFreshEntryOutcome,
+            buildUnifiedChatFreshEntryTelemetry(freshEntrySource, 'first_send'),
+          );
+          navigation.setParams({
+            threadId: created.thread.id,
+            entry: undefined,
+            source: undefined,
+          });
+        } catch (creationError) {
+          freshFirstSendRequestIdRef.current = null;
+          track(
+            posthogClient,
+            AnalyticsEvent.UnifiedChatFreshEntryOutcome,
+            buildUnifiedChatFreshEntryTelemetry(freshEntrySource, 'thread_creation_failed'),
+          );
+          setPrompt(command.prompt);
+          setError(creationError instanceof Error
+            ? creationError.message
+            : 'Kwilt could not create a new chat.');
+          return;
+        }
+      }
+      if (!turnAggregate) return;
+
       const retryRun = command.type === 'run.retry'
-        ? aggregate.runs.find((run) => run.id === command.runId && run.status === 'failed')
+        ? turnAggregate.runs.find((run) => run.id === command.runId && run.status === 'failed')
         : undefined;
-      if (command.type === 'run.retry' && (!retryRun || (aggregate.proposals ?? []).some((proposal) => proposal.runId === retryRun.id))) return;
+      if (command.type === 'run.retry' && (!retryRun || (turnAggregate.proposals ?? []).some((proposal) => proposal.runId === retryRun.id))) return;
       const retryMessage = retryRun?.userMessageId
-        ? aggregate.messages.find((item) => item.id === retryRun.userMessageId && item.role === 'user')
+        ? turnAggregate.messages.find((item) => item.id === retryRun.userMessageId && item.role === 'user')
         : undefined;
       if (command.type === 'run.retry' && !retryMessage) return;
 
       if (command.type === 'run.send') setPrompt('');
       setError(null);
-      let turnAggregate = aggregate;
       let turnPrompt = command.type === 'run.send' ? command.prompt : retryMessage?.body ?? '';
       let turnRequestId = message.requestId;
       let retryRunId = retryRun?.id;
@@ -1097,7 +1191,7 @@ export function UnifiedChatScreen() {
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, loadThreadWithRecovery, menuOpen, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, loadThreadWithRecovery, menuOpen, navigation, postFreshSnapshot, postSnapshot, repository, voice.state],
   );
 
   const pendingClientAction = useMemo(
@@ -1143,7 +1237,7 @@ export function UnifiedChatScreen() {
   return (
     <AppShell fullBleedCanvas>
       <PageHeader
-        title={aggregate?.thread.title ?? 'Chat'}
+        title={!freshEntry ? aggregate?.thread.title ?? 'Chat' : 'Chat'}
         variant="conversation"
         onPressMenu={openMenu}
         menuOpen={menuOpen}
@@ -1153,7 +1247,7 @@ export function UnifiedChatScreen() {
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         }}
-        moreMenu={aggregate ? (
+        moreMenu={aggregate && !freshEntry ? (
           <IconButton
             accessibilityLabel="Chat options"
             variant="ghost"
@@ -1176,7 +1270,7 @@ export function UnifiedChatScreen() {
 
       {loading ? (
         <CenteredState title="Opening Chat…" />
-      ) : aggregate ? (
+      ) : (aggregate && !freshEntry) || freshEntry ? (
         <WebView
           ref={webViewRef}
           source={{ uri: config.workbenchUrl }}

@@ -2,7 +2,7 @@ id: unified-chat
 brief: docs/feature-briefs/unified-chat.md
 job_flow: job-flow-nina-trust-ai-with-my-life-system
 job_flow_source: docs/job-flows/nina-trust-ai-with-my-life-system.md
-last_reviewed: 2026-07-23
+last_reviewed: 2026-08-01
 scale:
   1: mostly absent or represented only by strategy
   2: partial local behavior without the durable trust contract
@@ -31,10 +31,15 @@ steps:
       simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
   - id: 2
     name: Express intent in ordinary language
-    score: 4
-    gap: Durable free-form text, hybrid semantic routing, typed pending-work cancellation, native recording, authenticated transcription, and bounded text-document attachment work in code; the expanded matrix still needs signed-device and deployed-channel proof.
+    score: 3
+    gap: A bounded Luna judgment layer now preserves job, outcome, constraints, tool choice, and plan shape in source tests, including the explicit dentist-date regression. Dogfood still records an ignored date and unreliable generation; live Luna, deployed proxy, signed simulator, and physical-device date and multi-tool proof remain open.
     code:
       - src/features/unifiedChat/runUnifiedChatTurn.ts
+      - src/features/unifiedChat/agentJudgment.ts
+      - src/features/unifiedChat/agentJudgmentPrompt.ts
+      - src/features/unifiedChat/requestAgentJudgment.ts
+      - src/features/unifiedChat/turnPlanningPhase.ts
+      - src/features/unifiedChat/turnExecutionPhase.ts
       - src/features/unifiedChat/requestPolicy.ts
       - src/features/unifiedChat/hybridRequestPolicy.ts
       - src/features/unifiedChat/typedTurnControl.ts
@@ -47,6 +52,11 @@ steps:
       - supabase/migrations/20260722154051_unified_chat_text_attachments.sql
     tests:
       - src/features/unifiedChat/runUnifiedChatTurn.test.ts
+      - src/features/unifiedChat/agentJudgment.test.ts
+      - src/features/unifiedChat/agentJudgmentPrompt.test.ts
+      - src/features/unifiedChat/requestAgentJudgment.test.ts
+      - src/features/unifiedChat/turnPlanningPhase.test.ts
+      - src/features/unifiedChat/agentJudgmentEvalCases.test.ts
       - src/features/unifiedChat/requestPolicy.test.ts
       - src/features/unifiedChat/requestRoutingEvalCases.test.ts
       - src/features/unifiedChat/typedTurnControl.test.ts
@@ -59,6 +69,7 @@ steps:
     runtime_evidence:
       - docs/delivery-evidence/unified-chat/2026-07-22-production-platform.md
       - docs/delivery-evidence/unified-chat/2026-07-22-simulator-global-entry.md
+      - docs/delivery-evidence/unified-chat/2026-08-01-agent-judgment-learning-release.md
     proof:
       simulator: docs/delivery-evidence/unified-chat/2026-07-22-simulator-ten-step-matrix.md
   - id: 3

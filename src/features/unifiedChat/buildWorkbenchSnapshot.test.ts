@@ -1,4 +1,4 @@
-import { buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
+import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
 import type { UnifiedChatThreadAggregate } from './types';
 
 const aggregate: UnifiedChatThreadAggregate = {
@@ -29,6 +29,19 @@ const aggregate: UnifiedChatThreadAggregate = {
 describe('buildWorkbenchSnapshot', () => {
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  test('projects a fresh ready composer without pretending a durable thread exists', () => {
+    const snapshot = buildFreshWorkbenchSnapshot('draft thought', {
+      voice: { state: 'idle', elapsedSeconds: 0 },
+      attachments: [],
+    });
+
+    expect(snapshot.thread).toBeUndefined();
+    expect(snapshot.messages).toEqual([]);
+    expect(snapshot.context).toEqual([]);
+    expect(snapshot.composer).toMatchObject({ prompt: 'draft thought', state: 'ready' });
+    expect(snapshot.product.features.voice).toBe(true);
   });
 
   test('projects a calm Kwilt configuration with an ordered transcript', () => {

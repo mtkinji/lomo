@@ -10,6 +10,11 @@ import {
   type RouteUnifiedChatRequestInput,
 } from './routeUnifiedChatRequest';
 import type { SemanticRequestRoute } from './semanticRequestRouter';
+import {
+  requestAgentJudgment as defaultRequestAgentJudgment,
+  type RequestAgentJudgmentInput,
+} from './requestAgentJudgment';
+import type { AgentJudgment } from './agentJudgment';
 import type { UnifiedChatCapabilitySnapshots } from './capabilityAdapters';
 import type { UnifiedChatTextAttachment } from './unifiedChatAttachmentPolicy';
 import { transitionRun } from './runStateMachine';
@@ -19,7 +24,12 @@ import type {
   AgentToolExecutionResult,
 } from '@kwilt/agent-runtime';
 import { resolveTypedTurnControl } from './typedTurnControl';
-import { buildUnifiedChatRouteTelemetry, type UnifiedChatTelemetryProperties } from './unifiedChatTelemetry';
+import {
+  buildUnifiedChatAgentJudgmentTelemetry,
+  buildUnifiedChatAgentPlanOutcomeTelemetry,
+  buildUnifiedChatRouteTelemetry,
+  type UnifiedChatTelemetryProperties,
+} from './unifiedChatTelemetry';
 import { AnalyticsEvent, type AnalyticsEventName } from '../../services/analytics/events';
 import { track } from '../../services/analytics/analytics';
 import { posthogClient } from '../../services/analytics/posthogClient';
@@ -97,6 +107,9 @@ export type RunUnifiedChatTurnDependencies = {
   routeRequest?: (
     input: RouteUnifiedChatRequestInput,
   ) => Promise<SemanticRequestRoute | null>;
+  requestJudgment?: (
+    input: RequestAgentJudgmentInput,
+  ) => Promise<AgentJudgment | null>;
   enableRuntimeTools?: boolean;
   executeRelationshipTool?: (
     call: AgentToolCall,
@@ -104,6 +117,7 @@ export type RunUnifiedChatTurnDependencies = {
   ) => Promise<AgentToolExecutionResult | null>;
   captureTelemetry?: (event: AnalyticsEventName, properties?: UnifiedChatTelemetryProperties) => void;
   now?: () => Date;
+  timeZone?: () => string;
 };
 
 export async function runUnifiedChatTurn(
@@ -116,6 +130,9 @@ export async function runUnifiedChatTurn(
   // opt-in there so existing deterministic harnesses never make a network call.
   const routeRequest = dependencies?.routeRequest ?? (
     dependencies ? async () => null : defaultRouteUnifiedChatRequest
+  );
+  const requestJudgment = dependencies?.requestJudgment ?? (
+    dependencies ? async () => null : defaultRequestAgentJudgment
   );
   const loadCapabilitySnapshots =
     dependencies?.loadCapabilitySnapshots ?? loadDefaultCapabilitySnapshots;
@@ -236,6 +253,10 @@ export async function runUnifiedChatTurn(
       aggregate,
       activeContext,
       routeRequest,
+      requestJudgment,
+      now: dependencies?.now?.() ?? new Date(),
+      timeZone: dependencies?.timeZone?.() ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+      signal: input.signal,
     });
   } catch {
     const failedPlanningRun = await repository.createRun({
@@ -263,6 +284,19 @@ export async function runUnifiedChatTurn(
     });
   }
   const { requestPolicy, requiresWebSearch, planConversationReferent, activityClarification } = plannedTurn;
+  captureTelemetry(
+    plannedTurn.agentJudgment
+      ? AnalyticsEvent.UnifiedChatAgentJudgmentSelected
+      : AnalyticsEvent.UnifiedChatAgentJudgmentFallback,
+    buildUnifiedChatAgentJudgmentTelemetry(
+      plannedTurn.agentJudgment,
+      plannedTurn.judgmentSource,
+      {
+        requestClass: requestPolicy.requestClass,
+        participatingCapabilities: requestPolicy.participatingCapabilities,
+      },
+    ),
+  );
   captureTelemetry(AnalyticsEvent.UnifiedChatRouteSelected, buildUnifiedChatRouteTelemetry(requestPolicy));
   if (requestPolicy.requestClass === 'better_served_elsewhere') {
     captureTelemetry(AnalyticsEvent.UnifiedChatUnsupportedIntent, {
@@ -326,6 +360,19 @@ export async function runUnifiedChatTurn(
           payload: { outcomeType: 'clarification' },
         },
       });
+      captureTelemetry(
+        AnalyticsEvent.UnifiedChatAgentPlanOutcome,
+        buildUnifiedChatAgentPlanOutcomeTelemetry(
+          plannedTurn.agentJudgment,
+          plannedTurn.judgmentSource,
+          'clarification',
+          null,
+          {
+            requestClass: requestPolicy.requestClass,
+            participatingCapabilities: requestPolicy.participatingCapabilities,
+          },
+        ),
+      );
       return repository.loadThread(aggregate.thread.id);
     }
     const executionResult = await executeUnifiedChatTurnPhase({
@@ -335,6 +382,7 @@ export async function runUnifiedChatTurn(
       userMessage,
       retryMessage,
       requestPolicy,
+      agentJudgment: plannedTurn.agentJudgment,
       requiresWebSearch,
       snapshots,
       context,
@@ -372,6 +420,19 @@ export async function runUnifiedChatTurn(
         failureCode = code;
       },
     });
+    captureTelemetry(
+      AnalyticsEvent.UnifiedChatAgentPlanOutcome,
+      buildUnifiedChatAgentPlanOutcomeTelemetry(
+        plannedTurn.agentJudgment,
+        plannedTurn.judgmentSource,
+        appControlOutcome.type,
+        null,
+        {
+          requestClass: requestPolicy.requestClass,
+          participatingCapabilities: requestPolicy.participatingCapabilities,
+        },
+      ),
+    );
     failureCode = 'run_completion_failed';
     await finalizeUnifiedChatTurnPhase({
       run,

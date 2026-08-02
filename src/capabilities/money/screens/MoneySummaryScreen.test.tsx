@@ -93,7 +93,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
     expect(screen.getByText('$342.96 left this month')).toBeTruthy();
     expect(screen.getByText('YOUR MONTHLY BOUNDARY')).toBeTruthy();
-    expect(screen.getByText('70% of detected monthly income')).toBeTruthy();
+    expect(screen.getByText('Living target · 70%')).toBeTruthy();
     expect(screen.getByText('Bills and money set aside')).toBeTruthy();
     expect(screen.getByText('Flexible room')).toBeTruthy();
     expect(screen.getByText('THIS MONTH')).toBeTruthy();
@@ -102,7 +102,8 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByText('All July activity is accounted for')).toBeTruthy();
     expect(screen.queryByText('Protected costs')).toBeNull();
     expect(screen.queryByText('Not included in flexible spending')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Adjust plan' }));
+    expect(screen.queryByRole('button', { name: 'Adjust plan' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Change 70% living target' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
   });
 

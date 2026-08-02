@@ -67,6 +67,22 @@ const accounts = [
 ];
 
 describe('projectMoneySnapshot', () => {
+  it('projects a stored category role as both the effective and explicit role', () => {
+    const snapshot = projectMoneySnapshot({
+      categories,
+      plans: [{ ...plans[0], plan_role: 'protected' }],
+      accounts: [],
+      connections: [],
+      transactions: [],
+    }, new Date(2026, 6, 24));
+
+    expect(snapshot.categories[0]).toMatchObject({
+      id: 'groceries',
+      planRole: 'protected',
+      planRoleOverride: 'protected',
+    });
+  });
+
   it('projects current-month plan, spend, credits, aliases, and accounts without fixture values', () => {
     const snapshot = projectMoneySnapshot(
       {

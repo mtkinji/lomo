@@ -40,6 +40,7 @@ import { getLocalMoneyPeriodId } from '../domain/moneyCalendar';
 import { projectMoneyCategoryPeriodView } from '../domain/moneyPeriodView';
 import { projectMoneyRebalanceAnswer, type MoneyRebalanceAnswer } from '../domain/moneyRebalanceAnswer';
 import type { MoneyForecastMode } from '../domain/moneyForecast';
+import type { MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 import type { MoneyStackParamList } from '../navigation/types';
 import { projectCategoryFunding, type CategoryFundingRhythm } from '../domain/categoryFunding';
 import type { LivingPlanOverridePreview } from '../runtime/livingPlanReconciliation';
@@ -80,6 +81,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
   const [categoryNameDraft, setCategoryNameDraft] = useState('');
   const [categoryAmountDraft, setCategoryAmountDraft] = useState('');
   const [fundingRhythmDraft, setFundingRhythmDraft] = useState<CategoryFundingRhythm>('monthly');
+  const [planRoleDraft, setPlanRoleDraft] = useState<MoneyCategoryPlanRole>('flexible');
   const [expectedNeedDraft, setExpectedNeedDraft] = useState('');
   const [expectedNeedDueMonthDraft, setExpectedNeedDueMonthDraft] = useState('');
   const [planImpact, setPlanImpact] = useState<LivingPlanOverridePreview | null>(null);
@@ -126,6 +128,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     setCategoryNameDraft(category.name);
     setCategoryAmountDraft((category.plannedCents / 100).toFixed(2));
     setFundingRhythmDraft(category.fundingRhythm);
+    setPlanRoleDraft(category.planRole ?? 'flexible');
     setExpectedNeedDraft(formatCentsInput(category.expectedNeed?.amountCents));
     setExpectedNeedDueMonthDraft(category.expectedNeed?.dueMonth ?? '');
     setPlanImpact(null);
@@ -135,7 +138,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
     setScheduledAmountDraft(formatCentsInput(category.forecastSettings?.scheduledAmountCents));
     setScheduledDueDayDraft(category.forecastSettings?.scheduledDueDay?.toString() ?? '');
     setCategoryError(null);
-  }, [category?.expectedNeed, category?.forecast.mode, category?.forecastSettings, category?.fundingRhythm, category?.name, category?.plannedCents, category?.sourceId]);
+  }, [category?.expectedNeed, category?.forecast.mode, category?.forecastSettings, category?.fundingRhythm, category?.name, category?.planRole, category?.plannedCents, category?.sourceId]);
 
   const previewMonthlyAmount = async () => {
     if (!category) return null;
@@ -172,6 +175,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         || fundingRhythmDraft !== category.fundingRhythm
         || expectedNeedCents !== (category.expectedNeed?.amountCents ?? null)
         || dueMonth !== (category.expectedNeed?.dueMonth ?? null);
+      const roleChanged = planRoleDraft !== category.planRole;
 
       if (planChanged) {
         const preview = planImpact ?? await previewCategoryPlanAmount(category.sourceId, budgetCents, {
@@ -189,6 +193,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           expectedNeedDueMonth: dueMonth,
         }, preview?.outcome === 'ready' ? preview : undefined);
       }
+      if (roleChanged) await updateCategoryPlan(category.sourceId, { planRole: planRoleDraft });
       if (name !== category.name) await renameCategory(category.sourceId, name);
       setSettingsOpen(false);
       if (rebalanceAnswer) capture(AnalyticsEvent.MoneyRebalanceSaved, buildMoneyRebalanceOutcomeProps({ outcome: 'saved', answerState: rebalanceAnswer.state }));
@@ -467,9 +472,24 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
           />
           <Input editable={!savingCategory} label="Name" onChangeText={(value) => { setCategoryNameDraft(value); setPlanImpact(null); setShowPlanChanges(false); }} value={categoryNameDraft} />
           <Input editable={!savingCategory} keyboardType="decimal-pad" label={fundingRhythmDraft === 'reserve' ? 'Monthly contribution' : 'Monthly amount'} onBlur={() => void previewMonthlyAmount()} onChangeText={(value) => { setCategoryAmountDraft(value); setPlanImpact(null); }} value={categoryAmountDraft} />
+          <View style={styles.settingGroup}>
+            <Text style={styles.settingLabel}>COUNTS AS</Text>
+            <View style={styles.modeList}>
+              <ForecastModeRow active={planRoleDraft === 'protected'} detail="Keep this amount aside before flexible spending." label="Protected" onPress={() => setPlanRoleDraft('protected')} />
+              <ForecastModeRow active={planRoleDraft === 'flexible'} detail="Count spending here against flexible room." label="Flexible" onPress={() => setPlanRoleDraft('flexible')} />
+            </View>
+            {planRoleDraft !== category.planRole ? (
+              <Text style={styles.drawerCopy}>{planRoleDraft === 'protected'
+                ? 'This category will be kept aside before Kwilt calculates flexible room.'
+                : 'Spending here will count against flexible room instead of being kept aside.'}</Text>
+            ) : null}
+          </View>
+          <View style={styles.settingGroup}>
+            <Text style={styles.settingLabel}>FUNDING RHYTHM</Text>
           <View style={styles.modeList}>
             <ForecastModeRow active={fundingRhythmDraft === 'monthly'} detail="Use this amount for the month. Optional rollover stays separate." label="Monthly" onPress={() => { signalMoneyToggle(false); setFundingRhythmDraft('monthly'); setPlanImpact(null); }} />
             <ForecastModeRow active={fundingRhythmDraft === 'reserve'} detail="Build available money across months for lumpy needs." label="Reserve" onPress={() => { signalMoneyToggle(true); setFundingRhythmDraft('reserve'); setForecastSettingsOpen(false); setPlanImpact(null); }} />
+          </View>
           </View>
           {fundingRhythmDraft === 'reserve' ? (
             <View style={styles.forecastInputs}>
@@ -778,6 +798,8 @@ const styles = StyleSheet.create({
   toggleTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
   toggleDescription: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   modeList: { gap: spacing.sm },
+  settingGroup: { gap: spacing.sm },
+  settingLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
   modeRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   modeRowActive: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
   modeCopy: { flex: 1, minWidth: 0, gap: 2 },

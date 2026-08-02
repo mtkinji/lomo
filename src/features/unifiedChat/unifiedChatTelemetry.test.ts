@@ -4,7 +4,19 @@ import {
   buildUnifiedChatRouteTelemetry,
   buildUnifiedChatToolTelemetry,
   buildFamilyScreenTimeDecisionTelemetry,
+  buildUnifiedChatAgentJudgmentTelemetry,
+  buildUnifiedChatAgentPlanOutcomeTelemetry,
+  buildUnifiedChatFreshEntryTelemetry,
 } from './unifiedChatTelemetry';
+
+test('fresh-entry telemetry contains only bounded source and outcome metadata', () => {
+  expect(buildUnifiedChatFreshEntryTelemetry('widget', 'first_send')).toEqual({
+    entry_source: 'widget',
+    outcome: 'first_send',
+  });
+  expect(JSON.stringify(buildUnifiedChatFreshEntryTelemetry('widget', 'abandoned')))
+    .not.toMatch(/prompt|message|thread|title|text/i);
+});
 
 test('route telemetry contains only bounded routing metadata', () => {
   const record = buildUnifiedChatRouteTelemetry({
@@ -80,4 +92,68 @@ test('family Screen Time decision telemetry excludes child, app, expiry, and mes
     decision: 'approve', target_count: 1, time_basis: 'wall_clock', outcome: 'saved',
   });
   expect(JSON.stringify(record)).not.toMatch(/charlie|brawl|opaque|expires|message/i);
+});
+
+test('agent judgment telemetry contains only bounded classifications', () => {
+  const judgment = {
+    schemaVersion: 1 as const,
+    userJob: 'Remember a private title',
+    desiredOutcome: 'Create a dated private To-do',
+    requestClass: 'capability_action' as const,
+    participatingCapabilities: ['todos' as const, 'plan' as const],
+    usePrivateContext: true,
+    informationNeed: 'stable' as const,
+    executionMode: 'multi_tool' as const,
+    constraints: [
+      { kind: 'title' as const, sourceText: 'Call private person', normalizedValue: 'Call private person' },
+      { kind: 'date' as const, sourceText: 'August 5', normalizedValue: '2026-08-05' },
+    ],
+    steps: [
+      { sequence: 1, objective: 'Read private day', toolId: 'plan.read_day_context', dependsOn: null },
+      { sequence: 2, objective: 'Capture private title', toolId: 'activities.capture', dependsOn: 1 },
+    ],
+    clarificationQuestion: null,
+    confidence: 0.84,
+    reason: 'Private model reason',
+  };
+
+  const selected = buildUnifiedChatAgentJudgmentTelemetry(judgment, 'model');
+  expect(selected).toEqual({
+    judgment_source: 'model',
+    request_class: 'capability_action',
+    execution_mode: 'multi_tool',
+    capability_ids: 'todos,plan',
+    tool_ids: 'plan.read_day_context,activities.capture',
+    step_count: 2,
+    constraint_kinds: 'title,date',
+    confidence_bucket: 'high',
+  });
+  expect(Object.keys(selected)).toEqual(expect.arrayContaining([
+    'judgment_source', 'request_class', 'execution_mode', 'capability_ids', 'tool_ids',
+    'step_count', 'constraint_kinds', 'confidence_bucket',
+  ]));
+  expect(JSON.stringify(selected)).not.toMatch(/private|2026-08-05|August 5|reason|argument/i);
+
+  expect(buildUnifiedChatAgentPlanOutcomeTelemetry(judgment, 'model', 'review', null)).toEqual({
+    ...selected,
+    outcome: 'review',
+    failure_code: null,
+  });
+});
+
+test('agent judgment fallback telemetry omits all user and model content', () => {
+  const record = buildUnifiedChatAgentJudgmentTelemetry(null, 'semantic_fallback', {
+    requestClass: 'capability_question',
+    participatingCapabilities: ['plan'],
+  });
+  expect(record).toEqual({
+    judgment_source: 'semantic_fallback',
+    request_class: 'capability_question',
+    execution_mode: null,
+    capability_ids: 'plan',
+    tool_ids: '',
+    step_count: 0,
+    constraint_kinds: '',
+    confidence_bucket: null,
+  });
 });

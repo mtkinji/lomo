@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-place-search",
+  "version": "0.1.0",
+  "description": "Foreground Apple Maps place discovery for Explore",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

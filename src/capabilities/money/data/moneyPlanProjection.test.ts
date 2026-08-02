@@ -152,6 +152,42 @@ describe('projectMoneyPlanProjection', () => {
     });
   });
 
+  it('uses explicit category roles instead of legacy inference', () => {
+    const snapshot = {
+      periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
+      totals: { plannedCents: 60000, spentCents: 15000, remainingCents: 45000, needsReviewCount: 0 },
+      forecast: { projectedSpendCents: 15000, projectionRangeLowCents: 15000, projectionRangeHighCents: 15000, projectedRemainingCents: 45000, projectedOverageCents: 0, confidence: 'high', atRiskCategoryCount: 0 },
+      outsidePlan: { spentCents: 0, transactionCount: 0 },
+      categories: [
+        { ...category('housing', 40000, 10000), mappingTags: ['housing'], planRoleOverride: 'flexible' },
+        { ...category('shopping', 20000, 5000), mappingTags: ['shopping'], planRoleOverride: 'protected' },
+      ],
+      accounts: [],
+      transactions: [
+        { ...moneyTransaction('rent', '2026-07-20', 10000), categoryId: 'housing' },
+        { ...moneyTransaction('store', '2026-07-20', 5000), categoryId: 'shopping' },
+      ],
+    } as MoneySnapshot;
+    const plan = {
+      ...activePlan(),
+      allocations: [allocation('housing', 40000), allocation('shopping', 20000)],
+    };
+
+    const result = projectMoneyPlanProjection(snapshot, plan, evidence, new Date('2026-07-24T12:00:00Z'));
+
+    expect(result.snapshot.categories.map(({ id, planRole }) => ({ id, planRole }))).toEqual([
+      { id: 'housing', planRole: 'flexible' },
+      { id: 'shopping', planRole: 'protected' },
+    ]);
+    expect(result.snapshot.livingLimitAnswer).toMatchObject({
+      facts: {
+        protectedPlanCents: 20000,
+        flexibleCapacityCents: 40000,
+        countedFlexibleSpendCents: 10000,
+      },
+    });
+  });
+
   it('reduces flexible room when monthly bills exceed the amount kept aside', () => {
     const snapshot = {
       periodLabel: 'July 2026', generatedAt: 'before', lastSyncedAt: '2026-07-24T10:00:00Z',
