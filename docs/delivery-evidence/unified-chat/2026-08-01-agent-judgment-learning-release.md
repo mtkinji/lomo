@@ -6,7 +6,7 @@ This record distinguishes implemented source, automated tests, live-model evalua
 
 ## Implementation checkpoint
 
-- Implementation base commit: `e13c73a` plus the subsequent implementation and documentation commits containing this record.
+- Implementation commits: `352ee1a` through `8f88284`, plus the final evidence/map commit containing this record.
 - Judgment model route: `agent_judgment -> gpt-5.6-luna`.
 - Reasoning effort: `low`.
 - Maximum output: 800 tokens.
@@ -26,6 +26,7 @@ This record distinguishes implemented source, automated tests, live-model evalua
 | Multi-tool grounding | Passed locally | Job, outcome, source constraints, ordered steps, and selected-tool-only discovery are asserted. |
 | Privacy-bounded telemetry | Passed locally | No prompt, title, name, normalized constraint, model reason, record id, or tool argument is emitted. |
 | Deterministic 60-case corpus | Passed locally | Six groups of ten cases; all referenced capabilities and tools conform to the live catalog. |
+| Full local completion ritual | Passed locally | `npm run verify:changed -- --run`: app and test typechecks, code-health ratchet, 490 Jest suites with 3,129 passing tests and one intentionally skipped live-model test, Supabase Deno typechecks and 20 Deno tests, product/delivery contracts, generated agent map, and architecture lint. |
 | Live Luna corpus | Not run | Requires `KWILT_RUN_LIVE_AGENT_JUDGMENT_EVALS=1` and a configured proxy. |
 | `ai-chat` Edge Function deployment | Not deployed in this work | Requires explicit release authorization and a recorded deployed version. |
 | Signed simulator matrix | Not run | Requires a signed client using the deployed proxy route. |
@@ -56,4 +57,4 @@ Andrew reported that a request to create a To-do on a specific date ignored the 
 
 ## Next gate
 
-Run the full local completion ritual. If it passes, obtain explicit authorization before deploying only `ai-chat`. Then run the live Luna corpus and prove the six scenarios on a signed simulator before treating the runtime regression as fixed. Physical-device and TestFlight proof remain separate later gates.
+Obtain explicit authorization before deploying only `ai-chat`. Then run the live Luna corpus and prove the six scenarios on a signed simulator before treating the runtime regression as fixed. Physical-device and TestFlight proof remain separate later gates.
