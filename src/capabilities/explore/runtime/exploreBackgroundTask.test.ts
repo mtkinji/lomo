@@ -129,6 +129,13 @@ describe('Explore background tasks', () => {
     const legacyState = JSON.parse(JSON.stringify(state));
     delete legacyState.activeSession.points[0].speedMps;
     delete legacyState.activeSession.points[0].courseDeg;
+    delete legacyState.activeSession.trackingPolicy;
+    legacyState.sessions = [{
+      ...legacyState.activeSession,
+      id: 'legacy-completed',
+      endedAt: startedAt,
+    }];
+    delete legacyState.sessions[0].trackingPolicy;
     await AsyncStorage.setItem('kwilt-explore-v1', JSON.stringify({ state: legacyState, version: 7 }));
 
     await mockTasks[EXPLORE_WAKE_TASK]({
@@ -139,11 +146,13 @@ describe('Explore background tasks', () => {
     });
 
     const upgraded = await storedState();
-    expect(upgraded.version).toBe(8);
+    expect(upgraded.version).toBe(9);
     expect(upgraded.activeSession.points[0]).toEqual(expect.objectContaining({
       speedMps: null,
       courseDeg: null,
     }));
+    expect(upgraded.activeSession.trackingPolicy).toBe('ambient');
+    expect(upgraded.sessions[0].trackingPolicy).toBe('ambient');
   });
 
   it('preserves GPS speed and course from a background observation', async () => {

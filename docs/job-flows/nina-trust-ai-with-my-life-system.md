@@ -3,7 +3,7 @@ id: job-flow-nina-trust-ai-with-my-life-system
 audience: audience-ai-native-life-operators
 persona: Nina
 hero_jtbd: jtbd-trust-this-app-with-my-life
-last_updated: 2026-07-22
+last_updated: 2026-08-01
 ---
 
 # Nina: Trust AI With My Life System
@@ -22,7 +22,7 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 ## Job Flow
 
 1. Arrive with visible scope and an exact return destination.
-2. Express intent in ordinary language, voice, or an explicit text document.
+2. Express a practical job in ordinary language, voice, or an explicit text document and preserve its explicit constraints.
 3. Establish the bounded private context the request may use.
 4. Retrieve inspectable, capability-owned evidence.
 5. Understand the result, its inferences, and its limits.
@@ -35,8 +35,8 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 ## Current Kwilt Flow
 
 1. Standalone Unified Chat opens globally or from a Goal, To-do, or Chapter with visible removable scope and an exact native return target.
-2. Nina can type, dictate, add Kwilt context, or attach up to three bounded text documents; general questions do not silently pull private Kwilt context.
-3. Goals, To-dos, and Chapters provide bounded evidence with provenance, freshness, selection reason, and coverage limits.
+2. Nina can type, dictate, add Kwilt context, or attach up to three bounded text documents. A fast bounded judgment pass names the practical job, desired outcome, explicit constraints, smallest tool set, and whether direct, single-tool, multi-tool, clarification, or boundary handling is appropriate; general questions do not silently pull private Kwilt context.
+3. Deterministic safety locks remain prior constraints, while Goals, To-dos, and Chapters provide bounded evidence with provenance, freshness, selection reason, and coverage limits.
 4. An explicit To-do create instruction auto-applies through the durable decision path, runs all available Quick Add AI enrichments, and projects the authoritative result as the standard inventory row; update operations retain reviewed proposals.
 5. Row tap opens native detail, Back returns to the same Chat thread, and swipe-left exposes Delete. Apply still uses an atomic decision and receipt-first idempotent path with crash recovery behind the surface.
 6. Threads, runs, evidence, decisions, receipts, feedback, and text-document attachments are durable and owner-scoped in production.
@@ -61,7 +61,7 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 | Step | Score | Rationale |
 | --- | --- | --- |
 | Arrive with visible scope and exact return | 4 | Implemented, automated, and simulator-proven; physical-device proof remains. |
-| Express intent in ordinary language | 4 | Text, name-only capture, and bounded documents are simulator-proven; physical voice and device interaction proof remain. |
+| Express intent in ordinary language | 3 | The judgment layer and explicit-date regression are source-tested, but dogfood showed an explicit To-do date being ignored and absorbed into the title, and generation has been unreliable. The live Luna corpus plus signed simulator and physical-device date/multi-tool matrix remain required. |
 | Establish bounded request scope | 4 | Explicit context and least-privilege routing are implemented and simulator-proven; physical-device proof remains. |
 | Retrieve inspectable evidence | 4 | Bounded Goals, To-dos, and Chapters evidence is durable; inspectable Goals evidence is simulator-proven and physical-device proof remains. |
 | Understand result and limits | 4 | Facts, inference, uncertainty, provenance, freshness, and coverage are visible and simulator-proven; physical-device proof remains. |
@@ -73,7 +73,8 @@ Nina wants AI and desktop tools to help operate her life system, but only if the
 
 ## Gaps
 
-- All ten steps now have mapped signed-in simulator evidence. Scores remain at 4 until the separate signed physical-iPhone pass is complete; stop, steer, correction editing, background/foreground, and microphone interaction also remain explicit runtime checks.
+- The earlier name-only signed-in simulator matrix did not exercise date preservation or the new judgment path. Step 2 is therefore scored 3 until the live Luna corpus and signed date/multi-tool matrix contradict the dogfood failure; the other scores retain their existing evidence boundaries rather than borrowing this implementation as runtime proof.
+- Stop, steer, correction editing, background/foreground, microphone interaction, and physical-device behavior remain explicit runtime checks.
 - Goals and Chapters remain read-only in this slice; To-dos prove the reviewed mutation contract.
 - Binary and image attachments remain unsupported until Chat can inspect their contents truthfully.
 - Existing legacy workflow chats are not automatically migrated into standalone Unified Chat.

@@ -10,6 +10,22 @@ const validAttachmentRequest = {
   text: { format: { type: 'json_schema', strict: true, name: 'kwilt_attachment_inspection', schema: {} } },
 };
 
+const validAgentJudgmentRequest = {
+  model: 'gpt-5.6-luna',
+  store: false,
+  reasoning: { effort: 'low' },
+  max_output_tokens: 800,
+  input: [{ role: 'user', content: 'Bounded agent judgment prompt' }],
+  text: {
+    format: {
+      type: 'json_schema',
+      name: 'kwilt_agent_judgment',
+      strict: true,
+      schema: { type: 'object', additionalProperties: false, properties: {}, required: [] },
+    },
+  },
+};
+
 describe('Kwilt AI request validation', () => {
   test('accepts only bounded local image/PDF parts for attachment inspection', () => {
     expect(validateKwiltAiRequestShape('/v1/responses', validAttachmentRequest, 'unified_chat_attachment'))
@@ -32,5 +48,34 @@ describe('Kwilt AI request validation', () => {
     }, 'current_information')).toEqual({ ok: true });
     expect(validateKwiltAiRequestShape('/v1/responses', validAttachmentRequest, 'current_information'))
       .toEqual(expect.objectContaining({ ok: false }));
+  });
+
+  test('accepts only bounded low-reasoning agent judgment requests', () => {
+    expect(validateKwiltAiRequestShape('/v1/responses', validAgentJudgmentRequest, 'agent_judgment'))
+      .toEqual({ ok: true });
+
+    const rejected = [
+      { ...validAgentJudgmentRequest, model: 'gpt-5.6-terra' },
+      { ...validAgentJudgmentRequest, store: true },
+      { ...validAgentJudgmentRequest, background: true },
+      { ...validAgentJudgmentRequest, tools: [] },
+      { ...validAgentJudgmentRequest, input: Array.from({ length: 3 }, () => ({ role: 'user', content: 'x' })) },
+      { ...validAgentJudgmentRequest, input: [{ role: 'user', content: 'x'.repeat(12_001) }] },
+      { ...validAgentJudgmentRequest, reasoning: { effort: 'medium' } },
+      { ...validAgentJudgmentRequest, max_output_tokens: 801 },
+      {
+        ...validAgentJudgmentRequest,
+        text: { format: { ...validAgentJudgmentRequest.text.format, name: 'other_format' } },
+      },
+      {
+        ...validAgentJudgmentRequest,
+        text: { format: { ...validAgentJudgmentRequest.text.format, strict: false } },
+      },
+    ];
+
+    for (const request of rejected) {
+      expect(validateKwiltAiRequestShape('/v1/responses', request, 'agent_judgment'))
+        .toEqual(expect.objectContaining({ ok: false }));
+    }
   });
 });

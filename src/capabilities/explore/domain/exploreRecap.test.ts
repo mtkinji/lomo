@@ -54,7 +54,7 @@ describe('Exploration Recap', () => {
   });
 
   it('combines all ready unseen outings into one recap between glances', () => {
-    const first = { id: 's1', startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
+    const first = { id: 's1', trackingPolicy: 'ambient' as const, startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
     const second = { ...first, id: 's2', startedAt: '2026-07-28T12:00:00.000Z', endedAt: '2026-07-28T12:15:00.000Z' };
     const state = { ...createEmptyExploreData(), sessions: [second, first] };
     expect(pendingExploreRecap(state)).toEqual(expect.objectContaining({
@@ -66,7 +66,7 @@ describe('Exploration Recap', () => {
   });
 
   it('waits for every unseen outing to finish resolving before showing the combined recap', () => {
-    const ready = { id: 's1', startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
+    const ready = { id: 's1', trackingPolicy: 'ambient' as const, startedAt: '2026-07-28T10:00:00.000Z', endedAt: '2026-07-28T10:30:00.000Z', points: [routePoint], discoveredPlaceIds: [], recapStatus: 'ready' as const, completedReason: 'background-stillness' as const, recapNotificationSentAt: null, backgroundStillnessAnchor: null, backgroundStillSince: null };
     const resolving = { ...ready, id: 's2', recapStatus: 'resolving' as const };
     expect(pendingExploreRecap({ ...createEmptyExploreData(), sessions: [resolving, ready] })).toBeNull();
   });

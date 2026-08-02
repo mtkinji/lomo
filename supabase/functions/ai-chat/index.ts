@@ -305,7 +305,8 @@ serve(async (req) => {
   const isPro = (req.headers.get('x-kwilt-is-pro') ?? '').trim().toLowerCase() === 'true';
   const chatMode = (req.headers.get('x-kwilt-chat-mode') ?? '').trim();
   const aiJob = (req.headers.get('x-kwilt-ai-job') ?? '').trim();
-  if (route === '/v1/responses' && aiJob !== 'current_information' && aiJob !== 'unified_chat_attachment') {
+  if (route === '/v1/responses' && aiJob !== 'current_information' && aiJob !== 'unified_chat_attachment' &&
+    aiJob !== 'agent_judgment') {
     return json(400, { error: { message: 'Responses route requires an allowed job', code: 'bad_request' } });
   }
   const isOnboarding = chatMode === 'firstTimeOnboarding';

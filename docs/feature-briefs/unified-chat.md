@@ -19,7 +19,7 @@ related_briefs:
   - brief-kwilt-phone-agent
   - brief-background-agents-weekly-planning
 owner: andrew
-last_updated: 2026-07-24
+last_updated: 2026-08-01
 ---
 
 # Kwilt Chat
@@ -39,6 +39,23 @@ Kwilt customers and their jobs come first. General-purpose competence is a trust
 | **Bounded** | For unsupported, specialist, consequential, or high-stakes requests, state the exact boundary and still provide the safest useful assistance available. |
 
 The standing executable matrix in `src/features/unifiedChat/requestRoutingEvalCases.ts` records, for every regression case, its expected product behavior, allowed context, allowed tool classes, required outcome, and forbidden trust failures. Its product expectations are the target contract; the separate routing and operation expectations record what the current implementation does.
+
+### Agent judgment learning-release contract
+
+Before capability context is loaded or an execution model receives tool schemas, Chat now resolves one bounded judgment artifact:
+
+```text
+interpret the user's job
+→ name the desired outcome and required constraints
+→ choose the smallest relevant tool set
+→ decide direct answer, one tool, multi-tool plan, clarification, or boundary
+→ execute through capability-owned tools
+→ verify the authoritative outcome against the desired outcome
+```
+
+The judgment pass uses the server-routed `gpt-5.6-luna` model at low reasoning effort. It is deliberately probabilistic: it may interpret the request, retain explicit constraints, and propose an ordered tool plan, but it cannot authorize or prove an effect. Deterministic high-stakes and native-authorization locks remain prior constraints. Actual tool schemas, validation, permissions, confirmation, proposals, mutations, native handoffs, receipts, recovery, and undo remain capability-owned. A missing or malformed judgment falls back to the existing semantic and deterministic route instead of failing the whole turn.
+
+The first release is gated by the 60-case corpus in `agentJudgmentEvalCases.ts`, the explicit-date regression, a live redacted Luna evaluation, and separate signed simulator and physical-device proof. Source completion alone does not establish production reliability.
 
 ## MVP reset — conversational app control
 

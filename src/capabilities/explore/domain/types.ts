@@ -45,6 +45,7 @@ export type ExploredCell = {
 
 export type ExploreSession = {
   id: string;
+  trackingPolicy: ExploreTrackingPolicy;
   startedAt: string;
   endedAt: string | null;
   points: ExplorePoint[];
@@ -75,7 +76,7 @@ export type ExplorePreferences = {
 };
 
 export type ExploreData = {
-  version: 8;
+  version: 9;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;

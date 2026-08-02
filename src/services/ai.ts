@@ -844,6 +844,7 @@ type KwiltAiJob =
   | 'arc_image_query'
   | 'conversation_summary'
   | 'lightweight_helper'
+  | 'agent_judgment'
   | 'current_information'
   | 'default_chat';
 
@@ -3273,6 +3274,35 @@ export async function inspectUnifiedChatAttachments(
     throw new Error(`Kwilt could not inspect that attachment: ${error.message}`);
   }
   return parseUnifiedChatAttachmentInspectionResponse(await response.json());
+}
+
+export async function requestUnifiedChatAgentJudgment(
+  request: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const apiKey = resolveOpenAiApiKey();
+  if (!apiKey) throw new Error('AI proxy not configured');
+  const response = await fetchWithTimeout(
+    OPENAI_RESPONSES_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'x-kwilt-ai-job': 'agent_judgment',
+      },
+      body: JSON.stringify(request),
+      signal,
+    },
+    OPENAI_TIMEOUT_MS,
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error = parseOpenAiError(errorText);
+    markOpenAiQuotaExceeded('agent judgment', response.status, errorText, apiKey);
+    throw new Error(`Kwilt could not interpret that request: ${error.message}`);
+  }
+  return response.json();
 }
 
 function buildDevMockCoachChatReply(messages: CoachChatTurn[], options?: CoachChatOptions): string {
