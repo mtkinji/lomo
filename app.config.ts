@@ -251,6 +251,8 @@ const config = {
     favicon: './assets/favicon.png',
   },
   plugins: [
+    'expo-asset',
+    'expo-web-browser',
     'expo-font',
     [
       'expo-audio',

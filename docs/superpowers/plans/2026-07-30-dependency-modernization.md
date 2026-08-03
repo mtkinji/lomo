@@ -26,11 +26,11 @@ No dependency change can be guaranteed never to break anything. This plan instea
 
 Do not begin implementation from the current `codex/family-screen-time-learning-slice` checkout. It contains unrelated tracked and untracked work as of July 30, 2026.
 
-- [ ] Finish, preserve, or otherwise disposition the current family Screen Time work.
-- [ ] Return the normal checkout to clean `main` and fast-forward to `origin/main`.
-- [ ] Confirm there are no relevant stashes and no other checkout owns Metro or a native runtime.
-- [ ] Create one ordinary branch, `codex/dependency-modernization`, in `/Users/andrewwatanabe/Kwilt`. Do not create a worktree unless Andrew separately approves parallel implementation.
-- [ ] Record the starting commit, installed TestFlight version/build, Xcode version, Node version, npm version, CocoaPods version, Metro port/owner, Simulator device, and signed-device availability in the plan's execution log.
+- [x] Finish, preserve, or otherwise disposition the current family Screen Time work.
+- [x] Return the normal checkout to clean `main` and fast-forward to `origin/main`.
+- [x] Confirm there are no relevant stashes and no other checkout owns Metro or a native runtime.
+- [x] Create one ordinary branch, `codex/dependency-modernization`, in `/Users/andrewwatanabe/Kwilt`. Do not create a worktree unless Andrew separately approves parallel implementation.
+- [x] Record the starting commit, installed TestFlight version/build, Xcode version, Node version, npm version, CocoaPods version, Metro port/owner, Simulator device, and signed-device availability in the plan's execution log.
 
 Commands:
 
@@ -97,7 +97,7 @@ The minimum user-flow regression set for every SDK transition is:
 - Read: `patches/react-native-maps+1.20.1.patch`
 - Read: `patches/react-native-drawer-layout+4.2.0.patch`
 
-- [ ] **Step 1: Capture manifest, native, compatibility, and security evidence**
+- [x] **Step 1: Capture manifest, native, compatibility, and security evidence**
 
 ```bash
 git rev-parse HEAD
@@ -114,11 +114,11 @@ npx expo-modules-autolinking verify -v
 
 Expected: the baseline reproduces the known SDK 54 mismatches, missing `expo-asset`, duplicate `expo-constants`, Jest type mismatch, and React Native Directory warnings without modifying tracked files.
 
-- [ ] **Step 2: Write the baseline document**
+- [x] **Step 2: Write the baseline document**
 
 Record exact versions, command results, direct/transitive audit paths, native patches, deprecations, and current proof boundaries. Classify each item as `blocking`, `cohort candidate`, `SDK-coupled`, `security review`, or `defer`; do not reduce the report to the raw audit count.
 
-- [ ] **Step 3: Establish a green behavioral baseline**
+- [x] **Step 3: Establish a green behavioral baseline**
 
 ```bash
 npm run lint
@@ -131,7 +131,7 @@ npm run verify:changed -- --run
 
 Expected: all gates pass or every pre-existing failure is recorded before dependency changes begin.
 
-- [ ] **Step 4: Commit the baseline alone**
+- [x] **Step 4: Commit the baseline alone**
 
 ```bash
 git add docs/engineering/dependency-modernization-baseline.md
@@ -149,7 +149,7 @@ git commit -m "docs: capture dependency modernization baseline"
 - Modify if dependency resolution changes: `ios/Podfile.lock`
 - Test: existing repository verification suites
 
-- [ ] **Step 1: Pin the supported Node line across local and CI environments**
+- [x] **Step 1: Pin the supported Node line across local and CI environments**
 
 Use one declared LTS Node version supported by SDK 54 through SDK 57. At execution time, confirm it against Expo's compatibility table; SDK 57 currently requires Node 22.13.x or later. Add the selected version to `package.json` `engines`, `.nvmrc`, and every GitHub workflow that currently specifies Node 20.
 
@@ -162,7 +162,7 @@ npm ci
 
 Expected: local and CI use the same supported major and `npm ci` has no engine warning.
 
-- [ ] **Step 2: Apply Expo's SDK 54-compatible versions**
+- [x] **Step 2: Apply Expo's SDK 54-compatible versions**
 
 ```bash
 npx expo install expo@~54.0.36 \
@@ -186,7 +186,7 @@ npm dedupe
 
 Do not accept a lockfile that changes React, React Native, Reanimated, Worklets, Screens, Maps, Plaid, RevenueCat, or HealthKit outside the declared SDK 54 cohort.
 
-- [ ] **Step 3: Reconcile dynamic app configuration**
+- [x] **Step 3: Reconcile dynamic app configuration**
 
 Compare `app.json` with the fully evaluated `app.config.ts`. Move any still-live value into `app.config.ts`, then remove the redundant static file so Expo Doctor has one configuration owner. Preserve version/build synchronization and every widget, Screen Time, HealthKit, location, notification, and associated-domain setting.
 
@@ -199,11 +199,11 @@ npx expo config --type introspect > /tmp/kwilt-expo-introspect.json
 
 Expected: bundle IDs, build/version, plugins, permissions, entitlements, extensions, and deep-link domains match the baseline.
 
-- [ ] **Step 4: Resolve remaining Doctor findings deliberately**
+- [x] **Step 4: Resolve remaining Doctor findings deliberately**
 
 Fix the nested local-module `ios`/`android` ignore pattern. Rename the conflicting `storybook` npm script only if the binary collision remains. Either add a React Native Directory exclusion with a written justification for `kwilt-nearby-table` and Plaid, or retain the warning as a documented upstream limitation.
 
-- [ ] **Step 5: Regenerate native dependencies and verify SDK 54**
+- [x] **Step 5: Regenerate native dependencies and verify SDK 54**
 
 ```bash
 npm ci
@@ -216,6 +216,8 @@ npm run verify:changed -- --run
 Expected: no Expo version mismatch, no missing native peer, no duplicate Expo native module, and no test-type mismatch. Any consciously retained Doctor warning is listed in the baseline with an owner and rationale.
 
 - [ ] **Step 6: Build and run the SDK 54 native shell**
+
+Build, install, bundle, session restoration, and initial sync passed on the declared Simulator on 2026-08-03. The checkbox remains open until the deliberate critical-flow smoke and signed-device gates recorded in the baseline are complete.
 
 ```bash
 npx expo run:ios

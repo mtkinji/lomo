@@ -17,8 +17,8 @@ web-build/
 expo-env.d.ts
 
 # Native generated folders (we generate them during EAS prebuild)
-ios/
-android/
+/ios
+/android
 .kotlin/
 
 # Metro
@@ -49,4 +49,3 @@ src/features/*/FEATURE.md
 
 # typescript
 *.tsbuildinfo
-
