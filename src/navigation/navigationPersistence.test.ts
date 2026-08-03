@@ -125,10 +125,10 @@ describe('navigationPersistence', () => {
     });
   });
 
-  test('restores the Games Hourglass utility', async () => {
-    const games = nestedState('stack', 'GamesHourglass', [
+  test('restores the Games Timer utility', async () => {
+    const games = nestedState('stack', 'GamesTimer', [
       route('GamesShelf'),
-      route('GamesHourglass'),
+      route('GamesTimer'),
     ]);
     const root = nestedState('drawer', 'Games', [
       route('MainTabs'),
@@ -138,7 +138,7 @@ describe('navigationPersistence', () => {
 
     const restored = (await restore(root)) as unknown as TestState;
     const restoredGames = restored.routes[restored.index].state!;
-    expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesHourglass' });
+    expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesTimer' });
   });
 
   test('restores Explore settings instead of falling back to Settings home', async () => {
