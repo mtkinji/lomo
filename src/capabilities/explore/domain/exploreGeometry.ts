@@ -4,6 +4,9 @@ export const EXPLORE_REVEAL_RADIUS_M = 65 * 0.3048;
 export const EXPLORE_FEATHER_REFERENCE_RADIUS_M = 100 * 0.3048;
 export const EXPLORE_CELL_SIZE_M = 24;
 export const MAX_CONTINUOUS_TRACE_GAP_M = 60;
+export const MAX_RECONSTRUCTABLE_TRACE_GAP_M = 0.25 * 1609.344;
+const MAX_ACQUISITION_AWARE_TRACE_INTERVAL_S = 180;
+const TRACE_POSITION_ALLOWANCE_M = 8;
 const FOG_TRACE_SIMPLIFICATION_TOLERANCE_M = 3;
 
 const EARTH_RADIUS_M = 6_371_000;
@@ -60,11 +63,53 @@ export function exploreCellsAlongSegment(
   return [...new Map(cells.map((cell) => [cell.id, cell])).values()];
 }
 
+type ExploreContinuityCoordinate = ExploreCoordinate & {
+  recordedAt?: string;
+  speedMps?: number | null;
+  horizontalAccuracyM?: number | null;
+};
+
+function trustworthySpeedMps(coordinate: ExploreContinuityCoordinate): number | null {
+  return typeof coordinate.speedMps === 'number' &&
+    Number.isFinite(coordinate.speedMps) &&
+    coordinate.speedMps >= 0 &&
+    coordinate.speedMps < 60
+    ? coordinate.speedMps
+    : null;
+}
+
+function trustworthyAccuracyM(coordinate: ExploreContinuityCoordinate): number {
+  return typeof coordinate.horizontalAccuracyM === 'number' &&
+    Number.isFinite(coordinate.horizontalAccuracyM) &&
+    coordinate.horizontalAccuracyM >= 0
+    ? Math.min(45, coordinate.horizontalAccuracyM)
+    : 0;
+}
+
 export function isExploreTraceContinuous(
-  from: ExploreCoordinate,
-  to: ExploreCoordinate,
+  from: ExploreContinuityCoordinate,
+  to: ExploreContinuityCoordinate,
 ): boolean {
-  return coordinateDistanceM(from, to) <= MAX_CONTINUOUS_TRACE_GAP_M;
+  const distanceM = coordinateDistanceM(from, to);
+  if (distanceM <= MAX_CONTINUOUS_TRACE_GAP_M) return true;
+  if (distanceM > MAX_RECONSTRUCTABLE_TRACE_GAP_M) return false;
+
+  const elapsedSeconds = (Date.parse(to.recordedAt ?? '') - Date.parse(from.recordedAt ?? '')) / 1000;
+  if (
+    !Number.isFinite(elapsedSeconds) ||
+    elapsedSeconds <= 0 ||
+    elapsedSeconds > MAX_ACQUISITION_AWARE_TRACE_INTERVAL_S
+  ) return false;
+
+  const speeds = [trustworthySpeedMps(from), trustworthySpeedMps(to)]
+    .filter((speed): speed is number => speed !== null);
+  const inferredSpeedMps = distanceM / elapsedSeconds;
+  if (!speeds.length) return inferredSpeedMps <= 55;
+  const plausibleDistanceM = Math.max(...speeds) * elapsedSeconds +
+    trustworthyAccuracyM(from) +
+    trustworthyAccuracyM(to) +
+    TRACE_POSITION_ALLOWANCE_M;
+  return distanceM <= plausibleDistanceM;
 }
 
 export function exploreCellsForRecordedStep(

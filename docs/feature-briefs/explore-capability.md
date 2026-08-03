@@ -16,7 +16,7 @@ last_updated: 2026-08-01
 
 ## Context
 
-Kwilt already understands task-linked location and private sharing, but it cannot preserve where a family has explored. Explore introduces an explicit, private-first adventure session that turns movement into a retained map without claiming production background tracking or family sync before those systems exist.
+Kwilt already understands task-linked location and private sharing, but it cannot preserve where a family has explored. Explore introduces an explicit, private-first adventure session that turns movement into a retained map without claiming family sync before that system exists. Signed-in owner history is durably recoverable through the authenticated backend while capture and rendering remain local-first.
 
 ## Target audience
 
@@ -44,7 +44,7 @@ When my family moves through the world, I want Kwilt to preserve where we explor
 
 ## Design
 
-Explore is a named capability in the Fun section of the global menu. Its first functional release provides adventure recording, an animated Silver Mist fog field with a 65-foot clear core and independently scaled 100-foot feather reference, altitude-colored route segments, versioned local persistence, a restrained settings control, visited-Place search, first-Place naming, and a canonical Place/person-Place visit model.
+Explore is a named capability in the Fun section of the global menu. Its first functional release provides adventure recording, an animated Silver Mist fog field with a 65-foot clear core and independently scaled 100-foot feather reference, a continuously interpolated altitude-color route, versioned local persistence, a restrained settings control, visited-Place search, first-Place naming, and a canonical Place/person-Place visit model.
 
 Recording, sharing, and viewing are independent:
 
@@ -52,7 +52,7 @@ Recording, sharing, and viewing are independent:
 - sharing controls the maximum projection another person may receive;
 - viewing controls which permitted layers appear locally.
 
-The first release implements recording and viewing locally. It models sharing but does not transmit location data. Family layers use honest empty/unavailable states until an authenticated backend with RLS, retention, deletion, and revocation exists.
+Recording and viewing remain local-first. The app synchronizes completed owner sessions, Places, visit relationships, and reset metadata through an authenticated owner-RLS backend, but it does not transmit family location layers. Family layers use honest empty/unavailable states until separate sharing, retention, deletion, and revocation contracts exist.
 
 ### UI contract
 
@@ -112,4 +112,4 @@ Silver Mist receives explicit route-segment pairs rather than guessing continuit
 
 Route presentation uses the same bounded, topology-preserving traces rather than creating one MapKit overlay for every raw point pair. Each trace has a high-contrast casing beneath the altitude stroke so the exact evidence line remains legible on hybrid and satellite imagery. Creating a Place with **Name current Place** adds a soft familiarity bloom at three times the normal reveal radius; the bloom thins Silver Mist without becoming fully clear or claiming traversal. Adventure classification and automatically discovered Apple Maps Places do not trigger the bloom. This is a Place-meaning learning release, not a claim that Kwilt knows a park boundary; see [`explore-earned-terrain-and-trace.md`](explore-earned-terrain-and-trace.md).
 
-Adjacent points more than 60 meters apart are treated as a discontinuity: the observations remain, but Explore draws no connecting line and clears no interpolated corridor. Schema migration rebuilds retained territory from the original points so previously over-interpolated gaps are repaired without discarding location history. Any later road-matched geometry is a separately cached, confidence-gated presentation only; it may not clear fog, establish a Place visit, or overwrite recorded evidence, and no precise coordinates may leave the device without an explicit provider and privacy decision.
+Adjacent points up to 60 meters apart connect directly. A 60-to-120-meter freeway gap connects only when its timestamps, recorded speed, and location accuracy make that displacement plausible within five seconds; every other larger or stale gap is a discontinuity, so the observations remain but Explore draws no connecting line and clears no interpolated corridor. Schema migration rebuilds retained territory from the original points so previously over-interpolated gaps are repaired without discarding location history. Any later road-matched geometry is a separately cached, confidence-gated presentation only; it may not clear fog, establish a Place visit, or overwrite recorded evidence, and no precise coordinates may leave the device without an explicit provider and privacy decision.

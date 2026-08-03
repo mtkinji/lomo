@@ -40,7 +40,8 @@ import {
   RESTING_COMPOSER_HORIZONTAL_INSET_PX,
 } from '../../../ui/layout/restingComposerMetrics';
 import { Text } from '../../../ui/Typography';
-import { buildAltitudeSegments } from '../domain/exploreElevation';
+import { ExploreAdventureRecap } from '../components/ExploreAdventureRecap';
+import { buildAltitudeGradients } from '../domain/exploreElevation';
 import {
   buildFogHole,
   buildFogRenderGeometry,
@@ -50,8 +51,13 @@ import {
   isCoordinateExplored,
 } from '../domain/exploreGeometry';
 import type { ExploreNearbyRadius, ExploreNearbyRecommendation } from '../domain/exploreNearby';
+import {
+  buildExplorePlaybackFrame,
+  explorePlaybackDurationMs,
+} from '../domain/explorePlayback';
+import { displayPointsForExploreSession } from '../domain/explorePathReconstruction';
 import { pendingExploreRecap } from '../domain/exploreRecap';
-import type { ExplorePoint, ExplorePreferences, Place } from '../domain/types';
+import type { ExplorePoint, ExplorePreferences, ExploreSession, Place } from '../domain/types';
 import type { ExploreStackParamList } from '../navigation/types';
 import { useExploreRecorder } from '../runtime/useExploreRecorder';
 import { useExploreNearbyPlaces } from '../runtime/useExploreNearbyPlaces';
@@ -70,10 +76,15 @@ export const EXPLORE_PLACE_REVEAL_RADIUS_M = EXPLORE_REVEAL_RADIUS_M * 3;
 type PlacesCollection = 'nearby' | 'my-places';
 
 function pointGroupsInDisplayOrder(
-  sessions: ReturnType<typeof useExploreStore.getState>['sessions'],
-  active: ReturnType<typeof useExploreStore.getState>['activeSession'],
+  sessions: ExploreSession[],
+  active: ExploreSession | null,
+  playback?: { sessionId: string; visiblePointCount: number } | null,
 ): ExplorePoint[][] {
-  const completed = [...sessions].reverse().map((session) => session.points);
+  const completed = [...sessions].reverse().map((session) =>
+    playback?.sessionId === session.id
+      ? displayPointsForExploreSession(session).slice(0, playback.visiblePointCount)
+      : displayPointsForExploreSession(session),
+  );
   return active ? [...completed, active.points] : completed;
 }
 
@@ -125,6 +136,12 @@ export function ExploreMapScreen() {
   const removeDiscoveredPlaceFromRecaps = useExploreStore((state) => state.removeDiscoveredPlaceFromRecaps);
   const recorder = useExploreRecorder();
   useExploreRecapResolver(localUserId);
+  const recap = useMemo(() => pendingExploreRecap({ sessions, places }), [places, sessions]);
+  const recapAdventureSession = useMemo(() => {
+    if (recap?.sessionIds.length !== 1) return null;
+    const session = sessions.find((candidate) => candidate.id === recap.sessionIds[0]);
+    return session?.trackingPolicy === 'adventure' && session.points.length >= 2 ? session : null;
+  }, [recap, sessions]);
   const [searchVisible, setSearchVisible] = useState(false);
   const [placesCollection, setPlacesCollection] = useState<PlacesCollection>('nearby');
   const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
@@ -132,6 +149,9 @@ export function ExploreMapScreen() {
   const [collectingPlace, setCollectingPlace] = useState(false);
   const [placeName, setPlaceName] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [playbackProgress, setPlaybackProgress] = useState(1);
+  const [playbackPlaying, setPlaybackPlaying] = useState(false);
+  const playbackSessionIdRef = useRef(recapAdventureSession?.id ?? null);
 
   const pointGroups = useMemo(
     () => pointGroupsInDisplayOrder(sessions, activeSession),
@@ -139,6 +159,30 @@ export function ExploreMapScreen() {
   );
   const points = useMemo(() => pointGroups.flat(), [pointGroups]);
   const latestPoint = points[points.length - 1] ?? null;
+  const recapRecordedPathPoints = useMemo(
+    () => recapAdventureSession ? displayPointsForExploreSession(recapAdventureSession) : [],
+    [recapAdventureSession],
+  );
+  const playbackFrame = useMemo(
+    () => recapAdventureSession
+      ? buildExplorePlaybackFrame(recapRecordedPathPoints, playbackProgress)
+      : null,
+    [playbackProgress, recapAdventureSession, recapRecordedPathPoints],
+  );
+  const playbackActive = Boolean(recapAdventureSession && playbackFrame && playbackProgress < 1);
+  const displayedPointGroups = useMemo(
+    () => pointGroupsInDisplayOrder(
+      sessions,
+      activeSession,
+      playbackActive && recapAdventureSession && playbackFrame
+        ? { sessionId: recapAdventureSession.id, visiblePointCount: playbackFrame.visiblePointCount }
+        : null,
+    ),
+    [activeSession, playbackActive, playbackFrame, recapAdventureSession, sessions],
+  );
+  const playbackCutoffMs = playbackActive && playbackFrame?.cutoffAt
+    ? Date.parse(playbackFrame.cutoffAt)
+    : null;
   const [visibleRegion, setVisibleRegion] = useState<Region>(() =>
     latestPoint ? regionAround(latestPoint) : DEFAULT_REGION,
   );
@@ -148,17 +192,21 @@ export function ExploreMapScreen() {
     return Object.values(exploredCells)
       .filter((cell) =>
         Math.abs(cell.center.latitude - visibleRegion.latitude) <= latitudeRadius &&
-        Math.abs(cell.center.longitude - visibleRegion.longitude) <= longitudeRadius,
+        Math.abs(cell.center.longitude - visibleRegion.longitude) <= longitudeRadius &&
+        (playbackCutoffMs === null || Date.parse(cell.firstExploredAt) <= playbackCutoffMs),
       )
       .slice(-700);
-  }, [exploredCells, visibleRegion]);
+  }, [exploredCells, playbackCutoffMs, visibleRegion]);
   const fogRing = useMemo(() => fogRingForRegion(visibleRegion), [visibleRegion]);
-  const createdPlaces = useMemo(() => Object.values(placeRelationships)
-    .filter((relationship) => relationship.userId === localUserId)
+  const createdPlaces = useMemo(() => [...new Map(Object.values(placeRelationships)
+    .filter((relationship) => relationship.evidence === 'user-confirmed')
+    .filter((relationship) => playbackCutoffMs === null || Date.parse(relationship.firstVisitedAt) <= playbackCutoffMs)
     .sort((left, right) => Date.parse(left.lastVisitedAt) - Date.parse(right.lastVisitedAt))
     .map((relationship) => places[relationship.placeId])
     .filter((place): place is Place => place?.source === 'user')
-    .slice(-256), [localUserId, placeRelationships, places]);
+    .map((place) => [place.id, place] as const))
+    .values()]
+    .slice(-256), [placeRelationships, places, playbackCutoffMs]);
   const visibleCreatedPlaces = useMemo(() => {
     const latitudeRadius = visibleRegion.latitudeDelta * 1.3;
     const longitudeRadius = visibleRegion.longitudeDelta * 1.3;
@@ -178,11 +226,11 @@ export function ExploreMapScreen() {
     };
   }, [visibleCells, visibleCreatedPlaces]);
   const fogGeometry = useMemo(
-    () => buildFogRenderGeometry([...pointGroups].reverse()),
-    [pointGroups],
+    () => buildFogRenderGeometry([...displayedPointGroups].reverse()),
+    [displayedPointGroups],
   );
-  const altitudeSegments = useMemo(
-    () => fogGeometry.traces.flatMap((trace) => buildAltitudeSegments(trace)),
+  const altitudeGradients = useMemo(
+    () => fogGeometry.traces.flatMap((trace) => buildAltitudeGradients(trace)),
     [fogGeometry],
   );
   const metalFogMapProps = useMemo(() => Platform.OS === 'ios' ? ({
@@ -212,10 +260,6 @@ export function ExploreMapScreen() {
     if (!query) return savedPlaces;
     return savedPlaces.filter((place) => place.name.toLocaleLowerCase().includes(query));
   }, [savedPlaces, searchQuery]);
-  const recap = useMemo(() => pendingExploreRecap({
-    sessions,
-    places,
-  }), [places, sessions]);
   const resolvingSession = sessions.find((session) => session.recapStatus === 'resolving') ?? null;
   const needsOnboarding = !preferences.onboardingCompleted;
   const hasFirstClearing = points.length > 0;
@@ -256,6 +300,35 @@ export function ExploreMapScreen() {
       useNativeDriver: true,
     }).start();
   }, [controlsProgress, needsOnboarding, reduceMotion]);
+
+  useEffect(() => {
+    const nextSessionId = recapAdventureSession?.id ?? null;
+    if (playbackSessionIdRef.current === nextSessionId) return;
+    playbackSessionIdRef.current = nextSessionId;
+    if (playbackProgress !== 1) setPlaybackProgress(1);
+    if (playbackPlaying) setPlaybackPlaying(false);
+  }, [playbackPlaying, playbackProgress, recapAdventureSession?.id]);
+
+  useEffect(() => {
+    if (!playbackPlaying || !recapAdventureSession || reduceMotion) return undefined;
+    const tickMs = 80;
+    const durationMs = explorePlaybackDurationMs(recapAdventureSession.points.length);
+    const timer = setInterval(() => {
+      setPlaybackProgress((current) => Math.min(1, current + tickMs / durationMs));
+    }, tickMs);
+    return () => clearInterval(timer);
+  }, [playbackPlaying, recapAdventureSession, reduceMotion]);
+
+  useEffect(() => {
+    if (playbackProgress >= 1 && playbackPlaying) setPlaybackPlaying(false);
+  }, [playbackPlaying, playbackProgress]);
+
+  useEffect(() => {
+    if (reduceMotion && playbackPlaying) {
+      setPlaybackPlaying(false);
+      setPlaybackProgress(1);
+    }
+  }, [playbackPlaying, reduceMotion]);
 
   useEffect(() => {
     if (!latestPoint) return;
@@ -352,6 +425,27 @@ export function ExploreMapScreen() {
     });
   };
 
+  const toggleAdventurePlayback = () => {
+    if (!recapAdventureSession || reduceMotion) return;
+    if (playbackPlaying) {
+      setPlaybackPlaying(false);
+      return;
+    }
+    if (playbackProgress >= 1) {
+      mapRef.current?.fitToCoordinates(recapRecordedPathPoints, {
+        edgePadding: { top: 120, right: 48, bottom: 360, left: 48 },
+        animated: true,
+      });
+      setPlaybackProgress(0);
+    }
+    setPlaybackPlaying(true);
+  };
+
+  const scrubAdventurePlayback = (progress: number) => {
+    setPlaybackPlaying(false);
+    setPlaybackProgress(progress);
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
@@ -368,6 +462,8 @@ export function ExploreMapScreen() {
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         {...metalFogMapProps}
+        onTouchStart={() => setPlaybackPlaying(false)}
+        onPanDrag={() => setPlaybackPlaying(false)}
         onRegionChangeComplete={setVisibleRegion}
       >
         {Platform.OS !== 'ios' && preferences.showFog ? <>
@@ -414,12 +510,12 @@ export function ExploreMapScreen() {
               lineJoin="round"
             />
           ))}
-          {altitudeSegments.map((segment, index) => (
+          {altitudeGradients.map((gradient, index) => (
               <Polyline
-                key={`altitude-segment-${index}`}
+                key={`altitude-gradient-${index}`}
                 testID="explore.path.altitude"
-                coordinates={segment.coordinates}
-                strokeColor={segment.color}
+                coordinates={gradient.coordinates}
+                strokeColors={gradient.strokeColors}
                 strokeWidth={4.5}
                 lineCap="round"
                 lineJoin="round"
@@ -435,6 +531,14 @@ export function ExploreMapScreen() {
             pinColor={colors.turmeric600}
           />
         ))}
+        {playbackActive && playbackFrame?.cursor ? (
+          <Marker
+            testID="explore.playback.cursor"
+            coordinate={playbackFrame.cursor}
+            title="Replay position"
+            pinColor={colors.turmeric600}
+          />
+        ) : null}
         {searchVisible && placesCollection === 'nearby' ? nearby.results.map((place) => (
           <Marker
             key={`nearby:${place.id}`}
@@ -566,14 +670,14 @@ export function ExploreMapScreen() {
             {recorder.message ? <Text style={styles.message}>{recorder.message}</Text> : null}
             <Button
               testID="explore.recording.toggle"
-              accessibilityLabel="Begin exploring"
+              accessibilityLabel="Record a path"
               variant="primary"
               size="lg"
               disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
               onPress={recorder.beginOnboarding}
               style={styles.primaryAction}
             >
-              {recorder.status === 'locating' ? 'Finding you…' : 'Begin Exploring'}
+              {recorder.status === 'locating' ? 'Finding you…' : 'Record a Path'}
             </Button>
           </View>
         </View>
@@ -584,7 +688,7 @@ export function ExploreMapScreen() {
           <Text style={styles.emptyCopy}>
             {preferences.recording === 'automatic'
               ? 'Your map stays private. Move through the world to clear a path through the fog.'
-              : 'Your map stays private. Start exploring to clear a path through the fog.'}
+              : 'Your map stays private. Record a path to reveal the world around it.'}
           </Text>
         </View>
       ) : null}
@@ -605,14 +709,14 @@ export function ExploreMapScreen() {
         {recorder.message ? <Text style={styles.message}>{recorder.message}</Text> : null}
         {preferences.recording === 'manual' ? <Button
           testID="explore.recording.toggle"
-          accessibilityLabel={recorder.active ? 'Stop exploring' : 'Start exploring'}
+          accessibilityLabel={recorder.active ? 'Stop recording' : 'Record a path'}
           variant={recorder.active ? 'inverse' : 'primary'}
           size="lg"
           disabled={recorder.status === 'requesting-permission' || recorder.status === 'locating'}
           onPress={recorder.active ? recorder.stop : recorder.start}
           style={styles.primaryAction}
         >
-          {recorder.active ? 'Stop' : recorder.status === 'locating' ? 'Finding you…' : 'Start Exploring'}
+          {recorder.active ? 'Stop Recording' : recorder.status === 'locating' ? 'Finding you…' : 'Record a Path'}
         </Button> : null}
         <View style={styles.hereControlsAnchor}>
           <View testID="explore.hereControls" style={styles.hereControls}>
@@ -714,7 +818,7 @@ export function ExploreMapScreen() {
           />
           <RecordingModeOption
             label="Only when I start"
-            detail="Only records outings you begin"
+            detail="Records paths only when you choose"
             selected={false}
             onPress={() => { void finishOnboarding('manual'); }}
           />
@@ -875,25 +979,33 @@ export function ExploreMapScreen() {
         visible={Boolean(recap)}
         onClose={() => recap && markRecapsSeen(recap.sessionIds)}
         snapPoints={['58%']}
+        hideBackdrop
       >
         {recap ? (
           <BottomDrawerScrollView
             contentContainerStyle={[styles.recapContent, { paddingBottom: insets.bottom + spacing.lg }]}
           >
-            <BottomDrawerHeader title="Exploration Recap" variant="minimal" />
+            <BottomDrawerHeader title="Explore Recap" variant="minimal" />
             <View style={styles.recapHero}>
-              <View style={styles.recapIcon}>
-                <Icon name="map" size={24} color={colors.pine800} />
-              </View>
               <Text style={styles.recapTitle}>
                 {recap.places.length
                   ? `You uncovered ${recap.places.length} new ${recap.places.length === 1 ? 'Place' : 'Places'}.`
-                  : 'Your path is part of the map.'}
+                  : 'Your recorded path is part of the map.'}
               </Text>
               <Text style={styles.recapDetail}>
                 {recap.pointCount} route points · {formatRecapDuration(recap.startedAt, recap.endedAt)}
               </Text>
             </View>
+            {recapAdventureSession ? (
+              <ExploreAdventureRecap
+                points={recapRecordedPathPoints}
+                progress={playbackProgress}
+                playing={playbackPlaying}
+                reduceMotion={reduceMotion}
+                onTogglePlayback={toggleAdventurePlayback}
+                onProgressChange={scrubAdventurePlayback}
+              />
+            ) : null}
             {recap.places.length ? (
               <View style={styles.recapPlaces}>
                 {recap.places.map((place, index) => (
@@ -913,7 +1025,7 @@ export function ExploreMapScreen() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.recapEmpty}>No confidently named Place was found, so Kwilt kept the route without guessing.</Text>
+              <Text style={styles.recapEmpty}>No confidently named Place was found along this path.</Text>
             )}
             <Button testID="explore.recap.done" size="lg" onPress={() => markRecapsSeen(recap.sessionIds)}>Done</Button>
           </BottomDrawerScrollView>
@@ -1188,10 +1300,10 @@ const styles = StyleSheet.create({
   placeNamingContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
   placeInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.fieldFill, color: colors.textPrimary, paddingHorizontal: spacing.md, ...typography.bodySm },
   collectActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
-  recapContent: { paddingHorizontal: spacing.lg, gap: spacing.lg },
-  recapHero: { alignItems: 'center' },
+  recapContent: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  recapHero: { alignItems: 'flex-start' },
   recapIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pine50 },
-  recapTitle: { ...typography.titleSm, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.md },
+  recapTitle: { ...typography.titleSm, color: colors.textPrimary },
   recapDetail: { ...typography.bodySm, color: colors.textSecondary, marginTop: spacing.xs },
   recapPlaces: { gap: spacing.xs },
   recapPlaceRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.md },

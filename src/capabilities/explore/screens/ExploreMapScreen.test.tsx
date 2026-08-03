@@ -2,6 +2,7 @@ import { act, fireEvent, render, waitFor, within } from '@testing-library/react-
 import { StyleSheet } from 'react-native';
 import { ExploreMapScreen } from './ExploreMapScreen';
 import { useExploreStore } from '../runtime/useExploreStore';
+import { useAppStore } from '../../../store/useAppStore';
 
 const mockOpenMenu = jest.fn();
 const mockNavigate = jest.fn();
@@ -10,6 +11,7 @@ const mockStop = jest.fn();
 const mockBeginOnboarding = jest.fn();
 const mockLocate = jest.fn(async () => ({ latitude: 40.55, longitude: -105.12 }));
 const mockAnimateToRegion = jest.fn();
+const mockFitToCoordinates = jest.fn();
 const mockNearbySearch = jest.fn(async () => undefined);
 const mockNearbySetRadius = jest.fn();
 let mockNearbyStatus: 'idle' | 'loading' | 'ready' | 'empty' | 'unavailable' | 'error' = 'ready';
@@ -70,7 +72,10 @@ jest.mock('react-native-maps', () => {
   const component = (name: string) => ({ children, ...props }: any) =>
     React.createElement(View, { ...props, testID: props.testID ?? `mock.${name}` }, children);
   const Map = React.forwardRef(({ children, ...props }: any, ref: any) => {
-    React.useImperativeHandle(ref, () => ({ animateToRegion: mockAnimateToRegion }));
+    React.useImperativeHandle(ref, () => ({
+      animateToRegion: mockAnimateToRegion,
+      fitToCoordinates: mockFitToCoordinates,
+    }));
     return React.createElement(View, { ...props, testID: props.testID ?? 'mock.map' }, children);
   });
   return {
@@ -153,6 +158,7 @@ describe('ExploreMapScreen', () => {
     }];
     mockNearbySearchedCenter = null;
     act(() => {
+      useAppStore.getState().clearAuthIdentity();
       useExploreStore.getState().clearHistory();
       useExploreStore.getState().updatePreferences({
         sharing: 'private',
@@ -176,11 +182,11 @@ describe('ExploreMapScreen', () => {
     const introduction = screen.getByTestId('explore.onboarding.introduction');
     expect(within(introduction).getByText("See where you’ve been. Explore where you haven’t.")).toBeTruthy();
     expect(within(introduction).getByText('Build a private history of the places and paths you travel.')).toBeTruthy();
-    expect(within(introduction).getByLabelText('Begin exploring')).toBeTruthy();
+    expect(within(introduction).getByLabelText('Record a path')).toBeTruthy();
     expect(screen.queryByLabelText('Open navigation menu')).toBeNull();
     expect(screen.queryByLabelText('Explore options')).toBeNull();
     expect(screen.queryByLabelText('Open Places')).toBeNull();
-    fireEvent.press(within(introduction).getByLabelText('Begin exploring'));
+    fireEvent.press(within(introduction).getByLabelText('Record a path'));
     expect(mockBeginOnboarding).toHaveBeenCalledTimes(1);
     expect(mockStart).not.toHaveBeenCalled();
   });
@@ -246,8 +252,8 @@ describe('ExploreMapScreen', () => {
     expect(screen.getByLabelText('Center on current location')).toBeTruthy();
     expect(screen.getByLabelText('Open Places')).toBeTruthy();
     expect(screen.getByText('The world is still waiting.')).toBeTruthy();
-    expect(screen.getByText('Your map stays private. Start exploring to clear a path through the fog.')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Start exploring'));
+    expect(screen.getByText('Your map stays private. Record a path to reveal the world around it.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Record a path'));
     expect(mockStart).toHaveBeenCalledTimes(1);
     fireEvent.press(screen.getByLabelText('Open navigation menu'));
     expect(mockOpenMenu).toHaveBeenCalledTimes(1);
@@ -378,6 +384,32 @@ describe('ExploreMapScreen', () => {
     expect(screen.queryByText('Collect current Place')).toBeNull();
   });
 
+  it('keeps a user-confirmed Place bloom after the local Explore identity becomes signed in', () => {
+    act(() => {
+      useExploreStore.getState().addPlaceVisit({
+        place: {
+          id: 'user:home',
+          name: 'Home',
+          kind: 'place',
+          latitude: 40.55,
+          longitude: -105.12,
+          source: 'user',
+        },
+        userId: 'local-user',
+        visitedAt: '2026-08-02T12:00:00.000Z',
+      });
+      useAppStore.getState().setAuthIdentity({ userId: 'signed-in-user', email: 'andrew@example.com' });
+    });
+
+    const screen = render(<ExploreMapScreen />);
+    const map = screen.getByTestId('explore.map', { includeHiddenElements: true });
+
+    expect(map.props.fogPlaceCoordinates).toEqual([
+      expect.objectContaining({ id: 'user:home', latitude: 40.55, longitude: -105.12 }),
+    ]);
+    expect(map.props.fogPlaceRevealRadiusMeters).toBeCloseTo(3 * 65 * 0.3048, 3);
+  });
+
   it('hides collected markers without removing Places from search', () => {
     act(() => useExploreStore.getState().loadPreviewAdventure());
     const screen = render(<ExploreMapScreen />);
@@ -456,6 +488,56 @@ describe('ExploreMapScreen', () => {
     expect(useExploreStore.getState().sessions[0].recapStatus).toBe('seen');
   });
 
+  it('replays one deliberate Adventure through the route and fog from its first point', () => {
+    act(() => useExploreStore.getState().loadPreviewAdventure());
+    const screen = render(<ExploreMapScreen />);
+    const completeMap = screen.getByTestId('explore.map', { includeHiddenElements: true });
+    expect(completeMap.props.fogSegmentStarts.length).toBeGreaterThan(0);
+
+    fireEvent.press(screen.getByText('Replay'));
+
+    const replayMap = screen.getByTestId('explore.map', { includeHiddenElements: true });
+    expect(replayMap.props.fogSegmentStarts).toEqual([]);
+    expect(screen.getByTestId('explore.playback.cursor', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText('Pause')).toBeTruthy();
+    expect(mockFitToCoordinates).toHaveBeenCalledWith(
+      useExploreStore.getState().sessions[0].points,
+      expect.objectContaining({ animated: true }),
+    );
+
+    fireEvent(replayMap, 'touchStart');
+    expect(screen.getByText('Resume')).toBeTruthy();
+  });
+
+  it('uses inclusive recorded-path language for deliberate recording', () => {
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByLabelText('Record a path')).toBeTruthy();
+    expect(screen.queryByText('Start Exploring')).toBeNull();
+  });
+
+  it('keeps playback controls out of an ambient recap', () => {
+    act(() => {
+      const store = useExploreStore.getState();
+      store.startSession('2026-08-02T12:00:00.000Z', 'ambient-recap', 'ambient');
+      store.appendSample({
+        latitude: 40.55, longitude: -105.12, altitudeM: 1500,
+        horizontalAccuracyM: 8, altitudeAccuracyM: 6, recordedAt: '2026-08-02T12:00:00.000Z',
+      }, 'ambient-1');
+      store.appendSample({
+        latitude: 40.5503, longitude: -105.12, altitudeM: 1510,
+        horizontalAccuracyM: 8, altitudeAccuracyM: 6, recordedAt: '2026-08-02T12:00:30.000Z',
+      }, 'ambient-2');
+      store.stopSession('2026-08-02T12:01:00.000Z', 'background-stillness');
+      store.resolveSessionPlaces('ambient-recap', [], 'local-user');
+    });
+    const screen = render(<ExploreMapScreen />);
+
+    expect(screen.getByText('Explore Recap')).toBeTruthy();
+    expect(screen.queryByText('Replay')).toBeNull();
+    expect(screen.queryByText('Elevation')).toBeNull();
+  });
+
   it('never draws a path segment between separate outings', () => {
     act(() => {
       const store = useExploreStore.getState();
@@ -500,6 +582,28 @@ describe('ExploreMapScreen', () => {
 
     expect(screen.getAllByTestId('explore.path.casing', { includeHiddenElements: true })).toHaveLength(2);
     expect(screen.getAllByTestId('explore.path.altitude', { includeHiddenElements: true })).toHaveLength(2);
+  });
+
+  it('renders elevation as a continuous per-point color gradient', () => {
+    act(() => {
+      const store = useExploreStore.getState();
+      store.startSession('2026-08-02T12:00:00.000Z', 'gradient-outing');
+      [1500, 2250, 3000].forEach((altitudeM, index) => store.appendSample({
+        latitude: 40.55 + index * 0.0002,
+        longitude: -105.12,
+        altitudeM,
+        horizontalAccuracyM: 8,
+        altitudeAccuracyM: 6,
+        recordedAt: `2026-08-02T12:00:0${index}.000Z`,
+      }, `gradient-point-${index}`));
+    });
+
+    const screen = render(<ExploreMapScreen />);
+    const gradient = screen.getByTestId('explore.path.altitude', { includeHiddenElements: true });
+
+    expect(gradient.props.coordinates).toHaveLength(2);
+    expect(gradient.props.strokeColors).toEqual(['#5F7E54', '#D28A3D']);
+    expect(gradient.props.strokeColor).toBeUndefined();
   });
 
   it('recenters on a fresh foreground location without starting an outing', async () => {

@@ -259,8 +259,8 @@ function applyRemoteMerge(params: {
     normalizeActivity({ activity: a, nowIso })
   );
 
-  // Prevent push loops from the merge write itself.
-  suppressNextPush = true;
+  // Prevent push loops only when the active subscriber can consume this merge.
+  suppressNextPush = stopDomainSub !== null && state.domainHydrated === true;
   useAppStore.setState(
     {
       arcs: nextArcs,
@@ -649,6 +649,7 @@ async function enableForUser(user: SyncUser): Promise<void> {
 function disable(): void {
   activeUser = null;
   pushQueued = false;
+  suppressNextPush = false;
   stopRealtimeSubscription();
   stopDomainSub?.();
   stopDomainSub = null;

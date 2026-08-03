@@ -22,7 +22,7 @@ const point = {
 
 describe('Explore state transitions', () => {
   it('starts with the current persisted Explore schema', () => {
-    expect(createEmptyExploreData().version).toBe(9);
+    expect(createEmptyExploreData().version).toBe(10);
   });
 
   it('starts, records, and completes an explicit adventure', () => {
@@ -76,7 +76,7 @@ describe('Explore state transitions', () => {
     });
   });
 
-  it('repairs legacy straight-line territory without removing retained route points', () => {
+  it('rebuilds plausible same-session territory without modifying retained raw points', () => {
     const farCoordinate = destinationCoordinate(point, 120, 35);
     const farPoint = {
       ...point,
@@ -104,6 +104,7 @@ describe('Explore state transitions', () => {
     const repaired = rebuildExploreTerritory(legacy);
 
     expect(repaired.sessions[0].points).toEqual([point, farPoint]);
-    expect(Object.keys(repaired.exploredCells)).toHaveLength(2);
+    expect(Object.keys(repaired.exploredCells)).toEqual(Object.keys(legacyCells));
+    expect(Object.keys(repaired.exploredCells).length).toBeGreaterThan(2);
   });
 });

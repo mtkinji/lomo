@@ -146,7 +146,7 @@ describe('Explore background tasks', () => {
     });
 
     const upgraded = await storedState();
-    expect(upgraded.version).toBe(9);
+    expect(upgraded.version).toBe(10);
     expect(upgraded.activeSession.points[0]).toEqual(expect.objectContaining({
       speedMps: null,
       courseDeg: null,

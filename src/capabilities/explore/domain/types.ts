@@ -36,6 +36,14 @@ export type ExplorePoint = ExploreCoordinate & {
   recordedAt: string;
 };
 
+export type ExplorePathReconstructionSegment = {
+  fromPointId: string;
+  toPointId: string;
+  coordinates: ExploreCoordinate[];
+  source: 'apple-directions';
+  routeDistanceM: number;
+};
+
 export type ExploredCell = {
   id: string;
   center: ExploreCoordinate;
@@ -49,6 +57,7 @@ export type ExploreSession = {
   startedAt: string;
   endedAt: string | null;
   points: ExplorePoint[];
+  reconstructedSegments?: ExplorePathReconstructionSegment[];
   discoveredPlaceIds: string[];
   recapStatus: 'none' | 'resolving' | 'ready' | 'seen';
   completedReason: 'manual' | 'background-stillness' | 'interrupted' | null;
@@ -75,8 +84,14 @@ export type ExplorePreferences = {
   firstPlaceGuideDismissed: boolean;
 };
 
+export type ExploreSyncMetadata = {
+  historyResetAt: string | null;
+  deletedPlaceIds: Record<string, string>;
+  lastSyncedAt: string | null;
+};
+
 export type ExploreData = {
-  version: 9;
+  version: 10;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;
@@ -84,4 +99,5 @@ export type ExploreData = {
   placeRelationships: Record<string, UserPlaceRelationship>;
   preferences: ExplorePreferences;
   tracking: ExploreTrackingState;
+  sync: ExploreSyncMetadata;
 };

@@ -1,0 +1,11 @@
+{
+  "name": "kwilt-route-reconstruction",
+  "version": "0.1.0",
+  "description": "Bounded Apple Maps reconstruction for recorded Explore paths",
+  "main": "index.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

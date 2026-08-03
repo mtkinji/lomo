@@ -31,6 +31,7 @@ import {
 import type {
   ExploreData,
   ExplorePoint,
+  ExplorePathReconstructionSegment,
   ExplorePreferences,
   ExploreSession,
   ExploreTrackingPolicy,
@@ -53,6 +54,7 @@ type ExploreStore = ExploreData & {
     evidence?: UserPlaceRelationship['evidence'];
   }) => void;
   resolveSessionPlaces: (sessionId: string, places: Place[], userId: string) => void;
+  setSessionPathReconstruction: (sessionId: string, segments: ExplorePathReconstructionSegment[]) => void;
   markRecapSeen: (sessionId: string) => void;
   markRecapsSeen: (sessionIds: string[]) => void;
   markRecapNotified: (sessionId: string, sentAt?: string) => void;
@@ -79,6 +81,7 @@ function dataFromStore(state: ExploreStore): ExploreData {
     placeRelationships: state.placeRelationships,
     preferences: state.preferences,
     tracking: state.tracking,
+    sync: state.sync,
   };
 }
 
@@ -159,7 +162,14 @@ export const useExploreStore = create<ExploreStore>()(
         visitedAt = new Date().toISOString(),
         evidence = 'user-confirmed',
       }) => {
-        set((state) => recordPlaceVisit(dataFromStore(state), { place, userId, visitedAt, evidence }));
+        set((state) => {
+          const deletedPlaceIds = { ...state.sync.deletedPlaceIds };
+          delete deletedPlaceIds[place.id];
+          return recordPlaceVisit({
+            ...dataFromStore(state),
+            sync: { ...state.sync, deletedPlaceIds },
+          }, { place, userId, visitedAt, evidence });
+        });
       },
       resolveSessionPlaces: (sessionId, places, userId) => {
         set((state) => {
@@ -184,6 +194,16 @@ export const useExploreStore = create<ExploreStore>()(
             ...finalizeExploreRecap(next, sessionId, discoveredPlaceIds),
             lastPointDecision: state.lastPointDecision,
           };
+        });
+      },
+      setSessionPathReconstruction: (sessionId, reconstructedSegments) => {
+        set((state) => {
+          const next = dataFromStore(state);
+          const sessions = next.sessions.map((session) => session.id === sessionId
+            ? { ...session, reconstructedSegments }
+            : session);
+          const rebuilt = rebuildExploreTerritory({ ...next, sessions });
+          return { ...rebuilt, lastPointDecision: state.lastPointDecision };
         });
       },
       markRecapSeen: (sessionId) => {
@@ -222,6 +242,10 @@ export const useExploreStore = create<ExploreStore>()(
             sessions: state.sessions.map((session) => session.id === sessionId
               ? { ...session, discoveredPlaceIds: session.discoveredPlaceIds.filter((id) => id !== placeId) }
               : session),
+            sync: {
+              ...state.sync,
+              deletedPlaceIds: { ...state.sync.deletedPlaceIds, [placeId]: new Date().toISOString() },
+            },
           };
         });
       },
@@ -240,6 +264,10 @@ export const useExploreStore = create<ExploreStore>()(
             sessions: state.sessions.map((session) => selected.has(session.id)
               ? { ...session, discoveredPlaceIds: session.discoveredPlaceIds.filter((id) => id !== placeId) }
               : session),
+            sync: {
+              ...state.sync,
+              deletedPlaceIds: { ...state.sync.deletedPlaceIds, [placeId]: new Date().toISOString() },
+            },
           };
         });
       },
@@ -247,6 +275,11 @@ export const useExploreStore = create<ExploreStore>()(
         set((state) => ({
           ...createEmptyExploreData(),
           preferences: state.preferences,
+          sync: {
+            historyResetAt: new Date().toISOString(),
+            deletedPlaceIds: {},
+            lastSyncedAt: state.sync.lastSyncedAt,
+          },
           lastPointDecision: null,
         }));
       },
@@ -288,7 +321,7 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
@@ -308,6 +341,9 @@ export const useExploreStore = create<ExploreStore>()(
               : null,
             courseDeg: normalizeCourseDeg(point.courseDeg),
           })) : [],
+          reconstructedSegments: Array.isArray(session?.reconstructedSegments)
+            ? session.reconstructedSegments
+            : [],
           discoveredPlaceIds: Array.isArray(session?.discoveredPlaceIds) ? session.discoveredPlaceIds : [],
           recapStatus: session?.recapStatus ?? (session?.endedAt && session?.points?.length ? 'seen' : 'none'),
           completedReason: session?.completedReason ?? (session?.endedAt ? 'interrupted' : null),
@@ -340,12 +376,17 @@ export const useExploreStore = create<ExploreStore>()(
         return rebuildExploreTerritory({
           ...defaults,
           ...persisted,
-          version: 9,
+          version: 10,
           activeSession,
           sessions: Array.isArray(persisted.sessions)
             ? persisted.sessions.map((session) => upgradeSession(session))
             : [],
           preferences: nextPreferences,
+          sync: {
+            ...defaults.sync,
+            ...(persisted.sync ?? {}),
+            deletedPlaceIds: { ...(persisted.sync?.deletedPlaceIds ?? {}) },
+          },
           tracking: normalizeExploreTrackingState(
             persisted.tracking,
             activeSession ? trackingPolicyForRecordingMode(nextPreferences.recording) : null,

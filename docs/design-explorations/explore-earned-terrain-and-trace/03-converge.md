@@ -37,7 +37,7 @@ Still intentionally unsupported:
 - Enhance the existing fog and My Path layers; add no screen, mode selector, toggle, legend, badge, or onboarding step.
 - Derive the bloom from existing user-created Place records rather than creating a terrain object.
 - Reuse one bounded topology for fog and route rendering instead of maintaining an unbounded polyline list.
-- Keep altitude color as a bounded inner stroke and add a neutral contrast casing; the casing is the reliable evidence line.
+- Keep altitude color as a continuously interpolated inner stroke and add a neutral contrast casing; the casing is the reliable evidence line.
 - Do not claim park awareness in product copy.
 
 ## Activation path

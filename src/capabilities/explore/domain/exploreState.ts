@@ -1,11 +1,12 @@
 import { exploreCellsForRecordedStep } from './exploreGeometry';
+import { displayPointsForExploreSession } from './explorePathReconstruction';
 import { createExploreTrackingState } from './exploreAdaptiveTracking';
 import { createDefaultExplorePreferences } from './explorePrivacy';
 import type { ExploreData, ExplorePoint, ExploreSession, ExploreTrackingPolicy, Place, UserPlaceRelationship } from './types';
 
 export function createEmptyExploreData(): ExploreData {
   return {
-    version: 9,
+    version: 10,
     activeSession: null,
     sessions: [],
     exploredCells: {},
@@ -13,6 +14,11 @@ export function createEmptyExploreData(): ExploreData {
     placeRelationships: {},
     preferences: createDefaultExplorePreferences(),
     tracking: createExploreTrackingState(),
+    sync: {
+      historyResetAt: null,
+      deletedPlaceIds: {},
+      lastSyncedAt: null,
+    },
   };
 }
 
@@ -30,6 +36,7 @@ export function beginExploreSession(
       startedAt,
       endedAt: null,
       points: [],
+      reconstructedSegments: [],
       discoveredPlaceIds: [],
       recapStatus: 'none',
       completedReason: null,
@@ -68,7 +75,9 @@ export function appendExplorePoint(state: ExploreData, point: ExplorePoint): Exp
 export function rebuildExploreTerritory(state: ExploreData): ExploreData {
   const exploredCells: ExploreData['exploredCells'] = {};
   const pointGroups = [
-    ...[...state.sessions].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).map((session) => session.points),
+    ...[...state.sessions]
+      .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))
+      .map(displayPointsForExploreSession),
     ...(state.activeSession ? [state.activeSession.points] : []),
   ];
 

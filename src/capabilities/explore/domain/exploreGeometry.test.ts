@@ -93,6 +93,89 @@ describe('Explore geometry', () => {
     });
   });
 
+  it('keeps adjacent freeway samples connected when GPS variance puts them just over 60 meters apart', () => {
+    const start = {
+      latitude: 40.58526,
+      longitude: -105.08442,
+      recordedAt: '2026-08-02T12:00:00.000Z',
+      speedMps: 29,
+      horizontalAccuracyM: 8,
+    };
+    const end = {
+      ...destinationCoordinate(start, 70, 0),
+      recordedAt: '2026-08-02T12:00:02.000Z',
+      speedMps: 29,
+      horizontalAccuracyM: 8,
+    };
+
+    const geometry = buildFogRenderGeometry([[start, end]], 256);
+
+    expect(geometry.segmentStarts).toEqual([start]);
+    expect(geometry.segmentEnds).toEqual([end]);
+    expect(exploreCellsForRecordedStep(start, end).length).toBeGreaterThan(2);
+  });
+
+  it('keeps a plausible same-session path continuous across a quarter-mile acquisition miss', () => {
+    const start = {
+      latitude: 40.58526,
+      longitude: -105.08442,
+      recordedAt: '2026-08-02T12:00:00.000Z',
+      speedMps: 14,
+      horizontalAccuracyM: 8,
+    };
+    const end = {
+      ...destinationCoordinate(start, 390, 0),
+      recordedAt: '2026-08-02T12:00:30.000Z',
+      speedMps: 14,
+      horizontalAccuracyM: 8,
+    };
+
+    const geometry = buildFogRenderGeometry([[start, end]], 256);
+
+    expect(geometry.segmentStarts).toEqual([start]);
+    expect(geometry.segmentEnds).toEqual([end]);
+    expect(exploreCellsForRecordedStep(start, end).length).toBeGreaterThan(10);
+  });
+
+  it('does not connect beyond a quarter mile without reconstructed route evidence', () => {
+    const start = {
+      latitude: 40.58526,
+      longitude: -105.08442,
+      recordedAt: '2026-08-02T12:00:00.000Z',
+      speedMps: 20,
+      horizontalAccuracyM: 6,
+    };
+    const end = {
+      ...destinationCoordinate(start, 430, 0),
+      recordedAt: '2026-08-02T12:00:22.000Z',
+      speedMps: 20,
+      horizontalAccuracyM: 6,
+    };
+
+    expect(buildFogRenderGeometry([[start, end]], 256).segmentStarts).toEqual([]);
+  });
+
+  it('does not connect a rapid implausible jump just because timestamps are close', () => {
+    const start = {
+      latitude: 40.58526,
+      longitude: -105.08442,
+      recordedAt: '2026-08-02T12:00:00.000Z',
+      speedMps: 5,
+      horizontalAccuracyM: 8,
+    };
+    const end = {
+      ...destinationCoordinate(start, 100, 0),
+      recordedAt: '2026-08-02T12:00:02.000Z',
+      speedMps: 5,
+      horizontalAccuracyM: 8,
+    };
+
+    const geometry = buildFogRenderGeometry([[start, end]], 256);
+
+    expect(geometry.segmentStarts).toEqual([]);
+    expect(geometry.points).toEqual([start, end]);
+  });
+
   it('keeps uncertain gaps as separate clearings instead of corridor segments', () => {
     const start = { latitude: 40.58526, longitude: -105.08442 };
     const beforeGap = destinationCoordinate(start, 20, 0);

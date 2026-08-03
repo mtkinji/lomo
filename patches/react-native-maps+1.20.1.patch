@@ -360,9 +360,9 @@ index 0000000..0cebf05
 +    "  float filamentWisp=pow(clamp(outside/filamentWidth,0.0,1.0),2.0);\n"
 +    "  float edgeDensity=smoothstep(0.28,0.78,near*0.68+middle*0.32);\n"
 +    "  float alpha=1.0-(1.0-opaqueLayer)*(1.0-distantVeil*mix(0.10,0.25,distant))*(1.0-nearWisp*mix(0.04,0.22,edgeDensity))*(1.0-filamentWisp*mix(0.02,0.16,smoothstep(0.30,0.74,filamentNoise)));\n"
-+    "  float placeEdge=smoothstep(u.placeRevealRadius*0.72,u.placeRevealRadius,distanceToPlace);\n"
-+    "  float placeAlphaMultiplier=mix(0.42,1.0,placeEdge);\n"
-+    "  alpha*=placeAlphaMultiplier;\n"
++    "  float placeOutside=max(0.0,distanceToPlace-u.placeRevealRadius);\n"
++    "  float placeAlpha=smoothstep(0.0,u.featherReferenceRadius*1.75,placeOutside);\n"
++    "  alpha=min(alpha,placeAlpha);\n"
 +    "  return float4(clamp(fogColor,0.0,1.0),clamp(alpha,0.0,1.0));\n"
 +    "}\n";
 +}
@@ -529,7 +529,7 @@ index 0000000..0cebf05
 +
 +    CGFloat margin = MAX(
 +        self.clearRadiusPixels + self.featherReferenceRadiusPixels * 3.0,
-+        self.placeRevealRadiusPixels
++        self.placeRevealRadiusPixels + self.featherReferenceRadiusPixels * 1.75
 +    );
 +    NSMutableArray<NSData *> *visiblePoints = [NSMutableArray array];
 +    for (AIRMapCoordinate *coordinate in self.exploredCoordinates) {

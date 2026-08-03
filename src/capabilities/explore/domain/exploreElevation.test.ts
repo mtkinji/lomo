@@ -1,4 +1,4 @@
-import { altitudeColor, buildAltitudeSegments } from './exploreElevation';
+import { altitudeColor, buildAltitudeGradients } from './exploreElevation';
 
 describe('Explore elevation presentation', () => {
   it('moves from water through pine to warm alpine colors', () => {
@@ -8,16 +8,32 @@ describe('Explore elevation presentation', () => {
     expect(altitudeColor(4500)).toBe('#A95662');
   });
 
-  it('creates one colored segment between every pair of route points', () => {
+  it('creates one continuous gradient whose colors follow every route point', () => {
     const points = [
       { latitude: 40, longitude: -105, altitudeM: 1500 },
-      { latitude: 40.0002, longitude: -105, altitudeM: 1600 },
-      { latitude: 40.0004, longitude: -105, altitudeM: null },
+      { latitude: 40.0002, longitude: -105, altitudeM: 2250 },
+      { latitude: 40.0004, longitude: -105, altitudeM: 3000 },
     ];
 
-    expect(buildAltitudeSegments(points)).toEqual([
-      { coordinates: [points[0], points[1]], color: altitudeColor(1550) },
-      { coordinates: [points[1], points[2]], color: altitudeColor(1600) },
+    expect(buildAltitudeGradients(points)).toEqual([
+      {
+        coordinates: points,
+        strokeColors: [altitudeColor(1500), altitudeColor(2250), altitudeColor(3000)],
+      },
+    ]);
+  });
+
+  it('interpolates missing altitude inside a known climb instead of flashing neutral gray', () => {
+    const points = [
+      { latitude: 40, longitude: -105, altitudeM: 1500 },
+      { latitude: 40.0002, longitude: -105, altitudeM: null },
+      { latitude: 40.0004, longitude: -105, altitudeM: 3000 },
+    ];
+
+    expect(buildAltitudeGradients(points)[0].strokeColors).toEqual([
+      altitudeColor(1500),
+      altitudeColor(2250),
+      altitudeColor(3000),
     ]);
   });
 
@@ -27,6 +43,6 @@ describe('Explore elevation presentation', () => {
       { latitude: 40.001, longitude: -105, altitudeM: 1600 },
     ];
 
-    expect(buildAltitudeSegments(points)).toEqual([]);
+    expect(buildAltitudeGradients(points)).toEqual([]);
   });
 });
