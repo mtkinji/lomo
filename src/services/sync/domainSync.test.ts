@@ -287,6 +287,66 @@ describe('domainSync account transitions', () => {
     expect(state.activities).toEqual([]);
   });
 
+  it('pushes the first local edit after fresh-account hydration', async () => {
+    queueRemote({});
+
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+
+    await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
+    await waitForStore(() =>
+      mockUpserts.some((entry) => entry.table === 'kwilt_agent_profile_projections'),
+    );
+    mockUpserts.length = 0;
+
+    useAppStore.setState({
+      activities: [activity({ id: 'first-local-edit', title: 'First local edit' })],
+    });
+
+    await waitForStore(() =>
+      mockUpserts.some((entry) => entry.table === 'kwilt_activities'),
+    );
+    expect(mockUpserts.filter((entry) => entry.table === 'kwilt_activities')).toHaveLength(1);
+  });
+
+  it('does not carry merge suppression into the next account', async () => {
+    queueRemote({});
+    await seedDomainSnapshot(
+      getDomainStorageKey('user-b'),
+      [arc({ id: 'arc-b', name: 'Arc B' })],
+      [],
+      [],
+    );
+
+    startDomainSync();
+    useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' });
+    await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
+
+    queueRemote({ hanging: ['kwilt_activities'] });
+    useAppStore.getState().setAuthIdentity({ userId: 'user-b', email: 'b@example.com' });
+    await waitForStore(() =>
+      useAppStore.getState().domainHydrated === true &&
+      useAppStore.getState().arcs.some((item) => item.id === 'arc-b'),
+    );
+    await waitForStore(() =>
+      mockRealtimeHandlers.some((handler) => handler.config.filter === 'user_id=eq.user-b'),
+    );
+    mockUpserts.length = 0;
+
+    useAppStore.setState({
+      activities: [activity({ id: 'user-b-first-edit', title: 'User B first edit' })],
+    });
+
+    await waitForStore(() =>
+      mockUpserts.some((entry) => entry.table === 'kwilt_activities'),
+    );
+    expect(mockUpserts.filter((entry) => entry.table === 'kwilt_activities')).toEqual([
+      expect.objectContaining({
+        rows: [expect.objectContaining({ user_id: 'user-b', id: 'user-b-first-edit' })],
+      }),
+    ]);
+  });
+
   it('pushes only the bounded Profile projection and refreshes it after a native Profile change', async () => {
     queueRemote({});
     useAppStore.setState({
@@ -329,10 +389,6 @@ describe('domainSync account transitions', () => {
     await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
     await waitForStore(() => mockUpserts.some((entry) => entry.table === 'kwilt_agent_profile_projections'));
     mockUpserts.length = 0;
-
-    // Consume the initial remote-merge suppression before exercising overlapping writes.
-    useAppStore.setState({ activities: [activity({ id: 'overlapping-act', title: 'Priming edit' })] });
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const firstWrite = deferred<UpsertResult>();
     mockUpsertQueues.kwilt_activities = [firstWrite.promise];
@@ -476,6 +532,10 @@ describe('domainSync account transitions', () => {
     useAppStore.getState().setAuthIdentity({ userId: 'user-a', email: 'a@example.com' } as any);
 
     await waitForStore(() => useAppStore.getState().domainSyncStatus === 'ready');
+    await waitForStore(() =>
+      mockUpserts.some((entry) => entry.table === 'kwilt_agent_profile_projections'),
+    );
+    mockUpserts.length = 0;
 
     const realtimeActivity = activity({
       id: 'mcp-act',
@@ -500,6 +560,8 @@ describe('domainSync account transitions', () => {
     const state = useAppStore.getState();
     expect(state.domainSyncStatus).toBe('ready');
     expect(state.activities.map((item) => item.id).sort()).toEqual(['initial-act', 'mcp-act']);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(mockUpserts.filter((entry) => entry.table === 'kwilt_activities')).toEqual([]);
   });
 
   it('resetPrevIds clears all tracked ID sets', () => {
