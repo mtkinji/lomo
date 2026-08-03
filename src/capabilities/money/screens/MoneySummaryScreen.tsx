@@ -159,15 +159,21 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
               />
               <Text numberOfLines={1} style={styles.monthTitle}>{currentPeriod.periodLabel}</Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add category"
-              hitSlop={10}
-              onPress={() => navigation.navigate('MoneyCategoryCreate')}
-              style={({ pressed }) => [styles.iconButton, pressed ? styles.iconButtonPressed : null]}
-            >
-              <Icon name="plus" size={20} color={colors.textPrimary} />
-            </Pressable>
+            <View style={styles.monthActions}>
+              <CategoryViewMenu
+                onPresentationChange={setCategoryPresentation}
+                presentation={categoryPresentation}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add category"
+                hitSlop={10}
+                onPress={() => navigation.navigate('MoneyCategoryCreate')}
+                style={({ pressed }) => [styles.iconButton, pressed ? styles.iconButtonPressed : null]}
+              >
+                <Icon name="plus" size={20} color={colors.textPrimary} />
+              </Pressable>
+            </View>
           </View>
 
           <FlatList
@@ -196,7 +202,6 @@ export function MoneySummaryScreen({ navigation }: NativeStackScreenProps<MoneyS
                 onReviewIncome={() => navigation.navigate('MoneyLivingPlan')}
                 onOpenCategory={(categoryId) => navigation.navigate('MoneyCategoryDetail', { categoryId, monthOffset: item.monthOffset })}
                 categoryPresentation={categoryPresentation}
-                onCategoryPresentationChange={setCategoryPresentation}
               />
             )}
             bounces={false}
@@ -257,7 +262,6 @@ function SummaryMonthPanel({
   answer,
   categoryPresentation,
   freshness,
-  onCategoryPresentationChange,
   onExplain,
   onOpenCategory,
   onReviewIncome,
@@ -267,7 +271,6 @@ function SummaryMonthPanel({
   answer: LivingLimitAnswer | null;
   categoryPresentation: MoneyCategoryPresentation;
   freshness: string;
-  onCategoryPresentationChange: (value: MoneyCategoryPresentation) => void;
   onExplain: () => void;
   onOpenCategory: (categoryId: string) => void;
   onReviewIncome: () => void;
@@ -276,26 +279,40 @@ function SummaryMonthPanel({
 }) {
   const cardWidth = Math.max(1, Math.floor((pageWidth - spacing.sm) / 2));
   const categoryView = resolveCategoryPresentation(categoryPresentation);
+  const flexibleCategories = period.categories.filter((category) => category.planRole !== 'protected');
+  const committedCategories = period.categories.filter((category) => category.planRole === 'protected');
   return (
     <View style={[styles.monthBody, { width: pageWidth }]}>
-      {answer ? (
-        <MoneyPlanLimitAnswer
-          answer={answer}
-          freshness={freshness}
-          onExplain={onExplain}
-          onReviewIncome={onReviewIncome}
-        />
-      ) : null}
       <View style={styles.categorySection}>
         <View style={styles.categoryHeader}>
-          <Text style={styles.categoryTitle}>Categories</Text>
-          <CategoryViewMenu
-            onPresentationChange={onCategoryPresentationChange}
-            presentation={categoryPresentation}
+          <CategoryConceptHeader
+            label="Flexible spending"
+            accessibilityLabel="About flexible spending"
+            explanation="Everyday categories that use the flexible spending amount shown here."
           />
+          {answer && answer.state !== 'missing_income_basis' ? (
+            <Pressable
+              accessibilityLabel="What’s included?"
+              accessibilityRole="button"
+              hitSlop={10}
+              onPress={onExplain}
+              style={({ pressed }) => [styles.explainAction, pressed ? styles.iconButtonPressed : null]}
+            >
+              <Text style={styles.explainActionText}>What’s included?</Text>
+            </Pressable>
+          ) : null}
         </View>
+        {answer ? (
+          <MoneyPlanLimitAnswer
+            answer={answer}
+            freshness={freshness}
+            onExplain={onExplain}
+            onReviewIncome={onReviewIncome}
+            showHeader={false}
+          />
+        ) : null}
         <View style={categoryView.layout === 'tiles' ? styles.categoryGrid : styles.categoryList}>
-          {period.categories.map((category) => (
+          {flexibleCategories.map((category) => (
             categoryView.layout === 'tiles' ? (
               <MoneyCategoryMeterTile
                 key={category.id}
@@ -315,6 +332,37 @@ function SummaryMonthPanel({
           ))}
         </View>
       </View>
+      {committedCategories.length > 0 ? (
+        <View style={styles.categorySection}>
+          <View style={styles.categoryHeader}>
+            <CategoryConceptHeader
+              label="Committed spending"
+              accessibilityLabel="About committed spending"
+              explanation="Bills and money already set aside before your flexible spending is calculated."
+            />
+          </View>
+          <View style={categoryView.layout === 'tiles' ? styles.categoryGrid : styles.categoryList}>
+            {committedCategories.map((category) => (
+              categoryView.layout === 'tiles' ? (
+                <MoneyCategoryMeterTile
+                  key={category.id}
+                  category={category}
+                  periodElapsedPercent={period.periodElapsedPercent}
+                  onPress={() => onOpenCategory(category.id)}
+                  style={{ width: cardWidth, flexBasis: cardWidth, flexGrow: 0, maxWidth: cardWidth }}
+                />
+              ) : (
+                <MoneyCategoryListRow
+                  key={category.id}
+                  category={category}
+                  onPress={() => onOpenCategory(category.id)}
+                  valueMode={categoryView.valueMode}
+                />
+              )
+            ))}
+          </View>
+        </View>
+      ) : null}
       {!answer ? <View style={styles.totalSection}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
@@ -325,6 +373,35 @@ function SummaryMonthPanel({
         <Text style={styles.remainingLabel}>{formatMoney(period.totals.remainingCents)} left across planned categories</Text>
       </View> : null}
       <Text style={styles.updatedLabel}>{period.monthOffset === 0 ? `Connected accounts · ${freshness}` : 'Saved transaction history'}</Text>
+    </View>
+  );
+}
+
+function CategoryConceptHeader({ accessibilityLabel, explanation, label }: {
+  accessibilityLabel: string;
+  explanation: string;
+  label: string;
+}) {
+  return (
+    <View style={styles.categoryConceptHeader}>
+      <Text style={styles.categoryTitle}>{label}</Text>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Pressable
+            accessibilityHint={explanation}
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole="button"
+            hitSlop={10}
+            style={({ pressed }) => [styles.categoryInfoButton, pressed ? styles.iconButtonPressed : null]}
+          >
+            <Icon name="info" size={16} color={colors.textSecondary} />
+          </Pressable>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side="bottom" sideOffset={4} style={styles.categoryConceptPopover}>
+          <Text style={styles.categoryConceptPopoverTitle}>{label}</Text>
+          <Text style={styles.categoryConceptPopoverCopy}>{explanation}</Text>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </View>
   );
 }
@@ -590,6 +667,7 @@ const styles = StyleSheet.create({
   monthPager: { overflow: 'hidden' },
   monthHeader: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   monthPicker: { minWidth: 0, flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  monthActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   monthTitle: { flexShrink: 1, marginLeft: spacing.xs, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   monthArrowButton: { width: 32, height: 32 },
@@ -598,7 +676,14 @@ const styles = StyleSheet.create({
   monthBody: { minHeight: 520, gap: spacing.lg },
   categorySection: { gap: spacing.sm },
   categoryHeader: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  categoryConceptHeader: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   categoryTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, fontWeight: '600' },
+  categoryInfoButton: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  categoryConceptPopover: { width: 260, paddingHorizontal: spacing.md, paddingVertical: spacing.md, gap: spacing.xs },
+  categoryConceptPopoverTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  categoryConceptPopoverCopy: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
+  explainAction: { paddingHorizontal: spacing.xs, paddingVertical: 4, borderRadius: 6 },
+  explainActionText: { color: colors.pine700, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   viewTrigger: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 8, paddingHorizontal: spacing.xs },
   viewTriggerText: { color: colors.textSecondary, fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, fontWeight: '500' },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md, columnGap: spacing.sm },

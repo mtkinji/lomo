@@ -8,11 +8,12 @@ import { formatMoneyPlanLimitAnswer, type MoneyPlanLimitAnswer as Answer } from 
 type Props = {
   answer: Answer;
   freshness: string;
+  showHeader?: boolean;
   onExplain: () => void;
   onReviewIncome: () => void;
 };
 
-export function MoneyPlanLimitAnswer({ answer, freshness, onExplain, onReviewIncome }: Props) {
+export function MoneyPlanLimitAnswer({ answer, freshness, showHeader = true, onExplain, onReviewIncome }: Props) {
   const content = formatMoneyPlanLimitAnswer(answer, freshness);
   if (answer.state === 'missing_income_basis') {
     const actionLabel = 'Finish plan';
@@ -40,7 +41,7 @@ export function MoneyPlanLimitAnswer({ answer, freshness, onExplain, onReviewInc
   const displayAmount = splitCurrencyAmount(compact.amount);
   return (
     <View testID="money-limit-card" style={styles.answerSection}>
-      <View testID="money-limit-header" style={styles.sectionHeader}>
+      {showHeader ? <View testID="money-limit-header" style={styles.sectionHeader}>
         <Text style={styles.sectionLabel}>{compact.label}</Text>
         <Pressable
           accessibilityLabel={actionLabel}
@@ -51,7 +52,7 @@ export function MoneyPlanLimitAnswer({ answer, freshness, onExplain, onReviewInc
         >
           <Text style={styles.explainActionText}>{actionLabel}</Text>
         </Pressable>
-      </View>
+      </View> : null}
       <Card elevation="none" marginVertical={0} padding="sm" style={styles.answerCard}>
         <View
           accessible
