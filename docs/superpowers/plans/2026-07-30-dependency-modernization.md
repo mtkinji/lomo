@@ -392,7 +392,7 @@ Committed as `7248446`.
 
 For every cohort: capture upstream changelogs, install only named packages, inspect the lockfile, run focused tests, run `npm run verify:changed -- --run`, perform required native proof, and commit before starting the next cohort.
 
-- [ ] **Step 1: UI primitives cohort**
+- [x] **Step 1: UI primitives cohort**
 
 Update within current majors: Bottom Sheet 5, React Native Primitives 1, Lucide only within the currently compatible line, Picker within Expo's supported range, and safe-area context within Expo's supported range. Test drawers, sheets, menus, portals, focus trapping, keyboard avoidance, reduced motion, and accessibility.
 
@@ -655,3 +655,14 @@ Append one dated entry per cohort with:
 - Retained proof gaps: deliberately generated rich-response interaction, selection/copy, and accessibility text-size behavior remain manually unverified. The broader physical-device signing/background hold is unchanged and unrelated to this JavaScript-only cohort.
 - Rollback point: `e4b54e7`.
 - Decision: advance the bounded security implementation while keeping Task 5 Step 5 open until the remaining manual presentation checks pass. Do not describe the repository as audit-clean; the 22 unrelated production findings remain for later bounded cohorts.
+
+### 2026-08-03 — UI primitives cohort
+
+- Starting commit: `9e06397`; implementation commit: `2273890`.
+- Dependency diff: Bottom Sheet `5.2.6` -> `5.2.14`; React Native Primitives dialog and dropdown menu `1.2.0` -> `1.5.2`; portal `1.3.0` -> `1.5.2`; and their internal primitives converged on `1.5.2`. Safe Area Context remained installed at Expo-compatible `5.6.2`, with the declaration narrowed from `^5.6.2` to `~5.6.2`. Expo-compatible Picker `2.11.1` and Lucide `0.553.0` were deliberately retained. No native pod or protected integration version changed.
+- Upstream review: Bottom Sheet `5.2.7` through `5.2.14` is a bounded v5 bug-fix line covering modal synchronization, keyboard/layout behavior, and rapid present/close cases. React Native Primitives moved as one coherent package family. The currently installed Picker and Safe Area versions remain those documented for Expo SDK 54; Lucide's newer release line is an independent major and was excluded.
+- Verification: the Node 22.23.2 clean install applied both repository patches; the focused Picker Fields, Combobox, Activity List Item, and bottom-bar suites passed 4 suites / 9 tests before and after installation; app and test typechecks passed; diff-aware verification passed with no code-health regression; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. The install retained the existing 27 all-scope audit findings and did not introduce a new finding.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout. A cache-cleared bundle completed at 5,797 modules, restored the signed-in session and domain sync, opened and dismissed the real Goals dropdown/portal, and rendered the native duration wheels with their persisted value without mutating data. Safe-area placement remained correct on the Dynamic Island simulator.
+- Retained proof limits: the Bottom Sheet adapter currently has no active production call site, so this cohort proves its import/type/test compatibility but not an interactive sheet. Focus trapping and hardware-keyboard behavior remain relevant when a production call site returns. The separate physical-device signing/background hold is unchanged; this JavaScript-only cohort did not require a new binary or TestFlight build.
+- Rollback point: `9e06397`.
+- Decision: advance to the React Navigation 7 cohort. Keep Picker, Lucide, and Expo-coupled native versions pinned until their owning compatibility cohort.
