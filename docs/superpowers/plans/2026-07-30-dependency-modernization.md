@@ -246,21 +246,21 @@ git commit -m "chore: align Expo SDK 54 dependencies"
 - Modify: `package.json`
 - Modify: `package-lock.json`
 
-- [ ] **Step 1: Add regression tests for existing audio contracts**
+- [x] **Step 1: Add regression tests for existing audio contracts**
 
 Mock `expo-audio` and cover: one-shot sound replay, soundscape loop/load/fade/stop, app foreground/background recovery, voice-record permission denial, record/start/stop URI return, and attachment duration preservation.
 
 Run each new test first and confirm it fails because the service still imports `expo-av`.
 
-- [ ] **Step 2: Migrate playback to `expo-audio`**
+- [x] **Step 2: Migrate playback to `expo-audio`**
 
 Use `createAudioPlayer`/`replace`, `play`, `pause`, `seekTo(0)`, loop, volume, and `remove` behind the current service functions. Preserve the public service interfaces so screens and Focus behavior do not change. Use `setAudioModeAsync` for silent-mode, interruption, recording, and background behavior.
 
-- [ ] **Step 3: Migrate voice recording to `expo-audio`**
+- [x] **Step 3: Migrate voice recording to `expo-audio`**
 
 Use the recorder permission and recorder lifecycle APIs, retain the existing result shape, preserve microphone-denial messaging, and verify the recorded file remains uploadable through the attachment service.
 
-- [ ] **Step 4: Remove `expo-av` only after imports reach zero**
+- [x] **Step 4: Remove `expo-av` only after imports reach zero**
 
 ```bash
 rg -n "expo-av" src packages modules
@@ -273,12 +273,18 @@ Expected: `rg` returns no runtime or type import and the package is absent from 
 
 Test UI completion sounds, Games sounds, soundscape looping and lock-screen continuation, interruption by another audio app, voice recording, voice playback, and attachment upload.
 
-- [ ] **Step 6: Commit the audio migration alone**
+On 2026-08-03, the iPhone 17 Pro Simulator (`D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, iOS 26.5) rebuilt successfully after CocoaPods removed `ExpoAV`, installed the app, bundled 5,764 modules from this checkout's Metro server, launched, restored the signed-in session, and completed initial domain sync. The focused contract suite passed 21 tests, and the diff-aware gate passed 12 related suites / 40 tests plus type, code-health, chat-contract, and architecture gates.
+
+The checkbox remains open because audible output, microphone capture/upload, background/lock-screen continuation, and audio interruption still require manual proof. The connected and paired physical iPhone was available to CoreDevice, but its build stopped while signing `KwiltShieldConfiguration.appex` with `errSecInternalComponent`; direct signing reproduced the same private-key/keychain authorization failure. Resolve that local signing authorization before counting signed-device audio proof.
+
+- [x] **Step 6: Commit the audio migration alone**
 
 ```bash
 git add src package.json package-lock.json
 git commit -m "refactor: migrate audio runtime to expo-audio"
 ```
+
+Committed as `8af7eab`.
 
 ## Task 4: Modernize background work and file-system usage
 

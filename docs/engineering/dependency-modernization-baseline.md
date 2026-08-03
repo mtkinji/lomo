@@ -56,7 +56,7 @@ The full audit reports 49 findings: 4 low, 26 moderate, 17 high, and 2 critical.
 - `markdown-it@10.0.0` and `linkify-it` high are reached through direct runtime dependency `react-native-markdown-display`. This is the principal shipped-input risk and remains assigned to the bounded Markdown hardening cohort.
 - Other high findings (`@xmldom/xmldom`, brace/minimatch variants, `js-yaml`, `node-forge`, `picomatch`, `postcss`, `undici`, `ws`) are retained for path-by-path review; most are CLI, test, bundler, or networking transitive dependencies. No forced audit fix is authorized.
 
-Deprecated runtime APIs are present and intentionally deferred to dedicated cohorts: `expo-av`, `expo-background-fetch`, and `expo-file-system/legacy` callers. They must not be removed as incidental SDK-alignment work.
+Deprecated runtime APIs remain in the intentionally separate background-work and file-system cohorts: `expo-background-fetch` and `expo-file-system/legacy` callers. The bounded audio cohort removed all `expo-av` runtime/type imports and the package itself in `8af7eab`; its signed-device behavior proof remains open in the modernization plan.
 
 ## Behavioral baseline
 
