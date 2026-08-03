@@ -217,7 +217,7 @@ Expected: no Expo version mismatch, no missing native peer, no duplicate Expo na
 
 - [ ] **Step 6: Build and run the SDK 54 native shell**
 
-Build, install, bundle, session restoration, and initial sync passed on the declared Simulator on 2026-08-03. The checkbox remains open until the deliberate critical-flow smoke and signed-device gates recorded in the baseline are complete.
+Build, install, bundle, session restoration, initial sync, and the available deliberate Simulator smoke passed on the declared Simulator on 2026-08-03. The checkbox remains open because the signed-device gates recorded in the baseline are incomplete; the declared iPhone was still offline.
 
 ```bash
 npx expo run:ios
@@ -604,3 +604,14 @@ Append one dated entry per cohort with:
 - Retained risks: the 15 pre-existing Pixel Pet Jest-runner mismatches; 30 audit findings including build-tool `shell-quote` critical and shipped Markdown highs; existing native warnings; deliberate Simulator critical-flow smoke and signed-device integration flows remain open.
 - Rollback point: `aa69917` for the alignment cohort (`72dabd2` for the entire program).
 - Decision: hold at the SDK 54 checkpoint. Do not begin audio/API modernization or an SDK transition until the remaining Step 6 runtime proof is accepted or completed.
+
+### 2026-08-03 — SDK 54 Simulator critical-flow continuation
+
+- Commit under test: `2c26231`; no dependency, source, lockfile, or native-project change was made.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout and stopped after the smoke.
+- Rebuilt the same commit with the existing release Chat flag and stable Kwilt-owned workbench URL supplied as process environment. The incremental native build passed with 0 errors and 1 retained Maps privacy-bundle deployment-target warning.
+- Observed without a fatal runtime error: restored signed-in Chat and an existing thread; Goals; the To-dos list and duration editor; Plan/calendar; Chapters; Budget, Transactions, and Accounts; Explore with the pinned Silver Mist Metal concealment visible; Games catalog; the Hourglass timer across portrait/landscape; legacy `kwiltgames://join/:token` routing into the join surface; personal and family Screen Time surfaces; session restoration; initial domain sync; and push-token registration logging.
+- Automated Maestro smoke was unavailable because the installed Maestro launcher has no Java runtime. This is retained as a tooling gap, not counted as a passing gate.
+- Not proven in this continuation: create/edit/complete/reorder/reminder mutations, Chat attachment/voice streaming, Plaid sandbox Link, RevenueCat purchase/restore, Apple Health authorization/read, notification delivery, background/lock-state behavior, real GPS recording, widget/Live Activity placement, signed Screen Time enforcement, physical audio/interruption behavior, or TestFlight.
+- Signed device remained unavailable: `Andy’s iPhone 16` (`00008140-001A55A41E07001C`) was still offline.
+- Decision: retain the SDK 54 hold. Task 3 does not start until signed-device proof is available or Andrew explicitly revises the plan's safety gate with the remaining risk recorded.
