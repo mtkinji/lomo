@@ -95,7 +95,7 @@ The minimum user-flow regression set for every SDK transition is:
 - Read: `ios/Podfile`
 - Read: `ios/Podfile.lock`
 - Read: `patches/react-native-maps+1.20.1.patch`
-- Read: `patches/react-native-drawer-layout+4.2.0.patch`
+- Read: `patches/react-native-drawer-layout+4.2.9.patch`
 
 - [x] **Step 1: Capture manifest, native, compatibility, and security evidence**
 
@@ -396,9 +396,9 @@ For every cohort: capture upstream changelogs, install only named packages, insp
 
 Update within current majors: Bottom Sheet 5, React Native Primitives 1, Lucide only within the currently compatible line, Picker within Expo's supported range, and safe-area context within Expo's supported range. Test drawers, sheets, menus, portals, focus trapping, keyboard avoidance, reduced motion, and accessibility.
 
-- [ ] **Step 2: Navigation cohort**
+- [x] **Step 2: Navigation cohort**
 
-Update all React Navigation 7 packages together. Rebase `patches/react-native-drawer-layout+4.2.0.patch` if its transitive version changes and preserve `ReduceMotion.System`. Test root restore, tabs, drawer, modals, deep links, Games joins, auth redirects, and Android back behavior.
+Update all React Navigation 7 packages together. Rebase `patches/react-native-drawer-layout+4.2.9.patch` if its transitive version changes and preserve `ReduceMotion.System`. Test root restore, tabs, drawer, modals, deep links, Games joins, auth redirects, and Android back behavior.
 
 - [ ] **Step 3: Data/analytics cohort**
 
@@ -666,3 +666,14 @@ Append one dated entry per cohort with:
 - Retained proof limits: the Bottom Sheet adapter currently has no active production call site, so this cohort proves its import/type/test compatibility but not an interactive sheet. Focus trapping and hardware-keyboard behavior remain relevant when a production call site returns. The separate physical-device signing/background hold is unchanged; this JavaScript-only cohort did not require a new binary or TestFlight build.
 - Rollback point: `9e06397`.
 - Decision: advance to the React Navigation 7 cohort. Keep Picker, Lucide, and Expo-coupled native versions pinned until their owning compatibility cohort.
+
+### 2026-08-03 — React Navigation 7 cohort
+
+- Starting commit: `07fe332`; implementation commit: `4ed3bf3`.
+- Dependency diff: React Navigation bottom tabs `7.8.5` -> `7.18.14`, drawer `7.7.3` -> `7.13.5`, native `7.1.21` -> `7.3.14`, native stack `7.6.3` -> `7.18.6`, and their core/elements/router packages moved as one compatible family. The drawer transitive moved `react-native-drawer-layout` `4.2.0` -> `4.2.9`; its patch was rebased and still changes only `ReduceMotion.Never` to `ReduceMotion.System` in source and built output. No Expo-coupled native dependency or pod changed.
+- Compatibility review: the installed React Navigation packages remain within major 7, retain peers compatible with React 19, Screens 4, Safe Area 5, Gesture Handler 2, and Reanimated 4, and avoid the React Navigation 8 prerelease, which requires Expo 55, React Native 0.83, and newer peers. The upgrade surfaced the now-deprecated object form of `navigate`; a regression-first helper test failed before the fix, then the three capability-navigation dispatch paths moved to the supported `navigate(name, params)` overload and the warning disappeared on the clean reload.
+- Verification: the Node 22.23.2 clean install applied the rebased drawer patch and the pinned Maps patch; app and test typechecks passed; 99 focused navigation, persistence, tabs, drawer-history, deep-link, Games, and auth-contract tests passed; the final diff-aware gate passed 11 related suites / 92 tests plus code-health and architecture lint with 11 retained warnings; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. Full Jest retained the established baseline exactly: 520 suites / 3,293 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout and stopped afterward. A cache-cleared bundle completed at 5,805 modules, restored the signed-in session and prior nested Activity detail route, navigated back through both stack levels, opened the patched drawer, switched from Goals to To-dos, opened and dismissed the legacy `kwiltgames://join/private-token` join modal, restored session/domain data, and logged no fatal navigation error. The existing Gesture Handler worklet warnings remained unchanged.
+- Retained proof limits: auth callback behavior is covered by config/service tests rather than a destructive sign-out/sign-in; Android back behavior is covered by the real DrawerRouter history action test because this Mac has no `adb`, emulator, or AVD installed. No new native binary, signed-device run, or TestFlight build was required for this JavaScript-only cohort; the separate physical-device signing/background hold remains open.
+- Rollback point: `07fe332`.
+- Decision: advance to the data/analytics cohort while keeping the explicit Android-runtime and physical-device proof limits visible.
