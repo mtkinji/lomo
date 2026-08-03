@@ -217,7 +217,7 @@ Expected: no Expo version mismatch, no missing native peer, no duplicate Expo na
 
 - [ ] **Step 6: Build and run the SDK 54 native shell**
 
-Build, install, bundle, session restoration, initial sync, and the available deliberate Simulator smoke passed on the declared Simulator on 2026-08-03. The checkbox remains open because the signed-device gates recorded in the baseline are incomplete; the declared iPhone was still offline.
+Build, install, bundle, session restoration, initial sync, and the available deliberate Simulator smoke passed on the declared Simulator on 2026-08-03. The checkbox remains open because the signed-device gates recorded in the baseline are incomplete. The physical iPhone later connected successfully, but native installation is blocked by local keychain/private-key authorization while signing `KwiltShieldConfiguration.appex` (`errSecInternalComponent`); this is no longer an offline-device issue.
 
 ```bash
 npx expo run:ios
@@ -275,7 +275,7 @@ Test UI completion sounds, Games sounds, soundscape looping and lock-screen cont
 
 On 2026-08-03, the iPhone 17 Pro Simulator (`D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, iOS 26.5) rebuilt successfully after CocoaPods removed `ExpoAV`, installed the app, bundled 5,764 modules from this checkout's Metro server, launched, restored the signed-in session, and completed initial domain sync. The focused contract suite passed 21 tests, and the diff-aware gate passed 12 related suites / 40 tests plus type, code-health, chat-contract, and architecture gates. Andrew then confirmed audible playback in Bank and Focus mode. Chat initially showed its disabled-build fallback because the development build lacked both required embedded Chat values; rebuilding with `UNIFIED_CHAT_ENABLED=1` and `UNIFIED_CHAT_WORKBENCH_URL=https://www.kwilt.app/embed/chat` restored the native Chat surface and microphone control.
 
-The checkbox remains open because audible output, microphone capture/upload, background/lock-screen continuation, and audio interruption still require manual proof. The connected and paired physical iPhone was available to CoreDevice, but its build stopped while signing `KwiltShieldConfiguration.appex` with `errSecInternalComponent`; direct signing reproduced the same private-key/keychain authorization failure. Resolve that local signing authorization before counting signed-device audio proof.
+Andrew confirmed audible playback in Bank and Focus mode and successful native Chat microphone capture/transcription after the correctly configured rebuild. The checkbox remains open because attachment upload, background/lock-screen continuation, and interruption by another audio app still require signed-device proof. The connected and paired physical iPhone was available to CoreDevice, but its build stopped while signing `KwiltShieldConfiguration.appex` with `errSecInternalComponent`; direct signing reproduced the same private-key/keychain authorization failure. Resolve that local signing authorization before counting the remaining signed-device audio proof.
 
 - [x] **Step 6: Commit the audio migration alone**
 
@@ -301,19 +301,19 @@ Committed as `8af7eab`.
 - Modify: `package.json`
 - Modify: `package-lock.json`
 
-- [ ] **Step 1: Lock down current scheduling behavior with regression tests**
+- [x] **Step 1: Lock down current scheduling behavior with regression tests**
 
 Cover task naming, registration idempotency, minimum intervals, unregister behavior, unavailable-module fallback, health synchronization, and notification delivery outcomes.
 
-- [ ] **Step 2: Replace `expo-background-fetch` with `expo-background-task`**
+- [x] **Step 2: Replace `expo-background-fetch` with `expo-background-task`**
 
 Keep Task Manager task identifiers stable where the platform permits. Map the existing success/no-data/failure outcomes to the new task result contract and preserve the current best-effort behavior when background execution is unavailable.
 
-- [ ] **Step 3: Migrate each `expo-file-system/legacy` caller separately**
+- [x] **Step 3: Migrate each `expo-file-system/legacy` caller separately**
 
 Use the object-oriented `File`, `Directory`, and `Paths` APIs. Preserve cache/document placement, collision behavior, URI lifetime, uploads, and cleanup. Do not combine this with UI changes.
 
-- [ ] **Step 4: Remove deprecated packages/imports after zero-use checks**
+- [x] **Step 4: Remove deprecated packages/imports after zero-use checks**
 
 ```bash
 rg -n "expo-background-fetch|expo-file-system/legacy" src packages modules
@@ -325,12 +325,16 @@ npx expo install expo-background-task
 
 Confirm task registration, app suspension/resumption, notification scheduling, health refresh, persisted hero/attachment files after relaunch, and voice attachment upload. Simulator-only proof is insufficient.
 
-- [ ] **Step 6: Commit this cohort alone**
+Source contracts, native configuration, and the foreground/runtime portions passed on 2026-08-03. Expo Background Task uses one shared native worker, so Health is registered before notifications and a persistent 12-hour Health throttle prevents the notification worker's 15-minute minimum from over-running Health synchronization. The iPhone 17 Pro Simulator rebuilt and launched from this checkout, restored its session, completed initial sync, and reloaded without the deprecated FileSystem runtime warning after the final `SvgFromAsset` migration. Actual background triggering remains unproven because Expo does not provide it on iOS Simulator and the connected physical iPhone build is blocked by the signing/keychain failure recorded above.
+
+- [x] **Step 6: Commit this cohort alone**
 
 ```bash
 git add src package.json package-lock.json
 git commit -m "refactor: modernize background and file services"
 ```
+
+Committed as `8f4083f`.
 
 ## Task 5: Contain the Markdown parser risk
 
@@ -621,3 +625,15 @@ Append one dated entry per cohort with:
 - Not proven in this continuation: create/edit/complete/reorder/reminder mutations, Chat attachment/voice streaming, Plaid sandbox Link, RevenueCat purchase/restore, Apple Health authorization/read, notification delivery, background/lock-state behavior, real GPS recording, widget/Live Activity placement, signed Screen Time enforcement, physical audio/interruption behavior, or TestFlight.
 - Signed device remained unavailable: `Andy’s iPhone 16` (`00008140-001A55A41E07001C`) was still offline.
 - Decision: retain the SDK 54 hold. Task 3 does not start until signed-device proof is available or Andrew explicitly revises the plan's safety gate with the remaining risk recorded.
+
+### 2026-08-03 — Background work and FileSystem modernization
+
+- Starting commit: `1642811`; implementation commit: `8f4083f`.
+- Dependency/native diff: replaced `expo-background-fetch` `~14.0.9` with Expo-compatible `expo-background-task` `~1.0.10`, registered its config plugin, installed `ExpoBackgroundTask 1.0.10`, and removed the `ExpoBackgroundFetch` pod. React, React Native, Maps/Silver Mist, Plaid, RevenueCat, HealthKit, and the other protected native dependencies did not move.
+- Source diff: moved notification and Health scheduling to stable Background Task identifiers; added ordered combined registration and a persistent 12-hour Health throttle; migrated every runtime `expo-file-system/legacy` caller to `File`, `Directory`, and `Paths`; and centralized signed uploads through `expo/fetch` with an Expo `File` body. Zero-use searches found no remaining deprecated imports.
+- Verification: Expo install check passed; Expo Doctor passed 18/18; public/introspected configuration includes background processing and `com.expo.modules.backgroundtask.processing`; app and test typechecks passed; diff-aware verification passed 25 related suites / 124 tests plus code-health, Chat-contract, product, and architecture gates. The full Jest comparison produced the unchanged baseline: 519 suites / 3,277 tests passed and the same 15 pre-existing Pixel Pet Jest-runner mismatches failed.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A` on iOS 26.5, Metro 8081 owned by this checkout. CocoaPods completed; the native build completed with 0 errors and 5 retained warnings; Metro bundled 5,536 modules; the app restored its signed-in session, completed initial domain sync, displayed persisted image content, and emitted no deprecated FileSystem warning after the final reload.
+- Signed device/TestFlight: not completed. The physical iPhone is connected, but signing `KwiltShieldConfiguration.appex` fails locally with `errSecInternalComponent`. Expo documents actual iOS Background Task execution as unavailable in Simulator, so task suspension/wake behavior, notification/Health background outcomes, and signed-device voice upload remain open. No EAS/TestFlight build was created.
+- Retained risks: the open signed-device background gate; the existing native warnings; and the unchanged Pixel Pet test-runner baseline. Simulator proof covers linking, configuration, foreground services, persistence/relaunch, and upload contracts, not OS-scheduled execution.
+- Rollback point: `1642811`.
+- Decision: advance the implementation cohort and retain Task 4 Step 5 as an explicit signed-device hold. Do not claim the background migration fully production-proven until signing is restored and the listed device scenarios pass.
