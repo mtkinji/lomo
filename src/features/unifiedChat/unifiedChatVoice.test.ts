@@ -9,8 +9,7 @@ const mockRecorder = {
 const mockAudioRecorder = jest.fn(() => mockRecorder);
 const mockRequestRecordingPermissionsAsync = jest.fn(async () => ({ granted: true }));
 const mockSetAudioModeAsync = jest.fn(async () => undefined);
-const mockGetInfoAsync = jest.fn(async () => ({ exists: true, size: 1024 }));
-const mockReadAsStringAsync = jest.fn(async () => 'base64-audio');
+const mockFileBase64 = jest.fn(async () => 'base64-audio');
 
 jest.mock('expo-audio', () => ({
   AudioModule: { AudioRecorder: mockAudioRecorder },
@@ -24,10 +23,13 @@ jest.mock('expo-audio', () => ({
   setAudioModeAsync: mockSetAudioModeAsync,
 }));
 
-jest.mock('expo-file-system/legacy', () => ({
-  EncodingType: { Base64: 'base64' },
-  getInfoAsync: mockGetInfoAsync,
-  readAsStringAsync: mockReadAsStringAsync,
+jest.mock('expo-file-system', () => ({
+  File: jest.fn().mockImplementation((uri: string) => ({
+    uri,
+    exists: true,
+    size: 1024,
+    base64: mockFileBase64,
+  })),
 }));
 
 jest.mock('../../services/backend/auth', () => ({ getAccessToken: jest.fn(async () => 'token') }));
@@ -111,7 +113,6 @@ describe('Unified Chat native voice recording', () => {
     await expect(stopAndTranscribeUnifiedChatVoice()).resolves.toBe('Recorded thought');
 
     expect(mockRecorder.stop).toHaveBeenCalledTimes(1);
-    expect(mockGetInfoAsync).toHaveBeenCalledWith('file:///voice.m4a');
-    expect(mockReadAsStringAsync).toHaveBeenCalledWith('file:///voice.m4a', { encoding: 'base64' });
+    expect(mockFileBase64).toHaveBeenCalledTimes(1);
   });
 });

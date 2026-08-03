@@ -252,6 +252,7 @@ const config = {
   },
   plugins: [
     'expo-asset',
+    'expo-background-task',
     'expo-web-browser',
     'expo-font',
     [

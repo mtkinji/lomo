@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -53,7 +53,7 @@ export function SvgFromAsset({
         let text: string | null = null;
         try {
           if (asset.localUri) {
-            text = await FileSystem.readAsStringAsync(asset.localUri);
+            text = await new File(asset.localUri).text();
           }
         } catch {
           text = null;
@@ -94,4 +94,3 @@ export function SvgFromAsset({
     </View>
   );
 }
-

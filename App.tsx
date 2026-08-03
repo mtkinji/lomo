@@ -39,9 +39,8 @@ import { getAdminProCodesStatus } from './src/services/proCodes';
 import { clearAdminEntitlementsOverrideTier } from './src/services/entitlements';
 import {
   reconcileNotificationsFiredEstimated,
-  registerNotificationReconcileTask,
 } from './src/services/notifications/notificationBackgroundTask';
-import { registerHealthDailySyncTask } from './src/services/health/healthBackgroundTask';
+import { registerKwiltBackgroundTasks } from './src/services/background/registerKwiltBackgroundTasks';
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import './src/capabilities/explore/runtime/exploreBackgroundTask';
@@ -376,15 +375,11 @@ export default function App() {
         console.warn('[haptics] init failed', error);
       }
     });
-    // Best-effort background reconciliation for "fired" notifications without a server.
-    registerNotificationReconcileTask().catch((error) => {
+    // Best-effort background work registration. The helper preserves the shared
+    // native worker's required ordering and interval semantics.
+    registerKwiltBackgroundTasks().catch((error) => {
       if (__DEV__) {
-        console.warn('[notifications] failed to register background reconcile task', error);
-      }
-    });
-    registerHealthDailySyncTask().catch((error) => {
-      if (__DEV__) {
-        console.warn('[health] failed to register background sync task', error);
+        console.warn('[background] failed to register background tasks', error);
       }
     });
     // Reconcile on launch too (covers cases where background fetch doesn't run).

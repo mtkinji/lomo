@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import { REMOTE_AUDIO_ASSETS } from './audioAssetCatalog';
 import {
   cacheAudioAsset,
@@ -6,22 +6,68 @@ import {
   resolveAudioAsset,
 } from './audioAssetDelivery';
 
-jest.mock('expo-file-system/legacy', () => ({
-  cacheDirectory: 'file:///cache/',
-  getInfoAsync: jest.fn(),
-  makeDirectoryAsync: jest.fn(async () => undefined),
-  downloadAsync: jest.fn(),
-  moveAsync: jest.fn(async () => undefined),
-  deleteAsync: jest.fn(async () => undefined),
-}));
+jest.mock('expo-file-system', () => {
+  const files = new Map<string, number>();
+  const downloadFileAsync = jest.fn();
+  const deleteFile = jest.fn((uri: string) => files.delete(uri));
+  const moveFile = jest.fn((from: string, to: string) => {
+    const size = files.get(from);
+    files.delete(from);
+    if (size !== undefined) files.set(to, size);
+  });
+  const join = (parts: unknown[]) => parts
+    .map((part) => typeof part === 'string' ? part : (part as { uri: string }).uri)
+    .reduce((path, part) => path ? `${path.replace(/\/$/, '')}/${part.replace(/^\//, '')}` : part, '');
 
-const getInfoAsync = FileSystem.getInfoAsync as jest.Mock;
-const downloadAsync = FileSystem.downloadAsync as jest.Mock;
-const moveAsync = FileSystem.moveAsync as jest.Mock;
+  class MockDirectory {
+    uri: string;
+    create = jest.fn();
+    constructor(...parts: unknown[]) { this.uri = `${join(parts).replace(/\/$/, '')}/`; }
+  }
+
+  class MockFile {
+    uri: string;
+    constructor(...parts: unknown[]) { this.uri = join(parts); }
+    get exists() { return files.has(this.uri); }
+    get size() { return files.get(this.uri) ?? 0; }
+    delete() { deleteFile(this.uri); }
+    move(destination: MockFile) { moveFile(this.uri, destination.uri); }
+    static downloadFileAsync = downloadFileAsync;
+  }
+
+  return {
+    Directory: MockDirectory,
+    File: MockFile,
+    Paths: { cache: { uri: 'file:///cache' } },
+    __files: files,
+    __downloadFileAsync: downloadFileAsync,
+    __deleteFile: deleteFile,
+    __moveFile: moveFile,
+  };
+});
+
+type FileSystemMock = typeof FileSystem & {
+  __files: Map<string, number>;
+  __downloadFileAsync: jest.Mock;
+  __deleteFile: jest.Mock;
+  __moveFile: jest.Mock;
+};
+
+const fileSystemMock = FileSystem as FileSystemMock;
+
+function cacheUri(fileName: string) {
+  return `file:///cache/kwilt-audio/${fileName}`;
+}
+
+function downloadedFile(uri: string, size: number) {
+  fileSystemMock.__files.set(uri, size);
+  return new FileSystem.File(uri);
+}
 
 describe('audio asset delivery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    fileSystemMock.__files.clear();
     clearAudioAssetDeliveryStateForTests();
   });
 
@@ -35,58 +81,53 @@ describe('audio asset delivery', () => {
 
   test('returns a verified cached file without starting a download', async () => {
     const entry = REMOTE_AUDIO_ASSETS['focus.open-road'];
-    getInfoAsync.mockResolvedValue({ exists: true, isDirectory: false, size: entry.expectedBytes, uri: `file:///cache/kwilt-audio/${entry.cacheFileName}` });
+    fileSystemMock.__files.set(cacheUri(entry.cacheFileName), entry.expectedBytes);
 
     await expect(resolveAudioAsset('focus.open-road')).resolves.toEqual({
-      uri: `file:///cache/kwilt-audio/${entry.cacheFileName}`,
+      uri: cacheUri(entry.cacheFileName),
       sourceKind: 'cache',
     });
-    expect(downloadAsync).not.toHaveBeenCalled();
+    expect(fileSystemMock.__downloadFileAsync).not.toHaveBeenCalled();
   });
 
-  test('returns the remote URL immediately on a miss and begins caching', async () => {
+  test('returns the remote URL immediately on a miss and begins atomic caching', async () => {
     const entry = REMOTE_AUDIO_ASSETS['focus.open-road'];
-    getInfoAsync
-      .mockResolvedValueOnce({ exists: false, isDirectory: false })
-      .mockResolvedValueOnce({ exists: false, isDirectory: false })
-      .mockResolvedValueOnce({ exists: true, isDirectory: false, size: entry.expectedBytes });
-    downloadAsync.mockResolvedValue({ uri: `file:///cache/kwilt-audio/${entry.cacheFileName}.download`, status: 200, headers: {} });
+    const temporaryUri = `${cacheUri(entry.cacheFileName)}.download`;
+    fileSystemMock.__downloadFileAsync.mockImplementationOnce(async () =>
+      downloadedFile(temporaryUri, entry.expectedBytes));
 
     await expect(resolveAudioAsset('focus.open-road')).resolves.toEqual({
       uri: entry.url,
       sourceKind: 'remote',
     });
     await cacheAudioAsset('focus.open-road');
-    expect(downloadAsync).toHaveBeenCalledWith(entry.url, `file:///cache/kwilt-audio/${entry.cacheFileName}.download`);
-    expect(moveAsync).toHaveBeenCalledWith({
-      from: `file:///cache/kwilt-audio/${entry.cacheFileName}.download`,
-      to: `file:///cache/kwilt-audio/${entry.cacheFileName}`,
-    });
+
+    expect(fileSystemMock.__downloadFileAsync).toHaveBeenCalledWith(
+      entry.url,
+      expect.objectContaining({ uri: temporaryUri }),
+      { idempotent: true },
+    );
+    expect(fileSystemMock.__moveFile).toHaveBeenCalledWith(temporaryUri, cacheUri(entry.cacheFileName));
   });
 
   test('deduplicates concurrent cache requests', async () => {
     const entry = REMOTE_AUDIO_ASSETS['game.story-relay'];
-    getInfoAsync
-      .mockResolvedValueOnce({ exists: false, isDirectory: false })
-      .mockResolvedValueOnce({ exists: true, isDirectory: false, size: entry.expectedBytes });
-    downloadAsync.mockResolvedValue({ uri: `file:///cache/kwilt-audio/${entry.cacheFileName}.download`, status: 200, headers: {} });
+    const temporaryUri = `${cacheUri(entry.cacheFileName)}.download`;
+    fileSystemMock.__downloadFileAsync.mockImplementationOnce(async () =>
+      downloadedFile(temporaryUri, entry.expectedBytes));
 
     await Promise.all([cacheAudioAsset('game.story-relay'), cacheAudioAsset('game.story-relay')]);
-    expect(downloadAsync).toHaveBeenCalledTimes(1);
+    expect(fileSystemMock.__downloadFileAsync).toHaveBeenCalledTimes(1);
   });
 
   test('rejects and removes a download whose byte size is wrong', async () => {
     const entry = REMOTE_AUDIO_ASSETS['focus.rainlit-library'];
-    getInfoAsync
-      .mockResolvedValueOnce({ exists: false, isDirectory: false })
-      .mockResolvedValueOnce({ exists: true, isDirectory: false, size: entry.expectedBytes - 1 });
-    downloadAsync.mockResolvedValue({ uri: `file:///cache/kwilt-audio/${entry.cacheFileName}.download`, status: 200, headers: {} });
+    const temporaryUri = `${cacheUri(entry.cacheFileName)}.download`;
+    fileSystemMock.__downloadFileAsync.mockImplementationOnce(async () =>
+      downloadedFile(temporaryUri, entry.expectedBytes - 1));
 
     await expect(cacheAudioAsset('focus.rainlit-library')).rejects.toThrow('Audio download size mismatch');
-    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
-      `file:///cache/kwilt-audio/${entry.cacheFileName}.download`,
-      { idempotent: true },
-    );
-    expect(moveAsync).not.toHaveBeenCalled();
+    expect(fileSystemMock.__deleteFile).toHaveBeenCalledWith(temporaryUri);
+    expect(fileSystemMock.__moveFile).not.toHaveBeenCalled();
   });
 });

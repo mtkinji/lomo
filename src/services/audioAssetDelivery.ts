@@ -1,28 +1,27 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { Directory, File, Paths } from 'expo-file-system';
 import { remoteAudioAsset, type RemoteAudioAssetId } from './audioAssetCatalog';
 
 export type AudioSourceKind = 'cache' | 'remote';
 export type ResolvedAudioAsset = { uri: string; sourceKind: AudioSourceKind };
 
-const CACHE_FOLDER = 'kwilt-audio/';
+const CACHE_FOLDER = 'kwilt-audio';
 const inFlightDownloads = new Map<RemoteAudioAssetId, Promise<string>>();
 
 function cacheDirectory() {
-  return FileSystem.cacheDirectory ? `${FileSystem.cacheDirectory}${CACHE_FOLDER}` : null;
+  return new Directory(Paths.cache, CACHE_FOLDER);
 }
 
 function cachePath(id: RemoteAudioAssetId) {
-  const directory = cacheDirectory();
-  return directory ? `${directory}${remoteAudioAsset(id).cacheFileName}` : null;
+  return new File(cacheDirectory(), remoteAudioAsset(id).cacheFileName);
 }
 
 async function verifiedCachePath(id: RemoteAudioAssetId) {
-  const path = cachePath(id);
-  if (!path) return null;
+  const file = cachePath(id);
   const entry = remoteAudioAsset(id);
-  const info = await FileSystem.getInfoAsync(path);
-  if (info.exists && !info.isDirectory && info.size === entry.expectedBytes) return path;
-  if (info.exists) await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => undefined);
+  if (file.exists && file.size === entry.expectedBytes) return file.uri;
+  if (file.exists) {
+    try { file.delete(); } catch { /* best-effort */ }
+  }
   return null;
 }
 
@@ -47,27 +46,28 @@ export function cacheAudioAsset(id: RemoteAudioAssetId): Promise<string> {
 
     const directory = cacheDirectory();
     const destination = cachePath(id);
-    if (!directory || !destination) throw new Error('Audio cache is unavailable');
 
     const entry = remoteAudioAsset(id);
-    const temporary = `${destination}.download`;
-    await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
-    await FileSystem.deleteAsync(temporary, { idempotent: true }).catch(() => undefined);
+    const temporary = new File(directory, `${entry.cacheFileName}.download`);
+    directory.create({ intermediates: true, idempotent: true });
+    if (temporary.exists) {
+      try { temporary.delete(); } catch { /* best-effort */ }
+    }
 
     try {
-      const result = await FileSystem.downloadAsync(entry.url, temporary);
-      if (result.status < 200 || result.status >= 300) {
-        throw new Error(`Audio download failed with status ${result.status}`);
-      }
-      const info = await FileSystem.getInfoAsync(temporary);
-      if (!info.exists || info.isDirectory || info.size !== entry.expectedBytes) {
+      const downloaded = await File.downloadFileAsync(entry.url, temporary, { idempotent: true });
+      if (!downloaded.exists || downloaded.size !== entry.expectedBytes) {
         throw new Error('Audio download size mismatch');
       }
-      await FileSystem.deleteAsync(destination, { idempotent: true }).catch(() => undefined);
-      await FileSystem.moveAsync({ from: temporary, to: destination });
-      return destination;
+      if (destination.exists) {
+        try { destination.delete(); } catch { /* best-effort */ }
+      }
+      downloaded.move(destination);
+      return destination.uri;
     } catch (error) {
-      await FileSystem.deleteAsync(temporary, { idempotent: true }).catch(() => undefined);
+      if (temporary.exists) {
+        try { temporary.delete(); } catch { /* best-effort */ }
+      }
       throw error;
     }
   })();

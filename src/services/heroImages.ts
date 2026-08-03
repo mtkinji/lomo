@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system/legacy';
 import { getInstallId } from './installId';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from './edgeFunctions';
 import { getSupabasePublishableKey } from '../utils/getEnv';
 import { getAccessToken } from './backend/auth';
+import { uploadFileToSignedUrl } from './files/uploadFileToSignedUrl';
 
 const BUCKET = 'hero_images';
 
@@ -143,16 +143,7 @@ export async function initHeroImageUpload(params: {
 }
 
 export async function uploadHeroImageToSignedUrl(params: { signedUrl: string; fileUri: string; mimeType?: string | null }) {
-  const result = await FileSystem.uploadAsync(params.signedUrl, params.fileUri, {
-    httpMethod: 'PUT',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      'Content-Type': params.mimeType?.trim() ? params.mimeType.trim() : 'application/octet-stream',
-    },
-  });
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Upload failed (status ${result.status})`);
-  }
+  await uploadFileToSignedUrl(params);
 }
 
 export async function getHeroImageSignedUrl(storagePath: string): Promise<string> {
@@ -186,5 +177,3 @@ export async function getHeroImageSignedUrl(storagePath: string): Promise<string
 export function getHeroImagesBucket(): string {
   return BUCKET;
 }
-
-

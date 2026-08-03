@@ -1,4 +1,5 @@
 import * as TaskManager from 'expo-task-manager';
+import * as BackgroundTask from 'expo-background-task';
 import * as Notifications from 'expo-notifications';
 import { posthogClient } from '../analytics/posthogClient';
 import { track } from '../analytics/analytics';
@@ -332,35 +333,30 @@ export async function reconcileNotificationsFiredEstimated(
 }
 
 TaskManager.defineTask(NOTIFICATION_RECONCILE_TASK, async () => {
-  // NOTE: `expo-background-fetch` is deprecated; we lazy-load it to avoid
-  // deprecation warnings on app launch. (We can migrate to `expo-background-task` later.)
-  const BackgroundFetch = await import('expo-background-fetch');
   try {
     await reconcileNotificationsFiredEstimated('background_fetch');
-    return BackgroundFetch.BackgroundFetchResult.NewData;
+    return BackgroundTask.BackgroundTaskResult.Success;
   } catch (error) {
     if (__DEV__) {
       // eslint-disable-next-line no-console
       console.warn('[notifications] background reconcile failed', error);
     }
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    return BackgroundTask.BackgroundTaskResult.Failed;
   }
 });
 
 export async function registerNotificationReconcileTask(): Promise<void> {
-  // Lazy-load to avoid deprecation warning on app launch.
-  const BackgroundFetch = await import('expo-background-fetch');
-  const status = await runNotificationNativeBoundary(
-    'BackgroundFetch.getStatusAsync',
-    'task_register',
-    () => BackgroundFetch.getStatusAsync(),
-  );
-  if (
-    status === BackgroundFetch.BackgroundFetchStatus.Restricted ||
-    status === BackgroundFetch.BackgroundFetchStatus.Denied
-  ) {
+  let status: BackgroundTask.BackgroundTaskStatus | null;
+  try {
+    status = await runNotificationNativeBoundary(
+      'BackgroundTask.getStatusAsync',
+      'task_register',
+      () => BackgroundTask.getStatusAsync(),
+    );
+  } catch {
     return;
   }
+  if (status !== BackgroundTask.BackgroundTaskStatus.Available) return;
 
   const alreadyRegistered = await runNotificationNativeBoundary(
     'TaskManager.isTaskRegisteredAsync',
@@ -371,15 +367,18 @@ export async function registerNotificationReconcileTask(): Promise<void> {
   if (alreadyRegistered) return;
 
   await runNotificationNativeBoundary(
-    'BackgroundFetch.registerTaskAsync',
+    'BackgroundTask.registerTaskAsync',
     'task_register',
     () =>
-      BackgroundFetch.registerTaskAsync(NOTIFICATION_RECONCILE_TASK, {
-        minimumInterval: 15 * 60, // iOS/Android clamp this; best-effort.
-        stopOnTerminate: false,
-        startOnBoot: true,
+      BackgroundTask.registerTaskAsync(NOTIFICATION_RECONCILE_TASK, {
+        minimumInterval: 15, // Minutes; iOS/Android may run it later.
       }),
-    { taskName: NOTIFICATION_RECONCILE_TASK, minimumInterval: 15 * 60 },
+    { taskName: NOTIFICATION_RECONCILE_TASK, minimumIntervalMinutes: 15 },
   );
 }
 
+export async function unregisterNotificationReconcileTask(): Promise<void> {
+  const registered = await TaskManager.isTaskRegisteredAsync(NOTIFICATION_RECONCILE_TASK).catch(() => false);
+  if (!registered) return;
+  await BackgroundTask.unregisterTaskAsync(NOTIFICATION_RECONCILE_TASK);
+}

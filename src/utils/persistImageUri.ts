@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { Directory, File, Paths } from 'expo-file-system';
 
 function guessImageExtension(uri: string): string {
   const withoutQuery = uri.split('?')[0] ?? uri;
@@ -7,10 +7,6 @@ function guessImageExtension(uri: string): string {
   const ext = withoutQuery.slice(lastDot + 1).toLowerCase();
   if (ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp' || ext === 'heic') return ext;
   return 'jpg';
-}
-
-function ensureTrailingSlash(path: string): string {
-  return path.endsWith('/') ? path : `${path}/`;
 }
 
 /**
@@ -27,29 +23,26 @@ export async function persistImageUri(params: {
   const { uri, subdir, namePrefix } = params;
   if (!uri) return uri;
 
-  const baseDir = FileSystem.documentDirectory;
-  if (!baseDir) return uri;
-
-  const targetDir = `${ensureTrailingSlash(baseDir)}${subdir.replace(/^\/+/, '').replace(/\/+$/, '')}/`;
+  const normalizedSubdir = subdir.replace(/^\/+/, '').replace(/\/+$/, '');
+  const targetDir = new Directory(Paths.document, normalizedSubdir);
   try {
-    await FileSystem.makeDirectoryAsync(targetDir, { intermediates: true });
+    targetDir.create({ intermediates: true, idempotent: true });
   } catch {
     // best-effort
   }
 
   const ext = guessImageExtension(uri);
   const filename = `${namePrefix}-${Date.now()}.${ext}`;
-  const dest = `${targetDir}${filename}`;
+  const destination = new File(targetDir, filename);
 
   try {
-    await FileSystem.copyAsync({ from: uri, to: dest });
-    return dest;
+    new File(uri).copy(destination);
+    return destination.uri;
   } catch {
     // If copying fails (e.g. unsupported URI scheme), fall back to original.
     return uri;
   }
 }
-
 
 
 

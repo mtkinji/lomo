@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { File as ExpoFile } from 'expo-file-system';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -18,6 +18,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { openPaywallInterstitial } from '../paywall';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../edgeFunctions';
 import { createPreparedAudioRecorder } from '../audioRecorder';
+import { uploadFileToSignedUrl } from '../files/uploadFileToSignedUrl';
 
 const BUCKET = 'activity_attachments';
 
@@ -195,19 +196,6 @@ async function initUpload(params: {
   );
 
   // unreachable
-}
-
-async function uploadFileToSignedUrl(params: { signedUrl: string; fileUri: string; mimeType?: string | null }) {
-  const result = await FileSystem.uploadAsync(params.signedUrl, params.fileUri, {
-    httpMethod: 'PUT',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      'Content-Type': params.mimeType?.trim() ? params.mimeType.trim() : 'application/octet-stream',
-    },
-  });
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Upload failed (status ${result.status})`);
-  }
 }
 
 export async function addPhotoOrVideoToActivity(activity: Activity): Promise<void> {
@@ -492,8 +480,8 @@ export async function stopAudioRecordingAndAttachToActivity(activity: Activity):
   // Best-effort size.
   let sizeBytes: number | null = null;
   try {
-    const info = await FileSystem.getInfoAsync(uri);
-    sizeBytes = info?.exists && 'size' in info && typeof info.size === 'number' ? info.size : null;
+    const file = new ExpoFile(uri);
+    sizeBytes = file.exists && Number.isFinite(file.size) ? file.size : null;
   } catch {
     sizeBytes = null;
   }

@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File } from 'expo-file-system';
 import {
   MAX_UNIFIED_CHAT_ATTACHMENT_BYTES,
   MAX_UNIFIED_CHAT_MEDIA_ATTACHMENT_BYTES,
@@ -50,18 +50,15 @@ export async function pickUnifiedChatAttachment(): Promise<UnifiedChatAttachment
       ? 'Each Chat document must be 100 KB or smaller.'
       : 'Each Chat image or PDF must be 5 MB or smaller.');
   }
+  const file = new File(asset.uri);
   if (isText) {
-    const content = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    const content = await file.text();
     return normalizeUnifiedChatTextAttachment({
       id: localAttachmentId(), name: asset.name, mimeType,
       sizeBytes: asset.size ?? content.length, content,
     });
   }
-  const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const base64 = await file.base64();
   return normalizeUnifiedChatAttachmentDraft({
     id: localAttachmentId(), name: asset.name, mimeType,
     sizeBytes: decodedBase64Bytes(base64), dataUrl: `data:${mimeType};base64,${base64}`,

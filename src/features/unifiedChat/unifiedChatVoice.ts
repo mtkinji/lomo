@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { File } from 'expo-file-system';
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -92,11 +92,11 @@ export async function stopAndTranscribeUnifiedChatVoice(): Promise<string> {
     current.release();
   }
   if (!uri) throw new Error('The recording could not be read.');
-  const info = await FileSystem.getInfoAsync(uri);
-  if (!info.exists || ('size' in info && typeof info.size === 'number' && info.size > 8_000_000)) {
+  const file = new File(uri);
+  if (!file.exists || file.size > 8_000_000) {
     throw new Error('That recording is too long.');
   }
-  const audioBase64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  const audioBase64 = await file.base64();
   const token = (await getAccessToken())?.trim();
   const apiKey = getSupabasePublishableKey()?.trim();
   if (!token || !apiKey) throw new Error('Sign in to use voice input.');
