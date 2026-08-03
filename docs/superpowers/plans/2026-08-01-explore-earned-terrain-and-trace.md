@@ -50,7 +50,7 @@
 - Modify: `src/capabilities/explore/domain/exploreElevation.ts`
 - Modify: `src/capabilities/explore/domain/exploreElevation.test.ts`
 
-- [ ] Add a failing geometry test requiring `buildFogRenderGeometry` to expose renderable `traces` whose total segment count is bounded, preserves a switchback, and never bridges sessions or a gap over 60 meters.
+- [ ] Add a failing geometry test requiring `buildFogRenderGeometry` to expose renderable `traces` whose total segment count is bounded, preserves a switchback, and never bridges sessions or an untrusted gap; 60-to-120-meter freeway gaps require short timing plus plausible recorded speed and accuracy.
 - [ ] Run `npx jest src/capabilities/explore/domain/exploreGeometry.test.ts src/capabilities/explore/domain/exploreElevation.test.ts --runInBand`; expect failure because renderable bounded traces are absent.
 - [ ] Extend `ExploreFogRenderGeometry` with `traces`, and budget simplified traces and explicit segment pairs together so no renderer can recreate an unbounded point-pair list.
 - [ ] Build altitude segments only from those bounded traces; keep null-altitude fallback color and the existing continuity contract.

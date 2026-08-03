@@ -10,6 +10,7 @@ serves:
   - jtbd-trust-this-app-with-my-life
 briefs:
   - explore-capability
+  - explore-recorded-path-playback
   - explore-earned-terrain-and-trace
   - explore-nearby-places
   - explore-recap
@@ -26,6 +27,7 @@ Turns explicitly recorded real-world movement into a private, persistent map of 
 - `screens/ExploreMapScreen.tsx` - primary map, recording, fog, trail, and layer surface.
 - Its single Places drawer separates foreground-only Nearby suggestions from canonical My Places. Suggestions neither clear fog nor enter visit history or Missions.
 - Every outing renders a bounded high-contrast evidence trace. Creating a Place adds a soft familiarity bloom at three times the normal reveal radius without asserting a park boundary or an unobserved path.
+- A single completed deliberate Recorded Path recap can replay its continuous presentation route and fog reveal while an elevation-by-distance profile tracks or scrubs the same playback position. Raw samples stay intact; bounded Apple directions can reconstruct plausible quarter-mile misses without exposing “Adventure” language.
 - `domain/` - point acceptance, explored-cell geometry, elevation presentation, privacy projections, and Place relationships.
 - `runtime/` - explicit foreground/background session recording, bounded placemark resolution, recap delivery, and local persistence.
 

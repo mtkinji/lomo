@@ -31,6 +31,7 @@ import {
 import type {
   ExploreData,
   ExplorePoint,
+  ExplorePathReconstructionSegment,
   ExplorePreferences,
   ExploreSession,
   ExploreTrackingPolicy,
@@ -53,6 +54,7 @@ type ExploreStore = ExploreData & {
     evidence?: UserPlaceRelationship['evidence'];
   }) => void;
   resolveSessionPlaces: (sessionId: string, places: Place[], userId: string) => void;
+  setSessionPathReconstruction: (sessionId: string, segments: ExplorePathReconstructionSegment[]) => void;
   markRecapSeen: (sessionId: string) => void;
   markRecapsSeen: (sessionIds: string[]) => void;
   markRecapNotified: (sessionId: string, sentAt?: string) => void;
@@ -186,6 +188,16 @@ export const useExploreStore = create<ExploreStore>()(
           };
         });
       },
+      setSessionPathReconstruction: (sessionId, reconstructedSegments) => {
+        set((state) => {
+          const next = dataFromStore(state);
+          const sessions = next.sessions.map((session) => session.id === sessionId
+            ? { ...session, reconstructedSegments }
+            : session);
+          const rebuilt = rebuildExploreTerritory({ ...next, sessions });
+          return { ...rebuilt, lastPointDecision: state.lastPointDecision };
+        });
+      },
       markRecapSeen: (sessionId) => {
         set((state) => ({
           ...markExploreRecapSeen(dataFromStore(state), sessionId),
@@ -308,6 +320,9 @@ export const useExploreStore = create<ExploreStore>()(
               : null,
             courseDeg: normalizeCourseDeg(point.courseDeg),
           })) : [],
+          reconstructedSegments: Array.isArray(session?.reconstructedSegments)
+            ? session.reconstructedSegments
+            : [],
           discoveredPlaceIds: Array.isArray(session?.discoveredPlaceIds) ? session.discoveredPlaceIds : [],
           recapStatus: session?.recapStatus ?? (session?.endedAt && session?.points?.length ? 'seen' : 'none'),
           completedReason: session?.completedReason ?? (session?.endedAt ? 'interrupted' : null),

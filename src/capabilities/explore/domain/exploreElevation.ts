@@ -40,19 +40,40 @@ export function altitudeColor(altitudeM: number | null): string {
     .join('')}`;
 }
 
-export function buildAltitudeSegments<T extends AltitudePoint>(points: readonly T[]) {
-  return points.slice(1).flatMap((point, index) => {
-    const previous = points[index];
-    if (!isExploreTraceContinuous(previous, point)) return [];
-    const knownAltitudes = [previous.altitudeM, point.altitudeM].filter(
-      (altitude): altitude is number => typeof altitude === 'number',
-    );
-    const segmentAltitude = knownAltitudes.length
-      ? knownAltitudes.reduce((sum, altitude) => sum + altitude, 0) / knownAltitudes.length
-      : null;
-    return [{
-      coordinates: [previous, point] as [T, T],
-      color: altitudeColor(segmentAltitude),
-    }];
+function interpolatedAltitudes<T extends AltitudePoint>(points: readonly T[]): Array<number | null> {
+  const knownIndexes = points.flatMap((point, index) =>
+    typeof point.altitudeM === 'number' && Number.isFinite(point.altitudeM) ? [index] : [],
+  );
+  if (!knownIndexes.length) return points.map(() => null);
+
+  return points.map((point, index) => {
+    if (typeof point.altitudeM === 'number' && Number.isFinite(point.altitudeM)) return point.altitudeM;
+    const lowerIndex = [...knownIndexes].reverse().find((candidate) => candidate < index);
+    const upperIndex = knownIndexes.find((candidate) => candidate > index);
+    if (lowerIndex === undefined) return points[upperIndex!].altitudeM;
+    if (upperIndex === undefined) return points[lowerIndex].altitudeM;
+    const lowerAltitude = points[lowerIndex].altitudeM!;
+    const upperAltitude = points[upperIndex].altitudeM!;
+    const progress = (index - lowerIndex) / (upperIndex - lowerIndex);
+    return lowerAltitude + (upperAltitude - lowerAltitude) * progress;
   });
+}
+
+export function buildAltitudeGradients<T extends AltitudePoint>(points: readonly T[]) {
+  const traces: T[][] = [];
+  let current: T[] = [];
+  points.forEach((point) => {
+    const previous = current.at(-1);
+    if (previous && !isExploreTraceContinuous(previous, point)) {
+      if (current.length > 1) traces.push(current);
+      current = [];
+    }
+    current.push(point);
+  });
+  if (current.length > 1) traces.push(current);
+
+  return traces.map((coordinates) => ({
+    coordinates,
+    strokeColors: interpolatedAltitudes(coordinates).map(altitudeColor),
+  }));
 }

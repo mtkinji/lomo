@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { candidatePlaceFromPlacemark, sampleRouteForDiscovery } from '../domain/exploreDiscovery';
+import { reconstructExploreRecordedPath } from './explorePathReconstruction';
 import { useExploreStore } from './useExploreStore';
 
 export function useExploreRecapResolver(userId: string): void {
@@ -14,6 +15,10 @@ export function useExploreRecapResolver(userId: string): void {
     resolvingRef.current = resolvingSession.id;
     let cancelled = false;
     const resolve = async () => {
+      const reconstructedSegments = await reconstructExploreRecordedPath(resolvingSession.points);
+      if (!cancelled && reconstructedSegments.length) {
+        useExploreStore.getState().setSessionPathReconstruction(resolvingSession.id, reconstructedSegments);
+      }
       const candidates = [];
       const namesSeen = new Set<string>();
       for (const point of sampleRouteForDiscovery(resolvingSession.points)) {

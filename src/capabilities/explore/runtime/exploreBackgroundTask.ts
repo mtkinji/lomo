@@ -62,6 +62,7 @@ function upgradeSession(
         : null,
       courseDeg: normalizeCourseDeg(point.courseDeg),
     })) : [],
+    reconstructedSegments: Array.isArray(session.reconstructedSegments) ? session.reconstructedSegments : [],
     discoveredPlaceIds: Array.isArray(session.discoveredPlaceIds) ? session.discoveredPlaceIds : [],
     recapStatus: session.recapStatus ?? 'none',
     completedReason: session.completedReason ?? null,

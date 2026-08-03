@@ -36,6 +36,14 @@ export type ExplorePoint = ExploreCoordinate & {
   recordedAt: string;
 };
 
+export type ExplorePathReconstructionSegment = {
+  fromPointId: string;
+  toPointId: string;
+  coordinates: ExploreCoordinate[];
+  source: 'apple-directions';
+  routeDistanceM: number;
+};
+
 export type ExploredCell = {
   id: string;
   center: ExploreCoordinate;
@@ -49,6 +57,7 @@ export type ExploreSession = {
   startedAt: string;
   endedAt: string | null;
   points: ExplorePoint[];
+  reconstructedSegments?: ExplorePathReconstructionSegment[];
   discoveredPlaceIds: string[];
   recapStatus: 'none' | 'resolving' | 'ready' | 'seen';
   completedReason: 'manual' | 'background-stillness' | 'interrupted' | null;

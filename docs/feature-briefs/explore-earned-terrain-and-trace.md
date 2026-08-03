@@ -51,7 +51,7 @@ Constraint posture: `Extend the system`.
 - Route presentation reuses the bounded, topology-preserving geometry used by Silver Mist rather than creating one unbounded MapKit overlay per raw point pair.
 - Each continuous trace receives a high-contrast casing that remains visible across hybrid/satellite map content.
 - Altitude color remains an inner stroke built from the same bounded segments.
-- Separate sessions and adjacent observations more than 60 meters apart remain separate. Simplification may remove redundant observations but may not bridge an untrusted gap.
+- Separate sessions always remain separate. Adjacent observations up to 60 meters apart connect directly; a 60-to-120-meter freeway gap connects only when its timestamps, recorded speed, and location accuracy make that displacement plausible within five seconds. Every other larger or stale gap remains separate. Simplification may remove redundant observations but may not bridge an untrusted gap.
 
 ### Place-earned terrain
 

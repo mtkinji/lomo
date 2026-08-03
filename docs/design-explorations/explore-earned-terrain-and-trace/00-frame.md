@@ -53,7 +53,7 @@ Current system facts:
 
 Constraints to preserve:
 
-- Never draw a route across sessions or an evidence gap greater than 60 meters.
+- Never draw a route across sessions or an untrusted evidence gap. Gaps over 60 meters require a short timestamp interval plus plausible recorded speed and accuracy, and remain capped at 120 meters.
 - Never use an inferred or provider-generated line to establish visited territory.
 - Keep precise route evidence private by default and visually distinct from broader earned terrain.
 - Avoid a park-boundary claim until Kwilt has a trustworthy boundary source and privacy decision.

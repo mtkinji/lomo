@@ -18,7 +18,7 @@ import { useExploreStore } from '../runtime/useExploreStore';
 const SHARING_OPTIONS: Array<{ value: ExploreSharingLevel; label: string; detail: string }> = [
   { value: 'private', label: 'Private', detail: 'Only you' },
   { value: 'territory', label: 'Territory', detail: 'Cleared areas' },
-  { value: 'completed-paths', label: 'Paths', detail: 'Finished adventures' },
+  { value: 'completed-paths', label: 'Paths', detail: 'Recorded paths' },
   { value: 'live', label: 'Live', detail: 'Current location' },
 ];
 
@@ -50,7 +50,7 @@ export function ExploreSettingsScreen({
   const confirmClear = () => {
     Alert.alert(
       'Clear Explore history?',
-      'This removes local adventures, explored territory, and collected Place visits from this device.',
+      'This removes recorded paths, explored territory, and collected Place visits from this device.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Clear history', style: 'destructive', onPress: clearHistory },
@@ -121,7 +121,7 @@ export function ExploreSettingsScreen({
         />
         <SettingsDivider />
         <ChoiceRow
-          detail="Record only after you begin an outing"
+          detail="Record paths only when you choose"
           label="Only when I start"
           onPress={() => setRecordingMode('manual')}
           selected={preferences.recording === 'manual'}
