@@ -123,7 +123,6 @@ lines.push('- Touching feature UI should run `npm run architecture:lint`; heed w
 lines.push('- Touching large screens should prefer extracting pure helpers/hooks with focused tests over broad inline edits.');
 lines.push('- New code should stay inside the `code:health` ratchets; if a large-file or loose-typing exception is intentional, make the exception explicit in review instead of quietly expanding the baseline.');
 lines.push('- Use `npm run verify:changed` at the start and end of an agent session to choose the right checks for the current diff.');
-lines.push('');
 
 fs.writeFileSync(outputPath, `${lines.join('\n')}\n`);
 console.log(`Wrote ${rel(outputPath)}`);
