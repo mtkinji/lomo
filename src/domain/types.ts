@@ -147,6 +147,18 @@ export interface GoalForceIntent {
   [forceId: string]: ForceLevel;
 }
 
+export interface GoalTodoTableColumn {
+  id: string;
+  label: string;
+}
+
+export interface GoalTodoTable {
+  columns: GoalTodoTableColumn[];
+  titleColumnId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Metric {
   id: string;
   /**
@@ -234,6 +246,11 @@ export interface Goal {
   targetDate?: string;
   forceIntent: GoalForceIntent;
   metrics: Metric[];
+  /**
+   * Optional table view over this Goal's Activities.
+   * Activity completion remains authoritative for row checkmarks.
+   */
+  todoTable?: GoalTodoTable;
   createdAt: string;
   updatedAt: string;
 }
@@ -616,6 +633,8 @@ export interface Activity {
    */
   tags: string[];
   notes?: string;
+  /** Extra cell values used when this Activity appears in a Goal's To-do table. */
+  todoTableValues?: Record<string, string>;
   /**
    * Small, ordered checklist that keeps a single activity concrete and
    * executable in one sitting.

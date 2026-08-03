@@ -174,6 +174,8 @@ import { buildGoalRefinementPrompt } from './goalRefinementPrompt';
 import { normalizeGoalSharePreviewImageUrl } from './goalSharePreviewUrl';
 import { selectGoalInviteDestinationUrls } from '../goals/goalInviteDestinationUrl';
 import { appendGoalInviteReferralCode } from '../goals/goalInviteReferralUrl';
+import { GoalTodoTableSection } from '../goals/GoalTodoTableSection';
+import type { GoalTodoTableImportPlan } from '../goals/goalTodoTable';
 
 type GoalDetailRouteProp = RouteProp<{ GoalDetail: GoalDetailRouteParams }, 'GoalDetail'>;
 
@@ -619,6 +621,7 @@ export function GoalDetailScreen() {
   const [goalTargetDateSheetVisible, setGoalTargetDateSheetVisible] = useState(false);
   const [goalTargetDateSheetStep, setGoalTargetDateSheetStep] = useState<'menu' | 'picker'>('menu');
   const [goalStatusSheetVisible, setGoalStatusSheetVisible] = useState(false);
+  const [goalTodoTableEditorVisible, setGoalTodoTableEditorVisible] = useState(false);
 
   const handleBack = () => {
     const nav: any = navigation;
@@ -2623,6 +2626,14 @@ export function GoalDetailScreen() {
                           </Text>
                         </View>
                       </DropdownMenuItem>
+                      <DropdownMenuItem onPress={() => setGoalTodoTableEditorVisible(true)}>
+                        <View style={menuStyles.menuItemRow}>
+                          <Icon name="checklist" size={16} color={colors.textSecondary} />
+                          <Text style={menuStyles.menuItemText} {...menuItemTextProps}>
+                            {goal?.todoTable ? 'Edit To-do table' : 'Set up To-do table'}
+                          </Text>
+                        </View>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onPress={handleToggleArchiveGoal}>
                         <View style={menuStyles.menuItemRow}>
                           <Icon
@@ -2811,6 +2822,7 @@ export function GoalDetailScreen() {
                       }}
                     />
                   </View>
+
                 </View>
 
                 {/* Activities-first section */}
@@ -2846,7 +2858,71 @@ export function GoalDetailScreen() {
                     </HStack>
                   </View>
 
-                  {isPlanEmpty ? (
+                  <GoalTodoTableSection
+                    table={goal.todoTable}
+                    activities={goalActivities}
+                    editorVisible={goalTodoTableEditorVisible}
+                    onRequestEdit={() => setGoalTodoTableEditorVisible(true)}
+                    onEditorClose={() => setGoalTodoTableEditorVisible(false)}
+                    onSave={(plan: GoalTodoTableImportPlan) => {
+                      const timestamp = new Date().toISOString();
+                      updateGoal(goal.id, (prev) => ({
+                        ...prev,
+                        todoTable: { ...plan.table, updatedAt: timestamp },
+                        updatedAt: timestamp,
+                      }));
+                      for (const update of plan.existingUpdates) {
+                        updateActivity(update.activityId, (activity) => ({
+                          ...activity,
+                          todoTableValues: {
+                            ...(activity.todoTableValues ?? {}),
+                            ...update.values,
+                          },
+                          updatedAt: timestamp,
+                        }));
+                      }
+                      plan.newRows.forEach((row, index) => {
+                        addActivity({
+                          id: `activity-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+                          goalId: goal.id,
+                          title: row.title,
+                          type: 'task',
+                          tags: [],
+                          notes: undefined,
+                          todoTableValues: row.values,
+                          steps: [],
+                          reminderAt: null,
+                          priority: undefined,
+                          estimateMinutes: null,
+                          creationSource: 'manual',
+                          planGroupId: null,
+                          scheduledDate: null,
+                          repeatRule: undefined,
+                          repeatCustom: undefined,
+                          orderIndex: activities.length + index + 1,
+                          phase: null,
+                          status: 'planned',
+                          actualMinutes: null,
+                          startedAt: null,
+                          completedAt: null,
+                          forceActual: defaultForceLevels(0),
+                          createdAt: timestamp,
+                          updatedAt: timestamp,
+                        });
+                      });
+                      showToast({ message: 'To-do table saved', variant: 'success', durationMs: 2200 });
+                    }}
+                    onToggleActivity={handleToggleActivityComplete}
+                    onRemoveView={() => {
+                      const timestamp = new Date().toISOString();
+                      updateGoal(goal.id, (prev) => {
+                        const { todoTable: _removedTable, ...rest } = prev;
+                        return { ...rest, updatedAt: timestamp };
+                      });
+                    }}
+                  />
+
+                  {!goal.todoTable && isPlanEmpty ? (
                     <>
                       <View
                         ref={addActivitiesButtonRef}
@@ -2899,7 +2975,7 @@ export function GoalDetailScreen() {
                     </>
                   ) : (
                     <>
-                      {activeGoalActivities.length > 0 && (
+                      {!goal.todoTable && activeGoalActivities.length > 0 && (
                         <VStack space={2}>
                           {activeGoalActivities.map((activity) => {
                             const { meta, metaTone, estimateMeta, isDueToday } = buildActivityListMeta({ activity });
@@ -2949,7 +3025,7 @@ export function GoalDetailScreen() {
                         />
                       </View>
 
-                      {completedGoalActivities.length > 0 && (
+                      {!goal.todoTable && completedGoalActivities.length > 0 && (
                         <VStack space="xs" style={styles.completedSection}>
                           <Pressable
                             onPress={toggleCompletedActivitiesExpanded}

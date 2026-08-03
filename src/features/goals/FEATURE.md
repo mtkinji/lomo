@@ -16,7 +16,7 @@ briefs:
   - social-goals-auth
   - social-dynamics-evolution
 status: shipped
-last_reviewed: 2026-05-12
+last_reviewed: 2026-08-02
 ---
 
 # goals
@@ -31,7 +31,10 @@ Helps Marcus keep the few commitments worth carrying visible and actionable, wit
 - `ShareGoalDrawer.tsx` - starts the invite/share flow from a Goal.
 - `JoinSharedGoalDrawerHost.tsx` and `JoinSharedGoalScreen.tsx` - accept shared-goal invitations.
 - `CheckinComposer.tsx` - captures accountability/progress signals on a Goal.
+- `GoalTodoTableSection.tsx` - renders a Goal-owned custom-column table over its To-dos while keeping Activity completion authoritative.
 
 ## Notes
 
 The core goals surface serves Marcus' focus job; the share and join surfaces extend the folder into private accountability. The shared-goal pieces must preserve the same canvas-first posture: sharing deepens a Goal, it does not turn Kwilt into a social feed.
+
+Goal To-do tables are a view of the Plan, not a second progress system. Column definitions belong to the Goal; custom cell values and completion belong to each Activity.
