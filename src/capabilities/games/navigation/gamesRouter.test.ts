@@ -3,6 +3,7 @@ import { resolveGamesHref } from './gamesRouter';
 describe('Games router adapter', () => {
   it.each([
     ['/', { screen: 'GamesShelf' }],
+    ['/hourglass', { screen: 'GamesHourglass' }],
     ['/play/common-thread', { screen: 'GamesConnection', params: { gameId: 'common-thread' } }],
     ['/join/ABCD', { screen: 'GamesJoin', params: { token: 'ABCD' } }],
     ['/room/room-1', { screen: 'GamesRemote', params: { sessionId: 'room-1' } }],

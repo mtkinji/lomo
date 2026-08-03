@@ -125,6 +125,22 @@ describe('navigationPersistence', () => {
     });
   });
 
+  test('restores the Games Hourglass utility', async () => {
+    const games = nestedState('stack', 'GamesHourglass', [
+      route('GamesShelf'),
+      route('GamesHourglass'),
+    ]);
+    const root = nestedState('drawer', 'Games', [
+      route('MainTabs'),
+      route('Games', games),
+      route('Settings'),
+    ]);
+
+    const restored = (await restore(root)) as unknown as TestState;
+    const restoredGames = restored.routes[restored.index].state!;
+    expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesHourglass' });
+  });
+
   test('restores Explore settings instead of falling back to Settings home', async () => {
     const settings = nestedState('stack', 'SettingsExplore', [
       route('SettingsHome'),

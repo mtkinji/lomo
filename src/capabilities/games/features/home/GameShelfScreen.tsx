@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router, type Href } from '@/src/capabilities/games/navigation/gamesRouter';
-import { ChevronRight, Dices, Radio, UsersRound } from 'lucide-react-native';
+import { ChevronRight, Dices, Hourglass, Radio, UsersRound } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JoinTableDrawer } from '@/src/capabilities/games/features/remote/JoinTableDrawer';
@@ -52,6 +52,11 @@ export function GameShelfScreen({ joinInitiallyOpen = false, initialJoinToken, o
         <View style={styles.grid}>{gameCatalog.map((game) => <GameCard key={game.id} game={game} />)}</View>
         <View style={styles.utilitySection}>
           <Text style={styles.sectionLabel}>UTILITIES</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open 60-second Hourglass" onPress={() => router.push('/hourglass')} style={({ pressed }) => [styles.utilityCard, pressed ? styles.pressed : null]}>
+            <View style={[styles.utilityIcon, styles.hourglassIcon]}><Hourglass size={23} color={gamesTheme.colors.paper} /></View>
+            <View style={styles.utilityCopy}><Text style={styles.utilityTitle}>Hourglass</Text><Text style={styles.utilityMeta}>One beautiful minute. Flip when you’re ready.</Text></View>
+            <ChevronRight size={19} color={gamesTheme.colors.ink} />
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Open Basic Dice Roller" onPress={() => router.push({ pathname: '/tumble', params: { mode: basicDiceUtility.route.mode } })} style={({ pressed }) => [styles.utilityCard, pressed ? styles.pressed : null]}>
             <View style={styles.utilityIcon}><Dices size={23} color={gamesTheme.colors.ink} /></View>
             <View style={styles.utilityCopy}><Text style={styles.utilityTitle}>{basicDiceUtility.title}</Text><Text style={styles.utilityMeta}>{basicDiceUtility.promise}</Text></View>
@@ -94,6 +99,7 @@ const styles = StyleSheet.create({
   sectionLabel: { paddingHorizontal: 3, fontFamily: gamesTheme.type.utility, color: 'rgba(32,29,24,0.44)', fontSize: 10, letterSpacing: 1.5 },
   utilityCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 11, paddingRight: 16, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.52)', borderWidth: 1, borderColor: 'rgba(32,29,24,0.14)' },
   utilityIcon: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(32,29,24,0.07)' },
+  hourglassIcon: { backgroundColor: gamesTheme.colors.felt },
   utilityCopy: { flex: 1 },
   utilityTitle: { fontFamily: gamesTheme.type.display, color: gamesTheme.colors.ink, fontSize: 16 },
   utilityMeta: { marginTop: 2, fontFamily: gamesTheme.type.body, color: 'rgba(32,29,24,0.52)', fontSize: 11 },
