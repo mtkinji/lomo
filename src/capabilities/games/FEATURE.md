@@ -12,6 +12,7 @@ briefs:
   - kwilt-games-capability-integration
   - nearby-game-join
   - bank-roll-pacing
+  - games-hourglass
 status: shipping
 last_reviewed: 2026-07-31
 ---

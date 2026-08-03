@@ -11,6 +11,7 @@ function destinationFor(href: Href): { screen: keyof GamesStackParamList; params
   if (pathname === '/' || pathname === '/games') return { screen: 'GamesShelf' };
   if (pathname === '/auth') return { screen: 'GamesAccount', params };
   if (pathname === '/join') return { screen: 'GamesJoin', params };
+  if (pathname === '/hourglass') return { screen: 'GamesHourglass', params };
   if (pathname === '/tumble') return { screen: 'GamesTumble', params };
   if (pathname === '/play/[gameId]') return { screen: 'GamesConnection', params };
   if (pathname === '/room/[sessionId]') return { screen: 'GamesRemote', params };

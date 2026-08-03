@@ -1,6 +1,7 @@
 import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from '@/src/capabilities/games/navigation/gamesRouter';
 import { GameShelfScreen } from './GameShelfScreen';
 
 const mockOpenMenu = jest.fn();
@@ -41,8 +42,17 @@ describe('GameShelfScreen', () => {
       'Doodle Bridge',
       'Clue Circle',
       'Slanguage',
+      'Hourglass',
       'Basic Dice Roller',
     ].forEach((title) => expect(screen.getByText(title)).toBeTruthy());
+  });
+
+  it('opens the one-minute hourglass from Utilities', () => {
+    const screen = render(<GameShelfScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open 60-second Hourglass' }));
+
+    expect(router.push).toHaveBeenCalledWith('/hourglass');
   });
 
   it('lets the inventory scroll through the bottom safe-area region', () => {

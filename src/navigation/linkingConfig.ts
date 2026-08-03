@@ -173,6 +173,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
     Games: {
       screens: {
         GamesShelf: 'games',
+        GamesHourglass: 'games/hourglass',
         GamesTumble: 'games/tumble/:mode?',
         GamesConnection: 'games/play/:gameId',
         GamesJoin: 'games/join/:token?',

@@ -85,6 +85,7 @@ const EXPLORE_STACK_SCHEMA: ChildSchema = {
 const GAMES_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'GamesShelf',
+    'GamesHourglass',
     'GamesTumble',
     'GamesConnection',
     'GamesJoin',
