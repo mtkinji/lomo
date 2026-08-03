@@ -347,32 +347,38 @@ Committed as `8f4083f`.
 - Modify after upstream verification: `package.json`
 - Modify after upstream verification: `package-lock.json`
 
-- [ ] **Step 1: Add hostile-input regression tests**
+- [x] **Step 1: Add hostile-input regression tests**
 
 Cover oversized runs of emphasis markers, brackets, links, `mailto:` prefixes, smart-quote candidates, and an assistant message above the chosen render limit. Assert bounded preprocessing time and deterministic truncation with a visible continuation marker.
 
-- [ ] **Step 2: Add a pure bounded-input adapter**
+- [x] **Step 2: Add a pure bounded-input adapter**
 
 `safeMarkdown.ts` owns one exported maximum input length, removes NUL/control characters except newline/tab, and returns a deterministic bounded string. It does not silently reinterpret content or allow raw HTML.
 
-- [ ] **Step 3: Configure the parser conservatively**
+- [x] **Step 3: Configure the parser conservatively**
 
 Disable raw HTML, automatic linkification, and typographer/smartquotes. Render only the syntax Kwilt uses in assistant responses. Keep URL opening behind the existing React Native Linking safety policy.
 
-- [ ] **Step 4: Choose the package action from current upstream evidence**
+- [x] **Step 4: Choose the package action from current upstream evidence**
 
 At execution time, query the currently maintained package/fork and `markdown-it` advisories. Replace `react-native-markdown-display` only if the candidate is maintained, React 19/New Architecture compatible, and clears the hostile-input tests. If no parser release fixes the advisories, retain the bounded adapter and record the residual risk rather than claiming the audit is clean.
+
+Upstream review on 2026-08-03 found `react-native-markdown-display` still at 7.0.2 (last published in 2023), while its parser line now has patched `markdown-it` 14.2.0 and `linkify-it` 5.0.2 releases. The lower-risk action retained the working native renderer and scoped an npm override to the patched parser. The production audit no longer reports `react-native-markdown-display`, `markdown-it`, or `linkify-it`; unrelated production findings remain and are not represented as fixed by this cohort.
 
 - [ ] **Step 5: Verify real chat rendering**
 
 Check streaming prose, headings, lists, emphasis, code, long links, malformed Markdown, goal proposal notes, selection/copy, and accessibility sizing.
 
-- [ ] **Step 6: Commit the renderer hardening alone**
+The real Agent entry rendered on the declared Simulator after a clean Node 22 install and fresh 5,584-module Metro bundle. Focused parser/runtime tests cover streaming-string updates, headings, lists, emphasis, inline/fenced code, long explicit links, malformed input, goal-note shapes, blocked non-web schemes, deterministic truncation, and every cited hostile-input class. The checkbox remains open because a deliberately generated rich response, selection/copy interaction, and larger accessibility text sizes were not manually exercised.
+
+- [x] **Step 6: Commit the renderer hardening alone**
 
 ```bash
 git add src/features/ai src/types package.json package-lock.json
 git commit -m "fix: bound assistant Markdown rendering"
 ```
+
+Committed as `7248446`.
 
 ## Task 6: Update non-SDK dependencies in bounded cohorts
 
@@ -637,3 +643,15 @@ Append one dated entry per cohort with:
 - Retained risks: the open signed-device background gate; the existing native warnings; and the unchanged Pixel Pet test-runner baseline. Simulator proof covers linking, configuration, foreground services, persistence/relaunch, and upload contracts, not OS-scheduled execution.
 - Rollback point: `1642811`.
 - Decision: advance the implementation cohort and retain Task 4 Step 5 as an explicit signed-device hold. Do not claim the background migration fully production-proven until signing is restored and the listed device scenarios pass.
+
+### 2026-08-03 — Assistant Markdown containment
+
+- Starting commit: `e4b54e7`; implementation commit: `7248446`.
+- Dependency diff: retained `react-native-markdown-display` 7.0.2 and scoped its transitive parser to `markdown-it` 14.2.0, which resolves `linkify-it` 5.0.2. No Expo, React, React Native, or native integration version changed.
+- Security boundary: assistant and goal-proposal Markdown is limited to 20,000 source characters before parsing, strips unsafe control characters while preserving tabs/newlines, shows a deterministic truncation marker, disables raw HTML, linkification, smart typography, images, tables, and strikethrough, and only allows explicit HTTP(S) links to reach React Native Linking.
+- Upstream/audit evidence: the retained renderer has not published beyond 7.0.2 since 2023; GitHub advisories identify patched `markdown-it` 14.2.0 and `linkify-it` 5.0.2. `npm audit --omit=dev --json` no longer reports the renderer or either parser package and dropped from 25 to 22 production findings; 18 moderate, 3 high, and 1 critical unrelated finding remain.
+- Verification: regression-first hostile-input coverage failed before the adapter existed and then passed 15 focused tests; the Node 22.23.2 clean install applied both repository patches; diff-aware verification passed app/test typechecks, code-health, 2 related suites / 18 tests, and architecture lint with 11 retained warnings. Full Jest produced the expected baseline plus the new suite: 520 suites / 3,293 tests passed and the same 15 pre-existing Pixel Pet runner mismatches failed.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout. A stale pre-install Metro resolver graph first referenced the removed nested `entities` path; restarting with a cleared cache fixed the environment. A second clean-install launch bundled 5,584 modules, restored the signed-in session and domain sync, and rendered the real Agent entry without a runtime error.
+- Retained proof gaps: deliberately generated rich-response interaction, selection/copy, and accessibility text-size behavior remain manually unverified. The broader physical-device signing/background hold is unchanged and unrelated to this JavaScript-only cohort.
+- Rollback point: `e4b54e7`.
+- Decision: advance the bounded security implementation while keeping Task 5 Step 5 open until the remaining manual presentation checks pass. Do not describe the repository as audit-clean; the 22 unrelated production findings remain for later bounded cohorts.
