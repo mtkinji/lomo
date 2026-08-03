@@ -225,7 +225,7 @@ npx expo run:ios
 
 Expected: the app links without the prior `expo-dev-launcher`/`RCTPackagerConnection` failure, launches from the declared checkout and Metro server, and passes the minimum user-flow set.
 
-- [ ] **Step 7: Commit only the SDK 54 alignment cohort**
+- [x] **Step 7: Commit only the SDK 54 alignment cohort**
 
 ```bash
 git add package.json package-lock.json app.config.ts .nvmrc .github ios docs/engineering/dependency-modernization-baseline.md
@@ -592,3 +592,15 @@ Append one dated entry per cohort with:
 - Retained risks
 - Rollback commit/tag
 - Advance, repair, defer, or revert decision
+
+### 2026-08-03 — Baseline and SDK 54 alignment
+
+- Starting commit: `72dabd2`; baseline-only commit: `aa69917`; SDK 54 alignment commit: `f17a19e`.
+- Dependency/config diff: Expo `54.0.24` -> `54.0.36` and the 13 declared SDK companion patches; direct `expo-asset` and `babel-preset-expo`; Jest 29-compatible types/preset; removed local `eas-cli` and direct `@types/react-native`; Node 22.23.2 declarations; one dynamic Expo config owner; Doctor script, ignore, and directory-metadata reconciliation.
+- Protected native/runtime versions remained fixed, including React, React Native, Reanimated, Worklets, Screens, Maps/Silver Mist, Plaid, RevenueCat, and HealthKit.
+- Verification: Node 22 clean install, both patch-package patches, Expo install check, Expo Doctor 18/18, autolinking, Pods, app/test typechecks, product/architecture lint, diff-aware verification, protected-version guard, full Jest comparison, clean iOS compile/install/bundle/launch, session restoration, and initial domain sync.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout during launch and stopped afterward.
+- Signed device/TestFlight: not run; the available iPhone was offline. No EAS/TestFlight build was created.
+- Retained risks: the 15 pre-existing Pixel Pet Jest-runner mismatches; 30 audit findings including build-tool `shell-quote` critical and shipped Markdown highs; existing native warnings; deliberate Simulator critical-flow smoke and signed-device integration flows remain open.
+- Rollback point: `aa69917` for the alignment cohort (`72dabd2` for the entire program).
+- Decision: hold at the SDK 54 checkpoint. Do not begin audio/API modernization or an SDK transition until the remaining Step 6 runtime proof is accepted or completed.
