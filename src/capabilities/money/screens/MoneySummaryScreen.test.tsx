@@ -45,8 +45,14 @@ jest.mock('../runtime/moneySummaryAutoRefresh', () => ({
 jest.mock('../../../services/analytics/useFeatureFlag', () => ({ useFeatureFlag: () => false }));
 jest.mock('../components/MoneyCategoryMeterTile', () => ({
   ...jest.requireActual('../components/MoneyCategoryMeterTile'),
-  MoneyCategoryListRow: () => null,
-  MoneyCategoryMeterTile: () => null,
+  MoneyCategoryListRow: ({ category }: { category: { name: string } }) => {
+    const { Text } = require('react-native');
+    return <Text>{category.name}</Text>;
+  },
+  MoneyCategoryMeterTile: ({ category }: { category: { name: string } }) => {
+    const { Text } = require('react-native');
+    return <Text>{category.name}</Text>;
+  },
 }));
 jest.mock('./MoneyScreenFrame', () => {
   const { Text, View } = require('react-native');
@@ -77,7 +83,7 @@ describe('MoneySummaryScreen living limit answer', () => {
     jest.useRealTimers();
   });
 
-  it('puts the current answer before the category area even when the remote feature flag is off', () => {
+  it('puts the current answer inside the flexible section even when the remote feature flag is off', () => {
     const navigation = { navigate: jest.fn() };
     const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
 
@@ -85,7 +91,9 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.getByTestId('money-limit-amount-row').props.accessibilityLabel).toBe('$342.96 left');
     expect(screen.getByText('left')).toBeTruthy();
     expect(screen.getByText('out of $1,360')).toBeTruthy();
-    expect(screen.getAllByText('Categories').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('money-limit-header')).toBeNull();
+    expect(screen.queryByText('Categories')).toBeNull();
     expect(screen.getAllByRole('button', { name: 'View category display' }).length).toBeGreaterThan(0);
     expect(screen.queryByText('$1,017.04 / $3,360 (30%)')).toBeNull();
     expect(screen.getAllByText('Saved transaction history').length).toBeGreaterThan(0);
@@ -105,6 +113,34 @@ describe('MoneySummaryScreen living limit answer', () => {
     expect(screen.queryByRole('button', { name: 'Adjust plan' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Change 70% living target' }));
     expect(navigation.navigate).toHaveBeenCalledWith('MoneyLivingPlan');
+  });
+
+  it('separates flexible and committed categories and explains both concepts', () => {
+    mockSnapshot = {
+      ...initialSnapshot,
+      categories: [
+        category('groceries', 'Groceries', 'flexible'),
+        category('housing', 'Housing', 'protected'),
+      ],
+    };
+    const navigation = { navigate: jest.fn() };
+    const screen = render(<MoneySummaryScreen navigation={navigation as never} route={{ key: 'summary', name: 'MoneySummary' } as never} />);
+
+    expect(screen.getAllByText('Flexible spending').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Groceries').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Committed spending').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Housing').length).toBeGreaterThan(0);
+
+    const flexibleInfo = screen.getAllByRole('button', { name: 'About flexible spending' })[0];
+    expect(flexibleInfo.props.accessibilityHint).toBe('Everyday categories that use the flexible spending amount shown here.');
+    fireEvent.press(flexibleInfo);
+    expect(flexibleInfo.props.accessibilityState).toMatchObject({ expanded: true });
+    fireEvent.press(flexibleInfo);
+
+    const committedInfo = screen.getAllByRole('button', { name: 'About committed spending' })[0];
+    expect(committedInfo.props.accessibilityHint).toBe('Bills and money already set aside before your flexible spending is calculated.');
+    fireEvent.press(committedInfo);
+    expect(committedInfo.props.accessibilityState).toMatchObject({ expanded: true });
   });
 
   it('opens the exact transactions behind flexible spending', () => {
@@ -150,5 +186,38 @@ function transaction(id: string, amountCents: number, overrides: Record<string, 
     amountCents, direction: 'outflow', date: '2026-07-15', pending: false,
     currencyCode: 'USD', categoryId: null, categoryName: 'Needs review', reviewState: 'needs_review', moneyMeaning: null,
     ...overrides,
+  };
+}
+
+function category(id: string, name: string, planRole: 'protected' | 'flexible'): MoneySnapshot['categories'][number] {
+  return {
+    id,
+    sourceId: id,
+    name,
+    description: null,
+    accentColor: '#315545',
+    plannedCents: 10000,
+    spentCents: 2500,
+    remainingCents: 7500,
+    percentUsed: 25,
+    transactionCount: 0,
+    rolloverEnabled: false,
+    fundingRhythm: 'monthly',
+    fundingPolicyVersion: null,
+    starterWeight: 1,
+    monthlyContributionCents: 10000,
+    reserveAvailableCents: 0,
+    reserveBalanceCents: 0,
+    reserveBalancePeriodId: null,
+    reserveAvailabilityKnown: true,
+    expectedNeed: null,
+    fundingCoverage: { status: 'none' },
+    forecastSettings: { mode: 'paced', manualProjectedSpendCents: null, scheduledAmountCents: null, scheduledDueDay: null },
+    forecast: {
+      mode: 'paced', claim: 'monthly_range', expectedSpendCents: 2500, projectedSpendCents: 2500,
+      projectionRangeLowCents: 2500, projectionRangeHighCents: 2500, projectedRemainingCents: 7500,
+      projectedOverageCents: 0, confidence: 'high', status: 'steady',
+    },
+    planRole,
   };
 }
