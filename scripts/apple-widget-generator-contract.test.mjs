@@ -18,6 +18,10 @@ const chatWidgetTemplate = await readFile(
   new URL('../plugins/appleEcosystem/chatWidgetSwift.js', import.meta.url),
   'utf8',
 ).catch(() => '');
+const generatedWidgetSwift = await readFile(
+  new URL('../ios/KwiltWidgets/KwiltWidgets.swift', import.meta.url),
+  'utf8',
+);
 
 test('generated Money widgets include their currency formatting dependency', () => {
   assert.match(moneyWidgetTemplate, /formatCurrency\(cents:/);
@@ -49,6 +53,18 @@ test('generated Focus widget offers configured one-tap standalone sessions', () 
 test('generated Focus shortcuts fall back to the standalone Focus route', () => {
   assert.ok(widgetGenerator.includes('kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\\\(safeMinutes)&source=shortcut'));
   assert.match(widgetGenerator, /kwilt:\/\/today\?openStandaloneFocus=1&source=shortcut/);
+});
+
+test('generated Focus Live Activity balances compact identity and time, then reveals the to-do', () => {
+  for (const source of [widgetGenerator, generatedWidgetSwift]) {
+    assert.match(source, /DynamicIslandExpandedRegion\(\.leading\)/);
+    assert.match(source, /DynamicIslandExpandedRegion\(\.trailing\)/);
+    assert.match(source, /DynamicIslandExpandedRegion\(\.bottom\)/);
+    assert.match(source, /frame\(width: 20, height: 20\)/);
+    assert.match(source, /frame\(width: 48, alignment: \.trailing\)/);
+    assert.match(source, /Text\(context\.state\.title\)/);
+    assert.doesNotMatch(source, /marquee|scrolling/i);
+  }
 });
 
 test('generated Chat widget is a private static fresh-entry launcher', () => {

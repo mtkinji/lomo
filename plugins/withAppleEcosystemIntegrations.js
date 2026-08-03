@@ -2475,20 +2475,14 @@ struct KwiltFocusDynamicIslandExpandedView: View {
   var palette: KwiltFocusPalette { KwiltFocusPalette.forKey(context.state.colorKey) }
 
   var body: some View {
-    HStack(spacing: 12) {
-      if let logo = kwiltLogoImage() {
-        logo
-          .resizable()
-          .scaledToFit()
-          .frame(width: 24, height: 24)
-      }
-      Text(context.state.title)
-        .font(.headline)
-        .lineLimit(1)
-      Spacer()
-      KwiltFocusTimerLabel(context: context, palette: palette)
-    }
-    .padding(.vertical, 2)
+    Text(context.state.title)
+      .font(.headline)
+      .foregroundStyle(palette.primary)
+      .lineLimit(2)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 4)
+      .padding(.top, 4)
+      .padding(.bottom, 2)
   }
 }
 
@@ -2504,19 +2498,23 @@ struct KwiltFocusCompactTrailingView: View {
   var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
 
   var body: some View {
-    if isPaused {
-      Image(systemName: "pause.fill")
-        .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)
-        .font(.caption2)
-    } else if let end = endAt {
-      Text(timerInterval: startedAt...end, countsDown: true)
-        .monospacedDigit()
-        .font(.caption2)
-    } else {
-      Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
-        .monospacedDigit()
-        .font(.caption2)
+    Group {
+      if isPaused {
+        Image(systemName: "pause.fill")
+          .font(.caption2)
+      } else if let end = endAt {
+        Text(timerInterval: startedAt...end, countsDown: true)
+          .monospacedDigit()
+          .font(.caption2)
+      } else {
+        Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
+          .monospacedDigit()
+          .font(.caption2)
+      }
     }
+    .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)
+    .frame(width: 48, alignment: .trailing)
+    .padding(.trailing, 2)
   }
 }
 
@@ -2529,24 +2527,41 @@ struct KwiltFocusLiveActivity: Widget {
         .activitySystemActionForegroundColor(KwiltFocusPalette.forKey(context.state.colorKey).primary)
     } dynamicIsland: { context in
       DynamicIsland {
-        DynamicIslandExpandedRegion(.center) {
+        DynamicIslandExpandedRegion(.leading) {
+          if let logo = kwiltLogoImage() {
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 28, height: 28)
+              .padding(.leading, 4)
+          }
+        }
+        DynamicIslandExpandedRegion(.trailing) {
+          KwiltFocusTimerLabel(
+            context: context,
+            palette: KwiltFocusPalette.forKey(context.state.colorKey)
+          )
+          .padding(.trailing, 4)
+        }
+        DynamicIslandExpandedRegion(.bottom) {
           KwiltFocusDynamicIslandExpandedView(context: context)
         }
       } compactLeading: {
         if let logo = kwiltLogoImage() {
-          logo
-            .resizable()
-            .scaledToFit()
-            .frame(width: 16, height: 16)
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 20, height: 20)
+              .padding(.leading, 3)
         }
       } compactTrailing: {
         KwiltFocusCompactTrailingView(context: context)
       } minimal: {
         if let logo = kwiltLogoImage() {
-          logo
-            .resizable()
-            .scaledToFit()
-            .frame(width: 16, height: 16)
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 18, height: 18)
         }
       }
       .keylineTint(KwiltFocusPalette.forKey(context.state.colorKey).background)
