@@ -102,6 +102,11 @@ import {
   normalizeActivitySuggestionTitle,
   prepareIncomingActivitySuggestions,
 } from './activitySuggestionRail';
+import {
+  createSafeMarkdownParser,
+  isSafeMarkdownLink,
+  prepareMarkdownForRender,
+} from './safeMarkdown';
 
 export type { ActivitySuggestion, GoalProposalDraft } from './agentHandoffParsers';
 
@@ -203,6 +208,8 @@ const PROMPT_SUGGESTIONS = [
   'Find a great Japanese architect',
   'Optimize onboarding flow',
 ];
+
+const safeMarkdownParser = createSafeMarkdownParser();
 
 const CHAT_COLORS = {
 // When rendered inside BottomDrawer, the sheet surface
@@ -1657,7 +1664,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
           {isActive && goalProposalPostNote.trim().length > 0 && (
             <View style={styles.assistantMessage} pointerEvents="none">
-              <Markdown style={markdownStyles}>{goalProposalPostNote}</Markdown>
+              <Markdown
+                style={markdownStyles}
+                markdownit={safeMarkdownParser}
+                onLinkPress={isSafeMarkdownLink}
+              >
+                {prepareMarkdownForRender(goalProposalPostNote)}
+              </Markdown>
             </View>
           )}
         </Fragment>
@@ -2988,7 +3001,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                               accessibilityRole="button"
                               accessibilityLabel="Skip assistant typing and show full message"
                             >
-                              <Markdown style={markdownStyles}>{message.content}</Markdown>
+                              <Markdown
+                                style={markdownStyles}
+                                markdownit={safeMarkdownParser}
+                                onLinkPress={isSafeMarkdownLink}
+                              >
+                                {prepareMarkdownForRender(message.content)}
+                              </Markdown>
                             </Pressable>
                             {message.id === latestRetryableWorkflowErrorMessageId &&
                             retryableWorkflowStepId ? (

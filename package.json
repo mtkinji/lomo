@@ -158,5 +158,10 @@
       }
     }
   },
+  "overrides": {
+    "react-native-markdown-display": {
+      "markdown-it": "14.2.0"
+    }
+  },
   "private": true
 }

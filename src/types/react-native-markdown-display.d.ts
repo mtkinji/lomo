@@ -25,12 +25,31 @@ declare module 'react-native-markdown-display' {
   export interface MarkdownProps extends TextProps {
     children: string;
     style?: MarkdownStyles;
+    markdownit?: MarkdownItInstance;
     onLinkPress?: (url: string) => boolean | void;
   }
+
+  export interface MarkdownToken {
+    type: string;
+    content: string;
+    children?: MarkdownToken[] | null;
+  }
+
+  export interface MarkdownItInstance {
+    options: Record<string, unknown>;
+    disable(rules: string | string[]): MarkdownItInstance;
+    parse(source: string, environment: Record<string, unknown>): MarkdownToken[];
+  }
+
+  export interface MarkdownItConstructor {
+    (options?: Record<string, unknown>): MarkdownItInstance;
+    new (options?: Record<string, unknown>): MarkdownItInstance;
+  }
+
+  export const MarkdownIt: MarkdownItConstructor;
 
   const Markdown: ComponentType<MarkdownProps>;
 
   export default Markdown;
 }
-
 
