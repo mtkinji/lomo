@@ -22,7 +22,7 @@ const point = {
 
 describe('Explore state transitions', () => {
   it('starts with the current persisted Explore schema', () => {
-    expect(createEmptyExploreData().version).toBe(9);
+    expect(createEmptyExploreData().version).toBe(10);
   });
 
   it('starts, records, and completes an explicit adventure', () => {

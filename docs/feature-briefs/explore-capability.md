@@ -16,7 +16,7 @@ last_updated: 2026-08-01
 
 ## Context
 
-Kwilt already understands task-linked location and private sharing, but it cannot preserve where a family has explored. Explore introduces an explicit, private-first adventure session that turns movement into a retained map without claiming production background tracking or family sync before those systems exist.
+Kwilt already understands task-linked location and private sharing, but it cannot preserve where a family has explored. Explore introduces an explicit, private-first adventure session that turns movement into a retained map without claiming family sync before that system exists. Signed-in owner history is durably recoverable through the authenticated backend while capture and rendering remain local-first.
 
 ## Target audience
 
@@ -52,7 +52,7 @@ Recording, sharing, and viewing are independent:
 - sharing controls the maximum projection another person may receive;
 - viewing controls which permitted layers appear locally.
 
-The first release implements recording and viewing locally. It models sharing but does not transmit location data. Family layers use honest empty/unavailable states until an authenticated backend with RLS, retention, deletion, and revocation exists.
+Recording and viewing remain local-first. The app synchronizes completed owner sessions, Places, visit relationships, and reset metadata through an authenticated owner-RLS backend, but it does not transmit family location layers. Family layers use honest empty/unavailable states until separate sharing, retention, deletion, and revocation contracts exist.
 
 ### UI contract
 

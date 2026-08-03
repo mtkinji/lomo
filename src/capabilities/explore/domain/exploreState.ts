@@ -6,7 +6,7 @@ import type { ExploreData, ExplorePoint, ExploreSession, ExploreTrackingPolicy, 
 
 export function createEmptyExploreData(): ExploreData {
   return {
-    version: 9,
+    version: 10,
     activeSession: null,
     sessions: [],
     exploredCells: {},
@@ -14,6 +14,11 @@ export function createEmptyExploreData(): ExploreData {
     placeRelationships: {},
     preferences: createDefaultExplorePreferences(),
     tracking: createExploreTrackingState(),
+    sync: {
+      historyResetAt: null,
+      deletedPlaceIds: {},
+      lastSyncedAt: null,
+    },
   };
 }
 

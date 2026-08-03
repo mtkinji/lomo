@@ -23,8 +23,36 @@ describe('Explore store persistence', () => {
     expect(migrate).toBeDefined();
     const upgraded = await migrate!(legacy, 8) as ExploreData;
 
-    expect(upgraded.version).toBe(9);
+    expect(upgraded.version).toBe(10);
     expect(upgraded.activeSession?.trackingPolicy).toBe('adventure');
     expect(upgraded.sessions[0].trackingPolicy).toBe('ambient');
+    expect(upgraded.sync).toEqual({
+      historyResetAt: null,
+      deletedPlaceIds: {},
+      lastSyncedAt: null,
+    });
+  });
+
+  it('persists reset and Place tombstones for cross-device deletion', () => {
+    useExploreStore.setState({ ...createEmptyExploreData(), lastPointDecision: null });
+    useExploreStore.getState().addPlaceVisit({
+      place: {
+        id: 'user:home',
+        name: 'Home',
+        kind: 'place',
+        latitude: 40.5,
+        longitude: -105.1,
+        source: 'user',
+      },
+      userId: 'user-a',
+      visitedAt: '2026-08-03T12:00:00.000Z',
+    });
+
+    useExploreStore.getState().removeDiscoveredPlace('session-a', 'user:home', 'user-a');
+    expect(useExploreStore.getState().sync.deletedPlaceIds['user:home']).toBeTruthy();
+
+    useExploreStore.getState().clearHistory();
+    expect(useExploreStore.getState().sync.historyResetAt).toBeTruthy();
+    expect(useExploreStore.getState().sync.deletedPlaceIds).toEqual({});
   });
 });

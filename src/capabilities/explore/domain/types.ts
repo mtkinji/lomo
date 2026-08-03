@@ -84,8 +84,14 @@ export type ExplorePreferences = {
   firstPlaceGuideDismissed: boolean;
 };
 
+export type ExploreSyncMetadata = {
+  historyResetAt: string | null;
+  deletedPlaceIds: Record<string, string>;
+  lastSyncedAt: string | null;
+};
+
 export type ExploreData = {
-  version: 9;
+  version: 10;
   activeSession: ExploreSession | null;
   sessions: ExploreSession[];
   exploredCells: Record<string, ExploredCell>;
@@ -93,4 +99,5 @@ export type ExploreData = {
   placeRelationships: Record<string, UserPlaceRelationship>;
   preferences: ExplorePreferences;
   tracking: ExploreTrackingState;
+  sync: ExploreSyncMetadata;
 };

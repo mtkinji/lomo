@@ -88,7 +88,7 @@ function parsePersistedExplore(raw: string | null): { data: ExploreData; envelop
     const data = {
         ...defaults,
         ...persisted,
-        version: 9,
+        version: 10,
         activeSession: persisted.activeSession
           ? upgradeSession(persisted.activeSession, activeFallbackPolicy)
           : null,
@@ -167,8 +167,8 @@ TaskManager.defineTask(EXPLORE_BACKGROUND_TASK, async ({ data, error }) => {
   }
 
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 9 }
-    : { state: next, version: 9 };
+    ? { ...persisted.envelope, state: next, version: 10 }
+    : { state: next, version: 10 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-location' });
@@ -204,8 +204,8 @@ TaskManager.defineTask(EXPLORE_WAKE_TASK, async ({ data, error }) => {
     tracking: resumeExploreTracking(persisted.data.tracking, new Date().toISOString()),
   };
   const envelope = 'state' in persisted.envelope
-    ? { ...persisted.envelope, state: next, version: 9 }
-    : { state: next, version: 9 };
+    ? { ...persisted.envelope, state: next, version: 10 }
+    : { state: next, version: 10 };
   await AsyncStorage.setItem(EXPLORE_STORAGE_KEY, JSON.stringify(envelope));
   if (useExploreStore.persist.hasHydrated()) {
     useExploreStore.setState({ ...next, lastPointDecision: 'background-wake' });

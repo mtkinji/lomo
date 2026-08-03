@@ -46,6 +46,7 @@ import { LocationOfferService } from './src/services/locationOffers/LocationOffe
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import './src/capabilities/explore/runtime/exploreBackgroundTask';
 import { ExploreAlwaysOnRuntimeHost } from './src/capabilities/explore/runtime/ExploreAlwaysOnRuntimeHost';
+import { ExploreSyncRuntimeHost } from './src/capabilities/explore/runtime/ExploreSyncRuntimeHost';
 import { useFirstTimeUxStore } from './src/store/useFirstTimeUxStore';
 import { Logo } from './src/ui/Logo';
 import { CelebrationInterstitialHost } from './src/ui/CelebrationInterstitial';
@@ -629,6 +630,7 @@ export default function App() {
           {content}
           <FocusSessionRuntimeHost />
           {authIdentity ? <ExploreAlwaysOnRuntimeHost /> : null}
+          {authIdentity ? <ExploreSyncRuntimeHost userId={authIdentity.userId} /> : null}
           <PortalHost />
         </BottomSheetModalProvider>
       </SafeAreaProvider>

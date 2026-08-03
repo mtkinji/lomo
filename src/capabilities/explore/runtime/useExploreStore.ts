@@ -81,6 +81,7 @@ function dataFromStore(state: ExploreStore): ExploreData {
     placeRelationships: state.placeRelationships,
     preferences: state.preferences,
     tracking: state.tracking,
+    sync: state.sync,
   };
 }
 
@@ -161,7 +162,14 @@ export const useExploreStore = create<ExploreStore>()(
         visitedAt = new Date().toISOString(),
         evidence = 'user-confirmed',
       }) => {
-        set((state) => recordPlaceVisit(dataFromStore(state), { place, userId, visitedAt, evidence }));
+        set((state) => {
+          const deletedPlaceIds = { ...state.sync.deletedPlaceIds };
+          delete deletedPlaceIds[place.id];
+          return recordPlaceVisit({
+            ...dataFromStore(state),
+            sync: { ...state.sync, deletedPlaceIds },
+          }, { place, userId, visitedAt, evidence });
+        });
       },
       resolveSessionPlaces: (sessionId, places, userId) => {
         set((state) => {
@@ -234,6 +242,10 @@ export const useExploreStore = create<ExploreStore>()(
             sessions: state.sessions.map((session) => session.id === sessionId
               ? { ...session, discoveredPlaceIds: session.discoveredPlaceIds.filter((id) => id !== placeId) }
               : session),
+            sync: {
+              ...state.sync,
+              deletedPlaceIds: { ...state.sync.deletedPlaceIds, [placeId]: new Date().toISOString() },
+            },
           };
         });
       },
@@ -252,6 +264,10 @@ export const useExploreStore = create<ExploreStore>()(
             sessions: state.sessions.map((session) => selected.has(session.id)
               ? { ...session, discoveredPlaceIds: session.discoveredPlaceIds.filter((id) => id !== placeId) }
               : session),
+            sync: {
+              ...state.sync,
+              deletedPlaceIds: { ...state.sync.deletedPlaceIds, [placeId]: new Date().toISOString() },
+            },
           };
         });
       },
@@ -259,6 +275,11 @@ export const useExploreStore = create<ExploreStore>()(
         set((state) => ({
           ...createEmptyExploreData(),
           preferences: state.preferences,
+          sync: {
+            historyResetAt: new Date().toISOString(),
+            deletedPlaceIds: {},
+            lastSyncedAt: state.sync.lastSyncedAt,
+          },
           lastPointDecision: null,
         }));
       },
@@ -300,7 +321,7 @@ export const useExploreStore = create<ExploreStore>()(
     }),
     {
       name: 'kwilt-explore-v1',
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState: unknown) => {
         const persisted = (persistedState ?? {}) as Partial<ExploreData>;
@@ -355,12 +376,17 @@ export const useExploreStore = create<ExploreStore>()(
         return rebuildExploreTerritory({
           ...defaults,
           ...persisted,
-          version: 9,
+          version: 10,
           activeSession,
           sessions: Array.isArray(persisted.sessions)
             ? persisted.sessions.map((session) => upgradeSession(session))
             : [],
           preferences: nextPreferences,
+          sync: {
+            ...defaults.sync,
+            ...(persisted.sync ?? {}),
+            deletedPlaceIds: { ...(persisted.sync?.deletedPlaceIds ?? {}) },
+          },
           tracking: normalizeExploreTrackingState(
             persisted.tracking,
             activeSession ? trackingPolicyForRecordingMode(nextPreferences.recording) : null,
