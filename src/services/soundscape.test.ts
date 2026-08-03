@@ -7,8 +7,9 @@ jest.mock('./audioAssetDelivery', () => ({
   resolveAudioAsset: jest.fn(),
 }));
 
-jest.mock('expo-av', () => ({
-  Audio: {},
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(),
+  setAudioModeAsync: jest.fn(),
 }));
 
 jest.mock('./nativeCrashBreadcrumbs', () => ({
@@ -64,12 +65,12 @@ describe('Focus soundscape sources', () => {
     ]);
   });
 
-  test('loads expo-av through the ES-module binding Metro exposes reliably', () => {
+  test('uses the supported Expo audio module without retaining expo-av', () => {
     const source = readFileSync(path.join(__dirname, 'soundscape.ts'), 'utf8');
 
-    expect(source).toContain("import { Audio as ExpoAvAudio } from 'expo-av';");
-    expect(source).not.toContain("require('expo-av')");
-    expect(source).not.toContain("await import('expo-av')");
+    expect(source).toContain("from 'expo-audio'");
+    expect(source).not.toContain("from 'expo-av'");
+    expect(source).not.toContain("import('expo-av')");
   });
 
   test('unloads the native player before Fast Refresh replaces the module', () => {

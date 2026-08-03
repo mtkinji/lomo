@@ -36,7 +36,6 @@
         "npm:expo-application@~7.0.8",
         "npm:expo-audio@~1.1.1",
         "npm:expo-auth-session@^7.0.10",
-        "npm:expo-av@~16.0.8",
         "npm:expo-background-fetch@~14.0.9",
         "npm:expo-blur@~15.0.8",
         "npm:expo-calendar@~15.0.8",

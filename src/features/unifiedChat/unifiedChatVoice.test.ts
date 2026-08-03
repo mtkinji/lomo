@@ -1,17 +1,117 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
+const mockRecorder = {
+  uri: 'file:///voice.m4a',
+  prepareToRecordAsync: jest.fn(async () => undefined),
+  record: jest.fn(),
+  stop: jest.fn(async () => undefined),
+  release: jest.fn(),
+  getStatus: jest.fn(() => ({ isRecording: true, metering: -20, durationMillis: 500 })),
+};
+const mockAudioRecorder = jest.fn(() => mockRecorder);
+const mockRequestRecordingPermissionsAsync = jest.fn(async () => ({ granted: true }));
+const mockSetAudioModeAsync = jest.fn(async () => undefined);
+const mockGetInfoAsync = jest.fn(async () => ({ exists: true, size: 1024 }));
+const mockReadAsStringAsync = jest.fn(async () => 'base64-audio');
 
-const voiceSource = readFileSync(path.resolve(__dirname, 'unifiedChatVoice.ts'), 'utf8');
+jest.mock('expo-audio', () => ({
+  AudioModule: { AudioRecorder: mockAudioRecorder },
+  RecordingPresets: {
+    HIGH_QUALITY: {
+      extension: '.m4a', sampleRate: 44_100, numberOfChannels: 2, bitRate: 128_000,
+      ios: { outputFormat: 'ios-aac' }, android: { outputFormat: 'mpeg4' }, web: {},
+    },
+  },
+  requestRecordingPermissionsAsync: mockRequestRecordingPermissionsAsync,
+  setAudioModeAsync: mockSetAudioModeAsync,
+}));
 
-describe('Unified Chat native voice recording contract', () => {
-  test('streams normalized live microphone levels at a responsive interval', () => {
-    expect(voiceSource).toContain('candidate.setProgressUpdateInterval(100)');
-    expect(voiceSource).toContain('candidate.setOnRecordingStatusUpdate((status) =>');
-    expect(voiceSource).toContain("typeof status.metering !== 'number'");
-    expect(voiceSource).toContain('onLevel?.(normalizeUnifiedChatVoiceMetering(status.metering))');
+jest.mock('expo-file-system/legacy', () => ({
+  EncodingType: { Base64: 'base64' },
+  getInfoAsync: mockGetInfoAsync,
+  readAsStringAsync: mockReadAsStringAsync,
+}));
+
+jest.mock('../../services/backend/auth', () => ({ getAccessToken: jest.fn(async () => 'token') }));
+jest.mock('../../services/edgeFunctions', () => ({
+  getEdgeFunctionUrl: jest.fn(() => 'https://example.test/transcribe'),
+  getEdgeFunctionUrlCandidates: jest.fn(() => ['https://example.test/transcribe']),
+}));
+jest.mock('../../services/installId', () => ({ getInstallId: jest.fn(async () => 'install-id') }));
+jest.mock('../../utils/getEnv', () => ({ getSupabasePublishableKey: jest.fn(() => 'key') }));
+
+describe('Unified Chat native voice recording', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockRequestRecordingPermissionsAsync.mockResolvedValue({ granted: true });
+    mockRecorder.getStatus.mockReturnValue({
+      isRecording: true,
+      metering: -20,
+      durationMillis: 500,
+    });
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ transcript: 'Recorded thought' }),
+    })) as jest.Mock;
   });
 
-  test('detaches metering updates before stopping or cancelling', () => {
-    expect(voiceSource.match(/setOnRecordingStatusUpdate\(null\)/g)).toHaveLength(3);
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('rejects recording when microphone permission is denied', async () => {
+    mockRequestRecordingPermissionsAsync.mockResolvedValueOnce({ granted: false });
+    const { startUnifiedChatVoiceRecording } =
+      require('./unifiedChatVoice') as typeof import('./unifiedChatVoice');
+
+    await expect(startUnifiedChatVoiceRecording()).rejects.toThrow(
+      'Allow microphone access to use voice input.',
+    );
+    expect(mockAudioRecorder).not.toHaveBeenCalled();
+  });
+
+  test('releases the native recorder when preparation fails', async () => {
+    mockRecorder.prepareToRecordAsync.mockRejectedValueOnce(new Error('prepare failed'));
+    const { startUnifiedChatVoiceRecording } =
+      require('./unifiedChatVoice') as typeof import('./unifiedChatVoice');
+
+    await expect(startUnifiedChatVoiceRecording()).rejects.toThrow('prepare failed');
+    expect(mockRecorder.release).toHaveBeenCalledTimes(1);
+  });
+
+  test('polls normalized metering while recording and stops polling when cancelled', async () => {
+    const onLevel = jest.fn();
+    const { startUnifiedChatVoiceRecording, cancelUnifiedChatVoiceRecording } =
+      require('./unifiedChatVoice') as typeof import('./unifiedChatVoice');
+
+    await startUnifiedChatVoiceRecording(onLevel);
+    jest.advanceTimersByTime(100);
+
+    expect(mockRecorder.prepareToRecordAsync).toHaveBeenCalled();
+    expect(mockAudioRecorder).toHaveBeenCalledWith(expect.objectContaining({
+      extension: '.m4a',
+      isMeteringEnabled: true,
+      outputFormat: 'ios-aac',
+    }));
+    expect(mockRecorder.record).toHaveBeenCalledTimes(1);
+    expect(onLevel).toHaveBeenCalledTimes(1);
+
+    await cancelUnifiedChatVoiceRecording();
+    jest.advanceTimersByTime(200);
+    expect(mockRecorder.stop).toHaveBeenCalledTimes(1);
+    expect(onLevel).toHaveBeenCalledTimes(1);
+  });
+
+  test('transcribes the URI produced by the stopped recorder', async () => {
+    const { startUnifiedChatVoiceRecording, stopAndTranscribeUnifiedChatVoice } =
+      require('./unifiedChatVoice') as typeof import('./unifiedChatVoice');
+
+    await startUnifiedChatVoiceRecording();
+    await expect(stopAndTranscribeUnifiedChatVoice()).resolves.toBe('Recorded thought');
+
+    expect(mockRecorder.stop).toHaveBeenCalledTimes(1);
+    expect(mockGetInfoAsync).toHaveBeenCalledWith('file:///voice.m4a');
+    expect(mockReadAsStringAsync).toHaveBeenCalledWith('file:///voice.m4a', { encoding: 'base64' });
   });
 });

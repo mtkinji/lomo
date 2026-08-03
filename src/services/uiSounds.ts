@@ -1,28 +1,17 @@
-// NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
-// For now, we lazy-load it so the deprecation warning does not spam on app launch.
-// We can migrate to `expo-audio` / `expo-video` later.
-type ExpoAvAudio = (typeof import('expo-av'))['Audio'];
-let Audio: ExpoAvAudio | null = null;
-
-async function getAudio(): Promise<ExpoAvAudio> {
-  if (Audio) return Audio;
-  const mod = await import('expo-av');
-  Audio = mod.Audio;
-  return Audio;
-}
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 
 /**
  * Lightweight, one-shot UI sound effects.
  *
  * Notes:
- * - We keep a cached `Audio.Sound` instance so repeated taps don't re-load from disk.
+ * - We keep a cached player so repeated taps don't re-load from disk.
  * - This is intentionally best-effort: failures should never block UI interactions.
  */
 
 let audioModeConfigured = false;
-let stepDoneSound: any | null = null;
+let stepDoneSound: AudioPlayer | null = null;
 let stepDoneLoading: Promise<void> | null = null;
-let activityDoneSound: any | null = null;
+let activityDoneSound: AudioPlayer | null = null;
 let activityDoneLoading: Promise<void> | null = null;
 
 // UI sound effect file (bundled).
@@ -32,35 +21,15 @@ const ACTIVITY_DONE_SOURCE = require('../../assets/audio/sfx/mark-complete.wav')
 
 async function ensureUiAudioMode(opts?: { force?: boolean }) {
   if (audioModeConfigured && !opts?.force) return;
-  const Audio = await getAudio();
-  const interruptionModeIOS =
-    (Audio as any)?.InterruptionModeIOS?.DuckOthers ??
-    (Audio as any)?.INTERRUPTION_MODE_IOS_DUCK_OTHERS;
-  const interruptionModeAndroid =
-    (Audio as any)?.InterruptionModeAndroid?.DuckOthers ??
-    (Audio as any)?.INTERRUPTION_MODE_ANDROID_DUCK_OTHERS;
-
   // Best-effort: configure audio to play even if the iOS ringer switch is silent.
   // We intentionally do NOT keep audio active in background for UI sounds.
-  try {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      allowsRecordingIOS: false,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      interruptionModeIOS,
-      interruptionModeAndroid,
-      playThroughEarpieceAndroid: false,
-    });
-  } catch {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      allowsRecordingIOS: false,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
-    });
-  }
+  await setAudioModeAsync({
+    playsInSilentMode: true,
+    allowsRecording: false,
+    shouldPlayInBackground: false,
+    interruptionMode: 'duckOthers',
+    shouldRouteThroughEarpiece: false,
+  });
 
   audioModeConfigured = true;
 }
@@ -73,15 +42,12 @@ async function preloadStepDoneSound() {
   }
 
   stepDoneLoading = (async () => {
-    const Audio = await getAudio();
     await ensureUiAudioMode();
-    const created = await Audio.Sound.createAsync(STEP_DONE_SOURCE, {
-      shouldPlay: false,
-      // These WAVs are intentionally subtle, but simulator output can be quiet.
-      // Keep this high so it's clearly audible without forcing users to max volume.
-      volume: 0.95,
-    });
-    stepDoneSound = created.sound;
+    const player = createAudioPlayer(STEP_DONE_SOURCE);
+    // These WAVs are intentionally subtle, but simulator output can be quiet.
+    // Keep this high so it's clearly audible without forcing users to max volume.
+    player.volume = 0.95;
+    stepDoneSound = player;
   })();
 
   try {
@@ -98,16 +64,19 @@ export async function playStepDoneSound() {
 
     await ensureUiAudioMode({ force: true });
     // Re-assert volume at playback time (some platform/device states can alter gain).
-    await stepDoneSound.setVolumeAsync(0.95);
-    // `replayAsync` is the most reliable "start over and play" across platforms.
+    stepDoneSound.volume = 0.95;
     try {
-      await stepDoneSound.replayAsync();
+      await stepDoneSound.seekTo(0);
+      stepDoneSound.play();
     } catch {
-      await stepDoneSound?.unloadAsync().catch(() => undefined);
+      stepDoneSound?.remove();
       stepDoneSound = null;
       await preloadStepDoneSound();
-      await stepDoneSound?.setVolumeAsync(0.95);
-      await stepDoneSound?.replayAsync();
+      const recovered = stepDoneSound as AudioPlayer | null;
+      if (!recovered) return;
+      recovered.volume = 0.95;
+      await recovered.seekTo(0);
+      recovered.play();
     }
   } catch {
     // Best-effort: no-op if audio fails (simulators, background state, etc).
@@ -122,13 +91,10 @@ async function preloadActivityDoneSound() {
   }
 
   activityDoneLoading = (async () => {
-    const Audio = await getAudio();
     await ensureUiAudioMode();
-    const created = await Audio.Sound.createAsync(ACTIVITY_DONE_SOURCE, {
-      shouldPlay: false,
-      volume: 1.0,
-    });
-    activityDoneSound = created.sound;
+    const player = createAudioPlayer(ACTIVITY_DONE_SOURCE);
+    player.volume = 1.0;
+    activityDoneSound = player;
   })();
 
   try {
@@ -143,15 +109,19 @@ export async function playActivityDoneSound() {
     await preloadActivityDoneSound();
     if (!activityDoneSound) return;
     await ensureUiAudioMode({ force: true });
-    await activityDoneSound.setVolumeAsync(1.0);
+    activityDoneSound.volume = 1.0;
     try {
-      await activityDoneSound.replayAsync();
+      await activityDoneSound.seekTo(0);
+      activityDoneSound.play();
     } catch {
-      await activityDoneSound?.unloadAsync().catch(() => undefined);
+      activityDoneSound?.remove();
       activityDoneSound = null;
       await preloadActivityDoneSound();
-      await activityDoneSound?.setVolumeAsync(1.0);
-      await activityDoneSound?.replayAsync();
+      const recovered = activityDoneSound as AudioPlayer | null;
+      if (!recovered) return;
+      recovered.volume = 1.0;
+      await recovered.seekTo(0);
+      recovered.play();
     }
   } catch {
     // Best-effort: no-op if audio fails.
@@ -160,8 +130,8 @@ export async function playActivityDoneSound() {
 
 export async function unloadUiSounds() {
   try {
-    await stepDoneSound?.unloadAsync();
-    await activityDoneSound?.unloadAsync();
+    stepDoneSound?.remove();
+    activityDoneSound?.remove();
   } catch {
     // ignore
   } finally {
@@ -171,5 +141,3 @@ export async function unloadUiSounds() {
     activityDoneLoading = null;
   }
 }
-
-
