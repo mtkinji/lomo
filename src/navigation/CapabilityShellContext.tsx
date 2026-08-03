@@ -1,13 +1,12 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import {
-  CommonActions,
   useNavigation,
   useNavigationState,
   type NavigationProp,
   type ParamListBase,
 } from '@react-navigation/native';
 import type { CapabilityId, CapabilityMenuDestinationId } from '../capabilities/types';
-import { resolveCapabilityNavigation } from './capabilityNavigation';
+import { createCapabilityNavigateAction, resolveCapabilityNavigation } from './capabilityNavigation';
 import { CapabilityLifecycleCoordinator } from '../capabilities/lifecycle';
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
@@ -118,7 +117,7 @@ export function CapabilityShellProvider({ children }: { children: ReactNode }) {
   const navigateToCapability = useCallback(
     (id: CapabilityId) => {
       const target = resolveCapabilityNavigation(id);
-      navigation.dispatch(CommonActions.navigate(target));
+      navigation.dispatch(createCapabilityNavigateAction(target));
       coverMenu();
     },
     [coverMenu, navigation],

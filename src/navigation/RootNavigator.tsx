@@ -12,7 +12,6 @@ import {
 import { useAnalytics } from '../services/analytics/useAnalytics';
 import { AnalyticsEvent } from '../services/analytics/events';
 import {
-  CommonActions,
   NavigationContainer,
   DefaultTheme,
   Theme,
@@ -114,6 +113,7 @@ import {
   deriveActiveCapabilityDestinationId,
 } from './CapabilityShellContext';
 import {
+  createCapabilityNavigateAction,
   ROOT_DRAWER_BACK_BEHAVIOR,
   resolveCapabilityNavigation,
 } from './capabilityNavigation';
@@ -1210,7 +1210,7 @@ function KwiltCapabilityMenuHost({ navigationState }: { navigationState?: Naviga
             destination_id: id,
             source_surface: 'menu',
           });
-          rootNavigationRef.dispatch(CommonActions.navigate(capability));
+          rootNavigationRef.dispatch(createCapabilityNavigateAction(capability));
           coverMenu();
         }}
         onSelectChat={openChatThread}
