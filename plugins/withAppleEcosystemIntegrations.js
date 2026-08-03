@@ -2501,15 +2501,15 @@ struct KwiltFocusCompactTrailingView: View {
     Group {
       if isPaused {
         Image(systemName: "pause.fill")
-          .font(.caption2)
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
       } else if let end = endAt {
         Text(timerInterval: startedAt...end, countsDown: true)
           .monospacedDigit()
-          .font(.caption2)
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
       } else {
         Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
           .monospacedDigit()
-          .font(.caption2)
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
       }
     }
     .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)

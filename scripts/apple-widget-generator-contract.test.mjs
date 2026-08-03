@@ -62,6 +62,7 @@ test('generated Focus Live Activity balances compact identity and time, then rev
     assert.match(source, /DynamicIslandExpandedRegion\(\.bottom\)/);
     assert.match(source, /frame\(width: 20, height: 20\)/);
     assert.match(source, /frame\(width: 48, alignment: \.trailing\)/);
+    assert.match(source, /font\(\.system\(size: 14, weight: \.semibold, design: \.rounded\)\)/);
     assert.match(source, /Text\(context\.state\.title\)/);
     assert.doesNotMatch(source, /marquee|scrolling/i);
   }
