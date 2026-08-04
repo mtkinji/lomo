@@ -225,6 +225,10 @@ export function classifyUnifiedChatRequest({
 
   const capabilities = explicitCapabilities(normalizedPrompt);
   if (
+    ACTION_PATTERN.test(normalizedPrompt) && /\bcategor(?:y|ies)\b/i.test(normalizedPrompt) &&
+    context.some((candidate) => candidate.capabilityId === 'money') && !capabilities.includes('money')
+  ) capabilities.push('money');
+  if (
     ACTION_PATTERN.test(normalizedPrompt) &&
     context.some((candidate) => candidate.capabilityId === 'todos' || candidate.capabilityId === 'plan') &&
     /\b(?:later|earlier|after|before|at|on|schedule|move|reschedule)\b/i.test(normalizedPrompt)

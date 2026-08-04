@@ -280,9 +280,10 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
         </View>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
-        <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
+        <DetailMenuItem icon="edit" label="Category settings" onPress={() => setSettingsOpen(true)} />
         {category.fundingRhythm === 'monthly' ? <DetailMenuItem icon="gauge" label="Forecast settings" onPress={() => setForecastSettingsOpen(true)} /> : null}
         <DetailMenuItem icon="shield" label="App controls" onPress={() => navigation.navigate('MoneyAppControl', { categoryId: category.id })} />
+        <DetailMenuItem icon="image" label="Edit cover" onPress={() => setCoverDrawerOpen(true)} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -318,7 +319,12 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
             })}
             scrollEventThrottle={16}
           >
-            <View style={styles.heroClip}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${category.name} cover`}
+              onPress={() => setCoverDrawerOpen(true)}
+              style={styles.heroClip}
+            >
               <Animated.View
                 style={[
                   styles.heroArtwork,
@@ -327,7 +333,7 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
               >
                 <MoneyCategoryCover cover={category.coverImage} />
               </Animated.View>
-            </View>
+            </Pressable>
             <View style={styles.summarySection}>
               <Text accessibilityRole="header" style={styles.categoryTitle}>{category.name}</Text>
               <MoneyDetailMeter
@@ -464,9 +470,9 @@ export function MoneyCategoryDetailScreen({ navigation, route }: NativeStackScre
       <BottomDrawer visible={settingsOpen} onClose={() => setSettingsOpen(false)} snapPoints={['82%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerScrollContent} keyboardShouldPersistTaps="handled">
           <BottomDrawerHeader
-            closeAccessibilityLabel="Close plan changes"
+            closeAccessibilityLabel="Close category settings"
             onClose={() => setSettingsOpen(false)}
-            title={`Change ${category.name} plan`}
+            title="Category settings"
             titleVariant="lg"
             variant="withClose"
           />

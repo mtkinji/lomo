@@ -104,7 +104,7 @@ describe('createUnifiedChatToolProvider', () => {
           forecast: snapshots.money.forecast,
           outsidePlan: snapshots.money.outsidePlan,
           categories: [{
-            id: 'groceries', name: 'Groceries', plannedCents: 60000, spentCents: 10000,
+            id: 'category-uuid', name: 'Groceries', plannedCents: 60000, spentCents: 10000,
             remainingCents: 50000, percentUsed: 17, transactionCount: 1,
             forecast: snapshots.money.categories[0].forecast,
           }],
@@ -122,6 +122,33 @@ describe('createUnifiedChatToolProvider', () => {
     expect(JSON.stringify(result)).not.toContain('Private merchant');
     expect(JSON.stringify(result)).not.toContain('Private checking');
     expect(JSON.stringify(result)).not.toContain('private-plan-version');
+  });
+
+  it('stages reviewed Money category creation and name-only emoji changes', async () => {
+    const provider = createUnifiedChatToolProvider({ snapshots });
+
+    await expect(provider.execute({
+      id: 'money-create', toolId: 'money.category.create',
+      arguments: { name: '✈️ Travel', budgetCents: 0 },
+    }, tool('money.category.create'))).resolves.toEqual(expect.objectContaining({ status: 'proposed' }));
+    await expect(provider.execute({
+      id: 'money-rename', toolId: 'money.category.rename',
+      arguments: { categoryId: 'category-uuid', name: '🛒 Groceries' },
+    }, tool('money.category.rename'))).resolves.toEqual(expect.objectContaining({ status: 'proposed' }));
+
+    expect(provider.proposals()).toEqual([
+      expect.objectContaining({
+        capabilityId: 'money',
+        operation: { type: 'create_money_category', targetId: null, payload: { name: '✈️ Travel', budgetCents: 0 } },
+      }),
+      expect.objectContaining({
+        capabilityId: 'money',
+        operation: {
+          type: 'rename_money_category', targetId: 'category-uuid',
+          payload: { name: '🛒 Groceries', expectedName: 'Groceries' },
+        },
+      }),
+    ]);
   });
 
   it('returns a direct truthful Money refusal when the income basis is unavailable', async () => {

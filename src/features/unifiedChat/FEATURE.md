@@ -16,8 +16,9 @@ briefs:
   - unified-chat
   - chat-widget
   - chat-turn-coherent-timeline
+  - chat-transcript-copy
 status: shipping
-last_reviewed: 2026-08-02
+last_reviewed: 2026-08-04
 ---
 
 # Unified Chat

@@ -50,6 +50,10 @@ export const SOUND_SCAPES: Array<{ id: SoundscapeId; title: string }> = [
   { id: 'rainlitLibrary', title: 'Rainlit Library' },
 ];
 
+export function isSoundscapeId(value: unknown): value is SoundscapeId {
+  return typeof value === 'string' && SOUND_SCAPES.some((item) => item.id === value);
+}
+
 let currentSoundscapeId: SoundscapeId = 'default';
 
 /**

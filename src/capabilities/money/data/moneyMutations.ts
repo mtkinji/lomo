@@ -17,7 +17,24 @@ export type TransactionReviewUpdate = {
   money_meaning_category_budget_id?: string | null;
   money_meaning_reason?: string | null;
   money_meaning_reviewed_at?: string | null;
+  plan_role_override?: 'protected' | 'flexible' | null;
+  plan_role_override_reviewed_at?: string | null;
 };
+
+export type TransactionPlanRoleOverrideUpdate = {
+  plan_role_override: 'protected' | 'flexible' | null;
+  plan_role_override_reviewed_at: string | null;
+};
+
+export function buildTransactionPlanRoleOverrideUpdate(
+  planRoleOverride: 'protected' | 'flexible' | null,
+  reviewedAt = new Date().toISOString(),
+): TransactionPlanRoleOverrideUpdate {
+  return {
+    plan_role_override: planRoleOverride,
+    plan_role_override_reviewed_at: planRoleOverride ? reviewedAt : null,
+  };
+}
 
 export type MerchantRuleUpsert = {
   user_id: string;
@@ -76,6 +93,8 @@ export function buildTransactionReviewUpdate(
       money_meaning_category_budget_id: null,
       money_meaning_reason: null,
       money_meaning_reviewed_at: null,
+      plan_role_override: null,
+      plan_role_override_reviewed_at: null,
     };
   }
 
@@ -90,6 +109,8 @@ export function buildTransactionReviewUpdate(
     money_meaning_category_budget_id: null,
     money_meaning_reason: 'Marked as outside the budget.',
     money_meaning_reviewed_at: reviewedAt,
+    plan_role_override: null,
+    plan_role_override_reviewed_at: null,
   };
 }
 
@@ -114,6 +135,8 @@ export function buildTransactionMeaningReviewUpdate(
     budget_match_confidence: 1,
     budget_match_reason: reason,
     budget_match_reviewed_at: reviewedAt,
+    plan_role_override: null,
+    plan_role_override_reviewed_at: null,
   };
 }
 

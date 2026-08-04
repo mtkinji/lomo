@@ -2,6 +2,7 @@ import type { MoneySnapshot } from './moneySnapshot';
 import {
   applyConfirmedCategoryPatch,
   applyConfirmedMerchantRulePatch,
+  applyConfirmedTransactionPlanRolePatch,
   applyConfirmedTransactionPatch,
 } from './moneyConfirmedPatches';
 
@@ -75,5 +76,23 @@ describe('confirmed Money patches', () => {
     });
     expect(result.totals).toEqual(snapshot.totals);
     expect(result.categories).toBe(snapshot.categories);
+  });
+
+  it('applies a confirmed transaction plan-role override without changing its category', () => {
+    const categorized = {
+      ...snapshot,
+      transactions: [{ ...snapshot.transactions[0], categoryId: 'groceries', categoryName: 'Groceries', reviewState: 'assigned' as const }],
+    };
+
+    const result = applyConfirmedTransactionPlanRolePatch(categorized, {
+      transactionId: 'transaction-1',
+      planRoleOverride: 'protected',
+    });
+
+    expect(result.transactions[0]).toMatchObject({
+      categoryId: 'groceries',
+      categoryName: 'Groceries',
+      planRoleOverride: 'protected',
+    });
   });
 });

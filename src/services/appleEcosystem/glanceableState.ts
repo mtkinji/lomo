@@ -146,7 +146,9 @@ export async function writeGlanceableState(next: GlanceableStateV1): Promise<boo
   }
 }
 
-export async function mergeGlanceableState(
+let glanceableMergeQueue: Promise<void> = Promise.resolve();
+
+async function performGlanceableStateMerge(
   partial: Partial<Omit<GlanceableStateV1, 'version' | 'updatedAtMs'>>,
 ): Promise<void> {
   const prev = await readGlanceableState();
@@ -176,8 +178,20 @@ export async function mergeGlanceableState(
   };
   const ok = await writeGlanceableState(merged);
   if (ok) {
-    scheduleWidgetReload();
+    if (Object.prototype.hasOwnProperty.call(partial, 'focusSession')) {
+      scheduleWidgetReload(['KwiltWidgets.focus'], { immediate: true });
+    } else {
+      scheduleWidgetReload();
+    }
   }
+}
+
+export async function mergeGlanceableState(
+  partial: Partial<Omit<GlanceableStateV1, 'version' | 'updatedAtMs'>>,
+): Promise<void> {
+  const operation = glanceableMergeQueue.then(() => performGlanceableStateMerge(partial));
+  glanceableMergeQueue = operation.catch(() => undefined);
+  await operation;
 }
 
 export async function setGlanceableFocusSession(

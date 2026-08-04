@@ -156,6 +156,7 @@ import { RESTING_COMPOSER_HORIZONTAL_INSET_PX } from '../../ui/layout/restingCom
 import { useFloatingControlElevation } from './useFloatingControlElevation';
 import { StandaloneFocusExperience } from './StandaloneFocusExperience';
 import { useStandaloneFocusController } from './useStandaloneFocusController';
+import { isSoundscapeId } from '../../services/soundscape';
 
 const KANBAN_CARD_FIELDS: Array<{
   id: string;
@@ -557,10 +558,13 @@ export function ActivitiesScreen() {
 
     const rawMinutes = Number(route.params?.focusMinutes);
     const requestedMinutes = Number.isFinite(rawMinutes) ? rawMinutes : 25;
+    const rawAudio = route.params?.focusAudio;
+    const requestedAudio = rawAudio === 'none' || isSoundscapeId(rawAudio) ? rawAudio : undefined;
     try {
       navigation.setParams({
         autoStartStandaloneFocus: undefined,
         focusMinutes: undefined,
+        focusAudio: undefined,
         openStandaloneFocus: undefined,
       });
     } catch {
@@ -568,12 +572,13 @@ export function ActivitiesScreen() {
     }
 
     if (shouldStart) {
-      void standaloneFocusController.start(requestedMinutes);
+      void standaloneFocusController.start(requestedMinutes, requestedAudio);
     }
   }, [
     navigation,
     route.params?.autoStartStandaloneFocus,
     route.params?.focusMinutes,
+    route.params?.focusAudio,
     route.params?.openStandaloneFocus,
   ]);
 

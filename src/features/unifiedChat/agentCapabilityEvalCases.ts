@@ -169,6 +169,7 @@ export const OPERATION_LANGUAGE_CASES: readonly OperationLanguageCase[] = [
   languageCase('money.read', 'Am I within my income spending limit?'),
   languageCase('money.review_transaction', 'Move my last Costco transaction to groceries.'),
   languageCase('money.category.create', 'Create a gifts category with $100 a month.'),
+  languageCase('money.category.rename', 'Add an emoji directly to each Money category name that does not have one.'),
   languageCase('money.category.update', 'Raise my groceries plan to $700 a month.'),
   languageCase('money.privacy.configure', 'Turn on Face ID for my Money details.'),
   languageCase('money.connection.connect', 'Connect my bank account to Money.'),

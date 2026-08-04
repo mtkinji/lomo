@@ -37,6 +37,23 @@ test('generated Money widgets preserve the clock-style meter grammar', () => {
   assert.doesNotMatch(moneyWidgetTemplate, /StrokeStyle\([^\n]*dash:/);
 });
 
+test('Money widgets keep the category clock tile centered and give Flexible Money its own answer-card style', () => {
+  const flexibleView = moneyWidgetTemplate.slice(
+    moneyWidgetTemplate.indexOf('struct FlexibleMoneyWidgetView'),
+    moneyWidgetTemplate.indexOf('struct KwiltFlexibleMoneyWidget'),
+  );
+  const categoryView = moneyWidgetTemplate.slice(
+    moneyWidgetTemplate.indexOf('struct MoneyCategoryWidgetView'),
+    moneyWidgetTemplate.indexOf('struct KwiltMoneyCategoryWidget'),
+  );
+
+  assert.doesNotMatch(flexibleView, /MoneyTickBorder/);
+  assert.match(flexibleView, /FlexibleMoneyAnswerCard/);
+  assert.match(categoryView, /VStack\(alignment: \.center/);
+  assert.match(categoryView, /\.multilineTextAlignment\(\.center\)/);
+  assert.match(categoryView, /category\.status == "over" \? MoneyWidgetPalette\.over : \.primary/);
+});
+
 test('generated Focus widget offers configured one-tap standalone sessions', () => {
   assert.match(widgetGenerator, /getFocusWidgetSwift\(targetName\)/);
   assert.match(focusWidgetTemplate, /struct KwiltFocusWidget: Widget/);
@@ -44,7 +61,11 @@ test('generated Focus widget offers configured one-tap standalone sessions', () 
   assert.match(focusWidgetTemplate, /case ten = "10"/);
   assert.match(focusWidgetTemplate, /case twentyFive = "25"/);
   assert.match(focusWidgetTemplate, /case fifty = "50"/);
+  assert.match(focusWidgetTemplate, /enum FocusAudioPreset: String, AppEnum/);
+  assert.match(focusWidgetTemplate, /@Parameter\(title: "Audio"/);
+  assert.match(focusWidgetTemplate, /case rainlitLibrary/);
   assert.match(widgetGenerator, /autoStartStandaloneFocus=1&focusMinutes=/);
+  assert.match(widgetGenerator, /focusAudio=/);
   assert.match(focusWidgetTemplate, /Text\(timerInterval: start\.\.\.end, countsDown: true\)/);
   assert.match(focusWidgetTemplate, /Text\("\\\\\(entry\.minutes\)"\)/);
   assert.match(widgetGenerator, /KwiltFocusWidget\(\)/);

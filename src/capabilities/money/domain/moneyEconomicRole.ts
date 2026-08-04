@@ -147,7 +147,13 @@ function reconcileTransaction(
     return { ...base, disposition: 'unresolved', contributions: [] };
   }
 
-  const role = transaction.categoryId ? roleByCategoryId.get(transaction.categoryId) : undefined;
+  const role = transaction.planRoleOverride === 'protected'
+    ? 'protected_spending'
+    : transaction.planRoleOverride === 'flexible'
+      ? 'flexible_spending'
+      : transaction.categoryId
+        ? roleByCategoryId.get(transaction.categoryId)
+        : undefined;
   if (role) {
     return {
       ...base,

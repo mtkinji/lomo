@@ -29,6 +29,17 @@ describe('classifyUnifiedChatRequest', () => {
     });
   });
 
+  test('keeps a category rename follow-up inside visible Money context', () => {
+    expect(classifyUnifiedChatRequest({
+      prompt: "Find all of my categories that don't have an emoji and add one to the name.",
+      context: [{ capabilityId: 'money', objectType: 'money_category', objectId: 'category-1' }],
+    })).toMatchObject({
+      requestClass: 'capability_action',
+      participatingCapabilities: ['money'],
+      usePrivateContext: true,
+    });
+  });
+
   test('routes an official day-Plan status question as an authoritative read', () => {
     expect(classifyUnifiedChatRequest({ prompt: "What's officially on my Plan tomorrow?" })).toEqual({
       requestClass: 'capability_question',

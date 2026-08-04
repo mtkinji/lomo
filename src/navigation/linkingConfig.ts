@@ -41,6 +41,30 @@ export function normalizeKwiltGamesUrl(url: string) {
   return url;
 }
 
+let widgetLaunchSequence = 0;
+
+export function prepareIncomingNavigationUrl(
+  url: string,
+  launchId = `${Date.now()}-${++widgetLaunchSequence}`,
+) {
+  const normalized = normalizeKwiltGamesUrl(url);
+  try {
+    const parsed = new URL(normalized);
+    if (
+      parsed.protocol === 'kwilt:' &&
+      parsed.hostname === 'chat' &&
+      parsed.searchParams.get('entry') === 'fresh' &&
+      parsed.searchParams.get('source') === 'widget'
+    ) {
+      parsed.searchParams.set('widgetLaunchId', launchId);
+      return parsed.toString();
+    }
+  } catch {
+    // Let React Navigation handle malformed or unsupported URLs as before.
+  }
+  return normalized;
+}
+
 export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
   screens: {
     MainTabs: {
@@ -73,6 +97,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
                   const parsed = Number(v);
                   return Number.isFinite(parsed) ? parsed : undefined;
                 },
+                focusAudio: (v: string) => String(v),
                 highlightSuggested: (v: string) => v === '1' || v === 'true',
                 contextGoalId: (v: string) => String(v),
                 source: (v: string) => String(v),
@@ -137,6 +162,7 @@ export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
       parse: {
         entry: (value: string) => value === 'fresh' ? 'fresh' : undefined,
         source: (value: string) => String(value),
+        widgetLaunchId: (value: string) => String(value),
       },
     },
     // Development-only lab route. The matching screen is not mounted in production builds.

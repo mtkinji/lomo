@@ -17,7 +17,14 @@ describe('getTransactionPlanTreatment', () => {
   it('explains that an ordinary outflow inherits its category role', () => {
     expect(getTransactionPlanTreatment(transaction(), [protectedCategory, flexibleCategory])).toEqual({
       kind: 'protected',
-      label: 'Protected via Housing',
+      label: 'Committed spending',
+    });
+  });
+
+  it('uses a transaction override without changing the assigned category', () => {
+    expect(getTransactionPlanTreatment(transaction({ planRoleOverride: 'flexible' }), [protectedCategory, flexibleCategory])).toEqual({
+      kind: 'flexible',
+      label: 'Flexible spending',
     });
   });
 
@@ -37,8 +44,7 @@ describe('getTransactionPlanTreatment', () => {
       ],
     }), [protectedCategory, flexibleCategory])).toEqual({
       kind: 'mixed',
-      label: 'Split across protected and flexible',
+      label: 'Split across committed and flexible',
     });
   });
 });
-

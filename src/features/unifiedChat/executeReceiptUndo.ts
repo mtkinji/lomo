@@ -32,6 +32,8 @@ import {
   type ChapterStoreBoundary,
 } from './chapterProposalExecutor';
 import type { RelationshipReceiptUndoResult } from '../../services/relationshipMemoryToolProvider';
+import type { MoneyRepository } from '../../capabilities/money/data/moneyRepository';
+import { undoMoneyCategoryRename } from './executeMoneyCategoryProposalDecision';
 
 type UndoRepository = {
   markMutationReceiptUndone: (receiptId: string, undoneAt: string) => Promise<unknown>;
@@ -55,6 +57,7 @@ export async function executeReceiptUndo({
   profileStore,
   chapterStore,
   relationshipUndo,
+  moneyRepository,
   now = () => new Date().toISOString(),
 }: {
   receipt: UnifiedChatMutationReceipt;
@@ -68,10 +71,21 @@ export async function executeReceiptUndo({
   profileStore?: ProfileStoreBoundary;
   chapterStore?: ChapterStoreBoundary;
   relationshipUndo?: (receiptId: string) => Promise<RelationshipReceiptUndoResult>;
+  moneyRepository?: Pick<MoneyRepository, 'loadSnapshot' | 'renameCategory'>;
   now?: () => string;
 }): Promise<void> {
   if (proposal.id !== receipt.proposalId || proposal.status !== 'applied') {
     throw new Error('This proposal is not available to undo.');
+  }
+  if (proposal.capabilityId === 'money') {
+    if (!moneyRepository) throw new Error('Money undo is unavailable on this device.');
+    transitionProposal(proposal, 'undone', proposal.version);
+    const undone = await undoMoneyCategoryRename({ receipt, moneyRepository, now });
+    await repository.markMutationReceiptUndone(receipt.id, undone.undoneAt);
+    await repository.transitionProposalStatus({
+      proposalId: proposal.id, fromStatus: 'applied', toStatus: 'undone', expectedVersion: proposal.version,
+    });
+    return;
   }
   if (proposal.capabilityId === 'relationships') {
     if (!relationshipUndo) throw new Error('Relationship undo is unavailable on this device.');

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
   AppState,
@@ -110,6 +111,10 @@ import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
 } from './unifiedChatTranscriptInsertion';
+import { buildUnifiedChatTranscript } from './chatTranscript';
+import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
+import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
+import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -179,11 +184,13 @@ export function UnifiedChatScreen() {
   const requestedThreadId = route.params?.threadId;
   const freshEntry = route.params?.entry === 'fresh' && !requestedThreadId;
   const freshEntrySource = route.params?.source;
+  const widgetLaunchId = route.params?.widgetLaunchId;
   const insets = useSafeAreaInsets();
   const { openMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
   const config = useMemo(getUnifiedChatConfig, []);
   const repository = useMemo(() => createUnifiedChatRepository(), []);
+  const moneyRepository = useMemo(() => createMoneyRepository(), []);
   const webViewRef = useRef<WebView>(null);
   const handledRequestIds = useRef(new Set<string>());
   const freshFirstSendRequestIdRef = useRef<string | null>(null);
@@ -259,11 +266,14 @@ export function UnifiedChatScreen() {
     const chaptersRecovered = await recoverChapterMutations({
       aggregate: profilesRecovered, repository, store: chapterStoreBoundary,
     });
-    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, chaptersRecovered)) {
+    const moneyRecovered = await recoverMoneyCategoryMutations({
+      aggregate: chaptersRecovered, repository, moneyRepository,
+    });
+    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, moneyRecovered)) {
       track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
     }
-    return chaptersRecovered;
-  }, [repository]);
+    return moneyRecovered;
+  }, [moneyRepository, repository]);
 
   const postSnapshot = useCallback(
     (next: UnifiedChatThreadAggregate, type: 'host.initialize' | 'host.snapshot') => {
@@ -371,7 +381,7 @@ export function UnifiedChatScreen() {
     setAggregate(null);
     setPrompt('');
     setAttachments([]);
-  }, [freshEntry]);
+  }, [freshEntry, widgetLaunchId]);
 
   useEffect(() => () => {
     clearVoiceTimer();
@@ -500,19 +510,29 @@ export function UnifiedChatScreen() {
     [aggregate?.thread.id, repository],
   );
 
+  const copyThread = useCallback(async (threadAggregate: UnifiedChatThreadAggregate) => {
+    try {
+      await Clipboard.setStringAsync(buildUnifiedChatTranscript(threadAggregate));
+      Alert.alert('Chat copied', 'The full conversation is ready to paste.');
+    } catch {
+      Alert.alert('Copy failed', 'Kwilt could not copy this chat on this device right now.');
+    }
+  }, []);
+
   const showThreadActions = useCallback(
-    (thread: UnifiedChatThread) => {
-      Alert.alert(thread.title, undefined, [
-        { text: 'Rename', onPress: () => renameThread(thread) },
+    (threadAggregate: UnifiedChatThreadAggregate) => {
+      Alert.alert(threadAggregate.thread.title, undefined, [
+        { text: 'Rename', onPress: () => renameThread(threadAggregate.thread) },
+        { text: 'Copy chat', onPress: () => void copyThread(threadAggregate) },
         {
           text: 'Archive',
           style: 'destructive',
-          onPress: () => void archiveThread(thread),
+          onPress: () => void archiveThread(threadAggregate.thread),
         },
         { text: 'Cancel', style: 'cancel' },
       ]);
     },
-    [archiveThread, renameThread],
+    [archiveThread, copyThread, renameThread],
   );
 
   const openNativeClientAction = useCallback((clientAction: UnifiedChatClientAction) => {
@@ -771,6 +791,22 @@ export function UnifiedChatScreen() {
       if (command.type === 'proposal.decide_many' && aggregate) {
         setError(null);
         try {
+          const selected = command.items.map((item) =>
+            (aggregate.proposals ?? []).find((proposal) => proposal.id === item.proposalId));
+          if (selected.length > 0 && selected.every((proposal) => proposal?.capabilityId === 'money')) {
+            for (const [index, candidate] of selected.entries()) {
+              const item = command.items[index]!;
+              if (!candidate || candidate.capabilityId !== 'money' || candidate.status !== 'pending' ||
+                  candidate.version !== item.expectedVersion) {
+                throw new Error('One or more Money category changes changed. Review the latest suggestions and try again.');
+              }
+              await executeMoneyCategoryProposalDecision({
+                proposal: candidate, action: 'approve', repository, moneyRepository,
+              });
+            }
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+            return;
+          }
           const result = await executePlanProposalBatch({
             proposals: aggregate.proposals ?? [],
             items: command.items,
@@ -801,6 +837,23 @@ export function UnifiedChatScreen() {
       if (command.type === 'proposal.decide' && aggregate) {
         const proposal = (aggregate.proposals ?? []).find((item) => item.id === command.proposalId);
         if (!proposal || proposal.version !== command.expectedVersion) return;
+        if (proposal.capabilityId === 'money') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Money category change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeMoneyCategoryProposalDecision({
+              proposal, action: command.action, repository, moneyRepository,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Money category.');
+          }
+          return;
+        }
         if (proposal.capabilityId === 'screenTime') {
           if (command.action === 'edit') {
             setError('Ask Kwilt to prepare a revised Screen Time change.');
@@ -980,6 +1033,7 @@ export function UnifiedChatScreen() {
             relationshipUndo: receipt.capabilityId === 'relationships'
               ? createRelationshipMemoryToolProvider({}).undoReceipt
               : undefined,
+            moneyRepository,
           });
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
         } catch (undoError) {
@@ -1191,7 +1245,7 @@ export function UnifiedChatScreen() {
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, loadThreadWithRecovery, menuOpen, navigation, postFreshSnapshot, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, postFreshSnapshot, postSnapshot, repository, voice.state],
   );
 
   const pendingClientAction = useMemo(
@@ -1251,7 +1305,7 @@ export function UnifiedChatScreen() {
           <IconButton
             accessibilityLabel="Chat options"
             variant="ghost"
-            onPress={() => showThreadActions(aggregate.thread)}
+            onPress={() => showThreadActions(aggregate)}
           >
             <Icon name="more" size={18} color={colors.textPrimary} />
           </IconButton>

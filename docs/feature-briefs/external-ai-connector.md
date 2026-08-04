@@ -50,6 +50,8 @@ Locked in the design phase — record here so they don't drift during implementa
 | Publisher identity | The Kwilt business entity (not individual) on both Anthropic and OpenAI directories | Brand consistency with "Notion / Linear / Dovetail"-class listings. Same answer the moment a single business buyer Googles us. |
 | Pricing posture | Connector is free at every tier. AI-backed tool calls debit the existing AI credit pool (50/mo free, 1000/mo Pro) — no new pricing concept. | Capture-first is preserved; conversion happens contextually via the existing `generative_quota_exceeded` paywall flow shipped in `growth-loops-execution-plan.md` Sprint 4 Task 27. |
 | Free-tier feature limits | Surface as structured tool errors with a paywall deep-link carrying the existing `PaywallReason` enum (e.g. `?source=claude&reason=goal_limit`) | Reuses the in-app paywall; no new monetization surface. The agent surfaces the error in a calm, factual way; the user clicks through to the contextual paywall. |
+| In-app connection management | Settings → Apps & connections uses one compact, logo-led row per supported destination. Each row shows its connection count and last use when connected; tapping it starts setup or opens connection management. Access, recent activity, and disconnect live on each connection's detail screen. | Makes app discovery and current state legible in one place without duplicating connected apps in a second section. The raw URL remains an explained manual fallback, not the primary setup affordance. |
+| Connection identity | Show the OAuth client's verified name; do not offer renaming in the initial release. | The name identifies the app that actually has access. A user nickname may be added later only as secondary metadata that never replaces the verified identity. |
 
 Open questions remaining are listed in the [Open questions](#open-questions) section.
 
@@ -78,7 +80,8 @@ The ChatGPT path is identical except the directory and dialog are OpenAI's.
 
 **Inside Kwilt:**
 
-- Settings → Connections lists each connected surface ("Claude — connected May 3", "ChatGPT — not connected") with last-used timestamp and per-surface revoke.
+- Settings → Apps & connections shows ChatGPT, Claude, Cursor, and Codex as recognizable logo-led destinations, with another MCP app as a quieter manual fallback. Tapping a destination opens app-specific setup instructions. Manual setup explicitly identifies the value being copied as Kwilt's MCP server URL and explains where to paste it.
+- The main screen lists active connections with last-used timestamps. Tapping one opens its verified client identity, access, activity from that connection only, and disconnect action. Recent activity is not shown as a mixed top-level feed, and connections cannot be renamed in the initial release.
 - Activities captured from external surfaces show a small surface-origin badge in the Activity card (Claude logo, ChatGPT logo). Tap → "Captured from Claude on May 3 at 8:42 PM."
 - A successful write to `capture_activity` from any external surface counts as a **show-up for that day**, integrating with the streak system shipped in `growth-loops-execution-plan.md` Sprint 1.
 - The Day-7 welcome email and weekly Chapter digest mention "captures from Claude/ChatGPT" alongside in-app activity, so the user sees the cross-surface picture.

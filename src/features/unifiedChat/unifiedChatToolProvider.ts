@@ -24,6 +24,14 @@ import { parseScreenTimeOverrideProposal, type ScreenTimeProposalOperation } fro
 
 export type StagedUnifiedChatToolProposal =
   | {
+      capabilityId: 'money';
+      title: string;
+      body: string;
+      operation:
+        | { type: 'create_money_category'; targetId: null; payload: { name: string; budgetCents: number } }
+        | { type: 'rename_money_category'; targetId: string; payload: { name: string; expectedName: string } };
+    }
+  | {
       capabilityId: 'chapters';
       title: string;
       body: string;
@@ -164,7 +172,7 @@ export function createUnifiedChatToolProvider({
             forecast: money.forecast,
             outsidePlan: money.outsidePlan,
             categories: money.categories.map((category) => ({
-              id: category.id,
+              id: category.sourceId,
               name: category.name,
               plannedCents: category.plannedCents,
               spentCents: category.spentCents,
@@ -178,6 +186,41 @@ export function createUnifiedChatToolProvider({
           } : null,
         },
       };
+    }
+
+    if (call.toolId === 'money.category.create') {
+      const name = typeof call.arguments.name === 'string' ? call.arguments.name.trim() : '';
+      const budgetCents = call.arguments.budgetCents;
+      if (!name || !Number.isInteger(budgetCents) || Number(budgetCents) < 0) {
+        return failed('invalid_money_category', 'Choose a category name and a non-negative monthly amount.');
+      }
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'money', title: `Create ${name}`,
+        body: Number(budgetCents) === 0
+          ? `${name} will be created with no monthly amount yet.`
+          : `${name} will be created with a monthly amount of $${(Number(budgetCents) / 100).toFixed(2)}.`,
+        operation: { type: 'create_money_category', targetId: null, payload: { name, budgetCents: Number(budgetCents) } },
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal };
+    }
+
+    if (call.toolId === 'money.category.rename') {
+      const categoryId = typeof call.arguments.categoryId === 'string' ? call.arguments.categoryId.trim() : '';
+      const name = typeof call.arguments.name === 'string' ? call.arguments.name.trim() : '';
+      const category = snapshots.money?.categories.find((item) => item.sourceId === categoryId || item.id === categoryId);
+      if (!category || !name) return failed('invalid_money_category', 'Choose an existing category and a new name.');
+      if (category.name === name) return failed('money_category_unchanged', `${category.name} already has that name.`);
+      const proposal: StagedUnifiedChatToolProposal = {
+        capabilityId: 'money', title: `Rename ${category.name}`,
+        body: `${category.name} will become ${name}.`,
+        operation: {
+          type: 'rename_money_category', targetId: category.sourceId,
+          payload: { name, expectedName: category.name },
+        },
+      };
+      staged.push(proposal);
+      return { status: 'proposed', proposal };
     }
 
     if (call.toolId === 'screen_time.override.block' || call.toolId === 'screen_time.override.allow') {

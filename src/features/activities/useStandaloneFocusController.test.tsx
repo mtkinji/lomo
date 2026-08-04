@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook } from '@testing-library/react-native';
 import { openPaywallInterstitial } from '../../services/paywall';
+import { preloadSoundscape } from '../../services/soundscape';
+import { useAppStore } from '../../store/useAppStore';
 import { STANDALONE_FOCUS_ACTIVITY_ID } from './focusSessionLifecycle';
 import { useFocusSessionStore } from './focusSessionStore';
 import { useStandaloneFocusController } from './useStandaloneFocusController';
@@ -25,7 +27,35 @@ describe('useStandaloneFocusController', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     useFocusSessionStore.getState().reset();
+    useAppStore.setState({ soundscapeEnabled: true, soundscapeTrackId: 'default' });
     jest.clearAllMocks();
+  });
+
+  it('uses the soundscape configured on this widget launch', async () => {
+    const { result } = renderHook(() =>
+      useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),
+    );
+
+    await act(async () => {
+      expect(await result.current.start(25, 'rainlitLibrary')).toBe(true);
+    });
+
+    expect(useAppStore.getState().soundscapeEnabled).toBe(true);
+    expect(useAppStore.getState().soundscapeTrackId).toBe('rainlitLibrary');
+    expect(preloadSoundscape).toHaveBeenCalledWith({ soundscapeId: 'rainlitLibrary' });
+  });
+
+  it('can start silently from a widget configured with no audio', async () => {
+    const { result } = renderHook(() =>
+      useStandaloneFocusController({ maxMinutes: 180, soundscapeTrackId: 'default' }),
+    );
+
+    await act(async () => {
+      expect(await result.current.start(25, 'none')).toBe(true);
+    });
+
+    expect(useAppStore.getState().soundscapeEnabled).toBe(false);
+    expect(preloadSoundscape).not.toHaveBeenCalled();
   });
 
   it('starts an explicitly unlinked Focus session', async () => {

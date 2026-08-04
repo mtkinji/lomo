@@ -8,7 +8,7 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
 
     expect(source.match(/<BottomDrawerHeader/g)).toHaveLength(3);
     expect(source).toContain('title="How this forecast works"');
-    expect(source).toContain('title={`Change ${category.name} plan`}');
+    expect(source).toContain('title="Category settings"');
     expect(source).toContain('title="Forecast settings"');
     expect(source).not.toContain('styles.drawerEyebrow');
     expect(source).not.toContain('drawerEyebrow:');
@@ -19,8 +19,23 @@ describe('MoneyCategoryDetailScreen drawer headers', () => {
 
     expect(source).toContain('label="Edit cover"');
     expect(source).toContain('<MoneyCategoryCover cover={category.coverImage} />');
+    expect(source).toContain('accessibilityLabel={`Edit ${category.name} cover`}');
     expect(source).toContain('<MoneyCategoryCoverDrawer');
     expect(source).not.toContain('getCategoryCover(');
+  });
+
+  it('keeps category settings discoverable and places cover editing last in the menu', () => {
+    const source = readFileSync(path.join(__dirname, 'MoneyCategoryDetailScreen.tsx'), 'utf8');
+    const menuLabels = [...source.matchAll(/<DetailMenuItem[^>]+label="([^"]+)"/g)]
+      .map((match) => match[1]);
+
+    expect(menuLabels).toEqual([
+      'Category settings',
+      'Forecast settings',
+      'App controls',
+      'Edit cover',
+    ]);
+    expect(source).toContain('title="Category settings"');
   });
 
   it('uses the shared floating object header and compact scroll-linked cover treatment', () => {

@@ -92,6 +92,7 @@ describe('createMoneyRepository transaction review', () => {
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_source');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_policy_version');
     expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('budget_assignment_governed');
+    expect(calls.find((call) => call.table === 'budget_transactions')?.selected).toContain('plan_role_override');
     expect(calls.find((call) => call.table === 'budget_transactions')?.ranges).toEqual([[0, 999]]);
     expect(calls.find((call) => call.table === 'budget_transaction_allocations')?.selected)
       .toBe('transaction_id,budget_id,amount_cents');
@@ -203,6 +204,21 @@ describe('createMoneyRepository transaction review', () => {
         money_meaning_category_budget_id: 'category-1',
         budget_id: 'category-1',
         budget_match_source: 'corrected',
+      },
+    });
+  });
+
+  it('persists a transaction-level plan-role override without changing its category', async () => {
+    const { client, calls } = createClient();
+    const repository = createMoneyRepository(client);
+
+    await repository.setTransactionPlanRoleOverride('transaction-1', 'protected');
+
+    expect(calls.find((call) => call.update)).toMatchObject({
+      table: 'budget_transactions',
+      filters: [['id', 'transaction-1']],
+      update: {
+        plan_role_override: 'protected',
       },
     });
   });

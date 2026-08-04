@@ -204,6 +204,30 @@ export const KWILT_TOOL_CONTRACTS: readonly AgentToolDefinition[] = [
     confirmation: 'none', canDeferToClient: true, inputSchema: OBJECT_SCHEMA, outputSchema: OBJECT_SCHEMA,
   },
   {
+    id: 'money.category.create', version: 1, capabilityId: 'money',
+    purpose: 'Prepare a reviewed Money category with an exact name and monthly amount; use zero only when the user has not requested an amount.',
+    providers: ['device'], effect: 'write', consequence: 'consequential', reversible: false,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        name: { type: 'string', minLength: 1, maxLength: 120 },
+        budgetCents: { type: 'integer', minimum: 0 },
+      }, required: ['name', 'budgetCents'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
+    id: 'money.category.rename', version: 1, capabilityId: 'money',
+    purpose: 'Prepare a reviewed name-only change for one Money category, including adding an emoji directly to its name.',
+    providers: ['device'], effect: 'write', consequence: 'low', reversible: true,
+    confirmation: 'explicit', canDeferToClient: true,
+    inputSchema: {
+      type: 'object', properties: {
+        categoryId: { type: 'string', minLength: 1 },
+        name: { type: 'string', minLength: 1, maxLength: 120 },
+      }, required: ['categoryId', 'name'], additionalProperties: false,
+    }, outputSchema: OBJECT_SCHEMA,
+  },
+  {
     id: 'relationships.read', version: 1, capabilityId: 'relationships',
     purpose: 'Read bounded owner-scoped People, relationship memories, personal events, and follow-up cadences.',
     providers: ['server'], effect: 'read', consequence: 'low', reversible: true,

@@ -62,7 +62,7 @@ const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'integrations',
     title: 'Integrations',
     entries: [
-      { id: 'connected_tools', title: 'Connected tools', route: 'SettingsConnectedTools' },
+      { id: 'connected_tools', title: 'Apps & connections', route: 'SettingsConnectedTools' },
       { id: 'money_privacy', title: 'Money privacy', route: 'SettingsMoneyPrivacy' },
       { id: 'money_household', title: 'Money household', route: 'SettingsMoneyHousehold' },
     ],

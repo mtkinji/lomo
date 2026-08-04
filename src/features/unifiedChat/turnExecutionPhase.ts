@@ -242,7 +242,7 @@ export async function executeUnifiedChatTurnPhase(
       (capability) => capability === 'arcs' || capability === 'todos' || capability === 'plan' ||
         capability === 'goals' || capability === 'profile' || capability === 'chapters' ||
         capability === 'screenTime' || capability === 'notifications' || capability === 'account' ||
-        capability === 'navigation' || capability === 'relationships',
+        capability === 'navigation' || capability === 'relationships' || capability === 'money',
     );
   const relationshipProvider = input.executeRelationshipTool
     ? { execute: input.executeRelationshipTool }
@@ -284,8 +284,11 @@ export async function executeUnifiedChatTurnPhase(
   const supportsTypedAction = input.requestPolicy.requestClass !== 'capability_action' ||
     input.requestPolicy.participatingCapabilities.includes('todos') || usesRuntimeToolLoop;
   if (input.requestPolicy.clarification || !supportsTypedAction) {
+    const capabilityLabel = input.requestPolicy.participatingCapabilities[0]
+      ? input.requestPolicy.participatingCapabilities[0].replace(/([a-z])([A-Z])/g, '$1 $2')
+      : 'that capability';
     const clarification = input.requestPolicy.clarification ??
-      'Kwilt can prepare reviewed To-do changes here right now. What To-do would you like to change?';
+      `Kwilt cannot prepare that ${capabilityLabel} change in Chat yet. You can make it directly in ${capabilityLabel}.`;
     const assistantMessage = await input.repository.insertMessage({
       threadId: input.aggregate.thread.id,
       role: 'assistant',

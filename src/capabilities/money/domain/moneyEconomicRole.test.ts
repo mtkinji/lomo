@@ -133,6 +133,24 @@ describe('reconcileMoneyEconomicRoles', () => {
     });
   });
 
+  it('applies a reviewed transaction override without changing the category default', () => {
+    const result = reconcileMoneyEconomicRoles({
+      transactions: [transaction('groceries-for-party', 20000, {
+        categoryId: 'groceries',
+        categoryName: 'Groceries',
+        reviewState: 'assigned',
+        planRoleOverride: 'protected',
+      })],
+      allocations: [allocation('groceries', 50000)],
+    });
+
+    expect(result.rows[0]).toMatchObject({
+      disposition: 'protected_spending',
+      contributions: [{ role: 'protected_spending', amountCents: 20000, spendDeltaCents: 20000 }],
+    });
+    expect(result.totals.flexibleSpendingCents).toBe(0);
+  });
+
   it('requires a category credit to reference a governed spending role', () => {
     const result = reconcileMoneyEconomicRoles({
       transactions: [transaction('orphan-refund', 2500, {

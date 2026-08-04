@@ -28,7 +28,6 @@ import { captureMoneyMutation, type MoneyMutationOperation } from '../runtime/mo
 import { signalMoneyChoice, signalMoneyMutationOutcome } from '../runtime/moneyMutationFeedback';
 
 type RuleMatchMode = 'exact' | 'partial';
-type CategoryPickerMode = 'all' | 'flexible' | 'protected';
 
 export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackScreenProps<MoneyStackParamList, 'MoneyTransactionDetail'>) {
   const { capture } = useAnalytics();
@@ -37,6 +36,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     createCategory,
     markTransactionNotCounted,
     reviewTransactionMeaning,
+    setTransactionPlanRoleOverride,
     reviewingTransactionId,
     refresh,
     saveMerchantRule,
@@ -46,14 +46,14 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     status,
   } = useMoneyData();
   const transaction = snapshot?.transactions.find((candidate) => candidate.id === route.params.transactionId);
-  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [planTreatmentOpen, setPlanTreatmentOpen] = useState(Boolean(route.params.economicRoleReview));
-  const [categoryPickerMode, setCategoryPickerMode] = useState<CategoryPickerMode>('all');
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(Boolean(route.params.economicRoleReview));
+  const [countsAsOpen, setCountsAsOpen] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryAmount, setNewCategoryAmount] = useState('100.00');
   const [pendingRuleCategory, setPendingRuleCategory] = useState<MoneyCategory | null>(null);
+  const [ruleDrawerOpen, setRuleDrawerOpen] = useState(false);
   const [splitEditorOpen, setSplitEditorOpen] = useState(false);
   const splitSessionRef = useRef<{ mode: TransactionSplitMode; startedAtMs: number } | null>(null);
   const [ruleMode, setRuleMode] = useState<RuleMatchMode>('exact');
@@ -62,17 +62,14 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
   const saving = Boolean(transaction && reviewingTransactionId === transaction.id);
   const categories = snapshot?.categories ?? [];
   const currentCategory = transaction?.categoryId
-    ? categories.find((category) => category.id === transaction.categoryId)
+    ? categories.find((category) => category.id === transaction.categoryId || category.sourceId === transaction.categoryId)
     : undefined;
   const filteredCategories = useMemo(() => {
     const query = categoryQuery.trim().toLowerCase();
-    const scoped = categoryPickerMode === 'protected'
-      ? categories.filter((category) => category.planRole === 'protected')
-      : categoryPickerMode === 'flexible'
-        ? categories.filter((category) => category.planRole === 'flexible')
-        : categories;
-    return query ? scoped.filter((category) => category.name.toLowerCase().includes(query)) : scoped;
-  }, [categories, categoryPickerMode, categoryQuery]);
+    return query ? categories.filter((category) => category.name.toLowerCase().includes(query)) : categories;
+  }, [categories, categoryQuery]);
+  const flexibleCategories = filteredCategories.filter((category) => category.planRole !== 'protected');
+  const committedCategories = filteredCategories.filter((category) => category.planRole === 'protected');
   const similarRows = useMemo(() => transaction
     ? getSimilarMerchantTransactions(snapshot?.transactions ?? [], transaction, ruleMode)
     : [], [ruleMode, snapshot?.transactions, transaction]);
@@ -116,12 +113,15 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     }
     if (transaction.direction === 'outflow' && transaction.merchantRuleCategoryId !== category.id) {
       setPendingRuleCategory(category);
+      setRuleDrawerOpen(false);
     }
   };
 
   const selectMeaning = async (meaning: 'income' | 'transfer' | 'not_counted') => {
     if (!transaction) return;
     const choice = `meaning:${meaning}`;
+    setPendingRuleCategory(null);
+    setRuleDrawerOpen(false);
     signalMoneyChoice();
     setPendingChoice(choice);
     const changed = await runReview(() => transaction.direction === 'outflow' && meaning === 'not_counted'
@@ -129,7 +129,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
       : reviewTransactionMeaning(transaction.id, { meaning }), 'transaction_meaning');
     setPendingChoice(null);
     if (changed) {
-      setPlanTreatmentOpen(false);
+      setCountsAsOpen(false);
       setCategoryPickerOpen(false);
       setCategoryQuery('');
       if (route.params.economicRoleReview) {
@@ -139,10 +139,15 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
     }
   };
 
-  const openEconomicRolePicker = (mode: Extract<CategoryPickerMode, 'flexible' | 'protected'>) => {
-    setPlanTreatmentOpen(false);
-    setCategoryPickerMode(mode);
-    setCategoryPickerOpen(true);
+  const selectPlanRole = async (planRole: 'protected' | 'flexible') => {
+    if (!transaction || !currentCategory) return;
+    const override = planRole === currentCategory.planRole ? null : planRole;
+    signalMoneyChoice();
+    const changed = await runReview(
+      () => setTransactionPlanRoleOverride(transaction.id, override),
+      'transaction_plan_role',
+    );
+    if (changed) setCountsAsOpen(false);
   };
 
   const createAndSelectCategory = async () => {
@@ -258,29 +263,13 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
 
           <PaymentSourceCard transaction={transaction} />
 
-          {transaction.direction === 'outflow' ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Plan treatment</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Change plan treatment from ${planTreatment.label}`}
-                disabled={saving}
-                onPress={() => setPlanTreatmentOpen(true)}
-                style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
-              >
-                <Text numberOfLines={1} style={styles.categoryFieldText}>{planTreatment.label}</Text>
-                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-          ) : null}
-
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Category</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={relationLabel ? `Change category from ${relationLabel}` : 'Choose category'}
               disabled={saving}
-              onPress={() => { setCategoryPickerMode('all'); setCategoryPickerOpen(true); }}
+              onPress={() => setCategoryPickerOpen(true)}
               style={({ pressed }) => [styles.categoryField, pressed ? styles.pressed : null]}
             >
               <View style={styles.categoryFieldCopy}>
@@ -288,6 +277,30 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               </View>
               <Icon name="chevronDown" size={18} color={colors.textSecondary} />
             </Pressable>
+            {transaction.direction === 'outflow' && currentCategory && !transaction.allocations?.length ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Counts as ${planTreatment.label}. Change how this transaction counts.`}
+                disabled={saving}
+                onPress={() => setCountsAsOpen(true)}
+                style={({ pressed }) => [styles.countsAsRow, pressed ? styles.pressed : null]}
+              >
+                <View style={styles.countsAsCopy}>
+                  <Text style={styles.countsAsLabel}>COUNTS AS</Text>
+                  <Text style={styles.countsAsValue}>{planTreatment.label}</Text>
+                  <Text style={styles.countsAsDetail}>{planTreatment.kind === 'flexible'
+                    ? `${formatMoney(transaction.amountCents, transaction.currencyCode)} reduces your flexible money left.`
+                    : `${formatMoney(transaction.amountCents, transaction.currencyCode)} counts with committed spending.`}</Text>
+                </View>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} />
+              </Pressable>
+            ) : transaction.direction === 'outflow' && planTreatment.kind === 'outside' ? (
+              <Text style={styles.classificationDetail}>Not included in your monthly plan.</Text>
+            ) : transaction.direction === 'outflow' && planTreatment.kind === 'transfer' ? (
+              <Text style={styles.classificationDetail}>Money moved between your own accounts—not spending.</Text>
+            ) : transaction.allocations?.length ? (
+              <Text style={styles.classificationDetail}>{planTreatment.label}</Text>
+            ) : null}
             {transaction.merchantRuleCategoryId && currentCategory?.id === transaction.merchantRuleCategoryId ? (
               <View style={styles.ruleReceipt}>
                 <Icon name="checkCircle" size={16} color={colors.pine700} />
@@ -310,24 +323,48 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 {transaction.allocations?.length ? 'Edit split' : 'Split transaction'}
               </Button>
             ) : null}
+            {pendingRuleCategory && !ruleDrawerOpen ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setRuleDrawerOpen(true)}
+                style={({ pressed }) => [styles.ruleOffer, pressed ? styles.pressed : null]}
+              >
+                <View style={styles.ruleOfferCopy}>
+                  <Text style={styles.ruleOfferTitle}>Use {pendingRuleCategory.name} for future {transaction.merchantName} transactions?</Text>
+                  <Text style={styles.ruleOfferDetail}>Review the match before creating a rule.</Text>
+                </View>
+                <Icon name="chevronRight" size={18} color={colors.pine700} />
+              </Pressable>
+            ) : null}
             {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
           </View>
         </ScrollView>
       </AppShell>
 
-      <BottomDrawer visible={planTreatmentOpen} onClose={() => setPlanTreatmentOpen(false)} snapPoints={['52%']} enableContentPanningGesture>
+      <BottomDrawer visible={countsAsOpen} onClose={() => setCountsAsOpen(false)} snapPoints={['46%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader
-            closeAccessibilityLabel="Close plan treatment"
-            onClose={() => setPlanTreatmentOpen(false)}
-            title="How should this affect your plan?"
+            closeAccessibilityLabel="Close counts as options"
+            onClose={() => setCountsAsOpen(false)}
+            title="How should this count?"
             titleVariant="lg"
             variant="withClose"
           />
-          <Text style={styles.drawerCopy}>Transactions normally inherit this from their category.</Text>
-          <Button fullWidth variant="outline" disabled={saving} onPress={() => openEconomicRolePicker('flexible')}>Flexible spending</Button>
-          <Button fullWidth variant="outline" disabled={saving} onPress={() => openEconomicRolePicker('protected')}>A protected bill or reserve</Button>
-          <Button fullWidth variant="outline" disabled={saving} onPress={() => void selectMeaning('not_counted')}>Outside the plan</Button>
+          <Text style={styles.drawerCopy}>{currentCategory?.name ?? 'This category'} normally counts as {currentCategory?.planRole === 'protected' ? 'committed' : 'flexible'} spending. A change here applies only to this transaction.</Text>
+          <PlanRoleChoice
+            detail="Reduces your flexible money left this month."
+            disabled={saving}
+            label="Flexible spending"
+            onPress={() => void selectPlanRole('flexible')}
+            selected={planTreatment.kind === 'flexible'}
+          />
+          <PlanRoleChoice
+            detail="Counts with bills and money already set aside."
+            disabled={saving}
+            label="Committed spending"
+            onPress={() => void selectPlanRole('protected')}
+            selected={planTreatment.kind === 'protected'}
+          />
           {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
         </BottomDrawerScrollView>
       </BottomDrawer>
@@ -337,7 +374,7 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           <BottomDrawerHeader
             closeAccessibilityLabel="Close category picker"
             onClose={() => setCategoryPickerOpen(false)}
-            title={categoryPickerMode === 'protected' ? 'Choose a protected category' : categoryPickerMode === 'flexible' ? 'Choose a flexible category' : 'Where does this belong?'}
+            title="Choose a category"
             titleVariant="lg"
             variant="withClose"
           />
@@ -355,26 +392,45 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
           />
 
           <View style={styles.categoryList}>
-            {filteredCategories.map((category) => (
-              <Pressable key={category.sourceId} accessibilityRole="button" accessibilityLabel={`Choose ${category.name}`} disabled={pendingChoice !== null} onPress={() => void selectCategory(category)} style={({ pressed }) => [styles.categoryRow, pressed ? styles.pressed : null]}>
-                <View style={styles.categoryRowCopy}>
-                  <Text style={styles.categoryRowTitle}>{category.name}</Text>
-                  <Text style={styles.categoryRowMeta}>{formatMoney(category.remainingCents)} left</Text>
-                </View>
-                {pendingChoice === `category:${category.sourceId}` ? <ActivityIndicator color={colors.pine700} /> : transaction.categoryId === category.id ? <Icon name="check" size={18} color={colors.pine700} /> : <Icon name="chevronRight" size={18} color={colors.gray400} />}
-              </Pressable>
-            ))}
+            {flexibleCategories.length > 0 ? (
+              <View style={styles.pickerSection}>
+                <Text style={styles.secondarySectionLabel}>FLEXIBLE SPENDING</Text>
+                {flexibleCategories.map((category) => (
+                  <CategoryPickerRow
+                    key={category.sourceId}
+                    category={category}
+                    disabled={pendingChoice !== null}
+                    onPress={() => void selectCategory(category)}
+                    pending={pendingChoice === `category:${category.sourceId}`}
+                    selected={categoryMatchesTransaction(category, transaction)}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {committedCategories.length > 0 ? (
+              <View style={styles.pickerSection}>
+                <Text style={styles.secondarySectionLabel}>COMMITTED SPENDING</Text>
+                {committedCategories.map((category) => (
+                  <CategoryPickerRow
+                    key={category.sourceId}
+                    category={category}
+                    disabled={pendingChoice !== null}
+                    onPress={() => void selectCategory(category)}
+                    pending={pendingChoice === `category:${category.sourceId}`}
+                    selected={categoryMatchesTransaction(category, transaction)}
+                  />
+                ))}
+              </View>
+            ) : null}
             {filteredCategories.length === 0 ? (
               <Text accessibilityLiveRegion="polite" style={styles.emptySearchText}>
-                {categoryPickerMode === 'all'
-                  ? `No categories match “${categoryQuery.trim()}”`
-                  : `No ${categoryPickerMode} categories yet. Change a category’s plan role first.`}
+                {`No categories match “${categoryQuery.trim()}”`}
               </Text>
             ) : null}
           </View>
 
-          {categoryPickerMode === 'all' ? <View style={styles.meaningSection}>
-            <Text style={styles.secondarySectionLabel}>OTHER MONEY MOVEMENT</Text>
+          <View style={styles.meaningSection}>
+            <Text style={styles.secondarySectionLabel}>OTHER</Text>
             {getTransactionMeaningOptions(transaction.direction).map((option) => (
               <CategoryCommand
                 key={option.meaning}
@@ -387,9 +443,9 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
                 onPress={() => void selectMeaning(option.meaning)}
               />
             ))}
-          </View> : null}
+          </View>
 
-          {categoryPickerMode === 'all' && (creatingCategory ? (
+          {creatingCategory ? (
             <View style={styles.createPanel}>
               <Text style={styles.createTitle}>New category</Text>
               <Input label="Name" value={newCategoryName} onChangeText={setNewCategoryName} />
@@ -402,16 +458,16 @@ export function MoneyTransactionDetailScreen({ navigation, route }: NativeStackS
               <Icon name="plus" size={18} color={colors.pine700} />
               <Text style={styles.createCommandText}>{categoryQuery.trim() ? `Create “${categoryQuery.trim()}”` : 'Create category'}</Text>
             </Pressable>
-          ))}
+          )}
           {reviewError ? <Text style={styles.errorText}>{reviewError}</Text> : null}
         </BottomDrawerScrollView>
       </BottomDrawer>
 
-      <BottomDrawer visible={Boolean(pendingRuleCategory)} onClose={() => setPendingRuleCategory(null)} snapPoints={['88%']} enableContentPanningGesture>
+      <BottomDrawer visible={Boolean(pendingRuleCategory) && ruleDrawerOpen} onClose={() => setRuleDrawerOpen(false)} snapPoints={['88%']} enableContentPanningGesture>
         <BottomDrawerScrollView contentContainerStyle={styles.drawerContent}>
           <BottomDrawerHeader
             closeAccessibilityLabel="Close merchant rule"
-            onClose={() => setPendingRuleCategory(null)}
+            onClose={() => setRuleDrawerOpen(false)}
             title={`Rule for ${pendingRuleCategory?.name ?? 'category'}`}
             titleVariant="lg"
             variant="withClose"
@@ -457,9 +513,11 @@ function PaymentSourceCard({ transaction }: { transaction: MoneyTransaction }) {
   const cardName = transaction.accountName.replace(/\b(visa|mastercard|amex|american express|card)\b/gi, '').replace(/\s+/g, ' ').trim() || transaction.accountName;
   return (
     <View style={styles.sourceCard}>
-      <View style={styles.sourceDescriptionBlock}>
-        <Text style={styles.sourceDescriptionLabel}>Description</Text>
-        <Text selectable numberOfLines={2} style={styles.sourceDescription}>{transaction.originalDescription ?? transaction.merchantName}</Text>
+      <View style={styles.sourceDescriptionField}>
+        <Text style={styles.sectionLabel}>Description</Text>
+        <View style={styles.sourceDescriptionBlock}>
+          <Text selectable numberOfLines={2} style={styles.sourceDescription}>{transaction.originalDescription ?? transaction.merchantName}</Text>
+        </View>
       </View>
       {presentation.kind === 'deposit' ? (
         <View style={[styles.depositReceipt, { borderColor: presentation.palette.primary, backgroundColor: presentation.palette.soft }]}>
@@ -520,13 +578,55 @@ function ReceiptRow({ label, value }: { label: string; value: string }) {
 }
 
 function CategoryCommand({ detail, disabled, icon, label, onPress, pending, selected }: { detail: string; disabled: boolean; icon: 'arrowDown' | 'refresh' | 'close'; label: string; onPress: () => void; pending: boolean; selected: boolean }) {
-  return <Pressable accessibilityRole="button" accessibilityHint={detail} accessibilityState={{ disabled, selected, busy: pending }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><View style={styles.commandIcon}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /></View><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+  return <Pressable accessibilityRole="radio" accessibilityHint={detail} accessibilityState={{ checked: selected, disabled, busy: pending }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.commandRow, selected ? styles.commandSelected : null, pressed ? styles.pressed : null]}><Icon name={icon} size={18} color={selected ? colors.pine700 : colors.textSecondary} /><View style={styles.commandCopy}><Text style={styles.commandTitle}>{label}</Text><Text style={styles.commandDetail}>{detail}</Text></View>{pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}</Pressable>;
+}
+
+function CategoryPickerRow({ category, disabled, onPress, pending, selected }: { category: MoneyCategory; disabled: boolean; onPress: () => void; pending: boolean; selected: boolean }) {
+  return (
+    <Pressable
+      accessibilityLabel={`Choose ${category.name}`}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected, disabled, busy: pending }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.categoryRow, selected ? styles.categoryRowSelected : null, pressed ? styles.pressed : null]}
+    >
+      <View style={styles.categoryRowCopy}>
+        <Text style={styles.categoryRowTitle}>{category.name}</Text>
+        <Text style={styles.categoryRowMeta}>{formatMoney(category.remainingCents)} left</Text>
+      </View>
+      {pending ? <ActivityIndicator color={colors.pine700} /> : selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}
+    </Pressable>
+  );
+}
+
+function PlanRoleChoice({ detail, disabled, label, onPress, selected }: { detail: string; disabled: boolean; label: string; onPress: () => void; selected: boolean }) {
+  return (
+    <Pressable
+      accessibilityHint={detail}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.planRoleChoice, selected ? styles.planRoleChoiceSelected : null, pressed ? styles.pressed : null]}
+    >
+      <View style={styles.commandCopy}>
+        <Text style={styles.commandTitle}>{label}</Text>
+        <Text style={styles.commandDetail}>{detail}</Text>
+      </View>
+      {selected ? <Icon name="check" size={18} color={colors.pine700} /> : null}
+    </Pressable>
+  );
 }
 
 function getMeaningIcon(meaning: TransactionMeaningOption['meaning']): 'arrowDown' | 'refresh' | 'close' {
   if (meaning === 'income') return 'arrowDown';
   if (meaning === 'transfer') return 'refresh';
   return 'close';
+}
+
+function categoryMatchesTransaction(category: MoneyCategory, transaction: MoneyTransaction): boolean {
+  return transaction.categoryId === category.id || transaction.categoryId === category.sourceId;
 }
 
 function RuleModeButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
@@ -561,8 +661,8 @@ const styles = StyleSheet.create({
   inflowAmount: { color: colors.pine700 },
   pendingText: { color: colors.turmeric700, fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   sourceCard: { gap: spacing.md },
-  sourceDescriptionBlock: { gap: 4, padding: spacing.lg, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
-  sourceDescriptionLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.7 },
+  sourceDescriptionField: { gap: spacing.md },
+  sourceDescriptionBlock: { minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
   sourceDescription: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, fontWeight: '500' },
   paymentCard: { minHeight: 184, justifyContent: 'space-between', borderRadius: 18, padding: spacing.lg, shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 7 } },
   cardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -587,12 +687,22 @@ const styles = StyleSheet.create({
   receiptValue: { flex: 1, color: colors.textPrimary, textAlign: 'right', fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, fontWeight: '500' },
   section: { gap: spacing.md, paddingBottom: spacing.xl },
   sectionLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.7 },
-  categoryField: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, paddingHorizontal: spacing.lg, backgroundColor: colors.card },
-  categoryFieldCopy: { minWidth: 0, flex: 1 },
-  categoryFieldText: { minWidth: 0, flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
+  categoryField: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.card },
+  categoryFieldCopy: { minWidth: 0, flex: 1, justifyContent: 'center' },
+  categoryFieldText: { minWidth: 0, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, fontWeight: '600' },
   categoryPlaceholder: { color: colors.textSecondary },
+  countsAsRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderTopWidth: 1, borderTopColor: colors.cardBorder, paddingTop: spacing.md },
+  countsAsCopy: { minWidth: 0, flex: 1, gap: 2 },
+  countsAsLabel: { color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
+  countsAsValue: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  countsAsDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  classificationDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
   ruleReceipt: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
   ruleReceiptText: { flex: 1, color: colors.pine700, fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, fontWeight: '500' },
+  ruleOffer: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 10, backgroundColor: colors.pine50 },
+  ruleOfferCopy: { minWidth: 0, flex: 1, gap: 2 },
+  ruleOfferTitle: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  ruleOfferDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 11, lineHeight: 15 },
   splitReceipt: { gap: spacing.sm, padding: spacing.lg, borderWidth: 1, borderColor: colors.pine200, borderRadius: 12, backgroundColor: colors.pine50 },
   splitReceiptTitle: { color: colors.pine700, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   splitReceiptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.lg },
@@ -601,15 +711,18 @@ const styles = StyleSheet.create({
   drawerContent: { gap: spacing.lg, paddingHorizontal: spacing.xl, paddingBottom: 64 },
   drawerCopy: { ...typography.bodySm, color: colors.textSecondary },
   meaningSection: { gap: spacing.xs },
+  pickerSection: { gap: 2 },
   secondarySectionLabel: { marginTop: spacing.xs, color: colors.textSecondary, fontFamily: fonts.semibold, fontSize: 10, lineHeight: 14, fontWeight: '600', letterSpacing: 0.7 },
-  commandRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
-  commandSelected: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
-  commandIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: colors.gray50 },
+  commandRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.cardBorder, paddingVertical: spacing.sm },
+  commandSelected: { backgroundColor: colors.pine50 },
   commandCopy: { flex: 1, minWidth: 0 },
   commandTitle: { color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, fontWeight: '600' },
   commandDetail: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  planRoleChoice: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderWidth: 1, borderColor: colors.cardBorder, borderRadius: 12, backgroundColor: colors.card },
+  planRoleChoiceSelected: { borderColor: colors.pine300, backgroundColor: colors.pine50 },
   categoryList: { gap: 2 },
   categoryRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.cardBorder, paddingVertical: spacing.sm },
+  categoryRowSelected: { backgroundColor: colors.pine50 },
   categoryRowCopy: { flex: 1, minWidth: 0 },
   categoryRowTitle: { color: colors.textPrimary, fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, fontWeight: '500' },
   categoryRowMeta: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },

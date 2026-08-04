@@ -45,6 +45,7 @@ type MoneyDataContextValue = MoneyDataState & {
   markTransactionNotCounted: (transactionId: string) => Promise<void>;
   splitTransaction: (input: Parameters<MoneyRepository['splitTransaction']>[0]) => Promise<void>;
   reviewTransactionMeaning: (transactionId: string, input: TransactionMeaningReviewInput) => Promise<void>;
+  setTransactionPlanRoleOverride: (transactionId: string, planRoleOverride: 'protected' | 'flexible' | null) => Promise<void>;
   saveMerchantRule: (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => Promise<void>;
   savingCategory: boolean;
   createCategory: (input: CategoryPlanInput) => Promise<string>;
@@ -308,6 +309,28 @@ export function MoneyDataProvider({
     [resolvedRepository, reviewBoundedTransaction],
   );
 
+  const setTransactionPlanRoleOverride = useCallback(async (
+    transactionId: string,
+    planRoleOverride: 'protected' | 'flexible' | null,
+  ) => {
+    setReviewingTransactionId(transactionId);
+    try {
+      const result = await resolvedRepository.setTransactionPlanRoleOverride(transactionId, planRoleOverride);
+      dispatch({
+        type: 'confirmed_transaction_plan_role_patch',
+        patch: { transactionId: result.transactionId, planRoleOverride: result.planRoleOverride },
+      });
+      const version = ++mutationVersionRef.current;
+      refreshInBackground(version);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The transaction plan treatment could not be updated.';
+      dispatch({ type: 'failure', message });
+      throw error;
+    } finally {
+      setReviewingTransactionId(null);
+    }
+  }, [refreshInBackground, resolvedRepository]);
+
   const saveMerchantRule = useCallback(
     (input: Parameters<MoneyRepository['saveMerchantRule']>[0]) => reviewMerchantRule(
       input.transactionId,
@@ -469,6 +492,7 @@ export function MoneyDataProvider({
     markTransactionNotCounted,
     splitTransaction,
     reviewTransactionMeaning,
+    setTransactionPlanRoleOverride,
     saveMerchantRule,
     savingCategory,
     createCategory,
@@ -478,7 +502,7 @@ export function MoneyDataProvider({
     previewCategoryPlanAmount,
     pendingAppControlReviewCategoryId,
     reviewMoneyAppControl,
-  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, splitTransaction, state, updateCategoryPlan]);
+  }), [assignTransactionCategory, createCategory, markTransactionNotCounted, pendingAppControlReviewCategoryId, previewCategoryPlanAmount, reconcileGovernedPlanFoundation, refresh, renameCategory, reviewMoneyAppControl, reviewTransactionMeaning, reviewingTransactionId, saveMerchantRule, savingCategory, setTransactionPlanRoleOverride, splitTransaction, state, updateCategoryPlan]);
   return <MoneyDataContext.Provider value={value}>{children}</MoneyDataContext.Provider>;
 }
 

@@ -2,7 +2,9 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import {
   SettingsDivider,
+  SettingsCopyField,
   SettingsGroup,
+  SettingsInstructionSection,
   SettingsRow,
   SettingsToggleRow,
 } from './SettingsSurface';
@@ -59,5 +61,49 @@ describe('SettingsSurface', () => {
 
     fireEvent.press(getByLabelText('Log out'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a copy value visible and confirms the copied state', () => {
+    const onPress = jest.fn();
+    const value = 'https://auth.kwilt.app/functions/v1/mcp';
+    const { getByLabelText, getByText, rerender } = render(
+      <SettingsCopyField
+        copied={false}
+        label="Kwilt MCP server URL"
+        onPress={onPress}
+        value={value}
+      />,
+    );
+
+    expect(getByText(value)).toBeTruthy();
+    fireEvent.press(getByLabelText('Kwilt MCP server URL. Copy'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <SettingsCopyField
+        copied
+        label="Kwilt MCP server URL"
+        onPress={onPress}
+        value={value}
+      />,
+    );
+    expect(getByLabelText('Kwilt MCP server URL. Copied')).toBeTruthy();
+    expect(getByText(value)).toBeTruthy();
+  });
+
+  it('renders instructional steps as a list without settings dividers', () => {
+    const { getByText, queryAllByTestId } = render(
+      <SettingsInstructionSection
+        title="Connect in three steps"
+        steps={['Open settings', 'Add a connector', 'Paste the URL']}
+      >
+        <Text>Interactive value</Text>
+      </SettingsInstructionSection>,
+    );
+
+    expect(getByText('1. Open settings')).toBeTruthy();
+    expect(getByText('2. Add a connector')).toBeTruthy();
+    expect(getByText('3. Paste the URL')).toBeTruthy();
+    expect(queryAllByTestId('settings.divider')).toHaveLength(0);
   });
 });

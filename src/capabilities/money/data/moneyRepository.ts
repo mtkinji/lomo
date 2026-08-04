@@ -23,6 +23,7 @@ import {
 } from './moneySnapshot';
 import {
   buildTransactionMeaningReviewUpdate,
+  buildTransactionPlanRoleOverrideUpdate,
   buildMerchantRuleUpsert,
   buildTransactionReviewUpdate,
   type TransactionMeaningReviewInput,
@@ -55,6 +56,12 @@ export type ConfirmedTransactionWrite = {
   categorySourceId: string | null;
   meaning: TransactionMeaningReviewInput['meaning'] | null;
   reviewState: 'assigned' | 'not_counted';
+};
+
+export type ConfirmedTransactionPlanRoleWrite = {
+  confirmedAt: string;
+  transactionId: string;
+  planRoleOverride: MoneyCategoryPlanRole | null;
 };
 
 export type ConfirmedCategoryWrite = {
@@ -96,6 +103,7 @@ export interface MoneyRepository {
     allocations: TransactionAllocationInput[];
   }): Promise<MoneySnapshot>;
   reviewTransactionMeaning(transactionId: string, input: TransactionMeaningReviewInput): Promise<ConfirmedTransactionWrite>;
+  setTransactionPlanRoleOverride(transactionId: string, planRoleOverride: MoneyCategoryPlanRole | null): Promise<ConfirmedTransactionPlanRoleWrite>;
   saveMerchantRule(input: {
     transactionId: string;
     merchantName: string;
@@ -181,6 +189,8 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
                 budget_assignment_policy_version,
                 budget_assignment_governed,
                 money_meaning,
+                plan_role_override,
+                plan_role_override_reviewed_at,
                 personal_finance_category_primary,
                 personal_finance_category_detailed,
                 personal_finance_category_confidence,
@@ -320,6 +330,26 @@ export function createMoneyRepository(client: SupabaseClient = getSupabaseClient
     },
     reviewTransactionMeaning: (transactionId, input) =>
       reviewTransaction(transactionId, buildTransactionMeaningReviewUpdate(input)),
+    async setTransactionPlanRoleOverride(transactionId, planRoleOverride) {
+      const normalizedTransactionId = transactionId.trim();
+      if (!normalizedTransactionId) throw new Error('Choose a transaction to update.');
+      await requireSignedIn(client);
+      const db = client as unknown as MoneyReadClient;
+      const updatedRows = await readPart<Array<{ id: string }>>(
+        'transaction plan treatment',
+        db
+          .from('budget_transactions')
+          .update(buildTransactionPlanRoleOverrideUpdate(planRoleOverride))
+          .eq('id', normalizedTransactionId)
+          .select('id'),
+      );
+      requireConfirmedRows('transaction plan treatment', updatedRows, 1);
+      return {
+        confirmedAt: new Date().toISOString(),
+        transactionId: normalizedTransactionId,
+        planRoleOverride,
+      };
+    },
     async saveMerchantRule(input) {
       const userId = await requireSignedIn(client);
       const db = client as unknown as MoneyReadClient;

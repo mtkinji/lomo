@@ -3,6 +3,7 @@ import type { NavigationState } from '@react-navigation/native';
 import {
   getAllowedPersistedRootRoutes,
   resolvePersistedNavigationState,
+  shouldRestorePersistedNavigationForInitialUrl,
   shouldRestoreNavigationState,
 } from './navigationPersistence';
 
@@ -52,6 +53,11 @@ async function restore(state: TestState): Promise<NavigationState | undefined> {
 describe('navigationPersistence', () => {
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  test('lets a cold widget deep link win over the last persisted To-dos route', () => {
+    expect(shouldRestorePersistedNavigationForInitialUrl('kwilt://chat?entry=fresh&source=widget')).toBe(false);
+    expect(shouldRestorePersistedNavigationForInitialUrl(null)).toBe(true);
   });
 
   test('allows every registered production drawer route', () => {

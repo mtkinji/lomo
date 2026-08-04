@@ -55,7 +55,12 @@ import type {
   ScreenTimeSetupOfferSurface,
 } from '../services/screenTimeProtection';
 import { PhoneAgentSettingsScreen } from '../features/account/PhoneAgentSettingsScreen';
-import { ConnectedToolsScreen } from '../features/account/ConnectedToolsScreen';
+import {
+  ConnectedToolsScreen,
+  ConnectedToolDetailScreen,
+  ConnectKwiltAppScreen,
+  type ConnectableApp,
+} from '../features/account/ConnectedToolsScreen';
 import { HapticsSettingsScreen } from '../features/account/HapticsSettingsScreen';
 import { SharingSettingsScreen } from '../features/account/SharingSettingsScreen';
 import { JoinFriendInviteScreen } from '../features/friends/JoinFriendInviteScreen';
@@ -93,10 +98,13 @@ import { ChaptersScreen } from '../features/chapters/ChaptersScreen';
 import { ChapterDetailScreen } from '../features/chapters/ChapterDetailScreen';
 import { ChapterAlignScreen } from '../features/chapters/ChapterAlignScreen';
 import { ChapterDigestSettingsScreen } from '../features/chapters/ChapterDigestSettingsScreen';
-import { LINKING_PREFIXES, linkingConfig, normalizeKwiltGamesUrl } from './linkingConfig';
+import { LINKING_PREFIXES, linkingConfig, prepareIncomingNavigationUrl } from './linkingConfig';
 import { parseEmailAttribution } from './emailAttribution';
 import { recordChapterOpenHint } from '../features/chapters/chapterOpenSource';
-import { resolvePersistedNavigationState } from './navigationPersistence';
+import {
+  resolvePersistedNavigationState,
+  shouldRestorePersistedNavigationForInitialUrl,
+} from './navigationPersistence';
 import type {
   ActivityDetailRouteParams,
   GoalDetailRouteParams,
@@ -348,6 +356,8 @@ export type SettingsStackParamList = {
   SettingsWeeklyChapters: undefined;
   SettingsPhoneAgent: undefined;
   SettingsConnectedTools: undefined;
+  SettingsConnectKwiltApp: { app: ConnectableApp };
+  SettingsConnectedToolDetail: { clientId: string };
   SettingsSharing: undefined;
   SettingsJoinFriend: JoinFriendInviteRouteParams;
   SettingsLegalPrivacy: undefined;
@@ -459,6 +469,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
       try {
         // On web, let the URL drive navigation instead of persisted state.
         if (Platform.OS === 'web') {
+          return;
+        }
+
+        const initialUrl = await Linking.getInitialURL().catch(() => null);
+        if (!shouldRestorePersistedNavigationForInitialUrl(initialUrl)) {
           return;
         }
 
@@ -597,10 +612,10 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
     config: linkingConfig,
     getInitialURL: async () => {
       const url = await Linking.getInitialURL();
-      return url ? normalizeKwiltGamesUrl(url) : null;
+      return url ? prepareIncomingNavigationUrl(url) : null;
     },
     subscribe: (listener) => {
-      const subscription = Linking.addEventListener('url', ({ url }) => listener(normalizeKwiltGamesUrl(url)));
+      const subscription = Linking.addEventListener('url', ({ url }) => listener(prepareIncomingNavigationUrl(url)));
       return () => subscription.remove();
     },
   };
@@ -992,6 +1007,14 @@ function SettingsStackNavigator() {
       <SettingsStack.Screen
         name="SettingsConnectedTools"
         component={ConnectedToolsScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsConnectKwiltApp"
+        component={ConnectKwiltAppScreen}
+      />
+      <SettingsStack.Screen
+        name="SettingsConnectedToolDetail"
+        component={ConnectedToolDetailScreen}
       />
       <SettingsStack.Screen
         name="SettingsSharing"

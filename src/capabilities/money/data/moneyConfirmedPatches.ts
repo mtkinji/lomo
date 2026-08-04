@@ -1,5 +1,6 @@
 import type { MoneySnapshot, MoneyTransaction } from './moneySnapshot';
 import type { MoneyCategoryCover } from '../domain/moneyCategoryCover';
+import type { MoneyCategoryPlanRole } from '../domain/moneyCategoryPlanRole';
 
 export type ConfirmedTransactionPatch = {
   transactionId: string;
@@ -14,6 +15,11 @@ export type ConfirmedCategoryPatch = {
   name?: string;
   rolloverEnabled?: boolean;
   coverImage?: MoneyCategoryCover | null;
+};
+
+export type ConfirmedTransactionPlanRolePatch = {
+  transactionId: string;
+  planRoleOverride: MoneyCategoryPlanRole | null;
 };
 
 export type ConfirmedMerchantRulePatch = {
@@ -44,7 +50,22 @@ export function applyConfirmedTransactionPatch(
           categoryName: patch.categoryName,
           reviewState: patch.reviewState,
           moneyMeaning: patch.moneyMeaning,
+          planRoleOverride: null,
         }
+      : transaction),
+  };
+}
+
+export function applyConfirmedTransactionPlanRolePatch(
+  snapshot: MoneySnapshot,
+  patch: ConfirmedTransactionPlanRolePatch,
+): MoneySnapshot {
+  if (!snapshot.transactions.some((transaction) => transaction.id === patch.transactionId)) return snapshot;
+  return {
+    ...snapshot,
+    generatedAt: new Date().toISOString(),
+    transactions: snapshot.transactions.map((transaction) => transaction.id === patch.transactionId
+      ? { ...transaction, planRoleOverride: patch.planRoleOverride }
       : transaction),
   };
 }

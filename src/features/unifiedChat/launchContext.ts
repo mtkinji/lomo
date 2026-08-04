@@ -21,6 +21,8 @@ export type UnifiedChatRouteParams = {
   threadId?: string | null;
   entry?: 'fresh';
   source?: string;
+  /** Distinguishes repeated opens of the same static Home Screen widget URL. */
+  widgetLaunchId?: string;
 };
 
 export type UnifiedChatLaunchSnapshots = {

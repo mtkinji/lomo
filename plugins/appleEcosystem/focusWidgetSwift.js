@@ -20,17 +20,58 @@ enum FocusDurationPreset: String, AppEnum {
 }
 
 @available(iOS 17.0, *)
+enum FocusAudioPreset: String, AppEnum {
+  case none
+  case deepWorkDrift = "default"
+  case copacabanaFocus
+  case focusFlowState
+  case midnightStudySession
+  case openRoadFocus
+  case cedarWorkshop
+  case rainlitLibrary
+
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Focus audio"
+  static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+    .none: "None",
+    .deepWorkDrift: "Deep Work Drift",
+    .copacabanaFocus: "Copacabana",
+    .focusFlowState: "Focus Tunnel",
+    .midnightStudySession: "Midnight Study",
+    .openRoadFocus: "Open Road",
+    .cedarWorkshop: "Cedar Workshop",
+    .rainlitLibrary: "Rainlit Library",
+  ]
+
+  var title: String {
+    switch self {
+    case .none: return "No audio"
+    case .deepWorkDrift: return "Deep Work Drift"
+    case .copacabanaFocus: return "Copacabana"
+    case .focusFlowState: return "Focus Tunnel"
+    case .midnightStudySession: return "Midnight Study"
+    case .openRoadFocus: return "Open Road"
+    case .cedarWorkshop: return "Cedar Workshop"
+    case .rainlitLibrary: return "Rainlit Library"
+    }
+  }
+}
+
+@available(iOS 17.0, *)
 struct FocusWidgetConfigurationIntent: WidgetConfigurationIntent {
   static var title: LocalizedStringResource = "Focus"
-  static var description = IntentDescription("Choose the duration one tap will start.")
+  static var description = IntentDescription("Choose the duration and audio one tap will start.")
 
   @Parameter(title: "Duration", default: .twentyFive)
   var duration: FocusDurationPreset
+
+  @Parameter(title: "Audio", default: .deepWorkDrift)
+  var audio: FocusAudioPreset
 }
 
 struct FocusWidgetEntry: TimelineEntry {
   let date: Date
   let minutes: Int
+  let audio: FocusAudioPreset
   let focusSession: GlanceableStateV1.FocusSession?
 }
 
@@ -39,7 +80,7 @@ struct FocusWidgetProvider: AppIntentTimelineProvider {
   typealias Intent = FocusWidgetConfigurationIntent
 
   func placeholder(in context: Context) -> FocusWidgetEntry {
-    FocusWidgetEntry(date: Date(), minutes: 25, focusSession: nil)
+    FocusWidgetEntry(date: Date(), minutes: 25, audio: .deepWorkDrift, focusSession: nil)
   }
 
   func snapshot(for configuration: FocusWidgetConfigurationIntent, in context: Context) async -> FocusWidgetEntry {
@@ -58,6 +99,7 @@ struct FocusWidgetProvider: AppIntentTimelineProvider {
     FocusWidgetEntry(
       date: Date(),
       minutes: configuration.duration.minutes,
+      audio: configuration.audio,
       focusSession: readGlanceableState()?.focusSession
     )
   }
@@ -111,7 +153,7 @@ struct FocusWidgetView: View {
       if let focus = entry.focusSession {
         activeView(focus)
       } else {
-        Link(destination: deepLinkStartStandaloneFocus(minutes: entry.minutes)) {
+        Link(destination: deepLinkStartStandaloneFocus(minutes: entry.minutes, audio: entry.audio.rawValue)) {
           VStack(alignment: .leading, spacing: 0) {
             HStack {
               Image(systemName: "timer")
@@ -130,6 +172,11 @@ struct FocusWidgetView: View {
             Text("minutes")
               .font(.caption)
               .foregroundStyle(.white.opacity(0.68))
+
+            Text(entry.audio.title)
+              .font(.caption2)
+              .foregroundStyle(.white.opacity(0.68))
+              .lineLimit(1)
 
             Spacer()
 
