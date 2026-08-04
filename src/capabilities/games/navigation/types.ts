@@ -2,7 +2,7 @@ export type GamesMode = 'bank' | 'farkle' | 'roller';
 
 export type GamesStackParamList = {
   GamesShelf: undefined;
-  GamesHourglass: undefined;
+  GamesTimer: undefined;
   GamesTumble: { mode?: GamesMode } | undefined;
   GamesConnection: { gameId: string };
   GamesJoin: { token?: string; code?: string } | undefined;
