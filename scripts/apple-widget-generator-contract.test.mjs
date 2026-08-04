@@ -18,6 +18,10 @@ const chatWidgetTemplate = await readFile(
   new URL('../plugins/appleEcosystem/chatWidgetSwift.js', import.meta.url),
   'utf8',
 ).catch(() => '');
+const generatedWidgetSwift = await readFile(
+  new URL('../ios/KwiltWidgets/KwiltWidgets.swift', import.meta.url),
+  'utf8',
+);
 
 test('generated Money widgets include their currency formatting dependency', () => {
   assert.match(moneyWidgetTemplate, /formatCurrency\(cents:/);
@@ -33,6 +37,23 @@ test('generated Money widgets preserve the clock-style meter grammar', () => {
   assert.doesNotMatch(moneyWidgetTemplate, /StrokeStyle\([^\n]*dash:/);
 });
 
+test('Money widgets keep the category clock tile centered and give Flexible Money its own answer-card style', () => {
+  const flexibleView = moneyWidgetTemplate.slice(
+    moneyWidgetTemplate.indexOf('struct FlexibleMoneyWidgetView'),
+    moneyWidgetTemplate.indexOf('struct KwiltFlexibleMoneyWidget'),
+  );
+  const categoryView = moneyWidgetTemplate.slice(
+    moneyWidgetTemplate.indexOf('struct MoneyCategoryWidgetView'),
+    moneyWidgetTemplate.indexOf('struct KwiltMoneyCategoryWidget'),
+  );
+
+  assert.doesNotMatch(flexibleView, /MoneyTickBorder/);
+  assert.match(flexibleView, /FlexibleMoneyAnswerCard/);
+  assert.match(categoryView, /VStack\(alignment: \.center/);
+  assert.match(categoryView, /\.multilineTextAlignment\(\.center\)/);
+  assert.match(categoryView, /category\.status == "over" \? MoneyWidgetPalette\.over : \.primary/);
+});
+
 test('generated Focus widget offers configured one-tap standalone sessions', () => {
   assert.match(widgetGenerator, /getFocusWidgetSwift\(targetName\)/);
   assert.match(focusWidgetTemplate, /struct KwiltFocusWidget: Widget/);
@@ -40,7 +61,11 @@ test('generated Focus widget offers configured one-tap standalone sessions', () 
   assert.match(focusWidgetTemplate, /case ten = "10"/);
   assert.match(focusWidgetTemplate, /case twentyFive = "25"/);
   assert.match(focusWidgetTemplate, /case fifty = "50"/);
+  assert.match(focusWidgetTemplate, /enum FocusAudioPreset: String, AppEnum/);
+  assert.match(focusWidgetTemplate, /@Parameter\(title: "Audio"/);
+  assert.match(focusWidgetTemplate, /case rainlitLibrary/);
   assert.match(widgetGenerator, /autoStartStandaloneFocus=1&focusMinutes=/);
+  assert.match(widgetGenerator, /focusAudio=/);
   assert.match(focusWidgetTemplate, /Text\(timerInterval: start\.\.\.end, countsDown: true\)/);
   assert.match(focusWidgetTemplate, /Text\("\\\\\(entry\.minutes\)"\)/);
   assert.match(widgetGenerator, /KwiltFocusWidget\(\)/);
@@ -49,6 +74,26 @@ test('generated Focus widget offers configured one-tap standalone sessions', () 
 test('generated Focus shortcuts fall back to the standalone Focus route', () => {
   assert.ok(widgetGenerator.includes('kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\\\(safeMinutes)&source=shortcut'));
   assert.match(widgetGenerator, /kwilt:\/\/today\?openStandaloneFocus=1&source=shortcut/);
+});
+
+test('generated Screen Time authorization handles the iOS 26 data-access state', () => {
+  assert.match(widgetGenerator, /status\.rawValue == 3/);
+  assert.doesNotMatch(widgetGenerator, /\.approvedWithDataAccess/);
+  assert.match(widgetGenerator, /return "approved"/);
+  assert.match(widgetGenerator, /resolve\(Self\.statusString\(\)\)/);
+});
+
+test('generated Focus Live Activity balances compact identity and time, then reveals the to-do', () => {
+  for (const source of [widgetGenerator, generatedWidgetSwift]) {
+    assert.match(source, /DynamicIslandExpandedRegion\(\.leading\)/);
+    assert.match(source, /DynamicIslandExpandedRegion\(\.trailing\)/);
+    assert.match(source, /DynamicIslandExpandedRegion\(\.bottom\)/);
+    assert.match(source, /frame\(width: 20, height: 20\)/);
+    assert.match(source, /frame\(width: 48, alignment: \.trailing\)/);
+    assert.match(source, /font\(\.system\(size: 14, weight: \.semibold, design: \.rounded\)\)/);
+    assert.match(source, /Text\(context\.state\.title\)/);
+    assert.doesNotMatch(source, /marquee|scrolling/i);
+  }
 });
 
 test('generated Chat widget is a private static fresh-entry launcher', () => {

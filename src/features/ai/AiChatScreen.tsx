@@ -32,7 +32,7 @@ import {
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CommonActions, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { cardElevation, spacing, typography, colors, fonts } from '../../theme';
 import { Button } from '../../ui/Button';
@@ -102,6 +102,11 @@ import {
   normalizeActivitySuggestionTitle,
   prepareIncomingActivitySuggestions,
 } from './activitySuggestionRail';
+import {
+  createSafeMarkdownParser,
+  isSafeMarkdownLink,
+  prepareMarkdownForRender,
+} from './safeMarkdown';
 
 export type { ActivitySuggestion, GoalProposalDraft } from './agentHandoffParsers';
 
@@ -203,6 +208,8 @@ const PROMPT_SUGGESTIONS = [
   'Find a great Japanese architect',
   'Optimize onboarding flow',
 ];
+
+const safeMarkdownParser = createSafeMarkdownParser();
 
 const CHAT_COLORS = {
 // When rendered inside BottomDrawer, the sheet surface
@@ -1657,7 +1664,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
 
           {isActive && goalProposalPostNote.trim().length > 0 && (
             <View style={styles.assistantMessage} pointerEvents="none">
-              <Markdown style={markdownStyles}>{goalProposalPostNote}</Markdown>
+              <Markdown
+                style={markdownStyles}
+                markdownit={safeMarkdownParser}
+                onLinkPress={isSafeMarkdownLink}
+              >
+                {prepareMarkdownForRender(goalProposalPostNote)}
+              </Markdown>
             </View>
           )}
         </Fragment>
@@ -2988,7 +3001,13 @@ export const AiChatPane = forwardRef(function AiChatPane(
                               accessibilityRole="button"
                               accessibilityLabel="Skip assistant typing and show full message"
                             >
-                              <Markdown style={markdownStyles}>{message.content}</Markdown>
+                              <Markdown
+                                style={markdownStyles}
+                                markdownit={safeMarkdownParser}
+                                onLinkPress={isSafeMarkdownLink}
+                              >
+                                {prepareMarkdownForRender(message.content)}
+                              </Markdown>
                             </Pressable>
                             {message.id === latestRetryableWorkflowErrorMessageId &&
                             retryableWorkflowStepId ? (
@@ -3952,7 +3971,7 @@ export function AiChatScreen() {
       goalIds: new Set(goals.map(({ id }) => id)),
       arcIds: new Set(arcs.map(({ id }) => id)),
     });
-    const { resolveCapabilityNavigation } = require('../../navigation/capabilityNavigation') as typeof import('../../navigation/capabilityNavigation');
+    const { createCapabilityNavigateAction, resolveCapabilityNavigation } = require('../../navigation/capabilityNavigation') as typeof import('../../navigation/capabilityNavigation');
     const target = objectExists
       ? resolveCapabilityAgentReturn(context)
       : resolveCapabilityNavigation(context.capabilityId);
@@ -3960,7 +3979,7 @@ export function AiChatScreen() {
       const { useToastStore } = require('../../store/useToastStore') as typeof import('../../store/useToastStore');
       useToastStore.getState().showToast({ message: 'That item is no longer available. Returning to its workspace.' });
     }
-    navigation.dispatch(CommonActions.navigate(target));
+    navigation.dispatch(createCapabilityNavigateAction(target));
   };
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const activityTagHistory = useAppStore(

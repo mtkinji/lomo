@@ -113,6 +113,6 @@ public final class KwiltNearbyTableModule: Module {
   }
 }
 
-private final class NearbyTableException: GenericException<String> {
+private final class NearbyTableException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
 }

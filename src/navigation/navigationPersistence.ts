@@ -85,7 +85,7 @@ const EXPLORE_STACK_SCHEMA: ChildSchema = {
 const GAMES_STACK_SCHEMA: ChildSchema = {
   allowed: [
     'GamesShelf',
-    'GamesHourglass',
+    'GamesTimer',
     'GamesTumble',
     'GamesConnection',
     'GamesJoin',
@@ -112,6 +112,8 @@ const SETTINGS_STACK_SCHEMA: ChildSchema = {
     'SettingsWeeklyChapters',
     'SettingsPhoneAgent',
     'SettingsConnectedTools',
+    'SettingsConnectKwiltApp',
+    'SettingsConnectedToolDetail',
     'SettingsSharing',
     'SettingsLegalPrivacy',
     'SettingsHaptics',
@@ -222,6 +224,10 @@ export function shouldRestoreNavigationState(
     state?.routes?.length &&
       state.routes.every((route) => allowedRootRoutes.includes(route.name as RootRouteName)),
   );
+}
+
+export function shouldRestorePersistedNavigationForInitialUrl(initialUrl: string | null): boolean {
+  return !initialUrl;
 }
 
 export async function resolvePersistedNavigationState(

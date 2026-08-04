@@ -1,4 +1,10 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import { File } from 'expo-file-system';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  type AudioRecorder,
+} from 'expo-audio';
 import { AppState } from 'react-native';
 import { getAccessToken } from '../../services/backend/auth';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../../services/edgeFunctions';
@@ -6,12 +12,25 @@ import { getInstallId } from '../../services/installId';
 import { getSupabasePublishableKey } from '../../utils/getEnv';
 import { recoverForegroundAudioRace } from './unifiedChatVoiceRecovery';
 import { normalizeUnifiedChatVoiceMetering } from './unifiedChatVoiceMetering';
+import { createPreparedAudioRecorder } from '../../services/audioRecorder';
 
-type ExpoAudio = (typeof import('expo-av'))['Audio'];
-let recording: InstanceType<ExpoAudio['Recording']> | null = null;
+let recording: AudioRecorder | null = null;
+let meteringTimer: ReturnType<typeof setInterval> | null = null;
 
-async function audio(): Promise<ExpoAudio> {
-  return (await import('expo-av')).Audio;
+function stopMeteringUpdates() {
+  if (!meteringTimer) return;
+  clearInterval(meteringTimer);
+  meteringTimer = null;
+}
+
+function startMeteringUpdates(recorder: AudioRecorder, onLevel?: (level: number) => void) {
+  stopMeteringUpdates();
+  if (!onLevel) return;
+  meteringTimer = setInterval(() => {
+    const status = recorder.getStatus();
+    if (!status.isRecording || typeof status.metering !== 'number') return;
+    onLevel(normalizeUnifiedChatVoiceMetering(status.metering));
+  }, 100);
 }
 
 async function waitForForegroundAudioSession(): Promise<void> {
@@ -33,26 +52,20 @@ export async function startUnifiedChatVoiceRecording(
   onLevel?: (level: number) => void,
 ): Promise<void> {
   if (recording) return;
-  const Audio = await audio();
-  const permission = await Audio.requestPermissionsAsync();
+  const permission = await requestRecordingPermissionsAsync();
   if (!permission.granted) throw new Error('Allow microphone access to use voice input.');
   const next = await recoverForegroundAudioRace(async () => {
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-    const candidate = new Audio.Recording();
-    await candidate.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-    candidate.setProgressUpdateInterval(100);
-    candidate.setOnRecordingStatusUpdate((status) => {
-      if (!status.isRecording || typeof status.metering !== 'number') return;
-      onLevel?.(normalizeUnifiedChatVoiceMetering(status.metering));
-    });
-    return candidate;
+    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    return createPreparedAudioRecorder(RecordingPresets.HIGH_QUALITY, { isMeteringEnabled: true });
   }, waitForForegroundAudioSession);
   try {
-    await next.startAsync();
+    next.record();
     recording = next;
+    startMeteringUpdates(next, onLevel);
   } catch (error) {
-    next.setOnRecordingStatusUpdate(null);
-    await next.stopAndUnloadAsync().catch(() => undefined);
+    stopMeteringUpdates();
+    await next.stop().catch(() => undefined);
+    next.release();
     throw error;
   }
 }
@@ -60,24 +73,30 @@ export async function startUnifiedChatVoiceRecording(
 export async function cancelUnifiedChatVoiceRecording(): Promise<void> {
   const current = recording;
   recording = null;
+  stopMeteringUpdates();
   if (!current) return;
-  current.setOnRecordingStatusUpdate(null);
-  await current.stopAndUnloadAsync().catch(() => undefined);
+  await current.stop().catch(() => undefined);
+  current.release();
 }
 
 export async function stopAndTranscribeUnifiedChatVoice(): Promise<string> {
   const current = recording;
   recording = null;
+  stopMeteringUpdates();
   if (!current) throw new Error('No voice recording is active.');
-  current.setOnRecordingStatusUpdate(null);
-  await current.stopAndUnloadAsync();
-  const uri = current.getURI();
+  let uri: string | null = null;
+  try {
+    await current.stop();
+    uri = current.uri;
+  } finally {
+    current.release();
+  }
   if (!uri) throw new Error('The recording could not be read.');
-  const info = await FileSystem.getInfoAsync(uri);
-  if (!info.exists || ('size' in info && typeof info.size === 'number' && info.size > 8_000_000)) {
+  const file = new File(uri);
+  if (!file.exists || file.size > 8_000_000) {
     throw new Error('That recording is too long.');
   }
-  const audioBase64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  const audioBase64 = await file.base64();
   const token = (await getAccessToken())?.trim();
   const apiKey = getSupabasePublishableKey()?.trim();
   if (!token || !apiKey) throw new Error('Sign in to use voice input.');

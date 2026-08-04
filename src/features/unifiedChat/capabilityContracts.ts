@@ -72,7 +72,9 @@ export type CapabilityOperationKind =
   | 'update_arc'
   | 'delete_arc'
   | 'update_profile'
-  | 'update_chapter_note';
+  | 'update_chapter_note'
+  | 'create_money_category'
+  | 'rename_money_category';
 
 export type CapabilityNativeReturnTarget = {
   capabilityId: UnifiedChatCapabilityId;

@@ -1,24 +1,14 @@
-// NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
-// Keep the existing playback API until the Focus runtime migrates to expo-audio.
-import { Audio as ExpoAvAudio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import { nativeCrashErrorMessage, recordNativeCrashBreadcrumb } from './nativeCrashBreadcrumbs';
 import { audioGainForCategory } from '../capabilities/games/audio/audioGainPolicy';
 import { resolveAudioAsset } from './audioAssetDelivery';
 import type { RemoteAudioAssetId } from './audioAssetCatalog';
 
-type ExpoAvAudioModule = typeof ExpoAvAudio;
-let Audio: ExpoAvAudioModule | null = null;
-
-async function getAudio(): Promise<ExpoAvAudioModule> {
-  if (Audio) return Audio;
-  Audio = ExpoAvAudio;
-  return Audio;
-}
-
 type SoundscapeStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'stopped' | 'error';
 
 let status: SoundscapeStatus = 'idle';
-let sound: any | null = null;
+let sound: AudioPlayer | null = null;
+let playbackSubscription: { remove: () => void } | null = null;
 // Default soundscape volume (0..1). The device/system volume still applies on top of this.
 let currentVolume = audioGainForCategory('focus.music');
 let lastAppliedVolume = currentVolume;
@@ -60,6 +50,10 @@ export const SOUND_SCAPES: Array<{ id: SoundscapeId; title: string }> = [
   { id: 'rainlitLibrary', title: 'Rainlit Library' },
 ];
 
+export function isSoundscapeId(value: unknown): value is SoundscapeId {
+  return typeof value === 'string' && SOUND_SCAPES.some((item) => item.id === value);
+}
+
 let currentSoundscapeId: SoundscapeId = 'default';
 
 /**
@@ -86,26 +80,27 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
   status = 'loading';
   loadPromise = (async () => {
     try {
-      const Audio = await getAudio();
       await ensureAudioMode();
       const selectedId = currentSoundscapeId;
       const selectedSource = await resolveSoundscapeSource(selectedId);
       let created;
       try {
         created = await runSoundscapeNativeOperation(
-          'Audio.Sound.createAsync',
-          () => Audio.Sound.createAsync(selectedSource, { isLooping: true, volume: 0, shouldPlay: false }),
+          'createAudioPlayer',
+          () => createAudioPlayer(selectedSource, { keepAudioSessionActive: true }),
           { shouldPlay: false, selectedId },
         );
       } catch (error) {
         if (selectedId === 'default') throw error;
         created = await runSoundscapeNativeOperation(
-          'Audio.Sound.createAsync.offlineFallback',
-          () => Audio.Sound.createAsync(DEFAULT_SOUNDSCAPE_SOURCE, { isLooping: true, volume: 0, shouldPlay: false }),
+          'createAudioPlayer.offlineFallback',
+          () => createAudioPlayer(DEFAULT_SOUNDSCAPE_SOURCE, { keepAudioSessionActive: true }),
           { shouldPlay: false, selectedId },
         );
       }
-      sound = created.sound;
+      sound = created;
+      sound.loop = true;
+      sound.volume = 0;
       attachPlaybackStatusListener(sound);
       status = 'ready';
 
@@ -121,12 +116,14 @@ export async function preloadSoundscape(opts?: { soundscapeId?: SoundscapeId }) 
       try {
         if (sound) {
           const target = sound;
-          await runSoundscapeNativeOperation('sound.unloadAsync.preloadError', () => target.unloadAsync());
+          await runSoundscapeNativeOperation('sound.remove.preloadError', () => target.remove());
         }
       } catch {
         // ignore
       }
       sound = null;
+      playbackSubscription?.remove();
+      playbackSubscription = null;
       playbackListenerAttached = false;
       throw e;
     } finally {
@@ -183,7 +180,9 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
     await ensureAudioMode({ force: true });
     status = 'playing';
     try {
-      await runSoundscapeNativeOperation('sound.setIsLoopingAsync', () => sound.setIsLoopingAsync(true), {
+      await runSoundscapeNativeOperation('sound.loop', () => {
+        sound!.loop = true;
+      }, {
         looping: true,
       });
     } catch {
@@ -191,13 +190,13 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
     }
     attachPlaybackStatusListener(sound);
     try {
-      await runSoundscapeNativeOperation('sound.playAsync', () => sound.playAsync());
+      await runSoundscapeNativeOperation('sound.play', () => sound!.play());
     } catch (e) {
       // If play fails, fall back to a full reload next time.
       status = 'error';
       if (__DEV__) {
         // eslint-disable-next-line no-console
-        console.warn('[soundscape] playAsync failed', e);
+        console.warn('[soundscape] play failed', e);
       }
       throw new Error('Soundscape failed to start playback');
     }
@@ -222,12 +221,14 @@ export async function startSoundscapeLoop(opts?: { volume?: number; fadeInMs?: n
     try {
       if (sound) {
         const target = sound;
-        await runSoundscapeNativeOperation('sound.unloadAsync.startError', () => target.unloadAsync());
+        await runSoundscapeNativeOperation('sound.remove.startError', () => target.remove());
       }
     } catch {
       // ignore
     }
     sound = null;
+    playbackSubscription?.remove();
+    playbackSubscription = null;
     playbackListenerAttached = false;
     throw e;
   }
@@ -266,14 +267,15 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
   if (unload) {
     try {
       const target = sound;
-      await runSoundscapeNativeOperation('sound.stopAsync', () => target.stopAsync());
+      await runSoundscapeNativeOperation('sound.pause', () => target.pause());
     } catch {
       // ignore
     }
     try {
       const target = sound;
-      sound.setOnPlaybackStatusUpdate?.(null);
-      await runSoundscapeNativeOperation('sound.unloadAsync', () => target.unloadAsync());
+      playbackSubscription?.remove();
+      playbackSubscription = null;
+      await runSoundscapeNativeOperation('sound.remove', () => target.remove());
     } catch {
       // ignore
     }
@@ -284,7 +286,7 @@ export async function stopSoundscapeLoop(opts?: { unload?: boolean }) {
     // Keep the asset loaded so turning sound back on feels instant.
     try {
       const target = sound;
-      await runSoundscapeNativeOperation('sound.pauseAsync', () => target.pauseAsync());
+      await runSoundscapeNativeOperation('sound.pause', () => target.pause());
     } catch {
       // ignore
     }
@@ -327,56 +329,28 @@ function clamp(v: number, min: number, max: number) {
 
 async function ensureAudioMode(opts?: { force?: boolean }) {
   if (audioModeConfigured && !opts?.force) return;
-  const Audio = await getAudio();
-  const interruptionModeIOS =
-    (Audio as any)?.InterruptionModeIOS?.DuckOthers ??
-    (Audio as any)?.INTERRUPTION_MODE_IOS_DUCK_OTHERS;
-  const interruptionModeAndroid =
-    (Audio as any)?.InterruptionModeAndroid?.DuckOthers ??
-    (Audio as any)?.INTERRUPTION_MODE_ANDROID_DUCK_OTHERS;
-
-  // Some Expo AV versions are picky about interruption constants; configure best-effort,
-  // and fall back to a minimal audio mode if the full config throws.
-  try {
-    await runSoundscapeNativeOperation(
-      'Audio.setAudioModeAsync.full',
-      () =>
-        Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          allowsRecordingIOS: false,
-          // Keep soundscape playing when the screen locks / app backgrounds (Focus mode).
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          interruptionModeIOS,
-          interruptionModeAndroid,
-          playThroughEarpieceAndroid: false,
-        }),
-      { force: Boolean(opts?.force) },
-    );
-  } catch {
-    await runSoundscapeNativeOperation(
-      'Audio.setAudioModeAsync.fallback',
-      () =>
-        Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          allowsRecordingIOS: false,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        }),
-      { force: Boolean(opts?.force) },
-    );
-  }
+  await runSoundscapeNativeOperation(
+    'setAudioModeAsync',
+    () => setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: false,
+      // Keep soundscape playing when the screen locks / app backgrounds (Focus mode).
+      shouldPlayInBackground: true,
+      interruptionMode: 'duckOthers',
+      shouldRouteThroughEarpiece: false,
+    }),
+    { force: Boolean(opts?.force) },
+  );
   audioModeConfigured = true;
 }
 
 function attachPlaybackStatusListener(target: any) {
-  if (!target?.setOnPlaybackStatusUpdate || playbackListenerAttached) return;
+  if (!target?.addListener || playbackListenerAttached) return;
   playbackListenerAttached = true;
-  target.setOnPlaybackStatusUpdate((status: any) => {
+  playbackSubscription = target.addListener('playbackStatusUpdate', (status: any) => {
     if (!status || !status.isLoaded) return;
     if (!shouldBePlaying) return;
-    if (status.isPlaying || status.isBuffering) return;
+    if (status.playing || status.isBuffering) return;
     // Best-effort: resume after route changes / interruptions.
     const now = Date.now();
     const cooldownMs = resumeAttempts < 2 ? 500 : 1500;
@@ -395,7 +369,7 @@ async function attemptResumePlayback() {
     // best-effort
   }
   try {
-    await runSoundscapeNativeOperation('sound.playAsync.resume', () => sound.playAsync());
+    await runSoundscapeNativeOperation('sound.play.resume', () => sound!.play());
   } catch (e) {
     if (__DEV__) {
       // eslint-disable-next-line no-console
@@ -405,7 +379,7 @@ async function attemptResumePlayback() {
 }
 
 type VolumeFadableSound = {
-  setVolumeAsync: (volume: number) => Promise<void>;
+  volume: number;
 };
 
 async function fadeToVolume(
@@ -419,7 +393,7 @@ async function fadeToVolume(
   const end = clamp(to, 0, 1);
   if (durationMs <= 0 || Math.abs(end - start) < 0.001) {
     if (opId !== opCounter) return;
-    await target.setVolumeAsync(end);
+    target.volume = end;
     return;
   }
 
@@ -431,7 +405,7 @@ async function fadeToVolume(
     // Smooth-ish curve: ease in/out via cubic.
     const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     const v = start + (end - start) * eased;
-    await target.setVolumeAsync(v);
+    target.volume = v;
     // eslint-disable-next-line no-await-in-loop
     await sleep(stepMs);
   }
@@ -443,7 +417,7 @@ function sleep(ms: number) {
 
 async function runSoundscapeNativeOperation<T>(
   operation: string,
-  fn: () => Promise<T>,
+  fn: () => Promise<T> | T,
   context?: Record<string, unknown>,
 ): Promise<T> {
   await recordSoundscapeBreadcrumb(operation, 'before', context);
@@ -496,17 +470,18 @@ async function disposeSoundscapeForFastRefresh(): Promise<void> {
   if (!target) return;
 
   try {
-    target.setOnPlaybackStatusUpdate?.(null);
+    playbackSubscription?.remove();
+    playbackSubscription = null;
   } catch {
     // best effort during development teardown
   }
   try {
-    await target.stopAsync?.();
+    target.pause();
   } catch {
     // best effort during development teardown
   }
   try {
-    await target.unloadAsync?.();
+    target.remove();
   } catch {
     // best effort during development teardown
   }

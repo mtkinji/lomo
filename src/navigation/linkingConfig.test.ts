@@ -1,7 +1,7 @@
 import { getStateFromPath } from '@react-navigation/core';
 import type { PartialState, NavigationState } from '@react-navigation/native';
 
-import { linkingConfig, normalizeKwiltGamesUrl } from './linkingConfig';
+import { linkingConfig, prepareIncomingNavigationUrl, normalizeKwiltGamesUrl } from './linkingConfig';
 
 type AnyState = PartialState<NavigationState> | NavigationState | undefined;
 
@@ -50,7 +50,7 @@ describe('linkingConfig', () => {
   });
 
   test.each([
-    ['games/hourglass', 'GamesHourglass', undefined],
+    ['games/timer', 'GamesTimer', undefined],
     ['games/tumble/farkle', 'GamesTumble', { mode: 'farkle' }],
     ['games/play/common-thread', 'GamesConnection', { gameId: 'common-thread' }],
     ['games/join/ABCD12', 'GamesJoin', { token: 'ABCD12' }],
@@ -78,6 +78,20 @@ describe('linkingConfig', () => {
     expect(parse('chat?entry=fresh&source=widget')).toMatchObject({
       name: 'UnifiedChat',
       params: { entry: 'fresh', source: 'widget' },
+    });
+  });
+
+  test('gives every incoming Chat widget open a distinct launch id', () => {
+    const first = prepareIncomingNavigationUrl('kwilt://chat?entry=fresh&source=widget', 'launch-1');
+    const second = prepareIncomingNavigationUrl('kwilt://chat?entry=fresh&source=widget', 'launch-2');
+
+    expect(first).toContain('widgetLaunchId=launch-1');
+    expect(second).toContain('widgetLaunchId=launch-2');
+    expect(first).not.toBe(second);
+    expect(parse(first.replace('kwilt://', ''))?.params).toMatchObject({
+      entry: 'fresh',
+      source: 'widget',
+      widgetLaunchId: 'launch-1',
     });
   });
 

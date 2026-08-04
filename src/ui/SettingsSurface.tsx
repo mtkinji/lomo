@@ -57,19 +57,55 @@ export function SettingsGroup({ children, footer, title }: { children: ReactNode
   );
 }
 
+export function SettingsInstructionSection({
+  children,
+  footer,
+  steps,
+  title,
+}: {
+  children: ReactNode;
+  footer?: string;
+  steps: string[];
+  title: string;
+}) {
+  return (
+    <View style={styles.instructionSection}>
+      <Text selectable style={styles.groupLabel}>
+        {title}
+      </Text>
+      <View style={styles.instructionList}>
+        {steps.map((step, index) => (
+          <Text selectable key={`${index}-${step}`} style={styles.instructionStep}>
+            {index + 1}. {step}
+          </Text>
+        ))}
+      </View>
+      <View style={styles.instructionAction}>{children}</View>
+      {footer ? (
+        <Text selectable style={styles.groupFooter}>
+          {footer}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export function SettingsRow({
   destructive = false,
   disabled = false,
   onPress,
+  showsDisclosureIndicator,
   title,
   value,
 }: {
   destructive?: boolean;
   disabled?: boolean;
   onPress?: () => void;
+  showsDisclosureIndicator?: boolean;
   title: string;
   value?: string;
 }) {
+  const showDisclosure = showsDisclosureIndicator ?? Boolean(onPress);
   const content = (
     <>
       <Text selectable={false} numberOfLines={1} style={[styles.rowTitle, destructive ? styles.rowTitleDestructive : null]}>
@@ -81,7 +117,7 @@ export function SettingsRow({
             {value}
           </Text>
         ) : null}
-        {onPress ? <Icon name="chevronRight" size={17} color={colors.textSecondary} /> : null}
+        {showDisclosure ? <Icon name="chevronRight" size={17} color={colors.textSecondary} /> : null}
       </View>
     </>
   );
@@ -105,6 +141,44 @@ export function SettingsRow({
     >
       {content}
     </Pressable>
+  );
+}
+
+export function SettingsCopyField({
+  copied,
+  label,
+  onPress,
+  value,
+}: {
+  copied: boolean;
+  label: string;
+  onPress: () => void;
+  value: string;
+}) {
+  return (
+    <View style={styles.copyBlock}>
+      <Text selectable={false} style={styles.copyLabel}>
+        {label}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={copied ? `${label}. Copied` : `${label}. Copy`}
+        accessibilityValue={{ text: value }}
+        onPress={onPress}
+        style={({ pressed }) => [styles.copyField, pressed ? styles.pressed : null]}
+      >
+        <Text selectable numberOfLines={2} style={styles.copyValue}>
+          {value}
+        </Text>
+        <View style={styles.copyIcon}>
+          <Icon
+            name={copied ? 'check' : 'clipboard'}
+            size={18}
+            color={copied ? colors.success : colors.textSecondary}
+          />
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
@@ -229,6 +303,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     color: colors.textSecondary,
   },
+  instructionSection: {
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+  },
+  instructionList: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  instructionAction: {
+    marginTop: spacing.md,
+  },
+  instructionStep: {
+    color: colors.textPrimary,
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    lineHeight: 20,
+  },
   row: {
     minHeight: 48,
     flexDirection: 'row',
@@ -248,6 +339,43 @@ const styles = StyleSheet.create({
   },
   rowTitleDestructive: {
     color: colors.destructive,
+  },
+  copyBlock: {
+    gap: spacing.xs,
+  },
+  copyLabel: {
+    paddingHorizontal: spacing.md,
+    color: colors.textSecondary,
+    fontFamily: fonts.extrabold,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  copyValue: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.textSecondary,
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  copyField: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  copyIcon: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowTrailing: {
     maxWidth: '45%',

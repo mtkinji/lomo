@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type {
   FlatListProps,
   GestureResponderEvent,
@@ -24,10 +32,21 @@ import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Portal } from '@rn-primitives/portal';
 import { colors, scrims, spacing, type ScrimToken } from '../theme';
+import {
+  getAccessibleAnimationDuration,
+  useAccessibilityPreferences,
+} from './hooks/useAccessibilityPreferences';
 
 export type BottomDrawerSnapPoint = number | `${number}%`;
 
 type Presentation = 'modal' | 'inline';
+
+export function isBottomDrawerAccessibilityModal(
+  presentation: Presentation,
+  hideBackdrop: boolean,
+): boolean {
+  return presentation === 'modal' || !hideBackdrop;
+}
 
 type BottomDrawerProps = {
   visible: boolean;
@@ -202,7 +221,13 @@ export function BottomDrawer({
 }: BottomDrawerProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const { reduceMotionEnabled } = useAccessibilityPreferences();
   const portalNameRef = useRef(`bottom-drawer-${Math.random().toString(36).slice(2)}-${Date.now()}`);
+  const accessibilityModal = isBottomDrawerAccessibilityModal(presentation, hideBackdrop);
+  const motionDuration = useCallback(
+    (durationMs: number) => getAccessibleAnimationDuration(durationMs, reduceMotionEnabled),
+    [reduceMotionEnabled],
+  );
 
   // Available height excludes the top safe-area so a 100% snap doesn't tuck under the notch.
   const availableHeight = Math.max(windowHeight - insets.top, 0);
@@ -260,7 +285,7 @@ export function BottomDrawer({
   const webDragStartYRef = useRef<number | null>(null);
   const [webDragOffset, setWebDragOffset] = useState(0);
 
-  const requestCloseAnimated = () => {
+  const requestCloseAnimated = useCallback(() => {
     if (!dismissable) return;
     // Prevent double-dismiss (e.g. rapid backdrop taps while an animation is in flight).
     if (isAnimating.value) return;
@@ -268,13 +293,22 @@ export function BottomDrawer({
     if (!mounted || !visible) return;
 
     isAnimating.value = true;
-    translateY.value = withTiming(closedOffset, { duration: 260 }, (finished) => {
+    translateY.value = withTiming(closedOffset, { duration: motionDuration(260) }, (finished) => {
       isAnimating.value = false;
       if (finished) {
         runOnJS(onClose)();
       }
     });
-  };
+  }, [
+    closedOffset,
+    dismissable,
+    isAnimating,
+    mounted,
+    motionDuration,
+    onClose,
+    translateY,
+    visible,
+  ]);
 
   // Safety: if the modal ever remains mounted after `visible` becomes false (e.g. an interrupted
   // animation completion callback), ensure it cannot block taps on the underlying canvas.
@@ -327,14 +361,14 @@ export function BottomDrawer({
     }
 
     isAnimating.value = true;
-    translateY.value = withTiming(closedOffset, { duration: 280 }, (finished) => {
+    translateY.value = withTiming(closedOffset, { duration: motionDuration(280) }, (finished) => {
       isAnimating.value = false;
       if (finished) {
         runOnJS(setMounted)(false);
       }
     });
 
-    const fallbackUnmountMs = 360; // slightly > duration to avoid cutting off the close animation
+    const fallbackUnmountMs = motionDuration(360); // slightly > duration to avoid cutting off the close animation
     const timeoutId = setTimeout(() => {
       setMounted(false);
     }, fallbackUnmountMs);
@@ -342,7 +376,7 @@ export function BottomDrawer({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [closedOffset, mounted, presentation, visible, isAnimating, translateY]);
+  }, [closedOffset, mounted, motionDuration, presentation, visible, isAnimating, translateY]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -355,7 +389,7 @@ export function BottomDrawer({
       // Animate from off-screen to reinforce the "drawer slides up" mental model.
       translateY.value = closedOffset;
       sheetHeight.value = targetHeight;
-      translateY.value = withTiming(0, { duration: 320 }, (finished) => {
+      translateY.value = withTiming(0, { duration: motionDuration(320) }, (finished) => {
         isAnimating.value = false;
         if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
       });
@@ -365,24 +399,24 @@ export function BottomDrawer({
     // Snap-height changes while open should resize the sheet in place. Replaying
     // the entrance animation here makes under-keyboard composers appear to close
     // and reopen whenever their content grows by a line.
-    sheetHeight.value = withTiming(targetHeight, { duration: 180 }, (finished) => {
+    sheetHeight.value = withTiming(targetHeight, { duration: motionDuration(180) }, (finished) => {
       if (finished && onSnapIndexChange) runOnJS(onSnapIndexChange)(openToIndex);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, visible, openToIndex, maxSnapHeight, snapHeights.join('|')]);
+  }, [mounted, visible, openToIndex, maxSnapHeight, motionDuration, snapHeights.join('|')]);
 
   useEffect(() => {
     if (!dynamicSizing) return;
     if (!mounted || !visible) return;
     if (dynamicTargetHeight === null) return;
     // Once content has laid out, animate down to the measured compact height.
-    sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: 260 }, (finished) => {
+    sheetHeight.value = withTiming(clamp(dynamicTargetHeight, 0, maxSnapHeight), { duration: motionDuration(260) }, (finished) => {
       if (finished && onSnapIndexChange) {
         runOnJS(onSnapIndexChange)(0);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamicSizing, dynamicTargetHeight, mounted, visible, maxSnapHeight]);
+  }, [dynamicSizing, dynamicTargetHeight, mounted, visible, maxSnapHeight, motionDuration]);
 
   const progress = useDerivedValue(() => {
     // 0=open, 1=closed.
@@ -413,10 +447,10 @@ export function BottomDrawer({
     };
   }, [maxSnapHeight, openToIndex, snapHeights, webDragOffset]);
 
-  const closeIfAllowed = () => {
+  const closeIfAllowed = useCallback(() => {
     if (!dismissable) return;
     onClose();
-  };
+  }, [dismissable, onClose]);
 
   const panStartY = useSharedValue(0);
   const panStartHeight = useSharedValue(0);
@@ -469,7 +503,7 @@ export function BottomDrawer({
 
         if (shouldDismiss) {
           isAnimating.value = true;
-          translateY.value = withTiming(closedOffset, { duration: 260 }, (finished) => {
+          translateY.value = withTiming(closedOffset, { duration: motionDuration(260) }, (finished) => {
             isAnimating.value = false;
             if (finished) {
               runOnJS(closeIfAllowed)();
@@ -480,13 +514,13 @@ export function BottomDrawer({
 
         // Ensure we settle back to the base position (no close translation).
         if (currentTranslate !== 0) {
-          translateY.value = withTiming(0, { duration: 220 });
+          translateY.value = withTiming(0, { duration: motionDuration(220) });
         }
 
         const projectedHeight = clamp(currentHeight - vY * 0.15, minSnapHeight, maxSnapHeight);
         const idx = getClosestIndex({ snapY: projectedHeight, snapYs: snapHeights });
         isAnimating.value = true;
-        sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: 260 }, (finished) => {
+        sheetHeight.value = withTiming(snapHeights[idx] ?? maxSnapHeight, { duration: motionDuration(260) }, (finished) => {
           isAnimating.value = false;
           if (finished && onSnapIndexChange) {
             runOnJS(onSnapIndexChange)(idx);
@@ -508,6 +542,7 @@ export function BottomDrawer({
     enableContentPanningGesture,
     maxSnapHeight,
     minSnapHeight,
+    motionDuration,
     onSnapIndexChange,
     scrollableGesture,
     scrollY,
@@ -605,11 +640,21 @@ export function BottomDrawer({
               />
             )}
             {!hideBackdrop && dismissable && dismissOnBackdropPress && (
-              <Pressable style={StyleSheet.absoluteFill} onPress={requestCloseAnimated} />
+              <Pressable
+                testID="bottom-drawer.backdrop"
+                accessible={false}
+                importantForAccessibility="no"
+                style={StyleSheet.absoluteFill}
+                onPress={requestCloseAnimated}
+              />
             )}
           </Animated.View>
           <GestureDetector gesture={contentPanGesture}>
             <Animated.View
+              testID="bottom-drawer.surface"
+              accessibilityViewIsModal={accessibilityModal}
+              importantForAccessibility="yes"
+              onAccessibilityEscape={dismissable ? requestCloseAnimated : undefined}
               style={[
                 styles.sheet,
                 {
@@ -625,6 +670,8 @@ export function BottomDrawer({
               <GestureDetector gesture={handlePanGesture}>
                 <View
                   {...webHandleResponderProps}
+                  accessible={false}
+                  importantForAccessibility="no"
                   style={[styles.handleGrabRegion, handleContainerStyle]}
                 >
                   <View style={[styles.handle, handleStyle]} />
@@ -664,11 +711,21 @@ export function BottomDrawer({
               />
             )}
             {!hideBackdrop && dismissable && dismissOnBackdropPress && (
-              <Pressable style={StyleSheet.absoluteFill} onPress={requestCloseAnimated} />
+              <Pressable
+                testID="bottom-drawer.backdrop"
+                accessible={false}
+                importantForAccessibility="no"
+                style={StyleSheet.absoluteFill}
+                onPress={requestCloseAnimated}
+              />
             )}
           </Animated.View>
           <GestureDetector gesture={contentPanGesture}>
             <Animated.View
+              testID="bottom-drawer.surface"
+              accessibilityViewIsModal={accessibilityModal}
+              importantForAccessibility="yes"
+              onAccessibilityEscape={dismissable ? requestCloseAnimated : undefined}
               style={[
                 styles.sheet,
                 {
@@ -683,6 +740,8 @@ export function BottomDrawer({
               <GestureDetector gesture={handlePanGesture}>
                 <View
                   {...webHandleResponderProps}
+                  accessible={false}
+                  importantForAccessibility="no"
                   style={[styles.handleGrabRegion, handleContainerStyle]}
                 >
                   <View style={[styles.handle, handleStyle]} />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation, useRoute, type NavigationProp, type ParamListBase, type RouteProp } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 import {
   Alert,
   AppState,
@@ -26,6 +27,7 @@ import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
 import type {
   UnifiedChatClientAction,
+  UnifiedChatProposal,
   UnifiedChatThread,
   UnifiedChatThreadAggregate,
 } from './types';
@@ -82,7 +84,7 @@ import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
-import { executePlanProposalBatch } from './executePlanProposalBatch';
+import { executeProposalOutcomeBatch } from './executeProposalOutcomeBatch';
 import { recoverPlanMutations } from './recoverPlanMutations';
 import { recoverGoalMutations } from './recoverGoalMutations';
 import { executeArcProposalDecision } from './executeArcProposalDecision';
@@ -110,6 +112,10 @@ import {
   insertUnifiedChatTranscriptAtSelection,
   type UnifiedChatVoiceInsertion,
 } from './unifiedChatTranscriptInsertion';
+import { buildUnifiedChatTranscript } from './chatTranscript';
+import { createMoneyRepository } from '../../capabilities/money/data/moneyRepository';
+import { executeMoneyCategoryProposalDecision } from './executeMoneyCategoryProposalDecision';
+import { recoverMoneyCategoryMutations } from './recoverMoneyCategoryMutations';
 
 const activityStoreBoundary = {
   getActivities: () => useAppStore.getState().activities,
@@ -179,11 +185,13 @@ export function UnifiedChatScreen() {
   const requestedThreadId = route.params?.threadId;
   const freshEntry = route.params?.entry === 'fresh' && !requestedThreadId;
   const freshEntrySource = route.params?.source;
+  const widgetLaunchId = route.params?.widgetLaunchId;
   const insets = useSafeAreaInsets();
   const { openMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
   const config = useMemo(getUnifiedChatConfig, []);
   const repository = useMemo(() => createUnifiedChatRepository(), []);
+  const moneyRepository = useMemo(() => createMoneyRepository(), []);
   const webViewRef = useRef<WebView>(null);
   const handledRequestIds = useRef(new Set<string>());
   const freshFirstSendRequestIdRef = useRef<string | null>(null);
@@ -259,11 +267,14 @@ export function UnifiedChatScreen() {
     const chaptersRecovered = await recoverChapterMutations({
       aggregate: profilesRecovered, repository, store: chapterStoreBoundary,
     });
-    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, chaptersRecovered)) {
+    const moneyRecovered = await recoverMoneyCategoryMutations({
+      aggregate: chaptersRecovered, repository, moneyRepository,
+    });
+    for (const properties of buildUnifiedChatReconciliationTelemetry(loaded, moneyRecovered)) {
       track(posthogClient, AnalyticsEvent.UnifiedChatReconciled, properties);
     }
-    return chaptersRecovered;
-  }, [repository]);
+    return moneyRecovered;
+  }, [moneyRepository, repository]);
 
   const postSnapshot = useCallback(
     (next: UnifiedChatThreadAggregate, type: 'host.initialize' | 'host.snapshot') => {
@@ -371,7 +382,7 @@ export function UnifiedChatScreen() {
     setAggregate(null);
     setPrompt('');
     setAttachments([]);
-  }, [freshEntry]);
+  }, [freshEntry, widgetLaunchId]);
 
   useEffect(() => () => {
     clearVoiceTimer();
@@ -500,19 +511,29 @@ export function UnifiedChatScreen() {
     [aggregate?.thread.id, repository],
   );
 
+  const copyThread = useCallback(async (threadAggregate: UnifiedChatThreadAggregate) => {
+    try {
+      await Clipboard.setStringAsync(buildUnifiedChatTranscript(threadAggregate));
+      Alert.alert('Chat copied', 'The full conversation is ready to paste.');
+    } catch {
+      Alert.alert('Copy failed', 'Kwilt could not copy this chat on this device right now.');
+    }
+  }, []);
+
   const showThreadActions = useCallback(
-    (thread: UnifiedChatThread) => {
-      Alert.alert(thread.title, undefined, [
-        { text: 'Rename', onPress: () => renameThread(thread) },
+    (threadAggregate: UnifiedChatThreadAggregate) => {
+      Alert.alert(threadAggregate.thread.title, undefined, [
+        { text: 'Rename', onPress: () => renameThread(threadAggregate.thread) },
+        { text: 'Copy chat', onPress: () => void copyThread(threadAggregate) },
         {
           text: 'Archive',
           style: 'destructive',
-          onPress: () => void archiveThread(thread),
+          onPress: () => void archiveThread(threadAggregate.thread),
         },
         { text: 'Cancel', style: 'cancel' },
       ]);
     },
-    [archiveThread, renameThread],
+    [archiveThread, copyThread, renameThread],
   );
 
   const openNativeClientAction = useCallback((clientAction: UnifiedChatClientAction) => {
@@ -771,36 +792,73 @@ export function UnifiedChatScreen() {
       if (command.type === 'proposal.decide_many' && aggregate) {
         setError(null);
         try {
-          const result = await executePlanProposalBatch({
+          const executeApprovedProposal = async (proposal: UnifiedChatProposal) => {
+            if (proposal.capabilityId === 'money') {
+              await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
+            } else if (proposal.capabilityId === 'screenTime') {
+              await executeScreenTimeProposalDecision({
+                proposal, action: 'approve', repository, client: getSupabaseClient(),
+              });
+            } else if (proposal.capabilityId === 'plan') {
+              await executePlanProposalDecision({
+                proposal, action: 'approve', repository,
+                apply: (approved) => applyApprovedPlanProposal({ proposal: approved, store: planStoreBoundary }),
+              });
+            } else if (proposal.capabilityId === 'arcs') {
+              await executeArcProposalDecision({ proposal, action: 'approve', repository, store: arcStoreBoundary });
+            } else if (proposal.capabilityId === 'goals') {
+              await executeGoalProposalDecision({ proposal, action: 'approve', repository, store: goalStoreBoundary });
+            } else if (proposal.capabilityId === 'profile') {
+              await executeProfileProposalDecision({ proposal, action: 'approve', repository, store: profileStoreBoundary });
+            } else if (proposal.capabilityId === 'chapters') {
+              await executeChapterProposalDecision({ proposal, action: 'approve', repository, store: chapterStoreBoundary });
+            } else if (proposal.capabilityId === 'todos') {
+              await executeProposalDecision({
+                proposal, action: 'approve', repository, store: activityStoreBoundary,
+              });
+            } else {
+              throw new Error('This relationship change must be reviewed separately.');
+            }
+          };
+          const result = await executeProposalOutcomeBatch({
             proposals: aggregate.proposals ?? [],
             items: command.items,
-            execute: (proposal) => executePlanProposalDecision({
-              proposal,
-              action: 'approve',
-              repository,
-              apply: (approved) => applyApprovedPlanProposal({
-                proposal: approved,
-                store: planStoreBoundary,
-              }),
-            }),
+            execute: executeApprovedProposal,
           });
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
-          if (result.failed.length > 0) {
+          if (result.failed.length > 0 || result.skipped.length > 0) {
             setError(
               result.applied.length > 0
-                ? `${result.applied.length} added to Plan; ${result.failed.length} could not be added.`
-                : result.failed[0].message,
+                ? `${result.applied.length} applied; ${result.failed.length} failed and ${result.skipped.length} skipped.`
+                : result.failed[0]?.message ?? result.skipped[0]?.reason ?? 'Kwilt could not apply that outcome.',
             );
           }
         } catch (decisionError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not add those Plan items.');
+          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that outcome.');
         }
         return;
       }
       if (command.type === 'proposal.decide' && aggregate) {
         const proposal = (aggregate.proposals ?? []).find((item) => item.id === command.proposalId);
         if (!proposal || proposal.version !== command.expectedVersion) return;
+        if (proposal.capabilityId === 'money') {
+          if (command.action === 'edit') {
+            setError('Ask Kwilt to prepare a revised Money category change.');
+            return;
+          }
+          setError(null);
+          try {
+            await executeMoneyCategoryProposalDecision({
+              proposal, action: command.action, repository, moneyRepository,
+            });
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
+          } catch (decisionError) {
+            setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
+            setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not update that Money category.');
+          }
+          return;
+        }
         if (proposal.capabilityId === 'screenTime') {
           if (command.action === 'edit') {
             setError('Ask Kwilt to prepare a revised Screen Time change.');
@@ -964,27 +1022,44 @@ export function UnifiedChatScreen() {
         if (target) navigateWhenReady(target.route.name, target.route.params);
         return;
       }
-      if (command.type === 'receipt.undo' && aggregate) {
-        const receipt = (aggregate.receipts ?? []).find((item) => item.id === command.receiptId);
-        const proposal = receipt
-          ? (aggregate.proposals ?? []).find((item) => item.id === receipt.proposalId)
-          : undefined;
-        if (!receipt || !proposal || !receipt.canUndo) return;
+      if ((command.type === 'receipt.undo' || command.type === 'receipt.undo_many') && aggregate) {
+        const requestedReceiptIds = command.type === 'receipt.undo_many' ? command.receiptIds : [command.receiptId];
+        const selectedReceipts = requestedReceiptIds.map((receiptId) =>
+          (aggregate.receipts ?? []).find((item) => item.id === receiptId));
+        if (selectedReceipts.some((receipt) => !receipt || !receipt.canUndo)) return;
+        const selectedOutcomeRunIds = new Set(selectedReceipts.flatMap((receipt) => {
+          const proposal = receipt
+            ? (aggregate.proposals ?? []).find((item) => item.id === receipt.proposalId)
+            : undefined;
+          return proposal ? [proposal.runId] : [];
+        }));
+        if (selectedOutcomeRunIds.size !== 1) return;
+        const orderedReceipts = selectedReceipts.flatMap((receipt) => receipt ? [receipt] : []).sort((left, right) => {
+          const leftProposal = (aggregate.proposals ?? []).find((item) => item.id === left.proposalId);
+          const rightProposal = (aggregate.proposals ?? []).find((item) => item.id === right.proposalId);
+          return (rightProposal?.operation.outcomeStep?.sequence ?? 0) -
+            (leftProposal?.operation.outcomeStep?.sequence ?? 0);
+        });
         setError(null);
         try {
-          await executeReceiptUndo({
-            receipt, proposal, repository, store: activityStoreBoundary, planStore: planStoreBoundary,
-            goalStore: goalStoreBoundary, arcStore: arcStoreBoundary,
-            profileStore: profileStoreBoundary,
-            chapterStore: chapterStoreBoundary,
-            relationshipUndo: receipt.capabilityId === 'relationships'
-              ? createRelationshipMemoryToolProvider({}).undoReceipt
-              : undefined,
-          });
+          for (const receipt of orderedReceipts) {
+            const proposal = (aggregate.proposals ?? []).find((item) => item.id === receipt.proposalId);
+            if (!proposal) throw new Error('The original change could not be found.');
+            await executeReceiptUndo({
+              receipt, proposal, repository, store: activityStoreBoundary, planStore: planStoreBoundary,
+              goalStore: goalStoreBoundary, arcStore: arcStoreBoundary,
+              profileStore: profileStoreBoundary,
+              chapterStore: chapterStoreBoundary,
+              relationshipUndo: receipt.capabilityId === 'relationships'
+                ? createRelationshipMemoryToolProvider({}).undoReceipt
+                : undefined,
+              moneyRepository,
+            });
+          }
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
         } catch (undoError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-          setError(undoError instanceof Error ? undoError.message : 'Kwilt could not undo that change.');
+          setError(undoError instanceof Error ? undoError.message : 'Kwilt could not undo that outcome.');
         }
         return;
       }
@@ -1191,7 +1266,7 @@ export function UnifiedChatScreen() {
         break;
       }
     },
-    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, loadThreadWithRecovery, menuOpen, navigation, postFreshSnapshot, postSnapshot, repository, voice.state],
+    [aggregate, attachments, clearVoiceTimer, createThread, decideClientAction, freshEntry, freshEntrySource, loadThreadWithRecovery, menuOpen, moneyRepository, navigation, postFreshSnapshot, postSnapshot, repository, voice.state],
   );
 
   const pendingClientAction = useMemo(
@@ -1251,7 +1326,7 @@ export function UnifiedChatScreen() {
           <IconButton
             accessibilityLabel="Chat options"
             variant="ghost"
-            onPress={() => showThreadActions(aggregate.thread)}
+            onPress={() => showThreadActions(aggregate)}
           >
             <Icon name="more" size={18} color={colors.textPrimary} />
           </IconButton>

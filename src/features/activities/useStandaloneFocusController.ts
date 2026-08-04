@@ -16,7 +16,7 @@ import { useFocusSessionStore } from './focusSessionStore';
 export type StandaloneFocusController = {
   session: ActiveFocusSession | null;
   remainingMs: number;
-  start: (minutes: number) => Promise<boolean>;
+  start: (minutes: number, audio?: SoundscapeId | 'none') => Promise<boolean>;
   pauseOrResume: () => Promise<void>;
   end: () => Promise<void>;
 };
@@ -41,7 +41,7 @@ export function useStandaloneFocusController(params: {
     return () => clearInterval(interval);
   }, [session?.mode, session?.sessionId]);
 
-  const start = async (requestedMinutes: number) => {
+  const start = async (requestedMinutes: number, audio?: SoundscapeId | 'none') => {
     const minutes = Number.isFinite(requestedMinutes) ? Math.max(1, Math.floor(requestedMinutes)) : 25;
     if (minutes > params.maxMinutes) {
       void HapticsService.trigger('outcome.warning');
@@ -51,9 +51,18 @@ export function useStandaloneFocusController(params: {
 
     void HapticsService.trigger('canvas.primary.confirm');
     setLastFocusMinutes(minutes);
+    const effectiveSoundscape = audio && audio !== 'none' ? audio : params.soundscapeTrackId;
+    if (audio === 'none') {
+      useAppStore.getState().setSoundscapeEnabled(false);
+    } else if (audio) {
+      useAppStore.getState().setSoundscapeEnabled(true);
+      useAppStore.getState().setSoundscapeTrackId(audio);
+    }
     const replaced = useFocusSessionStore.getState().endSession();
     await cancelNotification(replaced?.notificationId);
-    await preloadSoundscape({ soundscapeId: params.soundscapeTrackId }).catch(() => undefined);
+    if (audio !== 'none') {
+      await preloadSoundscape({ soundscapeId: effectiveSoundscape }).catch(() => undefined);
+    }
 
     const startedAtMs = Date.now();
     useFocusSessionStore.getState().startSession({

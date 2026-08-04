@@ -44,13 +44,13 @@ When I am ready, let me begin a real bounded session without creating maintenanc
 
 ## Design
 
-The small WidgetKit widget has a configurable 10, 25, or 50 minute duration. At rest it presents Focus, the duration, and one Start action. The deep link starts an explicitly standalone session through the existing Focus runtime. While any Focus session is active, the widget shows its live countdown or paused state and opens the owning in-app controls.
+The small WidgetKit widget has a configurable 10, 25, or 50 minute duration plus a starting audio choice: any Kwilt Focus soundscape or no audio. At rest it presents Focus, the duration, configured audio, and one Start action. The deep link starts an explicitly standalone session through the existing Focus runtime and applies that widget's bounded audio choice. While any Focus session is active, the widget shows its live countdown or paused state and opens the owning in-app controls.
 
 The in-app standalone overlay reuses the existing timer, pause/resume, soundscape, color, end, notification, Live Activity, and Screen Time behavior. The standalone identity is a runtime sentinel only and must never be resolved, displayed, or persisted as an Activity. The widget does not claim to toggle Apple's system Focus modes.
 
 ## Success signal
 
-A configured widget reliably starts Focus in one tap, visibly becomes the same active session, and returns to controls. Users can explain that generic Focus counts as focused time without changing a to-do or Goal.
+A configured widget reliably starts Focus with the chosen duration and audio in one tap, visibly becomes the same active session, and returns to controls. Users can explain that generic Focus counts as focused time without changing a to-do or Goal.
 
 ## Open questions
 

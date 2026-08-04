@@ -46,10 +46,10 @@ public final class KwiltRouteReconstructionModule: Module {
   }
 }
 
-private final class InvalidRouteReconstructionException: GenericException<String> {
+private final class InvalidRouteReconstructionException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
 }
 
-private final class RouteReconstructionException: GenericException<String> {
+private final class RouteReconstructionException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
 }

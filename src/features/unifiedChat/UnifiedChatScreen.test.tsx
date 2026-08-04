@@ -18,6 +18,12 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).not.toContain('startUnifiedChatVoiceRecording(); // widget');
   });
 
+  test('resets the fresh composer for each repeated widget launch', () => {
+    expect(screenSource).toContain('route.params?.widgetLaunchId');
+    expect(screenSource).toContain('widgetLaunchId]);');
+    expect(navigatorSource).toContain('prepareIncomingNavigationUrl');
+  });
+
   test('does not import the existing workflow-chat surface', () => {
     expect(screenSource).not.toContain('AiChatScreen');
     expect(screenSource).not.toContain('AgentWorkspace');
@@ -225,5 +231,12 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).not.toContain('accessibilityLabel="New chat"');
     expect(screenSource).not.toContain('setPickerVisible');
     expect(screenSource).toContain('openMenu');
+  });
+
+  test('offers a local full-chat copy from the conversation options menu', () => {
+    expect(screenSource).toContain("import * as Clipboard from 'expo-clipboard'");
+    expect(screenSource).toContain("text: 'Copy chat'");
+    expect(screenSource).toContain('buildUnifiedChatTranscript(threadAggregate)');
+    expect(screenSource).toContain('Clipboard.setStringAsync');
   });
 });

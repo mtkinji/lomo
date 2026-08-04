@@ -289,15 +289,22 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func statusString() -> String {
-    switch AuthorizationCenter.shared.authorizationStatus {
+  private static func statusString() -> String {
+    let status = AuthorizationCenter.shared.authorizationStatus
+    // iOS 26.4 adds approvedWithDataAccess as raw value 3. Compare the stable
+    // raw value so this source also compiles with older Xcode SDKs that do not
+    // declare the new enum case yet (including the current EAS image).
+    if status.rawValue == 3 {
+      return "approved"
+    }
+    switch status {
     case .notDetermined:
       return "notDetermined"
     case .denied:
       return "denied"
     case .approved:
       return "approved"
-    @unknown default:
+    default:
       return "unavailable"
     }
   }
@@ -383,7 +390,7 @@ class KwiltScreenTimeProtection: NSObject {
   ) {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
-      resolve(statusString())
+      resolve(Self.statusString())
       return
     }
 #endif
@@ -414,7 +421,7 @@ class KwiltScreenTimeProtection: NSObject {
       Task {
         do {
           try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-          DispatchQueue.main.async { resolve(self.statusString()) }
+          DispatchQueue.main.async { resolve(Self.statusString()) }
         } catch {
           DispatchQueue.main.async { resolve("unavailable") }
         }
@@ -1802,8 +1809,8 @@ func deepLinkActivities(viewId: String?) -> URL? {
 
 let standaloneFocusActivityId = "kwilt-standalone-focus"
 
-func deepLinkStartStandaloneFocus(minutes: Int) -> URL {
-  return URL(string: "kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\(minutes)&source=widget")!
+func deepLinkStartStandaloneFocus(minutes: Int, audio: String) -> URL {
+  return URL(string: "kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\(minutes)&focusAudio=\\(audio)&source=widget")!
 }
 
 func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {
@@ -2475,20 +2482,14 @@ struct KwiltFocusDynamicIslandExpandedView: View {
   var palette: KwiltFocusPalette { KwiltFocusPalette.forKey(context.state.colorKey) }
 
   var body: some View {
-    HStack(spacing: 12) {
-      if let logo = kwiltLogoImage() {
-        logo
-          .resizable()
-          .scaledToFit()
-          .frame(width: 24, height: 24)
-      }
-      Text(context.state.title)
-        .font(.headline)
-        .lineLimit(1)
-      Spacer()
-      KwiltFocusTimerLabel(context: context, palette: palette)
-    }
-    .padding(.vertical, 2)
+    Text(context.state.title)
+      .font(.headline)
+      .foregroundStyle(palette.primary)
+      .lineLimit(2)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 4)
+      .padding(.top, 4)
+      .padding(.bottom, 2)
   }
 }
 
@@ -2504,19 +2505,23 @@ struct KwiltFocusCompactTrailingView: View {
   var isPaused: Bool { (context.state.mode ?? "running") == "paused" }
 
   var body: some View {
-    if isPaused {
-      Image(systemName: "pause.fill")
-        .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)
-        .font(.caption2)
-    } else if let end = endAt {
-      Text(timerInterval: startedAt...end, countsDown: true)
-        .monospacedDigit()
-        .font(.caption2)
-    } else {
-      Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
-        .monospacedDigit()
-        .font(.caption2)
+    Group {
+      if isPaused {
+        Image(systemName: "pause.fill")
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
+      } else if let end = endAt {
+        Text(timerInterval: startedAt...end, countsDown: true)
+          .monospacedDigit()
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
+      } else {
+        Text(Date(timeIntervalSince1970: Double(context.state.startedAtMs) / 1000.0), style: .timer)
+          .monospacedDigit()
+          .font(.system(size: 14, weight: .semibold, design: .rounded))
+      }
     }
+    .foregroundStyle(KwiltFocusPalette.forKey(context.state.colorKey).primary)
+    .frame(width: 48, alignment: .trailing)
+    .padding(.trailing, 2)
   }
 }
 
@@ -2529,24 +2534,41 @@ struct KwiltFocusLiveActivity: Widget {
         .activitySystemActionForegroundColor(KwiltFocusPalette.forKey(context.state.colorKey).primary)
     } dynamicIsland: { context in
       DynamicIsland {
-        DynamicIslandExpandedRegion(.center) {
+        DynamicIslandExpandedRegion(.leading) {
+          if let logo = kwiltLogoImage() {
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 28, height: 28)
+              .padding(.leading, 4)
+          }
+        }
+        DynamicIslandExpandedRegion(.trailing) {
+          KwiltFocusTimerLabel(
+            context: context,
+            palette: KwiltFocusPalette.forKey(context.state.colorKey)
+          )
+          .padding(.trailing, 4)
+        }
+        DynamicIslandExpandedRegion(.bottom) {
           KwiltFocusDynamicIslandExpandedView(context: context)
         }
       } compactLeading: {
         if let logo = kwiltLogoImage() {
-          logo
-            .resizable()
-            .scaledToFit()
-            .frame(width: 16, height: 16)
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 20, height: 20)
+              .padding(.leading, 3)
         }
       } compactTrailing: {
         KwiltFocusCompactTrailingView(context: context)
       } minimal: {
         if let logo = kwiltLogoImage() {
-          logo
-            .resizable()
-            .scaledToFit()
-            .frame(width: 16, height: 16)
+            logo
+              .resizable()
+              .scaledToFit()
+              .frame(width: 18, height: 18)
         }
       }
       .keylineTint(KwiltFocusPalette.forKey(context.state.colorKey).background)

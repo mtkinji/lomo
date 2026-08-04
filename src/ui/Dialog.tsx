@@ -1,7 +1,17 @@
-import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, type ElementRef, type ReactNode } from 'react';
+import {
+  AccessibilityInfo,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+import * as ReactNative from 'react-native';
 import { colors, spacing, typography } from '../theme';
 import { Text, Heading } from './Typography';
+import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences';
 
 type DialogProps = {
   visible: boolean;
@@ -38,6 +48,18 @@ export function Dialog({
   size = 'sm',
   showHeaderDivider = false,
 }: DialogProps) {
+  const titleRef = useRef<ElementRef<typeof Heading>>(null);
+  const { reduceMotionEnabled } = useAccessibilityPreferences();
+
+  useEffect(() => {
+    if (!visible || !title) return;
+    const timeoutId = setTimeout(() => {
+      const node = ReactNative.findNodeHandle(titleRef.current);
+      if (node != null) AccessibilityInfo.setAccessibilityFocus(node);
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [title, visible]);
+
   // Safety: When `visible` is false, don't render a `Modal` at all.
   // We've seen rare RN/iOS edge-cases where rapidly stacking/dismissing overlays can
   // leave an "invisible" modal layer that still intercepts touches. Returning `null`
@@ -58,7 +80,7 @@ export function Dialog({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType={reduceMotionEnabled ? 'none' : 'fade'}
       onRequestClose={onClose}
     >
       {canUseKeyboardAvoidingView ? (
@@ -70,13 +92,25 @@ export function Dialog({
           keyboardVerticalOffset={0}
         >
           {/* Backdrop press target (behind the card) */}
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <Pressable
+            testID="dialog.backdrop"
+            accessible={false}
+            importantForAccessibility="no"
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+          />
 
-          <View style={styles.card}>
+          <View
+            testID="dialog.surface"
+            accessibilityViewIsModal
+            importantForAccessibility="yes"
+            onAccessibilityEscape={onClose}
+            style={styles.card}
+          >
             {(title || description) && (
               <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
                 {title ? (
-                  <Heading style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
+                  <Heading ref={titleRef} style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
                     {title}
                   </Heading>
                 ) : null}
@@ -90,13 +124,25 @@ export function Dialog({
       ) : (
         <View style={styles.overlay}>
           {/* Backdrop press target (behind the card) */}
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+          <Pressable
+            testID="dialog.backdrop"
+            accessible={false}
+            importantForAccessibility="no"
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+          />
 
-          <View style={styles.card}>
+          <View
+            testID="dialog.surface"
+            accessibilityViewIsModal
+            importantForAccessibility="yes"
+            onAccessibilityEscape={onClose}
+            style={styles.card}
+          >
             {(title || description) && (
               <View style={[styles.header, showHeaderDivider && styles.headerDivider]}>
                 {title ? (
-                  <Heading style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
+                  <Heading ref={titleRef} style={size === 'md' ? styles.titleMd : styles.titleSm} variant="sm">
                     {title}
                   </Heading>
                 ) : null}
@@ -164,5 +210,3 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
 });
-
-

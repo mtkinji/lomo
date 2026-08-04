@@ -2,9 +2,11 @@ import type { MoneySnapshot } from './moneySnapshot';
 import {
   applyConfirmedCategoryPatch,
   applyConfirmedMerchantRulePatch,
+  applyConfirmedTransactionPlanRolePatch,
   applyConfirmedTransactionPatch,
   type ConfirmedCategoryPatch,
   type ConfirmedMerchantRulePatch,
+  type ConfirmedTransactionPlanRolePatch,
   type ConfirmedTransactionPatch,
 } from './moneyConfirmedPatches';
 
@@ -20,9 +22,11 @@ export type MoneyDataState = {
 
 export type MoneyDataAction =
   | { type: 'load' }
+  | { type: 'cached_snapshot'; snapshot: MoneySnapshot }
   | { type: 'success'; snapshot: MoneySnapshot }
   | { type: 'failure'; message: string }
   | { type: 'confirmed_transaction_patch'; patch: ConfirmedTransactionPatch }
+  | { type: 'confirmed_transaction_plan_role_patch'; patch: ConfirmedTransactionPlanRolePatch }
   | { type: 'confirmed_merchant_rule_patch'; patch: ConfirmedMerchantRulePatch }
   | { type: 'confirmed_category_patch'; patch: ConfirmedCategoryPatch }
   | { type: 'authoritative_plan_projection'; snapshot: MoneySnapshot; versionId: string; receiptId: string | null }
@@ -44,6 +48,8 @@ export function moneyDataReducer(state: MoneyDataState, action: MoneyDataAction)
       return state.snapshot
         ? { ...state, error: null, refreshing: true }
         : { ...state, status: 'loading', snapshot: null, error: null, refreshing: false };
+    case 'cached_snapshot':
+      return { ...state, status: 'ready', snapshot: action.snapshot, error: null, refreshing: false, stale: true };
     case 'success':
       return { ...state, status: 'ready', snapshot: action.snapshot, error: null, refreshing: false, stale: false };
     case 'failure':
@@ -53,6 +59,10 @@ export function moneyDataReducer(state: MoneyDataState, action: MoneyDataAction)
     case 'confirmed_transaction_patch':
       return state.snapshot
         ? { ...state, status: 'ready', snapshot: applyConfirmedTransactionPatch(state.snapshot, action.patch), error: null, refreshing: false, stale: true }
+        : state;
+    case 'confirmed_transaction_plan_role_patch':
+      return state.snapshot
+        ? { ...state, status: 'ready', snapshot: applyConfirmedTransactionPlanRolePatch(state.snapshot, action.patch), error: null, refreshing: false, stale: true }
         : state;
     case 'confirmed_merchant_rule_patch':
       return state.snapshot

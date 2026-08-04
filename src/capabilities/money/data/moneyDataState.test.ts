@@ -34,6 +34,16 @@ describe('moneyDataReducer', () => {
     });
   });
 
+  it('shows a cached snapshot as usable but stale while refresh happens silently', () => {
+    expect(moneyDataReducer(initialMoneyDataState, { type: 'cached_snapshot', snapshot })).toEqual({
+      ...initialMoneyDataState,
+      status: 'ready',
+      snapshot,
+      refreshing: false,
+      stale: true,
+    });
+  });
+
   it('retains known-good financial data when refresh fails', () => {
     const ready = moneyDataReducer(initialMoneyDataState, { type: 'success', snapshot });
     const refreshing = moneyDataReducer(ready, { type: 'load' });

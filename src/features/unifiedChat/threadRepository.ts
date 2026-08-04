@@ -276,14 +276,41 @@ function mapEvidence(row: DbRow): UnifiedChatEvidenceRef | null {
 }
 
 function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
+  const rawPayload = row.payload && typeof row.payload === 'object'
+    ? row.payload as Record<string, unknown>
+    : {};
+  const rawOutcomeStep = rawPayload._outcomeStep;
+  const outcomeStep = rawOutcomeStep && typeof rawOutcomeStep === 'object' &&
+      Number.isInteger((rawOutcomeStep as DbRow).sequence) && Number((rawOutcomeStep as DbRow).sequence) > 0 &&
+      ((rawOutcomeStep as DbRow).dependsOnSequence === null ||
+        (Number.isInteger((rawOutcomeStep as DbRow).dependsOnSequence) && Number((rawOutcomeStep as DbRow).dependsOnSequence) > 0))
+    ? {
+        sequence: Number((rawOutcomeStep as DbRow).sequence),
+        dependsOnSequence: (rawOutcomeStep as DbRow).dependsOnSequence === null
+          ? null
+          : Number((rawOutcomeStep as DbRow).dependsOnSequence),
+      }
+    : undefined;
   const base = {
     id: String(row.id), proposalId: String(row.proposal_id),
     summary: String(row.summary), idempotencyKey: String(row.idempotency_key),
     sequence: Number(row.sequence) || 1,
+    ...(outcomeStep ? { outcomeStep } : {}),
   };
-  const payload = row.payload && typeof row.payload === 'object'
-    ? row.payload as Record<string, unknown>
-    : {};
+  const { _outcomeStep: _storedOutcomeStep, ...payload } = rawPayload;
+  if (
+    row.capability_id === 'money' && row.operation_type === 'create_money_category' &&
+    row.target_id == null && typeof payload.name === 'string' &&
+    typeof payload.budgetCents === 'number' && Number.isInteger(payload.budgetCents) && payload.budgetCents >= 0
+  ) {
+    return { ...base, capabilityId: 'money', type: 'create_money_category', targetId: null, payload } as UnifiedChatProposalOperation;
+  }
+  if (
+    row.capability_id === 'money' && row.operation_type === 'rename_money_category' &&
+    typeof row.target_id === 'string' && typeof payload.name === 'string' && typeof payload.expectedName === 'string'
+  ) {
+    return { ...base, capabilityId: 'money', type: 'rename_money_category', targetId: row.target_id, payload } as UnifiedChatProposalOperation;
+  }
   if (
     row.capability_id === 'screenTime' && row.target_id == null &&
     (row.operation_type === 'block_family_screen_time_selection' ||
@@ -458,7 +485,8 @@ function mapProposal(row: DbRow, operation: UnifiedChatProposalOperation): Unifi
 function mapReceipt(row: DbRow): UnifiedChatMutationReceipt | null {
   if (row.capability_id !== 'todos' && row.capability_id !== 'plan' && row.capability_id !== 'goals' &&
       row.capability_id !== 'arcs' && row.capability_id !== 'profile' && row.capability_id !== 'chapters' &&
-      row.capability_id !== 'relationships' && row.capability_id !== 'screenTime') return null;
+      row.capability_id !== 'relationships' && row.capability_id !== 'screenTime' &&
+      row.capability_id !== 'money') return null;
   const status = row.status === 'reserved' || row.status === 'undone' || row.status === 'failed'
     ? row.status
     : 'applied';
@@ -959,6 +987,9 @@ export function createUnifiedChatRepository(
       assertNoError(proposalResult.error, 'Unable to save chat proposal.');
       if (!proposalResult.data) throw new UnifiedChatRepositoryError('Proposal was not returned after save.');
       const proposalId = String(proposalResult.data.id);
+      const expectedUpdatedAt = 'expectedUpdatedAt' in input.operation
+        ? input.operation.expectedUpdatedAt
+        : undefined;
       const operationResult = await client
         .from('kwilt_agent_proposal_operations')
         .insert({
@@ -967,6 +998,7 @@ export function createUnifiedChatRepository(
           capability_id: input.capabilityId,
           operation_type: input.operation.type,
           target_type: input.capabilityId === 'screenTime' ? 'family_screen_time_override'
+            : input.capabilityId === 'money' ? 'money_category'
             : input.capabilityId === 'arcs' ? 'arc'
             : input.capabilityId === 'goals' ? 'goal'
               : input.capabilityId === 'profile' ? 'profile'
@@ -975,10 +1007,14 @@ export function createUnifiedChatRepository(
           target_id: input.operation.targetId,
           summary: input.operation.summary,
           payload: input.capabilityId === 'screenTime'
-            ? input.operation.payload
+            ? {
+                ...input.operation.payload,
+                ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
+              }
             : {
                 ...input.operation.payload,
-                expectedUpdatedAt: input.operation.expectedUpdatedAt,
+                expectedUpdatedAt,
+                ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
               },
           idempotency_key: input.operation.idempotencyKey,
           sequence: 1,
@@ -996,7 +1032,7 @@ export function createUnifiedChatRepository(
         target_id: input.operation.targetId,
         payload: {
           ...input.operation.payload,
-          expectedUpdatedAt: input.operation.expectedUpdatedAt,
+          expectedUpdatedAt,
         },
       });
       if (!mappedOperation) {

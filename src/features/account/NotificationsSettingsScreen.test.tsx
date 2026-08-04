@@ -75,6 +75,14 @@ describe('NotificationsSettingsScreen', () => {
     jest.restoreAllMocks();
   });
 
+  it('exposes one named switch control for each toggle row', () => {
+    const { getAllByRole, getByRole } = renderWithProviders(<NotificationsSettingsScreen />);
+
+    expect(getByRole('switch', { name: 'Notifications from Kwilt' })).toBeTruthy();
+    expect(getByRole('switch', { name: 'To-do reminders' })).toBeTruthy();
+    expect(getAllByRole('switch')).toHaveLength(8);
+  });
+
   it.each([
     {
       label: 'daily show-up',

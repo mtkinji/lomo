@@ -38,8 +38,8 @@ Normal amount-left state:
 - dominant value: exact dollars, such as `$343.20`;
 - meaning: `left this month`;
 - quiet month/freshness context;
-- a calm perimeter uses flexible spending divided by flexible capacity as
-  supporting consumption—not as the named answer.
+- a warm, calm answer-card canvas keeps the exact dollars visually distinct
+  from category consumption meters.
 
 Over state:
 

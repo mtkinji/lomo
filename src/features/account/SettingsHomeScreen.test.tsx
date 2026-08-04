@@ -103,6 +103,13 @@ describe('SettingsHomeScreen planning group', () => {
     expect(queryByText('Screen Time Controls')).toBeNull();
   });
 
+  it('names the integrations destination in plain language', () => {
+    const { getByText, queryByText } = renderWithProviders(<SettingsHomeScreen />);
+
+    expect(getByText('Apps & connections')).toBeTruthy();
+    expect(queryByText('Connected tools')).toBeNull();
+  });
+
   it('opens the canonical Household settings surface', () => {
     const { getByText } = renderWithProviders(<SettingsHomeScreen />);
     fireEvent.press(getByText('Household'));

@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { cardElevation, colors, spacing, typography } from '../theme';
 import { Text } from './primitives';
 import { Icon } from './Icon';
+import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences';
 
 export type ToastVariant = 'default' | 'success' | 'warning' | 'danger' | 'credits' | 'light';
 
@@ -29,6 +30,7 @@ export function Toast(props: {
 
   const trimmed = message.trim();
   const shouldBeVisible = visible && trimmed.length > 0;
+  const { reduceMotionEnabled, screenReaderEnabled } = useAccessibilityPreferences();
 
   const [shouldRender, setShouldRender] = useState(shouldBeVisible);
   const dismissTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,22 +102,27 @@ export function Toast(props: {
 
     if (shouldBeVisible) {
       setShouldRender(true);
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 220,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 220,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (reduceMotionEnabled) {
+        opacity.setValue(1);
+        translateY.setValue(0);
+      } else {
+        Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
 
-      if (onDismiss) {
+      if (onDismiss && !screenReaderEnabled) {
         dismissTimeoutRef.current = setTimeout(() => {
           onDismiss?.();
         }, Math.max(0, durationMs));
@@ -124,6 +131,13 @@ export function Toast(props: {
     }
 
     if (!shouldRender) return;
+
+    if (reduceMotionEnabled) {
+      opacity.setValue(0);
+      translateY.setValue(14);
+      setShouldRender(false);
+      return;
+    }
 
     Animated.parallel([
       Animated.timing(opacity, {
@@ -141,7 +155,7 @@ export function Toast(props: {
     ]).start(({ finished }) => {
       if (finished) setShouldRender(false);
     });
-  }, [durationMs, onDismiss, opacity, shouldBeVisible, shouldRender, translateY]);
+  }, [durationMs, onDismiss, opacity, reduceMotionEnabled, screenReaderEnabled, shouldBeVisible, shouldRender, translateY]);
 
   if (!shouldRender) return null;
 
@@ -166,7 +180,12 @@ export function Toast(props: {
           </View>
 
           <View style={styles.content}>
-            <Text style={[styles.label, { color: palette.textColor }]} numberOfLines={2}>
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[styles.label, { color: palette.textColor }]}
+              numberOfLines={2}
+            >
               {trimmed}
             </Text>
           </View>
@@ -263,5 +282,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
 });
-
 

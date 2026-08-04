@@ -130,24 +130,15 @@ const config = {
   // Expo project slug (used for URLs and EAS) – keep lowercase.
   slug: 'kwilt',
   // Marketing version (visible in the App Store / Settings).
-  version: '1.0.100',
+  version: '1.0.101',
   // Games temporarily unlocks orientation for shared-table play and restores
   // portrait when leaving an active table.
   orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  notification: {
-    // Use a flat, monochrome logo for the small status-bar icon on Android.
-    // This should be a white glyph on a transparent background.
-    icon: './assets/icon.png',
-    color: '#1F5226',
-  },
-  // NOTE:
-  // Reanimated v4+ requires the New Architecture on iOS (pods assert otherwise).
-  // We keep New Arch enabled and instead guard against native SVG crashes by
+  // NOTE: SDK 55 requires the New Architecture. Guard against native SVG crashes by
   // optionally shimming `react-native-svg` at bundle time via `KWILT_SVG_SHIM=1`
   // (see `metro.config.js`).
-  newArchEnabled: true,
   splash: {
     // No image - just a solid color that matches the in-app LaunchScreen.
     // This avoids a brief "flash" of a different logo before the JS LaunchScreen loads.
@@ -169,7 +160,7 @@ const config = {
           }
         : undefined,
     // Internal build number for TestFlight/App Store (must be monotonically increasing).
-    buildNumber: '100',
+    buildNumber: '101',
     // iOS app extensions are only declared for profiles that enable them.
     // This prevents production builds without those surfaces from requiring extension credentials.
     // NOTE: ExpoConfig's `ios` type may not include this field yet; keep the runtime config anyway.
@@ -217,12 +208,11 @@ const config = {
     // New Android applicationId / package for kwilt.
     package: 'com.andrewwatanabe.kwilt',
     // Must be monotonically increasing for Play uploads.
-    versionCode: 100,
+    versionCode: 101,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
-    edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     permissions: [
       'ACCESS_COARSE_LOCATION',
@@ -251,6 +241,9 @@ const config = {
     favicon: './assets/favicon.png',
   },
   plugins: [
+    'expo-asset',
+    'expo-background-task',
+    'expo-web-browser',
     'expo-font',
     [
       'expo-audio',
@@ -268,7 +261,15 @@ const config = {
           'Kwilt uses the camera so you can take a photo to attach to a to-do; for example, snapping a receipt to log an expense or a finished workout as proof of show-up.',
       },
     ],
-    'expo-notifications',
+    [
+      'expo-notifications',
+      {
+        // Use a flat, monochrome logo for the small status-bar icon on Android.
+        // This should be a white glyph on a transparent background.
+        icon: './assets/icon.png',
+        color: '#1F5226',
+      },
+    ],
     'expo-localization',
     [
       'expo-location',

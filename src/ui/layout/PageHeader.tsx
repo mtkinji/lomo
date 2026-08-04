@@ -1,5 +1,13 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  StyleProp,
+  ViewStyle,
+  useWindowDimensions,
+} from 'react-native';
 import { Icon, IconName } from '../Icon';
 import { colors, spacing, typography, fonts } from '../../theme';
 import { IconButton } from '../Button';
@@ -105,6 +113,10 @@ type PageHeaderProps = {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
+export function getPageHeaderTitleLineCount(fontScale: number): 1 | 2 {
+  return fontScale >= 1.3 ? 2 : 1;
+}
+
 export function PageHeader({
   title,
   variant = 'default',
@@ -131,6 +143,8 @@ export function PageHeader({
   const headerBadgeSize = 36;
   const headerBadgeRadius = Math.round(headerBadgeSize * 0.32);
   const badgeColors = getObjectTypeBadgeColors(iconTone);
+  const { fontScale } = useWindowDimensions();
+  const titleLineCount = getPageHeaderTitleLineCount(fontScale);
 
   const iconColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
   const titleColor = variant === 'inverse' ? colors.aiForeground : colors.textPrimary;
@@ -175,7 +189,8 @@ export function PageHeader({
           <View style={styles.conversationSide}>{leadingControl}</View>
           <View style={styles.conversationTitleSlot}>
             <Text
-              numberOfLines={1}
+              accessibilityRole="header"
+              numberOfLines={titleLineCount}
               ellipsizeMode="tail"
               style={[styles.conversationTitle, { color: titleColor }]}
             >
@@ -201,7 +216,7 @@ export function PageHeader({
                   style={[
                     styles.titleBadge,
                     {
-                      height: headerBadgeSize,
+                      minHeight: headerBadgeSize,
                       borderRadius: headerBadgeRadius,
                       backgroundColor: badgeColors.backgroundColor,
                     },
@@ -209,7 +224,8 @@ export function PageHeader({
                 >
                   <Icon name={iconName} size={20} color={badgeColors.iconColor} />
                   <Text
-                    numberOfLines={1}
+                    accessibilityRole="header"
+                    numberOfLines={titleLineCount}
                     ellipsizeMode="tail"
                     style={[styles.title, styles.titleInBadge, { color: badgeColors.iconColor }]}
                   >
@@ -227,7 +243,8 @@ export function PageHeader({
                     />
                   ) : null}
                   <Text
-                    numberOfLines={1}
+                    accessibilityRole="header"
+                    numberOfLines={titleLineCount}
                     ellipsizeMode="tail"
                     style={[styles.title, { color: titleColor }]}
                   >

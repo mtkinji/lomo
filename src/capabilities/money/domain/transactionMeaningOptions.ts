@@ -9,14 +9,18 @@ export type TransactionMeaningOption = {
 const TRANSFER: TransactionMeaningOption = {
   meaning: 'transfer',
   label: 'Internal transfer',
-  detail: 'Money moved between your accounts',
+  detail: 'Money moved between your own accounts—not spending',
 };
 
-const OUTSIDE_PLAN: TransactionMeaningOption = {
-  meaning: 'not_counted',
-  label: 'Outside the plan',
-  detail: 'Do not count this as spending or income',
-};
+function outsidePlanOption(direction: MoneyTransaction['direction']): TransactionMeaningOption {
+  return {
+    meaning: 'not_counted',
+    label: 'Outside the plan',
+    detail: direction === 'outflow'
+      ? 'Spending you don’t want included in this monthly plan'
+      : 'Money you don’t want included in income or this monthly plan',
+  };
+}
 
 export function getTransactionMeaningOptions(
   direction: MoneyTransaction['direction'],
@@ -25,8 +29,8 @@ export function getTransactionMeaningOptions(
     return [
       { meaning: 'income', label: 'Income', detail: 'Available to fund the plan' },
       TRANSFER,
-      OUTSIDE_PLAN,
+      outsidePlanOption(direction),
     ];
   }
-  return [TRANSFER, OUTSIDE_PLAN];
+  return [TRANSFER, outsidePlanOption(direction)];
 }

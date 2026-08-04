@@ -115,6 +115,8 @@ describe('projectMoneySnapshot', () => {
             budget_assignment_policy_version: 'governed-category-v1',
             budget_assignment_governed: true,
             money_meaning: null,
+            plan_role_override: 'protected',
+            plan_role_override_reviewed_at: '2026-08-04T18:00:00.000Z',
             personal_finance_category_primary: 'FOOD_AND_DRINK',
             personal_finance_category_detailed: 'FOOD_AND_DRINK_GROCERIES',
           },
@@ -183,6 +185,7 @@ describe('projectMoneySnapshot', () => {
       assignmentSource: 'provider_policy',
       assignmentPolicyVersion: 'governed-category-v1',
       assignmentGoverned: true,
+      planRoleOverride: 'protected',
     });
     expect(snapshot.lastSyncedAt).toBe('2026-07-23T16:00:00.000Z');
     expect(snapshot.forecast).toMatchObject({

@@ -367,7 +367,7 @@ export const todosChatAdapter: CapabilityChatAdapter<TodosChatSnapshot> = {
 
 export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
   capabilityId: 'money',
-  context: { dataClassification: 'private_kwilt_data', readOnly: true },
+  context: { dataClassification: 'private_kwilt_data', readOnly: false },
   evidence: {
     list: (snapshot) => [
       ...(snapshot.livingLimitAnswer ? [moneyPlanLimitEvidence(snapshot)] : []),
@@ -404,10 +404,10 @@ export const moneyChatAdapter: CapabilityChatAdapter<MoneyChatSnapshot> = {
       })),
     ],
   },
-  proposal: { operationKinds: [] },
-  apply: { operationKinds: [] },
-  receipt: { reloadAuthoritativeObject: false },
-  undo: { operationKinds: [] },
+  proposal: { operationKinds: ['create_money_category', 'rename_money_category'] },
+  apply: { operationKinds: ['create_money_category', 'rename_money_category'] },
+  receipt: { reloadAuthoritativeObject: true },
+  undo: { operationKinds: ['rename_money_category'] },
   return: {
     targetFor: (object) => ({
       capabilityId: 'money',

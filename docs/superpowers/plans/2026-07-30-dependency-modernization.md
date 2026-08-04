@@ -26,11 +26,11 @@ No dependency change can be guaranteed never to break anything. This plan instea
 
 Do not begin implementation from the current `codex/family-screen-time-learning-slice` checkout. It contains unrelated tracked and untracked work as of July 30, 2026.
 
-- [ ] Finish, preserve, or otherwise disposition the current family Screen Time work.
-- [ ] Return the normal checkout to clean `main` and fast-forward to `origin/main`.
-- [ ] Confirm there are no relevant stashes and no other checkout owns Metro or a native runtime.
-- [ ] Create one ordinary branch, `codex/dependency-modernization`, in `/Users/andrewwatanabe/Kwilt`. Do not create a worktree unless Andrew separately approves parallel implementation.
-- [ ] Record the starting commit, installed TestFlight version/build, Xcode version, Node version, npm version, CocoaPods version, Metro port/owner, Simulator device, and signed-device availability in the plan's execution log.
+- [x] Finish, preserve, or otherwise disposition the current family Screen Time work.
+- [x] Return the normal checkout to clean `main` and fast-forward to `origin/main`.
+- [x] Confirm there are no relevant stashes and no other checkout owns Metro or a native runtime.
+- [x] Create one ordinary branch, `codex/dependency-modernization`, in `/Users/andrewwatanabe/Kwilt`. Do not create a worktree unless Andrew separately approves parallel implementation.
+- [x] Record the starting commit, installed TestFlight version/build, Xcode version, Node version, npm version, CocoaPods version, Metro port/owner, Simulator device, and signed-device availability in the plan's execution log.
 
 Commands:
 
@@ -95,9 +95,9 @@ The minimum user-flow regression set for every SDK transition is:
 - Read: `ios/Podfile`
 - Read: `ios/Podfile.lock`
 - Read: `patches/react-native-maps+1.20.1.patch`
-- Read: `patches/react-native-drawer-layout+4.2.0.patch`
+- Read: `patches/react-native-drawer-layout+4.2.9.patch`
 
-- [ ] **Step 1: Capture manifest, native, compatibility, and security evidence**
+- [x] **Step 1: Capture manifest, native, compatibility, and security evidence**
 
 ```bash
 git rev-parse HEAD
@@ -114,11 +114,11 @@ npx expo-modules-autolinking verify -v
 
 Expected: the baseline reproduces the known SDK 54 mismatches, missing `expo-asset`, duplicate `expo-constants`, Jest type mismatch, and React Native Directory warnings without modifying tracked files.
 
-- [ ] **Step 2: Write the baseline document**
+- [x] **Step 2: Write the baseline document**
 
 Record exact versions, command results, direct/transitive audit paths, native patches, deprecations, and current proof boundaries. Classify each item as `blocking`, `cohort candidate`, `SDK-coupled`, `security review`, or `defer`; do not reduce the report to the raw audit count.
 
-- [ ] **Step 3: Establish a green behavioral baseline**
+- [x] **Step 3: Establish a green behavioral baseline**
 
 ```bash
 npm run lint
@@ -131,7 +131,7 @@ npm run verify:changed -- --run
 
 Expected: all gates pass or every pre-existing failure is recorded before dependency changes begin.
 
-- [ ] **Step 4: Commit the baseline alone**
+- [x] **Step 4: Commit the baseline alone**
 
 ```bash
 git add docs/engineering/dependency-modernization-baseline.md
@@ -149,7 +149,7 @@ git commit -m "docs: capture dependency modernization baseline"
 - Modify if dependency resolution changes: `ios/Podfile.lock`
 - Test: existing repository verification suites
 
-- [ ] **Step 1: Pin the supported Node line across local and CI environments**
+- [x] **Step 1: Pin the supported Node line across local and CI environments**
 
 Use one declared LTS Node version supported by SDK 54 through SDK 57. At execution time, confirm it against Expo's compatibility table; SDK 57 currently requires Node 22.13.x or later. Add the selected version to `package.json` `engines`, `.nvmrc`, and every GitHub workflow that currently specifies Node 20.
 
@@ -162,7 +162,7 @@ npm ci
 
 Expected: local and CI use the same supported major and `npm ci` has no engine warning.
 
-- [ ] **Step 2: Apply Expo's SDK 54-compatible versions**
+- [x] **Step 2: Apply Expo's SDK 54-compatible versions**
 
 ```bash
 npx expo install expo@~54.0.36 \
@@ -186,7 +186,7 @@ npm dedupe
 
 Do not accept a lockfile that changes React, React Native, Reanimated, Worklets, Screens, Maps, Plaid, RevenueCat, or HealthKit outside the declared SDK 54 cohort.
 
-- [ ] **Step 3: Reconcile dynamic app configuration**
+- [x] **Step 3: Reconcile dynamic app configuration**
 
 Compare `app.json` with the fully evaluated `app.config.ts`. Move any still-live value into `app.config.ts`, then remove the redundant static file so Expo Doctor has one configuration owner. Preserve version/build synchronization and every widget, Screen Time, HealthKit, location, notification, and associated-domain setting.
 
@@ -199,11 +199,11 @@ npx expo config --type introspect > /tmp/kwilt-expo-introspect.json
 
 Expected: bundle IDs, build/version, plugins, permissions, entitlements, extensions, and deep-link domains match the baseline.
 
-- [ ] **Step 4: Resolve remaining Doctor findings deliberately**
+- [x] **Step 4: Resolve remaining Doctor findings deliberately**
 
 Fix the nested local-module `ios`/`android` ignore pattern. Rename the conflicting `storybook` npm script only if the binary collision remains. Either add a React Native Directory exclusion with a written justification for `kwilt-nearby-table` and Plaid, or retain the warning as a documented upstream limitation.
 
-- [ ] **Step 5: Regenerate native dependencies and verify SDK 54**
+- [x] **Step 5: Regenerate native dependencies and verify SDK 54**
 
 ```bash
 npm ci
@@ -217,13 +217,15 @@ Expected: no Expo version mismatch, no missing native peer, no duplicate Expo na
 
 - [ ] **Step 6: Build and run the SDK 54 native shell**
 
+Build, install, bundle, session restoration, initial sync, and the available deliberate Simulator smoke passed on the declared Simulator on 2026-08-03. The checkbox remains open because the signed-device gates recorded in the baseline are incomplete. The physical iPhone later connected successfully, but native installation is blocked by local keychain/private-key authorization while signing `KwiltShieldConfiguration.appex` (`errSecInternalComponent`); this is no longer an offline-device issue.
+
 ```bash
 npx expo run:ios
 ```
 
 Expected: the app links without the prior `expo-dev-launcher`/`RCTPackagerConnection` failure, launches from the declared checkout and Metro server, and passes the minimum user-flow set.
 
-- [ ] **Step 7: Commit only the SDK 54 alignment cohort**
+- [x] **Step 7: Commit only the SDK 54 alignment cohort**
 
 ```bash
 git add package.json package-lock.json app.config.ts .nvmrc .github ios docs/engineering/dependency-modernization-baseline.md
@@ -244,21 +246,21 @@ git commit -m "chore: align Expo SDK 54 dependencies"
 - Modify: `package.json`
 - Modify: `package-lock.json`
 
-- [ ] **Step 1: Add regression tests for existing audio contracts**
+- [x] **Step 1: Add regression tests for existing audio contracts**
 
 Mock `expo-audio` and cover: one-shot sound replay, soundscape loop/load/fade/stop, app foreground/background recovery, voice-record permission denial, record/start/stop URI return, and attachment duration preservation.
 
 Run each new test first and confirm it fails because the service still imports `expo-av`.
 
-- [ ] **Step 2: Migrate playback to `expo-audio`**
+- [x] **Step 2: Migrate playback to `expo-audio`**
 
 Use `createAudioPlayer`/`replace`, `play`, `pause`, `seekTo(0)`, loop, volume, and `remove` behind the current service functions. Preserve the public service interfaces so screens and Focus behavior do not change. Use `setAudioModeAsync` for silent-mode, interruption, recording, and background behavior.
 
-- [ ] **Step 3: Migrate voice recording to `expo-audio`**
+- [x] **Step 3: Migrate voice recording to `expo-audio`**
 
 Use the recorder permission and recorder lifecycle APIs, retain the existing result shape, preserve microphone-denial messaging, and verify the recorded file remains uploadable through the attachment service.
 
-- [ ] **Step 4: Remove `expo-av` only after imports reach zero**
+- [x] **Step 4: Remove `expo-av` only after imports reach zero**
 
 ```bash
 rg -n "expo-av" src packages modules
@@ -271,12 +273,18 @@ Expected: `rg` returns no runtime or type import and the package is absent from 
 
 Test UI completion sounds, Games sounds, soundscape looping and lock-screen continuation, interruption by another audio app, voice recording, voice playback, and attachment upload.
 
-- [ ] **Step 6: Commit the audio migration alone**
+On 2026-08-03, the iPhone 17 Pro Simulator (`D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, iOS 26.5) rebuilt successfully after CocoaPods removed `ExpoAV`, installed the app, bundled 5,764 modules from this checkout's Metro server, launched, restored the signed-in session, and completed initial domain sync. The focused contract suite passed 21 tests, and the diff-aware gate passed 12 related suites / 40 tests plus type, code-health, chat-contract, and architecture gates. Andrew then confirmed audible playback in Bank and Focus mode. Chat initially showed its disabled-build fallback because the development build lacked both required embedded Chat values; rebuilding with `UNIFIED_CHAT_ENABLED=1` and `UNIFIED_CHAT_WORKBENCH_URL=https://www.kwilt.app/embed/chat` restored the native Chat surface and microphone control.
+
+Andrew confirmed audible playback in Bank and Focus mode and successful native Chat microphone capture/transcription after the correctly configured rebuild. The checkbox remains open because attachment upload, background/lock-screen continuation, and interruption by another audio app still require signed-device proof. The connected and paired physical iPhone was available to CoreDevice, but its build stopped while signing `KwiltShieldConfiguration.appex` with `errSecInternalComponent`; direct signing reproduced the same private-key/keychain authorization failure. Resolve that local signing authorization before counting the remaining signed-device audio proof.
+
+- [x] **Step 6: Commit the audio migration alone**
 
 ```bash
 git add src package.json package-lock.json
 git commit -m "refactor: migrate audio runtime to expo-audio"
 ```
+
+Committed as `8af7eab`.
 
 ## Task 4: Modernize background work and file-system usage
 
@@ -293,19 +301,19 @@ git commit -m "refactor: migrate audio runtime to expo-audio"
 - Modify: `package.json`
 - Modify: `package-lock.json`
 
-- [ ] **Step 1: Lock down current scheduling behavior with regression tests**
+- [x] **Step 1: Lock down current scheduling behavior with regression tests**
 
 Cover task naming, registration idempotency, minimum intervals, unregister behavior, unavailable-module fallback, health synchronization, and notification delivery outcomes.
 
-- [ ] **Step 2: Replace `expo-background-fetch` with `expo-background-task`**
+- [x] **Step 2: Replace `expo-background-fetch` with `expo-background-task`**
 
 Keep Task Manager task identifiers stable where the platform permits. Map the existing success/no-data/failure outcomes to the new task result contract and preserve the current best-effort behavior when background execution is unavailable.
 
-- [ ] **Step 3: Migrate each `expo-file-system/legacy` caller separately**
+- [x] **Step 3: Migrate each `expo-file-system/legacy` caller separately**
 
 Use the object-oriented `File`, `Directory`, and `Paths` APIs. Preserve cache/document placement, collision behavior, URI lifetime, uploads, and cleanup. Do not combine this with UI changes.
 
-- [ ] **Step 4: Remove deprecated packages/imports after zero-use checks**
+- [x] **Step 4: Remove deprecated packages/imports after zero-use checks**
 
 ```bash
 rg -n "expo-background-fetch|expo-file-system/legacy" src packages modules
@@ -317,12 +325,16 @@ npx expo install expo-background-task
 
 Confirm task registration, app suspension/resumption, notification scheduling, health refresh, persisted hero/attachment files after relaunch, and voice attachment upload. Simulator-only proof is insufficient.
 
-- [ ] **Step 6: Commit this cohort alone**
+Source contracts, native configuration, and the foreground/runtime portions passed on 2026-08-03. Expo Background Task uses one shared native worker, so Health is registered before notifications and a persistent 12-hour Health throttle prevents the notification worker's 15-minute minimum from over-running Health synchronization. The iPhone 17 Pro Simulator rebuilt and launched from this checkout, restored its session, completed initial sync, and reloaded without the deprecated FileSystem runtime warning after the final `SvgFromAsset` migration. Actual background triggering remains unproven because Expo does not provide it on iOS Simulator and the connected physical iPhone build is blocked by the signing/keychain failure recorded above.
+
+- [x] **Step 6: Commit this cohort alone**
 
 ```bash
 git add src package.json package-lock.json
 git commit -m "refactor: modernize background and file services"
 ```
+
+Committed as `8f4083f`.
 
 ## Task 5: Contain the Markdown parser risk
 
@@ -335,32 +347,38 @@ git commit -m "refactor: modernize background and file services"
 - Modify after upstream verification: `package.json`
 - Modify after upstream verification: `package-lock.json`
 
-- [ ] **Step 1: Add hostile-input regression tests**
+- [x] **Step 1: Add hostile-input regression tests**
 
 Cover oversized runs of emphasis markers, brackets, links, `mailto:` prefixes, smart-quote candidates, and an assistant message above the chosen render limit. Assert bounded preprocessing time and deterministic truncation with a visible continuation marker.
 
-- [ ] **Step 2: Add a pure bounded-input adapter**
+- [x] **Step 2: Add a pure bounded-input adapter**
 
 `safeMarkdown.ts` owns one exported maximum input length, removes NUL/control characters except newline/tab, and returns a deterministic bounded string. It does not silently reinterpret content or allow raw HTML.
 
-- [ ] **Step 3: Configure the parser conservatively**
+- [x] **Step 3: Configure the parser conservatively**
 
 Disable raw HTML, automatic linkification, and typographer/smartquotes. Render only the syntax Kwilt uses in assistant responses. Keep URL opening behind the existing React Native Linking safety policy.
 
-- [ ] **Step 4: Choose the package action from current upstream evidence**
+- [x] **Step 4: Choose the package action from current upstream evidence**
 
 At execution time, query the currently maintained package/fork and `markdown-it` advisories. Replace `react-native-markdown-display` only if the candidate is maintained, React 19/New Architecture compatible, and clears the hostile-input tests. If no parser release fixes the advisories, retain the bounded adapter and record the residual risk rather than claiming the audit is clean.
+
+Upstream review on 2026-08-03 found `react-native-markdown-display` still at 7.0.2 (last published in 2023), while its parser line now has patched `markdown-it` 14.2.0 and `linkify-it` 5.0.2 releases. The lower-risk action retained the working native renderer and scoped an npm override to the patched parser. The production audit no longer reports `react-native-markdown-display`, `markdown-it`, or `linkify-it`; unrelated production findings remain and are not represented as fixed by this cohort.
 
 - [ ] **Step 5: Verify real chat rendering**
 
 Check streaming prose, headings, lists, emphasis, code, long links, malformed Markdown, goal proposal notes, selection/copy, and accessibility sizing.
 
-- [ ] **Step 6: Commit the renderer hardening alone**
+The real Agent entry rendered on the declared Simulator after a clean Node 22 install and fresh 5,584-module Metro bundle. Focused parser/runtime tests cover streaming-string updates, headings, lists, emphasis, inline/fenced code, long explicit links, malformed input, goal-note shapes, blocked non-web schemes, deterministic truncation, and every cited hostile-input class. The checkbox remains open because a deliberately generated rich response, selection/copy interaction, and larger accessibility text sizes were not manually exercised.
+
+- [x] **Step 6: Commit the renderer hardening alone**
 
 ```bash
 git add src/features/ai src/types package.json package-lock.json
 git commit -m "fix: bound assistant Markdown rendering"
 ```
+
+Committed as `7248446`.
 
 ## Task 6: Update non-SDK dependencies in bounded cohorts
 
@@ -374,15 +392,15 @@ git commit -m "fix: bound assistant Markdown rendering"
 
 For every cohort: capture upstream changelogs, install only named packages, inspect the lockfile, run focused tests, run `npm run verify:changed -- --run`, perform required native proof, and commit before starting the next cohort.
 
-- [ ] **Step 1: UI primitives cohort**
+- [x] **Step 1: UI primitives cohort**
 
 Update within current majors: Bottom Sheet 5, React Native Primitives 1, Lucide only within the currently compatible line, Picker within Expo's supported range, and safe-area context within Expo's supported range. Test drawers, sheets, menus, portals, focus trapping, keyboard avoidance, reduced motion, and accessibility.
 
-- [ ] **Step 2: Navigation cohort**
+- [x] **Step 2: Navigation cohort**
 
-Update all React Navigation 7 packages together. Rebase `patches/react-native-drawer-layout+4.2.0.patch` if its transitive version changes and preserve `ReduceMotion.System`. Test root restore, tabs, drawer, modals, deep links, Games joins, auth redirects, and Android back behavior.
+Update all React Navigation 7 packages together. Rebase `patches/react-native-drawer-layout+4.2.9.patch` if its transitive version changes and preserve `ReduceMotion.System`. Test root restore, tabs, drawer, modals, deep links, Games joins, auth redirects, and Android back behavior.
 
-- [ ] **Step 3: Data/analytics cohort**
+- [x] **Step 3: Data/analytics cohort**
 
 Update Supabase JS 2 in both root and `packages/kwilt-sdk`, PostHog React Native 4, and Zustand 5. Test session refresh, realtime subscriptions, offline/local patches, analytics initialization/opt-out, and persisted-store hydration.
 
@@ -390,11 +408,11 @@ Update Supabase JS 2 in both root and `packages/kwilt-sdk`, PostHog React Native
 
 Update RevenueCat within 9.x, HealthKit within 14.x, Plaid within its Expo-compatible 13.x line, and Nitro Modules within the line required by those packages. Verify entitlement restoration/paywall, Plaid sandbox Link, Apple Health authorization/read, and a clean native build.
 
-- [ ] **Step 5: Tooling cohort**
+- [x] **Step 5: Tooling cohort**
 
 Update Storybook 10 packages together, Vite within 8.x, `tsup` within 8.x in every workspace, and other patch/minor development tools. Keep Jest 29 and TypeScript 5.9 until the target Expo SDK explicitly supports newer majors.
 
-- [ ] **Step 6: Defer independent major upgrades**
+- [x] **Step 6: Defer independent major upgrades**
 
 Do not independently upgrade React, React Native, Expo modules, Jest 30, Testing Library 14, TypeScript 7, Gesture Handler 3, Async Storage 3, WebView 14, URL Polyfill 4, RevenueCat 10, or Maps. Reassess each after SDK 57 is stable.
 
@@ -405,17 +423,15 @@ Do not independently upgrade React, React Native, Expo modules, Jest 30, Testing
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Modify: `app.config.ts`
-- Modify: `ios/Podfile`
-- Modify: `ios/Podfile.lock`
-- Modify: `ios/Kwilt.xcodeproj/project.pbxproj`
-- Modify: Expo/native files identified by the 54-to-55 Native Project Upgrade Helper
+- Modify: `plugins/withAppleEcosystemIntegrations.js` and its tracked generators if SDK 55 requires source changes
+- Inspect/regenerate (do not stage): ignored `ios/` and `android/` outputs identified by the 54-to-55 Native Project Upgrade Helper
 - Test: all verification and native flows in the matrix
 
-- [ ] **Step 1: Read the SDK 55 release notes and native diff before installation**
+- [x] **Step 1: Read the SDK 55 release notes and native diff before installation**
 
 Record every applicable removal, config change, minimum tool version, and native project change in the baseline document. Confirm New Architecture remains enabled and all third-party native modules support React Native 0.83.
 
-- [ ] **Step 2: Upgrade only to SDK 55**
+- [x] **Step 2: Upgrade only to SDK 55**
 
 ```bash
 npm install expo@^55.0.0
@@ -424,7 +440,9 @@ npx expo-doctor@latest
 npx pod-install ios
 ```
 
-- [ ] **Step 3: Inspect the dependency and native diffs**
+Before running Expo's fixer, add `react-native-maps` to `expo.install.exclude`. Keep the patched `1.20.1` package for this cohort and prove that it compiles and that Silver Mist still renders under React Native 0.83. Porting the patch to Expo's recommended Maps `1.27.2` is a separate, explicitly reviewed native cohort.
+
+- [x] **Step 3: Inspect the dependency and native diffs**
 
 Verify React 19.2, React Native 0.83, Expo package alignment, extension targets, entitlements, App Group, Family Controls capability, associated domains, location/background modes, privacy manifest, and deployment targets.
 
@@ -590,3 +608,124 @@ Append one dated entry per cohort with:
 - Retained risks
 - Rollback commit/tag
 - Advance, repair, defer, or revert decision
+
+### 2026-08-03 — Baseline and SDK 54 alignment
+
+- Starting commit: `72dabd2`; baseline-only commit: `aa69917`; SDK 54 alignment commit: `f17a19e`.
+- Dependency/config diff: Expo `54.0.24` -> `54.0.36` and the 13 declared SDK companion patches; direct `expo-asset` and `babel-preset-expo`; Jest 29-compatible types/preset; removed local `eas-cli` and direct `@types/react-native`; Node 22.23.2 declarations; one dynamic Expo config owner; Doctor script, ignore, and directory-metadata reconciliation.
+- Protected native/runtime versions remained fixed, including React, React Native, Reanimated, Worklets, Screens, Maps/Silver Mist, Plaid, RevenueCat, and HealthKit.
+- Verification: Node 22 clean install, both patch-package patches, Expo install check, Expo Doctor 18/18, autolinking, Pods, app/test typechecks, product/architecture lint, diff-aware verification, protected-version guard, full Jest comparison, clean iOS compile/install/bundle/launch, session restoration, and initial domain sync.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout during launch and stopped afterward.
+- Signed device/TestFlight: not run; the available iPhone was offline. No EAS/TestFlight build was created.
+- Retained risks: the 15 pre-existing Pixel Pet Jest-runner mismatches; 30 audit findings including build-tool `shell-quote` critical and shipped Markdown highs; existing native warnings; deliberate Simulator critical-flow smoke and signed-device integration flows remain open.
+- Rollback point: `aa69917` for the alignment cohort (`72dabd2` for the entire program).
+- Decision: hold at the SDK 54 checkpoint. Do not begin audio/API modernization or an SDK transition until the remaining Step 6 runtime proof is accepted or completed.
+
+### 2026-08-03 — SDK 54 Simulator critical-flow continuation
+
+- Commit under test: `2c26231`; no dependency, source, lockfile, or native-project change was made.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout and stopped after the smoke.
+- Rebuilt the same commit with the existing release Chat flag and stable Kwilt-owned workbench URL supplied as process environment. The incremental native build passed with 0 errors and 1 retained Maps privacy-bundle deployment-target warning.
+- Observed without a fatal runtime error: restored signed-in Chat and an existing thread; Goals; the To-dos list and duration editor; Plan/calendar; Chapters; Budget, Transactions, and Accounts; Explore with the pinned Silver Mist Metal concealment visible; Games catalog; the Hourglass timer across portrait/landscape; legacy `kwiltgames://join/:token` routing into the join surface; personal and family Screen Time surfaces; session restoration; initial domain sync; and push-token registration logging.
+- Automated Maestro smoke was unavailable because the installed Maestro launcher has no Java runtime. This is retained as a tooling gap, not counted as a passing gate.
+- Not proven in this continuation: create/edit/complete/reorder/reminder mutations, Chat attachment/voice streaming, Plaid sandbox Link, RevenueCat purchase/restore, Apple Health authorization/read, notification delivery, background/lock-state behavior, real GPS recording, widget/Live Activity placement, signed Screen Time enforcement, physical audio/interruption behavior, or TestFlight.
+- Signed device remained unavailable: `Andy’s iPhone 16` (`00008140-001A55A41E07001C`) was still offline.
+- Decision: retain the SDK 54 hold. Task 3 does not start until signed-device proof is available or Andrew explicitly revises the plan's safety gate with the remaining risk recorded.
+
+### 2026-08-03 — Background work and FileSystem modernization
+
+- Starting commit: `1642811`; implementation commit: `8f4083f`.
+- Dependency/native diff: replaced `expo-background-fetch` `~14.0.9` with Expo-compatible `expo-background-task` `~1.0.10`, registered its config plugin, installed `ExpoBackgroundTask 1.0.10`, and removed the `ExpoBackgroundFetch` pod. React, React Native, Maps/Silver Mist, Plaid, RevenueCat, HealthKit, and the other protected native dependencies did not move.
+- Source diff: moved notification and Health scheduling to stable Background Task identifiers; added ordered combined registration and a persistent 12-hour Health throttle; migrated every runtime `expo-file-system/legacy` caller to `File`, `Directory`, and `Paths`; and centralized signed uploads through `expo/fetch` with an Expo `File` body. Zero-use searches found no remaining deprecated imports.
+- Verification: Expo install check passed; Expo Doctor passed 18/18; public/introspected configuration includes background processing and `com.expo.modules.backgroundtask.processing`; app and test typechecks passed; diff-aware verification passed 25 related suites / 124 tests plus code-health, Chat-contract, product, and architecture gates. The full Jest comparison produced the unchanged baseline: 519 suites / 3,277 tests passed and the same 15 pre-existing Pixel Pet Jest-runner mismatches failed.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A` on iOS 26.5, Metro 8081 owned by this checkout. CocoaPods completed; the native build completed with 0 errors and 5 retained warnings; Metro bundled 5,536 modules; the app restored its signed-in session, completed initial domain sync, displayed persisted image content, and emitted no deprecated FileSystem warning after the final reload.
+- Signed device/TestFlight: not completed. The physical iPhone is connected, but signing `KwiltShieldConfiguration.appex` fails locally with `errSecInternalComponent`. Expo documents actual iOS Background Task execution as unavailable in Simulator, so task suspension/wake behavior, notification/Health background outcomes, and signed-device voice upload remain open. No EAS/TestFlight build was created.
+- Retained risks: the open signed-device background gate; the existing native warnings; and the unchanged Pixel Pet test-runner baseline. Simulator proof covers linking, configuration, foreground services, persistence/relaunch, and upload contracts, not OS-scheduled execution.
+- Rollback point: `1642811`.
+- Decision: advance the implementation cohort and retain Task 4 Step 5 as an explicit signed-device hold. Do not claim the background migration fully production-proven until signing is restored and the listed device scenarios pass.
+
+### 2026-08-03 — Assistant Markdown containment
+
+- Starting commit: `e4b54e7`; implementation commit: `7248446`.
+- Dependency diff: retained `react-native-markdown-display` 7.0.2 and scoped its transitive parser to `markdown-it` 14.2.0, which resolves `linkify-it` 5.0.2. No Expo, React, React Native, or native integration version changed.
+- Security boundary: assistant and goal-proposal Markdown is limited to 20,000 source characters before parsing, strips unsafe control characters while preserving tabs/newlines, shows a deterministic truncation marker, disables raw HTML, linkification, smart typography, images, tables, and strikethrough, and only allows explicit HTTP(S) links to reach React Native Linking.
+- Upstream/audit evidence: the retained renderer has not published beyond 7.0.2 since 2023; GitHub advisories identify patched `markdown-it` 14.2.0 and `linkify-it` 5.0.2. `npm audit --omit=dev --json` no longer reports the renderer or either parser package and dropped from 25 to 22 production findings; 18 moderate, 3 high, and 1 critical unrelated finding remain.
+- Verification: regression-first hostile-input coverage failed before the adapter existed and then passed 15 focused tests; the Node 22.23.2 clean install applied both repository patches; diff-aware verification passed app/test typechecks, code-health, 2 related suites / 18 tests, and architecture lint with 11 retained warnings. Full Jest produced the expected baseline plus the new suite: 520 suites / 3,293 tests passed and the same 15 pre-existing Pixel Pet runner mismatches failed.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout. A stale pre-install Metro resolver graph first referenced the removed nested `entities` path; restarting with a cleared cache fixed the environment. A second clean-install launch bundled 5,584 modules, restored the signed-in session and domain sync, and rendered the real Agent entry without a runtime error.
+- Retained proof gaps: deliberately generated rich-response interaction, selection/copy, and accessibility text-size behavior remain manually unverified. The broader physical-device signing/background hold is unchanged and unrelated to this JavaScript-only cohort.
+- Rollback point: `e4b54e7`.
+- Decision: advance the bounded security implementation while keeping Task 5 Step 5 open until the remaining manual presentation checks pass. Do not describe the repository as audit-clean; the 22 unrelated production findings remain for later bounded cohorts.
+
+### 2026-08-03 — UI primitives cohort
+
+- Starting commit: `9e06397`; implementation commit: `2273890`.
+- Dependency diff: Bottom Sheet `5.2.6` -> `5.2.14`; React Native Primitives dialog and dropdown menu `1.2.0` -> `1.5.2`; portal `1.3.0` -> `1.5.2`; and their internal primitives converged on `1.5.2`. Safe Area Context remained installed at Expo-compatible `5.6.2`, with the declaration narrowed from `^5.6.2` to `~5.6.2`. Expo-compatible Picker `2.11.1` and Lucide `0.553.0` were deliberately retained. No native pod or protected integration version changed.
+- Upstream review: Bottom Sheet `5.2.7` through `5.2.14` is a bounded v5 bug-fix line covering modal synchronization, keyboard/layout behavior, and rapid present/close cases. React Native Primitives moved as one coherent package family. The currently installed Picker and Safe Area versions remain those documented for Expo SDK 54; Lucide's newer release line is an independent major and was excluded.
+- Verification: the Node 22.23.2 clean install applied both repository patches; the focused Picker Fields, Combobox, Activity List Item, and bottom-bar suites passed 4 suites / 9 tests before and after installation; app and test typechecks passed; diff-aware verification passed with no code-health regression; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. The install retained the existing 27 all-scope audit findings and did not introduce a new finding.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout. A cache-cleared bundle completed at 5,797 modules, restored the signed-in session and domain sync, opened and dismissed the real Goals dropdown/portal, and rendered the native duration wheels with their persisted value without mutating data. Safe-area placement remained correct on the Dynamic Island simulator.
+- Retained proof limits: the Bottom Sheet adapter currently has no active production call site, so this cohort proves its import/type/test compatibility but not an interactive sheet. Focus trapping and hardware-keyboard behavior remain relevant when a production call site returns. The separate physical-device signing/background hold is unchanged; this JavaScript-only cohort did not require a new binary or TestFlight build.
+- Rollback point: `9e06397`.
+- Decision: advance to the React Navigation 7 cohort. Keep Picker, Lucide, and Expo-coupled native versions pinned until their owning compatibility cohort.
+
+### 2026-08-03 — React Navigation 7 cohort
+
+- Starting commit: `07fe332`; implementation commit: `4ed3bf3`.
+- Dependency diff: React Navigation bottom tabs `7.8.5` -> `7.18.14`, drawer `7.7.3` -> `7.13.5`, native `7.1.21` -> `7.3.14`, native stack `7.6.3` -> `7.18.6`, and their core/elements/router packages moved as one compatible family. The drawer transitive moved `react-native-drawer-layout` `4.2.0` -> `4.2.9`; its patch was rebased and still changes only `ReduceMotion.Never` to `ReduceMotion.System` in source and built output. No Expo-coupled native dependency or pod changed.
+- Compatibility review: the installed React Navigation packages remain within major 7, retain peers compatible with React 19, Screens 4, Safe Area 5, Gesture Handler 2, and Reanimated 4, and avoid the React Navigation 8 prerelease, which requires Expo 55, React Native 0.83, and newer peers. The upgrade surfaced the now-deprecated object form of `navigate`; a regression-first helper test failed before the fix, then the three capability-navigation dispatch paths moved to the supported `navigate(name, params)` overload and the warning disappeared on the clean reload.
+- Verification: the Node 22.23.2 clean install applied the rebased drawer patch and the pinned Maps patch; app and test typechecks passed; 99 focused navigation, persistence, tabs, drawer-history, deep-link, Games, and auth-contract tests passed; the final diff-aware gate passed 11 related suites / 92 tests plus code-health and architecture lint with 11 retained warnings; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. Full Jest retained the established baseline exactly: 520 suites / 3,293 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout and stopped afterward. A cache-cleared bundle completed at 5,805 modules, restored the signed-in session and prior nested Activity detail route, navigated back through both stack levels, opened the patched drawer, switched from Goals to To-dos, opened and dismissed the legacy `kwiltgames://join/private-token` join modal, restored session/domain data, and logged no fatal navigation error. The existing Gesture Handler worklet warnings remained unchanged.
+- Retained proof limits: auth callback behavior is covered by config/service tests rather than a destructive sign-out/sign-in; Android back behavior is covered by the real DrawerRouter history action test because this Mac has no `adb`, emulator, or AVD installed. No new native binary, signed-device run, or TestFlight build was required for this JavaScript-only cohort; the separate physical-device signing/background hold remains open.
+- Rollback point: `07fe332`.
+- Decision: advance to the data/analytics cohort while keeping the explicit Android-runtime and physical-device proof limits visible.
+
+### 2026-08-03 — Data and analytics cohort
+
+- Starting commit: `3028452`; implementation commit: `5eba773`.
+- Dependency diff: Supabase JS `2.78.0` -> `2.112.0` in both the app and `packages/kwilt-sdk`; PostHog React Native `4.14.3` -> `4.61.4`; and Zustand `5.0.8` -> `5.0.14`. Their transitive packages moved coherently. No Expo module, pod, config plugin, or protected commercial/native integration changed.
+- Compatibility review: Supabase `2.112.0` now requires Node 22, matching the repository's declared and tested runtime, and includes a Hermes-safe React Native export condition plus auth refresh, PKCE, Realtime, and React Native header fixes. PostHog remained in major 4 and brings queue/offline/flush, feature-flag, and survey reliability fixes; Kwilt does not configure its optional native plugin, so plugin/prebuild changes were not introduced. Zustand remained within major 5.
+- Regression repaired: on the first upgraded Simulator launch, PostHog's hook emitted an error whenever analytics was intentionally disabled and no provider existed. A regression test reproduced the log, then `usePostHogSafe` was changed to return the same optional singleton that `App.tsx` supplies to the provider when enabled. The test passed and the error was absent after reload, preserving a quiet opt-out path without initializing or emitting analytics.
+- Verification: the Node 22.23.2 clean install applied both repository patches; app and test typechecks passed; the pre/post auth, Supabase storage, domain sync, persistence, isolation, Zustand hydration, and analytics suite passed 10 suites / 104 tests; the final diff-aware gate passed 22 related suites / 116 tests with no code-health regression; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. Full Jest advanced only by the new regression suite: 521 suites / 3,295 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed. The production audit stayed at the existing 22 unrelated findings.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout and stopped afterward. A cache-cleared bundle completed at 5,802 modules; Supabase emitted `SIGNED_IN`, `INITIAL_SESSION`, and successful session hydration; domain sync pulled and merged the persisted activities, arcs, and goals; and a reload repeated those outcomes without the PostHog missing-provider error.
+- Retained proof limits: development analytics remained intentionally disabled, so no real PostHog event was emitted and production ingestion/opt-out inspection remains a release proof item. Realtime channel behavior is contract-tested, while the live smoke proved authenticated pull/merge rather than manufacturing a remote mutation. No signed-device or TestFlight build was required for this JavaScript-only cohort; the separate signing/background hold remains open.
+- Rollback point: `3028452`.
+- Decision: advance to the commercial/native integrations cohort, which requires a stricter native and signed-device proof boundary.
+
+### 2026-08-03 — Commercial/native integrations implementation checkpoint
+
+- Starting commit: `3fa7c10`; implementation commit: `0e2f097`.
+- Dependency/native diff: RevenueCat React Native `9.6.11` -> `9.15.2` with iOS RevenueCat `5.50.1` -> `5.67.1` and Purchases Hybrid Common `17.24.0` -> `17.55.1`; HealthKit `14.0.0` -> `14.0.2`; and Plaid `13.0.2` -> `13.0.3`. Nitro Modules remained at `0.35.5`, which satisfies HealthKit 14.0.2's `>=0.35` peer requirement. React, React Native, Expo, Maps/Silver Mist, and the two repository patches did not move. The generated iOS tree and Podfile lock are ignored, so the reproducible tracked diff remains the npm manifest and lockfile.
+- Compatibility review: all three packages stayed inside the plan's approved majors. HealthKit 14.0.1 modernized anchor serialization; Plaid 13.0.3 bundles LinkKit 7.0.4 on iOS and sdk-core 6.1.0 on Android; RevenueCat 9.15.2 includes later fixes for native-module availability, paywall hangs, custom variables, restore/purchase APIs, and the iOS startup crash briefly present in 9.7.4. Kwilt does not consume RevenueCat's corrected `pricePerWeek`, `pricePerMonth`, or `pricePerYear` values. RevenueCat 10 and Nitro 0.36 were deliberately excluded as independent native changes.
+- Verification: a Node 22.23.2 clean install applied the pinned Maps and drawer patches; app and test typechecks passed; 5 focused entitlement/auth/Plaid suites passed 30 tests; diff-aware verification passed with no code-health regression; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. Full Jest produced the unchanged repository baseline: 521 suites / 3,295 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed.
+- Native/runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout. CocoaPods resolved and compiled all three updated integrations with the New Architecture; a no-build-cache iOS compile/install succeeded with 0 errors and 5 retained warnings; Metro bundled 5,802 modules; and the app restored its signed-in session, completed domain sync, and emitted no integration linkage or startup error.
+- Signed device/TestFlight: not completed. The Simulator proves pod resolution, native linkage, New Architecture compilation, installation, JavaScript bundling, authenticated startup, and existing entitlement contracts. It cannot prove StoreKit entitlement restoration/paywall behavior, a real Plaid sandbox Link handoff, or Apple Health authorization/read. Local signed-device builds remain blocked by the previously recorded `errSecInternalComponent` keychain/signing failure. No EAS/TestFlight build was created.
+- Retained risks: Task 6 Step 4 remains unchecked until the three signed-device flows pass. The existing Screen Time Swift, Metal toolchain search-path, Maps privacy-bundle deployment-target, Pixel Pet Jest-runner, and broader signed background/device holds are unchanged.
+- Rollback point: `3fa7c10`.
+- Decision: accept the implementation and clean native-build checkpoint, but do not claim the commercial/native cohort production-proven. Continue to the independently bounded tooling cohort while retaining signed-device completion as an explicit pre-merge gate.
+
+### 2026-08-03 — Tooling cohort
+
+- Starting commit: `a511f9a`; implementation commit: `0ddb646`.
+- Dependency diff: Storybook core and React Native Web Vite `10.4.6` -> `10.5.6`; Vite `8.1.3` -> `8.2.0`; every package workspace declaration of tsup `^8.3.5` -> `^8.5.1`; baseline-browser-mapping `2.9.14` -> `2.11.12`; dotenv `17.2.3` -> `17.4.2`; and pixelmatch `7.1.0` -> `7.2.0`. Jest remained `29.7.0`, TypeScript remained installed at `5.9.3`, and all Expo/native/runtime packages remained fixed.
+- Compatibility review: Storybook's two direct packages moved together in major 10 and continue to declare React 19, React Native 0.81, React Native Web 0.21, and Vite 8 compatibility. Vite 8.2 requires Node `^20.19.0 || >=22.12.0`, satisfied by the repository's Node 22.23.2 line. tsup 8.5.1 is the final current tsup release and builds successfully, but upstream now describes tsup as not actively maintained and recommends tsdown; a bundler migration is deferred as an independent tooling change.
+- Verification: the pre-update Storybook 10.4.6/Vite 8.1.3 build transformed 1,319 modules and all four workspaces built. After a Node 22.23.2 clean install, Storybook 10.5.6/Vite 8.2.0 transformed 1,320 modules, emitted the static site, served its manager and 24-entry index over localhost, and all four workspaces again emitted ESM, CJS, maps, and declarations with tsup 8.5.1. Expo install check passed, Expo Doctor passed 18/18, app typecheck and diff-aware verification passed, and both repository patches applied.
+- Regression/audit comparison: full Jest retained the exact established baseline of 521 suites / 3,295 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed. Audit counts remained 27 all-scope and 22 production; the cohort did not claim or create an audit reduction.
+- Retained tooling warnings: Storybook still reports the now-redundant `vite-tsconfig-paths` plugin and large static chunks; the tokens package retains its mixed named/default CJS export warning; and `verify:changed` lists MCP smoke as environment-dependent although no connector source or behavior changed. These are non-shipped tooling follow-ups, not native/runtime regressions.
+- Deferred boundaries: Testing Library 14, Jest/types 30, TypeScript 7, React type 19.2, HTTPS Proxy Agent 9, Expo/Jest Expo 57, and all independent runtime/native majors remain outside this cohort. The commercial/native signed-device hold remains open.
+- Rollback point: `a511f9a`.
+- Decision: complete Task 6's bounded current-major updates and deliberate major deferrals. Advance only to the SDK 55 release-note/native-diff review before changing Expo.
+
+### 2026-08-03 — Expo SDK 55 implementation checkpoint
+
+- Starting/rollback commit: `112c2a5`.
+- Framework diff: Expo `54.0.36` -> `55.0.28`, React `19.1.0` -> `19.2.0`, React Native `0.81.5` -> `0.83.10`, and all Expo-owned native packages aligned to SDK 55. Reanimated moved `4.1.5` -> `4.2.1`, Worklets `0.5.1` -> `0.7.4`, Gesture Handler `2.28.0` -> `2.30.1`, Screens `4.16.0` -> `4.23.0`, SVG `15.12.1` -> `15.15.3`, WebView `13.15.0` -> `13.16.0`, DateTimePicker `8.4.4` -> `8.6.0`, and Picker `2.11.1` -> `2.11.4`. `expo-system-ui@55.0.20` is now direct because Kwilt configures `userInterfaceStyle`.
+- Protected dependency boundary: Maps remains exactly `1.20.1`; `expo.install.exclude` prevents Expo's fixer from replacing the patched Silver Mist implementation with 1.27.2. HealthKit 14.0.2, Nitro 0.35.5, Plaid 13.0.3, RevenueCat 9.15.2, Safe Area 5.6.2, and all other independently owned majors did not move. A React Native Windows 0.83.2 override constrains DateTimePicker's unused wildcard optional peer so normal `npm ci` resolves without a repository-wide legacy-peer setting; React Native Windows is not installed.
+- Config migration: removed SDK 55's invalid root `notification`, `newArchEnabled`, and Android `edgeToEdgeEnabled` fields; migrated notification icon/color to the plugin. The evaluated config reports SDK 55 and omits all three removed fields. Expo Modules Core remains transitive/hoisted and is imported directly only through Expo's installed tree, satisfying Doctor.
+- Generated-native inspection: regenerated ignored iOS and Android projects from tracked config/plugin sources. iOS retained the app, widget/Live Activity, and two Screen Time targets; App Group, Family Controls, HealthKit, push, associated domains, background modes, extension bundle IDs, and deployment targets remained present. The SDK 55 AppDelegate/Podfile template changes matched the Upgrade Helper. Android uses `ExpoReactHostFactory`, Gradle 9.0.0, mandatory edge-to-edge configuration, bounded storage permissions, foreground audio/location permissions, and generated notification icon/color resources. No generated native directory is staged.
+- Swift 6/Xcode 26 compatibility: Kwilt's three local Expo modules now restate inherited unchecked sendability. The Screen Time generator treats iOS 26.4's `approvedWithDataAccess` as approved and avoids capturing a non-Sendable module instance. Focused source/generator contracts pass, and the follow-up Xcode build removed those Kwilt-owned warnings.
+- Install/test verification: Node 22.23.2 clean `npm ci` succeeds and reapplies both patches; Expo install check passes with the documented Maps exclusion; Expo Doctor passes 19/19; app/test typechecks and diff-aware verification pass. Reanimated 4.2 initially broke 78 Jest suites because its mock imported Worklets 0.7 before a JSI mock existed; the official Worklets source mock is now installed first. Full Jest returned to the exact established baseline: 521 suites / 3,295 tests pass, one skipped, and only the same 15 Pixel Pet runner mismatches fail.
+- Native/runtime proof: CocoaPods installed 135 pods, including all commercial integrations and Expo System UI. A no-build-cache iPhone 17 Pro Simulator build compiled React Native 0.83, the custom Swift/Objective-C sources, all extensions, and patched `AIRMapMetalFogView`; it succeeded with 0 errors. Build 100 installed, Metro bundled 5,770 modules, the session restored, push registration succeeded, domain sync completed, and an Explore deep link activated the Metal fog surface without a fatal runtime error. The follow-up compiler pass also succeeded. Retained warnings are upstream/dependency deprecations, build-script dependency declarations, the Maps privacy bundle's iOS 11 target, and the existing Simulator Metal toolchain search path.
+- Security comparison: audit posture improved from 27 all-scope / 22 production findings to 19 all-scope / 14 production findings without audit fixes. The remaining production high/critical findings are the existing `@xmldom/xmldom` path and `shell-quote` through React Native development tooling; no new high/critical direct runtime dependency appeared.
+- Simulator minimum-flow proof: after clearing a persisted Games join sheet, computer-controlled checks loaded and settled Goals, To-dos, Plan, Arcs, Chapters, Budget, Transactions, Accounts, Games, and the enabled New Chat composer. Explore visibly rendered the pinned Maps 1.20.1 Silver Mist fog and revealed center under React Native 0.83, closing the Simulator-only Maps proof gap.
+- TestFlight archive/upload proof: release `1.0.101` build `101` is tied to commit `dbe0438`. The first EAS archive (`cac6cb58-9440-4c12-812a-ad6e88041ca2`) exposed that EAS's older Xcode SDK could not compile the direct iOS 26.4 `approvedWithDataAccess` enum reference. A regression contract now requires the source-compatible `AuthorizationStatus.rawValue == 3` form; focused tests, diff-aware verification, regenerated Swift, and the full local iOS target build pass. Replacement production-widgets build `1953484a-ae19-4fa2-bffc-1d748f31db99` completed, and submission `aeb4e050-7998-4823-9b3f-a4d4fa870265` was accepted by App Store Connect. Apple processing and tester availability are not yet proven.
+- Remaining Step 4 gate: notification/background/location/audio/HealthKit/Plaid/RevenueCat/Screen Time/widget behavior on the processed TestFlight build and at least 48 hours of normal dogfood use remain open. The paired iPhone 16 remained unavailable to CoreDevice and absent from the Mac USB inventory during the local-device checkpoint, which was explicitly skipped in favor of TestFlight. Android generation is inspected, but this Mac has no configured Android emulator/ADB runtime. Do not tag or advance to SDK 56 until these gates pass.
+- Decision: accept and push the bounded SDK 55 implementation checkpoint while keeping Task 7 Steps 4 and 5 open.

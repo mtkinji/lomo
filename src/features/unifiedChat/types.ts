@@ -233,7 +233,7 @@ export type UnifiedChatMutationReceipt = {
   id: string;
   proposalId: string;
   operationId: string;
-  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime';
+  capabilityId: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'relationships' | 'screenTime' | 'money';
   idempotencyKey: string;
   status: 'reserved' | 'applied' | 'failed' | 'undone';
   resultingObjectType: string | null;
@@ -275,7 +275,7 @@ export type TransitionUnifiedChatRunInput = {
 };
 
 export type PersistUnifiedChatMutationReceiptInput = {
-  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime';
+  capabilityId?: 'todos' | 'plan' | 'goals' | 'arcs' | 'profile' | 'chapters' | 'screenTime' | 'money';
   threadId: string;
   proposalId: string;
   operationId: string;
@@ -357,6 +357,10 @@ type UnifiedChatProposalOperationBase = {
   summary: string;
   idempotencyKey: string;
   sequence: number;
+  outcomeStep?: {
+    sequence: number;
+    dependsOnSequence: number | null;
+  };
 };
 
 export type PlanScheduleActivityPayload = {
@@ -399,6 +403,14 @@ export type PlanRemoveActivityPayload = {
 };
 
 export type UnifiedChatProposalOperation = UnifiedChatProposalOperationBase & (
+  | {
+      capabilityId: 'money'; type: 'create_money_category'; targetId: null;
+      payload: { name: string; budgetCents: number };
+    }
+  | {
+      capabilityId: 'money'; type: 'rename_money_category'; targetId: string;
+      payload: { name: string; expectedName: string };
+    }
   | {
       capabilityId: 'screenTime';
       type: ScreenTimeProposalOperation['type'];
@@ -538,6 +550,10 @@ type UnifiedChatProposalBase = {
 
 export type UnifiedChatProposal = UnifiedChatProposalBase & (
   | {
+      capabilityId: 'money';
+      operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'money' }>;
+    }
+  | {
       capabilityId: 'screenTime';
       operation: Extract<UnifiedChatProposalOperation, { capabilityId: 'screenTime' }>;
     }
@@ -578,6 +594,10 @@ type CreateUnifiedChatProposalInputBase = {
   title: string;
   body: string;
   permissionPolicy: { requiresExplicitApproval: true };
+  outcomeStep?: {
+    sequence: number;
+    dependsOnSequence: number | null;
+  };
 };
 
 type CreatePlanProposalOperationInput = (
@@ -588,6 +608,13 @@ type CreatePlanProposalOperationInput = (
 ) & { summary: string; idempotencyKey: string };
 
 export type CreateUnifiedChatProposalInput = CreateUnifiedChatProposalInputBase & (
+  | {
+      capabilityId: 'money';
+      operation: (
+        | { type: 'create_money_category'; targetId: null; payload: { name: string; budgetCents: number } }
+        | { type: 'rename_money_category'; targetId: string; payload: { name: string; expectedName: string } }
+      ) & { summary: string; idempotencyKey: string };
+    }
   | {
       capabilityId: 'screenTime';
       operation: ScreenTimeProposalOperation & {

@@ -291,6 +291,8 @@ const moneyCategoryCreateProof = [
   'src/capabilities/money/domain/categoryPlanDraft.test.ts',
   'src/capabilities/money/data/moneyRepository.test.ts',
   'src/capabilities/money/screens/MoneyCategoryCreateScreen.tsx',
+  'src/features/unifiedChat/unifiedChatToolProvider.test.ts',
+  'src/features/unifiedChat/executeMoneyCategoryProposalDecision.test.ts',
 ] as const;
 const moneyPrivacyProof = [
   'src/capabilities/money/domain/privacyLockState.test.ts',
@@ -371,7 +373,8 @@ const CAPABILITY_ROWS = [
   live({ id: 'account.show_up_status', providers: ['device', 'server'], consequence: 'low', confirmation: 'none', toolIds: ['account.show_up_status'], sourceRefs: ['mcp:get_show_up_status'] }, showUpProof),
   live({ id: 'money.read', providers: ['device'], consequence: 'low', confirmation: 'none', toolIds: ['money.read'], sourceRefs: ['capability:money'] }, moneyReadProof),
   bounded('confirmation_only', { id: 'money.review_transaction', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Transaction category changes complete only after an explicit selection in native Money. Chat can explain the path but cannot silently reclassify spending.', moneyReviewProof),
-  bounded('confirmation_only', { id: 'money.category.create', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Category creation completes only after native name and monthly-amount review. Chat cannot create a financial plan category silently.', moneyCategoryCreateProof),
+  live({ id: 'money.category.create', providers: ['device'], consequence: 'consequential', confirmation: 'explicit', toolIds: ['money.category.create'], sourceRefs: [] }, moneyCategoryCreateProof),
+  live({ id: 'money.category.rename', providers: ['device'], consequence: 'low', confirmation: 'explicit', toolIds: ['money.category.rename'], sourceRefs: [] }, moneyCategoryCreateProof),
   bounded('confirmation_only', { id: 'money.category.update', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Category name, monthly amount, and rollover changes complete as separate explicit native actions so partial multi-table success is never hidden.', moneyCategoryCreateProof),
   bounded('confirmation_only', { id: 'money.privacy.configure', providers: ['device'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Money privacy lock changes require native device-authentication review. Chat cannot prompt for or bypass Face ID, Touch ID, or passcode.', moneyPrivacyProof),
   bounded('confirmation_only', { id: 'money.connection.connect', providers: ['device', 'server'], consequence: 'consequential', confirmation: 'native', toolIds: [], sourceRefs: [] }, 'Connecting a financial institution completes only in native Plaid Link after institution authentication and consent.', moneyConnectionProof),

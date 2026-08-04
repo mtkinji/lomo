@@ -50,6 +50,19 @@ describe('UNIFIED_CHAT_TOOL_CATALOG', () => {
     ]));
   });
 
+  test('registers reviewed Money category creation and reversible name changes', () => {
+    expect(UNIFIED_CHAT_TOOL_CATALOG).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'money.category.create', capabilityId: 'money', effect: 'write',
+        confirmation: 'explicit', reversible: false,
+      }),
+      expect.objectContaining({
+        id: 'money.category.rename', capabilityId: 'money', effect: 'write',
+        confirmation: 'explicit', reversible: true,
+      }),
+    ]));
+  });
+
   test('registers Goal check-ins as a deferred native confirmation action', () => {
     expect(UNIFIED_CHAT_TOOL_CATALOG).toEqual(expect.arrayContaining([
       expect.objectContaining({

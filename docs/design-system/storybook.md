@@ -7,7 +7,7 @@ Use it to compare tokens, states, variants, and source-app decisions before prom
 ## Run
 
 ```bash
-npm run storybook
+npm run storybook:web
 ```
 
 Then open:

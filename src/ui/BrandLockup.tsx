@@ -55,6 +55,8 @@ export function BrandLockup({
     <View style={[styles.root, style]}>
       <Logo size={logoSize} variant={logoVariant} />
       <Text
+        maxFontSizeMultiplier={1.4}
+        numberOfLines={1}
         style={[
           baseWordmarkStyle,
           iosWordmarkNudge ? { transform: [{ translateY: iosWordmarkNudge }] } : null,
@@ -88,5 +90,4 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 });
-
 

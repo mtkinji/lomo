@@ -1,8 +1,28 @@
 import {
   buildMerchantRuleUpsert,
+  buildTransactionPlanRoleOverrideUpdate,
   buildTransactionMeaningReviewUpdate,
   buildTransactionReviewUpdate,
 } from './moneyMutations';
+
+describe('buildTransactionPlanRoleOverrideUpdate', () => {
+  it.each(['flexible', 'protected'] as const)('builds a reviewed %s override', (planRoleOverride) => {
+    expect(buildTransactionPlanRoleOverrideUpdate(
+      planRoleOverride,
+      '2026-08-04T18:00:00.000Z',
+    )).toEqual({
+      plan_role_override: planRoleOverride,
+      plan_role_override_reviewed_at: '2026-08-04T18:00:00.000Z',
+    });
+  });
+
+  it('clears the override and its review timestamp together', () => {
+    expect(buildTransactionPlanRoleOverrideUpdate(null)).toEqual({
+      plan_role_override: null,
+      plan_role_override_reviewed_at: null,
+    });
+  });
+});
 
 describe('buildTransactionReviewUpdate', () => {
   it('builds one corrected category assignment', () => {
@@ -20,6 +40,8 @@ describe('buildTransactionReviewUpdate', () => {
       money_meaning_category_budget_id: null,
       money_meaning_reason: null,
       money_meaning_reviewed_at: null,
+      plan_role_override: null,
+      plan_role_override_reviewed_at: null,
     });
   });
 
@@ -38,6 +60,8 @@ describe('buildTransactionReviewUpdate', () => {
       money_meaning_category_budget_id: null,
       money_meaning_reason: 'Marked as outside the budget.',
       money_meaning_reviewed_at: '2026-07-23T19:00:00.000Z',
+      plan_role_override: null,
+      plan_role_override_reviewed_at: null,
     });
   });
 
@@ -66,6 +90,8 @@ describe('buildTransactionMeaningReviewUpdate', () => {
       budget_match_confidence: 1,
       budget_match_reason: reason,
       budget_match_reviewed_at: '2026-07-23T19:00:00.000Z',
+      plan_role_override: null,
+      plan_role_override_reviewed_at: null,
     });
   });
 

@@ -39,9 +39,8 @@ import { getAdminProCodesStatus } from './src/services/proCodes';
 import { clearAdminEntitlementsOverrideTier } from './src/services/entitlements';
 import {
   reconcileNotificationsFiredEstimated,
-  registerNotificationReconcileTask,
 } from './src/services/notifications/notificationBackgroundTask';
-import { registerHealthDailySyncTask } from './src/services/health/healthBackgroundTask';
+import { registerKwiltBackgroundTasks } from './src/services/background/registerKwiltBackgroundTasks';
 import { LocationOfferService } from './src/services/locationOffers/LocationOfferService';
 import './src/services/locationOffers/locationOfferGeofenceTask';
 import './src/capabilities/explore/runtime/exploreBackgroundTask';
@@ -72,6 +71,7 @@ import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
 import { startMoneyAppControlForegroundSync } from './src/capabilities/money/runtime/moneyAppControlForegroundSync';
+import { moneySnapshotCache } from './src/capabilities/money/runtime/moneySnapshotCache';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
 import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
@@ -163,6 +163,8 @@ export default function App() {
 
     const applySignedOutState = (reason: string) => {
       if (isStaleRun()) return;
+      const previousUserId = useAppStore.getState().authIdentity?.userId?.trim();
+      if (previousUserId) void moneySnapshotCache.remove(previousUserId).catch(() => undefined);
       setSupabaseAutoRefreshEnabled(false);
       clearAuthIdentity();
       setAuthStartupState('signedOut');
@@ -178,6 +180,7 @@ export default function App() {
       // (onboarding flags, profile, credits, etc.) so the new user starts clean.
       const prevUserId = useAppStore.getState().authIdentity?.userId;
       if (prevUserId && prevUserId !== identity.userId) {
+        void moneySnapshotCache.remove(prevUserId).catch(() => undefined);
         resetUserSpecificState();
       }
       setAuthIdentity(identity);
@@ -376,15 +379,11 @@ export default function App() {
         console.warn('[haptics] init failed', error);
       }
     });
-    // Best-effort background reconciliation for "fired" notifications without a server.
-    registerNotificationReconcileTask().catch((error) => {
+    // Best-effort background work registration. The helper preserves the shared
+    // native worker's required ordering and interval semantics.
+    registerKwiltBackgroundTasks().catch((error) => {
       if (__DEV__) {
-        console.warn('[notifications] failed to register background reconcile task', error);
-      }
-    });
-    registerHealthDailySyncTask().catch((error) => {
-      if (__DEV__) {
-        console.warn('[health] failed to register background sync task', error);
+        console.warn('[background] failed to register background tasks', error);
       }
     });
     // Reconcile on launch too (covers cases where background fetch doesn't run).

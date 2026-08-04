@@ -1,9 +1,14 @@
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import { getMenuToggleStroke, PageHeader } from './PageHeader';
+import { getMenuToggleStroke, getPageHeaderTitleLineCount, PageHeader } from './PageHeader';
 import { colors, fonts, spacing, typography } from '../../theme';
 
 describe('PageHeader capability menu affordance', () => {
+  it('allows titles to wrap when the system font is enlarged', () => {
+    expect(getPageHeaderTitleLineCount(1)).toBe(1);
+    expect(getPageHeaderTitleLineCount(1.4)).toBe(2);
+  });
+
   it('keeps the control labeled as a menu when the drawer is open', () => {
     const { getByLabelText, getByTestId, queryByLabelText } = render(
       <PageHeader title="To-dos" onPressMenu={jest.fn()} menuOpen />,
@@ -65,7 +70,7 @@ describe('PageHeader capability menu affordance', () => {
   });
 
   it('keeps the strong object-page title treatment by default', () => {
-    const { getByText, getByTestId } = render(<PageHeader title="Goals" />);
+    const { getByRole, getByText, getByTestId } = render(<PageHeader title="Goals" />);
 
     expect(StyleSheet.flatten(getByText('Goals').props.style)).toMatchObject({
       fontFamily: fonts.black,
@@ -74,5 +79,6 @@ describe('PageHeader capability menu affordance', () => {
     expect(StyleSheet.flatten(getByTestId('page.header').props.style)?.paddingBottom).toBe(
       spacing.md,
     );
+    expect(getByRole('header', { name: 'Goals' })).toBeTruthy();
   });
 });

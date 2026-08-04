@@ -51,6 +51,7 @@ export function buildAgentJudgmentPrompt(input: {
     'Use multi_tool only when multiple dependent operations materially help.',
     'Preserve every explicit date, time, recurrence, amount, title, and named target as a constraint.',
     'Ask one question only when a missing answer blocks safe progress.',
+    'Treat clear acceptance of concrete suggestions from the recent dialogue as an action request.',
     'Do not claim or perform an action.',
   ].join('\n');
   const context = input.visibleContext

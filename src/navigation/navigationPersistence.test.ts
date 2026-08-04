@@ -3,6 +3,7 @@ import type { NavigationState } from '@react-navigation/native';
 import {
   getAllowedPersistedRootRoutes,
   resolvePersistedNavigationState,
+  shouldRestorePersistedNavigationForInitialUrl,
   shouldRestoreNavigationState,
 } from './navigationPersistence';
 
@@ -52,6 +53,11 @@ async function restore(state: TestState): Promise<NavigationState | undefined> {
 describe('navigationPersistence', () => {
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  test('lets a cold widget deep link win over the last persisted To-dos route', () => {
+    expect(shouldRestorePersistedNavigationForInitialUrl('kwilt://chat?entry=fresh&source=widget')).toBe(false);
+    expect(shouldRestorePersistedNavigationForInitialUrl(null)).toBe(true);
   });
 
   test('allows every registered production drawer route', () => {
@@ -125,10 +131,10 @@ describe('navigationPersistence', () => {
     });
   });
 
-  test('restores the Games Hourglass utility', async () => {
-    const games = nestedState('stack', 'GamesHourglass', [
+  test('restores the Games Timer utility', async () => {
+    const games = nestedState('stack', 'GamesTimer', [
       route('GamesShelf'),
-      route('GamesHourglass'),
+      route('GamesTimer'),
     ]);
     const root = nestedState('drawer', 'Games', [
       route('MainTabs'),
@@ -138,7 +144,7 @@ describe('navigationPersistence', () => {
 
     const restored = (await restore(root)) as unknown as TestState;
     const restoredGames = restored.routes[restored.index].state!;
-    expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesHourglass' });
+    expect(restoredGames.routes[restoredGames.index]).toMatchObject({ name: 'GamesTimer' });
   });
 
   test('restores Explore settings instead of falling back to Settings home', async () => {

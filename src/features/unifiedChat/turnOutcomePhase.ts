@@ -10,6 +10,7 @@ import type { UnifiedChatRequestPolicy } from './requestPolicy';
 import type { UnifiedChatRepository } from './threadRepository';
 import type { ExecutedUnifiedChatTurn } from './turnExecutionPhase';
 import type { UnifiedChatMessage, UnifiedChatRun } from './types';
+import type { AgentJudgment } from './agentJudgment';
 import { toLocalDateKey } from '../../services/plan/planDates';
 
 type OutcomeRepository = Pick<
@@ -54,6 +55,7 @@ export type MaterializeUnifiedChatOutcomePhaseInput = {
   actionResponse: ActionResponse;
   toolProvider: ToolProvider;
   runtimeToolEvents: readonly AgentToolLoopEvent[];
+  agentJudgment?: AgentJudgment | null;
   artifactDraft?: ExecutedUnifiedChatTurn['artifactDraft'];
   requestPolicy: UnifiedChatRequestPolicy;
   snapshots: UnifiedChatCapabilitySnapshots;
@@ -103,6 +105,31 @@ export async function materializeUnifiedChatOutcomePhase(
   const pendingWorkReferentItems: PendingWorkConversationReferentItem[] = [];
   const receiptIds: string[] = [];
   const clientActionIds: string[] = [];
+  const proposedToolEvents = input.runtimeToolEvents.filter((event) =>
+    event.type === 'tool_completed' && event.resultStatus === 'proposed');
+  const matchedJudgmentSequences = new Set<number>();
+  const matchedJudgmentSteps = proposedToolEvents.map((event) => {
+    const matched = input.agentJudgment?.steps.find((step) =>
+      step.toolId === event.toolId && !matchedJudgmentSequences.has(step.sequence));
+    if (matched) matchedJudgmentSequences.add(matched.sequence);
+    return matched;
+  });
+  const assignedOutcomeSequences = new Set(matchedJudgmentSequences);
+  const nextFallbackOutcomeStep = () => {
+    let sequence = 1;
+    while (assignedOutcomeSequences.has(sequence)) sequence += 1;
+    assignedOutcomeSequences.add(sequence);
+    return { sequence, dependsOnSequence: null };
+  };
+  const outcomeStepForToolProposal = (index: number) => {
+    const matched = matchedJudgmentSteps[index];
+    if (!matched) return nextFallbackOutcomeStep();
+    let dependency = matched.dependsOn;
+    while (dependency !== null && !matchedJudgmentSequences.has(dependency)) {
+      dependency = input.agentJudgment?.steps.find((step) => step.sequence === dependency)?.dependsOn ?? null;
+    }
+    return { sequence: matched.sequence, dependsOnSequence: dependency };
+  };
   const persistProposal = async (
     proposal: Parameters<OutcomeRepository['createProposal']>[0],
   ) => {
@@ -143,6 +170,7 @@ export async function materializeUnifiedChatOutcomePhase(
       title: input.actionResponse.proposal.title,
       body: input.actionResponse.proposal.body,
       permissionPolicy: { requiresExplicitApproval: true },
+      outcomeStep: nextFallbackOutcomeStep(),
       operation: withProposalMetadata(
         operation,
         input.actionResponse.proposal.title,
@@ -212,8 +240,19 @@ export async function materializeUnifiedChatOutcomePhase(
       title: proposal.title,
       body: proposal.body,
       permissionPolicy: { requiresExplicitApproval: true as const },
+      outcomeStep: outcomeStepForToolProposal(index),
     };
-    if (proposal.capabilityId === 'screenTime') {
+    if (proposal.capabilityId === 'money') {
+      await persistProposal({
+        ...common,
+        capabilityId: 'money',
+        operation: {
+          ...proposal.operation,
+          summary: proposal.title,
+          idempotencyKey: `unified-chat:${input.run.id}:tool:${index + 1}`,
+        },
+      });
+    } else if (proposal.capabilityId === 'screenTime') {
       await persistProposal({
         ...common,
         capabilityId: 'screenTime',

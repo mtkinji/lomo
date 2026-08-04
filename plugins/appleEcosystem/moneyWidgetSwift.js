@@ -201,21 +201,12 @@ struct FlexibleMoneyProvider: TimelineProvider {
   }
 }
 
-struct FlexibleMoneyWidgetView: View {
+struct FlexibleMoneyAnswerCard: View {
   let entry: FlexibleMoneyEntry
-
-  private var percentUsed: Double {
-    guard let facts = entry.flexibleMoney,
-          let capacity = facts.flexibleCapacityCents,
-          let spent = facts.countedFlexibleSpendCents,
-          capacity > 0 else { return 0 }
-    return max(0, spent / capacity * 100)
-  }
 
   private var tone: Color {
     guard let state = entry.flexibleMoney?.state else { return MoneyWidgetPalette.calm }
     if state == "over" || state == "plan_over" { return MoneyWidgetPalette.over }
-    if percentUsed >= 90 { return MoneyWidgetPalette.near }
     return MoneyWidgetPalette.calm
   }
 
@@ -234,51 +225,64 @@ struct FlexibleMoneyWidgetView: View {
   }
 
   var body: some View {
-    widgetContainer {
-      ZStack {
-        if entry.flexibleMoney != nil {
-          MoneyTickBorder(percentUsed: percentUsed, periodElapsedPercent: nil, color: tone)
-        }
-        VStack(alignment: .leading, spacing: 4) {
+    ZStack {
+      Color(red: 244/255, green: 241/255, blue: 234/255)
+      VStack(alignment: .leading, spacing: 4) {
+        HStack {
           Text("Flexible money")
             .font(.custom("Inter-SemiBold", size: 12))
+            .foregroundStyle(MoneyWidgetPalette.calm)
+            .lineLimit(1)
+          Spacer()
+          Image(systemName: "wallet.bifold.fill")
+            .font(.caption)
+            .foregroundStyle(MoneyWidgetPalette.calm.opacity(0.72))
+        }
+        Spacer(minLength: 4)
+        if let value = value, entry.flexibleMoney?.state != "unavailable" {
+          Text(value)
+            .font(.custom("Inter-Black", size: 30))
+            .foregroundStyle(tone)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.52)
+          Text(meaning)
+            .font(.custom("Inter-Medium", size: 12))
             .foregroundStyle(.secondary)
             .lineLimit(1)
-          Spacer(minLength: 2)
-          if let value = value, entry.flexibleMoney?.state != "unavailable" {
-            Text(value)
-              .font(.custom("Inter-Black", size: 28))
-              .foregroundStyle(tone)
-              .monospacedDigit()
-              .lineLimit(1)
-              .minimumScaleFactor(0.55)
-            Text(meaning)
-              .font(.custom("Inter-Medium", size: 12))
-              .foregroundStyle(.secondary)
-              .lineLimit(1)
-          } else {
-            Text(entry.hasMoneySnapshot
-              ? "Open Kwilt to finish your monthly plan."
-              : "Open Kwilt to view Money.")
-              .font(.custom("Inter-SemiBold", size: 15))
-              .foregroundStyle(.primary)
-              .lineLimit(3)
-          }
-          Spacer(minLength: 2)
-          HStack(spacing: 4) {
-            Text(entry.periodLabel)
-              .lineLimit(1)
-            if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
-              Text("•")
-              Text(freshness)
-                .lineLimit(1)
-            }
-          }
-          .font(.custom("Inter-Medium", size: 10))
-          .foregroundStyle(.secondary)
+        } else {
+          Text(entry.hasMoneySnapshot
+            ? "Open Kwilt to finish your monthly plan."
+            : "Open Kwilt to view Money.")
+            .font(.custom("Inter-SemiBold", size: 15))
+            .foregroundStyle(.primary)
+            .lineLimit(3)
         }
-        .padding(14)
+        Spacer(minLength: 4)
+        HStack(spacing: 4) {
+          Text(entry.periodLabel)
+            .lineLimit(1)
+          if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
+            Text("•")
+            Text(freshness)
+              .lineLimit(1)
+          }
+        }
+        .font(.custom("Inter-Medium", size: 10))
+        .foregroundStyle(.secondary)
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+      .padding(16)
+    }
+  }
+}
+
+struct FlexibleMoneyWidgetView: View {
+  let entry: FlexibleMoneyEntry
+
+  var body: some View {
+    widgetContainer {
+      FlexibleMoneyAnswerCard(entry: entry)
       .widgetURL(moneyURL(entry.flexibleMoney?.deepLink))
     }
   }
@@ -425,9 +429,15 @@ struct MoneyCategoryWidgetView: View {
     return (category.remainingCents ?? 0) < 0 ? "over" : "left"
   }
 
+  private var valueTone: Color {
+    guard let category = entry.category else { return .primary }
+    return category.status == "over" ? MoneyWidgetPalette.over : .primary
+  }
+
   var body: some View {
     widgetContainer {
       ZStack {
+        Color.white
         if entry.category != nil {
           MoneyTickBorder(
             percentUsed: Double(entry.category?.percentUsed ?? 0),
@@ -435,16 +445,18 @@ struct MoneyCategoryWidgetView: View {
             color: tone
           )
         }
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .center, spacing: 4) {
           if let category = entry.category {
             Text(category.name)
               .font(.custom("Inter-SemiBold", size: 12))
               .foregroundStyle(.secondary)
               .lineLimit(2)
+              .multilineTextAlignment(.center)
+              .frame(maxWidth: .infinity)
             Spacer(minLength: 2)
             Text(value)
               .font(.custom("Inter-Black", size: 30))
-              .foregroundStyle(tone)
+              .foregroundStyle(valueTone)
               .monospacedDigit()
               .lineLimit(1)
               .minimumScaleFactor(0.55)
@@ -452,6 +464,7 @@ struct MoneyCategoryWidgetView: View {
               .font(.custom("Inter-Medium", size: 12))
               .foregroundStyle(.secondary)
               .lineLimit(1)
+              .multilineTextAlignment(.center)
             Spacer(minLength: 2)
             if let freshness = moneyFreshnessLabel(updatedAtMs: entry.updatedAtMs) {
               Text(freshness)
@@ -474,6 +487,7 @@ struct MoneyCategoryWidgetView: View {
             Spacer()
           }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(14)
       }
       .widgetURL(moneyURL(entry.category?.deepLink))

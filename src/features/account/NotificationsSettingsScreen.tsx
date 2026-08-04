@@ -454,8 +454,9 @@ export function NotificationsSettingsScreen() {
               <View style={styles.row}>
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle notifications from Kwilt"
+                  accessibilityRole="switch"
+                  accessibilityLabel="Notifications from Kwilt"
+                  accessibilityState={{ checked: preferences.notificationsEnabled }}
                   onPress={handleToggleGlobal}
                 >
                   <VStack>
@@ -464,6 +465,8 @@ export function NotificationsSettingsScreen() {
                   </VStack>
                 </Pressable>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={preferences.notificationsEnabled}
                   onValueChange={() => {
                     void handleToggleGlobal();
@@ -482,8 +485,9 @@ export function NotificationsSettingsScreen() {
               <View style={styles.row}>
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle To-do reminders"
+                  accessibilityRole="switch"
+                  accessibilityLabel="To-do reminders"
+                  accessibilityState={{ checked: activityRemindersEnabled }}
                   onPress={handleToggleActivityReminders}
                 >
                   <VStack>
@@ -492,6 +496,8 @@ export function NotificationsSettingsScreen() {
                   </VStack>
                 </Pressable>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={activityRemindersEnabled}
                   onValueChange={() => {
                     void handleToggleActivityReminders();
@@ -505,8 +511,9 @@ export function NotificationsSettingsScreen() {
                 <View style={styles.rowPressable}>
                   <Pressable
                     style={({ pressed }) => [pressed && styles.rowPressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Toggle daily show-up reminder"
+                    accessibilityRole="switch"
+                    accessibilityLabel="Daily show-up reminder"
+                    accessibilityState={{ checked: dailyShowUpEnabled }}
                     onPress={handleToggleDailyShowUp}
                   >
                     <VStack>
@@ -528,6 +535,8 @@ export function NotificationsSettingsScreen() {
                   )}
                 </View>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={dailyShowUpEnabled}
                   onValueChange={() => {
                     void handleToggleDailyShowUp();
@@ -541,8 +550,9 @@ export function NotificationsSettingsScreen() {
                 <View style={styles.rowPressable}>
                   <Pressable
                     style={({ pressed }) => [pressed && styles.rowPressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Toggle daily focus reminder"
+                    accessibilityRole="switch"
+                    accessibilityLabel="Daily focus reminder"
+                    accessibilityState={{ checked: dailyFocusEnabled }}
                     onPress={handleToggleDailyFocus}
                   >
                     <VStack>
@@ -564,6 +574,8 @@ export function NotificationsSettingsScreen() {
                   )}
                 </View>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={dailyFocusEnabled}
                   onValueChange={() => {
                     void handleToggleDailyFocus();
@@ -577,8 +589,9 @@ export function NotificationsSettingsScreen() {
                 <View style={styles.rowPressable}>
                   <Pressable
                     style={({ pressed }) => [pressed && styles.rowPressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Toggle goal nudges"
+                    accessibilityRole="switch"
+                    accessibilityLabel="Goal nudges"
+                    accessibilityState={{ checked: goalNudgesEnabled }}
                     onPress={handleToggleGoalNudges}
                   >
                     <VStack>
@@ -600,6 +613,8 @@ export function NotificationsSettingsScreen() {
                   ) : null}
                 </View>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={goalNudgesEnabled}
                   onValueChange={() => {
                     void handleToggleGoalNudges();
@@ -612,8 +627,9 @@ export function NotificationsSettingsScreen() {
               <View style={styles.row}>
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle streak and comeback reminders"
+                  accessibilityRole="switch"
+                  accessibilityLabel="Streak and comeback reminders"
+                  accessibilityState={{ checked: streakAndReactivationEnabled }}
                   onPress={handleToggleStreakAndReactivation}
                 >
                   <VStack>
@@ -622,6 +638,8 @@ export function NotificationsSettingsScreen() {
                   </VStack>
                 </Pressable>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={streakAndReactivationEnabled}
                   onValueChange={() => {
                     void handleToggleStreakAndReactivation();
@@ -640,8 +658,9 @@ export function NotificationsSettingsScreen() {
               <View style={styles.row}>
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle plan your day prompts"
+                  accessibilityRole="switch"
+                  accessibilityLabel="Plan your day prompts"
+                  accessibilityState={{ checked: planKickoffEnabled }}
                   onPress={handleTogglePlanKickoff}
                 >
                   <VStack>
@@ -650,6 +669,8 @@ export function NotificationsSettingsScreen() {
                   </VStack>
                 </Pressable>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={planKickoffEnabled}
                   onValueChange={handleTogglePlanKickoff}
                   trackColor={{ false: colors.shellAlt, true: colors.accent }}
@@ -703,8 +724,9 @@ export function NotificationsSettingsScreen() {
               <View style={styles.row}>
                 <Pressable
                   style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Toggle location prompts"
+                  accessibilityRole="switch"
+                  accessibilityLabel="Location prompts"
+                  accessibilityState={{ checked: locationPromptsEnabled }}
                   onPress={handleToggleLocationOffers}
                 >
                   <VStack>
@@ -715,6 +737,8 @@ export function NotificationsSettingsScreen() {
                   </VStack>
                 </Pressable>
                 <Switch
+                  accessible={false}
+                  importantForAccessibility="no"
                   value={locationPromptsEnabled}
                   onValueChange={() => {
                     void handleToggleLocationOffers();

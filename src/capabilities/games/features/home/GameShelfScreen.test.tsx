@@ -42,17 +42,17 @@ describe('GameShelfScreen', () => {
       'Doodle Bridge',
       'Clue Circle',
       'Slanguage',
-      'Hourglass',
+      'Game Timer',
       'Basic Dice Roller',
     ].forEach((title) => expect(screen.getByText(title)).toBeTruthy());
   });
 
-  it('opens the one-minute hourglass from Utilities', () => {
+  it('opens the one-minute game timer from Utilities', () => {
     const screen = render(<GameShelfScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Open 60-second Hourglass' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Open 60-second Game Timer' }));
 
-    expect(router.push).toHaveBeenCalledWith('/hourglass');
+    expect(router.push).toHaveBeenCalledWith('/timer');
   });
 
   it('lets the inventory scroll through the bottom safe-area region', () => {

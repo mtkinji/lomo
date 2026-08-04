@@ -13,6 +13,7 @@ describe('Explore path reconstruction native contract', () => {
     expect(swift).toContain('MKDirections.Request()');
     expect(swift).toContain('requestsAlternateRoutes = false');
     expect(swift).toContain('route.polyline.points()');
+    expect(swift).toContain('GenericException<String>, @unchecked Sendable');
     expect(swift).not.toContain('CLLocationManager');
   });
 });

@@ -5,7 +5,7 @@ import { GameShelfScreen } from '../features/home/GameShelfScreen';
 import { JoinTableScreen } from '../features/remote/JoinTableScreen';
 import { RemoteGameScreen } from '../features/remote/RemoteGameScreen';
 import { TumbleScreen } from '../features/tumble/TumbleScreen';
-import { HourglassScreen } from '../features/hourglass/HourglassScreen';
+import { GameTimerScreen } from '../features/timer/GameTimerScreen';
 import { AuthProvider } from '../shell/AuthProvider';
 import type { GamesStackParamList } from './types';
 
@@ -16,7 +16,7 @@ export function GamesNavigator() {
     <AuthProvider>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="GamesShelf" component={GameShelfScreen} />
-        <Stack.Screen name="GamesHourglass" component={HourglassScreen} />
+        <Stack.Screen name="GamesTimer" component={GameTimerScreen} />
         <Stack.Screen name="GamesTumble" component={TumbleScreen} />
         <Stack.Screen name="GamesConnection" component={ConnectionGameScreen} />
         <Stack.Screen name="GamesJoin" component={JoinTableScreen} />

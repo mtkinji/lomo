@@ -81,6 +81,7 @@ export function formatProposalReceiptSummary(
       : operationType === 'reschedule_activity' ? 'Could not move'
         : operationType === 'remove_activity_from_plan' ? 'Could not remove'
           : operationType === 'create_goal' ? 'Could not create'
+            : operationType === 'create_money_category' ? 'Could not create'
             : operationType === 'delete_goal' ? 'Could not delete'
               : operationType === 'create_arc' ? 'Could not create'
                 : operationType === 'delete_arc' ? 'Could not delete'
@@ -99,6 +100,8 @@ export function formatProposalReceiptSummary(
     return `Restored ${title}`;
   }
   if (operationType === 'create_activity') return `Added ${title}`;
+  if (operationType === 'create_money_category') return `Created ${title}`;
+  if (operationType === 'rename_money_category') return `Renamed ${title}`;
   if (operationType === 'create_goal') return `Created ${title}`;
   if (operationType === 'delete_goal') return `Deleted ${title}`;
   if (operationType === 'create_arc') return `Created ${title}`;
@@ -391,6 +394,7 @@ export function buildWorkbenchSnapshot(
     (aggregate.proposals ?? [])
       .filter((proposal) =>
         proposal.operation.type === 'create_activity' &&
+        (aggregate.proposals ?? []).filter((candidate) => candidate.runId === proposal.runId).length === 1 &&
         (proposal.status === 'applied' || proposal.status === 'undone'),
       )
       .map((proposal) => proposal.id),
@@ -399,6 +403,11 @@ export function buildWorkbenchSnapshot(
     (aggregate.proposals ?? [])
       .filter((proposal) => compactCreateProposals.has(proposal.id) && proposal.messageId)
       .map((proposal) => proposal.messageId as string),
+  );
+  const proposalIdByOutcomeSequence = new Map(
+    (aggregate.proposals ?? []).flatMap((proposal) => proposal.operation.outcomeStep
+      ? [[`${proposal.runId}:${proposal.operation.outcomeStep.sequence}`, proposal.id] as const]
+      : []),
   );
   const snapshot: AgentWorkbenchSnapshot = {
     product: buildKwiltWorkbenchProduct(),
@@ -497,6 +506,16 @@ export function buildWorkbenchSnapshot(
         body: proposal.body,
         status: proposal.status,
         version: proposal.version,
+        ...(proposal.operation.outcomeStep ? {
+          outcome: {
+            sequence: proposal.operation.outcomeStep.sequence,
+            ...(proposal.operation.outcomeStep.dependsOnSequence === null ? {} : {
+              dependsOnProposalId: proposalIdByOutcomeSequence.get(
+                `${proposal.runId}:${proposal.operation.outcomeStep.dependsOnSequence}`,
+              ),
+            }),
+          },
+        } : {}),
         operation: {
           id: proposal.operation.id,
           type: proposal.operation.type,

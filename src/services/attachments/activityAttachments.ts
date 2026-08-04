@@ -1,15 +1,10 @@
-import * as FileSystem from 'expo-file-system/legacy';
-// NOTE: `expo-av` is deprecated (will be removed in a future Expo SDK).
-// Lazy-load it so the deprecation warning does not spam on app launch.
-type ExpoAvAudio = (typeof import('expo-av'))['Audio'];
-let Audio: ExpoAvAudio | null = null;
-
-async function getAudio(): Promise<ExpoAvAudio> {
-  if (Audio) return Audio;
-  const mod = await import('expo-av');
-  Audio = mod.Audio;
-  return Audio;
-}
+import { File as ExpoFile } from 'expo-file-system';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  type AudioRecorder,
+} from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
 import type { Activity, ActivityAttachment, ActivityAttachmentKind } from '../../domain/types';
@@ -22,6 +17,8 @@ import { useToastStore } from '../../store/useToastStore';
 import { useAppStore } from '../../store/useAppStore';
 import { openPaywallInterstitial } from '../paywall';
 import { getEdgeFunctionUrl, getEdgeFunctionUrlCandidates } from '../edgeFunctions';
+import { createPreparedAudioRecorder } from '../audioRecorder';
+import { uploadFileToSignedUrl } from '../files/uploadFileToSignedUrl';
 
 const BUCKET = 'activity_attachments';
 
@@ -199,19 +196,6 @@ async function initUpload(params: {
   );
 
   // unreachable
-}
-
-async function uploadFileToSignedUrl(params: { signedUrl: string; fileUri: string; mimeType?: string | null }) {
-  const result = await FileSystem.uploadAsync(params.signedUrl, params.fileUri, {
-    httpMethod: 'PUT',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      'Content-Type': params.mimeType?.trim() ? params.mimeType.trim() : 'application/octet-stream',
-    },
-  });
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Upload failed (status ${result.status})`);
-  }
 }
 
 export async function addPhotoOrVideoToActivity(activity: Activity): Promise<void> {
@@ -409,7 +393,15 @@ export async function addDocumentToActivity(activity: Activity): Promise<void> {
   }
 }
 
-let activeRecording: any | null = null;
+let activeRecording: AudioRecorder | null = null;
+
+export function audioRecordingDurationSeconds(durationMillis: unknown): number | null {
+  if (typeof durationMillis !== 'number' || !Number.isFinite(durationMillis) || durationMillis < 0) {
+    return null;
+  }
+  if (durationMillis === 0) return 0;
+  return Math.max(1, Math.round(durationMillis / 1000));
+}
 
 export async function startAudioRecording(): Promise<void> {
   const ent = useEntitlementsStore.getState();
@@ -419,15 +411,14 @@ export async function startAudioRecording(): Promise<void> {
     return;
   }
 
-  const Audio = await getAudio();
-  const permission = await Audio.requestPermissionsAsync().catch(() => null);
+  const permission = await requestRecordingPermissionsAsync().catch(() => null);
   if (!permission?.granted) {
     Alert.alert('Permission required', 'Please allow microphone access to record audio.');
     return;
   }
 
   try {
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
   } catch {
     // ignore
   }
@@ -435,17 +426,23 @@ export async function startAudioRecording(): Promise<void> {
   // Avoid double-record.
   if (activeRecording) {
     try {
-      await activeRecording.stopAndUnloadAsync();
+      await activeRecording.stop();
     } catch {
       // ignore
     }
+    activeRecording.release();
     activeRecording = null;
   }
 
-  const recording = new Audio.Recording();
-  await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-  await recording.startAsync();
-  activeRecording = recording;
+  const recording = await createPreparedAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  try {
+    recording.record();
+    activeRecording = recording;
+  } catch (error) {
+    await recording.stop().catch(() => undefined);
+    recording.release();
+    throw error;
+  }
 }
 
 export async function cancelAudioRecording(): Promise<void> {
@@ -453,9 +450,11 @@ export async function cancelAudioRecording(): Promise<void> {
   activeRecording = null;
   if (!recording) return;
   try {
-    await recording.stopAndUnloadAsync();
+    await recording.stop();
   } catch {
     // ignore
+  } finally {
+    recording.release();
   }
 }
 
@@ -464,20 +463,25 @@ export async function stopAudioRecordingAndAttachToActivity(activity: Activity):
   activeRecording = null;
   if (!recording) return;
 
+  let uri: string | null = null;
+  let durationSeconds: number | null = null;
   try {
-    await recording.stopAndUnloadAsync();
+    await recording.stop();
+    durationSeconds = audioRecordingDurationSeconds(recording.getStatus().durationMillis);
+    uri = recording.uri;
   } catch {
     return;
+  } finally {
+    recording.release();
   }
 
-  const uri = recording.getURI();
   if (!uri) return;
 
   // Best-effort size.
   let sizeBytes: number | null = null;
   try {
-    const info = await FileSystem.getInfoAsync(uri);
-    sizeBytes = info?.exists && 'size' in info && typeof info.size === 'number' ? info.size : null;
+    const file = new ExpoFile(uri);
+    sizeBytes = file.exists && Number.isFinite(file.size) ? file.size : null;
   } catch {
     sizeBytes = null;
   }
@@ -494,7 +498,7 @@ export async function stopAudioRecordingAndAttachToActivity(activity: Activity):
       fileName: `recording-${Date.now()}.m4a`,
       mimeType: 'audio/m4a',
       sizeBytes,
-      durationSeconds: null,
+      durationSeconds,
     });
     serverAttachment = init.attachment;
     uploadSignedUrl = init.uploadSignedUrl;
@@ -698,5 +702,3 @@ export function hasAnyAttachments(activity: Activity | null | undefined): boolea
 export function getAttachmentsBucket(): string {
   return BUCKET;
 }
-
-

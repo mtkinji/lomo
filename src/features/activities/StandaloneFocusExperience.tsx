@@ -58,8 +58,18 @@ export function StandaloneFocusExperience(props: {
             <BrandLockup logoSize={28} wordmarkSize="sm" logoVariant="parchment" color={colors.parchment} />
           </View>
           <View style={styles.focusCenter}>
-            <Text style={styles.focusTimer}>{formatFocusTimer(props.controller.remainingMs)}</Text>
-            <Text style={styles.focusActivityTitle}>Focus</Text>
+            <Text
+              adjustsFontSizeToFit
+              maxFontSizeMultiplier={1.4}
+              minimumFontScale={0.6}
+              numberOfLines={1}
+              style={styles.focusTimer}
+            >
+              {formatFocusTimer(props.controller.remainingMs)}
+            </Text>
+            <Text maxFontSizeMultiplier={1.6} numberOfLines={1} style={styles.focusActivityTitle}>
+              Focus
+            </Text>
           </View>
           <HStack space="sm" style={styles.focusBottomBar}>
             <HeaderActionPill

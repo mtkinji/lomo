@@ -22,6 +22,10 @@ jest.mock('@expo/vector-icons', () => {
   );
 });
 
+// Reanimated 4.2 imports Worklets 0.7 during mock initialization. Install the
+// official Worklets mock first so Jest never tries to initialize its JSI proxy.
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+
 // react-native-reanimated ships an official Jest mock that turns animated
 // primitives into plain objects/components. Layer-2 component tests don't
 // need real animations.
@@ -82,11 +86,16 @@ jest.mock('@react-native-async-storage/async-storage', () => {
   };
 });
 
-jest.mock('expo-background-fetch', () => ({
-  getStatusAsync: jest.fn(async () => 3), // Available
-  BackgroundFetchStatus: { Restricted: 1, Denied: 2, Available: 3 },
-  BackgroundFetchResult: { NoData: 1, NewData: 2, Failed: 3 },
+jest.mock('expo-background-task', () => ({
+  getStatusAsync: jest.fn(async () => 2), // Available
+  BackgroundTaskStatus: { Restricted: 1, Available: 2 },
+  BackgroundTaskResult: { Success: 1, Failed: 2 },
   registerTaskAsync: jest.fn(async () => undefined),
+  unregisterTaskAsync: jest.fn(async () => undefined),
+}));
+
+jest.mock('expo/fetch', () => ({
+  fetch: jest.fn(async () => ({ ok: true, status: 200 })),
 }));
 
 jest.mock('expo-task-manager', () => ({
@@ -106,4 +115,3 @@ jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: jest.fn(async () => undefined),
   SchedulableTriggerInputTypes: { DATE: 'date', CALENDAR: 'calendar', TIME_INTERVAL: 'timeInterval' },
 }));
-

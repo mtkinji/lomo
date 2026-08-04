@@ -54,9 +54,21 @@ function flushReload(): void {
   void doReload(kinds);
 }
 
-export function scheduleWidgetReload(kinds: string[] = KWILT_WIDGET_KINDS): void {
+export function scheduleWidgetReload(
+  kinds: string[] = KWILT_WIDGET_KINDS,
+  options?: { immediate?: boolean },
+): void {
   if (Platform.OS !== 'ios') return;
   kinds.forEach((k) => pendingKinds.add(k));
+  if (options?.immediate) {
+    if (reloadTimeout) clearTimeout(reloadTimeout);
+    reloadTimeout = null;
+    const immediateKinds = Array.from(pendingKinds);
+    pendingKinds = new Set();
+    lastReloadAtMs = Date.now();
+    void doReload(immediateKinds);
+    return;
+  }
   if (reloadTimeout) return;
   reloadTimeout = setTimeout(flushReload, RELOAD_DEBOUNCE_MS);
 }

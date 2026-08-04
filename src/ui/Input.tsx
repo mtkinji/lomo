@@ -57,6 +57,7 @@ type Props = TextInputProps & {
   leadingIcon?: IconName;
   trailingIcon?: IconName;
   onPressTrailingIcon?: () => void;
+  trailingIconAccessibilityLabel?: string;
   trailingElement?: ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
@@ -90,6 +91,7 @@ const InputBase = forwardRef<TextInput, Props>(
       leadingIcon,
       trailingIcon,
       onPressTrailingIcon,
+      trailingIconAccessibilityLabel,
       trailingElement,
       containerStyle,
       inputStyle,
@@ -104,6 +106,8 @@ const InputBase = forwardRef<TextInput, Props>(
       multiline = false,
       onContentSizeChange,
       placeholderTextColor,
+      accessibilityLabel,
+      accessibilityHint,
       ...rest
     },
     ref,
@@ -154,6 +158,8 @@ const InputBase = forwardRef<TextInput, Props>(
           <TextInput
             {...rest}
             ref={ref}
+            accessibilityLabel={accessibilityLabel ?? label}
+            accessibilityHint={accessibilityHint ?? errorText ?? helperText}
             editable={editable}
             multiline={multiline}
             placeholderTextColor={placeholderTextColor ?? colors.muted}
@@ -207,6 +213,8 @@ const InputBase = forwardRef<TextInput, Props>(
             <Pressable
               hitSlop={8}
               accessibilityRole={onPressTrailingIcon ? 'button' : undefined}
+              accessibilityLabel={onPressTrailingIcon ? trailingIconAccessibilityLabel : undefined}
+              accessible={Boolean(onPressTrailingIcon)}
               onPress={onPressTrailingIcon}
               disabled={!onPressTrailingIcon}
               style={styles.iconWrapper}
@@ -218,7 +226,9 @@ const InputBase = forwardRef<TextInput, Props>(
           ) : null}
         </View>
         {errorText ? (
-          <Text style={styles.errorText}>{errorText}</Text>
+          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.errorText}>
+            {errorText}
+          </Text>
         ) : helperText ? (
           <Text style={styles.helperText}>{helperText}</Text>
         ) : null}
@@ -259,7 +269,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   sizeSm: {
-    minHeight: 36,
+    minHeight: 44,
     paddingVertical: spacing.xs,
     borderRadius: 12,
   },

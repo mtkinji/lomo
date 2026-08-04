@@ -214,7 +214,21 @@ test('outcome phase persists an ordered typed referent for every staged proposal
       }],
       clientActions: () => [],
     } as never,
-    runtimeToolEvents: [],
+    runtimeToolEvents: [
+      { type: 'tool_completed', toolId: 'activities.capture', toolCallId: 'call-1', resultStatus: 'proposed' },
+      { type: 'tool_completed', toolId: 'activities.capture', toolCallId: 'call-2', resultStatus: 'proposed' },
+    ] as never,
+    agentJudgment: {
+      schemaVersion: 1, userJob: 'Capture two ordered errands', desiredOutcome: 'Both are ready for review',
+      requestClass: 'capability_action', participatingCapabilities: ['todos'], usePrivateContext: true,
+      informationNeed: 'stable', executionMode: 'multi_tool', constraints: [],
+      steps: [
+        { sequence: 1, objective: 'Read existing activities', toolId: 'activities.read', dependsOn: null },
+        { sequence: 2, objective: 'Capture milk', toolId: 'activities.capture', dependsOn: 1 },
+        { sequence: 3, objective: 'Capture call', toolId: 'activities.capture', dependsOn: 2 },
+      ],
+      clarificationQuestion: null, confidence: 0.9, reason: 'Ordered request',
+    },
     requestPolicy: {
       requestClass: 'capability_action', participatingCapabilities: ['todos'],
       usePrivateContext: true, policyReason: 'semantic-route:two To-dos', clarification: null,
@@ -238,5 +252,11 @@ test('outcome phase persists an ordered typed referent for every staged proposal
         ],
       },
     })],
+  }));
+  expect(repository.createProposal).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    outcomeStep: { sequence: 2, dependsOnSequence: null },
+  }));
+  expect(repository.createProposal).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    outcomeStep: { sequence: 3, dependsOnSequence: 2 },
   }));
 });

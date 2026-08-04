@@ -16,8 +16,10 @@ describe('Games host integration contract', () => {
 
   it('ships the Apple implementation declared by the nearby Expo module', () => {
     const modulePath = workspacePath('modules', 'kwilt-nearby-table', 'ios');
+    const swift = fs.readFileSync(path.join(modulePath, 'KwiltNearbyTableModule.swift'), 'utf8');
     expect(fs.existsSync(path.join(modulePath, 'KwiltNearbyTableModule.swift'))).toBe(true);
     expect(fs.existsSync(path.join(modulePath, 'KwiltNearbyTable.podspec'))).toBe(true);
+    expect(swift).toContain('GenericException<String>, @unchecked Sendable');
   });
 
   it('registers the legacy Games invite scheme with the installed Kwilt binary', () => {

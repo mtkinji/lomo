@@ -1,5 +1,6 @@
 import { CommonActions, DrawerRouter } from '@react-navigation/native';
 import {
+  createCapabilityNavigateAction,
   ROOT_DRAWER_BACK_BEHAVIOR,
   resolveCapabilityNavigation,
 } from './capabilityNavigation';
@@ -34,6 +35,21 @@ describe('resolveCapabilityNavigation', () => {
     ['games', { name: 'Games', params: { screen: 'GamesShelf' } }],
   ] as const)('resolves %s through the existing host navigator', (id, expected) => {
     expect(resolveCapabilityNavigation(id)).toEqual(expected);
+  });
+});
+
+describe('createCapabilityNavigateAction', () => {
+  it('uses the supported name and params overload', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const target = resolveCapabilityNavigation('games');
+
+    expect(createCapabilityNavigateAction(target)).toEqual(
+      CommonActions.navigate('Games', { screen: 'GamesShelf' }),
+    );
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("Passing an object as the argument to 'navigate' is deprecated"),
+    );
+    warn.mockRestore();
   });
 });
 

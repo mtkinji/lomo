@@ -1,3 +1,4 @@
+import { CommonActions } from '@react-navigation/native';
 import { getCapability, getCapabilityMenuDestination } from '../capabilities/registry';
 import type { CapabilityNavigationId } from '../capabilities/types';
 
@@ -41,6 +42,10 @@ export type CapabilityNavigationTarget =
       name: 'Games';
       params: { screen: 'GamesShelf' };
     };
+
+export function createCapabilityNavigateAction(target: { name: string; params?: object }) {
+  return CommonActions.navigate(target.name, target.params);
+}
 
 export function resolveCapabilityNavigation(id: CapabilityNavigationId): CapabilityNavigationTarget {
   const { rootRoute } = id.startsWith('money-')

@@ -1,7 +1,7 @@
 import type { AnalyticsProps } from '../../../services/analytics/analytics';
 import { AnalyticsEvent, type AnalyticsEventName } from '../../../services/analytics/events';
 
-export type MoneyMutationOperation = 'transaction_category' | 'transaction_meaning' | 'category_settings';
+export type MoneyMutationOperation = 'transaction_category' | 'transaction_meaning' | 'transaction_plan_role' | 'category_settings';
 export type MoneyMutationOutcome = 'succeeded' | 'failed';
 export type MoneyMutationDurationBucket = 'under_250ms' | '250_to_749ms' | '750ms_to_1999ms' | '2s_or_more';
 
