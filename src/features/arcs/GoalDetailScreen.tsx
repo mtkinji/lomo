@@ -164,7 +164,11 @@ import Constants from 'expo-constants';
 import { ProfileAvatar } from '../../ui/ProfileAvatar';
 import { OverlappingAvatarStack } from '../../ui/OverlappingAvatarStack';
 import { ensureSignedInWithPrompt, signInWithProvider } from '../../services/backend/auth';
-import { buildGoalPartnerAccessPresentation } from './goalPartnerAccessPresentation';
+import {
+  buildGoalPartnerAccessPresentation,
+  canRemoveGoalPartnerMember,
+} from './goalPartnerAccessPresentation';
+import { buildGoalCheckinPartnerPresentation } from './goalCheckinPartnerPresentation';
 import { selectGoalPartnerPromptTrigger } from './goalPartnerPromptDecision';
 import { buildGoalProgressSignalSummaries } from './goalProgressSignals';
 import { resolveInitialGoalTargetDateForPicker } from './goalTargetDatePickerDefaults';
@@ -811,7 +815,12 @@ export function GoalDetailScreen() {
 
   const handleRemovePartner = useCallback(
     (member: SharedMember) => {
-      if (!goalId || !canRemoveGoalPartners || currentUserIds.has(member.userId.trim())) return;
+      if (
+        !goalId ||
+        !canRemoveGoalPartnerMember({ member, currentUserIds, canRemoveGoalPartners })
+      ) {
+        return;
+      }
       const partnerName = member.name?.trim() || 'this partner';
       Alert.alert(
         'Remove partner?',
@@ -878,28 +887,23 @@ export function GoalDetailScreen() {
     return buildPartnerCircleKey(sharedMembers.map((m) => m.userId));
   }, [sharedMembers]);
 
-  const partnerDisplayNames = useMemo<string[]>(
-    () =>
-      headerPartnerAvatars
-        .map((p) => (p.name ?? '').trim())
-        .filter((name) => name.length > 0),
-    [headerPartnerAvatars],
-  );
-
   const pendingDraft = useCheckinDraftStore((state) => state.draftsByGoalId[goalId] ?? null);
   const hasPendingDraft = useCheckinDraftStore((state) =>
     selectHasPendingDraft(state, goalId)
   );
-  const approvalPartnerDisplayNames = useMemo<string[]>(() => {
-    if (__DEV__ && pendingDraft?.partnerCircleKey.includes('dev-partner')) {
-      return ['Jordan'];
-    }
-    return partnerDisplayNames;
-  }, [partnerDisplayNames, pendingDraft?.partnerCircleKey]);
-  const approvalPartnerCount =
-    __DEV__ && pendingDraft?.partnerCircleKey.includes('dev-partner')
-      ? 1
-      : headerPartnerAvatars.length;
+  const {
+    partnerDisplayNames,
+    approvalPartnerDisplayNames,
+    approvalPartnerCount,
+  } = useMemo(
+    () =>
+      buildGoalCheckinPartnerPresentation({
+        partnerAvatars: headerPartnerAvatars,
+        partnerCircleKey: pendingDraft?.partnerCircleKey,
+        isDevelopment: __DEV__,
+      }),
+    [headerPartnerAvatars, pendingDraft?.partnerCircleKey],
+  );
 
   useEffect(() => {
     if (!openCheckinApprovalSheet) {

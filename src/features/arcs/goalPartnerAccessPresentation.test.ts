@@ -1,5 +1,8 @@
 import type { SharedMember } from '../../services/sharedGoals';
-import { buildGoalPartnerAccessPresentation } from './goalPartnerAccessPresentation';
+import {
+  buildGoalPartnerAccessPresentation,
+  canRemoveGoalPartnerMember,
+} from './goalPartnerAccessPresentation';
 
 function member(overrides: Partial<SharedMember> = {}): SharedMember {
   return {
@@ -10,6 +13,54 @@ function member(overrides: Partial<SharedMember> = {}): SharedMember {
     ...overrides,
   };
 }
+
+describe('canRemoveGoalPartnerMember', () => {
+  const currentUserIds = new Set(['current-user']);
+
+  it('requires owner-level removal access', () => {
+    expect(
+      canRemoveGoalPartnerMember({
+        member: member({ userId: 'partner-user' }),
+        currentUserIds,
+        canRemoveGoalPartners: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('protects the current user and explicit owner', () => {
+    expect(
+      canRemoveGoalPartnerMember({
+        member: member({ userId: ' current-user ' }),
+        currentUserIds,
+        canRemoveGoalPartners: true,
+      }),
+    ).toBe(false);
+    expect(
+      canRemoveGoalPartnerMember({
+        member: member({ userId: 'owner-user', role: 'OWNER' }),
+        currentUserIds,
+        canRemoveGoalPartners: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('allows removing another partner or co-owner', () => {
+    expect(
+      canRemoveGoalPartnerMember({
+        member: member({ userId: 'partner-user', role: 'member' }),
+        currentUserIds,
+        canRemoveGoalPartners: true,
+      }),
+    ).toBe(true);
+    expect(
+      canRemoveGoalPartnerMember({
+        member: member({ userId: 'co-owner-user', role: 'co_owner' }),
+        currentUserIds,
+        canRemoveGoalPartners: true,
+      }),
+    ).toBe(true);
+  });
+});
 
 describe('buildGoalPartnerAccessPresentation', () => {
   it('normalizes auth and profile identity aliases before finding membership', () => {
