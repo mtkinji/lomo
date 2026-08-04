@@ -400,7 +400,7 @@ Update within current majors: Bottom Sheet 5, React Native Primitives 1, Lucide 
 
 Update all React Navigation 7 packages together. Rebase `patches/react-native-drawer-layout+4.2.9.patch` if its transitive version changes and preserve `ReduceMotion.System`. Test root restore, tabs, drawer, modals, deep links, Games joins, auth redirects, and Android back behavior.
 
-- [ ] **Step 3: Data/analytics cohort**
+- [x] **Step 3: Data/analytics cohort**
 
 Update Supabase JS 2 in both root and `packages/kwilt-sdk`, PostHog React Native 4, and Zustand 5. Test session refresh, realtime subscriptions, offline/local patches, analytics initialization/opt-out, and persisted-store hydration.
 
@@ -677,3 +677,15 @@ Append one dated entry per cohort with:
 - Retained proof limits: auth callback behavior is covered by config/service tests rather than a destructive sign-out/sign-in; Android back behavior is covered by the real DrawerRouter history action test because this Mac has no `adb`, emulator, or AVD installed. No new native binary, signed-device run, or TestFlight build was required for this JavaScript-only cohort; the separate physical-device signing/background hold remains open.
 - Rollback point: `07fe332`.
 - Decision: advance to the data/analytics cohort while keeping the explicit Android-runtime and physical-device proof limits visible.
+
+### 2026-08-03 — Data and analytics cohort
+
+- Starting commit: `3028452`; implementation commit: `5eba773`.
+- Dependency diff: Supabase JS `2.78.0` -> `2.112.0` in both the app and `packages/kwilt-sdk`; PostHog React Native `4.14.3` -> `4.61.4`; and Zustand `5.0.8` -> `5.0.14`. Their transitive packages moved coherently. No Expo module, pod, config plugin, or protected commercial/native integration changed.
+- Compatibility review: Supabase `2.112.0` now requires Node 22, matching the repository's declared and tested runtime, and includes a Hermes-safe React Native export condition plus auth refresh, PKCE, Realtime, and React Native header fixes. PostHog remained in major 4 and brings queue/offline/flush, feature-flag, and survey reliability fixes; Kwilt does not configure its optional native plugin, so plugin/prebuild changes were not introduced. Zustand remained within major 5.
+- Regression repaired: on the first upgraded Simulator launch, PostHog's hook emitted an error whenever analytics was intentionally disabled and no provider existed. A regression test reproduced the log, then `usePostHogSafe` was changed to return the same optional singleton that `App.tsx` supplies to the provider when enabled. The test passed and the error was absent after reload, preserving a quiet opt-out path without initializing or emitting analytics.
+- Verification: the Node 22.23.2 clean install applied both repository patches; app and test typechecks passed; the pre/post auth, Supabase storage, domain sync, persistence, isolation, Zustand hydration, and analytics suite passed 10 suites / 104 tests; the final diff-aware gate passed 22 related suites / 116 tests with no code-health regression; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. Full Jest advanced only by the new regression suite: 521 suites / 3,295 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed. The production audit stayed at the existing 22 unrelated findings.
+- Runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout and stopped afterward. A cache-cleared bundle completed at 5,802 modules; Supabase emitted `SIGNED_IN`, `INITIAL_SESSION`, and successful session hydration; domain sync pulled and merged the persisted activities, arcs, and goals; and a reload repeated those outcomes without the PostHog missing-provider error.
+- Retained proof limits: development analytics remained intentionally disabled, so no real PostHog event was emitted and production ingestion/opt-out inspection remains a release proof item. Realtime channel behavior is contract-tested, while the live smoke proved authenticated pull/merge rather than manufacturing a remote mutation. No signed-device or TestFlight build was required for this JavaScript-only cohort; the separate signing/background hold remains open.
+- Rollback point: `3028452`.
+- Decision: advance to the commercial/native integrations cohort, which requires a stricter native and signed-device proof boundary.
