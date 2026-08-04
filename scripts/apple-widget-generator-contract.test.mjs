@@ -55,6 +55,12 @@ test('generated Focus shortcuts fall back to the standalone Focus route', () => 
   assert.match(widgetGenerator, /kwilt:\/\/today\?openStandaloneFocus=1&source=shortcut/);
 });
 
+test('generated Screen Time authorization handles the iOS 26 data-access state', () => {
+  assert.match(widgetGenerator, /status == \.approvedWithDataAccess/);
+  assert.match(widgetGenerator, /return "approved"/);
+  assert.match(widgetGenerator, /resolve\(Self\.statusString\(\)\)/);
+});
+
 test('generated Focus Live Activity balances compact identity and time, then reveals the to-do', () => {
   for (const source of [widgetGenerator, generatedWidgetSwift]) {
     assert.match(source, /DynamicIslandExpandedRegion\(\.leading\)/);

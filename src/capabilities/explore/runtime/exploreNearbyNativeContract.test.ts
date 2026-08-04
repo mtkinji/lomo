@@ -16,6 +16,7 @@ describe('Explore nearby native search contract', () => {
     expect(swift).toContain('.park');
     expect(swift).toContain('.campground');
     expect(swift).toContain('1609.344');
+    expect(swift).toContain('GenericException<String>, @unchecked Sendable');
     expect(swift).not.toContain('AsyncFunction("save');
     expect(swift).not.toContain('AsyncFunction("createMission');
   });

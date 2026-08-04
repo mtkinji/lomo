@@ -289,15 +289,19 @@ class KwiltScreenTimeProtection: NSObject {
   }
 
   @available(iOS 16.0, *)
-  private func statusString() -> String {
-    switch AuthorizationCenter.shared.authorizationStatus {
+  private static func statusString() -> String {
+    let status = AuthorizationCenter.shared.authorizationStatus
+    if #available(iOS 26.4, *), status == .approvedWithDataAccess {
+      return "approved"
+    }
+    switch status {
     case .notDetermined:
       return "notDetermined"
     case .denied:
       return "denied"
     case .approved:
       return "approved"
-    @unknown default:
+    default:
       return "unavailable"
     }
   }
@@ -383,7 +387,7 @@ class KwiltScreenTimeProtection: NSObject {
   ) {
 #if canImport(FamilyControls) && canImport(ManagedSettings) && canImport(SwiftUI)
     if #available(iOS 16.0, *) {
-      resolve(statusString())
+      resolve(Self.statusString())
       return
     }
 #endif
@@ -414,7 +418,7 @@ class KwiltScreenTimeProtection: NSObject {
       Task {
         do {
           try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-          DispatchQueue.main.async { resolve(self.statusString()) }
+          DispatchQueue.main.async { resolve(Self.statusString()) }
         } catch {
           DispatchQueue.main.async { resolve("unavailable") }
         }

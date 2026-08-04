@@ -74,10 +74,10 @@ public final class KwiltPlaceSearchModule: Module {
   }
 }
 
-private final class InvalidPlaceSearchException: GenericException<String> {
+private final class InvalidPlaceSearchException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
 }
 
-private final class PlaceSearchException: GenericException<String> {
+private final class PlaceSearchException: GenericException<String>, @unchecked Sendable {
   override var reason: String { param }
 }

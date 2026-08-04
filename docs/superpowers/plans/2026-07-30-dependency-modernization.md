@@ -431,7 +431,7 @@ Do not independently upgrade React, React Native, Expo modules, Jest 30, Testing
 
 Record every applicable removal, config change, minimum tool version, and native project change in the baseline document. Confirm New Architecture remains enabled and all third-party native modules support React Native 0.83.
 
-- [ ] **Step 2: Upgrade only to SDK 55**
+- [x] **Step 2: Upgrade only to SDK 55**
 
 ```bash
 npm install expo@^55.0.0
@@ -442,7 +442,7 @@ npx pod-install ios
 
 Before running Expo's fixer, add `react-native-maps` to `expo.install.exclude`. Keep the patched `1.20.1` package for this cohort and prove that it compiles and that Silver Mist still renders under React Native 0.83. Porting the patch to Expo's recommended Maps `1.27.2` is a separate, explicitly reviewed native cohort.
 
-- [ ] **Step 3: Inspect the dependency and native diffs**
+- [x] **Step 3: Inspect the dependency and native diffs**
 
 Verify React 19.2, React Native 0.83, Expo package alignment, extension targets, entitlements, App Group, Family Controls capability, associated domains, location/background modes, privacy manifest, and deployment targets.
 
@@ -713,3 +713,17 @@ Append one dated entry per cohort with:
 - Deferred boundaries: Testing Library 14, Jest/types 30, TypeScript 7, React type 19.2, HTTPS Proxy Agent 9, Expo/Jest Expo 57, and all independent runtime/native majors remain outside this cohort. The commercial/native signed-device hold remains open.
 - Rollback point: `a511f9a`.
 - Decision: complete Task 6's bounded current-major updates and deliberate major deferrals. Advance only to the SDK 55 release-note/native-diff review before changing Expo.
+
+### 2026-08-03 — Expo SDK 55 implementation checkpoint
+
+- Starting/rollback commit: `112c2a5`.
+- Framework diff: Expo `54.0.36` -> `55.0.28`, React `19.1.0` -> `19.2.0`, React Native `0.81.5` -> `0.83.10`, and all Expo-owned native packages aligned to SDK 55. Reanimated moved `4.1.5` -> `4.2.1`, Worklets `0.5.1` -> `0.7.4`, Gesture Handler `2.28.0` -> `2.30.1`, Screens `4.16.0` -> `4.23.0`, SVG `15.12.1` -> `15.15.3`, WebView `13.15.0` -> `13.16.0`, DateTimePicker `8.4.4` -> `8.6.0`, and Picker `2.11.1` -> `2.11.4`. `expo-system-ui@55.0.20` is now direct because Kwilt configures `userInterfaceStyle`.
+- Protected dependency boundary: Maps remains exactly `1.20.1`; `expo.install.exclude` prevents Expo's fixer from replacing the patched Silver Mist implementation with 1.27.2. HealthKit 14.0.2, Nitro 0.35.5, Plaid 13.0.3, RevenueCat 9.15.2, Safe Area 5.6.2, and all other independently owned majors did not move. A React Native Windows 0.83.2 override constrains DateTimePicker's unused wildcard optional peer so normal `npm ci` resolves without a repository-wide legacy-peer setting; React Native Windows is not installed.
+- Config migration: removed SDK 55's invalid root `notification`, `newArchEnabled`, and Android `edgeToEdgeEnabled` fields; migrated notification icon/color to the plugin. The evaluated config reports SDK 55 and omits all three removed fields. Expo Modules Core remains transitive/hoisted and is imported directly only through Expo's installed tree, satisfying Doctor.
+- Generated-native inspection: regenerated ignored iOS and Android projects from tracked config/plugin sources. iOS retained the app, widget/Live Activity, and two Screen Time targets; App Group, Family Controls, HealthKit, push, associated domains, background modes, extension bundle IDs, and deployment targets remained present. The SDK 55 AppDelegate/Podfile template changes matched the Upgrade Helper. Android uses `ExpoReactHostFactory`, Gradle 9.0.0, mandatory edge-to-edge configuration, bounded storage permissions, foreground audio/location permissions, and generated notification icon/color resources. No generated native directory is staged.
+- Swift 6/Xcode 26 compatibility: Kwilt's three local Expo modules now restate inherited unchecked sendability. The Screen Time generator treats iOS 26.4's `approvedWithDataAccess` as approved and avoids capturing a non-Sendable module instance. Focused source/generator contracts pass, and the follow-up Xcode build removed those Kwilt-owned warnings.
+- Install/test verification: Node 22.23.2 clean `npm ci` succeeds and reapplies both patches; Expo install check passes with the documented Maps exclusion; Expo Doctor passes 19/19; app/test typechecks and diff-aware verification pass. Reanimated 4.2 initially broke 78 Jest suites because its mock imported Worklets 0.7 before a JSI mock existed; the official Worklets source mock is now installed first. Full Jest returned to the exact established baseline: 521 suites / 3,295 tests pass, one skipped, and only the same 15 Pixel Pet runner mismatches fail.
+- Native/runtime proof: CocoaPods installed 135 pods, including all commercial integrations and Expo System UI. A no-build-cache iPhone 17 Pro Simulator build compiled React Native 0.83, the custom Swift/Objective-C sources, all extensions, and patched `AIRMapMetalFogView`; it succeeded with 0 errors. Build 100 installed, Metro bundled 5,770 modules, the session restored, push registration succeeded, domain sync completed, and an Explore deep link activated the Metal fog surface without a fatal runtime error. The follow-up compiler pass also succeeded. Retained warnings are upstream/dependency deprecations, build-script dependency declarations, the Maps privacy bundle's iOS 11 target, and the existing Simulator Metal toolchain search path.
+- Security comparison: audit posture improved from 27 all-scope / 22 production findings to 19 all-scope / 14 production findings without audit fixes. The remaining production high/critical findings are the existing `@xmldom/xmldom` path and `shell-quote` through React Native development tooling; no new high/critical direct runtime dependency appeared.
+- Remaining Step 4 gate: broader minimum-flow Simulator smoke, a newly built signed-device binary, notification/background/location/audio/HealthKit/Plaid/RevenueCat/Screen Time/widget proof, TestFlight, and at least 48 hours of normal dogfood use remain open. Android generation is inspected, but this Mac has no configured Android emulator/ADB runtime. Do not tag or advance to SDK 56 until these gates pass.
+- Decision: accept and push the bounded SDK 55 implementation checkpoint while keeping Task 7 Steps 4 and 5 open.

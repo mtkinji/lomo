@@ -136,18 +136,9 @@ const config = {
   orientation: 'default',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
-  notification: {
-    // Use a flat, monochrome logo for the small status-bar icon on Android.
-    // This should be a white glyph on a transparent background.
-    icon: './assets/icon.png',
-    color: '#1F5226',
-  },
-  // NOTE:
-  // Reanimated v4+ requires the New Architecture on iOS (pods assert otherwise).
-  // We keep New Arch enabled and instead guard against native SVG crashes by
+  // NOTE: SDK 55 requires the New Architecture. Guard against native SVG crashes by
   // optionally shimming `react-native-svg` at bundle time via `KWILT_SVG_SHIM=1`
   // (see `metro.config.js`).
-  newArchEnabled: true,
   splash: {
     // No image - just a solid color that matches the in-app LaunchScreen.
     // This avoids a brief "flash" of a different logo before the JS LaunchScreen loads.
@@ -222,7 +213,6 @@ const config = {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#ffffff',
     },
-    edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     permissions: [
       'ACCESS_COARSE_LOCATION',
@@ -271,7 +261,15 @@ const config = {
           'Kwilt uses the camera so you can take a photo to attach to a to-do; for example, snapping a receipt to log an expense or a finished workout as proof of show-up.',
       },
     ],
-    'expo-notifications',
+    [
+      'expo-notifications',
+      {
+        // Use a flat, monochrome logo for the small status-bar icon on Android.
+        // This should be a white glyph on a transparent background.
+        icon: './assets/icon.png',
+        color: '#1F5226',
+      },
+    ],
     'expo-localization',
     [
       'expo-location',
