@@ -150,8 +150,16 @@ export function startGlanceableStateSync(): void {
         activityViews: next.activityViews,
       });
     },
-    { fireImmediately: true },
+    {
+      fireImmediately: true,
+      equalityFn: (a, b) =>
+        a.activities === b.activities &&
+        a.goals === b.goals &&
+        a.arcs === b.arcs &&
+        a.contextGoalId === b.contextGoalId &&
+        a.currentShowUpStreak === b.currentShowUpStreak &&
+        a.activityViews === b.activityViews,
+    },
   );
 }
-
 
