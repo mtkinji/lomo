@@ -1,6 +1,6 @@
 {
   "name": "kwilt",
-  "version": "1.0.100",
+  "version": "1.0.101",
   "main": "index.ts",
   "engines": {
     "node": ">=22.13.0 <23"
