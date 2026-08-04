@@ -3281,6 +3281,8 @@ export function IdentityAspirationFlow({
                 <Pressable
                   key={option.id}
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
                   onPress={() => {
                     void HapticsService.trigger('canvas.selection');
                     const previousSelected = MEANING_OPTIONS.filter((o) =>
@@ -3335,6 +3337,8 @@ export function IdentityAspirationFlow({
               styles.fullWidthOption,
               whyNowIds.includes(option.id) && styles.fullWidthOptionSelected,
             ]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: whyNowIds.includes(option.id) }}
             onPress={() => {
               void HapticsService.trigger('canvas.selection');
               handleConfirmWhyNow(option.label, option.id);
@@ -3379,6 +3383,8 @@ export function IdentityAspirationFlow({
                 <Pressable
                   key={option.id}
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
                   onPress={() => {
                     void HapticsService.trigger('canvas.selection');
                     const previousSelected = IMPACT_OPTIONS.filter((o) => impactIds.includes(o.id));
@@ -3444,6 +3450,8 @@ export function IdentityAspirationFlow({
                   key={option.id}
                   size="small"
                   variant="ghost"
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
                   style={[styles.chip, selected && styles.chipSelected]}
                   onPress={() => {
                     const previousSelected = VALUES_OPTIONS.filter((o) => valueIds.includes(o.id));
@@ -3499,6 +3507,8 @@ export function IdentityAspirationFlow({
                 <Pressable
                   key={option.id}
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
                   onPress={() => {
                     const previousSelected = PHILOSOPHY_OPTIONS.filter((o) =>
                       philosophyIds.includes(o.id)
@@ -3564,6 +3574,8 @@ export function IdentityAspirationFlow({
                 <Pressable
                   key={option.id}
                   style={[styles.fullWidthOption, selected && styles.fullWidthOptionSelected]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
                   onPress={() => {
                     const previousSelected = VOCATION_OPTIONS.filter((o) =>
                       vocationIds.includes(o.id)

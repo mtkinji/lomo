@@ -926,6 +926,9 @@ function DateValueInput({ field, operator, value, onChange, onChangeOperator }: 
         showSoftInputOnFocus={false}
         trailingIcon="today"
         onPressTrailingIcon={() => setIsPickerVisible(true)}
+        trailingIconAccessibilityLabel={
+          field === 'reminderAt' ? 'Choose reminder date' : 'Choose due date'
+        }
       />
 
       <Dialog

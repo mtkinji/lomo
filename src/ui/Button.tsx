@@ -127,19 +127,31 @@ export const Button = forwardRef<React.ElementRef<typeof Pressable>, Props>(func
   const shouldWrapChildrenAsLabel =
     typeof resolvedChildren === 'string' || typeof resolvedChildren === 'number';
   const labelTone = variantTokens.textTone;
-  const { onPress, ...pressableRest } = rest;
+  const { onPress, accessibilityRole, hitSlop, ...pressableRest } = rest;
   const onPressWithHaptics = React.useMemo(() => withHapticPress(onPress as any, haptic), [onPress, haptic]);
+  const visualTargetSize = isIconOnly ? iconButtonSize ?? 28 : sizeTokens.height;
+  const minimumTargetInset = Math.max(0, (44 - visualTargetSize) / 2);
+  const resolvedHitSlop = hitSlop ?? (minimumTargetInset > 0
+    ? {
+        top: minimumTargetInset,
+        bottom: minimumTargetInset,
+        left: minimumTargetInset,
+        right: minimumTargetInset,
+      }
+    : undefined);
 
   return (
     <Pressable
       ref={ref}
       {...pressableRest}
+      accessibilityRole={accessibilityRole ?? 'button'}
+      hitSlop={resolvedHitSlop}
       onPress={onPressWithHaptics as any}
       style={({ pressed }) => [
         // Base shape + sizing
         !isIconOnly && {
           borderRadius: 12,
-          height: sizeTokens.height,
+          minHeight: sizeTokens.height,
           paddingHorizontal: sizeTokens.paddingHorizontal,
           paddingVertical: sizeTokens.paddingVertical,
           alignItems: 'center',
@@ -232,7 +244,7 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
       variantTokens.borderWidth ?? (shouldReserveBorderSpace ? 1 : 0);
     const resolvedBorderColor =
       variantTokens.borderColor ?? (shouldReserveBorderSpace ? 'transparent' : 'transparent');
-    const { onPress, ...pressableRest } = rest;
+    const { onPress, accessibilityRole, ...pressableRest } = rest;
     const onPressWithHaptics = React.useMemo(
       () => withHapticPress(onPress as any, 'canvas.selection'),
       [onPress],
@@ -241,6 +253,7 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
       <Pressable
         ref={ref}
         {...pressableRest}
+        accessibilityRole={accessibilityRole ?? 'button'}
         onPress={onPressWithHaptics as any}
         style={({ pressed }) => [
           {
@@ -267,4 +280,3 @@ export const IconButton = forwardRef<React.ElementRef<typeof Pressable>, IconBut
     );
   },
 );
-

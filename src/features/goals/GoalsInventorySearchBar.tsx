@@ -49,6 +49,7 @@ export function GoalsInventorySearchBar({
           leadingIcon="search"
           trailingIcon={isSearching ? 'close' : undefined}
           onPressTrailingIcon={isSearching ? onClear : undefined}
+          trailingIconAccessibilityLabel={isSearching ? 'Clear goal search' : undefined}
           variant="filled"
           elevation="flat"
           autoCorrect={false}

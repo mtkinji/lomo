@@ -96,16 +96,19 @@ export function Text({ style, children, variant = 'bodySm', tone = 'default', ..
 /**
  * App-level heading primitive. Mirrors `typography.title*` plus color tokens.
  */
-export function Heading({
+export const Heading = React.forwardRef<React.ElementRef<typeof RNText>, AppHeadingProps>(function Heading({
   style,
   children,
   variant = 'sm',
   tone = 'default',
+  accessibilityRole,
   ...rest
-}: AppHeadingProps) {
+}, ref) {
   return (
     <RNText
+      ref={ref}
       {...rest}
+      accessibilityRole={accessibilityRole ?? 'header'}
       style={[
         {
           ...getHeadingVariantStyle(variant),
@@ -117,7 +120,7 @@ export function Heading({
       {children}
     </RNText>
   );
-}
+});
 
 /**
  * Canonical button label primitive. Use this for any text placed inside a
@@ -153,4 +156,3 @@ export function ButtonLabel({
     </RNText>
   );
 }
-

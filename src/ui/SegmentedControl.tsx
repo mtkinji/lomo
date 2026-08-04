@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, spacing, typography, fonts } from '../theme';
 import { Text } from './Typography';
+import { useAccessibilityPreferences } from './hooks/useAccessibilityPreferences';
 
 type SegmentedOption<Value extends string> = {
   value: Value;
@@ -39,10 +40,17 @@ export function SegmentedControl<Value extends string>({
   const thumbX = useRef(new Animated.Value(0)).current;
   const thumbWidth = useRef(new Animated.Value(0)).current;
   const isCompact = size === 'compact';
+  const { reduceMotionEnabled } = useAccessibilityPreferences();
 
   useEffect(() => {
     const layout = layouts[value as string];
     if (!layout) return;
+
+    if (reduceMotionEnabled) {
+      thumbX.setValue(layout.x);
+      thumbWidth.setValue(layout.width);
+      return;
+    }
 
     Animated.spring(thumbX, {
       toValue: layout.x,
@@ -58,7 +66,7 @@ export function SegmentedControl<Value extends string>({
       mass: 0.7,
       useNativeDriver: false,
     }).start();
-  }, [layouts, thumbWidth, thumbX, value]);
+  }, [layouts, reduceMotionEnabled, thumbWidth, thumbX, value]);
 
   return (
     <View style={[styles.outer, style]}>
@@ -78,7 +86,7 @@ export function SegmentedControl<Value extends string>({
           <Pressable
             key={option.value}
             testID={testIDPrefix ? `${testIDPrefix}.${String(option.value)}` : undefined}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityState={{ selected: isSelected }}
             style={[styles.segment, isCompact && styles.segmentCompact]}
             onLayout={(event) => {
@@ -157,4 +165,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
   },
 });
-

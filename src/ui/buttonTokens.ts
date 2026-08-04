@@ -151,8 +151,7 @@ export const BUTTON_VARIANT_TOKENS: Record<
     backgroundColor: colors.turmeric,
     borderWidth: 1,
     borderColor: colors.turmeric,
-    textTone: 'inverse',
+    textTone: 'default',
   },
 };
-
 
