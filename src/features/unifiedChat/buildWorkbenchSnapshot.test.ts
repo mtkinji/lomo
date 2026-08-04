@@ -281,6 +281,42 @@ describe('buildWorkbenchSnapshot', () => {
     });
   });
 
+  test('projects outcome order and resolves prerequisites to proposal ids', () => {
+    const baseProposal = {
+      threadId: 'thread-1', runId: 'run-1', messageId: 'message-2', capabilityId: 'todos' as const,
+      body: 'Prepared change.', status: 'pending' as const, version: 1,
+      createdAt: '2026-07-22T12:00:00.000Z', updatedAt: '2026-07-22T12:00:00.000Z',
+    };
+    const snapshot = buildWorkbenchSnapshot({
+      ...aggregate,
+      proposals: [
+        {
+          ...baseProposal, id: 'proposal-first', title: 'First',
+          operation: {
+            id: 'operation-first', proposalId: 'proposal-first', capabilityId: 'todos' as const,
+            type: 'create_activity' as const, targetId: null, summary: 'First',
+            payload: { title: 'First' }, idempotencyKey: 'run-1:first', sequence: 1,
+            outcomeStep: { sequence: 1, dependsOnSequence: null },
+          },
+        },
+        {
+          ...baseProposal, id: 'proposal-second', title: 'Second',
+          operation: {
+            id: 'operation-second', proposalId: 'proposal-second', capabilityId: 'todos' as const,
+            type: 'create_activity' as const, targetId: null, summary: 'Second',
+            payload: { title: 'Second' }, idempotencyKey: 'run-1:second', sequence: 1,
+            outcomeStep: { sequence: 2, dependsOnSequence: 1 },
+          },
+        },
+      ],
+    });
+
+    expect(snapshot.proposals.map((proposal) => proposal.outcome)).toEqual([
+      { sequence: 1 },
+      { sequence: 2, dependsOnProposalId: 'proposal-first' },
+    ]);
+  });
+
   test('projects Plan schedule proposals without calendar credentials and labels their receipts', () => {
     const run = {
       id: 'run-plan', threadId: 'thread-1', userMessageId: 'message-1', assistantMessageId: null,

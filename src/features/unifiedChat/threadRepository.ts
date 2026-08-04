@@ -276,14 +276,28 @@ function mapEvidence(row: DbRow): UnifiedChatEvidenceRef | null {
 }
 
 function mapLoadedOperation(row: DbRow): UnifiedChatProposalOperation | null {
+  const rawPayload = row.payload && typeof row.payload === 'object'
+    ? row.payload as Record<string, unknown>
+    : {};
+  const rawOutcomeStep = rawPayload._outcomeStep;
+  const outcomeStep = rawOutcomeStep && typeof rawOutcomeStep === 'object' &&
+      Number.isInteger((rawOutcomeStep as DbRow).sequence) && Number((rawOutcomeStep as DbRow).sequence) > 0 &&
+      ((rawOutcomeStep as DbRow).dependsOnSequence === null ||
+        (Number.isInteger((rawOutcomeStep as DbRow).dependsOnSequence) && Number((rawOutcomeStep as DbRow).dependsOnSequence) > 0))
+    ? {
+        sequence: Number((rawOutcomeStep as DbRow).sequence),
+        dependsOnSequence: (rawOutcomeStep as DbRow).dependsOnSequence === null
+          ? null
+          : Number((rawOutcomeStep as DbRow).dependsOnSequence),
+      }
+    : undefined;
   const base = {
     id: String(row.id), proposalId: String(row.proposal_id),
     summary: String(row.summary), idempotencyKey: String(row.idempotency_key),
     sequence: Number(row.sequence) || 1,
+    ...(outcomeStep ? { outcomeStep } : {}),
   };
-  const payload = row.payload && typeof row.payload === 'object'
-    ? row.payload as Record<string, unknown>
-    : {};
+  const { _outcomeStep: _storedOutcomeStep, ...payload } = rawPayload;
   if (
     row.capability_id === 'money' && row.operation_type === 'create_money_category' &&
     row.target_id == null && typeof payload.name === 'string' &&
@@ -993,10 +1007,14 @@ export function createUnifiedChatRepository(
           target_id: input.operation.targetId,
           summary: input.operation.summary,
           payload: input.capabilityId === 'screenTime'
-            ? input.operation.payload
+            ? {
+                ...input.operation.payload,
+                ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
+              }
             : {
                 ...input.operation.payload,
                 expectedUpdatedAt,
+                ...(input.outcomeStep ? { _outcomeStep: input.outcomeStep } : {}),
               },
           idempotency_key: input.operation.idempotencyKey,
           sequence: 1,

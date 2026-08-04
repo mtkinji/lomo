@@ -645,6 +645,7 @@ describe('Unified Chat repository', () => {
       title: 'Move library visit',
       body: 'Changes the scheduled date.',
       permissionPolicy: { requiresExplicitApproval: true },
+      outcomeStep: { sequence: 2, dependsOnSequence: 1 },
       operation: {
         type: 'update_activity',
         targetId: 'activity-library',
@@ -663,6 +664,7 @@ describe('Unified Chat repository', () => {
         payload: expect.objectContaining({
           scheduledDate: '2026-07-25',
           expectedUpdatedAt: '2026-07-21T13:00:00.000Z',
+          _outcomeStep: { sequence: 2, dependsOnSequence: 1 },
         }),
       })],
     });

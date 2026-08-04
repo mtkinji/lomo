@@ -27,6 +27,7 @@ import { createUnifiedChatRepository } from './threadRepository';
 import { runUnifiedChatTurn } from './runUnifiedChatTurn';
 import type {
   UnifiedChatClientAction,
+  UnifiedChatProposal,
   UnifiedChatThread,
   UnifiedChatThreadAggregate,
 } from './types';
@@ -83,7 +84,7 @@ import { executeGoalProposalDecision } from './executeGoalProposalDecision';
 import { executeScreenTimeProposalDecision } from './executeScreenTimeProposalDecision';
 import { getSupabaseClient } from '../../services/backend/supabaseClient';
 import { applyApprovedPlanProposal } from './planProposalExecutor';
-import { executePlanProposalBatch } from './executePlanProposalBatch';
+import { executeProposalOutcomeBatch } from './executeProposalOutcomeBatch';
 import { recoverPlanMutations } from './recoverPlanMutations';
 import { recoverGoalMutations } from './recoverGoalMutations';
 import { executeArcProposalDecision } from './executeArcProposalDecision';
@@ -791,46 +792,50 @@ export function UnifiedChatScreen() {
       if (command.type === 'proposal.decide_many' && aggregate) {
         setError(null);
         try {
-          const selected = command.items.map((item) =>
-            (aggregate.proposals ?? []).find((proposal) => proposal.id === item.proposalId));
-          if (selected.length > 0 && selected.every((proposal) => proposal?.capabilityId === 'money')) {
-            for (const [index, candidate] of selected.entries()) {
-              const item = command.items[index]!;
-              if (!candidate || candidate.capabilityId !== 'money' || candidate.status !== 'pending' ||
-                  candidate.version !== item.expectedVersion) {
-                throw new Error('One or more Money category changes changed. Review the latest suggestions and try again.');
-              }
-              await executeMoneyCategoryProposalDecision({
-                proposal: candidate, action: 'approve', repository, moneyRepository,
+          const executeApprovedProposal = async (proposal: UnifiedChatProposal) => {
+            if (proposal.capabilityId === 'money') {
+              await executeMoneyCategoryProposalDecision({ proposal, action: 'approve', repository, moneyRepository });
+            } else if (proposal.capabilityId === 'screenTime') {
+              await executeScreenTimeProposalDecision({
+                proposal, action: 'approve', repository, client: getSupabaseClient(),
               });
+            } else if (proposal.capabilityId === 'plan') {
+              await executePlanProposalDecision({
+                proposal, action: 'approve', repository,
+                apply: (approved) => applyApprovedPlanProposal({ proposal: approved, store: planStoreBoundary }),
+              });
+            } else if (proposal.capabilityId === 'arcs') {
+              await executeArcProposalDecision({ proposal, action: 'approve', repository, store: arcStoreBoundary });
+            } else if (proposal.capabilityId === 'goals') {
+              await executeGoalProposalDecision({ proposal, action: 'approve', repository, store: goalStoreBoundary });
+            } else if (proposal.capabilityId === 'profile') {
+              await executeProfileProposalDecision({ proposal, action: 'approve', repository, store: profileStoreBoundary });
+            } else if (proposal.capabilityId === 'chapters') {
+              await executeChapterProposalDecision({ proposal, action: 'approve', repository, store: chapterStoreBoundary });
+            } else if (proposal.capabilityId === 'todos') {
+              await executeProposalDecision({
+                proposal, action: 'approve', repository, store: activityStoreBoundary,
+              });
+            } else {
+              throw new Error('This relationship change must be reviewed separately.');
             }
-            setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
-            return;
-          }
-          const result = await executePlanProposalBatch({
+          };
+          const result = await executeProposalOutcomeBatch({
             proposals: aggregate.proposals ?? [],
             items: command.items,
-            execute: (proposal) => executePlanProposalDecision({
-              proposal,
-              action: 'approve',
-              repository,
-              apply: (approved) => applyApprovedPlanProposal({
-                proposal: approved,
-                store: planStoreBoundary,
-              }),
-            }),
+            execute: executeApprovedProposal,
           });
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
-          if (result.failed.length > 0) {
+          if (result.failed.length > 0 || result.skipped.length > 0) {
             setError(
               result.applied.length > 0
-                ? `${result.applied.length} added to Plan; ${result.failed.length} could not be added.`
-                : result.failed[0].message,
+                ? `${result.applied.length} applied; ${result.failed.length} failed and ${result.skipped.length} skipped.`
+                : result.failed[0]?.message ?? result.skipped[0]?.reason ?? 'Kwilt could not apply that outcome.',
             );
           }
         } catch (decisionError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not add those Plan items.');
+          setError(decisionError instanceof Error ? decisionError.message : 'Kwilt could not apply that outcome.');
         }
         return;
       }
@@ -1017,28 +1022,44 @@ export function UnifiedChatScreen() {
         if (target) navigateWhenReady(target.route.name, target.route.params);
         return;
       }
-      if (command.type === 'receipt.undo' && aggregate) {
-        const receipt = (aggregate.receipts ?? []).find((item) => item.id === command.receiptId);
-        const proposal = receipt
-          ? (aggregate.proposals ?? []).find((item) => item.id === receipt.proposalId)
-          : undefined;
-        if (!receipt || !proposal || !receipt.canUndo) return;
+      if ((command.type === 'receipt.undo' || command.type === 'receipt.undo_many') && aggregate) {
+        const requestedReceiptIds = command.type === 'receipt.undo_many' ? command.receiptIds : [command.receiptId];
+        const selectedReceipts = requestedReceiptIds.map((receiptId) =>
+          (aggregate.receipts ?? []).find((item) => item.id === receiptId));
+        if (selectedReceipts.some((receipt) => !receipt || !receipt.canUndo)) return;
+        const selectedOutcomeRunIds = new Set(selectedReceipts.flatMap((receipt) => {
+          const proposal = receipt
+            ? (aggregate.proposals ?? []).find((item) => item.id === receipt.proposalId)
+            : undefined;
+          return proposal ? [proposal.runId] : [];
+        }));
+        if (selectedOutcomeRunIds.size !== 1) return;
+        const orderedReceipts = selectedReceipts.flatMap((receipt) => receipt ? [receipt] : []).sort((left, right) => {
+          const leftProposal = (aggregate.proposals ?? []).find((item) => item.id === left.proposalId);
+          const rightProposal = (aggregate.proposals ?? []).find((item) => item.id === right.proposalId);
+          return (rightProposal?.operation.outcomeStep?.sequence ?? 0) -
+            (leftProposal?.operation.outcomeStep?.sequence ?? 0);
+        });
         setError(null);
         try {
-          await executeReceiptUndo({
-            receipt, proposal, repository, store: activityStoreBoundary, planStore: planStoreBoundary,
-            goalStore: goalStoreBoundary, arcStore: arcStoreBoundary,
-            profileStore: profileStoreBoundary,
-            chapterStore: chapterStoreBoundary,
-            relationshipUndo: receipt.capabilityId === 'relationships'
-              ? createRelationshipMemoryToolProvider({}).undoReceipt
-              : undefined,
-            moneyRepository,
-          });
+          for (const receipt of orderedReceipts) {
+            const proposal = (aggregate.proposals ?? []).find((item) => item.id === receipt.proposalId);
+            if (!proposal) throw new Error('The original change could not be found.');
+            await executeReceiptUndo({
+              receipt, proposal, repository, store: activityStoreBoundary, planStore: planStoreBoundary,
+              goalStore: goalStoreBoundary, arcStore: arcStoreBoundary,
+              profileStore: profileStoreBoundary,
+              chapterStore: chapterStoreBoundary,
+              relationshipUndo: receipt.capabilityId === 'relationships'
+                ? createRelationshipMemoryToolProvider({}).undoReceipt
+                : undefined,
+              moneyRepository,
+            });
+          }
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id));
         } catch (undoError) {
           setAggregate(await loadThreadWithRecovery(aggregate.thread.id).catch(() => aggregate));
-          setError(undoError instanceof Error ? undoError.message : 'Kwilt could not undo that change.');
+          setError(undoError instanceof Error ? undoError.message : 'Kwilt could not undo that outcome.');
         }
         return;
       }

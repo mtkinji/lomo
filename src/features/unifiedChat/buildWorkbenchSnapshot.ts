@@ -394,6 +394,7 @@ export function buildWorkbenchSnapshot(
     (aggregate.proposals ?? [])
       .filter((proposal) =>
         proposal.operation.type === 'create_activity' &&
+        (aggregate.proposals ?? []).filter((candidate) => candidate.runId === proposal.runId).length === 1 &&
         (proposal.status === 'applied' || proposal.status === 'undone'),
       )
       .map((proposal) => proposal.id),
@@ -402,6 +403,11 @@ export function buildWorkbenchSnapshot(
     (aggregate.proposals ?? [])
       .filter((proposal) => compactCreateProposals.has(proposal.id) && proposal.messageId)
       .map((proposal) => proposal.messageId as string),
+  );
+  const proposalIdByOutcomeSequence = new Map(
+    (aggregate.proposals ?? []).flatMap((proposal) => proposal.operation.outcomeStep
+      ? [[`${proposal.runId}:${proposal.operation.outcomeStep.sequence}`, proposal.id] as const]
+      : []),
   );
   const snapshot: AgentWorkbenchSnapshot = {
     product: buildKwiltWorkbenchProduct(),
@@ -500,6 +506,16 @@ export function buildWorkbenchSnapshot(
         body: proposal.body,
         status: proposal.status,
         version: proposal.version,
+        ...(proposal.operation.outcomeStep ? {
+          outcome: {
+            sequence: proposal.operation.outcomeStep.sequence,
+            ...(proposal.operation.outcomeStep.dependsOnSequence === null ? {} : {
+              dependsOnProposalId: proposalIdByOutcomeSequence.get(
+                `${proposal.runId}:${proposal.operation.outcomeStep.dependsOnSequence}`,
+              ),
+            }),
+          },
+        } : {}),
         operation: {
           id: proposal.operation.id,
           type: proposal.operation.type,

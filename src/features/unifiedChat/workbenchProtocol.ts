@@ -98,6 +98,10 @@ export type AgentWorkbenchProposal = {
   body: string;
   status: 'pending' | 'edited' | 'rejected' | 'deferred' | 'approved' | 'applying' | 'applied' | 'failed' | 'undone';
   version: number;
+  outcome?: {
+    sequence: number;
+    dependsOnProposalId?: string;
+  };
   operation: {
     id: string;
     type: 'create_activity' | 'update_activity' | 'delete_activity' | 'create_activity_step' |
@@ -231,6 +235,7 @@ export type SupportedAgentWorkbenchCommand =
       }>;
     }
   | { type: 'receipt.undo'; receiptId: string }
+  | { type: 'receipt.undo_many'; receiptIds: string[] }
   | { type: 'receipt.open'; receiptId: string }
   | {
       type: 'artifact.update';
@@ -392,6 +397,12 @@ function parseCommand(value: unknown): SupportedAgentWorkbenchCommand | null {
       }
       return { type: 'proposal.decide_many', items };
     }
+    case 'receipt.undo_many':
+      return Array.isArray(value.receiptIds) && value.receiptIds.length > 0 && value.receiptIds.length <= 12 &&
+        value.receiptIds.every((receiptId) => typeof receiptId === 'string' && receiptId.trim().length > 0) &&
+        new Set(value.receiptIds).size === value.receiptIds.length
+        ? { type: 'receipt.undo_many', receiptIds: value.receiptIds.map(String) }
+        : null;
     case 'receipt.undo':
     case 'receipt.open':
       return hasText(value, 'receiptId')

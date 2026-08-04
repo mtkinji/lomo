@@ -48,7 +48,8 @@ export function buildAgentJudgmentGrounding(agentJudgment: AgentJudgment | null)
   const constraints = agentJudgment.constraints.map((constraint) => constraint.sourceText).join('; ') || 'none';
   const steps = agentJudgment.steps.map((step) => {
     const objective = /[.!?]$/.test(step.objective) ? step.objective : `${step.objective}.`;
-    return `${step.sequence}. ${objective}`;
+    const dependency = step.dependsOn === null ? '' : ` (after step ${step.dependsOn})`;
+    return `${step.sequence}. ${objective}${dependency}`;
   }).join('\n') || '- none';
   return [
     `User job: ${agentJudgment.userJob}.`,

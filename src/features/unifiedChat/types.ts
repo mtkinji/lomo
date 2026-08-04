@@ -357,6 +357,10 @@ type UnifiedChatProposalOperationBase = {
   summary: string;
   idempotencyKey: string;
   sequence: number;
+  outcomeStep?: {
+    sequence: number;
+    dependsOnSequence: number | null;
+  };
 };
 
 export type PlanScheduleActivityPayload = {
@@ -590,6 +594,10 @@ type CreateUnifiedChatProposalInputBase = {
   title: string;
   body: string;
   permissionPolicy: { requiresExplicitApproval: true };
+  outcomeStep?: {
+    sequence: number;
+    dependsOnSequence: number | null;
+  };
 };
 
 type CreatePlanProposalOperationInput = (

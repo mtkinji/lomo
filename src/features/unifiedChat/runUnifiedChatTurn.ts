@@ -411,6 +411,7 @@ export async function runUnifiedChatTurn(
       actionResponse,
       toolProvider,
       runtimeToolEvents,
+      agentJudgment: plannedTurn.agentJudgment,
       artifactDraft,
       requestPolicy,
       snapshots,

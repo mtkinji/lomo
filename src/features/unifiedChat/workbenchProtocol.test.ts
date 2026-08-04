@@ -56,6 +56,7 @@ describe('Unified Chat workbench protocol', () => {
       ],
     },
     { type: 'receipt.undo', receiptId: 'receipt-1' },
+    { type: 'receipt.undo_many', receiptIds: ['receipt-2', 'receipt-1'] },
     { type: 'receipt.open', receiptId: 'receipt-plan-1' },
     { type: 'artifact.update', artifactId: 'artifact-1', expectedVersion: 1, title: 'Email', content: 'Hello' },
     { type: 'source.open', url: 'https://weather.example/lehi' },

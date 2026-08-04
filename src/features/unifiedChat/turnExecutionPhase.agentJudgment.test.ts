@@ -36,8 +36,8 @@ test('grounds the job and exposes only judgment-selected tools', () => {
     'Execution mode: multi_tool.',
     'Planned steps:',
     '1. Read next week\'s Plan.',
-    '2. Capture the prerequisite call.',
-    '3. Propose placement after the read result.',
+    '2. Capture the prerequisite call. (after step 1)',
+    '3. Propose placement after the read result. (after step 2)',
   ].join('\n'));
   expect(selectAgentJudgmentTools(UNIFIED_CHAT_TOOL_CATALOG, judgment).map((tool) => tool.id)).toEqual([
     'plan.read_day_context',
