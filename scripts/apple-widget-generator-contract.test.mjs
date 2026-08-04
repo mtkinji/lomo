@@ -56,7 +56,8 @@ test('generated Focus shortcuts fall back to the standalone Focus route', () => 
 });
 
 test('generated Screen Time authorization handles the iOS 26 data-access state', () => {
-  assert.match(widgetGenerator, /status == \.approvedWithDataAccess/);
+  assert.match(widgetGenerator, /status\.rawValue == 3/);
+  assert.doesNotMatch(widgetGenerator, /\.approvedWithDataAccess/);
   assert.match(widgetGenerator, /return "approved"/);
   assert.match(widgetGenerator, /resolve\(Self\.statusString\(\)\)/);
 });

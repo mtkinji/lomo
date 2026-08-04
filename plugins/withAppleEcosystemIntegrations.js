@@ -291,7 +291,10 @@ class KwiltScreenTimeProtection: NSObject {
   @available(iOS 16.0, *)
   private static func statusString() -> String {
     let status = AuthorizationCenter.shared.authorizationStatus
-    if #available(iOS 26.4, *), status == .approvedWithDataAccess {
+    // iOS 26.4 adds approvedWithDataAccess as raw value 3. Compare the stable
+    // raw value so this source also compiles with older Xcode SDKs that do not
+    // declare the new enum case yet (including the current EAS image).
+    if status.rawValue == 3 {
       return "approved"
     }
     switch status {
