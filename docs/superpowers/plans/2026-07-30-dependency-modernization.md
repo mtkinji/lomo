@@ -408,11 +408,11 @@ Update Supabase JS 2 in both root and `packages/kwilt-sdk`, PostHog React Native
 
 Update RevenueCat within 9.x, HealthKit within 14.x, Plaid within its Expo-compatible 13.x line, and Nitro Modules within the line required by those packages. Verify entitlement restoration/paywall, Plaid sandbox Link, Apple Health authorization/read, and a clean native build.
 
-- [ ] **Step 5: Tooling cohort**
+- [x] **Step 5: Tooling cohort**
 
 Update Storybook 10 packages together, Vite within 8.x, `tsup` within 8.x in every workspace, and other patch/minor development tools. Keep Jest 29 and TypeScript 5.9 until the target Expo SDK explicitly supports newer majors.
 
-- [ ] **Step 6: Defer independent major upgrades**
+- [x] **Step 6: Defer independent major upgrades**
 
 Do not independently upgrade React, React Native, Expo modules, Jest 30, Testing Library 14, TypeScript 7, Gesture Handler 3, Async Storage 3, WebView 14, URL Polyfill 4, RevenueCat 10, or Maps. Reassess each after SDK 57 is stable.
 
@@ -701,3 +701,15 @@ Append one dated entry per cohort with:
 - Retained risks: Task 6 Step 4 remains unchecked until the three signed-device flows pass. The existing Screen Time Swift, Metal toolchain search-path, Maps privacy-bundle deployment-target, Pixel Pet Jest-runner, and broader signed background/device holds are unchanged.
 - Rollback point: `3fa7c10`.
 - Decision: accept the implementation and clean native-build checkpoint, but do not claim the commercial/native cohort production-proven. Continue to the independently bounded tooling cohort while retaining signed-device completion as an explicit pre-merge gate.
+
+### 2026-08-03 — Tooling cohort
+
+- Starting commit: `a511f9a`; implementation commit: `0ddb646`.
+- Dependency diff: Storybook core and React Native Web Vite `10.4.6` -> `10.5.6`; Vite `8.1.3` -> `8.2.0`; every package workspace declaration of tsup `^8.3.5` -> `^8.5.1`; baseline-browser-mapping `2.9.14` -> `2.11.12`; dotenv `17.2.3` -> `17.4.2`; and pixelmatch `7.1.0` -> `7.2.0`. Jest remained `29.7.0`, TypeScript remained installed at `5.9.3`, and all Expo/native/runtime packages remained fixed.
+- Compatibility review: Storybook's two direct packages moved together in major 10 and continue to declare React 19, React Native 0.81, React Native Web 0.21, and Vite 8 compatibility. Vite 8.2 requires Node `^20.19.0 || >=22.12.0`, satisfied by the repository's Node 22.23.2 line. tsup 8.5.1 is the final current tsup release and builds successfully, but upstream now describes tsup as not actively maintained and recommends tsdown; a bundler migration is deferred as an independent tooling change.
+- Verification: the pre-update Storybook 10.4.6/Vite 8.1.3 build transformed 1,319 modules and all four workspaces built. After a Node 22.23.2 clean install, Storybook 10.5.6/Vite 8.2.0 transformed 1,320 modules, emitted the static site, served its manager and 24-entry index over localhost, and all four workspaces again emitted ESM, CJS, maps, and declarations with tsup 8.5.1. Expo install check passed, Expo Doctor passed 18/18, app typecheck and diff-aware verification passed, and both repository patches applied.
+- Regression/audit comparison: full Jest retained the exact established baseline of 521 suites / 3,295 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed. Audit counts remained 27 all-scope and 22 production; the cohort did not claim or create an audit reduction.
+- Retained tooling warnings: Storybook still reports the now-redundant `vite-tsconfig-paths` plugin and large static chunks; the tokens package retains its mixed named/default CJS export warning; and `verify:changed` lists MCP smoke as environment-dependent although no connector source or behavior changed. These are non-shipped tooling follow-ups, not native/runtime regressions.
+- Deferred boundaries: Testing Library 14, Jest/types 30, TypeScript 7, React type 19.2, HTTPS Proxy Agent 9, Expo/Jest Expo 57, and all independent runtime/native majors remain outside this cohort. The commercial/native signed-device hold remains open.
+- Rollback point: `a511f9a`.
+- Decision: complete Task 6's bounded current-major updates and deliberate major deferrals. Advance only to the SDK 55 release-note/native-diff review before changing Expo.
