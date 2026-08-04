@@ -12,13 +12,15 @@ import { MoneyAppControlScreen } from '../screens/MoneyAppControlScreen';
 import { MoneyLivingPlanScreen } from '../screens/MoneyLivingPlanScreen';
 import { MoneyLivingPlanReceiptScreen } from '../screens/MoneyLivingPlanReceiptScreen';
 import { MoneySetupScreen } from '../screens/MoneySetupScreen';
+import { useAppStore } from '../../../store/useAppStore';
 
 const Stack = createNativeStackNavigator<MoneyStackParamList>();
 
 export function MoneyNavigator() {
+  const userId = useAppStore((state) => state.authIdentity?.userId ?? null);
   return (
     <MoneyPrivacyGate>
-      <MoneyDataProvider>
+      <MoneyDataProvider key={userId ?? 'signed-out'} userId={userId}>
         <Stack.Navigator initialRouteName="MoneySummary" screenOptions={{ headerShown: false }}>
           <Stack.Screen name="MoneySummary" component={MoneySummaryScreen} />
           <Stack.Screen name="MoneyTransactions" component={MoneyTransactionsScreen} />

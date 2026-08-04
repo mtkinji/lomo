@@ -10,7 +10,7 @@ job_step: connect-spend-source
 serves: [jtbd-trust-this-app-with-my-life, jtbd-review-budget-reality-before-spending, jtbd-carry-intentions-into-action]
 related_briefs: [brief-accounts-inventory-shell, brief-transaction-inventory-date-scope, brief-prediction-trust-contract]
 owner: andrew
-last_updated: 2026-07-08
+last_updated: 2026-08-04
 source_repo: mtkinji/kwilt-budget
 source_sha: df383c3ac1538dff0a83b43a21ff3e45c024298b
 ---
@@ -40,6 +40,8 @@ When Maya knows she just spent money and opens Kwilt Money, a missing transactio
 
 Transactions:
 
+- Hydrates the last trustworthy, user-scoped Money snapshot from device storage before checking the network, so an ordinary return never replaces known transactions with a blocking loader.
+- Keeps that inventory visible while the authoritative Kwilt snapshot refreshes in the background.
 - Shows active date/filter scope and transaction count as it does now.
 - Adds minimal list-level freshness copy near the inventory controls/count, such as `Last updated: 2 hr ago`.
 - Provides `Check for new activity` for signed-in connected users.
@@ -66,6 +68,8 @@ Summary and budget detail:
 - Derive one shared freshness classification from connected-spend metadata.
 - Preserve the distinction between Kwilt snapshot freshness and bank-sync freshness.
 - Treat freshness as a property of the connected transaction inventory or budget snapshot, not of each immutable transaction row.
+- Persist only an accepted projected Money snapshot, version its cache schema, scope it to the authenticated user, reject malformed cache documents, and clear the outgoing user's snapshot on sign-out or account switch.
+- A cached snapshot may render transaction evidence but must not drive widgets or app-control enforcement until an authoritative server read succeeds.
 - Treat row-level changes separately: pending transactions may settle, pending/posted duplicate handling may change visibility, and review/category state may change.
 - Use the existing `sync-plaid-transactions` function for user-triggered checks.
 - Budget may use the same function for one silent, throttled check when its current answer is stale.
@@ -103,6 +107,9 @@ Avoid:
 ## Acceptance Criteria
 
 - Transactions and Accounts expose a signed-in connected-user action to check for new activity.
+- After one successful Money load, reopening Transactions renders the last trustworthy inventory without waiting for a network round trip.
+- Cached inventory remains visible if the background refresh fails and is marked stale until an authoritative refresh succeeds.
+- A different signed-in user can never hydrate the prior user's Money snapshot.
 - Transactions shows freshness once at the inventory/list level, not on each transaction row.
 - Refresh result copy distinguishes new rows, no new activity, failure, and delayed/stale states.
 - Summary and budget detail can display a compact freshness boundary without clearing useful data.

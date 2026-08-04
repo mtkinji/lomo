@@ -20,6 +20,7 @@ export type MoneyDataState = {
 
 export type MoneyDataAction =
   | { type: 'load' }
+  | { type: 'cached_snapshot'; snapshot: MoneySnapshot }
   | { type: 'success'; snapshot: MoneySnapshot }
   | { type: 'failure'; message: string }
   | { type: 'confirmed_transaction_patch'; patch: ConfirmedTransactionPatch }
@@ -44,6 +45,8 @@ export function moneyDataReducer(state: MoneyDataState, action: MoneyDataAction)
       return state.snapshot
         ? { ...state, error: null, refreshing: true }
         : { ...state, status: 'loading', snapshot: null, error: null, refreshing: false };
+    case 'cached_snapshot':
+      return { ...state, status: 'ready', snapshot: action.snapshot, error: null, refreshing: false, stale: true };
     case 'success':
       return { ...state, status: 'ready', snapshot: action.snapshot, error: null, refreshing: false, stale: false };
     case 'failure':

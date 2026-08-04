@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { MoneyDataProvider, useMoneyData } from './MoneyDataContext';
 import type { MoneyRepository } from './moneyRepository';
 import type { MoneySnapshot } from './moneySnapshot';
+import type { MoneySnapshotCache } from '../runtime/moneySnapshotCache';
 
 jest.mock('../runtime/moneyGlanceableState', () => ({ syncMoneyGlanceableState: jest.fn() }));
 jest.mock('../runtime/moneyAppControlRuntime', () => ({ reconcileMoneyAppControls: jest.fn() }));
@@ -28,11 +29,13 @@ const snapshot = {
 } as unknown as MoneySnapshot;
 
 function SaveRuleProbe() {
-  const { reviewingTransactionId, saveMerchantRule, snapshot: currentSnapshot, status } = useMoneyData();
+  const { reviewingTransactionId, saveMerchantRule, snapshot: currentSnapshot, stale, status } = useMoneyData();
   const [completed, setCompleted] = useState(false);
   return (
     <View>
       <Text>{status}</Text>
+      <Text>{stale ? 'stale' : 'current'}</Text>
+      <Text>{currentSnapshot?.generatedAt ?? 'no-snapshot'}</Text>
       <Text>{reviewingTransactionId ? 'saving' : completed ? 'done' : 'idle'}</Text>
       <Text>{currentSnapshot?.transactions[0]?.merchantRuleCategoryId ?? 'no-rule'}</Text>
       <Pressable
@@ -50,7 +53,57 @@ function SaveRuleProbe() {
   );
 }
 
+function snapshotCache(cached: MoneySnapshot | null): MoneySnapshotCache {
+  return {
+    load: jest.fn(async () => cached),
+    save: jest.fn(async () => undefined),
+    remove: jest.fn(async () => undefined),
+  };
+}
+
 describe('MoneyDataProvider merchant-rule confirmation', () => {
+  it('renders the last trustworthy snapshot while the authoritative refresh remains in flight', async () => {
+    const refresh = deferred<MoneySnapshot>();
+    const cached = { ...snapshot, generatedAt: 'cached' } as MoneySnapshot;
+    const cache = snapshotCache(cached);
+    const repository = {
+      loadSnapshot: jest.fn(() => refresh.promise),
+      classifyUnresolvedTransactions: jest.fn().mockResolvedValue({ consideredCount: 0, assignedCount: 0, unresolvedCount: 0 }),
+    } as unknown as MoneyRepository;
+    const screen = render(
+      <MoneyDataProvider repository={repository} snapshotCache={cache} userId="user-a">
+        <SaveRuleProbe />
+      </MoneyDataProvider>,
+    );
+
+    await screen.findByText('ready');
+    expect(screen.getByText('stale')).toBeTruthy();
+    expect(screen.getByText('cached')).toBeTruthy();
+    expect(repository.loadSnapshot).toHaveBeenCalledTimes(1);
+
+    refresh.resolve({ ...snapshot, generatedAt: 'fresh' });
+    await screen.findByText('fresh');
+    expect(screen.getByText('current')).toBeTruthy();
+    expect(cache.save).toHaveBeenCalledWith('user-a', expect.objectContaining({ generatedAt: 'fresh' }));
+  });
+
+  it('keeps a cached snapshot visible when the authoritative refresh fails', async () => {
+    const cached = { ...snapshot, generatedAt: 'offline-cache' } as MoneySnapshot;
+    const cache = snapshotCache(cached);
+    const repository = {
+      loadSnapshot: jest.fn().mockRejectedValue(new Error('Network unavailable')),
+    } as unknown as MoneyRepository;
+    const screen = render(
+      <MoneyDataProvider repository={repository} snapshotCache={cache} userId="user-a">
+        <SaveRuleProbe />
+      </MoneyDataProvider>,
+    );
+
+    await screen.findByText('offline-cache');
+    expect(screen.getByText('ready')).toBeTruthy();
+    expect(screen.getByText('stale')).toBeTruthy();
+  });
+
   it('finishes the save after confirmation while the full refresh remains in flight', async () => {
     const backgroundRefresh = deferred<MoneySnapshot>();
     const refreshedSnapshot = {

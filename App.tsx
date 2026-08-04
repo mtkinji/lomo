@@ -71,6 +71,7 @@ import { startStreakSync } from './src/services/sync/streakSync';
 import { startPartnerProgressService } from './src/services/partnerProgressService';
 import { startScreenTimeProtectionForegroundSync } from './src/services/screenTimeProtectionForegroundSync';
 import { startMoneyAppControlForegroundSync } from './src/capabilities/money/runtime/moneyAppControlForegroundSync';
+import { moneySnapshotCache } from './src/capabilities/money/runtime/moneySnapshotCache';
 import { fireResendSignupEvent } from './src/services/resendSignupEvent';
 import { startPushTokenSync } from './src/services/pushTokenService';
 import { startEntitlementsAuthSync } from './src/services/entitlementsAuthSync';
@@ -162,6 +163,8 @@ export default function App() {
 
     const applySignedOutState = (reason: string) => {
       if (isStaleRun()) return;
+      const previousUserId = useAppStore.getState().authIdentity?.userId?.trim();
+      if (previousUserId) void moneySnapshotCache.remove(previousUserId).catch(() => undefined);
       setSupabaseAutoRefreshEnabled(false);
       clearAuthIdentity();
       setAuthStartupState('signedOut');
@@ -177,6 +180,7 @@ export default function App() {
       // (onboarding flags, profile, credits, etc.) so the new user starts clean.
       const prevUserId = useAppStore.getState().authIdentity?.userId;
       if (prevUserId && prevUserId !== identity.userId) {
+        void moneySnapshotCache.remove(prevUserId).catch(() => undefined);
         resetUserSpecificState();
       }
       setAuthIdentity(identity);
