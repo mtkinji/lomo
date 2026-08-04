@@ -98,3 +98,36 @@ On 2026-08-03, commit `2c26231` was rebuilt and exercised again on iPhone 17 Pro
 The incremental native build completed with 0 errors and one retained Maps privacy-bundle deployment-target warning. With the existing release Chat flag and stable Kwilt-owned workbench URL supplied as process environment, the app restored the signed-in session and existing Chat thread. Direct inspection also covered Goals, the To-dos list and duration editor, Plan/calendar, Chapters, Budget, Transactions, Accounts, Explore with Silver Mist visibly concealing unexplored map content, the Games catalog, a running Hourglass across portrait and landscape, legacy Games deep-link routing into the join surface, and personal/family Screen Time screens. Metro logged initial domain sync, push-token registration, and no fatal runtime exception.
 
 The available Maestro launcher could not run because this Mac has no Java runtime, so automated smoke remains a tooling gap rather than passing evidence. The physical iPhone remained offline. Therefore create/edit/complete/reorder/reminder mutations, Chat attachment/voice streaming, Plaid sandbox Link, RevenueCat purchase/restore, Apple Health authorization/read, notification delivery, background/lock-state behavior, real GPS recording, widget/Live Activity placement, signed Screen Time enforcement, physical audio/interruption behavior, and TestFlight remain unproven. The SDK 54 checkpoint still does not authorize the audio or SDK-transition cohorts.
+
+## SDK 55 preflight
+
+Reviewed on 2026-08-03 before changing dependencies. The governing sources are Expo's [SDK 55 release notes](https://expo.dev/changelog/sdk-55), [New Architecture guide](https://docs.expo.dev/guides/new-architecture/), [Native Project Upgrade Helper](https://docs.expo.dev/bare/upgrade/), and React Native's [0.83 release notes](https://reactnative.dev/blog/2025/12/10/react-native-0.83).
+
+### Platform and framework boundary
+
+- SDK 55 aligns to React `19.2.0` and React Native `0.83.10`. New Architecture is mandatory; Legacy Architecture is no longer supported and the `newArchEnabled` config option is removed.
+- The minimum iOS deployment target remains 15.1. SDK 55 requires Xcode 26; this Mac has Xcode 26.6. Its supported Node line includes `^22.13.0`; Kwilt is pinned to Node 22.23.2.
+- Expo Modules Core uses Swift 6 language mode. Kwilt's generated widget, Live Activity, Screen Time, App Group, Spotlight, and native sharing sources therefore require a clean compiler gate even though the extension targets may retain their own Swift language setting.
+- Hermes V1 and bytecode diffing remain opt-in and are excluded from this migration. They would add independent build/runtime variables to an already broad native transition.
+
+### Applicable config and API changes
+
+- Remove root `notification`; migrate its icon and color to the `expo-notifications` config plugin. SDK 55 treats the removed root field as a prebuild error.
+- Remove `newArchEnabled`; the resulting build remains New Architecture because SDK 55 makes it mandatory.
+- Remove Android `edgeToEdgeEnabled`; edge-to-edge is mandatory in SDK 55. Keep the existing predictive-back decision separate.
+- No removed `expo-av`, subscription-removal, video fullscreen, clipboard-listener-content, or typed-router API remains in source. Existing BlurView use does not opt into the newly changed experimental blur implementation.
+- `expo-audio`, notifications, location, background execution, and lock-screen behavior have material native changes and retain signed-device gates. EAS Update invocations must supply an environment; repository workflows and scripts must be checked before an update is published.
+
+### Generated native diff and source of truth
+
+`/ios` and `/android` are gitignored. The durable native source is `app.config.ts` plus `plugins/withAppleEcosystemIntegrations.js` and its tracked generators; generated projects must be inspected and built but not staged. Compared with the SDK 54 bare template, SDK 55 changes AppDelegate ownership/imports, removes Legacy Architecture Podfile branches, adds the Hermes V1 opt-in path, moves Android host creation to `ExpoReactHostFactory`, raises the Android Gradle wrapper to 9.0.0, and changes Android manifest/configuration declarations. The existing AppDelegate plugin anchors still match the SDK 55 template, but only a regenerated clean build can prove the custom modifications remain valid.
+
+### Third-party native compatibility and protected Maps exception
+
+HealthKit 14.0.2, Nitro 0.35.5, Plaid 13.0.3, RevenueCat 9.15.2, and Bottom Sheet 5.2.14 declare peer ranges that include React 19 / React Native 0.83. This is compatibility metadata, not runtime proof; all remain subject to clean native compilation and their signed-device flows.
+
+Expo recommends `react-native-maps@1.27.2` for SDK 55, while Kwilt pins `1.20.1` and applies a substantial Silver Mist Metal patch. Expo's installer must exclude Maps so it cannot move incidentally. This cohort will retain 1.20.1 and require clean React Native 0.83 compilation plus Simulator Silver Mist proof. A port of the patch to 1.27.2 is a separate native cohort with its own visual, location, thermal, and rollback gates.
+
+### Advance decision
+
+Proceed to the SDK 55 install/config cohort from rollback point `a0e472b`. Stop if Expo's alignment moves Maps, a protected commercial integration, or another independent major; if generated extension targets/capabilities disappear; or if the tracked generator cannot reproduce a clean native project.

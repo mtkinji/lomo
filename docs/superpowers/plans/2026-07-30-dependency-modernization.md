@@ -423,13 +423,11 @@ Do not independently upgrade React, React Native, Expo modules, Jest 30, Testing
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Modify: `app.config.ts`
-- Modify: `ios/Podfile`
-- Modify: `ios/Podfile.lock`
-- Modify: `ios/Kwilt.xcodeproj/project.pbxproj`
-- Modify: Expo/native files identified by the 54-to-55 Native Project Upgrade Helper
+- Modify: `plugins/withAppleEcosystemIntegrations.js` and its tracked generators if SDK 55 requires source changes
+- Inspect/regenerate (do not stage): ignored `ios/` and `android/` outputs identified by the 54-to-55 Native Project Upgrade Helper
 - Test: all verification and native flows in the matrix
 
-- [ ] **Step 1: Read the SDK 55 release notes and native diff before installation**
+- [x] **Step 1: Read the SDK 55 release notes and native diff before installation**
 
 Record every applicable removal, config change, minimum tool version, and native project change in the baseline document. Confirm New Architecture remains enabled and all third-party native modules support React Native 0.83.
 
@@ -441,6 +439,8 @@ npx expo install --fix
 npx expo-doctor@latest
 npx pod-install ios
 ```
+
+Before running Expo's fixer, add `react-native-maps` to `expo.install.exclude`. Keep the patched `1.20.1` package for this cohort and prove that it compiles and that Silver Mist still renders under React Native 0.83. Porting the patch to Expo's recommended Maps `1.27.2` is a separate, explicitly reviewed native cohort.
 
 - [ ] **Step 3: Inspect the dependency and native diffs**
 
@@ -693,7 +693,7 @@ Append one dated entry per cohort with:
 ### 2026-08-03 — Commercial/native integrations implementation checkpoint
 
 - Starting commit: `3fa7c10`; implementation commit: `0e2f097`.
-- Dependency/native diff: RevenueCat React Native `9.6.11` -> `9.15.2` with iOS RevenueCat `5.50.1` -> `5.67.1` and Purchases Hybrid Common `17.24.0` -> `17.55.1`; HealthKit `14.0.0` -> `14.0.2`; and Plaid `13.0.2` -> `13.0.3`. Nitro Modules remained at `0.35.5`, which satisfies HealthKit 14.0.2's `>=0.35` peer requirement. React, React Native, Expo, Maps/Silver Mist, and the two repository patches did not move. The generated iOS Podfile lock is ignored with the checked-in `ios` tree, so the reproducible tracked diff remains the npm manifest and lockfile.
+- Dependency/native diff: RevenueCat React Native `9.6.11` -> `9.15.2` with iOS RevenueCat `5.50.1` -> `5.67.1` and Purchases Hybrid Common `17.24.0` -> `17.55.1`; HealthKit `14.0.0` -> `14.0.2`; and Plaid `13.0.2` -> `13.0.3`. Nitro Modules remained at `0.35.5`, which satisfies HealthKit 14.0.2's `>=0.35` peer requirement. React, React Native, Expo, Maps/Silver Mist, and the two repository patches did not move. The generated iOS tree and Podfile lock are ignored, so the reproducible tracked diff remains the npm manifest and lockfile.
 - Compatibility review: all three packages stayed inside the plan's approved majors. HealthKit 14.0.1 modernized anchor serialization; Plaid 13.0.3 bundles LinkKit 7.0.4 on iOS and sdk-core 6.1.0 on Android; RevenueCat 9.15.2 includes later fixes for native-module availability, paywall hangs, custom variables, restore/purchase APIs, and the iOS startup crash briefly present in 9.7.4. Kwilt does not consume RevenueCat's corrected `pricePerWeek`, `pricePerMonth`, or `pricePerYear` values. RevenueCat 10 and Nitro 0.36 were deliberately excluded as independent native changes.
 - Verification: a Node 22.23.2 clean install applied the pinned Maps and drawer patches; app and test typechecks passed; 5 focused entitlement/auth/Plaid suites passed 30 tests; diff-aware verification passed with no code-health regression; Expo install check reported dependencies up to date; and Expo Doctor passed 18/18. Full Jest produced the unchanged repository baseline: 521 suites / 3,295 tests passed, one skipped, and the same 15 Pixel Pet runner mismatches failed.
 - Native/runtime provenance: `/Users/andrewwatanabe/Kwilt`, `codex/dependency-modernization`, iPhone 17 Pro Simulator `D437E709-EF87-49B1-A6C1-7AE350C0BF8A`, Metro 8081 owned by this checkout. CocoaPods resolved and compiled all three updated integrations with the New Architecture; a no-build-cache iOS compile/install succeeded with 0 errors and 5 retained warnings; Metro bundled 5,802 modules; and the app restored its signed-in session, completed domain sync, and emitted no integration linkage or startup error.
