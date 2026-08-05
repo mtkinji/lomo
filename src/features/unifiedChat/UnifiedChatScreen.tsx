@@ -19,6 +19,7 @@ import { AppShell } from '../../ui/layout/AppShell';
 import { IconButton } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
 import { PageHeader } from '../../ui/layout/PageHeader';
+import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { Text } from '../../ui/Typography';
 import { colors, radii, spacing, typography } from '../../theme';
 import { buildFreshWorkbenchSnapshot, buildWorkbenchSnapshot } from './buildWorkbenchSnapshot';
@@ -181,6 +182,7 @@ export type UnifiedChatScreenProps = {
   presentation?: 'screen' | 'drawer';
   routeParams?: UnifiedChatRouteParams;
   scopeLabel?: string;
+  collapseRequestId?: number;
   onComposerFocusChange?: (focused: boolean) => void;
   onThreadIdChange?: (threadId: string) => void;
 };
@@ -189,6 +191,7 @@ export function UnifiedChatScreen({
   presentation = 'screen',
   routeParams: routeParamsOverride,
   scopeLabel,
+  collapseRequestId,
   onComposerFocusChange,
   onThreadIdChange,
 }: UnifiedChatScreenProps = {}) {
@@ -204,6 +207,9 @@ export function UnifiedChatScreen({
     freshEntry ? routeParams?.launchContext ?? null : null,
   );
   const launchContext = freshEntry && isDrawer ? freshLaunchContext : routeParams?.launchContext;
+  const freshDrawerTitle = isDrawer
+    ? getFreshDrawerCopy(launchContext)?.title ?? 'Chat'
+    : 'New chat';
   const insets = useSafeAreaInsets();
   const { openMenu } = useCapabilityMenuActions();
   const menuOpen = useCapabilityMenuOpen();
@@ -232,7 +238,7 @@ export function UnifiedChatScreen({
   const [surfaceReady, setSurfaceReady] = useState(false);
   const [contextPickerVisible, setContextPickerVisible] = useState(false);
   const [contextCandidates, setContextCandidates] = useState<UnifiedChatAttachableContext[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!freshEntry);
   const [error, setError] = useState<string | null>(null);
   const [surfaceLoadFailed, setSurfaceLoadFailed] = useState(false);
   const [clientActionInFlight, setClientActionInFlight] = useState(false);
@@ -260,6 +266,13 @@ export function UnifiedChatScreen({
     Keyboard.dismiss();
     webViewRef.current?.injectJavaScript('document.activeElement?.blur(); true;');
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!isDrawer || !collapseRequestId) return;
+    webViewRef.current?.injectJavaScript(
+      'document.activeElement?.blur?.(); window.dispatchEvent(new Event("resize")); true;',
+    );
+  }, [collapseRequestId, isDrawer]);
 
   const loadThreadWithRecovery = useCallback(async (threadId: string) => {
     const loaded = await repository.loadThread(threadId);
@@ -341,7 +354,7 @@ export function UnifiedChatScreen({
   if (!freshThreadGateRef.current || freshThreadGateKeyRef.current !== freshLaunchKey) {
     freshThreadGateKeyRef.current = freshLaunchKey;
     freshThreadGateRef.current = createFreshEntryThreadGate({
-      create: () => repository.createThread(),
+      create: () => repository.createThread(freshDrawerTitle),
       load: (thread) => loadThreadWithRecovery(thread.id),
       cleanup: (thread) => repository.deleteThread(thread.id),
       prepare: async (createdAggregate) => {
@@ -377,7 +390,7 @@ export function UnifiedChatScreen({
   );
 
   const refreshThreads = useCallback(async () => {
-    setLoading(true);
+    if (!freshEntry) setLoading(true);
     setError(null);
     try {
       const next = await repository.listThreads();
@@ -396,7 +409,7 @@ export function UnifiedChatScreen({
     } catch {
       setError('Sign in and try opening Chat again.');
     } finally {
-      setLoading(false);
+      if (!freshEntry) setLoading(false);
     }
   }, [aggregate, freshEntry, launchContext, openThread, repository, requestedThreadId]);
 
@@ -1348,6 +1361,13 @@ export function UnifiedChatScreen({
       return null;
     }
   }, [config.workbenchUrl]);
+  const workbenchSurfaceUrl = useMemo(() => {
+    if (!config.workbenchUrl) return '';
+    if (!isDrawer) return config.workbenchUrl;
+    const surfaceUrl = new URL(config.workbenchUrl);
+    surfaceUrl.searchParams.set('presentation', 'drawer');
+    return surfaceUrl.toString();
+  }, [config.workbenchUrl, isDrawer]);
 
   const canNavigate = useCallback(
     ({ url }: { url: string }) => {
@@ -1374,16 +1394,24 @@ export function UnifiedChatScreen({
       : <AppShell>{unavailableContent}</AppShell>;
   }
 
+  const drawerTitle = aggregate?.thread.title ?? freshDrawerTitle;
+  const usesCompactDrawerTitle = drawerTitle.length <= 22;
+
   const chatContent = (
     <>
       {isDrawer ? (
-        <View style={styles.drawerTitleRail}>
-          <Text numberOfLines={1} style={styles.drawerTitle}>
-            {aggregate?.thread.title ?? (
-              getFreshDrawerCopy(routeParams?.launchContext)?.title ?? 'Chat'
-            )}
-          </Text>
-        </View>
+        <BottomDrawerHeader
+          variant="immersive"
+          title={(
+            <View style={styles.drawerTitleContent}>
+              <Icon name="messageSquare" size={16} color={colors.textSecondary} />
+              <Text numberOfLines={1} style={styles.drawerTitle}>
+                {drawerTitle}
+              </Text>
+            </View>
+          )}
+          containerStyle={usesCompactDrawerTitle ? styles.drawerTitleRailCompact : styles.drawerTitleRailLong}
+        />
       ) : (
         <PageHeader
           title={!freshEntry ? aggregate?.thread.title ?? 'Chat' : 'Chat'}
@@ -1423,7 +1451,7 @@ export function UnifiedChatScreen({
       ) : (aggregate && !freshEntry) || freshEntry ? (
         <WebView
           ref={webViewRef}
-          source={{ uri: config.workbenchUrl }}
+          source={{ uri: workbenchSurfaceUrl }}
           originWhitelist={allowedOrigin ? [allowedOrigin] : []}
           onShouldStartLoadWithRequest={canNavigate}
           onMessage={(event) => void handleSurfaceMessage(event)}
@@ -1578,14 +1606,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.canvas,
   },
-  drawerTitleRail: {
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+  drawerTitleRailCompact: {
+    minHeight: 48,
+    paddingTop: spacing.sm,
+    paddingRight: '48%',
+  },
+  drawerTitleRailLong: {
+    minHeight: 60,
+    paddingTop: spacing.xl,
+  },
+  drawerTitleContent: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   drawerTitle: {
+    minWidth: 0,
+    flexShrink: 1,
     ...typography.bodySm,
     color: colors.textPrimary,
     fontWeight: '600',

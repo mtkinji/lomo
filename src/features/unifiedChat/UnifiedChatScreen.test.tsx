@@ -26,7 +26,16 @@ describe('Unified Chat coexistence contract', () => {
     expect(contextualPresentationSource).toContain("title: 'Chat about to-dos'");
     expect(contextualPresentationSource).toContain("FRESH_LAUNCH_CONTEXT_ID = 'fresh-launch-context'");
     expect(screenSource).toContain("command.type === 'context.remove'");
-    expect(screenSource).toContain('styles.drawerTitleRail');
+    expect(screenSource).toContain('<BottomDrawerHeader');
+    expect(screenSource).toContain('variant="immersive"');
+    expect(screenSource).toContain('usesCompactDrawerTitle');
+    expect(screenSource).toContain('styles.drawerTitleRailCompact');
+    expect(screenSource).toContain('styles.drawerTitleRailLong');
+    expect(screenSource).toContain('styles.drawerTitleContent');
+    expect(screenSource).toContain('...typography.bodySm');
+    expect(screenSource).toContain("searchParams.set('presentation', 'drawer')");
+    expect(screenSource).toContain('name="messageSquare"');
+    expect(screenSource).toContain('repository.createThread(freshDrawerTitle)');
     expect(screenSource).not.toContain('UnifiedChatDrawerHeader');
     expect(screenSource).not.toContain('How can I help with your to-dos?');
   });
@@ -81,6 +90,15 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).toContain('Keyboard.dismiss()');
     expect(screenSource).toContain('webViewRef.current?.injectJavaScript');
     expect(screenSource).toContain('document.activeElement?.blur()');
+  });
+
+  test('hardens drawer collapse and renders a fresh draft without a loading flash', () => {
+    expect(screenSource).toContain('collapseRequestId?: number');
+    expect(screenSource).toContain('document.activeElement?.blur?.()');
+    expect(screenSource).toContain('window.dispatchEvent(new Event("resize"))');
+    expect(screenSource).toContain('useState(!freshEntry)');
+    expect(screenSource).toContain('if (!freshEntry) setLoading(true)');
+    expect(screenSource).toContain('if (!freshEntry) setLoading(false)');
   });
 
   test('deduplicates commands and only opens capability objects evidenced in the active thread', () => {

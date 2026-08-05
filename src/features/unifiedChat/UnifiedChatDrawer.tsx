@@ -23,6 +23,7 @@ export function UnifiedChatDrawer({
   onThreadIdChange,
 }: UnifiedChatDrawerProps) {
   const [snapIndex, setSnapIndex] = React.useState(0);
+  const [collapseRequestId, setCollapseRequestId] = React.useState(0);
 
   React.useEffect(() => {
     if (visible) setSnapIndex(0);
@@ -39,22 +40,34 @@ export function UnifiedChatDrawer({
     [launchContext, source, threadId],
   );
 
+  const handleSnapIndexChange = React.useCallback((
+    nextIndex: number,
+    change: { direction: 'initial' | 'up' | 'down' | 'same' },
+  ) => {
+    setSnapIndex(nextIndex);
+    if (change.direction !== 'down') return;
+    setCollapseRequestId((current) => current + 1);
+  }, []);
+
   return (
     <BottomDrawer
       visible={visible}
       onClose={onClose}
       snapPoints={['60%', '100%']}
       snapIndex={snapIndex}
-      onSnapIndexChange={setSnapIndex}
+      onSnapIndexChange={handleSnapIndexChange}
+      chrome="immersive"
       keyboardAvoidanceEnabled={false}
       dismissable
       dismissOnBackdropPress
       backdropMaxOpacity={0.12}
+      contentExtendsIntoBottomSafeArea
     >
       <UnifiedChatScreen
         presentation="drawer"
         routeParams={routeParams}
         scopeLabel={scopeLabel}
+        collapseRequestId={collapseRequestId}
         onComposerFocusChange={(focused) => {
           if (focused) setSnapIndex(1);
         }}

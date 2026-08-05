@@ -1,7 +1,11 @@
 import { fireEvent } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { renderWithProviders } from '../test/renderWithProviders';
-import { BottomDrawer, isBottomDrawerAccessibilityModal } from './BottomDrawer';
+import {
+  BottomDrawer,
+  isBottomDrawerAccessibilityModal,
+  shouldDismissKeyboardOnSnapChange,
+} from './BottomDrawer';
 
 describe('BottomDrawer accessibility contract', () => {
   it('isolates modal content, hides its backdrop, and supports escape', () => {
@@ -28,5 +32,41 @@ describe('BottomDrawer accessibility contract', () => {
     expect(isBottomDrawerAccessibilityModal('inline', true)).toBe(false);
     expect(isBottomDrawerAccessibilityModal('inline', false)).toBe(true);
     expect(isBottomDrawerAccessibilityModal('modal', true)).toBe(true);
+  });
+
+  it('dismisses the keyboard only when a settled drawer moves to a lower snap point', () => {
+    expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 1, nextIndex: 0, enabled: true })).toBe(true);
+    expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 0, nextIndex: 1, enabled: true })).toBe(false);
+    expect(shouldDismissKeyboardOnSnapChange({ previousIndex: 1, nextIndex: 0, enabled: false })).toBe(false);
+  });
+
+  it('provides opt-in immersive chrome and a safe-area-owning bottom accessory', () => {
+    const { getByTestId, getByText } = renderWithProviders(
+      <BottomDrawer
+        visible
+        onClose={jest.fn()}
+        chrome="immersive"
+        bottomAccessory={<Text>Composer</Text>}
+      >
+        <Text>Conversation</Text>
+      </BottomDrawer>,
+    );
+
+    expect(getByText('Conversation')).toBeTruthy();
+    expect(getByText('Composer')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.surface').props.style)).toMatchObject({
+      paddingHorizontal: 0,
+    });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle-region').props.style)).toMatchObject({
+      position: 'absolute',
+      top: 0,
+      paddingTop: 16,
+      paddingBottom: 16,
+    });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.handle').props.style)).toMatchObject({
+      width: 64,
+      height: 4,
+    });
+    expect(StyleSheet.flatten(getByTestId('bottom-drawer.bottom-accessory').props.style).paddingBottom).toBeGreaterThan(0);
   });
 });
