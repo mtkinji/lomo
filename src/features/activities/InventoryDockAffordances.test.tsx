@@ -16,6 +16,7 @@ describe('InventoryDockAffordances', () => {
 
   it('keeps Search available and reveals scroll to top only when requested', () => {
     const onSearchPress = jest.fn();
+    const onChatPress = jest.fn();
     const onScrollToTopPress = jest.fn();
     const { getByLabelText, queryByLabelText, rerender } = renderWithProviders(
       <InventoryDockAffordances
@@ -23,12 +24,15 @@ describe('InventoryDockAffordances', () => {
         rightInsetPx={32}
         showScrollToTop={false}
         onSearchPress={onSearchPress}
+        onChatPress={onChatPress}
         onScrollToTopPress={onScrollToTopPress}
       />,
     );
 
     fireEvent.press(getByLabelText('Search To-dos'));
+    fireEvent.press(getByLabelText('Chat about to-dos'));
     expect(onSearchPress).toHaveBeenCalledTimes(1);
+    expect(onChatPress).toHaveBeenCalledTimes(1);
     expect(queryByLabelText('Scroll to top')).toBeNull();
 
     rerender(
@@ -37,6 +41,7 @@ describe('InventoryDockAffordances', () => {
         rightInsetPx={32}
         showScrollToTop
         onSearchPress={onSearchPress}
+        onChatPress={onChatPress}
         onScrollToTopPress={onScrollToTopPress}
       />,
     );
@@ -47,6 +52,7 @@ describe('InventoryDockAffordances', () => {
     expect(scrollToTopButton.props.accessible).toBe(false);
     expect(HapticsService.trigger).toHaveBeenNthCalledWith(1, 'canvas.selection');
     expect(HapticsService.trigger).toHaveBeenNthCalledWith(2, 'canvas.selection');
+    expect(HapticsService.trigger).toHaveBeenNthCalledWith(3, 'canvas.selection');
   });
 
   it('centers a smaller scroll-to-top surface above the full dock row', () => {
@@ -56,6 +62,7 @@ describe('InventoryDockAffordances', () => {
         rightInsetPx={32}
         showScrollToTop
         onSearchPress={jest.fn()}
+        onChatPress={jest.fn()}
         onScrollToTopPress={jest.fn()}
       />,
     );
@@ -89,6 +96,7 @@ describe('InventoryDockAffordances', () => {
       bottomOffsetPx: 32,
       rightInsetPx: 32,
       onSearchPress: jest.fn(),
+      onChatPress: jest.fn(),
       onScrollToTopPress: jest.fn(),
     };
     const { getByLabelText, queryByLabelText, rerender } = renderWithProviders(
@@ -115,6 +123,7 @@ describe('InventoryDockAffordances', () => {
         rightInsetPx={32}
         showScrollToTop
         onSearchPress={jest.fn()}
+        onChatPress={jest.fn()}
         onScrollToTopPress={jest.fn()}
       />,
     );
@@ -138,6 +147,7 @@ describe('InventoryDockAffordances', () => {
         showScrollToTop
         reduceMotionOverride
         onSearchPress={jest.fn()}
+        onChatPress={jest.fn()}
         onScrollToTopPress={jest.fn()}
       />,
     );

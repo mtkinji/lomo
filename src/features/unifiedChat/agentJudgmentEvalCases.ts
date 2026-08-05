@@ -72,14 +72,28 @@ const planQuestionsAndMutations = [
 ];
 
 const multiToolJobs = [
+  c(
+    'multi-furnace-filter-calendar',
+    'Remind me to replace the furnace air filter in 10 months, and put it on my calendar.',
+    'single_tool',
+    ['todos', 'plan'],
+    ['activities.capture'],
+    ['title', 'date'],
+  ),
   c('multi-dentist', 'Help me make room for the dentist next week and remind me to call first.', 'multi_tool', ['todos', 'plan'], ['plan.read_day_context', 'activities.capture', 'plan.schedule_activity'], ['date', 'other']),
   c('multi-goal-walk', 'Create a Goal to walk every day next week and add the daily To-do.', 'multi_tool', ['goals', 'todos'], ['goals.create', 'activities.capture'], ['title', 'date', 'recurrence']),
   c('multi-plan-capture', 'Check tomorrow, then add Buy groceries if it is not already there.', 'multi_tool', ['todos', 'plan'], ['plan.read_day_context', 'activities.capture'], ['title', 'date', 'other']),
   c('multi-read-place', 'Read Friday and place my school call in an open morning slot.', 'multi_tool', ['todos', 'plan'], ['plan.read_day_context', 'plan.schedule_activity'], ['title', 'date', 'time']),
-  c('multi-call-reminder', 'Add Call the vet tomorrow and make sure it reminds me at 8 AM.', 'single_tool', ['todos'], ['activities.capture'], ['title', 'date', 'time']),
+  c(
+    'multi-bulk-clear-past-due-scheduling',
+    'Look through all my past-due to-dos and remove their due dates and reminders.',
+    'single_tool',
+    ['todos'],
+    ['activities.update'],
+    ['date', 'other'],
+  ),
   c('multi-relationship-correct', "Check what you remember about Lily's birthday, then correct it to October 12.", 'multi_tool', ['relationships'], ['relationships.read', 'relationships.correct'], ['person', 'date']),
   c('multi-plan-goal', 'Review tomorrow against my Goals and suggest the best realistic Plan.', 'multi_tool', ['goals', 'plan'], ['goals.read', 'plan.read_day_context', 'plan.recommend_day'], ['date']),
-  c('multi-capture-place', 'Create Finish the deck and put it on Friday afternoon.', 'multi_tool', ['todos', 'plan'], ['activities.capture', 'plan.schedule_activity'], ['title', 'date', 'time']),
   c('multi-read-reschedule', 'See what is on Tuesday, then move the dentist call after lunch.', 'multi_tool', ['todos', 'plan'], ['plan.read_day_context', 'plan.reschedule_activity'], ['title', 'date', 'time']),
   c('multi-goal-followup', 'Make learning watercolor a Goal and create a weekly practice To-do.', 'multi_tool', ['goals', 'todos'], ['goals.create', 'activities.capture'], ['title', 'recurrence']),
 ];

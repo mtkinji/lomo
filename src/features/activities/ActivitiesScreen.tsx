@@ -137,6 +137,8 @@ import { Dialog } from '../../ui/Dialog';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { QuickAddDock } from './QuickAddDock';
 import { InventoryDockAffordances, INVENTORY_DOCK_BUTTON_GAP_PX, INVENTORY_DOCK_BUTTON_SIZE_PX } from './InventoryDockAffordances';
+import { UnifiedChatDrawer } from '../unifiedChat/UnifiedChatDrawer';
+import type { UnifiedChatLaunchContext } from '../unifiedChat/launchContext';
 import { openActivitiesInventorySearch, scrollActiveInventoryToTop } from './inventoryDockActions';
 import { useFirstTimeUxStore } from '../../store/useFirstTimeUxStore';
 import { formatTags, parseTags, suggestTagsFromText } from '../../utils/tags';
@@ -380,6 +382,8 @@ export function ActivitiesScreen() {
   const dismissWidgetPrompt = useAppStore((state) => state.dismissWidgetPrompt);
 
   const [activityCoachVisible, setActivityCoachVisible] = React.useState(false);
+  const [todoChatVisible, setTodoChatVisible] = React.useState(false);
+  const [todoChatThreadId, setTodoChatThreadId] = React.useState<string | null>(null);
   const [viewEditorVisible, setViewEditorVisible] = React.useState(false);
   const [viewEditorMode, setViewEditorMode] = React.useState<'create' | 'settings'>('create');
   const [viewEditorTargetId, setViewEditorTargetId] = React.useState<string | null>(null);
@@ -615,6 +619,13 @@ export function ActivitiesScreen() {
     () => (activeTagGroupLabel ? buildActivityTagGroupFilter(activeTagGroupLabel) : []),
     [activeTagGroupLabel],
   );
+  // Launch evidence is capability-wide today; do not imply the active view/filter is an enforced query scope.
+  const todoChatScopeLabel = 'All to-dos';
+  const todoChatLaunchContext = React.useMemo<UnifiedChatLaunchContext>(() => ({
+    capabilityId: 'todos',
+    surface: 'inventory',
+    returnTarget: { name: 'MainTabs', params: { screen: 'ActivitiesTab' } },
+  }), []);
 
   // Local UI state for the Kanban expand/collapse control. Used to hide the fixed toolbar
   // and let the board claim that vertical space when expanded.
@@ -1341,7 +1352,7 @@ export function ActivitiesScreen() {
     : quickAddCompactBottomOffsetPx;
   const inventoryDockRightInsetPx = RESTING_COMPOSER_HORIZONTAL_INSET_PX;
   const quickAddDockRightInsetPx = inventoryDockRightInsetPx
-    + INVENTORY_DOCK_BUTTON_SIZE_PX + INVENTORY_DOCK_BUTTON_GAP_PX;
+    + (INVENTORY_DOCK_BUTTON_SIZE_PX * 2) + (INVENTORY_DOCK_BUTTON_GAP_PX * 2);
   const quickAddInitialReservedHeight = isKanbanLayout
     ? 0
     : QUICK_ADD_BAR_HEIGHT + quickAddDockBottomOffsetPx + spacing.xs;
@@ -3526,16 +3537,25 @@ export function ActivitiesScreen() {
           }}
         />
       )}
-      {!isKanbanLayout && !isQuickAddFocused && hasAnyStoredActivities && (
+      {!isKanbanLayout && !isQuickAddFocused && (
         <InventoryDockAffordances
           bottomOffsetPx={quickAddDockBottomOffsetPx}
           rightInsetPx={inventoryDockRightInsetPx}
           showScrollToTop={scrollToTopVisible}
           isProminent={floatingControlsProminent}
           onSearchPress={handleSearchPress}
+          onChatPress={() => setTodoChatVisible(true)}
           onScrollToTopPress={handleScrollToTopPress}
         />
       )}
+      <UnifiedChatDrawer
+        visible={todoChatVisible}
+        onClose={() => setTodoChatVisible(false)}
+        launchContext={todoChatLaunchContext}
+        scopeLabel={todoChatScopeLabel}
+        threadId={todoChatThreadId}
+        onThreadIdChange={setTodoChatThreadId}
+      />
       <BottomGuide
         visible={ghostWarningVisible && Boolean(postCreateGhostId)}
         onClose={dismissGhostWarning}

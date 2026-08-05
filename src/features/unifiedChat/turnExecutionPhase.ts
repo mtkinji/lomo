@@ -91,6 +91,29 @@ export function buildActionTargetGrounding(
   ].join(' ');
 }
 
+export function buildTodoActionGrounding(isAllMatching: boolean): string[] {
+  return [
+    isAllMatching
+      ? 'Prepare one To-do operation for every resolved matching Activity. Do not stop after one item or silently narrow the target set.'
+      : 'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do.',
+    'For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, copy targetId and expectedUpdatedAt exactly from the selected evidence machine reference. Ask one short clarification only when the requested target or field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
+    'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
+  ];
+}
+
+export function buildCreateCalendarContinuation({
+  prompt,
+  stagedCreate,
+  stagedPlanPlacement,
+}: {
+  prompt: string;
+  stagedCreate: boolean;
+  stagedPlanPlacement: boolean;
+}): string | null {
+  if (!stagedCreate || stagedPlanPlacement || !/\bcalendar\b/i.test(prompt)) return null;
+  return 'After it’s created, tell me the time and duration you want. I’ll use the new To-do’s authoritative record to prepare its reminder and calendar placement in Plan.';
+}
+
 function groundingSummary(
   requestPolicy: UnifiedChatRequestPolicy,
   agentJudgment: AgentJudgment | null,
@@ -108,10 +131,7 @@ function groundingSummary(
   const actionTargetGrounding = buildActionTargetGrounding(turnContract?.action ?? null);
   if (actionTargetGrounding) parts.push(actionTargetGrounding);
   if (requestClass === 'capability_action' && participatingCapabilities.includes('todos')) {
-    parts.push(
-      'Prepare at most one To-do operation. This request is already inside Kwilt; never ask which app or system owns the To-do. For explicit creation, identify the title and safe record fields; the native Quick Add pipeline owns steps, triggers, details, and cover-image enrichment under its existing permissions and entitlements. For an update, when exactly one selected Activity matches the user-named To-do, prepare the requested low-risk update instead of asking for details that are not required by the Activity field being changed. Copy targetId and expectedUpdatedAt exactly from that selected evidence machine reference. Ask one short clarification only when multiple selected Activities plausibly match or the requested field value is genuinely unresolved. Do not invent sharing, spending, Screen Time enforcement, or effects outside the Activity contract.',
-      'For a new recurring reminder, call activities.capture once with the title, reminderLocalTime in 24-hour HH:mm form, and repeatWeekdays using Sunday=0 through Saturday=6. The Activity capability converts that local intent into its durable reminderAt and recurrence fields. Never split a new recurring reminder into update calls that require an Activity id, and never infer a clock time from morning, afternoon, evening, or night.',
-    );
+    parts.push(...buildTodoActionGrounding(turnContract?.action?.targetScope === 'all_matching'));
   }
   if (
     (requestClass === 'capability_action' || requestClass === 'native_control') &&
@@ -125,6 +145,11 @@ function groundingSummary(
     if (participatingCapabilities.includes('goals')) {
       parts.push(
         'When the user asks for a new Goal and also describes a daily follow-through habit, call goals.create once with the bounded Goal targetDate and a followUpActivity containing only its title and daily repeat rule. Do not invent an Arc or call activities.capture before the reviewed Goal exists. After approval, Kwilt will offer the Activity using the authoritative created Goal id.',
+      );
+    }
+    if (participatingCapabilities.includes('plan')) {
+      parts.push(
+        'plan.schedule_activity may target only an existing authoritative Activity id from bounded evidence. If this same request is creating a new To-do, stage the To-do creation first and do not invent its future id, calendar time, or duration. After the native create receipt exists, offer calendar placement as the next Plan-owned action.',
       );
     }
     if (participatingCapabilities.includes('screenTime')) {
@@ -559,10 +584,11 @@ export async function executeUnifiedChatTurnPhase(
           input.snapshots.plan.scheduledItems ?? [],
         )
       : null;
-  const authoritativeFallbackBody = toolProvider.proposals().length > 0
-    ? toolProvider.proposals().length === 1
-      ? `I prepared “${toolProvider.proposals()[0].title}” for review.`
-      : `I prepared ${toolProvider.proposals().length} changes for review.`
+  const stagedProposals = toolProvider.proposals();
+  const authoritativeFallbackBody = stagedProposals.length > 0
+    ? stagedProposals.length === 1
+      ? `I prepared “${stagedProposals[0].title}” for review.`
+      : `I prepared ${stagedProposals.length} changes for review.`
     : toolProvider.clientActions().length > 0
       ? toolProvider.clientActions().length === 1
         ? `I prepared “${toolProvider.clientActions()[0].title}” for native review.`
@@ -580,7 +606,15 @@ export async function executeUnifiedChatTurnPhase(
     coveredTargetIds: [...coveredTargetIds],
     modelResponse: response,
   });
-  const visibleBody = planPriorityBody ?? actionOutcomeTruth.visibleBody ?? (groundedAnswer
+  const createCalendarContinuation = buildCreateCalendarContinuation({
+    prompt: input.prompt,
+    stagedCreate: stagedProposals.some((proposal) => proposal.operation.type === 'create_activity'),
+    stagedPlanPlacement: stagedProposals.some((proposal) => proposal.operation.type === 'schedule_activity'),
+  });
+  const truthfulActionBody = actionOutcomeTruth.visibleBody && createCalendarContinuation
+    ? `${actionOutcomeTruth.visibleBody}\n\n${createCalendarContinuation}`
+    : actionOutcomeTruth.visibleBody;
+  const visibleBody = planPriorityBody ?? truthfulActionBody ?? (groundedAnswer
     ? formatGroundedAnswer(groundedAnswer)
     : sanitizeVisibleAssistantText(actionResponse?.answer ?? artifactResponse?.answer ?? response) ||
       authoritativeFallbackBody);

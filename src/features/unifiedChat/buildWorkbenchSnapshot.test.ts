@@ -44,6 +44,29 @@ describe('buildWorkbenchSnapshot', () => {
     expect(snapshot.product.features.voice).toBe(true);
   });
 
+  test('can present removable contextual scope without inventing a durable thread or message', () => {
+    const snapshot = buildFreshWorkbenchSnapshot('', {
+      placeholder: 'Ask about these to-dos',
+      context: [{
+        id: 'fresh-launch-context',
+        capabilityId: 'todos',
+        object: { id: 'todos', type: 'capability', label: 'All to-dos' },
+        source: 'launch',
+        removable: true,
+        version: 1,
+      }],
+    });
+
+    expect(snapshot.thread).toBeUndefined();
+    expect(snapshot.messages).toEqual([]);
+    expect(snapshot.product.placeholder).toBe('Ask about these to-dos');
+    expect(snapshot.context).toEqual([expect.objectContaining({
+      id: 'fresh-launch-context',
+      object: expect.objectContaining({ label: 'All to-dos' }),
+      removable: true,
+    })]);
+  });
+
   test('projects a calm Kwilt configuration with an ordered transcript', () => {
     const snapshot = buildWorkbenchSnapshot(aggregate, 'draft text');
 

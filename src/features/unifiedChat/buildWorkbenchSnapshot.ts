@@ -1,5 +1,6 @@
 import type { UnifiedChatMutationReceipt, UnifiedChatRun, UnifiedChatRunEvent, UnifiedChatThreadAggregate } from './types';
 import type {
+  AgentWorkbenchContextRef,
   AgentWorkbenchRun,
   AgentWorkbenchSnapshot,
   AgentWorkbenchTimelineItem,
@@ -15,11 +16,16 @@ type WorkbenchPresentation = {
   attachments?: UnifiedChatTextAttachment[];
 };
 
-function buildKwiltWorkbenchProduct(): AgentWorkbenchSnapshot['product'] {
+type FreshWorkbenchPresentation = WorkbenchPresentation & {
+  context?: AgentWorkbenchContextRef[];
+  placeholder?: string;
+};
+
+function buildKwiltWorkbenchProduct(placeholder = 'Ask, search or chat…'): AgentWorkbenchSnapshot['product'] {
   return {
     id: 'kwilt',
     assistantName: 'Kwilt',
-    placeholder: 'Ask, search or chat…',
+    placeholder,
     features: {
       attachments: true,
       mentions: false,
@@ -55,11 +61,11 @@ function buildWorkbenchComposer(
 
 export function buildFreshWorkbenchSnapshot(
   prompt = '',
-  presentation?: WorkbenchPresentation,
+  presentation?: FreshWorkbenchPresentation,
 ): AgentWorkbenchSnapshot {
   return {
-    product: buildKwiltWorkbenchProduct(),
-    context: [],
+    product: buildKwiltWorkbenchProduct(presentation?.placeholder),
+    context: presentation?.context ?? [],
     evidence: [],
     messages: [],
     runs: [],

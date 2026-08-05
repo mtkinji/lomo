@@ -62,7 +62,12 @@ export function FloatingControlSurface({
           { borderRadius, opacity: contactShadowOpacity },
         ]}
       />
-      <View style={[styles.surface, { borderRadius }, surfaceStyle]}>{children}</View>
+      <View
+        testID={testID ? `${testID}.surface` : undefined}
+        style={[styles.surface, { borderRadius }, surfaceStyle]}
+      >
+        {children}
+      </View>
     </View>
   );
 }

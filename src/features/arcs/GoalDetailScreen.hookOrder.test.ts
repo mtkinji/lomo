@@ -33,7 +33,18 @@ describe('GoalDetailScreen hook order', () => {
       expect(block).toContain('onSelectedAiActionsChange={setQuickAddAiActions}');
       expect(block).toContain('lockedAiActions={isPro ? undefined : { cover_image: \'Pro\' }}');
       expect(block).toContain('onLockedAiActionPress={handleLockedQuickAddAiActionPress}');
+      expect(block).toContain('onInlineChatPress={() => setGoalChatVisible(true)}');
+      expect(block).toContain('inlineChatAccessibilityLabel="Chat about this goal"');
     });
+  });
+
+  it('opens Unified Chat with the exact Goal detail context', () => {
+    const source = readFileSync(path.join(__dirname, 'GoalDetailScreen.tsx'), 'utf8');
+
+    expect(source).toContain("capabilityId: 'goals'");
+    expect(source).toContain("object: { type: 'goal', id: goalId }");
+    expect(source).toContain('source="goal_contextual_drawer"');
+    expect(source).toContain('scopeLabel={goal.title}');
   });
 
   it('uses the current Goals nav icon in the Goal type pill', () => {

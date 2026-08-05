@@ -1,7 +1,7 @@
 ---
 feature: unifiedChat
-audiences: [audience-ai-native-life-operators, audience-burned-out-productivity-power-users]
-personas: [Nina, Marcus]
+audiences: [audience-ai-native-life-operators, audience-burned-out-productivity-power-users, audience-aspirational-family-organizers]
+personas: [Nina, Marcus, Maya]
 hero_jtbd: jtbd-trust-this-app-with-my-life
 job_flow: job-flow-nina-trust-ai-with-my-life-system
 serves:
@@ -11,6 +11,7 @@ serves:
   - jtbd-get-help-without-retelling-my-life
   - jtbd-understand-why-ai-suggested-this
   - jtbd-stay-in-control-of-ai-actions
+  - jtbd-move-the-few-things-that-matter
 briefs:
   - unified-chat-foundation
   - unified-chat
@@ -18,8 +19,9 @@ briefs:
   - chat-turn-coherent-timeline
   - chat-transcript-copy
   - unified-chat-operational-control-plane
+  - todo-contextual-chat
 status: shipping
-last_reviewed: 2026-08-04
+last_reviewed: 2026-08-05
 ---
 
 # Unified Chat

@@ -24,6 +24,7 @@ type InventoryDockAffordancesProps = {
   isProminent?: boolean;
   reduceMotionOverride?: boolean;
   onSearchPress: () => void;
+  onChatPress: () => void;
   onScrollToTopPress: () => void;
 };
 
@@ -34,6 +35,7 @@ export function InventoryDockAffordances({
   isProminent = true,
   reduceMotionOverride,
   onSearchPress,
+  onChatPress,
   onScrollToTopPress,
 }: InventoryDockAffordancesProps) {
   const systemReduceMotion = useReducedMotion();
@@ -158,6 +160,11 @@ export function InventoryDockAffordances({
     onSearchPress();
   }, [onSearchPress]);
 
+  const handleChatPress = React.useCallback(() => {
+    void HapticsService.trigger('canvas.selection');
+    onChatPress();
+  }, [onChatPress]);
+
   const handleScrollToTopPress = React.useCallback(() => {
     if (pressExitInProgressRef.current) return;
     pressExitInProgressRef.current = true;
@@ -275,7 +282,7 @@ export function InventoryDockAffordances({
         onPress={handleSearchPress}
         style={({ pressed }) => [
           styles.searchButton,
-          { right: rightInsetPx },
+          { right: rightInsetPx + INVENTORY_DOCK_BUTTON_SIZE_PX + INVENTORY_DOCK_BUTTON_GAP_PX },
           pressed && styles.buttonPressed,
         ]}
       >
@@ -287,6 +294,30 @@ export function InventoryDockAffordances({
         >
           <View style={styles.buttonContent}>
             <Icon name="search" size={19} color={colors.textPrimary} />
+          </View>
+        </FloatingControlSurface>
+      </Pressable>
+
+      <Pressable
+        testID="e2e.activities.chat"
+        accessibilityRole="button"
+        accessibilityLabel="Chat about to-dos"
+        accessibilityHint="Opens Chat with the current To-dos context"
+        onPress={handleChatPress}
+        style={({ pressed }) => [
+          styles.chatButton,
+          { right: rightInsetPx },
+          pressed && styles.buttonPressed,
+        ]}
+      >
+        <FloatingControlSurface
+          borderRadius={INVENTORY_DOCK_BUTTON_SIZE_PX / 2}
+          isProminent={isProminent}
+          style={styles.button}
+          surfaceStyle={styles.buttonSurface}
+        >
+          <View style={styles.buttonContent}>
+            <Icon name="navAiGuide" size={19} color={colors.textPrimary} />
           </View>
         </FloatingControlSurface>
       </Pressable>
@@ -304,6 +335,11 @@ const styles = StyleSheet.create({
     elevation: 60,
   },
   searchButton: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+  },
+  chatButton: {
     position: 'absolute',
     right: 0,
     bottom: 0,

@@ -3,6 +3,10 @@ import path from 'node:path';
 
 const featureDir = path.resolve(__dirname);
 const screenSource = readFileSync(path.join(featureDir, 'UnifiedChatScreen.tsx'), 'utf8');
+const contextualPresentationSource = readFileSync(
+  path.join(featureDir, 'contextualChatPresentation.ts'),
+  'utf8',
+);
 const navigatorSource = readFileSync(
   path.resolve(featureDir, '../../navigation/RootNavigator.tsx'),
   'utf8',
@@ -10,7 +14,7 @@ const navigatorSource = readFileSync(
 
 describe('Unified Chat coexistence contract', () => {
   test('opens a widget entry as an unsaved composer and creates a thread only for first send', () => {
-    expect(screenSource).toContain("route.params?.entry === 'fresh'");
+    expect(screenSource).toContain("routeParams?.entry === 'fresh'");
     expect(screenSource).toContain('buildFreshWorkbenchSnapshot');
     expect(screenSource).toContain('freshThreadGateRef.current!.ensure()');
     expect(screenSource).toContain('(aggregate && !freshEntry) || freshEntry');
@@ -18,8 +22,17 @@ describe('Unified Chat coexistence contract', () => {
     expect(screenSource).not.toContain('startUnifiedChatVoiceRecording(); // widget');
   });
 
+  test('gives a contextual drawer a compact durable-chat title without restoring modal chrome', () => {
+    expect(contextualPresentationSource).toContain("title: 'Chat about to-dos'");
+    expect(contextualPresentationSource).toContain("FRESH_LAUNCH_CONTEXT_ID = 'fresh-launch-context'");
+    expect(screenSource).toContain("command.type === 'context.remove'");
+    expect(screenSource).toContain('styles.drawerTitleRail');
+    expect(screenSource).not.toContain('UnifiedChatDrawerHeader');
+    expect(screenSource).not.toContain('How can I help with your to-dos?');
+  });
+
   test('resets the fresh composer for each repeated widget launch', () => {
-    expect(screenSource).toContain('route.params?.widgetLaunchId');
+    expect(screenSource).toContain('routeParams?.widgetLaunchId');
     expect(screenSource).toContain('widgetLaunchId]);');
     expect(navigatorSource).toContain('prepareIncomingNavigationUrl');
   });

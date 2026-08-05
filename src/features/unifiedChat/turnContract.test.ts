@@ -63,6 +63,7 @@ describe('Unified Chat Turn Contract', () => {
     ['Delete all completed activities.', 'activities.delete'],
     ['Add the same note to each chapter.', 'chapters.note.update'],
     ['Complete everything remaining in Activities.', 'activities.update'],
+    ['Look through all my past-due to-dos and remove their due dates and reminders.', 'activities.update'],
     ['Archive the rest of my goals.', 'goals.update'],
   ])('gives any registered individual action generic all-matching semantics: %s', (prompt, toolId) => {
     const capability = toolId.startsWith('activities.') ? 'todos' : toolId.split('.')[0];

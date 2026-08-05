@@ -200,6 +200,58 @@ describe('agent judgment execution', () => {
     }));
     expect(repository.createProposal).toHaveBeenCalledTimes(1);
   });
+
+  test('preserves new-To-do calendar intent as a truthful post-create continuation', async () => {
+    const prompt = 'Remind me to replace the furnace air filter in 10 months, and put it on my calendar.';
+    const furnaceJudgment = {
+      ...datedJudgment,
+      userJob: 'Create the future furnace-filter To-do before calendar placement',
+      desiredOutcome: 'A dated furnace-filter To-do exists and calendar placement remains explicit follow-up work',
+      participatingCapabilities: ['todos' as const, 'plan' as const],
+      constraints: [
+        { kind: 'title' as const, sourceText: 'replace the furnace air filter', normalizedValue: 'Replace the furnace air filter' },
+        { kind: 'date' as const, sourceText: 'in 10 months', normalizedValue: '2027-06-05' },
+      ],
+      steps: [{ sequence: 1, objective: 'Capture the dated furnace-filter Activity', toolId: 'activities.capture', dependsOn: null }],
+    };
+    const runtimeSender = jest.fn(async (_history: unknown, options: {
+      runtimeTools?: Array<{ id: string }>;
+      executeRuntimeTool?: (call: unknown, tool: unknown) => Promise<unknown>;
+    }) => {
+      expect(options.runtimeTools?.map((tool) => tool.id)).toEqual(['activities.capture']);
+      await options.executeRuntimeTool?.({
+        id: 'capture-filter', toolId: 'activities.capture',
+        arguments: { title: 'Replace the furnace air filter', scheduledDate: '2027-06-05' },
+      }, options.runtimeTools?.[0]);
+      return 'I prepared the dated To-do for review.';
+    });
+    const { repository, send } = dependencies(runtimeSender);
+
+    await runUnifiedChatTurn(
+      { aggregate: startingAggregate, prompt },
+      {
+        repository: repository as never, sendCoachChat: send as never, enableRuntimeTools: true,
+        routeRequest: async () => ({
+          requestClass: 'capability_action', participatingCapabilities: ['todos', 'plan'],
+          usePrivateContext: true, confidence: 0.99, reason: 'Create first, then place through Plan.',
+        }),
+        requestJudgment: async () => furnaceJudgment,
+        loadCapabilitySnapshots: async () => ({
+          goals: { goals: [] }, todos: { activities: [], goals: [] }, chapters: { chapters: [] },
+        }),
+      },
+    );
+
+    expect(repository.insertMessage).toHaveBeenCalledWith(expect.objectContaining({
+      role: 'assistant',
+      body: expect.stringContaining('After it’s created, tell me the time and duration'),
+    }));
+    expect(repository.createProposal).toHaveBeenCalledTimes(1);
+    expect(repository.createProposal).toHaveBeenCalledWith(expect.objectContaining({
+      capabilityId: 'todos',
+      operation: expect.objectContaining({ type: 'create_activity' }),
+    }));
+  });
 });
 
 describe('runUnifiedChatTurn', () => {

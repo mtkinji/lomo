@@ -256,4 +256,38 @@ describe('buildRunContext', () => {
     expect(result.evidence).toHaveLength(17);
     expect(result.omissions).toHaveLength(0);
   });
+
+  test('resolves only past-due Activities for an all-matching overdue cleanup', () => {
+    const activitySources: CapabilityEvidenceSource[] = [
+      {
+        capabilityId: 'todos',
+        object: { type: 'activity', id: 'overdue-1', label: 'Old errand' },
+        searchableText: 'old errand past-due past due overdue',
+        summary: 'Scheduled before today.', authority: 'authoritative', observedAt: '2026-08-04T10:00:00.000Z',
+      },
+      {
+        capabilityId: 'todos',
+        object: { type: 'activity', id: 'today-1', label: 'Remove reminder from today errand' },
+        searchableText: 'remove reminder date today errand scheduled today',
+        summary: 'Scheduled today.', authority: 'authoritative', observedAt: '2026-08-05T10:00:00.000Z',
+      },
+    ];
+    const prompt = 'Look through all my past-due to-dos and remove their due dates and reminders.';
+
+    const result = buildRunContext({
+      prompt,
+      policy: {
+        requestClass: 'capability_action', participatingCapabilities: ['todos'],
+        usePrivateContext: true, clarification: null, policyReason: 'test',
+      },
+      sources: activitySources,
+      actionContract: {
+        operationIds: ['activities.update'], targetScope: 'all_matching', targetQuery: prompt,
+      },
+      now: new Date('2026-08-05T18:00:00.000Z'),
+    });
+
+    expect(result.evidence.map((item) => item.object.id)).toEqual(['overdue-1']);
+    expect(result.omissions).toHaveLength(0);
+  });
 });

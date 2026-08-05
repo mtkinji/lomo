@@ -268,10 +268,13 @@ describe('QuickAddDock', () => {
     });
   });
 
-  it('keeps the inline Goal dock on the same floating pill surface', () => {
-    const { getByTestId } = renderWithProviders(
+  it('matches the inline Goal dock border to to-do rows and offers contextual Chat', () => {
+    const onInlineChatPress = jest.fn();
+    const { getByLabelText, getByTestId } = renderWithProviders(
       <QuickAddDock
         placement="inline"
+        onInlineChatPress={onInlineChatPress}
+        inlineChatAccessibilityLabel="Chat about this goal"
         value=""
         onChangeText={jest.fn()}
         inputRef={React.createRef<TextInput | null>()}
@@ -285,8 +288,20 @@ describe('QuickAddDock', () => {
     expect(StyleSheet.flatten(getByTestId('quick-add-collapsed-surface').props.style)).toMatchObject({
       backgroundColor: '#FFFFFF',
       borderRadius: 999,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
     });
-    expect(getByTestId('quick-add-collapsed-surface.contactShadow')).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId('quick-add-collapsed-surface.surface').props.style)).toMatchObject({
+      borderWidth: 1,
+      borderColor: '#E7E5E4',
+    });
+
+    fireEvent.press(getByLabelText('Chat about this goal'));
+
+    expect(onInlineChatPress).toHaveBeenCalledTimes(1);
+    expect(HapticsService.trigger).toHaveBeenCalledWith('canvas.selection');
+    expect(getByTestId('quick-add-inline-chat-icon')).toBeTruthy();
   });
 
   it('uses a contextual placeholder for the collapsed and expanded composer', () => {
