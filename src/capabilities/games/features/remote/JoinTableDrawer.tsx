@@ -102,6 +102,14 @@ export function JoinTableDrawer({ visible, token, onClose }: JoinTableDrawerProp
     setJoining(true);
     setError(null);
     try {
+      const nextPreview = input.token && preview
+        ? preview
+        : await previewOpenGameTableInvite(input);
+      if (nextPreview.alreadyJoined) {
+        router.replace({ pathname: '/room/[sessionId]', params: { sessionId: nextPreview.sessionId, tableCode: nextPreview.tableCode } } as Href);
+        return;
+      }
+      if (!nextPreview.canJoin) throw new Error(nextPreview.inviteState);
       const result = await claimRemoteBankTableInvite({ ...input, displayName: cleanName });
       router.replace({ pathname: '/room/[sessionId]', params: { sessionId: result.sessionId, tableCode: result.tableCode } } as Href);
     } catch (next) {

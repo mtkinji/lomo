@@ -157,24 +157,16 @@ export async function claimRemoteBankInvite(token?: string, shortCode?: string) 
 
 async function broadcastRoomChanged(sessionId: string, reason: string) {
   const client = getGamesSupabaseClient();
-  const channel = client.channel(`game:${sessionId}`, { config: { private: true } });
+  const topic = `realtime:game:${sessionId}`;
+  const activeChannel = client.getChannels().find((candidate) => candidate.topic === topic);
+  const channel = activeChannel ?? client.channel(`game:${sessionId}`, { config: { private: true } });
   try {
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Room update timed out.')), 5000);
-      channel.subscribe(async (status) => {
-        if (status !== 'SUBSCRIBED') return;
-        try {
-          await channel.send({ type: 'broadcast', event: 'state_changed', payload: { reason } });
-          clearTimeout(timeout);
-          resolve();
-        } catch (error) {
-          clearTimeout(timeout);
-          reject(error);
-        }
-      });
-    });
+    const result = await channel.send({ type: 'broadcast', event: 'state_changed', payload: { reason } });
+    if (result !== 'ok') console.warn('[Games] Room update notification was not delivered.', { reason });
+  } catch (error) {
+    console.warn('[Games] Room update notification was not delivered.', { reason, error });
   } finally {
-    await client.removeChannel(channel);
+    if (!activeChannel) await client.removeChannel(channel).catch(() => undefined);
   }
 }
 
@@ -232,6 +224,12 @@ export function subscribeToRemoteBankRoom(sessionId: string, onInvalidate: () =>
   const client = getGamesSupabaseClient();
   const channel = client.channel(`game:${sessionId}`, { config: { private: true, presence: { key: sessionId } } });
   channel.on('broadcast', { event: 'state_changed' }, onInvalidate);
+  channel.on('postgres_changes', {
+    event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: `id=eq.${sessionId}`,
+  }, onInvalidate);
+  channel.on('postgres_changes', {
+    event: 'INSERT', schema: 'public', table: 'game_participants', filter: `session_id=eq.${sessionId}`,
+  }, onInvalidate);
   if (onPresence) channel.on('presence', { event: 'sync' }, () => onPresence(channel.presenceState()));
   channel.subscribe(async (status) => {
     if (status === 'SUBSCRIBED') await channel.track({ connectedAt: new Date().toISOString() });

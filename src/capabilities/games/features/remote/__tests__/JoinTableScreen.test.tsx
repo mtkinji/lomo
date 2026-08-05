@@ -122,6 +122,23 @@ describe('JoinTableScreen', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ sessionId: 'room-1', tableCode: 'W7K4JP' }) })));
   });
 
+  it('returns an existing nearby participant to an active table without claiming again', async () => {
+    mockPreview.mockResolvedValue({
+      gameKey: 'bank', hostDisplayName: 'Andrew', participantCount: 2, capacity: 6,
+      inviteState: 'already_joined', canJoin: false, alreadyJoined: true,
+      sessionId: 'room-active', tableCode: 'W7K4JP',
+    });
+    const screen = render(<JoinTableDrawer visible onClose={jest.fn()} />);
+    await act(async () => undefined);
+
+    fireEvent.press(await screen.findByLabelText(`Join Bank table ${tableMarkForCode('W7K4JP')}`));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
+      params: expect.objectContaining({ sessionId: 'room-active', tableCode: 'W7K4JP' }),
+    })));
+    expect(mockClaim).not.toHaveBeenCalled();
+  });
+
   it('uses the same name-first flow for a scanned table link', async () => {
     const screen = render(<JoinTableDrawer visible token="private-token" onClose={jest.fn()} />);
     expect(await screen.findByText("Join Andrew’s Bank table")).toBeTruthy();

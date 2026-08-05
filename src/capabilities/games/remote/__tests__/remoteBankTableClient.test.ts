@@ -3,6 +3,7 @@ const mockGetSession = jest.fn();
 const mockSignInAnonymously = jest.fn();
 const mockSend = jest.fn();
 const mockRemoveChannel = jest.fn();
+const mockGetChannels = jest.fn((): Array<{ topic: string; send: typeof mockSend; subscribe: typeof mockSubscribe }> => []);
 const mockSubscribe = jest.fn((callback?: (status: string) => void) => {
   callback?.('SUBSCRIBED');
   return { send: mockSend };
@@ -14,6 +15,7 @@ jest.mock('@/src/capabilities/games/platform/supabase', () => ({
     auth: { getSession: mockGetSession, signInAnonymously: mockSignInAnonymously },
     rpc: mockRpc,
     channel: mockChannel,
+    getChannels: mockGetChannels,
     removeChannel: mockRemoveChannel,
   }),
 }));
@@ -26,6 +28,7 @@ import {
   startRemoteBankTable,
   previewOpenGameTableInvite,
   restartOpenGameTable,
+  subscribeToRemoteBankRoom,
 } from '../remoteBankClient';
 
 describe('open Bank table client', () => {
@@ -78,6 +81,41 @@ describe('open Bank table client', () => {
 
     expect(mockRpc).toHaveBeenNthCalledWith(1, 'start_open_bank_table', { p_session_id: 'room-1' });
     expect(mockRpc).toHaveBeenNthCalledWith(2, 'remove_open_game_table_participant', { p_session_id: 'room-1', p_participant_id: 'seat-3' });
+  });
+
+  it('reuses the active room subscription without subscribing or removing it', async () => {
+    const activeSubscribe = jest.fn();
+    const activeChannel = { topic: 'realtime:game:room-1', send: mockSend, subscribe: activeSubscribe };
+    mockGetChannels.mockReturnValueOnce([activeChannel]);
+    mockChannel.mockReturnValueOnce(activeChannel);
+
+    await startRemoteBankTable('room-1');
+
+    expect(mockSend).toHaveBeenCalledWith({ type: 'broadcast', event: 'state_changed', payload: { reason: 'table_started' } });
+    expect(activeSubscribe).not.toHaveBeenCalled();
+    expect(mockRemoveChannel).not.toHaveBeenCalledWith(activeChannel);
+  });
+
+  it('does not report a committed mutation as failed when notification delivery fails', async () => {
+    mockSend.mockRejectedValueOnce(new Error('realtime unavailable'));
+
+    await expect(startRemoteBankTable('room-1')).resolves.toBeUndefined();
+  });
+
+  it('reloads from authoritative session and participant changes', () => {
+    const roomChannel = { on: jest.fn(), subscribe: mockSubscribe, send: mockSend, track: jest.fn(), presenceState: jest.fn() };
+    roomChannel.on.mockReturnValue(roomChannel);
+    mockChannel.mockReturnValueOnce(roomChannel);
+    const invalidate = jest.fn();
+
+    expect(subscribeToRemoteBankRoom('room-1', invalidate)).toBe(roomChannel);
+
+    expect(roomChannel.on).toHaveBeenCalledWith('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'game_sessions', filter: 'id=eq.room-1',
+    }, invalidate);
+    expect(roomChannel.on).toHaveBeenCalledWith('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'game_participants', filter: 'session_id=eq.room-1',
+    }, invalidate);
   });
 
   it('previews a table invitation before claiming a seat', async () => {
