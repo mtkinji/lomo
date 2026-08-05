@@ -32,4 +32,4 @@ Helps David manage the private support circle attached to a goal without turning
 
 This manifest is a documentation feature slice over code that currently lives in `src/features/goals`. The top-level `goals` manifest remains anchored on Marcus' core goal-progress job; this slice is anchored on David's private-accountability job. The shared-goal surfaces should deepen a goal through chosen support, not introduce public feed or leaderboard behavior.
 
-The current Kwilt 2.0 branch adds explicit known-person selection, target-only preview/acceptance, and visible review/decline/revoke/remove/leave actions. Production Supabase deployment and separate-account runtime proof are still open gates.
+The current Kwilt 2.0 branch adds explicit known-person selection, target-only preview/acceptance, no-check-in encouragement, direct return to the Goal support context, and visible review/decline/revoke/remove/leave actions. The supporting Supabase migrations and functions are deployed; separate-account native and TestFlight lifecycle proof remain open gates.

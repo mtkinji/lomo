@@ -29,10 +29,25 @@ Kwilt owns the binary, React Navigation root, authentication/session, global set
 - Invite fallbacks use `kwilt://games`; legacy `kwiltgames://` and `games.kwilt.app` join links are normalized at the host boundary.
 - The standalone app icon, bundle identifier, release config, and duplicate shell remain outside the capability.
 
+## Current proof
+
+- The Games migrations and three Edge Functions are deployed in Kwilt's current
+  Supabase project; remote game session and participant tables are published for
+  authoritative Realtime invalidation.
+- A native iOS Simulator build from `codex/kwilt-2-family-sharing-maturity`
+  linked the Bonjour and audio/orientation modules successfully.
+- Two isolated simulator accounts proved Bank foreground discovery, join,
+  capacity/identity display, cold reconnect to the same active table, clean
+  start, and live authoritative moves in both directions.
+- Focused lifecycle tests cover unavailable invites, already-joined return,
+  completion presentation, and same-group rematch.
+
 ## Proof still required
 
-- Apply/reset the new migration in a local Supabase runtime and exercise authenticated create/invite/join/command flows. Docker was unavailable during source verification.
-- Deploy the three functions and migration to a non-production backend before any hosted-runtime claim.
 - Publish and verify the `games.kwilt.app` Apple App Site Association and Android asset-links files before claiming universal/app-link ownership outside the custom scheme.
-- Rebuild the iOS native project so the Bonjour module, supported orientations, and audio modules are linked.
-- Verify shelf, every local game family, drawing/motion, audio, QR/share, nearby discovery, and remote convergence on Simulator and signed devices.
+- Exercise a complete remote finish-to-rematch loop, foreground nearby radio,
+  interruption/background recovery, expiry, QR/share handoff, audio, and
+  orientation on signed physical devices.
+- Verify every local game family and drawing/motion behavior on the signed
+  release candidate; the focused remote proof does not establish catalog-wide
+  native parity.

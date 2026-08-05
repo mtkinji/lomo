@@ -3,7 +3,7 @@ id: job-flow-maya-start-playing-together
 audience: audience-aspirational-family-organizers
 persona: Maya
 hero_jtbd: jtbd-help-us-enjoy-being-together
-last_updated: 2026-07-28
+last_updated: 2026-08-04
 ---
 
 # Maya: Start Playing Together
@@ -26,26 +26,42 @@ Maya notices a small opening for family or friends to spend time together. She w
 
 ## Current Kwilt flow
 
-The standalone Kwilt Games app has a guest-first catalog and mature local play. The unified Kwilt app has a Fun group but, before this integration, no Games capability or route.
+The unified Kwilt app now owns the Games destination under Play, the complete
+guest-first catalog, local setup and play, saved-player continuity, and private
+remote tables. Bank hosts can open one table; nearby discovery, QR, link, and
+code entry converge on the same server-authoritative seat claim. A returning
+participant can re-enter an active table, and committed room changes refresh
+from authoritative Postgres state across phones.
 
 ## Delivery score
 
 | Step | Score | Rationale |
 | --- | --- | --- |
-| Notice opportunity | 2 | Kwilt is already installed, but Games has no unified entry yet. |
-| Reach people | 1 | Gathering and invitations remain outside unified Kwilt. |
-| See choices | 1 | The host has no Games inventory. |
-| Choose game | 1 | No host-native game route exists. |
-| Seat players | 1 | Standalone behavior is not yet ported. |
-| Know next action | 1 | Standalone teaching and table grammar are not yet available in unified Kwilt. |
-| Complete shared game | 1 | No game is playable in the unified app. |
-| Celebrate and replay | 1 | No host-native completion loop exists. |
-| Preserve continuity | 1 | Player and session continuity remain standalone-owned. |
+| Notice opportunity | 3 | Games is a first-class unified capability under Play, but Kwilt does not yet help a family notice or resume a good play moment. |
+| Reach people | 3 | Foreground nearby discovery, QR, link, and code remove most table coordination; signed-device discovery and remote delivery still need proof. |
+| See choices | 4 | The unified shelf presents eleven Games-owned choices and two utilities without productivity framing. |
+| Choose game | 4 | Each game exposes player count and a direct setup path; group-fit guidance remains light. |
+| Seat players | 4 | Local seats and capacity-bounded remote Bank/Slanguage tables are implemented; Bank join and reconnect are proven across two simulator accounts. |
+| Know next action | 4 | Setup, lobby, table, turn, and unavailable-invite states keep the immediate action explicit. |
+| Complete shared game | 3 | Local game families and server-authoritative remote commands are implemented; two-way Bank moves are simulator-proven, but a full remote finish on physical installs is still unproven. |
+| Celebrate and replay | 3 | Local celebrations and same-group remote rematch exist and are covered by lifecycle tests; the full remote finish-to-rematch path still needs device proof. |
+| Preserve continuity | 3 | Saved players, authoritative room reload, active-table reconnect, and same-group rematch exist; background and signed-device continuity remain open. |
 
-## First integration target
+## Remaining gap
 
-Add one Games destination under Fun, preserve a Games-owned playful surface, and make Bank and Farkle playable locally. Keep the remaining catalog and remote/session parity explicit rather than implying it is already present.
+Prove the complete host-and-guest path on signed physical installs: nearby or
+link discovery, join, interruption, reconnect, finish, rematch, backgrounding,
+and expiry. Keep link transport and room membership capability-owned; neither a
+Friendship nor Household relationship should grant a seat.
 
 ## Success condition
 
 Maya can open Games from Kwilt, seat nearby players, finish a fair Bank or Farkle game, and replay without signing in again or navigating through productivity surfaces.
+
+## Evidence
+
+- Source, focused tests, and a current native Simulator build prove the unified
+  catalog, local surfaces, join states, and remote lifecycle contracts.
+- Two isolated simulator accounts proved Bank discovery, join, active-table
+  reconnect, start, and live moves in both directions against deployed Supabase.
+- This evidence does not substitute for the signed two-device success condition.
