@@ -11,7 +11,7 @@ const acceptFunction = readFileSync(
   'utf8',
 );
 const previewMigration = readFileSync(
-  new URL('../supabase/migrations/20260805014856_harden_friend_invite_preview.sql', import.meta.url),
+  new URL('../supabase/migrations/20260805015646_harden_friend_invite_preview.sql', import.meta.url),
   'utf8',
 ).toLowerCase();
 const previewFunction = readFileSync(
