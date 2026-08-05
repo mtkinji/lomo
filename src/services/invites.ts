@@ -11,6 +11,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useJoinSharedGoalDrawerStore } from '../store/useJoinSharedGoalDrawerStore';
 import { handleIncomingReferralUrl } from './referrals';
 import { getEdgeFunctionUrl } from './edgeFunctions';
+import { getSupabaseClient } from './backend/supabaseClient';
 
 function getInviteLandingBaseUrl(): string | null {
   const raw = getEnvVar<string>('inviteLandingBaseUrl');
@@ -45,6 +46,35 @@ async function buildEdgeHeaders(requireAuth: boolean, accessToken?: string | nul
 
 // Backward compatible: older builds may still send buddy/squad.
 export type InviteKind = 'people' | 'buddy' | 'squad';
+export type GoalShareRecipientKind = 'friend' | 'household';
+export type GoalShareRecipient = {
+  kind: GoalShareRecipientKind;
+  relationshipId: string;
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+export async function listGoalShareRecipients(): Promise<GoalShareRecipient[]> {
+  const { data, error } = await getSupabaseClient().rpc('get_kwilt_goal_share_recipients');
+  if (error) {
+    throw new Error(error.message || 'Unable to load people');
+  }
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((value: unknown) => {
+    if (!value || typeof value !== 'object') return [];
+    const row = value as Record<string, unknown>;
+    const kind = row.recipient_kind;
+    const relationshipId = typeof row.relationship_id === 'string' ? row.relationship_id.trim() : '';
+    const displayName = typeof row.display_name === 'string' ? row.display_name.trim() : '';
+    if ((kind !== 'friend' && kind !== 'household') || !relationshipId || !displayName) return [];
+    return [{
+      kind,
+      relationshipId,
+      displayName,
+      avatarUrl: typeof row.avatar_url === 'string' && row.avatar_url.trim() ? row.avatar_url.trim() : null,
+    }];
+  });
+}
 
 export async function sendGoalInviteEmail(params: {
   goalId: string;
@@ -112,6 +142,7 @@ export async function createGoalInvite(params: {
   goalTitle: string;
   goalImageUrl?: string;
   kind?: InviteKind;
+  recipient?: { kind: GoalShareRecipientKind; relationshipId: string };
 }): Promise<{
   inviteCode: string;
   inviteUrl: string;
@@ -137,6 +168,9 @@ export async function createGoalInvite(params: {
         kind: (params.kind ?? 'people'),
         goalTitle: params.goalTitle,
         goalImageUrl: typeof params.goalImageUrl === 'string' ? params.goalImageUrl : undefined,
+        recipient: params.recipient
+          ? { kind: params.recipient.kind, relationshipId: params.recipient.relationshipId }
+          : undefined,
       }),
     });
     rawText = await res.text().catch(() => null);
@@ -168,7 +202,13 @@ export async function createGoalInvite(params: {
       typeof rawText === 'string' && rawText.length > 0
         ? rawText.slice(0, 500)
         : '(empty)';
-    throw new Error(`[invite-create] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`);
+    const err = new Error(`[invite-create] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = res.status;
+    err.code = typeof data?.error?.code === 'string' ? data.error.code : undefined;
+    throw err;
   }
 
   const redirectBase = getEdgeFunctionUrl('invite-redirect');
@@ -290,9 +330,12 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
   let res: Response;
   let rawText: string | null = null;
   try {
+    const headers = await buildEdgeHeaders(false);
+    const token = (await getAccessToken())?.trim();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
     res = await fetch(base, {
       method: 'POST',
-      headers: await buildEdgeHeaders(false),
+      headers,
       body: JSON.stringify({ inviteCode }),
     });
     rawText = await res.text().catch(() => null);
@@ -316,7 +359,13 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
           : `Unable to preview invite (status ${res.status})`;
     const bodyPreview =
       typeof rawText === 'string' && rawText.length > 0 ? rawText.slice(0, 500) : '(empty)';
-    throw new Error(`[invite-preview] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`);
+    const err = new Error(`[invite-preview] ${msg}\nstatus=${res.status}\nbody=${bodyPreview}`) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = res.status;
+    err.code = typeof data?.error?.code === 'string' ? data.error.code : undefined;
+    throw err;
   }
 
   const goalId = typeof data?.entityId === 'string' ? data.entityId : '';
@@ -348,6 +397,20 @@ export async function previewGoalInvite(inviteCode: string): Promise<{
   }
 
   return { goalId, goalTitle, inviter, inviteState, canJoin, progressPreview };
+}
+
+export async function declineTargetedGoalInvite(inviteCode: string): Promise<{ ok: true }> {
+  const code = inviteCode.trim();
+  if (!code) throw new Error('Missing invite code');
+  await ensureSignedInWithPrompt('join_goal');
+  const { error } = await getSupabaseClient().rpc('respond_to_kwilt_targeted_goal_invite', {
+    p_code: code,
+    p_action: 'decline',
+  });
+  if (error) {
+    throw new Error(error.message || 'Unable to decline invitation');
+  }
+  return { ok: true };
 }
 
 /**
@@ -509,4 +572,3 @@ export async function shareGoalInviteLink(params: {
     );
   });
 }
-

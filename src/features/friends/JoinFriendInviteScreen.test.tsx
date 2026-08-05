@@ -18,15 +18,17 @@ jest.mock('../../services/backend/auth', () => ({
 
 jest.mock('../../services/friendships', () => ({
   acceptFriendInvite: jest.fn(),
+  previewFriendInvite: jest.fn(),
 }));
 
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { acceptFriendInvite } from '../../services/friendships';
+import { acceptFriendInvite, previewFriendInvite } from '../../services/friendships';
 import { JoinFriendInviteScreen } from './JoinFriendInviteScreen';
 
 const ensureAuth = ensureSignedInWithPrompt as jest.MockedFunction<typeof ensureSignedInWithPrompt>;
 const acceptInvite = acceptFriendInvite as jest.MockedFunction<typeof acceptFriendInvite>;
+const previewInvite = previewFriendInvite as jest.MockedFunction<typeof previewFriendInvite>;
 
 describe('JoinFriendInviteScreen', () => {
   beforeEach(() => {
@@ -37,12 +39,21 @@ describe('JoinFriendInviteScreen', () => {
       friendshipId: 'friendship-1',
       status: 'active',
     });
+    previewInvite.mockResolvedValue({
+      inviterName: 'Blaire',
+      inviterAvatarUrl: null,
+      inviteState: 'active',
+      canAccept: true,
+    });
   });
 
   it('requires an explicit decision after explaining zero access', async () => {
     const { getByText } = renderWithProviders(<JoinFriendInviteScreen />);
 
+    await waitFor(() => expect(getByText('Connect with Blaire?')).toBeTruthy());
     expect(getByText('Becoming friends does not share anything by itself.')).toBeTruthy();
+    expect(previewInvite).toHaveBeenCalledWith('abc123');
+    expect(ensureAuth).not.toHaveBeenCalled();
     expect(acceptInvite).not.toHaveBeenCalled();
 
     fireEvent.press(getByText('Accept friend invite'));
@@ -56,13 +67,17 @@ describe('JoinFriendInviteScreen', () => {
   });
 
   it('shows safe recovery copy for an unavailable invite', async () => {
-    acceptInvite.mockResolvedValue({ success: false, error: 'This invite has expired' });
+    previewInvite.mockResolvedValue({
+      inviterName: 'Blaire',
+      inviterAvatarUrl: null,
+      inviteState: 'expired',
+      canAccept: false,
+    });
     const { getByText } = renderWithProviders(<JoinFriendInviteScreen />);
-
-    fireEvent.press(getByText('Accept friend invite'));
 
     await waitFor(() => expect(getByText('This invite is unavailable')).toBeTruthy());
     expect(getByText('Ask the sender for a new link, or return to Sharing.')).toBeTruthy();
     expect(getByText('Open Sharing')).toBeTruthy();
+    expect(acceptInvite).not.toHaveBeenCalled();
   });
 });

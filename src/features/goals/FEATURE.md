@@ -16,7 +16,7 @@ briefs:
   - social-goals-auth
   - social-dynamics-evolution
 status: shipped
-last_reviewed: 2026-05-12
+last_reviewed: 2026-08-04
 ---
 
 # goals
@@ -29,9 +29,12 @@ Helps Marcus keep the few commitments worth carrying visible and actionable, wit
 - `GoalCreationFlow.tsx` - turns an Arc-level intention into a concrete Goal.
 - `GoalFeedSection.tsx` - renders shared-goal progress signals and accountability context.
 - `ShareGoalDrawer.tsx` - starts the invite/share flow from a Goal.
+- `GoalSharingSettingsSection.tsx` - shows pending and active Goal access in the existing Sharing settings surface, with review, decline, revoke, remove, and leave actions.
 - `JoinSharedGoalDrawerHost.tsx` and `JoinSharedGoalScreen.tsx` - accept shared-goal invitations.
 - `CheckinComposer.tsx` - captures accountability/progress signals on a Goal.
 
 ## Notes
 
 The core goals surface serves Marcus' focus job; the share and join surfaces extend the folder into private accountability. The shared-goal pieces must preserve the same canvas-first posture: sharing deepens a Goal, it does not turn Kwilt into a social feed.
+
+Known Friends and authenticated Household members can be selected in the existing Goal share drawer. Selection creates a recipient-bound pending invitation only after an explicit Goal-only visibility preview; the relationship itself still grants no access. Generic Text, Email, and Copy Link sharing remain available and unchanged.

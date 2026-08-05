@@ -9,7 +9,7 @@ job_flow: job-flow-david-invite-the-right-people-in
 serves: [jtbd-invite-the-right-people-in, jtbd-trust-this-app-with-my-life]
 related_briefs: [brief-household-foundation, brief-recipient-sharing-growth-loop]
 owner: andrew
-last_updated: 2026-07-28
+last_updated: 2026-08-04
 ---
 
 # Friends Sharing
@@ -188,7 +188,11 @@ As of 2026-07-28, the first foundation is implemented on `codex/family-capabilit
 - `friend/:inviteCode` resolves to an explicit acceptance screen and never auto-accepts.
 - The hardening migration is applied to production Supabase and the authenticated acceptance Edge Function is active.
 
-This remains `shipping`, not production-ready. Add a rate-limited safe invite-preview command so the recipient can verify inviter identity before accepting; verify the universal-link web handoff; and complete the two-account separate-install create/open/accept/reload/end/block procedure. Targeted Friend-to-Goal invitations remain the next relationship milestone, but the preferred growth path is now Goal value first followed by an optional Friend offer as defined in [`recipient-sharing-growth-loop.md`](recipient-sharing-growth-loop.md).
+This remains `shipping`, not production-ready. The `codex/kwilt-2-family-sharing-maturity` branch now implements the targeted Friend-to-Goal milestone additively: active Friends and authenticated Household members are projected without exposing an account directory, selection previews the Goal-only signals contract, only the intended account can inspect or accept, and pending/active access appears under **Shared by you** and **Shared with you** with decline, revoke, remove, and leave actions. Public rich-link metadata is generic for targeted invitations so a forwarded code does not reveal the Goal title or image. Generic Goal invites remain unchanged and are created only after a generic share channel is deliberately chosen, not when the drawer merely opens.
+
+The branch also repairs the existing Friends roster to use Kwilt's live auth identity source rather than the absent `public.profiles` relation. Direct Friend links now show a rate-limited, minimum-field inviter preview before sign-in or acceptance; the preview stores only a server hash of the installation identity and never returns a user ID or relationship graph.
+
+The revised migrations and negative authorization matrix pass in an explicit production-schema transaction that is rolled back in full. The remaining release gates are production migration/function deployment, post-deploy security advisors, universal-link handoff verification, and the two-account separate-install create/open/accept/reload/end/block/revoke procedure. The preferred growth path remains Goal value first followed by an optional Friend offer as defined in [`recipient-sharing-growth-loop.md`](recipient-sharing-growth-loop.md).
 
 ## Spec refinement
 

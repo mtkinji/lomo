@@ -1,9 +1,13 @@
-import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ensureSignedInWithPrompt } from '../../services/backend/auth';
-import { acceptFriendInvite } from '../../services/friendships';
+import {
+  acceptFriendInvite,
+  previewFriendInvite,
+  type FriendInvitePreview,
+} from '../../services/friendships';
 import { colors, fonts, spacing, typography } from '../../theme';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
@@ -15,15 +19,35 @@ import type { SettingsStackParamList } from '../../navigation/RootNavigator';
 
 type ScreenRoute = RouteProp<SettingsStackParamList, 'SettingsJoinFriend'>;
 type ScreenNavigation = NativeStackNavigationProp<SettingsStackParamList, 'SettingsJoinFriend'>;
-type DecisionState = 'idle' | 'accepting' | 'accepted' | 'unavailable';
+type DecisionState = 'previewing' | 'idle' | 'accepting' | 'accepted' | 'unavailable';
 
 export function JoinFriendInviteScreen() {
   const route = useRoute<ScreenRoute>();
   const navigation = useNavigation<ScreenNavigation>();
-  const [state, setState] = useState<DecisionState>('idle');
+  const [state, setState] = useState<DecisionState>('previewing');
+  const [preview, setPreview] = useState<FriendInvitePreview | null>(null);
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState('previewing');
+    setPreview(null);
+    previewFriendInvite(route.params.inviteCode)
+      .then((result) => {
+        if (cancelled) return;
+        setPreview(result);
+        setState(result.canAccept && result.inviteState === 'active' ? 'idle' : 'unavailable');
+      })
+      .catch(() => {
+        if (!cancelled) setState('unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [previewAttempt, route.params.inviteCode]);
 
   const accept = async () => {
-    if (state === 'accepting') return;
+    if (state !== 'idle' || !preview?.canAccept) return;
     setState('accepting');
     try {
       await ensureSignedInWithPrompt('friend');
@@ -42,7 +66,12 @@ export function JoinFriendInviteScreen() {
         <PageHeader title="Friend invite" onPressBack={() => navigation.goBack()} />
 
         <Card style={styles.card}>
-          {state === 'accepted' ? (
+          {state === 'previewing' ? (
+            <VStack space="md" style={styles.centered}>
+              <ActivityIndicator color={colors.textSecondary} />
+              <Text style={styles.bodyCentered}>Reviewing this invitation…</Text>
+            </VStack>
+          ) : state === 'accepted' ? (
             <VStack space="md" style={styles.centered}>
               <View style={styles.iconWrap}>
                 <Icon name="check" size={22} color={colors.textPrimary} />
@@ -63,16 +92,23 @@ export function JoinFriendInviteScreen() {
                 Ask the sender for a new link, or return to Sharing.
               </Text>
               <Button fullWidth onPress={openSharing}>Open Sharing</Button>
-              <Button fullWidth variant="ghost" onPress={() => setState('idle')}>Try again</Button>
+              <Button fullWidth variant="ghost" onPress={() => setPreviewAttempt((value) => value + 1)}>Try again</Button>
             </VStack>
           ) : (
             <VStack space="lg">
               <VStack space="sm" style={styles.centered}>
-                <View style={styles.iconWrap}>
-                  <Icon name="users" size={22} color={colors.textPrimary} />
-                </View>
-                <Text style={styles.title}>Connect on Kwilt?</Text>
+                {preview?.inviterAvatarUrl ? (
+                  <Image source={{ uri: preview.inviterAvatarUrl }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.iconWrap}>
+                    <Icon name="users" size={22} color={colors.textPrimary} />
+                  </View>
+                )}
+                <Text style={styles.title}>
+                  {preview?.inviterName ? `Connect with ${preview.inviterName}?` : 'Connect on Kwilt?'}
+                </Text>
                 <Text style={styles.bodyCentered}>
+                  {preview?.inviterName ? `${preview.inviterName} invited you. ` : ''}
                   Accepting makes this person easier to choose in a future sharing moment.
                 </Text>
               </VStack>
@@ -125,6 +161,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.shellAlt,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   title: {
     ...typography.titleMd,

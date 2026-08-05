@@ -39,6 +39,17 @@ function getSupabaseAdmin() {
   });
 }
 
+function getSupabaseForUser(token: string) {
+  const url = Deno.env.get('SUPABASE_URL');
+  const publishableKey =
+    (Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '').trim();
+  if (!url || !publishableKey) return null;
+  return createClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}
+
 function requireBearerToken(req: Request): string | null {
   const auth = (req.headers.get('authorization') ?? '').trim();
   const m = /^bearer\s+(.+)$/i.exec(auth);
@@ -78,7 +89,7 @@ serve(async (req) => {
 
   const { data: invite, error: inviteErr } = await admin
     .from('kwilt_invites')
-    .select('entity_type, entity_id, expires_at, max_uses, uses, payload, created_by')
+    .select('entity_type, entity_id, expires_at, max_uses, uses, payload, created_by, intended_recipient_user_id, recipient_state')
     .eq('code', inviteCode)
     .maybeSingle();
 
@@ -92,9 +103,47 @@ serve(async (req) => {
   const maxUses = (invite as any).max_uses as number;
   const uses = (invite as any).uses as number;
   const payload = ((invite as any).payload ?? {}) as JsonValue;
+  const intendedRecipientUserId = (invite as any).intended_recipient_user_id as string | null;
 
   if (entityType !== 'goal' || !entityId) {
     return json(500, { error: { message: 'Invite misconfigured', code: 'server_error' } });
+  }
+
+  if (intendedRecipientUserId) {
+    const supabase = getSupabaseForUser(token);
+    if (!supabase) {
+      return json(503, { error: { message: 'Invite service unavailable', code: 'provider_unavailable' } });
+    }
+    const { data, error } = await supabase.rpc('respond_to_kwilt_targeted_goal_invite', {
+      p_code: inviteCode,
+      p_action: 'accept',
+    });
+    if (error) {
+      const safe = String(error.message ?? '').toLowerCase();
+      if (safe.includes('invite_expired')) {
+        return json(410, { error: { message: 'Invite expired', code: 'invite_expired' } });
+      }
+      if (safe.includes('invite_exhausted')) {
+        return json(409, { error: { message: 'Invite already used', code: 'invite_consumed' } });
+      }
+      if (safe.includes('invite_not_found')) {
+        return json(404, { error: { message: 'Invite not found', code: 'not_found' } });
+      }
+      if (safe.includes('invite_unavailable')) {
+        return json(403, { error: { message: 'This invite is unavailable', code: 'invite_unavailable' } });
+      }
+      return json(400, { error: { message: 'Unable to accept this invite', code: 'accept_failed' } });
+    }
+    const result = data && typeof data === 'object' && !Array.isArray(data)
+      ? data as Record<string, JsonValue>
+      : {};
+    return json(200, {
+      ok: true,
+      entityType,
+      entityId: typeof result.entityId === 'string' ? result.entityId : entityId,
+      payload: result.payload ?? payload,
+      replayed: result.replayed === true,
+    });
   }
 
   // Idempotency: if the user already has an active membership for this goal,
@@ -156,5 +205,4 @@ serve(async (req) => {
 
   return json(200, { ok: true, entityType, entityId, payload });
 });
-
 

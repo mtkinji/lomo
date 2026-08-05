@@ -54,16 +54,22 @@ function buildInviteHtml(args: {
   canonicalUrl: string;
   goalTitle?: string | null;
   goalImageUrl?: string | null;
+  targeted: boolean;
 }): string {
   // For iOS share previews, the OG title should be the goal name (Airbnb-style).
   // Keep the "Join..." phrasing for the on-page header/body copy instead.
-  const goalName = args.goalTitle?.trim() ? args.goalTitle.trim() : '';
-  const ogTitle = goalName || 'Shared goal';
-  const pageTitle = goalName ? `Join “${goalName}” in Kwilt` : 'Join a shared goal in Kwilt';
-  const description =
-    'Tap to open the invite in Kwilt. By default you share signals only (check-ins + cheers); activity titles stay private unless you choose to share them.';
+  const goalName = !args.targeted && args.goalTitle?.trim() ? args.goalTitle.trim() : '';
+  const ogTitle = args.targeted ? 'Private Goal invitation' : goalName || 'Shared goal';
+  const pageTitle = args.targeted
+    ? 'Open a private Goal invitation in Kwilt'
+    : goalName
+      ? `Join “${goalName}” in Kwilt`
+      : 'Join a shared goal in Kwilt';
+  const description = args.targeted
+    ? 'Open Kwilt and sign in to review. Only the intended Kwilt account can see or accept this Goal invitation.'
+    : 'Tap to open the invite in Kwilt. By default you share signals only (check-ins + cheers); activity titles stay private unless you choose to share them.';
   // Prefer the goal's own image when provided. Must be a publicly reachable URL.
-  const imageUrl = args.goalImageUrl?.trim() ? args.goalImageUrl.trim() : null;
+  const imageUrl = !args.targeted && args.goalImageUrl?.trim() ? args.goalImageUrl.trim() : null;
 
   const safeOgTitle = escapeHtml(ogTitle);
   const safePageTitle = escapeHtml(pageTitle);
@@ -155,25 +161,29 @@ serve(async (req) => {
   const admin = getSupabaseAdmin();
   let goalTitle: string | null = null;
   let goalImageUrl: string | null = null;
+  let targeted = false;
   if (admin) {
     try {
       const { data } = await admin
         .from('kwilt_invites')
-        .select('payload')
+        .select('payload, intended_recipient_user_id')
         .eq('code', code)
         .maybeSingle();
       const payload = (data as any)?.payload ?? null;
-      goalTitle = typeof payload?.goalTitle === 'string' ? payload.goalTitle.trim() : null;
-      // Optional: allow payload to carry a public image URL for rich preview cards.
-      const rawImage = typeof payload?.goalImageUrl === 'string' ? payload.goalImageUrl.trim() : '';
-      if (rawImage) {
-        try {
-          const u = new URL(rawImage);
-          if (u.protocol === 'https:' || u.protocol === 'http:') {
-            goalImageUrl = u.toString();
+      targeted = typeof (data as any)?.intended_recipient_user_id === 'string';
+      if (!targeted) {
+        goalTitle = typeof payload?.goalTitle === 'string' ? payload.goalTitle.trim() : null;
+        // Optional: allow payload to carry a public image URL for rich preview cards.
+        const rawImage = typeof payload?.goalImageUrl === 'string' ? payload.goalImageUrl.trim() : '';
+        if (rawImage) {
+          try {
+            const u = new URL(rawImage);
+            if (u.protocol === 'https:' || u.protocol === 'http:') {
+              goalImageUrl = u.toString();
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
       }
     } catch {
@@ -182,7 +192,7 @@ serve(async (req) => {
   }
 
   const canonicalUrl = url.toString();
-  const html = buildInviteHtml({ code, kwiltUrl, canonicalUrl, goalTitle, goalImageUrl });
+  const html = buildInviteHtml({ code, kwiltUrl, canonicalUrl, goalTitle, goalImageUrl, targeted });
   return new Response(html, {
     status: 200,
     headers: {
@@ -193,5 +203,4 @@ serve(async (req) => {
     },
   });
 });
-
 

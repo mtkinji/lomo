@@ -6,7 +6,7 @@ export type JoinSharedGoalDrawerState = {
   /**
    * Optional source label for analytics / debugging.
    */
-  source?: 'deeplink' | 'route' | 'unknown';
+  source?: 'deeplink' | 'route' | 'sharing' | 'unknown';
   open: (params: { inviteCode: string; source?: JoinSharedGoalDrawerState['source'] }) => void;
   close: () => void;
 };
@@ -23,5 +23,4 @@ export const useJoinSharedGoalDrawerStore = create<JoinSharedGoalDrawerState>((s
     }),
   close: () => set({ visible: false, inviteCode: null, source: 'unknown' }),
 }));
-
 

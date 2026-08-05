@@ -51,6 +51,22 @@ function requireBearerToken(req: Request): string | null {
   return m?.[1]?.trim() ?? null;
 }
 
+function safeName(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 80) : null;
+}
+
+function safeAvatarUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -104,22 +120,10 @@ serve(async (req) => {
     // best-effort rate limiting
   }
 
-  // Fetch user profile for invite payload
-  let inviterName: string | null = null;
-  let inviterAvatarUrl: string | null = null;
-  try {
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('display_name, avatar_url')
-      .eq('id', userId)
-      .maybeSingle();
-    if (profile) {
-      inviterName = profile.display_name;
-      inviterAvatarUrl = profile.avatar_url;
-    }
-  } catch {
-    // best-effort profile fetch
-  }
+  // Display metadata is user-authored identity, never an authorization source.
+  const metadata = (userData.user?.user_metadata ?? {}) as Record<string, unknown>;
+  const inviterName = safeName(metadata.full_name) ?? safeName(metadata.name);
+  const inviterAvatarUrl = safeAvatarUrl(metadata.avatar_url) ?? safeAvatarUrl(metadata.picture);
 
   // Create invite row
   // For friendship invites, entity_id is the inviter's user_id
@@ -165,4 +169,3 @@ serve(async (req) => {
     maxUses: safeMaxUses,
   });
 });
-

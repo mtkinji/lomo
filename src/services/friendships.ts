@@ -69,6 +69,13 @@ export type FriendInvite = {
   maxUses: number;
 };
 
+export type FriendInvitePreview = {
+  inviterName: string | null;
+  inviterAvatarUrl: string | null;
+  inviteState: 'active' | 'expired' | 'consumed';
+  canAccept: boolean;
+};
+
 export type PendingFriendRequest = {
   friendshipId: string;
   fromUserId: string;
@@ -135,6 +142,55 @@ export async function createFriendInvite(
     console.warn('[friendships] Error creating invite:', err);
     return null;
   }
+}
+
+export async function previewFriendInvite(code: string): Promise<FriendInvitePreview> {
+  const inviteCode = code.trim();
+  if (!inviteCode) throw new Error('Missing friend invitation code');
+  const base = getEdgeFunctionUrl('friend-invite-preview');
+  if (!base) throw new Error('Friend preview service unavailable');
+
+  const res = await fetch(base, {
+    method: 'POST',
+    headers: await buildEdgeHeaders(false),
+    body: JSON.stringify({ code: inviteCode }),
+  });
+  const rawText = await res.text().catch(() => '');
+  let data: Record<string, unknown> = {};
+  try {
+    const parsed = rawText ? JSON.parse(rawText) : null;
+    data = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    data = {};
+  }
+
+  if (!res.ok) {
+    const errorData = data.error && typeof data.error === 'object'
+      ? data.error as Record<string, unknown>
+      : {};
+    const message = typeof errorData.message === 'string'
+      ? errorData.message
+      : 'Friend invitation unavailable';
+    const error = new Error(message) as Error & { status?: number; code?: string };
+    error.status = res.status;
+    error.code = typeof errorData.code === 'string' ? errorData.code : undefined;
+    throw error;
+  }
+
+  const inviteState = data.inviteState;
+  if (inviteState !== 'active' && inviteState !== 'expired' && inviteState !== 'consumed') {
+    throw new Error('Friend preview response is invalid');
+  }
+  const inviter = data.inviter && typeof data.inviter === 'object'
+    ? data.inviter as Record<string, unknown>
+    : {};
+  return {
+    inviterName: typeof inviter.name === 'string' && inviter.name.trim() ? inviter.name.trim() : null,
+    inviterAvatarUrl:
+      typeof inviter.avatarUrl === 'string' && inviter.avatarUrl.trim() ? inviter.avatarUrl.trim() : null,
+    inviteState,
+    canAccept: data.canAccept === true,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

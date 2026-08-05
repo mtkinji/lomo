@@ -10,6 +10,18 @@ const acceptFunction = readFileSync(
   new URL('../supabase/functions/friend-invite-accept/index.ts', import.meta.url),
   'utf8',
 );
+const previewMigration = readFileSync(
+  new URL('../supabase/migrations/20260805014856_harden_friend_invite_preview.sql', import.meta.url),
+  'utf8',
+).toLowerCase();
+const previewFunction = readFileSync(
+  new URL('../supabase/functions/friend-invite-preview/index.ts', import.meta.url),
+  'utf8',
+);
+const createFunction = readFileSync(
+  new URL('../supabase/functions/friend-invite-create/index.ts', import.meta.url),
+  'utf8',
+);
 
 test('makes friendship a zero-access relationship with server-authorized writes', () => {
   assert.match(migration, /status in \('pending', 'active', 'ended', 'blocked'\)/);
@@ -68,4 +80,31 @@ test('keeps the Friend accept Edge Function as an authenticated atomic RPC adapt
   assert.doesNotMatch(acceptFunction, /\.from\('kwilt_friendships'\)/);
   assert.doesNotMatch(acceptFunction, /invite\.uses \+ 1/);
   assert.doesNotMatch(acceptFunction, /status:\s*'pending'/);
+});
+
+test('repairs the Friend roster against the live auth identity source', () => {
+  assert.match(previewMigration, /create or replace function public\.get_kwilt_friendships\(\)/);
+  assert.match(previewMigration, /left join auth\.users/);
+  assert.match(previewMigration, /raw_user_meta_data/);
+  assert.doesNotMatch(previewMigration, /public\.profiles/);
+});
+
+test('rate-limits public Friend preview without storing raw install identity', () => {
+  assert.match(previewMigration, /create table public\.kwilt_friend_invite_preview_budgets/);
+  assert.match(previewMigration, /enable row level security/);
+  assert.match(previewMigration, /revoke all on public\.kwilt_friend_invite_preview_budgets/);
+  assert.match(previewMigration, /consume_kwilt_friend_invite_preview_budget/);
+  assert.match(previewMigration, /grant execute .* to service_role/);
+  assert.match(previewFunction, /crypto\.subtle\.digest\('SHA-256'/);
+  assert.match(previewFunction, /consume_kwilt_friend_invite_preview_budget/);
+  assert.doesNotMatch(previewFunction, /createdBy\s*:/);
+});
+
+test('previews inviter identity before acceptance without a profiles dependency', () => {
+  assert.match(previewFunction, /entity_type/);
+  assert.match(previewFunction, /friendship/);
+  assert.match(previewFunction, /inviteState/);
+  assert.match(previewFunction, /canAccept/);
+  assert.match(createFunction, /user_metadata/);
+  assert.doesNotMatch(createFunction, /\.from\('profiles'\)/);
 });
