@@ -226,12 +226,11 @@ describe('linkingConfig', () => {
       expect(parse('today')?.name).toBe('ActivitiesList');
     });
 
-    test('kwilt://today parses the standalone Focus widget request', () => {
-      const leaf = parse('today?autoStartStandaloneFocus=1&focusMinutes=25&source=widget');
-      expect(leaf?.name).toBe('ActivitiesList');
+    test('kwilt://focus opens the standalone full-page Focus interstitial', () => {
+      const leaf = parse('focus?source=widget');
+      expect(leaf?.name).toBe('StandaloneFocus');
+      expect(leaf?.path).toEqual(['StandaloneFocus']);
       expect(leaf?.params).toMatchObject({
-        autoStartStandaloneFocus: true,
-        focusMinutes: 25,
         source: 'widget',
       });
     });

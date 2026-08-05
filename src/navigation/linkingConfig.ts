@@ -78,6 +78,12 @@ export function prepareIncomingNavigationUrl(
 
 export const linkingConfig: LinkingOptions<RootDrawerParamList>['config'] = {
   screens: {
+    StandaloneFocus: {
+      path: 'focus',
+      parse: {
+        source: (value: string) => String(value),
+      },
+    },
     MainTabs: {
       screens: {
         GoalsTab: {

@@ -3935,11 +3935,13 @@ export function ActivitiesScreen() {
         onApplyAiCustomization={handleApplyAiCustomization}
         isAiLoading={isApplyingAiCustomization}
       />
-      <StandaloneFocusExperience
-        controller={standaloneFocusController}
-        topInset={insets.top}
-        bottomInset={insets.bottom}
-      />
+      {isFocused ? (
+        <StandaloneFocusExperience
+          controller={standaloneFocusController}
+          topInset={insets.top}
+          bottomInset={insets.bottom}
+        />
+      ) : null}
     </AppShell>
   );
 }

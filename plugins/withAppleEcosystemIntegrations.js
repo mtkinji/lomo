@@ -1809,8 +1809,8 @@ func deepLinkActivities(viewId: String?) -> URL? {
 
 let standaloneFocusActivityId = "kwilt-standalone-focus"
 
-func deepLinkStartStandaloneFocus(minutes: Int, audio: String) -> URL {
-  return URL(string: "kwilt://today?autoStartStandaloneFocus=1&focusMinutes=\\(minutes)&focusAudio=\\(audio)&source=widget")!
+func deepLinkConfigureStandaloneFocus() -> URL {
+  return URL(string: "kwilt://focus?source=widget")!
 }
 
 func deepLinkFocusControls(_ focus: GlanceableStateV1.FocusSession) -> URL {

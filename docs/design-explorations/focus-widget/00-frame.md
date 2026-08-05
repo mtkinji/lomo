@@ -38,3 +38,14 @@ How might we help Marcus cross from intention into concentration in one tap, whi
 - Toggling an Apple system Focus mode.
 - Multiple simultaneous Focus sessions.
 - Ending a session directly inside the first widget release.
+
+## 2026-08-05 refinement: a deliberate start
+
+Andrew wants the widget tap to create a compact decision moment instead of hiding
+duration and audio behind widget configuration or choosing for the user. In user
+voice: when I signal that I am ready to focus, help me deliberately choose how long
+and what I want to hear, then let one explicit Start begin the session.
+
+This remains a `Fit the system` refinement. The widget becomes a launcher into an
+in-app setup drawer that reuses the existing duration, soundscape, entitlement, and
+standalone Focus runtime. It adds no new preference model, screen, or Focus object.

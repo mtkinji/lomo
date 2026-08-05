@@ -21,3 +21,13 @@ Evidence to collect after dogfooding:
 - Whether active-widget countdown and in-app controls feel continuous.
 
 Do not raise the job-flow delivery score until this is proven on a signed device or TestFlight build.
+
+## 2026-08-05 deliberate-start learning
+
+Learn whether choosing duration and audio at tap time feels intentional rather than
+administrative. Supporting evidence is repeated widget use where the user makes or
+confirms both choices and starts without backing out. Disconfirming evidence is
+frequent abandonment at the drawer or a repeated desire to bypass it. Dogfood
+observations are sufficient for this refinement; do not add track-level analytics.
+Revisit the interaction only after several real starts, not from generator or
+Simulator rendering alone.

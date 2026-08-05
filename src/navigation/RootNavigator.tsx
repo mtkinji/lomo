@@ -32,6 +32,7 @@ import { GoalsScreen } from '../features/goals/GoalsScreen';
 import { JoinSharedGoalScreen } from '../features/goals/JoinSharedGoalScreen';
 import { ActivitiesScreen } from '../features/activities/ActivitiesScreen';
 import { ActivityDetailScreen } from '../features/activities/ActivityDetailScreen';
+import { StandaloneFocusScreen } from '../features/activities/StandaloneFocusScreen';
 import { PlanScreen } from '../features/plan/PlanScreen';
 import { PlanAvailabilitySettingsScreen } from '../features/plan/PlanAvailabilitySettingsScreen';
 import { PlanCalendarSettingsScreen } from '../features/plan/PlanCalendarSettingsScreen';
@@ -146,6 +147,7 @@ import { ExploreSettingsScreen } from '../capabilities/explore/screens/ExploreSe
 import { useFeatureFlag } from '../services/analytics/useFeatureFlag';
 
 export type RootDrawerParamList = {
+  StandaloneFocus: { source?: string } | undefined;
   MainTabs: NavigatorScreenParams<MainTabsParamList> | undefined;
   /**
    * Compatibility route name used by existing deep links + callers.
@@ -698,6 +700,11 @@ function RootNavigatorBase({ trackScreen }: { trackScreen?: TrackScreenFn }) {
             }}
             initialRouteName="MainTabs"
           >
+            <Drawer.Screen
+              name="StandaloneFocus"
+              component={StandaloneFocusScreen}
+              options={{ title: 'Focus', drawerItemStyle: { display: 'none' } }}
+            />
             <Drawer.Screen
               name="MainTabs"
               component={CapabilityMainTabsHost}

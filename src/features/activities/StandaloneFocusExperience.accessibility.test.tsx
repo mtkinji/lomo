@@ -12,7 +12,11 @@ describe('StandaloneFocusExperience accessibility contract', () => {
     } as unknown as StandaloneFocusController;
 
     const { getByText } = renderWithProviders(
-      <StandaloneFocusExperience controller={controller} topInset={0} bottomInset={0} />,
+      <StandaloneFocusExperience
+        controller={controller}
+        topInset={0}
+        bottomInset={0}
+      />,
     );
 
     expect(getByText('10:00').props).toMatchObject({

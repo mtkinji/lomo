@@ -5,22 +5,15 @@ import { FullWindowOverlay } from 'react-native-screens';
 import { PortalHost } from '@rn-primitives/portal';
 import { colors, spacing } from '../../theme';
 import { SOUND_SCAPES, type SoundscapeId } from '../../services/soundscape';
-import { BottomDrawer, BottomDrawerScrollView } from '../../ui/BottomDrawer';
+import { BottomDrawer } from '../../ui/BottomDrawer';
 import { BrandLockup } from '../../ui/BrandLockup';
-import { Button } from '../../ui/Button';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '../../ui/DropdownMenu';
 import { Icon } from '../../ui/Icon';
 import { BottomDrawerHeader } from '../../ui/layout/BottomDrawerHeader';
 import { HeaderActionPill } from '../../ui/layout/ObjectPageHeader';
 import { HStack, VStack } from '../../ui/primitives';
 import { Text } from '../../ui/Typography';
-import { DurationPicker } from './DurationPicker';
 import { styles } from './activityDetailStyles';
+import { FocusSetupContent } from './FocusSetupContent';
 import { formatFocusTimer } from './focusSessionPresentation';
 import type { ActivityFocusController } from './useActivityFocusController';
 
@@ -130,8 +123,22 @@ export function ActivityFocusExperience({
           {Platform.OS === 'ios' ? (
             <FullWindowOverlay><PortalHost name={portalHostName} /></FullWindowOverlay>
           ) : <PortalHost name={portalHostName} />}
-          <BottomDrawerScrollView style={{ flex: 1 }} contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
-            <VStack space="md">
+          <FocusSetupContent
+            minutes={controller.minutes}
+            presets={controller.presets}
+            customOptions={controller.customOptions}
+            customExpanded={controller.customExpanded}
+            isCustomValue={controller.isCustomValue}
+            onMinutesChange={controller.setMinutes}
+            onCustomExpandedChange={controller.setCustomExpanded}
+            audio={soundscapeEnabled ? soundscapeTrackId : 'none'}
+            onAudioChange={(nextAudio) => {
+              setSoundscapeEnabled(nextAudio !== 'none');
+              if (nextAudio !== 'none') setSoundscapeTrackId(nextAudio);
+            }}
+            allowNoAudio
+            portalHostName={portalHostName}
+            leadingContent={(
               <VStack space="md">
                 <BottomDrawerHeader
                   title="Focus mode"
@@ -145,80 +152,11 @@ export function ActivityFocusExperience({
                   Pick a duration. Kwilt keeps the session tied to this to-do, so the work has a place to land.
                 </Text>
               </VStack>
-              <View>
-                <Text style={styles.estimateFieldLabel}>Minutes</Text>
-                <HStack space="sm" alignItems="center" style={styles.focusPresetRow}>
-                  {controller.presets.map((minutes) => {
-                    const selected = !controller.customExpanded && controller.minutes === minutes;
-                    return (
-                      <Pressable
-                        key={minutes}
-                        style={({ pressed }) => [styles.focusPresetChip, selected && styles.focusPresetChipSelected, pressed && styles.focusPresetChipPressed]}
-                        onPress={() => {
-                          controller.setMinutes(minutes);
-                          controller.setCustomExpanded(false);
-                        }}
-                      >
-                        <Text style={[styles.focusPresetChipText, selected && styles.focusPresetChipTextSelected]}>{minutes}m</Text>
-                      </Pressable>
-                    );
-                  })}
-                  <Pressable
-                    style={({ pressed }) => [styles.focusPresetChip, (controller.customExpanded || controller.isCustomValue) && styles.focusPresetChipSelected, pressed && styles.focusPresetChipPressed]}
-                    onPress={() => controller.setCustomExpanded((current) => !current)}
-                  >
-                    <Text style={[styles.focusPresetChipText, (controller.customExpanded || controller.isCustomValue) && styles.focusPresetChipTextSelected]}>
-                      {controller.customExpanded || controller.isCustomValue ? `${controller.minutes}m` : 'Custom'}
-                    </Text>
-                  </Pressable>
-                </HStack>
-                {controller.customExpanded ? (
-                  <View style={{ marginTop: spacing.md }}>
-                    <DurationPicker
-                      valueMinutes={controller.minutes}
-                      onChangeMinutes={controller.setMinutes}
-                      optionsMinutes={controller.customOptions}
-                      accessibilityLabel="Select custom focus duration"
-                      iosWheelHeight={160}
-                      showHelperText={false}
-                      iosUseEdgeFades={false}
-                    />
-                  </View>
-                ) : null}
-              </View>
-              <View>
-                <Text style={styles.estimateFieldLabel}>Soundscape</Text>
-                <DropdownMenu>
-                  <DropdownMenuTrigger {...({ asChild: true } as any)} accessibilityLabel="Select soundscape">
-                    <Pressable style={({ pressed }) => [styles.focusSoundscapeTrigger, pressed && styles.focusPresetChipPressed]}>
-                      <HStack space="xs" alignItems="center">
-                        <Text style={styles.focusSoundscapeTriggerText}>{SOUND_SCAPES.find((item) => item.id === soundscapeTrackId)?.title ?? 'Soundscape'}</Text>
-                        <Icon name="chevronDown" size={16} color={colors.textSecondary} />
-                      </HStack>
-                    </Pressable>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent portalHost={portalHostName} side="top" sideOffset={6} align="start">
-                    {SOUND_SCAPES.map((item) => (
-                      <DropdownMenuCheckboxItem
-                        key={item.id}
-                        checked={item.id === soundscapeTrackId}
-                        onCheckedChange={(checked) => {
-                          if (checked) setSoundscapeTrackId(item.id);
-                        }}
-                      >
-                        <Text style={styles.menuRowText} numberOfLines={1}>{item.title}</Text>
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </View>
-            </VStack>
-          </BottomDrawerScrollView>
-          <View style={styles.focusSheetFooter}>
-            <Button variant="primary" fullWidth testID="e2e.activityDetail.focus.start" onPress={() => controller.start().catch(() => undefined)}>
-              <Text style={[styles.sheetRowLabel, { color: colors.primaryForeground }]}>Start</Text>
-            </Button>
-          </View>
+            )}
+            onStart={() => controller.start().catch(() => undefined)}
+            startTestID="e2e.activityDetail.focus.start"
+            scrollMode="drawer"
+          />
         </View>
       </BottomDrawer>
 

@@ -54,20 +54,19 @@ test('Money widgets keep the category clock tile centered and give Flexible Mone
   assert.match(categoryView, /category\.status == "over" \? MoneyWidgetPalette\.over : \.primary/);
 });
 
-test('generated Focus widget offers configured one-tap standalone sessions', () => {
+test('generated Focus widget opens the in-app duration and audio decision moment', () => {
   assert.match(widgetGenerator, /getFocusWidgetSwift\(targetName\)/);
   assert.match(focusWidgetTemplate, /struct KwiltFocusWidget: Widget/);
-  assert.match(focusWidgetTemplate, /struct FocusWidgetConfigurationIntent: WidgetConfigurationIntent/);
-  assert.match(focusWidgetTemplate, /case ten = "10"/);
-  assert.match(focusWidgetTemplate, /case twentyFive = "25"/);
-  assert.match(focusWidgetTemplate, /case fifty = "50"/);
-  assert.match(focusWidgetTemplate, /enum FocusAudioPreset: String, AppEnum/);
-  assert.match(focusWidgetTemplate, /@Parameter\(title: "Audio"/);
-  assert.match(focusWidgetTemplate, /case rainlitLibrary/);
-  assert.match(widgetGenerator, /autoStartStandaloneFocus=1&focusMinutes=/);
-  assert.match(widgetGenerator, /focusAudio=/);
+  assert.match(focusWidgetTemplate, /StaticConfiguration\(/);
+  assert.doesNotMatch(focusWidgetTemplate, /WidgetConfigurationIntent|AppIntentConfiguration/);
+  assert.doesNotMatch(focusWidgetTemplate, /FocusDurationPreset/);
+  assert.doesNotMatch(focusWidgetTemplate, /enum FocusAudioPreset: String, AppEnum/);
+  assert.doesNotMatch(focusWidgetTemplate, /@Parameter\(title: "Audio"/);
+  assert.match(widgetGenerator, /kwilt:\/\/focus\?source=widget/);
+  assert.doesNotMatch(widgetGenerator, /today\?openStandaloneFocusSetup=1&source=widget/);
+  assert.doesNotMatch(focusWidgetTemplate, /Surprise soundscape/);
+  assert.match(focusWidgetTemplate, /Text\("Choose time and audio"\)/);
   assert.match(focusWidgetTemplate, /Text\(timerInterval: start\.\.\.end, countsDown: true\)/);
-  assert.match(focusWidgetTemplate, /Text\("\\\\\(entry\.minutes\)"\)/);
   assert.match(widgetGenerator, /KwiltFocusWidget\(\)/);
 });
 
